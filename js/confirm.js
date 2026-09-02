@@ -51,7 +51,7 @@ export function buildConfirmation(state, group, trackUrl) {
   msg += `Order #${orderCode(first)}\n`;
   msg += `📅 ${date} · ${fulfillment}${address}\n`;
   msg += `🛍 ${items} — ${total}\n`;
-  msg += `💰 Please pay by TNG QR before collection.\n`;
+  msg += `💰 Please pay by TNG.\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a
   // single scannable picture. A label like "Your payment QR:" just makes the
   // URL show up as link text too, doubling the tap targets — so none here.

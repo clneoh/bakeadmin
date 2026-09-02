@@ -26,7 +26,7 @@ test("buildConfirmation carries the payment QR and a tap-ready send-receipt link
   assert.ok(built.message.includes("Order #445566"), "order code");
   assert.ok(built.message.includes("Mon, 7 Sep · Self collect"), "date + fulfillment");
   assert.ok(built.message.includes("Focaccia ×2 — RM 30.00"), "items + total");
-  assert.ok(built.message.includes("Please pay by TNG QR before collection."),
+  assert.ok(built.message.includes("Please pay by TNG"),
     "asks for payment by TNG QR");
   assert.ok(built.message.includes("\nhttps://img/tng.png\n"),
     "the published QR image URL sits on its own line so WhatsApp renders it as one picture");
@@ -71,7 +71,7 @@ test("without a published QR the pay line still appears but no image URL", () =>
     whatsapp: "60123456789", customerName: "Bee", productId: "p1", qty: 1,
   }] };
   const built = buildConfirmation(s, group, "https://bake.app/store/?track=34ef56");
-  assert.ok(built.message.includes("Please pay by TNG QR"));
+  assert.ok(built.message.includes("Please pay by TNG"));
   assert.ok(!built.message.includes("https://img/tng.png"));
 });
 
