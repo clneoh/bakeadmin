@@ -133,12 +133,12 @@ html, body {
 }
 .pill.active { background: var(--brown); color: #fff; border-color: var(--brown); }
 .pill.soldout {
-  background: #fbf1e4;
-  border: 1px dashed #dfc4ab;
+  background: #e6e0d8;
+  border: 1px dashed #cfc5b8;
   color: var(--muted);
   cursor: default;
 }
-.pill.soldout .pill-date { color: #8a7563; }
+.pill.soldout .pill-date { color: #7a6c5d; }
 .pill.soldout .pill-sub { color: #fff; background: #c0392b; }
 
 /* ---------- Menu ---------- */
