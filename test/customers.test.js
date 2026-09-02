@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { customerList, deliveryDateOf, orderDateOf } from "../js/customers.js";
+import { customerList, deliveryDateOf, orderDateOf } from "../admin/js/customers.js";
 
 function state(orders, deliveryDates = []) {
   return { orders, deliveryDates };

@@ -33,7 +33,7 @@ globalThis.window = { open() {} };
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, pillSpecs, dateKey, fmtDay, trackOrder, isOpen } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, pillSpecs, dateKey, fmtDay, trackOrder, isOpen, waNumber } = await import("../store/app.js");
 
 test("buildMessage produces a tidy WhatsApp order", () => {
   const cfg = { name: "Jienluv2bake", products: [{ name: "Focaccia", price: 15 }] };
@@ -56,6 +56,15 @@ test("buildMessage omits customer/note when blank and handles note", () => {
   assert.ok(msg.includes("New order · Test Bakery 🍞"));
   assert.ok(!msg.includes("👤"));
   assert.ok(msg.includes("📝 No onions"));
+});
+
+test("waNumber strips +/spaces/dashes and adds the +60 country code to locals (store's own copy)", () => {
+  assert.equal(waNumber("+60 12-345 6789"), "60123456789");
+  assert.equal(waNumber("60123456789"), "60123456789");
+  assert.equal(waNumber("012-345 6789"), "60123456789");
+  assert.equal(waNumber("+65 8123 4567"), "6581234567", "foreign +65 is kept");
+  assert.equal(waNumber(""), "");
+  assert.equal(waNumber(null), "");
 });
 
 test("upcomingDates only returns the configured delivery days", () => {

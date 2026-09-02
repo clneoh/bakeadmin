@@ -7,7 +7,7 @@ import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
 import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSyncStorefront } from "../supabase.js";
 import * as sync from "../sync.js";
-import { CONFIG } from "../../store/config.js";
+import { CONFIG } from "../../../store/config.js";
 
 export function renderSettings(root, state) {
   const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

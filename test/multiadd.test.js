@@ -46,7 +46,7 @@ globalThis.localStorage = {
   _s: {}, getItem(k) { return this._s[k] ?? null; }, setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; },
 };
 
-const { renderOrders } = await import("../js/views/orders.js");
+const { renderOrders } = await import("../admin/js/views/orders.js");
 
 function walk(node, fn, out = []) {
   fn(node, out);
@@ -128,7 +128,9 @@ test("several manual items for one customer land as a single order group", () =>
   assert.equal(o1.fulfillment, "collect");
   assert.equal(o1.status, "new");
   assert.equal(o1.deliveryDateId, "d1");
-  assert.equal(o1.orderDate, "2026-09-02", "order date defaults to today");
+  const n = new Date();
+  const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  assert.equal(o1.orderDate, today, "order date defaults to today");
   assert.equal(o1.createdAt, o2.createdAt, "same placed time");
 
   // The list shows ONE block with one status select and the combined quantity.

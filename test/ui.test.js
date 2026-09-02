@@ -30,7 +30,7 @@ globalThis.document = {
   body: createEl("body"),
 };
 
-import { select } from "../js/ui.js";
+import { select } from "../admin/js/ui.js";
 
 const STATUSES = [
   { value: "new", label: "New" },

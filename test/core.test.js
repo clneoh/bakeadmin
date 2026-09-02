@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert";
-import { explodeBom, capacityStatus, productRemaining } from "../js/bom.js";
+import { explodeBom, capacityStatus, productRemaining } from "../admin/js/bom.js";
 import {
   cutoffTimestamp,
   deliveryStatus,
@@ -11,7 +11,7 @@ import {
   generateUpcomingDates,
   shortDate,
   todayISO,
-} from "../js/dates.js";
+} from "../admin/js/dates.js";
 
 function fixtureState() {
   return {

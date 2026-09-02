@@ -3,7 +3,7 @@
 // once the app has been visited. Same-origin GET only — Supabase REST calls
 // are cross-origin and pass through untouched.
 
-const CACHE = "bakeadmin-v1";
+const CACHE = "bakeadmin-admin-v1";
 const SHELL = [
   "./",
   "./index.html",

@@ -661,20 +661,10 @@ function sendConfirmation(state, group) {
   const first = group.orders[0];
   if (!first || !first.whatsapp) return;
   const code = orderCode(first);
-  const trackUrl = `${storeBaseUrl()}store/?track=${code}`;
+  const trackUrl = `${location.origin}/store/?track=${code}`;
   const built = buildConfirmation(state, group, trackUrl);
   if (!built || !built.recipient) return;
   window.open(`https://wa.me/${built.recipient}?text=${encodeURIComponent(built.message)}`, "_blank");
-}
-
-// The store lives next to the backoffice in this repo, but the site may be
-// hosted at the domain root (Netlify) or in a folder (GitHub Pages under
-// /yourusername/bakeadmin/). Base the track link on where the backoffice is
-// actually running so it works on either host.
-function storeBaseUrl() {
-  const path = (location.pathname || "/").split("?")[0].split("#")[0];
-  const dir = path.endsWith("/") ? path : path.slice(0, path.lastIndexOf("/") + 1);
-  return `${location.origin}${dir}`;
 }
 
 function removeOrder(state, group, root, dateId) {

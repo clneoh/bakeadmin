@@ -16,6 +16,10 @@ customers open on their phone. They tap products + quantity and place an order;
 it lands **automatically** in the backoffice order list (status *New*) for her to
 confirm. If Supabase isn't reachable it falls back to a tidy WhatsApp message.
 
+The live site is one GitHub Pages repo behind the custom domain
+`jienluv2bake.com.my`: the **root** is a public homepage, `/store/` is the
+customer order page, and `/admin/` is this backoffice.
+
 Deliberately out of scope: stock/inventory tracking and online payment.
 
 ## Run locally (development)
@@ -28,14 +32,16 @@ python3 -m http.server 8000
 # or: npx serve
 ```
 
-Then open http://localhost:8000.
+Then open http://localhost:8000 (homepage), http://localhost:8000/admin/
+(backoffice) and http://localhost:8000/store/ (storefront).
 
 ## Deploy (free)
 
 **GitHub Pages:**
 1. Create a repo (e.g. `bakeadmin`), push this folder to `main`.
 2. Repo → Settings → Pages → Deploy from branch → `main` / root.
-3. Live at `https://<you>.github.io/bakeadmin/`.
+3. Live at `https://jienluv2bake.com.my/` — homepage at the root, storefront at
+   `/store/`, backoffice at `/admin/`.
 
 **Netlify (even quicker):** drag this folder into https://app.netlify.com/drop.
 
@@ -237,32 +243,38 @@ local storage on her phone.
 node --test test/*.test.js
 ```
 
-Tests cover the pure modules (`js/bom.js`, `js/dates.js`), the sync engine
-(`js/sync.js`), the app bootstrap + sign-in gate (`js/app.js`), and the
-storefront (`store/app.js`).
+Tests cover the pure modules (`admin/js/bom.js`, `admin/js/dates.js`), the sync
+engine (`admin/js/sync.js`), the app bootstrap + sign-in gate
+(`admin/js/app.js`), and the storefront (`store/app.js`).
 
 ## Files
 
 ```
-index.html          backoffice entry (bottom nav shell)
-css/app.css         backoffice styling
-css/print.css       prints only the PO card
-js/state.js         schema, localStorage load/save, ids, formatting
-js/dates.js         delivery dates, cut-off, countdown (pure)
-js/bom.js           BOM explosion, costs, capacity (pure)
-js/supabase.js      live availability + storefront config publish, order intake
-js/sync.js          shared-data sync engine (queue, pull-then-flush, conflict)
-js/validate.js      import-file validation
-js/ui.js            DOM builder + shared render helpers
-js/app.js           hash router + bootstrap + shared-data gate
-js/views/*          one module per screen (login.js is the sign-in gate)
-sw.js               service worker — offline app shell
-store/index.html    customer order page
+index.html          public homepage (domain root)
+store/index.html    customer order page (/store/)
 store/app.css       storefront styling
 store/app.js        storefront logic + order intake + availability + published config
 store/config.js     fallback bakery name, WhatsApp, menu, days, supabase (overridden by backoffice Settings → Storefront)
+
+admin/ — backoffice app (/admin/):
+  index.html          entry (bottom nav shell)
+  css/app.css         backoffice styling
+  css/print.css       prints only the PO card
+  js/state.js         schema, localStorage load/save, ids, formatting
+  js/dates.js         delivery dates, cut-off, countdown (pure)
+  js/bom.js           BOM explosion, costs, capacity (pure)
+  js/supabase.js      live availability + storefront config publish, order intake
+  js/sync.js          shared-data sync engine (queue, pull-then-flush, conflict)
+  js/validate.js      import-file validation
+  js/ui.js            DOM builder + shared render helpers
+  js/app.js           hash router + bootstrap + shared-data gate
+  js/views/*          one module per screen (login.js is the sign-in gate)
+  sw.js               service worker — offline app shell (/admin/ scope)
+  manifest.webmanifest PWA manifest for the backoffice
+
 supabase/availability.sql   run once in Supabase SQL editor (public slots)
 supabase/backoffice.sql     run once in Supabase SQL editor (shared data, RLS)
 supabase/storefront.sql     run once in Supabase SQL editor (storefront config + order intake)
 supabase/tracking.sql       run once in Supabase SQL editor (order tracking)
+test/               node --test suites (import from admin/js and store/)
 ```

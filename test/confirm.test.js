@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildConfirmation } from "../js/confirm.js";
+import { buildConfirmation } from "../admin/js/confirm.js";
 
 function state(overrides = {}) {
   return {

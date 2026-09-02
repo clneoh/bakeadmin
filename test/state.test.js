@@ -3,8 +3,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber } from "../js/state.js";
-import { lockEnabled } from "../js/pin.js";
+import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber } from "../admin/js/state.js";
+import { lockEnabled } from "../admin/js/pin.js";
 
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 

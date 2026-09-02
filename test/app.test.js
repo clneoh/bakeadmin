@@ -106,7 +106,7 @@ test("cloud off: app boots straight to the dashboard, no gate, no sync calls", a
   freshDOM();
   installStorage({ "bakeadmin.v1": stateJSON() });
   try {
-    await import("../js/app.js?case=off");
+    await import("../admin/js/app.js?case=off");
 
     const view = document.getElementById("view");
     assert.ok(view.children.length > 0, "dashboard rendered into #view");
@@ -127,7 +127,7 @@ test("cloud on without a session: the sign-in gate owns the screen", async () =>
     }),
   });
   try {
-    await import("../js/app.js?case=gate");
+    await import("../admin/js/app.js?case=gate");
 
     assert.equal(document.getElementById("tabbar").hidden, true, "tab bar hidden while signing in");
     assert.equal(document.getElementById("view-title-text").textContent, "Sign in");
@@ -148,7 +148,7 @@ test("cloud on with a valid session: straight into the app", async () => {
     "bakeadmin.supabase": tokenJSON(),
   });
   try {
-    await import("../js/app.js?case=token");
+    await import("../admin/js/app.js?case=token");
     assert.equal(document.getElementById("tabbar").hidden, false, "no gate — session valid");
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
   } finally { restore(); }
@@ -165,7 +165,7 @@ test("cloud on with stored credentials: silent auto-login, no gate flash", async
     }),
   });
   try {
-    await import("../js/app.js?case=auto");
+    await import("../admin/js/app.js?case=auto");
     // render() runs synchronously in boot, before the async login resolves —
     // so the app must be showing, never the gate.
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
@@ -188,7 +188,7 @@ test("app password lock: the lock layer owns the screen until the PIN is correct
     }),
   });
   try {
-    await import("../js/app.js?case=lock1");
+    await import("../admin/js/app.js?case=lock1");
     const layer = document.getElementById("lock-layer");
     const view = document.getElementById("view");
     assert.equal(layer.hidden, false, "lock layer is up on boot");
@@ -224,7 +224,7 @@ test("lock 'enabled' with no stored PIN never gates the app", async () => {
     }),
   });
   try {
-    await import("../js/app.js?case=lock2");
+    await import("../admin/js/app.js?case=lock2");
     assert.equal(document.getElementById("lock-layer").hidden, true, "no lock layer");
     assert.ok(document.getElementById("view").children.length > 0, "straight to the dashboard");
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
@@ -244,7 +244,7 @@ test("lock + cloud-on-no-session: the PIN comes first, the sign-in gate second",
     }),
   });
   try {
-    await import("../js/app.js?case=lock3");
+    await import("../admin/js/app.js?case=lock3");
     const layer = document.getElementById("lock-layer");
     assert.equal(layer.hidden, false, "PIN gate appears first");
     layer._pin.value = "1234";

@@ -4,10 +4,18 @@
 // published by the backoffice (Settings → Storefront) and override the static
 // config.js fallback at runtime.
 import { CONFIG } from "./config.js";
-import { waNumber } from "../js/state.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Normalize a customer's WhatsApp number to the digits-only international form
+// wa.me links require (local leading "0" → "+60"). Mirror of admin/js/state.js,
+// kept here so the store has no dependency on the moved backoffice modules.
+export function waNumber(n) {
+  const digits = String(n || "").replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
+}
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);

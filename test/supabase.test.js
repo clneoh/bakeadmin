@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateUpcomingDates } from "../js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot } from "../js/supabase.js";
-import { groupOrders, orderCode } from "../js/state.js";
+import { generateUpcomingDates } from "../admin/js/dates.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot } from "../admin/js/supabase.js";
+import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;

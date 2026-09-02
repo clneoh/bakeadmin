@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as sync from "../js/sync.js";
+import * as sync from "../admin/js/sync.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;

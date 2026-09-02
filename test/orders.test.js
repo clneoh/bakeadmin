@@ -34,7 +34,7 @@ globalThis.document = {
 };
 globalThis.window = { open() {} };
 
-import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups } from "../js/views/orders.js";
+import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups } from "../admin/js/views/orders.js";
 
 test("confirmable statuses need a WhatsApp number on the order", () => {
   assert.equal(statusNeedsWhatsapp("confirmed"), true);
