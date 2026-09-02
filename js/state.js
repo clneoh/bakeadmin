@@ -22,6 +22,7 @@ export function defaultState() {
       cloud: { // shared data across phones; opt-in, off = today's behavior
         enabled: false,
       },
+      lock: { enabled: false, pinHash: "" }, // device-local app password (never synced)
       storefront: { // what the customer page shows; published to Supabase
         whatsapp: "",
         name: "",
@@ -121,6 +122,7 @@ function normalize(s) {
       ...(s.settings || {}),
       supabase: { ...d.settings.supabase, ...((s.settings || {}).supabase || {}) },
       cloud: { ...d.settings.cloud, ...((s.settings || {}).cloud || {}) },
+      lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],

@@ -7,6 +7,7 @@ import * as sync from "../js/sync.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;
+const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
 // ── test helpers ──────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ test("computeRecords: arrays become rows, settings becomes one default row", () 
   st.ingredients = [{ id: "i1", name: "Flour" }];
   st.deliveryDates = [{ id: "d1", date: "2026-09-07" }];
   st.purchaseOrders = [{ id: "po1", total: 5 }];
+  st.settings.lock = { enabled: true, pinHash: HASH_1234 }; // device-local app password
 
   const rows = sync.computeRecords(st);
   const kinds = rows.map((r) => r.kind).sort();
@@ -89,7 +91,7 @@ test("computeRecords: arrays become rows, settings becomes one default row", () 
 
   const settings = rows.find((r) => r.kind === "settings");
   assert.equal(settings.id, "default");
-  // Only the business keys sync — connection config stays per-device.
+  // Only the business keys sync — connection config AND the app password stay per-device.
   assert.deepEqual(settings.data, { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" });
 });
 
@@ -148,6 +150,20 @@ test("markDirty: a removed record produces a tombstone", () => {
     // snapshot no longer tracks it, so the next run doesn't re-tombstone
     const r2 = sync.markDirty(st, "2026-01-04T00:00:00.000Z");
     assert.equal(r2.changed, false);
+  } finally { restore(); }
+});
+
+test("markDirty: changing only the app-password lock never dirties the settings row", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    const first = sync.markDirty(st, "2026-01-01T00:00:00.000Z"); // fresh journal stamps everything
+    assert.equal(first.changed, true);
+
+    st.settings.lock = { enabled: true, pinHash: HASH_1234 };
+    const r = sync.markDirty(st, "2026-01-02T00:00:00.000Z");
+    assert.equal(r.changed, false, "the lock is device-local — nothing new to push");
+    assert.equal(r.pending["settings:default"].updated_at, "2026-01-01T00:00:00.000Z", "settings row not re-stamped by a lock edit");
   } finally { restore(); }
 });
 
@@ -252,6 +268,7 @@ test("mergeRows: settings sync business keys but preserve local supabase/cloud c
     const st = baseState();
     st.settings.supabase = { enabled: true, url: "https://local.supabase.co", anonKey: "local-anon", email: "me@x", password: "pw" };
     st.settings.cloud = { enabled: true };
+    st.settings.lock = { enabled: true, pinHash: HASH_1234 };
     seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
 
     const r = sync.mergeRows(st, [cloudRow("settings", "default",
@@ -264,6 +281,7 @@ test("mergeRows: settings sync business keys but preserve local supabase/cloud c
     // per-device config untouched
     assert.deepEqual(st.settings.supabase, { enabled: true, url: "https://local.supabase.co", anonKey: "local-anon", email: "me@x", password: "pw" });
     assert.deepEqual(st.settings.cloud, { enabled: true });
+    assert.deepEqual(st.settings.lock, { enabled: true, pinHash: HASH_1234 }, "app password never clobbered by a cloud merge");
   } finally { restore(); }
 });
 

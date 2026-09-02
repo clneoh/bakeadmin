@@ -2,6 +2,7 @@
 
 import { el, button, confirmDialog, toast } from "../ui.js";
 import { LS_KEY, newId, save } from "../state.js";
+import { hashPin, isPin, hasStoredPin } from "../pin.js";
 import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
 import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSyncStorefront } from "../supabase.js";
@@ -43,6 +44,59 @@ export function renderSettings(root, state) {
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "Delivery days"),
       el("div", { class: "daychecks" }, ...dayChecks)));
+
+  // ── App password (device-local lock) ────────────────────────────────────
+  // A 4-digit PIN that gates the app on the next open of THIS phone only. The
+  // password is stored as a SHA-256 fingerprint under settings.lock, which the
+  // sync engine never touches — the sister's phone is unaffected.
+  const lk = cur.lock ??= {};
+  const lkInput = el("input", { class: "input", type: "password", inputmode: "numeric", maxlength: "4",
+    autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false",
+    placeholder: "4 digits" });
+  const lkStatus = el("p", { class: "card-sub", style: "margin:10px 0 0" });
+  const updateLockStatus = () => {
+    lkStatus.textContent = hasStoredPin(cur)
+      ? "Password is set."
+      : "No password set yet — set one before turning the lock on.";
+  };
+  updateLockStatus();
+  const lkBtn = button("Save password", async () => {
+    if (!isPin(lkInput.value)) { toast("Enter exactly 4 digits"); return; }
+    lkBtn.disabled = true;
+    lkBtn.textContent = "Saving…";
+    try {
+      lk.pinHash = await hashPin(lkInput.value);
+      save(state);
+      toast("Password set");
+      lkInput.value = "";
+      updateLockStatus();
+    } finally {
+      lkBtn.disabled = false;
+      lkBtn.textContent = "Save password";
+    }
+  }, "soft");
+  const lkOn = el("input", { type: "checkbox", checked: !!lk.enabled,
+    onchange: () => {
+      if (lkOn.checked && !hasStoredPin(cur)) {
+        lkOn.checked = false;
+        toast("Set a 4-digit password first");
+        return;
+      }
+      lk.enabled = lkOn.checked;
+      save(state);
+      toast(lk.enabled ? "Password lock on — from next open" : "Password lock off");
+    } });
+  const lockCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "App password"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Locks only this phone — turn it on separately on the other phone. It asks for the password the next time you open the app."),
+    el("div", { class: "field" },
+      el("label", {}, "Password (4 digits)"),
+      lkInput),
+    el("div", { class: "btn-row", style: "margin-top:4px" }, lkBtn),
+    el("label", { class: "daycheck", style: "margin-top:12px;display:inline-flex" },
+      lkOn, " ", "Lock the app with a password"),
+    lkStatus);
 
   // ── Storefront (customer page) ──────────────────────────────────────────
   // What customers see on store/. Edits here publish to Supabase; the store
@@ -255,7 +309,7 @@ export function renderSettings(root, state) {
           button("Load sample data", () => loadSample(state), "soft")))
     : null;
 
-  root.replaceChildren(daysCard, storefrontCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+  root.replaceChildren(daysCard, lockCard, storefrontCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
 
   function doImport(e) {
     const file = e.target.files && e.target.files[0];

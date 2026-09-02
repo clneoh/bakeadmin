@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const realLocalStorage = globalThis.localStorage;
+const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
 function createEl(tag) {
   return {
@@ -171,5 +172,85 @@ test("cloud on with stored credentials: silent auto-login, no gate flash", async
     assert.equal(document.getElementById("tabbar").hidden, false);
     await new Promise((r) => setTimeout(r, 10)); // let the login + pull settle
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake", "still the app after login");
+  } finally { restore(); }
+});
+
+test("app password lock: the lock layer owns the screen until the PIN is correct", async () => {
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        supabase: { enabled: false, url: "", anonKey: "", email: "", password: "" },
+        cloud: { enabled: false },
+        lock: { enabled: true, pinHash: HASH_1234 },
+      },
+    }),
+  });
+  try {
+    await import("../js/app.js?case=lock1");
+    const layer = document.getElementById("lock-layer");
+    const view = document.getElementById("view");
+    assert.equal(layer.hidden, false, "lock layer is up on boot");
+    assert.equal(view.children.length, 0, "nothing painted behind the lock");
+    assert.equal(document.getElementById("view-title-text").textContent, "", "title not rewritten");
+
+    // Wrong PIN → still locked, error shown.
+    layer._pin.value = "9999";
+    await layer._btn._listeners.click[0]();
+    assert.equal(layer.hidden, false, "still locked after a wrong PIN");
+    assert.ok(String(layer._err.textContent || "").length > 0, "shows the wrong-password error");
+    assert.equal(view.children.length, 0, "still nothing behind the lock");
+
+    // Correct PIN → lock dismissed and the dashboard paints.
+    layer._pin.value = "1234";
+    await layer._btn._listeners.click[0]();
+    assert.equal(layer.hidden, true, "lock layer dismissed");
+    assert.ok(view.children.length > 0, "dashboard rendered after unlock");
+    assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
+  } finally { restore(); }
+});
+
+test("lock 'enabled' with no stored PIN never gates the app", async () => {
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        supabase: { enabled: false, url: "", anonKey: "", email: "", password: "" },
+        cloud: { enabled: false },
+        lock: { enabled: true, pinHash: "" },
+      },
+    }),
+  });
+  try {
+    await import("../js/app.js?case=lock2");
+    assert.equal(document.getElementById("lock-layer").hidden, true, "no lock layer");
+    assert.ok(document.getElementById("view").children.length > 0, "straight to the dashboard");
+    assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
+  } finally { restore(); }
+});
+
+test("lock + cloud-on-no-session: the PIN comes first, the sign-in gate second", async () => {
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        supabase: { url: "https://x.supabase.co", anonKey: "anon" },
+        cloud: { enabled: true },
+        lock: { enabled: true, pinHash: HASH_1234 },
+      },
+    }),
+  });
+  try {
+    await import("../js/app.js?case=lock3");
+    const layer = document.getElementById("lock-layer");
+    assert.equal(layer.hidden, false, "PIN gate appears first");
+    layer._pin.value = "1234";
+    await layer._btn._listeners.click[0]();
+    assert.equal(layer.hidden, true, "PIN gate dismissed");
+    assert.equal(document.getElementById("view-title-text").textContent, "Sign in", "sign-in gate follows the unlock");
+    assert.equal(document.getElementById("tabbar").hidden, true);
   } finally { restore(); }
 });

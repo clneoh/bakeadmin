@@ -141,6 +141,7 @@ body { min-height: 100vh; }
   max-width: 540px;
   margin: 0 auto;
 }
+.tabbar[hidden] { display: none; }
 .tab {
   flex: 1;
   display: flex;
@@ -496,6 +497,35 @@ textarea.input { min-height: 64px; resize: vertical; }
 .confirm-text { margin: 0 0 14px; font-size: 15px; line-height: 1.4; }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .confirm-actions .btn { flex: 0 1 auto; }
+
+/* ---------- App-password lock ---------- */
+.lock-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above toast(70), confirm(60), tabbar(30), topbar(20) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(160deg, #c4552f, #d9742c 55%, #d99a3a);
+}
+.lock-layer[hidden] { display: none; }
+.lock-card {
+  width: 100%;
+  max-width: 320px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 26px 22px 24px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.lock-emoji { font-size: 40px; margin: 0 0 6px; }
+.lock-title { font-family: var(--serif); font-size: 19px; font-weight: 700; margin: 0 0 4px; color: var(--ink); }
+.lock-sub { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+.lock-input { text-align: center; font-size: 22px; letter-spacing: 10px; }
+.lock-error { color: var(--red); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
+.lock-actions { margin-top: 14px; }
+.lock-actions .btn { width: 100%; }
 
 /* ---------- Toast ---------- */
 .toast {

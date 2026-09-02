@@ -16,6 +16,8 @@ import { renderCustomers } from "./views/customers.js";
 import { renderSettings } from "./views/settings.js";
 import { renderMore } from "./views/more.js";
 import { renderLogin } from "./views/login.js";
+import { renderLock } from "./views/lock.js";
+import { lockEnabled } from "./pin.js";
 
 const state = loadState();
 
@@ -36,7 +38,12 @@ const viewEl = document.getElementById("view");
 const tabbar = document.getElementById("tabbar");
 let cleanup = null;
 let loggedOut = false; // true while the sign-in gate owns the screen
+let unlocked = false; // true once the app password passes for this page load
 let syncStarted = false;
+
+function lockedNow() {
+  return !unlocked && lockEnabled(state.settings);
+}
 
 // Every mutation funnels through save(state). The hook queues changed records
 // and schedules a debounced pull-then-flush, so add/edit/remove order (and
@@ -66,6 +73,7 @@ function isEditing() {
 
 function render() {
   if (loggedOut) return; // the sign-in gate owns the screen
+  if (lockedNow()) return; // the app-password layer owns the screen
   const { path, params } = parseHash();
   const route = routes[path] || routes["/dashboard"];
 
@@ -107,7 +115,7 @@ function render() {
 // mid-edit. Safe to call again after a login lands — the loop registers once,
 // but the immediate refresh re-runs so fresh data shows up right away.
 function onSyncChanged() {
-  if (!loggedOut && !isEditing()) render();
+  if (!loggedOut && !lockedNow() && !isEditing()) render();
 }
 
 function startSync() {
@@ -183,7 +191,26 @@ function registerSW() {
   }
 }
 
-function boot() {
+// The app-password lock, when enabled, is the first gate on load. It is
+// device-local and only takes effect from the next open — enabling it in
+// Settings never locks the current session. A correct PIN resumes bootApp().
+async function boot() {
+  const layer = document.getElementById("lock-layer");
+  if (layer) layer.hidden = true; // hygiene: never a stale visible lock
+  if (!(await passLock())) return;
+  bootApp();
+}
+
+function passLock() {
+  if (!lockedNow()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const layer = document.getElementById("lock-layer");
+    if (!layer) { unlocked = true; return resolve(true); } // can't lock without the layer
+    renderLock(layer, state, { onUnlocked: () => { unlocked = true; resolve(true); } });
+  });
+}
+
+function bootApp() {
   const c = sync.cloudCfg(state);
   if (c.on) {
     if (cachedToken()) {

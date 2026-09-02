@@ -4,6 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber } from "../js/state.js";
+import { lockEnabled } from "../js/pin.js";
+
+const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
 test("normalize fills the default storefront when missing", () => {
   const out = normalize({ version: 1, settings: {} });
@@ -147,6 +150,24 @@ test("orderCode prefers the groupId so a multi-item order shares one code", () =
 test("normalize keeps the TNG QR field on the storefront", () => {
   const out = normalize({ version: 1, settings: { storefront: { tngQr: "https://img/tng.png" } } });
   assert.equal(out.settings.storefront.tngQr, "https://img/tng.png");
+});
+
+test("normalize fills the default app-password lock when missing", () => {
+  const out = normalize({ version: 1, settings: {} });
+  assert.deepEqual(out.settings.lock, defaultState().settings.lock);
+  assert.deepEqual(out.settings.lock, { enabled: false, pinHash: "" });
+});
+
+test("normalize keeps a stored app-password lock unchanged", () => {
+  const lock = { enabled: true, pinHash: HASH_1234 };
+  const out = normalize({ version: 1, settings: { lock } });
+  assert.deepEqual(out.settings.lock, lock);
+});
+
+test("a partial stored lock fills its defaults (never accidentally active)", () => {
+  const out = normalize({ version: 1, settings: { lock: { enabled: true } } });
+  assert.deepEqual(out.settings.lock, { enabled: true, pinHash: "" });
+  assert.equal(lockEnabled(out.settings), false, "no stored PIN → lock not active");
 });
 
 test("waNumber strips +/spaces/dashes and adds the +60 country code to locals", () => {
