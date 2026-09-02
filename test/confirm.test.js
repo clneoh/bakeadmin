@@ -39,9 +39,9 @@ test("buildConfirmation carries the payment QR and a tap-ready send-receipt link
   assert.ok(!built.message.includes("Track%20your%20order"),
     "the receipt note is short and single-line — a nested track link is what made WhatsApp truncate the tapped message");
   assert.ok(built.message.includes("🔍 Track your order: https://bake.app/store/?track=445566"),
-    "the track link sits near the top of the confirmation, so it survives any truncation at the tail");
-  assert.ok(built.message.indexOf("Track your order") < built.message.indexOf("Send my payment receipt"),
-    "track link comes before the receipt link");
+    "the track link stays in the message");
+  assert.ok(built.message.indexOf("https://img/tng.png") < built.message.indexOf("Track your order"),
+    "the QR image URL is the message's first link, so WhatsApp renders it as a picture rather than the track page");
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"),
     "reminds the customer to use their number as the TNG description");
   assert.ok(built.message.includes("screenshot the receipt, and send it here"),

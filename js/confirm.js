@@ -36,9 +36,10 @@ export function buildConfirmation(state, group, trackUrl) {
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
-  // The order summary and the track link lead the message. WhatsApp cuts long
-  // messages, so the facts the customer must keep (order #, date, items, the
-  // tracking link) come first and can never be lost in a truncated tail.
+  // WhatsApp renders a picture for only the FIRST link in a message, so the QR
+  // image URL must come before every other URL or it shows up as plain text.
+  // The order summary leads (text only) so the facts stay at the top; the QR is
+  // the first URL; the receipt + track links follow it as plain tappable links.
   const qr = String(sf.tngQr || "").trim();
   // The "send receipt" link opens WhatsApp to the bakery with a SHORT,
   // single-line note. Long pre-filled notes — or a second link buried inside —
@@ -54,7 +55,6 @@ export function buildConfirmation(state, group, trackUrl) {
   msg += `Order #${orderCode(first)}\n`;
   msg += `📅 ${date} · ${fulfillment}${address}\n`;
   msg += `🛍 ${items} — ${total}\n`;
-  msg += `🔍 Track your order: ${trackUrl}\n`;
   msg += `\n💰 Please pay by TNG:\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a
   // single scannable picture. A label like "Your payment QR:" just makes the
@@ -64,5 +64,6 @@ export function buildConfirmation(state, group, trackUrl) {
   // TNG payment description, plus a receipt screenshot sent back in this chat.
   msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description, screenshot the receipt, and send it here:\n`;
   if (recLine) msg += `${recLine}\n`;
+  msg += `🔍 Track your order: ${trackUrl}`;
   return { recipient, message: msg };
 }
