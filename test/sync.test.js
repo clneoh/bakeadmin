@@ -518,3 +518,22 @@ test("refresh: skips the flush when the pull fails (stale-write protection)", as
     } finally { restoreFetch(); }
   } finally { restore(); }
 });
+
+// ── pageActive (hidden-tab gate) ──────────────────────────────────────────
+
+test("pageActive(): refreshes only while the page is on screen", () => {
+  const realDoc = globalThis.document;
+  try {
+    globalThis.document = { hidden: false };
+    assert.equal(sync.pageActive(), true, "visible page refreshes");
+    globalThis.document = { hidden: true };
+    assert.equal(sync.pageActive(), false, "hidden page is skipped");
+    // Test shims / old browsers without document.hidden are treated as active,
+    // so an unknown state can never silently stop the sync loop.
+    delete globalThis.document;
+    assert.equal(sync.pageActive(), true, "no document.hidden → treated as active");
+  } finally {
+    if (realDoc === undefined) delete globalThis.document;
+    else globalThis.document = realDoc;
+  }
+});

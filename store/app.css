@@ -175,6 +175,21 @@ html, body {
 .menu-item.soldout .card-title { color: #b6a892; }
 .menu-item.soldout .step-btn { background: #f1e9de; color: #c9b8a5; cursor: default; }
 
+/* Notice shown when a live refresh had to fix the customer's order — e.g. an
+   item sold out (or only a few left) after they added it. Sits above the menu. */
+.menu-note {
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #fdf1dc;
+  border: 1px solid #e8c98a;
+  color: #8a5a12;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.menu-note p { margin: 0 0 2px; }
+.menu-note p:last-child { margin-bottom: 0; }
+
 .stepper {
   display: inline-flex;
   align-items: center;

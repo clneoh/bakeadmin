@@ -256,6 +256,41 @@ export function render() {
     }));
   };
 
+  // Live slots left for `name` on the day currently shown. undefined (no live
+  // counts published for this day/product) means "unknown" — never treated as
+  // sold out, so an un-limited item is left alone.
+  const availNow = (name) => {
+    if (!prodAvail || !selected) return undefined;
+    const m = prodAvail[selected];
+    return m ? m[name] : undefined;
+  };
+
+  // A refresh can make a quantity the customer already chose invalid — an item
+  // sells out, or only a few are left of the number they asked for. Bring the
+  // cart back in line with reality before the menu repaints, and return what
+  // changed so the caller can tell the customer. Empty → nothing to fix.
+  function reconcileCart() {
+    const notes = [];
+    for (const [name, q] of [...cart]) {
+      const left = availNow(name);
+      if (left == null) continue;
+      if (left <= 0) {
+        cart.delete(name);
+        notes.push(`${name} just sold out — removed from your order.`);
+      } else if (q > left) {
+        cart.set(name, left);
+        notes.push(`${name}: only ${left} left now — we changed your ${q} to ${left}.`);
+      }
+    }
+    const box = document.getElementById("menu-note");
+    if (box) {
+      box.replaceChildren(...notes.map((t) => el("p", {}, t)));
+      box.hidden = notes.length === 0;
+    }
+    if (notes.length) renderBar();
+    return notes;
+  }
+
   const buildPills = () => {
     const specs = pillSpecs(dates, avail || {});
     if (!specs.length) {
@@ -275,11 +310,12 @@ export function render() {
     dateWrap.replaceChildren(...specs.map((s) => {
       const attrs = {
         class: `pill${dateKey(s.date) === selected ? " active" : ""}${s.soldOut ? " soldout" : ""}`,
-        onclick: (e) => {
+        onclick: () => {
           if (s.soldOut) return;
           selected = dateKey(s.date);
-          for (const p of dateWrap.children) p.classList.toggle("active", p === e.currentTarget);
-          renderMenu();
+          // Rebuild pills + menu together so the active pill and the quantities
+          // the customer chose are re-checked against this day's availability.
+          rerender();
         },
       };
       if (s.soldOut) attrs.disabled = "true";
@@ -295,7 +331,15 @@ export function render() {
   const rerender = () => {
     dates = resolveDates(upcomingDates(CONFIG), dayRows, dateKey(new Date()))
       .filter((d) => isOpen(CONFIG, d));
+    // Fix the cart first so the pills/menu repaint with honest quantities: an
+    // item the customer chose may have sold out (or dropped to fewer than they
+    // asked for) since the last refresh or since they picked this day.
+    reconcileCart();
+    // Keep the date-pill row's sideways scroll where the customer had it — the
+    // refresh rebuilds the chips but must not fling the row back to the start.
+    const sx = dateWrap.scrollLeft;
     buildPills();
+    if (dateWrap.scrollLeft !== sx) dateWrap.scrollLeft = sx;
     renderMenu();
   };
 
@@ -305,15 +349,34 @@ export function render() {
   if (sb && sb.url && sb.anonKey) {
     const base = String(sb.url).replace(/\/+$/, "");
     const headers = { apikey: sb.anonKey };
-    Promise.all([
-      fetch(`${base}/rest/v1/availability?select=date,slots_left&order=date.asc`, { headers }),
-      fetch(`${base}/rest/v1/product_availability?select=date,product,slots_left&order=date.asc`, { headers }),
-    ])
-      .then(([dayRes, prodRes]) => Promise.all([
-        dayRes.ok ? dayRes.json() : null,
-        prodRes.ok ? prodRes.json() : null,
-      ]))
-      .then(([day, prod]) => {
+    let lastSig = "";
+
+    // Fetch the live day/product availability and the published storefront
+    // config, then repaint only when something actually changed (or a delivery
+    // day crossed its cut-off while the page was open). A repaint rebuilds the
+    // date pills and the product cards only — the customer's typed details
+    // (name, WhatsApp, address, note) and the items they chose are not part of
+    // those, so a refresh never touches them.
+    const refresh = async () => {
+      let day = null, prod = null, cfgText = "";
+      try {
+        const [dayRes, prodRes, cfgRes] = await Promise.all([
+          fetch(`${base}/rest/v1/availability?select=date,slots_left&order=date.asc`, { headers }),
+          fetch(`${base}/rest/v1/product_availability?select=date,product,slots_left&order=date.asc`, { headers }),
+          fetch(`${base}/rest/v1/storefront_config?select=data&id=eq.default&limit=1`, { headers }),
+        ]);
+        day = dayRes.ok ? await dayRes.json() : null;
+        prod = prodRes.ok ? await prodRes.json() : null;
+        const rows = cfgRes.ok ? await cfgRes.json() : [];
+        const row = Array.isArray(rows) && rows[0];
+        cfgText = row && typeof row.data === "string" ? row.data : "";
+      } catch {
+        return; // offline or mid-network — keep showing what we have
+      }
+      const sig = JSON.stringify([day, prod, cfgText]);
+      const changed = sig !== lastSig;
+      if (changed) {
+        lastSig = sig;
         if (Array.isArray(day)) {
           dayRows = day;
           avail = Object.fromEntries(
@@ -327,27 +390,49 @@ export function render() {
             (prodAvail[r.date] ||= {})[r.product] = Number(r.slots_left);
           }
         }
-        rerender();
-      })
-      .catch(() => {});
+        if (cfgText) {
+          try {
+            Object.assign(CONFIG, mergeStorefront(CONFIG, JSON.parse(cfgText)));
+            renderStatic(CONFIG);
+          } catch { /* corrupt config → keep the local one */ }
+        }
+      }
+      // A day can cross its cut-off with no data change — drop closed days from
+      // the row even when the payload is otherwise identical.
+      const next = resolveDates(upcomingDates(CONFIG), dayRows, dateKey(new Date()))
+        .filter((d) => isOpen(CONFIG, d));
+      const daysChanged = next.length !== dates.length
+        || next.some((d, i) => dateKey(d) !== dateKey(dates[i]));
+      if (changed || daysChanged) rerender();
+    };
+    refresh();
 
-    // Config published by the backoffice (Settings → Storefront) overrides the
-    // static config.js fallback. Missing row / offline / corrupt JSON → keep
-    // the local config.
-    fetch(`${base}/rest/v1/storefront_config?select=data&id=eq.default&limit=1`, { headers })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows) => {
-        const row = Array.isArray(rows) && rows[0];
-        if (!row || typeof row.data !== "string") return;
-        const remote = JSON.parse(row.data);
-        Object.assign(CONFIG, mergeStorefront(CONFIG, remote));
-        renderStatic(CONFIG);
-        rerender();
-      })
-      .catch(() => {});
+    // Keep the page honest while it's open: poll every 30s but only while the
+    // tab is actually on screen (a backgrounded tab is skipped), and refresh
+    // the moment the customer returns to it — visibility change, window focus
+    // or the phone coming back online.
+    const hasVisibility = typeof document !== "undefined" && typeof document.visibilityState === "string";
+    const doc = typeof document !== "undefined" ? document : null;
+    const win = typeof window !== "undefined" ? window : null;
+    let busy = false;
+    const poll = async () => {
+      if (busy) return;
+      if (doc && doc.visibilityState && doc.visibilityState !== "visible") return;
+      busy = true;
+      try { await refresh(); } finally { busy = false; }
+    };
+    if (hasVisibility) {
+      const listen = (t, type, fn) => { if (t && typeof t.addEventListener === "function") t.addEventListener(type, fn); };
+      listen(doc, "visibilitychange", () => { if (doc.visibilityState === "visible") poll(); });
+      listen(win, "focus", poll);
+      listen(win, "online", poll);
+      setInterval(poll, 30000);
+    }
   }
 
-  const renderBar = () => {
+  // A function declaration (hoisted) because reconcileCart runs from the first
+  // repaint, before this line is reached textually.
+  function renderBar() {
     let count = 0, total = 0;
     for (const [n, q] of cart) {
       const p = CONFIG.products.find((x) => x.name === n);
@@ -359,7 +444,7 @@ export function render() {
     document.getElementById("bar-total").textContent = `RM${total.toFixed(2)}`;
     document.getElementById("order-btn").disabled = count === 0;
     return total;
-  };
+  }
 
   const orderBtn = document.getElementById("order-btn");
   orderBtn.onclick = async () => {
@@ -389,6 +474,25 @@ export function render() {
       showConfirm([
         el("p", { class: "confirm-title" }, "That day's orders are closed."),
         el("p", { class: "confirm-body" }, `Orders for this day close at ${CONFIG.cutoff} the day before — please pick a new delivery day.`),
+      ], "warn");
+      return;
+    }
+    // Last check at the moment of placing: a refresh between taps can sell an
+    // item out, and a depleted item must never be ordered. Fix the cart and ask
+    // the customer to confirm before we send anything.
+    const stale = lines.filter((l) => {
+      const left = availNow(l.name);
+      return left != null && (left <= 0 || l.qty > left);
+    });
+    if (stale.length) {
+      reconcileCart();
+      showConfirm([
+        el("p", { class: "confirm-title" }, "Your order changed just now."),
+        el("p", { class: "confirm-body" }, "Something sold out while you were ordering — we've fixed your cart to match what's left."),
+        ...stale.map((l) => el("p", { class: "confirm-body" }, (availNow(l.name) ?? 0) <= 0
+          ? `• ${l.name} — removed from your order.`
+          : `• ${l.name} — only ${availNow(l.name)} left, so we changed your ${l.qty} to ${availNow(l.name)}.`)),
+        el("p", { class: "confirm-sub" }, "Please review your order and tap Place order again."),
       ], "warn");
       return;
     }
@@ -425,6 +529,8 @@ export function render() {
 
     if (r.ok) {
       cart.clear();
+      const noteBox = document.getElementById("menu-note");
+      if (noteBox) { noteBox.hidden = true; noteBox.replaceChildren(); }
       document.getElementById("name-input").value = "";
       document.getElementById("whatsapp-input").value = "";
       document.getElementById("address-input").value = "";

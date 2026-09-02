@@ -140,12 +140,15 @@ function startSync() {
 
 // Poll for customer orders placed on the storefront (~30s) and pull them into
 // the order list. Self-gates on Supabase being configured; re-renders only when
-// something was imported and no input is focused.
+// something was imported and no input is focused. Like the shared-data sync,
+// the poll runs only while the app is on screen — returning to the app runs it
+// right away, so a new order never waits a full 30s behind the gate.
 let intakeStarted = false;
 function startIntake() {
   if (intakeStarted) return;
   intakeStarted = true;
   const tick = async () => {
+    if (!sync.pageActive()) return;
     try {
       const r = await pullIncoming(state);
       if (r.imported && r.imported.length) {
@@ -154,8 +157,14 @@ function startIntake() {
       }
     } catch { /* pullIncoming never throws, but stay safe */ }
   };
+  const go = () => { tick(); };
   tick();
   setInterval(tick, 30000);
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    window.addEventListener("online", go);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) go(); });
+    window.addEventListener("focus", go);
+  }
 }
 
 function showLogin() {

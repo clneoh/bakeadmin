@@ -391,13 +391,26 @@ export function scheduleRefresh(state) {
   refreshTimer = setTimeout(() => { refresh(state); }, 1500);
 }
 
+// True while the page is on screen and worth refreshing. A hidden tab (switched
+// away, or the phone locked) is skipped so a backgrounded app does no network
+// work; the browser would throttle it anyway, but the explicit gate means the
+// app is guaranteed to do nothing until it is actually being used again.
+export function pageActive() {
+  return !(typeof document !== "undefined"
+    && typeof document.hidden === "boolean" && document.hidden);
+}
+
 // Periodic + event-driven refresh. `onChanged` fires when a pull changed data
-// (app.js re-renders, guarded against clobbering a focused input).
+// (app.js re-renders, guarded against clobbering a focused input). The poll
+// runs only while the page is active; the focus / visibilitychange / online
+// hooks fire the moment the baker comes back, so fresh data is never delayed a
+// full 30s behind by the gate.
 let started = false;
 export function startSync(state, onChanged) {
   if (started) return;
   started = true;
   const every = () => {
+    if (!pageActive()) return;
     refresh(state).then((r) => { if (onChanged && r && r.changed) onChanged(); }).catch(() => {});
   };
   every();
