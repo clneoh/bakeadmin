@@ -40,9 +40,11 @@ export function buildConfirmation(state, group, trackUrl) {
   // screenshot sent back in this chat. Give them the QR image link to pay from
   // (a bare URL line is what makes WhatsApp render it as an image) and a
   // tap-ready link that opens WhatsApp to the bakery with the "I've paid" note
-  // pre-filled. Either is skipped when the baker hasn't set it.
+  // pre-filled. The note also carries the track link, so after WhatsApp jumps
+  // to send the receipt the customer still has the tracking link in front of
+  // them. Either part is skipped when the baker hasn't set it.
   const qr = String(sf.tngQr || "").trim();
-  const receiptMsg = `Hi! I've paid for order #${orderCode(first)} — here's my TNG receipt:`;
+  const receiptMsg = `Hi! I've paid for order #${orderCode(first)} — here's my TNG receipt:\n🔍 Track your order: ${trackUrl}`;
   const recLine = sf.whatsapp
     ? `📲 Send my payment receipt on WhatsApp: https://wa.me/${waNumber(sf.whatsapp)}?text=${encodeURIComponent(receiptMsg)}`
     : "";

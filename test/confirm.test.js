@@ -36,6 +36,8 @@ test("buildConfirmation carries the payment QR and a tap-ready send-receipt link
     "receipt link goes to the bakery's WhatsApp");
   assert.ok(built.message.includes("%23445566"),
     "the tap-ready receipt message mentions this order's code (#445566)");
+  assert.ok(built.message.includes("Track%20your%20order%3A%20https%3A%2F%2Fbake.app%2Fstore%2F%3Ftrack%3D445566"),
+    "the receipt message also carries the track link, so it stays in reach after sending");
   assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"));
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"),
     "reminds the customer to use their number as the TNG description");
