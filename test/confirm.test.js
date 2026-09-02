@@ -7,14 +7,14 @@ import { buildConfirmation } from "../js/confirm.js";
 
 function state(overrides = {}) {
   return {
-    settings: { currency: "RM", storefront: { name: "Jienluv2bake", tngQr: "https://img/tng.png" } },
+    settings: { currency: "RM", storefront: { name: "Jienluv2bake", whatsapp: "60123456789", tngQr: "https://img/tng.png" } },
     products: [{ id: "p1", name: "Focaccia", price: 15 }, { id: "p2", name: "Sandwich", price: 8 }],
     deliveryDates: [{ id: "d1", date: "2026-09-07" }],
     ...overrides,
   };
 }
 
-test("buildConfirmation includes the TNG QR image URL so the customer can scan and pay", () => {
+test("buildConfirmation gives the customer a tap-ready send-receipt link (no QR image link)", () => {
   const group = { orders: [{
     id: "ord_ab12cd34ef56", groupId: "ordg_112233445566",
     deliveryDateId: "d1", fulfillment: "collect",
@@ -28,8 +28,12 @@ test("buildConfirmation includes the TNG QR image URL so the customer can scan a
   assert.ok(built.message.includes("Focaccia ×2 — RM 30.00"), "items + total");
   assert.ok(built.message.includes("Please pay by TNG QR before collection."),
     "asks for payment by TNG QR");
-  assert.ok(built.message.includes("Your payment QR:\nhttps://img/tng.png"),
-    "includes the published QR image URL so WhatsApp shows the scannable image");
+  assert.ok(!built.message.includes("https://img/tng.png"),
+    "no QR image URL link in the message");
+  assert.ok(built.message.includes("📲 Send my payment receipt on WhatsApp: https://wa.me/60123456789?text="),
+    "receipt link goes to the bakery's WhatsApp");
+  assert.ok(built.message.includes("%23445566"),
+    "the tap-ready receipt message mentions this order's code (#445566)");
   assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"));
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"),
     "reminds the customer to use their number as the TNG description");
