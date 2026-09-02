@@ -28,8 +28,10 @@ test("buildConfirmation carries the payment QR and a tap-ready send-receipt link
   assert.ok(built.message.includes("Focaccia ×2 — RM 30.00"), "items + total");
   assert.ok(built.message.includes("Please pay by TNG QR before collection."),
     "asks for payment by TNG QR");
-  assert.ok(built.message.includes("Your payment QR:\nhttps://img/tng.png"),
-    "includes the published QR image URL so the customer can scan and pay");
+  assert.ok(built.message.includes("\nhttps://img/tng.png\n"),
+    "the published QR image URL sits on its own line so WhatsApp renders it as one picture");
+  assert.ok(!built.message.includes("Your payment QR:"),
+    "no extra 'Your payment QR:' label line that would add a second tap target");
   assert.ok(built.message.includes("📲 Send my payment receipt on WhatsApp: https://wa.me/60123456789?text="),
     "receipt link goes to the bakery's WhatsApp");
   assert.ok(built.message.includes("%23445566"),
