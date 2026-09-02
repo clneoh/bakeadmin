@@ -283,7 +283,9 @@ export function render() {
         },
       };
       if (s.soldOut) attrs.disabled = "true";
-      return el("button", attrs, el("span", { class: "pill-date" }, s.day));
+      return el("button", attrs,
+        el("span", { class: "pill-date" }, s.day),
+        el("span", { class: "pill-sub" }, s.soldOut ? "Sold out" : ""));
     }));
   };
 

@@ -126,14 +126,16 @@ test("live availability renders: sold-out pill greyed, first open selected, per-
   assert.ok(p0.className.includes("soldout"), "sold-out pill is greyed");
   assert.ok(!p0.className.includes("active"), "sold-out pill is not selected");
   assert.equal(p0.attrs.disabled, "true", "sold-out pill is disabled");
-  assert.equal(p0.children.length, 1, "sold-out pill keeps just the date; the stamp is a CSS watermark");
-  assert.equal(p0.children[0].children[0].text, fmtDay(dates[0]));
+  assert.equal(p0.children.length, 2, "sold-out pill = date line + red badge line");
+  assert.equal(p0.children[0].children[0].text, fmtDay(dates[0]), "the date is still readable, never covered");
+  assert.equal(p0.children[1].children[0].text, "Sold out", "clear Sold out badge sits under the date");
 
   const p1 = pills[1];
   assert.ok(p1.className.includes("active"), "first open day is auto-selected");
   assert.ok(!p1.attrs.disabled, "open pill stays clickable");
-  assert.equal(p1.children.length, 1, "open day pill shows just the date");
+  assert.equal(p1.children.length, 2, "open pill keeps the reserved line so all pills match in height");
   assert.equal(p1.children[0].children[0].text, fmtDay(dates[1]));
+  assert.equal(p1.children[1].children[0].text, "", "no badge on an open day");
 
   const p2 = pills[2];
   assert.ok(!p2.className.includes("soldout") && !p2.className.includes("active"));

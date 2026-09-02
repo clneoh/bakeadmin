@@ -102,42 +102,44 @@ html, body {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  padding: 10px 14px;
-  border-radius: 999px;
+  padding: 8px 16px 9px;
+  border-radius: 16px;
   cursor: pointer;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   -webkit-tap-highlight-color: transparent;
 }
-.pill.active { background: var(--brown); color: #fff; border-color: var(--brown); }
-/* Sold-out pill stays the same compact size — greyed date with a translucent
-   "SOLD OUT" watermark over it, like a rubber stamp from an ink pad. */
-.pill.soldout {
-  position: relative;
-  background: #f1e9de;
-  color: #b6a892;
-  border: 1px dashed #d9c9b5;
-  cursor: default;
-  overflow: hidden;
-}
-.pill.soldout::after {
-  content: "SOLD OUT";
-  position: absolute;
-  inset: 0;
-  margin: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
+.pill-date {
+  line-height: 1.25;
   white-space: nowrap;
-  color: rgba(175, 60, 40, .5);
-  border: 1.5px solid rgba(175, 60, 40, .45);
-  border-radius: 4px;
-  transform: rotate(-12deg);
 }
+/* Always-present second line keeps every pill the same height: open days
+   leave it empty, a full day fills it with a red "Sold out" badge below the
+   date. The date is never covered up. */
+.pill-sub {
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: transparent;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.pill.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+.pill.soldout {
+  background: #fbf1e4;
+  border: 1px dashed #dfc4ab;
+  color: var(--muted);
+  cursor: default;
+}
+.pill.soldout .pill-date { color: #8a7563; }
+.pill.soldout .pill-sub { color: #fff; background: #c0392b; }
 
 /* ---------- Menu ---------- */
 .menu-item {
@@ -169,7 +171,7 @@ html, body {
   transform: rotate(-4deg);
   box-shadow: 0 1px 3px rgba(80, 50, 30, .25);
 }
-.prod-stamp.soldout { background: #9a8471; }
+.prod-stamp.soldout { background: #c0392b; }
 .menu-item.soldout .card-title { color: #b6a892; }
 .menu-item.soldout .step-btn { background: #f1e9de; color: #c9b8a5; cursor: default; }
 
