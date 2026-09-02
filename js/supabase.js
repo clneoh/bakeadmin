@@ -1,0 +1,459 @@
+// supabase.js — publish live availability ("slots left" per delivery day)
+// to a Supabase table that the storefront reads. The backoffice stays the
+// source of truth; Supabase only holds the published snapshot.
+//
+// Pure helpers (computeSlots) run under Node for tests; all fetch/localStorage
+// access is guarded so importing the module is side-effect free.
+
+import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
+import { totalUnitsOnDate, dayCapacity } from "./bom.js";
+import { byId, fmtRM, newId, orderCode, save } from "./state.js";
+
+const TOKEN_KEY = "bakeadmin.supabase";
+
+function cfg(state) {
+  const s = (state.settings && state.settings.supabase) || {};
+  return {
+    enabled: !!s.enabled,
+    url: String(s.url || "").replace(/\/+$/, ""),
+    anonKey: String(s.anonKey || ""),
+    email: String(s.email || ""),
+    password: String(s.password || ""),
+  };
+}
+
+function ready(c) {
+  return c.enabled && c.url && c.anonKey && c.email && c.password;
+}
+
+// The baker's actual upcoming delivery dates (today onward), capped at
+// `horizon`. Falls back to the configured weekday pattern only when no real
+// delivery date exists yet, so the storefront isn't empty before any dates are
+// set up. This is what makes a newly added date reach the storefront: it's a
+// real deliveryDate, not a guess from the weekday rule.
+//
+// Duplicate dates (two deliveryDates entries for the same day — e.g. both
+// phones added the same date before they synced) are merged into one row with
+// both ids, so the published rows never carry a duplicate `date` key (which
+// makes Supabase reject the upsert with HTTP 500) and bookings on both ids
+// count toward the day's slots.
+function nextDeliveryDates(state, horizon) {
+  const seen = new Map(); // date -> [ids]
+  for (const d of state.deliveryDates) {
+    if (!d || d.date < todayISO()) continue;
+    if (seen.has(d.date)) seen.get(d.date).push(d.id);
+    else seen.set(d.date, [d.id]);
+  }
+  const real = [...seen.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(0, horizon)
+    .map(([date, ids]) => ({ date, ids }));
+  if (real.length) return real;
+  return generateUpcomingDates(state.settings, horizon).map((date) => ({ date, ids: [null] }));
+}
+
+// Next `horizon` upcoming delivery dates with the slots that remain after
+// what's already booked. Clamped at 0 so a full day is simply "Sold out" on
+// the storefront.
+export function computeSlots(state, horizon = 10) {
+  const capacity = dayCapacity(state);
+  return nextDeliveryDates(state, horizon).map(({ date, ids }) => {
+    const booked = ids.reduce((s, id) => s + (id ? totalUnitsOnDate(state, id) : 0), 0);
+    return { date, slots_left: Math.max(0, capacity - booked), capacity };
+  });
+}
+
+// Per-product slots: one row per (date, product) for every active product that
+// has a daily limit. Products without a limit are unlimited and get no row, so
+// the storefront shows no stamp for them. Used for the "Only N left" stamps on
+// the product cards.
+export function computeProductSlots(state, horizon = 10) {
+  const limited = state.products.filter((p) => p.active !== false && Number(p.limit) > 0);
+  return nextDeliveryDates(state, horizon).flatMap(({ date, ids }) => {
+    const booked = new Map();
+    for (const id of ids) {
+      if (!id) continue;
+      for (const o of state.orders) {
+        if (o.deliveryDateId !== id) continue;
+        booked.set(o.productId, (booked.get(o.productId) || 0) + (Number(o.qty) || 0));
+      }
+    }
+    return limited.map((p) => {
+      const capacity = Number(p.limit);
+      return { date, product: p.name, slots_left: Math.max(0, capacity - (booked.get(p.id) || 0)), capacity };
+    });
+  });
+}
+
+export function cachedToken() {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) return null;
+    const t = JSON.parse(raw);
+    if (t.access_token && t.expires_at && Date.now() < t.expires_at) return t.access_token;
+  } catch (err) { /* no storage / corrupt token — fall through to login */ }
+  return null;
+}
+
+// Clear the stored session. Used by the shared-data "Sign out" flow.
+export function signOut() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch (err) { /* no storage — nothing to clear */ }
+}
+
+function cacheToken(token, expiresInSec = 3600) {
+  try {
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({
+      access_token: token,
+      // refresh a minute early to avoid a stale token racing the request
+      expires_at: Date.now() + (expiresInSec - 60) * 1000,
+    }));
+  } catch (err) { /* storage full/unavailable — token just won't be cached */ }
+}
+
+export async function login(url, anonKey, email, password) {
+  const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(data.error_description || data.msg || data.error || `Login failed (HTTP ${res.status})`);
+  }
+  cacheToken(data.access_token, data.expires_in);
+  return data.access_token;
+}
+
+// Publish the current slots. Returns {ok:true, pushed, at} or {ok:false, reason}.
+export async function syncAvailability(state) {
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false, reason: "Supabase not configured" };
+
+  let token = cachedToken();
+  if (!token) {
+    try {
+      token = await login(c.url, c.anonKey, c.email, c.password);
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  const upsert = (table, rows, onConflict) =>
+    fetch(`${c.url}/rest/v1/${table}?on_conflict=${onConflict}`, {
+      method: "POST",
+      headers: {
+        apikey: c.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(rows),
+    });
+
+  const rows = computeSlots(state);
+  const res = await upsert("availability", rows, "date");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, reason: `Sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 120) : ""}` };
+  }
+
+  // Per-product rows drive the "Only N left" stamps; only products with a
+  // daily limit publish a row, so this is a no-op until limits are set.
+  const productRows = computeProductSlots(state);
+  let pushedProducts = 0;
+  if (productRows.length) {
+    const pres = await upsert("product_availability", productRows, "date,product");
+    if (!pres.ok) {
+      const text = await pres.text().catch(() => "");
+      return { ok: false, reason: `Product sync failed (HTTP ${pres.status})${text ? " — " + text.slice(0, 120) : ""}` };
+    }
+    pushedProducts = productRows.length;
+  }
+
+  // Best-effort cleanup: drop published rows for dates that are no longer in
+  // the plan (deleted delivery dates) or have passed, so the storefront only
+  // ever shows the baker's real upcoming dates. Failures are swallowed — this
+  // is housekeeping, not the sync itself.
+  if (rows.length) {
+    const active = rows.map((r) => `"${r.date}"`).join(",");
+    const clean = (table) =>
+      fetch(`${c.url}/rest/v1/${table}?date=not.in.(${active})`, {
+        method: "DELETE",
+        headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    await clean("availability");
+    await clean("product_availability");
+  }
+  return { ok: true, pushed: rows.length, pushedProducts, at: new Date().toISOString() };
+}
+
+// Debounced auto-publish, called after order/capacity changes so a burst of
+// order entry batches into a single update. Errors are swallowed silently on
+// the auto path; the Settings "Sync now" button surfaces them.
+let timer = null;
+export function maybeSync(state) {
+  if (!ready(cfg(state))) return; // never schedule timers when Supabase is off
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => { syncAvailability(state); }, 2000);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Storefront config publish — the customer page's name/menu/WhatsApp/etc.
+// The backoffice edits these in Settings → Storefront; this pushes the whole
+// config to a row the storefront reads, so edits go live without a redeploy.
+// ────────────────────────────────────────────────────────────────────────────
+
+function storefrontPayload(state) {
+  const sf = (state.settings && state.settings.storefront) || {};
+  // The storefront menu is the backoffice's product list (active only) — one
+  // list, so adding/editing/hiding a product in the app updates the customer
+  // page after a publish. No separate menu to drift or clobber.
+  const products = (Array.isArray(state.products) ? state.products : [])
+    .filter((p) => p && p.active !== false && String(p.name || "").trim())
+    .map((p) => ({
+      name: String(p.name).trim(),
+      price: Number(p.price) || 0,
+      unit: String(p.unit || "").trim() || "piece",
+    }));
+  return {
+    whatsapp: String(sf.whatsapp || ""),
+    name: String(sf.name || ""),
+    tagline: String(sf.tagline || ""),
+    instagram: String(sf.instagram || ""),
+    facebook: String(sf.facebook || ""),
+    tngQr: String(sf.tngQr || ""),
+    deliveryDays: (state.settings && state.settings.deliveryDays) || [],
+    cutoff: (state.settings && state.settings.cutoff) || "",
+    capacity: (state.settings && state.settings.defaultCapacity) || 0,
+    products,
+  };
+}
+
+export async function syncStorefront(state) {
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false, reason: "Supabase not configured" };
+
+  let token = cachedToken();
+  if (!token) {
+    try {
+      token = await login(c.url, c.anonKey, c.email, c.password);
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
+  const res = await fetch(`${c.url}/rest/v1/storefront_config?on_conflict=id`, {
+    method: "POST",
+    headers: {
+      apikey: c.anonKey,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify([{ id: "default", data: JSON.stringify(storefrontPayload(state)) }]),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, reason: `Storefront sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 120) : ""}` };
+  }
+  return { ok: true, at: new Date().toISOString() };
+}
+
+let sfTimer = null;
+export function maybeSyncStorefront(state) {
+  if (!ready(cfg(state))) return; // never schedule timers when Supabase is off
+  if (sfTimer) clearTimeout(sfTimer);
+  sfTimer = setTimeout(() => { syncStorefront(state); }, 2000);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Order tracking — the customer-facing snapshot of one order. When the baker
+// changes an order's status, the backoffice publishes a row here; the
+// storefront's "Track your order" card reads it back by order code. The
+// customer never sees the backoffice's private order rows — only this copy.
+// ────────────────────────────────────────────────────────────────────────────
+
+// One published tracking row for a storefront order group. The code is the
+// group's shared order code, so a multi-item customer order tracks as one.
+// Pure snapshot of the baker's order state — no side effects, safe under Node.
+export function trackingSnapshot(state, group) {
+  const orders = (group && group.orders) || [];
+  const first = orders[0] || {};
+  const del = first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null;
+  const date = del ? del.date : String(first.deliveryDate || "");
+  const courier = first.fulfillment === "courier";
+  const fulfillment = courier ? "Courier" : "Self collect";
+  const address = courier && String(first.address || "").trim()
+    ? ` · ${String(first.address).trim()}` : "";
+  const items = orders.map((o) => {
+    const p = byId(state.products, o.productId);
+    return `${p ? p.name : "item"} ×${o.qty}`;
+  }).join(", ");
+  const total = fmtRM(orders.reduce((s, o) => {
+    const p = byId(state.products, o.productId);
+    return s + (Number(o.qty) || 0) * (p ? Number(p.price) || 0 : 0);
+  }, 0), state.settings.currency);
+  return {
+    code: orderCode(first),
+    status: first.status || "new",
+    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}`,
+    items,
+    total,
+    customer: String(first.customerName || ""),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// Push one order's tracking row to Supabase so the customer can look it up on
+// the storefront track card. Fires on status changes; best-effort and silent —
+// a publish failure must never block the baker's status edit.
+export async function publishTracking(state, group) {
+  const c = cfg(state);
+  if (!ready(c) || !group || !group.orders || !group.orders.length) return;
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return; }
+  }
+  const row = trackingSnapshot(state, group);
+  try {
+    await fetch(`${c.url}/rest/v1/order_tracking?on_conflict=code`, {
+      method: "POST",
+      headers: {
+        apikey: c.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify([row]),
+    });
+  } catch { /* best-effort */ }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Order intake — customer orders placed on the storefront land in the
+// backoffice order list automatically. The storefront inserts a row; this
+// polls for new rows, converts each into orders, and deletes the row so it
+// isn't imported twice.
+// ────────────────────────────────────────────────────────────────────────────
+
+// Whether an incoming order can be imported: it needs a date and every line
+// must match an active backoffice product. Rows that fail this are left alone
+// (status stays "new") so the owner can add the product and the order retries.
+export function importable(state, data) {
+  if (!data || !data.date || !Array.isArray(data.lines) || !data.lines.length) return false;
+  return data.lines.every((line) => line && line.name
+    && state.products.some((p) => p.active !== false
+      && String(p.name).trim().toLowerCase() === String(line.name).trim().toLowerCase()));
+}
+
+export async function pullIncoming(state) {
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false, imported: [] };
+
+  let token = cachedToken();
+  if (!token) {
+    try {
+      token = await login(c.url, c.anonKey, c.email, c.password);
+    } catch {
+      return { ok: false, imported: [] };
+    }
+  }
+
+  try {
+    const auth = { apikey: c.anonKey, Authorization: `Bearer ${token}` };
+    const res = await fetch(
+      `${c.url}/rest/v1/incoming_orders?select=id,data&status=eq.new&limit=50`,
+      { headers: auth });
+    if (!res.ok) return { ok: false, imported: [] };
+    const rows = await res.json().catch(() => []);
+    const imported = [];
+    for (const row of rows) {
+      if (!row || !row.id) continue;
+      let data;
+      try { data = JSON.parse(row.data); } catch { continue; }
+      // Unimportable rows (unknown product, missing date) stay status=new so
+      // they keep retrying instead of being claimed and lost.
+      if (!importable(state, data)) continue;
+      // Claim first: the PATCH filters status=eq.new, so only one phone can
+      // flip it to imported. A row another phone already claimed matches 0
+      // rows and is skipped — the fix for orders appearing as "new" twice.
+      const claim = await fetch(
+        `${c.url}/rest/v1/incoming_orders?id=eq.${row.id}&status=eq.new`,
+        {
+          method: "PATCH",
+          headers: { ...auth, "Content-Type": "application/json", Prefer: "return=representation" },
+          body: JSON.stringify({ status: "imported" }),
+        }).catch(() => null);
+      if (!claim || !claim.ok) continue;
+      const claimed = await claim.json().catch(() => []);
+      if (!Array.isArray(claimed) || !claimed.length) continue;
+      const created = importIncoming(state, row);
+      if (!created) continue;
+      imported.push(row.id);
+      // The claim already prevents a second import; delete is just cleanup.
+      await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
+        method: "DELETE",
+        headers: auth,
+      }).catch(() => {});
+    }
+    if (imported.length) save(state);
+    return { ok: true, imported };
+  } catch {
+    return { ok: false, imported: [] };
+  }
+}
+
+// Turn one incoming_orders row into backoffice orders. Lines whose name doesn't
+// match a backoffice product are skipped (the owner adds them by hand). Creates
+// the delivery date if it isn't in the plan yet. Returns the created order ids,
+// or null when nothing matched.
+function importIncoming(state, row) {
+  let data;
+  try { data = JSON.parse(row.data); } catch { return null; }
+  if (!data || !data.date || !Array.isArray(data.lines)) return null;
+
+  const dateStr = String(data.date);
+  let del = state.deliveryDates.find((d) => d.date === dateStr);
+  if (!del) {
+    del = { id: newId("del"), date: dateStr, notes: "" };
+    state.deliveryDates.push(del);
+  }
+
+  const created = [];
+  const now = new Date().toISOString();
+  // One storefront cart can contain several items. They share a groupId so the
+  // backoffice shows them as a single order (status / badge / inbox count it
+  // once) while each item stays its own row for availability math.
+  const groupId = data.lines.length > 1 ? newId("ordg") : null;
+  for (const line of data.lines) {
+    if (!line || !line.name) continue;
+    const qty = Math.max(1, Number(line.qty) || 1);
+    const product = state.products.find(
+      (p) => p.active !== false
+        && String(p.name).trim().toLowerCase() === String(line.name).trim().toLowerCase());
+    if (!product) continue;
+    const order = {
+      id: newId("ord"),
+      deliveryDateId: del.id,
+      deliveryDate: dateStr,
+      orderDate: todayISO(),
+      productId: product.id,
+      qty,
+      customerName: String(data.customer || "").trim(),
+      whatsapp: String(data.whatsapp || "").trim(),
+      fulfillment: data.fulfillment === "courier" ? "courier" : "collect",
+      address: String(data.address || "").trim(),
+      note: String(data.note || "").trim(),
+      status: "new",
+      source: "storefront",
+      groupId,
+      createdAt: now,
+    };
+    state.orders.push(order);
+    created.push(order.id);
+  }
+  return created.length ? created : null;
+}

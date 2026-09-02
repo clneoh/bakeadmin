@@ -1,0 +1,562 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { generateUpcomingDates } from "../js/dates.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot } from "../js/supabase.js";
+import { groupOrders, orderCode } from "../js/state.js";
+
+const realFetch = globalThis.fetch;
+const realLocalStorage = globalThis.localStorage;
+
+function baseSettings() {
+  return { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" };
+}
+
+// A state whose deliveryDates match the next 10 real upcoming delivery days
+// (the sync horizon), so computeSlots yields one row per real date.
+function makeState(ordersByDate = {}) {
+  const settings = baseSettings();
+  const dates = generateUpcomingDates(settings, 10);
+  const deliveryDates = dates.map((date, i) => ({
+    id: `del_${i}`,
+    date,
+    notes: "",
+  }));
+  const orders = [];
+  let n = 0;
+  for (const [date, qtys] of Object.entries(ordersByDate)) {
+    const del = deliveryDates.find((d) => d.date === date);
+    for (const qty of qtys) {
+      orders.push({
+        id: `ord_${n++}`,
+        deliveryDateId: del.id,
+        productId: "prd_1",
+        qty,
+        customerName: "Test",
+        note: "",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+    }
+  }
+  return { version: 1, settings, ingredients: [], products: [{ id: "prd_1", name: "Focaccia", active: true }], deliveryDates, orders, purchaseOrders: [] };
+}
+
+test("computeSlots maps orders to slots_left, clamping at 0", () => {
+  const dates = generateUpcomingDates(baseSettings(), 4);
+  const state = makeState({ [dates[0]]: [3, 2], [dates[1]]: [5, 5, 5] });
+
+  const rows = computeSlots(state, 10);
+  assert.equal(rows.length, 10); // horizon
+  const row0 = rows.find((r) => r.date === dates[0]);
+  const row1 = rows.find((r) => r.date === dates[1]);
+  const row2 = rows.find((r) => r.date === dates[2]);
+  const row3 = rows.find((r) => r.date === dates[3]);
+  assert.deepEqual(row0, { date: dates[0], slots_left: 7, capacity: 12 }); // 12 - (3+2)
+  assert.deepEqual(row1, { date: dates[1], slots_left: 0, capacity: 12 }); // over → clamped to 0
+  assert.deepEqual(row2, { date: dates[2], slots_left: 12, capacity: 12 }); // nothing booked → default capacity
+  assert.deepEqual(row3, { date: dates[3], slots_left: 12, capacity: 12 }); // no deliveryDates entry → default
+});
+
+test("computeSlots sums product daily limits into the day capacity", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState({ [dates[0]]: [3, 2] });
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+  ];
+
+  const rows = computeSlots(state, 10);
+  const row0 = rows.find((r) => r.date === dates[0]);
+  const row1 = rows.find((r) => r.date === dates[1]);
+  assert.deepEqual(row0, { date: dates[0], slots_left: 19, capacity: 24 }); // 24 - (3+2)
+  assert.equal(row1.capacity, 24);
+});
+
+test("computeSlots dedupes duplicate delivery dates and sums their bookings", () => {
+  const date = generateUpcomingDates(baseSettings(), 1)[0];
+  const state = makeState();
+  state.deliveryDates = [
+    { id: "del_a", date, notes: "" },
+    { id: "del_b", date, notes: "" },
+  ];
+  state.orders = [
+    { id: "o1", deliveryDateId: "del_a", productId: "prd_1", qty: 3, createdAt: "2026-01-01T00:00:00.000Z" },
+    { id: "o2", deliveryDateId: "del_b", productId: "prd_1", qty: 2, createdAt: "2026-01-01T00:00:00.000Z" },
+  ];
+  const rows = computeSlots(state, 10);
+  const dups = rows.filter((r) => r.date === date);
+  assert.equal(dups.length, 1, "one published row per date despite duplicate deliveryDates");
+  assert.deepEqual(dups[0], { date, slots_left: 7, capacity: 12 }, "bookings on both ids count");
+});
+
+test("product limits are ignored when no product has one (default capacity)", () => {
+  const dates = generateUpcomingDates(baseSettings(), 1);
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true }, // no limit
+  ];
+  const rows = computeSlots(state, 10);
+  const row = rows.find((r) => r.date === dates[0]);
+  assert.deepEqual(row, { date: dates[0], slots_left: 12, capacity: 12 }); // falls back to the default capacity
+});
+
+test("syncAvailability returns ok:false when not configured", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  try {
+    const r = await syncAvailability(makeState());
+    assert.deepEqual(r, { ok: false, reason: "Supabase not configured" });
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("login posts credentials and returns the token", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    return { ok: true, json: async () => ({ access_token: "tok_abc", expires_in: 3600 }) };
+  };
+  try {
+    const token = await login("https://x.supabase.co/", "anonkey", "a@b.c", "pw");
+    assert.equal(token, "tok_abc");
+    assert.ok(calls[0].url.includes("/auth/v1/token?grant_type=password"));
+    assert.equal(calls[0].opts.headers.apikey, "anonkey");
+    assert.equal(JSON.parse(calls[0].opts.body).email, "a@b.c");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("syncAvailability upserts rows with auth headers", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncAvailability(state);
+    assert.ok(r.ok);
+    assert.equal(r.pushed, 10);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/availability"));
+    assert.ok(upsert.url.includes("?on_conflict=date"));
+    assert.equal(upsert.opts.headers.apikey, "anon");
+    assert.equal(upsert.opts.headers.Authorization, "Bearer tok");
+    assert.equal(upsert.opts.headers.Prefer, "resolution=merge-duplicates,return=minimal");
+    const body = JSON.parse(upsert.opts.body);
+    assert.ok(Array.isArray(body) && body.length === 10);
+    assert.ok(body.every((r) => typeof r.date === "string" && typeof r.slots_left === "number"));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("second sync reuses the cached token instead of logging in again", async () => {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  };
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  let authCalls = 0;
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) { authCalls++; return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) }; }
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r1 = await syncAvailability(state);
+    const r2 = await syncAvailability(state);
+    assert.ok(r1.ok && r2.ok);
+    assert.equal(authCalls, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("computeProductSlots returns per-product rows only for products with a limit", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState({ [dates[0]]: [3, 2] });
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_3", name: "Cookie", active: true }, // no limit → unlimited, no row
+  ];
+
+  const rows = computeProductSlots(state, 10);
+  assert.equal(rows.length, 20); // 2 limited products × 10 days
+  const f0 = rows.find((r) => r.date === dates[0] && r.product === "Focaccia");
+  const s0 = rows.find((r) => r.date === dates[0] && r.product === "Sandwich");
+  assert.deepEqual(f0, { date: dates[0], product: "Focaccia", slots_left: 7, capacity: 12 }); // 12 - (3+2)
+  assert.deepEqual(s0, { date: dates[0], product: "Sandwich", slots_left: 12, capacity: 12 });
+  assert.ok(rows.every((r) => r.product !== "Cookie"));
+});
+
+test("syncAvailability upserts per-product rows when products have limits", async () => {
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncAvailability(state);
+    assert.ok(r.ok);
+    assert.equal(r.pushed, 10);
+    assert.equal(r.pushedProducts, 20);
+    const day = calls.find((c) => c.url.includes("/rest/v1/availability?"));
+    assert.ok(day.url.includes("?on_conflict=date"));
+    const prod = calls.find((c) => c.url.includes("/rest/v1/product_availability"));
+    assert.ok(prod.url.includes("?on_conflict=date,product"));
+    const body = JSON.parse(prod.opts.body);
+    assert.equal(body.length, 20);
+    assert.ok(body.every((r) => typeof r.date === "string" && typeof r.product === "string" && typeof r.slots_left === "number"));
+    assert.ok(body.every((r) => r.capacity === 12));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("syncStorefront returns ok:false when not configured", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  try {
+    const r = await syncStorefront(makeState());
+    assert.deepEqual(r, { ok: false, reason: "Supabase not configured" });
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("syncStorefront publishes the whole config to storefront_config", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.settings.storefront = {
+    whatsapp: "60123456789", name: "Jienluv2bake", tagline: "Focaccia & sandwiches",
+    instagram: "jen", facebook: "jenbakes", tngQr: "https://img/tng.png",
+  };
+  // The storefront menu comes from the backoffice product list (single source
+  // of truth) — state.products.price/unit feed the published menu.
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true }];
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncStorefront(state);
+    assert.ok(r.ok);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/storefront_config"));
+    assert.ok(upsert.url.includes("?on_conflict=id"));
+    assert.equal(upsert.opts.headers.Authorization, "Bearer tok");
+    assert.equal(upsert.opts.headers.Prefer, "resolution=merge-duplicates,return=minimal");
+    const body = JSON.parse(upsert.opts.body);
+    assert.equal(body.length, 1);
+    assert.equal(body[0].id, "default");
+    const payload = JSON.parse(body[0].data);
+    assert.equal(payload.whatsapp, "60123456789");
+    assert.equal(payload.name, "Jienluv2bake");
+    assert.equal(payload.tngQr, "https://img/tng.png");
+    assert.deepEqual(payload.deliveryDays, [1, 3, 5]);
+    assert.equal(payload.capacity, 12);
+    assert.deepEqual(payload.products, [{ name: "Focaccia", price: 15, unit: "loaf" }]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pullIncoming is a no-op when not configured", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  try {
+    const r = await pullIncoming(makeState());
+    assert.deepEqual(r, { ok: false, imported: [] });
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+function storageShim(store) {
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  };
+}
+
+test("pullIncoming imports storefront orders, marks and deletes the rows", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true },
+    { id: "prd_2", name: "Sandwich", active: true },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-123",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04", total: 30,
+      lines: [{ name: "Focaccia", qty: 2, price: 15 }],
+      note: "no rosemary",
+    }),
+  };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, method: (opts && opts.method) || "GET" });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    assert.deepEqual(r.imported, ["abc-123"]);
+    assert.equal(state.orders.length, 1);
+    const o = state.orders[0];
+    assert.equal(o.status, "new");
+    assert.equal(o.source, "storefront");
+    assert.equal(o.productId, "prd_1");
+    assert.equal(o.qty, 2);
+    assert.equal(o.customerName, "Ain");
+    assert.equal(o.note, "no rosemary");
+    assert.equal(o.fulfillment, "collect", "no method sent → self collect");
+    assert.equal(o.address, "");
+    assert.equal(o.deliveryDate, "2026-09-04");
+    const del = state.deliveryDates.find((d) => d.date === "2026-09-04");
+    assert.ok(del, "delivery date exists");
+    assert.equal(o.deliveryDateId, del.id);
+    const mark = calls.find((c) => c.method === "PATCH" && c.url.includes("incoming_orders"));
+    assert.ok(mark, "row is marked imported first");
+    const gone = calls.find((c) => c.method === "DELETE" && c.url.includes("incoming_orders"));
+    assert.ok(gone, "row is deleted after import");
+    assert.ok(gone.url.includes("id=eq.abc-123"));
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("pullIncoming groups a multi-item storefront order under one groupId", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true },
+    { id: "prd_2", name: "Sandwich", active: true },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-456",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04", total: 30,
+      lines: [{ name: "Focaccia", qty: 2, price: 15 }, { name: "Sandwich", qty: 1, price: 8 }],
+    }),
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    assert.equal(state.orders.length, 2, "each item is its own row for availability math");
+    const [o1, o2] = state.orders;
+    assert.equal(o1.productId, "prd_1");
+    assert.equal(o2.productId, "prd_2");
+    assert.ok(o1.groupId, "multi-item order gets a groupId");
+    assert.equal(o2.groupId, o1.groupId, "both items share the group");
+    assert.equal(o1.createdAt, o2.createdAt);
+    assert.equal(groupOrders(state.orders).length, 1, "they count as one customer order");
+    assert.equal(o2.qty, 1);
+    assert.equal(o1.customerName, "Ain");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("pullIncoming skips items with no matching backoffice product", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = { id: "abc", data: JSON.stringify({ customer: "X", date: "2099-01-05", lines: [{ name: "Cookies", qty: 3, price: 5 }] }) };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, method: (opts && opts.method) || "GET" });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    assert.deepEqual(r.imported, []);
+    assert.equal(state.orders.length, 0);
+    assert.equal(calls.some((c) => c.method === "PATCH" && c.url.includes("incoming_orders")), false,
+      "unimportable row is not claimed — it stays in the queue to retry later");
+    assert.equal(calls.some((c) => c.method === "DELETE" && c.url.includes("incoming_orders")), false,
+      "unimportable row is not deleted");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("pullIncoming copies fulfillment, address and whatsapp from the order", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-789",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04", total: 30,
+      lines: [{ name: "Focaccia", qty: 2, price: 15 }],
+      whatsapp: "60123456789", fulfillment: "courier", address: "12 Jalan Bunga, Penang",
+    }),
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    const o = state.orders[0];
+    assert.equal(o.whatsapp, "60123456789");
+    assert.equal(o.fulfillment, "courier");
+    assert.equal(o.address, "12 Jalan Bunga, Penang");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("pullIncoming skips a row another phone already claimed (no double import)", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = { id: "abc-dup", data: JSON.stringify({ customer: "Ain", date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1, price: 15 }] }) };
+  let claims = 0;
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    // The claim matches nothing — another phone already flipped it to imported.
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) { claims++; return { ok: true, json: async () => [] }; }
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    assert.deepEqual(r.imported, []);
+    assert.equal(state.orders.length, 0, "a row already claimed elsewhere is not imported twice");
+    assert.equal(claims, 1, "the claim was attempted exactly once");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("trackingSnapshot renders one customer order into one published row", () => {
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", price: 15, active: true },
+    { id: "prd_2", name: "Sandwich", price: 8, active: true },
+  ];
+  const date = state.deliveryDates[0];
+  const group = { orders: [
+    { id: "ord_1", groupId: "ordg_112233445566", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+      customerName: "Ain", fulfillment: "collect", status: "baking", createdAt: "2026-09-01T14:32:00" },
+    { id: "ord_2", groupId: "ordg_112233445566", deliveryDateId: date.id, productId: "prd_2", qty: 1,
+      customerName: "Ain", fulfillment: "collect", status: "baking", createdAt: "2026-09-01T14:32:00" },
+  ] };
+  const snap = trackingSnapshot(state, group);
+  assert.equal(snap.code, "445566", "group id drives the shared code");
+  assert.equal(snap.status, "baking");
+  assert.equal(snap.items, "Focaccia ×2, Sandwich ×1");
+  assert.equal(snap.total, "RM 38.00"); // 2×15 + 1×8
+  assert.ok(snap.delivery.includes("Self collect"));
+  assert.equal(snap.customer, "Ain");
+  assert.ok(snap.updated_at, "snapshot is stamped");
+});
+
+test("trackingSnapshot includes the courier address in delivery", () => {
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  const date = state.deliveryDates[0];
+  const group = { orders: [{
+    id: "ord_1", deliveryDateId: date.id, productId: "prd_1", qty: 1,
+    fulfillment: "courier", address: "12 Jalan Bunga, Penang", status: "ready", createdAt: "2026-09-01T14:32:00",
+  }] };
+  const snap = trackingSnapshot(state, group);
+  assert.ok(snap.delivery.includes("Courier"));
+  assert.ok(snap.delivery.includes("12 Jalan Bunga, Penang"));
+});
+
+test("publishTracking upserts the order's row keyed on the code", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  const date = state.deliveryDates[0];
+  const group = { orders: [{
+    id: "ord_ab12cd34ef56", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    customerName: "Ain", whatsapp: "60123456789", fulfillment: "courier", address: "12 Jalan Bunga, Penang",
+    status: "confirmed", createdAt: "2026-09-01T14:32:00",
+  }] };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    await publishTracking(state, group);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/order_tracking"));
+    assert.ok(upsert, "publishes to order_tracking");
+    assert.ok(upsert.url.includes("?on_conflict=code"));
+    assert.equal(upsert.opts.headers.Authorization, "Bearer tok");
+    assert.equal(upsert.opts.headers.Prefer, "resolution=merge-duplicates,return=minimal");
+    const body = JSON.parse(upsert.opts.body);
+    assert.equal(body.length, 1);
+    assert.equal(body[0].code, orderCode(group.orders[0]));
+    assert.equal(body[0].status, "confirmed");
+    assert.ok(body[0].delivery.includes("Courier"));
+    assert.equal(body[0].items, "Focaccia ×2");
+    assert.equal(body[0].total, "RM 30.00");
+    assert.equal(body[0].customer, "Ain");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("publishTracking is a silent no-op when tracking is unconfigured", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  try {
+    await publishTracking(makeState(), { orders: [{ id: "ord_1" }] });
+    assert.equal(called, false, "no fetch when Supabase is off");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

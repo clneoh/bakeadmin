@@ -1,0 +1,361 @@
+// views/settings.js — defaults, export/import backup, clear data.
+
+import { el, button, confirmDialog, toast } from "../ui.js";
+import { LS_KEY, newId, save } from "../state.js";
+import { parseImport } from "../validate.js";
+import { generateUpcomingDates, todayISO } from "../dates.js";
+import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSyncStorefront } from "../supabase.js";
+import * as sync from "../sync.js";
+import { CONFIG } from "../../store/config.js";
+
+export function renderSettings(root, state) {
+  const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const cur = state.settings;
+  seedStorefront(state); // prefill the editor from store/config.js once, then stay editable
+
+  const capInput = el("input", { class: "input", type: "number", inputmode: "numeric", min: 1,
+    value: cur.defaultCapacity,
+    onchange: () => { cur.defaultCapacity = Math.max(1, Number(capInput.value) || 12); save(state); maybeSyncStorefront(state); toast("Saved"); } });
+
+  const cutoffInput = el("input", { class: "input", type: "time", value: cur.cutoff,
+    onchange: () => { cur.cutoff = cutoffInput.value || "18:00"; save(state); maybeSyncStorefront(state); toast("Saved"); } });
+
+  const dayChecks = [1, 2, 3, 4, 5, 6, 0].map((n) => {
+    const box = el("input", { type: "checkbox", checked: cur.deliveryDays.includes(n),
+      onchange: () => {
+        if (box.checked && !cur.deliveryDays.includes(n)) cur.deliveryDays.push(n);
+        if (!box.checked) cur.deliveryDays = cur.deliveryDays.filter((x) => x !== n);
+        if (!cur.deliveryDays.length) { cur.deliveryDays = [n]; box.checked = true; } // never allow zero
+        save(state); maybeSyncStorefront(state); toast("Saved");
+      } });
+    return el("label", { class: "daycheck" }, box, " ", dayNames[n]);
+  });
+
+  const daysCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Delivery settings"),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {},
+        el("label", {}, "Capacity / day"),
+        capInput,
+        el("p", { class: "card-sub", style: "margin:4px 0 0" },
+          "Only used when products have no daily limit — otherwise product limits are added together.")),
+      el("div", {}, el("label", {}, "Order cut-off (day before)"), cutoffInput)),
+    el("div", { class: "field", style: "margin-top:10px" },
+      el("label", {}, "Delivery days"),
+      el("div", { class: "daychecks" }, ...dayChecks)));
+
+  // ── Storefront (customer page) ──────────────────────────────────────────
+  // What customers see on store/. Edits here publish to Supabase; the store
+  // page picks them up automatically (no redeploy). Prefilled once from
+  // store/config.js so the current menu isn't re-typed.
+  const sf = cur.storefront;
+  const sfName = el("input", { class: "input", value: sf.name, placeholder: "Jienluv2bake",
+    onchange: () => { sf.name = sfName.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfWhatsapp = el("input", { class: "input", type: "tel", inputmode: "tel", value: sf.whatsapp,
+    placeholder: "e.g. 60123456789",
+    onchange: () => { sf.whatsapp = sfWhatsapp.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfTagline = el("input", { class: "input", value: sf.tagline, placeholder: "Home-made focaccia & sandwiches",
+    onchange: () => { sf.tagline = sfTagline.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfInsta = el("input", { class: "input", value: sf.instagram, placeholder: "e.g. jienluv2bake",
+    onchange: () => { sf.instagram = sfInsta.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfFacebook = el("input", { class: "input", value: sf.facebook, placeholder: "e.g. jienluv2bake",
+    onchange: () => { sf.facebook = sfFacebook.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfTngQr = el("input", { class: "input", type: "text", inputmode: "url", value: sf.tngQr,
+    placeholder: "https://…/tng-qr.png",
+    onchange: () => { sf.tngQr = sfTngQr.value.trim(); save(state); maybeSyncStorefront(state); } });
+
+  // If another phone has published a storefront config, use it as the editor's
+  // starting point instead of this phone's older local copy — so the WhatsApp
+  // number shown here matches what customers actually see. Read-only (anon
+  // key), no login needed; a missing row / offline just keeps the local copy.
+  const scb = cur.supabase || {};
+  if (scb.url && scb.anonKey) {
+    fetch(`${String(scb.url).replace(/\/+$/, "")}/rest/v1/storefront_config?select=data&id=eq.default&limit=1`,
+      { headers: { apikey: scb.anonKey } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows) => {
+        const row = Array.isArray(rows) && rows[0];
+        if (!row || typeof row.data !== "string") return;
+        let remote;
+        try { remote = JSON.parse(row.data); } catch { return; }
+        if (!remote || typeof remote !== "object") return;
+        if (!remote.name) return;
+        sf.whatsapp = typeof remote.whatsapp === "string" ? remote.whatsapp : sf.whatsapp;
+        sf.name = typeof remote.name === "string" ? remote.name : sf.name;
+        sf.tagline = typeof remote.tagline === "string" ? remote.tagline : sf.tagline;
+        sf.instagram = typeof remote.instagram === "string" ? remote.instagram : sf.instagram;
+        sf.facebook = typeof remote.facebook === "string" ? remote.facebook : sf.facebook;
+        sf.tngQr = typeof remote.tngQr === "string" ? remote.tngQr : sf.tngQr;
+        save(state);
+        sfName.value = sf.name;
+        sfWhatsapp.value = sf.whatsapp;
+        sfTagline.value = sf.tagline;
+        sfInsta.value = sf.instagram;
+        sfFacebook.value = sf.facebook;
+        sfTngQr.value = sf.tngQr;
+      })
+      .catch(() => {});
+  }
+
+  const sfStatus = el("p", { class: "card-sub", style: "margin:10px 0 0" }, "Not published yet.");
+  const sfBtn = button("Publish now", async () => {
+    sfBtn.disabled = true;
+    sfBtn.textContent = "Publishing…";
+    const r = await syncStorefront(state);
+    sfStatus.textContent = r.ok
+      ? `Published at ${new Date(r.at).toLocaleTimeString()} — customers see it now.`
+      : `Publish failed: ${r.reason}`;
+    sfBtn.disabled = false;
+    sfBtn.textContent = "Publish now";
+  }, "primary");
+
+  const storefrontCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Storefront (customer page)"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "What customers see when they open the order page. Changes publish automatically; no redeploy needed."),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {}, el("label", {}, "Bakery name"), sfName),
+      el("div", {}, el("label", {}, "WhatsApp number"), sfWhatsapp)),
+    el("div", { class: "field", style: "margin-top:10px" }, el("label", {}, "Tagline"), sfTagline),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {}, el("label", {}, "Instagram handle"), sfInsta),
+      el("div", {}, el("label", {}, "Facebook page"), sfFacebook)),
+    el("div", { class: "field", style: "margin-top:10px" },
+      el("label", {}, "TNG QR code (image URL)"),
+      sfTngQr,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "Shown on the customer's track page so they can pay by TNG. Paste a hosted image URL (e.g. an imgur / Google Drive link to a photo of your QR).")),
+    el("h4", { style: "margin:14px 0 0" }, "Menu"),
+    el("p", { class: "card-sub", style: "margin:4px 0 0" },
+      "Your menu comes from More → Products — add or hide a product there and it updates here after you publish. WhatsApp is digits only with country code — 012-345 6789 → 60123456789."),
+    el("div", { class: "btn-row", style: "margin-top:10px" }, sfBtn),
+    sfStatus);
+
+  const fileInput = el("input", { class: "input", type: "file", accept: "application/json,.json", style: "display:none",
+    onchange: (e) => doImport(e) });
+
+  const sb = (cur.supabase ??= {});
+  const sbUrl = el("input", { class: "input", type: "text", inputmode: "url",
+    placeholder: "https://xxxx.supabase.co", value: sb.url || "",
+    onchange: () => { sb.url = sbUrl.value.trim(); save(state); toast("Saved"); } });
+  const sbKey = el("input", { class: "input", type: "text",
+    placeholder: "anon public key (eyJ…)", value: sb.anonKey || "",
+    onchange: () => { sb.anonKey = sbKey.value.trim(); save(state); toast("Saved"); } });
+  const sbEmail = el("input", { class: "input", type: "email", autocomplete: "off",
+    placeholder: "baker@example.com", value: sb.email || "",
+    onchange: () => { sb.email = sbEmail.value.trim(); save(state); toast("Saved"); } });
+  const sbPass = el("input", { class: "input", type: "password", autocomplete: "off",
+    placeholder: "app login password", value: sb.password || "",
+    onchange: () => { sb.password = sbPass.value; save(state); toast("Saved"); } });
+  const sbOn = el("input", { type: "checkbox", checked: !!sb.enabled,
+    onchange: () => {
+      sb.enabled = sbOn.checked;
+      save(state);
+      toast(sb.enabled ? "Live availability on" : "Live availability off");
+      if (sb.enabled) maybeSyncStorefront(state); // publish the seeded config right away
+    } });
+  const sbStatus = el("p", { class: "card-sub", style: "margin:10px 0 0" }, "Not synced yet.");
+  const sbBtn = button("Sync now", async () => {
+    sbBtn.disabled = true;
+    sbBtn.textContent = "Syncing…";
+    const r = await syncAvailability(state);
+    sbStatus.textContent = r.ok
+      ? `Synced ${r.pushed} upcoming date(s) at ${new Date(r.at).toLocaleTimeString()}.`
+      : `Sync failed: ${r.reason}`;
+    sbBtn.disabled = false;
+    sbBtn.textContent = "Sync now";
+  }, "primary");
+
+  const supabaseCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Live availability (Supabase)"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Publishes how many slots are left per delivery day to the storefront (\"4 left\" / \"Sold out\"). Updates automatically as orders are added. Setup steps are in the README → Live availability."),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {}, el("label", {}, "Supabase URL"), sbUrl),
+      el("div", {}, el("label", {}, "Anon public key"), sbKey)),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {}, el("label", {}, "App login email"), sbEmail),
+      el("div", {}, el("label", {}, "App login password"), sbPass)),
+    el("label", { class: "daycheck", style: "margin-top:12px;display:inline-flex" },
+      sbOn, " ", "Enable live availability"),
+    el("div", { class: "btn-row", style: "margin-top:10px" }, sbBtn),
+    sbStatus);
+
+  const cld = (cur.cloud ??= {});
+  const signedIn = !!cachedToken();
+  const cldOn = el("input", { type: "checkbox", checked: !!cld.enabled,
+    onchange: () => {
+      cld.enabled = cldOn.checked;
+      save(state);
+      if (cld.enabled) {
+        toast("Shared data on — restarting to sign in");
+        location.reload();
+      } else {
+        toast("Shared data off");
+      }
+    } });
+  const cldStatus = el("p", { class: "card-sub", style: "margin:10px 0 0" }, "Not synced yet.");
+  const cldBtn = button("Sync now", async () => {
+    cldBtn.disabled = true;
+    cldBtn.textContent = "Syncing…";
+    const r = await sync.refresh(state);
+    cldStatus.textContent = r.ok
+      ? (r.changed
+          ? "Synced — new data from the other phone loaded."
+          : "Synced — everything is up to date.")
+      : `Sync failed: ${r.reason}`;
+    cldBtn.disabled = false;
+    cldBtn.textContent = "Sync now";
+  }, "primary");
+  const cldSignBtn = signedIn
+    ? button("Sign out", () => {
+        confirmDialog("Sign out of shared data? Live availability publishing pauses until you sign in again on this phone.",
+          () => {
+            sb.password = ""; // don't auto-login on next open
+            signOut();
+            save(state);
+            location.reload();
+          }, { danger: true, yesLabel: "Sign out" });
+      }, "soft")
+    : button("Sign in", () => location.reload(), "soft");
+
+  const sharedCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Shared data (cloud)"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Keeps the same orders, products, ingredients and delivery dates on every phone that signs in. Every change syncs automatically (no need to press anything); the other phone catches up within ~30 seconds. Works offline — edits queue up and push when the connection returns. Uses the Supabase login above."),
+    el("label", { class: "daycheck", style: "display:inline-flex" },
+      cldOn, " ", "Enable shared data"),
+    el("div", { class: "btn-row", style: "margin-top:10px" },
+      cldBtn,
+      cldSignBtn),
+    el("p", { class: "card-sub", style: "margin:8px 0 0" },
+      signedIn ? `Signed in with ${sb.email || "your Supabase login"}.` : "Not signed in."),
+    cldStatus);
+
+  const backupCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Backup & transfer"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Export a backup file regularly (weekly is plenty). Use Import to move data to a new phone, or to load the setup you prepared on another device."),
+    el("div", { class: "btn-row" },
+      button("⬇ Export backup", () => exportState(state), "primary"),
+      button("⬆ Import backup", () => fileInput.click(), "soft")),
+    fileInput);
+
+  const dangerCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Danger zone"),
+    el("div", { class: "btn-row" },
+      button("Delete all data", () => clearAll(), "danger")));
+
+  const sampleCard = (!state.products.length && !state.ingredients.length)
+    ? el("div", { class: "card" },
+        el("h3", { style: "margin:0 0 4px" }, "Try sample data"),
+        el("p", { class: "card-sub", style: "margin:0 0 10px" },
+          "Nothing here yet. Load a demo — focaccia + sandwich with a few orders — to see how the app works, then replace it with real data."),
+        el("div", { class: "btn-row" },
+          button("Load sample data", () => loadSample(state), "soft")))
+    : null;
+
+  root.replaceChildren(daysCard, storefrontCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+
+  function doImport(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    file.text().then((text) => {
+      let data;
+      try { data = parseImport(text); }
+      catch (err) { toast(err.message); return; }
+      const counts = `${data.products.length} products · ${data.ingredients.length} ingredients · ${data.orders.length} orders`;
+      confirmDialog(`Replace ALL current data with this backup? (${counts})`,
+        () => {
+          localStorage.setItem(LS_KEY, JSON.stringify(data));
+          location.reload();
+        }, { danger: true, yesLabel: "Replace" });
+    }).catch(() => toast("Couldn't read that file"));
+  }
+
+  function clearAll() {
+    confirmDialog("Delete ALL data (products, ingredients, orders, history)? This cannot be undone.",
+      () => {
+        confirmDialog("Really sure? Export a backup first if you're not.",
+          () => {
+            localStorage.removeItem(LS_KEY);
+            location.reload();
+          }, { danger: true, yesLabel: "Delete everything" });
+      }, { danger: true, yesLabel: "Continue" });
+  }
+}
+
+function loadSample(state) {
+  const ingredients = [
+    { id: newId("ing"), name: "Strong flour", unit: "g", costPerUnit: 0.006, purchaseNote: "RM25 / 4kg bag, Mydin", active: true },
+    { id: newId("ing"), name: "Instant yeast", unit: "g", costPerUnit: 0.05, purchaseNote: "small jar, online", active: true },
+    { id: newId("ing"), name: "Fine salt", unit: "g", costPerUnit: 0.004, active: true },
+    { id: newId("ing"), name: "Olive oil", unit: "ml", costPerUnit: 0.012, active: true },
+    { id: newId("ing"), name: "Butter", unit: "g", costPerUnit: 0.03, active: true },
+  ];
+  const [flour, yeast, salt, oil, butter] = ingredients;
+  const products = [
+    { id: newId("prd"), name: "Focaccia", unit: "loaf", price: 15, active: true, recipe: [
+      { ingredientId: flour.id, qty: 500, unit: "g" },
+      { ingredientId: yeast.id, qty: 5, unit: "g" },
+      { ingredientId: salt.id, qty: 10, unit: "g" },
+      { ingredientId: oil.id, qty: 20, unit: "ml" } ] },
+    { id: newId("prd"), name: "Sandwich", unit: "piece", price: 8, active: true, recipe: [
+      { ingredientId: flour.id, qty: 250, unit: "g" },
+      { ingredientId: yeast.id, qty: 3, unit: "g" },
+      { ingredientId: salt.id, qty: 4, unit: "g" },
+      { ingredientId: butter.id, qty: 10, unit: "g" } ] },
+  ];
+  const deliveryDates = generateUpcomingDates(state.settings, 3, [])
+    .map((date) => ({ id: newId("del"), date, notes: "" }));
+  const orders = [];
+  if (deliveryDates[0]) {
+    orders.push(
+      { id: newId("ord"), deliveryDateId: deliveryDates[0].id, productId: products[0].id, qty: 3,
+        customerName: "Aunty Bee", note: "plain, no rosemary", createdAt: new Date().toISOString() },
+      { id: newId("ord"), deliveryDateId: deliveryDates[0].id, productId: products[1].id, qty: 2,
+        customerName: "Mr Lim", note: "", createdAt: new Date().toISOString() });
+  }
+  Object.assign(state, { ingredients, products, deliveryDates, orders, purchaseOrders: [] });
+  save(state);
+  toast("Sample data loaded");
+  renderSettings(document.getElementById("view"), state);
+}
+
+// One-time prefill of the storefront text fields from store/config.js, so the
+// bakery name/tagline/links aren't re-typed by hand. Runs on first visit to
+// Settings; from then on the editor is the source of truth and this is a no-op.
+// Does NOT publish: on a multi-phone setup a fresh phone's config.js fallback
+// must not overwrite what another phone already published — the live pull in
+// renderSettings replaces these values when a published config exists. The
+// storefront menu is not seeded here — it comes from More → Products.
+function seedStorefront(state) {
+  const sf = state.settings.storefront;
+  if (sf.name) return;
+  Object.assign(sf, {
+    whatsapp: CONFIG.whatsapp || "",
+    name: CONFIG.name || "",
+    tagline: CONFIG.tagline || "",
+    instagram: CONFIG.instagram || "",
+    facebook: CONFIG.facebook || "",
+    tngQr: CONFIG.tngQr || "",
+  });
+  save(state);
+}
+
+function exportState(state) {
+  const payload = {
+    app: "bakeadmin",
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    data: state,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bakeadmin-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

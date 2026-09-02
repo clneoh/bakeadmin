@@ -1,0 +1,12 @@
+{
+  "name": "Bakester — Bakery Backoffice",
+  "short_name": "Bakester",
+  "description": "Pre-order bakery backoffice: recipes, orders, and auto ingredient purchase orders.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf6f0",
+  "theme_color": "#7c3a2d",
+  "icons": []
+}

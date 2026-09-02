@@ -1,0 +1,13 @@
+/* print.css — printed output shows ONLY the purchase-order card. */
+
+@media print {
+  body { background: #fff; }
+  .topbar, .tabbar, .toast, .confirm-layer, .btn, .no-print { display: none !important; }
+  .view { padding: 0; max-width: none; }
+
+  .card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+  .card:not(.po-card) { display: none !important; }
+
+  .po-card h2 { margin-top: 0; }
+  .po-total { font-size: 16px; }
+}
