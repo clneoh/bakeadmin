@@ -32,16 +32,19 @@ test("buildConfirmation carries the payment QR and a tap-ready send-receipt link
     "the published QR image URL sits on its own line so WhatsApp renders it as one picture");
   assert.ok(!built.message.includes("Your payment QR:"),
     "no extra 'Your payment QR:' label line that would add a second tap target");
-  assert.ok(built.message.includes("📲 Send my payment receipt on WhatsApp: https://wa.me/60123456789?text="),
+  assert.ok(built.message.includes("📲 Send my payment receipt: https://wa.me/60123456789?text="),
     "receipt link goes to the bakery's WhatsApp");
   assert.ok(built.message.includes("%23445566"),
-    "the tap-ready receipt message mentions this order's code (#445566)");
-  assert.ok(built.message.includes("Track%20your%20order%3A%20https%3A%2F%2Fbake.app%2Fstore%2F%3Ftrack%3D445566"),
-    "the receipt message also carries the track link, so it stays in reach after sending");
-  assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"));
+    "the tap-ready receipt note mentions this order's code (#445566)");
+  assert.ok(!built.message.includes("Track%20your%20order"),
+    "the receipt note is short and single-line — a nested track link is what made WhatsApp truncate the tapped message");
+  assert.ok(built.message.includes("🔍 Track your order: https://bake.app/store/?track=445566"),
+    "the track link sits near the top of the confirmation, so it survives any truncation at the tail");
+  assert.ok(built.message.indexOf("Track your order") < built.message.indexOf("Send my payment receipt"),
+    "track link comes before the receipt link");
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"),
     "reminds the customer to use their number as the TNG description");
-  assert.ok(built.message.includes("screenshot the receipt and send it back here"),
+  assert.ok(built.message.includes("screenshot the receipt, and send it here"),
     "reminds the customer to share the receipt screenshot");
 });
 

@@ -36,33 +36,33 @@ export function buildConfirmation(state, group, trackUrl) {
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
-  // The customer pays by scanning the TNG QR, then proves it with a receipt
-  // screenshot sent back in this chat. Give them the QR image link to pay from
-  // (a bare URL line is what makes WhatsApp render it as an image) and a
-  // tap-ready link that opens WhatsApp to the bakery with the "I've paid" note
-  // pre-filled. The note also carries the track link, so after WhatsApp jumps
-  // to send the receipt the customer still has the tracking link in front of
-  // them. Either part is skipped when the baker hasn't set it.
+  // The order summary and the track link lead the message. WhatsApp cuts long
+  // messages, so the facts the customer must keep (order #, date, items, the
+  // tracking link) come first and can never be lost in a truncated tail.
   const qr = String(sf.tngQr || "").trim();
-  const receiptMsg = `Hi! I've paid for order #${orderCode(first)} — here's my TNG receipt:\n🔍 Track your order: ${trackUrl}`;
+  // The "send receipt" link opens WhatsApp to the bakery with a SHORT,
+  // single-line note. Long pre-filled notes — or a second link buried inside —
+  // are what WhatsApp truncates when the customer taps them, which is what
+  // made the original message look like it fell apart. Matching the payment
+  // only needs the order code and the attached receipt screenshot.
+  const receiptMsg = `Hi! I paid order #${orderCode(first)} by TNG - my receipt:`;
   const recLine = sf.whatsapp
-    ? `📲 Send my payment receipt on WhatsApp: https://wa.me/${waNumber(sf.whatsapp)}?text=${encodeURIComponent(receiptMsg)}`
+    ? `📲 Send my payment receipt: https://wa.me/${waNumber(sf.whatsapp)}?text=${encodeURIComponent(receiptMsg)}`
     : "";
 
   let msg = `Hi ${first.customerName || ""}! Your order from ${bakery} is confirmed 🎉\n`;
   msg += `Order #${orderCode(first)}\n`;
   msg += `📅 ${date} · ${fulfillment}${address}\n`;
   msg += `🛍 ${items} — ${total}\n`;
-  msg += `💰 Please pay by TNG.\n`;
+  msg += `🔍 Track your order: ${trackUrl}\n`;
+  msg += `\n💰 Please pay by TNG:\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a
   // single scannable picture. A label like "Your payment QR:" just makes the
   // URL show up as link text too, doubling the tap targets — so none here.
   if (qr) msg += `\n${qr}\n`;
   // Matching the payment to the order needs the customer's phone number as the
   // TNG payment description, plus a receipt screenshot sent back in this chat.
-  msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;
-  msg += `Then screenshot the receipt and send it back here — thank you!\n`;
+  msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description, screenshot the receipt, and send it here:\n`;
   if (recLine) msg += `${recLine}\n`;
-  msg += `🔍 Track your order: ${trackUrl}`;
   return { recipient, message: msg };
 }
