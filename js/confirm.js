@@ -2,10 +2,14 @@
 // Pure (no DOM, no fetch) so it runs under Node for tests. Builds the message
 // text and the wa.me recipient; the caller opens WhatsApp.
 //
-// The message carries the TNG payment QR (a hosted image URL WhatsApp renders
-// in the chat) so the customer can scan and pay, plus a tap-ready "send my
-// payment receipt" link that opens WhatsApp to the bakery with the paid-for
-// order pre-filled. Either part is skipped when the baker hasn't set it.
+// The message leads with the order facts and shows the TNG payment QR (a
+// hosted image URL that WhatsApp renders in the chat - it MUST be the first
+// link in the message, or WhatsApp shows it as plain text). It then tells the
+// customer to reply in THIS SAME CHAT with the receipt. Deliberately no
+// tap-through "send receipt" deep link: opening one inside the chat makes
+// WhatsApp jump away and the original message look truncated. Plain ASCII text
+// only - emoji have come back as broken "empty boxes" on some phones. The QR
+// is skipped when the baker hasn't set one.
 
 import { byId, fmtRM, orderCode, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
@@ -20,7 +24,7 @@ export function buildConfirmation(state, group, trackUrl) {
   const recipient = waNumber(first.whatsapp);
   const items = orders.map((o) => {
     const p = byId(state.products, o.productId);
-    return `${p ? p.name : "item"} ×${o.qty}`;
+    return `${p ? p.name : "item"} x${o.qty}`;
   }).join(", ");
   const total = fmtRM(orders.reduce((s, o) => {
     const p = byId(state.products, o.productId);
@@ -32,38 +36,29 @@ export function buildConfirmation(state, group, trackUrl) {
   const courier = first.fulfillment === "courier";
   const fulfillment = courier ? "Courier delivery" : "Self collect";
   const address = courier && String(first.address || "").trim()
-    ? `\n📍 ${String(first.address).trim()}` : "";
+    ? `\nAddress: ${String(first.address).trim()}` : "";
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
-  // WhatsApp renders a picture for only the FIRST link in a message, so the QR
-  // image URL must come before every other URL or it shows up as plain text.
-  // The order summary leads (text only) so the facts stay at the top; the QR is
-  // the first URL; the receipt + track links follow it as plain tappable links.
   const qr = String(sf.tngQr || "").trim();
-  // The "send receipt" link opens WhatsApp to the bakery with a SHORT,
-  // single-line note. Long pre-filled notes — or a second link buried inside —
-  // are what WhatsApp truncates when the customer taps them, which is what
-  // made the original message look like it fell apart. Matching the payment
-  // only needs the order code and the attached receipt screenshot.
-  const receiptMsg = `Hi! I paid order #${orderCode(first)} by TNG - my receipt:`;
-  const recLine = sf.whatsapp
-    ? `📲 Send my payment receipt: https://wa.me/${waNumber(sf.whatsapp)}?text=${encodeURIComponent(receiptMsg)}`
-    : "";
 
-  let msg = `Hi ${first.customerName || ""}! Your order from ${bakery} is confirmed 🎉\n`;
+  let msg = `Hi ${first.customerName || ""}! Your order from ${bakery} is confirmed.\n`;
   msg += `Order #${orderCode(first)}\n`;
-  msg += `📅 ${date} · ${fulfillment}${address}\n`;
-  msg += `🛍 ${items} — ${total}\n`;
-  msg += `\n💰 Please pay by TNG:\n`;
+  msg += `Delivery: ${date} - ${fulfillment}${address}\n`;
+  msg += `Items: ${items}\n`;
+  msg += `Total: ${total}\n`;
+  msg += `\nPay by TNG using the QR below:\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a
-  // single scannable picture. A label like "Your payment QR:" just makes the
-  // URL show up as link text too, doubling the tap targets — so none here.
+  // single scannable picture, and it must stay the FIRST link in the message
+  // (WhatsApp pictures only the first link). No label line - a label would add
+  // a second, unwanted tap target.
   if (qr) msg += `\n${qr}\n`;
   // Matching the payment to the order needs the customer's phone number as the
-  // TNG payment description, plus a receipt screenshot sent back in this chat.
-  msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description, screenshot the receipt, and send it here:\n`;
-  if (recLine) msg += `${recLine}\n`;
-  msg += `🔍 Track your order: ${trackUrl}`;
+  // TNG payment description, plus the receipt screenshot sent back in THIS
+  // chat. No tap-through link: staying in the chat keeps the order details in
+  // front of the customer, so nothing ever jumps away or looks truncated.
+  msg += `\nWhen you pay, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;
+  msg += `Then tap the + button below and send your TNG receipt screenshot here - thank you!\n`;
+  msg += `Track your order: ${trackUrl}`;
   return { recipient, message: msg };
 }
