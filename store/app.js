@@ -506,9 +506,14 @@ export async function trackOrder(code) {
         `We couldn't find order #${clean}. Check the number in your confirmation message — it's the 6 characters after the #.`));
       return;
     }
-    const status = String(row.status || "").replace(/^./, (c) => c.toUpperCase());
+    // The status leads as a big colour-coded pill, then the order code and the
+    // delivery / items details. Colours map to the stage: grey = new, brown =
+    // confirmed, amber = baking, green = ready or delivered.
+    const key = String(row.status || "").toLowerCase().trim() || "new";
+    const status = key.replace(/^./, (c) => c.toUpperCase());
     const kids = [
-      el("p", { class: "track-status" }, `Order #${clean} · ${status}`),
+      el("span", { class: `status-pill st-${key}` }, status),
+      el("p", { class: "track-code" }, `Order #${clean}`),
       el("p", {}, row.delivery),
       el("p", {}, `${row.items} — ${row.total}`),
       row.customer ? el("p", { class: "track-note" }, `For ${row.customer}`) : null,

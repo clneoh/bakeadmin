@@ -258,10 +258,12 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
   }] });
   try {
     await trackOrder("A3F9C2");
-    const status = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-status"));
-    assert.ok(status, "shows a status line");
-    assert.ok(String(status.children[0].text || "").includes("A3F9C2"), "status line has the order code");
-    assert.ok(String(status.children[0].text || "").includes("Confirmed"), "status line has the latest status");
+    const pill = box.children.find((c) => c.tagName === "SPAN" && String(c.className || "").includes("status-pill"));
+    assert.ok(pill, "shows a big status pill");
+    assert.ok(String(pill.children[0].text || "").includes("Confirmed"), "pill shows the latest status");
+    const code = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-code"));
+    assert.ok(code, "shows the order code line");
+    assert.ok(String(code.children[0].text || "").includes("A3F9C2"), "code line has the order code");
     const note = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-note")
       && c.children[0] && String(c.children[0].text || "").includes("payment description"));
     assert.equal(note, undefined, "no payment-description reminder on the track page");
