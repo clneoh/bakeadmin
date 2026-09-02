@@ -14,7 +14,7 @@ function state(overrides = {}) {
   };
 }
 
-test("buildConfirmation points the customer to the track page to pay (no QR in every message)", () => {
+test("buildConfirmation includes the TNG QR image URL so the customer can scan and pay", () => {
   const group = { orders: [{
     id: "ord_ab12cd34ef56", groupId: "ordg_112233445566",
     deliveryDateId: "d1", fulfillment: "collect",
@@ -27,9 +27,9 @@ test("buildConfirmation points the customer to the track page to pay (no QR in e
   assert.ok(built.message.includes("Mon, 7 Sep · Self collect"), "date + fulfillment");
   assert.ok(built.message.includes("Focaccia ×2 — RM 30.00"), "items + total");
   assert.ok(built.message.includes("Please pay by TNG QR before collection."),
-    "asks for payment without embedding a QR image");
-  assert.ok(!built.message.includes("https://img/tng.png"),
-    "the same QR image is not repeated in every confirmation");
+    "asks for payment by TNG QR");
+  assert.ok(built.message.includes("Your payment QR:\nhttps://img/tng.png"),
+    "includes the published QR image URL so WhatsApp shows the scannable image");
   assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"));
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"),
     "reminds the customer to use their number as the TNG description");

@@ -2,9 +2,10 @@
 // Pure (no DOM, no fetch) so it runs under Node for tests. Builds the message
 // text and the wa.me recipient; the caller opens WhatsApp.
 //
-// The message asks for payment by TNG QR and collects proof through the
-// "send my payment receipt" flow — no QR image in the message, and the
-// tracking page shows only the order status plus the receipt-send button.
+// The message carries the baker's TNG QR (as a hosted image URL, which
+// WhatsApp renders as an image in the chat) so the customer can scan and pay,
+// and collects proof through the "send my payment receipt" flow. The QR is
+// only added when a published tngQr URL is set.
 
 import { byId, fmtRM, orderCode, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
@@ -35,15 +36,17 @@ export function buildConfirmation(state, group, trackUrl) {
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
+  // The hosted image URL of the TNG payment QR. A bare URL line in the message
+  // is what makes WhatsApp render the image in the chat so the customer can
+  // scan it; skipped entirely when the baker hasn't published one.
+  const qr = String(sf.tngQr || "").trim();
 
-  // No QR image in the message — it would be the same picture on every order.
-  // The customer pays from the tracking page, which shows the QR and the
-  // "send my payment receipt" button; the message points them there.
   let msg = `Hi ${first.customerName || ""}! Your order from ${bakery} is confirmed 🎉\n`;
   msg += `Order #${orderCode(first)}\n`;
   msg += `📅 ${date} · ${fulfillment}${address}\n`;
   msg += `🛍 ${items} — ${total}\n`;
   msg += `💰 Please pay by TNG QR before collection.\n`;
+  if (qr) msg += `Your payment QR:\n${qr}\n`;
   // Matching the payment to the order needs the customer's phone number as the
   // TNG payment description, plus a receipt screenshot sent back in this chat.
   msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;
