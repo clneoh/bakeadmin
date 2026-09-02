@@ -2,10 +2,10 @@
 // Pure (no DOM, no fetch) so it runs under Node for tests. Builds the message
 // text and the wa.me recipient; the caller opens WhatsApp.
 //
-// The customer pays by TNG and proves it with a receipt screenshot sent back
-// in the chat, so the message carries a tap-ready "send my payment receipt"
-// link that opens WhatsApp to the bakery with the paid-for order pre-filled.
-// No QR image in the message — the baker shares the QR separately.
+// The message carries the TNG payment QR (a hosted image URL WhatsApp renders
+// in the chat) so the customer can scan and pay, plus a tap-ready "send my
+// payment receipt" link that opens WhatsApp to the bakery with the paid-for
+// order pre-filled. Either part is skipped when the baker hasn't set it.
 
 import { byId, fmtRM, orderCode, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
@@ -36,10 +36,12 @@ export function buildConfirmation(state, group, trackUrl) {
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
-  // The customer pays by TNG using the QR the baker shares separately, then
-  // proves it by sending the receipt screenshot back in this chat. Give them a
+  // The customer pays by scanning the TNG QR, then proves it with a receipt
+  // screenshot sent back in this chat. Give them the QR image link to pay from
+  // (a bare URL line is what makes WhatsApp render it as an image) and a
   // tap-ready link that opens WhatsApp to the bakery with the "I've paid" note
-  // pre-filled for this order — skipped if the bakery has no WhatsApp number.
+  // pre-filled. Either is skipped when the baker hasn't set it.
+  const qr = String(sf.tngQr || "").trim();
   const receiptMsg = `Hi! I've paid for order #${orderCode(first)} — here's my TNG receipt:`;
   const recLine = sf.whatsapp
     ? `📲 Send my payment receipt on WhatsApp: https://wa.me/${waNumber(sf.whatsapp)}?text=${encodeURIComponent(receiptMsg)}`
@@ -50,6 +52,7 @@ export function buildConfirmation(state, group, trackUrl) {
   msg += `📅 ${date} · ${fulfillment}${address}\n`;
   msg += `🛍 ${items} — ${total}\n`;
   msg += `💰 Please pay by TNG QR before collection.\n`;
+  if (qr) msg += `Your payment QR:\n${qr}\n`;
   // Matching the payment to the order needs the customer's phone number as the
   // TNG payment description, plus a receipt screenshot sent back in this chat.
   msg += `When paying, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;

@@ -251,22 +251,24 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
   }
 });
 
-test("trackOrder shows the receipt-send WhatsApp link and no TNG QR image", async () => {
+test("trackOrder shows only the order details and latest status — no receipt/QR extras", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
     status: "Confirmed", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
     await trackOrder("A3F9C2");
-    const qr = box.children.find((c) => c.tagName === "IMG");
-    assert.equal(qr, undefined, "no TNG QR image on the track page");
+    const status = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-status"));
+    assert.ok(status, "shows a status line");
+    assert.ok(String(status.children[0].text || "").includes("A3F9C2"), "status line has the order code");
+    assert.ok(String(status.children[0].text || "").includes("Confirmed"), "status line has the latest status");
     const note = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-note")
       && c.children[0] && String(c.children[0].text || "").includes("payment description"));
-    assert.ok(note, "reminds the customer to use their phone number as the TNG description");
+    assert.equal(note, undefined, "no payment-description reminder on the track page");
     const link = box.children.find((c) => c.tagName === "A");
-    assert.ok(link, "shows a link to send the payment receipt");
-    assert.ok(link.attrs.href.includes("wa.me/60123456789"), "receipt goes to the bakery's WhatsApp");
-    assert.ok(link.attrs.href.includes("A3F9C2"), "receipt message mentions the order code");
+    assert.equal(link, undefined, "no receipt-send link on the track page");
+    const img = box.children.find((c) => c.tagName === "IMG");
+    assert.equal(img, undefined, "no QR image on the track page");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }

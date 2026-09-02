@@ -471,10 +471,11 @@ export function render() {
 }
 
 // ── Track your order ───────────────────────────────────────────────────────
-// Look up one order on the public tracking table and show its status, delivery
-// details, items + total, plus the TNG QR when the baker has published one.
-// Friendly fallbacks keep the card usable when the code is wrong or tracking
-// is unreachable.
+// Look up one order on the public tracking table and show its latest status
+// (new / confirmed / baking / ready / delivered) with the order details only.
+// Payment instructions and the receipt flow live in the WhatsApp confirmation,
+// not here. Friendly fallbacks keep the card usable when the code is wrong or
+// tracking is unreachable.
 export async function trackOrder(code) {
   const box = document.getElementById("track-result");
   if (!box) return;
@@ -506,23 +507,11 @@ export async function trackOrder(code) {
       return;
     }
     const status = String(row.status || "").replace(/^./, (c) => c.toUpperCase());
-    // Remind the customer to put their phone number in the TNG payment
-    // description and to send the receipt screenshot back on WhatsApp.
-    const recMsg = `Hi! I've paid for order #${clean} — here's my TNG receipt:`;
-    const recUrl = CONFIG.whatsapp
-      ? `https://wa.me/${waNumber(CONFIG.whatsapp)}?text=${encodeURIComponent(recMsg)}`
-      : null;
     const kids = [
       el("p", { class: "track-status" }, `Order #${clean} · ${status}`),
       el("p", {}, row.delivery),
       el("p", {}, `${row.items} — ${row.total}`),
       row.customer ? el("p", { class: "track-note" }, `For ${row.customer}`) : null,
-      recUrl ? el("p", { class: "track-note" },
-        "Pay with TNG, put your phone number in the payment description, then send us the receipt:") : null,
-      recUrl
-        ? el("a", { class: "confirm-link", href: recUrl, target: "_blank", rel: "noopener" },
-          "📲 Send my payment receipt on WhatsApp")
-        : null,
     ];
     box.replaceChildren(...kids.filter(Boolean));
   } catch {

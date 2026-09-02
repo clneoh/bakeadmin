@@ -14,7 +14,7 @@ function state(overrides = {}) {
   };
 }
 
-test("buildConfirmation gives the customer a tap-ready send-receipt link (no QR image link)", () => {
+test("buildConfirmation carries the payment QR and a tap-ready send-receipt link", () => {
   const group = { orders: [{
     id: "ord_ab12cd34ef56", groupId: "ordg_112233445566",
     deliveryDateId: "d1", fulfillment: "collect",
@@ -28,8 +28,8 @@ test("buildConfirmation gives the customer a tap-ready send-receipt link (no QR 
   assert.ok(built.message.includes("Focaccia ×2 — RM 30.00"), "items + total");
   assert.ok(built.message.includes("Please pay by TNG QR before collection."),
     "asks for payment by TNG QR");
-  assert.ok(!built.message.includes("https://img/tng.png"),
-    "no QR image URL link in the message");
+  assert.ok(built.message.includes("Your payment QR:\nhttps://img/tng.png"),
+    "includes the published QR image URL so the customer can scan and pay");
   assert.ok(built.message.includes("📲 Send my payment receipt on WhatsApp: https://wa.me/60123456789?text="),
     "receipt link goes to the bakery's WhatsApp");
   assert.ok(built.message.includes("%23445566"),
