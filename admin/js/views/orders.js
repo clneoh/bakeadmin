@@ -9,6 +9,10 @@ import { buildPaymentReminder, buildPickupReminder } from "../messages.js";
 import { maybeSync, publishTracking } from "../supabase.js";
 
 let orderStatusFilter = "";
+// Text in the "Find an order" box at the top of the Orders screen (empty = box
+// unused). Kept across in-place rebuilds so a sync pull or a row action doesn't
+// drop what the baker is searching for; renderOrders clears it for a fresh visit.
+let orderQuery = "";
 // Set just before an in-place rebuild that came from a row's own control
 // (status dropdown, Edit). renderAll then keeps THAT order row pinned to its
 // current screen spot across the rebuild — the row the baker is touching must
@@ -127,7 +131,58 @@ export function applyGroupPatch(orders, patch, qtyOf) {
 
 export function renderOrders(root, state, params) {
   orderStatusFilter = "";
+  orderQuery = ""; // a fresh visit to Orders starts with an empty finder box
   renderAll(root, state, params);
+}
+
+// ---- Finder: search every order (any date, any status) ----
+
+// One compact "searchable text" per order group covering everything the baker
+// might type: customer name, the order's #code, the WhatsApp number (as typed
+// and digits-only), item names, note, address, delivery method and delivery
+// day. Lowercased so matches are case-insensitive.
+function groupSearchText(state, group) {
+  const words = [];
+  const digitChunks = [];
+  for (const o of group.orders || []) {
+    const product = o.productId ? byId(state.products, o.productId) : null;
+    const code = orderCode(o);
+    words.push(`#${code}`, code);
+    words.push(o.customerName);
+    words.push(o.whatsapp);
+    const wa = waNumber(o.whatsapp);
+    if (wa) digitChunks.push(wa);
+    words.push(o.note);
+    words.push(o.address);
+    words.push(o.fulfillment === "courier" ? "courier delivery" : "self collect");
+    if (product && product.name) words.push(product.name);
+    if (o.deliveryDate) words.push(o.deliveryDate); // "2026-09-07" works too
+    const date = o.deliveryDateId ? byId(state.deliveryDates, o.deliveryDateId) : null;
+    if (date) words.push(shortDate(date.date));
+  }
+  return {
+    text: words.filter(Boolean).join(" ").toLowerCase(),
+    digits: digitChunks.join(" "),
+  };
+}
+
+// Order groups whose every search word shows up somewhere in the order: a name,
+// a code ("#A3F9C2" or just its digits), a WhatsApp number typed with or
+// without dashes/+, an item name, the note, the address or a delivery day. All
+// words must match (so "ain focaccia" narrows to one order). Recency-sorted,
+// most recent first. Pure — the finder box wires this up to the DOM.
+export function matchingGroups(state, query) {
+  const tokens = String(query || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return [];
+  return groupOrders(state.orders || []).filter((group) => {
+    const hay = groupSearchText(state, group);
+    return tokens.every((tok) => {
+      if (hay.text.includes(tok)) return true;
+      const digits = tok.replace(/[^0-9]/g, "");
+      return digits.length >= 2 && hay.digits.includes(digits);
+    });
+  }).sort((a, b) => String(b.orders[0].createdAt || "")
+    .localeCompare(String(a.orders[0].createdAt || "")));
 }
 
 // The date strip scrolls horizontally, so a far date's pill hides off its
@@ -246,11 +301,14 @@ function renderAll(root, state, params) {
 
   renderContent();
   const inbox = newOrdersInbox(state, selectDate, root);
-  if (inbox) {
-    root.replaceChildren(inbox, strip, content);
-  } else {
-    root.replaceChildren(strip, content);
-  }
+  // The screen is two stacked parts: the finder card up top, then everything
+  // else (New-orders inbox, date strip, that date's orders) in one container.
+  // While a search is active the container hides so only matches are shown.
+  const body = el("div", {});
+  if (inbox) body.append(inbox);
+  body.append(strip, content);
+  const finder = orderFinderEl(state, root, selectDate, body);
+  root.replaceChildren(finder, body);
   let delta = null;
   if (rowTop != null) {
     const rowAfter = root.querySelector(`[data-order="${anchorRowId}"]`);
@@ -320,6 +378,116 @@ export function newOrdersInbox(state, selectDate, root) {
     el("p", { class: "card-sub", style: "margin:0 0 6px" },
       "Tap a row to open the delivery date and confirm."),
     el("div", { class: "inbox-list" }, ...rows));
+}
+
+// The "Find an order" box pinned to the top of the Orders screen. Typing hides
+// the date view below and lists every matching order (any date, any status) as
+// tappable rows; picking one jumps to its delivery date, scrolls the order into
+// view and flashes it so the baker sees exactly where it is. Matches live-update
+// as she types — only the results list is rebuilt, never the input, so the
+// keyboard stays open. (Result rows carry no controls, so nothing can trigger a
+// rebuild while the box is showing.)
+function orderFinderEl(state, root, selectDate, body) {
+  const resultsEl = el("div", { class: "finder-results", hidden: true });
+
+  const showResults = () => { body.hidden = true; resultsEl.hidden = false; };
+  const hideResults = () => { body.hidden = false; resultsEl.hidden = true; };
+
+  const resultRow = (group) => {
+    const first = group.orders[0];
+    const date = byId(state.deliveryDates, first.deliveryDateId);
+    const orphan = !date;
+    const items = group.orders
+      .map((o) => (byId(state.products, o.productId) || {}).name || "(deleted product)");
+    const qtyTotal = group.orders.reduce((s, o) => s + o.qty, 0);
+    const statusName = (STATUSES.find(([v]) => v === (first.status || "new")) || [])[1];
+    const sub = [first.customerName || "No name",
+      date ? shortDate(date.date) : "delivery date removed", statusName]
+      .filter(Boolean).join(" · ");
+    const main = el("div", { class: "li-main" },
+      el("div", { class: "li-title" }, items.join(" + "), orderCodeTag(first),
+        group.orders.some((o) => o.source === "storefront")
+          ? el("span", { class: "src-tag" }, "storefront") : null),
+      el("div", { class: "li-sub" }, sub));
+    const meta = el("div", { class: "li-right" },
+      el("span", { class: "qty-chip" }, `×${qtyTotal}`),
+      orphan ? null : el("span", { class: "inbox-arrow" }, "›"));
+    // An orphan (its delivery date was deleted) has no date to jump to, so it
+    // renders as a plain row without an arrow.
+    const nav = orphan
+      ? el("span", { class: "inbox-main" }, main, meta)
+      : el("a", {
+          class: "inbox-main",
+          href: `#/orders?date=${first.deliveryDateId}`,
+          onclick: (ev) => { ev.preventDefault(); open(group); },
+        }, main, meta);
+    return el("div", { class: "inbox-item" }, nav);
+  };
+
+  const paint = (query) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      resultsEl.replaceChildren(
+        el("h3", { style: "margin:0 0 6px" }, "🔎 Find an order"),
+        el("p", { class: "card-sub" },
+          "Keep typing — try a customer name, the #order code, or a phone number."));
+      return;
+    }
+    const groups = matchingGroups(state, trimmed);
+    resultsEl.replaceChildren(
+      el("h3", { style: "margin:0 0 6px" },
+        `🔎 ${groups.length} order${groups.length === 1 ? "" : "s"} found`),
+      groups.length
+        ? el("div", { class: "inbox-list" }, ...groups.map(resultRow))
+        : el("p", { class: "muted" },
+          `No order matches "${trimmed}" — try a name, #code, phone or item.`));
+  };
+
+  const input = el("input", {
+    class: "input finder-input",
+    type: "search",
+    placeholder: "Find an order — name, #code, phone…",
+    value: orderQuery,
+    autocomplete: "off",
+    oninput: function () {
+      orderQuery = this.value;
+      const trimmed = orderQuery.trim();
+      if (!trimmed) { hideResults(); return; }
+      showResults();
+      paint(orderQuery);
+    },
+  });
+
+  // Tap a result: clear the finder, land on that order's delivery date and make
+  // the row flash so she sees where it is. Clearing any list status filter first
+  // guarantees the order is actually visible under that date.
+  const open = (group) => {
+    const first = group.orders[0];
+    const date = byId(state.deliveryDates, first.deliveryDateId);
+    orderQuery = "";
+    input.value = "";
+    hideResults();
+    if (!date) {
+      toast("This order's delivery date was deleted — remove it from the New Orders box.");
+      return;
+    }
+    orderStatusFilter = "";
+    selectDate(date.id); // renderContent already put the order's row in the DOM
+    const row = root.querySelector(`[data-order="${first.id}"]`);
+    if (!row) return;
+    row.classList.add("hit");
+    setTimeout(() => row.classList.remove("hit"), 1800);
+    if (typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  };
+
+  if (orderQuery.trim()) { showResults(); paint(orderQuery); } // a rebuild while searching
+  return el("div", { class: "card finder" },
+    el("div", { class: "finder-bar" },
+      el("span", { class: "finder-ico", "aria-hidden": "true" }, "🔍"),
+      input),
+    resultsEl);
 }
 
 function dateContent(state, date, root) {

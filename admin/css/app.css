@@ -807,3 +807,25 @@ textarea.input { min-height: 64px; resize: vertical; }
   -webkit-tap-highlight-color: transparent;
 }
 .inbox-del:active { background: var(--red-bg); color: #d64541; }
+
+/* ---------- Order finder (top of the Orders screen) ---------- */
+.finder { padding: 10px 12px 6px; }
+.finder-bar { display: flex; align-items: center; gap: 8px; }
+.finder-ico { font-size: 17px; line-height: 1; opacity: .85; flex: 0 0 auto; }
+.finder-input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  -webkit-appearance: none;
+}
+.finder-results { margin-top: 10px; padding-top: 2px; }
+.finder-results .inbox-item { padding: 12px 0; }
+.finder-results h3 { font-size: 15px; }
+
+/* An order row just landed on via the finder briefly glows so the baker can
+   see exactly where the search took her, then fades back. */
+.list-item.hit { animation: hit-glow 1.8s ease; }
+@keyframes hit-glow {
+  0%, 100% { box-shadow: none; background: transparent; }
+  15%, 40% { box-shadow: 0 0 0 3px rgba(62, 142, 90, .55); background: rgba(62, 142, 90, .10); }
+}

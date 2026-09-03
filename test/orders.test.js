@@ -37,7 +37,7 @@ globalThis.document = {
 };
 globalThis.window = { open() {} };
 
-import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups, journeyMarks } from "../admin/js/views/orders.js";
+import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups, journeyMarks, matchingGroups } from "../admin/js/views/orders.js";
 
 test("only Confirmed needs a WhatsApp number (it gates sending the confirmation)", () => {
   assert.equal(statusNeedsWhatsapp("confirmed"), true);
@@ -171,4 +171,87 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
     assert.ok(code, "title line carries the order code tag");
     assert.ok(String(code.children[0].text || "").startsWith("#"), "tag reads like #A3F9C2");
   }
+});
+
+// Orders for the finder tests. The order ids end in fixed hex so the derived
+// code is predictable: "o_9f3ba44e" → #3BA44E, "o_ce7c9b21" → #7C9B21.
+const searchState = () => ({
+  products: [
+    { id: "p1", name: "Focaccia" },
+    { id: "p2", name: "Sourdough Loaf" },
+  ],
+  deliveryDates: [
+    { id: "d1", date: "2026-09-04" },
+    { id: "d2", date: "2026-09-07" },
+  ],
+  orders: [
+    { id: "o_9f3ba44e", status: "new", deliveryDateId: "d1", deliveryDate: "2026-09-04",
+      productId: "p1", qty: 2, customerName: "Ain", whatsapp: "012-345 6789",
+      note: "extra crunchy", fulfillment: "collect", createdAt: "2026-09-02T10:00:00" },
+    { id: "o_ce7c9b21", status: "delivered", deliveryDateId: "d2", deliveryDate: "2026-09-07",
+      productId: "p2", qty: 1, customerName: "Maya", whatsapp: "60165557777",
+      note: "no onions", fulfillment: "courier", createdAt: "2026-09-03T09:00:00" },
+  ],
+});
+const foundIds = (state, q) => matchingGroups(state, q).map((g) => g.orders[0].id);
+
+test("matchingGroups finds orders by customer name, case-insensitively", () => {
+  const st = searchState();
+  assert.deepEqual(foundIds(st, "ain"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "AIN"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "maya"), ["o_ce7c9b21"]);
+});
+
+test("matchingGroups finds an order by its #code, with or without the hash and in any case", () => {
+  const st = searchState();
+  assert.deepEqual(foundIds(st, "3BA44E"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "#3BA44E"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "3ba44e"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "#7c9b21"), ["o_ce7c9b21"]);
+});
+
+test("matchingGroups finds an order by WhatsApp number, messy as typed", () => {
+  const st = searchState();
+  assert.deepEqual(foundIds(st, "012-345"), ["o_9f3ba44e"], "local format with dash");
+  assert.deepEqual(foundIds(st, "0123456789"), ["o_9f3ba44e"], "local digits, no dash");
+  assert.deepEqual(foundIds(st, "60123456789"), ["o_9f3ba44e"], "international digits");
+  assert.deepEqual(foundIds(st, "016 555 7777"), ["o_ce7c9b21"], "country-code digits split");
+});
+
+test("matchingGroups finds by item, note, delivery method and delivery day", () => {
+  const st = searchState();
+  assert.deepEqual(foundIds(st, "focaccia"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "Sourdough"), ["o_ce7c9b21"]);
+  assert.deepEqual(foundIds(st, "extra crunchy"), ["o_9f3ba44e"], "matches the note");
+  assert.deepEqual(foundIds(st, "no onions"), ["o_ce7c9b21"]);
+  assert.deepEqual(foundIds(st, "courier"), ["o_ce7c9b21"], "delivery method");
+  assert.deepEqual(foundIds(st, "2026-09-07"), ["o_ce7c9b21"], "ISO delivery date");
+});
+
+test("matchingGroups ANDs the words — every word must match the same order", () => {
+  const st = searchState();
+  assert.deepEqual(foundIds(st, "ain focaccia"), ["o_9f3ba44e"]);
+  assert.deepEqual(foundIds(st, "maya no onions"), ["o_ce7c9b21"]);
+  assert.deepEqual(foundIds(st, "ain maya"), [], "no single order has both names");
+});
+
+test("matchingGroups sorts matches recency-first", () => {
+  const st = searchState();
+  st.orders.push({ id: "o_aabbcc01", status: "new", deliveryDateId: "d1", deliveryDate: "2026-09-04",
+    productId: "p1", qty: 1, customerName: "Ain", whatsapp: "", createdAt: "2026-09-04T08:00:00" });
+  assert.deepEqual(foundIds(st, "ain"), ["o_aabbcc01", "o_9f3ba44e"]);
+});
+
+test("matchingGroups finds an orphaned order (its date was deleted) by name", () => {
+  const st = searchState();
+  st.orders.push({ id: "o_cafe0abc", status: "new", deliveryDateId: "del_gone",
+    deliveryDate: "2026-08-30", productId: "p2", qty: 1, customerName: "Ghost",
+    whatsapp: "", createdAt: "2026-09-01T08:00:00" });
+  assert.deepEqual(foundIds(st, "ghost"), ["o_cafe0abc"]);
+});
+
+test("matchingGroups returns nothing for a blank query", () => {
+  assert.deepEqual(matchingGroups(searchState(), ""), []);
+  assert.deepEqual(matchingGroups(searchState(), "   "), []);
+  assert.deepEqual(matchingGroups(searchState(), undefined), []);
 });
