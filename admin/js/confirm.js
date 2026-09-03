@@ -58,7 +58,7 @@ export function buildConfirmation(state, group, trackUrl) {
   // chat. No tap-through link: staying in the chat keeps the order details in
   // front of the customer, so nothing ever jumps away or looks truncated.
   msg += `\nWhen you pay, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;
-  msg += `Then tap the + button below and send your TNG receipt screenshot here - thank you!\n`;
+  msg += `Then send your TNG receipt screenshot here as a photo - thank you!\n`;
   msg += `Track your order: ${trackUrl}`;
   return { recipient, message: msg };
 }
