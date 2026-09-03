@@ -9,6 +9,11 @@ import { maybeSync, publishTracking } from "../supabase.js";
 
 let editingOrderId = null;
 let orderStatusFilter = "";
+// Set just before an in-place rebuild that came from a row's own control
+// (status dropdown, Edit). renderAll then keeps THAT order row pinned to its
+// current screen spot across the rebuild — the row the baker is touching must
+// never move, no matter how the New-orders box or the form above change size.
+let anchorRowId = null;
 
 const STATUSES = [
   ["new", "New"],
@@ -100,13 +105,21 @@ function renderAll(root, state, params) {
   // In-place rebuilds (status change, add, edit, remove) must not let the
   // screen jump under the baker's finger: the New-orders inbox above the date
   // strip grows/shrinks as orders are handled, and the New/Edit form changes
-  // height, so everything below would otherwise snap up or down. Remember
-  // where the Orders list sits and put the rebuilt list back there. A fresh
-  // route render (the router cleared #view first) finds no list to anchor, so
-  // it starts at the top as usual.
+  // height, so everything below would otherwise snap up or down. Pin the row
+  // the baker is acting on (set via anchorRowId) back to its screen spot; when
+  // that row is gone (e.g. removed, or filtered out) pin the Orders list top
+  // instead. A fresh route render (the router cleared #view first) finds
+  // neither and starts at the top as usual.
   const scroller = () => document.scrollingElement || document.documentElement;
   const listBefore = root.querySelector('[data-role="orders-list"]');
   const anchorTop = listBefore ? listBefore.getBoundingClientRect().top : null;
+  let rowTop = null;
+  if (anchorRowId) {
+    const rowEl = root.querySelector(`[data-order="${anchorRowId}"]`);
+    if (rowEl && typeof rowEl.getBoundingClientRect === "function") {
+      rowTop = rowEl.getBoundingClientRect().top;
+    }
+  }
   const requested = params.get("date");
   let activeId = (requested && dates.some((d) => d.id === requested))
     ? requested
@@ -172,13 +185,17 @@ function renderAll(root, state, params) {
   } else {
     root.replaceChildren(strip, content);
   }
-  if (anchorTop != null) {
-    const listAfter = root.querySelector('[data-role="orders-list"]');
-    if (listAfter) {
-      const delta = listAfter.getBoundingClientRect().top - anchorTop;
-      if (delta) scroller().scrollTop += delta;
-    }
+  let delta = null;
+  if (rowTop != null) {
+    const rowAfter = root.querySelector(`[data-order="${anchorRowId}"]`);
+    if (rowAfter) delta = rowAfter.getBoundingClientRect().top - rowTop;
   }
+  if (delta == null && anchorTop != null) {
+    const listAfter = root.querySelector('[data-role="orders-list"]');
+    if (listAfter) delta = listAfter.getBoundingClientRect().top - anchorTop;
+  }
+  if (delta) scroller().scrollTop += delta;
+  anchorRowId = null;
 }
 
 // Inbox card at the top of the Orders screen: every order still waiting to be
@@ -659,6 +676,7 @@ function orderGroupRow(state, group, root, dateId) {
         return;
       }
       for (const o of orders) o.status = stSel.value;
+      anchorRowId = first.id; // keep this row pinned where the baker tapped it
       save(state);
       maybeSync(state);
       updateOrderBadge(state);
@@ -671,7 +689,11 @@ function orderGroupRow(state, group, root, dateId) {
   const actions = [];
   // Edit is available on every order — single items and multi-item groups alike —
   // so the baker can always add the customer's WhatsApp, address, or notes.
-  actions.push(button("Edit", () => { editingOrderId = first.id; renderAll(root, state, new URLSearchParams({ date: dateId })); }, "ghost small"));
+  actions.push(button("Edit", () => {
+    editingOrderId = first.id;
+    anchorRowId = first.id; // keep the order the baker is editing in place
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  }, "ghost small"));
   // Send the customer a confirmation once the order is confirmed (re-send
   // anytime while it's baking or ready). Needs their WhatsApp number.
   const sendable = ["confirmed", "baking", "ready"].includes(first.status || "new");
@@ -691,7 +713,7 @@ function orderGroupRow(state, group, root, dateId) {
     ? el("div", { class: "li-sub muted" }, "Add the customer's WhatsApp (tap Edit) to confirm this order.")
     : null;
 
-  return el("div", { class: "list-item" },
+  return el("div", { class: "list-item", dataset: { order: first.id } },
     el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title,
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),

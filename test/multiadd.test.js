@@ -66,6 +66,16 @@ function selectedValue(sel) {
   return opt ? opt.value : "";
 }
 
+// A delivery date is "open" until the day before it at the cut-off time, then
+// the manual-add flow asks "Add as backfill?" instead of committing. A fixed
+// date near today would flip that branch the moment the clock passes cut-off,
+// so the add tests use a date far enough ahead that it is always open.
+function futureISO(daysAhead) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const baseState = () => ({
   settings: {
     currency: "RM",
@@ -77,7 +87,7 @@ const baseState = () => ({
     { id: "p1", name: "Focaccia", price: 15 },
     { id: "p2", name: "Sandwich", price: 8 },
   ],
-  deliveryDates: [{ id: "d1", date: "2026-09-04" }],
+  deliveryDates: [{ id: "d1", date: futureISO(3) }],
   orders: [],
 });
 
