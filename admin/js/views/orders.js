@@ -24,9 +24,9 @@ const STATUSES = [
   ["delivered", "Delivered"],
 ];
 
-// The order-status journey drawn as a small reference map above the list:
-// New → Confirmed → Paid → Baking → Ready → Delivered. Rows do the changing
-// (their status dropdown); this map is just where each status sits in the flow.
+// A small route map shown when a delivery date has no orders yet, so the screen
+// still explains the journey: New → Confirmed → Paid → Baking → Ready →
+// Delivered. Real rows carry their own mini journey below them instead.
 function statusFlowEl() {
   const kids = [];
   STATUSES.forEach(([, label], i) => {
@@ -34,6 +34,29 @@ function statusFlowEl() {
     kids.push(el("span", { class: "flow-step" }, label));
   });
   return el("div", { class: "status-flow", "aria-label": "Order status flow" }, ...kids);
+}
+
+// Every order row shows its own copy of the journey with where THAT order sits
+// lit up: reached steps are green with a tick, this order's current step is the
+// amber dot, later steps stay grey. The baker sees at a glance, under each row,
+// where every order is on the route — and watches the dot move when the status
+// dropdown changes. A Delivered order shows the whole line green, matching what
+// the customer sees.
+function orderJourneyEl(status) {
+  const finished = status === "delivered";
+  const idx = finished ? STATUSES.length : STATUSES.findIndex(([id]) => id === status);
+  const root = el("div", { class: "oj", "aria-label": "Order status journey" });
+  STATUSES.forEach(([, label], i) => {
+    const state = i < idx ? "done" : i === idx ? "now" : "todo";
+    const mark =
+      state === "done" ? el("span", { class: "oj-check" }, "✓")
+      : state === "now" ? el("span", { class: "oj-dot" }) : null;
+    root.append(el("div", { class: `oj-step ${state}` }, [
+      el("div", { class: "oj-track" }, [el("div", { class: "oj-node" }, mark)]),
+      el("div", { class: "oj-label" }, label),
+    ]));
+  });
+  return root;
 }
 
 // A confirmable status (Confirmed/Baking/Ready) is what sends the customer
@@ -653,7 +676,6 @@ function orderList(state, dateId, root) {
 
     const list = el("div", {},
       el("h3", { style: "margin:0 0 4px" }, "Orders"),
-      statusFlowEl(),
       el("div", { class: "row-actions", style: "margin:0 0 8px" }, filterSel),
       ...blocks);
     if (!filteredGroups.length) {
@@ -741,7 +763,8 @@ function orderGroupRow(state, group, root, dateId) {
     el("div", { class: "li-right" },
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
       stSel,
-      ...actions));
+      ...actions),
+    orderJourneyEl(first.status || "new"));
 }
 
 // Build the customer-facing WhatsApp confirmation: their order code, the

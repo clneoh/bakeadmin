@@ -332,6 +332,70 @@ test("a Paid order lights up Paid on the journey, between Confirmed and Baking",
   }
 });
 
+test("a Ready order shows New..Ready done with only Delivered pulsing", async () => {
+  const box = document.getElementById("track-result");
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+    status: "Ready", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
+  }] });
+  try {
+    await trackOrder("A3F9C2");
+    const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    assert.ok(journey, "shows the journey");
+    const labels = [];
+    const steps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) steps.push(c);
+        if (String(c.className || "").split(/\s+/).includes("tj-label")) {
+          labels.push((c.children[0] && c.children[0].text) || String(c.textContent || ""));
+        }
+        walk(c);
+      }
+    })(journey);
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baking", "Ready", "Delivered"],
+      "journey reads New → Confirmed → Paid → Baking → Ready → Delivered");
+    assert.equal(steps.length, 6, "all six stages present");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 5,
+      "everything before the delivery is green once the order is Ready");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 0,
+      "no stage stays grey — the delivery is the only one left");
+    const now = steps.find((s) => String(s.className || "").includes("now"));
+    const nowLabel = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
+    assert.ok(nowLabel && String(nowLabel.children[0].text || "").includes("Delivered"),
+      "Delivered is the flashing (current) stage while the order is Ready");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+test("a Delivered order shows the whole journey green — nothing flashes", async () => {
+  const box = document.getElementById("track-result");
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+    status: "Delivered", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
+  }] });
+  try {
+    await trackOrder("A3F9C2");
+    const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    assert.ok(journey, "shows the journey");
+    const steps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) steps.push(c);
+        walk(c);
+      }
+    })(journey);
+    assert.equal(steps.length, 6, "all six stages present");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 6,
+      "every stage is green on a delivered order");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("now")).length, 0,
+      "nothing flashes once the order is delivered");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 0,
+      "nothing stays upcoming on a delivered order");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
 test("order that reaches the app shows received WITHOUT opening WhatsApp (no popup)", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "stepper");

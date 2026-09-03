@@ -599,14 +599,19 @@ const JOURNEY = [
 
 // A progress line for the track card, like an online-shop parcel tracker: each
 // step is a circle joined to the next by a line. Reached steps are green with a
-// tick, the current step is a larger amber dot, later steps stay grey. Unknown
-// statuses return null and the caller just shows the details.
+// tick, the live step is a larger amber dot that pulses, later steps stay grey.
+// Two statuses read as finished on purpose: once the baker marks an order Ready
+// the baking is done, so the line is green up to Ready and only the final
+// Delivered step pulses ("delivery is next"); a Delivered order shows the whole
+// line green. Unknown statuses return null and the caller just shows details.
 function journeyEl(key) {
-  const idx = JOURNEY.findIndex(([id]) => id === key);
+  let idx = JOURNEY.findIndex(([id]) => id === key);
   if (idx < 0) return null;
+  if (key === "ready") idx = JOURNEY.length - 1; // bakery done → delivery is the live step
+  const finished = key === "delivered";          // handed over → every step green
   const root = el("div", { class: "tj", "aria-label": "Order status journey" });
   JOURNEY.forEach(([id, label], i) => {
-    const state = i < idx ? "done" : i === idx ? "now" : "todo";
+    const state = finished || i < idx ? "done" : i === idx ? "now" : "todo";
     const mark =
       state === "done" ? el("span", { class: "tj-check" }, "✓")
       : state === "now" ? el("span", { class: "tj-dot" }) : null;

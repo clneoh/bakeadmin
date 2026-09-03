@@ -340,7 +340,16 @@ html, body {
   width: 24px;
   height: 24px;
   background: #c9641f;
-  box-shadow: 0 0 0 4px rgba(201, 100, 31, .18);
+  animation: tj-pulse 1.4s ease-in-out infinite;
+}
+/* pulsing ring draws the eye to the live step (for a Ready order that is the
+   final Delivered node — the delivery is the only thing left to happen) */
+@keyframes tj-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(201, 100, 31, .22); }
+  50%      { box-shadow: 0 0 0 10px rgba(201, 100, 31, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tj-step.now .tj-node { animation: none; box-shadow: 0 0 0 4px rgba(201, 100, 31, .18); }
 }
 .tj-check { color: #fff; font-size: 11px; font-weight: 800; line-height: 1; }
 .tj-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
