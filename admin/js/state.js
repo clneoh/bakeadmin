@@ -50,7 +50,35 @@ export function loadState() {
   } catch (err) {
     console.warn("Corrupt stored data, resetting to defaults", err);
   }
-  return defaultState();
+  return seedFreshState();
+}
+
+// First run on a device (no saved state at all) ships preconnected so a fresh
+// phone works after ONE sign-in: shared data + live availability on, the 8899
+// PIN on, and the live published storefront values prefilled. This template
+// lives ONLY here — normalize() keeps neutral defaults above so a partial
+// stored state can never inherit any of this (it must never, say, lock a phone
+// with a PIN the owner did not set). The app-login PASSWORD is deliberately
+// never shipped in code; the owner types it once per phone at the sign-in gate.
+function seedFreshState() {
+  const s = defaultState();
+  s.settings.cloud.enabled = true;
+  s.settings.supabase.enabled = true;
+  s.settings.supabase.url = "https://hzpyblqygnntixkijeem.supabase.co";
+  s.settings.supabase.anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6cHlibHF5Z25udGl4a2lqZWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODUyNzAsImV4cCI6MjEwMzc2MTI3MH0.jmxtiVCmDrD3xJWVSxhYi5lDpXD6nyZavp1x5hhUh0E";
+  s.settings.supabase.email = ""; // owner's app-login email (paste in when known)
+  s.settings.lock.enabled = true;
+  s.settings.lock.pinHash = "9800a8677d99e5f6968d7357e44006388b09d3b6a8676d0f930fbaa63d02330d"; // default PIN 8899
+  s.settings.storefront = cleanStorefront({
+    whatsapp: "60123456789",
+    name: "Jienluv2bake",
+    tagline: "Home-made focaccia & sandwiches, Penang",
+    instagram: "",
+    facebook: "",
+    tngQr: "https://hzpyblqygnntixkijeem.supabase.co/storage/v1/object/public/folder/TNGncl.jpeg",
+    products: [],
+  });
+  return normalize(s);
 }
 
 export function save(state) {
