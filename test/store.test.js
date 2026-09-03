@@ -267,9 +267,22 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
   }] });
   try {
     await trackOrder("A3F9C2");
-    const pill = box.children.find((c) => c.tagName === "SPAN" && String(c.className || "").includes("status-pill"));
-    assert.ok(pill, "shows a big status pill");
-    assert.ok(String(pill.children[0].text || "").includes("Confirmed"), "pill shows the latest status");
+    const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    assert.ok(journey, "shows the order journey progress line");
+    const steps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) steps.push(c);
+        walk(c);
+      }
+    })(journey);
+    assert.equal(steps.length, 5, "journey shows all five stages");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 1, "New is marked done");
+    const now = steps.find((s) => String(s.className || "").includes("now"));
+    assert.ok(now, "the current stage is highlighted");
+    const label = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
+    assert.ok(label && String(label.children[0].text || "").includes("Confirmed"), "highlighted stage is the latest status");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 3, "the three later stages stay upcoming");
     const code = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-code"));
     assert.ok(code, "shows the order code line");
     assert.ok(String(code.children[0].text || "").includes("A3F9C2"), "code line has the order code");

@@ -587,11 +587,40 @@ export function render() {
 }
 
 // ── Track your order ───────────────────────────────────────────────────────
-// Look up one order on the public tracking table and show its latest status
-// (new / confirmed / baking / ready / delivered) with the order details only.
-// Payment instructions and the receipt flow live in the WhatsApp confirmation,
-// not here. Friendly fallbacks keep the card usable when the code is wrong or
-// tracking is unreachable.
+// Look up one order on the public tracking table and show its place on the
+// journey (New → Confirmed → Baking → Ready → Delivered) with the order
+// details only. Payment instructions and the receipt flow live in the WhatsApp
+// confirmation, not here. Friendly fallbacks keep the card usable when the code
+// is wrong or tracking is unreachable.
+const JOURNEY = [
+  ["new", "New"],
+  ["confirmed", "Confirmed"],
+  ["baking", "Baking"],
+  ["ready", "Ready"],
+  ["delivered", "Delivered"],
+];
+
+// A five-step progress line for the track card, like an online-shop parcel
+// tracker: each step is a circle joined to the next by a line. Reached steps
+// are green with a tick, the current step is a larger amber dot, later steps
+// stay grey. Unknown statuses return null and the caller just shows the details.
+function journeyEl(key) {
+  const idx = JOURNEY.findIndex(([id]) => id === key);
+  if (idx < 0) return null;
+  const root = el("div", { class: "tj", "aria-label": "Order status journey" });
+  JOURNEY.forEach(([id, label], i) => {
+    const state = i < idx ? "done" : i === idx ? "now" : "todo";
+    const mark =
+      state === "done" ? el("span", { class: "tj-check" }, "✓")
+      : state === "now" ? el("span", { class: "tj-dot" }) : null;
+    root.append(el("div", { class: `tj-step ${state}` }, [
+      el("div", { class: "tj-track" }, [el("div", { class: "tj-node" }, mark)]),
+      el("div", { class: "tj-label" }, label),
+    ]));
+  });
+  return root;
+}
+
 export async function trackOrder(code) {
   const box = document.getElementById("track-result");
   if (!box) return;
@@ -622,16 +651,20 @@ export async function trackOrder(code) {
         `We couldn't find order #${clean}. Check the number in your confirmation message — it's the 6 characters after the #.`));
       return;
     }
-    // The status leads as a big colour-coded pill, then the order code and the
-    // delivery / items details. Colours map to the stage: grey = new, brown =
-    // confirmed, amber = baking, green = ready or delivered.
+    // The card reads like a parcel tracker: order code, the journey progress
+    // line (reached stages green, current highlighted), then the delivery and
+    // item details underneath.
     const key = String(row.status || "").toLowerCase().trim() || "new";
-    const status = key.replace(/^./, (c) => c.toUpperCase());
-    const kids = [
-      el("span", { class: `status-pill st-${key}` }, status),
-      el("p", { class: "track-code" }, `Order #${clean}`),
+    const codeLine = el("p", { class: "track-code" }, `Order #${clean}`);
+    const journey = journeyEl(key);
+    const details = el("div", { class: "track-details" }, [
       el("p", {}, row.delivery),
       el("p", {}, `${row.items} — ${row.total}`),
+    ]);
+    const kids = [
+      codeLine,
+      journey,
+      details,
       row.customer ? el("p", { class: "track-note" }, `For ${row.customer}`) : null,
     ];
     box.replaceChildren(...kids.filter(Boolean));
