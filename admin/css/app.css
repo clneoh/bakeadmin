@@ -434,10 +434,17 @@ textarea.input { min-height: 64px; resize: vertical; }
 }
 .oj-step.done .oj-node { background: #3e8e5a; }
 .oj-step.now .oj-node {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   background: #c9641f;
-  box-shadow: 0 0 0 3px rgba(201, 100, 31, .22);
+  animation: oj-pulse 1.4s ease-in-out infinite;
+}
+@keyframes oj-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(201, 100, 31, .24); }
+  50%      { box-shadow: 0 0 0 7px rgba(201, 100, 31, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oj-step.now .oj-node { animation: none; box-shadow: 0 0 0 3px rgba(201, 100, 31, .2); }
 }
 .oj-check { color: #fff; font-size: 8px; font-weight: 800; line-height: 1; }
 .oj-dot { width: 5px; height: 5px; border-radius: 50%; background: #fff; }
@@ -588,6 +595,40 @@ textarea.input { min-height: 64px; resize: vertical; }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .confirm-actions .btn { flex: 0 1 auto; }
 
+/* ---------- Order edit pop-up ---------- */
+.popup-layer {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 33, 24, .5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px;
+  overflow: auto;
+  z-index: 65; /* above the tabbar, below the app-password lock */
+}
+.popup-layer[hidden] { display: none; }
+.popup-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 430px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 28px);
+}
+.popup-card.wide { max-width: 560px; }
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 4px;
+}
+.popup-title { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink); min-width: 0; }
+.popup-body { overflow-y: auto; padding: 8px 16px 16px; }
+
 /* ---------- App-password lock ---------- */
 .lock-layer {
   position: fixed;
@@ -669,6 +710,23 @@ textarea.input { min-height: 64px; resize: vertical; }
 }
 
 /* ---------- Order status / source ---------- */
+/* The order's shareable code (#A3F9C2) shown on every order row, inbox row and
+   the edit pop-up, so the baker can match a WhatsApp message to its order. */
+.ord-code {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--brown-dark, #7a4a2a);
+  background: var(--brown-soft, #f7eddf);
+  border: 1px solid #ead8c3;
+  border-radius: 5px;
+  padding: 1px 5px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
 .src-tag {
   display: inline-block;
   margin-left: 6px;

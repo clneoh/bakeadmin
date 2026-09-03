@@ -294,7 +294,7 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
 }
-/* Journey progress line (New → Confirmed → Paid → Baking → Ready → Delivered) */
+/* Journey progress line (New → Confirmed → Paid → Baked → Packed → Delivered) */
 .tj { display: flex; margin: 4px 0 10px; }
 .tj-step {
   position: relative;
@@ -342,7 +342,7 @@ html, body {
   background: #c9641f;
   animation: tj-pulse 1.4s ease-in-out infinite;
 }
-/* pulsing ring draws the eye to the live step (for a Ready order that is the
+/* pulsing ring draws the eye to the live step (for a Packed order that is the
    final Delivered node — the delivery is the only thing left to happen) */
 @keyframes tj-pulse {
   0%, 100% { box-shadow: 0 0 0 4px rgba(201, 100, 31, .22); }

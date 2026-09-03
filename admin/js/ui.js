@@ -88,6 +88,30 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   }
 }
 
+// A reusable centered pop-up (used for editing an order). Layers over the whole
+// screen with a dimmed scrim; `makeBody(refresh, close)` is called to (re)fill
+// the scrollable body, so callers re-invoke `refresh()` after changing anything
+// that should re-render the form (e.g. adding an item row). Returns close().
+export function showPopup(title, makeBody, { wide = false } = {}) {
+  const layer = document.getElementById("popup-layer");
+  if (!layer) return () => {};
+  const close = () => {
+    layer.hidden = true;
+    layer.replaceChildren();
+  };
+  const body = el("div", { class: "popup-body" });
+  const refresh = () => body.replaceChildren(makeBody(refresh, close));
+  const card = el("div", { class: `popup-card${wide ? " wide" : ""}` },
+    el("div", { class: "popup-head" },
+      el("div", { class: "popup-title" }, title),
+      button("✕", close, "ghost small")),
+    body);
+  layer.replaceChildren(card);
+  layer.hidden = false;
+  refresh();
+  return close;
+}
+
 export function toast(msg) {
   let t = document.querySelector(".toast");
   if (!t) {

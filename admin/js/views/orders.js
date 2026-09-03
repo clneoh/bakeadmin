@@ -2,12 +2,12 @@
 
 import { deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, productRemaining } from "../bom.js";
-import { el, button, select, fillMeter, emptyState, confirmDialog, toast } from "../ui.js";
+import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { byId, fmtRM, groupOrders, newId, orderCode, save, updateOrderBadge, waNumber } from "../state.js";
 import { buildConfirmation } from "../confirm.js";
+import { buildPaymentReminder, buildPickupReminder } from "../messages.js";
 import { maybeSync, publishTracking } from "../supabase.js";
 
-let editingOrderId = null;
 let orderStatusFilter = "";
 // Set just before an in-place rebuild that came from a row's own control
 // (status dropdown, Edit). renderAll then keeps THAT order row pinned to its
@@ -19,13 +19,13 @@ const STATUSES = [
   ["new", "New"],
   ["confirmed", "Confirmed"],
   ["paid", "Paid"],           // TNG payment received, right after Confirmed
-  ["baking", "Baking"],
-  ["ready", "Ready"],
+  ["baking", "Baked"],
+  ["ready", "Packed"],
   ["delivered", "Delivered"],
 ];
 
 // A small route map shown when a delivery date has no orders yet, so the screen
-// still explains the journey: New → Confirmed → Paid → Baking → Ready →
+// still explains the journey: New → Confirmed → Paid → Baked → Packed →
 // Delivered. Real rows carry their own mini journey below them instead.
 function statusFlowEl() {
   const kids = [];
@@ -36,18 +36,47 @@ function statusFlowEl() {
   return el("div", { class: "status-flow", "aria-label": "Order status flow" }, ...kids);
 }
 
-// Every order row shows its own copy of the journey with where THAT order sits
-// lit up: reached steps are green with a tick, this order's current step is the
-// amber dot, later steps stay grey. The baker sees at a glance, under each row,
-// where every order is on the route — and watches the dot move when the status
-// dropdown changes. A Delivered order shows the whole line green, matching what
-// the customer sees.
-function orderJourneyEl(status) {
-  const finished = status === "delivered";
-  const idx = finished ? STATUSES.length : STATUSES.findIndex(([id]) => id === status);
+// How far an order has actually travelled, as a prefix of done steps. New is
+// done the moment the order arrives. Confirmed only finishes when the baker
+// presses "Send confirmation" (order.confirmedSent), and Paid only when they
+// press the "Paid" button (order.paidReceived) — just picking those in the
+// dropdown leaves them as the next thing to do. Baked/Packed/Delivered finish
+// the moment they are picked (no extra action). Orders saved before these
+// fields existed have no flag, which reads as already done, so old confirmed /
+// paid orders don't light up as if they were never handled.
+export function journeyMarks(order) {
+  const status = String((order && order.status) || "new");
+  const idx = STATUSES.findIndex(([id]) => id === status);
+  const at = idx < 0 ? 0 : idx;
+  const confirmedDone = (order && order.confirmedSent) !== false;
+  const paidDone = (order && order.paidReceived) !== false;
+  let end = 0; // first index NOT done; steps before it are green
+  for (let i = 0; i < STATUSES.length; i++) {
+    let done;
+    if (i < at) done = true;                          // already moved past
+    else if (i === at) done = i === 0 ? true          // New: done on arrival
+      : i === 1 ? confirmedDone                       // Confirmed: after Send confirmation
+      : i === 2 ? paidDone                            // Paid: after the Paid button
+      : true;                                         // Baked/Packed/Delivered: on selection
+    else done = false;
+    if (!done) break;
+    end = i + 1;
+  }
+  return STATUSES.map((_, i) => (i < end ? "done" : i === end ? "now" : "todo"));
+}
+
+// Every order row shows its own copy of the journey with where THAT order sits:
+// reached steps are green with a tick, the step waiting for the baker is the
+// pulsing amber dot, later steps stay grey. The baker sees at a glance, under
+// each row, where every order is on the route — and watches the dot move as the
+// status changes and the Send confirmation / Paid / pickup-reminder actions are
+// done. A Delivered order shows the whole line green, matching what the
+// customer sees.
+function orderJourneyEl(order) {
   const root = el("div", { class: "oj", "aria-label": "Order status journey" });
+  const marks = journeyMarks(order);
   STATUSES.forEach(([, label], i) => {
-    const state = i < idx ? "done" : i === idx ? "now" : "todo";
+    const state = marks[i];
     const mark =
       state === "done" ? el("span", { class: "oj-check" }, "✓")
       : state === "now" ? el("span", { class: "oj-dot" }) : null;
@@ -59,11 +88,14 @@ function orderJourneyEl(status) {
   return root;
 }
 
-// A confirmable status (Confirmed/Baking/Ready) is what sends the customer
-// their WhatsApp confirmation with the payment QR — so it needs a number on
-// the order. Exported so the gate is testable without a DOM.
+// Picking Confirmed in the dropdown is what marks the moment the baker starts
+// confirming — and confirming needs the customer's WhatsApp number to send the
+// confirmation message. So an order without a number can't be moved to
+// Confirmed. Later stages don't block: they advance the physical order even for
+// a walk-in with no number (their Send/Paid buttons simply stay disabled until
+// one is added). Exported so the gate is testable without a DOM.
 export function statusNeedsWhatsapp(status) {
-  return ["confirmed", "baking", "ready"].includes(status);
+  return ["confirmed"].includes(status);
 }
 
 // Apply shared detail edits to every order in a storefront group (customer
@@ -94,7 +126,6 @@ export function applyGroupPatch(orders, patch, qtyOf) {
 }
 
 export function renderOrders(root, state, params) {
-  editingOrderId = null;
   orderStatusFilter = "";
   renderAll(root, state, params);
 }
@@ -178,7 +209,6 @@ function renderAll(root, state, params) {
   // only the order area below is rebuilt. The URL still updates (without
   // firing the router) so the current date stays shareable.
   const selectDate = (id) => {
-    editingOrderId = null;
     activeId = id;
     for (const t of strip.querySelectorAll(".date-tab")) {
       t.classList.toggle("active", t.dataset.dateId === id);
@@ -258,7 +288,7 @@ export function newOrdersInbox(state, selectDate, root) {
       `Placed ${fmtPlaced(first.createdAt, first.orderDate)}`]
       .filter(Boolean).join(" · ");
     const main = el("div", { class: "li-main" },
-      el("div", { class: "li-title" }, title,
+      el("div", { class: "li-title" }, title, orderCodeTag(first),
         g.orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       el("div", { class: "li-sub" }, sub));
     const meta = el("div", { class: "li-right" },
@@ -316,40 +346,46 @@ function dateContent(state, date, root) {
   return el("div", {}, header, form, list);
 }
 
+// Product choices for adding/editing an order. Unlike the customer menu, the
+// backoffice pickers show EVERY product — including hidden ones (marked
+// "(hidden)") — so the baker can still add or edit an order for a product she
+// has temporarily taken off the menu. Active products list first.
 function productOptions(state, dateId, excludeOrderId = null) {
   return state.products
-    .filter((p) => p.active !== false)
     .map((p) => {
       const pr = productRemaining(state, dateId, p.id, excludeOrderId);
-      const label = pr ? `${p.name} — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : p.name;
-      return { value: p.id, label };
-    });
+      let label = pr ? `${p.name} — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : p.name;
+      const hidden = p.active === false;
+      if (hidden) label += " (hidden)";
+      return { value: p.id, label, hidden };
+    })
+    .sort((a, b) => (a.hidden === b.hidden ? 0 : a.hidden ? 1 : -1));
 }
 
+// The order's shareable code as a small tag, e.g. "#A3F9C2". Shown on inbox
+// rows, order rows and the edit pop-up so a WhatsApp message can always be
+// matched back to the order it belongs to.
+function orderCodeTag(order) {
+  return el("span", { class: "ord-code" }, `#${orderCode(order)}`);
+}
+
+// The manual "＋ Add order" card, always at the top of a delivery date. Takes
+// several items at once — they become ONE customer order (a shared group), the
+// same shape a multi-item storefront order arrives as, so the list/inbox/confirm
+// all treat it as a single order. Editing an order never replaces this card:
+// Edit opens a pop-up over the screen instead.
 function orderForm(state, dateId, root) {
   const date = byId(state.deliveryDates, dateId);
-  const editing = editingOrderId ? byId(state.orders, editingOrderId) : null;
-  const group = editing
-    ? (groupOrders(state.orders).find((g) => g.orders.some((o) => o.id === editing.id)) || { orders: [editing] })
-    : null;
-  const groupEdit = !!group && group.orders.length > 1;
+  const products = productOptions(state, dateId);
+  if (!products.length) {
+    return el("div", { class: "card" },
+      el("p", { class: "muted" }, "No products yet. Add products with their recipes first — More → Products."));
+  }
 
-  // The form edits a *draft*, not the order directly. Each input writes through
-  // to the draft as the baker types and reads back from it, so a mid-edit
-  // re-render (a sync pull, a fresh storefront import, another row's status
-  // change) rebuilds this form with what she actually typed — a cleared WhatsApp
-  // number stays cleared instead of the saved value popping back in. Cancel just
-  // discards the draft; nothing is written until Update.
-  const draft = {
-    customerName: editing ? (editing.customerName || "") : "",
-    whatsapp: editing ? waNumber(editing.whatsapp || "") : "",
-    fulfillment: editing ? (editing.fulfillment || "collect") : "collect",
-    address: editing ? (editing.address || "") : "",
-    note: editing ? (editing.note || "") : "",
-    orderDate: editing ? (editing.orderDate || String(editing.createdAt || "").slice(0, 10) || todayISO()) : todayISO(),
-  };
-  // `this` is the input element (addEventListener binds it), which lets the
-  // handler reference the element before its const is assigned.
+  // The form edits a *draft*, not the orders directly, so a mid-edit re-render
+  // (a sync pull, a fresh storefront import) rebuilds this form with what she
+  // actually typed. Nothing is written until Add order is pressed.
+  const draft = { customerName: "", whatsapp: "", fulfillment: "collect", address: "", note: "", orderDate: todayISO() };
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
     value: draft.customerName, oninput: function () { draft.customerName = this.value; } });
   const whatsapp = el("input", { class: "input", type: "tel", inputmode: "tel",
@@ -365,197 +401,210 @@ function orderForm(state, dateId, root) {
   const orderDate = el("input", { class: "input", type: "date",
     value: draft.orderDate, oninput: function () { draft.orderDate = this.value; } });
 
-  // Group edit (a storefront order with several items): each item gets its own
-  // quantity stepper; the fields below apply to the whole customer order.
-  const qtyRefs = new Map();
-  let topSection;
-  let submit;
-  if (groupEdit) {
-    const itemRows = group.orders.map((o) => {
-      const p = byId(state.products, o.productId);
-      const qtySpan = el("span", { class: "stepper-val" }, String(o.qty));
-      qtyRefs.set(o.id, () => Math.max(1, Number(qtySpan.textContent) || 1));
-      return el("div", { class: "edit-item" },
-        el("span", { class: "li-title" }, p ? p.name : "(deleted product)"),
+  const rowsEl = el("div", {});
+  const items = [{ productId: "", qty: 1 }];
+  const renderRows = () => {
+    rowsEl.replaceChildren(...items.map((it, i) => {
+      const prodSel = select(products, it.productId,
+        () => { it.productId = prodSel.value; }, "Product…");
+      const qtySpan = el("span", { class: "stepper-val" }, String(it.qty));
+      return el("div", { class: "add-item" },
+        prodSel,
         el("div", { class: "stepper" },
-          el("button", { onclick: () => { qtySpan.textContent = Math.max(1, qtyRefs.get(o.id)() - 1); } }, "−"),
+          el("button", { onclick: () => { it.qty = Math.max(1, it.qty - 1); qtySpan.textContent = String(it.qty); } }, "−"),
           qtySpan,
-          el("button", { onclick: () => { qtySpan.textContent = qtyRefs.get(o.id)() + 1; } }, "＋")));
-    });
-    topSection = el("div", { class: "field" },
-      el("label", {}, "Items"),
-      ...itemRows);
-    submit = () => {
-      applyGroupPatch(group.orders, {
-        customerName: customer.value.trim(),
-        whatsapp: waNumber(whatsapp.value.trim()),
-        fulfillment: fulfillmentSel.value,
-        address: address.value.trim(),
-        note: note.value.trim(),
-        orderDate: orderDate.value,
-      }, (id) => qtyRefs.get(id)());
-      save(state);
-      maybeSync(state);
-      editingOrderId = null;
-      toast("Order updated");
-      rerender();
-    };
-  } else {
-    let products = productOptions(state, dateId, editing ? editing.id : null);
-    if (editing && !products.some((p) => p.value === editing.productId)) {
-      const prod = byId(state.products, editing.productId);
-      if (prod) products = [...products, { value: prod.id, label: `${prod.name} (hidden)` }];
-    }
-    if (!products.length) {
-      return el("div", { class: "card" },
-        el("p", { class: "muted" }, "No products yet. Add products with their recipes first — More → Products."));
-    }
-    if (editing) {
-      const qtySpan = el("span", { class: "stepper-val" }, String(editing.qty));
-      const qty = () => Math.max(1, Number(qtySpan.textContent) || 1);
-      const availLine = el("p", { class: "avail-line" });
-      const updateAvail = () => {
-        const product = byId(state.products, productSel.value);
-        const pr = product ? productRemaining(state, dateId, product.id, editing.id) : null;
-        if (!pr) {
-          availLine.textContent = product
-            ? `${product.name}: no daily limit — unlimited`
-            : "Pick a product to see how many are left today";
-          availLine.className = "avail-line";
-          return;
-        }
-        const adding = qty();
-        const over = adding > pr.remaining;
-        availLine.textContent = pr.remaining <= 0
-          ? `${product.name}: sold out today — ${pr.booked} of ${pr.limit} ordered`
-          : `${product.name}: ${pr.remaining} of ${pr.limit} left today${over ? ` — adding ${adding} is more than is left` : ""}`;
-        availLine.className = "avail-line" + (pr.remaining <= 0 || over ? " warn" : "");
-      };
-      const productSel = select(products, editing.productId, updateAvail, "Product…");
-      updateAvail();
-      topSection = el("div", {},
-        el("div", { class: "field" }, productSel),
-        availLine,
-        el("div", { class: "form-grid" },
-          el("div", {},
-            el("label", {}, "Quantity"),
-            el("div", { class: "stepper" },
-              el("button", { onclick: () => { qtySpan.textContent = Math.max(1, qty() - 1); updateAvail(); } }, "−"),
-              qtySpan,
-              el("button", { onclick: () => { qtySpan.textContent = qty() + 1; updateAvail(); } }, "＋"))),
-          el("div", {}, el("label", {}, "Customer"), customer),
-          el("div", {},
-            el("label", {}, "Order date"),
-            orderDate),
-          el("div", {},
-            el("label", {}, "WhatsApp (optional)"),
-            whatsapp),
-          el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-          el("div", {},
-            el("label", {}, "Delivery address (if courier)"),
-            address)));
-      submit = () => {
-        if (!productSel.value) return toast("Choose a product");
-        editing.productId = productSel.value;
-        editing.qty = qty();
-        editing.customerName = customer.value.trim();
-        editing.whatsapp = waNumber(whatsapp.value.trim());
-        editing.fulfillment = fulfillmentSel.value;
-        editing.address = address.value.trim();
-        editing.note = note.value.trim();
-        editing.orderDate = orderDate.value;
-        save(state);
-        maybeSync(state);
-        editingOrderId = null;
-        toast("Order updated");
-        return rerender();
-      };
+          el("button", { onclick: () => { it.qty = it.qty + 1; qtySpan.textContent = String(it.qty); } }, "＋")),
+        el("button", { class: "inbox-del", "aria-label": "Remove item",
+          onclick: () => { items.splice(i, 1); renderRows(); } }, "✕"));
+    }));
+  };
+  renderRows();
+
+  const submit = () => {
+    const picked = items.filter((it) => it.productId);
+    if (!picked.length) return toast("Choose a product");
+    const customerName = customer.value.trim();
+    const phone = waNumber(whatsapp.value.trim());
+    const fulfillment = fulfillmentSel.value;
+    const addressText = address.value.trim();
+    const noteText = note.value.trim();
+    const placed = orderDate.value;
+    if (picked.length === 1) {
+      addNew(state, date, picked[0].productId, picked[0].qty, customerName, phone, fulfillment, addressText, noteText, placed, root);
     } else {
-      // Manual entry can take several items at once — they become ONE customer
-      // order (a shared group), the same shape a multi-item storefront order
-      // arrives as, so the list/inbox/confirm all treat it as a single order.
-      const rowsEl = el("div", {});
-      const items = [{ productId: "", qty: 1 }];
-      const renderRows = () => {
-        rowsEl.replaceChildren(...items.map((it, i) => {
-          const prodSel = select(products, it.productId,
-            () => { it.productId = prodSel.value; }, "Product…");
-          const qtySpan = el("span", { class: "stepper-val" }, String(it.qty));
-          return el("div", { class: "add-item" },
-            prodSel,
-            el("div", { class: "stepper" },
-              el("button", { onclick: () => { it.qty = Math.max(1, it.qty - 1); qtySpan.textContent = String(it.qty); } }, "−"),
-              qtySpan,
-              el("button", { onclick: () => { it.qty = it.qty + 1; qtySpan.textContent = String(it.qty); } }, "＋")),
-            el("button", { class: "inbox-del", "aria-label": "Remove item",
-              onclick: () => { items.splice(i, 1); renderRows(); } }, "✕"));
-        }));
-      };
-      renderRows();
-      topSection = el("div", {},
-        el("div", { class: "field" },
-          el("label", {}, "Items"),
-          rowsEl,
-          button("＋ Add another item", () => { items.push({ productId: "", qty: 1 }); renderRows(); }, "ghost")),
-        el("div", { class: "form-grid" },
-          el("div", {}, el("label", {}, "Customer"), customer),
-          el("div", {}, el("label", {}, "Order date"), orderDate),
-          el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
-          el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-          el("div", {}, el("label", {}, "Delivery address (if courier)"), address)));
-      submit = () => {
-        const picked = items.filter((it) => it.productId);
-        if (!picked.length) return toast("Choose a product");
-        // Local names avoid shadowing the form elements declared above.
-        const customerName = customer.value.trim();
-        const phone = waNumber(whatsapp.value.trim());
-        const fulfillment = fulfillmentSel.value;
-        const addressText = address.value.trim();
-        const noteText = note.value.trim();
-        const placed = orderDate.value;
-        if (picked.length === 1) {
-          addNew(state, date, picked[0].productId, picked[0].qty, customerName, phone, fulfillment, addressText, noteText, placed, root);
-        } else {
-          addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, root);
-        }
-      };
+      addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, root);
     }
-  }
+  };
 
-  const formGrid = groupEdit
-    ? el("div", { class: "form-grid" },
-        el("div", {}, el("label", {}, "Customer"), customer),
-        el("div", {},
-          el("label", {}, "Order date"),
-          orderDate),
-        el("div", {},
-          el("label", {}, "WhatsApp (optional)"),
-          whatsapp),
-        el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-        el("div", {},
-          el("label", {}, "Delivery address (if courier)"),
-          address))
-    : null;
-
-  const submitBtn = button(editing ? "Update order" : "＋ Add order", submit, "block primary");
-
-  const card = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 10px" }, editing ? "Edit order" : "New order"),
-    topSection,
-    formGrid,
-    groupEdit ? el("div", { class: "card-sub", style: "margin:0 0 10px" },
-      "This is one customer order with several items — the details above apply to the whole order.") : null,
-    !editing ? el("div", { class: "card-sub", style: "margin:0 0 10px" },
-      "Everything in the Items list becomes one customer order — add every item, then press Add order.") : null,
+  return el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 10px" }, "＋ New order"),
+    el("div", { class: "field" },
+      el("label", {}, "Items"),
+      rowsEl,
+      button("＋ Add another item", () => { items.push({ productId: "", qty: 1 }); renderRows(); }, "ghost")),
+    el("div", { class: "card-sub", style: "margin:0 0 10px" },
+      "Everything in the Items list becomes one customer order — add every item, then press Add order."),
+    el("div", { class: "form-grid" },
+      el("div", {}, el("label", {}, "Customer"), customer),
+      el("div", {}, el("label", {}, "Order date"), orderDate),
+      el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
+      el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
+      el("div", {}, el("label", {}, "Delivery address (if courier)"), address)),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
     el("div", { class: "field", style: "margin-top:10px" }, note),
-    submitBtn,
-    editing ? el("div", { style: "margin-top:8px" },
-      button("Cancel edit", () => { editingOrderId = null; rerender(); }, "ghost block")) : null);
+    button("＋ Add order", submit, "block primary"));
+}
 
-  function rerender() { renderAll(root, state, new URLSearchParams({ date: dateId })); }
-  return card;
+// Edit opens this pop-up over the Orders screen (the New-order card above stays
+// put). It shows the order's own line items — each with a product picker that
+// includes hidden products — plus quantity steppers and the shared customer
+// details, so the baker can fix anything on the order, add another item, or
+// remove one. Changes only apply when "Save changes" is pressed.
+function openEditPopup(state, group, dateId, root) {
+  const first = group.orders[0];
+  if (!first) return;
+  const date = byId(state.deliveryDates, dateId) ||
+    (first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null);
+  if (!date) return toast("This order's delivery date is missing.");
+
+  const lines = group.orders.map((o) => ({ id: o.id, productId: o.productId || "", qty: o.qty }));
+  const draft = {
+    customerName: first.customerName || "",
+    whatsapp: waNumber(first.whatsapp || ""),
+    fulfillment: first.fulfillment || "collect",
+    address: first.address || "",
+    note: first.note || "",
+    orderDate: first.orderDate || String(first.createdAt || "").slice(0, 10) || todayISO(),
+  };
+
+  const title = el("div", { class: "popup-title-row" },
+    "Edit order",
+    orderCodeTag(first));
+  showPopup(title, (refresh, close) => popupEditBody(state, date, group, first, lines, draft, refresh, close, root));
+}
+
+function popupEditBody(state, date, group, first, lines, draft, refresh, close, root) {
+  const products = productOptions(state, date.id);
+  const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
+    value: draft.customerName, oninput: function () { draft.customerName = this.value; } });
+  const whatsapp = el("input", { class: "input", type: "tel", inputmode: "tel",
+    placeholder: "e.g. 012-345 6789",
+    value: draft.whatsapp, oninput: function () { draft.whatsapp = this.value; } });
+  const fulfillmentSel = select(
+    [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
+    draft.fulfillment, function () { draft.fulfillment = this.value; });
+  const address = el("input", { class: "input", placeholder: "Delivery address (if courier)",
+    value: draft.address, oninput: function () { draft.address = this.value; } });
+  const note = el("input", { class: "input", placeholder: "Note (optional)",
+    value: draft.note, oninput: function () { draft.note = this.value; } });
+  const orderDate = el("input", { class: "input", type: "date",
+    value: draft.orderDate, oninput: function () { draft.orderDate = this.value; } });
+
+  const rowFor = (line, i) => {
+    const prodSel = select(products, line.productId,
+      () => { line.productId = prodSel.value; }, "Product…");
+    const qtySpan = el("span", { class: "stepper-val" }, String(line.qty));
+    return el("div", { class: "add-item" },
+      prodSel,
+      el("div", { class: "stepper" },
+        el("button", { onclick: () => { line.qty = Math.max(1, line.qty - 1); qtySpan.textContent = String(line.qty); } }, "−"),
+        qtySpan,
+        el("button", { onclick: () => { line.qty = line.qty + 1; qtySpan.textContent = String(line.qty); } }, "＋")),
+      el("button", { class: "inbox-del", "aria-label": "Remove item",
+        onclick: () => { lines.splice(i, 1); refresh(); } }, "✕"));
+  };
+
+  const rowsEl = el("div", {}, ...lines.map(rowFor));
+
+  const save = () => {
+    const chosen = lines.filter((l) => l.productId);
+    if (!chosen.length) return toast("Choose a product");
+    applyPopupEdits(state, date, group, first, chosen, {
+      customerName: customer.value.trim(),
+      whatsapp: waNumber(whatsapp.value.trim()),
+      fulfillment: fulfillmentSel.value,
+      address: address.value.trim(),
+      note: note.value.trim(),
+      orderDate: orderDate.value,
+    }, close, root);
+  };
+
+  return el("div", {},
+    el("div", { class: "field" },
+      el("label", {}, "Items"),
+      rowsEl,
+      button("＋ Add another item", () => { lines.push({ productId: "", qty: 1 }); refresh(); }, "ghost")),
+    el("div", { class: "card-sub", style: "margin:0 0 10px" },
+      "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),
+    el("div", { class: "form-grid" },
+      el("div", {}, el("label", {}, "Customer"), customer),
+      el("div", {}, el("label", {}, "Order date"), orderDate),
+      el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
+      el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
+      el("div", {}, el("label", {}, "Delivery address (if courier)"), address)),
+    el("div", { class: "field", style: "margin-top:10px" }, note),
+    button("Save changes", save, "block primary"),
+    el("div", { style: "margin-top:8px" }, button("Cancel", close, "ghost block")));
+}
+
+// Write the pop-up's item lines + shared details back to state. Kept lines are
+// edited in place; new lines become extra order rows in the same group (a
+// single-item order that gains a second line becomes a group so it still shows
+// as one customer order). Removed lines' orders are deleted. Guards against
+// pushing the day over capacity.
+function applyPopupEdits(state, date, group, first, chosen, shared, close, root) {
+  const cap = capacityStatus(state, date.id);
+  const qtyNow = group.orders.reduce((s, o) => s + o.qty, 0);
+  const qtyAfter = chosen.reduce((s, l) => s + (Number(l.qty) || 1), 0);
+  const totalAfter = cap.total - qtyNow + qtyAfter;
+
+  const commit = () => {
+    const keptIds = new Set(chosen.map((l) => l.id).filter(Boolean));
+    const dropIds = new Set(group.orders.filter((o) => !keptIds.has(o.id)).map((o) => o.id));
+    if (dropIds.size) state.orders = state.orders.filter((o) => !dropIds.has(o.id));
+    let gid = first.groupId;
+    if (!gid && chosen.length > 1) gid = newId("ordg"); // single order gains a second item
+    for (const l of chosen) {
+      const o = l.id ? byId(state.orders, l.id) : null;
+      if (o) {
+        o.productId = l.productId;
+        o.qty = Number(l.qty) || 1;
+        Object.assign(o, shared);
+        if (gid) o.groupId = gid;
+      } else {
+        state.orders.push({
+          id: newId("ord"),
+          deliveryDateId: date.id,
+          deliveryDate: date.date,
+          orderDate: shared.orderDate || todayISO(),
+          productId: l.productId,
+          qty: Number(l.qty) || 1,
+          customerName: shared.customerName,
+          whatsapp: shared.whatsapp,
+          fulfillment: shared.fulfillment,
+          address: shared.address,
+          note: shared.note,
+          status: first.status || "new",
+          groupId: gid,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+    save(state);
+    maybeSync(state);
+    updateOrderBadge(state);
+    toast("Order updated");
+    close();
+    renderAll(root, state, new URLSearchParams({ date: date.id }));
+  };
+
+  if (totalAfter > cap.capacity) {
+    confirmDialog(`Save? This makes ${totalAfter}/${cap.capacity} — over today's capacity.`,
+      commit, { danger: true, yesLabel: "Save anyway" });
+  } else {
+    commit();
+  }
 }
 
 function addNew(state, date, productId, qty, customerName, whatsapp, fulfillment, address, note, orderDate, root) {
@@ -691,9 +740,13 @@ function orderList(state, dateId, root) {
 }
 
 // One row per order (or per storefront order group). A group shows its items
-// joined ("Focaccia + Sandwich"), its total quantity, and a single status
-// select that advances the whole customer order. Edit opens the order form for
-// any order — single items and multi-item groups alike.
+// joined ("Focaccia + Sandwich"), its total quantity, its order code, and a
+// single status select that advances the whole customer order. Edit opens a
+// pop-up for any order — single items and multi-item groups alike. The row's
+// journey map shows which step is done (green ✓) and which step is waiting on
+// the baker (pulsing amber), and the buttons under the status match the stage:
+// Confirmed offers "Send confirmation", Paid offers "Send payment reminder" +
+// "Paid", Packed offers "Send pickup reminder".
 function orderGroupRow(state, group, root, dateId) {
   const orders = group.orders;
   const first = orders[0];
@@ -707,14 +760,25 @@ function orderGroupRow(state, group, root, dateId) {
   const sub = [first.customerName, waNumber(first.whatsapp), first.note].filter(Boolean).join(" · ");
   const stSel = select(STATUSES.map(([v, l]) => ({ value: v, label: l })), first.status || "new",
     () => {
-      // Confirming (and Baking/Ready) is what sends the customer their WhatsApp
-      // confirmation with the payment QR — that needs a number on the order.
+      // Picking Confirmed starts the confirming step, and confirming is what
+      // sends the WhatsApp confirmation with the payment QR — that needs a
+      // number on the order. Other stages advance the physical order even for a
+      // walk-in with no number.
       if (!first.whatsapp && statusNeedsWhatsapp(stSel.value)) {
         stSel.value = first.status || "new";
         toast("Add the customer's WhatsApp first (tap Edit on the order).");
         return;
       }
-      for (const o of orders) o.status = stSel.value;
+      if (stSel.value === (first.status || "new")) return;
+      for (const o of orders) {
+        o.status = stSel.value;
+        // Stepping into Confirmed / Paid means the stage is being worked, not
+        // finished: it only turns green when Send confirmation / the Paid
+        // button is pressed. Orders saved before these fields existed have no
+        // flag, which reads as already done.
+        if (stSel.value === "confirmed") o.confirmedSent = false;
+        else if (stSel.value === "paid") o.paidReceived = false;
+      }
       anchorRowId = first.id; // keep this row pinned where the baker tapped it
       save(state);
       maybeSync(state);
@@ -725,21 +789,35 @@ function orderGroupRow(state, group, root, dateId) {
     });
   stSel.className = "sel-small";
 
+  const status = first.status || "new";
   const actions = [];
   // Edit is available on every order — single items and multi-item groups alike —
-  // so the baker can always add the customer's WhatsApp, address, or notes.
+  // and opens a pop-up over the screen (the New-order card stays put).
   actions.push(button("Edit", () => {
-    editingOrderId = first.id;
-    anchorRowId = first.id; // keep the order the baker is editing in place
-    renderAll(root, state, new URLSearchParams({ date: dateId }));
+    anchorRowId = first.id; // keep the row where the baker tapped it
+    openEditPopup(state, group, dateId, root);
   }, "ghost small"));
-  // Send the customer a confirmation once the order is confirmed (re-send
-  // anytime while it's baking or ready). Needs their WhatsApp number.
-  const sendable = ["confirmed", "baking", "ready"].includes(first.status || "new");
-  if (sendable) {
-    const sendBtn = button("Send confirmation", () => sendConfirmation(state, group), "soft small");
+
+  // The stage's WhatsApp action(s). Each message carries the order code, and the
+  // buttons that only send a message need a number on the order.
+  if (status === "confirmed") {
+    const sendBtn = button("Send confirmation", () =>
+      sendOrderWhatsApp(state, group, { builder: buildConfirmation, markSent: true, doneMsg: "Confirmation drafted — press Send in WhatsApp", root, dateId }),
+      "soft small");
     if (!first.whatsapp) sendBtn.disabled = true;
     actions.push(sendBtn);
+  } else if (status === "paid") {
+    const remindBtn = button("Send payment reminder", () =>
+      sendOrderWhatsApp(state, group, { builder: buildPaymentReminder, doneMsg: "Payment reminder drafted — press Send in WhatsApp", root, dateId }),
+      "soft small");
+    if (!first.whatsapp) remindBtn.disabled = true;
+    actions.push(remindBtn, button("Paid", () => markPaid(state, group, root, dateId), "small primary"));
+  } else if (status === "ready") {
+    const pickupBtn = button("Send pickup reminder", () =>
+      sendOrderWhatsApp(state, group, { builder: buildPickupReminder, doneMsg: "Pickup reminder drafted — press Send in WhatsApp", root, dateId }),
+      "soft small");
+    if (!first.whatsapp) pickupBtn.disabled = true;
+    actions.push(pickupBtn);
   }
   actions.push(button("✕", () => removeOrder(state, group, root, dateId), "ghost small"));
 
@@ -748,13 +826,13 @@ function orderGroupRow(state, group, root, dateId) {
     `Placed ${fmtPlaced(first.createdAt, first.orderDate)}`,
     el("span", { class: `fulfill-tag${courier ? " courier" : ""}` }, courier ? "Courier" : "Self collect"),
     courier && String(first.address || "").trim() ? el("span", { class: "fulfill-sub" }, String(first.address).trim()) : null);
-  const noWaHint = sendable && !first.whatsapp
-    ? el("div", { class: "li-sub muted" }, "Add the customer's WhatsApp (tap Edit) to confirm this order.")
+  const noWaHint = !first.whatsapp && ["confirmed", "paid", "ready"].includes(status)
+    ? el("div", { class: "li-sub muted" }, "Add the customer's WhatsApp (tap Edit) to send this order's messages.")
     : null;
 
   return el("div", { class: "list-item", dataset: { order: first.id } },
     el("div", { class: "li-main" },
-      el("div", { class: "li-title" }, title,
+      el("div", { class: "li-title" }, title, orderCodeTag(first),
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       multi ? el("div", { class: "li-sub" }, items.map((i) => `${i.name} ×${i.qty}`).join("  ·  ")) : null,
       placedLine,
@@ -764,20 +842,46 @@ function orderGroupRow(state, group, root, dateId) {
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
       stSel,
       ...actions),
-    orderJourneyEl(first.status || "new"));
+    orderJourneyEl(first));
 }
 
-// Build the customer-facing WhatsApp confirmation: their order code, the
-// delivery date + method (and address for courier), the items + total, and a
-// track link. Opens in WhatsApp so the baker can press Send.
-function sendConfirmation(state, group) {
+function trackUrlFor(order) {
+  return `${location.origin}/store/?track=${orderCode(order)}`;
+}
+
+// Open WhatsApp with the built message for this order. When markSent is set the
+// stage also counts as done (Send confirmation finishes Confirmed), so the row's
+// map moves the amber dot to the next step.
+function sendOrderWhatsApp(state, group, { builder, markSent = false, doneMsg, root, dateId }) {
   const first = group.orders[0];
   if (!first || !first.whatsapp) return;
-  const code = orderCode(first);
-  const trackUrl = `${location.origin}/store/?track=${code}`;
-  const built = buildConfirmation(state, group, trackUrl);
+  const built = builder(state, group, trackUrlFor(first));
   if (!built || !built.recipient) return;
   window.open(`https://wa.me/${built.recipient}?text=${encodeURIComponent(built.message)}`, "_blank");
+  if (markSent) {
+    for (const o of group.orders) o.confirmedSent = true;
+    save(state);
+    maybeSync(state);
+  }
+  anchorRowId = first.id;
+  toast(doneMsg);
+  renderAll(root, state, new URLSearchParams({ date: dateId }));
+}
+
+// The customer's TNG receipt has come back — mark the order Paid for real. This
+// is what turns the Paid step green on the row's map (the Paid button, not just
+// picking Paid in the dropdown). No WhatsApp needed.
+function markPaid(state, group, root, dateId) {
+  for (const o of group.orders) o.paidReceived = true;
+  anchorRowId = firstOf(group).id;
+  save(state);
+  maybeSync(state);
+  toast("Paid — payment received");
+  renderAll(root, state, new URLSearchParams({ date: dateId }));
+}
+
+function firstOf(group) {
+  return ((group && group.orders) || [])[0];
 }
 
 function removeOrder(state, group, root, dateId) {

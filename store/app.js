@@ -584,7 +584,7 @@ export function render() {
 
 // ── Track your order ───────────────────────────────────────────────────────
 // Look up one order on the public tracking table and show its place on the
-// journey (New → Confirmed → Paid → Baking → Ready → Delivered) with the order
+// journey (New → Confirmed → Paid → Baked → Packed → Delivered) with the order
 // details only. Payment instructions and the receipt flow live in the WhatsApp
 // confirmation, not here. Friendly fallbacks keep the card usable when the code
 // is wrong or tracking is unreachable.
@@ -592,18 +592,19 @@ const JOURNEY = [
   ["new", "New"],
   ["confirmed", "Confirmed"],
   ["paid", "Paid"],           // TNG payment received, right after Confirmed
-  ["baking", "Baking"],
-  ["ready", "Ready"],
+  ["baking", "Baked"],
+  ["ready", "Packed"],
   ["delivered", "Delivered"],
 ];
 
 // A progress line for the track card, like an online-shop parcel tracker: each
 // step is a circle joined to the next by a line. Reached steps are green with a
 // tick, the live step is a larger amber dot that pulses, later steps stay grey.
-// Two statuses read as finished on purpose: once the baker marks an order Ready
-// the baking is done, so the line is green up to Ready and only the final
-// Delivered step pulses ("delivery is next"); a Delivered order shows the whole
-// line green. Unknown statuses return null and the caller just shows details.
+// Two statuses read as finished on purpose: once the baker marks an order Packed
+// the baking and packing are done, so the line is green up to Packed and only
+// the final Delivered step pulses ("delivery is next"); a Delivered order shows
+// the whole line green. Unknown statuses return null and the caller just shows
+// details.
 function journeyEl(key) {
   let idx = JOURNEY.findIndex(([id]) => id === key);
   if (idx < 0) return null;

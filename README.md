@@ -122,7 +122,8 @@ Two extras that build on the same Supabase project:
 - **Order intake** — customers' orders are posted to an `incoming_orders`
   table. The backoffice polls ~every 30 seconds, turns each one into an order
   (status *New*, tagged "storefront") and you advance it New → Confirmed →
-  Baking → Ready → Delivered. The status shows on both phones via shared data.
+  Paid → Baked → Packed → Delivered. The status shows on both phones via
+  shared data.
   A **cart with several items arrives as one order** — the list shows it as one
   row ("Focaccia + Sandwich"), one status, one delete, so it isn't confused for
   two orders.
@@ -146,22 +147,38 @@ order asks for the delivery address) and leave their **WhatsApp number**, so you
 can confirm the order back to them. Orders show the time they were placed
 ("Placed 1 Sep · 14:32"), the delivery method and the address.
 
-When you change an order's status to **Confirmed** (or while it's Baking/Ready),
-tap **Send confirmation** — it opens WhatsApp with an **order number** (e.g.
-`#A3F9C2`), the delivery details, the items + total, a **TNG QR** payment
-request, and a **track link**. The customer opens that link (or the *Track your
-order* card on the storefront) and sees the live status, their delivery
-method/address, and your TNG QR to pay.
+Every order row shows its own **status map** (New → Confirmed → Paid → Baked →
+Packed → Delivered): steps behind the order are green with a tick, the step
+waiting on the baker is the pulsing amber dot, and a Delivered order is all
+green. Each stage has its own action, and each WhatsApp message leads with the
+order's number (e.g. `#A3F9C2`) so it can always be matched back to the order:
 
-- Every item in the same storefront cart shares one order number.
+- Move an order to **Confirmed** → tap **Send confirmation** — WhatsApp opens
+  with the order number, delivery details, items + total, a **TNG QR** payment
+  request, and a **track link**. The customer opens that link (or the *Track
+  your order* card on the storefront) and sees the live status, their delivery
+  method/address, and your TNG QR to pay.
+- Move it to **Paid** → two buttons: **Send payment reminder** (a WhatsApp
+  nudge with the order number + QR) and **Paid** — tap **Paid** only once the
+  TNG receipt has really come back; that turns Paid green on the map.
+- **Baked** has no message — the map just advances. Move it to **Packed** →
+  tap **Send pickup reminder** (or "will be sent for delivery" for a courier
+  order). **Delivered** finishes the order; the whole map goes green.
+
+The order number tag (`#A3F9C2`) appears on every inbox row, every order row,
+and the Edit pop-up; every item in the same storefront cart shares one number.
+
 - The track page updates automatically whenever you change the order's status.
   (The update is published by the phone that changes the status; the other
   phone re-publishes on its next status change.)
 - Set your TNG QR (a hosted image URL) in **Settings → Storefront → TNG QR
-  code**. If the order has no WhatsApp number, the Send confirmation button is
-  disabled until you add one.
-- The customer's phone number is required on the storefront order so you can
-  send the confirmation; add it in the order form for manual orders too.
+  code**. If the order has no WhatsApp number, moving it to **Confirmed** is
+  blocked, and its message/Paid buttons stay disabled until you add one in the
+  order form (manual orders) or via **Edit**.
+- **Edit** opens a small pop-up over the screen (the **＋ New order** card stays
+  on the page, so a manual order can always be added). Manual-add and Edit
+  pickers list every product, including ones you've hidden from the menu —
+  hidden ones are marked "(hidden)".
 
 **One-time setup:** run `supabase/tracking.sql` in the SQL editor (adds the
 tracking table + security: anyone can read a published status, only signed-in

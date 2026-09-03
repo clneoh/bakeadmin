@@ -1,7 +1,10 @@
-// test/orders.test.js — the order-status gate: an order without a WhatsApp
-// number can't move to a confirmable status, because confirming is what sends
-// the customer their WhatsApp message with the payment QR.
-// Also covers the new-orders inbox, including orphaned orders (their delivery
+// test/orders.test.js — the order-status gate: moving an order to Confirmed
+// needs its WhatsApp number, because that is when the confirmation message with
+// the payment QR goes out. Later stages advance the physical order even without
+// a number (their message/Paid buttons just stay disabled).
+// Covers the journey marks (New → Confirmed → Paid → Baked → Packed →
+// Delivered, where Confirmed/Paid only tick green after their button is
+// pressed) and the new-orders inbox, including orphaned orders (their delivery
 // date was deleted) that can only be removed, not opened.
 
 import { test } from "node:test";
@@ -34,12 +37,12 @@ globalThis.document = {
 };
 globalThis.window = { open() {} };
 
-import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups } from "../admin/js/views/orders.js";
+import { statusNeedsWhatsapp, newOrdersInbox, applyGroupPatch, filterOrderGroups, journeyMarks } from "../admin/js/views/orders.js";
 
-test("confirmable statuses need a WhatsApp number on the order", () => {
+test("only Confirmed needs a WhatsApp number (it gates sending the confirmation)", () => {
   assert.equal(statusNeedsWhatsapp("confirmed"), true);
-  assert.equal(statusNeedsWhatsapp("baking"), true);
-  assert.equal(statusNeedsWhatsapp("ready"), true);
+  assert.equal(statusNeedsWhatsapp("baking"), false);
+  assert.equal(statusNeedsWhatsapp("ready"), false);
 });
 
 test("new and delivered moves never need a number", () => {
@@ -47,6 +50,41 @@ test("new and delivered moves never need a number", () => {
   assert.equal(statusNeedsWhatsapp("delivered"), false);
   assert.equal(statusNeedsWhatsapp(""), false);
   assert.equal(statusNeedsWhatsapp(undefined), false);
+});
+
+test("journey marks: New is green on arrival, Confirmed is the live step", () => {
+  assert.deepEqual(journeyMarks({ status: "new" }),
+    ["done", "now", "todo", "todo", "todo", "todo"]);
+});
+
+test("journey marks: Confirmed completes only once the confirmation was sent", () => {
+  // Legacy orders saved before the flag existed read as already handled.
+  assert.deepEqual(journeyMarks({ status: "confirmed" }),
+    ["done", "done", "now", "todo", "todo", "todo"], "absent flag = confirmation sent");
+  assert.deepEqual(journeyMarks({ status: "confirmed", confirmedSent: true }),
+    ["done", "done", "now", "todo", "todo", "todo"]);
+  assert.deepEqual(journeyMarks({ status: "confirmed", confirmedSent: false }),
+    ["done", "now", "todo", "todo", "todo", "todo"], "selecting Confirmed but not yet sent");
+});
+
+test("journey marks: Paid completes only once payment is received", () => {
+  assert.deepEqual(journeyMarks({ status: "paid" }),
+    ["done", "done", "done", "now", "todo", "todo"], "absent flag = payment received");
+  assert.deepEqual(journeyMarks({ status: "paid", paidReceived: true }),
+    ["done", "done", "done", "now", "todo", "todo"]);
+  assert.deepEqual(journeyMarks({ status: "paid", paidReceived: false }),
+    ["done", "done", "now", "todo", "todo", "todo"], "payment received not yet marked");
+});
+
+test("journey marks: later stages green on selection, Delivered ends all green", () => {
+  assert.deepEqual(journeyMarks({ status: "baking" }),
+    ["done", "done", "done", "done", "now", "todo"]);
+  assert.deepEqual(journeyMarks({ status: "ready" }),
+    ["done", "done", "done", "done", "done", "now"]);
+  assert.deepEqual(journeyMarks({ status: "delivered" }),
+    ["done", "done", "done", "done", "done", "done"]);
+  assert.deepEqual(journeyMarks({}),
+    ["done", "now", "todo", "todo", "todo", "todo"], "a missing status reads as New");
 });
 
 const inboxState = {
@@ -125,5 +163,12 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
     assert.equal(del.attrs["aria-label"], "Remove order");
     assert.equal(del.children[0].text, "✕");
     assert.equal(typeof del._listeners.click[0], "function");
+
+    // And its own order-code tag (#…) inside the title line, so every inbox
+    // order can be matched back to its WhatsApp message.
+    const title = row.children[0].children[0].children[0]; // inbox-main → .li-main → .li-title
+    const code = (title.children || []).find((c) => String(c.className || "").includes("ord-code"));
+    assert.ok(code, "title line carries the order code tag");
+    assert.ok(String(code.children[0].text || "").startsWith("#"), "tag reads like #A3F9C2");
   }
 });

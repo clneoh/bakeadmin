@@ -298,7 +298,7 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
   }
 });
 
-test("a Paid order lights up Paid on the journey, between Confirmed and Baking", async () => {
+test("a Paid order lights up Paid on the journey, between Confirmed and Baked", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
     status: "Paid", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
@@ -318,8 +318,8 @@ test("a Paid order lights up Paid on the journey, between Confirmed and Baking",
         walk(c);
       }
     })(journey);
-    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baking", "Ready", "Delivered"],
-      "journey reads New → Confirmed → Paid → Baking → Ready → Delivered");
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Delivered"],
+      "journey reads New → Confirmed → Paid → Baked → Packed → Delivered");
     assert.equal(steps.length, 6, "all six stages present");
     assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 2,
       "New and Confirmed are done before Paid");
@@ -332,7 +332,7 @@ test("a Paid order lights up Paid on the journey, between Confirmed and Baking",
   }
 });
 
-test("a Ready order shows New..Ready done with only Delivered pulsing", async () => {
+test("a Packed order (status ready) shows the bakery steps done with only Delivered pulsing", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
     status: "Ready", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
@@ -352,17 +352,17 @@ test("a Ready order shows New..Ready done with only Delivered pulsing", async ()
         walk(c);
       }
     })(journey);
-    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baking", "Ready", "Delivered"],
-      "journey reads New → Confirmed → Paid → Baking → Ready → Delivered");
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Delivered"],
+      "journey reads New → Confirmed → Paid → Baked → Packed → Delivered");
     assert.equal(steps.length, 6, "all six stages present");
     assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 5,
-      "everything before the delivery is green once the order is Ready");
+      "everything before the delivery is green once the order is Packed");
     assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 0,
       "no stage stays grey — the delivery is the only one left");
     const now = steps.find((s) => String(s.className || "").includes("now"));
     const nowLabel = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
     assert.ok(nowLabel && String(nowLabel.children[0].text || "").includes("Delivered"),
-      "Delivered is the flashing (current) stage while the order is Ready");
+      "Delivered is the flashing (current) stage while the order is Packed");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
