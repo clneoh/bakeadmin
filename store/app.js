@@ -527,15 +527,11 @@ export function render() {
     showConfirm("Sending your order to the bakery…");
 
     const r = await placeOrder(order);
-    // Dual delivery: the order is saved to the bakery's app, and a WhatsApp
-    // copy also opens so the customer can send it on — that copy is what reveals
-    // the customer's own number to the baker (WhatsApp shows the sender's
-    // number). The confirmation tells the customer whether the order reached
-    // the app or went by WhatsApp instead.
-    const url = CONFIG.whatsapp ? waUrl(order, dayLabel) : null;
-    const opened = url ? tryOpenWa(url) : false;
-
     if (r.ok) {
+      // The order is safely in the bakery's app — done. No WhatsApp popup, and
+      // the customer is told it's received but not yet accepted: it lands as a
+      // New order and only becomes Confirmed when the baker confirms it (which
+      // is also when the customer gets the WhatsApp confirmation).
       cart.clear();
       const noteBox = document.getElementById("menu-note");
       if (noteBox) { noteBox.hidden = true; noteBox.replaceChildren(); }
@@ -560,25 +556,27 @@ export function render() {
         el("p", { class: "confirm-body" },
           order.customer ? `Thanks ${order.customer}! ${CONFIG.name} has your order.` : `${CONFIG.name} has your order.`),
         el("p", { class: "confirm-body" }, `📅 ${dayLabel} · ${items} · RM${total.toFixed(2)}`),
+        el("p", { class: "confirm-sub" }, "Your order is in with the bakery — we'll WhatsApp you once we confirm it."),
         el("p", { class: "confirm-sub" },
           "When you pay by TNG, put your phone number in the payment description — then screenshot the receipt and send it to us on WhatsApp."),
-        url
-          ? (opened
-              ? el("p", { class: "confirm-sub" }, "WhatsApp has opened with your order — press Send so we can confirm. We'll message you back!")
-              : el("a", { class: "confirm-link", href: url, target: "_blank", rel: "noopener" }, "📲 Send your order via WhatsApp"))
-          : el("p", { class: "confirm-sub" }, "We'll WhatsApp you to confirm."),
       ], "ok");
     } else {
+      // The order could not reach the bakery's app — hand it over on WhatsApp
+      // instead so it isn't lost (this is the only time WhatsApp opens, and the
+      // baker sees the customer's own number on the message). Best-effort: the
+      // cart stays intact if it can't open.
+      const url = CONFIG.whatsapp ? waUrl(order, dayLabel) : null;
+      const opened = url ? tryOpenWa(url) : false;
       orderBtn.disabled = false;
       orderBtn.textContent = "Place order";
       showConfirm([
         el("p", { class: "confirm-title" }, "We couldn't reach the bakery's app just now."),
-        el("p", { class: "confirm-body" }, "Don't worry — your order is still in your cart."),
+        el("p", { class: "confirm-body" }, "Don't worry — send your order on WhatsApp so it isn't lost."),
         url
           ? (opened
               ? el("p", { class: "confirm-sub" }, "WhatsApp has opened with your order — press Send so it isn't lost.")
-              : el("a", { class: "confirm-link", href: url, target: "_blank", rel: "noopener" }, "📲 Send your order via WhatsApp instead"))
-          : null,
+              : el("a", { class: "confirm-link", href: url, target: "_blank", rel: "noopener" }, "📲 Send your order via WhatsApp"))
+          : el("p", { class: "confirm-sub" }, "Please try again in a moment."),
       ], "warn");
     }
   };

@@ -297,3 +297,61 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
 });
+
+test("order that reaches the app shows received WITHOUT opening WhatsApp (no popup)", async () => {
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0](); // "+" — cart has 1 item
+  assert.equal(registry["order-btn"].disabled, false);
+
+  let posted = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posted = { url, body: JSON.parse(opts.body) }; return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  const opened = [];
+  const realOpen = window.open;
+  window.open = (u) => { opened.push(u); return {}; };
+  try {
+    document.getElementById("whatsapp-input").value = "60123456789";
+    await registry["order-btn"].onclick();
+    assert.ok(posted, "order was POSTed to the backoffice");
+    assert.deepEqual(opened, [], "a successful order must NOT open WhatsApp");
+    const title = registry["confirm-msg"].children[0].children[0];
+    assert.equal(title.text, "🎉 Order received!");
+    const saysConfirm = registry["confirm-msg"].children.find((n) =>
+      n.children && n.children.some((c) => String(c.text || "").includes("we'll WhatsApp you once we confirm")));
+    assert.ok(saysConfirm, "tells the customer confirmation comes later, from the bakery");
+  } finally {
+    globalThis.fetch = realFetch;
+    window.open = realOpen;
+  }
+});
+
+test("WhatsApp only opens as a fallback when the order could NOT reach the app", async () => {
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0]();
+  assert.equal(registry["order-btn"].disabled, false);
+
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") return { ok: false };
+    return { ok: true, json: async () => [] };
+  };
+  const opened = [];
+  const realOpen = window.open;
+  window.open = (u) => { opened.push(u); return {}; };
+  try {
+    document.getElementById("whatsapp-input").value = "60123456789";
+    await registry["order-btn"].onclick();
+    assert.equal(opened.length, 1, "WhatsApp opens only when the app could not be reached");
+    assert.ok(String(opened[0]).startsWith("https://wa.me/60123456789?text="), "falls back to the configured bakery number");
+    assert.ok(decodeURIComponent(opened[0]).includes("New order"), "the message carries the order details");
+    assert.equal(registry["order-btn"].disabled, false, "button is usable again so the customer can retry");
+  } finally {
+    globalThis.fetch = realFetch;
+    window.open = realOpen;
+  }
+});

@@ -3,7 +3,7 @@
 import { loadState, save, setSaveHook, updateOrderBadge } from "./state.js";
 import { el, button } from "./ui.js";
 import * as sync from "./sync.js";
-import { cachedToken, maybeSync, pullIncoming } from "./supabase.js";
+import { cachedToken, maybeSync, pullIncoming, refreshStorefront } from "./supabase.js";
 
 import { renderDashboard } from "./views/dashboard.js";
 import { renderDeliveries } from "./views/deliveries.js";
@@ -183,6 +183,7 @@ function showLogin() {
       render();
       startSync();
       startIntake();
+      refreshStorefront(state);
     },
     onOffline: () => {
       loggedOut = false;
@@ -236,6 +237,9 @@ function bootApp() {
   render();
   startSync();
   startIntake();
+  // Adopt the latest published storefront (name/WhatsApp/tagline/QR) so this
+  // phone shows whatever the most recent backoffice user set, not a baked copy.
+  refreshStorefront(state);
   registerSW();
 }
 

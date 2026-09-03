@@ -268,6 +268,42 @@ export function maybeSyncStorefront(state) {
   sfTimer = setTimeout(() => { syncStorefront(state); }, 2000);
 }
 
+// Adopt the storefront details the most recent backoffice user published
+// (Settings → Storefront) into this phone's own state. The storefront_config
+// row is the source of truth — the same one the customer page reads — so every
+// phone shows the same latest name/WhatsApp/tagline/socials/QR as customers
+// see, never a stale copy baked in code. Public read (anon key only, no login);
+// a missing row, no name, or being offline keeps this phone's local values.
+// Mirrors what the Settings editor does when opened, but runs at boot so a
+// fresh phone is up to date before its first Settings visit.
+export async function refreshStorefront(state) {
+  const c = cfg(state);
+  if (!c.url || !c.anonKey) return false;
+  const base = String(c.url).replace(/\/+$/, "");
+  try {
+    const res = await fetch(
+      `${base}/rest/v1/storefront_config?select=data&id=eq.default&limit=1`,
+      { headers: { apikey: c.anonKey } });
+    if (!res.ok) return false;
+    const rows = await res.json();
+    const row = Array.isArray(rows) && rows[0];
+    if (!row || typeof row.data !== "string") return false;
+    const remote = JSON.parse(row.data);
+    if (!remote || typeof remote !== "object" || !remote.name) return false;
+    const sf = state.settings.storefront;
+    if (typeof remote.name === "string") sf.name = remote.name;
+    if (typeof remote.whatsapp === "string") sf.whatsapp = remote.whatsapp;
+    if (typeof remote.tagline === "string") sf.tagline = remote.tagline;
+    if (typeof remote.instagram === "string") sf.instagram = remote.instagram;
+    if (typeof remote.facebook === "string") sf.facebook = remote.facebook;
+    if (typeof remote.tngQr === "string") sf.tngQr = remote.tngQr;
+    save(state);
+    return true;
+  } catch {
+    return false; // offline or unreachable — keep the local copy
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Order tracking — the customer-facing snapshot of one order. When the baker
 // changes an order's status, the backoffice publishes a row here; the

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot, refreshStorefront } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -558,5 +558,77 @@ test("publishTracking is a silent no-op when tracking is unconfigured", async ()
     assert.equal(called, false, "no fetch when Supabase is off");
   } finally {
     globalThis.fetch = realFetch;
+  }
+});
+
+test("refreshStorefront adopts the latest published storefront into the phone's state", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.settings.supabase = { url: "https://x.supabase.co", anonKey: "anon" };
+  state.settings.storefront = { name: "", whatsapp: "", tagline: "", instagram: "", facebook: "", tngQr: "", products: [] };
+  const remote = {
+    name: "Jienluv2bake Cakes", whatsapp: "60111223344", tagline: "Cakes & more",
+    instagram: "jienluv2bake", facebook: "", tngQr: "https://img/qr.png",
+  };
+  globalThis.fetch = async (url, opts) => {
+    assert.ok(String(url).includes("storefront_config"), "reads the published config row");
+    assert.equal(opts.headers.apikey, "anon", "public read — anon key only, no login needed");
+    return { ok: true, json: async () => [{ data: JSON.stringify(remote) }] };
+  };
+  try {
+    const adopted = await refreshStorefront(state);
+    assert.equal(adopted, true);
+    assert.equal(state.settings.storefront.name, "Jienluv2bake Cakes");
+    assert.equal(state.settings.storefront.whatsapp, "60111223344");
+    assert.equal(state.settings.storefront.tagline, "Cakes & more");
+    assert.equal(state.settings.storefront.instagram, "jienluv2bake");
+    assert.equal(state.settings.storefront.facebook, "");
+    assert.equal(state.settings.storefront.tngQr, "https://img/qr.png");
+    assert.equal(state.settings.storefront.products.length, 0, "the menu is not adopted — it stays managed per phone");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("refreshStorefront keeps the local copy when the published row is missing or nameless", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.settings.supabase = { url: "https://x.supabase.co", anonKey: "anon" };
+  state.settings.storefront = { name: "Local", whatsapp: "60111111111", tagline: "", instagram: "", facebook: "", tngQr: "", products: [] };
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return { ok: true, json: async () => [] }; };
+  try {
+    assert.equal(await refreshStorefront(state), false, "no row → keep local");
+    assert.equal(state.settings.storefront.name, "Local", "local copy untouched");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+
+  calls = 0;
+  globalThis.fetch = async () => { calls++; return { ok: true, json: async () => [{ data: JSON.stringify({ tagline: "no name" }) }] }; };
+  try {
+    assert.equal(await refreshStorefront(state), false, "published row without a name → keep local");
+    assert.equal(state.settings.storefront.name, "Local");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("refreshStorefront is a silent no-op when Supabase url/anon are missing", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.settings.supabase = { url: "", anonKey: "" };
+  state.settings.storefront = { name: "Local", whatsapp: "", tagline: "", instagram: "", facebook: "", tngQr: "", products: [] };
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  try {
+    assert.equal(await refreshStorefront(state), false);
+    assert.equal(called, false, "no fetch when there is nothing to read");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
   }
 });

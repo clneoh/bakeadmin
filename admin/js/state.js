@@ -54,12 +54,17 @@ export function loadState() {
 }
 
 // First run on a device (no saved state at all) ships preconnected so a fresh
-// phone works after ONE sign-in: shared data + live availability on, the 8899
-// PIN on, and the live published storefront values prefilled. This template
-// lives ONLY here — normalize() keeps neutral defaults above so a partial
-// stored state can never inherit any of this (it must never, say, lock a phone
-// with a PIN the owner did not set). The app-login PASSWORD is deliberately
-// never shipped in code; the owner types it once per phone at the sign-in gate.
+// phone works after ONE sign-in: shared data + live availability on, and the
+// 8899 PIN on. This template lives ONLY here — normalize() keeps neutral
+// defaults above so a partial stored state can never inherit any of it (it
+// must never, say, lock a phone with a PIN the owner did not set). Only the
+// PUBLIC connection (Supabase url + anon key) and the device-local PIN are
+// baked in code. The storefront details customers see (name, WhatsApp, tagline,
+// socials, TNG QR) are deliberately NOT baked: the app adopts the latest
+// published values from Supabase when it boots, so a fresh phone always shows
+// whatever the most recent backoffice user published — never a stale copy. The
+// app-login PASSWORD is also never shipped in code; the owner types email +
+// password once per phone at the sign-in gate.
 function seedFreshState() {
   const s = defaultState();
   s.settings.cloud.enabled = true;
@@ -69,15 +74,6 @@ function seedFreshState() {
   s.settings.supabase.email = ""; // owner's app-login email (paste in when known)
   s.settings.lock.enabled = true;
   s.settings.lock.pinHash = "9800a8677d99e5f6968d7357e44006388b09d3b6a8676d0f930fbaa63d02330d"; // default PIN 8899
-  s.settings.storefront = cleanStorefront({
-    whatsapp: "60123456789",
-    name: "Jienluv2bake",
-    tagline: "Home-made focaccia & sandwiches, Penang",
-    instagram: "",
-    facebook: "",
-    tngQr: "https://hzpyblqygnntixkijeem.supabase.co/storage/v1/object/public/folder/TNGncl.jpeg",
-    products: [],
-  });
   return normalize(s);
 }
 
