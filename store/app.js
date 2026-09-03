@@ -557,8 +557,6 @@ export function render() {
           order.customer ? `Thanks ${order.customer}! ${CONFIG.name} has your order.` : `${CONFIG.name} has your order.`),
         el("p", { class: "confirm-body" }, `📅 ${dayLabel} · ${items} · RM${total.toFixed(2)}`),
         el("p", { class: "confirm-sub" }, "Your order is in with the bakery — we'll WhatsApp you once we confirm it."),
-        el("p", { class: "confirm-sub" },
-          "When you pay by TNG, put your phone number in the payment description — then screenshot the receipt and send it to us on WhatsApp."),
       ], "ok");
     } else {
       // The order could not reach the bakery's app — hand it over on WhatsApp

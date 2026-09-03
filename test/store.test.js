@@ -323,6 +323,9 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
     const saysConfirm = registry["confirm-msg"].children.find((n) =>
       n.children && n.children.some((c) => String(c.text || "").includes("we'll WhatsApp you once we confirm")));
     assert.ok(saysConfirm, "tells the customer confirmation comes later, from the bakery");
+    const mentionsPayment = registry["confirm-msg"].children.find((n) =>
+      n.children && n.children.some((c) => /\b(TNG|pay|receipt)\b/i.test(String(c.text || ""))));
+    assert.equal(mentionsPayment, undefined, "no payment wording — payment is only explained when the bakery confirms");
   } finally {
     globalThis.fetch = realFetch;
     window.open = realOpen;
