@@ -18,10 +18,23 @@ let anchorRowId = null;
 const STATUSES = [
   ["new", "New"],
   ["confirmed", "Confirmed"],
+  ["paid", "Paid"],           // TNG payment received, right after Confirmed
   ["baking", "Baking"],
   ["ready", "Ready"],
   ["delivered", "Delivered"],
 ];
+
+// The order-status journey drawn as a small reference map above the list:
+// New → Confirmed → Paid → Baking → Ready → Delivered. Rows do the changing
+// (their status dropdown); this map is just where each status sits in the flow.
+function statusFlowEl() {
+  const kids = [];
+  STATUSES.forEach(([, label], i) => {
+    if (i) kids.push(el("span", { class: "flow-arrow", "aria-hidden": "true" }, "→"));
+    kids.push(el("span", { class: "flow-step" }, label));
+  });
+  return el("div", { class: "status-flow", "aria-label": "Order status flow" }, ...kids);
+}
 
 // A confirmable status (Confirmed/Baking/Ready) is what sends the customer
 // their WhatsApp confirmation with the payment QR — so it needs a number on
@@ -618,8 +631,11 @@ function orderList(state, dateId, root) {
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
     if (!all.length) {
       listEl.replaceChildren(
-        el("p", { class: "muted", style: "text-align:center;margin:0" },
-          "No orders for this date yet."));
+        el("div", {},
+          el("h3", { style: "margin:0 0 4px" }, "Orders"),
+          statusFlowEl(),
+          el("p", { class: "muted", style: "text-align:center;margin:10px 0 0" },
+            "No orders for this date yet.")));
       return;
     }
     // Storefront orders with several items arrive as one customer order: group
@@ -637,6 +653,7 @@ function orderList(state, dateId, root) {
 
     const list = el("div", {},
       el("h3", { style: "margin:0 0 4px" }, "Orders"),
+      statusFlowEl(),
       el("div", { class: "row-actions", style: "margin:0 0 8px" }, filterSel),
       ...blocks);
     if (!filteredGroups.length) {

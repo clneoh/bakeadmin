@@ -276,13 +276,13 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
         walk(c);
       }
     })(journey);
-    assert.equal(steps.length, 5, "journey shows all five stages");
+    assert.equal(steps.length, 6, "journey shows all six stages");
     assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 1, "New is marked done");
     const now = steps.find((s) => String(s.className || "").includes("now"));
     assert.ok(now, "the current stage is highlighted");
     const label = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
     assert.ok(label && String(label.children[0].text || "").includes("Confirmed"), "highlighted stage is the latest status");
-    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 3, "the three later stages stay upcoming");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 4, "the four later stages stay upcoming");
     const code = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-code"));
     assert.ok(code, "shows the order code line");
     assert.ok(String(code.children[0].text || "").includes("A3F9C2"), "code line has the order code");
@@ -293,6 +293,40 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
     assert.equal(link, undefined, "no receipt-send link on the track page");
     const img = box.children.find((c) => c.tagName === "IMG");
     assert.equal(img, undefined, "no QR image on the track page");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+test("a Paid order lights up Paid on the journey, between Confirmed and Baking", async () => {
+  const box = document.getElementById("track-result");
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+    status: "Paid", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
+  }] });
+  try {
+    await trackOrder("A3F9C2");
+    const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    assert.ok(journey, "shows the journey");
+    const labels = [];
+    const steps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) steps.push(c);
+        if (String(c.className || "").split(/\s+/).includes("tj-label")) {
+          labels.push((c.children[0] && c.children[0].text) || String(c.textContent || ""));
+        }
+        walk(c);
+      }
+    })(journey);
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baking", "Ready", "Delivered"],
+      "journey reads New → Confirmed → Paid → Baking → Ready → Delivered");
+    assert.equal(steps.length, 6, "all six stages present");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 2,
+      "New and Confirmed are done before Paid");
+    const now = steps.find((s) => String(s.className || "").includes("now"));
+    const nowLabel = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
+    assert.ok(nowLabel && String(nowLabel.children[0].text || "").includes("Paid"),
+      "the current (highlighted) stage is Paid");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
