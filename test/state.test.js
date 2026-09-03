@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber } from "../admin/js/state.js";
+import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
@@ -168,6 +168,32 @@ test("a partial stored lock fills its defaults (never accidentally active)", () 
   const out = normalize({ version: 1, settings: { lock: { enabled: true } } });
   assert.deepEqual(out.settings.lock, { enabled: true, pinHash: "" });
   assert.equal(lockEnabled(out.settings), false, "no stored PIN → lock not active");
+});
+
+test("ensureSupabase fills blank connection boxes from the built-in project (public fields only)", () => {
+  const s = { settings: { supabase: { url: "", anonKey: "", email: "", password: "" } } };
+  assert.equal(ensureSupabase(s), true);
+  assert.equal(s.settings.supabase.url, "https://hzpyblqygnntixkijeem.supabase.co");
+  assert.ok(s.settings.supabase.anonKey.length > 100, "anon key is a real long key");
+  assert.equal(s.settings.supabase.email, "", "never fills the app-login email");
+  assert.equal(s.settings.supabase.password, "", "never fills the app-login password");
+});
+
+test("ensureSupabase leaves an already-configured phone untouched", () => {
+  const sb = { url: "https://mine.supabase.co", anonKey: "my-key", email: "a@b.c", password: "pw" };
+  const s = { settings: { supabase: sb } };
+  assert.equal(ensureSupabase(s), false);
+  assert.equal(s.settings.supabase.url, "https://mine.supabase.co");
+  assert.equal(s.settings.supabase.anonKey, "my-key");
+  assert.equal(s.settings.supabase.email, "a@b.c");
+});
+
+test("ensureSupabase fills only the blank box and keeps the owner's login", () => {
+  const s = { settings: { supabase: { url: "https://mine.supabase.co", anonKey: "", email: "a@b.c", password: "pw" } } };
+  assert.equal(ensureSupabase(s), true);
+  assert.equal(s.settings.supabase.url, "https://mine.supabase.co", "present value is not overwritten");
+  assert.ok(s.settings.supabase.anonKey.length > 100);
+  assert.equal(s.settings.supabase.email, "a@b.c");
 });
 
 test("waNumber strips +/spaces/dashes and adds the +60 country code to locals", () => {

@@ -65,16 +65,40 @@ export function loadState() {
 // whatever the most recent backoffice user published — never a stale copy. The
 // app-login PASSWORD is also never shipped in code; the owner types email +
 // password once per phone at the sign-in gate.
+// The PUBLIC Supabase connection for this bakery. URL + anon key ship in code
+// by design — they are public (any visitor to the order page already holds
+// them). The app-login email/password never ship in code (see below).
+const BUILTIN_SUPABASE = {
+  url: "https://hzpyblqygnntixkijeem.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6cHlibHF5Z25udGl4a2lqZWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODUyNzAsImV4cCI6MjEwMzc2MTI3MH0.jmxtiVCmDrD3xJWVSxhYi5lDpXD6nyZavp1x5hhUh0E",
+};
+
 function seedFreshState() {
   const s = defaultState();
   s.settings.cloud.enabled = true;
   s.settings.supabase.enabled = true;
-  s.settings.supabase.url = "https://hzpyblqygnntixkijeem.supabase.co";
-  s.settings.supabase.anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6cHlibHF5Z25udGl4a2lqZWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODUyNzAsImV4cCI6MjEwMzc2MTI3MH0.jmxtiVCmDrD3xJWVSxhYi5lDpXD6nyZavp1x5hhUh0E";
+  s.settings.supabase.url = BUILTIN_SUPABASE.url;
+  s.settings.supabase.anonKey = BUILTIN_SUPABASE.anonKey;
   s.settings.supabase.email = ""; // owner's app-login email (paste in when known)
   s.settings.lock.enabled = true;
   s.settings.lock.pinHash = "9800a8677d99e5f6968d7357e44006388b09d3b6a8676d0f930fbaa63d02330d"; // default PIN 8899
   return normalize(s);
+}
+
+// A phone whose stored state predates the preconnected build keeps blank
+// connection fields forever (seeding runs only on an empty device), so its
+// cloud boxes look dead and nothing loads. On every boot, refill the PUBLIC
+// url + anon key from the built-in project when they're missing — a phone can
+// never be left unable to reach the cloud. Deliberately never fills the
+// app-login email/password and never flips a switch on: signing in stays the
+// owner's one step.
+export function ensureSupabase(state) {
+  const sb = (state.settings || {}).supabase;
+  if (!sb) return false;
+  let changed = false;
+  if (!String(sb.url || "").trim()) { sb.url = BUILTIN_SUPABASE.url; changed = true; }
+  if (!String(sb.anonKey || "").trim()) { sb.anonKey = BUILTIN_SUPABASE.anonKey; changed = true; }
+  return changed;
 }
 
 export function save(state) {

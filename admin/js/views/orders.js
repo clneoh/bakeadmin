@@ -58,6 +58,38 @@ export function renderOrders(root, state, params) {
   renderAll(root, state, params);
 }
 
+// The date strip scrolls horizontally, so a far date's pill hides off its
+// right edge. When a New-Orders tap lands on such a date, slide the strip so
+// the pill appears — gliding to center it. An already-visible pill never moves
+// (plain taps on a visible date stay put). Falls back to an instant jump when
+// there is no animation loop (tests) or no real geometry.
+function revealDatePill(strip, pill) {
+  if (!strip || !pill
+      || typeof strip.getBoundingClientRect !== "function"
+      || typeof pill.getBoundingClientRect !== "function") return;
+  const s = strip.getBoundingClientRect();
+  const p = pill.getBoundingClientRect();
+  if (p.left >= s.left && p.right <= s.right) return; // fully visible already
+  const max = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  const end = Math.max(0, Math.min(
+    strip.scrollLeft + (p.left - s.left) - (s.width - p.width) / 2,
+    max));
+  const start = strip.scrollLeft;
+  if (Math.abs(end - start) < 1) return;
+  const raf = globalThis.requestAnimationFrame;
+  if (typeof raf !== "function") { strip.scrollLeft = end; return; }
+  const t0 = globalThis.performance && typeof globalThis.performance.now === "function"
+    ? globalThis.performance.now() : Date.now();
+  const dur = 260;
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / dur);
+    const ease = 1 - Math.pow(1 - k, 3); // ease-out: glide in, settle softly
+    strip.scrollLeft = start + (end - start) * ease;
+    if (k < 1) raf(step);
+  };
+  raf(step);
+}
+
 function renderAll(root, state, params) {
   const dates = [...state.deliveryDates].sort((a, b) => a.date.localeCompare(b.date));
   if (!dates.length) {
@@ -65,6 +97,16 @@ function renderAll(root, state, params) {
       "Add delivery dates first — go to More → Delivery Dates."));
     return;
   }
+  // In-place rebuilds (status change, add, edit, remove) must not let the
+  // screen jump under the baker's finger: the New-orders inbox above the date
+  // strip grows/shrinks as orders are handled, and the New/Edit form changes
+  // height, so everything below would otherwise snap up or down. Remember
+  // where the Orders list sits and put the rebuilt list back there. A fresh
+  // route render (the router cleared #view first) finds no list to anchor, so
+  // it starts at the top as usual.
+  const scroller = () => document.scrollingElement || document.documentElement;
+  const listBefore = root.querySelector('[data-role="orders-list"]');
+  const anchorTop = listBefore ? listBefore.getBoundingClientRect().top : null;
   const requested = params.get("date");
   let activeId = (requested && dates.some((d) => d.id === requested))
     ? requested
@@ -96,6 +138,10 @@ function renderAll(root, state, params) {
     if (history && history.replaceState) {
       history.replaceState(null, "", `#/orders?date=${id}`);
     }
+    // The tapped order may sit on a far delivery date whose pill is hidden off
+    // the strip's edge (New-Orders rows jump across dates). Slide it into view.
+    const pill = strip.querySelector(`.date-tab[data-date-id="${id}"]`);
+    if (pill) revealDatePill(strip, pill);
   };
 
   for (const d of dates) {
@@ -111,14 +157,12 @@ function renderAll(root, state, params) {
   }
 
   // The strip is rebuilt on a full render (e.g. arriving via the router, or
-  // after an order is saved). Scroll the active tab back into view so a later
-  // date isn't hidden off the strip's edge.
+  // after an order is saved). Reveal the active tab so a later date isn't
+  // hidden off the strip's edge — the same slide the inbox taps use.
   const raf = globalThis.requestAnimationFrame || ((fn) => fn());
   raf(() => {
     const active = strip.querySelector(".date-tab.active");
-    if (active && typeof active.scrollIntoView === "function") {
-      active.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
+    if (active) revealDatePill(strip, active);
   });
 
   renderContent();
@@ -127,6 +171,13 @@ function renderAll(root, state, params) {
     root.replaceChildren(inbox, strip, content);
   } else {
     root.replaceChildren(strip, content);
+  }
+  if (anchorTop != null) {
+    const listAfter = root.querySelector('[data-role="orders-list"]');
+    if (listAfter) {
+      const delta = listAfter.getBoundingClientRect().top - anchorTop;
+      if (delta) scroller().scrollTop += delta;
+    }
   }
 }
 
@@ -543,7 +594,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
 }
 
 function orderList(state, dateId, root) {
-  const listEl = el("div", { class: "card" });
+  const listEl = el("div", { class: "card", dataset: { role: "orders-list" } });
   const rebuild = () => {
     const all = state.orders
       .filter((o) => o.deliveryDateId === dateId)

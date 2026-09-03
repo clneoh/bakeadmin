@@ -1,6 +1,6 @@
 // app.js — bootstrap, hash router, bottom-nav wiring, shared-data sync gate.
 
-import { loadState, save, setSaveHook, updateOrderBadge } from "./state.js";
+import { loadState, save, setSaveHook, updateOrderBadge, ensureSupabase } from "./state.js";
 import { el, button } from "./ui.js";
 import * as sync from "./sync.js";
 import { cachedToken, maybeSync, pullIncoming, refreshStorefront } from "./supabase.js";
@@ -205,6 +205,11 @@ function registerSW() {
 // device-local and only takes effect from the next open — enabling it in
 // Settings never locks the current session. A correct PIN resumes bootApp().
 async function boot() {
+  // Self-heal: a phone set up before the app shipped preconnected can hold
+  // blank cloud boxes forever. Refill the public project address + key so the
+  // app always knows where its cloud is — before the gates, so even a sign-in
+  // screen shows the connection ready. Email/password are never touched.
+  if (ensureSupabase(state)) save(state);
   const layer = document.getElementById("lock-layer");
   if (layer) layer.hidden = true; // hygiene: never a stale visible lock
   if (!(await passLock())) return;
