@@ -157,7 +157,10 @@ order's number (e.g. `#A3F9C2`) so it can always be matched back to the order:
   with the order number, delivery details, items + total, a **TNG QR** payment
   request, and a **track link**. The customer opens that link (or the *Track
   your order* card on the storefront) and sees the live status, their delivery
-  method/address, and your TNG QR to pay.
+  method/address, and your TNG QR to pay. Their track page shows the **same
+  journey map as your app**: Confirmed turns green only when you press Send
+  confirmation, and Paid only when you press Paid — each press re-publishes the
+  order so their map moves with yours.
 - Move it to **Paid** → two buttons: **Send payment reminder** (a WhatsApp
   nudge with the order number + QR) and **Paid** — tap **Paid** only once the
   TNG receipt has really come back; that turns Paid green on the map.

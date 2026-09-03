@@ -255,6 +255,8 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
     assert.equal(urls.length, 2, "every lookup hits the network — nothing is cached");
     assert.equal(urls[0].opts.cache, "no-store", "cache: no-store so status is always fresh");
     assert.equal(urls[1].opts.cache, "no-store");
+    assert.ok(String(urls[0].url).includes("confirmed_sent,paid_received"),
+      "the lookup fetches the stage flags so the map matches the app's");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
@@ -263,7 +265,8 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
 test("trackOrder shows only the order details and latest status — no receipt/QR extras", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
-    status: "Confirmed", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
+    status: "confirmed", confirmed_sent: true, paid_received: false,
+    delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
     await trackOrder("A3F9C2");
@@ -277,12 +280,13 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
       }
     })(journey);
     assert.equal(steps.length, 6, "journey shows all six stages");
-    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 1, "New is marked done");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 2,
+      "New and Confirmed are done (the confirmation was sent)");
     const now = steps.find((s) => String(s.className || "").includes("now"));
     assert.ok(now, "the current stage is highlighted");
     const label = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
-    assert.ok(label && String(label.children[0].text || "").includes("Confirmed"), "highlighted stage is the latest status");
-    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 4, "the four later stages stay upcoming");
+    assert.ok(label && String(label.children[0].text || "").includes("Paid"), "the highlighted stage is Paid");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("todo")).length, 3, "the three later stages stay upcoming");
     const code = box.children.find((c) => c.tagName === "P" && String(c.className || "").includes("track-code"));
     assert.ok(code, "shows the order code line");
     assert.ok(String(code.children[0].text || "").includes("A3F9C2"), "code line has the order code");
@@ -300,8 +304,12 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
 
 test("a Paid order lights up Paid on the journey, between Confirmed and Baked", async () => {
   const box = document.getElementById("track-result");
+  // The baker picked Paid in the dropdown and sent the payment reminder, but the
+  // TNG receipt has not come back yet (paid_received: false) — so Paid is the
+  // live step, exactly as the app shows.
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
-    status: "Paid", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
+    status: "paid", confirmed_sent: true, paid_received: false,
+    delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
     await trackOrder("A3F9C2");

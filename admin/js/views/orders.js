@@ -862,6 +862,7 @@ function sendOrderWhatsApp(state, group, { builder, markSent = false, doneMsg, r
     for (const o of group.orders) o.confirmedSent = true;
     save(state);
     maybeSync(state);
+    publishTracking(state, group); // Confirmed now green on the customer's track card too
   }
   anchorRowId = first.id;
   toast(doneMsg);
@@ -876,6 +877,7 @@ function markPaid(state, group, root, dateId) {
   anchorRowId = firstOf(group).id;
   save(state);
   maybeSync(state);
+  publishTracking(state, group); // Paid now green on the customer's track card too
   toast("Paid — payment received");
   renderAll(root, state, new URLSearchParams({ date: dateId }));
 }

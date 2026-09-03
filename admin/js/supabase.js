@@ -339,12 +339,20 @@ export function trackingSnapshot(state, group) {
     total,
     customer: String(first.customerName || ""),
     updated_at: new Date().toISOString(),
+    // The customer's journey map ticks Confirmed/Paid green only when the
+    // baker actually pressed Send confirmation / Paid, not when the status was
+    // just picked in the dropdown. Publish the flags so the storefront shows
+    // the same map as the app. Absent flags (legacy orders saved before these
+    // existed) publish as true — those stages really were handled.
+    confirmed_sent: first.confirmedSent !== false,
+    paid_received: first.paidReceived !== false,
   };
 }
 
 // Push one order's tracking row to Supabase so the customer can look it up on
-// the storefront track card. Fires on status changes; best-effort and silent —
-// a publish failure must never block the baker's status edit.
+// the storefront track card. Fires on status changes and whenever a stage flag
+// flips (Send confirmation / Paid), so the customer's journey map matches the
+// app's; best-effort and silent — a publish failure must never block the baker.
 export async function publishTracking(state, group) {
   const c = cfg(state);
   if (!ready(c) || !group || !group.orders || !group.orders.length) return;

@@ -499,6 +499,8 @@ test("trackingSnapshot renders one customer order into one published row", () =>
   assert.ok(snap.delivery.includes("Self collect"));
   assert.equal(snap.customer, "Ain");
   assert.ok(snap.updated_at, "snapshot is stamped");
+  assert.equal(snap.confirmed_sent, true, "a baking order's confirmation is behind it (no flag = done)");
+  assert.equal(snap.paid_received, true, "a baking order's payment is behind it (no flag = done)");
 });
 
 test("trackingSnapshot includes the courier address in delivery", () => {
@@ -545,6 +547,35 @@ test("publishTracking upserts the order's row keyed on the code", async () => {
     assert.equal(body[0].items, "Focaccia ×2");
     assert.equal(body[0].total, "RM 30.00");
     assert.equal(body[0].customer, "Ain");
+    assert.equal(body[0].confirmed_sent, true, "legacy confirmed order without a flag publishes as sent");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("trackingSnapshot publishes false flags while a stage waits on the baker", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  const date = state.deliveryDates[0];
+  const group = { orders: [{
+    id: "ord_ab12cd34ef56", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    customerName: "Ain", fulfillment: "collect", status: "confirmed",
+    confirmedSent: false, // picked Confirmed but "Send confirmation" not pressed yet
+    createdAt: "2026-09-01T14:32:00",
+  }] };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    await publishTracking(state, group);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/order_tracking"));
+    const body = JSON.parse(upsert.opts.body);
+    assert.equal(body[0].confirmed_sent, false, "Confirmation not sent → publishes false so the customer's map still flashes Confirmed");
+    assert.equal(body[0].paid_received, true, "paid not reached yet → flag reads as done/true");
   } finally {
     globalThis.fetch = realFetch;
   }

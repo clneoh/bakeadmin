@@ -600,19 +600,35 @@ const JOURNEY = [
 // A progress line for the track card, like an online-shop parcel tracker: each
 // step is a circle joined to the next by a line. Reached steps are green with a
 // tick, the live step is a larger amber dot that pulses, later steps stay grey.
-// Two statuses read as finished on purpose: once the baker marks an order Packed
-// the baking and packing are done, so the line is green up to Packed and only
-// the final Delivered step pulses ("delivery is next"); a Delivered order shows
-// the whole line green. Unknown statuses return null and the caller just shows
-// details.
-function journeyEl(key) {
-  let idx = JOURNEY.findIndex(([id]) => id === key);
+// The map is the same one the backoffice shows: New is green the moment the
+// order arrives, Confirmed turns green only once the baker pressed "Send
+// confirmation" (row.confirmed_sent), Paid only once they pressed "Paid"
+// (row.paid_received), and Baked/Packed/Delivered green when the status moves
+// past them. A NULL flag (a row published before these were stored) reads as
+// done — that stage really was handled. Unknown statuses return null and the
+// caller just shows details.
+function journeyEl(row) {
+  const key = String((row && row.status) || "").toLowerCase().trim() || "new";
+  const idx = JOURNEY.findIndex(([id]) => id === key);
   if (idx < 0) return null;
-  if (key === "ready") idx = JOURNEY.length - 1; // bakery done → delivery is the live step
-  const finished = key === "delivered";          // handed over → every step green
+  const at = idx;
+  const confirmedDone = row.confirmed_sent !== false;
+  const paidDone = row.paid_received !== false;
+  let end = 0; // first index NOT done; steps before it are green
+  for (let i = 0; i < JOURNEY.length; i++) {
+    let done;
+    if (i < at) done = true;                          // already moved past
+    else if (i === at) done = i === 0 ? true          // New: done on arrival
+      : i === 1 ? confirmedDone                       // Confirmed: after Send confirmation
+      : i === 2 ? paidDone                            // Paid: after the Paid button
+      : true;                                         // Baked/Packed/Delivered: on selection
+    else done = false;
+    if (!done) break;
+    end = i + 1;
+  }
   const root = el("div", { class: "tj", "aria-label": "Order status journey" });
   JOURNEY.forEach(([id, label], i) => {
-    const state = finished || i < idx ? "done" : i === idx ? "now" : "todo";
+    const state = i < end ? "done" : i === end ? "now" : "todo";
     const mark =
       state === "done" ? el("span", { class: "tj-check" }, "✓")
       : state === "now" ? el("span", { class: "tj-dot" }) : null;
@@ -645,7 +661,7 @@ export async function trackOrder(code) {
     // after the baker updates it) always gets the current status, never a
     // cached one from the phone's HTTP cache.
     const res = await fetch(
-      `${base}/rest/v1/order_tracking?select=status,delivery,items,total,updated_at&code=eq.${clean}&limit=1`,
+      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,updated_at&code=eq.${clean}&limit=1`,
       { headers: { apikey: sb.anonKey }, cache: "no-store" });
     const rows = res.ok ? await res.json() : null;
     const row = Array.isArray(rows) && rows[0];
@@ -657,9 +673,8 @@ export async function trackOrder(code) {
     // The card reads like a parcel tracker: order code, the journey progress
     // line (reached stages green, current highlighted), then the delivery and
     // item details underneath.
-    const key = String(row.status || "").toLowerCase().trim() || "new";
     const codeLine = el("p", { class: "track-code" }, `Order #${clean}`);
-    const journey = journeyEl(key);
+    const journey = journeyEl(row);
     const details = el("div", { class: "track-details" }, [
       el("p", {}, row.delivery),
       el("p", {}, `${row.items} — ${row.total}`),
