@@ -17,16 +17,16 @@ function renderAll(root, state) {
   const form = newProductCard(state, root);
 
   const cards = products.map((p) => productCard(state, p, root));
-  const inactiveCard = inactive.length ? el("div", {},
+  const inactiveSection = inactive.length ? el("div", {},
     el("h2", { class: "section" }, "Hidden products"),
-    ...inactive.map((p) => productCard(state, p, root))) : null;
+    ...inactive.map((p) => productCard(state, p, root))) : [];
 
   root.replaceChildren(
     form,
     el("h2", { class: "section" }, `Products (${products.length})`),
     ...(cards.length ? cards : [emptyState("No products yet",
       "Add a product and its recipe (ingredients per unit).")]),
-    inactiveCard);
+    ...(Array.isArray(inactiveSection) ? [] : [inactiveSection]));
 }
 
 // Builds the fields + recipe lines once and hands back the nodes plus `collect()`

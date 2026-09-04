@@ -3,10 +3,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { customerList, deliveryDateOf, orderDateOf } from "../admin/js/customers.js";
+import { customerList, deliveryDateOf, orderDateOf, ordersForCustomer } from "../admin/js/customers.js";
+import { orderCode } from "../admin/js/state.js";
 
-function state(orders, deliveryDates = []) {
-  return { orders, deliveryDates };
+function state(orders, deliveryDates = [], products = []) {
+  return { orders, deliveryDates, products };
 }
 
 test("customerList aggregates by WhatsApp number and sums units", () => {
@@ -67,6 +68,71 @@ test("orderDateOf uses the snapshot, else the createdAt date", () => {
   assert.equal(orderDateOf({ orderDate: "2026-09-05", createdAt: "2026-09-05T10:00:00.000Z" }), "2026-09-05");
   assert.equal(orderDateOf({ createdAt: "2026-09-05T10:00:00.000Z" }), "2026-09-05");
   assert.equal(orderDateOf({}), "");
+});
+
+test("multi-item storefront orders (shared groupId) count as ONE order", () => {
+  const st = state([
+    { id: "o1", groupId: "g1", qty: 2, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+    { id: "o2", groupId: "g1", qty: 3, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+  ]);
+  const [r] = customerList(st);
+  assert.equal(r.orders, 1);
+  assert.equal(r.units, 5);
+});
+
+test("rows carry an approx total spend and a favourite product (top total qty)", () => {
+  const products = [
+    { id: "p1", name: "Sourdough", price: 12 },
+    { id: "p2", name: "Cookies", price: 8 },
+  ];
+  const st = state([
+    { id: "o1", groupId: "g1", qty: 2, productId: "p1", customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+    { id: "o2", groupId: "g1", qty: 3, productId: "p2", customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+    { id: "o3", groupId: "g2", qty: 2, productId: "p1", customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-08" },
+  ], [], products);
+  const [r] = customerList(st);
+  assert.equal(r.orders, 2);
+  assert.equal(r.totalSpend, 12 * 4 + 8 * 3); // 72
+  assert.equal(r.fav, "Sourdough"); // 4 units vs Cookies' 3
+});
+
+test("deleted products don't break spend or the favourite", () => {
+  const st = state([
+    { id: "o1", groupId: "g1", qty: 2, productId: "pGONE", customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+    { id: "o2", groupId: "g1", qty: 3, productId: "p2", customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-01" },
+  ], [], [{ id: "p2", name: "Cookies", price: 8 }]);
+  const [r] = customerList(st);
+  assert.equal(r.totalSpend, 24);
+  assert.equal(r.fav, "Cookies");
+});
+
+test("who-filters: all, phone, recent30, gone30 (relative to a 30-day cutoff)", () => {
+  const st = state([
+    { id: "o1", qty: 1, customerName: "Old Nia", whatsapp: "6012-111", orderDate: "2026-08-01" },
+    { id: "o2", qty: 1, customerName: "Recent Bo", whatsapp: "6013-222", orderDate: "2026-09-05" },
+    { id: "o3", qty: 1, customerName: "Walk-in", whatsapp: "", orderDate: "2026-09-05" },
+  ]);
+  assert.equal(customerList(st).length, 3); // all
+  assert.deepEqual(customerList(st, "recent", "phone").map((r) => r.name).sort(), ["Old Nia", "Recent Bo"]);
+  assert.deepEqual(customerList(st, "recent", "recent30", "2026-09-10").map((r) => r.name).sort(), ["Recent Bo", "Walk-in"]);
+  assert.deepEqual(customerList(st, "recent", "gone30", "2026-09-10").map((r) => r.name), ["Old Nia"]);
+  assert.equal(customerList(st, "recent", "recent30", "").length, 3); // no date given → like "all"
+});
+
+test("ordersForCustomer returns one block per storefront order, newest-placed first", () => {
+  const st = state([
+    { id: "ord1", groupId: "gA", productId: "p1", qty: 2, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-08-20", deliveryDate: "2026-08-22" },
+    { id: "ord2", groupId: "gA", productId: "p2", qty: 3, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-08-20", deliveryDate: "2026-08-22" },
+    { id: "ord3", groupId: "gB", productId: "p1", qty: 1, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-09-02", deliveryDate: "2026-09-04" },
+    { id: "ord4", productId: "p2", qty: 4, customerName: "Bee", whatsapp: "6012-111", orderDate: "2026-08-25", deliveryDate: "2026-08-27" },
+  ]);
+  const row = customerList(st)[0];
+  assert.equal(row.orders, 3); // two storefront groups + one single manual order
+  const blocks = ordersForCustomer(st, row);
+  assert.equal(blocks.length, 3);
+  assert.deepEqual(blocks.map((b) => b.orderDate), ["2026-09-02", "2026-08-25", "2026-08-20"]);
+  assert.equal(blocks[2].lines.length, 2); // gA keeps both its items together
+  assert.equal(blocks[2].code, orderCode({ groupId: "gA" }));
 });
 
 test("customerList supports sorting by name, orders, units, phone", () => {

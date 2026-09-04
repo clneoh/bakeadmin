@@ -7,6 +7,8 @@ import { cachedToken, maybeSync, pullIncoming, refreshStorefront } from "./supab
 
 import { renderDashboard } from "./views/dashboard.js";
 import { renderDeliveries } from "./views/deliveries.js";
+import { renderUnits } from "./views/units.js";
+import { renderSuppliers } from "./views/suppliers.js";
 import { renderOrders } from "./views/orders.js";
 import { renderProducts } from "./views/products.js";
 import { renderIngredients } from "./views/ingredients.js";
@@ -30,6 +32,8 @@ const routes = {
   "/history":   { title: "PO History", tab: "more",     render: renderHistory },
   "/customers": { title: "Customers", tab: "more",      render: renderCustomers },
   "/deliveries":{ title: "Delivery Dates", tab: "more", render: renderDeliveries },
+  "/units":     { title: "Units",      tab: "more",      render: renderUnits },
+  "/suppliers": { title: "Suppliers",  tab: "more",      render: renderSuppliers },
   "/settings":  { title: "Settings",  tab: "more",      render: renderSettings },
   "/more":      { title: "More",      tab: "more",      render: renderMore },
 };

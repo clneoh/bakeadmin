@@ -554,6 +554,16 @@ textarea.input { min-height: 64px; resize: vertical; }
 .po-total { font-size: 17px; font-weight: 700; text-align: right; padding-top: 10px; }
 .po-breakdown { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .po-snapshot-note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+/* Group header per supplier inside the PO table */
+.po-supplier td { border-bottom: none; padding: 10px 4px 2px; }
+.po-supplier:first-child td { padding-top: 4px; }
+.po-suprow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.po-sup-name { font-weight: 700; font-size: 15px; }
+.po-sup-name.muted { font-weight: 600; color: var(--muted); }
+.po-sup-side { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.po-sup-sub { font-weight: 700; color: var(--brown-dark); }
+.po-buy { font-weight: 600; }
+.po-need { font-size: 12px; font-weight: 400; color: var(--muted); }
 
 /* ---------- Empty ---------- */
 .empty { text-align: center; padding: 36px 16px; color: var(--muted); }
@@ -703,6 +713,18 @@ textarea.input { min-height: 64px; resize: vertical; }
   margin-bottom: 8px;
 }
 .ing-row .unit { font-size: 13px; color: var(--muted); }
+
+/* ---------- Supplier price rows (ingredient editor) ---------- */
+.price-row { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
+.price-row:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.price-row-label { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.price-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 72px 58px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+.price-grid .input { min-width: 0; }
 
 @media (min-width: 541px) {
   .view { padding-top: 20px; }
@@ -895,3 +917,26 @@ textarea.input { min-height: 64px; resize: vertical; }
 .label-sheet.style-mailing .ls-mail-sec:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 .label-sheet.style-mailing .ls-mail-name { font-size: 20px; font-weight: 800; }
 .label-sheet.style-mailing .ls-mail-line { font-size: 14px; }
+
+/* ---- customers: pick-to-message + history pop-up ---- */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.li-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.list-item .pick-mark { display: none; }
+.list-item.picking .pick-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; flex: 0 0 auto;
+  border: 2px solid var(--brown-dark); border-radius: 50%;
+  color: #fff; font-weight: 800; font-size: 13px; background: transparent;
+}
+.list-item.picking .pick-mark.on { background: var(--brown-dark); border-color: var(--brown-dark); }
+.list-item.picked { background: var(--brown-soft); }
+.msg-preview {
+  border: 1px dashed var(--line); border-radius: 10px;
+  padding: 8px 10px; margin: 8px 0; background: var(--bg);
+}
+.msg-preview .preview-text { font-weight: 600; color: var(--brown-dark); }
+.hist-ord { padding: 10px 0; border-top: 1px solid var(--line); }
+.hist-ord:first-of-type { border-top: none; padding-top: 4px; }
+.hist-line { font-size: 14px; padding: 2px 0; }
+.hist-code { font-weight: 800; color: var(--brown-dark); letter-spacing: .02em; }

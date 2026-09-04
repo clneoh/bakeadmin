@@ -1,10 +1,15 @@
 // views/po.js — the headline: pick a delivery date → auto ingredient PO.
+// Lines with a supplier pack price show whole packs to buy ("2 × 4kg"); lines
+// without stay loose estimates. Items group under their (cheapest) supplier
+// with a per-supplier subtotal, a Copy-order WhatsApp text and a Message button.
 
 import { navigate } from "../app.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { explodeBom, capacityStatus } from "../bom.js";
-import { el, button, select, emptyState, fmtQty, toast } from "../ui.js";
-import { byId, fmtRM, newId, round2, save } from "../state.js";
+import { el, button, select, emptyState, toast } from "../ui.js";
+import { byId, save, newId } from "../state.js";
+import { priceItems } from "../purchasing.js";
+import { poTableEl, totalOf } from "./poTable.js";
 
 export function renderPO(root, state, params) {
   const dates = [...state.deliveryDates].sort((a, b) => a.date.localeCompare(b.date));
@@ -34,6 +39,7 @@ export function renderPO(root, state, params) {
 function poPreview(state, date, interactive) {
   const bom = explodeBom(state, date.id);
   const cap = capacityStatus(state, date.id);
+  const dateTitle = `${weekdayName(date.date)}, ${longDate(date.date)}`;
 
   if (!bom.orders.length) {
     return el("div", { class: "card po-card" },
@@ -41,36 +47,17 @@ function poPreview(state, date, interactive) {
         "Nothing to buy — the PO is generated from orders."));
   }
 
-  const rows = bom.items.map((it) => {
-    const cells = [
-      el("td", {},
-        it.ingredientName,
-        it.unitsOk ? null : el("div", { class: "warn", style: "margin:4px 0 0" }, "⚠ check units"),
-        el("div", { class: "po-breakdown" },
-          it.lines.map((l) => `${l.productName} ×${l.orderQty} = ${l.orderQty * l.perUnitQty}${it.unit}`).join(" · "))),
-      el("td", { class: "num" }, fmtQty(it.totalQty, it.unit)),
-      el("td", { class: "num" }, fmtRM(it.estCost, state.settings.currency)),
-    ];
-    return el("tr", {}, ...cells);
-  });
+  const items = priceItems(state, bom.items);
+  const total = totalOf(items);
 
-  const total = round2(bom.items.reduce((s, i) => s + i.estCost, 0));
-
-  const table = el("table", { class: "po-table" },
-    el("thead", {}, el("tr", {},
-      el("th", {}, "Ingredient"),
-      el("th", { class: "num" }, "Qty"),
-      el("th", { class: "num" }, "Est. cost"))),
-    el("tbody", {}, ...rows),
-    el("tfoot", {}, el("tr", {}, el("td", { colspan: "2", class: "po-total" }, "Total"),
-      el("td", { class: "num po-total" }, fmtRM(total, state.settings.currency)))));
+  const table = poTableEl(state, items, { interactive, dateTitle });
 
   const actions = interactive ? el("div", { class: "btn-row" },
-    button("💾 Generate & Save", () => generate(state, date, bom, total), "primary"),
+    button("💾 Generate & Save", () => generate(state, date, bom, items, total), "primary"),
     button("Print", () => window.print(), "soft")) : null;
 
   return el("div", { class: "card po-card" },
-    el("h2", { style: "margin:0 0 2px" }, `${weekdayName(date.date)}, ${longDate(date.date)} — Ingredients to buy`),
+    el("h2", { style: "margin:0 0 2px" }, `${dateTitle} — Ingredients to buy`),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
       `${cap.total} units planned (capacity ${cap.capacity}) · ${bom.productLines.map((p) => `${p.productName} ×${p.qty}`).join(", ")}`),
     cap.exceeded ? el("div", { class: "danger-banner" }, "Over capacity — check the order list.") : null,
@@ -81,18 +68,19 @@ function poPreview(state, date, interactive) {
       "Generating saves an immutable snapshot to PO History. Changing orders later won't change it.") : null);
 }
 
-function generate(state, date, bom, total) {
+function generate(state, date, bom, items, total) {
   if (!bom.orders.length) return toast("No orders — nothing to generate");
   const po = {
     id: newId("po"),
     deliveryDateId: date.id,
     deliveryDate: date.date,
     generatedAt: new Date().toISOString(),
-    items: bom.items,
+    items,
     summary: {
       totalUnits: bom.totalUnits,
       capacity: state.deliveryDates.find((d) => d.id === date.id)?.capacity ?? state.settings.defaultCapacity,
       totalEstCost: total,
+      buyTotal: total, // whole-pack cost of the firm supplier lines + loose estimates
       productLines: bom.productLines,
     },
     orderIds: bom.orders.map((o) => o.id),

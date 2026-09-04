@@ -2,8 +2,9 @@
 
 import { navigate } from "../app.js";
 import { longDate, weekdayName } from "../dates.js";
-import { el, button, emptyState, fmtQty } from "../ui.js";
+import { el, button, emptyState } from "../ui.js";
 import { byId, fmtRM } from "../state.js";
+import { poTableEl } from "./poTable.js";
 
 export function renderHistory(root, state, params) {
   const poId = params.get("po");
@@ -42,27 +43,14 @@ function renderList(root, state) {
 }
 
 function renderDetail(root, state, po) {
-  const rows = (po.items || []).map((it) => el("tr", {},
-    el("td", {},
-      it.ingredientName,
-      it.unitsOk ? null : el("div", { class: "warn", style: "margin:4px 0 0" }, "⚠ check units"),
-      el("div", { class: "po-breakdown" },
-        (it.lines || []).map((l) => `${l.productName} ×${l.orderQty} = ${l.orderQty * l.perUnitQty}${it.unit}`).join(" · "))),
-    el("td", { class: "num" }, fmtQty(it.totalQty, it.unit)),
-    el("td", { class: "num" }, fmtRM(it.estCost, state.settings.currency))));
+  const dateTitle = `${weekdayName(po.deliveryDate)}, ${longDate(po.deliveryDate)}`;
+  const table = poTableEl(state, po.items || [], {});
 
   const card = el("div", { class: "card po-card" },
-    el("h2", { style: "margin:0 0 2px" },
-      `${weekdayName(po.deliveryDate)}, ${longDate(po.deliveryDate)} — Ingredients to buy`),
+    el("h2", { style: "margin:0 0 2px" }, `${dateTitle} — Ingredients to buy`),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
       `${po.summary?.totalUnits ?? "?"} units planned (capacity ${po.summary?.capacity ?? "?"})`),
-    el("table", { class: "po-table" },
-      el("thead", {}, el("tr", {},
-        el("th", {}, "Ingredient"), el("th", { class: "num" }, "Qty"), el("th", { class: "num" }, "Est. cost"))),
-      el("tbody", {}, ...rows),
-      el("tfoot", {}, el("tr", {},
-        el("td", { colspan: "2", class: "po-total" }, "Total"),
-        el("td", { class: "num po-total" }, fmtRM(po.summary?.totalEstCost ?? 0, state.settings.currency))))),
+    table,
     el("p", { class: "po-snapshot-note" },
       `Snapshot from ${fmtTime(po.generatedAt)} — later order changes don't affect this PO.`),
     po.warnings?.length ? el("div", { class: "warn", style: "margin-top:10px" }, po.warnings.join(" ")) : null);

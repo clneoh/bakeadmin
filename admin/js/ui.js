@@ -123,3 +123,23 @@ export function toast(msg) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove("show"), 2200);
 }
+
+// Copy to the clipboard, sharing the app's pattern for "what if it fails":
+// fall back to a pop-up with a selectable textarea (never prompt(), which can't
+// hold long text on a phone). Toast shows okMsg on success.
+export function copyText(text, okMsg = "Copied") {
+  const success = () => toast(okMsg);
+  const fallback = () => {
+    const box = el("textarea", { class: "input", readonly: true, value: String(text),
+      style: "width:100%;min-height:160px" });
+    showPopup(el("div", { class: "popup-title-row" }, "Copy this"), (refresh, close) =>
+      el("div", {},
+        el("p", { class: "card-sub", style: "margin:0 0 8px" },
+          "Your phone couldn't copy automatically. Long-press the box, select all, then Copy."),
+        box,
+        el("div", { class: "popup-actions" }, button("Close", close, "primary"))), { wide: true });
+  };
+  const via = (p) => p.then(success).catch(fallback);
+  if (navigator.clipboard) via(navigator.clipboard.writeText(String(text)));
+  else fallback();
+}

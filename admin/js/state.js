@@ -34,12 +34,38 @@ export function defaultState() {
       },
     },
     ingredients: [],
+    suppliers: [],     // who you buy from (each has a WhatsApp number)
+    uoms: seedUoms(),  // units of measure; g/kg/ml/L/pcs convert within a family
     products: [],
     deliveryDates: [],
     orders: [],
     purchaseOrders: [],
   };
 }
+
+// The unit list the app starts with. g/kg convert (weight → grams), ml/L convert
+// (volume → millilitres); count units are 1:1. `toBase` is how many base units
+// one of this unit equals. Everything else in the app keys off `unit` strings
+// for recipes (unchanged); these drive purchasing pack conversions.
+function seedUoms() {
+  return [
+    { id: "uom_g", name: "g", family: "weight", toBase: 1 },
+    { id: "uom_kg", name: "kg", family: "weight", toBase: 1000 },
+    { id: "uom_ml", name: "ml", family: "volume", toBase: 1 },
+    { id: "uom_l", name: "L", family: "volume", toBase: 1000 },
+    { id: "uom_pcs", name: "pcs", family: "count", toBase: 1 },
+  ];
+}
+
+// Legacy unit strings → correct family/factor when backfilling the unit list
+// from ingredients that already used these units.
+const KNOWN_UNITS = {
+  g: ["weight", 1], gram: ["weight", 1], grams: ["weight", 1],
+  kg: ["weight", 1000], kilo: ["weight", 1000],
+  ml: ["volume", 1], mL: ["volume", 1], millilitre: ["volume", 1],
+  l: ["volume", 1000], L: ["volume", 1000], litre: ["volume", 1000],
+  pc: ["count", 1], pcs: ["count", 1], piece: ["count", 1], pieces: ["count", 1],
+};
 
 export function loadState() {
   try {
@@ -174,6 +200,8 @@ function normalize(s) {
       storefront: cleanStorefront((s.settings || {}).storefront),
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],
+    suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
+    uoms: (Array.isArray(s.uoms) && s.uoms.length) ? s.uoms : seedUoms(),
     products: Array.isArray(s.products) ? s.products : [],
     deliveryDates: Array.isArray(s.deliveryDates) ? s.deliveryDates : [],
     orders: Array.isArray(s.orders)
@@ -184,7 +212,41 @@ function normalize(s) {
   const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders);
   out.deliveryDates = consolidated.deliveryDates;
   out.orders = consolidated.orders;
+  backfillUnitRefs(out);
   return out;
+}
+
+// Give every ingredient a uomId that matches its `unit` string, creating the
+// unit in the list if it isn't there yet (so nothing breaks, and purchasing can
+// convert). Idempotent by unit name. Old data with, say, flour in "g" gets a
+// proper weight unit; odd units fall back to a 1:1 count unit.
+function backfillUnitRefs(state) {
+  const known = new Map(Object.entries(KNOWN_UNITS));
+  const byName = new Map();
+  for (const u of state.uoms || []) byName.set(String(u.name || "").toLowerCase(), u);
+  for (const ing of state.ingredients || []) {
+    if (!ing || typeof ing !== "object" || ing.uomId) continue; // already linked
+    const unitName = String(ing.unit || "").trim();
+    if (!unitName) continue;
+    let u = byName.get(unitName.toLowerCase());
+    if (!u) {
+      u = makeUnit(unitName, known.get(unitName.toLowerCase()) || ["count", 1]);
+      state.uoms.push(u);
+      byName.set(u.name.toLowerCase(), u);
+    }
+    ing.uomId = u.id;
+  }
+}
+
+function makeUnit(name, [family, toBase]) {
+  // Math.random fallback so backfilling never depends on crypto availability.
+  let rand = "";
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    rand = crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+  } else {
+    rand = Math.random().toString(36).slice(2, 8);
+  }
+  return { id: `uom_${rand}`, name, family, toBase: Number(toBase) || 1 };
 }
 
 // Two deliveryDates for the same day (e.g. both phones added the same date

@@ -12,7 +12,9 @@ export function renderMore(root, state) {
 
   const menu = el("div", { class: "card", style: "padding:4px 14px" },
     menuItem("#/deliveries", "📅 Delivery dates", "Set and manage delivery dates"),
-    menuItem("#/ingredients", "🧂 Ingredients", "Unit prices for the PO"),
+    menuItem("#/ingredients", "🧂 Ingredients", "Cooking units + supplier prices for the PO"),
+    menuItem("#/units", "📐 Units", "g, kg, L — how packs compare"),
+    menuItem("#/suppliers", "🏪 Suppliers", "Who you buy from, with their WhatsApp"),
     menuItem("#/history", "🧾 PO history", "Saved purchase orders"),
     menuItem("#/customers", "📇 Customers", "Delivery history + WhatsApp marketing list"),
     menuItem("#/settings", "⚙️ Settings", "Defaults, backup, transfer"));
