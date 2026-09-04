@@ -152,6 +152,19 @@ test("advance-order window: packs orderable at the set-day boundary and beyond",
   assert.equal(setsAllowedOn("2026-09-20", ""), true);
 });
 
+test("the window is configurable: smaller X unlocks sooner, 0 opens any day", () => {
+  const today = "2026-09-04";
+  // X = 3: a delivery exactly 3 days away is the first allowed one.
+  assert.equal(setsAllowedOn("2026-09-07", today, 3), true);
+  assert.equal(setsAllowedOn("2026-09-06", today, 3), false);
+  // The same near date is still locked under the wider 14-day default.
+  assert.equal(setsAllowedOn("2026-09-07", today, 14), false);
+  assert.equal(setsAllowedOn("2026-09-18", today, 14), true);
+  // X = 0: no window at all — even today's date is not locked.
+  assert.equal(setsAllowedOn("2026-09-04", today, 0), true);
+  assert.equal(setsAllowedOn("2026-09-07", today, 0), true);
+});
+
 test("addDaysKey shifts whole days and survives month/year boundaries", () => {
   assert.equal(addDaysKey("2026-09-04", 14), "2026-09-18");
   assert.equal(addDaysKey("2026-09-30", 2), "2026-10-02");

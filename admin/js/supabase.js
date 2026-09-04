@@ -258,6 +258,9 @@ function storefrontPayload(state) {
       }
       return out;
     });
+  // Value packs close this many days before delivery (0 = any open delivery
+  // day). Published with the rest so the storefront gates sets consistently.
+  const setDays = Number(sf.setDays);
   return {
     whatsapp: String(sf.whatsapp || ""),
     name: String(sf.name || ""),
@@ -265,6 +268,7 @@ function storefrontPayload(state) {
     instagram: String(sf.instagram || ""),
     facebook: String(sf.facebook || ""),
     tngQr: String(sf.tngQr || ""),
+    setDays: sf.setDays != null && Number.isInteger(setDays) && setDays >= 0 ? setDays : 14,
     deliveryDays: (state.settings && state.settings.deliveryDays) || [],
     cutoff: (state.settings && state.settings.cutoff) || "",
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
@@ -338,6 +342,7 @@ export async function refreshStorefront(state) {
     if (typeof remote.instagram === "string") sf.instagram = remote.instagram;
     if (typeof remote.facebook === "string") sf.facebook = remote.facebook;
     if (typeof remote.tngQr === "string") sf.tngQr = remote.tngQr;
+    if (remote.setDays != null && Number.isInteger(remote.setDays) && remote.setDays >= 0) sf.setDays = remote.setDays;
     save(state);
     return true;
   } catch {

@@ -18,6 +18,14 @@ export function waNumber(n) {
   return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
 }
 
+// How far ahead a value pack (set) must be ordered — set in Settings →
+// Storefront and published with the config, so the baker can change it without
+// a redeploy. 0 means any open delivery date. Falls back to the code default.
+const setDaysWindow = () => {
+  const n = Number(CONFIG.setDays);
+  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_SET_DAYS;
+};
+
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -128,6 +136,8 @@ export function mergeStorefront(base, remote) {
     const n = Number(remote[key]);
     if (Number.isFinite(n) && n > 0) out[key] = n;
   }
+  const setDays = Number(remote.setDays);
+  if (remote.setDays != null && Number.isInteger(setDays) && setDays >= 0) out.setDays = setDays;
   if (Array.isArray(remote.deliveryDays)) {
     const days = remote.deliveryDays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
     if (days.length) out.deliveryDays = days;
@@ -240,14 +250,14 @@ export function render() {
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
   let dates = upcomingDates(CONFIG);
-  // The advance-order window ("value packs from X days ahead") compares every
+  // The value-pack window (closes X days before delivery) compares every
   // delivery date to today, so its reference is fixed at page load.
   const todayKey = dateKey(new Date());
 
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
     const groups = poolGroups(CONFIG.products);
-    const packsLocked = !setsAllowedOn(selected, todayKey);
+    const packsLocked = !setsAllowedOn(selected, todayKey, setDaysWindow());
     menu.replaceChildren(...CONFIG.products.map((p) => {
       const group = groupFor(groups, p);
       const baseLeft = group && byProduct[group.baseName] != null
@@ -286,7 +296,7 @@ export function render() {
         ? el("span", { class: soldOut ? "prod-stamp soldout" : "prod-stamp" }, soldOut ? "Sold out" : `Only ${left} left`)
         : null;
       const note = gatedPack
-        ? el("p", { class: "prod-note" }, `Value packs are advance orders — pick a delivery date ${DEFAULT_SET_DAYS}+ days ahead.`)
+        ? el("p", { class: "prod-note" }, `Value packs close ${setDaysWindow()} days before delivery — pick a later date.`)
         : null;
       return el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
         el("div", { class: "card-head" },
@@ -322,7 +332,7 @@ export function render() {
     }
     const byProduct = prodAvail && prodAvail[selected] ? prodAvail[selected] : {};
     const groups = poolGroups(CONFIG.products);
-    const packsLocked = !setsAllowedOn(selected, todayKey);
+    const packsLocked = !setsAllowedOn(selected, todayKey, setDaysWindow());
     const handled = new Set();
 
     // Shared pools first: clamp the whole pool together — a pack and loose
@@ -348,14 +358,14 @@ export function render() {
       }
     }
 
-    // Value packs need a delivery date at least DEFAULT_SET_DAYS days ahead; on
+    // Value packs need a delivery date at least the configured window ahead; on
     // nearer days they can't be ordered and leave the cart.
     if (packsLocked) {
       for (const p of CONFIG.products) {
         if (!p.component || !cart.has(p.name)) continue;
         cart.delete(p.name);
         handled.add(p.name);
-        notes.push(`${p.name} needs a delivery date ${DEFAULT_SET_DAYS}+ days ahead — we removed it.`);
+        notes.push(`${p.name} closes ${setDaysWindow()} days before delivery — we removed it.`);
       }
     }
 

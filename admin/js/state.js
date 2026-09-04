@@ -30,6 +30,7 @@ export function defaultState() {
         instagram: "",
         facebook: "",
         tngQr: "", // hosted image URL shown on the customer's track page for TNG payment
+        setDays: 14, // value packs (sets) orderable only this many days+ ahead; 0 = any open day
         products: [], // [{ name, price, unit }]
       },
     },
@@ -380,6 +381,7 @@ function cleanStorefront(sf) {
     instagram: String(src.instagram ?? d.instagram),
     facebook: String(src.facebook ?? d.facebook),
     tngQr: String(src.tngQr ?? d.tngQr),
+    setDays: (src.setDays != null && Number.isInteger(Number(src.setDays)) && Number(src.setDays) >= 0) ? Number(src.setDays) : d.setDays,
     products,
   };
 }

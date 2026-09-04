@@ -143,7 +143,7 @@ test("value pack is gated on a near delivery date and freed on a far one", async
   assert.equal(stepperOf(nearPack).children[2].disabled, true);
   assert.ok(nearPack.children[2] && nearPack.children[2].className.includes("prod-note"),
     "gated pack carries the advance-order note");
-  assert.match(nearPack.children[2].children[0].text, /advance orders/i);
+  assert.match(nearPack.children[2].children[0].text, /close 14 days before delivery/i);
   // The base single is unaffected on the same day.
   assert.equal(stampOf(cardOf("Focaccia")), "Only 12 left");
 

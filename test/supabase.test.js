@@ -270,9 +270,38 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
     assert.equal(payload.whatsapp, "60123456789");
     assert.equal(payload.name, "Jienluv2bake");
     assert.equal(payload.tngQr, "https://img/tng.png");
+    assert.equal(payload.setDays, 14, "unset value-pack window publishes the default");
     assert.deepEqual(payload.deliveryDays, [1, 3, 5]);
     assert.equal(payload.capacity, 12);
     assert.deepEqual(payload.products, [{ name: "Focaccia", price: 15, unit: "loaf" }]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("storefront payload publishes the set's component and the chosen close-day window", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.settings.storefront = { whatsapp: "60123456789", name: "Jienluv2bake", setDays: 3 };
+  state.products = [
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Value Pack (4)", price: 54, unit: "set", active: true,
+      recipe: [{ productId: "prd_1", qty: 4 }] }, // one product line, no own limit → a shared-pool set
+  ];
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncStorefront(state);
+    assert.ok(r.ok);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/storefront_config"));
+    const payload = JSON.parse(JSON.parse(upsert.opts.body)[0].data);
+    assert.equal(payload.setDays, 3);
+    assert.deepEqual(payload.products.find((p) => p.name === "Focaccia Value Pack (4)"),
+      { name: "Focaccia Value Pack (4)", price: 54, unit: "set", component: { name: "Focaccia", qty: 4 } });
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -600,6 +629,7 @@ test("refreshStorefront adopts the latest published storefront into the phone's 
   const remote = {
     name: "Jienluv2bake Cakes", whatsapp: "60111223344", tagline: "Cakes & more",
     instagram: "jienluv2bake", facebook: "", tngQr: "https://img/qr.png",
+    setDays: 7,
   };
   globalThis.fetch = async (url, opts) => {
     assert.ok(String(url).includes("storefront_config"), "reads the published config row");
@@ -615,6 +645,7 @@ test("refreshStorefront adopts the latest published storefront into the phone's 
     assert.equal(state.settings.storefront.instagram, "jienluv2bake");
     assert.equal(state.settings.storefront.facebook, "");
     assert.equal(state.settings.storefront.tngQr, "https://img/qr.png");
+    assert.equal(state.settings.storefront.setDays, 7);
     assert.equal(state.settings.storefront.products.length, 0, "the menu is not adopted — it stays managed per phone");
   } finally {
     globalThis.fetch = realFetch;
