@@ -204,8 +204,9 @@ export function isPoolablePack(state, product) {
 // 4). Returns {limit, booked, remaining}, or null when the base has no limit.
 export function poolRemaining(state, deliveryDateId, baseId) {
   const base = byId(state.products, baseId);
-  const limit = Number(base && base.limit);
-  if (!base || !(limit > 0)) return null;
+  if (!base || !(Number(base.limit) > 0)) return null; // unlimited → no shared pool
+  const rec = byId(state.deliveryDates, deliveryDateId);
+  const limit = effectiveLimit(state, rec && rec.date, baseId) ?? 0;
   const memo = new Map();
   let booked = 0;
   for (const o of state.orders) {
@@ -263,26 +264,102 @@ export function validateRecipeNoCycle(state, product) {
   return null;
 }
 
-// Daily capacity per product (product.limit), summed across active products.
-// Returns 0 when no product has a limit set — callers then fall back to the
-// legacy single-per-day capacity.
-export function productCapacity(state) {
-  const active = state.products.filter((p) => p.active !== false);
-  const limits = active.map((p) => Number(p.limit) || 0);
-  return limits.some((n) => n > 0) ? limits.reduce((a, b) => a + b, 0) : 0;
+// ────────────────────────────────────────────────────────────────────────────
+// Per-delivery-date adjustments ("this day's bakes"): the owner can raise or
+// lower a product's usual daily limit for ONE delivery date from the Orders
+// screen. The signed delta rides the deliveryDate record as dayAdj
+// { [productId]: int }. The record passes through normalize by reference and
+// syncs whole-record to the other phone, so a day set on one phone shows on
+// both. Value packs (a set of n × one product) share their base's pool and are
+// never adjusted themselves — the base's number flows to them at publish.
+// ────────────────────────────────────────────────────────────────────────────
+
+// The delta's owner is the FIRST deliveryDate record for a date string — the
+// same record consolidateDeliveryDates keeps when same-day duplicates merge,
+// so a delta typed on a duplicate tab still survives the next merge.
+function ownerDateRecord(state, dateStr) {
+  if (!dateStr) return null;
+  return (state.deliveryDates || []).find((d) => d && d.date === dateStr) || null;
 }
 
-// A day's capacity. Product daily limits sum first (e.g. 12 focaccia + 12
-// sandwiches = 24); otherwise the default capacity.
-export function dayCapacity(state) {
-  const byProducts = productCapacity(state);
-  if (byProducts > 0) return byProducts;
-  return state.settings.defaultCapacity ?? 12;
+// Signed per-product delta for a date: the owner record's integer value, else 0.
+export function dayDelta(state, dateStr, productId) {
+  const rec = ownerDateRecord(state, dateStr);
+  const v = rec && rec.dayAdj ? rec.dayAdj[productId] : undefined;
+  return Number.isInteger(Number(v)) ? Number(v) : 0;
+}
+
+// A product's effective daily limit on a date: its usual limit plus the delta,
+// clamped at 0 (0 = paused / "Sold out" that day). Returns null for a missing
+// product or one with no usual limit — those are unlimited and publish no row.
+export function effectiveLimit(state, dateStr, productId) {
+  const product = byId(state.products, productId);
+  const limit = Number(product && product.limit);
+  if (!product || !(limit > 0)) return null;
+  return Math.max(0, limit + dayDelta(state, dateStr, productId));
+}
+
+// A day's order capacity. Product daily limits sum first, each with that
+// date's delta applied; with none limited it falls back to the default
+// capacity, matching today's all-unlimited day. If she pauses every product to
+// 0 the capacity is 0 — the whole day reads "Sold out" to customers.
+export function effectiveCapacity(state, dateStr) {
+  const active = (state.products || [])
+    .filter((p) => p.active !== false && Number(p.limit) > 0);
+  if (!active.length) return state.settings.defaultCapacity ?? 12;
+  return active.reduce((sum, p) => sum + (effectiveLimit(state, dateStr, p.id) ?? 0), 0);
+}
+
+// Model for the "Set day's availability" pop-up: every active product with a
+// usual limit (menu order), plus the names of poolable value packs that follow
+// a listed base — those aren't adjusted directly.
+export function dayRuleRows(state, dateStr) {
+  const rows = (state.products || [])
+    .filter((p) => p.active !== false && Number(p.limit) > 0)
+    .map((p) => ({
+      productId: p.id,
+      name: p.name,
+      unit: p.unit || "",
+      usual: Number(p.limit),
+      delta: dayDelta(state, dateStr, p.id),
+    }));
+  const ids = new Set(rows.map((r) => r.productId));
+  const packs = (state.products || [])
+    .filter((p) => p.active !== false && isPoolablePack(state, p))
+    .filter((p) => ids.has(isPoolablePack(state, p).baseId))
+    .map((p) => p.name);
+  return { rows, packs };
+}
+
+// A signed whole-item delta from the pop-up input. Blank means no change.
+export function parseDayDelta(raw) {
+  const s = String(raw == null ? "" : raw).trim();
+  if (s === "") return { delta: 0 };
+  if (!/^[+-]?\d+$/.test(s)) return { error: "Enter a whole number of items" };
+  return { delta: Number(s) };
+}
+
+// Write adjustments to the OWNER deliveryDate record for that date (the
+// survivor of any duplicate-date merge), pruning zeros and non-integers.
+// Returns the record, or null if the delivery date is gone.
+export function saveDayAdjustments(state, deliveryDateId, adjustments) {
+  const rec = byId(state.deliveryDates, deliveryDateId);
+  if (!rec) return null;
+  const owner = ownerDateRecord(state, rec.date) || rec;
+  const clean = {};
+  for (const [productId, delta] of Object.entries(adjustments || {})) {
+    const n = Number(delta);
+    if (Number.isInteger(n) && n !== 0) clean[productId] = n;
+  }
+  if (Object.keys(clean).length) owner.dayAdj = clean;
+  else delete owner.dayAdj;
+  return owner;
 }
 
 export function capacityStatus(state, deliveryDateId) {
   const { totalUnits } = explodeBom(state, deliveryDateId);
-  const cap = dayCapacity(state);
+  const rec = byId(state.deliveryDates, deliveryDateId);
+  const cap = effectiveCapacity(state, rec && rec.date);
   const remaining = cap - totalUnits;
   return {
     capacity: cap,
@@ -306,8 +383,9 @@ export function totalUnitsOnDate(state, deliveryDateId) {
 // being edited opt out of its own quantity.
 export function productRemaining(state, deliveryDateId, productId, excludeOrderId = null) {
   const product = byId(state.products, productId);
-  const limit = Number(product?.limit);
-  if (!product || !(limit > 0)) return null;
+  if (!product || !(Number(product.limit) > 0)) return null; // unlimited → no count shown
+  const rec = byId(state.deliveryDates, deliveryDateId);
+  const limit = effectiveLimit(state, rec && rec.date, productId) ?? 0;
   const booked = state.orders
     .filter((o) => o.deliveryDateId === deliveryDateId && o.productId === productId && o.id !== excludeOrderId)
     .reduce((s, o) => s + o.qty, 0);

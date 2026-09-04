@@ -6,7 +6,7 @@
 // access is guarded so importing the module is side-effect free.
 
 import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
-import { dayCapacity, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
+import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, save } from "./state.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
@@ -56,8 +56,8 @@ function nextDeliveryDates(state, horizon) {
 // what's already booked. Clamped at 0 so a full day is simply "Sold out" on
 // the storefront.
 export function computeSlots(state, horizon = 10) {
-  const capacity = dayCapacity(state);
   return nextDeliveryDates(state, horizon).map(({ date, ids }) => {
+    const capacity = effectiveCapacity(state, date);
     const booked = ids.reduce((s, id) => s + (id ? totalUnitsOnDate(state, id) : 0), 0);
     return { date, slots_left: Math.max(0, capacity - booked), capacity };
   });
@@ -90,7 +90,10 @@ export function computeProductSlots(state, horizon = 10) {
     for (const base of bases) {
       // poolRemaining counts singles AND any set/single of a set that consumes
       // base pieces (recursively), so the base row is the pool's real state.
-      const capacity = Number(base.limit);
+      // The capacity is the base's limit with that date's +/− delta applied
+      // ("this day's bakes"), so a date the owner raised or paused publishes
+      // the adjusted count and any value pack derives from it below.
+      const capacity = effectiveLimit(state, date, base.id) ?? 0;
       let booked = 0;
       for (const id of ids) {
         if (!id) continue;

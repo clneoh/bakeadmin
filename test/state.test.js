@@ -118,6 +118,33 @@ test("normalize consolidates duplicate delivery dates and re-points orders", () 
   assert.deepEqual(out.orders.map((o) => o.qty), [1, 2, 4], "no orders lost");
 });
 
+test("normalize keeps a day's availability adjustments on its delivery date", () => {
+  const out = normalize({
+    version: 1,
+    deliveryDates: [
+      { id: "del_a", date: "2026-09-04", notes: "", dayAdj: { prd_1: 5, prd_2: -3 } },
+      { id: "del_c", date: "2026-09-07", notes: "" },
+    ],
+    orders: [],
+  });
+  const del = out.deliveryDates.find((d) => d.id === "del_a");
+  assert.deepEqual(del.dayAdj, { prd_1: 5, prd_2: -3 }, "dayAdj survives load");
+});
+
+test("consolidating duplicate dates keeps the first record's day adjustments", () => {
+  const out = normalize({
+    version: 1,
+    deliveryDates: [
+      { id: "del_a", date: "2026-09-04", notes: "", dayAdj: { prd_1: 3 } },
+      { id: "del_b", date: "2026-09-04", notes: "", dayAdj: { prd_1: 99 } },
+    ],
+    orders: [{ id: "o1", deliveryDateId: "del_b", productId: "p", qty: 1 }],
+  });
+  assert.equal(out.deliveryDates.length, 1, "the pair merges into one record");
+  assert.deepEqual(out.deliveryDates[0].dayAdj, { prd_1: 3 },
+    "the surviving (first) record's dayAdj wins, matching dayDelta's owner rule");
+});
+
 test("groupOrders merges shared groupIds and keeps standalone orders separate", () => {
   const g = groupOrders([
     { id: "a", groupId: "g1" },

@@ -749,6 +749,72 @@ test("computeProductSlots: pack orders draw the base pool down in whole pieces",
   assert.equal(pack.slots_left, 0);
 });
 
+test("computeSlots day capacity reflects a delta on one date and leaves others alone", () => {
+  const dates = generateUpcomingDates(baseSettings(), 3);
+  const state = makeState({ [dates[0]]: [2] }); // 2 pieces booked on the first date
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+  ];
+  const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
+  del0.dayAdj = { prd_1: 5 }; // raise Focaccia by 5 for this day only
+  const rows = computeSlots(state, 10);
+  assert.deepEqual(rows.find((r) => r.date === dates[0]),
+    { date: dates[0], slots_left: 27, capacity: 29 }, "17 + 12 − 2 booked");
+  assert.deepEqual(rows.find((r) => r.date === dates[1]),
+    { date: dates[1], slots_left: 24, capacity: 24 }, "the next date keeps its baseline");
+});
+
+test("computeSlots publishes a closed day (capacity 0) when every product is paused", () => {
+  const dates = generateUpcomingDates(baseSettings(), 1);
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+  ];
+  const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
+  del0.dayAdj = { prd_1: -12, prd_2: -12 }; // nothing baked that day
+  const rows = computeSlots(state, 10);
+  const r0 = rows.find((r) => r.date === dates[0]);
+  assert.equal(r0.capacity, 0, "day capacity closes");
+  assert.equal(r0.slots_left, 0);
+});
+
+test("computeProductSlots derives pack rows from a day-adjusted base", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState({ [dates[0]]: [2] }); // 2 single focaccia pieces booked
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+  ];
+  const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
+  del0.dayAdj = { prd_1: 5 }; // 17 pieces that day
+  const rows = computeProductSlots(state, 10);
+  assert.equal(rows.length, 20, "1 base + 1 derived pack × 10 days");
+  assert.deepEqual(rows.find((r) => r.date === dates[0] && r.product === "Focaccia"),
+    { date: dates[0], product: "Focaccia", slots_left: 15, capacity: 17 });
+  assert.deepEqual(rows.find((r) => r.date === dates[0] && r.product === "Focaccia Family (4 pcs)"),
+    { date: dates[0], product: "Focaccia Family (4 pcs)", slots_left: 3, capacity: 4,
+      pool_base: "Focaccia", pool_qty: 4 },
+    "17 → floor(÷4) = 4 packs on offer; 15 left → 3 packs");
+  assert.equal(rows.find((r) => r.date === dates[1] && r.product === "Focaccia").capacity, 12,
+    "the next day stays at the usual 12");
+});
+
+test("computeProductSlots publishes zeros for a paused product's day", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+  ];
+  const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
+  del0.dayAdj = { prd_1: -12 }; // paused just for this day
+  const rows = computeProductSlots(state, 10);
+  assert.deepEqual(rows.find((r) => r.date === dates[0] && r.product === "Focaccia"),
+    { date: dates[0], product: "Focaccia", slots_left: 0, capacity: 0 }, "paused → sold out");
+  assert.equal(rows.find((r) => r.date === dates[1] && r.product === "Focaccia").capacity, 12);
+});
+
 test("pullIncoming imports a value-pack order and ignores its pool array", async () => {
   storageShim(new Map());
   const state = makeState();

@@ -11,6 +11,12 @@ import {
   poolRemaining,
   productRemaining,
   validateRecipeNoCycle,
+  dayDelta,
+  effectiveLimit,
+  effectiveCapacity,
+  dayRuleRows,
+  parseDayDelta,
+  saveDayAdjustments,
 } from "../admin/js/bom.js";
 
 // Focaccia (leaf ingredients, daily limit 12) is the pool base. The family set
@@ -205,4 +211,120 @@ test("validateRecipeNoCycle refuses a set that contains itself, directly or thro
 
   // a brand-new product (no id yet) can't create a loop
   assert.equal(validateRecipeNoCycle(st, { recipe: [{ productId: "prd_f", qty: 1, unit: "" }] }), null);
+});
+
+// --- "this day's bakes": per-delivery-date availability adjustments ---
+
+test("dayDelta reads only the first same-date record's integer delta", () => {
+  const st = fixtureState();
+  st.deliveryDates[0].dayAdj = { prd_f: 5 };
+  // a duplicate same-date record is ignored — the first record owns the day
+  st.deliveryDates.push({ id: "del_b", date: "2026-09-07", notes: "", dayAdj: { prd_f: 99 } });
+  st.deliveryDates.push({ id: "del_c", date: "2026-09-14", notes: "", dayAdj: { prd_f: 7 } });
+  assert.equal(dayDelta(st, "2026-09-07", "prd_f"), 5);
+  assert.equal(dayDelta(st, "2026-09-14", "prd_f"), 7, "a different date reads its own record");
+  assert.equal(dayDelta(st, "2026-09-21", "prd_f"), 0, "no record → no delta");
+  assert.equal(dayDelta(st, "", "prd_f"), 0);
+
+  const st2 = fixtureState();
+  st2.deliveryDates[0].dayAdj = { prd_f: "two" }; // non-integer is ignored
+  assert.equal(dayDelta(st2, "2026-09-07", "prd_f"), 0);
+  assert.equal(dayDelta(st2, "2026-09-07", "prd_s"), 0, "product not in dayAdj → no delta");
+});
+
+test("effectiveLimit adds the day's delta, clamps at 0; unlimited/missing are null", () => {
+  const st = fixtureState();
+  st.deliveryDates[0].dayAdj = { prd_f: 5 };
+  assert.equal(effectiveLimit(st, "2026-09-07", "prd_f"), 17);
+  assert.equal(effectiveLimit(st, "2026-09-14", "prd_f"), 12, "no delta that day → the usual limit");
+
+  st.deliveryDates[0].dayAdj = { prd_f: -30 }; // stored raw below −limit, only the read clamps
+  assert.equal(effectiveLimit(st, "2026-09-07", "prd_f"), 0);
+
+  assert.equal(effectiveLimit(st, "2026-09-07", "prd_s"), null, "unlimited product has no effective limit");
+  assert.equal(effectiveLimit(st, "2026-09-07", "prd_missing"), null);
+});
+
+test("productRemaining uses the day's adjusted limit with unchanged bookings", () => {
+  const st = fixtureState();
+  st.deliveryDates[0].dayAdj = { prd_f: 5 };
+  st.orders.push({ id: "o1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 });
+  assert.deepEqual(productRemaining(st, "del_a", "prd_f"), { limit: 17, booked: 2, remaining: 15 });
+
+  // a paused product still returns a record (it has a usual limit); remaining can go below 0
+  st.deliveryDates[0].dayAdj = { prd_f: -12 };
+  assert.deepEqual(productRemaining(st, "del_a", "prd_f"), { limit: 0, booked: 2, remaining: -2 });
+});
+
+test("poolRemaining uses the base's adjusted limit for that date", () => {
+  const st = fixtureState();
+  st.deliveryDates[0].dayAdj = { prd_f: -3 };
+  st.orders.push(
+    { id: "o1", deliveryDateId: "del_a", productId: "prd_f", qty: 1 }, // 1 single
+    { id: "o2", deliveryDateId: "del_a", productId: "prd_p", qty: 1 }); // 1 family set = 4 pieces
+  assert.deepEqual(poolRemaining(st, "del_a", "prd_f"), { limit: 9, booked: 5, remaining: 4 });
+
+  st.deliveryDates[0].dayAdj = { prd_f: -12 };
+  assert.equal(poolRemaining(st, "del_a", "prd_f").limit, 0, "a paused base keeps a pool record");
+  assert.equal(poolRemaining(st, "del_a", "prd_s"), null, "an unlimited base has no pool");
+});
+
+test("effectiveCapacity sums adjusted limits, isolates per date, falls back when unconstrained", () => {
+  const st = fixtureState();
+  assert.equal(effectiveCapacity(st, "2026-09-07"), 12, "only Focaccia is limited → its usual limit");
+
+  st.deliveryDates[0].dayAdj = { prd_f: 5 };
+  assert.equal(effectiveCapacity(st, "2026-09-07"), 17);
+  assert.equal(effectiveCapacity(st, "2026-09-14"), 12, "the next date keeps its baseline");
+
+  st.products.find((p) => p.id === "prd_s").limit = 8; // add a second limited product
+  st.deliveryDates[0].dayAdj = { prd_f: 5, prd_s: -2 };
+  assert.equal(effectiveCapacity(st, "2026-09-07"), 23, "12+5 + 8−2");
+
+  st.deliveryDates[0].dayAdj = { prd_f: -12, prd_s: -8 };
+  assert.equal(effectiveCapacity(st, "2026-09-07"), 0, "pausing every product closes the day");
+
+  // nothing limited at all → today's default capacity fallback
+  const st2 = fixtureState();
+  st2.products = st2.products.map((p) => (p.id === "prd_f" ? { ...p, limit: undefined } : p));
+  assert.equal(effectiveCapacity(st2, "2026-09-07"), 12, "defaultCapacity when nothing is limited");
+});
+
+test("dayRuleRows lists active limited products (menu order) and finds poolable packs", () => {
+  const st = fixtureState();
+  st.deliveryDates[0].dayAdj = { prd_f: 3 };
+  st.products.push({ id: "prd_h", name: "Hidden", unit: "x", limit: 5, active: false, recipe: [] });
+  const { rows, packs } = dayRuleRows(st, "2026-09-07");
+  assert.deepEqual(rows.map((r) => [r.productId, r.name, r.usual, r.delta]),
+    [["prd_f", "Focaccia", 12, 3]]);
+  assert.deepEqual(packs, ["Family (4 pcs)"], "a poolable pack whose base is listed");
+
+  const empty = dayRuleRows(st, "2026-10-01"); // a date with no adjustments yet
+  assert.deepEqual(empty.rows.map((r) => [r.productId, r.delta]), [["prd_f", 0]]);
+  assert.deepEqual(empty.packs, ["Family (4 pcs)"]);
+});
+
+test("parseDayDelta: blank is no change, signed whole numbers only", () => {
+  assert.deepEqual(parseDayDelta(""), { delta: 0 });
+  assert.deepEqual(parseDayDelta("   "), { delta: 0 });
+  assert.deepEqual(parseDayDelta("0"), { delta: 0 });
+  assert.deepEqual(parseDayDelta("5"), { delta: 5 });
+  assert.deepEqual(parseDayDelta("+5"), { delta: 5 });
+  assert.deepEqual(parseDayDelta("-2"), { delta: -2 });
+  assert.ok(parseDayDelta("2.5").error);
+  assert.ok(parseDayDelta("abc").error);
+  assert.ok(parseDayDelta("-").error);
+});
+
+test("saveDayAdjustments writes to the owner record, prunes zeros, removes dayAdj when empty", () => {
+  const st = fixtureState();
+  st.deliveryDates.push({ id: "del_dup", date: "2026-09-07", notes: "" }); // not the first record
+  const owner = saveDayAdjustments(st, "del_dup", { prd_f: 5, prd_s: 0 });
+  assert.equal(owner, st.deliveryDates[0], "the FIRST same-date record owns the day");
+  assert.deepEqual(st.deliveryDates[0].dayAdj, { prd_f: 5 }, "zero entries pruned");
+
+  saveDayAdjustments(st, "del_dup", { prd_f: 0 });
+  assert.ok(!("dayAdj" in st.deliveryDates[0]), "clearing everything removes dayAdj");
+
+  assert.equal(saveDayAdjustments(st, "del_nope", { prd_f: 1 }), null, "unknown date is a no-op");
 });

@@ -949,3 +949,12 @@ textarea.input { min-height: 64px; resize: vertical; }
 .hist-ord:first-of-type { border-top: none; padding-top: 4px; }
 .hist-line { font-size: 14px; padding: 2px 0; }
 .hist-code { font-weight: 800; color: var(--brown-dark); letter-spacing: .02em; }
+
+/* "Set day's availability" pop-up (per-delivery-date product adjustments) */
+.day-adj-rows { display: flex; flex-direction: column; gap: 8px; }
+.day-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
+.day-adjust-row .day-adj-right { display: flex; align-items: center; gap: 8px; }
+.day-adjust-row .day-adj-preview { font-size: 13px; color: var(--brown-dark); font-weight: 600;
+  min-width: 74px; text-align: right; }
+.day-adjust-row .day-adj-input { width: 76px; min-height: 36px; text-align: center; }

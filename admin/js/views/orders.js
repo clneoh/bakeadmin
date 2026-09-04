@@ -1,7 +1,7 @@
 // views/orders.js — per-delivery-date order intake (manual, warn-not-block).
 
 import { deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
-import { capacityStatus, productRemaining } from "../bom.js";
+import { capacityStatus, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { byId, fmtRM, groupOrders, newId, orderCode, save, updateOrderBadge, waNumber } from "../state.js";
 import { buildConfirmation } from "../confirm.js";
@@ -573,6 +573,8 @@ function dateContent(state, date, root) {
   const st = deliveryStatus(date.date, state.settings);
   const cap = capacityStatus(state, date.id);
   const dateLabel = `${weekdayName(date.date)}, ${longDate(date.date)}`;
+  const rules = dayRuleRows(state, date.date);
+  const adjusted = rules.rows.filter((r) => r.delta !== 0).length;
 
   const header = el("div", { class: "card" },
     el("div", { class: "card-row" },
@@ -585,12 +587,78 @@ function dateContent(state, date, root) {
       el("span", { class: "qty-chip" }, `${cap.total}/${cap.capacity}`)),
     fillMeter(cap.total, cap.capacity),
     cap.exceeded ? el("div", { class: "danger-banner" },
-      `Over capacity by ${cap.total - cap.capacity}. Add more only if she can bake extra.`) : null);
+      `Over capacity by ${cap.total - cap.capacity}. Add more only if she can bake extra.`) : null,
+    !st.past && rules.rows.length ? el("div", { class: "btn-row", style: "margin-top:10px" },
+      button(adjusted ? `Set day's availability · ${adjusted} adjusted` : "Set day's availability", () =>
+        openDayAdjustPopup(state, date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "soft")) : null);
 
   const form = orderForm(state, date.id, root);
   const list = orderList(state, date.id, root);
 
   return el("div", {}, header, form, list);
+}
+
+// "Set day's availability" — the owner raises or lowers each product's usual
+// daily limit for THIS delivery date only, straight from the Orders screen.
+// Value packs share their base product's pool, so they aren't listed here —
+// adjust the base and they follow.
+export function openDayAdjustPopup(state, date, refresh) {
+  const rules = dayRuleRows(state, date.date);
+  if (!rules.rows.length) return toast("No product has a daily limit yet — set one under More → Products first.");
+
+  const inputs = rules.rows.map((rule) => {
+    const inp = el("input", { class: "input day-adj-input", type: "number", inputmode: "numeric",
+      value: rule.delta === 0 ? "" : String(rule.delta), placeholder: "0",
+      "aria-label": `Change ${rule.name}` });
+    return { rule, inp };
+  });
+
+  const todayOf = (rule, inp) => {
+    const { delta } = parseDayDelta(inp.value);
+    return Math.max(0, rule.usual + (delta || 0));
+  };
+  const preview = (rule, inp) => {
+    const today = todayOf(rule, inp);
+    return today === 0 ? "(sold out)" : `Today: ${today}`;
+  };
+
+  showPopup(el("div", { class: "popup-title-row" }, "Availability for this day"), (refreshBody, close) => {
+    const rows = el("div", { class: "day-adj-rows" },
+      ...inputs.map(({ rule, inp }) => {
+        const todayEl = el("span", { class: "day-adj-preview" }, preview(rule, inp));
+        inp.addEventListener("input", () => { todayEl.textContent = preview(rule, inp); });
+        return el("div", { class: "day-adjust-row" },
+          el("div", { style: "min-width:0" },
+            el("p", { style: "margin:0" }, rule.name),
+            el("p", { class: "card-sub", style: "margin:0" }, `Usual ${rule.usual}/day`)),
+          el("div", { class: "day-adj-right" },
+            todayEl,
+            inp));
+      }));
+
+    return el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 12px" },
+        `For ${weekdayName(date.date)}, ${longDate(date.date)} only: how many more (+) or fewer (−) than usual to make. 0 = Sold out that day. Other dates are untouched.`),
+      rows,
+      rules.packs.length ? el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        `Value packs — ${rules.packs.join(", ")} — share their base product, so they follow the numbers above.`) : null,
+      el("div", { class: "popup-actions" },
+        button("Cancel", close, "ghost"),
+        button("Save", () => {
+          const adjustments = {};
+          for (const { rule, inp } of inputs) {
+            const { delta, error } = parseDayDelta(inp.value);
+            if (error) return toast(error);
+            adjustments[rule.productId] = delta;
+          }
+          saveDayAdjustments(state, date.id, adjustments);
+          save(state);
+          maybeSync(state); // republish availability so customers see the change
+          toast("Day's availability updated");
+          close();
+          refresh();
+        }, "primary")));
+  }, { wide: true });
 }
 
 // Product choices for adding/editing an order. Unlike the customer menu, the

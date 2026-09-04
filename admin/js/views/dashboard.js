@@ -2,13 +2,13 @@
 
 import { navigate } from "../app.js";
 import { deliveryStatus, generateUpcomingDates, longDate, todayISO, weekdayName } from "../dates.js";
-import { capacityStatus, dayCapacity } from "../bom.js";
+import { capacityStatus, effectiveCapacity } from "../bom.js";
 import { el, badge, fillMeter, emptyState, button } from "../ui.js";
 import { newId, save } from "../state.js";
 
 function statusInfo(state, date, total) {
   const { closed, past } = deliveryStatus(date.date, state.settings);
-  const cap = dayCapacity(state);
+  const cap = effectiveCapacity(state, date.date);
   if (past) return { label: "Past", cls: "badge-past", closed: true };
   if (closed) return { label: "Closed", cls: "badge-closed", closed: true };
   if (total > cap) return { label: "Over", cls: "badge-over", closed: false };

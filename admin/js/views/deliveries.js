@@ -2,7 +2,7 @@
 
 import { navigate } from "../app.js";
 import { deliveryStatus, generateUpcomingDates, longDate, todayISO, weekdayName } from "../dates.js";
-import { dayCapacity, totalUnitsOnDate } from "../bom.js";
+import { effectiveCapacity, totalUnitsOnDate } from "../bom.js";
 import { el, button, emptyState, confirmDialog, toast } from "../ui.js";
 import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
@@ -84,7 +84,7 @@ function renderAll(root, state) {
 
 function dateCard(state, date) {
   const ordered = totalUnitsOnDate(state, date.id);
-  const left = Math.max(0, dayCapacity(state) - ordered);
+  const left = Math.max(0, effectiveCapacity(state, date.date) - ordered);
   const st = deliveryStatus(date.date, state.settings);
   const closed = st.closed && !st.past;
 
