@@ -40,7 +40,10 @@ const productName = (state, id) => (byId(state.products || [], id) || {}).name |
 
 function openChat(r) {
   const w = waNumber(r.whatsapp);
-  if (w) window.open(`https://wa.me/${w}`, "_blank");
+  if (!w) return;
+  const name = r.name && r.name !== "(no name)" ? r.name : "";
+  const text = name ? `Hi ${name}!` : "Hi!";
+  window.open(`https://wa.me/${w}?text=${encodeURIComponent(text)}`, "_blank");
 }
 
 export function renderCustomers(root, state, params) {

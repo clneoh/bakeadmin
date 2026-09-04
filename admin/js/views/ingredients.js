@@ -1,8 +1,8 @@
 // views/ingredients.js — ingredient master. Each ingredient cooks in one unit
-// (picked from the Units list) and can carry pack prices from up to two
-// suppliers, so the PO knows exactly what to buy and from whom. New ingredients
-// go in the always-visible card at the top; tapping Edit opens the same form in
-// a pop-up, like products and orders.
+// (picked from the Units list) and can carry pack prices from any number of
+// suppliers (each a pack size + price), so the PO knows exactly what to buy and
+// from the cheapest shop. New ingredients go in the always-visible card at the
+// top; tapping Edit opens the same form in a pop-up, like products and orders.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { byId, fmtRM, newId, save } from "../state.js";
@@ -61,13 +61,13 @@ function buildIngredientEditor(state, ingredient) {
   const note = el("input", { class: "input", placeholder: "e.g. pickup at Mydin (optional)",
     value: ingredient?.purchaseNote || "" });
 
-  // Draft of the two supplier rows. Stored here (not on the ingredient) so an
+  // Draft of the supplier price rows — as many as the ingredient already has,
+  // or a blank one when it has none. Stored here (not on the ingredient) so an
   // edit can be cancelled cleanly; values survive a unit-change re-render.
   const existing = ingredient && Array.isArray(ingredient.supplierPrices) ? ingredient.supplierPrices : [];
-  const drafts = Array.from({ length: 2 }, (_, i) => {
-    const e = existing[i] || {};
-    return { supplierId: e.supplierId || "", qty: e.qty ?? "", uomId: e.uomId || "", price: e.price ?? "" };
-  });
+  const drafts = (existing.length ? existing : [{}]).map((e) => ({
+    supplierId: e.supplierId || "", qty: e.qty ?? "", uomId: e.uomId || "", price: e.price ?? "",
+  }));
   const rows = [];
   const priceBox = el("div", { class: "price-rows" });
 
@@ -86,7 +86,7 @@ function buildIngredientEditor(state, ingredient) {
     return opts;
   }
 
-  function makeRow(draft, label) {
+  function makeRow(draft) {
     const family = cookingFamilyOf(list, unitSel.value);
     const cookingUnit = byId(list, unitSel.value);
     const packDefault = () => {
@@ -100,9 +100,11 @@ function buildIngredientEditor(state, ingredient) {
     const packSel = select(familyOptions(family), packDefault(), null);
     const price = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.01",
       placeholder: "RM", value: draft.price });
+    const supplierName = () =>
+      (suppliersOptions(supplierSel.value).find((o) => o.value === supplierSel.value) || {}).label || "this supplier";
 
     return {
-      label, supplierSel, qty, packSel, price,
+      supplierSel, qty, packSel, price,
       syncDraft() {
         draft.supplierId = supplierSel.value;
         draft.qty = qty.value;
@@ -113,16 +115,16 @@ function buildIngredientEditor(state, ingredient) {
         const filled = supplierSel.value || qty.value.trim() !== "" || price.value.trim() !== "";
         if (!filled) return null;
         const s = supplierSel.value;
-        if (!s) return { error: `${label}: a pack size/price is set but no supplier is chosen` };
+        if (!s) return { error: "A price row has a pack or price but no supplier chosen — pick the shop or clear the row" };
         const q = Number(qty.value);
         if (!(q > 0)) {
-          return { error: `${label}: add the pack size — how many ${cookingUnit?.name || "g"} come in one pack` };
+          return { error: `${supplierName()}: add the pack size — how many ${cookingUnit?.name || "units"} come in one pack` };
         }
         const p = Number(price.value);
         if (price.value.trim() === "" || Number.isNaN(p) || p < 0) {
-          return { error: `${label}: add the pack price in RM` };
+          return { error: `${supplierName()}: add the pack price in RM` };
         }
-        if (!packSel.value) return { error: `${label}: pick the pack unit` };
+        if (!packSel.value) return { error: `${supplierName()}: pick the pack unit` };
         return { entry: { supplierId: s, qty: q, uomId: packSel.value, price: p } };
       },
     };
@@ -140,16 +142,24 @@ function buildIngredientEditor(state, ingredient) {
     const hasSuppliers = (state.suppliers || []).some((s) => s.active !== false);
     rows.length = 0;
     const rowEls = drafts.map((draft, i) => {
-      const r = makeRow(draft, i === 0 ? "Primary supplier" : "Secondary supplier");
+      const r = makeRow(draft);
       rows.push(r);
+      const del = button("✕", () => { syncDrafts(); drafts.splice(i, 1); renderPriceRows(); }, "ghost small");
+      del.classList.add("price-del");
+      del.setAttribute("aria-label", "Remove this supplier price");
       return el("div", { class: "price-row" },
-        el("p", { class: "price-row-label" }, `${r.label} (optional)`),
-        el("div", { class: "price-grid" }, r.supplierSel, r.qty, r.packSel, r.price));
+        el("div", { class: "price-grid" }, r.supplierSel, r.qty, r.packSel, r.price, del));
     });
     const hint = hasSuppliers ? null
       : el("p", { class: "warn", style: "margin:0 0 8px" },
-        "No suppliers yet — add them under More → Suppliers first, then come back to price this ingredient.");
-    priceBox.replaceChildren(hint, ...rowEls);
+          "No suppliers yet — add them under More → Suppliers first, then come back to price this ingredient.");
+    priceBox.replaceChildren(
+      el("p", { class: "price-row-label" },
+        "Supplier prices (optional) — the PO buys from the cheapest. Add as many shops as you like."),
+      hint,
+      ...rowEls,
+      el("div", { style: "margin-top:8px" },
+        button("＋ Add another supplier price", () => { syncDrafts(); drafts.push({ supplierId: "", qty: "", uomId: "", price: "" }); renderPriceRows(); }, "ghost small")));
   }
 
   function collect() {
@@ -158,16 +168,11 @@ function buildIngredientEditor(state, ingredient) {
     const uomId = unitSel.value;
     const uom = byId(list, uomId);
     const supplierPrices = [];
-    let prevSupplier = null;
     for (const r of rows) {
       const res = r.read();
       if (!res) continue;
       if (res.error) return { error: res.error };
-      if (res.entry.supplierId === prevSupplier) {
-        return { error: `${r.label} is the same supplier as the row above — keep one price per supplier` };
-      }
       supplierPrices.push(res.entry);
-      prevSupplier = res.entry.supplierId;
     }
     return {
       values: {

@@ -720,11 +720,20 @@ textarea.input { min-height: 64px; resize: vertical; }
 .price-row-label { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .price-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) 72px 58px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) 72px 58px minmax(0, 1fr) 30px;
   gap: 6px;
   align-items: center;
 }
 .price-grid .input { min-width: 0; }
+.price-grid .btn.price-del {
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  color: var(--brown-dark);
+}
 
 @media (min-width: 541px) {
   .view { padding-top: 20px; }

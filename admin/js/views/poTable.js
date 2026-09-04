@@ -52,17 +52,19 @@ function groupHeaderRow(g, { interactive, dateTitle, currency }) {
   const side = el("span", { class: "po-sup-side" });
   side.appendChild(el("span", { class: "po-sup-sub" }, fmtRM(g.subtotal, currency)));
   if (interactive && g.supplier) {
+    const orderText = () => buildSupplierOrderText({
+      dateTitle,
+      supplier: g.supplier,
+      items: g.items,
+      subtotal: g.subtotal,
+      currency,
+    });
     side.appendChild(button("⧉ Copy order", () =>
-      copyText(buildSupplierOrderText({
-        dateTitle,
-        supplier: g.supplier,
-        items: g.items,
-        subtotal: g.subtotal,
-        currency,
-      }), "Order text copied — paste in WhatsApp"), "ghost small"));
+      copyText(orderText(), "Order text copied — paste in WhatsApp"), "ghost small"));
     if (g.whatsapp) {
       side.appendChild(button("Message supplier", () =>
-        window.open(`https://wa.me/${waNumber(g.whatsapp)}`, "_blank"), "ghost small"));
+        window.open(`https://wa.me/${waNumber(g.whatsapp)}?text=${encodeURIComponent(orderText())}`, "_blank"),
+        "ghost small"));
     }
   }
   return el("tr", { class: "po-supplier" },
