@@ -249,7 +249,8 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
   };
   // The storefront menu comes from the backoffice product list (single source
   // of truth) — state.products.price/unit feed the published menu.
-  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true }];
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true,
+    description: "Crisp rosemary crust, airy crumb" }];
   const calls = [];
   globalThis.fetch = async (url, opts) => {
     calls.push({ url, opts });
@@ -273,7 +274,8 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
     assert.ok(!("setDays" in payload), "no global value-pack window — date rules live on each product");
     assert.deepEqual(payload.deliveryDays, [1, 3, 5]);
     assert.equal(payload.capacity, 12);
-    assert.deepEqual(payload.products, [{ name: "Focaccia", price: 15, unit: "loaf" }]);
+    assert.deepEqual(payload.products,
+      [{ name: "Focaccia", price: 15, unit: "loaf", description: "Crisp rosemary crust, airy crumb" }]);
   } finally {
     globalThis.fetch = realFetch;
   }

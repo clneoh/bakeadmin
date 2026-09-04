@@ -141,6 +141,8 @@ export function mergeStorefront(base, remote) {
           price: Number(p.price) || 0,
           unit: String(p.unit || "").trim() || "piece",
         };
+        const desc = p && String(p.description || "").trim();
+        if (desc) out.description = desc;
         // A value pack carries component {name, qty}: which product's pool it
         // shares, and how many pieces each pack takes. Kept so the storefront
         // can cap a mixed cart and run the advance-order window.
@@ -297,11 +299,13 @@ export function render() {
         ? el("span", { class: soldOut ? "prod-stamp soldout" : "prod-stamp" }, soldOut ? "Sold out" : `Only ${left} left`)
         : null;
       const note = reason ? el("p", { class: "prod-note" }, reason) : null;
+      const desc = p && String(p.description || "").trim();
       return el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
         el("div", { class: "card-head" },
           el("div", {},
             el("p", { class: "card-title" }, p.name),
-            el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${p.unit}`)),
+            el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${p.unit}`),
+            desc ? el("p", { class: "prod-desc" }, desc) : null),
           stamp),
         el("div", { class: "stepper" }, dec, qtyLabel, inc),
         note);

@@ -55,6 +55,13 @@ function buildEditor(state, product) {
   const validFrom = el("input", { class: "input", type: "date", value: product?.validFrom || "" });
   const validTo = el("input", { class: "input", type: "date", value: product?.validTo || "" });
 
+  // A sentence or two customers read on the shop page to know what this is.
+  // Optional — blank shows nothing. Kept on the product and published with the
+  // storefront menu, so it is written once here, not on the shop.
+  const desc = el("textarea", { class: "input", rows: 2,
+    placeholder: "e.g. Rosemary focaccia — golden, airy crumb",
+    value: product?.description || "" });
+
   // Cost of one unit from the current draft, expanding any product lines
   // (a set's cost compounds its component's cost into it).
   function perUnitCost() {
@@ -117,6 +124,7 @@ function buildEditor(state, product) {
     const vf = validFrom.value || undefined;
     const vt = validTo.value || undefined;
     if (vf && vt && vf > vt) return { error: "The \"from\" date is after the \"to\" date — swap them" };
+    const descVal = desc.value.trim();
     return {
       values: {
         name: pname,
@@ -127,12 +135,13 @@ function buildEditor(state, product) {
         closeDays: closeVal,
         validFrom: vf,
         validTo: vt,
+        description: descVal || undefined,
         recipe,
       },
     };
   }
 
-  return { name, unit, price, limit, closeDays, validFrom, validTo, recipeCard, renderRecipeLines, collect };
+  return { name, unit, price, limit, closeDays, validFrom, validTo, desc, recipeCard, renderRecipeLines, collect };
 }
 
 // The common field layout under whichever shell (card or pop-up) hosts it.
@@ -141,6 +150,10 @@ function editorFields(state, editor) {
     el("div", { class: "form-grid" },
       el("div", {}, el("label", {}, "Name"), editor.name),
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
+    el("div", { class: "field" }, el("label", {}, "Description (customers see it on your shop)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "A sentence or two about what this is — e.g. rosemary focaccia, crusty outside, airy inside. Blank shows nothing."),
+      editor.desc),
     el("div", { class: "field" }, el("label", {}, "Sell price"), editor.price),
     el("div", { class: "field" }, el("label", {}, "Daily limit (optional)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },

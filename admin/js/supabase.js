@@ -250,6 +250,10 @@ function storefrontPayload(state) {
         price: Number(p.price) || 0,
         unit: String(p.unit || "").trim() || "piece",
       };
+      // A short blurb customers read under the name/price ("what is this").
+      // Published only when written, so products without one stay key-free.
+      const desc = String(p.description || "").trim();
+      if (desc) out.description = desc;
       // A clean value pack (one product line, no own limit) shares its base's
       // pool — tell the storefront so it can cap a mixed cart against one
       // budget and enforce the advance-order window. component.name = the base

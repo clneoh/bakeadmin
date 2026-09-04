@@ -104,6 +104,7 @@ function formHandles(root) {
   return {
     name: byPlaceholder("e.g. Focaccia"),
     unit: nodes.find((n) => n.tagName === "SELECT"),
+    desc: nodes.find((n) => n.tagName === "TEXTAREA"),
     closeDays: byPlaceholder("e.g. 14"),
     validFrom: dates[0],
     validTo: dates[1],
@@ -149,6 +150,22 @@ test("leaving both boxes blank saves a product that is open any day", () => {
   assert.equal(saved.closeDays, undefined, "blank close box = no early close");
   assert.equal(saved.validFrom, undefined, "blank window = every open day");
   assert.equal(saved.validTo, undefined);
+  assert.equal(saved.description, undefined, "blank description shows nothing on the shop");
+});
+
+test("typing a description saves it for customers to read (multiline kept)", () => {
+  const state = freshState();
+  const root = render(state);
+  const f = formHandles(root);
+  assert.ok(f.desc, "the new-product card shows the Description box");
+  f.name.value = "Rosemary Focaccia";
+  f.unit.value = "u_loaf";
+  f.desc.value = "Crisp rosemary crust,\nairy crumb";
+  fire(f.add);
+
+  assert.equal(state.products.length, 1);
+  assert.equal(state.products[0].description, "Crisp rosemary crust,\nairy crumb",
+    "typed description round-trips onto the product, line breaks intact");
 });
 
 test("a from-date after the to-date is refused and nothing is saved", () => {

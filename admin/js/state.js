@@ -369,6 +369,8 @@ function cleanStorefront(sf) {
             price: Number(p.price) || 0,
             unit: String(p.unit || "").trim() || "piece",
           };
+          const desc = p && String(p.description || "").trim();
+          if (desc) out.description = desc;
           // A value pack's component marker (its pool base + pieces per pack)
           // survives cleanup so a stored draft doesn't lose the pool link.
           const c = p && p.component;

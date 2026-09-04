@@ -45,7 +45,7 @@ const remote = {
   cutoff: "15:00",
   capacity: 20,
   products: [
-    { name: "Chocolate Cake", price: 55, unit: "whole" },
+    { name: "Chocolate Cake", price: 55, unit: "whole", description: "Rich dark ganache, 3 layers" },
     { name: "Brownies", price: 10, unit: "box" },
   ],
 };
@@ -79,10 +79,15 @@ test("published config overrides the header and menu at runtime", async () => {
   assert.equal(cards.length, 2, "menu replaced with the published products");
   const title = cards[0].children[0].children[0].children[0];
   const sub = cards[0].children[0].children[0].children[1];
+  const desc = cards[0].children[0].children[0].children[2];
   assert.equal(title.children[0].text, "Chocolate Cake");
   assert.equal(sub.children[0].text, "RM55.00 / whole");
-  const bTitle = cards[1].children[0].children[0].children[0];
-  assert.equal(bTitle.children[0].text, "Brownies");
+  assert.ok(desc, "a published description renders under the price");
+  assert.equal(desc.className, "prod-desc");
+  assert.equal(desc.children[0].text, "Rich dark ganache, 3 layers");
+  const bInner = cards[1].children[0].children[0];
+  assert.equal(bInner.children[0].children[0].text, "Brownies");
+  assert.equal(bInner.children.length, 2, "no description → no extra line under the name/price");
 });
 
 test("mergeStorefront replaces arrays wholesale and never touches supabase", () => {
@@ -93,16 +98,17 @@ test("mergeStorefront replaces arrays wholesale and never touches supabase", () 
   };
   const out = mergeStorefront(base, {
     name: "B",
-    products: [{ name: "Y", price: 2, unit: "u" }, { name: "Z", price: 3, unit: "" }],
+    products: [{ name: "Y", price: 2, unit: "u", description: "Two lines\nthat wrap" },
+      { name: "Z", price: 3, unit: "", description: "   " }],
     deliveryDays: [2, 4],
     supabase: { url: "EVIL" },
   });
   assert.equal(out.name, "B");
   assert.deepEqual(out.deliveryDays, [2, 4], "deliveryDays replaced, not key-merged");
   assert.deepEqual(out.products, [
-    { name: "Y", price: 2, unit: "u" },
+    { name: "Y", price: 2, unit: "u", description: "Two lines\nthat wrap" },
     { name: "Z", price: 3, unit: "piece" },
-  ]);
+  ], "a written description survives adoption; a blank one is dropped");
   assert.deepEqual(out.supabase, { url: "u" }, "the Supabase connection is never overridden");
   assert.equal(base.supabase.url, "u", "base is not mutated");
 });

@@ -20,7 +20,7 @@ test("normalize completes a partial storefront and keeps only well-formed produc
       storefront: {
         whatsapp: "60123456789",
         products: [
-          { name: "Focaccia", price: "15", unit: "loaf" },
+          { name: "Focaccia", price: "15", unit: "loaf", description: "Rosemary & sea salt" },
           { name: "  ", price: 9 }, // blank name → dropped
           null,
         ],
@@ -33,7 +33,8 @@ test("normalize completes a partial storefront and keeps only well-formed produc
   assert.equal(sf.tagline, "");
   assert.equal(sf.instagram, "");
   assert.equal(sf.products.length, 1);
-  assert.deepEqual(sf.products[0], { name: "Focaccia", price: 15, unit: "loaf" });
+  assert.deepEqual(sf.products[0],
+    { name: "Focaccia", price: 15, unit: "loaf", description: "Rosemary & sea salt" });
 });
 
 test("normalize defaults order status to new and preserves an explicit one", () => {
