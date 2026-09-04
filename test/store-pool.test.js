@@ -1,12 +1,13 @@
 // test/store-pool.test.js — the shared availability pool on the customer page.
 // Pure module (store/pool.js): how a cart mixing singles and value packs is
-// capped against ONE shared base budget, and the advance-order window that
-// gates packs to delivery dates X+ days ahead.
+// capped against ONE shared base budget, and the per-product delivery-date
+// rules that gate individual products on some dates.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_SET_DAYS, addDaysKey, setsAllowedOn,
+  addDaysKey, humanKey,
+  closeDaysFor, closedReason,
   poolGroups, groupFor, poolCaps, clampPool, poolPieces,
 } from "../store/pool.js";
 
@@ -137,32 +138,57 @@ test("poolPieces aggregates only what the cart's packs consume of each base", ()
   assert.deepEqual(poolPieces(singlesOnly, new Map([["Focaccia Family (4 pcs)", 1]])), []);
 });
 
-test("advance-order window: packs orderable at the set-day boundary and beyond", () => {
+test("a blank value pack is open any day, like any other blank product", () => {
   const today = "2026-09-04";
-  const horizon = addDaysKey(today, DEFAULT_SET_DAYS);
-  assert.equal(horizon, "2026-09-18"); // default 14 days
-  // far dates are allowed (>= horizon)…
-  assert.equal(setsAllowedOn("2026-09-18", today), true);
-  assert.equal(setsAllowedOn("2026-10-02", today), true);
-  // near dates are locked…
-  assert.equal(setsAllowedOn("2026-09-04", today), false);
-  assert.equal(setsAllowedOn("2026-09-17", today), false);
-  // …and unknown dates never lock a pack.
-  assert.equal(setsAllowedOn("", today), true);
-  assert.equal(setsAllowedOn("2026-09-20", ""), true);
+  const pack = { name: "Focaccia Family (4 pcs)", component: { name: "Focaccia", qty: 4 } };
+  const single = { name: "Focaccia", price: 15, unit: "loaf" };
+  // No hidden 14-day default for packs — the close is per product. A pack left
+  // blank sells on any open date, exactly like a blank single.
+  assert.equal(closeDaysFor(pack), 0);
+  assert.equal(closeDaysFor(single), 0);
+  assert.equal(closedReason(pack, "2026-09-07", today), "", "near dates stay open for a blank pack");
+  assert.equal(closedReason(single, "2026-09-07", today), "");
+  assert.equal(closedReason(pack, "2026-09-18", today), "");
+  assert.equal(closedReason(pack, "2026-10-02", today), "");
+  // Unknown dates never lock a product.
+  assert.equal(closedReason(pack, "", today), "");
+  assert.equal(closedReason(pack, "2026-09-20", ""), "");
 });
 
-test("the window is configurable: smaller X unlocks sooner, 0 opens any day", () => {
+test("a product's own close days gate near dates, and explicit 0 opens any day", () => {
   const today = "2026-09-04";
-  // X = 3: a delivery exactly 3 days away is the first allowed one.
-  assert.equal(setsAllowedOn("2026-09-07", today, 3), true);
-  assert.equal(setsAllowedOn("2026-09-06", today, 3), false);
-  // The same near date is still locked under the wider 14-day default.
-  assert.equal(setsAllowedOn("2026-09-07", today, 14), false);
-  assert.equal(setsAllowedOn("2026-09-18", today, 14), true);
-  // X = 0: no window at all — even today's date is not locked.
-  assert.equal(setsAllowedOn("2026-09-04", today, 0), true);
-  assert.equal(setsAllowedOn("2026-09-07", today, 0), true);
+  const pack3 = { name: "P3", component: { name: "Focaccia", qty: 4 }, closeDays: 3 };
+  const pack0 = { name: "P0", component: { name: "Focaccia", qty: 4 }, closeDays: 0 };
+  assert.equal(closeDaysFor(pack3), 3);
+  assert.equal(closeDaysFor(pack0), 0);
+  // X = 3: 7 Sep is the first allowed date (today + 3).
+  assert.match(closedReason(pack3, "2026-09-06", today), /Orders close 3 days before delivery/);
+  assert.equal(closedReason(pack3, "2026-09-07", today), "");
+  // Explicit 0 means no early close — even today's date stays open.
+  assert.equal(closedReason(pack0, "2026-09-04", today), "");
+});
+
+test("a from–to delivery window gates dates outside it", () => {
+  const today = "2026-09-04";
+  const seasonal = { name: "CNY set", closeDays: 0, validFrom: "2026-12-01", validTo: "2026-12-24" };
+  const before = closedReason(seasonal, "2026-11-30", today);
+  assert.match(before, /Only available for delivery from/);
+  assert.ok(before.includes(humanKey("2026-12-01")), "note names the window's start date");
+  assert.equal(closedReason(seasonal, "2026-12-01", today), "");
+  assert.equal(closedReason(seasonal, "2026-12-24", today), "");
+  assert.match(closedReason(seasonal, "2026-12-25", today), /Only available for delivery up to/);
+});
+
+test("close and window combine: inside the window but too near still closes", () => {
+  const today = "2026-12-01";
+  const both = { name: "B", closeDays: 7, validFrom: "2026-12-01", validTo: "2026-12-24" };
+  // Outside the window wins first.
+  assert.match(closedReason(both, "2026-12-25", today), /up to/);
+  assert.match(closedReason(both, "2026-11-20", today), /from/);
+  // Inside the window, the 7-day close still applies (3 Dec is only 2 days out).
+  assert.match(closedReason(both, "2026-12-03", today), /Orders close 7 days before delivery/);
+  // 8 Dec (7 days out) and beyond are open.
+  assert.equal(closedReason(both, "2026-12-08", today), "");
 });
 
 test("addDaysKey shifts whole days and survives month/year boundaries", () => {

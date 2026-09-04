@@ -4,7 +4,7 @@
 // published by the backoffice (Settings → Storefront) and override the static
 // config.js fallback at runtime.
 import { CONFIG } from "./config.js";
-import { DEFAULT_SET_DAYS, poolCaps, poolGroups, clampPool, groupFor, setsAllowedOn, poolPieces } from "./pool.js";
+import { poolCaps, poolGroups, clampPool, groupFor, poolPieces, closedReason } from "./pool.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -17,14 +17,6 @@ export function waNumber(n) {
   if (!digits) return "";
   return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
 }
-
-// How far ahead a value pack (set) must be ordered — set in Settings →
-// Storefront and published with the config, so the baker can change it without
-// a redeploy. 0 means any open delivery date. Falls back to the code default.
-const setDaysWindow = () => {
-  const n = Number(CONFIG.setDays);
-  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_SET_DAYS;
-};
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -136,8 +128,6 @@ export function mergeStorefront(base, remote) {
     const n = Number(remote[key]);
     if (Number.isFinite(n) && n > 0) out[key] = n;
   }
-  const setDays = Number(remote.setDays);
-  if (remote.setDays != null && Number.isInteger(setDays) && setDays >= 0) out.setDays = setDays;
   if (Array.isArray(remote.deliveryDays)) {
     const days = remote.deliveryDays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
     if (days.length) out.deliveryDays = days;
@@ -157,6 +147,15 @@ export function mergeStorefront(base, remote) {
         const c = p && p.component;
         const baseName = c && String(c.name || "").trim();
         if (baseName && Number(c.qty) > 0) out.component = { name: baseName, qty: Number(c.qty) };
+        // Per-product date rules: orders close N days before delivery, and/or a
+        // fixed from–to window of delivery dates. Kept so the storefront can
+        // gate this product on the date the customer picks.
+        const close = Number(p.closeDays);
+        if (p.closeDays != null && Number.isInteger(close) && close >= 0) out.closeDays = close;
+        for (const k of ["validFrom", "validTo"]) {
+          const v = p && p[k];
+          if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
+        }
         return out;
       });
     if (products.length) out.products = products;
@@ -250,27 +249,29 @@ export function render() {
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
   let dates = upcomingDates(CONFIG);
-  // The value-pack window (closes X days before delivery) compares every
-  // delivery date to today, so its reference is fixed at page load.
+  // A product's date rules (closes X days before delivery / a from–to window)
+  // compare each delivery date to today, so its reference is fixed at load.
   const todayKey = dateKey(new Date());
 
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
     const groups = poolGroups(CONFIG.products);
-    const packsLocked = !setsAllowedOn(selected, todayKey, setDaysWindow());
     menu.replaceChildren(...CONFIG.products.map((p) => {
       const group = groupFor(groups, p);
       const baseLeft = group && byProduct[group.baseName] != null
         ? Number(byProduct[group.baseName]) : undefined;
       const caps = group && Number.isFinite(baseLeft) ? poolCaps(group, baseLeft, cart) : null;
-      const gatedPack = !!p.component && packsLocked;
+      // A product's own date rules can make it unorderable on this date — it
+      // reads sold out with the reason under it. A blank product (value pack
+      // included) has no early close, so it sells on any open date.
+      const reason = closedReason(p, selected, todayKey);
 
       // `left` drives the stamp + stepper cap. A live pool member is capped by
       // the shared pool (its pieces compete with every other pack/single in the
-      // cart); a gated pack on a too-near date reads as sold out regardless.
-      // Anything else keeps its own published row — the old behaviour.
+      // cart); a gated product on a too-near/out-of-window date reads as sold
+      // out regardless. Anything else keeps its own published row.
       const ownLeft = byProduct[p.name] != null ? Number(byProduct[p.name]) : undefined;
-      const left = gatedPack ? 0 : (caps ? caps.get(p.name) : ownLeft);
+      const left = reason ? 0 : (caps ? caps.get(p.name) : ownLeft);
       const qty = cart.get(p.name) || 0;
       const soldOut = left != null && left <= 0;
       const qtyLabel = el("span", { class: "stepper-val" }, String(qty));
@@ -295,9 +296,7 @@ export function render() {
       const stamp = left != null
         ? el("span", { class: soldOut ? "prod-stamp soldout" : "prod-stamp" }, soldOut ? "Sold out" : `Only ${left} left`)
         : null;
-      const note = gatedPack
-        ? el("p", { class: "prod-note" }, `Value packs close ${setDaysWindow()} days before delivery — pick a later date.`)
-        : null;
+      const note = reason ? el("p", { class: "prod-note" }, reason) : null;
       return el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
         el("div", { class: "card-head" },
           el("div", {},
@@ -332,7 +331,6 @@ export function render() {
     }
     const byProduct = prodAvail && prodAvail[selected] ? prodAvail[selected] : {};
     const groups = poolGroups(CONFIG.products);
-    const packsLocked = !setsAllowedOn(selected, todayKey, setDaysWindow());
     const handled = new Set();
 
     // Shared pools first: clamp the whole pool together — a pack and loose
@@ -358,15 +356,16 @@ export function render() {
       }
     }
 
-    // Value packs need a delivery date at least the configured window ahead; on
-    // nearer days they can't be ordered and leave the cart.
-    if (packsLocked) {
-      for (const p of CONFIG.products) {
-        if (!p.component || !cart.has(p.name)) continue;
-        cart.delete(p.name);
-        handled.add(p.name);
-        notes.push(`${p.name} closes ${setDaysWindow()} days before delivery — we removed it.`);
-      }
+    // A product whose own date rules close on this date (orders close N days
+    // before delivery, or it's outside its from–to window) can't be ordered —
+    // it leaves the cart. The card shows the same reason.
+    for (const p of CONFIG.products) {
+      const reason = closedReason(p, selected, todayKey);
+      if (!reason || !cart.has(p.name)) continue;
+      cart.delete(p.name);
+      handled.add(p.name);
+      const why = reason.split("—")[0].trim().replace(/\.$/, "");
+      notes.push(`${p.name}: ${why} — we removed it.`);
     }
 
     // Everything else keeps the old per-product clamp against its own row.

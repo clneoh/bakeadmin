@@ -21,11 +21,6 @@ export const CONFIG = {
   // Order cut-off time on the day before delivery, 24h format.
   cutoff: "18:00",
 
-  // Value packs (sets) close this many days before delivery: a customer can
-  // only order one for a delivery date at least this many days away. 0 = any
-  // open delivery date. Set in Settings → Storefront and published with config.
-  setDays: 14,
-
   // How many upcoming delivery dates to show.
   upcomingCount: 3,
 

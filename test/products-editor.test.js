@@ -1,0 +1,168 @@
+// test/products-editor.test.js — the Products editor's per-product date rules
+// ("Orders close (days before delivery)" + "Available for delivery dates").
+// Renders the real view under a tiny DOM shim and drives the Add button, so the
+// two optional boxes the owner fills in on her phone actually land on the saved
+// product — and a backwards from/to pair is refused without saving.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+// --- DOM shim (mirrors test/orders.test.js, plus a querySelector that finds a
+// descendant by id, which the recipe card needs) ---
+function createEl(tag) {
+  return {
+    tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
+    className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
+    scrollTop: 0, hidden: false, _listeners: {},
+    classList: {
+      add() {}, remove() {}, toggle() {},
+      contains() { return false; },
+    },
+    appendChild(c) { if (c != null) this.children.push(c); return c; },
+    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+    replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+    addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+    removeEventListener() {},
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getAttribute(k) { return this.attrs[k]; },
+    focus() {}, click() {},
+    querySelector(sel) {
+      const wantId = sel.startsWith("#");
+      const walk = (n) => {
+        for (const c of n.children || []) {
+          if (c.nodeType !== 1) continue;
+          if (wantId ? (c.attrs && c.attrs.id === sel.slice(1)) : c.tagName === sel.toUpperCase()) return c;
+          const hit = walk(c);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(this);
+    },
+  };
+}
+const doc = {
+  createElement: createEl,
+  createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
+  getElementById: () => null,
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  body: createEl("body"),
+};
+globalThis.document = doc;
+// Keep toast/save timers from stalling the test run.
+globalThis.setTimeout = (fn) => { fn(); return 1; };
+globalThis.clearTimeout = () => {};
+if (typeof crypto === "undefined" || !crypto.randomUUID) {
+  globalThis.crypto = { randomUUID: () => "00000000-0000-4000-8000-000000000000" };
+}
+const store = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+
+import { renderProducts } from "../admin/js/views/products.js";
+
+// A state with just enough to render the editor: a count unit to pick, and no
+// products yet (the always-visible New product card).
+function freshState() {
+  return {
+    settings: { currency: "RM", supabase: {} },
+    uoms: [
+      { id: "u_loaf", name: "loaf", family: "count" },
+      { id: "u_g", name: "g", family: "weight" },
+    ],
+    ingredients: [],
+    products: [],
+    orders: [],
+    deliveryDates: [],
+  };
+}
+
+// Every node under `root`, depth-first, in document order.
+function walk(root, out = []) {
+  for (const c of root.children || []) {
+    out.push(c);
+    walk(c, out);
+  }
+  return out;
+}
+
+function render(state) {
+  const root = doc.createElement("div");
+  renderProducts(root, state);
+  return root;
+}
+
+// The New product card is always root.children[0]. Returns handles to the fields.
+function formHandles(root) {
+  const nodes = walk(root.children[0]);
+  const byPlaceholder = (ph) => nodes.find((n) => n.tagName === "INPUT" && n.attrs.placeholder === ph);
+  const dates = nodes.filter((n) => n.tagName === "INPUT" && n.attrs.type === "date");
+  return {
+    name: byPlaceholder("e.g. Focaccia"),
+    unit: nodes.find((n) => n.tagName === "SELECT"),
+    closeDays: byPlaceholder("e.g. 14"),
+    validFrom: dates[0],
+    validTo: dates[1],
+    add: nodes.find((n) => n.tagName === "BUTTON"
+      && (n.children || []).some((c) => c.text === "Add product")),
+  };
+}
+
+const fire = (node) => (node._listeners.click || []).forEach((f) => f());
+
+test("saving a product keeps its two date rules (close days + from–to window)", () => {
+  const state = freshState();
+  const root = render(state);
+  const f = formHandles(root);
+  assert.ok(f.closeDays, "new-product card shows the Orders-close box");
+  assert.ok(f.validFrom && f.validTo, "new-product card shows From and To date pickers");
+
+  f.name.value = "CNY Gift Set";
+  f.unit.value = "u_loaf";
+  f.closeDays.value = "14";
+  f.validFrom.value = "2026-12-01";
+  f.validTo.value = "2026-12-24";
+  fire(f.add);
+
+  assert.equal(state.products.length, 1);
+  const saved = state.products[0];
+  assert.equal(saved.name, "CNY Gift Set");
+  assert.equal(saved.closeDays, 14, "typed close days round-trip onto the product");
+  assert.equal(saved.validFrom, "2026-12-01");
+  assert.equal(saved.validTo, "2026-12-24");
+});
+
+test("leaving both boxes blank saves a product that is open any day", () => {
+  const state = freshState();
+  const root = render(state);
+  const f = formHandles(root);
+  f.name.value = "Focaccia";
+  f.unit.value = "u_loaf";
+  fire(f.add);
+
+  assert.equal(state.products.length, 1);
+  const saved = state.products[0];
+  assert.equal(saved.closeDays, undefined, "blank close box = no early close");
+  assert.equal(saved.validFrom, undefined, "blank window = every open day");
+  assert.equal(saved.validTo, undefined);
+});
+
+test("a from-date after the to-date is refused and nothing is saved", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  const root = render(state);
+  const f = formHandles(root);
+  f.name.value = "Backwards Window";
+  f.unit.value = "u_loaf";
+  f.validFrom.value = "2026-12-24";
+  f.validTo.value = "2026-12-01";
+  fire(f.add);
+
+  assert.equal(state.products.length, 0, "the bad product is not added");
+  const toastNode = doc.body.children.at(-1);
+  assert.ok(toastNode && /from.*to|swap/i.test(toastNode.textContent), "the owner is told to swap the dates");
+});

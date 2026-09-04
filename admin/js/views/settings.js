@@ -117,15 +117,6 @@ export function renderSettings(root, state) {
   const sfTngQr = el("input", { class: "input", type: "text", inputmode: "url", value: sf.tngQr,
     placeholder: "https://…/tng-qr.png",
     onchange: () => { sf.tngQr = sfTngQr.value.trim(); save(state); maybeSyncStorefront(state); } });
-  // Value packs close this many days before delivery (0 = any day).
-  const sfDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0",
-    value: (Number.isInteger(sf.setDays) && sf.setDays >= 0) ? sf.setDays : 14,
-    onchange: () => {
-      const raw = sfDays.value.trim();
-      const n = raw === "" ? 14 : Math.floor(Number(raw));
-      sf.setDays = Number.isInteger(n) && n >= 0 ? n : 14;
-      save(state); maybeSyncStorefront(state); toast("Saved");
-    } });
 
   // If another phone has published a storefront config, use it as the editor's
   // starting point instead of this phone's older local copy — so the WhatsApp
@@ -149,7 +140,6 @@ export function renderSettings(root, state) {
         sf.instagram = typeof remote.instagram === "string" ? remote.instagram : sf.instagram;
         sf.facebook = typeof remote.facebook === "string" ? remote.facebook : sf.facebook;
         sf.tngQr = typeof remote.tngQr === "string" ? remote.tngQr : sf.tngQr;
-        if (remote.setDays != null && Number.isInteger(remote.setDays) && remote.setDays >= 0) sf.setDays = remote.setDays;
         save(state);
         sfName.value = sf.name;
         sfWhatsapp.value = sf.whatsapp;
@@ -189,11 +179,6 @@ export function renderSettings(root, state) {
       sfTngQr,
       el("p", { class: "card-sub", style: "margin:4px 0 0" },
         "Shown on the customer's track page so they can pay by TNG. Paste a hosted image URL (e.g. an imgur / Google Drive link to a photo of your QR).")),
-    el("div", { class: "field", style: "margin-top:10px" },
-      el("label", {}, "Value packs close (days before delivery)"),
-      sfDays,
-      el("p", { class: "card-sub", style: "margin:4px 0 0" },
-        "0 = any delivery day. A set (e.g. \"Focaccia Value Pack (4)\") only takes orders for delivery dates at least this many days away — closer dates read Sold out, so singles sell first.")),
     el("h4", { style: "margin:14px 0 0" }, "Menu"),
     el("p", { class: "card-sub", style: "margin:4px 0 0" },
       "Your menu comes from More → Products — add or hide a product there and it updates here after you publish. WhatsApp is digits only with country code — 012-345 6789 → 60123456789."),
@@ -424,7 +409,6 @@ function seedStorefront(state) {
     instagram: CONFIG.instagram || "",
     facebook: CONFIG.facebook || "",
     tngQr: CONFIG.tngQr || "",
-    setDays: (Number.isInteger(Number(CONFIG.setDays)) && Number(CONFIG.setDays) >= 0) ? Number(CONFIG.setDays) : sf.setDays,
   });
   save(state);
 }

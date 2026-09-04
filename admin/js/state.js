@@ -30,7 +30,6 @@ export function defaultState() {
         instagram: "",
         facebook: "",
         tngQr: "", // hosted image URL shown on the customer's track page for TNG payment
-        setDays: 14, // value packs (sets) orderable only this many days+ ahead; 0 = any open day
         products: [], // [{ name, price, unit }]
       },
     },
@@ -371,6 +370,14 @@ function cleanStorefront(sf) {
           const c = p && p.component;
           const baseName = c && String(c.name || "").trim();
           if (baseName && Number(c.qty) > 0) out.component = { name: baseName, qty: Number(c.qty) };
+          // Per-product date rules (orders close N days before / a from–to
+          // window) survive too, so a stored draft keeps its rules.
+          const close = Number(p.closeDays);
+          if (p.closeDays != null && Number.isInteger(close) && close >= 0) out.closeDays = close;
+          for (const k of ["validFrom", "validTo"]) {
+            const v = p && p[k];
+            if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
+          }
           return out;
         })
     : [];
@@ -381,7 +388,6 @@ function cleanStorefront(sf) {
     instagram: String(src.instagram ?? d.instagram),
     facebook: String(src.facebook ?? d.facebook),
     tngQr: String(src.tngQr ?? d.tngQr),
-    setDays: (src.setDays != null && Number.isInteger(Number(src.setDays)) && Number(src.setDays) >= 0) ? Number(src.setDays) : d.setDays,
     products,
   };
 }

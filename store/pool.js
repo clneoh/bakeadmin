@@ -1,4 +1,4 @@
-// pool.js — shared availability pool + value-pack advance-order window for the
+// pool.js — shared availability pool + per-product delivery-date rules for the
 // customer page. Pure module: no DOM, no network — runs under Node for tests.
 //
 // A value pack (e.g. "Focaccia Family (4 pcs)") draws from the SAME daily pool
@@ -8,8 +8,6 @@
 // menu entry. This module turns those into honest caps so one cart can never
 // order more pieces of a base than remain — 3 packs + 3 singles on a 12-piece
 // pool is clamped, never sent.
-
-export const DEFAULT_SET_DAYS = 14;
 
 const DAY_MS = 86400000;
 
@@ -21,12 +19,47 @@ export function addDaysKey(key, days) {
   return new Date(Date.UTC(y, m - 1, d) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
-// The advance-order window the owner set: a value pack is only orderable for
-// delivery dates at least `setDays` days ahead. On nearer dates the pack stays
-// visible but reads as sold out — near-term slots stay full-price singles.
-export function setsAllowedOn(dateKey, todayKey, setDays = DEFAULT_SET_DAYS) {
-  if (!dateKey || !todayKey) return true; // unknown dates → never lock a pack
-  return dateKey >= addDaysKey(todayKey, setDays);
+// "Tue 1 Dec"-style label from a "YYYY-MM-DD" key (UTC parse — Malaysia has no
+// DST, so calendar days line up with the keys app.js builds).
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function humanKey(key) {
+  const [y, m, d] = String(key || "").split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} ${MONTHS[m - 1]}`;
+}
+
+function isDayKey(k) {
+  return typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+}
+
+// How many days before delivery a product's orders close. Entirely the
+// product's own closeDays: a number ≥ 0 wins, and blank (or any product that
+// isn't one of ours) means no early close at all — every delivery date is open.
+export function closeDaysFor(product) {
+  const p = product || {};
+  const n = p.closeDays;
+  if (n != null && Number.isInteger(Number(n)) && Number(n) >= 0) return Number(n);
+  return 0;
+}
+
+// Why this product can't be ordered for this delivery date — "" when it is
+// open. The rules are optional and per product: a fixed from–to window of
+// delivery dates, and/or orders closing N days before delivery. Blank products
+// (value packs included) are open on any date. Unknown dates never lock a
+// product.
+export function closedReason(product, dateKey, todayKey) {
+  if (!dateKey || !todayKey) return "";
+  const p = product || {};
+  const from = isDayKey(p.validFrom) ? p.validFrom : "";
+  const to = isDayKey(p.validTo) ? p.validTo : "";
+  if (from && dateKey < from) return `Only available for delivery from ${humanKey(from)}.`;
+  if (to && dateKey > to) return `Only available for delivery up to ${humanKey(to)}.`;
+  const close = closeDaysFor(p);
+  if (close > 0 && dateKey < addDaysKey(todayKey, close)) {
+    return `Orders close ${close} days before delivery — pick a later date.`;
+  }
+  return "";
 }
 
 // Group the storefront products that share one pool. A value pack carries

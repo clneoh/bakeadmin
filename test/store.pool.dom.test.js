@@ -37,9 +37,9 @@ globalThis.document = {
 globalThis.window = { open() {} };
 
 // Freeze "now": Tue 1 Sep 2026, 10:00 AM. Delivery days Mon/Wed/Fri, cutoff
-// 6pm the day before → Wed 2 Sep is the first open day. Packs are advance
-// orders needing a date >= today+14; Sep 17 (a published far date) qualifies,
-// Sep 2 does not.
+// 6pm the day before → Wed 2 Sep is the first open day. The pack's own rule
+// needs a date >= today+14; Sep 17 (a published far date) qualifies, Sep 2
+// does not.
 const RealDate = globalThis.Date;
 class MockDate extends RealDate {
   constructor(...args) {
@@ -56,12 +56,14 @@ const NEAR = "2026-09-02"; // +1 → packs locked (advance-order note)
 const FAR = "2026-09-17";  // +16 → packs orderable, shared pool live
 
 // The backoffice publishes: Focaccia (the base, limit 12), a 4-piece value
-// pack sharing that pool, and an unrelated Sandwich.
+// pack sharing that pool, and an unrelated Sandwich. The pack carries its own
+// closeDays (14) — under the per-product model that is what makes it an
+// advance-order item; a pack left blank would sell on any open date.
 const published = {
   products: [
     { name: "Focaccia", price: 15, unit: "loaf" },
     { name: "Sandwich", price: 8, unit: "piece" },
-    { name: "Focaccia Family (4 pcs)", price: 54, unit: "box", component: { name: "Focaccia", qty: 4 } },
+    { name: "Focaccia Family (4 pcs)", price: 54, unit: "box", component: { name: "Focaccia", qty: 4 }, closeDays: 14 },
   ],
 };
 

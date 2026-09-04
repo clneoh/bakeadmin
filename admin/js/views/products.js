@@ -45,6 +45,16 @@ function buildEditor(state, product) {
     placeholder: "e.g. 12", value: product?.limit ?? "",
     title: "Max units of this product per delivery day. Limits are added together for the day's availability (e.g. 12 focaccia + 12 sandwiches = 24). Leave blank for no limit." });
 
+  // Optional per-product date rules — customers can't order this product for a
+  // delivery date it isn't open for. Orders close N days before delivery, and /
+  // or a fixed from–to window of delivery dates. Both optional and per product:
+  // blank means the product sells on any open date.
+  const closeDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0",
+    placeholder: "e.g. 14", value: product?.closeDays ?? "",
+    title: "Customers must pick a delivery date at least this many days away. Blank = any open day. 0 = no early close." });
+  const validFrom = el("input", { class: "input", type: "date", value: product?.validFrom || "" });
+  const validTo = el("input", { class: "input", type: "date", value: product?.validTo || "" });
+
   // Cost of one unit from the current draft, expanding any product lines
   // (a set's cost compounds its component's cost into it).
   function perUnitCost() {
@@ -97,6 +107,16 @@ function buildEditor(state, product) {
     const cycle = validateRecipeNoCycle(state, { id: product && product.id, name: pname, recipe });
     if (cycle) return { error: cycle };
     const limitVal = limit.value === "" ? undefined : Math.max(1, Number(limit.value));
+    let closeVal;
+    if (closeDays.value !== "") {
+      const raw = Number(closeDays.value);
+      if (!Number.isFinite(raw)) return { error: "Closes days must be a number" };
+      closeVal = Math.floor(raw);
+      if (closeVal < 0) return { error: "Closes days must be 0 or more" };
+    }
+    const vf = validFrom.value || undefined;
+    const vt = validTo.value || undefined;
+    if (vf && vt && vf > vt) return { error: "The \"from\" date is after the \"to\" date — swap them" };
     return {
       values: {
         name: pname,
@@ -104,12 +124,15 @@ function buildEditor(state, product) {
         uomId: chosenUom ? chosenUom.id : undefined,
         price: price.value === "" ? undefined : Number(price.value),
         limit: limitVal,
+        closeDays: closeVal,
+        validFrom: vf,
+        validTo: vt,
         recipe,
       },
     };
   }
 
-  return { name, unit, price, limit, recipeCard, renderRecipeLines, collect };
+  return { name, unit, price, limit, closeDays, validFrom, validTo, recipeCard, renderRecipeLines, collect };
 }
 
 // The common field layout under whichever shell (card or pop-up) hosts it.
@@ -123,6 +146,16 @@ function editorFields(state, editor) {
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
         "Max units per delivery day. Limits add up for availability — 12 focaccia + 12 sandwiches = 24 left."),
       editor.limit),
+    el("div", { class: "field" }, el("label", {}, "Orders close (days before delivery)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "Customers must pick a delivery date at least this many days away. Blank or 0 = any open day."),
+      editor.closeDays),
+    el("div", { class: "field" }, el("label", {}, "Available for delivery dates"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "Only sell this product on delivery dates inside this range (e.g. a seasonal item). Leave both empty for every open day."),
+      el("div", { class: "form-grid" },
+        el("div", {}, el("label", {}, "From"), editor.validFrom),
+        el("div", {}, el("label", {}, "To"), editor.validTo))),
     editor.recipeCard);
 }
 
