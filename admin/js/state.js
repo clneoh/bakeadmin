@@ -297,24 +297,28 @@ export function productUsesUnit(p, uom) {
     && String(p.unit || "").trim().toLowerCase() === String(uom.name || "").trim().toLowerCase();
 }
 
-// The selling-unit choices for the product editor: the count-family units
-// (things sold as whole items — loaf, box, dozen). Returns { options, value }
-// for ui.select(). An existing product whose unit matches no count unit keeps
-// its value through one extra "(not in Units…)" option so nothing is silently
-// rewritten; new selling units are added under More → Units.
-export function countUnitOptions(state, product) {
+// The selling-unit choices for the product editor. Every unit of measure in the
+// list is offered — whole-item units (count family: loaf, box, dozen) come
+// first with a plain name, then weight/volume units labelled with their type
+// (g (weight)) so nothing the owner adds ever disappears from the box. Returns
+// { options, value } for ui.select(). A product whose stored unit matches no
+// UOM at all keeps its value through one extra "(not in Units…)" option so it
+// is never silently rewritten; new selling units are added under More → Units.
+export function productUnitOptions(state, product) {
   const units = state.uoms || [];
-  const options = units
+  const labelFor = (u) => u.family === "count" ? u.name : `${u.name} (${u.family})`;
+  const ordered = units
     .filter((u) => u.family === "count")
-    .map((u) => ({ value: u.id, label: u.name }));
+    .concat(units.filter((u) => u.family !== "count"));
+  const options = ordered.map((u) => ({ value: u.id, label: labelFor(u) }));
   let value = "";
   if (product && product.uomId && options.some((o) => o.value === product.uomId)) {
     value = product.uomId;
   }
   if (!value && product && String(product.unit || "").trim()) {
     const pname = String(product.unit).trim().toLowerCase();
-    const byName = options.find((o) => String(o.label).toLowerCase() === pname);
-    if (byName) value = byName.value;
+    const byName = ordered.find((u) => String(u.name || "").trim().toLowerCase() === pname);
+    if (byName) value = byName.id;
   }
   if (!value && product && String(product.unit || "").trim()) {
     const raw = String(product.unit).trim();

@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, countUnitOptions, productUsesUnit } from "../admin/js/state.js";
+import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
@@ -260,25 +260,46 @@ function countState() {
   return { uoms: defaultState().uoms };
 }
 
-test("countUnitOptions offers only count units and picks the stored uomId", () => {
+test("productUnitOptions offers every unit, count first, and picks the stored uomId", () => {
   const st = countState();
-  const { options, value } = countUnitOptions(st, { id: "p", name: "S", unit: "loaf", uomId: "uom_loaf" });
+  const { options, value } = productUnitOptions(st, { id: "p", name: "S", unit: "loaf", uomId: "uom_loaf" });
   assert.equal(value, "uom_loaf");
-  assert.equal(options.length, st.uoms.filter((u) => u.family === "count").length);
-  assert.ok(!options.some((o) => o.value === "uom_g"), "no weight units offered");
-  assert.ok(options.every((o) => st.uoms.find((u) => u.id === o.value).family === "count"));
+  assert.equal(options.length, st.uoms.length, "every unit of measure is offered, weight/volume included");
+  const countIdx = options.findIndex((o) => o.value === "uom_loaf");
+  const weightIdx = options.findIndex((o) => o.value === "uom_g");
+  assert.ok(countIdx >= 0 && weightIdx >= 0 && countIdx < weightIdx,
+    "count units come before weight/volume units");
+  assert.equal(options[weightIdx].label, "g (weight)", "non-count units carry their type");
+  assert.equal(options[countIdx].label, "loaf", "count units show a plain name");
 });
 
-test("countUnitOptions name-matches a legacy unit and round-trips an unknown one", () => {
+test("productUnitOptions lists a unit added under the Units screen (owner's report)", () => {
   const st = countState();
-  assert.equal(countUnitOptions(st, { id: "p1", unit: "piece" }).value, "uom_piece");
-  const unknown = countUnitOptions(st, { id: "p2", unit: "whole" });
+  // The Units screen defaults new units to Weight; such a unit must not vanish
+  // from the product Unit box.
+  st.uoms.push({ id: "uom_tray", name: "tray", family: "weight", toBase: 1 });
+  const { options, value } = productUnitOptions(st, null);
+  assert.equal(value, "");
+  const tray = options.find((o) => o.value === "uom_tray");
+  assert.ok(tray, "a weight-type unit the owner added shows in the product Unit box");
+  assert.equal(tray.label, "tray (weight)");
+  // And it stays the selected choice when reopening an edit of a product using it.
+  const reopen = productUnitOptions(st, { id: "p", unit: "tray", uomId: "uom_tray" });
+  assert.equal(reopen.value, "uom_tray");
+});
+
+test("productUnitOptions name-matches a legacy unit and round-trips an unknown one", () => {
+  const st = countState();
+  assert.equal(productUnitOptions(st, { id: "p1", unit: "piece" }).value, "uom_piece");
+  // A legacy product in a non-count unit now links to its real uom too.
+  assert.equal(productUnitOptions(st, { id: "p1g", unit: "g" }).value, "uom_g");
+  const unknown = productUnitOptions(st, { id: "p2", unit: "whole" });
   assert.equal(unknown.value, "whole");
   assert.equal(unknown.options[unknown.options.length - 1].value, "whole");
   assert.match(unknown.options[unknown.options.length - 1].label, /not in Units/);
-  const blank = countUnitOptions(st, null);
+  const blank = productUnitOptions(st, null);
   assert.equal(blank.value, "");
-  assert.equal(blank.options.length, st.uoms.filter((u) => u.family === "count").length);
+  assert.equal(blank.options.length, st.uoms.length);
 });
 
 test("productUsesUnit matches by uomId or legacy unit name", () => {

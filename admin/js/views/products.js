@@ -3,7 +3,7 @@
 // over the screen, exactly like editing an order.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
-import { byId, countUnitOptions, fmtRM, newId, save } from "../state.js";
+import { byId, productUnitOptions, fmtRM, newId, save } from "../state.js";
 import { costOf, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
 
@@ -37,7 +37,7 @@ function buildEditor(state, product) {
   const recipeDraft = (product && product.recipe ? product.recipe : []).map((l) => ({ ...l }));
 
   const name = el("input", { class: "input", placeholder: "e.g. Focaccia", value: product?.name || "" });
-  const unitChoices = countUnitOptions(state, product);
+  const unitChoices = productUnitOptions(state, product);
   const unit = select(unitChoices.options, unitChoices.value, null, "Pick a unit…");
   const price = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.01",
     placeholder: "sell price (RM, optional)", value: product?.price ?? "" });
