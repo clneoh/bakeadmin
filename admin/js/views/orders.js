@@ -1061,7 +1061,8 @@ function orderList(state, dateId, root) {
 // journey map shows which step is done (green ✓) and which step is waiting on
 // the baker (pulsing amber), and the buttons under the status match the stage:
 // Confirmed offers "Send confirmation", Paid offers "Send payment reminder" +
-// "Paid", Packed offers "Send pickup reminder" + "Print label".
+// "Paid", Baked offers "Print label" (to kit the order as it is packed),
+// Packed offers "Send pickup reminder".
 
 // Courier orders also get a "Mailing" pill (first): FROM = the bakery address
 // typed in Settings → Mailing labels, TO = the customer, ORDER = code/date/items.
@@ -1197,13 +1198,16 @@ function orderGroupRow(state, group, root, dateId) {
       "soft small");
     if (!first.whatsapp) remindBtn.disabled = true;
     actions.push(remindBtn, button("Paid", () => markPaid(state, group, root, dateId), "small primary"));
+  } else if (status === "baking") {
+    // Print the label at Baked — the baker needs it in hand to kit the order
+    // (stick it on the bag/box as the items go in), before it is marked Packed.
+    actions.push(button("Print label", () => openLabelPrint(state, group), "ghost small"));
   } else if (status === "ready") {
     const pickupBtn = button("Send pickup reminder", () =>
       sendOrderWhatsApp(state, group, { builder: buildPickupReminder, doneMsg: "Pickup reminder drafted — press Send in WhatsApp", root, dateId }),
       "soft small");
     if (!first.whatsapp) pickupBtn.disabled = true;
     actions.push(pickupBtn);
-    actions.push(button("Print label", () => openLabelPrint(state, group), "ghost small"));
   }
   actions.push(button("✕", () => removeOrder(state, group, root, dateId), "ghost small"));
 

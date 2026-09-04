@@ -168,6 +168,33 @@ test("a single manual item still adds a plain order (no group)", () => {
   assert.equal(state.orders[0].customerName, "Bee");
 });
 
+function seededGroup(status) {
+  const s = baseState();
+  s.orders = [
+    { id: "oa", groupId: "g1", productId: "p1", qty: 1, status, deliveryDateId: "d1",
+      customerName: "Ain", whatsapp: "60123456789", fulfillment: "collect" },
+    { id: "ob", groupId: "g1", productId: "p2", qty: 1, status, deliveryDateId: "d1",
+      customerName: "Ain", whatsapp: "60123456789", fulfillment: "collect" },
+  ];
+  return s;
+}
+
+test("Print label sits at Baked (to kit the order), not at Packed", () => {
+  const baked = seededGroup("baking");
+  const rootB = createEl("div");
+  renderOrders(rootB, baked, new URLSearchParams({ date: "d1" }));
+  const blockB = byClass(rootB, "list-item")[0];
+  assert.equal(byText(blockB, "Print label").length, 1, "Baked row offers Print label for kitting");
+  assert.equal(byText(blockB, "Send pickup reminder").length, 0, "no pickup reminder yet at Baked");
+
+  const packed = seededGroup("ready");
+  const rootP = createEl("div");
+  renderOrders(rootP, packed, new URLSearchParams({ date: "d1" }));
+  const blockP = byClass(rootP, "list-item")[0];
+  assert.equal(byText(blockP, "Print label").length, 0, "Packed row no longer offers Print label");
+  assert.equal(byText(blockP, "Send pickup reminder").length, 1, "Packed row keeps Send pickup reminder");
+});
+
 test("removing an item row drops it before submit", () => {
   const state = baseState();
   const root = createEl("div");
