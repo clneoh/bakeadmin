@@ -3,7 +3,8 @@
 // over the screen, exactly like editing an order.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
-import { byId, countUnitOptions, fmtRM, newId, round2, save } from "../state.js";
+import { byId, countUnitOptions, fmtRM, newId, save } from "../state.js";
+import { costOf, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
 
 export function renderProducts(root, state) {
@@ -44,27 +45,34 @@ function buildEditor(state, product) {
     placeholder: "e.g. 12", value: product?.limit ?? "",
     title: "Max units of this product per delivery day. Limits are added together for the day's availability (e.g. 12 focaccia + 12 sandwiches = 24). Leave blank for no limit." });
 
+  // Cost of one unit from the current draft, expanding any product lines
+  // (a set's cost compounds its component's cost into it).
   function perUnitCost() {
-    return round2(recipeDraft.reduce((s, l) => {
-      const ing = byId(state.ingredients, l.ingredientId);
-      return s + (Number(l.qty) || 0) * (ing?.costPerUnit || 0);
-    }, 0));
+    return costOf(state, { id: product && product.id, name: product && product.name, recipe: recipeDraft });
   }
 
   const costEl = el("p", { class: "card-sub", style: "margin:0 0 10px" });
   const recipeCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, "Recipe (ingredients per unit)"),
+    el("h3", { style: "margin:0 0 4px" }, "Recipe (per unit)"),
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically."),
     costEl,
     el("div", { id: "recipe-lines" }),
-    button("＋ Add ingredient", () => {
-      recipeDraft.push({ ingredientId: "", qty: "", unit: "" });
-      renderRecipeLines();
-    }, "soft block"));
+    el("div", { class: "btn-row" },
+      button("＋ Add ingredient", () => {
+        recipeDraft.push({ ingredientId: "", qty: "", unit: "" });
+        renderRecipeLines();
+      }, "soft"),
+      button("＋ Add product", () => {
+        recipeDraft.push({ productId: "", qty: "", unit: "" });
+        renderRecipeLines();
+      }, "soft")));
 
   function renderRecipeLines() {
     costEl.textContent = `Est. ingredient cost / unit: ${fmtRM(perUnitCost(), state.settings.currency)}`;
     const box = recipeCard.querySelector("#recipe-lines");
-    box.replaceChildren(...recipeDraft.map((line, i) => recipeLine(state, line, i, recipeDraft, renderRecipeLines)));
+    box.replaceChildren(...recipeDraft.map((line, i) =>
+      recipeLine(state, line, i, recipeDraft, renderRecipeLines, product && product.id)));
   }
 
   // Reads the form; returns { error } or { values: {...} } ready to save.
@@ -76,9 +84,18 @@ function buildEditor(state, product) {
       return { error: "Pick the selling unit — customers see it after the price. Add new ones under More → Units first." };
     }
     const chosenUom = byId(state.uoms, unitVal);
-    const recipe = recipeDraft
-      .filter((l) => l.ingredientId && (Number(l.qty) || 0) > 0)
-      .map((l) => ({ ingredientId: l.ingredientId, qty: Number(l.qty), unit: l.unit.trim() || "g" }));
+    const recipe = [];
+    for (const l of recipeDraft) {
+      const qty = Number(l.qty) || 0;
+      if (!(qty > 0)) continue; // empty rows and 0-qty rows are dropped, like ingredients before
+      if (l.productId && !l.ingredientId) {
+        recipe.push({ productId: l.productId, qty, unit: (l.unit || "").trim() });
+      } else if (l.ingredientId) {
+        recipe.push({ ingredientId: l.ingredientId, qty, unit: (l.unit || "g").trim() });
+      }
+    }
+    const cycle = validateRecipeNoCycle(state, { id: product && product.id, name: pname, recipe });
+    if (cycle) return { error: cycle };
     const limitVal = limit.value === "" ? undefined : Math.max(1, Number(limit.value));
     return {
       values: {
@@ -154,7 +171,15 @@ function openEditProductPopup(state, product, root) {
   }, { wide: true });
 }
 
-function recipeLine(state, line, i, draft, refresh) {
+function recipeLine(state, line, i, draft, refresh, selfId) {
+  // A line is a component (another product, i.e. a set) when it carries a
+  // productId field (even before one is chosen). Ingredient and product rows
+  // are different drop-downs.
+  const isProductRow = Object.prototype.hasOwnProperty.call(line, "productId") && !line.ingredientId;
+  if (isProductRow) {
+    return productRecipeLine(state, line, i, draft, refresh, selfId);
+  }
+
   const ing = byId(state.ingredients, line.ingredientId);
   const mismatch = ing && line.unit && ing.unit && line.unit !== ing.unit;
 
@@ -187,17 +212,56 @@ function recipeLine(state, line, i, draft, refresh) {
       `Unit "${line.unit}" differs from ${ing.name}'s unit (${ing.unit}) — check this line.`) : null);
 }
 
+function productRecipeLine(state, line, i, draft, refresh, selfId) {
+  // Drop-down of every other product (hidden ones stay selectable so old sets
+  // keep working). The product being edited is excluded — a set can't hold
+  // itself, and validateRecipeNoCycle is the backstop.
+  let prodOpts = state.products
+    .filter((p) => p.id !== selfId && p.active !== false)
+    .map((p) => ({ value: p.id, label: p.name }));
+  if (line.productId && !prodOpts.some((o) => o.value === line.productId)) {
+    const hidden = byId(state.products, line.productId);
+    if (hidden) prodOpts = [...prodOpts, { value: hidden.id, label: `${hidden.name} (hidden)` }];
+  }
+  const prodSel = select(prodOpts, line.productId,
+    () => {
+      line.productId = prodSel.value;
+      const chosen = byId(state.products, line.productId);
+      line.unit = chosen ? (chosen.unit || "") : "";
+      refresh();
+    }, "Product…");
+
+  const qty = el("input", { class: "input", type: "number", inputmode: "numeric", step: "any", min: "1",
+    value: line.qty, style: "min-height:38px",
+    onchange: () => { line.qty = Number(qty.value); refresh(); } });
+  // The unit comes from the chosen product and is read-only — a set counts
+  // whole copies of the component, and its recipe defines the rest.
+  const unitInp = el("input", { class: "input", placeholder: "unit", value: line.unit,
+    style: "min-height:38px", readonly: true, title: "Selling unit of the chosen product" });
+
+  return el("div", { class: "ing-row" },
+    prodSel,
+    qty,
+    el("span", { class: "unit" }, unitInp),
+    button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"));
+}
+
 function productCard(state, p, root) {
-  const cost = round2((p.recipe || []).reduce((s, l) => {
-    const ing = byId(state.ingredients, l.ingredientId);
-    return s + (Number(l.qty) || 0) * (ing?.costPerUnit || 0);
-  }, 0));
+  const cost = costOf(state, p);
   const usedBy = state.orders.some((o) => o.productId === p.id);
+  const usedInSets = state.products
+    .filter((q) => q !== p && (q.recipe || []).some((l) => l.productId === p.id))
+    .map((q) => q.name);
+  const protect = usedBy || usedInSets.length > 0;
 
   const subParts = [p.unit, p.limit ? `${p.limit}/day` : null,
     p.price != null ? `${fmtRM(p.price, state.settings.currency)} sell` : null,
     `${fmtRM(cost, state.settings.currency)} / unit`].filter(Boolean);
   const lines = (p.recipe || []).map((l) => {
+    if (l.productId && !l.ingredientId) {
+      const comp = byId(state.products, l.productId);
+      return `${l.qty} × ${comp ? comp.name : "(deleted)"}`;
+    }
     const ing = byId(state.ingredients, l.ingredientId);
     return `${l.qty}${l.unit} ${ing ? ing.name : "(deleted)"}`;
   });
@@ -206,7 +270,10 @@ function productCard(state, p, root) {
     el("div", { class: "card-row" },
       el("div", { style: "min-width:0" },
         el("p", { class: "card-title" }, p.name),
-        el("p", { class: "card-sub" }, subParts.join(" · "))),
+        el("p", { class: "card-sub" }, subParts.join(" · ")),
+        usedInSets.length
+          ? el("p", { class: "po-breakdown" }, `Used in: ${usedInSets.map((n) => `"${n}"`).join(", ")}`)
+          : null),
       el("div", { class: "li-right" },
         button("Edit", () => openEditProductPopup(state, p, root), "ghost small"),
         p.active === false
@@ -217,24 +284,28 @@ function productCard(state, p, root) {
               toast(`"${p.name}" back on the menu`);
               renderAll(root, state);
             }, "ghost small")
-          : button(usedBy ? "Hide" : "Delete",
-              () => deleteProduct(state, p, usedBy, root), "ghost small"))),
+          : button(protect ? "Hide" : "Delete",
+              () => deleteProduct(state, p, usedBy, usedInSets, root), "ghost small"))),
     lines.length ? el("p", { class: "po-breakdown" }, lines.join("  ·  ")) : null);
 }
 
-function deleteProduct(state, p, usedBy, root) {
+function deleteProduct(state, p, usedBy, usedInSets, root) {
+  const protect = usedBy || usedInSets.length > 0;
   const msg = usedBy
-    ? `"${p.name}" has orders on it, so it can't be deleted. Hide it instead — it will stop appearing in new orders but history is kept.`
-    : `Delete "${p.name}"? Its recipe will be removed.`;
+    ? `"${p.name}" has orders on it, so it can't be deleted. Hide it instead — history is kept and the PO still lists it.`
+    : usedInSets.length
+      ? `"${p.name}" is used to make ${usedInSets.map((n) => `"${n}"`).join(" and ")}. Hide it instead — the sets and PO will still use it.`
+      : `Delete "${p.name}"? Its recipe will be removed.`;
   confirmDialog(msg, () => {
-    if (usedBy) {
+    if (protect) {
       p.active = false;
+      toast("Product hidden");
     } else {
       state.products = state.products.filter((x) => x.id !== p.id);
+      toast("Product deleted");
     }
     save(state);
     maybeSyncStorefront(state); // keep the storefront menu in sync
-    toast(usedBy ? "Product hidden" : "Product deleted");
     renderAll(root, state);
-  }, usedBy ? { yesLabel: "Hide it" } : { danger: true, yesLabel: "Delete" });
+  }, protect ? { yesLabel: "Hide it" } : { danger: true, yesLabel: "Delete" });
 }

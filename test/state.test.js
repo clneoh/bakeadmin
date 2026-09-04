@@ -290,3 +290,17 @@ test("productUsesUnit matches by uomId or legacy unit name", () => {
   assert.equal(productUsesUnit({ unit: "whole" }, loaf), false);
   assert.equal(productUsesUnit(null, loaf), false);
 });
+
+test("normalize keeps product-line recipe rows (a set made of another product)", () => {
+  const out = normalize({ version: 1, products: [
+    { id: "prd_f", name: "Focaccia", unit: "loaf", recipe: [
+      { ingredientId: "ing_f", qty: 500, unit: "g" },
+    ] },
+    { id: "prd_s", name: "Family (4 pcs)", unit: "set", recipe: [
+      { productId: "prd_f", qty: 4, unit: "loaf" },
+    ] },
+  ] });
+  const set = out.products.find((p) => p.id === "prd_s");
+  assert.deepEqual(set.recipe[0], { productId: "prd_f", qty: 4, unit: "loaf" });
+  assert.equal(set.recipe[0].ingredientId, undefined, "product line has no ingredient id");
+});
