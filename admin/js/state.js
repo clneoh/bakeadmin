@@ -359,11 +359,19 @@ function cleanStorefront(sf) {
   const products = Array.isArray(src.products)
     ? src.products
         .filter((p) => p && typeof p === "object" && String(p.name || "").trim())
-        .map((p) => ({
-          name: String(p.name).trim(),
-          price: Number(p.price) || 0,
-          unit: String(p.unit || "").trim() || "piece",
-        }))
+        .map((p) => {
+          const out = {
+            name: String(p.name).trim(),
+            price: Number(p.price) || 0,
+            unit: String(p.unit || "").trim() || "piece",
+          };
+          // A value pack's component marker (its pool base + pieces per pack)
+          // survives cleanup so a stored draft doesn't lose the pool link.
+          const c = p && p.component;
+          const baseName = c && String(c.name || "").trim();
+          if (baseName && Number(c.qty) > 0) out.component = { name: baseName, qty: Number(c.qty) };
+          return out;
+        })
     : [];
   return {
     whatsapp: String(src.whatsapp ?? d.whatsapp),

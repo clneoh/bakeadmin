@@ -6,7 +6,7 @@
 // access is guarded so importing the module is side-effect free.
 
 import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
-import { totalUnitsOnDate, dayCapacity } from "./bom.js";
+import { dayCapacity, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, save } from "./state.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
@@ -67,21 +67,50 @@ export function computeSlots(state, horizon = 10) {
 // has a daily limit. Products without a limit are unlimited and get no row, so
 // the storefront shows no stamp for them. Used for the "Only N left" stamps on
 // the product cards.
+//
+// A product whose recipe is exactly one product line with no limit of its own
+// is a value pack sharing its base's pool, so it gets no independent count.
+// Instead a DERIVED row is published for it: same date/product key, but
+// slots_left = floor(base left / pack size) and pool_base + pool_qty columns
+// that let the database tell derived rows apart (they recompute from the pool,
+// never self-decrement). The base's own row stays in whole pieces.
 export function computeProductSlots(state, horizon = 10) {
-  const limited = state.products.filter((p) => p.active !== false && Number(p.limit) > 0);
+  const packs = state.products
+    .filter((p) => p.active !== false && isPoolablePack(state, p));
+  const bases = state.products
+    .filter((p) => p.active !== false && Number(p.limit) > 0);
+  const packsByBase = new Map();
+  for (const p of packs) {
+    const { baseId, baseQty } = isPoolablePack(state, p);
+    if (!packsByBase.has(baseId)) packsByBase.set(baseId, []);
+    packsByBase.get(baseId).push({ name: p.name, baseQty });
+  }
   return nextDeliveryDates(state, horizon).flatMap(({ date, ids }) => {
-    const booked = new Map();
-    for (const id of ids) {
-      if (!id) continue;
-      for (const o of state.orders) {
-        if (o.deliveryDateId !== id) continue;
-        booked.set(o.productId, (booked.get(o.productId) || 0) + (Number(o.qty) || 0));
+    const rows = [];
+    for (const base of bases) {
+      // poolRemaining counts singles AND any set/single of a set that consumes
+      // base pieces (recursively), so the base row is the pool's real state.
+      const capacity = Number(base.limit);
+      let booked = 0;
+      for (const id of ids) {
+        if (!id) continue;
+        const pr = poolRemaining(state, id, base.id);
+        if (pr) booked += pr.booked;
+      }
+      const baseLeft = Math.max(0, capacity - booked);
+      rows.push({ date, product: base.name, slots_left: baseLeft, capacity });
+      for (const pack of packsByBase.get(base.id) || []) {
+        rows.push({
+          date,
+          product: pack.name,
+          slots_left: Math.floor(baseLeft / pack.baseQty),
+          capacity: Math.floor(capacity / pack.baseQty),
+          pool_base: base.name,
+          pool_qty: pack.baseQty,
+        });
       }
     }
-    return limited.map((p) => {
-      const capacity = Number(p.limit);
-      return { date, product: p.name, slots_left: Math.max(0, capacity - (booked.get(p.id) || 0)), capacity };
-    });
+    return rows;
   });
 }
 
@@ -212,11 +241,23 @@ function storefrontPayload(state) {
   // page after a publish. No separate menu to drift or clobber.
   const products = (Array.isArray(state.products) ? state.products : [])
     .filter((p) => p && p.active !== false && String(p.name || "").trim())
-    .map((p) => ({
-      name: String(p.name).trim(),
-      price: Number(p.price) || 0,
-      unit: String(p.unit || "").trim() || "piece",
-    }));
+    .map((p) => {
+      const out = {
+        name: String(p.name).trim(),
+        price: Number(p.price) || 0,
+        unit: String(p.unit || "").trim() || "piece",
+      };
+      // A clean value pack (one product line, no own limit) shares its base's
+      // pool — tell the storefront so it can cap a mixed cart against one
+      // budget and enforce the advance-order window. component.name = the base
+      // product's name (its availability row is in pieces), qty = pieces per pack.
+      const pool = isPoolablePack(state, p);
+      if (pool) {
+        const base = byId(state.products, pool.baseId);
+        if (base) out.component = { name: base.name, qty: pool.baseQty };
+      }
+      return out;
+    });
   return {
     whatsapp: String(sf.whatsapp || ""),
     name: String(sf.name || ""),

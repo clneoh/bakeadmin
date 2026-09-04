@@ -4,6 +4,7 @@
 // published by the backoffice (Settings → Storefront) and override the static
 // config.js fallback at runtime.
 import { CONFIG } from "./config.js";
+import { DEFAULT_SET_DAYS, poolCaps, poolGroups, clampPool, groupFor, setsAllowedOn, poolPieces } from "./pool.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -134,11 +135,20 @@ export function mergeStorefront(base, remote) {
   if (Array.isArray(remote.products)) {
     const products = remote.products
       .filter((p) => p && typeof p === "object" && String(p.name || "").trim())
-      .map((p) => ({
-        name: String(p.name).trim(),
-        price: Number(p.price) || 0,
-        unit: String(p.unit || "").trim() || "piece",
-      }));
+      .map((p) => {
+        const out = {
+          name: String(p.name).trim(),
+          price: Number(p.price) || 0,
+          unit: String(p.unit || "").trim() || "piece",
+        };
+        // A value pack carries component {name, qty}: which product's pool it
+        // shares, and how many pieces each pack takes. Kept so the storefront
+        // can cap a mixed cart and run the advance-order window.
+        const c = p && p.component;
+        const baseName = c && String(c.name || "").trim();
+        if (baseName && Number(c.qty) > 0) out.component = { name: baseName, qty: Number(c.qty) };
+        return out;
+      });
     if (products.length) out.products = products;
   }
   return out;
@@ -230,29 +240,53 @@ export function render() {
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
   let dates = upcomingDates(CONFIG);
+  // The advance-order window ("value packs from X days ahead") compares every
+  // delivery date to today, so its reference is fixed at page load.
+  const todayKey = dateKey(new Date());
 
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
+    const groups = poolGroups(CONFIG.products);
+    const packsLocked = !setsAllowedOn(selected, todayKey);
     menu.replaceChildren(...CONFIG.products.map((p) => {
-      const left = byProduct[p.name];
+      const group = groupFor(groups, p);
+      const baseLeft = group && byProduct[group.baseName] != null
+        ? Number(byProduct[group.baseName]) : undefined;
+      const caps = group && Number.isFinite(baseLeft) ? poolCaps(group, baseLeft, cart) : null;
+      const gatedPack = !!p.component && packsLocked;
+
+      // `left` drives the stamp + stepper cap. A live pool member is capped by
+      // the shared pool (its pieces compete with every other pack/single in the
+      // cart); a gated pack on a too-near date reads as sold out regardless.
+      // Anything else keeps its own published row — the old behaviour.
+      const ownLeft = byProduct[p.name] != null ? Number(byProduct[p.name]) : undefined;
+      const left = gatedPack ? 0 : (caps ? caps.get(p.name) : ownLeft);
+      const qty = cart.get(p.name) || 0;
       const soldOut = left != null && left <= 0;
-      const qtyLabel = el("span", { class: "stepper-val" }, String(cart.get(p.name) || 0));
+      const qtyLabel = el("span", { class: "stepper-val" }, String(qty));
+      // A pool card repaints the whole menu when its stepper moves — every
+      // sibling's cap/stamp depends on this quantity. The bar must refresh
+      // either way (count/total/button), so it runs alongside the menu paint.
+      const redraw = () => { if (group) renderMenu(); renderBar(); };
       const dec = el("button", { class: "step-btn", onclick: () => {
         const q = Math.max(0, (cart.get(p.name) || 0) - 1);
         if (q === 0) cart.delete(p.name); else cart.set(p.name, q);
         qtyLabel.textContent = String(q);
-        renderBar();
+        redraw();
       } }, "−");
       const cap = left != null && left > 0 ? left : 99;
       const inc = el("button", { class: "step-btn", onclick: () => {
         const q = Math.min(cap, (cart.get(p.name) || 0) + 1);
         cart.set(p.name, q);
         qtyLabel.textContent = String(q);
-        renderBar();
+        redraw();
       } }, "+");
       if (soldOut) { dec.disabled = true; inc.disabled = true; }
       const stamp = left != null
         ? el("span", { class: soldOut ? "prod-stamp soldout" : "prod-stamp" }, soldOut ? "Sold out" : `Only ${left} left`)
+        : null;
+      const note = gatedPack
+        ? el("p", { class: "prod-note" }, `Value packs are advance orders — pick a delivery date ${DEFAULT_SET_DAYS}+ days ahead.`)
         : null;
       return el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
         el("div", { class: "card-head" },
@@ -260,7 +294,8 @@ export function render() {
             el("p", { class: "card-title" }, p.name),
             el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${p.unit}`)),
           stamp),
-        el("div", { class: "stepper" }, dec, qtyLabel, inc));
+        el("div", { class: "stepper" }, dec, qtyLabel, inc),
+        note);
     }));
   };
 
@@ -274,12 +309,59 @@ export function render() {
   };
 
   // A refresh can make a quantity the customer already chose invalid — an item
-  // sells out, or only a few are left of the number they asked for. Bring the
-  // cart back in line with reality before the menu repaints, and return what
-  // changed so the caller can tell the customer. Empty → nothing to fix.
+  // sells out, only a few are left of the number they asked for, or a value
+  // pack no longer fits the shared pool next to the rest of their cart. Bring
+  // the cart back in line with reality before the menu repaints, and return
+  // what changed so the caller can tell the customer. Empty → nothing to fix.
   function reconcileCart() {
     const notes = [];
+    if (!selected) {
+      const box = document.getElementById("menu-note");
+      if (box) { box.hidden = true; box.replaceChildren(); }
+      return notes;
+    }
+    const byProduct = prodAvail && prodAvail[selected] ? prodAvail[selected] : {};
+    const groups = poolGroups(CONFIG.products);
+    const packsLocked = !setsAllowedOn(selected, todayKey);
+    const handled = new Set();
+
+    // Shared pools first: clamp the whole pool together — a pack and loose
+    // singles draw on the same remaining pieces, so one cap keeps Σ ≤ base.
+    for (const g of groups.values()) {
+      if (byProduct[g.baseName] == null) continue; // no live budget this day
+      const baseLeft = Number(byProduct[g.baseName]);
+      if (!Number.isFinite(baseLeft)) continue;
+      if (!g.members.some((m) => (cart.get(m.name) || 0) > 0)) continue;
+      const clamped = clampPool(cart, g, baseLeft);
+      for (const m of g.members) {
+        const from = cart.get(m.name) || 0;
+        const to = clamped.get(m.name) || 0;
+        handled.add(m.name);
+        if (from === to) continue;
+        if (to === 0) {
+          cart.delete(m.name);
+          notes.push(`${m.name} just sold out — removed from your order.`);
+        } else {
+          cart.set(m.name, to);
+          notes.push(`${m.name}: only ${to} can fit with the rest of your order now — we changed your ${from} to ${to}.`);
+        }
+      }
+    }
+
+    // Value packs need a delivery date at least DEFAULT_SET_DAYS days ahead; on
+    // nearer days they can't be ordered and leave the cart.
+    if (packsLocked) {
+      for (const p of CONFIG.products) {
+        if (!p.component || !cart.has(p.name)) continue;
+        cart.delete(p.name);
+        handled.add(p.name);
+        notes.push(`${p.name} needs a delivery date ${DEFAULT_SET_DAYS}+ days ahead — we removed it.`);
+      }
+    }
+
+    // Everything else keeps the old per-product clamp against its own row.
     for (const [name, q] of [...cart]) {
+      if (handled.has(name)) continue;
       const left = availNow(name);
       if (left == null) continue;
       if (left <= 0) {
@@ -290,6 +372,7 @@ export function render() {
         notes.push(`${name}: only ${left} left now — we changed your ${q} to ${left}.`);
       }
     }
+
     const box = document.getElementById("menu-note");
     if (box) {
       box.replaceChildren(...notes.map((t) => el("p", {}, t)));
@@ -486,20 +569,16 @@ export function render() {
       return;
     }
     // Last check at the moment of placing: a refresh between taps can sell an
-    // item out, and a depleted item must never be ordered. Fix the cart and ask
-    // the customer to confirm before we send anything.
-    const stale = lines.filter((l) => {
-      const left = availNow(l.name);
-      return left != null && (left <= 0 || l.qty > left);
-    });
-    if (stale.length) {
-      reconcileCart();
+    // item out, or a value pack can no longer fit the shared pool next to the
+    // rest of the cart — a depleted item must never be ordered. Fix the cart
+    // and ask the customer to confirm before we send anything. When nothing
+    // changed, the cart matches `lines`, so it stays safe to send.
+    const fixes = reconcileCart();
+    if (fixes.length) {
       showConfirm([
         el("p", { class: "confirm-title" }, "Your order changed just now."),
         el("p", { class: "confirm-body" }, "Something sold out while you were ordering — we've fixed your cart to match what's left."),
-        ...stale.map((l) => el("p", { class: "confirm-body" }, (availNow(l.name) ?? 0) <= 0
-          ? `• ${l.name} — removed from your order.`
-          : `• ${l.name} — only ${availNow(l.name)} left, so we changed your ${l.qty} to ${availNow(l.name)}.`)),
+        ...fixes.map((t) => el("p", { class: "confirm-body" }, `• ${t}`)),
         el("p", { class: "confirm-sub" }, "Please review your order and tap Place order again."),
       ], "warn");
       return;
@@ -516,6 +595,13 @@ export function render() {
       note: document.getElementById("note-input").value.trim(),
       createdAt: new Date().toISOString(),
     };
+    // A value pack draws its base out of the shared pool in whole pieces, but
+    // the pack itself is already one top-level `lines` entry — so the base
+    // pieces it consumes travel here, separate from `lines`. The database
+    // lowers the base row by this sum (never adding to the day's count, and a
+    // base sold directly is already in `lines`, so it is never listed twice).
+    const pool = poolPieces(CONFIG.products, cart);
+    if (pool.length) order.pool = pool;
     // `selected` is a YYYY-MM-DD key; fmtDay wants a Date.
     const dayLabel = fmtDay(new Date(`${selected}T00:00:00`));
     const items = lines.map((l) => `${l.name} ×${l.qty}`).join(" + ");

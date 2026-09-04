@@ -663,3 +663,94 @@ test("refreshStorefront is a silent no-op when Supabase url/anon are missing", a
     if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
   }
 });
+
+test("computeProductSlots publishes derived pack rows that floor the base pool", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState({ [dates[0]]: [3, 2] }); // 5 single focaccia pieces booked
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    // A 4-piece value pack: one product line, no limit of its own → poolable.
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", active: true, limit: 12 }, // separate base, no pack
+  ];
+
+  const rows = computeProductSlots(state, 10);
+  assert.equal(rows.length, 30, "2 bases + 1 derived row × 10 days");
+  const d0 = dates[0];
+  const base = rows.find((r) => r.date === d0 && r.product === "Focaccia");
+  const pack = rows.find((r) => r.date === d0 && r.product === "Focaccia Family (4 pcs)");
+  const snd = rows.find((r) => r.date === d0 && r.product === "Sandwich");
+  assert.deepEqual(base, { date: d0, product: "Focaccia", slots_left: 7, capacity: 12 });
+  // 12 − 5 booked = 7 pieces → floor(7 ÷ 4) = 1 pack; capacity floors too.
+  assert.deepEqual(pack, {
+    date: d0, product: "Focaccia Family (4 pcs)",
+    slots_left: 1, capacity: 3, pool_base: "Focaccia", pool_qty: 4,
+  });
+  assert.deepEqual(snd, { date: d0, product: "Sandwich", slots_left: 12, capacity: 12 });
+  // Derived rows never outnumber their base's date rows, and the base product
+  // itself has no pool markers (it IS the pool).
+  assert.ok(rows.filter((r) => r.product === "Focaccia").every((r) => !("pool_base" in r)));
+  assert.ok(rows.filter((r) => r.product === "Focaccia Family (4 pcs)").every((r) => r.pool_qty === 4));
+});
+
+test("computeProductSlots: pack orders draw the base pool down in whole pieces", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState({ [dates[0]]: [3, 2] }); // 5 single focaccia pieces booked
+  const del = state.deliveryDates.find((d) => d.date === dates[0]);
+  state.orders.push({
+    id: "ord_pack", deliveryDateId: del.id, productId: "prd_2", qty: 1,
+    customerName: "Test", note: "", createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", active: true, limit: 12 },
+  ];
+
+  const rows = computeProductSlots(state, 10);
+  const d0 = dates[0];
+  const base = rows.find((r) => r.date === d0 && r.product === "Focaccia");
+  const pack = rows.find((r) => r.date === d0 && r.product === "Focaccia Family (4 pcs)");
+  // 12 − 5 singles − 1 pack × 4 pieces = 3 pieces → base 3, pack floor(3 ÷ 4) = 0.
+  assert.equal(base.slots_left, 3);
+  assert.equal(pack.slots_left, 0);
+});
+
+test("pullIncoming imports a value-pack order and ignores its pool array", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-pack",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04", total: 54,
+      // lines carry the pack the customer sees; pool is only for the database
+      // availability math and must never become an extra order row.
+      lines: [{ name: "Focaccia Family (4 pcs)", qty: 1, price: 54 }],
+      pool: [{ name: "Focaccia", qty: 4 }],
+    }),
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    assert.deepEqual(r.imported, ["abc-pack"]);
+    assert.equal(state.orders.length, 1, "the pool key adds no extra order rows");
+    const o = state.orders[0];
+    assert.equal(o.productId, "prd_2");
+    assert.equal(o.qty, 1);
+    assert.equal(o.groupId, null, "a single line order stays its own order");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
