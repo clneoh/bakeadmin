@@ -3,7 +3,7 @@
 // over the screen, exactly like editing an order.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
-import { byId, fmtRM, newId, round2, save } from "../state.js";
+import { byId, countUnitOptions, fmtRM, newId, round2, save } from "../state.js";
 import { maybeSyncStorefront } from "../supabase.js";
 
 export function renderProducts(root, state) {
@@ -36,7 +36,8 @@ function buildEditor(state, product) {
   const recipeDraft = (product && product.recipe ? product.recipe : []).map((l) => ({ ...l }));
 
   const name = el("input", { class: "input", placeholder: "e.g. Focaccia", value: product?.name || "" });
-  const unit = el("input", { class: "input", placeholder: "unit, e.g. loaf", value: product?.unit || "" });
+  const unitChoices = countUnitOptions(state, product);
+  const unit = select(unitChoices.options, unitChoices.value, null, "Pick a unit…");
   const price = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.01",
     placeholder: "sell price (RM, optional)", value: product?.price ?? "" });
   const limit = el("input", { class: "input", type: "number", inputmode: "numeric", min: "1",
@@ -70,6 +71,11 @@ function buildEditor(state, product) {
   function collect() {
     const pname = name.value.trim();
     if (!pname) return { error: "Product needs a name" };
+    const unitVal = unit.value.trim();
+    if (!unitVal) {
+      return { error: "Pick the selling unit — customers see it after the price. Add new ones under More → Units first." };
+    }
+    const chosenUom = byId(state.uoms, unitVal);
     const recipe = recipeDraft
       .filter((l) => l.ingredientId && (Number(l.qty) || 0) > 0)
       .map((l) => ({ ingredientId: l.ingredientId, qty: Number(l.qty), unit: l.unit.trim() || "g" }));
@@ -77,7 +83,8 @@ function buildEditor(state, product) {
     return {
       values: {
         name: pname,
-        unit: unit.value.trim() || "unit",
+        unit: chosenUom ? chosenUom.name : unitVal,
+        uomId: chosenUom ? chosenUom.id : undefined,
         price: price.value === "" ? undefined : Number(price.value),
         limit: limitVal,
         recipe,

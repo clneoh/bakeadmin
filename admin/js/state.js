@@ -54,6 +54,9 @@ function seedUoms() {
     { id: "uom_ml", name: "ml", family: "volume", toBase: 1 },
     { id: "uom_l", name: "L", family: "volume", toBase: 1000 },
     { id: "uom_pcs", name: "pcs", family: "count", toBase: 1 },
+    // Standard bakery selling units (count family) — the product dropdown draws
+    // from these. Deterministic ids so fresh installs match across devices.
+    ...BAKERY_COUNT.map((n) => ({ id: `uom_${n}`, name: n, family: "count", toBase: 1 })),
   ];
 }
 
@@ -66,6 +69,9 @@ const KNOWN_UNITS = {
   l: ["volume", 1000], L: ["volume", 1000], litre: ["volume", 1000],
   pc: ["count", 1], pcs: ["count", 1], piece: ["count", 1], pieces: ["count", 1],
 };
+
+// Bakery selling units the owner pre-approved, added as count-family units.
+const BAKERY_COUNT = ["loaf", "piece", "box", "jar", "bag", "tub", "tin", "pack", "dozen", "set", "slice"];
 
 export function loadState() {
   try {
@@ -212,7 +218,9 @@ function normalize(s) {
   const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders);
   out.deliveryDates = consolidated.deliveryDates;
   out.orders = consolidated.orders;
+  ensureCountUnits(out);
   backfillUnitRefs(out);
+  linkProductUnits(out);
   return out;
 }
 
@@ -247,6 +255,73 @@ function makeUnit(name, [family, toBase]) {
     rand = Math.random().toString(36).slice(2, 8);
   }
   return { id: `uom_${rand}`, name, family, toBase: Number(toBase) || 1 };
+}
+
+// Make sure the standard bakery selling units exist. uoms are stored per device
+// (not cloud-synced) and an existing install keeps its own list wholesale, so
+// this normalize-time step is the only path that reaches an older phone. Never
+// touches a unit that already exists under the same name, whatever its family.
+export function ensureCountUnits(state) {
+  const have = new Map();
+  for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
+  for (const n of BAKERY_COUNT) {
+    if (have.has(n)) continue;
+    const u = { id: `uom_${n}`, name: n, family: "count", toBase: 1 };
+    state.uoms.push(u);
+    have.set(n, u);
+  }
+}
+
+// Give legacy products a uomId matching their stored unit name when a matching
+// count unit exists (e.g. a product saved as "loaf" before uomId existed). This
+// never creates units and never touches a product that already has a uomId.
+export function linkProductUnits(state) {
+  const byName = new Map();
+  for (const u of state.uoms || []) {
+    if (u.family === "count") byName.set(String(u.name || "").toLowerCase(), u);
+  }
+  for (const p of state.products || []) {
+    if (!p || typeof p !== "object" || p.uomId) continue;
+    const name = String(p.unit || "").trim().toLowerCase();
+    const u = name ? byName.get(name) : null;
+    if (u) p.uomId = u.id;
+  }
+}
+
+// True when a product's selling unit is this uom: by its stored uomId, or (for
+// legacy products saved before uomId existed) by its unit name.
+export function productUsesUnit(p, uom) {
+  if (!p || !uom) return false;
+  if (p.uomId === uom.id) return true;
+  return !p.uomId
+    && String(p.unit || "").trim().toLowerCase() === String(uom.name || "").trim().toLowerCase();
+}
+
+// The selling-unit choices for the product editor: the count-family units
+// (things sold as whole items — loaf, box, dozen). Returns { options, value }
+// for ui.select(). An existing product whose unit matches no count unit keeps
+// its value through one extra "(not in Units…)" option so nothing is silently
+// rewritten; new selling units are added under More → Units.
+export function countUnitOptions(state, product) {
+  const units = state.uoms || [];
+  const options = units
+    .filter((u) => u.family === "count")
+    .map((u) => ({ value: u.id, label: u.name }));
+  let value = "";
+  if (product && product.uomId && options.some((o) => o.value === product.uomId)) {
+    value = product.uomId;
+  }
+  if (!value && product && String(product.unit || "").trim()) {
+    const pname = String(product.unit).trim().toLowerCase();
+    const byName = options.find((o) => String(o.label).toLowerCase() === pname);
+    if (byName) value = byName.value;
+  }
+  if (!value && product && String(product.unit || "").trim()) {
+    const raw = String(product.unit).trim();
+    options.push({ value: raw, label: `${raw} (not in Units — add under More → Units)` });
+    value = raw;
+  }
+  return { options, value };
 }
 
 // Two deliveryDates for the same day (e.g. both phones added the same date

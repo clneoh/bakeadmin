@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase } from "../admin/js/state.js";
+import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, countUnitOptions, productUsesUnit } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
@@ -204,4 +204,89 @@ test("waNumber strips +/spaces/dashes and adds the +60 country code to locals", 
   assert.equal(waNumber("+65 8123 4567"), "6581234567", "foreign +65 is kept");
   assert.equal(waNumber(""), "");
   assert.equal(waNumber(null), "");
+});
+
+// ---- preloaded bakery selling units + product unit dropdown helpers ----
+
+const OLD_UOMS = [
+  { id: "uom_g", name: "g", family: "weight", toBase: 1 },
+  { id: "uom_kg", name: "kg", family: "weight", toBase: 1000 },
+  { id: "uom_ml", name: "ml", family: "volume", toBase: 1 },
+  { id: "uom_l", name: "L", family: "volume", toBase: 1000 },
+  { id: "uom_pcs", name: "pcs", family: "count", toBase: 1 },
+];
+const BAKERY = ["loaf", "piece", "box", "jar", "bag", "tub", "tin", "pack", "dozen", "set", "slice"];
+
+test("a fresh state seeds the standard bakery selling units", () => {
+  const names = defaultState().uoms.map((u) => u.name);
+  for (const n of BAKERY) assert.ok(names.includes(n), `missing ${n}`);
+  assert.equal(defaultState().uoms.length, OLD_UOMS.length + BAKERY.length);
+});
+
+test("normalize adds the bakery units to an existing install's unit list", () => {
+  const out = normalize({ version: 1, uoms: OLD_UOMS.map((u) => ({ ...u })) });
+  const names = out.uoms.map((u) => u.name);
+  for (const n of BAKERY) assert.ok(names.includes(n), `missing ${n}`);
+  const loaf = out.uoms.find((u) => u.name === "loaf");
+  assert.equal(loaf.family, "count");
+  assert.equal(loaf.toBase, 1);
+  assert.equal(loaf.id, "uom_loaf", "deterministic id");
+});
+
+test("preload is idempotent and never overwrites a same-name unit", () => {
+  const mine = { id: "uom_mybox", name: "box", family: "weight", toBase: 250 };
+  const first = normalize({ version: 1, uoms: [{ ...OLD_UOMS[0] }, mine] });
+  const second = normalize(first);
+  const boxes = second.uoms.filter((u) => u.name === "box");
+  assert.equal(boxes.length, 1, "the user's own unit is not duplicated");
+  assert.equal(boxes[0].id, "uom_mybox", "the user's own unit is untouched");
+  assert.equal(boxes[0].family, "weight");
+  assert.equal(second.uoms.length, first.uoms.length, "second normalize adds nothing");
+});
+
+test("normalize keeps a stored product uomId and links legacy products by name", () => {
+  const products = [
+    { id: "p1", name: "Sourdough", unit: "loaf", uomId: "uom_loaf", price: 12 },
+    { id: "p2", name: "Sandwich", unit: "piece" },
+    { id: "p3", name: "Wreath", unit: "whole" },
+  ];
+  const out = normalize({ version: 1, products });
+  assert.equal(out.products[0].uomId, "uom_loaf", "stored uomId survives");
+  assert.equal(out.products[1].uomId, "uom_piece", "legacy piece links to the preloaded unit");
+  assert.equal(out.products[2].uomId, undefined, "unmatched unit is left alone");
+});
+
+function countState() {
+  return { uoms: defaultState().uoms };
+}
+
+test("countUnitOptions offers only count units and picks the stored uomId", () => {
+  const st = countState();
+  const { options, value } = countUnitOptions(st, { id: "p", name: "S", unit: "loaf", uomId: "uom_loaf" });
+  assert.equal(value, "uom_loaf");
+  assert.equal(options.length, st.uoms.filter((u) => u.family === "count").length);
+  assert.ok(!options.some((o) => o.value === "uom_g"), "no weight units offered");
+  assert.ok(options.every((o) => st.uoms.find((u) => u.id === o.value).family === "count"));
+});
+
+test("countUnitOptions name-matches a legacy unit and round-trips an unknown one", () => {
+  const st = countState();
+  assert.equal(countUnitOptions(st, { id: "p1", unit: "piece" }).value, "uom_piece");
+  const unknown = countUnitOptions(st, { id: "p2", unit: "whole" });
+  assert.equal(unknown.value, "whole");
+  assert.equal(unknown.options[unknown.options.length - 1].value, "whole");
+  assert.match(unknown.options[unknown.options.length - 1].label, /not in Units/);
+  const blank = countUnitOptions(st, null);
+  assert.equal(blank.value, "");
+  assert.equal(blank.options.length, st.uoms.filter((u) => u.family === "count").length);
+});
+
+test("productUsesUnit matches by uomId or legacy unit name", () => {
+  const loaf = { id: "uom_loaf", name: "loaf", family: "count", toBase: 1 };
+  assert.equal(productUsesUnit({ unit: "loaf", uomId: "uom_loaf" }, loaf), true);
+  assert.equal(productUsesUnit({ unit: "loaf" }, loaf), true, "legacy name match");
+  assert.equal(productUsesUnit({ unit: "Loaf" }, loaf), true, "case-insensitive");
+  assert.equal(productUsesUnit({ unit: "whole", uomId: "uom_other" }, loaf), false);
+  assert.equal(productUsesUnit({ unit: "whole" }, loaf), false);
+  assert.equal(productUsesUnit(null, loaf), false);
 });

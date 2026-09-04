@@ -4,7 +4,7 @@
 // Edit opens a pop-up.
 
 import { el, button, emptyState, select, confirmDialog, showPopup, toast } from "../ui.js";
-import { newId, save } from "../state.js";
+import { newId, productUsesUnit, save } from "../state.js";
 
 const FAMILIES = [
   { value: "weight", label: "Weight (g, kg…)" },
@@ -122,13 +122,18 @@ function uomUsed(state, uom) {
   const onIng = state.ingredients.filter((i) => i.uomId === uom.id).length;
   const onPrice = state.ingredients.filter((i) =>
     (i.supplierPrices || []).some((e) => e.uomId === uom.id)).length;
-  return onIng ? `${onIng} ingredient${onIng === 1 ? "" : "s"}` : onPrice ? "in supplier prices" : "";
+  const onProd = state.products.filter((p) => productUsesUnit(p, uom)).length;
+  const bits = [];
+  if (onIng) bits.push(`${onIng} ingredient${onIng === 1 ? "" : "s"}`);
+  else if (onPrice) bits.push("supplier prices");
+  if (onProd) bits.push(`${onProd} product${onProd === 1 ? "" : "s"}`);
+  return bits.join(" and ");
 }
 
 function deleteUnit(state, uom, root) {
   const used = uomUsed(state, uom);
   if (used) {
-    return toast(`Can't delete "${uom.name}" — ${used} use it. Edit it instead if the size is wrong.`);
+    return toast(`Can't delete "${uom.name}" — it's still in use (${used}). Edit it instead if the size is wrong.`);
   }
   confirmDialog(`Delete unit "${uom.name}"?`, () => {
     state.uoms = state.uoms.filter((u) => u.id !== uom.id);
