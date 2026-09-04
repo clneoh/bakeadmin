@@ -166,6 +166,11 @@ test("typing a description saves it for customers to read (multiline kept)", () 
   assert.equal(state.products.length, 1);
   assert.equal(state.products[0].description, "Crisp rosemary crust,\nairy crumb",
     "typed description round-trips onto the product, line breaks intact");
+
+  const listCard = walk(root).find((n) => n.className === "product-desc");
+  assert.ok(listCard, "the product's list card shows the description on the Products page");
+  assert.equal(listCard.children[0].text, "Crisp rosemary crust,\nairy crumb",
+    "what she typed reads back on the card");
 });
 
 test("a from-date after the to-date is refused and nothing is saved", () => {

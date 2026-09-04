@@ -299,6 +299,7 @@ function productCard(state, p, root) {
     .filter((q) => q !== p && (q.recipe || []).some((l) => l.productId === p.id))
     .map((q) => q.name);
   const protect = usedBy || usedInSets.length > 0;
+  const desc = String(p.description || "").trim();
 
   const subParts = [p.unit, p.limit ? `${p.limit}/day` : null,
     p.price != null ? `${fmtRM(p.price, state.settings.currency)} sell` : null,
@@ -317,6 +318,7 @@ function productCard(state, p, root) {
       el("div", { style: "min-width:0" },
         el("p", { class: "card-title" }, p.name),
         el("p", { class: "card-sub" }, subParts.join(" · ")),
+        desc ? el("p", { class: "product-desc" }, desc) : null,
         usedInSets.length
           ? el("p", { class: "po-breakdown" }, `Used in: ${usedInSets.map((n) => `"${n}"`).join(", ")}`)
           : null),
