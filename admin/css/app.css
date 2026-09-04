@@ -474,7 +474,7 @@ textarea.input { min-height: 64px; resize: vertical; }
 .list-item .li-main { min-width: 0; }
 .list-item .li-title { font-weight: 600; font-size: 15px; }
 .list-item .li-sub { font-size: 13px; color: var(--muted); }
-.list-item .li-right { display: flex; align-items: center; gap: 8px; }
+.list-item .li-right { display: flex; align-items: center; gap: 8px; row-gap: 6px; flex-wrap: wrap; }
 
 .qty-chip {
   font-weight: 700;
@@ -829,3 +829,49 @@ textarea.input { min-height: 64px; resize: vertical; }
   0%, 100% { box-shadow: none; background: transparent; }
   15%, 40% { box-shadow: 0 0 0 3px rgba(62, 142, 90, .55); background: rgba(62, 142, 90, .10); }
 }
+
+/* ---------- Packing label (Packed orders) ---------- */
+.label-styles { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 12px; }
+.style-pill {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--brown-dark);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.style-pill.active { background: var(--brown-soft); border-color: var(--brown); }
+.label-preview-wrap { display: flex; justify-content: center; padding: 2px 0 14px; }
+
+.label-sheet {
+  width: 100%;
+  max-width: 300px;
+  background: #fff;
+  border: 2px dashed #d8c3ae;
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #3b2a1f;
+  text-align: center;
+}
+.label-sheet .ls-brand {
+  font-family: var(--serif);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brown);
+}
+.label-sheet .ls-meta, .label-sheet .ls-date { font-size: 12px; color: #7a6a58; margin-top: 6px; }
+.label-sheet .ls-code { font-size: 20px; font-weight: 800; letter-spacing: .04em; margin-top: 10px; }
+.label-sheet .ls-customer { font-size: 17px; font-weight: 700; margin-top: 4px; }
+.label-sheet .ls-item { font-size: 13px; margin-top: 3px; }
+.label-sheet .ls-items { font-size: 13px; margin-top: 6px; }
+.label-sheet .ls-note, .label-sheet .ls-address { font-size: 12px; color: #7a6a58; margin-top: 8px; }
+.label-sheet .ls-address { font-weight: 600; }
+.label-print-body .popup-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* The name-only sheet puts the customer front and center. */
+.label-sheet.style-name .ls-code { font-size: 22px; margin-top: 16px; }
+.label-sheet.style-name .ls-customer { font-size: 27px; margin-top: 10px; }

@@ -129,6 +129,58 @@ export function applyGroupPatch(orders, patch, qtyOf) {
   return orders;
 }
 
+// Packing labels print from a small pure model so the on-screen preview and the
+// printed sheet always match, and the model is testable without a DOM. `style`
+// picks the density: "full" = every useful field (one line per item, the note,
+// the courier address), "compact" = code + customer + items on one line (courier
+// address still shown), "name" = code + customer in the largest type, for a bag
+// matched at a glance. Blank fields are dropped so no empty rows print.
+export function packingLabelData(state, group, style = "full") {
+  const orders = (group && group.orders) || [];
+  const first = orders[0] || {};
+  const dateEl = first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null;
+  const dateStr = (dateEl && dateEl.date) || first.deliveryDate || "";
+  const dateLine = dateStr ? shortDate(dateStr) : "";
+  const courier = first.fulfillment === "courier";
+  const method = courier ? "Courier" : "Self collect";
+  const customer = String(first.customerName || "").trim();
+  const note = String(first.note || "").trim();
+  const address = courier ? String(first.address || "").trim() : "";
+  const itemLines = orders.map((o) => {
+    const p = byId(state.products, o.productId);
+    return `${p ? p.name : "(deleted product)"} ×${Number(o.qty) || 1}`;
+  });
+  const bakery = String((state.settings && state.settings.storefront
+    && state.settings.storefront.name) || "Jienluv2bake").trim();
+  const code = `#${orderCode(first)}`;
+
+  // Unknown styles fall back to full so the returned style is always one the
+  // sheet CSS and pill row understand.
+  if (style !== "name" && style !== "compact") style = "full";
+
+  const rows = [["brand", bakery]];
+  if (style === "name") {
+    rows.push(["code", code]);
+    if (customer) rows.push(["customer", customer]);
+    else if (dateLine) rows.push(["date", dateLine]);
+    return { style, rows };
+  }
+  if (style === "compact") {
+    rows.push(["code", code]);
+    if (customer) rows.push(["customer", customer]);
+    if (itemLines.length) rows.push(["items", itemLines.join(" · ")]);
+    if (address) rows.push(["address", address]);
+    return { style, rows };
+  }
+  if (dateLine || method) rows.push(["meta", [dateLine, method].filter(Boolean).join(" · ")]);
+  rows.push(["code", code]);
+  if (customer) rows.push(["customer", customer]);
+  for (const line of itemLines) rows.push(["item", line]);
+  if (note) rows.push(["note", `Note: ${note}`]);
+  if (address) rows.push(["address", `Courier: ${address}`]);
+  return { style, rows };
+}
+
 export function renderOrders(root, state, params) {
   orderStatusFilter = "";
   orderQuery = ""; // a fresh visit to Orders starts with an empty finder box
@@ -914,7 +966,69 @@ function orderList(state, dateId, root) {
 // journey map shows which step is done (green ✓) and which step is waiting on
 // the baker (pulsing amber), and the buttons under the status match the stage:
 // Confirmed offers "Send confirmation", Paid offers "Send payment reminder" +
-// "Paid", Packed offers "Send pickup reminder".
+// "Paid", Packed offers "Send pickup reminder" + "Print label".
+
+const LABEL_STYLES = [
+  ["full", "Full"],
+  ["compact", "Compact"],
+  ["name", "Name-only"],
+];
+
+// Build the one label sheet as real DOM. `packingLabelData` is the single source
+// of truth for the text; this only turns its rows into elements, so the popup
+// preview is exactly what prints.
+function labelSheetEl(state, group, style) {
+  const data = packingLabelData(state, group, style);
+  const kids = data.rows.map(([cls, text]) => el("div", { class: `ls-${cls}` }, text));
+  return el("div", { class: `label-sheet style-${data.style}` }, ...kids);
+}
+
+// Add a body class only for the instant of printing so print.css can show JUST
+// the label sheet (never the app or the popup chrome). Cleaned up on afterprint
+// (async browsers) and by a fallback timer, so a leftover class can never blank
+// a later PO print.
+function printActiveLabel() {
+  document.body.classList.add("label-print");
+  const done = () => {
+    document.body.classList.remove("label-print");
+    window.removeEventListener("afterprint", done);
+    clearTimeout(timer);
+  };
+  const timer = setTimeout(done, 2000);
+  window.addEventListener("afterprint", done);
+  window.print();
+}
+
+// "Print label": pick one of the preset styles, preview it live, then print.
+function openLabelPrint(state, group) {
+  const first = group.orders[0];
+  if (!first) return;
+  const title = el("div", { class: "popup-title-row" },
+    "Print label", orderCodeTag(first));
+  showPopup(title, (refresh, close) => {
+    let style = "full";
+    const pills = el("div", { class: "label-styles" });
+    const sheetWrap = el("div", { class: "label-preview-wrap" });
+    const paint = () => {
+      pills.replaceChildren(...LABEL_STYLES.map(([v, label]) => {
+        const pill = el("button", {
+          class: "style-pill" + (v === style ? " active" : ""),
+          onclick: () => { style = v; paint(); },
+        }, label);
+        return pill;
+      }));
+      sheetWrap.replaceChildren(labelSheetEl(state, group, style));
+    };
+    paint();
+    return el("div", { class: "label-print-body" },
+      pills,
+      sheetWrap,
+      el("div", { class: "popup-actions" },
+        button("Cancel", close, "ghost"),
+        button("Print label", printActiveLabel, "primary")));
+  }, { wide: true });
+}
+
 function orderGroupRow(state, group, root, dateId) {
   const orders = group.orders;
   const first = orders[0];
@@ -986,6 +1100,7 @@ function orderGroupRow(state, group, root, dateId) {
       "soft small");
     if (!first.whatsapp) pickupBtn.disabled = true;
     actions.push(pickupBtn);
+    actions.push(button("Print label", () => openLabelPrint(state, group), "ghost small"));
   }
   actions.push(button("✕", () => removeOrder(state, group, root, dateId), "ghost small"));
 
