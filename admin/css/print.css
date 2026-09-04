@@ -48,4 +48,5 @@
     border-radius: 0;
     page-break-inside: avoid;
   }
+  body.label-print .label-sheet.style-mailing { max-width: 110mm; }
 }

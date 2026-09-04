@@ -156,7 +156,34 @@ export function packingLabelData(state, group, style = "full") {
 
   // Unknown styles fall back to full so the returned style is always one the
   // sheet CSS and pill row understand.
-  if (style !== "name" && style !== "compact") style = "full";
+  if (style !== "name" && style !== "compact" && style !== "mailing") style = "full";
+
+  if (style === "mailing") {
+    // A parcel label: three addressed blocks. FROM comes from the bakery's own
+    // "mailing address" (typed once in Settings), TO is the customer, and the
+    // order block is the reference the parcel is packed against.
+    const senderRaw = String((state.settings && state.settings.mailingAddress) || "").trim();
+    const senderLines = senderRaw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const recipientAddress = address
+      ? address.split(/\n+/).map((s) => s.trim()).filter(Boolean) : [];
+    const rows = [];
+    rows.push(["mail-sec", "FROM"]);
+    if (senderLines.length) {
+      for (const ln of senderLines) rows.push(["mail-line", ln]);
+    } else {
+      rows.push(["mail-line", "Set your bakery address in Settings → Mailing labels"]);
+    }
+    rows.push(["mail-sec", "TO"]);
+    if (customer) rows.push(["mail-name", customer]);
+    const phone = String(first.whatsapp || "").trim();
+    if (phone) rows.push(["mail-line", phone]);
+    for (const ln of recipientAddress) rows.push(["mail-line", ln]);
+    rows.push(["mail-sec", "ORDER"]);
+    rows.push(["mail-line", [code, dateLine && `Deliver ${dateLine}`].filter(Boolean).join(" · ")]);
+    for (const line of itemLines) rows.push(["mail-line", line]);
+    if (note) rows.push(["mail-line", `Note: ${note}`]);
+    return { style, rows };
+  }
 
   const rows = [["brand", bakery]];
   if (style === "name") {
@@ -968,10 +995,13 @@ function orderList(state, dateId, root) {
 // Confirmed offers "Send confirmation", Paid offers "Send payment reminder" +
 // "Paid", Packed offers "Send pickup reminder" + "Print label".
 
+// Courier orders also get a "Mailing" pill (first): FROM = the bakery address
+// typed in Settings → Mailing labels, TO = the customer, ORDER = code/date/items.
 const LABEL_STYLES = [
   ["full", "Full"],
   ["compact", "Compact"],
   ["name", "Name-only"],
+  ["mailing", "Mailing"],
 ];
 
 // Build the one label sheet as real DOM. `packingLabelData` is the single source
@@ -1006,11 +1036,16 @@ function openLabelPrint(state, group) {
   const title = el("div", { class: "popup-title-row" },
     "Print label", orderCodeTag(first));
   showPopup(title, (refresh, close) => {
-    let style = "full";
+    // Courier parcels are sent, so Mailing (sender + recipient + order blocks)
+    // is the go-to label there; walk-in customers stick with the Full preview.
+    const courier = first.fulfillment === "courier";
+    const baseStyles = LABEL_STYLES.filter(([v]) => v !== "mailing");
+    const styles = courier ? [["mailing", "Mailing"], ...baseStyles] : baseStyles;
+    let style = courier ? "mailing" : "full";
     const pills = el("div", { class: "label-styles" });
     const sheetWrap = el("div", { class: "label-preview-wrap" });
     const paint = () => {
-      pills.replaceChildren(...LABEL_STYLES.map(([v, label]) => {
+      pills.replaceChildren(...styles.map(([v, label]) => {
         const pill = el("button", {
           class: "style-pill" + (v === style ? " active" : ""),
           onclick: () => { style = v; paint(); },

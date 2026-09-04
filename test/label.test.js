@@ -160,6 +160,48 @@ test("brand falls back to the bakery name when none was published", () => {
   assert.equal(data.rows[0][1], brand);
 });
 
+test("mailing: FROM from the settings box, TO the customer, ORDER the parcel", () => {
+  const state = makeState({
+    settings: {
+      storefront: { name: brand },
+      mailingAddress: "Jienluv2bake\n12, Jalan Bunga Raya\n11600 Pulau Pinang\n016 960 1268",
+    },
+  });
+  const data = packingLabelData(state, group(singleOrder({
+    fulfillment: "courier", whatsapp: "60123456789",
+    address: "88 Jalan Merdeka\n10400 George Town",
+    note: "ring before delivery",
+  })), "mailing");
+  assert.deepEqual(data, {
+    style: "mailing",
+    rows: [
+      ["mail-sec", "FROM"],
+      ["mail-line", "Jienluv2bake"],
+      ["mail-line", "12, Jalan Bunga Raya"],
+      ["mail-line", "11600 Pulau Pinang"],
+      ["mail-line", "016 960 1268"],
+      ["mail-sec", "TO"],
+      ["mail-name", "Ain"],
+      ["mail-line", "60123456789"],
+      ["mail-line", "88 Jalan Merdeka"],
+      ["mail-line", "10400 George Town"],
+      ["mail-sec", "ORDER"],
+      ["mail-line", `#3BA44E · Deliver ${dateLine}`],
+      ["mail-line", "Focaccia ×2"],
+      ["mail-line", "Note: ring before delivery"],
+    ],
+  });
+});
+
+test("mailing without a bakery address prints a reminder instead of a blank FROM", () => {
+  const data = packingLabelData(makeState(), group(singleOrder({
+    fulfillment: "courier", whatsapp: "60123456789", address: "88 Jalan Merdeka",
+  })), "mailing");
+  assert.equal(data.style, "mailing");
+  assert.equal(data.rows[0][1], "FROM");
+  assert.ok(data.rows.some(([k, t]) => k === "mail-line" && t.includes("Settings")));
+});
+
 test("an unknown style behaves like full", () => {
   const data = packingLabelData(makeState(), group(singleOrder()), "garbage");
   assert.equal(data.style, "full");

@@ -875,3 +875,23 @@ textarea.input { min-height: 64px; resize: vertical; }
 /* The name-only sheet puts the customer front and center. */
 .label-sheet.style-name .ls-code { font-size: 22px; margin-top: 16px; }
 .label-sheet.style-name .ls-customer { font-size: 27px; margin-top: 10px; }
+
+/* Mailing sheet: three addressed blocks (FROM / TO / ORDER), left-aligned. */
+.label-sheet.style-mailing {
+  text-align: left;
+  max-width: 340px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.label-sheet.style-mailing .ls-mail-sec {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e6d8c8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: #a58b70;
+}
+.label-sheet.style-mailing .ls-mail-sec:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.label-sheet.style-mailing .ls-mail-name { font-size: 20px; font-weight: 800; }
+.label-sheet.style-mailing .ls-mail-line { font-size: 14px; }

@@ -185,6 +185,21 @@ export function renderSettings(root, state) {
     el("div", { class: "btn-row", style: "margin-top:10px" }, sfBtn),
     sfStatus);
 
+  // ── Mailing labels (courier) ────────────────────────────────────────────
+  // The FROM block on the Mailing packing label. Kept in the phone's settings,
+  // not published with the storefront — fill it on each phone that prints labels.
+  const mailAddr = cur.mailingAddress ??= "";
+  const mailBox = el("textarea", { class: "input", rows: 5, value: mailAddr,
+    placeholder: "Jienluv2bake\n12, Jalan Bunga Raya\n11600 Pulau Pinang\n016 960 1268",
+    onchange: () => { cur.mailingAddress = mailBox.value.trim(); save(state); toast("Saved"); } });
+  const mailingCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Mailing labels (courier)"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Printed as the FROM block on the Mailing label (shown on courier orders). One line per row — first line your bakery name, then the address, your phone last."),
+    mailBox,
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      "A Mailing label prints FROM = this address, TO = the customer's name, phone and delivery address, and ORDER = the code, date and items. Type it on each phone you print labels from."));
+
   const fileInput = el("input", { class: "input", type: "file", accept: "application/json,.json", style: "display:none",
     onchange: (e) => doImport(e) });
 
@@ -309,7 +324,7 @@ export function renderSettings(root, state) {
           button("Load sample data", () => loadSample(state), "soft")))
     : null;
 
-  root.replaceChildren(daysCard, lockCard, storefrontCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+  root.replaceChildren(daysCard, lockCard, storefrontCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
 
   function doImport(e) {
     const file = e.target.files && e.target.files[0];
