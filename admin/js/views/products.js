@@ -4,7 +4,7 @@
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { byId, productUnitOptions, fmtRM, newId, save } from "../state.js";
-import { costOf, validateRecipeNoCycle } from "../bom.js";
+import { costOf, recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
 
 export function renderProducts(root, state) {
@@ -69,17 +69,11 @@ function buildEditor(state, product) {
     placeholder: "e.g. Warm 10 min at 150°C — crisp on top, soft inside",
     value: product?.servingTip || "" });
 
-  // Cost of one unit from the current draft, expanding any product lines
-  // (a set's cost compounds its component's cost into it).
-  function perUnitCost() {
-    return costOf(state, { id: product && product.id, name: product && product.name, recipe: recipeDraft });
-  }
-
   const costEl = el("p", { class: "card-sub", style: "margin:0 0 10px" });
   const recipeCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Recipe (per unit)"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically."),
+      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically. Each line shows what it costs for one unit; the lines add up to the total above."),
     costEl,
     el("div", { id: "recipe-lines" }),
     el("div", { class: "btn-row" },
@@ -93,10 +87,11 @@ function buildEditor(state, product) {
       }, "soft")));
 
   function renderRecipeLines() {
-    costEl.textContent = `Est. ingredient cost / unit: ${fmtRM(perUnitCost(), state.settings.currency)}`;
+    const costs = recipeLineCosts(state, { id: product && product.id, recipe: recipeDraft });
+    costEl.textContent = `Est. ingredient cost / unit: ${fmtRM(costs.reduce((s, c) => s + c, 0), state.settings.currency)}`;
     const box = recipeCard.querySelector("#recipe-lines");
     box.replaceChildren(...recipeDraft.map((line, i) =>
-      recipeLine(state, line, i, recipeDraft, renderRecipeLines, product && product.id)));
+      recipeLine(state, line, i, recipeDraft, renderRecipeLines, product && product.id, costs[i])));
   }
 
   // Reads the form; returns { error } or { values: {...} } ready to save.
@@ -230,13 +225,22 @@ function openEditProductPopup(state, product, root) {
   }, { wide: true });
 }
 
-function recipeLine(state, line, i, draft, refresh, selfId) {
+// Small right-aligned caption under a FILLED recipe row: what this line's
+// ingredients cost for one unit of the product. A filled row whose
+// ingredient/product has no cost typed yet reads "no cost set" honestly.
+function lineCostCaption(state, filled, cost) {
+  if (!filled) return null;
+  return el("span", { class: "line-cost" },
+    cost > 0 ? `cost: ${fmtRM(cost, state.settings.currency)}` : "no cost set");
+}
+
+function recipeLine(state, line, i, draft, refresh, selfId, cost) {
   // A line is a component (another product, i.e. a set) when it carries a
   // productId field (even before one is chosen). Ingredient and product rows
   // are different drop-downs.
   const isProductRow = Object.prototype.hasOwnProperty.call(line, "productId") && !line.ingredientId;
   if (isProductRow) {
-    return productRecipeLine(state, line, i, draft, refresh, selfId);
+    return productRecipeLine(state, line, i, draft, refresh, selfId, cost);
   }
 
   const ing = byId(state.ingredients, line.ingredientId);
@@ -268,10 +272,11 @@ function recipeLine(state, line, i, draft, refresh, selfId) {
     el("span", { class: "unit" }, unitInp),
     button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"),
     mismatch ? el("div", { class: "warn", style: "grid-column:1/-1;margin:0" },
-      `Unit "${line.unit}" differs from ${ing.name}'s unit (${ing.unit}) — check this line.`) : null);
+      `Unit "${line.unit}" differs from ${ing.name}'s unit (${ing.unit}) — check this line.`) : null,
+    lineCostCaption(state, Boolean(line.ingredientId) && Number(line.qty) > 0, cost));
 }
 
-function productRecipeLine(state, line, i, draft, refresh, selfId) {
+function productRecipeLine(state, line, i, draft, refresh, selfId, cost) {
   // Drop-down of every other product (hidden ones stay selectable so old sets
   // keep working). The product being edited is excluded — a set can't hold
   // itself, and validateRecipeNoCycle is the backstop.
@@ -302,7 +307,8 @@ function productRecipeLine(state, line, i, draft, refresh, selfId) {
     prodSel,
     qty,
     el("span", { class: "unit" }, unitInp),
-    button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"));
+    button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"),
+    lineCostCaption(state, Boolean(line.productId) && Number(line.qty) > 0, cost));
 }
 
 function productCard(state, p, root) {

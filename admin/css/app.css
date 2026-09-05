@@ -752,12 +752,21 @@ textarea.input { min-height: 64px; resize: vertical; }
 /* ---------- Chips (ingredient rows) ---------- */
 .ing-row {
   display: grid;
-  grid-template-columns: 1fr 88px 58px 40px;
+  grid-template-columns: minmax(0, 1fr) 88px 58px 40px;
   gap: 6px;
   align-items: center;
   margin-bottom: 8px;
 }
+.ing-row select,
+.ing-row .input { min-width: 0; }
 .ing-row .unit { font-size: 13px; color: var(--muted); }
+.ing-row .line-cost {
+  grid-column: 1 / -1;
+  justify-self: end;
+  font-size: 12px;
+  color: var(--muted);
+  margin: -3px 0 2px;
+}
 
 /* ---------- Supplier price rows (ingredient editor) ---------- */
 .price-row { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }

@@ -7,6 +7,7 @@ import {
   explodeBom,
   expandProduct,
   costOf,
+  recipeLineCosts,
   isPoolablePack,
   poolRemaining,
   productRemaining,
@@ -134,6 +135,52 @@ test("costOf reads a not-yet-saved draft's own lines (new product card)", () => 
     { productId: "prd_p", qty: 2, unit: "set" },
   ] };
   assert.equal(costOf(st, draft), 100 * 0.006 + 2 * 13.16); // 26.92
+});
+
+test("recipeLineCosts returns one cost per line and the lines add up to costOf", () => {
+  const st = fixtureState();
+  const focaccia = st.products.find((p) => p.id === "prd_f");
+  // 500×0.006 = 3.00, 5×0.05 = 0.25, 10×0.004 = 0.04 → 3.29 total
+  assert.deepEqual(recipeLineCosts(st, focaccia), [3, 0.25, 0.04]);
+  assert.equal(recipeLineCosts(st, focaccia).reduce((s, c) => s + c, 0), costOf(st, focaccia));
+});
+
+test("recipeLineCosts compounds a set and a set of a set on the line", () => {
+  const st = fixtureState();
+  const family = st.products.find((p) => p.id === "prd_p");
+  const party = st.products.find((p) => p.id === "prd_c");
+  assert.deepEqual(recipeLineCosts(st, family), [13.16], "4 × focaccia");
+  assert.deepEqual(recipeLineCosts(st, party), [26.32], "2 × family");
+});
+
+test("recipeLineCosts counts 0 for a line whose ingredient has no cost, and costOf agrees", () => {
+  const st = fixtureState();
+  const focaccia = st.products.find((p) => p.id === "prd_f");
+  st.ingredients.find((i) => i.id === "ing_s").costPerUnit = 0; // salt: no cost set
+  const costs = recipeLineCosts(st, focaccia);
+  assert.deepEqual(costs, [3, 0.25, 0]);
+  assert.equal(costs.reduce((s, c) => s + c, 0), costOf(st, focaccia));
+});
+
+test("recipeLineCosts ignores blank, zero-qty and missing-ingredient lines; null product is []", () => {
+  const st = fixtureState();
+  const draft = { name: "Draft", recipe: [
+    { qty: 0, unit: "g" }, // blank/zero line
+    { ingredientId: "ing_missing", qty: 100, unit: "g" }, // deleted ingredient
+    { ingredientId: "ing_f", qty: 100, unit: "g" },
+  ] };
+  assert.deepEqual(recipeLineCosts(st, draft), [0, 0, 0.6]);
+  assert.deepEqual(recipeLineCosts(st, null), []);
+});
+
+test("recipeLineCosts survives a recipe loop (bounded, counts 0, no hang)", () => {
+  const st = fixtureState();
+  st.products.push(
+    { id: "prd_a", name: "A", active: true, recipe: [{ productId: "prd_b", qty: 1, unit: "" }] },
+    { id: "prd_b", name: "B", active: true, recipe: [{ productId: "prd_a", qty: 1, unit: "" }] },
+  );
+  const a = st.products.find((p) => p.id === "prd_a");
+  assert.deepEqual(recipeLineCosts(st, a), [0], "a loop must resolve to 0, not hang");
 });
 
 test("isPoolablePack: only a single-line, own-cap-less, active-limited base counts", () => {

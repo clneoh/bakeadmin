@@ -188,3 +188,40 @@ test("a from-date after the to-date is refused and nothing is saved", () => {
   const toastNode = doc.body.children.at(-1);
   assert.ok(toastNode && /from.*to|swap/i.test(toastNode.textContent), "the owner is told to swap the dates");
 });
+
+test("each recipe line shows its own cost, and the header adds them up", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  state.ingredients = [
+    { id: "ing_flour", name: "Strong flour", unit: "g", active: true, costPerUnit: 0.01 },
+    { id: "ing_water", name: "Water", unit: "ml", active: true }, // no cost set
+  ];
+  const root = render(state);
+  const nodes = walk(root.children[0]);
+  const addIng = nodes.find((n) => n.tagName === "BUTTON"
+    && (n.children || []).some((c) => c.text === "＋ Add ingredient"));
+  assert.ok(addIng, "the recipe card offers + Add ingredient");
+  fire(addIng);
+  fire(addIng); // two lines
+
+  const fireType = (n, t) => (n._listeners[t] || []).forEach((f) => f());
+  const box = () => walk(root.children[0]).find((n) => n.attrs && n.attrs.id === "recipe-lines");
+  const row = (i) => box().children[i];
+  const sel = (i) => row(i).children.find((c) => c.tagName === "SELECT");
+  const qty = (i) => row(i).children.find((c) => c.tagName === "INPUT" && c.attrs && c.attrs.type === "number");
+  const caption = (i) => {
+    const c = row(i).children.find((n) => n.nodeType === 1 && n.className === "line-cost");
+    return c && c.children[0] ? c.children[0].text : "";
+  };
+
+  sel(0).value = "ing_flour"; fireType(sel(0), "change");
+  qty(0).value = "100"; fireType(qty(0), "change");
+  sel(1).value = "ing_water"; fireType(sel(1), "change");
+  qty(1).value = "200"; fireType(qty(1), "change");
+
+  assert.equal(caption(0), "cost: RM 1.00", "flour line shows 100 × RM 0.01 for one unit");
+  assert.equal(caption(1), "no cost set", "water has no cost typed yet");
+  const total = walk(root.children[0]).find((n) => typeof n.textContent === "string"
+    && n.textContent.startsWith("Est. ingredient cost"));
+  assert.equal(total.textContent, "Est. ingredient cost / unit: RM 1.00", "the two lines add up on the header");
+});

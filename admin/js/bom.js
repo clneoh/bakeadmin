@@ -183,6 +183,26 @@ function costProduct(state, productId, memo, stack) {
   return total;
 }
 
+// Cost of each line of ONE unit of `product`, so the recipe editor can show
+// what every ingredient contributes. Mirrors costOf exactly (product lines
+// compound their component's cost, cycle-safe), so the lines always add up to
+// the product's total. Returns an array parallel to product.recipe — blank or
+// qty<=0 lines, unknown ingredients and costless products count as 0.
+export function recipeLineCosts(state, product) {
+  const memo = new Map();
+  const stack = new Set();
+  return ((product && product.recipe) || []).map((line) => {
+    const qty = Number(line.qty) || 0;
+    if (qty <= 0) return 0;
+    if (line.ingredientId && !line.productId) {
+      const ing = byId(state.ingredients, line.ingredientId);
+      return qty * (ing ? ing.costPerUnit || 0 : 0);
+    }
+    if (line.productId) return qty * costProduct(state, line.productId, memo, stack);
+    return 0;
+  });
+}
+
 // A product is a poolable value pack when its recipe is exactly one product
 // line, it has no daily limit of its own, and it points at an active product
 // that has its own limit (the shared pool's base). Returns {baseId, baseQty}
