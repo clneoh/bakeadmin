@@ -244,13 +244,17 @@ function captionForLine(state, line, cost) {
   const cur = state.settings.currency;
   let text = "no cost set";
   if (cost > 0) {
+    // The rate shown is the line's own cost ÷ qty — the amount actually applied
+    // (an ingredient priced per pack, e.g. "500 g box RM 4.00", reads back as
+    // its worked-out per-unit price), so "amount × price = this line's RM" is
+    // always exact and the working can't drift from the number above it.
+    const rate = cost / qty;
+    const ing = byId(state.ingredients, line.ingredientId);
     if (line.productId && !line.ingredientId) {
-      text = `${trimNum(qty)} × RM ${fmtCpu(cost / qty)} = ${fmtRM(cost, cur)}`;
+      text = `${trimNum(qty)} × RM ${fmtCpu(rate)} = ${fmtRM(cost, cur)}`;
     } else {
-      const ing = byId(state.ingredients, line.ingredientId);
       const unit = String(line.unit || "").trim() || (ing && ing.unit) || "";
-      const cpu = ing ? ing.costPerUnit || 0 : 0;
-      text = `${trimNum(qty)}${unit ? ` ${unit}` : ""} × RM ${fmtCpu(cpu)} = ${fmtRM(cost, cur)}`;
+      text = `${trimNum(qty)}${unit ? ` ${unit}` : ""} × RM ${fmtCpu(rate)} = ${fmtRM(cost, cur)}`;
     }
   }
   return el("span", { class: "line-cost" }, text);

@@ -7,6 +7,7 @@ import {
   explodeBom,
   expandProduct,
   costOf,
+  effectiveUnitCost,
   recipeLineCosts,
   isPoolablePack,
   poolRemaining,
@@ -181,6 +182,91 @@ test("recipeLineCosts survives a recipe loop (bounded, counts 0, no hang)", () =
   );
   const a = st.products.find((p) => p.id === "prd_a");
   assert.deepEqual(recipeLineCosts(st, a), [0], "a loop must resolve to 0, not hang");
+});
+
+// --- supplier pack prices feed the recipe cost when no fallback is typed ---
+// An ingredient the owner prices only per pack (e.g. "Sea salt — 500 g box
+// RM 4.00" with the Fallback cost box left blank) gets an effective per-unit
+// cost worked back from the pack: cheapest pack price ÷ pack size, in the
+// ingredient's own cooking unit — the same rule the PO uses to buy, so the
+// recipe estimate and the PO always agree.
+
+function unitState() {
+  const st = fixtureState();
+  st.uoms = [
+    { id: "u_g", name: "g", family: "weight", toBase: 1 },
+    { id: "u_kg", name: "kg", family: "weight", toBase: 1000 },
+  ];
+  st.suppliers = [{ id: "sup_a", name: "Shop A", active: true, whatsapp: "" }];
+  return st;
+}
+
+test("effectiveUnitCost prices a pack-backed ingredient without a fallback cost", () => {
+  const st = unitState();
+  const salt = { id: "ing_sea", name: "Sea salt", unit: "g", uomId: "u_g", active: true,
+    supplierPrices: [{ supplierId: "sup_a", qty: 500, uomId: "u_g", price: 4 }] };
+  assert.equal(effectiveUnitCost(st, salt), 0.008, "RM 4 / 500 g = RM 0.008 per g");
+});
+
+test("effectiveUnitCost converts a pack bought in another unit of the same family", () => {
+  const st = unitState();
+  const flour = { id: "ing_fl", name: "Flour", unit: "g", uomId: "u_g", active: true,
+    supplierPrices: [{ supplierId: "sup_a", qty: 1, uomId: "u_kg", price: 20 }] };
+  assert.equal(effectiveUnitCost(st, flour), 0.02, "RM 20 for a 1 kg bag = RM 0.02 per g");
+});
+
+test("effectiveUnitCost takes the cheapest supplier pack", () => {
+  const st = unitState();
+  const sugar = { id: "ing_su", name: "Sugar", unit: "g", uomId: "u_g", active: true,
+    supplierPrices: [
+      { supplierId: "sup_a", qty: 100, uomId: "u_g", price: 2 },  // RM 0.02 / g
+      { supplierId: "sup_a", qty: 500, uomId: "u_g", price: 4 },  // RM 0.008 / g
+    ] };
+  assert.equal(effectiveUnitCost(st, sugar), 0.008, "the cheaper-per-gram pack wins");
+});
+
+test("effectiveUnitCost falls back to the typed cost when no supplier pack is usable", () => {
+  const st = unitState();
+  // Pack lists a supplier that has since been hidden or deleted — the PO can't
+  // buy from it, so recipes can't price from it either.
+  st.suppliers[0].active = false;
+  const hidden = { id: "ing_h", name: "Vanilla", unit: "g", uomId: "u_g", active: true, costPerUnit: 0.05,
+    supplierPrices: [{ supplierId: "sup_a", qty: 10, uomId: "u_g", price: 3 }] };
+  assert.equal(effectiveUnitCost(st, hidden), 0.05, "hidden supplier → typed fallback cost");
+
+  const st2 = unitState();
+  const plain = { id: "ing_p", name: "Yeast", unit: "g", uomId: "u_g", active: true, costPerUnit: 0.05 };
+  assert.equal(effectiveUnitCost(st2, plain), 0.05, "no pack at all → typed fallback cost");
+
+  // An empty/unset fallback with nothing usable to price from stays 0 ("no cost").
+  const st3 = unitState();
+  const bare = { id: "ing_b", name: "Water", unit: "ml", uomId: "u_g", active: true };
+  assert.equal(effectiveUnitCost(st3, bare), 0);
+});
+
+test("costOf, recipeLineCosts and the BOM all use the pack-derived rate", () => {
+  const st = unitState();
+  st.ingredients.push({ id: "ing_sea", name: "Sea salt", unit: "g", uomId: "u_g", active: true,
+    supplierPrices: [{ supplierId: "sup_a", qty: 500, uomId: "u_g", price: 4 }] });
+  st.products.push(
+    { id: "prd_loaf", name: "Salted loaf", unit: "loaf", active: true, price: 15, recipe: [
+      { ingredientId: "ing_sea", qty: 5, unit: "g" },
+    ] },
+    { id: "prd_set", name: "Set of 4", unit: "set", active: true, recipe: [
+      { productId: "prd_loaf", qty: 4, unit: "loaf" },
+    ] });
+
+  const loaf = st.products.find((p) => p.id === "prd_loaf");
+  const costs = recipeLineCosts(st, loaf);
+  assert.equal(Math.round(costs[0] * 100) / 100, 0.04, "5 g × RM 0.008 = RM 0.04");
+  assert.equal(costOf(st, loaf), 0.04);
+  assert.equal(costOf(st, st.products.find((p) => p.id === "prd_set")), 0.16, "4 × 0.04 compounds through the set");
+
+  st.orders = [{ id: "ord_salt", deliveryDateId: "del_a", productId: "prd_loaf", qty: 2 }];
+  const bom = explodeBom(st, "del_a");
+  const salt = bom.items.find((i) => i.ingredientId === "ing_sea");
+  assert.equal(salt.totalQty, 10);
+  assert.equal(salt.estCost, 0.08, "10 g × RM 0.008, rounded to cents");
 });
 
 test("isPoolablePack: only a single-line, own-cap-less, active-limited base counts", () => {

@@ -8,9 +8,27 @@
 // recursively, so the shopping list and cost always see the leaf ingredients.
 
 import { byId, round2 } from "./state.js";
+import { chosenSupplier, cookingUnit } from "./purchasing.js";
 
 const MAX_RECIPE_DEPTH = 6;
 const NO_DEMAND = new Map();
+
+// RM cost of ONE cooking unit of an ingredient — the number recipes multiply by
+// qty. The owner may type a per-unit "fallback cost" OR only pack prices from
+// suppliers (e.g. "500 g box RM 4.00"), so when a usable supplier pack exists
+// this works the pack price back to the per-unit rate (the cheapest pack, the
+// same rule the PO uses to buy), and only falls back to the typed cost when
+// there is no pack to price from. Mirrors purchasing.js' own unit math so a
+// recipe's estimate always agrees with what the ingredient costs on the PO.
+export function effectiveUnitCost(state, ingredient) {
+  if (!ingredient) return 0;
+  const cook = cookingUnit(state.uoms || [], ingredient);
+  if (cook) {
+    const chosen = chosenSupplier(state, ingredient);
+    if (chosen) return chosen.perBase * (Number(cook.toBase) || 1);
+  }
+  return Number(ingredient.costPerUnit) || 0;
+}
 
 export function explodeBom(state, deliveryDateId) {
   const warnings = [];
@@ -40,7 +58,7 @@ export function explodeBom(state, deliveryDateId) {
           ingredientId,
           ingredientName: ing ? ing.name : "(deleted ingredient)",
           unit: d.unit,
-          costPerUnit: ing ? ing.costPerUnit || 0 : 0,
+          costPerUnit: ing ? effectiveUnitCost(state, ing) : 0,
           totalQty: 0,
           estCost: 0,
           unitsOk: true,
@@ -147,7 +165,8 @@ export function expandProduct(state, product, scale = 1, warnings = []) {
   };
 }
 
-// Cost of one unit of `product`: leaf ingredient qty × costPerUnit, with any
+// Cost of one unit of `product`: leaf ingredient qty × its effective cost per
+// unit (supplier pack price worked back, else the typed fallback), with any
 // component costs (qty × component cost) compounding in. The product's own
 // recipe lines are read off `product` (so a not-yet-saved draft works); its
 // components resolve by id into state. Cycle-safe, no warnings needed.
@@ -162,8 +181,7 @@ function costLines(state, lines, memo, stack) {
     const qty = Number(line.qty) || 0;
     if (qty <= 0) continue;
     if (line.ingredientId && !line.productId) {
-      const ing = byId(state.ingredients, line.ingredientId);
-      total += qty * (ing ? ing.costPerUnit || 0 : 0);
+      total += qty * effectiveUnitCost(state, byId(state.ingredients, line.ingredientId));
     } else if (line.productId) {
       total += qty * costProduct(state, line.productId, memo, stack);
     }
@@ -195,8 +213,7 @@ export function recipeLineCosts(state, product) {
     const qty = Number(line.qty) || 0;
     if (qty <= 0) return 0;
     if (line.ingredientId && !line.productId) {
-      const ing = byId(state.ingredients, line.ingredientId);
-      return qty * (ing ? ing.costPerUnit || 0 : 0);
+      return qty * effectiveUnitCost(state, byId(state.ingredients, line.ingredientId));
     }
     if (line.productId) return qty * costProduct(state, line.productId, memo, stack);
     return 0;

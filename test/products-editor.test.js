@@ -279,3 +279,44 @@ test("a set line shows qty × its own cost per unit, and counts as one row in th
   assert.deepEqual(kids, ["·", "RM 2.00", "Focaccia", "=", "RM 2.00"],
     "one + row for the set, landing on RM 2.00");
 });
+
+test("an ingredient priced per pack (no fallback cost) prices its recipe line from the pack", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  state.suppliers = [{ id: "sup_mydin", name: "Mydin", active: true }];
+  state.ingredients = [
+    { id: "ing_salt", name: "Sea salt", unit: "g", active: true, uomId: "u_g",
+      supplierPrices: [{ supplierId: "sup_mydin", qty: 500, uomId: "u_g", price: 4 }] }, // RM 4 / 500 g box
+  ];
+  const root = render(state);
+  const nodes = walk(root.children[0]);
+  const addIng = nodes.find((n) => n.tagName === "BUTTON"
+    && (n.children || []).some((c) => c.text === "＋ Add ingredient"));
+  assert.ok(addIng, "the recipe card offers + Add ingredient");
+  fire(addIng);
+
+  const fireType = (n, t) => (n._listeners[t] || []).forEach((f) => f());
+  const row = () => walk(root.children[0])
+    .find((n) => n.attrs && n.attrs.id === "recipe-lines").children[0];
+  const sel = row().children.find((c) => c.tagName === "SELECT");
+  const qty = row().children.find((c) => c.tagName === "INPUT" && c.attrs && c.attrs.type === "number");
+  const caption = () => {
+    const c = row().children.find((n) => n.nodeType === 1 && n.className === "line-cost");
+    return c && c.children[0] ? c.children[0].text : "";
+  };
+
+  sel.value = "ing_salt"; fireType(sel, "change");
+  qty.value = "5"; fireType(qty, "change");
+
+  assert.equal(caption(), "5 g × RM 0.008 = RM 0.04",
+    "the line works the RM 4 / 500 g pack back to per gram (no cost box needed)");
+  const total = walk(root.children[0]).find((n) => typeof n.textContent === "string"
+    && n.textContent.startsWith("Est. ingredient cost"));
+  assert.equal(total.textContent, "Est. ingredient cost / unit: RM 0.04");
+
+  const costSum = walk(root.children[0]).find((n) => n.className === "cost-sum");
+  const grid = costSum.children.find((n) => n.className === "cost-grid");
+  const childText = (n) => (n.children && n.children[0] && n.children[0].text != null ? n.children[0].text : "");
+  assert.deepEqual(grid.children.map(childText), ["·", "RM 0.04", "Sea salt", "=", "RM 0.04"],
+    "the add-up list lands on the same RM 0.04");
+});
