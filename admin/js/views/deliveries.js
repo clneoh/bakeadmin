@@ -12,7 +12,7 @@ import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import {
   DOW, addMonth, monthLabel, monthWeeks,
-  OCCASION_PRESETS, occForDate, occColour, occRange,
+  OCCASION_PRESETS, occForDate, occForDateAll, occColour, occRange, occStrength,
 } from "../calendar.js";
 
 // Local picker state (survives re-renders while this screen is open): which
@@ -102,23 +102,26 @@ function shiftISO(date, days) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// The extra classes a date gets when an occasion covers it: its colour wash,
-// plus l/r/t/b flags for the neighbouring days that belong to the SAME mark —
-// the CSS uses those to stretch the wash into the gutters, so a multi-day mark
-// reads as one continuous block instead of separate day tiles.
+// The extra classes a date gets when an occasion covers it: the winning mark's
+// colour wash at a strength that fades with the mark's length (short = strong,
+// long = soft), plus l/r/t/b flags for neighbouring painted days — the CSS
+// stretches the wash into the gutters, so every painted run reads as one
+// continuous wash and two overlapping marks meet flush (no hairline gap).
 function occTint(state, date) {
   const occ = occForDate(state.occasions, date);
   if (!occ) return "";
-  let cls = ` occ occ-${occColour(occ)}`;
+  let cls = ` occ occ-${occColour(occ)} occ-${occStrength(occ)}`;
   const [firstISO, lastISO] = monthISOBounds();
-  const same = (x) => x >= firstISO && x <= lastISO && occForDate(state.occasions, x) === occ;
+  // Any painted day lets the wash bleed toward it (same mark or a neighbour's
+  // stronger one sitting on top) — only a fully plain day stops the band.
+  const covered = (x) => x >= firstISO && x <= lastISO && !!occForDate(state.occasions, x);
   const dow = new Date(`${date}T00:00:00`).getDay(); // 0 Sun … 6 Sat
   // A Sunday's left neighbour (and a Saturday's right neighbour) sits on the
   // next grid row, so those never count as a same-row join.
-  if (dow !== 0 && same(shiftISO(date, -1))) cls += " l";
-  if (dow !== 6 && same(shiftISO(date, 1))) cls += " r";
-  if (same(shiftISO(date, -7))) cls += " t";
-  if (same(shiftISO(date, 7))) cls += " b";
+  if (dow !== 0 && covered(shiftISO(date, -1))) cls += " l";
+  if (dow !== 6 && covered(shiftISO(date, 1))) cls += " r";
+  if (covered(shiftISO(date, -7))) cls += " t";
+  if (covered(shiftISO(date, 7))) cls += " b";
   return cls;
 }
 
@@ -417,14 +420,18 @@ function dateCard(state, date) {
   const left = Math.max(0, effectiveCapacity(state, date.date) - ordered);
   const st = deliveryStatus(date.date, state.settings);
   const closed = st.closed && !st.past;
-  const occ = occForDate(state.occasions, date.date);
+  const occs = occForDateAll(state.occasions, date.date);
 
   const col = el("div",
     { onclick: () => navigate(`#/orders?date=${date.id}`), style: "cursor:pointer;min-width:0" },
     el("p", { class: "card-title" }, `${weekdayName(date.date)}, ${longDate(date.date)}`),
     el("p", { class: "card-sub" },
       `${ordered} ordered · ${left} left${closed ? " · orders closed" : ""}`));
-  if (occ) col.append(el("span", { class: `occ-tag occ-${occColour(occ)}`, style: "margin-top:6px" }, occ.label));
+  // A delivery day can sit inside several overlapping marks — show each as a
+  // small coloured tag, shortest (strongest) first.
+  for (const occ of occs) {
+    col.append(el("span", { class: `occ-tag occ-${occColour(occ)}`, style: "margin-top:6px" }, occ.label));
+  }
 
   return el("div", { class: `card${closed ? " closed" : ""}` },
     el("div", { class: "card-row" },

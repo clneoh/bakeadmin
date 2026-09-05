@@ -1163,6 +1163,15 @@ textarea.input { min-height: 64px; resize: vertical; }
 
 .occ-red  { --occ-fill: #f2c9be; --occ-solid: #c04538; } /* big, very-prominent */
 .occ-grey { --occ-fill: #d9d3cb; --occ-solid: #70747b; } /* a longer stretch */
+/* Solidness fades with a mark's length — a 1–3 day mark is strong (it pops),
+   a 12+ day stretch is a soft wash. Red and grey keep their meaning; the
+   length decides how solid either one is. */
+.occ-strong.occ-red  { --occ-fill: #e7a490; }
+.occ-mid.occ-red     { --occ-fill: #f2c9be; }
+.occ-soft.occ-red    { --occ-fill: #f9e5db; }
+.occ-strong.occ-grey { --occ-fill: #c4baac; }
+.occ-mid.occ-grey    { --occ-fill: #d9d3cb; }
+.occ-soft.occ-grey   { --occ-fill: #eae4dc; }
 
 .occ-cell { cursor: pointer; }
 .cal-cell.occ {
@@ -1179,13 +1188,25 @@ textarea.input { min-height: 64px; resize: vertical; }
   background: var(--occ-fill, var(--gray-bg));
   z-index: -1;
 }
-/* Stretch the wash only toward a neighbouring day of the SAME mark, so a run
-   of days joins into ONE continuous block (across week rows too) while the
-   block's outer edges stay clean. */
+/* Stretch the wash toward any painted neighbour day, so every run joins into
+   ONE continuous wash (across week rows too), overlapping marks meet flush, and
+   the block's outer edges stay clean where the neighbour is a plain day. */
 .cal-cell.occ.l::before { left: -2px; }
 .cal-cell.occ.r::before { right: -2px; }
 .cal-cell.occ.t::before { top: -2px; }
 .cal-cell.occ.b::before { bottom: -2px; }
+/* A delivery date inside a mark is the STRONGEST thing on that day: the date
+   becomes a solid bullet in the mark's strong colour, number white, with the
+   tick still there — clearly on top of the wash. Outside a mark a delivery
+   date keeps its plain green ticked tile. */
+.cal-cell.occ.added {
+  background: var(--occ-solid, var(--brown));
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .4);
+}
+.cal-cell.occ.added::before { display: none; } /* the solid bullet covers the wash */
+.cal-cell.occ.added::after { color: #fff; font-size: 9px; right: 4px; }
 /* A tapped-to-add day inside a mark shows the solid "picked" fill + ring. */
 .cal-cell.occ.sel { background: var(--brown-dark); color: #fff; box-shadow: inset 0 0 0 2px #fff; }
 .cal-cell.occ.sel::before { background: var(--brown-dark); }

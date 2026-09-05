@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { addMonth, DOW, monthLabel, monthWeeks, OCCASION_PRESETS, occColour, occForDate, occRange } =
+const { addMonth, DOW, monthLabel, monthWeeks, OCCASION_PRESETS, occColour,
+  occForDate, occForDateAll, occDays, occRange, occStrength } =
   await import("../admin/js/calendar.js");
 
 function flatDates(grid) { return grid.flat().filter(Boolean); }
@@ -101,6 +102,50 @@ test("occForDate finds the occasion holding a day, inclusive of both ends", () =
   assert.equal(occForDate(occs, "2026-09-28").id, "b", "a single-day mark holds its one day");
   assert.equal(occForDate([], "2026-09-14"), null, "no occasions → nothing");
   assert.equal(occForDate(null, "2026-09-14"), null, "missing list is safe");
+});
+
+test("occDays counts a mark's inclusive length in days", () => {
+  assert.equal(occDays({ from: "2026-09-21", to: "2026-09-21" }), 1, "a single day");
+  assert.equal(occDays({ from: "2026-09-21", to: "2026-09-29" }), 9, "both ends count");
+  assert.equal(occDays({ from: "2026-12-31", to: "2027-01-02" }), 3, "across a year boundary");
+  assert.equal(occDays({ from: "2026-09-01", to: "2026-09-30" }), 30, "a full month");
+  assert.equal(occDays(null), 0, "missing occasion is safe");
+  assert.equal(occDays({ from: "", to: "" }), 0, "missing dates are safe");
+});
+
+test("occStrength fades with length: short is strong, a long stretch is soft", () => {
+  const span = (from, to) => ({ from, to });
+  assert.equal(occStrength(span("2026-09-28", "2026-09-28")), "strong", "1 day");
+  assert.equal(occStrength(span("2026-09-28", "2026-09-30")), "strong", "3 days");
+  assert.equal(occStrength(span("2026-09-21", "2026-09-24")), "mid", "4 days");
+  assert.equal(occStrength(span("2026-09-21", "2026-09-30")), "mid", "10 days");
+  assert.equal(occStrength(span("2026-09-21", "2026-10-02")), "soft", "12 days is the soft boundary");
+  assert.equal(occStrength(span("2026-09-21", "2026-10-03")), "soft", "13 days");
+  assert.equal(occStrength(null), "mid", "a missing mark counts as mid");
+});
+
+test("occForDate: when two marks overlap, the SHORTER one wins the shared day", () => {
+  const longFirst = [
+    { id: "long", from: "2026-09-01", to: "2026-09-12" },
+    { id: "short", from: "2026-09-08", to: "2026-09-10" },
+  ];
+  const shortFirst = [...longFirst].reverse();
+  assert.equal(occForDate(longFirst, "2026-09-09").id, "short", "short wins regardless of list order");
+  assert.equal(occForDate(shortFirst, "2026-09-09").id, "short", "short wins even when listed second");
+  assert.equal(occForDate(longFirst, "2026-09-05").id, "long", "the long mark alone holds its other days");
+  assert.equal(occForDate(longFirst, "2026-09-13"), null, "a day outside both is free");
+});
+
+test("occForDateAll lists every overlapping mark, shortest first", () => {
+  const occs = [
+    { id: "long", from: "2026-09-01", to: "2026-09-12" },
+    { id: "short", from: "2026-09-08", to: "2026-09-10" },
+  ];
+  assert.deepEqual(occForDateAll(occs, "2026-09-09").map((o) => o.id), ["short", "long"]);
+  assert.deepEqual(occForDateAll(occs, "2026-09-05").map((o) => o.id), ["long"]);
+  assert.deepEqual(occForDateAll(occs, "2026-09-13"), []);
+  assert.deepEqual(occForDateAll([], "2026-09-09"), []);
+  assert.deepEqual(occForDateAll(null, "2026-09-09"), [], "missing list is safe");
 });
 
 test("occRange normalises a backwards drag to earlier → later", () => {
