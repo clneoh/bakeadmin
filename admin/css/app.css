@@ -1153,39 +1153,54 @@ textarea.input { min-height: 64px; resize: vertical; }
 .cal-cell.blank { visibility: hidden; }
 
 /* Occasion marks — reminder periods painted on the delivery calendar.
-   Purely visual: an occasion never adds or blocks a delivery date. */
+   Purely visual: an occasion never adds or blocks a delivery date. A mark has
+   TWO colours: red for a big, very-prominent holiday; grey for a long stretch.
+   Consecutive days of one mark form ONE continuous block — each shaded cell's
+   fill bleeds 2px into the 4px gutter, so a run reads as a solid band. */
 .cal-modes { display: flex; gap: 8px; margin: 0 0 12px; }
 .cal-modes .btn { flex: 1; font-size: 13px; padding: 9px 0; }
 .btn.cal-mode-on { background: var(--brown); border-color: var(--brown); color: #fff; box-shadow: none; }
 
+.occ-red  { --occ-fill: #f2c9be; --occ-solid: #c04538; } /* big, very-prominent */
+.occ-grey { --occ-fill: #d9d3cb; --occ-solid: #70747b; } /* a longer stretch */
+
 .occ-cell { cursor: pointer; }
 .cal-cell.occ {
-  background: var(--occ-bg, var(--gray-bg));
-  color: var(--occ-ink, var(--ink));
+  background: var(--occ-fill, var(--gray-bg));
   font-weight: 700;
+  border-radius: 0;
+  z-index: 0; /* stacking context so the wash stays under the day number */
+  color: var(--ink); /* keep the day number dark and readable on the wash */
 }
-/* An added date the baker also selected keeps the solid selection fill. */
-.cal-cell.occ.sel { background: var(--brown); color: #fff; }
+.cal-cell.occ::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--occ-fill, var(--gray-bg));
+  z-index: -1;
+}
+/* Stretch the wash only toward a neighbouring day of the SAME mark, so a run
+   of days joins into ONE continuous block (across week rows too) while the
+   block's outer edges stay clean. */
+.cal-cell.occ.l::before { left: -2px; }
+.cal-cell.occ.r::before { right: -2px; }
+.cal-cell.occ.t::before { top: -2px; }
+.cal-cell.occ.b::before { bottom: -2px; }
+/* A tapped-to-add day inside a mark shows the solid "picked" fill + ring. */
+.cal-cell.occ.sel { background: var(--brown-dark); color: #fff; box-shadow: inset 0 0 0 2px #fff; }
+.cal-cell.occ.sel::before { background: var(--brown-dark); }
+.cal-cell.tappable.occ:active { background: var(--occ-fill); }
+/* Live drag ring while choosing a range. */
 .cal-cell.occ-sel { box-shadow: inset 0 0 0 2px var(--brown); }
-/* Keep the "✓" green even when the day's tint overrides the added colour. */
-.cal-cell.added::after { color: var(--green); }
-
-.occ-cny { --occ-bg: #f9dcd2; --occ-ink: #a83b28; }
-.occ-hari-raya { --occ-bg: #dce9dc; --occ-ink: #2f6b3c; }
-.occ-mid-autumn { --occ-bg: #f7e6bd; --occ-ink: #8a6110; }
-.occ-deepavali { --occ-bg: #e7ddf0; --occ-ink: #5b3a8c; }
-.occ-public-holiday { --occ-bg: #e7e2da; --occ-ink: #57524b; }
-.occ-school-holiday { --occ-bg: #d9e6f0; --occ-ink: #2f5d87; }
-.occ-other { --occ-bg: #d6ece9; --occ-ink: #1f6a60; }
 
 .occ-tag {
   display: inline-block;
   padding: 1px 9px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
-  background: var(--occ-bg, var(--gray-bg));
-  color: var(--occ-ink, var(--ink));
+  font-weight: 700;
+  color: #fff;
+  background: var(--occ-solid, var(--brown));
 }
 
 .occ-tip { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
@@ -1210,11 +1225,46 @@ textarea.input { min-height: 64px; resize: vertical; }
 .occ-row-dates { font-size: 12px; color: var(--muted); }
 .occ-row .btn { flex: none; min-height: 34px; padding: 6px 11px; font-size: 12px; }
 
+/* Home's "Upcoming holidays" card rows. */
+.hol-list { margin-top: 2px; }
+.hol-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.hol-row:last-child { border-bottom: none; }
+.hol-row .occ-tag {
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 62%;
+}
+.hol-row .occ-row-dates { margin-left: auto; flex: none; text-align: right; }
+
 .cal-range { font-size: 15px; font-weight: 700; font-family: var(--serif); margin: 0 0 10px; }
+
+/* Popup: the red/grey colour picker, then the one-tap name chips. */
+.occ-colours { display: flex; flex-direction: column; gap: 8px; }
+.occ-colbtn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; }
+.occ-colbtn .occ-dot { width: 16px; height: 16px; border-radius: 50%; flex: none; }
+.occ-colbtn.red { background: var(--red-bg); color: var(--red); box-shadow: none; }
+.occ-colbtn.grey { background: #ecebe8; color: #57544f; box-shadow: none; }
+.occ-colbtn.red .occ-dot { background: #c04538; }
+.occ-colbtn.grey .occ-dot { background: #70747b; }
+.occ-colbtn .occ-check { margin-left: auto; font-weight: 800; }
+.occ-colbtn.colour-on.red { background: #c04538; color: #fff; }
+.occ-colbtn.colour-on.grey { background: #70747b; color: #fff; }
+.occ-colbtn.colour-on .occ-dot { background: #fff; }
+.occ-colbtn.colour-on .occ-check { color: #fff; }
+.occ-colbtn.colour-on { outline: 2px solid var(--brown); outline-offset: -1px; }
+
 .occ-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .occ-chip {
-  background: var(--occ-bg, var(--brown-soft));
-  color: var(--occ-ink, var(--brown-dark));
+  background: var(--brown-soft);
+  color: var(--brown-dark);
   font-weight: 600;
   font-size: 13px;
   padding: 9px 14px;

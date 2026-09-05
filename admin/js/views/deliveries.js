@@ -12,7 +12,7 @@ import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import {
   DOW, addMonth, monthLabel, monthWeeks,
-  OCCASION_PRESETS, occForDate, occKind, occRange,
+  OCCASION_PRESETS, occForDate, occColour, occRange,
 } from "../calendar.js";
 
 // Local picker state (survives re-renders while this screen is open): which
@@ -22,6 +22,7 @@ let viewMonth = null;
 const picked = new Set();
 let occMode = false;
 let occAnchor = null; // first day of a two-tap mark, waiting for the last day
+let occColourChosen = "red"; // mark colour she picked last (red/grey)
 
 function view() { return document.getElementById("view"); }
 
@@ -86,10 +87,39 @@ function addSelected(state) {
   renderAll(view(), state);
 }
 
-// The extra classes a date gets when an occasion covers it ("occ occ-<kind>").
+// The ISO range of the month now on screen (every grid cell stays inside it).
+function monthISOBounds() {
+  const { year, month } = viewMonth;
+  const p = (n) => String(n).padStart(2, "0");
+  const last = new Date(year, month + 1, 0).getDate();
+  return [`${year}-${p(month + 1)}-01`, `${year}-${p(month + 1)}-${p(last)}`];
+}
+
+function shiftISO(date, days) {
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// The extra classes a date gets when an occasion covers it: its colour wash,
+// plus l/r/t/b flags for the neighbouring days that belong to the SAME mark —
+// the CSS uses those to stretch the wash into the gutters, so a multi-day mark
+// reads as one continuous block instead of separate day tiles.
 function occTint(state, date) {
   const occ = occForDate(state.occasions, date);
-  return occ ? ` occ occ-${occKind(occ.label)}` : "";
+  if (!occ) return "";
+  let cls = ` occ occ-${occColour(occ)}`;
+  const [firstISO, lastISO] = monthISOBounds();
+  const same = (x) => x >= firstISO && x <= lastISO && occForDate(state.occasions, x) === occ;
+  const dow = new Date(`${date}T00:00:00`).getDay(); // 0 Sun … 6 Sat
+  // A Sunday's left neighbour (and a Saturday's right neighbour) sits on the
+  // next grid row, so those never count as a same-row join.
+  if (dow !== 0 && same(shiftISO(date, -1))) cls += " l";
+  if (dow !== 6 && same(shiftISO(date, 1))) cls += " r";
+  if (same(shiftISO(date, -7))) cls += " t";
+  if (same(shiftISO(date, 7))) cls += " b";
+  return cls;
 }
 
 function buildAddCard(state) {
@@ -197,7 +227,7 @@ function occBody(state) {
 
 function occRow(state, occ) {
   return el("div", { class: "occ-row" },
-    el("span", { class: `occ-tag occ-${occKind(occ.label)}` }, occ.label),
+    el("span", { class: `occ-tag occ-${occColour(occ)}` }, occ.label),
     el("span", { class: "occ-row-dates" }, `${longDate(occ.from)} – ${longDate(occ.to)}`),
     button("✕", () => deleteOccasion(state, occ), "ghost small"));
 }
@@ -216,8 +246,11 @@ function deleteOccasion(state, occ) {
     }, { danger: true, yesLabel: "Remove" });
 }
 
-function addOccasion(state, from, to, label, close) {
-  state.occasions.push({ id: newId("occ"), from, to, label: String(label).trim() });
+function addOccasion(state, from, to, label, colour, close) {
+  state.occasions.push({
+    id: newId("occ"), from, to, label: String(label).trim(),
+    colour: colour === "red" ? "red" : "grey",
+  });
   save(state);
   maybeSync(state);
   toast(`Marked "${label}" on the calendar`);
@@ -233,9 +266,10 @@ function rangeText(from, to) {
 function occLabelPicker(state, from, to) {
   showPopup("Mark this period", (refresh, close) => {
     const custom = el("input", { class: "input", placeholder: "Or type a name of your own", maxlength: "40" });
+    let colour = occColourChosen;
     const finish = (label) => {
       if (!String(label).trim()) return toast("Type a name first");
-      addOccasion(state, from, to, label, close);
+      addOccasion(state, from, to, label, colour, close);
     };
     custom.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(custom.value); });
     const cancel = () => {
@@ -243,14 +277,39 @@ function occLabelPicker(state, from, to) {
       close();
       renderAll(view(), state);
     };
+
+    // Colour is the first choice — red for a big, very-prominent holiday,
+    // grey for a long stretch. Remembered so the next mark keeps it.
+    const colBtns = new Map(); // key -> { btn, check }
+    const pickColour = (key) => {
+      colour = key;
+      occColourChosen = key;
+      for (const [k, { btn, check }] of colBtns) {
+        btn.classList.toggle("colour-on", k === key);
+        check.style.visibility = k === key ? "visible" : "hidden";
+      }
+    };
+    const colourBtn = (key, text) => {
+      const check = el("span", { class: "occ-check" }, "✓");
+      check.style.visibility = occColourChosen === key ? "visible" : "hidden";
+      const btn = button(text, () => pickColour(key), `occ-colbtn ${key}${occColourChosen === key ? " colour-on" : ""}`);
+      btn.prepend(el("span", { class: "occ-dot" }));
+      btn.appendChild(check);
+      colBtns.set(key, { btn, check });
+      return btn;
+    };
+    const colours = el("div", { class: "occ-colours" },
+      colourBtn("red", "Red — a big, very-prominent day"),
+      colourBtn("grey", "Grey — a long stretch of days"));
+
     const chips = el("div", { class: "occ-chips" },
-      ...OCCASION_PRESETS.map((p) =>
-        button(p, () => finish(p), `occ-chip occ-${occKind(p)}`)));
+      ...OCCASION_PRESETS.map((p) => button(p, () => finish(p), "occ-chip")));
     return el("div", {},
       el("p", { class: "cal-range" }, rangeText(from, to)),
-      el("p", { class: "occ-sublabel", style: "margin-top:2px" }, "One-tap names"),
+      el("p", { class: "occ-sublabel", style: "margin-top:2px" }, "Pick a colour"),
+      colours,
+      el("p", { class: "occ-sublabel", style: "margin-top:12px" }, "Name it"),
       chips,
-      el("p", { class: "occ-sublabel", style: "margin-top:12px" }, "Or your own"),
       custom,
       el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px" },
         button("Cancel", cancel, "ghost"),
@@ -365,7 +424,7 @@ function dateCard(state, date) {
     el("p", { class: "card-title" }, `${weekdayName(date.date)}, ${longDate(date.date)}`),
     el("p", { class: "card-sub" },
       `${ordered} ordered · ${left} left${closed ? " · orders closed" : ""}`));
-  if (occ) col.append(el("span", { class: `occ-tag occ-${occKind(occ.label)}`, style: "margin-top:6px" }, occ.label));
+  if (occ) col.append(el("span", { class: `occ-tag occ-${occColour(occ)}`, style: "margin-top:6px" }, occ.label));
 
   return el("div", { class: `card${closed ? " closed" : ""}` },
     el("div", { class: "card-row" },

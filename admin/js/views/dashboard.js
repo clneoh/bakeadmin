@@ -1,8 +1,9 @@
 // views/dashboard.js — Home: upcoming delivery dates with status + fill.
 
 import { navigate } from "../app.js";
-import { deliveryStatus, generateUpcomingDates, longDate, todayISO, weekdayName } from "../dates.js";
+import { deliveryStatus, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, effectiveCapacity } from "../bom.js";
+import { occColour } from "../calendar.js";
 import { el, badge, emptyState, button } from "../ui.js";
 import { gauge } from "../gauge.js";
 import { byId, newId, save } from "../state.js";
@@ -158,9 +159,41 @@ function atAGlanceBlocks(root, state, today) {
   const bake = nextBake(state, { today });
   if (bake) blocks.push(bakeCard(state, bake));
 
+  const holiday = holidayCard(state, today);
+  if (holiday) blocks.push(holiday);
+
   blocks.push(weekCard(state, weekStats(state, { today })));
   blocks.push(routineCard(root, state, today));
   return blocks;
+}
+
+// "Upcoming holidays": the next three marked periods (from today) — reminders
+// she painted on the Delivery calendar. Tapping the card opens that calendar.
+function holidayCard(state, today) {
+  const occs = (state.occasions || [])
+    .filter((o) => o && o.from && o.to && o.to >= today)
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .slice(0, 3);
+  if (!occs.length) return null;
+  const rows = occs.map((o) => {
+    const running = o.from <= today && today <= o.to;
+    const when = running
+      ? `until ${shortDate(o.to)}`
+      : `${shortDate(o.from)} – ${shortDate(o.to)}`;
+    return el("div", { class: "hol-row" },
+      el("span", { class: `occ-tag occ-${occColour(o)}` }, o.label),
+      el("span", { class: "occ-row-dates" }, when));
+  });
+  return el("div", {
+    class: "card tappable",
+    onclick: () => navigate("#/deliveries"),
+  },
+    el("div", { class: "card-row" },
+      el("div", {},
+        el("p", { class: "card-title" }, "Upcoming holidays"),
+        el("p", { class: "card-sub" }, "Marked on the Delivery calendar")),
+      el("span", { class: "qty-chip" }, String(occs.length))),
+    el("div", { class: "hol-list" }, ...rows));
 }
 
 function renderInner(root, state) {

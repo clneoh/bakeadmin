@@ -42,19 +42,19 @@ export const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 // A period of days the baker wants to remember when planning — a public
 // holiday, a school-holiday stretch, CNY, Hari Raya... Purely a reminder: an
 // occasion never adds or removes delivery dates or changes ordering. One-tap
-// presets cover the common ones; a custom label falls back to "other".
+// presets cover the common names. The baker picks the mark's colour herself:
+// RED for a big, very-prominent holiday, GREY for a longer stretch.
 
 export const OCCASION_PRESETS = [
   "CNY", "Hari Raya", "Mid-Autumn", "Deepavali", "Public holiday", "School holiday",
 ];
 
-// Which colour family a label belongs to: the matching preset, else "other".
-export function occKind(label) {
-  const text = String(label || "").trim().toLowerCase();
-  for (const p of OCCASION_PRESETS) {
-    if (p.toLowerCase() === text) return p.toLowerCase().replace(/\s+/g, "-");
-  }
-  return "other";
+// The two reminder colours the baker can choose for a mark. Anything without
+// an explicit colour (an older mark) counts as grey.
+export const OCC_COLOURS = ["red", "grey"];
+
+export function occColour(occ) {
+  return occ && occ.colour === "red" ? "red" : "grey";
 }
 
 // The occasion (first match) whose inclusive [from, to] range holds dateISO.

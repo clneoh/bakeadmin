@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { addMonth, DOW, monthLabel, monthWeeks, OCCASION_PRESETS, occKind, occForDate, occRange } =
+const { addMonth, DOW, monthLabel, monthWeeks, OCCASION_PRESETS, occColour, occForDate, occRange } =
   await import("../admin/js/calendar.js");
 
 function flatDates(grid) { return grid.flat().filter(Boolean); }
@@ -80,15 +80,12 @@ test("OCCASION_PRESETS covers the baker's one-tap marks", () => {
   ]);
 });
 
-test("occKind maps a label to its preset colour family, any casing", () => {
-  assert.equal(occKind("CNY"), "cny");
-  assert.equal(occKind("hari raya"), "hari-raya");
-  assert.equal(occKind("School holiday"), "school-holiday");
-  assert.equal(occKind("Public Holiday"), "public-holiday");
-  assert.equal(occKind("Mid-Autumn"), "mid-autumn");
-  assert.equal(occKind("Deepavali"), "deepavali");
-  assert.equal(occKind("Daughter's exam week"), "other", "custom labels get the default colour");
-  assert.equal(occKind(""), "other");
+test("occColour reports the mark's own colour, defaulting old marks to grey", () => {
+  assert.equal(occColour({ id: "a", from: "2026-09-14", to: "2026-09-22", label: "Hari Raya", colour: "red" }), "red");
+  assert.equal(occColour({ id: "b", from: "2026-09-28", to: "2026-10-04", label: "School holiday", colour: "grey" }), "grey");
+  assert.equal(occColour({ id: "c", from: "2026-09-14", to: "2026-09-22", label: "Public holiday" }), "grey",
+    "a mark without an explicit colour counts as grey");
+  assert.equal(occColour(null), "grey", "missing occasion is safe");
 });
 
 test("occForDate finds the occasion holding a day, inclusive of both ends", () => {
