@@ -14,6 +14,7 @@ import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
   occColour, occDays, occForDateAll, occRange, occStrength,
 } from "../calendar.js";
+import { MALAYSIAN_OCCASIONS, importOccColour } from "../malaysian_occasions.js";
 
 // Local picker state (survives re-renders while this screen is open): which
 // month is showing, which future dates the baker has tapped to add, and the
@@ -245,6 +246,9 @@ function occBody(state) {
     el("p", { class: "occ-tip" },
       "Slide from the first day to the last — or tap the first, then the last."
       + " Tap the same day twice to mark just one day."),
+    el("div", { class: "occ-importrow" },
+      button("＋ Add Malaysia's occasions",
+        () => occImportPicker(state), "soft small")),
     el("p", { class: "occ-sublabel" }, "Marked periods"),
     occs.length
       ? occs.map((o) => occRow(state, o))
@@ -272,6 +276,96 @@ function deleteOccasion(state, occ) {
       resetOcc();
       renderAll(view(), state);
     }, { danger: true, yesLabel: "Remove" });
+}
+
+// The "Add Malaysia's occasions" button's checkbox list — every future,
+// not-yet-added entry grouped under the four categories she picked. Rows are
+// ticked by default; the count on the Add button follows the ticks live.
+const OCC_IMPORT_GROUPS = [
+  ["festive", "Festive days"],
+  ["national", "National days"],
+  ["family", "Love & family days"],
+  ["school", "School holidays"],
+];
+
+function occImportDateText(from, to) {
+  return from === to ? longDate(from) : `${longDate(from)} – ${longDate(to)}`;
+}
+
+function occImportPicker(state) {
+  const today = todayISO();
+  const already = new Set((state.occasions || []).map((o) => `${o.label}|${o.from}`));
+  const entries = MALAYSIAN_OCCASIONS.filter((e) =>
+    e.to >= today && !already.has(`${e.label}|${e.from}`));
+  if (!entries.length) {
+    showPopup("Add Malaysia's occasions", (refresh, close) => el("div", {},
+      el("p", { class: "card-sub" },
+        "Every Malaysian date in the list is already on your calendar — nothing new to add."),
+      el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px;justify-content:flex-end" },
+        button("Close", close, "primary"))));
+    return;
+  }
+
+  showPopup("Add Malaysia's occasions", (refresh, close) => {
+    const on = entries.map(() => true);
+
+    const groups = el("div", { class: "mycal-groups" });
+    for (const [cat, title] of OCC_IMPORT_GROUPS) {
+      const rows = [];
+      entries.forEach((e, i) => {
+        if (e.cat !== cat) return;
+        const dot = el("span", { class: `mycal-dot occ-${importOccColour(e)}` });
+        const box = el("input", { type: "checkbox", checked: true });
+        box.addEventListener("change", () => { on[i] = box.checked; recount(); });
+        rows.push(el("div", { class: "mycal-row" }, box, dot,
+          el("span", { class: "mycal-label" }, e.label),
+          el("span", { class: "mycal-date" }, occImportDateText(e.from, e.to))));
+      });
+      if (rows.length) groups.append(el("p", { class: "mycal-sub" }, title), ...rows);
+    }
+
+    let addBtn = null;
+    const recount = () => {
+      const n = on.filter(Boolean).length;
+      addBtn.textContent = `Add (${n})`;
+      addBtn.disabled = n === 0;
+    };
+
+    const doAdd = () => {
+      occImportAdd(state, entries.filter((_, i) => on[i]), close);
+    };
+
+    addBtn = button("Add", doAdd, "primary");
+    recount();
+    return el("div", {},
+      el("p", { class: "mycal-legend" },
+        el("span", { class: "mycal-dot occ-red" }), " public holiday",
+        " · ", el("span", { class: "mycal-dot occ-orange" }), " other celebration",
+        " · untick any you don't want. \"(est.)\" dates are estimates until officially confirmed — you can Edit or delete any mark afterwards."),
+      groups,
+      el("div", { class: "popup-actions" }, button("Cancel", close, "ghost"), addBtn));
+  });
+}
+
+function occImportAdd(state, picks, close) {
+  const already = new Set((state.occasions || []).map((o) => `${o.label}|${o.from}`));
+  const fresh = picks.filter((e) => !already.has(`${e.label}|${e.from}`));
+  if (fresh.length) {
+    for (const e of fresh) {
+      state.occasions.push({
+        id: newId("occ"), from: e.from, to: e.to,
+        label: e.label, colour: importOccColour(e),
+      });
+    }
+    save(state);
+    maybeSync(state);
+  }
+  toast(fresh.length
+    ? `Added ${fresh.length} Malaysian occasion${fresh.length === 1 ? "" : "s"}`
+    : "Those are already on your calendar");
+  close();
+  resetOcc();
+  renderAll(view(), state);
 }
 
 // Names the baker has typed before, most recent first — a quick-tap reuse list
