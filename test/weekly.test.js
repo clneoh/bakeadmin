@@ -15,9 +15,10 @@ globalThis.localStorage = {
 
 import { addDays } from "../admin/js/dates.js";
 
-const { WEEKLY_TASKS, loadRoutine: loadR, mergeWeekCheck: mergeWc,
-  newOrderCount: countNew, nextBake: next, toggleRoutine: toggle,
-  weekStartISO: sundayOf, weekStats: stats }
+const { WEEKLY_TASKS, addTask, comingWeeks, loadRoutine: loadR,
+  materializeTasks, mergeWeekCheck: mergeWc, mondayAnchor,
+  newOrderCount: countNew, nextBake: next, removeTask, renameTask,
+  taskList, toggleRoutine: toggle, weekStartISO: sundayOf, weekStats: stats }
   = await import("../admin/js/weekly.js");
 
 // A fixed mid-week day (2026-09-09 is a Wednesday; its week's Sunday is
@@ -231,4 +232,136 @@ test("WEEKLY_TASKS has six unique, sensible routine ids", () => {
   assert.equal(ids.length, 6);
   assert.equal(new Set(ids).size, 6, "unique ids");
   for (const t of WEEKLY_TASKS) assert.ok(t.label.trim().length > 3);
+});
+
+// ── Coming-4-weeks forecast (Monday-anchored windows) ─────────────────────
+
+test("mondayAnchor is the first Monday on or after today", () => {
+  assert.equal(mondayAnchor("2026-09-05"), "2026-09-07", "a Saturday rolls to the next Monday");
+  assert.equal(mondayAnchor("2026-09-06"), "2026-09-07", "a Sunday rolls to the next Monday");
+  assert.equal(mondayAnchor("2026-09-09"), "2026-09-14", "mid-week rolls to the next Monday");
+  assert.equal(mondayAnchor("2026-09-14"), "2026-09-14", "a Monday maps to itself");
+  assert.equal(mondayAnchor("2026-12-31"), "2027-01-04", "crosses a year boundary");
+});
+
+// Delivery cadence Mon/Wed/Fri. TODAY is Wed 2026-09-09, so Week 1 runs Mon
+// 2026-09-14 – Sun 2026-09-20 and any earlier upcoming date folds into Week 1.
+function forecastState() {
+  return baseState({
+    settings: { currency: "RM", defaultCapacity: 12 },
+    products: [
+      { id: "p1", name: "Focaccia", price: 15, recipe: [] },
+      { id: "p2", name: "Sandwich", recipe: [] }, // no price yet
+      { id: "p3", name: "Croissant", price: 8, recipe: [] },
+    ],
+    deliveryDates: [
+      { id: "g", date: "2026-09-11" },  // before Week 1's Monday → folds in
+      { id: "d1", date: "2026-09-14" }, // Week 1 Mon
+      { id: "d2", date: "2026-09-16" }, // Week 1 Wed
+      { id: "d3", date: "2026-09-18" }, // Week 1 Fri (no orders)
+      { id: "d4", date: "2026-09-21" }, // Week 2 Mon
+      { id: "d5", date: "2026-09-30" }, // Week 3 Wed
+      { id: "d6", date: "2026-10-06" }, // Week 4 Tue
+      { id: "dLater", date: "2026-10-19" }, // beyond the window
+    ],
+    orders: [
+      { id: "o1", deliveryDateId: "d1", productId: "p1", qty: 2, status: "new" },
+      { id: "o2", deliveryDateId: "d1", productId: "p2", qty: 1, status: "new" },
+      { id: "o3", deliveryDateId: "d2", productId: "p3", qty: 4, status: "confirmed" },
+      { id: "o4", deliveryDateId: "d4", productId: "p1", qty: 3, status: "new" },
+    ],
+  });
+}
+
+test("comingWeeks returns four Mon–Sun rows with the dates each week holds", () => {
+  const w = comingWeeks(forecastState(), { today: TODAY });
+  assert.equal(w.rows.length, 4);
+  assert.deepEqual(
+    w.rows.map((r) => [r.start, r.end]),
+    [["2026-09-14", "2026-09-20"], ["2026-09-21", "2026-09-27"],
+     ["2026-09-28", "2026-10-04"], ["2026-10-05", "2026-10-11"]],
+    "windows are four Mon–Sun weeks from the coming Monday");
+
+  const ids = (r) => r.dates.map((d) => d.id);
+  assert.deepEqual(ids(w.rows[0]), ["g", "d1", "d2", "d3"],
+    "the pre-Monday date folds into Week 1 alongside its Mon/Wed/Fri dates");
+  assert.deepEqual(ids(w.rows[1]), ["d4"]);
+  assert.deepEqual(ids(w.rows[2]), ["d5"], "30 Sep sits in Week 3 across the month edge");
+  assert.deepEqual(ids(w.rows[3]), ["d6"]);
+  assert.deepEqual(w.later.map((d) => d.id), ["dLater"], "past the window comes back under later");
+});
+
+test("comingWeeks totals: booked/free come from capacity, money flags unpriced", () => {
+  const w = comingWeeks(forecastState(), { today: TODAY });
+  const week1 = w.rows[0];
+  // d1: 2+1 booked of 12, d2: 4 of 12, d3 and g: 0 of 12.
+  assert.equal(week1.booked, 7, "pieces booked on Week-1 dates");
+  assert.equal(week1.capacity, 48, "four dates × capacity 12");
+  assert.equal(week1.free, (12 - 3) + (12 - 4) + 12 + 12, "free slots only on the open remainder");
+  assert.equal(week1.rm, (2 * 15) + (4 * 8), "priced items sum; the unpriced Sandwich adds 0");
+  assert.equal(week1.unpriced, true, "an ordered product has no price → flagged");
+
+  assert.equal(w.rows[1].booked, 3);
+  assert.equal(w.rows[1].rm, 3 * 15, "week-2 money");
+  assert.equal(w.rows[1].unpriced, false);
+  assert.equal(w.rows[2].booked, 0, "an empty week is 0/0 with no flag");
+  assert.equal(w.rows[2].rm, 0);
+  assert.equal(w.rows[3].booked, 0);
+});
+
+test("comingWeeks: weeks count can be shrunk; no dates → empty rows and later", () => {
+  const two = comingWeeks(forecastState(), { today: TODAY, weeks: 2 });
+  assert.equal(two.rows.length, 2, "only two windows when asked");
+  assert.deepEqual(two.later.map((d) => d.id),
+    ["d5", "d6", "dLater"], "dates past the two-week window all become later");
+
+  const empty = comingWeeks(baseState(), { today: TODAY });
+  assert.ok(empty.rows.every((r) => r.dates.length === 0), "no dates → empty weeks");
+  assert.equal(empty.rows[0].booked, 0);
+  assert.equal(empty.rows[0].free, 0);
+  assert.deepEqual(empty.later, []);
+});
+
+// ── the editable to-do (task definitions) ─────────────────────────────────
+
+test("task helpers: presets until the first edit, then a stored authoritative list", () => {
+  const s = baseState();
+  assert.equal(taskList(s), WEEKLY_TASKS, "unchanged list is the preset seed");
+  assert.ok(!Array.isArray(s.settings.tasks), "nothing stored until an edit");
+
+  // Renaming a preset materialises the list first, keeping all six rows.
+  assert.equal(renameTask(s, "orders", "  Answer new orders fast  "), true);
+  assert.equal(s.settings.tasks.length, 6, "presets kept");
+  assert.equal(s.settings.tasks.find((t) => t.id === "orders").label, "Answer new orders fast");
+  assert.equal(WEEKLY_TASKS.find((t) => t.id === "orders").label.includes("Reply"), true,
+    "the preset constant itself is untouched");
+});
+
+test("task helpers: add appends a custom task, blank labels are rejected", () => {
+  const s = baseState();
+  assert.equal(addTask(s, "   Clean the oven  "), true);
+  const added = s.settings.tasks.find((t) => t.label === "Clean the oven");
+  assert.ok(added, "custom task stored");
+  assert.ok(added.id.startsWith("tsk"), "fresh id, never clashing with preset ids");
+  assert.equal(s.settings.tasks.length, 7, "six presets + one custom");
+
+  const before = s.settings.tasks.length;
+  assert.equal(addTask(s, "   "), false, "blank add does nothing");
+  assert.equal(renameTask(s, added.id, "  "), false, "blank rename does nothing");
+  assert.equal(s.settings.tasks.length, before);
+  assert.equal(s.settings.tasks.find((t) => t.id === added.id).label, "Clean the oven", "label unchanged");
+});
+
+test("task helpers: remove deletes one row; deleting all stays empty (no preset revival)", () => {
+  const s = baseState();
+  materializeTasks(s);
+  const id = s.settings.tasks[2].id;
+  assert.equal(removeTask(s, id), true);
+  assert.equal(s.settings.tasks.length, 5);
+  assert.equal(removeTask(s, "nope"), false, "unknown id is a no-op");
+
+  const s2 = baseState();
+  for (const t of WEEKLY_TASKS) removeTask(s2, t.id);
+  assert.deepEqual(s2.settings.tasks, [], "empty list is authoritative");
+  assert.deepEqual(taskList(s2), [], "taskList honours the stored empty list");
 });

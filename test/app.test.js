@@ -147,6 +147,7 @@ test("cloud off with orders: Home shows the at-a-glance tiles and weekly to-do",
     assert.match(text, /2 items/, "next-bake footer totals the batch");
     assert.match(text, /This week/, "numbers tile present");
     assert.match(text, /RM 30\.00/, "est. value = 2 × RM 15");
+    assert.match(text, /Coming 4 weeks/, "forecast card shows when future delivery dates exist");
     assert.match(text, /This week's to-do/, "weekly to-do card present");
     assert.match(text, /0\/6/, "fresh week, nothing ticked yet");
   } finally { restore(); }

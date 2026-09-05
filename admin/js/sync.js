@@ -72,6 +72,10 @@ function recordPayload(kind, rec) {
       currency: rec.currency,
       weekCheck: rec.weekCheck || { week: "", done: {} },
       referrals: rec.referrals || {}, // bring-a-friend scheme numbers
+      // The to-do list once she customises it. Absent until then: a phone that
+      // never edited its tasks must not push the preset seed and overwrite the
+      // other phone's customised list (last-write-wins below would clobber it).
+      ...(Array.isArray(rec.tasks) ? { tasks: rec.tasks } : {}),
     };
   }
   return rec;

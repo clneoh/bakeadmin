@@ -657,3 +657,56 @@ test("pageActive(): refreshes only while the page is on screen", () => {
     else globalThis.document = realDoc;
   }
 });
+
+// ── the editable to-do list (settings.tasks) ─────────────────────────────
+
+test("computeRecords: settings payload omits tasks until customised, then carries them", () => {
+  const st = baseState();
+  const bare = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal("tasks" in bare.data, false,
+    "a phone that never edited its to-do pushes no tasks field");
+
+  st.settings.tasks = [{ id: "orders", label: "Reply to new orders" }, { id: "tskA", label: "Clean the oven" }];
+  const withTasks = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(withTasks.data.tasks,
+    [{ id: "orders", label: "Reply to new orders" }, { id: "tskA", label: "Clean the oven" }],
+    "the customised list rides the settings row so both phones agree");
+});
+
+test("mergeRows: a newer cloud to-do list replaces the local one wholesale", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.tasks = [{ id: "orders", label: "local old wording" }, { id: "tskL", label: "Local-only task" }];
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+
+    const r = sync.mergeRows(st, [cloudRow("settings", "default",
+      {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        tasks: [{ id: "orders", label: "Reply to new orders & WhatsApp" }, { id: "tskC", label: "Call the supplier" }],
+        weekCheck: { week: "", done: {} },
+      },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    assert.deepEqual(st.settings.tasks,
+      [{ id: "orders", label: "Reply to new orders & WhatsApp" }, { id: "tskC", label: "Call the supplier" }],
+      "the newer list wins whole, exactly like the rest of settings");
+  } finally { restore(); }
+});
+
+test("mergeRows: a cloud row without tasks never deletes the local customised list", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.tasks = [{ id: "tskA", label: "Clean the oven" }];
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+
+    // Another phone (older build, or one that never customised) pushes a payload
+    // with no `tasks` key — the local list must survive that merge.
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 9, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.tasks, [{ id: "tskA", label: "Clean the oven" }],
+      "an absent cloud field is not a delete");
+  } finally { restore(); }
+});

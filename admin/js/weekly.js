@@ -3,9 +3,10 @@
 // data (orders, products, delivery dates). Pure module — no DOM, never imports
 // app.js — so it runs under Node for tests.
 
-import { byId, fmtRM, groupOrders, save } from "./state.js";
+import { byId, fmtRM, groupOrders, newId, save } from "./state.js";
 import { addDays, todayISO } from "./dates.js";
 import { orderDateOf } from "./customers.js";
+import { capacityStatus } from "./bom.js";
 
 // The fixed weekly routine the baker ticks off on Home. Wording mirrors the
 // marketing guide's daily/weekly routine so the app and the guide agree.
@@ -144,6 +145,120 @@ export function mergeWeekCheck(a = {}, b = {}) {
     week: typeof later.week === "string" ? later.week : "",
     done: (later.done && typeof later.done === "object") ? { ...later.done } : {},
   };
+}
+
+// ── Coming-4-weeks forecast ─────────────────────────────────────────────────
+// Delivery runs Mon/Wed/Fri, so the forecast weeks run Mon→Sun and Week 1
+// starts on the NEXT Monday (not the routine's Sunday anchor).
+
+// The first Monday on/after `today` (ISO).
+export function mondayAnchor(today = todayISO()) {
+  const day = new Date(`${today}T00:00:00`).getDay(); // 0 Sun … 6 Sat
+  return addDays(today, (1 - day + 7) % 7);
+}
+
+// Booked pieces / free slots for a set of dates come from capacityStatus
+// (bom.js) — the same numbers the dials show. Money is price × qty for every
+// order on those dates, flagging unpriced products the way weekStats does.
+function weekNumbers(state, dates) {
+  const ids = new Set(dates.map((d) => d.id));
+  let booked = 0;
+  let capacity = 0;
+  let free = 0;
+  let rm = 0;
+  let unpriced = false;
+  for (const d of dates) {
+    const cs = capacityStatus(state, d.id);
+    booked += cs.total;
+    capacity += cs.capacity;
+    free += Math.max(0, cs.remaining);
+  }
+  for (const o of state.orders || []) {
+    if (!ids.has(o.deliveryDateId)) continue;
+    const p = byId(state.products, o.productId);
+    if (!p) continue;
+    if (p.price == null) unpriced = true;
+    else rm += (Number(o.qty) || 0) * Number(p.price);
+  }
+  return { booked, capacity, free, rm, unpriced };
+}
+
+// The next `weeks` Mon–Sun windows from the coming Monday, each listing its
+// delivery dates plus their booked/free/money totals. An upcoming date before
+// Week 1's Monday folds into Week 1; dates past the window come back under
+// `later` for a collapsible list on the view.
+export function comingWeeks(state, { today = todayISO(), weeks = 4 } = {}) {
+  const upcoming = (state.deliveryDates || [])
+    .filter((d) => d && d.date && d.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const anchor = mondayAnchor(today);
+  const horizon = addDays(anchor, weeks * 7 - 1); // the last Sunday in the window
+  const rows = [];
+  for (let k = 0; k < weeks; k++) {
+    const start = addDays(anchor, k * 7);
+    const end = addDays(start, 6);
+    const dates = k === 0
+      ? upcoming.filter((d) => d.date <= end)
+      : upcoming.filter((d) => d.date >= start && d.date <= end);
+    rows.push({
+      start,
+      end,
+      dates: dates.map((d) => ({ id: d.id, date: d.date })),
+      ...weekNumbers(state, dates),
+    });
+  }
+  return {
+    rows,
+    later: upcoming.filter((d) => d.date > horizon).map((d) => ({ id: d.id, date: d.date })),
+  };
+}
+
+// ── the to-do list (task definitions) ───────────────────────────────────────
+// WEEKLY_TASKS is the preset routine a fresh phone starts with. The first time
+// the baker edits the list, settings.tasks snapshots those presets and becomes
+// the authoritative list — synced last-write-wins (like the rest of settings)
+// so both phones show the same tasks, while the per-week ticks still ride
+// settings.weekCheck's union merge.
+
+// The tasks to show: the stored list once customised, else the presets.
+export function taskList(state) {
+  const tasks = state.settings && state.settings.tasks;
+  return Array.isArray(tasks) ? tasks : WEEKLY_TASKS;
+}
+
+// Snapshot the presets into settings.tasks on the first edit so it keeps all six.
+export function materializeTasks(state) {
+  if (!state.settings) state.settings = {};
+  if (!Array.isArray(state.settings.tasks)) {
+    state.settings.tasks = WEEKLY_TASKS.map((t) => ({ id: t.id, label: t.label }));
+  }
+  return state.settings.tasks;
+}
+
+export function addTask(state, label) {
+  const text = String(label || "").trim();
+  if (!text) return false;
+  materializeTasks(state).push({ id: newId("tsk"), label: text });
+  save(state);
+  return true;
+}
+
+export function renameTask(state, id, label) {
+  const text = String(label || "").trim();
+  if (!text) return false;
+  const task = materializeTasks(state).find((t) => t.id === id);
+  if (!task) return false;
+  task.label = text;
+  save(state);
+  return true;
+}
+
+export function removeTask(state, id) {
+  const list = materializeTasks(state);
+  if (!list.some((t) => t.id === id)) return false;
+  state.settings.tasks = list.filter((t) => t.id !== id);
+  save(state);
+  return true;
 }
 
 // Currency formatter used by the This-week tile (shared here so tests and the
