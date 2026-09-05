@@ -18,6 +18,7 @@
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
 import { save } from "./state.js";
+import { mergeWeekCheck } from "./weekly.js";
 
 const SYNC_KEY = "bakeadmin.sync";
 
@@ -57,7 +58,9 @@ export function isSignedIn() {
 // ── records / change detection ────────────────────────────────────────────
 
 // The business payload for a record. Settings sync only the keys every phone
-// should share — connection config (`supabase`, `cloud`) stays per-device.
+// should share — connection config (`supabase`, `cloud`) stays per-device, and
+// so does the app-password `lock`. The weekly checklist `weekCheck` DOES sync
+// (so Home's to-do agrees on both phones) and is union-merged on pull (below).
 function recordPayload(kind, rec) {
   if (kind === "settings") {
     return {
@@ -65,6 +68,7 @@ function recordPayload(kind, rec) {
       deliveryDays: rec.deliveryDays,
       cutoff: rec.cutoff,
       currency: rec.currency,
+      weekCheck: rec.weekCheck || { week: "", done: {} },
     };
   }
   return rec;
@@ -180,10 +184,17 @@ function mergeCloudRows(state, rows, b) {
       try { payload = JSON.parse(row.data); } catch { continue; }
       if (!payload || typeof payload !== "object") continue;
       if (localNewerOrSame || cloudAt <= localAt) continue; // local wins
+      // The checklist must not be overwritten wholesale: another phone's ticks
+      // union with this phone's so a same-week tick is never lost. Everything
+      // else merges as before, keeping per-device config local.
+      const { weekCheck: cloudWc, ...rest } = payload;
       const merged = {
-        ...payload,
+        ...rest,
         supabase: (state.settings && state.settings.supabase) || {},
         cloud: (state.settings && state.settings.cloud) || { enabled: false },
+        weekCheck: mergeWeekCheck(
+          (state.settings && state.settings.weekCheck) || {},
+          cloudWc || {}),
       };
       state.settings = { ...state.settings, ...merged };
       b.meta[key] = cloudAt;

@@ -91,8 +91,12 @@ test("computeRecords: arrays become rows, settings becomes one default row", () 
 
   const settings = rows.find((r) => r.kind === "settings");
   assert.equal(settings.id, "default");
-  // Only the business keys sync — connection config AND the app password stay per-device.
-  assert.deepEqual(settings.data, { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" });
+  // Only the business keys + the weekly checklist sync — connection config AND
+  // the app password stay per-device.
+  assert.deepEqual(settings.data, {
+    defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+    weekCheck: { week: "", done: {} },
+  });
 });
 
 // ── markDirty ─────────────────────────────────────────────────────────────
@@ -282,6 +286,44 @@ test("mergeRows: settings sync business keys but preserve local supabase/cloud c
     assert.deepEqual(st.settings.supabase, { enabled: true, url: "https://local.supabase.co", anonKey: "local-anon", email: "me@x", password: "pw" });
     assert.deepEqual(st.settings.cloud, { enabled: true });
     assert.deepEqual(st.settings.lock, { enabled: true, pinHash: HASH_1234 }, "app password never clobbered by a cloud merge");
+  } finally { restore(); }
+});
+
+test("mergeRows: settings weekCheck ticks union across devices; never clobbered wholesale", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.lock = { enabled: true, pinHash: HASH_1234 };
+    st.settings.weekCheck = { week: "2026-09-06", done: { orders: true, social: true } };
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+
+    // Another phone ticked tasks in the SAME week — the ticks must union, and
+    // the app password must survive the merge untouched.
+    const r = sync.mergeRows(st, [cloudRow("settings", "default",
+      {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        weekCheck: { week: "2026-09-06", done: { orders: true, stock: true, menu: true } },
+      },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    assert.deepEqual(st.settings.weekCheck, {
+      week: "2026-09-06",
+      done: { orders: true, social: true, stock: true, menu: true },
+    }, "same-week ticks union (nothing lost)");
+    assert.deepEqual(st.settings.lock, { enabled: true, pinHash: HASH_1234 }, "lock not clobbered");
+
+    // A cloud checklist from a LATER week replaces the stale local one whole.
+    st.settings.weekCheck = { week: "2026-09-06", done: { orders: true } };
+    seedJournal(store, { meta: { "settings:default": "2026-02-01T00:00:00.000Z" } });
+    const r2 = sync.mergeRows(st, [cloudRow("settings", "default",
+      {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        weekCheck: { week: "2026-09-13", done: { dates: true } },
+      },
+      "2026-02-02T00:00:00.000Z")]);
+    assert.equal(r2.changed, true);
+    assert.deepEqual(st.settings.weekCheck, { week: "2026-09-13", done: { dates: true } },
+      "a later week replaces a stale one instead of merging into it");
   } finally { restore(); }
 });
 

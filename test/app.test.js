@@ -28,6 +28,14 @@ function createEl(tag) {
   };
 }
 
+// ui.el() puts text in nodeType-3 children (never innerHTML), so walking the
+// element tree with .text nodes collects everything a view painted.
+function collectText(node, out = []) {
+  if (node && node.nodeType === 3 && node.text != null) out.push(node.text);
+  for (const c of (node && node.children) || []) collectText(c, out);
+  return out.join("");
+}
+
 // Fresh DOM per scenario so repeated app.js imports don't see stale children.
 function freshDOM() {
   const registry = {};
@@ -113,6 +121,34 @@ test("cloud off: app boots straight to the dashboard, no gate, no sync calls", a
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
     assert.equal(document.getElementById("tabbar").hidden, false, "tab bar visible");
     assert.equal(document.getElementById("view-title-text").textContent === "Sign in", false, "not the sign-in screen");
+  } finally { restore(); }
+});
+
+test("cloud off with orders: Home shows the at-a-glance tiles and weekly to-do", async () => {
+  const today = new Date();
+  const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  const delivery = new Date(); delivery.setDate(delivery.getDate() + 4);
+  freshDOM();
+  installStorage({ "bakeadmin.v1": stateJSON({
+    products: [{ id: "p1", name: "Focaccia", price: 15 }],
+    deliveryDates: [{ id: "d1", date: iso(delivery), notes: "" }],
+    orders: [{ id: "o1", groupId: "g1", productId: "p1", qty: 2, status: "new",
+      deliveryDateId: "d1", deliveryDate: iso(delivery), orderDate: iso(today),
+      customerName: "Ain", whatsapp: "60123456789", fulfillment: "collect",
+      createdAt: today.toISOString() }],
+  }) });
+  try {
+    await import("../admin/js/app.js?case=ataglance");
+
+    const text = collectText(document.getElementById("view"));
+    assert.match(text, /1 new order to confirm/, "needs-you tile counts the New group");
+    assert.match(text, /Next bake/, "next-bake tile present");
+    assert.match(text, /×2/, "next-bake line shows the product × qty");
+    assert.match(text, /2 items/, "next-bake footer totals the batch");
+    assert.match(text, /This week/, "numbers tile present");
+    assert.match(text, /RM 30\.00/, "est. value = 2 × RM 15");
+    assert.match(text, /This week's to-do/, "weekly to-do card present");
+    assert.match(text, /0\/6/, "fresh week, nothing ticked yet");
   } finally { restore(); }
 });
 
