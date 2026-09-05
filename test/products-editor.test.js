@@ -189,7 +189,7 @@ test("a from-date after the to-date is refused and nothing is saved", () => {
   assert.ok(toastNode && /from.*to|swap/i.test(toastNode.textContent), "the owner is told to swap the dates");
 });
 
-test("each recipe line shows its own cost, and the header adds them up", () => {
+test("each recipe line shows its working, the header adds them up, and the list below lands on the same total", () => {
   doc.body.replaceChildren();
   const state = freshState();
   state.ingredients = [
@@ -214,14 +214,68 @@ test("each recipe line shows its own cost, and the header adds them up", () => {
     return c && c.children[0] ? c.children[0].text : "";
   };
 
+  // No breakdown table before any line is filled.
+  assert.ok(!walk(root.children[0]).some((n) => n.className === "cost-sum"),
+    "nothing filled yet → no add-up list");
+
   sel(0).value = "ing_flour"; fireType(sel(0), "change");
   qty(0).value = "100"; fireType(qty(0), "change");
   sel(1).value = "ing_water"; fireType(sel(1), "change");
   qty(1).value = "200"; fireType(qty(1), "change");
 
-  assert.equal(caption(0), "cost: RM 1.00", "flour line shows 100 × RM 0.01 for one unit");
+  assert.equal(caption(0), "100 g × RM 0.01 = RM 1.00", "flour line shows the amount × its price");
   assert.equal(caption(1), "no cost set", "water has no cost typed yet");
   const total = walk(root.children[0]).find((n) => typeof n.textContent === "string"
     && n.textContent.startsWith("Est. ingredient cost"));
   assert.equal(total.textContent, "Est. ingredient cost / unit: RM 1.00", "the two lines add up on the header");
+
+  const costSum = walk(root.children[0]).find((n) => n.className === "cost-sum");
+  assert.ok(costSum, "the add-up list appears once lines are filled");
+  const grid = costSum.children.find((n) => n.className === "cost-grid");
+  const childText = (n) => (n.children && n.children[0] && n.children[0].text != null ? n.children[0].text : "");
+  const kids = grid.children.map(childText);
+  assert.deepEqual(kids.slice(0, 6),
+    ["·", "RM 1.00", "Strong flour", "+", "RM 0.00", "Water  (no cost set)"],
+    "the list adds each filled line, and a no-cost line is counted as RM 0.00 with a note");
+  assert.deepEqual(kids.slice(6), ["=", "RM 1.00"],
+    "the list lands on the same RM 1.00 total as the header");
+});
+
+test("a set line shows qty × its own cost per unit, and counts as one row in the add-up list", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  state.ingredients = [
+    { id: "ing_flour", name: "Strong flour", unit: "g", active: true, costPerUnit: 0.01 },
+  ];
+  state.products = [
+    { id: "prd_foc", name: "Focaccia", unit: "loaf", active: true,
+      recipe: [{ ingredientId: "ing_flour", qty: 100, unit: "g" }] }, // RM 1.00 per loaf
+  ];
+  const root = render(state);
+  const nodes = walk(root.children[0]);
+  const addProd = nodes.find((n) => n.tagName === "BUTTON"
+    && (n.children || []).some((c) => c.text === "＋ Add product"));
+  assert.ok(addProd, "the recipe card offers + Add product");
+  fire(addProd);
+
+  const fireType = (n, t) => (n._listeners[t] || []).forEach((f) => f());
+  const row = () => walk(root.children[0])
+    .find((n) => n.attrs && n.attrs.id === "recipe-lines").children[0];
+  const sel = row().children.find((c) => c.tagName === "SELECT");
+  const qty = row().children.find((c) => c.tagName === "INPUT" && c.attrs && c.attrs.type === "number");
+  const caption = () => {
+    const c = row().children.find((n) => n.nodeType === 1 && n.className === "line-cost");
+    return c && c.children[0] ? c.children[0].text : "";
+  };
+
+  sel.value = "prd_foc"; fireType(sel, "change");
+  qty.value = "2"; fireType(qty, "change");
+
+  assert.equal(caption(), "2 × RM 1.00 = RM 2.00", "the set line shows qty × the pack's per-unit cost");
+  const costSum = walk(root.children[0]).find((n) => n.className === "cost-sum");
+  const grid = costSum.children.find((n) => n.className === "cost-grid");
+  const childText = (n) => (n.children && n.children[0] && n.children[0].text != null ? n.children[0].text : "");
+  const kids = grid.children.map(childText);
+  assert.deepEqual(kids, ["·", "RM 2.00", "Focaccia", "=", "RM 2.00"],
+    "one + row for the set, landing on RM 2.00");
 });

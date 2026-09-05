@@ -3,7 +3,7 @@
 // over the screen, exactly like editing an order.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
-import { byId, productUnitOptions, fmtRM, newId, save } from "../state.js";
+import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { costOf, recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
 
@@ -70,12 +70,14 @@ function buildEditor(state, product) {
     value: product?.servingTip || "" });
 
   const costEl = el("p", { class: "card-sub", style: "margin:0 0 10px" });
+  const sumEl = el("div"); // "How it adds up:" breakdown under the lines, empty until a line is filled
   const recipeCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Recipe (per unit)"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically. Each line shows what it costs for one unit; the lines add up to the total above."),
+      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically. Under each line is how its cost is counted (amount × price); the list below adds the lines up."),
     costEl,
     el("div", { id: "recipe-lines" }),
+    sumEl,
     el("div", { class: "btn-row" },
       button("＋ Add ingredient", () => {
         recipeDraft.push({ ingredientId: "", qty: "", unit: "" });
@@ -88,10 +90,15 @@ function buildEditor(state, product) {
 
   function renderRecipeLines() {
     const costs = recipeLineCosts(state, { id: product && product.id, recipe: recipeDraft });
-    costEl.textContent = `Est. ingredient cost / unit: ${fmtRM(costs.reduce((s, c) => s + c, 0), state.settings.currency)}`;
+    // Round each line to its display cents first so the lines the owner sees
+    // always add up exactly to the total shown (a raw-sum rounding could differ
+    // from her + list by a cent when a line cost has more than 2 decimals).
+    const shown = costs.map(round2);
+    costEl.textContent = `Est. ingredient cost / unit: ${fmtRM(shown.reduce((s, v) => s + v, 0), state.settings.currency)}`;
     const box = recipeCard.querySelector("#recipe-lines");
     box.replaceChildren(...recipeDraft.map((line, i) =>
       recipeLine(state, line, i, recipeDraft, renderRecipeLines, product && product.id, costs[i])));
+    sumEl.replaceChildren(...addUpBreakdown(state, recipeDraft, shown));
   }
 
   // Reads the form; returns { error } or { values: {...} } ready to save.
@@ -225,13 +232,84 @@ function openEditProductPopup(state, product, root) {
   }, { wide: true });
 }
 
-// Small right-aligned caption under a FILLED recipe row: what this line's
-// ingredients cost for one unit of the product. A filled row whose
+// Under a FILLED recipe row: how that line's cost is counted, e.g. an
+// ingredient line "100 g × RM 0.01 = RM 1.00" or a set line "2 × RM 1.00 =
+// RM 2.00" (qty × the set's per-unit cost). A filled row whose
 // ingredient/product has no cost typed yet reads "no cost set" honestly.
-function lineCostCaption(state, filled, cost) {
-  if (!filled) return null;
-  return el("span", { class: "line-cost" },
-    cost > 0 ? `cost: ${fmtRM(cost, state.settings.currency)}` : "no cost set");
+// Blank and 0-qty rows show nothing.
+function captionForLine(state, line, cost) {
+  if (!(line.ingredientId || line.productId)) return null;
+  const qty = Number(line.qty) || 0;
+  if (!(qty > 0)) return null;
+  const cur = state.settings.currency;
+  let text = "no cost set";
+  if (cost > 0) {
+    if (line.productId && !line.ingredientId) {
+      text = `${trimNum(qty)} × RM ${fmtCpu(cost / qty)} = ${fmtRM(cost, cur)}`;
+    } else {
+      const ing = byId(state.ingredients, line.ingredientId);
+      const unit = String(line.unit || "").trim() || (ing && ing.unit) || "";
+      const cpu = ing ? ing.costPerUnit || 0 : 0;
+      text = `${trimNum(qty)}${unit ? ` ${unit}` : ""} × RM ${fmtCpu(cpu)} = ${fmtRM(cost, cur)}`;
+    }
+  }
+  return el("span", { class: "line-cost" }, text);
+}
+
+// A small "How it adds up:" table under the recipe lines, one row per FILLED
+// line (+ its RM), ending in the total — so the owner can read the sum top to
+// bottom and watch it land on the header number. Rows with no cost yet say so.
+// Returns [] when nothing is filled, so no empty table shows.
+function addUpBreakdown(state, draft, shown) {
+  const cur = state.settings.currency;
+  const rows = [];
+  for (let i = 0; i < draft.length; i++) {
+    const line = draft[i];
+    const q = Number(line.qty) || 0;
+    if (!(q > 0)) continue;
+    let name = null;
+    if (line.productId && !line.ingredientId) {
+      const p = byId(state.products, line.productId);
+      name = p ? p.name : "(deleted)";
+    } else if (line.ingredientId) {
+      const g = byId(state.ingredients, line.ingredientId);
+      name = g ? g.name : "(deleted ingredient)";
+    }
+    if (name == null) continue; // row not filled yet
+    rows.push({ name, val: shown[i], zero: shown[i] === 0 });
+  }
+  if (!rows.length) return [];
+
+  const grid = el("div", { class: "cost-grid" });
+  rows.forEach((r, k) => {
+    grid.append(
+      el("div", { class: "cost-op" }, k === 0 ? "·" : "+"),
+      el("div", { class: "cost-val" }, fmtRM(r.val, cur)),
+      el("div", { class: "cost-name" }, r.name + (r.zero ? "  (no cost set)" : "")));
+  });
+  const total = rows.reduce((s, r) => s + r.val, 0);
+  grid.append(
+    el("div", { class: "cost-op cost-total" }, "="),
+    el("div", { class: "cost-val cost-total" }, fmtRM(total, cur)));
+  return [el("div", { class: "cost-sum" },
+    el("p", { class: "cost-sum-title" }, "How it adds up:"),
+    grid)];
+}
+
+// Number display for recipe working: whole amounts plain ("100"), fractions
+// trimmed (no trailing zeros, so 0.5 stays "0.5", 2.50 reads "2.5").
+function trimNum(n) {
+  const v = Number(n) || 0;
+  if (Number.isInteger(v)) return String(v);
+  return String(Math.round(v * 10000) / 10000);
+}
+
+// A per-unit cost in RM: plain 2 decimals when it's exact ("0.01", "12.00"),
+// more only when the typed price needs them ("0.005").
+function fmtCpu(n) {
+  const v = Number(n) || 0;
+  const r = round2(v);
+  return v === r ? r.toFixed(2) : String(Math.round(v * 10000) / 10000);
 }
 
 function recipeLine(state, line, i, draft, refresh, selfId, cost) {
@@ -273,7 +351,7 @@ function recipeLine(state, line, i, draft, refresh, selfId, cost) {
     button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"),
     mismatch ? el("div", { class: "warn", style: "grid-column:1/-1;margin:0" },
       `Unit "${line.unit}" differs from ${ing.name}'s unit (${ing.unit}) — check this line.`) : null,
-    lineCostCaption(state, Boolean(line.ingredientId) && Number(line.qty) > 0, cost));
+    captionForLine(state, line, cost));
 }
 
 function productRecipeLine(state, line, i, draft, refresh, selfId, cost) {
@@ -308,7 +386,7 @@ function productRecipeLine(state, line, i, draft, refresh, selfId, cost) {
     qty,
     el("span", { class: "unit" }, unitInp),
     button("✕", () => { draft.splice(i, 1); refresh(); }, "ghost small"),
-    lineCostCaption(state, Boolean(line.productId) && Number(line.qty) > 0, cost));
+    captionForLine(state, line, cost));
 }
 
 function productCard(state, p, root) {

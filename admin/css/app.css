@@ -767,6 +767,25 @@ textarea.input { min-height: 64px; resize: vertical; }
   color: var(--muted);
   margin: -3px 0 2px;
 }
+/* "How it adds up:" table under the recipe lines — the lines' rounded costs in
+   order, ending on the same total the header shows. */
+.cost-sum {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.cost-sum-title { margin: 0 0 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cost-grid {
+  display: grid;
+  grid-template-columns: 18px auto 1fr;
+  gap: 1px 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.cost-op { text-align: right; color: var(--muted); }
+.cost-val { font-variant-numeric: tabular-nums; }
+.cost-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-total { border-top: 1px solid var(--line); margin-top: 3px; padding-top: 3px; font-weight: 600; }
 
 /* ---------- Supplier price rows (ingredient editor) ---------- */
 .price-row { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
