@@ -12,7 +12,7 @@ import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
-  occColour, occDays, occForDateAll, occRange, occStrength,
+  occColour, occDays, occForDateAll, occRange, occSingleDay, occStrength,
 } from "../calendar.js";
 import { MALAYSIAN_OCCASIONS, importOccColour } from "../malaysian_occasions.js";
 
@@ -193,10 +193,7 @@ function buildAddGrid(state, weeks) {
 // so they are not returned here. Past days never sit above a mark.
 function singleDayMark(state, date, past) {
   if (past) return null;
-  for (const occ of occForDateAll(state.occasions, date)) {
-    if (occDays(occ) === 1) return occ;
-  }
-  return null;
+  return occSingleDay(state.occasions, date);
 }
 
 // The contents of a day that carries a sheet: the small green delivery pill
@@ -279,11 +276,12 @@ function deleteOccasion(state, occ) {
 }
 
 // The "Add Malaysia's occasions" button's checkbox list — every future,
-// not-yet-added entry grouped under the four categories she picked. Rows are
+// not-yet-added entry grouped under the five category headings below. Rows are
 // ticked by default; the count on the Add button follows the ticks live.
 const OCC_IMPORT_GROUPS = [
   ["festive", "Festive days"],
   ["national", "National days"],
+  ["state", "State & territory days"],
   ["family", "Love & family days"],
   ["school", "School holidays"],
 ];

@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const { addMonth, DOW, OCC_COLOURS, monthLabel, monthWeeks, occColour,
-  occForDate, occForDateAll, occDays, occRange, occStrength } =
+  occForDate, occForDateAll, occDays, occRange, occSingleDay, occStrength } =
   await import("../admin/js/calendar.js");
 
 function flatDates(grid) { return grid.flat().filter(Boolean); }
@@ -138,6 +138,25 @@ test("occForDate: when two marks overlap, the SHORTER one wins the shared day", 
   assert.equal(occForDate(shortFirst, "2026-09-09").id, "short", "short wins even when listed second");
   assert.equal(occForDate(longFirst, "2026-09-05").id, "long", "the long mark alone holds its other days");
   assert.equal(occForDate(longFirst, "2026-09-13"), null, "a day outside both is free");
+});
+
+test("occSingleDay: a 1-day mark is the cell's solid; two same-day singles pick red", () => {
+  const occs = [
+    { id: "band", from: "2026-09-08", to: "2026-09-10", colour: "green" },
+    { id: "teach", from: "2026-05-16", to: "2026-05-16", colour: "orange" }, // "Teacher's Day"
+    { id: "arafat", from: "2026-05-16", to: "2026-05-16", colour: "red" },   // state public holiday
+    { id: "raja", from: "2026-05-17", to: "2026-05-17", colour: "red" },    // another public holiday
+    { id: "bothRed", from: "2026-05-17", to: "2026-05-17", colour: "red" },
+  ];
+  assert.equal(occSingleDay(occs, "2026-09-09"), null, "a multi-day band is painted as a paper, not a solid");
+  assert.equal(occSingleDay(occs, "2026-09-11"), null, "a day with no 1-day mark has no solid");
+  assert.equal(occSingleDay(occs, "2026-05-16").id, "arafat",
+    "an orange family day must not hide a red public holiday on the same date");
+  assert.equal(occSingleDay(occs, "2026-05-17").id, "raja",
+    "two reds on one date keep the earlier row");
+  assert.equal(occSingleDay(occs, "2026-05-15"), null, "off-date is free");
+  assert.equal(occSingleDay([], "2026-05-16"), null, "no occasions → nothing");
+  assert.equal(occSingleDay(null, "2026-05-16"), null, "missing list is safe");
 });
 
 test("occForDateAll lists every overlapping mark, shortest first", () => {

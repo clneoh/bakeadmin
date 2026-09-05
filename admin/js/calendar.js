@@ -96,6 +96,19 @@ export function occForDateAll(occasions, dateISO) {
     .sort((a, b) => occDays(a) - occDays(b));
 }
 
+// The single-day mark a date's solid box shows. A 1-day mark is the most
+// specific thing that can sit on one day; when several coincide, the red one
+// wins the cell — red is the "important" mark (her Malaysia import paints
+// public holidays red, so a red state holiday must not hide under an orange
+// family day that falls on the same date). Any other tie keeps the first in
+// the list. Longer marks are painted as the translucent bands, never here.
+export function occSingleDay(occasions, dateISO) {
+  const one = (occasions || [])
+    .filter((occ) => occDays(occ) === 1 && occ.from <= dateISO && dateISO <= occ.to);
+  if (!one.length) return null;
+  return one.find((occ) => occColour(occ) === "red") || one[0];
+}
+
 // Normalise a chosen range to [earlier, later] — the drag may go backwards.
 export function occRange(from, to) {
   if (!from || !to) return null;

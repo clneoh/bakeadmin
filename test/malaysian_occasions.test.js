@@ -10,7 +10,7 @@ const { MALAYSIAN_OCCASIONS, importOccColour } =
   await import("../admin/js/malaysian_occasions.js");
 const { OCC_COLOURS } = await import("../admin/js/calendar.js");
 
-const CATS = ["festive", "national", "family", "school"];
+const CATS = ["festive", "national", "state", "family", "school"];
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const validISO = (d) => ISO.test(d) && !Number.isNaN(new Date(`${d}T00:00:00`).getTime());
 
@@ -45,6 +45,15 @@ test("no two rows share the same name on the same start date", () => {
     const key = `${e.label}|${e.from}`;
     assert.ok(!seen.has(key), `"${e.label}" on ${e.from} appears once`);
     seen.add(key);
+  }
+});
+
+test("every state-specific day is a public holiday and names who observes it", () => {
+  const stateRows = MALAYSIAN_OCCASIONS.filter((e) => e.cat === "state");
+  assert.ok(stateRows.length >= 20, "a real union of the Peninsular states' days");
+  for (const e of stateRows) {
+    assert.equal(e.pub, true, `${e.label} is a gazetted public holiday somewhere`);
+    assert.match(e.label, /—\s/, `${e.label} names the state(s) that observe it`);
   }
 });
 
