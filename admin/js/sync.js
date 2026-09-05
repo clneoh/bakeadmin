@@ -28,6 +28,8 @@ const LISTS = {
   ingredients: "ingredients",
   deliveryDates: "deliveryDates",
   purchaseOrders: "purchaseOrders",
+  credits: "credits", // bring-a-friend ledger rows
+  occasions: "occasions", // delivery-calendar reminder marks
 };
 const SETTINGS_KEY = "settings:default";
 
@@ -69,6 +71,7 @@ function recordPayload(kind, rec) {
       cutoff: rec.cutoff,
       currency: rec.currency,
       weekCheck: rec.weekCheck || { week: "", done: {} },
+      referrals: rec.referrals || {}, // bring-a-friend scheme numbers
     };
   }
   return rec;

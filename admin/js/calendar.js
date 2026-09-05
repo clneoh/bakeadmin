@@ -37,3 +37,36 @@ export function monthLabel(year, month) {
 }
 
 export const DOW = ["S", "M", "T", "W", "T", "F", "S"];
+
+// ── occasion marks (delivery-calendar reminders) ─────────────────────────────
+// A period of days the baker wants to remember when planning — a public
+// holiday, a school-holiday stretch, CNY, Hari Raya... Purely a reminder: an
+// occasion never adds or removes delivery dates or changes ordering. One-tap
+// presets cover the common ones; a custom label falls back to "other".
+
+export const OCCASION_PRESETS = [
+  "CNY", "Hari Raya", "Mid-Autumn", "Deepavali", "Public holiday", "School holiday",
+];
+
+// Which colour family a label belongs to: the matching preset, else "other".
+export function occKind(label) {
+  const text = String(label || "").trim().toLowerCase();
+  for (const p of OCCASION_PRESETS) {
+    if (p.toLowerCase() === text) return p.toLowerCase().replace(/\s+/g, "-");
+  }
+  return "other";
+}
+
+// The occasion (first match) whose inclusive [from, to] range holds dateISO.
+export function occForDate(occasions, dateISO) {
+  for (const occ of occasions || []) {
+    if (occ && occ.from && occ.to && occ.from <= dateISO && dateISO <= occ.to) return occ;
+  }
+  return null;
+}
+
+// Normalise a chosen range to [earlier, later] — the drag may go backwards.
+export function occRange(from, to) {
+  if (!from || !to) return null;
+  return from <= to ? [from, to] : [to, from];
+}

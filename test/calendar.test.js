@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { addMonth, DOW, monthLabel, monthWeeks } = await import("../admin/js/calendar.js");
+const { addMonth, DOW, monthLabel, monthWeeks, OCCASION_PRESETS, occKind, occForDate, occRange } =
+  await import("../admin/js/calendar.js");
 
 function flatDates(grid) { return grid.flat().filter(Boolean); }
 
@@ -69,4 +70,46 @@ test("monthLabel renders 'September 2026' style", () => {
   assert.equal(monthLabel(2026, 8), "September 2026");
   assert.equal(monthLabel(2026, 0), "January 2026");
   assert.equal(monthLabel(2027, 11), "December 2027");
+});
+
+// ── occasion marks (delivery-calendar reminders) ─────────────────────────
+
+test("OCCASION_PRESETS covers the baker's one-tap marks", () => {
+  assert.deepEqual(OCCASION_PRESETS, [
+    "CNY", "Hari Raya", "Mid-Autumn", "Deepavali", "Public holiday", "School holiday",
+  ]);
+});
+
+test("occKind maps a label to its preset colour family, any casing", () => {
+  assert.equal(occKind("CNY"), "cny");
+  assert.equal(occKind("hari raya"), "hari-raya");
+  assert.equal(occKind("School holiday"), "school-holiday");
+  assert.equal(occKind("Public Holiday"), "public-holiday");
+  assert.equal(occKind("Mid-Autumn"), "mid-autumn");
+  assert.equal(occKind("Deepavali"), "deepavali");
+  assert.equal(occKind("Daughter's exam week"), "other", "custom labels get the default colour");
+  assert.equal(occKind(""), "other");
+});
+
+test("occForDate finds the occasion holding a day, inclusive of both ends", () => {
+  const occs = [
+    { id: "a", from: "2026-09-14", to: "2026-09-22", label: "School holiday" },
+    { id: "b", from: "2026-09-28", to: "2026-09-28", label: "Hari Raya" }, // single day
+  ];
+  assert.equal(occForDate(occs, "2026-09-01"), null, "before any range");
+  assert.equal(occForDate(occs, "2026-09-13"), null, "the day before a range");
+  assert.equal(occForDate(occs, "2026-09-14").id, "a", "first day is inside");
+  assert.equal(occForDate(occs, "2026-09-22").id, "a", "last day is inside");
+  assert.equal(occForDate(occs, "2026-09-23"), null, "the day after a range");
+  assert.equal(occForDate(occs, "2026-09-28").id, "b", "a single-day mark holds its one day");
+  assert.equal(occForDate([], "2026-09-14"), null, "no occasions → nothing");
+  assert.equal(occForDate(null, "2026-09-14"), null, "missing list is safe");
+});
+
+test("occRange normalises a backwards drag to earlier → later", () => {
+  assert.deepEqual(occRange("2026-09-29", "2026-09-21"), ["2026-09-21", "2026-09-29"]);
+  assert.deepEqual(occRange("2026-09-21", "2026-09-29"), ["2026-09-21", "2026-09-29"]);
+  assert.deepEqual(occRange("2026-09-25", "2026-09-25"), ["2026-09-25", "2026-09-25"], "single day");
+  assert.equal(occRange("", "2026-09-29"), null);
+  assert.equal(occRange(null, null), null);
 });

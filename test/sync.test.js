@@ -27,6 +27,8 @@ function baseState() {
     deliveryDates: [],
     orders: [],
     purchaseOrders: [],
+    credits: [],
+    occasions: [],
   };
 }
 
@@ -96,7 +98,83 @@ test("computeRecords: arrays become rows, settings becomes one default row", () 
   assert.deepEqual(settings.data, {
     defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
     weekCheck: { week: "", done: {} },
+    referrals: {},
   });
+});
+
+test("computeRecords: credits rows ride the sync, settings payload carries the referral scheme", () => {
+  const st = baseState();
+  st.settings.referrals = { enabled: true, friendRM: 5, referrerRM: 3, validDays: 60 };
+  st.credits = [
+    { id: "crd1", holder: "60123456789", holderName: "Aisyah", amountRM: 3, role: "reward",
+      earnedAt: "2026-09-01T00:00:00.000Z", expiresAt: "2026-11-30", usedAt: null, orderCode: "ABCDEF", note: "" },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const credits = rows.filter((r) => r.kind === "credits");
+  assert.equal(credits.length, 1);
+  assert.equal(credits[0].id, "crd1");
+  assert.deepEqual(credits[0].data, {
+    id: "crd1", holder: "60123456789", holderName: "Aisyah", amountRM: 3, role: "reward",
+    earnedAt: "2026-09-01T00:00:00.000Z", expiresAt: "2026-11-30", usedAt: null, orderCode: "ABCDEF", note: "",
+  });
+
+  const settings = rows.find((r) => r.kind === "settings");
+  assert.deepEqual(settings.data.referrals, { enabled: true, friendRM: 5, referrerRM: 3, validDays: 60 });
+});
+
+test("mergeRows: credit rows merge and a tombstone deletes them", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    seedJournal(store);
+    const add = sync.mergeRows(st, [cloudRow("credits", "crd1",
+      { id: "crd1", holder: "60123456789", holderName: "Aisyah", amountRM: 3, role: "reward",
+        earnedAt: "2026-09-01T00:00:00.000Z", expiresAt: "", usedAt: null, orderCode: "ABCDEF", note: "" },
+      "2026-09-01T00:00:00.000Z")]);
+    assert.equal(add.changed, true);
+    assert.equal(st.credits.length, 1);
+    assert.equal(st.credits[0].holder, "60123456789");
+
+    // Cloud tombstone (data:null, _deleted:true) removes the local credit.
+    const del = sync.mergeRows(st, [cloudRow("credits", "crd1", null, "2026-09-02T00:00:00.000Z", true)]);
+    assert.equal(del.changed, true);
+    assert.equal(st.credits.length, 0);
+  } finally { restore(); }
+});
+
+test("computeRecords: occasion rows ride the sync", () => {
+  const st = baseState();
+  st.occasions = [
+    { id: "occ1", from: "2026-09-14", to: "2026-09-22", label: "School holiday" },
+    { id: "occ2", from: "2026-09-28", to: "2026-09-28", label: "CNY" },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const occ = rows.filter((r) => r.kind === "occasions");
+  assert.equal(occ.length, 2);
+  assert.equal(occ[0].id, "occ1");
+  assert.deepEqual(occ[0].data, { id: "occ1", from: "2026-09-14", to: "2026-09-22", label: "School holiday" });
+  assert.deepEqual(occ[1].data, { id: "occ2", from: "2026-09-28", to: "2026-09-28", label: "CNY" });
+});
+
+test("mergeRows: occasion rows merge and a tombstone deletes them", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    seedJournal(store);
+    const add = sync.mergeRows(st, [cloudRow("occasions", "occ1",
+      { id: "occ1", from: "2026-09-14", to: "2026-09-22", label: "School holiday" },
+      "2026-09-01T00:00:00.000Z")]);
+    assert.equal(add.changed, true);
+    assert.equal(st.occasions.length, 1);
+    assert.equal(st.occasions[0].label, "School holiday");
+
+    // Cloud tombstone removes the local occasion mark.
+    const del = sync.mergeRows(st, [cloudRow("occasions", "occ1", null, "2026-09-02T00:00:00.000Z", true)]);
+    assert.equal(del.changed, true);
+    assert.equal(st.occasions.length, 0);
+  } finally { restore(); }
 });
 
 // ── markDirty ─────────────────────────────────────────────────────────────

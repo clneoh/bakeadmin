@@ -545,6 +545,7 @@ function importIncoming(state, row) {
       qty,
       customerName: String(data.customer || "").trim(),
       whatsapp: String(data.whatsapp || "").trim(),
+      referredBy: String(data.referredBy || "").trim(), // the ?via= link stamp
       fulfillment: data.fulfillment === "courier" ? "courier" : "collect",
       address: String(data.address || "").trim(),
       note: String(data.note || "").trim(),

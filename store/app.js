@@ -18,6 +18,19 @@ export function waNumber(n) {
   return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
 }
 
+// The `via` query string on a referral link (?via=60123456789) is the referrer's
+// WhatsApp digits. Read to clean digits (or "" when absent) so the order can be
+// stamped with who referred it. The shop never reads order history or discounts —
+// the stamp just tells the bakery who to thank/credit.
+export function parseVia(search) {
+  return waNumber(new URLSearchParams(String(search || "")).get("via"));
+}
+
+function currentVia() {
+  return (typeof location !== "undefined" && location.search)
+    ? parseVia(location.search) : "";
+}
+
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -239,6 +252,15 @@ export function renderStatic(cfg) {
   if (cfg.instagram) links.push(el("a", { href: `https://instagram.com/${cfg.instagram}`, target: "_blank", rel: "noopener" }, "📷 Instagram"));
   if (cfg.facebook) links.push(el("a", { href: `https://facebook.com/${cfg.facebook}`, target: "_blank", rel: "noopener" }, "📘 Facebook"));
   social.replaceChildren(...links);
+}
+
+// A referral-link visitor (?via=…) sees one amount-free line near the top of the
+// page. Deliberately amount-free: the bakery's scheme numbers are private and
+// changeable, and she quotes the real figure in her WhatsApp confirmations.
+function renderReferralBanner() {
+  const box = document.getElementById("referral-banner");
+  if (!box) return;
+  box.hidden = !currentVia();
 }
 
 export function render() {
@@ -608,6 +630,10 @@ export function render() {
       note: document.getElementById("note-input").value.trim(),
       createdAt: new Date().toISOString(),
     };
+    // A referral link's ?via= stamp: which customer's personal link this order
+    // came through. The bakery decides (new vs repeat) and applies the discount.
+    const via = currentVia();
+    if (via) order.referredBy = via;
     // A value pack draws its base out of the shared pool in whole pieces, but
     // the pack itself is already one top-level `lines` entry — so the base
     // pieces it consumes travel here, separate from `lines`. The database
@@ -825,5 +851,6 @@ function wireTrack() {
 }
 
 render();
+renderReferralBanner();
 wireFulfillment();
 wireTrack();

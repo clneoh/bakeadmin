@@ -470,3 +470,19 @@ html, body {
   font-weight: 700;
   color: var(--brown-dark);
 }
+
+/* A referral-link visitor (?via=…) sees this amount-free banner at the very top
+   of the page. Green to match the "welcome" feel; the amount is quoted by the
+   bakery on WhatsApp, never here. */
+.referral-banner {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #eaf6ea;
+  border: 1px solid #bfe0bf;
+  color: #2f6b2f;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+}

@@ -7,9 +7,14 @@
 
 import { navigate } from "../app.js";
 import { customerList, ordersForCustomer } from "../customers.js";
-import { el, button, select, emptyState, showPopup, copyText, toast } from "../ui.js";
-import { byId, fmtRM, waNumber } from "../state.js";
+import { el, button, select, emptyState, showPopup, copyText, toast, confirmDialog } from "../ui.js";
+import { byId, fmtRM, save, waNumber } from "../state.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
+import { maybeSync } from "../supabase.js";
+import {
+  ROLE_LABEL, schemeOf, referralLink, shareMessage, followupMessage, creditRows,
+  markCreditUsed, setCreditExpiry, removeCredit, addManualCredit,
+} from "../referrals.js";
 
 const SORTS = [
   { value: "recent", label: "Most recent" },
@@ -37,6 +42,13 @@ const short = (iso) => (iso ? `${weekdayName(iso)} ${iso.slice(8)}` : "");
 const dateLine = (iso) => (iso ? `${weekdayName(iso)}, ${longDate(iso)}` : "");
 const money = (state, n) => fmtRM(n, state.settings?.currency || "RM");
 const productName = (state, id) => (byId(state.products || [], id) || {}).name || "(deleted product)";
+// The product object from their most recent order (name + servingTip), so the
+// follow-up can ask about it AND recommend how to serve it. No history → null.
+const recentProduct = (state, blocks) => {
+  const first = blocks && blocks[0];
+  const line = first && first.lines && first.lines[0];
+  return line ? byId(state.products || [], line.productId) || null : null;
+};
 
 function openChat(r) {
   const w = waNumber(r.whatsapp);
@@ -232,6 +244,7 @@ function downloadCsv(list) {
 
 function openHistory(state, r) {
   const blocks = ordersForCustomer(state, r);
+  const ui = { editingCredit: null, addingCredit: false }; // survives refresh()
   showPopup(r.name, (refresh, close) =>
     el("div", {},
       r.whatsapp ? el("div", { class: "li-row", style: "margin:0 0 8px" },
@@ -244,12 +257,171 @@ function openHistory(state, r) {
           ? el("span", { class: "qty-chip", style: "background:var(--brown-soft)" }, `about ${money(state, r.totalSpend)}`)
           : null),
       r.fav ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, `⭐ Favourite: ${r.fav}`) : null,
+      referralSection(state, r, ui, refresh, recentProduct(state, blocks)),
       !blocks.length
         ? emptyState("No order history", "This customer's orders were removed.")
         : el("div", {},
             el("p", { class: "card-sub", style: "margin:12px 0 2px" }, "Order history — newest first"),
             ...blocks.map((b) => historyBlock(state, b)))),
     { wide: true });
+}
+
+// ---- bring-a-friend (one customer: their share message + credit list) ----
+// Only when referrals are switched on AND the customer has a WhatsApp number to
+// send the link to. The owner copies the share message or the bare link; credit
+// rows are the ledger behind "one coupon per new friend", and she can nudge any
+// of them by hand (mark used, change/clear expiry, remove, add).
+
+function referralSection(state, r, ui, refresh, product) {
+  const scheme = schemeOf(state);
+  if (!scheme.enabled || !r.whatsapp) return null;
+  const digits = waNumber(r.whatsapp);
+  if (!digits) return null;
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const pname = product && typeof product === "object" && product.name
+    ? product.name
+    : String(product || "").trim();
+  const origin = (typeof location !== "undefined" && location.origin) || "";
+  const link = referralLink(origin, digits);
+  const name = r.name && r.name !== "(no name)" ? r.name : digits;
+  const credits = creditRows(state, digits);
+  const ready = credits.filter((c) => c.status === "valid").length;
+
+  const validTxt = scheme.validDays === "" || scheme.validDays == null
+    ? "Credits never expire."
+    : `Each credit is valid ${scheme.validDays} days.`;
+
+  const parts = [
+    el("div", { style: "display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px" },
+      el("span", { style: "font-weight:700" }, "🎁 Bring-a-friend"),
+      el("span", { class: "st-chip valid" }, `${ready} ready`)),
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      `New friends who order through ${name}'s personal link get ${fmtRM(scheme.friendRM, cur)} off their first order, and ${name} earns ${fmtRM(scheme.referrerRM, cur)} a credit for each one. ${validTxt}`),
+    el("div", { class: "btn-row" },
+      button("📋 Copy share message",
+        () => copyText(shareMessage(state, r, origin), "Share message copied — paste it in WhatsApp"),
+        "primary small"),
+      button("🎉 Copy follow-up",
+        () => copyText(followupMessage(state, r, product, origin), "Follow-up copied — send it after they collect"),
+        "soft small"),
+      button("🔗 Copy link", () => copyText(link, "Link copied"), "ghost small")),
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      `The follow-up is a warm check-in${pname ? ` ("how did the ${pname} go?")` : ""} that slides the referral in after a delivery — send it instead of a plain "how was it?" message.`),
+    linkEl(link),
+  ];
+
+  const credTitle = el("div", { class: "li-row", style: "align-items:center;gap:6px;margin-top:10px" },
+    el("span", { style: "font-weight:700" }, "Credits"),
+    el("span", { class: "card-sub", style: "margin:0" },
+      credits.length
+        ? `unused = you still owe ${fmtRM((credits.find((c) => c.status === "valid") || {}).amountRM ?? scheme.referrerRM, cur)} off an order`
+        : "none yet — they appear when a new friend orders"),
+    button(ui.addingCredit ? "Close" : "＋ Add credit",
+      () => { ui.addingCredit = !ui.addingCredit; ui.editingCredit = null; refresh(); }, "ghost small"));
+
+  parts.push(credTitle);
+  if (ui.addingCredit) parts.push(addCreditRow(state, r, ui, refresh));
+  parts.push(...(credits.length ? credits.map((c) => creditRowEl(state, c, ui, refresh))
+    : [el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        "When a NEW friend orders through this customer's link, the Give credit button on that order adds two credits here.")]));
+
+  return el("div", { class: "ref-block", style: "margin:10px 0 2px;padding:10px 12px" }, ...parts);
+}
+
+function linkEl(link) {
+  if (!link) return el("p", { class: "card-sub", style: "margin:6px 0 0" },
+    "No personal link yet — the link appears once this customer has a WhatsApp number on an order.");
+  return el("div", { class: "li-row", style: "margin:4px 0 0;align-items:center;gap:6px;flex-wrap:wrap" },
+    el("span", { class: "card-sub", style: "margin:0;word-break:break-all" }, "Personal link: "),
+    el("span", { style: "font-size:12px;word-break:break-all" }, link));
+}
+
+function creditRowEl(state, c, ui, refresh) {
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const roleTxt = (ROLE_LABEL[c.role] || "Credit").toLowerCase();
+  const status = c.status;
+  const when = status === "used"
+    ? (c.usedAt ? `Used ${longDate(String(c.usedAt).slice(0, 10))}` : "Used")
+    : status === "expired" ? `Expired ${longDate(c.expiresAt)}`
+    : c.expiresAt ? `Valid until ${longDate(c.expiresAt)}`
+    : "Never expires";
+
+  const saveSync = () => { save(state); maybeSync(state); };
+
+  const btns = el("div", { class: "btn-row", style: "margin:0" });
+  if (status === "valid") {
+    btns.append(button("Mark used",
+      () => { markCreditUsed(state, c.id); saveSync(); toast(`${fmtRM(c.amountRM, cur)} credit marked used — taken off an order`); refresh(); },
+      "soft small"));
+  }
+  btns.append(button(status === "used" ? "Remove" : (ui.editingCredit === c.id ? "Done" : "Expiry"),
+    () => {
+      if (status === "used") {
+        confirmDialog(`Remove this ${fmtRM(c.amountRM, cur)} ${roleTxt}?`, () => {
+          removeCredit(state, c.id); saveSync(); toast("Credit removed"); refresh();
+        }, { danger: true, yesLabel: "Remove" });
+        return;
+      }
+      ui.editingCredit = ui.editingCredit === c.id ? null : c.id;
+      ui.addingCredit = false;
+      refresh();
+    }, "ghost small"));
+
+  return el("div", { class: "credit-row" },
+    el("div", { class: "li-main" },
+      el("div", { class: "li-title", style: "font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" },
+        el("span", {}, `${fmtRM(c.amountRM, cur)} ${roleTxt}`),
+        el("span", { class: `st-chip ${status}` }, status)),
+      el("div", { class: "card-sub", style: "margin:2px 0 0" }, when),
+      c.note ? el("div", { class: "card-sub", style: "margin:0" }, c.note) : null),
+    btns,
+    ui.editingCredit === c.id ? expiryEditorRow(state, c, refresh) : null);
+}
+
+function expiryEditorRow(state, c, refresh) {
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const input = el("input", { class: "input", type: "date", value: c.expiresAt || todayISO() });
+  const saveSync = () => { save(state); maybeSync(state); };
+  const done = (val, msg) => {
+    setCreditExpiry(state, c.id, val);
+    saveSync();
+    toast(msg);
+    refresh();
+  };
+  return el("div", { style: "flex:1 1 100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;margin-top:4px" },
+    el("span", { class: "card-sub", style: "margin:0" }, `Expiry for ${fmtRM(c.amountRM, cur)}:`),
+    input,
+    button("Save", () => done(input.value, input.value ? `Expiry ${longDate(input.value)}` : "No expiry — never expires"), "small primary"),
+    button("Never expires", () => done("", "No expiry — never expires"), "ghost small"));
+}
+
+function addCreditRow(state, r, ui, refresh) {
+  const scheme = schemeOf(state);
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const amountIn = el("input", { class: "input", type: "number", inputmode: "decimal", step: "1",
+    value: String(scheme.referrerRM), style: "max-width:110px" });
+  const daysIn = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0",
+    placeholder: "days, blank = never", value: scheme.validDays === "" ? "" : String(scheme.validDays),
+    style: "max-width:150px" });
+  const noteIn = el("input", { class: "input", placeholder: "why (optional) — e.g. offline friend" });
+  const saveCredit = () => {
+    const amountRM = Number(amountIn.value);
+    if (!(amountRM > 0)) return toast("Enter the amount first");
+    const credit = addManualCredit(state, {
+      whatsapp: r.whatsapp, name: r.name, amountRM,
+      validDays: String(daysIn.value).trim(), note: noteIn.value.trim(), today: todayISO(),
+    });
+    save(state);
+    maybeSync(state);
+    ui.addingCredit = false;
+    toast(credit ? `${fmtRM(credit.amountRM, cur)} credit added` : "Couldn't add credit");
+    refresh();
+  };
+  return el("div", { style: "display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;width:100%" },
+    el("div", { class: "field", style: "margin:0" }, el("label", {}, "Amount"), amountIn),
+    el("div", { class: "field", style: "margin:0" }, el("label", {}, "Valid for"), daysIn),
+    el("div", { class: "field", style: "flex:1 1 100%;margin:0" }, el("label", {}, "Note"), noteIn),
+    button("Add credit", saveCredit, "primary small"));
 }
 
 function historyBlock(state, b) {

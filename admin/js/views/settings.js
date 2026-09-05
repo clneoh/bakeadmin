@@ -315,6 +315,61 @@ export function renderSettings(root, state) {
     el("div", { class: "btn-row" },
       button("Delete all data", () => clearAll(), "danger")));
 
+  // ── Referrals (bring-a-friend) ──────────────────────────────────────────
+  // Scheme numbers behind the "one coupon per NEW friend" offer. Stored in
+  // settings (synced across phones); the Customers screen and the Give credit
+  // buttons on Orders read them from here.
+  const ref = cur.referrals ??= {};
+  const refOn = el("input", { type: "checkbox", checked: ref.enabled === true,
+    onchange: () => {
+      ref.enabled = refOn.checked;
+      save(state);
+      toast(ref.enabled ? "Bring-a-friend on — share buttons appear on Customers" : "Bring-a-friend off");
+    } });
+  const refFriend = el("input", { class: "input", type: "number", inputmode: "decimal", min: 0, step: "1",
+    value: (Number(ref.friendRM) || 3), style: "max-width:110px",
+    onchange: () => {
+      const v = Number(refFriend.value);
+      ref.friendRM = Number.isFinite(v) && v > 0 ? v : 3;
+      refFriend.value = ref.friendRM;
+      save(state); toast("Saved");
+    } });
+  const refReferrer = el("input", { class: "input", type: "number", inputmode: "decimal", min: 0, step: "1",
+    value: (Number(ref.referrerRM) || 3), style: "max-width:110px",
+    onchange: () => {
+      const v = Number(refReferrer.value);
+      ref.referrerRM = Number.isFinite(v) && v > 0 ? v : 3;
+      refReferrer.value = ref.referrerRM;
+      save(state); toast("Saved");
+    } });
+  const refDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: 0,
+    placeholder: "90", value: ref.validDays === "" || ref.validDays == null ? "" : String(ref.validDays),
+    style: "max-width:110px",
+    onchange: () => {
+      const raw = String(refDays.value).trim();
+      if (raw === "") { ref.validDays = ""; }
+      else {
+        const v = Math.floor(Number(raw));
+        ref.validDays = Number.isFinite(v) && v > 0 ? v : "";
+      }
+      refDays.value = ref.validDays === "" ? "" : String(ref.validDays);
+      save(state); toast("Saved");
+    } });
+  const referralsCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Referrals (bring-a-friend)"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "The deal: a friend who is NEW to you gets money off their first order when they order through a customer's link, and that customer earns a credit. You apply the actual discount yourself when you confirm on WhatsApp."),
+    el("label", { class: "daycheck", style: "display:inline-flex" },
+      refOn, " ", "Show bring-a-friend on Customers & new referred orders"),
+    el("div", { class: "form-grid", style: "margin-top:10px" },
+      el("div", {}, el("label", {}, "Friend's first-order discount (RM)"), refFriend),
+      el("div", {}, el("label", {}, "Referrer's credit (RM)"), refReferrer)),
+    el("div", { class: "field", style: "margin-top:10px" },
+      el("label", {}, "Credit valid for … days (blank = never)"),
+      refDays,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "Customer share messages live on More → Customers — open a customer to copy theirs. Give credit appears on a referred order in Orders.")));
+
   const sampleCard = (!state.products.length && !state.ingredients.length)
     ? el("div", { class: "card" },
         el("h3", { style: "margin:0 0 4px" }, "Try sample data"),
@@ -324,7 +379,7 @@ export function renderSettings(root, state) {
           button("Load sample data", () => loadSample(state), "soft")))
     : null;
 
-  root.replaceChildren(daysCard, lockCard, storefrontCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+  root.replaceChildren(daysCard, lockCard, storefrontCard, referralsCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
 
   function doImport(e) {
     const file = e.target.files && e.target.files[0];

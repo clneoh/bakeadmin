@@ -62,6 +62,13 @@ function buildEditor(state, product) {
     placeholder: "e.g. Rosemary focaccia — golden, airy crumb",
     value: product?.description || "" });
 
+  // A quick how-to-serve line the owner sends with the bring-a-friend follow-up
+  // ("how did the {product} go?"). Admin-only — never published to the shop.
+  // Optional — blank keeps the follow-up message to the referral ask only.
+  const serving = el("textarea", { class: "input", rows: 2,
+    placeholder: "e.g. Warm 10 min at 150°C — crisp on top, soft inside",
+    value: product?.servingTip || "" });
+
   // Cost of one unit from the current draft, expanding any product lines
   // (a set's cost compounds its component's cost into it).
   function perUnitCost() {
@@ -125,6 +132,7 @@ function buildEditor(state, product) {
     const vt = validTo.value || undefined;
     if (vf && vt && vf > vt) return { error: "The \"from\" date is after the \"to\" date — swap them" };
     const descVal = desc.value.trim();
+    const servingVal = serving.value.trim();
     return {
       values: {
         name: pname,
@@ -136,12 +144,13 @@ function buildEditor(state, product) {
         validFrom: vf,
         validTo: vt,
         description: descVal || undefined,
+        servingTip: servingVal || undefined,
         recipe,
       },
     };
   }
 
-  return { name, unit, price, limit, closeDays, validFrom, validTo, desc, recipeCard, renderRecipeLines, collect };
+  return { name, unit, price, limit, closeDays, validFrom, validTo, desc, serving, recipeCard, renderRecipeLines, collect };
 }
 
 // The common field layout under whichever shell (card or pop-up) hosts it.
@@ -154,6 +163,10 @@ function editorFields(state, editor) {
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
         "A sentence or two about what this is — e.g. rosemary focaccia, crusty outside, airy inside. Blank shows nothing."),
       editor.desc),
+    el("div", { class: "field" }, el("label", {}, "Serving tip (only used in your follow-up message)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "A short way-to-serve line you send with the bring-a-friend follow-up — e.g. “Warm 10 min at 150°C.” Blank keeps the follow-up simple."),
+      editor.serving),
     el("div", { class: "field" }, el("label", {}, "Sell price"), editor.price),
     el("div", { class: "field" }, el("label", {}, "Daily limit (optional)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },

@@ -33,7 +33,7 @@ globalThis.window = { open() {} };
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, pillSpecs, dateKey, fmtDay, trackOrder, isOpen, waNumber } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, pillSpecs, dateKey, fmtDay, trackOrder, isOpen, waNumber, parseVia } = await import("../store/app.js");
 
 test("buildMessage produces a tidy WhatsApp order", () => {
   const cfg = { name: "Jienluv2bake", products: [{ name: "Focaccia", price: 15 }] };
@@ -166,6 +166,64 @@ test("order click sends one order and shows the success card (regression: no thr
     assert.equal(payload.address, "12 Jalan Bunga");
     const title = registry["confirm-msg"].children[0].children[0]; // .text, not textContent, in the shim
     assert.equal(title.text, "🎉 Order received!");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("parseVia normalises the ?via= digits on a referral link", () => {
+  assert.equal(parseVia("?via=60123456789"), "60123456789");
+  assert.equal(parseVia("?via=012-345%206789"), "60123456789", "local number gets +60");
+  assert.equal(parseVia("?via=60123456789&track=abc"), "60123456789");
+  assert.equal(parseVia(""), "");
+  assert.equal(parseVia("?via="), "");
+  assert.equal(parseVia("?track=abc"), "");
+  assert.equal(parseVia(null), "");
+});
+
+test("an order placed from a ?via= link is stamped with the referrer", async () => {
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0](); // "+" — cart now has 1 item
+
+  let posted = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posted = { url, body: JSON.parse(opts.body) }; return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  const realLocation = globalThis.location;
+  globalThis.location = { search: "?via=60139876543" };
+  try {
+    document.getElementById("whatsapp-input").value = "60123456789";
+    document.getElementById("fulfillment")._value = "self";
+    await registry["order-btn"].onclick();
+    assert.ok(posted, "order was POSTed");
+    const payload = JSON.parse(posted.body[0].data);
+    assert.equal(payload.referredBy, "60139876543", "the ?via= digits ride on the order");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocation === undefined) delete globalThis.location;
+    else globalThis.location = realLocation;
+  }
+});
+
+test("an order without a ?via= link carries no referral stamp", async () => {
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0]();
+
+  let posted = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posted = { url, body: JSON.parse(opts.body) }; return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    document.getElementById("whatsapp-input").value = "60123456789";
+    await registry["order-btn"].onclick();
+    const payload = JSON.parse(posted.body[0].data);
+    assert.equal(payload.referredBy, undefined, "no stamp when there's no via");
   } finally {
     globalThis.fetch = realFetch;
   }

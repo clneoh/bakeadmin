@@ -33,6 +33,12 @@ export function defaultState() {
         tngQr: "", // hosted image URL shown on the customer's track page for TNG payment
         products: [], // [{ name, price, unit }]
       },
+      referrals: { // bring-a-friend scheme; synced so both phones agree
+        enabled: false,
+        friendRM: 3,   // the friend's first-order discount
+        referrerRM: 3, // the credit the referrer earns
+        validDays: 90, // "" (blank) = never expires
+      },
     },
     ingredients: [],
     suppliers: [],     // who you buy from (each has a WhatsApp number)
@@ -41,6 +47,8 @@ export function defaultState() {
     deliveryDates: [],
     orders: [],
     purchaseOrders: [],
+    credits: [], // bring-a-friend ledger: {holder, amountRM, role, expiresAt, ...}
+    occasions: [], // delivery-calendar reminder marks: {from, to, label}
   };
 }
 
@@ -205,6 +213,7 @@ function normalize(s) {
       cloud: { ...d.settings.cloud, ...((s.settings || {}).cloud || {}) },
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
+      referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],
     suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
@@ -215,6 +224,8 @@ function normalize(s) {
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))
       : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
+    credits: Array.isArray(s.credits) ? s.credits : [],
+    occasions: Array.isArray(s.occasions) ? s.occasions : [],
   };
   const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders);
   out.deliveryDates = consolidated.deliveryDates;

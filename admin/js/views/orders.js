@@ -7,6 +7,7 @@ import { byId, fmtRM, groupOrders, newId, orderCode, save, updateOrderBadge, waN
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder } from "../messages.js";
 import { maybeSync, publishTracking } from "../supabase.js";
+import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 
 let orderStatusFilter = "";
 // Text in the "Find an order" box at the top of the Orders screen (empty = box
@@ -426,6 +427,7 @@ export function newOrdersInbox(state, selectDate, root) {
       .filter(Boolean).join(" · ");
     const main = el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title, orderCodeTag(first),
+        referredTag(first),
         g.orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       el("div", { class: "li-sub" }, sub));
     const meta = el("div", { class: "li-right" },
@@ -485,6 +487,7 @@ function orderFinderEl(state, root, selectDate, body) {
       .filter(Boolean).join(" · ");
     const main = el("div", { class: "li-main" },
       el("div", { class: "li-title" }, items.join(" + "), orderCodeTag(first),
+        referredTag(first),
         group.orders.some((o) => o.source === "storefront")
           ? el("span", { class: "src-tag" }, "storefront") : null),
       el("div", { class: "li-sub" }, sub));
@@ -682,6 +685,15 @@ function productOptions(state, dateId, excludeOrderId = null) {
 // matched back to the order it belongs to.
 function orderCodeTag(order) {
   return el("span", { class: "ord-code" }, `#${orderCode(order)}`);
+}
+
+// A small "🎁 referred" chip on inbox/finder rows so the owner spots an order
+// that came through a customer's share link before she opens it. Shown whenever
+// the stamp is present (the new-vs-existing decision stays on the date row).
+function referredTag(order) {
+  return waNumber(order && order.referredBy)
+    ? el("span", { class: "ref-tag" }, "🎁 referred")
+    : null;
 }
 
 // The manual "＋ Add order" card, always at the top of a delivery date. Takes
@@ -1232,7 +1244,106 @@ function orderGroupRow(state, group, root, dateId) {
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
       stSel,
       ...actions),
-    orderJourneyEl(first));
+    orderJourneyEl(first),
+    referralBlockEl(state, group, root, dateId));
+}
+
+// ---- bring-a-friend (order row) ------------------------------------------
+// When shared data on + referrals on, a row whose order came through someone's
+// personal link shows what to do with it right under the journey: the Give
+// credit / Skip choice for a NEW referred customer, and the customer's own
+// usable credits ("Apply credit" = the owner has taken that RM off in
+// WhatsApp). Everything the owner does is one tap — the app records, she
+// applies the real discount on the confirmation message.
+
+function referralBlockEl(state, group, root, dateId) {
+  const first = group.orders[0];
+  const scheme = schemeOf(state);
+  if (!scheme.enabled || !first) return null;
+  const parts = [];
+  if (waNumber(first.referredBy)) {
+    const offer = referralOfferEl(state, group, scheme, root, dateId);
+    if (offer) parts.push(offer);
+  }
+  const apply = referralApplyEl(state, group, root, dateId);
+  if (apply) parts.push(apply);
+  return parts.length ? el("div", { class: "ref-block" }, ...parts) : null;
+}
+
+function refNote(text) {
+  return el("p", { class: "card-sub", style: "margin:0 0 6px" }, text);
+}
+
+function referralOfferEl(state, group, scheme, root, dateId) {
+  const first = group.orders[0];
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const via = waNumber(first.referredBy);
+  const friendDigits = waNumber(first.whatsapp);
+  const friendName = String(first.customerName || "").trim()
+    || (friendDigits ? `${friendDigits} (new)` : "a new customer");
+  const refName = referrerName(state, via) || `${via} (new)`;
+  const handled = String(first.referralHandled || "");
+
+  const give = () => {
+    const r = giveCredits(state, group, scheme);
+    for (const o of group.orders) o.referralHandled = "gave";
+    anchorRowId = first.id;
+    save(state);
+    maybeSync(state);
+    updateOrderBadge(state);
+    toast(r.created
+      ? `Credits added — apply the ${fmtRM(scheme.friendRM, cur)} off when you confirm`
+      : "Credit was already given");
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  };
+  const skip = () => {
+    for (const o of group.orders) o.referralHandled = "skip";
+    anchorRowId = first.id;
+    save(state);
+    maybeSync(state);
+    toast("Skipped — no credit for a returning customer");
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  };
+
+  if (handled === "gave") {
+    return refNote(`🎁 Credit given — ${fmtRM(scheme.friendRM, cur)} off ${friendName}'s first order, and ${fmtRM(scheme.referrerRM, cur)} for ${refName}.`);
+  }
+  if (handled === "skip") {
+    return refNote("⏭ Marked \"already a customer\" — no credit given.");
+  }
+  if (referralFlag(state, group) === "self") {
+    return refNote(`↩️ ${refName} ordered through their own link — no referral credit.`);
+  }
+  if (referralFlag(state, group) === "existing") {
+    return refNote(`👋 ${friendName} came via a link but already ordered before — not a new friend, no credit.`);
+  }
+  return el("div", { class: "ref-offer", style: "margin-bottom:6px" },
+    refNote(`🎁 New referred customer — ${friendName} gets ${fmtRM(scheme.friendRM, cur)} off their first order, and ${refName} earns ${fmtRM(scheme.referrerRM, cur)}.`),
+    el("div", { class: "btn-row", style: "margin:0" },
+      button("Give credit", give, "small primary"),
+      button("Skip — already a customer", skip, "ghost small")));
+}
+
+// The person on THIS order has unused credits (a friend's first-order discount,
+// or a referrer reward ready to spend) — offer to apply one. The owner taps it
+// after she has taken the RM off in WhatsApp, so the record matches reality.
+function referralApplyEl(state, group, root, dateId) {
+  const first = group.orders[0];
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const mine = validCredits(state, waNumber(first.whatsapp));
+  if (!mine.length) return null;
+  const firstCredit = mine[0];
+  return el("div", { class: "ref-apply", style: "margin-top:2px" },
+    el("span", { class: "card-sub", style: "margin:0" },
+      `✨ ${fmtRM(firstCredit.amountRM, cur)} credit available on this order`),
+    button(`Apply credit${mine.length > 1 ? ` (${mine.length})` : ""}`, () => {
+      const used = markOneUsed(state, waNumber(first.whatsapp));
+      anchorRowId = first.id;
+      save(state);
+      maybeSync(state);
+      toast(used ? `${fmtRM(used.amountRM, cur)} credit used — already taken off this order` : "Nothing to apply");
+      renderAll(root, state, new URLSearchParams({ date: dateId }));
+    }, "soft small"));
 }
 
 function trackUrlFor(order) {

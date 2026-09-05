@@ -353,3 +353,30 @@ test("normalize keeps product-line recipe rows (a set made of another product)",
   assert.deepEqual(set.recipe[0], { productId: "prd_f", qty: 4, unit: "loaf" });
   assert.equal(set.recipe[0].ingredientId, undefined, "product line has no ingredient id");
 });
+
+test("normalize backfills the referral scheme and keeps the credits ledger", () => {
+  const out = normalize({
+    version: 1,
+    settings: { referrals: { enabled: true, friendRM: 5 } }, // partial — older phone
+    credits: [{ id: "crd1", holder: "60123456789", holderName: "Aisyah", amountRM: 3, role: "reward" }],
+  });
+  // The partial scheme keeps its set fields and fills the rest from defaults.
+  assert.equal(out.settings.referrals.enabled, true);
+  assert.equal(out.settings.referrals.friendRM, 5);
+  assert.equal(out.settings.referrals.referrerRM, 3, "missing key filled from the default scheme");
+  assert.equal(out.settings.referrals.validDays, 90);
+  assert.deepEqual(out.credits, [{ id: "crd1", holder: "60123456789", holderName: "Aisyah", amountRM: 3, role: "reward" }]);
+});
+
+test("normalize gives a state with no referral settings the full defaults", () => {
+  const out = normalize({ version: 1, settings: {} });
+  assert.deepEqual(out.settings.referrals, defaultState().settings.referrals);
+  assert.deepEqual(out.credits, [], "missing ledger becomes empty, not undefined");
+});
+
+test("normalize keeps a set occasions list and backfills a missing one to empty", () => {
+  const occ = [{ id: "occ1", from: "2026-09-21", to: "2026-09-29", label: "School holiday" }];
+  assert.deepEqual(normalize({ version: 1, occasions: occ }).occasions, occ);
+  assert.deepEqual(normalize({ version: 1 }).occasions, [], "missing occasions becomes [], not undefined");
+  assert.deepEqual(normalize({ version: 1, occasions: "junk" }).occasions, [], "non-array is discarded");
+});

@@ -476,6 +476,41 @@ textarea.input { min-height: 64px; resize: vertical; }
 .list-item .li-sub { font-size: 13px; color: var(--muted); }
 .list-item .li-right { display: flex; align-items: center; gap: 8px; row-gap: 6px; flex-wrap: wrap; }
 
+/* ---------- Bring-a-friend ---------- */
+.ref-block {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--green-bg);
+  border-radius: 10px;
+}
+.ref-block .btn-row { gap: 6px; margin-bottom: 0; }
+.ref-block .card-sub { margin: 0; }
+.st-chip {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.st-chip.valid { background: var(--green-bg); color: var(--green); }
+.st-chip.used { background: var(--gray-bg); color: var(--muted); }
+.st-chip.expired { background: var(--gray-bg); color: var(--muted); text-decoration: line-through; }
+.credit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.credit-row:last-child { border-bottom: none; }
+.credit-row .li-main { min-width: 0; }
+.credit-row .btn-row { gap: 6px; margin: 0; }
+
 .qty-chip {
   font-weight: 700;
   font-size: 15px;
@@ -775,6 +810,17 @@ textarea.input { min-height: 64px; resize: vertical; }
   font-weight: 600;
   color: var(--brown-dark, #7a4a2a);
   background: var(--brown-soft, #f4e6da);
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: 2px;
+}
+.ref-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green, #3f7d4e);
+  background: var(--green-bg, #e7f2e8);
   padding: 1px 7px;
   border-radius: 999px;
   vertical-align: 2px;
@@ -1105,3 +1151,75 @@ textarea.input { min-height: 64px; resize: vertical; }
 .cal-cell.past { color: var(--muted); opacity: .5; }
 .cal-cell.today:not(.added):not(.sel) { box-shadow: inset 0 0 0 1.5px var(--brown); }
 .cal-cell.blank { visibility: hidden; }
+
+/* Occasion marks — reminder periods painted on the delivery calendar.
+   Purely visual: an occasion never adds or blocks a delivery date. */
+.cal-modes { display: flex; gap: 8px; margin: 0 0 12px; }
+.cal-modes .btn { flex: 1; font-size: 13px; padding: 9px 0; }
+.btn.cal-mode-on { background: var(--brown); border-color: var(--brown); color: #fff; box-shadow: none; }
+
+.occ-cell { cursor: pointer; }
+.cal-cell.occ {
+  background: var(--occ-bg, var(--gray-bg));
+  color: var(--occ-ink, var(--ink));
+  font-weight: 700;
+}
+/* An added date the baker also selected keeps the solid selection fill. */
+.cal-cell.occ.sel { background: var(--brown); color: #fff; }
+.cal-cell.occ-sel { box-shadow: inset 0 0 0 2px var(--brown); }
+/* Keep the "✓" green even when the day's tint overrides the added colour. */
+.cal-cell.added::after { color: var(--green); }
+
+.occ-cny { --occ-bg: #f9dcd2; --occ-ink: #a83b28; }
+.occ-hari-raya { --occ-bg: #dce9dc; --occ-ink: #2f6b3c; }
+.occ-mid-autumn { --occ-bg: #f7e6bd; --occ-ink: #8a6110; }
+.occ-deepavali { --occ-bg: #e7ddf0; --occ-ink: #5b3a8c; }
+.occ-public-holiday { --occ-bg: #e7e2da; --occ-ink: #57524b; }
+.occ-school-holiday { --occ-bg: #d9e6f0; --occ-ink: #2f5d87; }
+.occ-other { --occ-bg: #d6ece9; --occ-ink: #1f6a60; }
+
+.occ-tag {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--occ-bg, var(--gray-bg));
+  color: var(--occ-ink, var(--ink));
+}
+
+.occ-tip { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.occ-sublabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin: 14px 0 4px;
+}
+.occ-body { margin-top: 2px; }
+.occ-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.occ-row:last-child { border-bottom: none; }
+.occ-row .occ-tag { margin-right: auto; }
+.occ-row-dates { font-size: 12px; color: var(--muted); }
+.occ-row .btn { flex: none; min-height: 34px; padding: 6px 11px; font-size: 12px; }
+
+.cal-range { font-size: 15px; font-weight: 700; font-family: var(--serif); margin: 0 0 10px; }
+.occ-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.occ-chip {
+  background: var(--occ-bg, var(--brown-soft));
+  color: var(--occ-ink, var(--brown-dark));
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 14px;
+  min-height: 38px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  box-shadow: none;
+}

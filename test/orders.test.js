@@ -173,6 +173,39 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
   }
 });
 
+test("newOrdersInbox tags an order that arrived through a referral link", () => {
+  const referredState = {
+    products: [{ id: "p1", name: "Focaccia", active: true }],
+    deliveryDates: [{ id: "d1", date: "2026-09-04" }],
+    orders: [
+      // Ordered from a ?via= link, so the shop stamped referredBy with digits.
+      { id: "o1", status: "new", groupId: "g1", deliveryDateId: "d1", productId: "p1", qty: 1,
+        customerName: "Nadia", referredBy: "60139876543", createdAt: "2026-09-01T08:00:00", orderDate: "2026-09-01" },
+      // No link — no tag.
+      { id: "o2", status: "new", groupId: "g2", deliveryDateId: "d1", productId: "p1", qty: 1,
+        customerName: "Maya", createdAt: "2026-09-01T09:00:00", orderDate: "2026-09-01" },
+      // A non-digit referredBy is a data artefact, not a real link stamp.
+      { id: "o3", status: "new", groupId: "g3", deliveryDateId: "d1", productId: "p1", qty: 1,
+        customerName: "Ain", referredBy: "gift-from-me", createdAt: "2026-09-01T10:00:00", orderDate: "2026-09-01" },
+    ],
+  };
+  const inbox = newOrdersInbox(referredState, () => {});
+  const rows = inbox.children[2].children; // .inbox-list
+  assert.equal(rows.length, 3);
+
+  const tagOf = (row) => {
+    const title = row.children[0].children[0].children[0]; // inbox-main → .li-main → .li-title
+    return (title.children || []).find((c) => String(c.className || "").includes("ref-tag"));
+  };
+
+  const referred = tagOf(rows[0]);
+  assert.ok(referred, "referred order shows the 🎁 referred tag");
+  assert.match(String(referred.children[0].text || ""), /referred/);
+
+  assert.equal(tagOf(rows[1]), undefined, "plain order gets no referral tag");
+  assert.equal(tagOf(rows[2]), undefined, "non-digit referredBy is not treated as a link stamp");
+});
+
 // Orders for the finder tests. The order ids end in fixed hex so the derived
 // code is predictable: "o_9f3ba44e" → #3BA44E, "o_ce7c9b21" → #7C9B21.
 const searchState = () => ({
