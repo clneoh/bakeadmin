@@ -24,6 +24,7 @@ export function defaultState() {
       },
       lock: { enabled: false, pinHash: "" }, // device-local app password (never synced)
       weekCheck: { week: "", done: {} }, // device-local weekly to-do on Home (never synced; fresh each Monday)
+      savedOccNames: [], // device-local occasion names she can reuse (never synced)
       storefront: { // what the customer page shows; published to Supabase
         whatsapp: "",
         name: "",

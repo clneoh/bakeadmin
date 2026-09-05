@@ -11,8 +11,8 @@ import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.j
 import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import {
-  DOW, addMonth, monthLabel, monthWeeks,
-  OCCASION_PRESETS, occColour, occDays, occForDateAll, occRange, occStrength,
+  DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
+  occColour, occDays, occForDateAll, occRange, occStrength,
 } from "../calendar.js";
 
 // Local picker state (survives re-renders while this screen is open): which
@@ -22,7 +22,7 @@ let viewMonth = null;
 const picked = new Set();
 let occMode = false;
 let occAnchor = null; // first day of a two-tap mark, waiting for the last day
-let occColourChosen = "red"; // mark colour she picked last (red/grey)
+let occColourChosen = "red"; // mark colour she picked last (one of OCC_COLOURS)
 
 function view() { return document.getElementById("view"); }
 
@@ -256,6 +256,7 @@ function occRow(state, occ) {
   return el("div", { class: "occ-row" },
     el("span", { class: `occ-tag occ-${occColour(occ)}` }, occ.label),
     el("span", { class: "occ-row-dates" }, `${longDate(occ.from)} – ${longDate(occ.to)}`),
+    button("Edit", () => occLabelPicker(state, occ.from, occ.to, occ), "ghost small"),
     button("✕", () => deleteOccasion(state, occ), "ghost small"));
 }
 
@@ -273,14 +274,33 @@ function deleteOccasion(state, occ) {
     }, { danger: true, yesLabel: "Remove" });
 }
 
+// Names the baker has typed before, most recent first — a quick-tap reuse list
+// stored on THIS phone only (settings.savedOccNames is never synced).
+function occSavedNames(state) {
+  const arr = state.settings && Array.isArray(state.settings.savedOccNames)
+    ? state.settings.savedOccNames
+    : [];
+  return arr.slice();
+}
+
+function rememberOccName(state, name) {
+  name = String(name).trim();
+  if (!name) return;
+  const list = occSavedNames(state).filter((n) => n.toLowerCase() !== name.toLowerCase());
+  list.unshift(name);
+  state.settings.savedOccNames = list.slice(0, 12); // keep the last dozen
+}
+
 function addOccasion(state, from, to, label, colour, close) {
+  const clean = String(label).trim();
   state.occasions.push({
-    id: newId("occ"), from, to, label: String(label).trim(),
-    colour: colour === "red" ? "red" : "grey",
+    id: newId("occ"), from, to, label: clean,
+    colour: OCC_COLOURS.includes(colour) ? colour : "grey",
   });
+  rememberOccName(state, clean);
   save(state);
   maybeSync(state);
-  toast(`Marked "${label}" on the calendar`);
+  toast(`Marked "${clean}" on the calendar`);
   close();
   resetOcc();
   renderAll(view(), state);
@@ -290,57 +310,101 @@ function rangeText(from, to) {
   return `${weekdayName(from)} ${longDate(from)} – ${weekdayName(to)} ${longDate(to)}`;
 }
 
-function occLabelPicker(state, from, to) {
-  showPopup("Mark this period", (refresh, close) => {
-    const custom = el("input", { class: "input", placeholder: "Or type a name of your own", maxlength: "40" });
-    let colour = occColourChosen;
-    const finish = (label) => {
-      if (!String(label).trim()) return toast("Type a name first");
-      addOccasion(state, from, to, label, colour, close);
-    };
-    custom.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(custom.value); });
+// The popup that names + colours a fresh mark — or edits an existing mark's
+// name + colour (occ given; its dates stay read-only). The body is rebuilt on
+// refresh() so a forgotten saved name drops out, but `ui` keeps the colour and
+// name the baker is mid-way through, so nothing resets on a refresh.
+function occLabelPicker(state, from, to, occ = null) {
+  const editing = !!occ;
+  const ui = {
+    colour: editing ? occColour(occ) : occColourChosen,
+    name: editing ? String(occ.label || "") : "",
+  };
+  showPopup(editing ? "Edit this mark" : "Mark this period", (refresh, close) => {
     const cancel = () => {
       resetOcc();
       close();
       renderAll(view(), state);
     };
-
-    // Colour is the first choice — red for a big, very-prominent holiday,
-    // grey for a long stretch. Remembered so the next mark keeps it.
-    const colBtns = new Map(); // key -> { btn, check }
-    const pickColour = (key) => {
-      colour = key;
-      occColourChosen = key;
-      for (const [k, { btn, check }] of colBtns) {
-        btn.classList.toggle("colour-on", k === key);
-        check.style.visibility = k === key ? "visible" : "hidden";
+    const finish = () => {
+      const name = String(ui.name).trim();
+      if (!name) return toast("Type a name first");
+      if (editing) {
+        occ.label = name;
+        occ.colour = ui.colour;
+        rememberOccName(state, name);
+        save(state);
+        maybeSync(state);
+        toast(`Updated "${name}"`);
+        close();
+        renderAll(view(), state);
+      } else {
+        addOccasion(state, from, to, name, ui.colour, close); // remembers the name
       }
     };
-    const colourBtn = (key, text) => {
-      const check = el("span", { class: "occ-check" }, "✓");
-      check.style.visibility = occColourChosen === key ? "visible" : "hidden";
-      const btn = button(text, () => pickColour(key), `occ-colbtn ${key}${occColourChosen === key ? " colour-on" : ""}`);
-      btn.prepend(el("span", { class: "occ-dot" }));
-      btn.appendChild(check);
-      colBtns.set(key, { btn, check });
-      return btn;
-    };
-    const colours = el("div", { class: "occ-colours" },
-      colourBtn("red", "Red — a big, very-prominent day"),
-      colourBtn("grey", "Grey — a long stretch of days"));
 
-    const chips = el("div", { class: "occ-chips" },
-      ...OCCASION_PRESETS.map((p) => button(p, () => finish(p), "occ-chip")));
-    return el("div", {},
+    const nameInput = el("input", {
+      class: "input", placeholder: "Type a name — e.g. \"Malaysia Day\"",
+      maxlength: "40", value: ui.name,
+    });
+    nameInput.addEventListener("input", () => { ui.name = nameInput.value; });
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(); });
+
+    const colourName = el("span", { class: "occ-swatch-name" }, ui.colour);
+    const swatches = el("div", { class: "occ-swatches" });
+    const pick = (key) => {
+      ui.colour = key;
+      occColourChosen = key;
+      colourName.textContent = key;
+      for (const s of swatches.children) {
+        s.classList.toggle("on", s.dataset.colour === key);
+      }
+    };
+    for (const key of OCC_COLOURS) {
+      swatches.append(el("button", {
+        class: `occ-swatch occ-${key}${ui.colour === key ? " on" : ""}`,
+        dataset: { colour: key },
+        "aria-label": key,
+        title: key.charAt(0).toUpperCase() + key.slice(1),
+        onclick: () => pick(key),
+      }));
+    }
+
+    // Names she has typed before — tap one to reuse it (its ✕ forgets it).
+    const saved = occSavedNames(state);
+    const chips = el("div", { class: "occ-chips" });
+    for (const n of saved) {
+      const forget = el("button", {
+        class: "occ-chip-x", "aria-label": `Forget "${n}"`,
+        onclick: (e) => {
+          e.stopPropagation();
+          state.settings.savedOccNames = occSavedNames(state).filter((x) => x !== n);
+          save(state);
+          refresh(); // the chip list rebuilds without it
+        },
+      }, "✕");
+      const chip = el("div", {
+        class: "occ-chip",
+        onclick: () => { ui.name = n; nameInput.value = n; nameInput.focus(); },
+      }, n, forget);
+      chips.append(chip);
+    }
+
+    const body = el("div", {},
       el("p", { class: "cal-range" }, rangeText(from, to)),
-      el("p", { class: "occ-sublabel", style: "margin-top:2px" }, "Pick a colour"),
-      colours,
+      editing ? el("p", { class: "occ-edit-note" },
+        "Only the name and colour can change here. To cover different days, remove this mark and mark the new range.")
+        : null,
+      el("p", { class: "occ-sublabel", style: "margin-top:8px" }, "Pick a colour"),
+      swatches,
+      colourName,
       el("p", { class: "occ-sublabel", style: "margin-top:12px" }, "Name it"),
       chips,
-      custom,
+      nameInput,
       el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px" },
         button("Cancel", cancel, "ghost"),
-        button("Add", () => finish(custom.value), "primary")));
+        button(editing ? "Save" : "Add", finish, "primary")));
+    return body;
   });
 }
 

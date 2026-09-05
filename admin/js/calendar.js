@@ -41,20 +41,16 @@ export const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 // ── occasion marks (delivery-calendar reminders) ─────────────────────────────
 // A period of days the baker wants to remember when planning — a public
 // holiday, a school-holiday stretch, CNY, Hari Raya... Purely a reminder: an
-// occasion never adds or removes delivery dates or changes ordering. One-tap
-// presets cover the common names. The baker picks the mark's colour herself:
-// RED for a big, very-prominent holiday, GREY for a longer stretch.
+// occasion never adds or removes delivery dates or changes ordering. The baker
+// picks each mark's colour from the eight below and types its own name.
 
-export const OCCASION_PRESETS = [
-  "CNY", "Hari Raya", "Mid-Autumn", "Deepavali", "Public holiday", "School holiday",
-];
+export const OCC_COLOURS = ["red", "orange", "yellow", "green", "blue",
+  "purple", "pink", "grey"];
 
-// The two reminder colours the baker can choose for a mark. Anything without
-// an explicit colour (an older mark) counts as grey.
-export const OCC_COLOURS = ["red", "grey"];
-
+// A mark's colour is whatever the baker chose — an older mark that carries no
+// colour (or an unrecognised one) counts as grey.
 export function occColour(occ) {
-  return occ && occ.colour === "red" ? "red" : "grey";
+  return occ && occ.colour && OCC_COLOURS.includes(occ.colour) ? occ.colour : "grey";
 }
 
 // A mark's inclusive length in days (1 = a single day).
