@@ -257,6 +257,45 @@ test("syncAvailability publishes every real delivery date, not just the nearest 
   }
 });
 
+test("syncAvailability pushes value-pack rows as a separate uniform batch (no PGRST102)", async () => {
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    // A 4-piece value pack: one product line, no limit of its own → poolable.
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", active: true, limit: 12 },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncAvailability(state);
+    assert.ok(r.ok);
+    assert.equal(r.pushedProducts, 30); // 2 bases + 1 pack × 10 dates
+    const upserts = calls.filter((c) => c.url.includes("on_conflict=date,product"));
+    assert.equal(upserts.length, 2, "plain rows and value-pack rows are two separate upserts");
+    const [plain, pack] = upserts;
+    const plainBody = JSON.parse(plain.opts.body);
+    const packBody = JSON.parse(pack.opts.body);
+    assert.equal(plainBody.length, 20);
+    assert.equal(packBody.length, 10);
+    assert.ok(plainBody.every((row) => !("pool_base" in row)), "plain batch never carries pool keys");
+    assert.ok(packBody.every((row) => "pool_base" in row && "pool_qty" in row), "pack batch carries pool keys");
+    const keyShape = (rows) => new Set(rows.map((row) => Object.keys(row).sort().join(",")));
+    assert.equal(keyShape(plainBody).size, 1, "all plain rows share one key shape");
+    assert.equal(keyShape(packBody).size, 1, "all pack rows share one key shape");
+    const plainKeys = [...keyShape(plainBody)][0];
+    const packKeys = [...keyShape(packBody)][0];
+    assert.equal(packKeys, plainKeys.split(",").concat("pool_base", "pool_qty").sort().join(","));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("syncStorefront returns ok:false when not configured", async () => {
   let called = false;
   globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };

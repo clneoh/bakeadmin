@@ -199,17 +199,32 @@ export async function syncAvailability(state) {
     return { ok: false, reason: `Sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 120) : ""}` };
   }
 
-  // Per-product rows drive the "Only N left" stamps; only products with a
-  // daily limit publish a row, so this is a no-op until limits are set.
+  // Per-product rows drive the "Only N left" stamps. They come in two shapes —
+  // plain rows (a product with its own daily limit) and value-pack rows, which
+  // add pool_base/pool_qty so the database can derive them from their base's
+  // pool. PostgREST requires every object in one upsert to carry the SAME keys
+  // (a mixed batch is rejected with HTTP 400 "All object keys must match"), so
+  // the two shapes are pushed as separate batches. The pack batch additionally
+  // needs the pool columns — if those aren't in the table yet
+  // (supabase/shared_pool_slots.sql hasn't run), that batch alone fails while
+  // the plain singles still go through.
   const productRows = computeProductSlots(state, horizon);
+  const plainRows = productRows.filter((r) => !("pool_base" in r));
+  const packRows = productRows.filter((r) => "pool_base" in r);
   let pushedProducts = 0;
-  if (productRows.length) {
-    const pres = await upsert("product_availability", productRows, "date,product");
-    if (!pres.ok) {
-      const text = await pres.text().catch(() => "");
-      return { ok: false, reason: `Product sync failed (HTTP ${pres.status})${text ? " — " + text.slice(0, 120) : ""}` };
+  const pushProductBatch = async (rows) => {
+    if (!rows.length) return null;
+    const res = await upsert("product_availability", rows, "date,product");
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, reason: `Product sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 160) : ""}` };
     }
-    pushedProducts = productRows.length;
+    pushedProducts += rows.length;
+    return null;
+  };
+  for (const batch of [plainRows, packRows]) {
+    const batchErr = await pushProductBatch(batch);
+    if (batchErr) return batchErr;
   }
 
   // Best-effort cleanup: drop published rows for dates that are no longer in
