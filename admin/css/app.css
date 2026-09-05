@@ -1114,6 +1114,7 @@ textarea.input { min-height: 64px; resize: vertical; }
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   margin-top: 6px;
+  position: relative; /* anchor the absolutely-placed occasion papers */
 }
 .cal-dow {
   text-align: center;
@@ -1136,6 +1137,10 @@ textarea.input { min-height: 64px; resize: vertical; }
   font-size: 14px;
   font-family: inherit;
   color: var(--ink);
+  /* Above the occasion papers (see .occ-paper) so the day number and any
+     green/selected fill stay legible on top of a mark. The cell background is
+     transparent, so a paper behind still shows through around the number. */
+  z-index: 1;
 }
 .cal-cell.tappable { cursor: pointer; }
 .cal-cell.tappable:active { background: var(--gray-bg); }
@@ -1155,8 +1160,12 @@ textarea.input { min-height: 64px; resize: vertical; }
 /* Occasion marks — reminder periods painted on the delivery calendar.
    Purely visual: an occasion never adds or blocks a delivery date. A mark has
    TWO colours: red for a big, very-prominent holiday; grey for a long stretch.
-   Consecutive days of one mark form ONE continuous block — each shaded cell's
-   fill bleeds 2px into the 4px gutter, so a run reads as a solid band. */
+   Each mark is drawn as its OWN rounded rectangle over the days it covers (the
+   `.occ-paper` elements, placed by occOverlays), so the calendar reads like
+   sheets of paper: a long school-holiday stretch is a long pale band, and a
+   shorter mark that overlaps it is a smaller, more-solid rounded box sitting
+   ON TOP of it. Longer marks are laid first (behind); every fill is
+   see-through, so an overlap never hides the sheet beneath. */
 .cal-modes { display: flex; gap: 8px; margin: 0 0 12px; }
 .cal-modes .btn { flex: 1; font-size: 13px; padding: 9px 0; }
 .btn.cal-mode-on { background: var(--brown); border-color: var(--brown); color: #fff; box-shadow: none; }
@@ -1174,43 +1183,67 @@ textarea.input { min-height: 64px; resize: vertical; }
 .occ-soft.occ-grey   { --occ-fill: #eae4dc; }
 
 .occ-cell { cursor: pointer; }
-.cal-cell.occ {
-  background: var(--occ-fill, var(--gray-bg));
-  font-weight: 700;
-  border-radius: 0;
-  z-index: 0; /* stacking context so the wash stays under the day number */
-  color: var(--ink); /* keep the day number dark and readable on the wash */
+/* One occasion = one rounded "paper". It is an absolutely-positioned grid
+   child: grid-column/grid-row (set in JS) pick its week-row area — without
+   disturbing the auto-placed day cells — and it sits UNDER the day cells
+   (z-index 0 vs the cells' 1), with pointer-events off so taps and drags pass
+   through to the dates. The -2px vertical inset reaches into the row gutters,
+   so a mark that runs across two weeks still reads as one continuous band. */
+.occ-paper {
+  position: absolute;
+  grid-area: var(--gr) / var(--gc1) / var(--gr) / var(--gc2);
+  inset: -2px 1px; /* 1px side inset frames each sheet — a shorter mark on a longer
+                      band shows the sheet beneath around its edges, so an overlap
+                      reads as stacked papers, not one colour over another */
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--occ-solid, #8a7a6b) 22%, transparent);
 }
-.cal-cell.occ::before {
+/* Translucent fills: the colour of the sheet (deeper = a shorter/stronger mark)
+   faded so the paper underneath shows through where marks overlap. */
+.occ-paper.occ-strong {
+  background: var(--occ-fill, var(--gray-bg));
+  background: color-mix(in srgb, var(--occ-fill, var(--gray-bg)) 62%, transparent);
+}
+.occ-paper.occ-mid {
+  background: var(--occ-fill, var(--gray-bg));
+  background: color-mix(in srgb, var(--occ-fill, var(--gray-bg)) 50%, transparent);
+}
+.occ-paper.occ-soft {
+  background: var(--occ-fill, var(--gray-bg));
+  background: color-mix(in srgb, var(--occ-fill, var(--gray-bg)) 40%, transparent);
+}
+
+/* A delivery date inside a mark is the smallest, solidest "paper" of all: a
+   small rounded box in the mark's strong colour sits on top, with the day
+   number white and its tick kept — the stack reads (mark) behind, (delivery
+   date) in front. Outside a mark a delivery date keeps its plain green tile. */
+.cal-cell.delb {
+  --bul: 24px; /* the solid box's size, so the tick below can align to it */
+  color: #fff;
+  font-weight: 700;
+}
+.cal-cell.delb::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: var(--occ-fill, var(--gray-bg));
-  z-index: -1;
-}
-/* Stretch the wash toward any painted neighbour day, so every run joins into
-   ONE continuous wash (across week rows too), overlapping marks meet flush, and
-   the block's outer edges stay clean where the neighbour is a plain day. */
-.cal-cell.occ.l::before { left: -2px; }
-.cal-cell.occ.r::before { right: -2px; }
-.cal-cell.occ.t::before { top: -2px; }
-.cal-cell.occ.b::before { bottom: -2px; }
-/* A delivery date inside a mark is the STRONGEST thing on that day: the date
-   becomes a solid bullet in the mark's strong colour, number white, with the
-   tick still there — clearly on top of the wash. Outside a mark a delivery
-   date keeps its plain green ticked tile. */
-.cal-cell.occ.added {
+  z-index: -1; /* inside the cell's stacking context → above papers, under the number */
+  left: 50%;
+  top: 50%;
+  width: var(--bul);
+  height: var(--bul);
+  border-radius: 8px;
+  transform: translate(-50%, -50%);
   background: var(--occ-solid, var(--brown));
-  color: #fff;
-  border-radius: 999px;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .4);
 }
-.cal-cell.occ.added::before { display: none; } /* the solid bullet covers the wash */
-.cal-cell.occ.added::after { color: #fff; font-size: 9px; right: 4px; }
-/* A tapped-to-add day inside a mark shows the solid "picked" fill + ring. */
-.cal-cell.occ.sel { background: var(--brown-dark); color: #fff; box-shadow: inset 0 0 0 2px #fff; }
-.cal-cell.occ.sel::before { background: var(--brown-dark); }
-.cal-cell.tappable.occ:active { background: var(--occ-fill); }
+.cal-cell.delb::after {
+  content: "✓";
+  font-size: 8px;
+  position: absolute;
+  top: calc((100% - var(--bul)) / 2 - 1px);
+  right: calc((100% - var(--bul)) / 2 - 2px);
+}
 /* Live drag ring while choosing a range. */
 .cal-cell.occ-sel { box-shadow: inset 0 0 0 2px var(--brown); }
 

@@ -12,7 +12,7 @@ import { newId, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import {
   DOW, addMonth, monthLabel, monthWeeks,
-  OCCASION_PRESETS, occForDate, occForDateAll, occColour, occRange, occStrength,
+  OCCASION_PRESETS, occColour, occDays, occForDateAll, occRange, occStrength,
 } from "../calendar.js";
 
 // Local picker state (survives re-renders while this screen is open): which
@@ -87,42 +87,39 @@ function addSelected(state) {
   renderAll(view(), state);
 }
 
-// The ISO range of the month now on screen (every grid cell stays inside it).
-function monthISOBounds() {
-  const { year, month } = viewMonth;
-  const p = (n) => String(n).padStart(2, "0");
-  const last = new Date(year, month + 1, 0).getDate();
-  return [`${year}-${p(month + 1)}-01`, `${year}-${p(month + 1)}-${p(last)}`];
-}
-
-function shiftISO(date, days) {
-  const d = new Date(`${date}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-// The extra classes a date gets when an occasion covers it: the winning mark's
-// colour wash at a strength that fades with the mark's length (short = strong,
-// long = soft), plus l/r/t/b flags for neighbouring painted days — the CSS
-// stretches the wash into the gutters, so every painted run reads as one
-// continuous wash and two overlapping marks meet flush (no hairline gap).
-function occTint(state, date) {
-  const occ = occForDate(state.occasions, date);
-  if (!occ) return "";
-  let cls = ` occ occ-${occColour(occ)} occ-${occStrength(occ)}`;
-  const [firstISO, lastISO] = monthISOBounds();
-  // Any painted day lets the wash bleed toward it (same mark or a neighbour's
-  // stronger one sitting on top) — only a fully plain day stops the band.
-  const covered = (x) => x >= firstISO && x <= lastISO && !!occForDate(state.occasions, x);
-  const dow = new Date(`${date}T00:00:00`).getDay(); // 0 Sun … 6 Sat
-  // A Sunday's left neighbour (and a Saturday's right neighbour) sits on the
-  // next grid row, so those never count as a same-row join.
-  if (dow !== 0 && covered(shiftISO(date, -1))) cls += " l";
-  if (dow !== 6 && covered(shiftISO(date, 1))) cls += " r";
-  if (covered(shiftISO(date, -7))) cls += " t";
-  if (covered(shiftISO(date, 7))) cls += " b";
-  return cls;
+// Occasion marks are drawn as stacked translucent "papers": each mark becomes
+// one rounded rectangle over the days it covers in each week row (a long
+// school-holiday stretch = one long pale band; a one-day public holiday = a
+// small, more-solid box). Longer marks come first in the list so the CSS paints
+// them BEHIND the shorter marks that overlap them — and because every fill is
+// see-through, an overlap reads as sheets stacked on top of each other, never
+// one colour wiping the other out. Papers only cover today and the future;
+// past days keep their muted look.
+function occOverlays(state, weeks, today) {
+  const papers = [];
+  const marks = (state.occasions || [])
+    .filter((occ) => occ && occ.from && occ.to)
+    .sort((a, b) => occDays(b) - occDays(a)); // long first → painted behind
+  for (const occ of marks) {
+    weeks.forEach((row, r) => {
+      let first = -1, last = -1;
+      row.forEach((d, c) => {
+        if (d && d >= today && occ.from <= d && d <= occ.to) {
+          if (first === -1) first = c;
+          last = c;
+        }
+      });
+      if (first === -1) return;
+      // Grid row 1 is the day-of-week header, so week r sits on grid row r + 2.
+      // Papers are absolutely placed against that area (see .occ-paper), which
+      // lets them overlay the row without disturbing the day cells' layout.
+      papers.push(el("div", {
+        class: `occ-paper occ-${occColour(occ)} occ-${occStrength(occ)}`,
+        style: `--gr:${r + 2};--gc1:${first + 1};--gc2:${last + 2};`,
+      }));
+    });
+  }
+  return papers;
 }
 
 function buildAddCard(state) {
@@ -185,7 +182,8 @@ function buildAddGrid(state, weeks) {
   const cells = weeks.flat().map((d) => dayCell(state, d, today, addedSet));
   return el("div", { class: "cal-grid" },
     ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
-    ...cells);
+    ...cells,
+    ...occOverlays(state, weeks, today));
 }
 
 function dayCell(state, date, today, addedSet) {
@@ -195,15 +193,20 @@ function dayCell(state, date, today, addedSet) {
   const past = date < today;
   const selected = picked.has(date);
   const isToday = date === today;
-  // Only added/upcoming days carry the occasion tint — past marks aren't shown.
-  const tint = added || !past ? occTint(state, date) : "";
+  // A delivery date inside a mark is the top "paper" of the stack: a small solid
+  // box, number white, ticked. Outside a mark it keeps the plain green tile.
+  // (Only upcoming days sit above a mark — past marks aren't shown at all.)
+  const top = added && !past ? occForDateAll(state.occasions, date)[0] || null : null;
+  let cls = "cal-cell";
+  if (top) cls += ` delb occ-${occColour(top)}`;
+  else if (added) cls += " added";
+  else if (past) cls += " past";
+  if (isToday) cls += " today";
   if (added || past) {
-    return el("span", {
-      class: `cal-cell${added ? " added" : " past"}${tint}${isToday ? " today" : ""}`,
-    }, dayNum);
+    return el("span", { class: cls }, dayNum);
   }
   return el("button", {
-    class: `cal-cell tappable${tint}${selected ? " sel" : ""}${isToday ? " today" : ""}`,
+    class: `${cls} tappable${selected ? " sel" : ""}`,
     onclick: () => {
       if (selected) picked.delete(date);
       else picked.add(date);
@@ -332,9 +335,14 @@ function buildOccGrid(state, weeks) {
     const dayNum = String(Number(d.slice(8, 10)));
     const past = d < today;
     const isToday = d === today;
-    const tint = past ? "" : occTint(state, d);
-    const base = `cal-cell${past ? " past" : " occ-cell"}${tint}`
-      + `${!past && addedSet.has(d) ? " added" : ""}${isToday && !past ? " today" : ""}`;
+    // Same stacking as the add-date grid: a delivery date inside a mark is the
+    // small solid top box; otherwise the plain green ticked tile.
+    const top = !past && addedSet.has(d)
+      ? occForDateAll(state.occasions, d)[0] || null : null;
+    let base = `cal-cell${past ? " past" : " occ-cell"}`;
+    if (top) base += ` delb occ-${occColour(top)}`;
+    else if (!past && addedSet.has(d)) base += " added";
+    if (isToday && !past) base += " today";
     if (past) {
       cells.push(el("span", { class: base }, dayNum));
     } else {
@@ -346,7 +354,8 @@ function buildOccGrid(state, weeks) {
 
   const grid = el("div", { class: "cal-grid", style: "touch-action:none" },
     ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
-    ...cells);
+    ...cells,
+    ...occOverlays(state, weeks, today));
   attachOccDrag(grid, byDate, state);
   return grid;
 }
