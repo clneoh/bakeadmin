@@ -221,7 +221,11 @@ async function boot() {
 }
 
 function passLock() {
-  if (!lockedNow()) return Promise.resolve(true);
+  // No lock at boot → this page load counts as already open. Without this, the
+  // `unlocked` flag stays false and ticking the lock ON later in the same
+  // session would make the app think it is locked (navigation goes dead) while
+  // no lock screen is shown — the lock is meant to start from the NEXT open.
+  if (!lockedNow()) { unlocked = true; return Promise.resolve(true); }
   return new Promise((resolve) => {
     const layer = document.getElementById("lock-layer");
     if (!layer) { unlocked = true; return resolve(true); } // can't lock without the layer
