@@ -184,7 +184,15 @@ export async function syncAvailability(state) {
       body: JSON.stringify(rows),
     });
 
-  const rows = computeSlots(state);
+  // Publish EVERY real delivery date the baker has added (today onward) — no
+  // fixed window, so a date she adds for weeks ahead is live on the shop at
+  // once. Only when she has no real dates yet does it fall back to a short
+  // generated peek from the weekday rule (nextDeliveryDates' own fallback),
+  // so a brand-new phone can't balloon the tables.
+  const realDates = (state.deliveryDates || []).filter((d) => d && d.date >= todayISO()).length;
+  const horizon = realDates > 0 ? realDates : 10;
+
+  const rows = computeSlots(state, horizon);
   const res = await upsert("availability", rows, "date");
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -193,7 +201,7 @@ export async function syncAvailability(state) {
 
   // Per-product rows drive the "Only N left" stamps; only products with a
   // daily limit publish a row, so this is a no-op until limits are set.
-  const productRows = computeProductSlots(state);
+  const productRows = computeProductSlots(state, horizon);
   let pushedProducts = 0;
   if (productRows.length) {
     const pres = await upsert("product_availability", productRows, "date,product");

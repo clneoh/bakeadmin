@@ -228,6 +228,35 @@ test("syncAvailability upserts per-product rows when products have limits", asyn
   }
 });
 
+test("syncAvailability publishes every real delivery date, not just the nearest 10", async () => {
+  const state = makeState();
+  const wide = generateUpcomingDates(baseSettings(), 14);
+  state.deliveryDates = wide.map((date, i) => ({ id: `del_${i}`, date, notes: "" }));
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncAvailability(state);
+    assert.ok(r.ok);
+    assert.equal(r.pushed, 14, "one day row per real date, no 10-date cap");
+    assert.equal(r.pushedProducts, 28); // 2 limited products × 14 days
+    const day = calls.find((c) => c.url.includes("/rest/v1/availability?"));
+    const prod = calls.find((c) => c.url.includes("/rest/v1/product_availability"));
+    assert.equal(JSON.parse(day.opts.body).length, 14);
+    assert.equal(JSON.parse(prod.opts.body).length, 28);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("syncStorefront returns ok:false when not configured", async () => {
   let called = false;
   globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
