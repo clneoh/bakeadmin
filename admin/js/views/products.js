@@ -74,7 +74,7 @@ function buildEditor(state, product) {
   const recipeCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Recipe (per unit)"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically. Under each line is how its cost is counted (amount × price); the list below adds the lines up."),
+      "Type the ingredients… or pick another product to make a set (e.g. 4 × Focaccia) — its own recipe is used automatically. Under each line is how its cost is counted (amount × price); the list below adds the lines up and shows each one's share of the total."),
     costEl,
     el("div", { id: "recipe-lines" }),
     sumEl,
@@ -285,16 +285,22 @@ function addUpBreakdown(state, draft, shown) {
   if (!rows.length) return [];
 
   const grid = el("div", { class: "cost-grid" });
+  const total = rows.reduce((s, r) => s + r.val, 0);
+  // Each line also shows its own share of the total, so the owner can see which
+  // ingredient drives the cost. Meaningless when nothing has a cost yet (total 0).
+  const showPct = total > 0;
   rows.forEach((r, k) => {
+    const pct = showPct ? `${Math.round((r.val / total) * 100)}%` : "";
     grid.append(
       el("div", { class: "cost-op" }, k === 0 ? "·" : "+"),
       el("div", { class: "cost-val" }, fmtRM(r.val, cur)),
-      el("div", { class: "cost-name" }, r.name + (r.zero ? "  (no cost set)" : "")));
+      el("div", { class: "cost-name" }, r.name + (r.zero ? "  (no cost set)" : "")),
+      ...(showPct ? [el("div", { class: "cost-pct" }, pct)] : []));
   });
-  const total = rows.reduce((s, r) => s + r.val, 0);
   grid.append(
     el("div", { class: "cost-op cost-total" }, "="),
-    el("div", { class: "cost-val cost-total" }, fmtRM(total, cur)));
+    el("div", { class: "cost-val cost-total cost-total-val" }, fmtRM(total, cur)),
+    ...(showPct ? [el("div", { class: "cost-pct cost-total" }, "100%")] : []));
   return [el("div", { class: "cost-sum" },
     el("p", { class: "cost-sum-title" }, "How it adds up:"),
     grid)];

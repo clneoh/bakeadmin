@@ -777,7 +777,7 @@ textarea.input { min-height: 64px; resize: vertical; }
 .cost-sum-title { margin: 0 0 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .cost-grid {
   display: grid;
-  grid-template-columns: 18px auto 1fr;
+  grid-template-columns: 18px auto 1fr auto;
   gap: 1px 8px;
   align-items: baseline;
   font-size: 12px;
@@ -785,6 +785,8 @@ textarea.input { min-height: 64px; resize: vertical; }
 .cost-op { text-align: right; color: var(--muted); }
 .cost-val { font-variant-numeric: tabular-nums; }
 .cost-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cost-total-val { grid-column: 2 / 4; }
 .cost-total { border-top: 1px solid var(--line); margin-top: 3px; padding-top: 3px; font-weight: 600; }
 
 /* ---------- Supplier price rows (ingredient editor) ---------- */
