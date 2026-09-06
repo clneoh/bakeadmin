@@ -158,6 +158,58 @@ test("computeRecords: occasion rows ride the sync", () => {
   assert.deepEqual(occ[1].data, { id: "occ2", from: "2026-09-28", to: "2026-09-28", label: "CNY" });
 });
 
+test("computeRecords: supplier rows ride the sync", () => {
+  const st = baseState();
+  st.suppliers = [
+    { id: "sup1", name: "Mydin", whatsapp: "0123456789" },
+    { id: "sup2", name: "Yen Grocer", whatsapp: "0198765432" },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const sups = rows.filter((r) => r.kind === "suppliers");
+  assert.equal(sups.length, 2);
+  assert.deepEqual(sups[0].data, { id: "sup1", name: "Mydin", whatsapp: "0123456789" });
+  assert.deepEqual(sups[1].data, { id: "sup2", name: "Yen Grocer", whatsapp: "0198765432" });
+});
+
+test("mergeRows: a shop added on one phone appears on the phone that had none", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.suppliers = []; // this phone has no suppliers at all — the reported bug
+    seedJournal(store);
+
+    const add = sync.mergeRows(st, [cloudRow("suppliers", "sup1",
+      { id: "sup1", name: "Mydin", whatsapp: "0123456789" }, "2026-09-05T00:00:00.000Z")]);
+    assert.equal(add.changed, true);
+    assert.equal(st.suppliers.length, 1);
+    assert.equal(st.suppliers[0].name, "Mydin");
+
+    // An older/stale copy of the same shop can't overwrite the newer one.
+    const stale = sync.mergeRows(st, [cloudRow("suppliers", "sup1",
+      { id: "sup1", name: "Mydin old", whatsapp: "" }, "2026-09-01T00:00:00.000Z")]);
+    assert.equal(stale.changed, false);
+    assert.equal(st.suppliers[0].name, "Mydin");
+
+    // A cloud tombstone removes the shop when it's deleted on the other phone.
+    const del = sync.mergeRows(st, [cloudRow("suppliers", "sup1", null, "2026-09-06T00:00:00.000Z", true)]);
+    assert.equal(del.changed, true);
+    assert.equal(st.suppliers.length, 0);
+  } finally { restore(); }
+});
+
+test("mergeRows: a supplier newly saved on this phone is queued to be pushed", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.suppliers = [{ id: "sup1", name: "Mydin", whatsapp: "0123456789" }];
+    seedJournal(store);
+    const r = sync.markDirty(st, "2026-09-06T00:00:00.000Z");
+    assert.equal(r.pending["suppliers:sup1"]._deleted, false);
+    assert.equal(r.pending["suppliers:sup1"].data.name, "Mydin");
+  } finally { restore(); }
+});
+
 test("mergeRows: occasion rows merge and a tombstone deletes them", () => {
   const { store, restore } = installStorage();
   try {

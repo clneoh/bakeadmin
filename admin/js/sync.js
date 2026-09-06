@@ -26,6 +26,7 @@ const LISTS = {
   orders: "orders",
   products: "products",
   ingredients: "ingredients",
+  suppliers: "suppliers", // who you buy from — pack prices ride ingredients, so the shops must too
   deliveryDates: "deliveryDates",
   purchaseOrders: "purchaseOrders",
   credits: "credits", // bring-a-friend ledger rows
