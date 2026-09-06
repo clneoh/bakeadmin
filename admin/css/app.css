@@ -14,6 +14,7 @@
   --amber: #b26a16;
   --amber-bg: #fdf1dc;
   --gray-bg: #f1e9df;
+  --strip: #f7efe1;            /* soft band behind each "How it adds up" line */
   --radius: 16px;
   --radius-sm: 12px;
   --tabbar-h: 58px;
@@ -775,19 +776,33 @@ textarea.input { min-height: 64px; resize: vertical; }
   border-top: 1px dashed var(--line);
 }
 .cost-sum-title { margin: 0 0 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
-.cost-grid {
+/* Each filled line is its own rounded strip: the name and its % sit on the same
+   band, so a % at the far right still clearly belongs to its line. */
+.cost-grid { display: flex; flex-direction: column; gap: 3px; }
+.cost-row {
   display: grid;
   grid-template-columns: 18px auto 1fr auto;
   gap: 1px 8px;
   align-items: baseline;
   font-size: 12px;
+  background: var(--strip);
+  border-radius: 9px;
+  padding: 4px 9px;
 }
 .cost-op { text-align: right; color: var(--muted); }
 .cost-val { font-variant-numeric: tabular-nums; }
 .cost-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cost-pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cost-pct { font-variant-numeric: tabular-nums; }
 .cost-total-val { grid-column: 2 / 4; }
-.cost-total { border-top: 1px solid var(--line); margin-top: 3px; padding-top: 3px; font-weight: 600; }
+.cost-total-row {
+  background: transparent;
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+.cost-total-row .cost-op,
+.cost-total-row .cost-val,
+.cost-total-row .cost-pct { font-weight: 600; }
 
 /* ---------- Supplier price rows (ingredient editor) ---------- */
 .price-row { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }

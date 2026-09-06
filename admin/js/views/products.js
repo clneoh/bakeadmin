@@ -288,19 +288,21 @@ function addUpBreakdown(state, draft, shown) {
   const total = rows.reduce((s, r) => s + r.val, 0);
   // Each line also shows its own share of the total, so the owner can see which
   // ingredient drives the cost. Meaningless when nothing has a cost yet (total 0).
+  // Every line sits on its own soft strip (rounded, with the name and its % on
+  // the same band) so a % far to the right still clearly belongs to its line.
   const showPct = total > 0;
   rows.forEach((r, k) => {
     const pct = showPct ? `${Math.round((r.val / total) * 100)}%` : "";
-    grid.append(
+    grid.append(el("div", { class: "cost-row" },
       el("div", { class: "cost-op" }, k === 0 ? "·" : "+"),
       el("div", { class: "cost-val" }, fmtRM(r.val, cur)),
       el("div", { class: "cost-name" }, r.name + (r.zero ? "  (no cost set)" : "")),
-      ...(showPct ? [el("div", { class: "cost-pct" }, pct)] : []));
+      ...(showPct ? [el("div", { class: "cost-pct" }, pct)] : [])));
   });
-  grid.append(
-    el("div", { class: "cost-op cost-total" }, "="),
-    el("div", { class: "cost-val cost-total cost-total-val" }, fmtRM(total, cur)),
-    ...(showPct ? [el("div", { class: "cost-pct cost-total" }, "100%")] : []));
+  grid.append(el("div", { class: "cost-row cost-total-row" },
+    el("div", { class: "cost-op" }, "="),
+    el("div", { class: "cost-val cost-total-val" }, fmtRM(total, cur)),
+    ...(showPct ? [el("div", { class: "cost-pct" }, "100%")] : [])));
   return [el("div", { class: "cost-sum" },
     el("p", { class: "cost-sum-title" }, "How it adds up:"),
     grid)];
