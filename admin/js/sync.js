@@ -27,6 +27,7 @@ const LISTS = {
   products: "products",
   ingredients: "ingredients",
   suppliers: "suppliers", // who you buy from — pack prices ride ingredients, so the shops must too
+  uoms: "uoms", // units of measure — a unit added on one phone has to exist on the other
   deliveryDates: "deliveryDates",
   purchaseOrders: "purchaseOrders",
   credits: "credits", // bring-a-friend ledger rows

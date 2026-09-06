@@ -210,6 +210,40 @@ test("mergeRows: a supplier newly saved on this phone is queued to be pushed", (
   } finally { restore(); }
 });
 
+test("computeRecords: unit rows ride the sync", () => {
+  const st = baseState();
+  st.uoms = [
+    { id: "uom_cup", name: "cup", family: "count", toBase: 1 },
+    { id: "uom_kg", name: "kg", family: "weight", toBase: 1000 },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const units = rows.filter((r) => r.kind === "uoms");
+  assert.equal(units.length, 2);
+  assert.deepEqual(units[0].data, { id: "uom_cup", name: "cup", family: "count", toBase: 1 });
+});
+
+test("mergeRows: a unit added on one phone arrives on the phone that lacks it", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.uoms = [];
+    seedJournal(store);
+
+    const add = sync.mergeRows(st, [cloudRow("uoms", "uom_cup",
+      { id: "uom_cup", name: "cup", family: "count", toBase: 1 }, "2026-09-06T00:00:00.000Z")]);
+    assert.equal(add.changed, true);
+    assert.equal(st.uoms.length, 1);
+    assert.equal(st.uoms[0].name, "cup");
+    assert.equal(st.uoms[0].toBase, 1);
+
+    // And once that phone has a unit of its own, it is queued to push back.
+    seedJournal(store);
+    const r = sync.markDirty(st, "2026-09-06T00:01:00.000Z");
+    assert.equal(r.pending["uoms:uom_cup"].data.name, "cup", "local unit is sent to the other phone");
+  } finally { restore(); }
+});
+
 test("mergeRows: occasion rows merge and a tombstone deletes them", () => {
   const { store, restore } = installStorage();
   try {
