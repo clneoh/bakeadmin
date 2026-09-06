@@ -725,6 +725,40 @@ test("refresh: skips the flush when the pull fails (stale-write protection)", as
   } finally { restore(); }
 });
 
+test("refresh: uploads records that exist locally but were never synced (suppliers added before their kind joined)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.suppliers = [{ id: "sup_mydin", name: "Mydin", active: true }];
+    seedToken(store);
+    // A phone that is already signed in, with a journal from before suppliers
+    // were part of the sync. The cloud is quiet and unchanged, so nothing in the
+    // normal flow (no edits, no pull change) would ever queue them for upload.
+    seedJournal(store, { lastPullAt: "2026-01-01T00:00:00.000Z" });
+
+    const pushes = [];
+    const restoreFetch = installFetch(async (url, opts) => {
+      if (opts && opts.method === "POST") {
+        pushes.push(JSON.parse(opts.body));
+        return { ok: true, text: async () => "" };
+      }
+      return { ok: true, json: async () => [] }; // the pull — cloud has no supplier rows yet
+    });
+    try {
+      const r = await sync.refresh(st);
+      assert.equal(r.ok, true);
+      assert.ok(pushes.length >= 1, "a push happens on Sync now even with no edit made");
+      const body = pushes.flat();
+      const sup = body.find((x) => x.kind === "suppliers" && x.id === "sup_mydin");
+      assert.ok(sup, "the pre-existing supplier is queued and uploaded");
+      assert.equal(sup._deleted, false);
+      assert.equal(JSON.parse(sup.data).name, "Mydin");
+      const b = JSON.parse(store.get("bakeadmin.sync"));
+      assert.ok(!b.pending["suppliers:sup_mydin"], "the uploaded supplier is no longer pending");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 // ── pageActive (hidden-tab gate) ──────────────────────────────────────────
 
 test("pageActive(): refreshes only while the page is on screen", () => {

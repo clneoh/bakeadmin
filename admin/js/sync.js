@@ -357,6 +357,11 @@ export async function refresh(state) {
   if (refreshing) return { ok: false, changed: false, reason: "Sync already running" };
   refreshing = true;
   try {
+    // Queue anything that exists locally but was never uploaded — e.g. suppliers
+    // or units typed before their kind joined the sync list, or edits made while
+    // the connection was down. markDirty otherwise only runs on an explicit
+    // save, so a plain "Sync now" / boot refresh would push nothing for those.
+    markDirty(state);
     const pullRes = await pull(state);
     // Only push after a successful pull: a failed pull means we might be
     // offline or have a stale local view — pushing would risk clobbering.
