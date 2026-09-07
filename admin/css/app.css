@@ -1546,4 +1546,16 @@ textarea.input { min-height: 64px; resize: vertical; }
 .po-day-tag.changed { background: var(--amber-bg); color: var(--amber); }
 .po-day-tag.past,
 .po-day-tag.no-orders { background: var(--gray-bg); color: var(--muted); }
+.po-day-row.po-review { cursor: pointer; }
+.po-day-detail {
+  margin: 0 0 6px 32px;
+  padding: 8px 12px 10px;
+  background: var(--gray-bg);
+  border-radius: 10px;
+}
+.po-detail-title { font-size: 12px; font-weight: 700; color: var(--brown-dark); margin: 0 0 4px; }
+.po-detail-head { font-size: 12px; font-weight: 600; color: var(--muted); margin: 6px 0 2px; }
+.po-detail-line { font-size: 13px; margin: 1px 0; }
+.po-detail-line.ing { font-weight: 600; color: var(--brown-dark); }
+.po-detail-line.muted { color: var(--muted); }
 .po-day-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }

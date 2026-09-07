@@ -21,6 +21,8 @@ import {
   dayRuleRows,
   parseDayDelta,
   saveDayAdjustments,
+  fpToProductQtys,
+  dayChangeInfo,
 } from "../admin/js/bom.js";
 import { shortDate } from "../admin/js/dates.js";
 
@@ -528,6 +530,69 @@ test("explodeBomDates merges a shared ingredient across two dates into one summe
   assert.equal(res.orders.length, 2);
   assert.deepEqual(res.productLines, [{ productId: "prd_f", productName: "Focaccia", qty: 3 }]);
   assert.equal(res.warnings.length, 0);
+});
+
+// --- what changed on an already-shopped day + its extra ingredient need ---
+
+test("fpToProductQtys parses a digest back into per-product totals", () => {
+  assert.deepEqual([...fpToProductQtys("").entries()], [], "empty digest → empty map");
+  assert.deepEqual([...fpToProductQtys("prd_a:2|prd_b:1").entries()],
+    [["prd_a", 2], ["prd_b", 1]]);
+  assert.deepEqual([...fpToProductQtys("prd_f:1|prd_f:2").entries()],
+    [["prd_f", 3]], "same product in several order entries adds up");
+  assert.deepEqual([...fpToProductQtys("garbage").entries()], [], "malformed parts are skipped");
+});
+
+test("dayChangeInfo reports added/removed orders and the raw need of ONLY the added units", () => {
+  const st = fixtureState();
+  st.orders = [
+    { id: "ord_f1", deliveryDateId: "del_a", productId: "prd_f", qty: 3 },
+    { id: "ord_s1", deliveryDateId: "del_a", productId: "prd_s", qty: 1 },
+  ];
+  // List saved when the day was 1 Focaccia; since then it gained 2 more
+  // Focaccia (edited qty) AND a whole new Sandwich order.
+  const info = dayChangeInfo(st, "2026-09-07", "prd_f:1");
+  assert.deepEqual(info.added.map((a) => [a.productId, a.qty]), [["prd_f", 2], ["prd_s", 1]]);
+  assert.equal(info.totalUnits, 3, "total = the added units only");
+  assert.equal(info.removed.length, 0);
+  const flour = info.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.totalQty, 2 * 500 + 250, "flour for 2 Focaccia + 1 Sandwich = 1250 g");
+  const yeast = info.items.find((i) => i.ingredientId === "ing_y");
+  assert.equal(yeast.totalQty, 2 * 5 + 3, "yeast likewise (13 g)");
+});
+
+test("dayChangeInfo only calls out removed orders when nothing was added", () => {
+  const st = fixtureState();
+  st.orders = [{ id: "ord_f1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 }];
+  const info = dayChangeInfo(st, "2026-09-07", "prd_f:2|prd_s:1");
+  assert.deepEqual(info.removed.map((r) => [r.productId, r.qty]), [["prd_s", 1]]);
+  assert.equal(info.added.length, 0);
+  assert.equal(info.totalUnits, 0, "nothing added → no extra need");
+  assert.equal(info.items.length, 0);
+});
+
+test("dayChangeInfo treats an empty baseline as everything being new (covers deleted-product orders)", () => {
+  const st = fixtureState();
+  st.orders = [
+    { id: "ord_f1", deliveryDateId: "del_a", productId: "prd_f", qty: 1 },
+    { id: "ord_zz", deliveryDateId: "del_a", productId: "prd_ghost", qty: 2 },
+  ];
+  const info = dayChangeInfo(st, "2026-09-07", "");
+  assert.deepEqual(info.added.map((a) => [a.productId, a.qty]),
+    [["prd_ghost", 2], ["prd_f", 1]], "\"(deleted product)\" sorts first");
+  assert.equal(info.added.find((a) => a.productId === "prd_ghost").productName, "(deleted product)");
+  assert.equal(info.totalUnits, 1, "a deleted product's order counts but its recipe can't explode");
+  const flour = info.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.totalQty, 500, "only the known product contributes need");
+});
+
+test("dayChangeInfo explodes an added family pack into its component's leaf ingredients", () => {
+  const st = fixtureState();
+  st.orders = [{ id: "ord_p1", deliveryDateId: "del_a", productId: "prd_p", qty: 1 }];
+  const info = dayChangeInfo(st, "2026-09-07", "");
+  assert.equal(info.totalUnits, 1);
+  const flour = info.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.totalQty, 2000, "one family set = 4 × 500 g flour");
 });
 
 // round2 is imported into bom.test.js? No — use a local helper.

@@ -123,6 +123,12 @@ function rowTag(row) {
 function nodeTexts(root) {
   return textOf(root);
 }
+function findBtn(root, label) {
+  return walk(root).find((n) => n.nodeType === 1 && n.tagName === "BUTTON" && textOf(n).trim() === label);
+}
+function findClass(root, clsPart) {
+  return walk(root).find((n) => n.nodeType === 1 && String(n.className).includes(clsPart));
+}
 
 function render(state, query = "") {
   const root = doc.createElement("div");
@@ -178,7 +184,7 @@ test("Generate & Save records one snapshot over both days; reopening leaves both
     "an empty selection explains that everything is already saved");
 });
 
-test("an order change after saving flips that day to \"orders changed\" and re-ticks it", () => {
+test("an order change after saving flips that day to \"orders changed\" but keeps it OUT of the list", () => {
   const state = freshState();
   fireClick(genButton(render(state))); // save an accurate snapshot for both days
   assert.equal(state.purchaseOrders.length, 1);
@@ -189,9 +195,11 @@ test("an order change after saving flips that day to \"orders changed\" and re-t
   const r = rows(root);
   assert.equal(r[0].children[0].checked, false, "unchanged day A stays unticked");
   assert.equal(rowTag(r[0]), "✓ saved");
-  assert.equal(r[1].children[0].checked, true, "changed day B rejoins the default list");
+  assert.equal(r[1].children[0].checked, false, "changed day B does NOT re-tick — no whole-day re-buy");
   assert.equal(rowTag(r[1]), "orders changed");
-  assert.ok(nodeTexts(root).includes("Ingredients to buy"), "the combined list for day B still builds");
+  assert.ok(!nodeTexts(root).includes("Ingredients to buy"), "nothing re-lists on its own");
+  assert.ok(nodeTexts(root).includes("A day has a new order since you shopped"),
+    "the empty state points the baker at the day to review");
 });
 
 test("explicit ?dates= reopens an already-saved day (the history Regenerate path)", () => {
@@ -222,7 +230,7 @@ test("legacy single-date snapshots fall back to order-id matching (add/remove = 
   state.orders.push({ id: "ord_a2", deliveryDateId: "del_a", productId: "prd_loaf", qty: 1 });
   root = render(state);
   assert.equal(rowTag(rows(root)[0]), "orders changed", "a new order id no longer matches");
-  assert.equal(rows(root)[0].children[0].checked, true, "the stale legacy day re-ticks");
+  assert.equal(rows(root)[0].children[0].checked, false, "the stale legacy day stays OUT of the list until reviewed");
 });
 
 test("a legacy ?date= single selection still works", () => {
@@ -250,4 +258,128 @@ test("ticking an extra day updates the combined list and grand total live", () =
   assert.ok(all.includes("2 units planned across 2 bake days · Sourdough ×2"),
     "day B's 500 g joined the combined need");
   assert.ok(all.includes("RM 6.00"), "grand total now covers both days");
+});
+
+test("tapping an \"orders changed\" day reveals the new order and its extra need", () => {
+  const state = freshState();
+  fireClick(genButton(render(state)));
+  state.orders[1].qty = 2; // day B gains one more Sourdough after saving
+
+  const root = render(state);
+  const dayB = rows(root)[1];
+  assert.equal(rowTag(dayB), "orders changed");
+  fireClick(dayB); // open the reveal panel
+
+  const all = nodeTexts(root);
+  assert.ok(all.includes("What changed on"), "the panel is headed with the day");
+  assert.ok(all.includes("+1 Sourdough"), "names the added order");
+  assert.ok(all.includes("Strong flour 500g"), "and its extra ingredient need");
+  assert.ok(findBtn(root, "Save extra-only list"), "big orders get the extra-only action");
+  assert.ok(findBtn(root, "Ignore — keep it saved"), "small ones can be ignored");
+});
+
+test("Ignoring a change returns the day to \"✓ saved\" until another new order lands", () => {
+  const state = freshState();
+  fireClick(genButton(render(state)));
+  state.orders[1].qty = 2; // day B changed
+  const root = render(state);
+  fireClick(rows(root)[1]);
+  fireClick(findBtn(root, "Ignore — keep it saved"));
+
+  const after = rows(render(state));
+  assert.equal(rowTag(after[1]), "✓ saved", "day B reads saved again");
+  assert.ok(!nodeTexts(render(state)).includes("A day has a new order since you shopped"),
+    "no review nudge left once handled");
+  assert.equal(state.deliveryDates[1].poAck, "prd_loaf:2", "the ack records the ignored fingerprint");
+
+  state.orders.push({ id: "ord_b2", deliveryDateId: "del_b", productId: "prd_loaf", qty: 1 });
+  const again = rows(render(state));
+  assert.equal(rowTag(again[1]), "orders changed", "a further new order re-flags the day");
+  assert.equal(again[1].children[0].checked, false, "and still doesn't re-tick it");
+});
+
+test("Save extra-only list makes a small separate snapshot of just the new orders; the day reads saved", () => {
+  const state = freshState();
+  fireClick(genButton(render(state))); // regular combined snapshot for both days
+  state.orders[1].qty = 2; // day B changed
+  const root = render(state);
+  fireClick(rows(root)[1]);
+  fireClick(findBtn(root, "Save extra-only list"));
+
+  assert.equal(state.purchaseOrders.length, 2, "one extra-only snapshot was added");
+  const extra = state.purchaseOrders[0];
+  assert.equal(extra.topup, true, "flagged as an extra-only list");
+  assert.equal(extra.dates.length, 0, "it does not claim to cover the day");
+  assert.equal(extra.deliveryDateId, "del_b");
+  assert.equal(extra.summary.totalUnits, 1);
+  assert.deepEqual(extra.summary.productLines, [{ productId: "prd_loaf", productName: "Sourdough", qty: 1 }]);
+  const flour = extra.items.find((i) => i.ingredientId === "ing_flour");
+  assert.equal(flour.totalQty, 500, "covers only the added unit's ingredient need");
+  assert.equal(location.hash, `#/history?po=${extra.id}`, "opens the new list in history");
+  assert.equal(state.deliveryDates[1].poAck, "prd_loaf:2", "the day is acked exactly like an Ignore");
+
+  const after = rows(render(state));
+  assert.equal(rowTag(after[1]), "✓ saved", "day B reads saved now");
+
+  // An extra-only list must never act as day coverage by itself: removing the
+  // original regular snapshot puts the day back to not-yet-shopped.
+  state.purchaseOrders = state.purchaseOrders.filter((p) => p.topup); // only the extra list remains
+  const uncovered = rows(render(state));
+  assert.equal(uncovered[1].children[0].checked, true,
+    "with only an extra-only list left, day B is unshopped again");
+});
+
+test("a day whose orders were cut reveals the removal and offers no extra-to-buy action", () => {
+  const state = freshState();
+  fireClick(genButton(render(state)));
+  state.orders = state.orders.filter((o) => o.id !== "ord_b1"); // day B's order cancelled
+
+  const root = render(state);
+  fireClick(rows(root)[1]); // the row is still tappable to review
+  const all = nodeTexts(root);
+  assert.ok(all.includes("1 fewer Sourdough"), "calls out the removed order");
+  assert.ok(!findBtn(root, "Save extra-only list"), "no extra-only action when nothing was added");
+});
+
+test("saving an extra-only list closes that round; a later new order opens the NEXT round showing only its change", () => {
+  const state = freshState();
+  fireClick(genButton(render(state))); // round 1: regular snapshot covers both days
+  state.orders[1].qty = 2; // day B gains one Sourdough after round 1
+  const root1 = render(state);
+  fireClick(rows(root1)[1]);
+  fireClick(findBtn(root1, "Save extra-only list")); // round 2 saved for the +1
+  assert.equal(state.deliveryDates[1].poAck, "prd_loaf:2", "round 2's baseline is the ack");
+  assert.equal(rowTag(rows(render(state))[1]), "✓ saved", "day B reads saved once round 2 is saved");
+
+  state.orders.push({ id: "ord_b2", deliveryDateId: "del_b", productId: "prd_loaf", qty: 1 }); // day B: +1 more
+  const root2 = render(state);
+  const dayB = rows(root2)[1];
+  assert.equal(rowTag(dayB), "orders changed", "round 3 opens with the next new order");
+  assert.equal(state.purchaseOrders.length, 2, "nothing saved yet — round 3 is just open");
+  fireClick(dayB);
+  const all = nodeTexts(root2);
+  assert.ok(all.includes("+1 Sourdough"), "round 3 reveals only the NEW single unit");
+  assert.ok(!all.includes("+2 Sourdough"), "round 2's already-saved unit is NOT counted again");
+  assert.ok(all.includes("Strong flour 500g"), "the extra need is just that one unit's 500 g");
+});
+
+test("regenerating a full list after an Ignore clears the stale ack, so the new snapshot is the baseline", () => {
+  const state = freshState();
+  fireClick(genButton(render(state)));
+  state.orders[1].qty = 2; // day B changed
+  const root1 = render(state);
+  fireClick(rows(root1)[1]);
+  fireClick(findBtn(root1, "Ignore — keep it saved")); // ack = prd_loaf:2
+  assert.equal(state.deliveryDates[1].poAck, "prd_loaf:2");
+
+  const root2 = render(state, `dates=${state.deliveryDates[1].id}`); // history Regenerate path
+  fireClick(genButton(root2));
+  assert.equal(state.deliveryDates[1].poAck, undefined, "the regenerate supersedes the old ignore");
+  assert.equal(rowTag(rows(render(state))[1]), "✓ saved", "the fresh snapshot is accurate");
+
+  state.orders.push({ id: "ord_b3", deliveryDateId: "del_b", productId: "prd_loaf", qty: 1 }); // one more
+  const root3 = render(state);
+  fireClick(rows(root3)[1]);
+  assert.ok(nodeTexts(root3).includes("+1 Sourdough"), "reveals against the regenerated snapshot, not the old ignore");
+  assert.ok(!nodeTexts(root3).includes("+2 Sourdough"));
 });

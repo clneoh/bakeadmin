@@ -60,19 +60,24 @@ function renderList(root, state) {
       "Go to the PO tab, pick a delivery date, and generate one."));
     return;
   }
-  const cards = list.map((po) => el("div", {
-    class: "card tappable",
-    onclick: () => navigate(`#/history?po=${po.id}`),
-  },
-    el("div", { class: "card-row" },
-      el("div", {},
-        el("p", { class: "card-title" }, poHeadline(po)),
-        el("p", { class: "card-sub" },
-          `Generated ${fmtTime(po.generatedAt)} · ${po.summary?.productLines?.map((p) => `${p.productName} ×${p.qty}`).join(", ") || ""}`)),
-      el("div", { class: "li-right" },
-        el("span", { class: "qty-chip" }, `${po.summary?.totalUnits ?? "?"} units`),
-        el("span", { class: "qty-chip", style: "background:var(--brown-soft)" },
-          fmtRM(po.summary?.totalEstCost ?? 0, state.settings.currency))))));
+  const cards = list.map((po) => {
+    const products = po.summary?.productLines?.map((p) => `${p.productName} ×${p.qty}`).join(", ") || "";
+    const when = `Generated ${fmtTime(po.generatedAt)}`;
+    return el("div", {
+      class: "card tappable",
+      onclick: () => navigate(`#/history?po=${po.id}`),
+    },
+      el("div", { class: "card-row" },
+        el("div", {},
+          el("p", { class: "card-title" }, poHeadline(po)),
+          el("p", { class: "card-sub" },
+            po.topup ? `Extra-only list · ${products || `+${po.summary?.totalUnits ?? "?"} new order units`}`
+              : `${when}${products ? " · " + products : ""}`)),
+        el("div", { class: "li-right" },
+          el("span", { class: "qty-chip" }, `${po.summary?.totalUnits ?? "?"} units`),
+          el("span", { class: "qty-chip", style: "background:var(--brown-soft)" },
+            fmtRM(po.summary?.totalEstCost ?? 0, state.settings.currency)))));
+  });
   root.replaceChildren(
     el("h2", { class: "section" }, `Purchase orders (${list.length})`),
     ...cards);
@@ -85,11 +90,14 @@ function renderDetail(root, state, po) {
 
   const card = el("div", { class: "card po-card" },
     el("h2", { style: "margin:0 0 2px" },
-      el("span", {}, poHeadline(po)), " — Ingredients to buy"),
+      el("span", {}, poHeadline(po)),
+      po.topup ? " — Extra ingredients to buy" : " — Ingredients to buy"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      multi
-        ? `${po.summary?.totalUnits ?? "?"} units planned across ${dates.length} bake days`
-        : `${po.summary?.totalUnits ?? "?"} units planned (capacity ${po.summary?.capacity ?? "?"})`),
+      po.topup
+        ? `Extra-only list — covers the ${po.summary?.totalUnits ?? "?"} new order unit${po.summary?.totalUnits === 1 ? "" : "s"} added after you shopped this day`
+        : multi
+          ? `${po.summary?.totalUnits ?? "?"} units planned across ${dates.length} bake days`
+          : `${po.summary?.totalUnits ?? "?"} units planned (capacity ${po.summary?.capacity ?? "?"})`),
     table,
     el("p", { class: "po-snapshot-note" },
       `Snapshot from ${fmtTime(po.generatedAt)} — later order changes don't affect this PO.`),
