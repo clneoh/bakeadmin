@@ -1,6 +1,7 @@
 // views/more.js — menu for the secondary screens.
 
 import { el } from "../ui.js";
+import { ENGINE_VERSION } from "../version.js";
 
 export function renderMore(root, state) {
   const stats = [
@@ -22,7 +23,9 @@ export function renderMore(root, state) {
   root.replaceChildren(
     el("div", { class: "card" },
       el("h2", { style: "margin:0" }, "Jienluv2bake"),
-      el("p", { class: "card-sub", style: "margin:6px 0 0" }, stats)),
+      el("p", { class: "card-sub", style: "margin:6px 0 0" }, stats),
+      el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        el("span", { class: "muted" }, `Engine v${ENGINE_VERSION}`))),
     el("h2", { class: "section" }, "Manage"),
     menu);
 }

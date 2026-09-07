@@ -8,6 +8,7 @@ import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder } from "../messages.js";
 import { maybeSync, publishTracking } from "../supabase.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
+import { adjustForStatus } from "../stock.js";
 
 let orderStatusFilter = "";
 // Text in the "Find an order" box at the top of the Orders screen (empty = box
@@ -1168,6 +1169,9 @@ function orderGroupRow(state, group, root, dateId) {
         return;
       }
       if (stSel.value === (first.status || "new")) return;
+      // Baked takes the orders' ingredients off your stock; stepping back to
+      // before Baked (an undo) puts them back. Forward moves leave stock be.
+      adjustForStatus(state, orders, stSel.value, STATUSES.map(([id]) => id));
       for (const o of orders) {
         o.status = stSel.value;
         // Stepping into Confirmed / Paid means the stage is being worked, not
