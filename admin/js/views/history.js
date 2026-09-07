@@ -1,10 +1,15 @@
-// views/history.js — saved PO snapshots (immutable) + detail + re-print.
+// views/history.js — saved PO snapshots (immutable) + detail + re-print + delete.
+// Deliberately imports no app.js (it boots the app): navigation sets
+// location.hash directly, which keeps this view DOM-testable under Node (po.js
+// uses the same trick).
 
-import { navigate } from "../app.js";
 import { longDate, weekdayName } from "../dates.js";
-import { el, button, emptyState } from "../ui.js";
-import { byId, fmtRM } from "../state.js";
+import { el, button, emptyState, toast, confirmDialog } from "../ui.js";
+import { byId, fmtRM, save } from "../state.js";
 import { poTableEl } from "./poTable.js";
+
+// Navigate by hash so app.js isn't needed at import time.
+const navigate = (hash) => { location.hash = hash; };
 
 // The dates a snapshot covers: its own dates[] (multi-day) or, for legacy
 // single-day snapshots, the old deliveryDate field. Sorted oldest first so the
@@ -94,7 +99,16 @@ function renderDetail(root, state, po) {
     el("div", { class: "btn-row" },
       button("← Back", () => navigate("#/history"), "ghost"),
       button("Print", () => window.print(), "soft"),
-      button("Regenerate", () => navigate(regenerateTarget(po)), "primary")),
+      button("Regenerate", () => navigate(regenerateTarget(po)), "primary"),
+      button("Delete", () => confirmDialog(
+        `Delete this saved shopping list? It covers ${dates.length} day${dates.length === 1 ? "" : "s"} and can't be brought back. The covered day${dates.length === 1 ? "" : "s"} will count as not-yet-shopped again and return to the PO tick list.`,
+        () => {
+          state.purchaseOrders = (state.purchaseOrders || []).filter((p) => p.id !== po.id);
+          toast("PO deleted");
+          save(state);
+          navigate("#/history");
+        },
+        { danger: true, yesLabel: "Delete" }), "danger small")),
     card);
 }
 
