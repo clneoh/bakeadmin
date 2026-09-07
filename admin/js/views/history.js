@@ -6,6 +6,38 @@ import { el, button, emptyState } from "../ui.js";
 import { byId, fmtRM } from "../state.js";
 import { poTableEl } from "./poTable.js";
 
+// The dates a snapshot covers: its own dates[] (multi-day) or, for legacy
+// single-day snapshots, the old deliveryDate field. Sorted oldest first so the
+// headline and Regenerate always read the same way.
+function poDateStrs(po) {
+  const ds = Array.isArray(po.dates) && po.dates.length
+    ? po.dates.map((d) => d.date)
+    : (po.deliveryDate ? [po.deliveryDate] : []);
+  return ds.slice().sort();
+}
+
+// Headline with a muted "+N more days" tail when the snapshot spans several.
+function poHeadline(po) {
+  const dates = poDateStrs(po);
+  const base = dates.length
+    ? `${weekdayName(dates[0])}, ${longDate(dates[0])}`
+    : "Purchase order";
+  if (dates.length <= 1) return base;
+  return el("span", {},
+    base,
+    el("span", { class: "muted", style: "font-weight:400;font-size:12px" },
+      `  +${dates.length - 1} more day${dates.length === 2 ? "" : "s"}`));
+}
+
+function regenerateTarget(po) {
+  const dates = poDateStrs(po);
+  if (dates.length > 1) {
+    const idMap = new Map((po.dates || []).map((d) => [d.date, d.id]));
+    return `#/po?dates=${dates.map((d) => idMap.get(d) || "").filter(Boolean).join(",")}`;
+  }
+  return `#/po?date=${po.deliveryDateId}`;
+}
+
 export function renderHistory(root, state, params) {
   const poId = params.get("po");
   if (poId) {
@@ -29,8 +61,7 @@ function renderList(root, state) {
   },
     el("div", { class: "card-row" },
       el("div", {},
-        el("p", { class: "card-title" },
-          `${weekdayName(po.deliveryDate)}, ${longDate(po.deliveryDate)}`),
+        el("p", { class: "card-title" }, poHeadline(po)),
         el("p", { class: "card-sub" },
           `Generated ${fmtTime(po.generatedAt)} · ${po.summary?.productLines?.map((p) => `${p.productName} ×${p.qty}`).join(", ") || ""}`)),
       el("div", { class: "li-right" },
@@ -43,13 +74,17 @@ function renderList(root, state) {
 }
 
 function renderDetail(root, state, po) {
-  const dateTitle = `${weekdayName(po.deliveryDate)}, ${longDate(po.deliveryDate)}`;
+  const dates = poDateStrs(po);
+  const multi = dates.length > 1;
   const table = poTableEl(state, po.items || [], {});
 
   const card = el("div", { class: "card po-card" },
-    el("h2", { style: "margin:0 0 2px" }, `${dateTitle} — Ingredients to buy`),
+    el("h2", { style: "margin:0 0 2px" },
+      el("span", {}, poHeadline(po)), " — Ingredients to buy"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      `${po.summary?.totalUnits ?? "?"} units planned (capacity ${po.summary?.capacity ?? "?"})`),
+      multi
+        ? `${po.summary?.totalUnits ?? "?"} units planned across ${dates.length} bake days`
+        : `${po.summary?.totalUnits ?? "?"} units planned (capacity ${po.summary?.capacity ?? "?"})`),
     table,
     el("p", { class: "po-snapshot-note" },
       `Snapshot from ${fmtTime(po.generatedAt)} — later order changes don't affect this PO.`),
@@ -59,7 +94,7 @@ function renderDetail(root, state, po) {
     el("div", { class: "btn-row" },
       button("← Back", () => navigate("#/history"), "ghost"),
       button("Print", () => window.print(), "soft"),
-      button("Regenerate", () => navigate(`#/po?date=${po.deliveryDateId}`), "primary")),
+      button("Regenerate", () => navigate(regenerateTarget(po)), "primary")),
     card);
 }
 

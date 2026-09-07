@@ -5,6 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   explodeBom,
+  explodeBomDates,
+  ordersFingerprint,
   expandProduct,
   costOf,
   effectiveUnitCost,
@@ -20,6 +22,7 @@ import {
   parseDayDelta,
   saveDayAdjustments,
 } from "../admin/js/bom.js";
+import { shortDate } from "../admin/js/dates.js";
 
 // Focaccia (leaf ingredients, daily limit 12) is the pool base. The family set
 // is 4 × Focaccia; the party box is 2 × family set (a set of a set).
@@ -460,4 +463,128 @@ test("saveDayAdjustments writes to the owner record, prunes zeros, removes dayAd
   assert.ok(!("dayAdj" in st.deliveryDates[0]), "clearing everything removes dayAdj");
 
   assert.equal(saveDayAdjustments(st, "del_nope", { prd_f: 1 }), null, "unknown date is a no-op");
+});
+
+// --- several bake days → one combined list (the PO's consolidated view) ---
+
+// fixtureState() holds one date (2026-09-07, del_a). Add a second date and
+// orders across both so the multi-date merge has something to combine.
+function twoDateState() {
+  const st = fixtureState();
+  st.deliveryDates.push({ id: "del_b", date: "2026-09-14", notes: "" });
+  st.orders = [
+    { id: "ord_a1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 }, // 2 × Focaccia
+    { id: "ord_b1", deliveryDateId: "del_b", productId: "prd_f", qty: 1 }, // 1 × Focaccia
+  ];
+  return st;
+}
+
+test("ordersFingerprint keys a date's orders as sorted productId:qty and is stable under re-pointing", () => {
+  const st = twoDateState();
+  assert.equal(ordersFingerprint(st, "2026-09-07"), "prd_f:2");
+  assert.equal(ordersFingerprint(st, "2026-09-14"), "prd_f:1");
+  assert.equal(ordersFingerprint(st, "2026-09-21"), "", "a date with no orders → empty");
+
+  // re-pointing an order to a duplicate record of the SAME date string must
+  // not change the digest (consolidateDeliveryDates does exactly this)
+  const st2 = twoDateState();
+  st2.deliveryDates.push({ id: "del_a2", date: "2026-09-07", notes: "" });
+  st2.orders[0].deliveryDateId = "del_a2";
+  assert.equal(ordersFingerprint(st2, "2026-09-07"), "prd_f:2", "digest keys the date string, not the id");
+
+  // a qty edit or an added/removed order changes the digest
+  const st3 = twoDateState();
+  st3.orders[0].qty = 3;
+  assert.notEqual(ordersFingerprint(st3, "2026-09-07"), "prd_f:2");
+  const st4 = twoDateState();
+  st4.orders.push({ id: "ord_a2", deliveryDateId: "del_a", productId: "prd_s", qty: 1 });
+  assert.notEqual(ordersFingerprint(st4, "2026-09-07"), "prd_f:2");
+
+  // several orders on one day sort deterministically
+  const st5 = fixtureState();
+  st5.orders = [
+    { id: "o2", deliveryDateId: "del_a", productId: "prd_f", qty: 1 },
+    { id: "o1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 },
+  ];
+  assert.equal(ordersFingerprint(st5, "2026-09-07"), "prd_f:1|prd_f:2");
+});
+
+test("explodeBomDates merges a shared ingredient across two dates into one summed list", () => {
+  const st = twoDateState();
+  const res = explodeBomDates(st, [st.deliveryDates[0], st.deliveryDates[1]]);
+  assert.equal(res.multi, true);
+  assert.deepEqual(res.perDate.map((p) => [p.date, p.totalUnits, p.orderCount]),
+    [["2026-09-07", 2, 1], ["2026-09-14", 1, 1]]);
+
+  const flour = res.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.totalQty, 2 * 500 + 1 * 500, "day amounts add up (1000 g + 500 g)");
+  assert.equal(flour.estCost, round2ish(flour.totalQty * 0.006), "cost recomputed from the combined total");
+  assert.equal(flour.lines.length, 2, "one tagged line per contributing day");
+  assert.equal(flour.lines[0].dateLabel, shortDate("2026-09-07"));
+  assert.equal(flour.lines[1].dateLabel, shortDate("2026-09-14"));
+  assert.equal(flour.lines[0].productName, "Focaccia");
+
+  assert.equal(res.totalUnits, 3);
+  assert.equal(res.orders.length, 2);
+  assert.deepEqual(res.productLines, [{ productId: "prd_f", productName: "Focaccia", qty: 3 }]);
+  assert.equal(res.warnings.length, 0);
+});
+
+// round2 is imported into bom.test.js? No — use a local helper.
+function round2ish(n) {
+  return Math.round(n * 100) / 100;
+}
+
+test("explodeBomDates with a single date is byte-identical to explodeBom (fast path)", () => {
+  const st = twoDateState();
+  const single = explodeBom(st, "del_a");
+  const fast = explodeBomDates(st, [st.deliveryDates[0]]);
+  assert.equal(fast.multi, false);
+  assert.deepEqual(fast.perDate, [{ id: "del_a", date: "2026-09-07", totalUnits: single.totalUnits, orderCount: single.orders.length }]);
+  for (const key of ["items", "orders", "totalUnits", "productLines", "warnings"]) {
+    assert.deepEqual(fast[key], single[key], `single-date ${key} unchanged`);
+  }
+});
+
+test("explodeBomDates merges different products' lines and dedupes shared warnings", () => {
+  const st = fixtureState();
+  st.deliveryDates.push({ id: "del_b", date: "2026-09-14", notes: "" });
+  // a deleted-product order on BOTH dates → the identical warning must appear once
+  st.orders = [
+    { id: "ord_a1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 },
+    { id: "ord_b1", deliveryDateId: "del_b", productId: "prd_gone", qty: 1 },
+    { id: "ord_b2", deliveryDateId: "del_b", productId: "prd_gone", qty: 1 },
+  ];
+  const res = explodeBomDates(st, st.deliveryDates);
+  const goneWarnings = res.warnings.filter((w) => w.includes("deleted product"));
+  assert.equal(goneWarnings.length, 1, "identical warnings from different days dedupe");
+  const flour = res.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.totalQty, 1000, "the valid day still contributes its flour");
+});
+
+test("explodeBomDates flags an ingredient measured in different units on different days", () => {
+  const st = fixtureState();
+  st.deliveryDates.push({ id: "del_b", date: "2026-09-14", notes: "" });
+  // A second product recipes flour in kg; each day alone is internally
+  // consistent (g one day, kg the other), so the clash is cross-day only.
+  st.products.push({ id: "prd_k", name: "Kilo loaf", unit: "loaf", active: true, recipe: [
+    { ingredientId: "ing_f", qty: 2, unit: "kg" },
+  ] });
+  st.orders = [
+    { id: "ord_a1", deliveryDateId: "del_a", productId: "prd_f", qty: 1 }, // 500 g
+    { id: "ord_b1", deliveryDateId: "del_b", productId: "prd_k", qty: 1 }, // 2 kg
+  ];
+  const res = explodeBomDates(st, st.deliveryDates);
+  const flour = res.items.find((i) => i.ingredientId === "ing_f");
+  assert.equal(flour.unitsOk, false);
+  assert.ok(res.warnings.some((w) => w.includes('"Strong flour"') && w.includes("different units")),
+    res.warnings.join(" | "));
+});
+
+test("explodeBomDates with no dates returns an empty combined list", () => {
+  const res = explodeBomDates(fixtureState(), []);
+  assert.equal(res.items.length, 0);
+  assert.equal(res.orders.length, 0);
+  assert.equal(res.totalUnits, 0);
+  assert.equal(res.perDate.length, 0);
 });
