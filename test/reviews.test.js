@@ -159,6 +159,7 @@ test("uploadPhoto uploads to the review-photos bucket and returns the public URL
     assert.ok(calls[0].url.endsWith(".jpg"));
     assert.equal(calls[0].opts.method, "POST");
     assert.equal(calls[0].opts.headers.apikey, ANON);
+    assert.equal(calls[0].opts.headers.Authorization, `Bearer ${ANON}`); // storage requires the bearer
     assert.equal(calls[0].opts.headers["Content-Type"], "image/jpeg");
     assert.equal(calls[0].opts.headers["x-upsert"], "false");
     assert.equal(calls[0].opts.body, file);

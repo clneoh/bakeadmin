@@ -194,6 +194,9 @@ export async function uploadPhoto(file) {
       method: "POST",
       headers: {
         apikey: SUPABASE.anonKey,
+        // The storage service needs the bearer token too (the public anon key is
+        // itself a JWT) — unlike PostgREST, `apikey` alone is rejected with 400.
+        Authorization: `Bearer ${SUPABASE.anonKey}`,
         "Content-Type": file.type,
         "x-upsert": "false",
       },
