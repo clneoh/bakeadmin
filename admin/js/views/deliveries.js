@@ -309,20 +309,35 @@ function occImportPicker(state) {
 
   showPopup("Add occasion", (refresh, close) => {
     const on = entries.map(() => true);
+    const groupData = []; // { master, boxes: [{ el, i }] } per visible heading
 
     const groups = el("div", { class: "mycal-groups" });
     for (const [cat, title] of OCC_IMPORT_GROUPS) {
       const rows = [];
+      const boxes = [];
       entries.forEach((e, i) => {
         if (e.cat !== cat) return;
         const dot = el("span", { class: `mycal-dot occ-${importOccColour(e)}` });
         const box = el("input", { type: "checkbox", checked: true });
-        box.addEventListener("change", () => { on[i] = box.checked; recount(); });
+        box.addEventListener("change", () => { on[i] = box.checked; recount(); syncMasters(); });
+        boxes.push({ el: box, i });
         rows.push(el("div", { class: "mycal-row" }, box, dot,
           el("span", { class: "mycal-label" }, e.label),
           el("span", { class: "mycal-date" }, occImportDateText(e.from, e.to))));
       });
-      if (rows.length) groups.append(el("p", { class: "mycal-sub" }, title), ...rows);
+      if (!rows.length) continue;
+      // The box beside a heading is a whole-group switch: it ticks/unticks every
+      // row under it, and turns itself into a dash when only some are ticked.
+      const master = el("input", { type: "checkbox", checked: true });
+      master.addEventListener("change", () => {
+        for (const { el: b, i } of boxes) { b.checked = master.checked; on[i] = master.checked; }
+        recount();
+        syncMasters();
+      });
+      groupData.push({ master, boxes });
+      groups.append(
+        el("div", { class: "mycal-ghead" }, master, el("p", { class: "mycal-sub" }, title)),
+        ...rows);
     }
 
     let addBtn = null;
@@ -330,6 +345,21 @@ function occImportPicker(state) {
       const n = on.filter(Boolean).length;
       addBtn.textContent = `Add (${n})`;
       addBtn.disabled = n === 0;
+    };
+    const syncMasters = () => {
+      for (const g of groupData) {
+        let anyOn = false, allOn = true;
+        for (const { i } of g.boxes) { if (on[i]) anyOn = true; else allOn = false; }
+        g.master.checked = anyOn && allOn;
+        g.master.indeterminate = anyOn && !allOn;
+      }
+    };
+    const tickAll = (v) => {
+      for (const g of groupData) {
+        for (const { el: b, i } of g.boxes) { b.checked = v; on[i] = v; }
+      }
+      recount();
+      syncMasters();
     };
 
     const doAdd = () => {
@@ -343,6 +373,10 @@ function occImportPicker(state) {
         el("span", { class: "mycal-dot occ-red" }), " public holiday",
         " · ", el("span", { class: "mycal-dot occ-orange" }), " other celebration",
         " · untick any you don't want. \"(est.)\" dates are estimates until officially confirmed — you can Edit or delete any mark afterwards."),
+      el("div", { class: "mycal-allrow" },
+        button("Untick all", () => tickAll(false), "ghost small"),
+        button("Tick all", () => tickAll(true), "ghost small"),
+        el("span", { class: "mycal-allnote" }, "· tick the box by a heading to grab that whole group")),
       groups,
       myOwnDay(state, close),
       el("div", { class: "popup-actions" }, button("Cancel", close, "ghost"), addBtn));

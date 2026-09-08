@@ -75,9 +75,11 @@ const MALAYSIAN_DATES = [
 // ── Fun & pet days — international days pet owners celebrate ────────────────
 // Lightweight, informal marketing days (not gazetted anywhere) — orange.
 const FUN_PET_DAYS = [
+  { label: "World Animal Day", from: "2026-10-04", to: "2026-10-04", cat: "pet", pub: false },
   { label: "National Pet Day", from: "2027-04-11", to: "2027-04-11", cat: "pet", pub: false },
   { label: "International Cat Day", from: "2027-08-08", to: "2027-08-08", cat: "pet", pub: false },
   { label: "International Dog Day", from: "2027-08-26", to: "2027-08-26", cat: "pet", pub: false },
+  { label: "World Animal Day", from: "2027-10-04", to: "2027-10-04", cat: "pet", pub: false },
 ];
 
 // ── Baking & sweet days — days made for a bakery promo ──────────────────────

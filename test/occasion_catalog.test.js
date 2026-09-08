@@ -64,9 +64,11 @@ test("the general fun days the baker asked for are present", () => {
   const rows = new Map(OCCASION_CATALOG.map((e) => [`${e.label}|${e.from}`, e]));
   const keys = [
     // pet
+    "World Animal Day|2026-10-04",
     "National Pet Day|2027-04-11",
     "International Cat Day|2027-08-08",
     "International Dog Day|2027-08-26",
+    "World Animal Day|2027-10-04",
     // bake
     "Cookie Day|2026-12-04",
     "Cookie Day|2027-12-04",
@@ -77,7 +79,7 @@ test("the general fun days the baker asked for are present", () => {
     "Siblings Day|2027-04-10",
     "Friendship Day|2027-08-01",
   ];
-  assert.equal(keys.length, 10, "all ten fun days checked");
+  assert.equal(keys.length, 12, "all twelve fun days checked");
   for (const key of keys) {
     const e = rows.get(key);
     assert.ok(e, `"${key}" is importable`);
