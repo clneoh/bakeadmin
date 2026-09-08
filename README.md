@@ -140,6 +140,26 @@ Two things to know: an item is imported only when its name matches a backoffice
 product (add it in Products and it'll import next time), and — since anyone
 with the link can place an order — review New orders before confirming them.
 
+## Homepage customer reviews (Supabase)
+
+The homepage (repo root `index.html`) now carries a **What customers say**
+section: the reviews the baker has approved, newest first, plus a form any
+visitor can fill in — name, a 1–5 star tap rating, a message, the language they
+wrote in (English / 中文 / Bahasa Malaysia), and an optional photo. Reviews live
+only on the homepage, never the order page.
+
+- A review is posted to a `reviews` table with `published = false` (public
+  anon insert, like `incoming_orders`). Unpublished rows are invisible to
+  anonymous readers — a `published = eq.false` query returns nothing.
+- **The baker approves every review first** (nothing public without her tap):
+  backoffice → **More → Reviews** lists new ones under *Waiting for you* with
+  the name, stars, message, language, date and photo; **Publish** shows it on
+  the homepage, **Take down** hides it again, **Delete** removes it for good.
+- Photos upload to the public `review-photos` Storage bucket via the anon key.
+
+**One-time setup:** run `supabase/reviews.sql` in the SQL editor (adds the
+`reviews` table + RLS and the `review-photos` Storage bucket + policies).
+
 ## Order tracking & confirmation (Supabase)
 
 Customers now pick **Self collect / Courier delivery** when ordering (a courier
@@ -295,6 +315,7 @@ admin/ — backoffice app (/admin/):
 supabase/availability.sql   run once in Supabase SQL editor (public slots)
 supabase/backoffice.sql     run once in Supabase SQL editor (shared data, RLS)
 supabase/storefront.sql     run once in Supabase SQL editor (storefront config + order intake)
+supabase/reviews.sql        run once in Supabase SQL editor (homepage reviews + photo bucket)
 supabase/tracking.sql       run once in Supabase SQL editor (order tracking)
 test/               node --test suites (import from admin/js and store/)
 ```

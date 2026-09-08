@@ -16,6 +16,7 @@ import { renderPO } from "./views/po.js";
 import { renderHistory } from "./views/history.js";
 import { renderCustomers } from "./views/customers.js";
 import { renderSettings } from "./views/settings.js";
+import { renderReviews } from "./views/reviews.js";
 import { renderMore } from "./views/more.js";
 import { renderLogin } from "./views/login.js";
 import { renderLock } from "./views/lock.js";
@@ -33,6 +34,7 @@ const routes = {
   "/customers": { title: "Customers", tab: "more",      render: renderCustomers },
   "/deliveries":{ title: "Delivery Dates", tab: "more", render: renderDeliveries },
   "/units":     { title: "Units",      tab: "more",      render: renderUnits },
+  "/reviews":   { title: "Reviews",    tab: "more",      render: renderReviews },
   "/suppliers": { title: "Suppliers",  tab: "more",      render: renderSuppliers },
   "/settings":  { title: "Settings",  tab: "more",      render: renderSettings },
   "/more":      { title: "More",      tab: "more",      render: renderMore },
