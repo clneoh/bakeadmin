@@ -104,9 +104,9 @@ function reviewCard(state, row, action, reload) {
     bits.push(el("img", {
       src: String(row.photo),
       alt: "",
-      // Fixed-height crop so any photo (even a very wide one) fills a neat band
-      // instead of shrinking to a thin strip.
-      style: "width:100%;height:200px;object-fit:cover;object-position:center;border-radius:10px;background:var(--line)",
+      // Show the whole photo at its natural shape (never cropped). A generous
+      // height cap letterboxes only the rare extra-tall picture.
+      style: "width:100%;height:auto;max-height:600px;object-fit:contain;border-radius:10px;background:var(--line)",
     }));
   }
   const when = fmtDate(row.created_at);
