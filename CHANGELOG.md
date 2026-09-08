@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v62)
+# Jienluv2bake — change history (v54 → v63)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+## v63 — Customers tab, wish list, holidays fix (8 Sep 2026)
+**Customers** is a real tab of its own, swapped with **Purchase Order** (now
+under **More → Purchase Order**). The tab stays your automatic customer list —
+who ordered, how much, their favourite — and now every person can carry a
+**profile** (the **Edit** button in their history pop-up): their dog's name and a
+small photo (auto-shrunk to a thumb), what they like, what to avoid, and a note.
+Profiles save into a synced `customers` collection, so both phones know the same
+people, and they build up quietly for a future AI chat about your customers. A
+**finder** box at the top of the tab filters the list as you type — name,
+number, dog's name, likes, notes — and says how many match, just like
+"Find an order" on Orders. A saved profile shows as a paw or photo beside the
+name and a small line under the row.
+
+On **Home**, the "Upcoming holidays" card is fixed: it used to vanish whenever
+nothing was marked on the Delivery calendar. It is now always there — up to
+three marks at a glance, a scroll for any more, and a friendly empty state that
+still opens the calendar so you can add days.
+
+On **More**, a small green **Engine v63** pill (in the header card) shows which
+build this phone runs, a **Software wish list** sits at the bottom and behaves
+exactly like your to-do list (add, tick, reword, remove — a tick stays ticked
+and never touches the weekly routine), and **Full change history** opens this
+history as a PDF kept on your website. No SQL this version.
 
 ## v62 — "Not sharing" strip + read-only View (8 Sep 2026)
 When a phone is not on the shared cloud — shared data off, never set up, or
@@ -73,5 +97,5 @@ them).
 ---
 
 *This history covers the two-phone cloud era (v54+). Earlier versions
-(pre-v54) can be added the same way — ask and I'll extend it. Each new
-version (v63…) is added here as it ships.*
+(pre-v54) were never recorded version by version, so they are not listed here
+rather than invented. Each new version is added here as it ships.*

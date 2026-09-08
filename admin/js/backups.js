@@ -60,9 +60,13 @@ export function snapshotState(state) {
 
 // "72 orders · 31 products · 18 ingredients" — the one-line "what's inside"
 // shown in the copy list, stored so the list never has to pull the heavy data.
+// Customers only join the line once there are any, so old copies (made before
+// profiles existed) still read the same.
 export function summaryOf(data) {
   const n = (list) => (Array.isArray(list) ? list.length : 0);
-  return `${n(data.orders)} orders · ${n(data.products)} products · ${n(data.ingredients)} ingredients`;
+  let s = `${n(data.orders)} orders · ${n(data.products)} products · ${n(data.ingredients)} ingredients`;
+  if (n(data.customers) > 0) s += ` · ${n(data.customers)} customers`;
+  return s;
 }
 
 // Local calendar date of an instant (created_at timestamps are UTC; the cadence
@@ -250,6 +254,7 @@ export function snapshotViewData(data) {
       purchaseOrders: list("purchaseOrders").length,
       credits: credits.length,
       occasions: list("occasions").length,
+      customers: list("customers").length,
     },
     creditRM,
     productRows,

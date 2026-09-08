@@ -32,6 +32,7 @@ const LISTS = {
   purchaseOrders: "purchaseOrders",
   credits: "credits", // bring-a-friend ledger rows
   occasions: "occasions", // delivery-calendar reminder marks
+  customers: "customers", // customer profiles (dog name/photo, likes, notes)
 };
 const SETTINGS_KEY = "settings:default";
 
@@ -96,6 +97,9 @@ function recordPayload(kind, rec) {
       // never edited its tasks must not push the preset seed and overwrite the
       // other phone's customised list (last-write-wins below would clobber it).
       ...(Array.isArray(rec.tasks) ? { tasks: rec.tasks } : {}),
+      // The software wish list, only once she customises it — same guard: a
+      // phone that never opened it must not push an empty list over hers.
+      ...(Array.isArray(rec.wishList) ? { wishList: rec.wishList } : {}),
     };
   }
   return rec;

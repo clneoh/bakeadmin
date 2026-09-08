@@ -8,8 +8,10 @@ order) — no manual math.
 - **Delivery dates** are Mon/Wed/Fri with a daily capacity (default 12) and an
   order cut-off at 6pm the day before.
 - **Orders** are entered manually per delivery date (from WhatsApp).
-- **PO** = sum(order qty × recipe qty) per ingredient, priced in RM. Saved
-  snapshots are kept in PO History and can be printed.
+- **PO** (under **More → Purchase Order**) = sum(order qty × recipe qty) per
+  ingredient, priced in RM. Saved snapshots are kept in PO History and can be
+  printed. The bottom tabs are **Home · Orders · Products · Customers · More** —
+  Customers is a tab of its own.
 
 There's also a customer **storefront** (`store/`) — a public order page her
 customers open on their phone. They tap products + quantity and place an order;
@@ -299,6 +301,35 @@ again.
 `backup_snapshots` table + row-level security: only signed-in bakers can read or
 write copies).
 
+## Customers tab, profiles, finder & the wish list
+
+**Customers** is a tab of its own (swapped with Purchase Order, which now lives
+under **More**). It is the automatic customer book — one row per person with
+their order count, rough spend, favourite product and last order — and it adds:
+
+- **Finder** — type 2+ characters (name, WhatsApp number, a dog's name, a like,
+  a note, a favourite product) and the list narrows live with "N of M match",
+  the same way "Find an order" works on Orders.
+- **Profiles** — tap a person and their history pop-up leads with a **profile
+  card**. Edit (or "Add details") opens a form: name, WhatsApp, the dog's name,
+  a **photo** (shrunk to a small ~200px thumb before saving, by `js/photo.js`),
+  what they like, what to avoid, and a note. Profiles live in a synced
+  `customers` collection (`js/profiles.js`), keyed by the same trimmed/
+  lowercased WhatsApp-or-name rule the customer rows use, so they ride shared
+  data to both phones and stay attached as orders grow — a foundation for a
+  future AI chat. Photos stay thumb-sized on purpose: the whole app state lives
+  in one ~5 MB localStorage key.
+- **Software wish list** (bottom of More) — behaves like the weekly to-do: add
+  a feature you'd like, tick the ones that come true (ticks persist — never
+  reset weekly), reword or remove. Stored lazily in `settings.wishList`
+  (`js/wishlist.js`) with the same sync absence-guard as the to-do tasks, so a
+  phone that never opens it can't wipe another phone's list.
+
+A small green **Engine v##** pill on the More screen shows which build a phone
+runs, and **Full change history** links to `changelog.pdf` at the root of the
+site — a PDF of every version from v54, built from `CHANGELOG.md` by
+`marketing/build_changelog.py`. No SQL was needed for any of this.
+
 ## Host it free — Netlify Drop
 
 For both phones to open the same URL:
@@ -349,6 +380,7 @@ engine (`admin/js/sync.js`), the app bootstrap + sign-in gate
 ## Files
 
 ```
+changelog.pdf       full change history (every version from v54, PDF) — root of the site
 index.html          public homepage (domain root)
 store/index.html    customer order page (/store/)
 store/app.css       storefront styling
@@ -368,6 +400,9 @@ admin/ — backoffice app (/admin/):
   js/sharewarn.js     "Not sharing right now" amber strip (top of every screen)
   js/validate.js      import-file validation
   js/ui.js            DOM builder + shared render helpers
+  js/wishlist.js      software wish list on More (lazy settings.wishList CRUD)
+  js/profiles.js      customer profiles (join to the customer rows, pure)
+  js/photo.js         shrinks a picked photo to a small thumb (browser only)
   js/app.js           hash router + bootstrap + shared-data gate
   js/views/*          one module per screen (login.js is the sign-in gate)
   sw.js               service worker — offline app shell (/admin/ scope)
