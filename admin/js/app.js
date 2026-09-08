@@ -3,6 +3,7 @@
 import { loadState, save, setSaveHook, updateOrderBadge, ensureSupabase } from "./state.js";
 import { el, button } from "./ui.js";
 import * as sync from "./sync.js";
+import { maybeAutoBackup } from "./backups.js";
 import { cachedToken, maybeSync, pullIncoming, refreshStorefront } from "./supabase.js";
 
 import { renderDashboard } from "./views/dashboard.js";
@@ -190,6 +191,7 @@ function showLogin() {
       startSync();
       startIntake();
       refreshStorefront(state);
+      maybeAutoBackup(state).catch(() => {});
     },
     onOffline: () => {
       loggedOut = false;
@@ -243,7 +245,7 @@ function bootApp() {
     } else if (c.email && c.password) {
       // Stored credentials — silent auto-login (owner's flow stays seamless);
       // the gate only appears if the login actually fails.
-      sync.login(state).then(() => startSync()).catch(() => showLogin());
+      sync.login(state).then(() => { startSync(); maybeAutoBackup(state); }).catch(() => showLogin());
     } else {
       showLogin();
       return;
@@ -252,6 +254,9 @@ function bootApp() {
   render();
   startSync();
   startIntake();
+  // A quiet daily/weekly/monthly cloud backup when it's due — fire-and-forget,
+  // silent on any failure, at most one attempt per day.
+  maybeAutoBackup(state).catch(() => {});
   // Adopt the latest published storefront (name/WhatsApp/tagline/QR) so this
   // phone shows whatever the most recent backoffice user set, not a baked copy.
   refreshStorefront(state);
