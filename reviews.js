@@ -177,6 +177,10 @@ export async function submitReview(data) {
   }
 }
 
+// What the last failed upload said, for the temporary on-screen diagnostic (see
+// the submit handler). Removed once the upload is proven working.
+let lastPhotoError = "";
+
 // Upload the customer's photo to the review-photos bucket and return its public
 // URL, or "" when there is no photo / it can't upload. A failed upload never
 // blocks the review — it just posts without a picture.
@@ -195,9 +199,16 @@ export async function uploadPhoto(file) {
       },
       body: file,
     });
-    if (!res.ok) return "";
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      try { lastPhotoError = `HTTP ${res.status}: ${JSON.parse(body).message || ""}`; }
+      catch { lastPhotoError = `HTTP ${res.status}: ${String(body).slice(0, 300)}`; }
+      return "";
+    }
+    lastPhotoError = "";
     return `${BASE}/storage/v1/object/public/review-photos/${path}`;
-  } catch {
+  } catch (err) {
+    lastPhotoError = `network: ${String(err && err.message || err).slice(0, 300)}`;
     return "";
   }
 }
@@ -334,8 +345,12 @@ function initReviews() {
     if (error) error.textContent = text;
   }
 
-  function showThanks() {
+  function showThanks(uploadNote) {
     if (!thanks) return;
+    const note = uploadNote
+      ? " — TEMP DEBUG: your photo was not uploaded. " + uploadNote
+      : "";
+    thanks.textContent = "Thank you! Your review is with the baker and will appear here once it is approved." + note;
     thanks.hidden = false;
     if (form) form.hidden = true;
     if (grid) grid.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -355,11 +370,14 @@ function initReviews() {
     setError("");
     const file = photoInput && photoInput.files && photoInput.files[0];
     let photo = "";
+    let uploadNote = "";
     if (file) {
-      // Shrink first so any phone photo is a small upload; an unreadable file
-      // just means the review goes out without a picture.
-      const ready = await shrinkReviewPhoto(file);
-      if (ready) photo = await uploadPhoto(ready);
+      // Shrink first so any phone photo is a small upload. If it can't be read
+      // for shrinking, upload the original anyway rather than silently skipping
+      // the picture.
+      const ready = (await shrinkReviewPhoto(file)) || file;
+      photo = await uploadPhoto(ready);
+      if (!photo) uploadNote = lastPhotoError;
     }
     const res = await submitReview({ name, stars: rating, message: message.value, lang, photo });
     if (submitBtn) {
@@ -379,7 +397,7 @@ function initReviews() {
     langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));
     if (preview) preview.replaceChildren();
     if (photoInput) photoInput.value = "";
-    showThanks();
+    showThanks(uploadNote);
   });
 
   paintStars();
