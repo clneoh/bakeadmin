@@ -351,7 +351,7 @@ function initReviews() {
   function showThanks(uploadNote) {
     if (!thanks) return;
     const note = uploadNote
-      ? " — TEMP DEBUG: your photo was not uploaded. " + uploadNote
+      ? " — TEMP DEBUG v2: your photo was not uploaded. " + uploadNote
       : "";
     thanks.textContent = "Thank you! Your review is with the baker and will appear here once it is approved." + note;
     thanks.hidden = false;
