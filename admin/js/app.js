@@ -21,6 +21,7 @@ import { renderReviews } from "./views/reviews.js";
 import { renderMore } from "./views/more.js";
 import { renderLogin } from "./views/login.js";
 import { renderLock } from "./views/lock.js";
+import { refreshShareWarn } from "./sharewarn.js";
 import { lockEnabled } from "./pin.js";
 
 const state = loadState();
@@ -114,6 +115,9 @@ function render() {
       button("Try again", render, "primary")));
   }
   viewEl.focus({ preventScroll: true });
+  // Amber "Not sharing right now" strip — lives above the route, refreshed on
+  // every render so it appears/disappears the moment the sharing state changes.
+  refreshShareWarn(state);
 }
 
 // Start the periodic + event-driven pull (every ~30s, and on online/focus/

@@ -241,6 +241,16 @@ The connection config (URL, anon key, login) is per-phone and isn't synced, so
 each phone signs in with its owner's account. **Sign out** pauses availability
 publishing until she signs in again.
 
+### "Not sharing right now" strip
+
+Whenever a phone is *not* on the shared cloud — shared data turned off, the
+phone never set up, or signed out — a thin amber strip sits at the very top of
+every screen: **"⚠ Not sharing right now"**, with a one-line reason and a **Fix
+it** tap that jumps to More → Settings → Shared data. The strip does not lock
+the app (unlike the app password) — she can keep working — and it disappears on
+its own the moment the phone is sharing again, without a reload. A phone that is
+off the cloud still makes and keeps its own local backups.
+
 ## Cloud backups (Supabase)
 
 A real safety net behind the sync mirror. Shared data holds only the *current*
@@ -260,6 +270,10 @@ The retention prune keeps the table small; older automatic copies are dropped,
 manual ones stay. Everything lives under **More → Settings → Backup & safety**
 (the existing card, renamed). Each listed copy can be:
 
+- **View** — a read-only look inside that one copy: its orders grouped by
+  delivery date (customer, product, quantity, status), the product price list,
+  and ingredient stock at that time, plus how many suppliers/units/POs/credits
+  it held. Nothing is ever written — confirming a June price moves nothing today.
 - **Restore** — steps her phone back to that copy, then the sync engine rewinds
   the shared cloud and her other phone to match (records that only exist after
   the copy are seen as removed and stay removed). A **"Before restore" copy is
@@ -351,6 +365,7 @@ admin/ — backoffice app (/admin/):
   js/supabase.js      live availability + storefront config publish, order intake
   js/sync.js          shared-data sync engine (queue, pull-then-flush, conflict)
   js/backups.js       cloud backups (auto daily/weekly/monthly snapshots, restore)
+  js/sharewarn.js     "Not sharing right now" amber strip (top of every screen)
   js/validate.js      import-file validation
   js/ui.js            DOM builder + shared render helpers
   js/app.js           hash router + bootstrap + shared-data gate

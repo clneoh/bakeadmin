@@ -59,6 +59,24 @@ export function isSignedIn() {
   return !!cachedToken();
 }
 
+// Why this phone is not part of the shared cloud right now, for the amber
+// "Not sharing right now" strip. Returns { on: true } while it shares. When
+// not sharing, `kind` is why:
+//   'off'       shared data is switched off (connection is configured)
+//   'unset'     never connected (no Supabase URL/key saved on this phone)
+//   'signedout' shared data is on but the session is gone
+// Stored credentials mean the app auto-logs-in on its own — that moment is
+// treated as sharing (a login that actually fails lands in the sign-in gate,
+// not on a banner). `signedIn` is injectable for tests.
+export function sharingState(state, signedIn) {
+  const c = cloudCfg(state);
+  if (!c.on) return { on: false, kind: c.ready ? "off" : "unset" };
+  const signed = signedIn === undefined ? isSignedIn() : signedIn;
+  return signed || !!(c.email && c.password)
+    ? { on: true }
+    : { on: false, kind: "signedout" };
+}
+
 // ── records / change detection ────────────────────────────────────────────
 
 // The business payload for a record. Settings sync only the keys every phone

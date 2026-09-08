@@ -830,3 +830,36 @@ test("mergeRows: a cloud row without tasks never deletes the local customised li
       "an absent cloud field is not a delete");
   } finally { restore(); }
 });
+
+// ── sharingState (the amber "Not sharing right now" strip) ────────────────
+
+test("sharingState: sharing when the cloud is on and the session is live", () => {
+  const st = cloudOn(baseState()); // url + anonKey + cloud.enabled
+  assert.deepEqual(sync.sharingState(st, true), { on: true });
+});
+
+test("sharingState: treated as sharing while stored credentials would auto-login", () => {
+  const st = cloudOn(baseState());
+  st.settings.supabase.email = "baker@example.com";
+  st.settings.supabase.password = "pw";
+  // No live session yet (inject signedIn=false), but creds are saved, so the
+  // app logs in on its own next open — not a warning state.
+  assert.deepEqual(sync.sharingState(st, false), { on: true });
+});
+
+test("sharingState: 'off' when the switch is off but the connection is configured", () => {
+  const st = cloudOn(baseState());
+  st.settings.cloud.enabled = false;
+  assert.deepEqual(sync.sharingState(st, true), { on: false, kind: "off" });
+});
+
+test("sharingState: 'unset' on a phone that was never connected", () => {
+  const st = baseState(); // no url/anonKey
+  st.settings.cloud.enabled = true;
+  assert.deepEqual(sync.sharingState(st, true), { on: false, kind: "unset" });
+});
+
+test("sharingState: 'signedout' when the cloud is on but there is no session and no stored password", () => {
+  const st = cloudOn(baseState());
+  assert.deepEqual(sync.sharingState(st, false), { on: false, kind: "signedout" });
+});

@@ -73,6 +73,29 @@ body { min-height: 100vh; }
   white-space: nowrap;
 }
 
+/* ---------- "Not sharing" strip ---------- */
+.share-warn {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 19; /* below the topbar (20), above the page */
+  background: var(--amber-bg);
+  border-bottom: 1px solid #ecd4a5;
+  box-shadow: 0 1px 6px rgba(120, 66, 32, .07);
+}
+.share-warn[hidden] { display: none; }
+.share-warn-inner {
+  display: block;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 8px 14px;
+  color: var(--ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.share-warn-inner:active { opacity: .75; }
+.share-warn-msg { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.share-warn-msg b { color: var(--amber); font-weight: 700; }
+
 /* ---------- Hero (Home) ---------- */
 .hero {
   position: relative;
