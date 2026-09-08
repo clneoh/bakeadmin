@@ -14,7 +14,7 @@ import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
   occColour, occDays, occForDateAll, occRange, occSingleDay, occStrength,
 } from "../calendar.js";
-import { MALAYSIAN_OCCASIONS, importOccColour } from "../malaysian_occasions.js";
+import { OCCASION_CATALOG, importOccColour } from "../occasion_catalog.js";
 
 // Local picker state (survives re-renders while this screen is open): which
 // month is showing, which future dates the baker has tapped to add, and the
@@ -244,7 +244,7 @@ function occBody(state) {
       "Slide from the first day to the last — or tap the first, then the last."
       + " Tap the same day twice to mark just one day."),
     el("div", { class: "occ-importrow" },
-      button("＋ Add Malaysia's occasions",
+      button("＋ Add occasion",
         () => occImportPicker(state), "soft small")),
     el("p", { class: "occ-sublabel" }, "Marked periods"),
     occs.length
@@ -275,15 +275,18 @@ function deleteOccasion(state, occ) {
     }, { danger: true, yesLabel: "Remove" });
 }
 
-// The "Add Malaysia's occasions" button's checkbox list — every future,
-// not-yet-added entry grouped under the five category headings below. Rows are
-// ticked by default; the count on the Add button follows the ticks live.
+// The "Add occasion" button's checkbox list — every future, not-yet-added
+// entry grouped under the eight category headings below. Rows are ticked by
+// default; the count on the Add button follows the ticks live.
 const OCC_IMPORT_GROUPS = [
   ["festive", "Festive days"],
   ["national", "National days"],
   ["state", "State & territory days"],
   ["family", "Love & family days"],
   ["school", "School holidays"],
+  ["pet", "Fun & pet days"],
+  ["bake", "Baking & sweet days"],
+  ["kind", "People & kindness days"],
 ];
 
 function occImportDateText(from, to) {
@@ -293,18 +296,18 @@ function occImportDateText(from, to) {
 function occImportPicker(state) {
   const today = todayISO();
   const already = new Set((state.occasions || []).map((o) => `${o.label}|${o.from}`));
-  const entries = MALAYSIAN_OCCASIONS.filter((e) =>
+  const entries = OCCASION_CATALOG.filter((e) =>
     e.to >= today && !already.has(`${e.label}|${e.from}`));
   if (!entries.length) {
-    showPopup("Add Malaysia's occasions", (refresh, close) => el("div", {},
+    showPopup("Add occasion", (refresh, close) => el("div", {},
       el("p", { class: "card-sub" },
-        "Every Malaysian date in the list is already on your calendar — nothing new to add."),
+        "Every date in the list is already on your calendar — nothing new to add."),
       el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px;justify-content:flex-end" },
         button("Close", close, "primary"))));
     return;
   }
 
-  showPopup("Add Malaysia's occasions", (refresh, close) => {
+  showPopup("Add occasion", (refresh, close) => {
     const on = entries.map(() => true);
 
     const groups = el("div", { class: "mycal-groups" });
@@ -341,8 +344,36 @@ function occImportPicker(state) {
         " · ", el("span", { class: "mycal-dot occ-orange" }), " other celebration",
         " · untick any you don't want. \"(est.)\" dates are estimates until officially confirmed — you can Edit or delete any mark afterwards."),
       groups,
+      myOwnDay(state, close),
       el("div", { class: "popup-actions" }, button("Cancel", close, "ghost"), addBtn));
   });
+}
+
+// "My own day" — a one-off mark (any name, any date) straight from the Add
+// occasion popup, so a birthday or a promo day lands in two taps without
+// drawing on the calendar. Adds a single-day mark in orange (Edit it later to
+// re-colour, like any mark) and remembers the name for the one-tap chips.
+function myOwnDay(state, close) {
+  const ui = { name: "", date: todayISO() };
+  const finish = () => {
+    const name = String(ui.name).trim();
+    if (!name) return toast("Type a name first");
+    if (!ui.date) return toast("Pick a date first");
+    addOccasion(state, ui.date, ui.date, name, "orange", close);
+  };
+  const nameInp = el("input", {
+    class: "input", placeholder: "e.g. Pet-treat promo day", maxlength: "40",
+  });
+  nameInp.addEventListener("input", () => { ui.name = nameInp.value; });
+  nameInp.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(); });
+  const dateInp = el("input", { class: "input", type: "date", min: todayISO(), value: ui.date });
+  dateInp.addEventListener("input", () => { ui.date = dateInp.value; });
+  return el("div", { class: "mycal-own" },
+    el("p", { class: "mycal-sub" }, "My own day"),
+    el("p", { class: "occ-edit-note", style: "margin:0 0 2px" },
+      "Any name, any date — a birthday or a one-off promo."),
+    el("div", { class: "mycal-own-row" }, nameInp, dateInp,
+      button("Add", finish, "soft")));
 }
 
 function occImportAdd(state, picks, close) {
@@ -359,7 +390,7 @@ function occImportAdd(state, picks, close) {
     maybeSync(state);
   }
   toast(fresh.length
-    ? `Added ${fresh.length} Malaysian occasion${fresh.length === 1 ? "" : "s"}`
+    ? `Added ${fresh.length} occasion${fresh.length === 1 ? "" : "s"}`
     : "Those are already on your calendar");
   close();
   resetOcc();
