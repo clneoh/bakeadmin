@@ -4,6 +4,15 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**9 Sep 2026 — the wish list's automatic email went live (no new engine; the
+phones did not change).** Adding a wish on **More → Software wish list** now
+emails the **full wish list** — every wish, ticked or not, newest first, with
+the app version and the date — to the developer address(es) you set under
+Settings → **Website & developer**, all on its own, whenever the phone is signed
+in and sharing data. Before today that automatic email needed a behind-the-scenes
+service that was not switched on yet, so only the **"Email the full wish list"**
+row sent it by hand; that row is still there as a backup any time.
+
 ## v66 — Auto-translate product text, plus Draft / Publish / Hidden states (9 Sep 2026)
 Product **description, selling unit word** (the "RM15.00 / loaf" bit), **serving
 tip** and now the **name itself** read in English, 中文 or Bahasa Malaysia
