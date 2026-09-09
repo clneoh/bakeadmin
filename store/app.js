@@ -221,6 +221,9 @@ export function mergeStorefront(base, remote) {
     const emails = remote.developerEmails.map((e) => String(e).trim()).filter(Boolean);
     if (emails.length) out.developerEmails = emails;
   }
+  if (typeof remote.developerWhatsapp === "string" && remote.developerWhatsapp.trim()) {
+    out.developerWhatsapp = remote.developerWhatsapp.trim();
+  }
   return out;
 }
 
@@ -281,9 +284,20 @@ function tryOpenWa(url) {
   }
 }
 
-// The small "Website by {name} · ✉ …" credit in the store footer. Reads the same
-// published storefront data as the homepage, so it shows only once the baker has
-// set a developer name + email(s) in the app and republished.
+// A wa.me link that opens a chat to the developer's WhatsApp number with "Hi!"
+// ready to send — same digit-cleaning as the bakery's own number. The owner
+// types the number (digits, country code) once in Settings → Website & developer.
+function devWaHref(number) {
+  const digits = waNumber(number);
+  return digits ? `https://wa.me/${digits}?text=${encodeURIComponent("Hi!")}` : "";
+}
+
+// The small "Website by {name}" credit in the store footer. The developer's
+// WhatsApp (when the baker set a number) is the primary link and opens a chat
+// with a ready "Hi!"; the email address(es) stay as a smaller second line — the
+// wish-list email still uses them. Reads the same published storefront data as
+// the homepage, so it shows only once the baker has set a developer name in the
+// app and republished.
 function renderDevFoot(cfg) {
   const holder = document.getElementById("dev-foot");
   if (!holder) return;
@@ -292,12 +306,19 @@ function renderDevFoot(cfg) {
   const emails = Array.isArray(cfg && cfg.developerEmails)
     ? cfg.developerEmails.map((e) => String(e).trim()).filter(Boolean)
     : [];
-  if (!name || !emails.length) {
+  const wa = cfg && typeof cfg.developerWhatsapp === "string" ? cfg.developerWhatsapp.trim() : "";
+  if (!name || (!wa && !emails.length)) {
     holder.hidden = true;
     return;
   }
-  holder.appendChild(el("a", { href: `mailto:${emails.join(",")}` }, `${t("devBy")} ${name} · ✉ ${emails.join(", ")}`));
   holder.hidden = false;
+  holder.appendChild(el("div", { class: "dev-note" }, `${t("devBy")} ${name}`));
+  if (wa) {
+    holder.appendChild(el("a", { class: "dev-wa", href: devWaHref(wa), target: "_blank", rel: "noopener" }, `💬 ${t("devWa")}`));
+  }
+  if (emails.length) {
+    holder.appendChild(el("a", { class: "dev-mail", href: `mailto:${emails.join(",")}` }, `✉ ${emails.join(", ")}`));
+  }
 }
 
 // The static header parts (name, tagline, delivery days, social links). Kept

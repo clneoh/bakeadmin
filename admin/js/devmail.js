@@ -16,10 +16,15 @@
 
 import { ENGINE_VERSION } from "./version.js";
 import { cachedToken } from "./supabase.js";
+import { waNumber } from "./state.js";
 import { wishList } from "./wishlist.js";
 
 // The customer site's live address, so a dev email always names the project.
 export const PROJECT_URL = "https://jienluv2bake.com.my";
+
+// What the WhatsApp developer link opens with — the baker asked for a simple
+// "just send me a hi!" style greeting; the sender then types the rest.
+export const DEV_WA_TEXT = "Hi!";
 
 export function developerName(state) {
   const dev = state.settings && state.settings.developer;
@@ -32,6 +37,27 @@ export function developerEmails(state) {
   return Array.isArray(dev.emails)
     ? dev.emails.map((e) => String(e || "").trim()).filter(Boolean)
     : [];
+}
+
+// The optional WhatsApp Business number for the developer (digits, country
+// code), typed in Settings → Website & developer. Blank when not set.
+export function developerWhatsapp(state) {
+  const dev = state.settings && state.settings.developer;
+  return (dev && typeof dev === "object") ? String(dev.whatsapp || "").trim() : "";
+}
+
+// A wa.me link that opens a chat to `number` with `text` already typed, or
+// null when the number is blank/empty after cleaning. Reuses the same
+// digit-cleaning as the bakery's own number (waNumber: local "0" → 60).
+export function waChatHref(number, text = DEV_WA_TEXT) {
+  const digits = waNumber(number);
+  if (!digits) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+// The developer's ready-to-tap WhatsApp link, or null when no number is set.
+export function devWaHref(state) {
+  return waChatHref(developerWhatsapp(state));
 }
 
 // `now` is injectable so tests get a fixed timestamp.

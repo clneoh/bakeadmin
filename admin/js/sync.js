@@ -92,7 +92,8 @@ function devOf(rec) {
 function devSet(rec) {
   const d = devOf(rec);
   return Boolean(String(d.name || "").trim())
-    || (Array.isArray(d.emails) && d.emails.some((e) => String(e).trim()));
+    || (Array.isArray(d.emails) && d.emails.some((e) => String(e).trim()))
+    || Boolean(String(d.whatsapp || "").trim());
 }
 function cleanDeveloperForSync(dev) {
   const src = (dev && typeof dev === "object") ? dev : {};
@@ -101,6 +102,7 @@ function cleanDeveloperForSync(dev) {
     emails: Array.isArray(src.emails)
       ? src.emails.map((e) => String(e || "").trim()).filter(Boolean)
       : [],
+    whatsapp: String(src.whatsapp || "").trim(),
   };
 }
 

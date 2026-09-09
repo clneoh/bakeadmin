@@ -9,14 +9,15 @@ import assert from "node:assert/strict";
 
 import { ENGINE_VERSION } from "../admin/js/version.js";
 import {
-  buildWishMail, developerEmails, developerName, PROJECT_URL,
+  buildWishMail, developerEmails, developerName, developerWhatsapp,
+  waChatHref, devWaHref, PROJECT_URL,
 } from "../admin/js/devmail.js";
 
 // A state with a developer set and a wish list typed oldest → newest (as on
 // More). Emails deliberately include a blank to prove they are cleaned.
 const withWishes = (labels) => ({
   settings: {
-    developer: { name: "  Dev Studio  ", emails: ["dev@example.com", "", "two@example.com"] },
+    developer: { name: "  Dev Studio  ", emails: ["dev@example.com", "", "two@example.com"], whatsapp: " 012-345 6789 " },
     wishList: labels.map((label, i) => ({ id: `w_${i}`, label, done: false })),
   },
 });
@@ -26,6 +27,34 @@ test("developerEmails trims, drops blanks and returns [] when unset", () => {
   assert.equal(developerName(withWishes([])), "Dev Studio");
   assert.deepEqual(developerEmails({ settings: {} }), []);
   assert.equal(developerName({ settings: {} }), "");
+});
+
+test("developerWhatsapp trims and returns the blank string when unset", () => {
+  assert.equal(developerWhatsapp(withWishes([])), "012-345 6789");
+  assert.equal(developerWhatsapp({ settings: {} }), "");
+  assert.equal(developerWhatsapp({ settings: { developer: { whatsapp: "   " } } }), "");
+});
+
+test("waChatHref cleans the number and opens wa.me with a ready Hi!", () => {
+  // Local leading "0" → +60, punctuation stripped, message URL-encoded.
+  assert.equal(waChatHref("012-345 6789"),
+    "https://wa.me/60123456789?text=Hi!");
+  assert.equal(waChatHref("+60 12 345 6789"),
+    "https://wa.me/60123456789?text=Hi!");
+  // A blank or non-number produces null so callers can hide the row.
+  assert.equal(waChatHref(""), null);
+  assert.equal(waChatHref("   "), null);
+  assert.equal(waChatHref("abc"), null);
+  // The pre-built text is the default; a caller can pass its own greeting.
+  assert.equal(waChatHref("60123456789", "Boleh saya tanya?"),
+    "https://wa.me/60123456789?text=Boleh%20saya%20tanya%3F");
+});
+
+test("devWaHref reads the number off settings, null when none is set", () => {
+  assert.equal(devWaHref(withWishes([])),
+    "https://wa.me/60123456789?text=Hi!");
+  assert.equal(devWaHref({ settings: {} }), null);
+  assert.equal(devWaHref({ settings: { developer: { whatsapp: "" } } }), null);
 });
 
 test("buildWishMail lists the WHOLE wish list, newest first, with the context", () => {

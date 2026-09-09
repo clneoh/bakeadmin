@@ -108,6 +108,7 @@ const en = {
   fWhatsappTitle: "WHATSAPP / ORDER",
   fInstaTitle: "FOLLOW US ON INSTAGRAM",
   devBy: "Website by",
+  devWa: "WhatsApp the developer",
 };
 
 const zh = {
@@ -203,6 +204,7 @@ const zh = {
   fWhatsappTitle: "WHATSAPP / 下单",
   fInstaTitle: "在 Instagram 关注我们",
   devBy: "网站制作：",
+  devWa: "用 WhatsApp 联系开发者",
 };
 
 const ms = {
@@ -298,6 +300,7 @@ const ms = {
   fWhatsappTitle: "WHATSAPP / TEMPAH",
   fInstaTitle: "IKUTI KAMI DI INSTAGRAM",
   devBy: "Laman web oleh",
+  devWa: "WhatsApp pembangun",
 };
 
 export const HOME = { en, zh, ms };

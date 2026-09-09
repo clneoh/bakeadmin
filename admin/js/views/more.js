@@ -5,7 +5,7 @@ import { ENGINE_VERSION } from "../version.js";
 import {
   addWish, removeWish, renameWish, toggleWish, wishList,
 } from "../wishlist.js";
-import { developerEmails, developerName, buildWishMail, sendWishMail } from "../devmail.js";
+import { developerEmails, developerName, buildWishMail, sendWishMail, devWaHref } from "../devmail.js";
 
 export function renderMore(root, state) {
   const stats = [
@@ -26,16 +26,21 @@ export function renderMore(root, state) {
     menuItem("#/settings", "⚙️ Settings", "Defaults, backup, transfer"));
 
   const wish = wishCard(state);
-  // "✉ Email the developer" — only once she set a developer email in Settings.
-  // A plain contact mailto (no pre-built subject), addressed to every email.
+  // Developer contact rows — WhatsApp first when she set a number (it opens a
+  // chat with a ready "Hi!"), the ✉ email row kept underneath. Shown only once
+  // she set a name and at least one way to reach the developer in Settings.
   const devMail = developerEmails(state);
+  const devWa = devWaHref(state); // null when no usable WhatsApp number is set
+  const devBy = developerName(state) ? `Website by ${developerName(state)}` : "";
   const about = el("div", {},
     el("h2", { class: "section" }, "About"),
     el("div", { class: "card", style: "padding:4px 14px" },
       linkRow("../changelog.pdf", "📄 Full change history",
         "Every version from v54, as a PDF"),
+      ...(devWa ? [linkRow(devWa, "💬 WhatsApp the developer",
+        `Opens WhatsApp with a ready “Hi!”${devBy ? ` · ${devBy}` : ""}`)] : []),
       ...(devMail.length ? [linkRow(`mailto:${devMail.join(",")}`, "✉ Email the developer",
-        `${developerName(state) ? `Website by ${developerName(state)} · ` : ""}${devMail.join(", ")}`)] : [])));
+        `${devBy ? `${devBy} · ` : ""}${devMail.join(", ")}`)] : [])));
 
   root.replaceChildren(
     el("div", { class: "card" },

@@ -308,6 +308,7 @@ function storefrontPayload(state) {
   const devEmails = Array.isArray(dev.emails)
     ? dev.emails.map((e) => String(e || "").trim()).filter(Boolean)
     : [];
+  const devWa = String(dev.whatsapp || "").trim();
   const out = {
     whatsapp: String(sf.whatsapp || ""),
     name: String(sf.name || ""),
@@ -320,10 +321,12 @@ function storefrontPayload(state) {
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
     products,
   };
-  // The "Website by … ✉" credit for the homepage/store footers. Published only
-  // when set — the storefront's mergeStorefront drops the keys otherwise.
+  // The "Website by …" credit for the homepage/store footers — name, the email
+  // link(s) and the optional WhatsApp number. Published only when set; the
+  // storefront's mergeStorefront drops the keys otherwise.
   if (devName) out.developerName = devName;
   if (devEmails.length) out.developerEmails = devEmails;
+  if (devWa) out.developerWhatsapp = devWa;
   return out;
 }
 
@@ -396,13 +399,16 @@ export async function refreshStorefront(state) {
     // The developer credit follows the same rule: the published values win, so
     // the More → About ✉ row and the footers match what customers see.
     let dev = state.settings.developer;
-    if (!dev || typeof dev !== "object") dev = state.settings.developer = { name: "", emails: [] };
+    if (!dev || typeof dev !== "object") dev = state.settings.developer = { name: "", emails: [], whatsapp: "" };
     if (typeof remote.developerName === "string" && remote.developerName.trim()) {
       dev.name = remote.developerName.trim();
     }
     if (Array.isArray(remote.developerEmails)) {
       const remoteEmails = remote.developerEmails.map((e) => String(e).trim()).filter(Boolean);
       if (remoteEmails.length) dev.emails = remoteEmails;
+    }
+    if (typeof remote.developerWhatsapp === "string" && remote.developerWhatsapp.trim()) {
+      dev.whatsapp = remote.developerWhatsapp.trim();
     }
     save(state);
     return true;

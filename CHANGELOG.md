@@ -27,12 +27,14 @@ thanks for honest feedback. A reviewer now attaches their photo **two ways**:
 Developer contact is now in the app: under More → Settings → **Website &
 developer**, type the developer's name and one or more email addresses. A
 small **Website by …** credit links from the bottom of the homepage, the
-storefront footer and More → About (each address tappable). And adding a
-**software wish** on the More screen emails the developer the **full wish
-list** — every wish, ticked or not, newest first, with the app version, the
-project address and the date — to every address you listed; an **Email the
-full wish list** row on the card can send it from your own mail app too. No SQL
-this version.
+storefront footer and More → About (each address tappable). Add the
+developer's optional **WhatsApp number** in the same card and that link opens
+WhatsApp (Business) with a ready "Hi!" — message the developer straight from
+the page — with the email links staying underneath. And adding a **software
+wish** on the More screen emails the developer the **full wish list** — every
+wish, ticked or not, newest first, with the app version, the project address
+and the date — to every address you listed; an **Email the full wish list**
+row on the card can send it from your own mail app too. No SQL this version.
 
 ## v63 — Customers tab, wish list, holidays fix (8 Sep 2026)
 **Customers** is a real tab of its own, swapped with **Purchase Order** (now

@@ -153,6 +153,9 @@ export function renderSettings(root, state) {
           const remoteEmails = remote.developerEmails.map((e) => String(e).trim()).filter(Boolean);
           if (remoteEmails.length) dev.emails = remoteEmails;
         }
+        if (typeof remote.developerWhatsapp === "string" && remote.developerWhatsapp.trim()) {
+          dev.whatsapp = remote.developerWhatsapp.trim();
+        }
         save(state);
         sfName.value = sf.name;
         sfWhatsapp.value = sf.whatsapp;
@@ -161,6 +164,7 @@ export function renderSettings(root, state) {
         sfFacebook.value = sf.facebook;
         sfTngQr.value = sf.tngQr;
         devName.value = dev.name;
+        devWa.value = dev.whatsapp || "";
         renderDevEmails();
       })
       .catch(() => {});
@@ -206,8 +210,9 @@ export function renderSettings(root, state) {
   // More → About. Emails may be several — every one gets the credit link and a
   // copy of the wish-list email. Nothing shows on the pages until a name AND at
   // least one email are set (see mergeStorefront's developer whitelist).
-  const dev = cur.developer ??= { name: "", emails: [] };
+  const dev = cur.developer ??= { name: "", emails: [], whatsapp: "" };
   if (!Array.isArray(dev.emails)) dev.emails = [];
+  if (typeof dev.whatsapp !== "string") dev.whatsapp = "";
   const devName = el("input", { class: "input", placeholder: "e.g. Clara's Web Studio",
     value: dev.name || "",
     onchange: () => { dev.name = devName.value.trim(); save(state); maybeSyncStorefront(state); toast("Saved"); } });
@@ -220,6 +225,10 @@ export function renderSettings(root, state) {
     const last = rows.length && rows[rows.length - 1].querySelector("input");
     if (last) last.focus();
   }, "soft");
+  const devWa = el("input", { class: "input", type: "tel", inputmode: "tel",
+    placeholder: "e.g. 60123456789 (digits, country code)",
+    value: dev.whatsapp || "",
+    onchange: () => { dev.whatsapp = devWa.value.trim(); save(state); maybeSyncStorefront(state); toast("Saved"); } });
   function renderDevEmails() {
     devEmailBox.replaceChildren(...dev.emails.map((email, i) => {
       const inp = el("input", { class: "input", type: "email", inputmode: "email",
@@ -258,7 +267,12 @@ export function renderSettings(root, state) {
     el("div", { class: "field", style: "margin:12px 0 0" },
       el("label", {}, "Developer email(s)"),
       devEmailBox,
-      el("div", { class: "btn-row", style: "margin-top:10px" }, devAddBtn)));
+      el("div", { class: "btn-row", style: "margin-top:10px" }, devAddBtn)),
+    el("div", { class: "field", style: "margin:14px 0 0" },
+      el("label", {}, "Developer WhatsApp (optional)"),
+      devWa,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "The developer link (homepage, order page, About) opens WhatsApp with a ready “Hi!”. The email link stays underneath — the wish-list email still uses it.")));
 
   // ── Mailing labels (courier) ────────────────────────────────────────────
   // The FROM block on the Mailing packing label. Kept in the phone's settings,

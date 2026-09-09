@@ -841,11 +841,19 @@ test("computeRecords: settings payload omits the developer until typed, then car
   assert.equal("developer" in bare.data, false,
     "a phone that never set a developer pushes no developer field");
 
-  st.settings.developer = { name: "  Dev Studio  ", emails: ["dev@example.com", "", "two@example.com"] };
+  st.settings.developer = { name: "  Dev Studio  ", emails: ["dev@example.com", "", "two@example.com"], whatsapp: " 012-345 6789 " };
   const withDev = sync.computeRecords(st).find((r) => r.kind === "settings");
   assert.deepEqual(withDev.data.developer,
-    { name: "Dev Studio", emails: ["dev@example.com", "two@example.com"] },
-    "the trimmed developer rides the settings row so every phone agrees");
+    { name: "Dev Studio", emails: ["dev@example.com", "two@example.com"], whatsapp: "012-345 6789" },
+    "the trimmed developer (with its WhatsApp number) rides the settings row so every phone agrees");
+
+  // A WhatsApp-only developer (no emails) is still pushed, so the About row and
+  // footers can offer the chat even before an email is typed.
+  st.settings.developer = { name: "Dev Studio", whatsapp: "0123456789" };
+  const waOnly = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(waOnly.data.developer,
+    { name: "Dev Studio", emails: [], whatsapp: "0123456789" },
+    "a phone that set only a WhatsApp number still publishes it");
 });
 
 test("mergeRows: a cloud settings row without the developer never deletes the local one", () => {
@@ -871,12 +879,12 @@ test("mergeRows: a newer cloud developer replaces the local one wholesale", () =
     seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
     const r = sync.mergeRows(st, [cloudRow("settings", "default",
       { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
-        developer: { name: "New Studio", emails: ["new@example.com", "also@example.com"] } },
+        developer: { name: "New Studio", emails: ["new@example.com", "also@example.com"], whatsapp: "016 900 1234" } },
       "2026-02-01T00:00:00.000Z")]);
     assert.equal(r.changed, true);
     assert.deepEqual(st.settings.developer,
-      { name: "New Studio", emails: ["new@example.com", "also@example.com"] },
-      "the newer developer wins whole, like the rest of settings");
+      { name: "New Studio", emails: ["new@example.com", "also@example.com"], whatsapp: "016 900 1234" },
+      "the newer developer (WhatsApp included) wins whole, like the rest of settings");
   } finally { restore(); }
 });
 

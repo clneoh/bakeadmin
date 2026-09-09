@@ -385,7 +385,7 @@ test("storefront payload carries the product's shop names (中文/BM) and the de
   const state = makeState();
   state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
   state.settings.storefront = { whatsapp: "60123456789", name: "Jienluv2bake" };
-  state.settings.developer = { name: "  Dev Studio  ", emails: ["a@b.com", "   ", "c@d.com"] };
+  state.settings.developer = { name: "  Dev Studio  ", emails: ["a@b.com", "   ", "c@d.com"], whatsapp: " 012-345 6789 " };
   state.products = [
     { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, nameZh: "佛卡夏", nameMs: "Focaccia" },
     { id: "prd_2", name: "Sandwich", price: 8, unit: "piece", active: true, nameZh: "  " },
@@ -409,6 +409,7 @@ test("storefront payload carries the product's shop names (中文/BM) and the de
     assert.ok(!("nameZh" in sandwich), "a blank 中文 name is not published either");
     assert.equal(payload.developerName, "Dev Studio");
     assert.deepEqual(payload.developerEmails, ["a@b.com", "c@d.com"], "blank developer emails are dropped");
+    assert.equal(payload.developerWhatsapp, "012-345 6789", "the developer's WhatsApp number is published");
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -431,6 +432,7 @@ test("storefront payload omits the developer keys until a name + email are set",
     const payload = JSON.parse(JSON.parse(upsert.opts.body)[0].data);
     assert.ok(!("developerName" in payload), "no developer key before it is configured");
     assert.ok(!("developerEmails" in payload));
+    assert.ok(!("developerWhatsapp" in payload), "a blank WhatsApp number is not published either");
   } finally {
     globalThis.fetch = realFetch;
   }

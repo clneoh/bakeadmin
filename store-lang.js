@@ -76,6 +76,7 @@ const en = {
   trkDelivered: "Delivered",
 
   devBy: "Website by",
+  devWa: "WhatsApp the developer",
 };
 
 const zh = {
@@ -147,6 +148,7 @@ const zh = {
   trkDelivered: "已送达",
 
   devBy: "网站制作：",
+  devWa: "用 WhatsApp 联系开发者",
 };
 
 const ms = {
@@ -218,6 +220,7 @@ const ms = {
   trkDelivered: "Dihantar",
 
   devBy: "Laman web oleh",
+  devWa: "WhatsApp pembangun",
 };
 
 export const STORE = { en, zh, ms };

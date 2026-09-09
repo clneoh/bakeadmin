@@ -40,7 +40,7 @@ export function defaultState() {
         referrerRM: 3, // the credit the referrer earns
         validDays: 90, // "" (blank) = never expires
       },
-      developer: { name: "", emails: [] }, // site credit + wish-list recipient; shown only once set
+      developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
     },
     ingredients: [],
     suppliers: [],     // who you buy from (each has a WhatsApp number)
@@ -456,7 +456,8 @@ function cleanDeveloper(dev) {
   const emails = Array.isArray(src.emails)
     ? src.emails.map((e) => String(e || "").trim()).filter(Boolean)
     : [];
-  return { name, emails };
+  const whatsapp = String(src.whatsapp || "").trim();
+  return { name, emails, whatsapp };
 }
 
 // Placeholder for future version migrations. v1 is the only format today.

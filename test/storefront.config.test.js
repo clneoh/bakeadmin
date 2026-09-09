@@ -172,6 +172,7 @@ test("mergeStorefront keeps the shop product names (中文/BM) and the developer
     ],
     developerName: "  Dev Studio  ",
     developerEmails: ["a@b.com", "  ", "c@d.com"],
+    developerWhatsapp: " 012-345 6789 ",
   });
   const focaccia = out.products.find((p) => p.name === "Focaccia");
   const croissant = out.products.find((p) => p.name === "Croissant");
@@ -181,6 +182,12 @@ test("mergeStorefront keeps the shop product names (中文/BM) and the developer
   assert.equal("nameZh" in croissant, false, "a blank 中文 name is dropped — English shows instead");
   assert.equal(out.developerName, "Dev Studio");
   assert.deepEqual(out.developerEmails, ["a@b.com", "c@d.com"], "blank developer emails are dropped");
+  assert.equal(out.developerWhatsapp, "012-345 6789", "the developer's WhatsApp number is kept");
   assert.equal("nameZh" in base.products[0], false, "base is not mutated");
   assert.equal("developerName" in base, false, "developer keys only appear when the remote sets them");
+
+  // A remote without the WhatsApp number leaves the merged config without one
+  // (the local fallback never carries developer keys, so none leak through).
+  const noWa = mergeStorefront({ name: "A" }, { developerName: "X" });
+  assert.equal("developerWhatsapp" in noWa, false, "a blank/absent remote number is not copied over");
 });
