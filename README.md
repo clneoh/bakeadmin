@@ -131,7 +131,7 @@ nothing ever blocks on setup.
    keeps the main domain's mail untouched).
 2. `supabase functions secrets set RESEND_API_KEY <key>`
 3. Optional `RESEND_FROM "Name <wishlist@send.jienluv2bake.com.my>"` (defaults
-   to `wishlist@jienluv2bake.com.my`).
+   to `wishlist@send.jienluv2bake.com.my` — the Resend-verified domain).
 4. `supabase functions deploy wish-mail`
 
 The function is `supabase/functions/wish-mail/index.ts`; it validates the owner
