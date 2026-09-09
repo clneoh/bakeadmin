@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v64)
+# Jienluv2bake — change history (v54 → v65)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+## v65 — Reviews preview + "waiting to publish" cue (9 Sep 2026)
+More → **Reviews** now shows each review **exactly as customers see it** on the
+homepage — the photo, the stars, the message, then the reviewer's name and the
+language and date, in the same warm card. Reviews waiting for your **Publish**
+come first, and a line at the very top of the screen says how many are waiting
+("3 reviews waiting for you to publish"). The **Reviews** row on the **More**
+menu shows how many are waiting too, and the app's **Home** screen gains a
+"**N new review(s) to publish**" card that opens the Reviews screen in one tap —
+so a new review is never left waiting unseen. No SQL this version.
 
 ## v64 — Review carousel, EN/中文/BM site, developer contact + wish email (9 Sep 2026)
 The homepage **"What customers say"** reviews now play as a **carousel** — one

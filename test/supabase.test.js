@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot, refreshStorefront } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot, refreshStorefront, pendingReviewCount } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -978,5 +978,97 @@ test("pullIncoming imports a value-pack order and ignores its pool array", async
   } finally {
     globalThis.fetch = realFetch;
     if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+// ── pendingReviewCount — "how many reviews are waiting to be published" ──────
+// Reviews aren't in local state; screens that want to hint "N waiting" ask the
+// cloud. null means "don't know / off the cloud" (show nothing); 0 means none.
+
+test("pendingReviewCount returns null when Supabase isn't configured (no fetch)", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  try {
+    const n = await pendingReviewCount(makeState()); // makeState has no supabase cfg
+    assert.equal(n, null);
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pendingReviewCount counts only unpublished reviews, authenticated", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/reviews")) return { ok: true, json: async () => [{ id: 1 }, { id: 2 }, { id: 3 }] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  try {
+    const n = await pendingReviewCount(state);
+    assert.equal(n, 3);
+    const rev = calls.find((c) => c.url.includes("/rest/v1/reviews"));
+    assert.ok(rev, "asked the reviews table");
+    assert.ok(rev.url.includes("published=eq.false"), "counts only the unpublished");
+    assert.equal(rev.opts.headers.apikey, "anon");
+    assert.equal(rev.opts.headers.Authorization, "Bearer tok");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pendingReviewCount returns 0 when nothing is waiting", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    assert.equal(await pendingReviewCount(state), 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pendingReviewCount returns null on an HTTP failure", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: false, status: 500 };
+  };
+  try {
+    assert.equal(await pendingReviewCount(state), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pendingReviewCount returns null on an unreadable body", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, json: async () => { throw new Error("bad json"); } };
+  };
+  try {
+    assert.equal(await pendingReviewCount(state), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("pendingReviewCount returns null when the network throws", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  try {
+    assert.equal(await pendingReviewCount(state), null);
+  } finally {
+    globalThis.fetch = realFetch;
   }
 });

@@ -678,3 +678,22 @@ export async function deleteReview(state, id) {
     return { ok: false, reason: reviewErr(err, "Couldn't reach Supabase") };
   }
 }
+
+// How many homepage reviews are waiting to be published (published = false).
+// Reviews live only in Supabase (never local state), so every screen that wants
+// to hint "N waiting" asks the cloud. Returns a count, or null when Supabase
+// isn't configured / reachable — callers then show nothing rather than 0.
+export async function pendingReviewCount(state) {
+  const c = cfg(state);
+  if (!ready(c)) return null;
+  try {
+    const res = await fetch(
+      `${c.url}/rest/v1/reviews?select=id&published=eq.false`,
+      { headers: await reviewAuth(c) });
+    if (!res.ok) return null;
+    const rows = await res.json().catch(() => null);
+    return Array.isArray(rows) ? rows.length : null;
+  } catch {
+    return null;
+  }
+}

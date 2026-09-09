@@ -6,8 +6,10 @@ import {
   addWish, removeWish, renameWish, toggleWish, wishList,
 } from "../wishlist.js";
 import { developerEmails, developerName, buildWishMail, sendWishMail, devWaHref } from "../devmail.js";
+import { pendingReviewCount } from "../supabase.js";
 
 export function renderMore(root, state) {
+  let dead = false; // set once this view unmounts, so async fills never paint
   const stats = [
     `${state.products.filter((p) => p.active !== false).length} products`,
     `${state.ingredients.filter((x) => x.active !== false).length} ingredients`,
@@ -52,6 +54,19 @@ export function renderMore(root, state) {
     menu,
     wish,
     about);
+
+  // "N waiting" pill on the ⭐ Reviews row — reviews live in the cloud, so the
+  // count is fetched after render and only shown when reviews are waiting.
+  const revRow = root.querySelector('a.menu-item[href="#/reviews"]');
+  if (revRow) {
+    pendingReviewCount(state).then((n) => {
+      if (dead || !n || !revRow.isConnected) return;
+      const right = revRow.querySelector(".menu-right");
+      if (right) right.prepend(el("span", { class: "badge badge-open" }, `${n} waiting`));
+    }).catch(() => {});
+  }
+
+  return () => { dead = true; };
 }
 
 // A tappable row in the "About" card — plain <a> so it opens in a new tab and
@@ -69,7 +84,10 @@ function menuItem(href, title, sub) {
     el("div", {},
       el("div", {}, title),
       el("div", { class: "card-sub", style: "font-weight:400" }, sub)),
-    el("span", { class: "chev" }, "›"));
+    // The chev sits in a right-hand group so an async count pill (e.g. the
+    // "N waiting" on Reviews) can be tucked in beside it before the chev.
+    el("span", { class: "menu-right" },
+      el("span", { class: "chev" }, "›")));
 }
 
 // ── Software wish list — a to-do that never resets ─────────────────────────

@@ -193,12 +193,12 @@ test("backupFileName is date + kind with the brand prefix", () => {
 
 test("exportEnvelope wraps a copy so a downloaded file re-imports via parseImport", () => {
   const data = backups.snapshotState(cloudState());
-  const row = { kind: "daily", created_at: "2026-09-08T12:00:00.000Z", engine: "64", data: JSON.stringify(data) };
+  const row = { kind: "daily", created_at: "2026-09-08T12:00:00.000Z", engine: "65", data: JSON.stringify(data) };
   const env = backups.exportEnvelope(row);
   assert.equal(env.app, "bakeadmin");
   assert.equal(env.formatVersion, 1);
   assert.equal(env.exportedAt, row.created_at);
-  assert.equal(env.engine, "64");
+  assert.equal(env.engine, "65");
   const imported = parseImport(JSON.stringify(env));
   assert.deepEqual(imported, normalize(data));
   assert.equal(imported.settings.supabase.email, ""); // creds never in the cloud copy
@@ -244,7 +244,7 @@ test("backupNow posts one manual copy without the per-device settings", async ()
     assert.equal(r.ok, true);
     assert.equal(seen.kind, "manual");
     assert.ok(seen.label.startsWith("Manual · "));
-    assert.equal(seen.engine, "64");
+    assert.equal(seen.engine, "65");
     assert.equal(seen.summary, "1 orders · 1 products · 1 ingredients");
     const data = JSON.parse(seen.data);
     assert.equal(data.settings.supabase, undefined);

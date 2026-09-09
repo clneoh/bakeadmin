@@ -823,6 +823,15 @@ textarea.input { min-height: 64px; resize: vertical; }
 }
 .menu-item:last-child { border-bottom: none; }
 .menu-item .chev { color: var(--muted); }
+/* Right-side group on a menu row — keeps a count pill tucked next to the chev
+   (space-between would otherwise float it to the middle of the row). */
+.menu-item .menu-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
+  flex: none;
+}
 
 /* ---------- Chips (ingredient rows) ---------- */
 .ing-row {
@@ -1738,3 +1747,66 @@ textarea.input { min-height: 64px; resize: vertical; }
 .low-stock-banner .low-stock-line { margin: 2px 0; font-size: 13px; }
 .po-have { font-size: 12px; color: var(--muted); margin-top: 2px; }
 tr.po-covered td { color: var(--muted); }
+
+/* ---------- Reviews preview (More → Reviews) ----------
+   Each review is drawn EXACTLY as the customer sees it on the homepage card
+   (root reviews.js + index.html): photo, stars, message, name, then
+   language · date. Homepage hexes are hard-coded here because this app's
+   palette differs; the moderation buttons ride along under the meta line. */
+.review-card {
+  background: #fbf7ef;
+  border: 1px solid #d7c6ad;
+  border-radius: 8px;
+  padding: 22px 20px;
+  box-shadow: 0 8px 24px rgba(73, 43, 25, .05);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+.review-card-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 340px;
+  width: auto;
+  height: auto;
+  margin: 0 auto 14px;
+  border-radius: 8px;
+}
+.review-card-stars {
+  color: #d9a62e;
+  font-family: Arial, sans-serif;
+  font-size: 21px;
+  letter-spacing: 4px;
+  line-height: 1.2;
+}
+.review-card-msg {
+  font-family: Georgia, serif;
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #553a2b;
+  white-space: pre-wrap;
+}
+.review-card-name {
+  margin: 14px 0 0;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #465d26;
+  letter-spacing: .03em;
+}
+.review-card-meta {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  color: #725d4d;
+  margin: 2px 0 0;
+}
+/* The count strip at the top of the Reviews screen: "⭐ N review(s) waiting". */
+.rev-pending {
+  background: var(--green-bg);
+  color: var(--green);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 14px;
+}

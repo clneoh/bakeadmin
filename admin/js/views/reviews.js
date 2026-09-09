@@ -49,7 +49,12 @@ export function renderReviews(root, state) {
     }
     const waiting = r.reviews.filter((x) => !x.published);
     const live = r.reviews.filter((x) => x.published);
-    const children = [];
+    // A clear "how many are waiting" line at the top of the screen (hidden when
+    // nothing waits — the empty state below already says so).
+    const children = waiting.length
+      ? [el("div", { class: "rev-pending" },
+          `⭐ ${waiting.length} review${waiting.length === 1 ? "" : "s"} waiting for you to publish`)]
+      : [];
     if (waiting.length) {
       children.push(el("h2", { class: "section" }, `Waiting for you (${waiting.length})`));
       children.push(...waiting.map((row) => reviewCard(state, row, {
@@ -98,27 +103,31 @@ function removeReview(state, row, reload) {
     }, { danger: true, yesLabel: "Delete" });
 }
 
+// Each review is shown EXACTLY as the customer sees it on the homepage card:
+// photo → stars → message → name → language · date (homepage CSS classes in
+// app.css). The moderation buttons ride along at the bottom of the card.
 function reviewCard(state, row, action, reload) {
   const bits = [];
   if (row.photo) {
     bits.push(el("img", {
+      class: "review-card-photo",
       src: String(row.photo),
       alt: "",
-      // Show the whole photo at a tidy "photo in a post" size — it is never
-      // cropped or stretched; a tall picture just shrinks to fit and centres.
-      style: "display:block;max-width:100%;max-height:340px;height:auto;width:auto;margin:0 auto 12px;border-radius:10px",
+      // A broken link never leaves a hole on the card (same as the homepage).
+      onerror: (ev) => ev.currentTarget.remove(),
     }));
   }
+  const starsN = Math.max(0, Math.min(5, Math.round(Number(row.stars) || 0)));
   const when = fmtDate(row.created_at);
   const metaBits = [langLabel(row.lang)];
   if (when) metaBits.push(when);
-  return el("div", { class: "card" },
+  return el("div", { class: "review-card" },
     ...bits,
-    el("p", { class: "card-title", style: "margin:0 0 2px" }, String(row.name || "Anonymous")),
-    el("p", { style: "margin:0 0 2px;color:#d9a62e;font-size:18px;letter-spacing:2px" }, starsText(row.stars)),
-    el("p", { class: "card-sub", style: "white-space:pre-wrap" }, String(row.message || "")),
-    el("p", { class: "card-sub", style: "margin-top:6px" }, metaBits.join(" · ")),
-    el("div", { class: "btn-row", style: "margin-top:12px" },
+    el("div", { class: "review-card-stars", "aria-label": `${starsN} out of 5 stars` }, starsText(row.stars)),
+    el("p", { class: "review-card-msg" }, String(row.message || "")),
+    el("div", { class: "review-card-name" }, String(row.name || "Anonymous")),
+    el("div", { class: "review-card-meta" }, metaBits.join(" · ")),
+    el("div", { class: "btn-row", style: "margin-top:16px" },
       button(action.label, action.onAction, action.cls),
       button("Delete", () => removeReview(state, row, reload), "ghost")));
 }
