@@ -75,6 +75,68 @@ product there and it updates on the customer page after a publish — there's no
 separate storefront menu to keep in sync. `store/config.js` is only the starting
 point / offline fallback:
 
+## Site languages (homepage + storefront)
+
+Both the homepage and the storefront read in **English, 中文 or Bahasa Malaysia**
+— default English. An **EN 中文 BM** switch near the top of each page re-renders
+the whole page in the chosen language and remembers it (localStorage `siteLang`),
+so a Chinese- or Malay-speaking customer only picks it once. The backoffice app
+itself stays English.
+
+- Shared loader `i18n.js` at the repo root (imported as `./i18n.js` by the
+  homepage and `../i18n.js` by the store) holds the language list, persistence,
+  the DOM re-apply walker (`applyTo`), and `nameFor(product, lang)`.
+- `home-lang.js` and `store-lang.js` (both repo root) are the per-language
+  dictionaries — every static string, plus the store's dynamic strings
+  (`Sold out`, `Only N left`, cart bar, confirm/track text, and localized
+  weekday/month names for its day pills).
+- **Per-product shop names.** Each product can carry an optional translated
+  name per language, typed in the backoffice: Products → Edit → **Shop names**
+  (`nameZh` / `nameMs`). When the storefront is in that language it shows the
+  translated name; a blank box falls back to the English `name`, which always
+  stays the canonical one — the app, orders and labels use the English name no
+  matter which language a customer ordered in. `syncStorefront` publishes the
+  two names (only when non-blank) and the store's `mergeStorefront` whitelists
+  them, so the published copy survives sync.
+
+## Developer contact & the wish-list email
+
+Backoffice **More → Settings → Website & developer** holds the developer's
+**name** and one or more **emails** (`settings.developer = {name, emails[]}`).
+Where it shows (only once a name *and* at least one email are set):
+
+- a small **Website by …** credit line in the homepage footer and a matching row
+  in the store footer (read from the published `storefront_config`, so no
+  redeploy needed to change them), and
+- an **Email the developer** row in the backoffice **More → About** card.
+
+Each listed address is a tappable `mailto:` link. `sync.js` syncs `developer`
+with the same absent-guard as the wish list, so a phone that never sets it can't
+wipe another phone's value.
+
+**Software wish list → email.** Adding a wish on the More screen emails the
+developer the **full wish list** — every wish, ticked `[✓]` or not, newest
+first, with the engine version, the project URL (`https://jienluv2bake.com.my`)
+and the date/time. The message is built by the pure `admin/js/devmail.js`
+(`buildWishMail`, unit-tested); when the app is signed in to Supabase it POSTs
+to the `wish-mail` Edge Function with the session token, which relays it via
+Resend to every listed address (capped at 5). Until that service is live the
+wish card always shows an **Email the full wish list** row that opens the same
+message in the owner's own mail app — so the list always reaches the developer,
+nothing ever blocks on setup.
+
+**One-time setup for automatic email (developer side, ~10 min, no code):**
+1. Create a free [Resend](https://resend.com) account and verify a sending
+   domain — a DNS TXT record for `jienluv2bake.com.my` (a `send.` subdomain
+   keeps the main domain's mail untouched).
+2. `supabase functions secrets set RESEND_API_KEY <key>`
+3. Optional `RESEND_FROM "Name <wishlist@send.jienluv2bake.com.my>"` (defaults
+   to `wishlist@jienluv2bake.com.my`).
+4. `supabase functions deploy wish-mail`
+
+The function is `supabase/functions/wish-mail/index.ts`; it validates the owner
+JWT before sending, so it only ever relays for a signed-in app.
+
 ## Live availability (Supabase)
 
 The storefront can show how many slots are left per delivery day ("4 left" /
@@ -144,11 +206,14 @@ with the link can place an order — review New orders before confirming them.
 
 ## Homepage customer reviews (Supabase)
 
-The homepage (repo root `index.html`) now carries a **What customers say**
-section: the reviews the baker has approved, newest first, plus a form any
-visitor can fill in — name, a 1–5 star tap rating, a message, the language they
-wrote in (English / 中文 / Bahasa Malaysia), and an optional photo. Reviews live
-only on the homepage, never the order page.
+The homepage (repo root `index.html`) carries a **What customers say** section:
+the reviews the baker has approved — shown one at a time as a swipeable,
+auto-advancing carousel (arrows + dots, pauses on hover) — plus a form any
+visitor can fill in: name, a 1–5 star tap rating, a message in
+English / 中文 / Bahasa Malaysia, and an optional photo attached two ways —
+**Take photo** opens the camera, **Choose photo** opens the gallery. Reviews
+live only on the homepage, never the order page. The homepage and storefront
+share the trilingual site system described below.
 
 - A review is posted to a `reviews` table with `published = false` (public
   anon insert, like `incoming_orders`). Unpublished rows are invisible to
@@ -157,7 +222,8 @@ only on the homepage, never the order page.
   backoffice → **More → Reviews** lists new ones under *Waiting for you* with
   the name, stars, message, language, date and photo; **Publish** shows it on
   the homepage, **Take down** hides it again, **Delete** removes it for good.
-- Photos upload to the public `review-photos` Storage bucket via the anon key.
+- Photos upload to the public `review-photos` Storage bucket via the anon key
+  (either photo button shrinks the picture to a small copy first).
 
 **One-time setup:** run `supabase/reviews.sql` in the SQL editor (adds the
 `reviews` table + RLS and the `review-photos` Storage bucket + policies).
@@ -382,6 +448,11 @@ engine (`admin/js/sync.js`), the app bootstrap + sign-in gate
 ```
 changelog.pdf       full change history (every version from v54, PDF) — root of the site
 index.html          public homepage (domain root)
+i18n.js             shared EN/中文/BM loader + nameFor + applyTo (homepage + store)
+home-lang.js        homepage UI strings, one dictionary per language
+store-lang.js       storefront UI strings, one dictionary per language
+home.js             homepage logic (reads the published storefront config for the footer credit)
+reviews.js          homepage review form + photo (Take/Choose) + carousel + thank-you
 store/index.html    customer order page (/store/)
 store/app.css       storefront styling
 store/app.js        storefront logic + order intake + availability + published config
@@ -403,6 +474,7 @@ admin/ — backoffice app (/admin/):
   js/wishlist.js      software wish list on More (lazy settings.wishList CRUD)
   js/profiles.js      customer profiles (join to the customer rows, pure)
   js/photo.js         shrinks a picked photo to a small thumb (browser only)
+  js/devmail.js       wish-list email builder + developer contact readers (mailto / Edge-Function send)
   js/app.js           hash router + bootstrap + shared-data gate
   js/views/*          one module per screen (login.js is the sign-in gate)
   sw.js               service worker — offline app shell (/admin/ scope)
@@ -414,5 +486,6 @@ supabase/backups.sql        run once in Supabase SQL editor (cloud backup snapsh
 supabase/storefront.sql     run once in Supabase SQL editor (storefront config + order intake)
 supabase/reviews.sql        run once in Supabase SQL editor (homepage reviews + photo bucket)
 supabase/tracking.sql       run once in Supabase SQL editor (order tracking)
-test/               node --test suites (import from admin/js and store/)
+supabase/functions/wish-mail/index.ts   Edge Function (Deno) — emails the full wish list via Resend
+test/               node --test suites (import from admin/js, store/ and the homepage)
 ```

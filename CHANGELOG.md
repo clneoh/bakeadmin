@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v63)
+# Jienluv2bake — change history (v54 → v64)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+## v64 — Review carousel, EN/中文/BM site, developer contact + wish email (9 Sep 2026)
+The homepage **"What customers say"** reviews now play as a **carousel** — one
+review fills the section at a time, then slides on every few seconds. Visitors
+can swipe or use the ‹ › arrows and the dots below to move through them, and it
+pauses while someone is reading. One review, or none, still shows simply.
+
+The whole **homepage and storefront now read in English, 中文 or Bahasa
+Malaysia** via an **EN 中文 BM** switch near the top of each page (English is
+the default, and a visitor's choice is remembered next visit). Every product
+can carry its own **translated shop names** — Products → Edit → **Shop names** —
+so shoppers in 中文/BM see a proper translated name on the order page; a blank
+box keeps the English name, which always stays the real name in the app,
+labels and history.
+
+The thank-you after sending a review is warmer and honest: it reassures the
+sender that their review and photo reached the baker and will appear once
+approved, and a critical review (3 stars or fewer) gets an extra line of
+thanks for honest feedback. A reviewer now attaches their photo **two ways**:
+**Take photo** (camera) or **Choose photo** (gallery).
+
+Developer contact is now in the app: under More → Settings → **Website &
+developer**, type the developer's name and one or more email addresses. A
+small **Website by …** credit links from the bottom of the homepage, the
+storefront footer and More → About (each address tappable). And adding a
+**software wish** on the More screen emails the developer the **full wish
+list** — every wish, ticked or not, newest first, with the app version, the
+project address and the date — to every address you listed; an **Email the
+full wish list** row on the card can send it from your own mail app too. No SQL
+this version.
 
 ## v63 — Customers tab, wish list, holidays fix (8 Sep 2026)
 **Customers** is a real tab of its own, swapped with **Purchase Order** (now

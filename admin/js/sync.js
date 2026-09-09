@@ -84,6 +84,26 @@ export function sharingState(state, signedIn) {
 // should share — connection config (`supabase`, `cloud`) stays per-device, and
 // so does the app-password `lock`. The weekly checklist `weekCheck` DOES sync
 // (so Home's to-do agrees on both phones) and is union-merged on pull (below).
+// Developer contact helpers for the settings record: whether it has been set at
+// all, and the trimmed {name, emails} shape the cloud should carry.
+function devOf(rec) {
+  return (rec.developer && typeof rec.developer === "object") ? rec.developer : {};
+}
+function devSet(rec) {
+  const d = devOf(rec);
+  return Boolean(String(d.name || "").trim())
+    || (Array.isArray(d.emails) && d.emails.some((e) => String(e).trim()));
+}
+function cleanDeveloperForSync(dev) {
+  const src = (dev && typeof dev === "object") ? dev : {};
+  return {
+    name: String(src.name || "").trim(),
+    emails: Array.isArray(src.emails)
+      ? src.emails.map((e) => String(e || "").trim()).filter(Boolean)
+      : [],
+  };
+}
+
 function recordPayload(kind, rec) {
   if (kind === "settings") {
     return {
@@ -100,6 +120,10 @@ function recordPayload(kind, rec) {
       // The software wish list, only once she customises it — same guard: a
       // phone that never opened it must not push an empty list over hers.
       ...(Array.isArray(rec.wishList) ? { wishList: rec.wishList } : {}),
+      // The developer credit / wish-list recipient, only once a name or email
+      // is typed — a phone that never set it must not push an empty one over
+      // the other phone's (last-write-wins would clobber it).
+      ...(devSet(rec) ? { developer: cleanDeveloperForSync(rec.developer) } : {}),
     };
   }
   return rec;

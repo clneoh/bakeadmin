@@ -381,6 +381,61 @@ test("storefront payload publishes the set's component and its per-product date 
   }
 });
 
+test("storefront payload carries the product's shop names (中文/BM) and the developer credit", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.settings.storefront = { whatsapp: "60123456789", name: "Jienluv2bake" };
+  state.settings.developer = { name: "  Dev Studio  ", emails: ["a@b.com", "   ", "c@d.com"] };
+  state.products = [
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, nameZh: "佛卡夏", nameMs: "Focaccia" },
+    { id: "prd_2", name: "Sandwich", price: 8, unit: "piece", active: true, nameZh: "  " },
+  ];
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncStorefront(state);
+    assert.ok(r.ok);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/storefront_config"));
+    const payload = JSON.parse(JSON.parse(upsert.opts.body)[0].data);
+    const focaccia = payload.products.find((p) => p.name === "Focaccia");
+    const sandwich = payload.products.find((p) => p.name === "Sandwich");
+    assert.equal(focaccia.nameZh, "佛卡夏");
+    assert.equal(focaccia.nameMs, "Focaccia");
+    assert.ok(!("nameMs" in sandwich), "a blank BM name is not published — the shop falls back to English");
+    assert.ok(!("nameZh" in sandwich), "a blank 中文 name is not published either");
+    assert.equal(payload.developerName, "Dev Studio");
+    assert.deepEqual(payload.developerEmails, ["a@b.com", "c@d.com"], "blank developer emails are dropped");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("storefront payload omits the developer keys until a name + email are set", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  state.settings.storefront = { whatsapp: "60123456789", name: "Jienluv2bake" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncStorefront(state);
+    assert.ok(r.ok);
+    const upsert = calls.find((c) => c.url.includes("/rest/v1/storefront_config"));
+    const payload = JSON.parse(JSON.parse(upsert.opts.body)[0].data);
+    assert.ok(!("developerName" in payload), "no developer key before it is configured");
+    assert.ok(!("developerEmails" in payload));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("pullIncoming is a no-op when not configured", async () => {
   let called = false;
   globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };

@@ -295,9 +295,20 @@ function storefrontPayload(state) {
         const v = p && p[k];
         if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
       }
+      // Optional translated names for 中文 / BM shoppers. Published only when
+      // written — blank falls back to the English name on the shop (nameFor).
+      for (const k of ["nameZh", "nameMs"]) {
+        const v = p && p[k];
+        if (typeof v === "string" && v.trim()) out[k] = v.trim();
+      }
       return out;
     });
-  return {
+  const dev = (state.settings && state.settings.developer) || {};
+  const devName = String(dev.name || "").trim();
+  const devEmails = Array.isArray(dev.emails)
+    ? dev.emails.map((e) => String(e || "").trim()).filter(Boolean)
+    : [];
+  const out = {
     whatsapp: String(sf.whatsapp || ""),
     name: String(sf.name || ""),
     tagline: String(sf.tagline || ""),
@@ -309,6 +320,11 @@ function storefrontPayload(state) {
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
     products,
   };
+  // The "Website by … ✉" credit for the homepage/store footers. Published only
+  // when set — the storefront's mergeStorefront drops the keys otherwise.
+  if (devName) out.developerName = devName;
+  if (devEmails.length) out.developerEmails = devEmails;
+  return out;
 }
 
 export async function syncStorefront(state) {
@@ -377,6 +393,17 @@ export async function refreshStorefront(state) {
     if (typeof remote.instagram === "string") sf.instagram = remote.instagram;
     if (typeof remote.facebook === "string") sf.facebook = remote.facebook;
     if (typeof remote.tngQr === "string") sf.tngQr = remote.tngQr;
+    // The developer credit follows the same rule: the published values win, so
+    // the More → About ✉ row and the footers match what customers see.
+    let dev = state.settings.developer;
+    if (!dev || typeof dev !== "object") dev = state.settings.developer = { name: "", emails: [] };
+    if (typeof remote.developerName === "string" && remote.developerName.trim()) {
+      dev.name = remote.developerName.trim();
+    }
+    if (Array.isArray(remote.developerEmails)) {
+      const remoteEmails = remote.developerEmails.map((e) => String(e).trim()).filter(Boolean);
+      if (remoteEmails.length) dev.emails = remoteEmails;
+    }
     save(state);
     return true;
   } catch {

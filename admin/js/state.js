@@ -40,6 +40,7 @@ export function defaultState() {
         referrerRM: 3, // the credit the referrer earns
         validDays: 90, // "" (blank) = never expires
       },
+      developer: { name: "", emails: [] }, // site credit + wish-list recipient; shown only once set
     },
     ingredients: [],
     suppliers: [],     // who you buy from (each has a WhatsApp number)
@@ -232,6 +233,7 @@ function normalize(s) {
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
+      developer: cleanDeveloper(((s.settings || {}).developer)),
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],
     suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
@@ -443,6 +445,18 @@ function cleanStorefront(sf) {
     tngQr: String(src.tngQr ?? d.tngQr),
     products,
   };
+}
+
+// Developer contact: the site credit line + who the wish-list email reaches.
+// Kept to {name, emails[]} so the storefront payload, the mailto links and the
+// sync engine all read one shape; a malformed stored value can't crash them.
+function cleanDeveloper(dev) {
+  const src = (dev && typeof dev === "object") ? dev : {};
+  const name = String(src.name || "").trim();
+  const emails = Array.isArray(src.emails)
+    ? src.emails.map((e) => String(e || "").trim()).filter(Boolean)
+    : [];
+  return { name, emails };
 }
 
 // Placeholder for future version migrations. v1 is the only format today.

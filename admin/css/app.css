@@ -1231,6 +1231,24 @@ textarea.input { min-height: 64px; resize: vertical; }
 }
 .check-add { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
 
+/* "✉ Email the full wish list" under the wish card — opens the owner's mail app
+   with the whole list, addressed to every developer email in Settings. */
+.check-mail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.check-mail a {
+  color: var(--brown);
+  font-weight: 700;
+  text-decoration: none;
+}
+.check-mail a:active { opacity: .7; }
+
 /* Home delivery "fuel gauge" needle dial */
 .gauge {
   display: flex;

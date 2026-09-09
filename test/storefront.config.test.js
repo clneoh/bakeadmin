@@ -162,3 +162,25 @@ test("placeOrder returns {ok:false} when no Supabase is configured", async () =>
   CONFIG.supabase = { url: "", anonKey: "" };
   assert.deepEqual(await placeOrder({}), { ok: false });
 });
+
+test("mergeStorefront keeps the shop product names (中文/BM) and the developer credit", () => {
+  const base = { name: "A", products: [{ name: "Focaccia", price: 5, unit: "piece" }] };
+  const out = mergeStorefront(base, {
+    products: [
+      { name: "Focaccia", price: 5, unit: "piece", nameZh: "佛卡夏", nameMs: "Focaccia" },
+      { name: "Croissant", price: 4, unit: "piece", nameZh: "   ", nameMs: "牛角包" },
+    ],
+    developerName: "  Dev Studio  ",
+    developerEmails: ["a@b.com", "  ", "c@d.com"],
+  });
+  const focaccia = out.products.find((p) => p.name === "Focaccia");
+  const croissant = out.products.find((p) => p.name === "Croissant");
+  assert.equal(focaccia.nameZh, "佛卡夏");
+  assert.equal(focaccia.nameMs, "Focaccia");
+  assert.equal(croissant.nameMs, "牛角包");
+  assert.equal("nameZh" in croissant, false, "a blank 中文 name is dropped — English shows instead");
+  assert.equal(out.developerName, "Dev Studio");
+  assert.deepEqual(out.developerEmails, ["a@b.com", "c@d.com"], "blank developer emails are dropped");
+  assert.equal("nameZh" in base.products[0], false, "base is not mutated");
+  assert.equal("developerName" in base, false, "developer keys only appear when the remote sets them");
+});

@@ -831,6 +831,55 @@ test("mergeRows: a cloud row without tasks never deletes the local customised li
   } finally { restore(); }
 });
 
+// ── the developer contact (settings.developer) ────────────────────────────
+// Same lazy guard as tasks/wishList: nothing is pushed until a name or email is
+// typed, so a phone that never set one can't clobber the other phone's.
+
+test("computeRecords: settings payload omits the developer until typed, then carries it", () => {
+  const st = baseState();
+  const bare = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal("developer" in bare.data, false,
+    "a phone that never set a developer pushes no developer field");
+
+  st.settings.developer = { name: "  Dev Studio  ", emails: ["dev@example.com", "", "two@example.com"] };
+  const withDev = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(withDev.data.developer,
+    { name: "Dev Studio", emails: ["dev@example.com", "two@example.com"] },
+    "the trimmed developer rides the settings row so every phone agrees");
+});
+
+test("mergeRows: a cloud settings row without the developer never deletes the local one", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.developer = { name: "Dev Studio", emails: ["dev@example.com"] };
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 9, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.developer,
+      { name: "Dev Studio", emails: ["dev@example.com"] },
+      "an absent cloud developer field is not a delete");
+  } finally { restore(); }
+});
+
+test("mergeRows: a newer cloud developer replaces the local one wholesale", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.developer = { name: "Old", emails: ["old@example.com"] };
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+    const r = sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        developer: { name: "New Studio", emails: ["new@example.com", "also@example.com"] } },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    assert.deepEqual(st.settings.developer,
+      { name: "New Studio", emails: ["new@example.com", "also@example.com"] },
+      "the newer developer wins whole, like the rest of settings");
+  } finally { restore(); }
+});
+
 // ── sharingState (the amber "Not sharing right now" strip) ────────────────
 
 test("sharingState: sharing when the cloud is on and the session is live", () => {
