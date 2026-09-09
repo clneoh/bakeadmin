@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v65)
+# Jienluv2bake — change history (v54 → v66)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+## v66 — Auto-translate product text, plus Draft / Publish / Hidden states (9 Sep 2026)
+Product **description, selling unit word** (the "RM15.00 / loaf" bit), **serving
+tip** and now the **name itself** read in English, 中文 or Bahasa Malaysia
+automatically — a free translator fills the 中文/BM boxes for you the first time
+you save or publish a product. A small "auto" tag marks a machine translation;
+if one "sounds weird", open the product's edit screen, type over that box (it
+then becomes yours and is never overwritten), or tap a "Fill all 中文" /
+"Fill all Bahasa Malaysia" button or the ↻ next to a single line to have it
+translated again now. Good translations are simply left alone, and you never
+hand-fill a whole product.
+
+Products also gain a **third state**. A new product now starts as a **Draft** —
+fully built with its recipe, but **not on the shop and not orderable** until you
+**Publish** it. The Products screen shows **three separate lists**: **On the
+shop**, **Draft — not on the shop yet** (each with a Publish button) and
+**Hidden — taken down** (with an Unhide button). Hiding a product still keeps
+its history, recipe and purchase orders.
+
+The **"Copy follow-up"** bring-a-friend message gains a small **EN / 中文 / BM**
+choice, so the whole check-in you paste into WhatsApp — including the product's
+serving tip — can be in your customer's language. No SQL this version.
 
 ## v65 — Reviews preview + "waiting to publish" cue (9 Sep 2026)
 More → **Reviews** now shows each review **exactly as customers see it** on the

@@ -191,3 +191,19 @@ test("mergeStorefront keeps the shop product names (中文/BM) and the developer
   const noWa = mergeStorefront({ name: "A" }, { developerName: "X" });
   assert.equal("developerWhatsapp" in noWa, false, "a blank/absent remote number is not copied over");
 });
+
+test("mergeStorefront keeps the auto-translated description + selling unit (中文/BM)", () => {
+  const base = { name: "A", products: [{ name: "Focaccia", price: 15, unit: "loaf" }] };
+  const out = mergeStorefront(base, {
+    products: [
+      { name: "Focaccia", price: 15, unit: "loaf",
+        descZh: "香脆空心", descMs: "   ", unitZh: "条", unitMs: "" },
+    ],
+  });
+  const foc = out.products[0];
+  assert.equal(foc.descZh, "香脆空心");
+  assert.equal("descMs" in foc, false, "a blank BM description is dropped — the card keeps English");
+  assert.equal(foc.unitZh, "条");
+  assert.equal("unitMs" in foc, false, "a blank BM unit word is dropped — the card reads '/ loaf'");
+  assert.equal("descZh" in base.products[0], false, "base is not mutated");
+});
