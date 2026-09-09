@@ -1810,3 +1810,64 @@ tr.po-covered td { color: var(--muted); }
   font-size: 14px;
   margin-bottom: 14px;
 }
+
+/* ---------- Reviews carousel (More → Reviews) ----------
+   One review at a time, exactly like the homepage "What customers say"
+   carousel (root index.html .r-slider block). No autoplay on purpose: this is
+   the decision screen, so the review in front of you stays until you move on
+   via the ‹ › arrows, the dots, or a swipe. */
+.r-slider { position: relative; width: 100%; }
+.r-stage { overflow: hidden; }
+.r-track { display: flex; transition: transform .5s ease; }
+.r-slide {
+  flex: 0 0 100%;
+  min-width: 100%;
+  display: flex;
+  align-items: stretch;
+}
+.r-slide .review-card {
+  flex: 1;
+  margin-bottom: 0;
+}
+.r-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+.r-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--green);
+  background: var(--surface);
+  color: var(--green);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  padding: 0;
+}
+.r-btn:hover { background: var(--green); color: #fff; }
+.r-dots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.r-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: #d6c09e;
+  padding: 0;
+  cursor: pointer;
+}
+.r-dot.is-on { background: var(--green); }
+.r-live {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}

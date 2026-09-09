@@ -7,12 +7,17 @@ always tell which build a phone is running.
 ## v65 — Reviews preview + "waiting to publish" cue (9 Sep 2026)
 More → **Reviews** now shows each review **exactly as customers see it** on the
 homepage — the photo, the stars, the message, then the reviewer's name and the
-language and date, in the same warm card. Reviews waiting for your **Publish**
-come first, and a line at the very top of the screen says how many are waiting
-("3 reviews waiting for you to publish"). The **Reviews** row on the **More**
-menu shows how many are waiting too, and the app's **Home** screen gains a
-"**N new review(s) to publish**" card that opens the Reviews screen in one tap —
-so a new review is never left waiting unseen. No SQL this version.
+language and date, in the same warm card — and they play **one at a time**, like
+the homepage's "What customers say" carousel. The reviews waiting for your
+**Publish** come first; once you have worked through them, the ones already on
+the homepage follow. It never slides on by itself while you are deciding — a
+swipe, the arrow buttons, or a dot under the card moves it on, and Publish /
+Take down / Delete moves you straight to the next review. A line at the very
+top of the screen says how many are waiting ("3 reviews waiting for you to
+publish"). The **Reviews** row on the **More** menu shows how many are waiting
+too, and the app's **Home** screen gains a "**N new review(s) to publish**" card
+that opens the Reviews screen in one tap — so a new review is never left
+waiting unseen. No SQL this version.
 
 ## v64 — Review carousel, EN/中文/BM site, developer contact + wish email (9 Sep 2026)
 The homepage **"What customers say"** reviews now play as a **carousel** — one
