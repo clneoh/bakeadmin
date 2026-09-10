@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v67)
+# Jienluv2bake — change history (v54 → v68)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -12,6 +12,29 @@ Settings → **Website & developer**, all on its own, whenever the phone is sign
 in and sharing data. Before today that automatic email needed a behind-the-scenes
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
+
+## v68 — One name and one number per customer (10 Sep 2026)
+A customer's name and WhatsApp number used to be held in two places at once — on
+their orders, and on their customer card — and the two did not always agree. If
+you opened a customer and typed their name on their card, the customer list could
+carry on showing the old one, because it read the name off the order. And
+renaming someone who has **no WhatsApp number** on file could lose them: the name
+is what ties a numberless customer to their history, so the new name slid off
+their orders and appeared nowhere at all.
+
+Now the name and number you save on a customer are the ones that count, and
+fixing them once fixes them everywhere: saving their card writes the name and
+number onto **every order they have**, so the labels, the WhatsApp messages and
+the customer list all follow. It works the other way round too — correct a wrong
+number with **Edit** on an order and that customer's card updates as well, so the
+two can never drift apart again. Correcting a number carries that customer's
+bring-a-friend credits across with it, and renaming someone who has no number no
+longer loses them.
+
+Leaving a box empty means "leave this as it is" — it never wipes a number your
+confirmations depend on. And if you renamed anyone before today and it never
+stuck, the app puts their orders right the first time this version opens. Engine
+v68, guide v68.
 
 ## v67 — Naming a "No name" customer (10 Sep 2026)
 A customer who reached you without a name — a storefront order that carried none
