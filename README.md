@@ -77,11 +77,21 @@ point / offline fallback:
 
 ## Site languages (homepage + storefront)
 
-Both the homepage and the storefront read in **English, 中文 or Bahasa Malaysia**
-— default English. An **EN 中文 BM** switch near the top of each page re-renders
-the whole page in the chosen language and remembers it (localStorage `siteLang`),
-so a Chinese- or Malay-speaking customer only picks it once. The backoffice app
-itself stays English.
+Both the homepage and the storefront read in **English, 中文 or Bahasa Malaysia**.
+An **EN 中文 BM** switch near the top of each page re-renders the whole page in
+the chosen language and remembers it (localStorage `siteLang`), so a Chinese- or
+Malay-speaking customer only picks it once. A visitor starts in English unless
+their phone's own language is one of the three (`loadLang()`), which is what
+they get until they choose otherwise. The backoffice app itself stays English.
+
+"Every string" means every string: nothing customer-facing may be a literal in
+`store/app.js`. The store's dynamic copy lives in `store-lang.js` too — the
+`Sold out` / `Only N left` stamps, the confirm and track text, the day pills,
+the reason a product can't be ordered on the chosen date, and the notes a
+refresh writes above the menu when it changes the basket. `store/pool.js` stays
+language-free on purpose: it returns the date RULE as data
+(`{kind: "from"|"to"|"close", …}`) and the page composes the sentence, so an
+English weekday can never be baked into a 中文 or BM page.
 
 The switch is **in place**: the page repaints, nothing is re-downloaded, and the
 customer's cart, chosen day and typed details survive. Every text lookup reads
@@ -103,10 +113,14 @@ the saved language fresh, so nothing needs re-fetching to repaint.
   the DOM re-apply walker (`applyTo`), and `nameFor(product, lang)`.
 - `home-lang.js` and `store-lang.js` (both repo root) are the per-language
   dictionaries — every static string, plus the store's dynamic strings
-  (`Sold out`, `Only N left`, cart bar, confirm/track text, and localized
-  weekday/month names for its day pills).
-- **Per-product shop names.** Each product can carry an optional translated
-  name per language, typed in the backoffice: Products → Edit → **Shop names**
+  (`Sold out`, `Only N left`, cart bar, confirm/track text, the closed-product
+  reason and the basket notes, and localized weekday/month names for its day
+  pills). A new customer-facing string is not done until it is keyed in all
+  three; `test/store-i18n.test.js` holds the key set and the `%1` placeholders
+  together.
+- **Per-product shop text.** Each product can carry an optional translated
+  name, description and selling-unit word per language, typed in the backoffice:
+  Products → Edit → **Product text for your customers**
   (`nameZh` / `nameMs`). When the storefront is in that language it shows the
   translated name; a blank box falls back to the English `name`, which always
   stays the canonical one — the app, orders and labels use the English name no

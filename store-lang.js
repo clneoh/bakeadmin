@@ -43,6 +43,21 @@ const en = {
   noDates: "No upcoming delivery dates right now — check back soon.",
   noOpenDates: "All upcoming deliveries are full right now — check back soon.",
 
+  // Why a product reads "Sold out" on a date it can't be ordered for, and the
+  // notes above the menu when a refresh changes the basket. The rule comes from
+  // pool.js as data, so the sentence is built here in the visitor's language —
+  // including the date, which must not arrive as an English weekday. The advice
+  // is separate from the clause because the basket notes quote the clause alone.
+  closedFrom: "Only available for delivery from %1",
+  closedTo: "Only available for delivery up to %1",
+  closedClose: "Orders close %1 days before delivery",
+  closedCloseAdvice: " — pick a later date",
+  sentenceEnd: ".",
+  fixSoldOut: "%1 just sold out — removed from your order.",
+  fixPoolClamp: "%1: only %2 can fit with the rest of your order now — we changed your %3 to %2.",
+  fixClamp: "%1: only %2 left now — we changed your %3 to %2.",
+  fixClosed: "%1: %2 — we removed it.",
+
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
   confirmClosedTitle: "That day's orders are closed.",
@@ -115,6 +130,16 @@ const zh = {
   noDates: "目前没有可预订的派送日 — 请稍后再来。",
   noOpenDates: "近期派送均已满 — 请稍后再来。",
 
+  closedFrom: "只接受 %1 起的派送日订单",
+  closedTo: "只接受 %1 或之前的派送日订单",
+  closedClose: "需在烘焙日前 %1 天下单",
+  closedCloseAdvice: " — 请另选较后的日期",
+  sentenceEnd: "。",
+  fixSoldOut: "%1 刚刚售完 — 已从你的订单中移除。",
+  fixPoolClamp: "%1：现在配合订单其余部分只装得下 %2 份 — 已把你的 %3 改为 %2。",
+  fixClamp: "%1：现在只剩 %2 份 — 已把你的 %3 改为 %2。",
+  fixClosed: "%1：%2 — 已移除。",
+
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
   confirmClosedTitle: "该日的订单已截止。",
@@ -186,6 +211,16 @@ const ms = {
   onlyLeft: "Tinggal %1 sahaja",
   noDates: "Tiada tarikh penghantaran buat masa ini — sila datang lagi nanti.",
   noOpenDates: "Semua penghantaran akan datang penuh buat masa ini — sila datang lagi nanti.",
+
+  closedFrom: "Hanya tersedia untuk penghantaran dari %1",
+  closedTo: "Hanya tersedia untuk penghantaran sehingga %1",
+  closedClose: "Tempahan ditutup %1 hari sebelum penghantaran",
+  closedCloseAdvice: " — sila pilih tarikh yang lebih lewat",
+  sentenceEnd: ".",
+  fixSoldOut: "%1 baru sahaja habis — dikeluarkan dari tempahan anda.",
+  fixPoolClamp: "%1: hanya %2 boleh dimuatkan bersama baki tempahan anda — kami telah tukar %3 anda kepada %2.",
+  fixClamp: "%1: tinggal %2 sahaja sekarang — kami telah tukar %3 anda kepada %2.",
+  fixClosed: "%1: %2 — kami telah keluarkannya.",
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan tempahan dan hantar QR pembayaran anda.",
