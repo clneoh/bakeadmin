@@ -145,13 +145,18 @@ textarea.field-input{resize:vertical;min-height:110px}
 }
 </style>
 <script>
-// Invisible migration helper: the backoffice moved to /admin/, so the old
-// root-scope service worker must not keep serving its cached shell here. It
-// only removes the legacy root registration + its cache, never /admin/'s app.
+// Invisible migration helper. The backoffice used to be served from the site
+// root, and its old service worker may still be sitting on a phone — caching
+// the whole site and answering a failed script request with a web page, which
+// is what made these language buttons stop responding. Asking the browser to
+// re-check that root worker makes it fetch the current /sw.js, which clears the
+// leftovers and removes itself. /admin/ keeps its own cache either way.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then(function (regs) {
     regs.forEach(function (r) {
-      if (r.scope === location.origin + "/") r.unregister();
+      if (r.scope !== location.origin + "/") return;
+      var check = r.update ? r.update() : Promise.reject();
+      check.catch(function () { return r.unregister(); });
     });
     if (window.caches) caches.keys().then(function (keys) {
       return Promise.all(keys.filter(function (k) { return k === "bakeadmin-v1"; })

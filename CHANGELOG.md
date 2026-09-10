@@ -46,6 +46,28 @@ details and set off by a thin line. It reads a touch larger now, and in
 whichever language the visitor has chosen, like the rest of the footer. The
 "Website by …" credit stays where it was and now stands on its own.
 
+**10 Sep 2026 — the homepage's language buttons can no longer go dead (no new
+engine; the phones did not change).** On some phones the homepage's
+**EN / 中文 / BM** buttons could stop responding — the page would sit in English
+and tapping 中文 did nothing — often after the page had been left alone for a
+while, or refreshed. The culprit was a leftover background worker from when the
+backoffice was served from the top of the website instead of from /admin/. (A
+background worker is the machinery the app installs so it can open without a
+connection.) That old worker had cached the whole website, and whenever
+something failed to download it answered with whatever it had — including
+handing the browser **a web page where it had asked for a script**. A page that
+receives a web page instead of its script never runs it, so the code that wires
+up the language buttons never ran; the English words you saw are written into
+the page itself, which is why the page still looked perfectly normal.
+
+The old worker is now cleared away wherever it is still installed: a small
+cleanup file sits at the same address the old worker used, so the next visit
+replaces it, empties everything it had cached, and removes itself. The
+backoffice's own offline cache is deliberately left untouched, because the app
+needs it to open without a connection. The app's worker has also been taught,
+for good, never to answer a script or a picture with a web page — so the same
+fault cannot come back on any part of the site.
+
 ## v71 — The shop's 中文 / BM buttons answer instantly (10 Sep 2026)
 On the shop page, tapping **EN / 中文 / BM** used to reload the whole page. That
 re-downloaded the page and fetched the menu, the "left today" numbers and your

@@ -276,6 +276,37 @@ share the trilingual site system described below.
 **One-time setup:** run `supabase/reviews.sql` in the SQL editor (adds the
 `reviews` table + RLS and the `review-photos` Storage bucket + policies).
 
+## Service workers (and the old root one)
+
+There are two service-worker files, and only one of them is the app's:
+
+- **`admin/sw.js`** — the backoffice's offline app shell, scope `/admin/`. It is
+  network-first so a phone gets fresh code when it's online, and falls back to
+  its cache when it isn't.
+- **`sw.js`** at the repo root — **not the app's worker.** Before the backoffice
+  moved to `/admin/`, the app was served from the root and registered a worker
+  from this exact URL. That old worker cached the whole site and answered *any*
+  failed request with `caches.match(req) || caches.match("./index.html")`, which
+  hands the homepage HTML to a request for a `.js` file; the browser then runs a
+  web page as JavaScript and the module never executes. On the homepage that
+  showed up as a page stuck in English whose **EN 中文 BM** buttons did nothing,
+  because `home.js` — the script that binds them — never ran. A worker updates
+  by re-fetching its own URL, so putting a *cleanup* script at that URL is what
+  evicts it: any phone still carrying the old worker fetches it on the next
+  visit, it deletes every cache except `bakeadmin-admin-v1` (the backoffice
+  needs its own to open offline) and unregisters itself. It registers **no**
+  fetch handler, so it can never serve anything. Keep it in the repo — a phone
+  that has been in a drawer for months still needs it. The homepage's head
+  script nudges an existing root registration to update (`r.update()`, falling
+  back to `r.unregister()`); the homepage itself must **never** register a
+  worker of its own, since a root-scoped one covers the store and `/admin/` too.
+
+The admin worker's fallback is guarded to the same end: only a navigation
+(`req.mode === "navigate"`) may fall back to `./index.html`. A failed script,
+stylesheet or image is left to fail as itself. `test/service-worker.test.js`
+runs both real worker scripts in a stand-in worker scope and asserts the
+response to a failure, so this cannot silently regress.
+
 ## An order is a record of a sale (price + name snapshot)
 
 An order row is not a pointer to a product — it is a record of what was sold and
@@ -534,6 +565,9 @@ home-lang.js        homepage UI strings, one dictionary per language
 store-lang.js       storefront UI strings, one dictionary per language
 home.js             homepage logic (reads the published storefront config for the footer credit)
 reviews.js          homepage review form + photo (Take/Choose) + carousel + thank-you
+sw.js               one-time cleanup worker at the SITE ROOT — evicts the old
+                    root-scoped worker and its caches, then removes itself
+                    (NOT the app's worker — that is admin/sw.js)
 store/index.html    customer order page (/store/)
 store/app.css       storefront styling
 store/app.js        storefront logic + order intake + availability + published config
@@ -558,7 +592,8 @@ admin/ — backoffice app (/admin/):
   js/devmail.js       wish-list email builder + developer contact readers (mailto / Edge-Function send)
   js/app.js           hash router + bootstrap + shared-data gate
   js/views/*          one module per screen (login.js is the sign-in gate)
-  sw.js               service worker — offline app shell (/admin/ scope)
+  sw.js               service worker — offline app shell (/admin/ scope);
+                      only a navigation falls back to the cached index.html
   manifest.webmanifest PWA manifest for the backoffice
 
 supabase/availability.sql   run once in Supabase SQL editor (public slots)
