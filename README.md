@@ -89,7 +89,9 @@ the saved language fresh, so nothing needs re-fetching to repaint.
 
 - **Storefront.** `render()` owns the cart/selected-day closures, so the switch
   can't call `render()` again (that would throw the basket away) and must not
-  reload (that would re-fetch the menu, slots-left and photos from Supabase).
+  reload (that would re-fetch the menu, the slots-left and the storefront
+  settings from Supabase). The shop's menu is text-only — it carries no product
+  photos — so a reload never cost images, just those three fetches.
   Instead `render()` assigns a `repaintForLang` hook — tagged static HTML +
   title (`applyTo`), header/info cards/footer (`renderStatic`), date pills and
   menu cards (`rerender`), the order bar (`renderBar`), and the track card from
@@ -217,6 +219,22 @@ Two things to know: an item is imported only when its name matches a backoffice
 product (add it in Products and it'll import next time), and — since anyone
 with the link can place an order — review New orders before confirming them.
 
+## Homepage photos are real files, not inline data
+
+`index.html` used to carry its six photos as **inline base64** — the JPEG bytes
+pasted straight into the HTML, which made the page **249 KB before a single
+image had even been requested**, all of it re-sent on every visit and unable to
+be cached separately. They now live in `img/` as six ordinary files
+(`hero.jpg`, `focaccia.jpg`, `italian-pesto-ham.jpg`, `croissant.jpg`,
+`mushroom-egg.jpg`, `vegetarian-pie.jpg`) and `index.html` is **22.7 KB**.
+
+The bytes are unchanged — the files were extracted from the inline data, not
+re-encoded, so the homepage looks exactly as it did. Every `<img>` carries its
+`width`/`height`, so the browser reserves the right space and nothing shifts as
+the files arrive; the hero loads eagerly and the five product photos below the
+fold are `loading="lazy" decoding="async"`. The inline SVG favicon was left
+alone (a data URI there is a feature, not weight).
+
 ## Homepage customer reviews (Supabase)
 
 The homepage (repo root `index.html`) carries a **What customers say** section:
@@ -237,6 +255,15 @@ share the trilingual site system described below.
   the homepage, **Take down** hides it again, **Delete** removes it for good.
 - Photos upload to the public `review-photos` Storage bucket via the anon key
   (either photo button shrinks the picture to a small copy first).
+- A review photo is fetched **only when its slide is the one being shown** (or
+  the next one). `reviewCard` parks the URL in `data-src` rather than `src`, and
+  `loadPhoto` promotes it — called for the starting slide and for slide `i` and
+  `i + 1` from the carousel's `move()`, plus immediately when there is only one
+  review. A naive `loading="lazy"` is not an option here: the slides are laid
+  out side by side on a `translateX` track, so a lazy photo would pop in as the
+  carousel auto-advances. The one-slide lookahead means the next photo is
+  decoded well before it slides in. This is why a visitor who never waits
+  through the carousel no longer downloads every published photo up front.
 
 **One-time setup:** run `supabase/reviews.sql` in the SQL editor (adds the
 `reviews` table + RLS and the `review-photos` Storage bucket + policies).
@@ -493,6 +520,7 @@ engine (`admin/js/sync.js`), the app bootstrap + sign-in gate
 ```
 changelog.pdf       full change history (every version from v54, PDF) — root of the site
 index.html          public homepage (domain root)
+img/                the homepage's own photos (hero + the five product shots)
 i18n.js             shared EN/中文/BM loader + nameFor + applyTo (homepage + store)
 home-lang.js        homepage UI strings, one dictionary per language
 store-lang.js       storefront UI strings, one dictionary per language

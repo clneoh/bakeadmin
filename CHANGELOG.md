@@ -13,12 +13,31 @@ in and sharing data. Before today that automatic email needed a behind-the-scene
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
 
+**10 Sep 2026 — the homepage opens faster (no new engine; the phones did not
+change).** Two things about the public homepage were quietly costing every
+visitor time, and both are fixed.
+
+The homepage's six photographs were stored *inside* the page itself, so the
+page was **249 KB before a single picture had even been asked for** — and every
+visitor downloaded all of it, on every visit, before they could see anything.
+The photos are now six separate files that the browser fetches and **keeps for
+next time**, which brings the page itself down to **22.7 KB**. The pictures are
+byte-for-byte the same ones, so the homepage looks exactly as it did, and each
+one now states its size up front so nothing jumps around as the page loads.
+
+Second, the "What customers say" section used to fetch **every published review
+photo up front** — including the reviews a visitor never waited around to see.
+A photo is now fetched **as its review comes around**, one step ahead of time so
+it is ready before it slides in, and the reviews a visitor never reaches are
+never downloaded at all. On a phone that means less data and a quicker page,
+and it changes nothing about how the section looks or behaves.
+
 ## v71 — The shop's 中文 / BM buttons answer instantly (10 Sep 2026)
 On the shop page, tapping **EN / 中文 / BM** used to reload the whole page. That
-re-downloaded the page and fetched the menu, the "left today" numbers and every
-product photo all over again, so each tap sat there for a moment before anything
-changed — and the slower the phone's connection, the longer the wait. A reload
-could also wipe a basket that was already half filled.
+re-downloaded the page and fetched the menu, the "left today" numbers and your
+saved storefront settings all over again, so each tap sat there for a moment
+before anything changed — and the slower the phone's connection, the longer the
+wait. A reload could also wipe a basket that was already half filled.
 
 Now the shop switches **in place**, exactly like the homepage already did: the
 words change the moment you tap, and nothing is downloaded again. Whatever the
