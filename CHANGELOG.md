@@ -39,6 +39,13 @@ than 340 pixels high, so the smaller copy looks just as sharp while being about
 your stored photos light. This applies to photos left from now on; the reviews
 already on your page keep the picture they were stored with.
 
+Your sign-off line — **Jien Luv 2 Bake | Small Batch. Big Love. ♡** — has moved
+from the very bottom of the homepage footer, where it sat shoulder to shoulder
+with the developer credit, up to the **top of the footer**, above your contact
+details and set off by a thin line. It reads a touch larger now, and in
+whichever language the visitor has chosen, like the rest of the footer. The
+"Website by …" credit stays where it was and now stands on its own.
+
 ## v71 — The shop's 中文 / BM buttons answer instantly (10 Sep 2026)
 On the shop page, tapping **EN / 中文 / BM** used to reload the whole page. That
 re-downloaded the page and fetched the menu, the "left today" numbers and your

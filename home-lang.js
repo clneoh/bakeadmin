@@ -105,6 +105,7 @@ const en = {
   // Footer + developer line
   fConnectTitle: "LET'S STAY CONNECTED ♡",
   fTag: "Jien Luv 2 Bake<br>Small Batch. Big Love.",
+  fCreed: "Jien Luv 2 Bake | Small Batch. Big Love. ♡",
   fWhatsappTitle: "WHATSAPP / ORDER",
   fInstaTitle: "FOLLOW US ON INSTAGRAM",
   devBy: "Website by",
@@ -201,6 +202,7 @@ const zh = {
 
   fConnectTitle: "保持联系 ♡",
   fTag: "Jien Luv 2 Bake<br>小批量制作 · 满满的爱",
+  fCreed: "Jien Luv 2 Bake | 小批量制作 · 满满的爱 ♡",
   fWhatsappTitle: "WHATSAPP / 下单",
   fInstaTitle: "在 Instagram 关注我们",
   devBy: "网站制作：",
@@ -297,6 +299,7 @@ const ms = {
 
   fConnectTitle: "JOM KITA BERHUBUNG ♡",
   fTag: "Jien Luv 2 Bake<br>Bakar Kecil-Kecilan · Kasih Sayang Yang Besar",
+  fCreed: "Jien Luv 2 Bake | Bakar Kecil-Kecilan · Kasih Sayang Yang Besar ♡",
   fWhatsappTitle: "WHATSAPP / TEMPAH",
   fInstaTitle: "IKUTI KAMI DI INSTAGRAM",
   devBy: "Laman web oleh",

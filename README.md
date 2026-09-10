@@ -122,7 +122,10 @@ Where it shows (only once a name *and* at least one email are set):
 
 - a small **Website by …** credit line in the homepage footer and a matching row
   in the store footer (read from the published `storefront_config`, so no
-  redeploy needed to change them), and
+  redeploy needed to change them). It sits alone at the very bottom of the
+  homepage footer; the brand sign-off (`fCreed`, `.footer-cred`) opens the
+  footer above the contact columns, set off by a hairline and deliberately not
+  `.small` so the two never read as one block of fine print, and
 - an **Email the developer** row in the backoffice **More → About** card.
 
 Each listed address is a tappable `mailto:` link. `sync.js` syncs `developer`

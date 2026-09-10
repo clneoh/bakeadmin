@@ -74,6 +74,10 @@ footer h3{font-family:Arial,sans-serif;letter-spacing:.1em;font-size:14px}
 footer p{color:#e2d4c3}
 footer a{text-decoration:none}
 .small{font-size:12px;opacity:.8}
+/* The brand creed opens the footer, set apart from the contact columns below it
+   by a hairline. Deliberately NOT .small like the developer credit: it is a sign
+   -off, not fine print, and the two must not read as one block. */
+.footer-cred{text-align:center;font-family:Arial,sans-serif;font-size:14px;letter-spacing:.14em;text-transform:uppercase;padding-bottom:20px;border-bottom:1px solid rgba(247,240,229,.18);margin-bottom:32px}
 @media (max-width:800px){
   .navlinks{display:none}
   .lang-switch{margin-left:auto}
@@ -81,6 +85,7 @@ footer a{text-decoration:none}
   .hero-grid,.products,.notice-grid,.info-grid,.footer-grid{grid-template-columns:1fr}
   .hero-photo{order:-1}
   .hero-photo img{aspect-ratio:16/10}
+  .footer-cred{font-size:12px;letter-spacing:.1em}
   .product-card,.feature .product-card{grid-template-columns:1fr}
   .product-photo{height:260px}
   .steps{grid-template-columns:1fr 1fr}
@@ -358,6 +363,7 @@ if ("serviceWorker" in navigator) {
 </main>
 
 <footer id="contact">
+  <div class="container footer-cred" data-i18n="fCreed">Jien Luv 2 Bake | Small Batch. Big Love. ♡</div>
   <div class="container footer-grid">
     <div>
       <h3 data-i18n="fConnectTitle">LET'S STAY CONNECTED ♡</h3>
@@ -372,8 +378,7 @@ if ("serviceWorker" in navigator) {
       <p><a href="https://instagram.com/jienluv2bake" target="_blank" rel="noopener">@jienluv2bake</a></p>
     </div>
   </div>
-  <div class="container small" style="margin-top:28px;text-align:center">JIEN LUV 2 BAKE | SMALL BATCH. BIG LOVE. ♡</div>
-  <div class="container small" id="dev-line" style="margin-top:10px;text-align:center"></div>
+  <div class="container small" id="dev-line" style="margin-top:34px;text-align:center"></div>
 </footer>
 <script type="module" src="home.js"></script>
 <script type="module" src="reviews.js"></script>
