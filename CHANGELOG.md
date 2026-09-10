@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v69)
+# Jienluv2bake — change history (v54 → v70)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -12,6 +12,27 @@ Settings → **Website & developer**, all on its own, whenever the phone is sign
 in and sharing data. Before today that automatic email needed a behind-the-scenes
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
+
+## v70 — An order keeps the price it was sold at (10 Sep 2026)
+Until now an order only remembered **which product** was bought, not what it cost
+or what it was called. Everything — the amount on the customer's confirmation,
+the total on their own "Track your order" page, their lifetime spend on the
+customer list, the Home estimate — was worked out from **today's** menu. So the
+moment you re-priced or renamed a product, every past order silently moved with
+it: last month's order suddenly read RM22 instead of the RM15 the customer
+actually paid, and a renamed loaf rewrote what people had already bought.
+
+Now an order is a record of a sale. When an order comes in — from the shop or
+typed in by hand — it keeps the **name and the price it was sold at**, and those
+are what every message, the tracking page and the customer's spend use. Rename or
+re-price a product today and yesterday's orders stay exactly as they were. A line
+you deliberately swap to a different product when you **Edit** an order does pick
+up that product's current price — that is a new sale — but a line you leave alone
+keeps its old price.
+
+Existing orders (taken before this version) are stamped once with today's values,
+which is exactly what they are showing right now, so they stop drifting from here
+on. Nothing to set up; the phones pick it up with the next sync.
 
 ## v69 — Either place updates the customer (10 Sep 2026)
 Yesterday's fix put a customer's name and number back in one place — but it made
