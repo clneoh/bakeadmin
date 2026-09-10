@@ -44,9 +44,11 @@ const LANG_BY_CODE = Object.fromEntries(REVIEW_LANGS.map((l) => [l.code, l.label
 // shrinkReviewPhoto), so real phone photos are never turned away on size.
 // Only a truly huge file is refused.
 export const MAX_INPUT_BYTES = 25 * 1024 * 1024; // 25 MB
-// Shrink target: the longest side after downscaling. Crisp on the homepage and
-// app cards, light enough that uploads and storage stay small.
-const PHOTO_MAX_SIDE = 1600;
+// Shrink target: the longest side after downscaling. The homepage card shows a
+// photo at most 340px tall and the app's moderator card no bigger, so 1000px
+// still has detail to spare at 2x screens — while keeping uploads small on
+// mobile data and the public bucket light.
+const PHOTO_MAX_SIDE = 1000;
 // Photos already this small (and not wider than the target) go up unchanged —
 // re-encoding them would only waste the customer's battery and the cloud.
 const SMALL_PHOTO_KEEP = 500 * 1024;

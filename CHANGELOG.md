@@ -32,6 +32,13 @@ it is ready before it slides in, and the reviews a visitor never reaches are
 never downloaded at all. On a phone that means less data and a quicker page,
 and it changes nothing about how the section looks or behaves.
 
+A review photo is also shrunk a little harder before it is stored — to 1000
+pixels across instead of 1600. The card on the homepage shows a picture no more
+than 340 pixels high, so the smaller copy looks just as sharp while being about
+**a third of the size**, which is kinder to the customer's mobile data and keeps
+your stored photos light. This applies to photos left from now on; the reviews
+already on your page keep the picture they were stored with.
+
 ## v71 — The shop's 中文 / BM buttons answer instantly (10 Sep 2026)
 On the shop page, tapping **EN / 中文 / BM** used to reload the whole page. That
 re-downloaded the page and fetched the menu, the "left today" numbers and your

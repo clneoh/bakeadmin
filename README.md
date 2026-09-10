@@ -253,8 +253,13 @@ share the trilingual site system described below.
   backoffice → **More → Reviews** lists new ones under *Waiting for you* with
   the name, stars, message, language, date and photo; **Publish** shows it on
   the homepage, **Take down** hides it again, **Delete** removes it for good.
-- Photos upload to the public `review-photos` Storage bucket via the anon key
-  (either photo button shrinks the picture to a small copy first).
+- Photos upload to the public `review-photos` Storage bucket via the anon key.
+  Either photo button shrinks the picture first (`shrinkReviewPhoto`): the
+  longest side goes to **1000px** as JPEG q0.82, and a photo already ≤500 KB and
+  ≤1000px is passed through untouched. The homepage card caps a photo at 340px
+  tall, so 1000px still has detail to spare on a 2x screen — a typical phone
+  photo lands around 50–65 KB instead of 150–280 KB. (Lowering this from 1600px
+  affects only new uploads; photos already in the bucket keep their size.)
 - A review photo is fetched **only when its slide is the one being shown** (or
   the next one). `reviewCard` parks the URL in `data-src` rather than `src`, and
   `loadPhoto` promotes it — called for the starting slide and for slide `i` and
