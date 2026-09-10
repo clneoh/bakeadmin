@@ -83,6 +83,19 @@ the whole page in the chosen language and remembers it (localStorage `siteLang`)
 so a Chinese- or Malay-speaking customer only picks it once. The backoffice app
 itself stays English.
 
+The switch is **in place**: the page repaints, nothing is re-downloaded, and the
+customer's cart, chosen day and typed details survive. Every text lookup reads
+the saved language fresh, so nothing needs re-fetching to repaint.
+
+- **Storefront.** `render()` owns the cart/selected-day closures, so the switch
+  can't call `render()` again (that would throw the basket away) and must not
+  reload (that would re-fetch the menu, slots-left and photos from Supabase).
+  Instead `render()` assigns a `repaintForLang` hook — tagged static HTML +
+  title (`applyTo`), header/info cards/footer (`renderStatic`), date pills and
+  menu cards (`rerender`), the order bar (`renderBar`), and the track card from
+  its cached lookup (`paintTrack`) — and the exported `setLang(lang)` runs it and
+  moves the pill highlight. The track lookup keeps its last result in
+  `lastTrack` so a switch repaints it without a network call.
 - Shared loader `i18n.js` at the repo root (imported as `./i18n.js` by the
   homepage and `../i18n.js` by the store) holds the language list, persistence,
   the DOM re-apply walker (`applyTo`), and `nameFor(product, lang)`.

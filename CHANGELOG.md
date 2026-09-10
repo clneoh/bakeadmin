@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v70)
+# Jienluv2bake — change history (v54 → v71)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -12,6 +12,20 @@ Settings → **Website & developer**, all on its own, whenever the phone is sign
 in and sharing data. Before today that automatic email needed a behind-the-scenes
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
+
+## v71 — The shop's 中文 / BM buttons answer instantly (10 Sep 2026)
+On the shop page, tapping **EN / 中文 / BM** used to reload the whole page. That
+re-downloaded the page and fetched the menu, the "left today" numbers and every
+product photo all over again, so each tap sat there for a moment before anything
+changed — and the slower the phone's connection, the longer the wait. A reload
+could also wipe a basket that was already half filled.
+
+Now the shop switches **in place**, exactly like the homepage already did: the
+words change the moment you tap, and nothing is downloaded again. Whatever the
+customer has already done is left untouched — the items in their basket, the
+delivery day they picked, the name, WhatsApp number and address they typed — and
+if they are looking up an order, that card re-reads in the new language too.
+Nothing to set up.
 
 ## v70 — An order keeps the price it was sold at (10 Sep 2026)
 Until now an order only remembered **which product** was bought, not what it cost
