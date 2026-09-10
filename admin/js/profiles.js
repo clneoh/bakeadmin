@@ -1,6 +1,8 @@
-// profiles.js — the customer database. A saved profile is the single source of
-// truth for a person's name and WhatsApp number, plus the lasting facts about
-// them (their dog's name/photo, what they like or avoid, notes) that order
+// profiles.js — the customer database. A person's name and WhatsApp number are
+// held in ONE place and kept in step: edit them on the saved profile or on any
+// of their orders and the other side follows, so whichever the baker touched
+// last is what every screen shows. The profile also holds the lasting facts
+// about them (their dog's name/photo, what they like or avoid, notes) that order
 // history can't derive — the reusable knowledge a future AI chat would draw on.
 // Pure module: no DOM, runs under Node for tests.
 //
@@ -68,10 +70,10 @@ function mergeDuplicateProfiles(state, base) {
   if (i >= 0) list.splice(i, 1);
 }
 
-// The single source of truth in action: take the details the baker typed,
-// resolve them against what the orders already hold, and rewrite every order
-// belonging to the person at `oldKey`. Returns the details now in force and the
-// key they now sit under, so the caller can store exactly those.
+// The write-through in action: take the details the baker typed, resolve them
+// against what the orders already hold, and rewrite every order belonging to the
+// person at `oldKey`. Returns the details now in force and the key they now sit
+// under, so the caller can store exactly those.
 //
 // A blank box never overwrites a value the orders already hold — emptying the
 // WhatsApp box means "I'm not changing this", not "delete the number the
@@ -108,6 +110,8 @@ export function syncContactFromOrder(state, fromKey, { customerName, whatsapp } 
     prof.name = contact.name;
     prof.whatsapp = contact.whatsapp;
     prof.updatedAt = new Date().toISOString();
+    // The order side made this edit, so it wins if a stale copy ever disagrees.
+    prof.orderEditAt = prof.updatedAt;
     mergeDuplicateProfiles(state, prof);
   }
   save(state);
@@ -192,16 +196,24 @@ export function attachProfiles(state, rows) {
 }
 
 // The name to show for a derived customer row (one from customerList, with its
-// profile attached). The saved profile is the single source of truth: once the
-// baker has named someone, that is the name every screen shows whatever the
-// orders carry, so a storefront order arriving later with an older spelling
-// can't quietly overwrite it. With no saved name the orders' own name is used,
-// and "(no name)" when nobody has ever supplied one.
+// profile attached). The saved record and the orders hold one shared name — a
+// fix in either place is written through to the other — so they normally agree
+// and the question doesn't arise. When they do disagree (data saved before the
+// two were kept in step, or a storefront order arriving with a different
+// spelling) the side the baker edited last is the one shown: a name typed on the
+// order after the saved card is used, otherwise the saved card's. With neither
+// side carrying a real edit time the order's own name is preferred, and with no
+// name anywhere the row reads "(no name)".
 export function customerRowName(row) {
-  const saved = row && row.profile && String(row.profile.name || "").trim();
-  if (saved) return saved;
-  const derived = String((row && row.name) || "").trim();
-  return derived || "(no name)";
+  const prof = (row && row.profile) || null;
+  const saved = String((prof && prof.name) || "").trim();
+  const raw = String((row && row.name) || "").trim();
+  const orderName = raw === "(no name)" ? "" : raw;
+  if (!saved) return orderName || "(no name)";
+  if (!orderName || orderName === saved) return saved;
+  const cardAt = Date.parse((prof && prof.updatedAt) || "") || 0;
+  const orderAt = Date.parse((prof && prof.orderEditAt) || "") || 0;
+  return orderAt >= cardAt ? orderName : saved;
 }
 
 // A person matches the query when any of their fields contains it — the finder

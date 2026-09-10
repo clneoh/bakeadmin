@@ -83,15 +83,12 @@ test("attachProfiles copies each saved profile onto its matching derived row", (
   assert.equal(lim.profile, null, "no saved profile stays null");
 });
 
-test("customerRowName prefers the saved profile name, then the order's", () => {
+test("customerRowName names a nameless order from the saved profile, else '(no name)'", () => {
   // The order carried no name (so the derived row reads "(no name)"), but the
   // baker named the person in their profile — the row must show that name.
   const anonymous = { _key: "6012-111", name: "(no name)", whatsapp: "6012-111", profile: { name: "Aunty Bee" } };
   assert.equal(customerRowName(anonymous), "Aunty Bee");
 
-  // The saved profile is the single source of truth, so it wins even while the
-  // orders still carry an older name — that is what makes a rename stick.
-  assert.equal(customerRowName({ name: "Mr Lim", profile: { name: "Aunty Bee" } }), "Aunty Bee");
   // With no saved name the orders' own name is used...
   assert.equal(customerRowName({ name: "Mr Lim", profile: null }), "Mr Lim");
   // ...and the derived label when there is no name anywhere.
@@ -100,6 +97,19 @@ test("customerRowName prefers the saved profile name, then the order's", () => {
   assert.equal(customerRowName({ name: "(no name)", profile: { name: "  " } }), "(no name)");
   // A blank derived name with a saved profile name still resolves (older rows).
   assert.equal(customerRowName({ name: "", profile: { name: "Nurul" } }), "Nurul");
+});
+
+test("customerRowName: when the card and the order disagree, the side edited last wins", () => {
+  const card = { name: "Mr Lim", profile: { name: "Aunty Bee" } };
+  // The card was saved after the order was last touched — the card's name shows.
+  assert.equal(customerRowName({ ...card, profile: { ...card.profile, updatedAt: "2026-09-10T10:00:00Z", orderEditAt: "2026-09-10T09:00:00Z" } }), "Aunty Bee");
+  // The order was fixed after the card — the order's name shows, card or not.
+  assert.equal(customerRowName({ ...card, profile: { ...card.profile, updatedAt: "2026-09-10T09:00:00Z", orderEditAt: "2026-09-10T10:00:00Z" } }), "Mr Lim");
+  // No edit times recorded (older data): the order's own name is preferred, so
+  // the card is never the automatic winner.
+  assert.equal(customerRowName(card), "Mr Lim");
+  // Equal times — the two carry one value, so either resolves the same.
+  assert.equal(customerRowName({ name: "Aunty Bee", profile: { name: "Aunty Bee", updatedAt: "2026-09-10T10:00:00Z", orderEditAt: "2026-09-10T10:00:00Z" } }), "Aunty Bee");
 });
 
 test("customerMatches searches the person, their dog, likes, avoids, notes and favourite", () => {
@@ -223,6 +233,12 @@ test("fixing a name on one order carries to that person's other orders and their
   assert.deepEqual(st.orders.map((o) => o.customerName), ["Tan Siew Ling", "Tan Siew Ling"]);
   assert.equal(profileFor(st, "6012-111").name, "Tan Siew Ling", "the saved record keeps up");
   assert.equal(profileFor(st, "6012-111").dogName, "Coco", "and its extra facts are left alone");
+  // The order side was the last editor, so it is remembered as the newest — a
+  // stale copy on either side would resolve to this name.
+  assert.ok(profileFor(st, "6012-111").orderEditAt, "the order edit is remembered as the newest");
+  const [row] = attachProfiles(st, customerList(st));
+  assert.equal(customerRowName(row), "Tan Siew Ling", "the corrected name is what the book shows");
+  assert.equal(customerRowName({ name: "Ah Girl", profile: { ...row.profile, updatedAt: "2026-09-10T09:00:00Z", orderEditAt: "2026-09-10T10:00:00Z" } }), "Ah Girl", "…and a newer order edit beats an older card copy");
 });
 
 test("fixing details on an order never invents a customer record", () => {

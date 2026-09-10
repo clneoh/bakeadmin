@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v68)
+# Jienluv2bake — change history (v54 → v69)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -12,6 +12,19 @@ Settings → **Website & developer**, all on its own, whenever the phone is sign
 in and sharing data. Before today that automatic email needed a behind-the-scenes
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
+
+## v69 — Either place updates the customer (10 Sep 2026)
+Yesterday's fix put a customer's name and number back in one place — but it made
+the **customer card** the side that always won, so if the card and an order
+disagreed, the card's name was the one shown. That is no longer the rule: now it
+is simply **whichever you edited last**. Correct a customer's name with **Edit**
+on one of their orders and that is the name the list, the history pop-up and the
+"Hi {name}!" greeting use; open their card, type the name and save, and the
+card's is the one used. Either place updates the customer — neither is the boss.
+They normally read the same anyway, because each save writes through to the
+other side; this only decides the rare case where an old copy and a newer one
+are both sitting there. Nothing to set up; the phones pick it up with the next
+sync.
 
 ## v68 — One name and one number per customer (10 Sep 2026)
 A customer's name and WhatsApp number used to be held in two places at once — on

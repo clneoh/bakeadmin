@@ -379,11 +379,11 @@ their order count, rough spend, favourite product and last order — and it adds
 - **Profiles** — tap a person and their history pop-up leads with a **profile
   card**. Edit (or "Add details") opens a form: name, WhatsApp, the dog's name,
   a **photo** (shrunk to a small ~200px thumb before saving, by `js/photo.js`),
-  what they like, what to avoid, and a note. The **name and WhatsApp number on
-  the card are the single source of truth**: saving them writes them onto every
-  order that person has — labels, WhatsApp messages and the customer list all
-  follow — and the reverse happens when the details are fixed with Edit on an
-  order. Profiles live in a synced `customers` collection (`js/profiles.js`),
+  what they like, what to avoid, and a note. The **name and WhatsApp number are
+  held once and kept in step**: saving them on the card writes them onto every
+  order that person has, and fixing them with Edit on an order writes them back
+  onto the card — either place works, and whichever was edited last is what
+  labels, WhatsApp messages and the customer list show. Profiles live in a synced `customers` collection (`js/profiles.js`),
   keyed by the same trimmed/lowercased WhatsApp-or-name rule the customer rows
   use, so they ride shared data to both phones — a foundation for a future AI
   chat. Photos stay thumb-sized on purpose: the whole app state lives in one
