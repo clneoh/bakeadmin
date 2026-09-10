@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v66)
+# Jienluv2bake — change history (v54 → v67)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -12,6 +12,15 @@ Settings → **Website & developer**, all on its own, whenever the phone is sign
 in and sharing data. Before today that automatic email needed a behind-the-scenes
 service that was not switched on yet, so only the **"Email the full wish list"**
 row sent it by hand; that row is still there as a backup any time.
+
+## v67 — Naming a "No name" customer (10 Sep 2026)
+A customer who reached you without a name — a storefront order that carried none
+— used to stay **"No name"** in your customer book even after you opened them and
+typed a name. Now it sticks: open them, tap **Add details**, type the name (and
+the dog's name, what they like, and so on) and save, and their row shows that
+name straight away — in the list, the finder and the 'Hi {name}!' WhatsApp
+greeting. A tidy-up; nothing else about your customers changes. Engine v67,
+guide v67.
 
 ## v66 — Auto-translate product text, plus Draft / Publish / Hidden states (9 Sep 2026)
 Product **description, selling unit word** (the "RM15.00 / loaf" bit), **serving
