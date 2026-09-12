@@ -1,8 +1,21 @@
-# Jienluv2bake — change history (v54 → v74)
+# Jienluv2bake — change history (v54 → v75)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Sep 2026 — engine v75 (no database setup needed). The glow on an order
+you have just jumped to now stays until you reach it.** Tapping a row in the
+**New Orders** inbox (or a result in **Find an order**) takes you to that
+order's delivery day and marks the order with a green glow —
+but the glow used to fade after less than two seconds, which is no time at all
+when your eye is still travelling down a long day, and you were left hunting for
+a row that was no longer lit. **The glow now keeps pulsing until you get to the
+row.** It stops the moment your finger or the mouse arrives on that order, or
+when you tap it open — so it is waiting for you however long you take, and it
+never lingers as a puzzle later. (If a phone has **Reduce Motion** turned on in
+its accessibility settings, the same green outline holds steady instead of
+pulsing — it still stays until you reach the row.)
 
 **12 Sep 2026 — engine v74 (no database setup needed). The little arrow in an
 empty box now keeps working.** Engine v73 added the small right-arrow that sits

@@ -7,7 +7,7 @@
 // pressed) and the new-orders inbox, including orphaned orders (their delivery
 // date was deleted) that can only be removed, not opened.
 
-import { test, mock } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 
 // DOM shim so ui.js's el() can build nodes when newOrdersInbox renders.
@@ -173,15 +173,23 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
   }
 });
 
-// A row stub shaped like the date view's order row: a live classList and a
-// scrollIntoView, both recording what the reveal did to it.
+// A row stub shaped like the date view's order row: a live classList, a
+// scrollIntoView and listeners, all recording what the reveal did to it.
 function fakeRow() {
   const cls = [];
+  const listeners = {};
   return {
     cls,
+    listeners,
     scrolled: null,
     classList: { add: (c) => cls.push(c), remove: (c) => cls.push(`-${c}`) },
     scrollIntoView(opts) { this.scrolled = opts; },
+    addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
+    removeEventListener(type, fn) {
+      listeners[type] = (listeners[type] || []).filter((f) => f !== fn);
+    },
+    // The baker reaching the row — whichever of the settle events fires first.
+    settle(type = "pointerenter") { for (const fn of (listeners[type] || []).slice()) fn({ type }); },
   };
 }
 
@@ -197,16 +205,9 @@ function fakeRoot(byOrder = {}, byGroup = {}) {
   };
 }
 
-// Tap an inbox row with the flash's clear timer under our control, so the test
-// can watch the whole flash and the run leaves no timer pending.
+// Tap an inbox row (its click handler), which runs the whole reveal.
 function tapRow(rowEl) {
-  mock.timers.enable({ apis: ["setTimeout"] });
-  try {
-    rowEl._listeners.click[0]({ preventDefault() {} });
-    mock.timers.runAll();
-  } finally {
-    mock.timers.reset();
-  }
+  rowEl._listeners.click[0]({ preventDefault() {} });
 }
 
 test("a tap in the New-orders inbox opens the date, then flashes and centres the order's row", () => {
@@ -220,9 +221,27 @@ test("a tap in the New-orders inbox opens the date, then flashes and centres the
   tapRow(rows[1].children[0]); // o2 → d2
 
   assert.equal(opened, "d2", "the tap opens that order's delivery date");
-  assert.deepEqual(row.cls, ["hit", "-hit"], "the row flashes, then the flash clears itself");
+  assert.deepEqual(row.cls, ["hit"], "the row starts flashing and stays lit until the baker arrives");
   assert.equal(row.scrolled.block, "center", "the row is brought to the middle of the screen");
   assert.equal(row.scrolled.behavior, "smooth");
+
+  // Reaching the row is what ends the glow — not a clock.
+  row.settle();
+  assert.deepEqual(row.cls, ["hit", "-hit"], "the flash clears when the pointer lands on the row");
+  assert.equal(row.listeners.pointerenter.length, 0, "the settle listeners take themselves off");
+  assert.equal(row.listeners.pointermove.length, 0, "every settle event is removed, not just the one that fired");
+});
+
+test("the glow survives a long hunt, and any of the settle events ends it", () => {
+  // The reported problem: a fixed flash expires while the eye is still
+  // travelling, and the baker is left hunting for a row that is no longer lit.
+  const row = fakeRow();
+  const root = fakeRoot({ o2: row });
+  tapRow(newOrdersInbox(inboxState, () => {}, root).children[2].children[1].children[0]);
+
+  assert.deepEqual(row.cls, ["hit"], "still lit an hour later — nothing on a timer takes it off");
+  row.settle("pointerdown"); // the tap that opens the order
+  assert.deepEqual(row.cls, ["hit", "-hit"], "the tap on the row ends the glow too");
 });
 
 test("the reveal finds the row through the group id when it is tagged with a different item", () => {
@@ -238,7 +257,7 @@ test("the reveal finds the row through the group id when it is tagged with a dif
   tapRow(rows[1].children[0]); // o2 → d2, but only [data-group="g2"] answers
 
   assert.equal(opened, "d2");
-  assert.deepEqual(row.cls, ["hit", "-hit"], "the row was found through its group id");
+  assert.deepEqual(row.cls, ["hit"], "the row was found through its group id");
   assert.equal(row.scrolled.block, "center");
 });
 

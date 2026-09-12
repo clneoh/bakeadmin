@@ -1061,10 +1061,17 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 
 /* An order row just landed on via the finder briefly glows so the baker can
    see exactly where the search took her, then fades back. */
-.list-item.hit { animation: hit-glow 1.8s ease; }
+/* The "here it is" glow on an order row. It keeps pulsing until the baker
+   reaches the row (views/orders.js settles it when the pointer arrives) rather
+   than for a fixed moment, which can pass while her eye is still travelling
+   down a long day. */
+.list-item.hit { animation: hit-glow 1.4s ease-in-out infinite; }
 @keyframes hit-glow {
   0%, 100% { box-shadow: none; background: transparent; }
-  15%, 40% { box-shadow: 0 0 0 3px rgba(62, 142, 90, .55); background: rgba(62, 142, 90, .10); }
+  50% { box-shadow: 0 0 0 3px rgba(62, 142, 90, .55); background: rgba(62, 142, 90, .10); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-item.hit { animation: none; box-shadow: 0 0 0 3px rgba(62, 142, 90, .55); background: rgba(62, 142, 90, .10); }
 }
 
 /* ---------- Packing label (Packed orders) ---------- */

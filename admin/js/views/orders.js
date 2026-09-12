@@ -404,6 +404,9 @@ function renderAll(root, state, params) {
   anchorRowId = null;
 }
 
+// What ends a revealed row's glow: the baker getting to the row.
+const SETTLE_ON = ["pointerenter", "pointermove", "pointerdown", "mouseenter", "touchstart"];
+
 // Put an order's row under the baker's eye on the date view just shown: flash
 // it and slide the page until it sits mid-screen. Landing on the right delivery
 // date is not enough on a busy day — the row can be far down a long list, and
@@ -426,7 +429,18 @@ function revealOrderRow(root, group) {
   }
   if (!row) return;
   row.classList.add("hit");
-  setTimeout(() => row.classList.remove("hit"), 1800);
+  // The glow stays lit until the baker reaches the row. A fixed moment can pass
+  // while her eye is still travelling down a long day, and the whole point of the
+  // flash is to be found — so it is the pointer arriving on the row that ends it,
+  // not the clock. "pointerenter"/"pointermove" cover a mouse or a finger coming
+  // to the row (and a cursor already sitting where the row lands); "pointerdown"
+  // covers the tap that opens it; the mouse/touch pair is for a browser without
+  // pointer events at all.
+  const settle = () => {
+    row.classList.remove("hit");
+    for (const type of SETTLE_ON) row.removeEventListener(type, settle);
+  };
+  for (const type of SETTLE_ON) row.addEventListener(type, settle);
   if (typeof row.scrollIntoView === "function") {
     row.scrollIntoView({ block: "center", behavior: "smooth" });
   }
