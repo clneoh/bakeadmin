@@ -396,7 +396,7 @@ function myOwnDay(state, close) {
     addOccasion(state, ui.date, ui.date, name, "orange", close);
   };
   const nameInp = el("input", {
-    class: "input", placeholder: "e.g. Pet-treat promo day", maxlength: "40",
+    class: "input", placeholder: "e.g. Pet-treat promo day", "data-suggest": "Pet-treat promo day", maxlength: "40",
   });
   nameInp.addEventListener("input", () => { ui.name = nameInp.value; });
   nameInp.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(); });
@@ -502,6 +502,7 @@ function occLabelPicker(state, from, to, occ = null) {
 
     const nameInput = el("input", {
       class: "input", placeholder: "Type a name — e.g. \"Malaysia Day\"",
+      "data-suggest": "Malaysia Day",
       maxlength: "40", value: ui.name,
     });
     nameInput.addEventListener("input", () => { ui.name = nameInput.value; });

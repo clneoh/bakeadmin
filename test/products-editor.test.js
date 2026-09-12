@@ -113,6 +113,7 @@ function formHandles(root) {
     unit: nodes.find((n) => n.tagName === "SELECT"),
     desc: nodes.find((n) => n.tagName === "TEXTAREA"),
     closeDays: byPlaceholder("e.g. 14"),
+    cancelDays: byPlaceholder("e.g. 2"),
     validFrom: dates[0],
     validTo: dates[1],
     add: nodes.find((n) => n.tagName === "BUTTON"
@@ -142,6 +143,26 @@ test("saving a product keeps its two date rules (close days + from–to window)"
   assert.equal(saved.closeDays, 14, "typed close days round-trip onto the product");
   assert.equal(saved.validFrom, "2026-12-01");
   assert.equal(saved.validTo, "2026-12-24");
+});
+
+test("the change/cancel window saves as a number and is absent when left blank", () => {
+  const state = freshState();
+  const root = render(state);
+  const f = formHandles(root);
+  assert.ok(f.cancelDays, "new-product card shows the Changes-or-cancellations box");
+
+  f.name.value = "Focaccia";
+  f.unit.value = "u_loaf";
+  f.cancelDays.value = "2";
+  fire(f.add);
+  assert.equal(state.products[0].cancelDays, 2, "typed window round-trips onto the product");
+
+  // A second product, left blank, states no window at all.
+  const f2 = formHandles(render(state));
+  f2.name.value = "Brownie";
+  f2.unit.value = "u_loaf";
+  fire(f2.add);
+  assert.equal(state.products[1].cancelDays, undefined, "blank window = no window stated");
 });
 
 test("leaving both boxes blank saves a product that is open any day", () => {

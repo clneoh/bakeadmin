@@ -32,6 +32,9 @@ export function defaultState() {
         instagram: "",
         facebook: "",
         tngQr: "", // hosted image URL shown on the customer's track page for TNG payment
+        policy: "",   // cancellation / refund wording shown on the shop (English)
+        policyZh: "", // its 中文 box (auto-translated, editable)
+        policyMs: "", // its Bahasa Malaysia box (auto-translated, editable)
         products: [], // [{ name, price, unit }]
       },
       referrals: { // bring-a-friend scheme; synced so both phones agree
@@ -403,6 +406,25 @@ function consolidateDeliveryDates(deliveryDates, orders) {
   return { deliveryDates: out, orders: orders.map(reId) };
 }
 
+// Move a whole customer order to another delivery day. `group` is a group from
+// groupOrders() ({ orders: [...] }) or a single order row; `dest` is a
+// deliveryDates row ({ id, date }). Every row moves together — deliveryDateId
+// AND the deliveryDate snapshot — so per-day availability math and the order's
+// own history can never disagree, and a group whose rows had drifted onto
+// different days is unified by the move. Returns the rows that were moved.
+export function moveOrderGroup(group, dest) {
+  if (!group || !dest || !dest.id) return [];
+  const rows = Array.isArray(group.orders) ? group.orders : [group];
+  const moved = [];
+  for (const o of rows) {
+    if (!o || typeof o !== "object") continue;
+    o.deliveryDateId = dest.id;
+    o.deliveryDate = dest.date;
+    moved.push(o);
+  }
+  return moved;
+}
+
 // Storefront settings published to the customer page. Fills every field so a
 // partially-written stored value can't crash the Settings product editor, and
 // keeps only well-formed menu items.
@@ -433,6 +455,11 @@ function cleanStorefront(sf) {
             const v = p && p[k];
             if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
           }
+          // The change/cancel window the baker states for this product — shown
+          // to the customer, never enforced. Blank stays absent (no window).
+          const cancel = Number(p.cancelDays);
+          const cancelSet = p.cancelDays != null && !(typeof p.cancelDays === "string" && p.cancelDays.trim() === "");
+          if (cancelSet && Number.isInteger(cancel) && cancel >= 0) out.cancelDays = cancel;
           return out;
         })
     : [];
@@ -443,6 +470,9 @@ function cleanStorefront(sf) {
     instagram: String(src.instagram ?? d.instagram),
     facebook: String(src.facebook ?? d.facebook),
     tngQr: String(src.tngQr ?? d.tngQr),
+    policy: String(src.policy ?? d.policy),
+    policyZh: String(src.policyZh ?? d.policyZh),
+    policyMs: String(src.policyMs ?? d.policyMs),
     products,
   };
 }

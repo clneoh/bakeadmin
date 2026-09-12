@@ -346,6 +346,19 @@ h2.section:first-child { margin-top: 0; }
 .input:focus { outline: 2px solid var(--brown); outline-offset: -1px; border-color: transparent; }
 textarea.input { min-height: 64px; resize: vertical; }
 
+/* A field with a suggestion (data-suggest) shows a small arrow at its right
+   edge while it is empty — the greyed text is the suggestion, and pressing →
+   (or tapping that arrow, for a phone with no arrow key) accepts it. See
+   js/suggest.js. The padding keeps the greyed text clear of the arrow. */
+[data-suggest]:placeholder-shown {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3907c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13M13 6l6 6-6 6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 15px 15px;
+}
+textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12px; }
+
 .stepper {
   display: inline-flex;
   align-items: center;

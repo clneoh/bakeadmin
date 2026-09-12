@@ -54,13 +54,13 @@ function renderAll(root, state) {
 function buildEditor(state, product) {
   const recipeDraft = (product && product.recipe ? product.recipe : []).map((l) => ({ ...l }));
 
-  const name = el("input", { class: "input", placeholder: "e.g. Focaccia", value: product?.name || "" });
+  const name = el("input", { class: "input", placeholder: "e.g. Focaccia", "data-suggest": "Focaccia", value: product?.name || "" });
   const unitChoices = productUnitOptions(state, product);
   const unit = select(unitChoices.options, unitChoices.value, null, "Pick a unit…");
   const price = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.01",
     placeholder: "sell price (RM, optional)", value: product?.price ?? "" });
   const limit = el("input", { class: "input", type: "number", inputmode: "numeric", min: "1",
-    placeholder: "e.g. 12", value: product?.limit ?? "",
+    placeholder: "e.g. 12", "data-suggest": "12", value: product?.limit ?? "",
     title: "Max units of this product per delivery day. Limits are added together for the day's availability (e.g. 12 focaccia + 12 sandwiches = 24). Leave blank for no limit." });
 
   // Optional per-product date rules — customers can't order this product for a
@@ -68,16 +68,24 @@ function buildEditor(state, product) {
   // or a fixed from–to window of delivery dates. Both optional and per product:
   // blank means the product sells on any open date.
   const closeDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0",
-    placeholder: "e.g. 14", value: product?.closeDays ?? "",
+    placeholder: "e.g. 14", "data-suggest": "14", value: product?.closeDays ?? "",
     title: "Customers must pick a delivery date at least this many days away. Blank = any open day. 0 = no early close." });
   const validFrom = el("input", { class: "input", type: "date", value: product?.validFrom || "" });
   const validTo = el("input", { class: "input", type: "date", value: product?.validTo || "" });
+
+  // How long the customer may still change or cancel this product's order — the
+  // window is stated on the shop card and in a mixed order's strictest window.
+  // Purely informational: it never blocks the baker from moving an order by hand.
+  const cancelDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0",
+    placeholder: "e.g. 2", "data-suggest": "2", value: product?.cancelDays ?? "",
+    title: "How many days before delivery a customer may still change or cancel this product's order. This only tells the customer — it never blocks you. Blank or 0 = no window shown." });
 
   // A sentence or two customers read on the shop page to know what this is.
   // Optional — blank shows nothing. Kept on the product and published with the
   // storefront menu, so it is written once here, not on the shop.
   const desc = el("textarea", { class: "input", rows: 2,
     placeholder: "e.g. Rosemary focaccia — golden, airy crumb",
+    "data-suggest": "Rosemary focaccia — golden, airy crumb",
     value: product?.description || "" });
 
   // A quick how-to-serve line the owner sends with the bring-a-friend follow-up
@@ -85,6 +93,7 @@ function buildEditor(state, product) {
   // Optional — blank keeps the follow-up message to the referral ask only.
   const serving = el("textarea", { class: "input", rows: 2,
     placeholder: "e.g. Warm 10 min at 150°C — crisp on top, soft inside",
+    "data-suggest": "Warm 10 min at 150°C — crisp on top, soft inside",
     value: product?.servingTip || "" });
 
   // ── Auto-translated 中文 / Bahasa Malaysia text ───────────────────────────
@@ -305,6 +314,13 @@ function buildEditor(state, product) {
       closeVal = Math.floor(raw);
       if (closeVal < 0) return { error: "Closes days must be 0 or more" };
     }
+    let cancelVal;
+    if (cancelDays.value !== "") {
+      const raw = Number(cancelDays.value);
+      if (!Number.isFinite(raw)) return { error: "Change/cancel days must be a number" };
+      cancelVal = Math.floor(raw);
+      if (cancelVal < 0) return { error: "Change/cancel days must be 0 or more" };
+    }
     const vf = validFrom.value || undefined;
     const vt = validTo.value || undefined;
     if (vf && vt && vf > vt) return { error: "The \"from\" date is after the \"to\" date — swap them" };
@@ -318,6 +334,7 @@ function buildEditor(state, product) {
         price: price.value === "" ? undefined : Number(price.value),
         limit: limitVal,
         closeDays: closeVal,
+        cancelDays: cancelVal,
         validFrom: vf,
         validTo: vt,
         description: descVal || undefined,
@@ -328,7 +345,7 @@ function buildEditor(state, product) {
     };
   }
 
-  return { name, unit, price, limit, closeDays, validFrom, validTo, desc, serving, translations, recipeCard, renderRecipeLines, collect };
+  return { name, unit, price, limit, closeDays, cancelDays, validFrom, validTo, desc, serving, translations, recipeCard, renderRecipeLines, collect };
 }
 
 // Fold the translated boxes + their provenance onto a saved product row.
@@ -418,6 +435,10 @@ function editorFields(state, editor) {
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
         "Customers must pick a delivery date at least this many days away. Blank or 0 = any open day."),
       editor.closeDays),
+    el("div", { class: "field" }, el("label", {}, "Changes or cancellations (days before delivery)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "How long a customer may still change or cancel this product's order — shown on the shop with the product. This only tells the customer; it never blocks you, you always move orders by hand. Blank or 0 = nothing shown."),
+      editor.cancelDays),
     el("div", { class: "field" }, el("label", {}, "Available for delivery dates"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
         "Only sell this product on delivery dates inside this range (e.g. a seasonal item). Leave both empty for every open day."),

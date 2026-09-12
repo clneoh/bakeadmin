@@ -33,6 +33,7 @@ const en = {
   trackHint: "Placed an order? Enter the order number from your confirmation (it starts with <strong>#</strong>, e.g. #A3F9C2).",
   trackPh: "e.g. A3F9C2",
   trackBtn: "Track",
+  sPolicies: "Policies",
 
   items: "%1 items",
   oneItem: "1 item",
@@ -57,6 +58,15 @@ const en = {
   fixPoolClamp: "%1: only %2 can fit with the rest of your order now — we changed your %3 to %2.",
   fixClamp: "%1: only %2 left now — we changed your %3 to %2.",
   fixClosed: "%1: %2 — we removed it.",
+
+  // How long a customer may still change or cancel this product's order (the
+  // baker's stated window — shown, never enforced) and the same window on the
+  // order receipt, where it carries the no-refund rule. One day needs its own
+  // key so English never reads "1 days".
+  cancelNote: "Change or cancel up to %1 days before delivery.",
+  cancelNoteOne: "Change or cancel up to 1 day before delivery.",
+  orderCancelNote: "Change or cancel up to %1 days before delivery. Payments are not refundable — your order can be moved to another day.",
+  orderCancelNoteOne: "Change or cancel up to 1 day before delivery. Payments are not refundable — your order can be moved to another day.",
 
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
@@ -120,6 +130,7 @@ const zh = {
   trackHint: "已经下单了？请输入确认讯息里的订单编号（以 <strong>#</strong> 开头，例如 #A3F9C2）。",
   trackPh: "例如：A3F9C2",
   trackBtn: "查询",
+  sPolicies: "条规",
 
   items: "%1 项",
   oneItem: "1 项",
@@ -139,6 +150,11 @@ const zh = {
   fixPoolClamp: "%1：现在配合订单其余部分只装得下 %2 份 — 已把你的 %3 改为 %2。",
   fixClamp: "%1：现在只剩 %2 份 — 已把你的 %3 改为 %2。",
   fixClosed: "%1：%2 — 已移除。",
+
+  cancelNote: "可在派送日前 %1 天更改或取消。",
+  cancelNoteOne: "可在派送日前 1 天更改或取消。",
+  orderCancelNote: "可在派送日前 %1 天更改或取消。款项不退还 — 订单可改期至其他派送日。",
+  orderCancelNoteOne: "可在派送日前 1 天更改或取消。款项不退还 — 订单可改期至其他派送日。",
 
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
@@ -202,6 +218,7 @@ const ms = {
   trackHint: "Sudah menempah? Masukkan nombor tempahan dari mesej pengesahan (bermula dengan <strong>#</strong>, cth. #A3F9C2).",
   trackPh: "cth. A3F9C2",
   trackBtn: "Semak",
+  sPolicies: "Polisi",
 
   items: "%1 item",
   oneItem: "1 item",
@@ -221,6 +238,11 @@ const ms = {
   fixPoolClamp: "%1: hanya %2 boleh dimuatkan bersama baki tempahan anda — kami telah tukar %3 anda kepada %2.",
   fixClamp: "%1: tinggal %2 sahaja sekarang — kami telah tukar %3 anda kepada %2.",
   fixClosed: "%1: %2 — kami telah keluarkannya.",
+
+  cancelNote: "Tukar atau batal sehingga %1 hari sebelum penghantaran.",
+  cancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum penghantaran.",
+  orderCancelNote: "Tukar atau batal sehingga %1 hari sebelum penghantaran. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
+  orderCancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum penghantaran. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan tempahan dan hantar QR pembayaran anda.",

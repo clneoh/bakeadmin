@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v72)
+# Jienluv2bake — change history (v54 → v73)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Sep 2026 — engine v73 (no database setup needed).** Five changes, all about
+the shop's promise to the customer and the baker's control over it.
+
+Your rule is that an order is **not cancellable and money is not refunded, but it
+can be moved to another day**, and a customer may ask until a set number of days
+before delivery. That number now lives **per product**. Open a product in
+**Products** and, under its daily limit, a new box **"Changes or cancellations
+(days before delivery)"** — type 2, say, and that product's card on the shop
+reads **"Change or cancel up to 2 days before delivery."** It only ever *tells*
+the customer; it never blocks you, and you still move any order by hand. Leave it
+blank (or 0) and no note shows for that product. When one order holds several
+products with different numbers, the customer sees the **strictest** one — the
+largest, i.e. the earliest cut-off — so a mixed basket always gives one clear
+figure. The same sentence appears on the green **"Order received!"** card just
+after they place the order.
+
+Second, **you can now move an order to another delivery day in the app.** Open an
+order with **Edit** and, in the pop-up, a new **"Delivery day"** box lists every
+day still to come, soonest first. Pick the new day and **Save changes**: the
+whole order moves as one — items, customer and the price it was sold at all stay
+put — and the customer's **"Track your order"** page follows to the new day
+straight away. Under the box are quiet notes to help you decide: the order's own
+change/cancel window, a reminder when the new day falls **inside** it, a note if
+that day's orders have already closed, and a note if that day does not have
+enough left for an item. None of them stop you — they only tell you — and the
+capacity check now counts the order on the **new** day, so you can see at once if
+that day would go over. This is the **only** way to change an order's day: never
+delete an order and re-type it, because deleting reads as a cancellation. A day
+left empty stays in your list — to remove it, use **Del** on the Deliveries
+screen as before.
+
+Third, **a Policies box** for your own cancellation and refund wording. It sits
+in **More → Settings → Storefront**. Type it once in English, tap **Translate**,
+and the 中文 and Bahasa Malaysia boxes are filled for you (edit either and it
+becomes yours). It appears on the shop **under Track your order**, in the
+customer's own language and with the line breaks you typed, and it stays hidden
+until you write something.
+
+Fourth, and everywhere in the app: **an empty box showing a greyed suggestion can
+now be accepted with one tap — the arrow.** A small right-arrow sits at the right
+edge of such boxes; press the **right-arrow key** or tap that arrow and the
+suggestion drops in as real text you can edit — the same gesture as accepting a
+suggestion in an AI chat. It is offered only where the grey text is a genuine
+recommendation; the sign-in and cloud boxes never offer it, so a made-up key or
+password can never be accepted by accident.
+
+No database setup and no new SQL — the new product box and the Policies wording
+travel with your existing shared data.
 
 **9 Sep 2026 — the wish list's automatic email went live (no new engine; the
 phones did not change).** Adding a wish on **More → Software wish list** now
