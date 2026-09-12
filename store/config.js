@@ -53,9 +53,4 @@ export const CONFIG = {
   // the app translates it; policyZh / policyMs carry the translations. Empty
   // hides the whole section — this is only the offline fallback.
   policy: "",
-
-  // TNG QR payment code — a hosted image URL, shown on the "Track your order"
-  // card so customers can pay after ordering. The backoffice publishes this
-  // from Settings → Storefront; this is only the offline fallback.
-  tngQr: "",
 };

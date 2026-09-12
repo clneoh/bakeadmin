@@ -31,7 +31,7 @@ export function defaultState() {
         tagline: "",
         instagram: "",
         facebook: "",
-        tngQr: "", // hosted image URL shown on the customer's track page for TNG payment
+        tngQr: "", // hosted image URL sent in the WhatsApp confirmation / payment reminder
         policy: "",   // cancellation / refund wording shown on the shop (English)
         policyZh: "", // its 中文 box (auto-translated, editable)
         policyMs: "", // its Bahasa Malaysia box (auto-translated, editable)

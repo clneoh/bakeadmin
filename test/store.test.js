@@ -326,9 +326,13 @@ test("buildMessage appends the delivery method and courier address", () => {
   assert.ok(msg.includes("📍 12 Jalan Bunga, Penang"));
 });
 
-test("mergeStorefront carries the TNG QR image URL", () => {
-  const out = mergeStorefront({ tngQr: "" }, { tngQr: "https://img/tng.png" });
-  assert.equal(out.tngQr, "https://img/tng.png");
+// The TNG QR is sent to the customer in the WhatsApp confirmation and payment
+// reminder; it is deliberately not part of the shop's config, and the shop
+// draws no payment code anywhere. This fails if the key is ever added back.
+test("mergeStorefront never carries the TNG QR — the shop shows no payment code", () => {
+  const out = mergeStorefront({}, { tngQr: "https://img/tng.png", name: "Jienluv2bake" });
+  assert.equal(out.tngQr, undefined);
+  assert.equal(out.name, "Jienluv2bake", "other keys still merge");
 });
 
 test("trackOrder re-fetches and re-renders every lookup (never stale)", async () => {

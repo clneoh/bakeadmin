@@ -4,6 +4,15 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**12 Sep 2026 — the TNG QR box no longer claims to be on the order page (no new
+engine; your phones did not change).** The box in **Settings → Storefront**
+holding your Touch 'n Go QR image link said it was **"shown on the customer's
+track page"**. It never was — your payment QR reaches the customer in the
+**WhatsApp confirmation** and the **payment reminder**, and nowhere else. The
+help text now says that, and the order page's own settings no longer carry the
+QR at all, so it cannot be drawn there by accident. Nothing about how you take
+payment changed, and nothing about how the app works changed.
+
 **12 Sep 2026 — engine v75 (no database setup needed). The glow on an order
 you have just jumped to now stays until you reach it.** Tapping a row in the
 **New Orders** inbox (or a result in **Find an order**) takes you to that
@@ -54,7 +63,7 @@ can be moved to another day**, and a customer may ask until a set number of days
 before delivery. That number now lives **per product**. Open a product in
 **Products** and, under its daily limit, a new box **"Changes or cancellations
 (days before delivery)"** — type 2, say, and that product's card on the shop
-reads **"Change or cancel up to 2 days before delivery."** It only ever *tells*
+reads **"Change or cancel up to 2 days before delivery."** It only ever __tells__
 the customer; it never blocks you, and you still move any order by hand. Leave it
 blank (or 0) and no note shows for that product. When one order holds several
 products with different numbers, the customer sees the **strictest** one — the
@@ -108,7 +117,7 @@ row sent it by hand; that row is still there as a backup any time.
 change).** Two things about the public homepage were quietly costing every
 visitor time, and both are fixed.
 
-The homepage's six photographs were stored *inside* the page itself, so the
+The homepage's six photographs were stored __inside__ the page itself, so the
 page was **249 KB before a single picture had even been asked for** — and every
 visitor downloaded all of it, on every visit, before they could see anything.
 The photos are now six separate files that the browser fetches and **keeps for
@@ -377,7 +386,7 @@ the app password. Setup: run `supabase/backups.sql` once.
 ## v60 — Homepage customer reviews (8 Sep 2026)
 Customers can leave a **What customers say** review on the homepage — name,
 1–5 stars, a message in English / 中文 / Bahasa Malaysia, and an optional
-photo. Every review lands *unpublished* in More → Reviews, where **Publish**
+photo. Every review lands __unpublished__ in More → Reviews, where **Publish**
 shows it on the homepage, **Take down** hides it, and **Delete** removes it —
 nothing becomes public until you tap Publish. Reviews appear on the homepage
 only. Setup: run `supabase/reviews.sql` once.
@@ -391,8 +400,8 @@ A one-tap **＋ Add occasion** import of Malaysia's days plus fun days (pet,
 baking, kindness), and a **My own day** quick-add.
 
 ## v57 — Private notes per product ingredient (8 Sep 2026)
-Each ingredient line in a product can carry a short private description *for
-that product only* (e.g. which flour that product uses). Typed and seen on the
+Each ingredient line in a product can carry a short private description __for
+that product only__ (e.g. which flour that product uses). Typed and seen on the
 Products screens only — never on the shop, a label, or the product cards.
 
 ## v56 — "Keep at least" reserve (8 Sep 2026)
@@ -415,6 +424,6 @@ them).
 
 ---
 
-*This history covers the two-phone cloud era (v54+). Earlier versions
+__This history covers the two-phone cloud era (v54+). Earlier versions
 (pre-v54) were never recorded version by version, so they are not listed here
-rather than invented. Each new version is added here as it ships.*
+rather than invented. Each new version is added here as it ships.__

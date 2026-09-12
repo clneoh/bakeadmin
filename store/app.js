@@ -192,7 +192,7 @@ export function buildMessage(cfg, order) {
 export function mergeStorefront(base, remote) {
   if (!remote || typeof remote !== "object") return { ...base };
   const out = { ...base };
-  for (const key of ["whatsapp", "name", "tagline", "instagram", "facebook", "cutoff", "tngQr", "policy", "policyZh", "policyMs"]) {
+  for (const key of ["whatsapp", "name", "tagline", "instagram", "facebook", "cutoff", "policy", "policyZh", "policyMs"]) {
     if (typeof remote[key] === "string" && remote[key].trim()) out[key] = remote[key].trim();
   }
   for (const key of ["capacity", "upcomingCount"]) {
