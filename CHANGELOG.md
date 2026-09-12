@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v75)
+# Jienluv2bake — change history (v54 → v76)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Sep 2026 — engine v76 (no database setup needed). The translated text on a
+product is now one quiet card that folds away, filled in for you one line at a
+time.** The **Product text for your customers** part of the New/Edit product
+screen — the same words in **中文** and **Bahasa Malaysia** — was the busiest
+corner of the whole app. It was always open, so a long screen got longer before
+you needed any of it; eight lines each carried its own **"Translate this one"**
+button; two **"Fill all"** buttons sat above them; and a little **"auto"**
+tag marked the machine-made lines, in a word you had to remember the meaning of.
+
+Now the card starts **shut** and stays shut — it is the setup part of the
+screen, not the part you touch every day. **Tap its title to open it.** Opened,
+each line already has its translation worked out and waiting as the same pale
+grey suggestion you know from every other box, with the little **→** at its
+right edge: **tap the → and the suggested words drop in** — exactly the gesture
+you already use. The moment you take them, the arrow is replaced by a small
+**↻** — tap it and that one line is translated again on the spot, which is what
+the old "Translate this one" button did. **Type your own words over any line and
+the ↻ goes away** for that line: it is yours, and it is never overwritten. **Leave a
+line blank** and that language keeps the English, the same as before. And when
+you are done, **tap anywhere outside the card and it folds away again.**
+
+The **"Fill all 中文" / "Fill all Bahasa Malaysia"** buttons are gone, the
+eight **"Translate this one"** buttons are gone, and there is no **"auto"** tag
+to read any more — a line showing the ↻ is machine text, and a line with no button
+is yours. Nothing about what your customers see has changed, and nothing needs
+setting up: a product is still translated for the shop the first time you save
+it and again when you Publish, exactly as before, so a product you never open
+this card for still reads in all three languages on the order page.
 
 **12 Sep 2026 — the TNG QR box no longer claims to be on the order page (no new
 engine; your phones did not change).** The box in **Settings → Storefront**

@@ -41,12 +41,22 @@ function fitsType(field, value) {
 
 // Put the field's suggestion in and tell the view about it, as if typed.
 // Returns true when something was accepted.
+//
+// The two events carry `suggested = true`, because a view cannot otherwise tell
+// an accepted recommendation from the baker's own typing: both arrive as an
+// ordinary input event. Products uses it to keep a machine translation machine
+// (never frozen as hand-written just because → was tapped). Views that don't
+// care simply ignore the flag.
 export function acceptSuggestion(field) {
   const value = suggestionValue(field);
   if (!value || !fitsType(field, value)) return false;
   field.value = value;
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new Event("change", { bubbles: true }));
+  const input = new Event("input", { bubbles: true });
+  const change = new Event("change", { bubbles: true });
+  input.suggested = true;
+  change.suggested = true;
+  field.dispatchEvent(input);
+  field.dispatchEvent(change);
   return true;
 }
 

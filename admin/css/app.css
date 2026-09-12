@@ -359,6 +359,58 @@ textarea.input { min-height: 64px; resize: vertical; }
 }
 textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12px; }
 
+/* ---------- The product screen's translated lines ---------- */
+/* The card is shut until its title is tapped and shuts again on a tap outside;
+   the title IS the header, so it is a button with nothing of .btn about it. */
+.trans-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.trans-caret { color: var(--muted); font-size: 13px; }
+.trans-body[hidden] { display: none; }
+
+/* One translated line: the field, with a ↻ that translates it again sitting
+   where the suggestion arrow sits while the field is empty. The two never
+   appear together — the arrow's CSS only draws on an empty field, and ↻ only
+   shows once a line has words (or when there is nothing to offer it). */
+.tr-wrap { position: relative; }
+.tr-regen {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--brown-dark);
+  font-size: 15px;
+  line-height: 1;
+  padding: 6px 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tr-regen:active { background: var(--brown-soft); }
+.tr-regen[hidden] { display: none; }
+.tr-wrap--text .tr-regen { top: 12px; transform: none; }
+/* The arrow's gap in the padding only exists while a field is EMPTY, so a line
+   that already has words needs one of its own or ↻ would sit over the text. */
+.tr-wrap.has-regen .input { padding-right: 40px; }
+
 .stepper {
   display: inline-flex;
   align-items: center;
