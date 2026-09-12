@@ -404,12 +404,40 @@ function renderAll(root, state, params) {
   anchorRowId = null;
 }
 
+// Put an order's row under the baker's eye on the date view just shown: flash
+// it and slide the page until it sits mid-screen. Landing on the right delivery
+// date is not enough on a busy day — the row can be far down a long list, and
+// the baker should not have to hunt for the order they just tapped. The list
+// draws one row per customer order, tagged with its first item's id, so try
+// every id in the group; a group whose items were somehow left with different
+// statuses is tagged with whichever item the date view lists first, so fall
+// back to the group id the row also carries.
+function revealOrderRow(root, group) {
+  const orders = (group && group.orders) || [];
+  if (!root || typeof root.querySelector !== "function" || !orders.length) return;
+  let row = null;
+  for (const o of orders) {
+    row = root.querySelector(`[data-order="${o.id}"]`);
+    if (row) break;
+  }
+  if (!row) {
+    const gid = orders.find((o) => o.groupId)?.groupId;
+    if (gid) row = root.querySelector(`[data-group="${gid}"]`);
+  }
+  if (!row) return;
+  row.classList.add("hit");
+  setTimeout(() => row.classList.remove("hit"), 1800);
+  if (typeof row.scrollIntoView === "function") {
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+}
+
 // Inbox card at the top of the Orders screen: every order still waiting to be
 // handled (status New), across all delivery dates, oldest first. Tap a row to
-// jump to that delivery date and confirm it. The red tab badge counts the same
-// set, so a new storefront order surfaces here without digging through dates.
-// A storefront order with several items is one row ("Focaccia + Sandwich"),
-// not one row per item.
+// jump to that delivery date, scroll the order into view and flash it. The red
+// tab badge counts the same set, so a new storefront order surfaces here without
+// digging through dates. A storefront order with several items is one row
+// ("Focaccia + Sandwich"), not one row per item.
 export function newOrdersInbox(state, selectDate, root) {
   const unread = (state.orders || [])
     .filter((o) => (o.status || "new") === "new")
@@ -442,7 +470,14 @@ export function newOrdersInbox(state, selectDate, root) {
           href: `#/orders?date=${first.deliveryDateId}`,
           // Switch dates in place like the date tabs (not native hash navigation,
           // which is flaky on iOS) so the tap reliably opens the order's date.
-          onclick: (ev) => { ev.preventDefault(); selectDate(first.deliveryDateId); },
+          onclick: (ev) => {
+            ev.preventDefault();
+            // A status filter could hide the row on its own date — clear it, the
+            // same way the finder does, so the flash has something to land on.
+            orderStatusFilter = "";
+            selectDate(first.deliveryDateId);
+            revealOrderRow(root, g);
+          },
         }, main, meta);
     return el("div", { class: "inbox-item" },
       nav,
@@ -457,7 +492,7 @@ export function newOrdersInbox(state, selectDate, root) {
     el("h3", { style: "margin:0 0 2px" },
       `📥 ${rows.length} new order${rows.length === 1 ? "" : "s"}`),
     el("p", { class: "card-sub", style: "margin:0 0 6px" },
-      "Tap a row to open the delivery date and confirm."),
+      "Tap a row to jump to that order on its delivery date and confirm it."),
     el("div", { class: "inbox-list" }, ...rows));
 }
 
@@ -554,13 +589,7 @@ function orderFinderEl(state, root, selectDate, body) {
     }
     orderStatusFilter = "";
     selectDate(date.id); // renderContent already put the order's row in the DOM
-    const row = root.querySelector(`[data-order="${first.id}"]`);
-    if (!row) return;
-    row.classList.add("hit");
-    setTimeout(() => row.classList.remove("hit"), 1800);
-    if (typeof row.scrollIntoView === "function") {
-      row.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
+    revealOrderRow(root, group);
   };
 
   if (orderQuery.trim()) { showResults(); paint(orderQuery); } // a rebuild while searching
@@ -1319,7 +1348,13 @@ function orderGroupRow(state, group, root, dateId) {
     ? el("div", { class: "li-sub muted" }, "Add the customer's WhatsApp (tap Edit) to send this order's messages.")
     : null;
 
-  return el("div", { class: "list-item", dataset: { order: first.id } },
+  // The row is tagged with its first item's id; the group id rides along so the
+  // inbox tap can still find this row when its own item is not the first one.
+  const rowAttrs = { class: "list-item", dataset: { order: first.id } };
+  const groupId = orders.find((o) => o.groupId)?.groupId;
+  if (groupId) rowAttrs.dataset.group = groupId;
+
+  return el("div", rowAttrs,
     el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title, orderCodeTag(first),
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),

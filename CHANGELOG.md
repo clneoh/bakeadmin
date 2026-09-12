@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**12 Sep 2026 — a new order now opens on the order itself (no new engine;
+nothing to set up).** Tapping a row in the **New Orders** inbox took you to that
+order's delivery day — and stopped there. On a busy day, with a long list of
+orders, you then had to read down the list to find the very order you had just
+tapped, and it was easy to open the wrong one.
+
+The app now goes the whole way: it opens the delivery day, **scrolls the order
+to the middle of the screen and flashes it** for a moment, exactly as the **Find
+an order** search box already did. If the list had been narrowed with the status
+filter so the order was hidden, that filter is cleared first, so the order is
+always there waiting for you. Nothing else on the Orders screen changed.
+
 **12 Sep 2026 — engine v73 (no database setup needed).** Five changes, all about
 the shop's promise to the customer and the baker's control over it.
 

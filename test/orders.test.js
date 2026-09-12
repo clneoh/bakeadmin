@@ -7,7 +7,7 @@
 // pressed) and the new-orders inbox, including orphaned orders (their delivery
 // date was deleted) that can only be removed, not opened.
 
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 
 // DOM shim so ui.js's el() can build nodes when newOrdersInbox renders.
@@ -171,6 +171,85 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
     assert.ok(code, "title line carries the order code tag");
     assert.ok(String(code.children[0].text || "").startsWith("#"), "tag reads like #A3F9C2");
   }
+});
+
+// A row stub shaped like the date view's order row: a live classList and a
+// scrollIntoView, both recording what the reveal did to it.
+function fakeRow() {
+  const cls = [];
+  return {
+    cls,
+    scrolled: null,
+    classList: { add: (c) => cls.push(c), remove: (c) => cls.push(`-${c}`) },
+    scrollIntoView(opts) { this.scrolled = opts; },
+  };
+}
+
+// A stand-in for the view element, answering the two lookups the reveal makes.
+function fakeRoot(byOrder = {}, byGroup = {}) {
+  return {
+    querySelector(sel) {
+      let m = /^\[data-order="(.+)"\]$/.exec(sel);
+      if (m) return byOrder[m[1]] || null;
+      m = /^\[data-group="(.+)"\]$/.exec(sel);
+      return (m && byGroup[m[1]]) || null;
+    },
+  };
+}
+
+// Tap an inbox row with the flash's clear timer under our control, so the test
+// can watch the whole flash and the run leaves no timer pending.
+function tapRow(rowEl) {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    rowEl._listeners.click[0]({ preventDefault() {} });
+    mock.timers.runAll();
+  } finally {
+    mock.timers.reset();
+  }
+}
+
+test("a tap in the New-orders inbox opens the date, then flashes and centres the order's row", () => {
+  const row = fakeRow();
+  const root = fakeRoot({ o2: row });
+  let opened = null;
+  const inbox = newOrdersInbox(inboxState, (id) => { opened = id; }, root);
+  const rows = inbox.children[2].children; // .inbox-list
+  assert.equal(opened, null, "nothing opens before the tap");
+
+  tapRow(rows[1].children[0]); // o2 → d2
+
+  assert.equal(opened, "d2", "the tap opens that order's delivery date");
+  assert.deepEqual(row.cls, ["hit", "-hit"], "the row flashes, then the flash clears itself");
+  assert.equal(row.scrolled.block, "center", "the row is brought to the middle of the screen");
+  assert.equal(row.scrolled.behavior, "smooth");
+});
+
+test("the reveal finds the row through the group id when it is tagged with a different item", () => {
+  // The date view draws ONE row per customer order, tagged with whichever item
+  // it lists first — which a group left with mixed statuses may not be the item
+  // the inbox holds. The row carries its group id too, and that is the fallback.
+  const row = fakeRow();
+  const root = fakeRoot({}, { g2: row });
+  let opened = null;
+  const inbox = newOrdersInbox(inboxState, (id) => { opened = id; }, root);
+  const rows = inbox.children[2].children; // .inbox-list
+
+  tapRow(rows[1].children[0]); // o2 → d2, but only [data-group="g2"] answers
+
+  assert.equal(opened, "d2");
+  assert.deepEqual(row.cls, ["hit", "-hit"], "the row was found through its group id");
+  assert.equal(row.scrolled.block, "center");
+});
+
+test("an orphaned inbox row offers no tap, and an unfound row is left alone", () => {
+  // The orphan has no date to open, so it renders as a plain span with no click.
+  const inbox = newOrdersInbox(inboxState, () => {}, fakeRoot());
+  const rows = inbox.children[2].children; // .inbox-list
+  assert.equal(rows[0].children[0]._listeners.click, undefined, "an orphan row cannot be tapped");
+
+  // A row that the date view did not render (e.g. filtered away) must not throw.
+  assert.doesNotThrow(() => tapRow(rows[1].children[0]));
 });
 
 test("newOrdersInbox tags an order that arrived through a referral link", () => {
