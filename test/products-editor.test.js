@@ -658,7 +658,7 @@ test("opening the card works out each line's translation and offers it as a sugg
     const nameZh = trBox(root, "nameZh");
     assert.equal(nameZh.value, "", "the words are offered, never taken for her");
     assert.equal(nameZh.dataset.suggest, "T:Focaccia", "the → would insert the translation");
-    assert.equal(nameZh.placeholder, "e.g. T:Focaccia — blank keeps English",
+    assert.equal(nameZh.placeholder, "e.g. T:Focaccia……if blank, it will be filled with English",
       "the greyed text carries the wording and what blank means");
     assert.equal(trRegen(root, "nameZh").hidden, true, "no ↻ while the → is on offer");
     assert.equal(trBox(root, "descZh").dataset.suggest, "T:Rosemary focaccia — golden, airy crumb",

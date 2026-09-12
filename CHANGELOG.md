@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v76)
+# Jienluv2bake — change history (v54 → v77)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Sep 2026 — engine v77 (no database setup needed). The greyed line in the
+translated-text card now says what happens if you leave it blank.** Engine v76
+turned the product screen's 中文 / Bahasa Malaysia text into one folding card,
+and each empty line showed its translation on offer. That greyed line read
+"e.g. <the translation> — blank keeps English". It now reads **"e.g. <the
+translation>……if blank, it will be filled with English"** — the same words
+you asked for, saying plainly what the customer gets rather than asking you to
+work it out. The line in the card's own explanation says the same. Deleting
+what is in a line brings the greyed line and its arrow straight back, exactly as
+before. Nothing else moved: the card still folds away when you tap outside, the
+→ still takes the words, the ↻ still translates that line again.
 
 **13 Sep 2026 — engine v76 (no database setup needed). The translated text on a
 product is now one quiet card that folds away, filled in for you one line at a

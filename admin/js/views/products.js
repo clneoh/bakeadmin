@@ -181,7 +181,11 @@ function buildEditor(state, product) {
     return "";
   }
 
-  const hintFor = (t) => `e.g. ${t} — blank keeps English`;
+  // The greyed hint on a line with no words of its own: the translation on
+  // offer, then what happens if she leaves it alone. Says "filled with English"
+  // rather than naming the English, because that is what the customer gets —
+  // the English goes in where the translation is missing.
+  const hintFor = (t) => `e.g. ${t}……if blank, it will be filled with English`;
 
   // What the right edge of one line offers. An empty line shows the greyed
   // recommendation with the → the app draws on any suggested field; once it has
@@ -268,7 +272,7 @@ function buildEditor(state, product) {
   // anywhere outside it — see openCards at the top of this module.
   const transBody = el("div", { class: "trans-body", hidden: true },
     el("p", { class: "card-sub", style: "margin:8px 0 0" },
-      "The same text in 中文 and Bahasa Malaysia, worked out for you. Tap the → in a line to take the suggested words, or type your own. A line that already has words shows ↻ instead — tap it for fresh wording. Blank keeps the English."),
+      "The same text in 中文 and Bahasa Malaysia, worked out for you. Tap the → in a line to take the suggested words, or type your own. A line that already has words shows ↻ instead — tap it for fresh wording. If you leave a line blank, it will be filled with English."),
     langSection("zh"),
     langSection("ms"));
   const caret = el("span", { class: "trans-caret" }, "▸");
