@@ -15,7 +15,7 @@ import { acceptSuggestion, installSuggestionAccept } from "../admin/js/suggest.j
 // A tiny stand-in for a real <input>: enough for suggestionValue/fitsType and to
 // record the events acceptSuggestion fires.
 class FakeField {
-  constructor({ type = "text", value = "", suggest, disabled = false, readOnly = false, rect } = {}) {
+  constructor({ type = "text", value = "", suggest, disabled = false, readOnly = false, rect, clientWidth } = {}) {
     this.tagName = "INPUT";
     this.type = type;
     this.value = value;
@@ -24,6 +24,7 @@ class FakeField {
     this.dataset = suggest === undefined ? {} : { suggest };
     this.events = [];
     this._rect = rect || { width: 200, right: 300 };
+    this.clientWidth = clientWidth;
     this.focused = false;
   }
   dispatchEvent(ev) { this.events.push(ev.type); return true; }
@@ -121,20 +122,78 @@ test("the pointerdown path accepts only in the right-edge arrow zone", () => {
   root.fire("pointerdown", { target: field, clientX: 100, preventDefault() { this.defaultPrevented = true; } });
   assert.equal(field.value, "", "a left-side tap is an ordinary tap");
 
-  // A tap in the last ~30px is the drawn arrow.
+  // A tap in the last strip is the drawn arrow.
   const inZone = { target: field, clientX: 292, preventDefault() { this.defaultPrevented = true; } };
   root.fire("pointerdown", inZone);
   assert.equal(field.value, "2");
-  assert.equal(field.focused, true, "the field is focused so the accepted text is visible");
+  assert.equal(field.focused, false,
+    "no focus, so the phone keyboard cannot slide up and shift the page under the next tap");
   assert.equal(inZone.defaultPrevented, true);
+
+  // The strip runs 52px deep on a 200px field, so a thumb landing a little wide
+  // of the drawn arrow still counts.
+  const wide = new FakeField({ suggest: "2", rect: { width: 200, right: 300 } });
+  root.fire("pointerdown", { target: wide, clientX: 255, preventDefault() {} });
+  assert.equal(wide.value, "2", "the strip is generous around the drawn arrow");
+});
+
+test("either reading can find the arrow, and both must miss for a tap to be ordinary", () => {
+  const root = fakeRoot();
+  installSuggestionAccept(root);
+  const box = { clientWidth: 200, rect: { width: 200, right: 300 } };
+
+  // A phone page that has panned (its keyboard opened under the thumb) can report
+  // a page coordinate that no longer matches where the field is drawn. The
+  // field's own offset still reads true, so the tap counts.
+  const panned = new FakeField({ suggest: "2", ...box });
+  root.fire("pointerdown", { target: panned, offsetX: 180, clientX: 40, preventDefault() {} });
+  assert.equal(panned.value, "2", "the field's own reading takes the tap when clientX is stale");
+
+  // The plain reading still works on its own — an event with no usable offset.
+  const noOffset = new FakeField({ suggest: "2", ...box });
+  root.fire("pointerdown", { target: noOffset, clientX: 292, preventDefault() {} });
+  assert.equal(noOffset.value, "2", "a right-edge tap counts without an offset reading");
+
+  // Only a tap that misses the strip on BOTH readings is an ordinary tap.
+  const ordinary = new FakeField({ suggest: "2", ...box });
+  root.fire("pointerdown", { target: ordinary, offsetX: 20, clientX: 100, preventDefault() {} });
+  assert.equal(ordinary.value, "", "a left-side tap on both readings is an ordinary tap");
+
+  // The strip is never narrower than a thumb: 30px even on a cramped field.
+  const narrow = new FakeField({ suggest: "2", clientWidth: 100, rect: { width: 100, right: 300 } });
+  root.fire("pointerdown", { target: narrow, offsetX: 75, preventDefault() {} });
+  assert.equal(narrow.value, "2", "30px strip on a narrow field");
+  const narrowMiss = new FakeField({ suggest: "2", clientWidth: 100, rect: { width: 100, right: 300 } });
+  root.fire("pointerdown", { target: narrowMiss, offsetX: 60, preventDefault() {} });
+  assert.equal(narrowMiss.value, "", "still an ordinary tap further left");
+});
+
+test("a click lands the same way, and cannot double-accept", () => {
+  const root = fakeRoot();
+  installSuggestionAccept(root);
+  // Browsers without pointer events (older iOS) only send the click.
+  const field = new FakeField({ suggest: "2", clientWidth: 200, rect: { width: 200, right: 300 } });
+  root.fire("click", { target: field, offsetX: 190 });
+  assert.equal(field.value, "2");
+  assert.deepEqual(field.events, ["input", "change"], "accepted exactly once");
+
+  // A pointerdown that already took the value leaves the follow-up click nothing
+  // to do — so no second input/change pair fires.
+  const both = new FakeField({ suggest: "2", clientWidth: 200, rect: { width: 200, right: 300 } });
+  root.fire("pointerdown", { target: both, offsetX: 190, preventDefault() {} });
+  root.fire("click", { target: both, offsetX: 190 });
+  assert.equal(both.value, "2");
+  assert.deepEqual(both.events, ["input", "change"], "a tap is not accepted twice");
 });
 
 test("the installed listeners can be removed again", () => {
   const root = fakeRoot();
   const remove = installSuggestionAccept(root);
   remove();
-  const field = new FakeField({ suggest: "2" });
+  const field = new FakeField({ suggest: "2", clientWidth: 200 });
   root.fire("keydown", keyEvent(field, "ArrowRight"));
+  root.fire("pointerdown", { target: field, offsetX: 190, preventDefault() {} });
+  root.fire("click", { target: field, offsetX: 190 });
   assert.equal(field.value, "", "after removal the gesture is gone");
 });
 

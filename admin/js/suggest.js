@@ -10,6 +10,15 @@
 // slot elsewhere carries instructions ("4 digits", "app login password",
 // "https://xxxx.supabase.co") — accepting one of those would drop nonsense into
 // the app, so only fields that really have a recommendation are marked.
+//
+// The tap half has to survive the field moving under the baker's thumb. On a
+// phone, tapping a text box opens the keyboard, which shrinks and pans the page —
+// so a spot that accepted a tap a moment ago can sit somewhere else a moment
+// later, and the arrow seems to stop working after the first time. Three rules
+// keep it dependable: taking a suggestion never opens the keyboard, so nothing
+// shifts between taps; the strip that counts is generous around the drawn arrow;
+// and the tap is judged against the field's own box as well as the page, so
+// whichever reading survives a shifted page finds the arrow.
 
 // The value a field would accept, or "" when it has none to offer. Only an
 // empty, enabled field offers it: a field with text is the baker's own.
@@ -41,19 +50,49 @@ export function acceptSuggestion(field) {
   return true;
 }
 
-// The tap half of the gesture, only on the narrow strip the drawn arrow sits in
-// (right edge, ~30px). A tap anywhere else is an ordinary tap — placing the
-// caret — so the field still behaves normally.
+// How wide the arrow's tap strip is on a field this wide. A thumb is blunt, so
+// the strip is generous around the drawn arrow (which is 15px, ending 9px in from
+// the right). It can safely be generous: the strip is only ever live while the
+// field is EMPTY — the arrow and the greyed text appear together — so there is no
+// typed text underneath for a wide strip to swallow.
+function arrowZoneWidth(width) {
+  return Math.min(52, Math.max(30, width * 0.28));
+}
+
+// Was this event a tap on the drawn arrow (the right edge of the field)? Two
+// readings are taken and EITHER one landing in the strip counts. That makes this
+// strictly more forgiving than the single page-coordinate reading it replaces: it
+// can accept a tap that reading would have missed, but never refuse one it took.
+//   • the field's own offset (offsetX) — the reading that stays true however the
+//     page has been scrolled or panned, as the keyboard opening under a thumb
+//     does; and
+//   • the page coordinate (clientX) — the plain reading, for an event that
+//     carries no offset of its own.
 function inArrowZone(field, ev) {
+  const own = Number(field.clientWidth);
+  if (ev.target === field && Number.isFinite(ev.offsetX) && own > 0 &&
+      ev.offsetX >= own - arrowZoneWidth(own)) {
+    return true;
+  }
   if (typeof field.getBoundingClientRect !== "function") return false;
   if (!Number.isFinite(ev.clientX)) return false;
   const rect = field.getBoundingClientRect();
   if (!rect.width) return false;
-  const zone = Math.min(34, Math.max(22, rect.width * 0.22));
-  return ev.clientX >= rect.right - zone;
+  return ev.clientX >= rect.right - arrowZoneWidth(rect.width);
 }
 
-// Wire the two delegated listeners. Installed once on `document` (not a single
+// A tap anywhere but the arrow is an ordinary tap — placing the caret — so the
+// field still behaves normally.
+function acceptIfArrowTapped(field, ev) {
+  if (!suggestionValue(field)) return false;
+  if (!inArrowZone(field, ev)) return false;
+  // Keep the tap from also opening the keyboard: taking the suggestion needs no
+  // focus, and a keyboard sliding up would shift the page under the next tap.
+  if (typeof ev.preventDefault === "function") ev.preventDefault();
+  return acceptSuggestion(field);
+}
+
+// Wire the delegated listeners. Installed once on `document` (not a single
 // screen) because the admin's pop-ups and dialogs mount OUTSIDE #view. Returns a
 // remover, so a test can take it back off again.
 export function installSuggestionAccept(root = (typeof document !== "undefined" ? document : null)) {
@@ -65,18 +104,17 @@ export function installSuggestionAccept(root = (typeof document !== "undefined" 
     ev.preventDefault(); // the caret has nowhere to go anyway — take the value
     acceptSuggestion(field);
   };
-  const onPointerdown = (ev) => {
-    const field = ev.target;
-    if (!suggestionValue(field)) return;
-    if (!inArrowZone(field, ev)) return;
-    ev.preventDefault();
-    if (typeof field.focus === "function") field.focus();
-    acceptSuggestion(field);
-  };
+  const onPointerdown = (ev) => { acceptIfArrowTapped(ev.target, ev); };
+  // A second path for the tap: browsers without pointer events (older iOS) only
+  // send this one, and where the first path already took the value this lands on
+  // a filled field and does nothing.
+  const onClick = (ev) => { acceptIfArrowTapped(ev.target, ev); };
   root.addEventListener("keydown", onKeydown);
   root.addEventListener("pointerdown", onPointerdown);
+  root.addEventListener("click", onClick);
   return () => {
     root.removeEventListener("keydown", onKeydown);
     root.removeEventListener("pointerdown", onPointerdown);
+    root.removeEventListener("click", onClick);
   };
 }

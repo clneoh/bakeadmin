@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v73)
+# Jienluv2bake — change history (v54 → v74)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Sep 2026 — engine v74 (no database setup needed). The little arrow in an
+empty box now keeps working.** Engine v73 added the small right-arrow that sits
+at the right edge of a box showing a greyed example: press the **→ key** on a
+keyboard, or tap that arrow, and the example drops in as real text. On a phone
+that tap worked the first time and could then go dead — once you had tapped into
+a box, tapping the arrow on the next one did nothing.
+
+Two things were behind it, and both are fixed. The tap was measured against the
+**page**, and the phone's keyboard shifts the page under your finger as soon as
+any box is focused, so the arrow was no longer where it had been. And taking a
+suggestion **opened the keyboard itself**, so the page jumped after the very
+first tap. The tap is now measured against the **box itself**, taking a
+suggestion no longer opens the keyboard at all, and the strip you can tap is
+about half as wide again — so a thumb that lands a little wide of the arrow
+still counts. A tap on the greyed text stays an ordinary tap that just puts your
+cursor there. **The arrow looks exactly as it did**, and nothing else changed.
 
 **12 Sep 2026 — a new order now opens on the order itself (no new engine;
 nothing to set up).** Tapping a row in the **New Orders** inbox took you to that
