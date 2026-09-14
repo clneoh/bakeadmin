@@ -3,6 +3,7 @@
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
+import { dateField, dayPicker } from "../datepicker.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -339,7 +340,7 @@ function renderAll(root, state, params) {
         "This order's delivery date was deleted. Remove it from the New Orders box."));
       return;
     }
-    content.replaceChildren(dateContent(state, date, root));
+    content.replaceChildren(dateContent(state, date, root, selectDate));
   };
 
   // Switch dates in place instead of navigating: the strip keeps its scroll and
@@ -614,7 +615,7 @@ function orderFinderEl(state, root, selectDate, body) {
     resultsEl);
 }
 
-function dateContent(state, date, root) {
+function dateContent(state, date, root, selectDate) {
   const st = deliveryStatus(date.date, state.settings);
   const cap = capacityStatus(state, date.id);
   const dateLabel = `${weekdayName(date.date)}, ${longDate(date.date)}`;
@@ -637,7 +638,7 @@ function dateContent(state, date, root) {
       button(adjusted ? `Set day's availability · ${adjusted} adjusted` : "Set day's availability", () =>
         openDayAdjustPopup(state, date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "soft")) : null);
 
-  const form = orderForm(state, date.id, root);
+  const form = orderForm(state, date.id, root, selectDate);
   const list = orderList(state, date.id, root);
 
   return el("div", {}, header, form, list);
@@ -747,7 +748,7 @@ function referredTag(order) {
 // same shape a multi-item storefront order arrives as, so the list/inbox/confirm
 // all treat it as a single order. Editing an order never replaces this card:
 // Edit opens a pop-up over the screen instead.
-function orderForm(state, dateId, root) {
+function orderForm(state, dateId, root, selectDate) {
   const date = byId(state.deliveryDates, dateId);
   const products = productOptions(state, dateId);
   if (!products.length) {
@@ -771,8 +772,13 @@ function orderForm(state, dateId, root) {
     value: draft.address, oninput: function () { draft.address = this.value; } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
-  const orderDate = el("input", { class: "input", type: "date",
-    value: draft.orderDate, oninput: function () { draft.orderDate = this.value; } });
+  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; });
+
+  // "Which day am I adding to?" — the same days the strip above offers, in the
+  // same order. Choosing one switches the screen instead of filling a draft: the
+  // product list and each day's limits are built for the date on screen, so a day
+  // held only in the draft would offer items that are not sellable on it.
+  const dayPick = dayPicker(dateId, deliveryDayList(state), selectDate);
 
   const rowsEl = el("div", {});
   const items = [{ productId: "", qty: 1 }];
@@ -801,7 +807,7 @@ function orderForm(state, dateId, root) {
     const fulfillment = fulfillmentSel.value;
     const addressText = address.value.trim();
     const noteText = note.value.trim();
-    const placed = orderDate.value;
+    const placed = draft.orderDate;
     if (picked.length === 1) {
       addNew(state, date, picked[0].productId, picked[0].qty, customerName, phone, fulfillment, addressText, noteText, placed, root);
     } else {
@@ -811,6 +817,9 @@ function orderForm(state, dateId, root) {
 
   return el("div", { class: "card" },
     el("h3", { style: "margin:0 0 10px" }, "＋ New order"),
+    el("div", { class: "field", style: "margin-bottom:10px" },
+      el("label", {}, "Delivery day"),
+      dayPick),
     el("div", { class: "field" },
       el("label", {}, "Items"),
       rowsEl,
@@ -829,15 +838,21 @@ function orderForm(state, dateId, root) {
     button("＋ Add order", submit, "block primary"));
 }
 
-// The delivery days the Edit-order pop-up's "Delivery day" select offers: every
-// day still to come, plus the order's own day even if that has passed (so an
-// order left on an old date still shows where it is). Sorted soonest first.
+// Every delivery day, soonest first — the one list behind the date strip, the
+// Edit pop-up's day picker and the New-order card's, so the three can never
+// disagree about which days exist or what order they come in.
+function deliveryDayList(state) {
+  return [...state.deliveryDates]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((d) => ({ id: d.id, date: d.date }));
+}
+
+// The days the Edit-order pop-up's "Delivery day" picker offers: every day still
+// to come, plus the order's own day even if that has passed (so an order left on
+// an old date still shows where it is).
 function deliveryDayOptions(state, curId) {
   const today = todayISO();
-  return state.deliveryDates
-    .filter((d) => d.date >= today || d.id === curId)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-    .map((d) => ({ value: d.id, label: `${weekdayName(d.date)}, ${longDate(d.date)}` }));
+  return deliveryDayList(state).filter((d) => d.date >= today || d.id === curId);
 }
 
 // Soft notes under the "Delivery day" select: the window the customer was told,
@@ -917,10 +932,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     value: draft.address, oninput: function () { draft.address = this.value; } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
-  const orderDate = el("input", { class: "input", type: "date",
-    value: draft.orderDate, oninput: function () { draft.orderDate = this.value; } });
-  const deliverySel = select(deliveryDayOptions(state, curId), curId,
-    function () { draft.deliveryDateId = this.value; refresh(); }, "Choose a delivery day…");
+  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; });
+  // Picking a day writes the draft and repaints the pop-up, so the soft notes
+  // below re-read against the new day — the move itself is unchanged.
+  const deliveryPick = dayPicker(curId, deliveryDayOptions(state, curId),
+    (id) => { draft.deliveryDateId = id; refresh(); });
   const deliveryNotes = el("div", { class: "card-sub", style: "margin:6px 0 0" },
     ...moveNoteLines(state, group, curId).map((t) => el("p", { style: "margin:2px 0" }, t)));
 
@@ -951,7 +967,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       fulfillment: fulfillmentSel.value,
       address: address.value.trim(),
       note: note.value.trim(),
-      orderDate: orderDate.value,
+      orderDate: draft.orderDate,
       deliveryDateId: destId,
     }, close, root);
   };
@@ -965,7 +981,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),
     el("div", { class: "field", style: "margin-bottom:10px" },
       el("label", {}, "Delivery day"),
-      deliverySel,
+      deliveryPick,
       deliveryNotes),
     el("div", { class: "form-grid" },
       el("div", {}, el("label", {}, "Customer"), customer),

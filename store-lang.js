@@ -43,6 +43,10 @@ const en = {
   onlyLeft: "Only %1 left",
   noDates: "No upcoming delivery dates right now — check back soon.",
   noOpenDates: "All upcoming deliveries are full right now — check back soon.",
+  calChosen: "Your delivery day: %1",
+  calHolidays: "Holidays",
+  calPrev: "Previous month",
+  calNext: "Next month",
 
   // Why a product reads "Sold out" on a date it can't be ordered for, and the
   // notes above the menu when a refresh changes the basket. The rule comes from
@@ -140,6 +144,10 @@ const zh = {
   onlyLeft: "仅剩 %1 份",
   noDates: "目前没有可预订的派送日 — 请稍后再来。",
   noOpenDates: "近期派送均已满 — 请稍后再来。",
+  calChosen: "你的派送日：%1",
+  calHolidays: "节日",
+  calPrev: "上个月",
+  calNext: "下个月",
 
   closedFrom: "只接受 %1 起的派送日订单",
   closedTo: "只接受 %1 或之前的派送日订单",
@@ -228,6 +236,10 @@ const ms = {
   onlyLeft: "Tinggal %1 sahaja",
   noDates: "Tiada tarikh penghantaran buat masa ini — sila datang lagi nanti.",
   noOpenDates: "Semua penghantaran akan datang penuh buat masa ini — sila datang lagi nanti.",
+  calChosen: "Hari penghantaran anda: %1",
+  calHolidays: "Hari cuti",
+  calPrev: "Bulan sebelumnya",
+  calNext: "Bulan seterusnya",
 
   closedFrom: "Hanya tersedia untuk penghantaran dari %1",
   closedTo: "Hanya tersedia untuk penghantaran sehingga %1",

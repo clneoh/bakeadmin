@@ -1,10 +1,55 @@
-# Jienluv2bake — change history (v54 → v78)
+# Jienluv2bake — change history (v54 → v79)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
-**14 Sep 2026 — engine v78 (no database setup needed). The two confusing
+**14 Sep 2026 — engine v79 (no database setup needed). The customer picks a
+delivery day on a calendar, and so do you in the app.** The shop used to show
+its delivery days as a row of date chips laid out sideways. Now, under **Pick a
+delivery day**, the customer sees a **month calendar** — one month at a time,
+with the arrow buttons either side of the month's name to look ahead or back.
+The days you are taking orders for are picked out in **green**; every other day
+of the month is plain and cannot be tapped. They tap a green day, and the day
+they chose is written out in words just underneath — **"Your delivery day: Wed,
+16 Sep"**. That is the one line of text below the calendar, exactly as asked:
+no dates floating outside the grid, and still **one delivery day per order**.
+The first open day is already chosen for them when the page opens, so ordering
+can never be blocked by forgetting to tap. Nothing else about taking orders
+changed: a day you have cut off is still not shown at all, and a day that is
+full still greys out with a red **Sold out** badge and cannot be tapped.
+
+**Only the standard days you have marked reach the customer.** If you have
+loaded days from the built-in list onto your own Delivery Dates calendar, those
+days now wear a small coloured dot on the customer's calendar, and a short
+**Holidays** line under the grid names the month's ones (e.g. "16 Sep ·
+Malaysia Day"). They follow the colour you gave them. A day **you typed
+yourself** — a birthday, a promo, a school break — never appears: only a day
+that is, by name and date, one of the built-in standard days can be published,
+so your own notes stay private to your phone. Mark nothing in the app and the
+shop's calendar simply carries no dots and no caption.
+
+**In the app, the same little calendar now stands wherever you name a date.**
+Three places changed. In the **Edit** pop-up, **Delivery day** is no longer a
+drop-down list: it names the order's current day, and tapping it opens a small
+month calendar beneath it — every day still to come is tappable, plus the
+order's own day even if it has passed, so an old order always shows where it
+is. The **Order date** box in that pop-up is a calendar too, with a **Today**
+shortcut for an order you are typing in right now. And the **＋ New order**
+card has gained a **Delivery day** picker at its top: tap another green day and
+the whole screen moves to that day, so the product list you are choosing from
+is always the one that is actually sellable for the day you picked. The soft
+notes that help you decide — the change/cancel window, a warning, a closed day,
+too little left — all still sit under the calendar, and none of them stop you.
+
+The calendar expands in place under the button rather than opening in its own
+window, because the app's pop-ups share one layer and a calendar opened inside
+one would wipe out the Edit pop-up it was opened from; expanding in place also
+reads better on a phone. No database setup needed — nothing about how orders
+are stored, counted, bought for or messaged changed.
+
+**13 Sep 2026 — engine v78 (no database setup needed). The two confusing
+"Add" buttons on the Delivery Dates calendar now say what they do.** On the**14 Sep 2026 — engine v78 (no database setup needed). The two confusing
 "Add" buttons on the Delivery Dates calendar now say what they do.** On the
 Delivery Dates screen, **Mark an occasion** used to carry a small button
 reading **"＋ Add occasion"**. The name did not tell you that it opens a

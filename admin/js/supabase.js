@@ -6,6 +6,7 @@
 // access is guarded so importing the module is side-effect free.
 
 import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
+import { publishOccasions } from "./occasion_catalog.js";
 import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine } from "./state.js";
 
@@ -338,6 +339,11 @@ function storefrontPayload(state) {
     cutoff: (state.settings && state.settings.cutoff) || "",
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
     products,
+    // The standard days she has loaded onto her own calendar, for the coloured
+    // dots and the caption under the customer's delivery calendar. Always sent,
+    // even as an empty list, so deleting her last mark really does take the dots
+    // off the shop. publishOccasions drops everything she typed herself.
+    occasions: publishOccasions(state.occasions, todayISO()),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the

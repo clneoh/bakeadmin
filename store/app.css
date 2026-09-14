@@ -119,61 +119,146 @@ html, body {
 }
 .info-val { font-weight: 600; }
 
-/* ---------- Date pills ---------- */
-.pills {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 2px 2px 8px;
-  -webkit-overflow-scrolling: touch;
+/* ---------- Delivery-day calendar ---------- */
+/* The month grid the customer picks their delivery day from. A day the bakery
+   delivers, with room left, is a green circle (the same green the app's own
+   calendar uses for a delivery date); today wears a ring; a full day is struck
+   through; a standard day the bakery marked carries a coloured dot or, when it
+   runs for days, a soft bar across the cell. */
+.cal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 10px 10px;
+  box-shadow: var(--shadow);
 }
-.pill {
-  flex: 0 0 auto;
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.cal-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+}
+.cal-nav {
   appearance: none;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 8px 16px 9px;
-  border-radius: 16px;
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  -webkit-tap-highlight-color: transparent;
-}
-.pill-date {
-  line-height: 1.25;
-  white-space: nowrap;
-}
-/* Always-present second line keeps every pill the same height: open days
-   leave it empty, a full day fills it with a red "Sold out" badge below the
-   date. The date is never covered up. */
-.pill-sub {
-  min-height: 18px;
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 17px;
   line-height: 1;
-  letter-spacing: .4px;
-  text-transform: uppercase;
-  color: transparent;
-  padding: 3px 8px;
-  border-radius: 999px;
+  min-width: 36px;
+  padding: 6px 0;
+  border-radius: 9px;
+  cursor: pointer;
 }
-.pill.active { background: var(--brown); color: #fff; border-color: var(--brown); }
-.pill.soldout {
-  background: #e6e0d8;
-  border: 1px dashed #cfc5b8;
+.cal-nav:disabled { opacity: .35; cursor: default; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--muted);
-  cursor: default;
+  padding: 2px 0 4px;
 }
-.pill.soldout .pill-date { color: #7a6c5d; }
-.pill.soldout .pill-sub { color: #fff; background: #c0392b; }
+.cal-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  border-radius: 50%;
+  padding: 0;
+  appearance: none;
+}
+.cal-cell.blank { visibility: hidden; }
+.cal-cell.past { color: #b8afa4; }
+.cal-cell.avail { font-weight: 700; }
+.cal-cell.avail.tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cal-cell.avail.tappable:active { background: var(--gray-bg); }
+/* A day the bakery delivers still has room: a green ring (or a solid green disc
+   once chosen). The ring draws on the number, not the whole cell, so the dots
+   underneath keep their own space. */
+.cal-cell.avail .cal-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--green, #6b8f4e);
+  color: var(--green, #6b8f4e);
+}
+.cal-cell.avail.tappable:active .cal-num { background: var(--gray-bg); }
+.cal-cell.avail.sel .cal-num {
+  background: var(--green, #6b8f4e);
+  color: #fff;
+  box-shadow: none;
+}
+/* Today, when it is not already the chosen day: a quiet ring in the ink colour. */
+.cal-cell.today:not(.sel) .cal-num { box-shadow: inset 0 0 0 2px var(--brown); color: var(--brown); }
+/* A delivery day with no room left: struck through and plainly not tappable. */
+.cal-cell.full .cal-num { color: #a99e91; text-decoration: line-through; }
+/* The standard days the bakery marked — a dot for a day, a bar for a stretch. */
+.cal-dot {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.cal-bar {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  opacity: .55;
+}
+.cal-dot.occ-red, .cal-bar.occ-red { background: #c0392b; }
+.cal-dot.occ-orange, .cal-bar.occ-orange { background: #d9822b; }
+.cal-dot.occ-yellow, .cal-bar.occ-yellow { background: #cfae27; }
+.cal-dot.occ-green, .cal-bar.occ-green { background: #4d7c3a; }
+.cal-dot.occ-blue, .cal-bar.occ-blue { background: #3b6ea5; }
+.cal-dot.occ-purple, .cal-bar.occ-purple { background: #7a5195; }
+.cal-dot.occ-pink, .cal-bar.occ-pink { background: #c2568b; }
+.cal-dot.occ-grey, .cal-bar.occ-grey { background: #8a8079; }
+/* The chosen day in words, and the two short notes under the grid. */
+.cal-chosen {
+  margin: 10px 2px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.cal-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 4px 2px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.cal-note-label { font-weight: 700; }
 
 /* ---------- Menu ---------- */
 .menu-item {

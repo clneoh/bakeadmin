@@ -1437,6 +1437,23 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .cal-cell.today:not(.added):not(.sel):not(.sol) { box-shadow: inset 0 0 0 1.5px var(--brown); }
 .cal-cell.blank { visibility: hidden; }
 
+/* Inline date picker (js/datepicker.js): a button naming the chosen date with
+   the month grid expanding right under it. Deliberately in place, not in a
+   pop-up — showPopup() owns one shared #popup-layer, so a calendar opened in a
+   pop-up would wipe the Edit-order pop-up it was opened from. The grid reuses
+   the .cal-* rules above, so a day looks the same here as on Delivery Dates. */
+.datepick-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.datepick-val { font-weight: 600; }
+.datepick-ico { font-size: 14px; opacity: .7; }
+.datepick-panel {
+  margin-top: 8px;
+  padding: 8px 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.datepick-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+
 /* Occasion marks — reminder periods painted on the delivery calendar. Purely
    visual: an occasion never adds or blocks a delivery date. Everything reads
    as same-tall "sheets" stacked back to front:
