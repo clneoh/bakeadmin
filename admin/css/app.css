@@ -390,6 +390,10 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .fold-caret { color: var(--muted); font-size: 13px; }
 .trans-body[hidden],
 .fold-body[hidden] { display: none; }
+/* The Delivery Dates screen's past dates, folded away: the .fold-head chrome
+   wearing the type of the h2.section heading it replaces (18px serif bold) so it
+   reads as the section head it is, not as a card title. */
+.past-head { font-size: 18px; margin: 20px 2px 10px; }
 
 /* One translated line: the field, with a ↻ that translates it again sitting
    where the suggestion arrow sits while the field is empty. The two never

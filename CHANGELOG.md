@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v88)
+# Jienluv2bake — change history (v54 → v89)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v89 (no database setup needed). The Delivery Dates screen
+trades its list for the calendar: a ticked day comes off when you tap it again,
+and the past dates fold away into one group.** Three small changes, all on one
+screen.
+
+**Tapping a ticked day takes it back off.** A delivery date that was already on
+the calendar used to come off only from the list underneath it. Now tapping that
+green day takes it off on the spot - the same tap that put it there undoes it, so
+the calendar is the one place you both add and remove dates. If that day already
+has an order on it the app asks first ("2026-09-16 has 2 order(s) on it. Delete
+the date? The orders are kept in your delivery history."), because that is the one
+removal worth a second look; a day with nothing on it just goes, with a small
+"Delivery date removed" note. The date is all that is ever removed - the orders
+stay in your history either way.
+
+**The list of dates still to come is gone.** The calendar already draws every
+delivery date as a green tick, and now it lets you take any one of them back, so
+the list below was repeating what was already in front of you. That is most of
+why this screen reads so much lighter. Nothing else moved: the green tick, the
+coloured holiday tags and the "N ordered · N left" line are all as they were.
+
+**The past dates are one group, folded away.** Dates already gone keep their
+green tick but cannot be tapped, so nothing on a past day can be changed by a
+stray touch. They now sit together under a **Past dates (12)** heading that starts
+folded - tap the heading to open the list, tap it again to fold it back. Every
+past date is in there now: the old list showed only the ten most recent and left
+the rest out of reach. Each one still opens its orders or can be deleted exactly
+as before, with the same "Del" button and the same question when orders sit on it.
 
 **14 Sep 2026 — engine v88 (no database setup needed). The holiday tint sits on
 the day numbers at the Orders screen, and a mouse resting on a marked day names
