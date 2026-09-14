@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v77)
+# Jienluv2bake — change history (v54 → v78)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v78 (no database setup needed). The two confusing
+"Add" buttons on the Delivery Dates calendar now say what they do.** On the
+Delivery Dates screen, **Mark an occasion** used to carry a small button
+reading **"＋ Add occasion"**. The name did not tell you that it opens a
+ready-made list of Malaysia's holidays and fun days, all ticked and waiting —
+so you had to open it to find out. It now reads **"＋ Load standard
+occasions"**, and the window it opens is titled the same.
+
+Inside that window there were **two buttons both called "Add"** — the big one
+at the bottom that files the days you ticked, and a smaller one in the **My
+own day** strip just above it, which files a day you name yourself (a
+birthday, a one-off promo). Reaching for "Add" and hitting the wrong one gave
+you **"Type a name first"**, for a day you never meant to name. The smaller
+one is now spelled out as **"Add my own day"**, so the only plain **Add** in
+the window is the one that adds the ticked days.
+
+Nothing else moved. Ticking a row and pressing the big **Add** still files
+exactly what you ticked and nothing you did not; **Untick all** / **Tick all**
+and the heading tick boxes work as before; the **My own day** box still takes
+any name and any date. No database setup needed.
 
 **13 Sep 2026 — engine v77 (no database setup needed). The greyed line in the
 translated-text card now says what happens if you leave it blank.** Engine v76
