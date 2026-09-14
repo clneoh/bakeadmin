@@ -94,10 +94,12 @@ function all(node, out = []) {
   return out;
 }
 
-test("a single day the bakery marked is a solid box in its own colour", () => {
+test("a single day the bakery marked is a wash box in its own colour", () => {
   const c = cell(16);
-  assert.ok(c.className.includes("sol"), "Malaysia Day draws the solid box");
+  assert.ok(c.className.includes("sol"), "Malaysia Day draws the box");
   assert.ok(c.className.includes("occ-red"), "in the colour she gave it");
+  assert.ok(c.className.includes("occ-strong"),
+    "a one-day mark wears the deepest wash, exactly as a short band does");
   const plain = cell(18);
   assert.ok(!plain.className.includes("sol") && !plain.className.includes("occ-"),
     "a plain day in the same month draws no box");
@@ -142,7 +144,9 @@ test("a mark that is not in the month on screen draws nothing", () => {
 test("a single day inside a stretch still draws its box, and wins the name", () => {
   const c = cell(25);
   assert.ok(c.className.includes("sol") && c.className.includes("occ-blue"),
-    "Mid-Autumn is a solid box on the 25th");
+    "Mid-Autumn draws its own box on the 25th");
+  assert.ok(c.className.includes("occ-strong"),
+    "the box is deeper than the school break it sits in");
   assert.equal(tipOf(c).children[0].text, "Mid-Autumn",
     "the shorter mark names the day, not the break around it");
   assert.equal(tipOf(cell(20)).children[0].text, "School break",

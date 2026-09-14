@@ -1517,7 +1517,7 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
      • a holiday spanning MORE days sits LOWEST — a translucent band over its
        days (the longer it runs, the paler it is);
      • a holiday spanning FEWER days (a single-day public holiday) sits ABOVE
-       it as a SOLID box in its strong colour;
+       it as a see-through box of the same depth;
      • a date chosen as a delivery day sits HIGHEST — a smaller, solid
        light-green pill carrying the date number and its tick.
    Longer marks are laid first so shorter ones paint on top of them. */
@@ -1525,10 +1525,10 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .cal-modes .btn { flex: 1; font-size: 13px; padding: 9px 0; }
 .btn.cal-mode-on { background: var(--brown); border-color: var(--brown); color: #fff; box-shadow: none; }
 
-/* The eight mark colours. --occ-solid is the strong colour used for a mark's
-   solid box, tag and swatch; the translucent band wash is mixed from it at low
-   alpha, so no per-colour tints are needed. --occ-ink overrides the white text
-   a colour is too light to carry (only yellow). */
+/* The eight mark colours. --occ-solid is a mark's own colour, used solid for its
+   tag and swatch; the band and the single-day box are it mixed down at low alpha
+   (--occ-wash), so no per-colour tints are needed. --occ-ink overrides the white
+   text a colour is too light to carry (only yellow). */
 .occ-red    { --occ-solid: #c04538; }
 .occ-orange { --occ-solid: #d1641a; }
 .occ-yellow { --occ-solid: #e0a80c; --occ-ink: #5c4a00; }
@@ -1555,15 +1555,19 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   border-radius: 9px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--occ-solid, #8a7a6b) 22%, transparent);
 }
-/* Translucent fills, one per strength: each mark's own solid colour mixed
-   down to a wash, so the stronger the mark (shorter run) the deeper its band. */
-.occ-paper { background: color-mix(in srgb, var(--occ-solid, #8a7a6b) 22%, transparent); }
-.occ-paper.occ-strong { background: color-mix(in srgb, var(--occ-solid, #8a7a6b) 32%, transparent); }
-.occ-paper.occ-mid    { background: color-mix(in srgb, var(--occ-solid, #8a7a6b) 22%, transparent); }
-.occ-paper.occ-soft   { background: color-mix(in srgb, var(--occ-solid, #8a7a6b) 14%, transparent); }
+/* One wash per strength, a mark's own colour mixed down, so the stronger the mark
+   (the shorter the run) the deeper its wash. Both the multi-day band and the
+   single-day box read their depth from here, so the two shapes cannot drift. */
+.occ-strong { --occ-wash: 32%; }
+.occ-mid    { --occ-wash: 22%; }
+.occ-soft   { --occ-wash: 14%; }
+.occ-paper { background: color-mix(in srgb, var(--occ-solid, #8a7a6b) var(--occ-wash, 22%), transparent); }
 
-/* Second sheet: a single-day holiday is a SOLID box in its strong colour, nearly
-   the whole day wide, so a longer band underneath peeks out at the sides. */
+/* Second sheet: a single-day holiday is that same see-through wash, drawn as a
+   box nearly the whole day wide so a longer band underneath still peeks out at
+   its sides. A mark is never a solid block - a solid block would bury the green
+   pill that marks a delivery date, and a holiday has to look the same whether or
+   not it lands on a day you deliver. */
 .cal-cell.sol { font-weight: 700; }
 .cal-cell.sol::before {
   content: "";
@@ -1575,9 +1579,8 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   height: 30px;
   border-radius: 9px;
   transform: translate(-50%, -50%);
-  background: var(--occ-solid, var(--brown));
+  background: color-mix(in srgb, var(--occ-solid, #8a7a6b) var(--occ-wash, 32%), transparent);
 }
-.cal-cell.sol:not(.added) .num { color: var(--occ-ink, #fff); }
 
 /* Top sheet: a chosen delivery date is a smaller, SOLID light-green pill with
    the date number and its tick sitting on it — always the front of the stack,

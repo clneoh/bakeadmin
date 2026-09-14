@@ -690,8 +690,9 @@ export function render() {
   // week row, in her own colour, deeper the shorter the run. The bands are
   // absolutely-placed grid children (see .occ-paper), so they span a row without
   // disturbing the day cells, and they sit behind the numbers. A single-day mark
-  // is not a band — its own day draws a solid box (see .cal-cell.sol). Neither
-  // ever covers a past day, exactly as the office leaves them alone.
+  // is not a band — its own day draws a same-depth wash as a box (see
+  // .cal-cell.sol). Neither ever covers a past day, exactly as the office leaves
+  // them alone.
   const occBands = (weeks, today) => {
     const out = [];
     const long = marks().filter((o) => occDays(o) >= 2)
@@ -792,7 +793,9 @@ export function render() {
       // "the more specific mark wins" rule, so a day inside a long break is still
       // named by a short holiday sitting on it.
       const named = past ? null : occForDate(all, iso);
-      // A single-day mark draws the solid box; a longer one is a band behind it.
+      // A single-day mark draws the box; a longer one is a band behind it. Both
+      // carry their strength class, so the box is exactly as deep as a band of
+      // the same length — one mark, one look, whichever day it lands on.
       const sol = past ? null : occSingleDay(all, iso);
       let cls = "cal-cell";
       if (spec && !full) cls += " avail";
@@ -800,7 +803,7 @@ export function render() {
       if (isSel) cls += " sel";
       if (iso === todayK) cls += " today";
       if (past) cls += " past";
-      if (sol) cls += ` sol occ-${occColour(sol)}`;
+      if (sol) cls += ` sol occ-${occColour(sol)} occ-${occStrength(sol)}`;
       const kids = [el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))))];
       // The name waits in its own bubble and is never listed in advance. `hidden`
       // is set on the node itself, not through el(): the shop's el() skips only

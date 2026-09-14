@@ -104,7 +104,7 @@ function addSelected(state) {
 // drawn here: a MULTI-day occasion (a school-holiday week) becomes translucent
 // bands — one rounded band per week row it crosses. Longer marks come first so
 // the CSS paints them behind shorter ones. A SINGLE-day occasion is not drawn
-// here: its own day cell draws a solid box on top of these bands (see
+// here: its own day cell draws a box of the same depth on top of these bands (see
 // .cal-cell.sol), and a chosen delivery date draws the small green pill above
 // everything (see .cal-cell.added). Bands only cover today and the future;
 // past days keep their muted look.
@@ -199,10 +199,10 @@ function buildAddGrid(state, weeks) {
     ...occOverlays(state, weeks, today));
 }
 
-// The single-day occasion covering `date` (if any). A 1-day mark is the solid
-// second sheet under a chosen delivery date — drawn as a box in this day's own
-// cell. Longer marks are the translucent lowest sheet (the .occ-paper bands),
-// so they are not returned here. Past days never sit above a mark.
+// The single-day occasion covering `date` (if any). A 1-day mark is the second
+// sheet under a chosen delivery date — drawn as a box in this day's own cell.
+// Longer marks are the translucent lowest sheet (the .occ-paper bands), so they
+// are not returned here. Past days never sit above a mark.
 function singleDayMark(state, date, past) {
   if (past) return null;
   return occSingleDay(state.occasions, date);
@@ -230,7 +230,7 @@ function dayCell(state, date, today, addedSet) {
   let cls = "cal-cell";
   if (added) cls += " added";
   else if (past) cls += " past";
-  if (sol) cls += ` sol occ-${occColour(sol)}`;
+  if (sol) cls += ` sol occ-${occColour(sol)} occ-${occStrength(sol)}`;
   if (isToday) cls += " today";
   const inner = cellInner(added || sol, added, dayNum);
   if (added || past) {
@@ -590,11 +590,11 @@ function buildOccGrid(state, weeks) {
     const isToday = d === today;
     const added = !past && addedSet.has(d);
     // Same stacking as the add-date grid: a delivery date is the small green
-    // pill on top; a single-day holiday its solid box beneath it.
+    // pill on top; a single-day holiday its wash box beneath it.
     const sol = singleDayMark(state, d, past);
     let base = `cal-cell${past ? " past" : " occ-cell"}`;
     if (added) base += " added";
-    if (sol) base += ` sol occ-${occColour(sol)}`;
+    if (sol) base += ` sol occ-${occColour(sol)} occ-${occStrength(sol)}`;
     if (isToday && !past) base += " today";
     if (past) {
       cells.push(el("span", { class: base }, dayNum));

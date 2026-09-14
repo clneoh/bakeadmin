@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v83)
+# Jienluv2bake — change history (v54 → v84)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v84 (no database setup needed). A day you marked is now
+the same gentle wash everywhere, whichever calendar you are looking at.** A
+marked day was drawn one of two ways, decided by a single question: is this a day
+you deliver for? On a day you deliver for the mark went pale, so the green "you
+can order" ring stayed the first thing the eye read. On a day you do not, the
+mark was drawn at full colour, as a solid block with the number turned white.
+September's Malaysia Day sat on a delivery day and read as a quiet tint; October's
+World Animal Day fell past the delivery days published so far and read as a loud
+solid block - so the same kind of holiday looked like two different things, and a
+mark quietly changed its own appearance as the delivery window moved towards it.
+
+**Now a mark is only ever a see-through wash of its own colour, and its depth
+follows how long the mark runs: a one-day holiday the deepest, a long school
+break the palest.** The customer's calendar and your own Delivery Dates calendar
+read that depth from the same place, so a day wears exactly the same mark on both
+sides of the shop and in every month. Nothing is ever a solid block of colour any
+more, which also means the date number and the green delivery pill always read on
+top of a mark, whether or not you deliver that day. Only the look changed:
+marking, removing, renaming and loading standard occasions all work exactly as
+before, and a mark still never adds or removes a delivery date.
 
 **14 Sep 2026 — engine v83 (no database setup needed). Marking a holiday now
 tells the shop straight away.** A day you mark on the Delivery Dates calendar is
