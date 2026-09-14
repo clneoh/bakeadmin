@@ -10,7 +10,7 @@ import { isLive, isDraft, isHidden, newDraftRow } from "../productState.js";
 import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } from "../translate.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "../calendar.js";
-import { boxClass, occBox, occPapers } from "../occgrid.js";
+import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 import { todayISO } from "../dates.js";
 // The sell-day rules themselves — one shared copy, the same file the shop reads,
 // so the day she marks here and the day a customer may order can never drift.
@@ -291,7 +291,13 @@ function availabilityCard(state, product) {
       g = null;
       try { grid.releasePointerCapture(e.pointerId); } catch (err) { /* noop */ }
       for (const [, cell] of byDate) cell.classList.remove("occ-sel");
-      if (!gg.moved) { tapDay(gg.start); return; }
+      if (!gg.moved) {
+        // A tap names the day before it marks it — marking repaints the grid, and
+        // the repainted grid asks for the bubble by the day named here.
+        nameDay(state.occasions, gg.start, gg.start < today);
+        tapDay(gg.start);
+        return;
+      }
       dragDone(gg.start, cellAt(e) || gg.last, open(gg.start));
     };
     grid.addEventListener("pointerup", finish);
@@ -326,7 +332,10 @@ function availabilityCard(state, product) {
       // A past day can never be a delivery date again, so it is shown but not
       // offered — a mark made on one would be dropped at the next save anyway.
       if (past) { cells.push(el("span", { class: cls }, dayNum)); continue; }
-      const cell = el("button", { class: `${cls} tappable`, type: "button", dataset: { date: d } }, dayNum);
+      // Tapping a marked day names it as well as marking it — a holiday is the one
+      // thing that decides a sell day for her, so it has to be readable here too.
+      const cell = el("button", { class: `${cls} tappable`, type: "button", dataset: { date: d } },
+        dayNum, tipEl(state.occasions, d, past));
       byDate.set(d, cell);
       cells.push(cell);
     }

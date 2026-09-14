@@ -14,7 +14,7 @@ import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
   occColour, occForDateAll, occRange,
 } from "../calendar.js";
-import { boxClass, occBox, occPapers } from "../occgrid.js";
+import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 import { OCCASION_CATALOG, importOccColour } from "../occasion_catalog.js";
 
 // Local picker state (survives re-renders while this screen is open): which
@@ -196,12 +196,24 @@ function dayCell(state, date, today, addedSet) {
   cls += boxClass(sol);
   if (isToday) cls += " today";
   const inner = cellInner(added || sol, added, dayNum);
+  // Naming a day and ticking it are separate jobs on this grid: a day that is
+  // already a delivery date is unticked from the list below, never by tapping its
+  // square, so its tap is free to be the one that says what the day is. Without
+  // that, a public holiday she also delivers on would be the only marked day here
+  // that could not be read.
+  const tip = tipEl(state.occasions, date, past);
+  if (tip) inner.push(tip);
+  if (added && tip) {
+    return el("button", { class: `${cls} tippable`,
+      onclick: () => { nameDay(state.occasions, date, past); renderAll(view(), state); } }, ...inner);
+  }
   if (added || past) {
     return el("span", { class: cls }, ...inner);
   }
   return el("button", {
     class: `${cls} tappable${selected ? " sel" : ""}`,
     onclick: () => {
+      nameDay(state.occasions, date, past);
       if (selected) picked.delete(date);
       else picked.add(date);
       renderAll(view(), state);
@@ -563,6 +575,8 @@ function buildOccGrid(state, weeks) {
       cells.push(el("span", { class: base }, dayNum));
     } else {
       const inner = cellInner(added || sol, added, dayNum);
+      const tip = tipEl(state.occasions, d, past);
+      if (tip) inner.push(tip);
       const cell = el("button", { class: base, dataset: { date: d } }, ...inner);
       byDate.set(d, cell);
       cells.push(cell);
@@ -629,9 +643,13 @@ function attachOccDrag(grid, byDate, state) {
       occLabelPicker(state, lo, hi);
       return;
     }
-    // First plain tap: hold it as the range's start day.
+    // First plain tap: hold it as the range's start day. It also names the day
+    // when the day carries a mark — this grid paints its own cells and does not
+    // rebuild itself, so the bubbles are shown from the cells it already holds
+    // rather than by a repaint that would drop the ring just painted.
     occAnchor = g.start;
     paint(g.start, g.start);
+    nameDay(state.occasions, g.start, false, byDate);
   };
   grid.addEventListener("pointerup", finish);
   grid.addEventListener("pointercancel", () => { gesture = null; });

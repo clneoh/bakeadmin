@@ -964,6 +964,35 @@ test("the sell-day calendar draws the baker's occasion marks too", () => {
     "at the depth a mark that long gets");
 });
 
+// Her ask: a marked day says its own name when tapped, on every calendar in the
+// app. Here the tap does its usual job as well — marking the sell day — which is
+// exactly the shop page's rule ("a day is tapped to read its name AND to choose
+// it"), and the bubble is built into the cell so the card's repaint redraws it.
+test("tapping a marked day on the availability calendar names it as well as marking it", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  state.occasions = [
+    { id: "x", label: "Malaysia Day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
+  ];
+  const root = render(state);
+  openAvail(root);
+
+  const tipOf = (dayNum) => (cellBtn(root, dayNum).children || [])
+    .find((c) => c.className === "cal-tip");
+  assert.ok(tipOf(16), "a marked day carries its name, waiting to be asked for");
+  assert.equal(tipOf(16).hidden, true, "and says nothing until it is tapped");
+  assert.equal(tipOf(16).children[0].text, "Malaysia Day");
+  assert.equal(tipOf(15), undefined, "an unmarked day has no name to give");
+
+  tapCell(root, 16);
+  assert.ok((cellBtn(root, 16).className || "").includes("avail-on"), "the tap still marks the day");
+  assert.equal(tipOf(16).hidden, false, "and now it says what the day is");
+
+  tapCell(root, 20); // an unmarked day: nothing to say
+  assert.equal(tipOf(16).hidden, true, "tapping another day puts the name away again");
+  assert.equal(tipOf(20), undefined);
+});
+
 test("sliding across days marks the run", () => {
   doc.body.replaceChildren();
   const root = render(freshState());

@@ -1,8 +1,42 @@
-# Jienluv2bake — change history (v54 → v86)
+# Jienluv2bake — change history (v54 → v87)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v87 (no database setup needed). Tap a marked day and it
+tells you its name — on every calendar in the app.** v85 drew your marks on all
+five of the app's month calendars, but only as colour: a wash and a band, with
+nothing to say which holiday it was. The customer's own shop page has answered
+this since its calendar arrived - tap a marked day and a small dark bubble above
+it says the name - so the app now does the same thing, with the same look.
+
+**A tap names the day and still does that day's usual job.** The bubble appears
+above the day ("Malaysia Day") and goes away as soon as you tap anywhere else.
+Nothing else about the tap changed: on the Orders calendar it still opens the
+day, on a product's Availability calendar it still marks or unmarks the sell day,
+on Delivery Dates it still starts the range you are about to mark. A day that
+sits inside two marks takes the name of the shorter one - the same rule the
+colours already follow, so the name and the colour always belong to the same
+mark. A day already gone is never named, because no mark is drawn on a past day
+either.
+
+**Two kinds of day could not be read at all before, and now can.** On the Orders
+calendar a marked day you do not deliver was a quiet number with nothing to tap,
+and on the Delivery Dates calendar a marked day that is *already* one of your
+delivery dates could not be tapped either - its tick is removed from the list
+below the calendar, never by tapping its square, so its tap was free. Both now
+say their name when tapped, and nothing else about them moved: a Delivery Dates
+square still never ticks or unt ticks a date.
+
+**The Order date boxes name their day above the date, not above a day of the
+month.** Those two fields fold their calendar the moment a day is picked, so a
+bubble drawn on the day would vanish with it. The name sits above the date the
+box is showing instead, which also means an order recorded on a public holiday
+says so for as long as that date is on the field.
+
+Nothing was added, moved or removed, and the shop is not touched: this is the
+same bubble the shop's calendar has been showing, arriving on your own calendars.
 
 **14 Sep 2026 — engine v86 (no database setup needed). On the Orders screen your
 marked days now sit on their days, at the same depth as everywhere else.** v85

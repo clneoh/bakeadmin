@@ -1522,7 +1522,11 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
    pop-up would wipe the Edit-order pop-up it was opened from. The grid reuses
    the .cal-* rules above, so a day looks the same here as on Delivery Dates. */
 .datepick-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.datepick-val { font-weight: 600; }
+/* The date field names a marked day too, and its bubble hangs off the DATE rather
+   than off a grid cell: the field is rebuilt every time a day is picked (a
+   product's Starts/Ends boxes are), so a bubble built into the grid would be
+   thrown away by the very tap that asked for it. */
+.datepick-val { position: relative; font-weight: 600; }
 .datepick-ico { font-size: 14px; opacity: .7; }
 .datepick-panel {
   margin-top: 8px;
@@ -1603,6 +1607,32 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
    pill that marks a delivery date, and a holiday has to look the same whether or
    not it lands on a day you deliver. */
 .cal-cell.sol { font-weight: 700; }
+/* The name of a marked day, on request: a tap says what the day is. The same
+   bubble the customer's shop page shows (v80), so one holiday reads the same on
+   both sides of the sign-in. It sits above the day, outside the flow — it can
+   never shift the grid or cover a number — and NO :hover rule: the Availability
+   and Delivery Dates grids are drag surfaces, where a bubble appearing under the
+   finger while a run is swept would only get in the way. */
+.cal-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 5px);
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  white-space: nowrap;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 8px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+/* A day whose only job is to say its name — a holiday that IS one of the days she
+   delivers, so its tap must not untick anything. */
+.cal-cell.tippable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .cal-cell.sol::before {
   content: "";
   position: absolute;

@@ -14,7 +14,7 @@
 
 import { el, button } from "./ui.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "./calendar.js";
-import { boxClass, occBox, occPapers } from "./occgrid.js";
+import { boxClass, nameDay, occBox, occPapers, tipEl } from "./occgrid.js";
 import { longDate, todayISO } from "./dates.js";
 
 // How many months the free date field's arrows reach either way from today.
@@ -46,7 +46,13 @@ function gridEl(shown, { selected, today, onPick, occasions }) {
     else if (past) cls += " past";
     if (iso === today) cls += " today";
     cls += boxClass(occBox(occasions, iso, past));
-    return el("button", { class: `${cls} tappable`, onclick: () => onPick(iso) }, dayNum);
+    // A day she taps also NAMES itself when it carries a mark — the price of a
+    // date field is that the grid folds on the pick, so the name is the field's
+    // own bubble (see valSpan) rather than one drawn above the day. `past` is
+    // passed as false: a date field records days that have already been, and a
+    // holiday an order was taken on is just as worth reading back.
+    return el("button", { class: `${cls} tappable`,
+      onclick: () => { nameDay(occasions, iso, false); onPick(iso); } }, dayNum);
   });
   return el("div", { class: "cal-grid" },
     ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
@@ -63,10 +69,18 @@ function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcu
   let shown = monthOf(current || today);
 
   const shownText = () => (current ? format(current) : placeholder);
+  // The date, plus the name of the day it records when that day carries a mark —
+  // a holiday she has just chosen as an order's date, or as the end of a product's
+  // sell period, says so right on the field. The bubble hangs off the DATE and not
+  // off the grid, because picking a day folds the grid: a bubble inside it would
+  // never be read. Nothing special makes it disappear — any other tap clears the
+  // named day, and this field is rebuilt from that same key on its every repaint.
+  const valSpan = () => el("span", { class: "datepick-val" }, shownText(),
+    tipEl(occasions, current, false));
   const btn = el("button", {
     class: "btn soft block datepick-btn",
     onclick: () => { open = !open; paint(); },
-  }, el("span", { class: "datepick-val" }, shownText()),
+  }, valSpan(),
     el("span", { class: "datepick-ico", "aria-hidden": "true" }, "📅"));
   const panel = el("div", { class: "datepick-panel" });
   const wrap = el("div", { class: "datepick" }, btn, panel);
@@ -85,7 +99,7 @@ function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcu
   function paint() {
     btn.setAttribute("aria-expanded", open ? "true" : "false");
     btn.replaceChildren(
-      el("span", { class: "datepick-val" }, shownText()),
+      valSpan(),
       el("span", { class: "datepick-ico", "aria-hidden": "true" }, "📅"));
     if (!open) {
       panel.replaceChildren();

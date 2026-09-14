@@ -5,7 +5,7 @@ import { capacityStatus, dayRuleRows, parseDayDelta, productRemaining, saveDayAd
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks, occColour, occForDate } from "../calendar.js";
-import { boxClass, occBox, occPapers } from "../occgrid.js";
+import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -363,12 +363,19 @@ export function deliveryCal({ state, days, getActiveId, month, onPick }) {
       // The baker's own occasion marks are drawn here too — a holiday she marked
       // is worth seeing while she is deciding which day to open, and a day the
       // bakery does not deliver has no other way of saying so.
-      const box = boxClass(occBox(state.occasions, iso, iso < today));
+      const past = iso < today;
+      const box = boxClass(occBox(state.occasions, iso, past));
       const num = el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))));
+      const tip = tipEl(state.occasions, iso, past);
       const dateId = byDate.get(iso);
-      // A day the bakery does not deliver: a quiet number, and nothing to tap.
+      // A day the bakery does not deliver: a quiet number, nothing to open — but a
+      // marked day still says its name when tapped, or a holiday falling on a day
+      // she does not deliver would be the one day of the month with no way to be
+      // read (the customer's shop page names that day too).
       if (!dateId) {
-        return el("span", { class: `cal-cell off${iso === today ? " today" : ""}${box}` }, num);
+        const cls = `cal-cell off${iso === today ? " today" : ""}${box}`;
+        if (!tip) return el("span", { class: cls }, num);
+        return el("button", { class: `${cls} tippable`, onclick: () => { nameDay(state.occasions, iso, past); paint(); } }, num, tip);
       }
       const cap = capacityStatus(state, dateId);
       const st = deliveryStatus(iso, state.settings);
@@ -382,10 +389,13 @@ export function deliveryCal({ state, days, getActiveId, month, onPick }) {
       if (st.closed && !st.past) cls += " closed";
       if (full) cls += " full";
       cls += box;
+      // Naming the day comes BEFORE opening it: the pick usually re-renders the
+      // whole screen, calendar included, and the rebuilt grid draws its bubbles
+      // from the day this module was just told about.
       return el("button", {
         class: `${cls} tappable`,
-        onclick: () => onPick(dateId),
-      }, num, el("span", { class: "cal-count" }, full ? "FULL" : `${cap.total}/${cap.capacity}`));
+        onclick: () => { nameDay(state.occasions, iso, past); onPick(dateId); },
+      }, num, el("span", { class: "cal-count" }, full ? "FULL" : `${cap.total}/${cap.capacity}`), tip);
     });
 
     wrap.replaceChildren(
