@@ -939,6 +939,31 @@ test("tapping one day marks just that day", () => {
   assert.equal(cellBtn(root, 19).className.includes("avail-on"), false, "the same weekday is not caught");
 });
 
+test("the sell-day calendar draws the baker's occasion marks too", () => {
+  doc.body.replaceChildren();
+  const state = freshState();
+  state.occasions = [
+    { id: "x", label: "Malaysia Day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
+    { id: "y", label: "School break", from: "2026-09-21", to: "2026-09-30", colour: "blue" },
+  ];
+  const root = render(state);
+  openAvail(root);
+
+  const day = cellBtn(root, 16);
+  assert.ok(day.className.includes("sol"), "a one-day holiday is a wash box on its own day");
+  assert.ok(day.className.includes("occ-red"), "in the mark's own colour");
+  assert.ok(day.className.includes("occ-strong"), "at the depth a mark that short gets");
+  assert.equal(cellBtn(root, 15).className.includes("sol"), false, "an unmarked day stays plain");
+
+  const bands = availGrid(root).children
+    .filter((c) => (c.className || "").includes("occ-paper"));
+  assert.equal(bands.length, 2, "the 10-day mark bands the two week rows it crosses");
+  assert.ok(bands.every((b) => (b.className || "").includes("occ-blue")),
+    "in the mark's own colour");
+  assert.ok(bands.every((b) => (b.className || "").includes("occ-mid")),
+    "at the depth a mark that long gets");
+});
+
 test("sliding across days marks the run", () => {
   doc.body.replaceChildren();
   const root = render(freshState());

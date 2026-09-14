@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v84)
+# Jienluv2bake — change history (v54 → v85)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v85 (no database setup needed). Your marked days are now
+drawn on every calendar in the app, not just the one you marked them on.** Until
+now a holiday only appeared on the customer's calendar and on the Delivery Dates
+screen you marked it on. Every other calendar in the app drew a plain month: the
+month calendar at the top of the Orders screen, the little **Order date**
+calendars in the new-order form and in the Edit-order pop-up, the delivery-day
+picker inside that pop-up, and a product's **Availability** calendar where you
+mark the days it sells. So a holiday you were planning around was invisible on
+every screen you actually plan on.
+
+**Now all of them draw your marks, in the same two shapes and the same colours as
+the Delivery Dates calendar** - a see-through band across a run of days, deeper
+the shorter the run, and a box for a single day. A mark on a day you do not
+deliver is drawn too, on a dimmed day, since that is the only way a holiday on a
+quiet day can be seen at all. Nothing about the marks themselves changed: they are
+still only ever something to see, and a mark still never adds or removes a
+delivery date or changes what a product sells. Two small pieces of the drawing
+were tidied while moving it: the green tint on a day a product sells is now a
+see-through wash rather than a flat fill, so a holiday band running behind it
+still shows through instead of the mark disappearing on exactly the days you
+sell (the tint itself looks the same as before); and a marked day that happens to
+be today now keeps the soft glow that says "this is today", the way the shop's
+calendar has always drawn it.
 
 **14 Sep 2026 — engine v84 (no database setup needed). A day you marked is now
 the same gentle wash everywhere, whichever calendar you are looking at.** A

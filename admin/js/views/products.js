@@ -10,6 +10,7 @@ import { isLive, isDraft, isHidden, newDraftRow } from "../productState.js";
 import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } from "../translate.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "../calendar.js";
+import { boxClass, occBox, occPapers } from "../occgrid.js";
 import { todayISO } from "../dates.js";
 // The sell-day rules themselves — one shared copy, the same file the shop reads,
 // so the day she marks here and the day a customer may order can never drift.
@@ -319,6 +320,9 @@ function availabilityCard(state, product) {
       if (!deliversOn(d)) cls += " off";
       if (past) cls += " past";
       if (d === today) cls += " today";
+      // Her occasion marks, drawn here too: what a product sells is a calendar
+      // question, and "not on Deepavali" is easier to see than to remember.
+      cls += boxClass(occBox(state.occasions, d, past));
       // A past day can never be a delivery date again, so it is shown but not
       // offered — a mark made on one would be dropped at the next save anyway.
       if (past) { cells.push(el("span", { class: cls }, dayNum)); continue; }
@@ -326,7 +330,8 @@ function availabilityCard(state, product) {
       byDate.set(d, cell);
       cells.push(cell);
     }
-    const grid = el("div", { class: "cal-grid", style: "touch-action:none" }, ...heads, ...cells);
+    const grid = el("div", { class: "cal-grid", style: "touch-action:none" },
+      ...heads, ...cells, ...occPapers(state.occasions, weeks, today));
     wireDrag(grid, byDate);
     return grid;
   }
@@ -359,9 +364,11 @@ function availabilityCard(state, product) {
     };
     return el("div", { class: "avail-ends" },
       el("div", { class: "field" }, el("label", {}, "Starts"),
-        dateField(r.from, (iso) => setEnd("from", iso), "Open — no start")),
+        dateField(r.from, (iso) => setEnd("from", iso),
+          { placeholder: "Open — no start", occasions: state.occasions })),
       el("div", { class: "field" }, el("label", {}, "Ends"),
-        dateField(r.to, (iso) => setEnd("to", iso), "Open — no end")),
+        dateField(r.to, (iso) => setEnd("to", iso),
+          { placeholder: "Open — no end", occasions: state.occasions })),
       el("div", { class: "btn-row" },
         button("Clear start", () => setEnd("from", ""), "ghost small"),
         button("Clear end", () => setEnd("to", ""), "ghost small")));

@@ -111,6 +111,33 @@ test("a date field with nothing chosen opens on today", () => {
   assert.equal(title(w), "September 2026");
 });
 
+// A free date field is still a calendar, and she marks her holidays on a calendar:
+// what she is recording or setting a date against should sit in front of them.
+test("a date field draws the baker's occasion marks when it is given them", () => {
+  const occasions = [
+    { id: "x", label: "Malaysia Day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
+    { id: "y", label: "School break", from: "2026-09-21", to: "2026-09-30", colour: "blue" },
+  ];
+  const w = dateField("2026-09-10", () => {}, { occasions });
+  toggle(w);
+
+  const day = cell(w, 16);
+  assert.ok(day.className.includes("sol"), "a one-day holiday is a wash box on its day");
+  assert.ok(day.className.includes("occ-red occ-strong"), "in the mark's own colour and depth");
+  assert.equal(cell(w, 15).className.includes("sol"), false, "an unmarked day stays plain");
+
+  const bands = grid(w).filter((c) => c.className.includes("occ-paper"));
+  assert.equal(bands.length, 2, "the 10-day mark bands the two week rows it crosses");
+  assert.ok(bands.every((b) => b.className.includes("occ-blue occ-mid")));
+});
+
+test("a date field with no occasions to hand draws a plain calendar", () => {
+  const w = dateField("2026-09-10", () => {});
+  toggle(w);
+  assert.equal(grid(w).filter((c) => c.className.includes("occ-paper")).length, 0);
+  assert.equal(grid(w).filter((c) => c.className.includes("sol")).length, 0);
+});
+
 test("tapping the button again folds the calendar without picking anything", () => {
   const picked = [];
   const w = dateField("2026-09-10", (iso) => picked.push(iso));

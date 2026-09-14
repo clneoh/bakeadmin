@@ -168,6 +168,30 @@ test("the arrows reach only the months the delivery days span", () => {
   assert.equal(arrows(cal)[0].disabled, true, "September is the other end");
 });
 
+// The marks she made on the Delivery Dates screen are on the calendar she opens
+// every morning too — the same two shapes, from the same module (occgrid.js).
+test("the baker's occasion marks are drawn on the orders calendar", () => {
+  STATE.occasions = [
+    { id: "x", label: "Malaysia Day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
+    { id: "y", label: "School break", from: "2026-09-21", to: "2026-09-30", colour: "blue" },
+  ];
+  const cal = build();
+
+  // The 16th is not one of this state's delivery days, so it is a quiet cell —
+  // and it still carries its mark, which is the only way a holiday on a day the
+  // bakery does not deliver can be seen at all.
+  const day = cell(cal, 16);
+  assert.ok(day.className.includes("off"), "the 16th is not a delivery day");
+  assert.ok(day.className.includes("sol"), "and still a wash box on its own day");
+  assert.ok(day.className.includes("occ-red occ-strong"), "in the mark's own colour and depth");
+  assert.equal(cell(cal, 15).className.includes("sol"), false, "an unmarked day stays plain");
+
+  const bands = cells(cal).filter((c) => String(c.className).includes("occ-paper"));
+  assert.equal(bands.length, 2, "the 10-day mark bands the two week rows it crosses");
+  assert.ok(bands.every((b) => String(b.className).includes("occ-blue occ-mid")));
+  STATE.occasions = [];
+});
+
 test("a repaint marks whichever day is on screen then, not the one it was built with", () => {
   const cal = build();
   assert.ok(cell(cal, 7).className.includes("sel"), "the day it was built for");

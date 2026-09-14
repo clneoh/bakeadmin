@@ -5,6 +5,7 @@ import { capacityStatus, dayRuleRows, parseDayDelta, productRemaining, saveDayAd
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks, occColour, occForDate } from "../calendar.js";
+import { boxClass, occBox, occPapers } from "../occgrid.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -356,13 +357,18 @@ export function deliveryCal({ state, days, getActiveId, month, onPick }) {
     if (!before(lo, month)) prev.disabled = true;
     if (!before(month, hi)) next.disabled = true;
 
-    const cells = monthWeeks(month.year, month.month).flat().map((iso) => {
+    const weeks = monthWeeks(month.year, month.month);
+    const cells = weeks.flat().map((iso) => {
       if (!iso) return el("span", { class: "cal-cell blank" });
+      // The baker's own occasion marks are drawn here too — a holiday she marked
+      // is worth seeing while she is deciding which day to open, and a day the
+      // bakery does not deliver has no other way of saying so.
+      const box = boxClass(occBox(state.occasions, iso, iso < today));
       const num = el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))));
       const dateId = byDate.get(iso);
       // A day the bakery does not deliver: a quiet number, and nothing to tap.
       if (!dateId) {
-        return el("span", { class: `cal-cell off${iso === today ? " today" : ""}` }, num);
+        return el("span", { class: `cal-cell off${iso === today ? " today" : ""}${box}` }, num);
       }
       const cap = capacityStatus(state, dateId);
       const st = deliveryStatus(iso, state.settings);
@@ -375,6 +381,7 @@ export function deliveryCal({ state, days, getActiveId, month, onPick }) {
       if (iso === today) cls += " today";
       if (st.closed && !st.past) cls += " closed";
       if (full) cls += " full";
+      cls += box;
       return el("button", {
         class: `${cls} tappable`,
         onclick: () => onPick(dateId),
@@ -388,7 +395,8 @@ export function deliveryCal({ state, days, getActiveId, month, onPick }) {
         next),
       el("div", { class: "cal-grid" },
         ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
-        ...cells));
+        ...cells,
+        ...occPapers(state.occasions, weeks, today)));
   }
 
   paint();
@@ -863,7 +871,8 @@ function orderForm(state, dateId, root, selectDate) {
     value: draft.address, oninput: function () { draft.address = this.value; } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
-  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; });
+  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; },
+    { occasions: state.occasions });
 
   // "Which day am I adding to?" — the same calendar the top of the screen shows,
   // so the two can never disagree about which days exist. Choosing a day switches
@@ -1065,7 +1074,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     value: draft.address, oninput: function () { draft.address = this.value; } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
-  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; });
+  const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; },
+    { occasions: state.occasions });
   // Picking a day writes the draft and repaints the pop-up, so the soft notes
   // below re-read against the new day — the move itself is unchanged. The
   // calendar is always open here: a pop-up the baker opened on purpose has no

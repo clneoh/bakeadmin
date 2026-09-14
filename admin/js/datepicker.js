@@ -14,6 +14,7 @@
 
 import { el, button } from "./ui.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "./calendar.js";
+import { boxClass, occBox, occPapers } from "./occgrid.js";
 import { longDate, todayISO } from "./dates.js";
 
 // How many months the free date field's arrows reach either way from today.
@@ -31,26 +32,32 @@ function before(a, b) {
 }
 
 // The month grid. Every day of every month is tappable — this is a free date
-// field, so any day at all may be the answer.
-function gridEl(shown, { selected, today, onPick }) {
-  const cells = monthWeeks(shown.year, shown.month).flat().map((iso) => {
+// field, so any day at all may be the answer — and the baker's own occasion
+// marks are painted on it, the same two shapes every other calendar draws, so a
+// date she is recording or a period she is setting is seen against her holidays.
+function gridEl(shown, { selected, today, onPick, occasions }) {
+  const weeks = monthWeeks(shown.year, shown.month);
+  const cells = weeks.flat().map((iso) => {
     if (!iso) return el("span", { class: "cal-cell blank" });
     const dayNum = String(Number(iso.slice(8, 10)));
+    const past = iso < today;
     let cls = "cal-cell";
     if (iso === selected) cls += " sel";
-    else if (iso < today) cls += " past";
+    else if (past) cls += " past";
     if (iso === today) cls += " today";
+    cls += boxClass(occBox(occasions, iso, past));
     return el("button", { class: `${cls} tappable`, onclick: () => onPick(iso) }, dayNum);
   });
   return el("div", { class: "cal-grid" },
     ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
-    ...cells);
+    ...cells,
+    ...occPapers(occasions, weeks, today));
 }
 
 // `value` is an ISO date (or "" when nothing is chosen yet), `lo`/`hi` are the
 // months the arrows may reach, and `todayShortcut` adds the one-tap way back to
 // today, since hunting for today through a month grid is tiresome otherwise.
-function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcut }) {
+function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcut, occasions }) {
   let open = false;
   let current = value || "";
   let shown = monthOf(current || today);
@@ -98,7 +105,7 @@ function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcu
         prev,
         el("span", { class: "cal-title" }, monthLabel(shown.year, shown.month)),
         next),
-      gridEl(shown, { selected: current, today, onPick: choose }),
+      gridEl(shown, { selected: current, today, onPick: choose, occasions }),
       todayShortcut
         ? el("div", { class: "datepick-foot" }, button("Today", () => choose(today), "ghost small"))
         : null);
@@ -110,7 +117,10 @@ function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcu
 
 // A free date field — any day of any month in range is the answer, with a Today
 // shortcut, since hunting for today through a month grid is tiresome otherwise.
-export function dateField(value, onPick, placeholder = "Choose a date…") {
+// `occasions` is the baker's occasion marks (state.occasions), drawn on the grid
+// so a date is chosen against her holidays; a caller with no state to hand simply
+// leaves it out and gets a plain calendar.
+export function dateField(value, onPick, { placeholder = "Choose a date…", occasions = [] } = {}) {
   const today = todayISO();
   const t = monthOf(today);
   return build({
@@ -122,5 +132,6 @@ export function dateField(value, onPick, placeholder = "Choose a date…") {
     onPick,
     placeholder,
     todayShortcut: true,
+    occasions,
   });
 }
