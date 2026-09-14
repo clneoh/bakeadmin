@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v85)
+# Jienluv2bake — change history (v54 → v86)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v86 (no database setup needed). On the Orders screen your
+marked days now sit on their days, at the same depth as everywhere else.** v85
+put your marks on every calendar in the app. On the Orders screen the wash did
+not line up with the days underneath it. Two things were behind that, and both
+came from the same fact: the days on that one screen are taller than the days
+anywhere else, because a delivery day there carries its booking count ("3/12")
+under its number.
+
+**A holiday band was stretched to fill its week row.** Where every day is the
+app's usual height, a band came out the same 30px sheet a single-day box is, so
+the two shapes matched - which is how the rest of the app has always drawn them.
+On the Orders screen the rows are taller, so the band there came out deeper than
+a single-day box, and deeper in the weeks that held a delivery day than in the
+weeks that did not, so one holiday's own band changed depth from row to row
+inside the same month. **A band is now a sheet of one depth, centred on its
+row** - the same depth a single-day box has, on every calendar, whatever height
+the days around it happen to be.
+
+**A plain day kept the app's usual height inside a taller row**, so it sat at
+the top of the row rather than on its middle. A single-day mark was therefore
+drawn 6px higher on a day you do not deliver than on a day you do: the same
+holiday, on a different line, decided by whether you deliver that day. **Every
+day of the Orders month is now drawn at one height**, delivering or not, so a
+mark sits on the same line as the day it covers, beside the booking counts.
+
+One more thing fell out of that. Today's soft glow is drawn around a whole day on
+the app's shorter calendars, and around a taller day it would have become a box
+again - the very thing that glow replaced. **Today on the Orders screen now glows
+around its number**, the same round glow a delivery day's number carries, so
+today reads the same whether or not you deliver that day.
+
+Nothing else changed. The shop's calendar and your Delivery Dates calendar look
+exactly as before (their days are all one height, so they never had this), and no
+mark was added, moved or removed: this is the drawing only.
 
 **14 Sep 2026 — engine v85 (no database setup needed). Your marked days are now
 drawn on every calendar in the app, not just the one you marked them on.** Until

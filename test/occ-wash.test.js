@@ -40,6 +40,32 @@ test("both calendars hand the box the strength class a band would get", () => {
   }
 });
 
+// A band used to fill its week row instead of being a sheet of one depth, and the
+// app's calendars do not all have 34px rows: on the Orders screen a day you deliver
+// carries its booking count and is taller, so a holiday's band came out deeper there
+// than on every other calendar — and deeper from week to week within one month. The
+// baker saw it as the tint sitting off its days. A band is now the same 30px sheet a
+// single-day box is, centred.
+test("the app's band has one depth, whatever its week row measures", () => {
+  const paper = block(read("admin/css/app.css"), ".occ-paper");
+  assert.match(paper, /height: 30px/, "app: the band is as deep as a sheet");
+  assert.match(paper, /top: 50%/, "app: and centred in its row");
+  assert.match(paper, /translateY\(-50%\)/, "app: centred by the transform");
+  assert.ok(!/inset:\s*2px/.test(paper), "app: no longer stretched to its row");
+});
+
+// The Orders screen has two day shapes in one row — a delivery day (taller, with its
+// count) and a plain day. Left at the app's usual 34px the plain one held its number,
+// and any mark washed behind it, 6px above the delivery days beside it. One height for
+// both, and the `.cal-wrap` hook the rule hangs on is pinned here too: renaming that
+// class in orders.js would silently drop the rule, both of them.
+test("every day on the Orders calendar is one height", () => {
+  assert.match(read("admin/css/app.css"), /\.cal-wrap \.cal-cell \{ height: auto; min-height: 46px; \}/,
+    "app: every day of the Orders calendar shares one height");
+  assert.ok(read("admin/js/views/orders.js").includes('class: "cal-wrap"'),
+    "orders.js: still wraps its calendar in .cal-wrap, which the rule above needs");
+});
+
 // The app owns five month calendars and every one of them asks occgrid.js for the
 // marks, so Orders cannot quietly drift from Delivery Dates. This is the guard
 // against a screen growing its own copy of the class string — the failure mode

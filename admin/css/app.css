@@ -1454,6 +1454,12 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   margin: 0 0 10px;
 }
 .cal-cell.off { color: var(--muted); opacity: .6; }
+/* Every day here is one height. A delivery day is taller because its booking count
+   sits under the number, and a plain day left at the app's usual 34px held its
+   number — and any mark washed behind it — 6px higher than the delivery days beside
+   it in the very same row, so a single-day holiday was drawn on a different line
+   depending on whether she delivers that day. */
+.cal-wrap .cal-cell { height: auto; min-height: 46px; }
 .cal-cell.stacked {
   flex-direction: column;
   gap: 1px;
@@ -1473,12 +1479,25 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   font-weight: 700;
 }
 .cal-cell.deliv.sel .cal-num { box-shadow: none; color: #fff; }
-/* A stacked cell is two rows tall, so a halo around the cell itself would be a
-   box again. Today's own circle glows instead — drawn on a pseudo-element,
-   because an animated box-shadow beats a normal one and would erase the green
-   ring on a day that is both today and a delivery day. */
-.cal-cell.stacked.today:not(.sel) .cal-num { position: relative; }
-.cal-cell.stacked.today:not(.sel) .cal-num::before {
+/* A day here is a row tall, so a halo around the cell itself would be a box again
+   — and a bigger one than on the app's shorter calendars. Today's number glows
+   instead, in the same round 26px the delivery days use, so today looks the same
+   whether or not she delivers that day. Drawn on a pseudo-element, because an
+   animated box-shadow beats a normal one and would erase the green ring on a day
+   that is both today and a delivery day. */
+/* :not(.stacked) keeps this above the rule below that haloes a whole cell, and
+   above its reduced-motion twin — the two are equally specific to the plain cell. */
+.cal-wrap .cal-cell.today:not(.sel):not(.stacked) { animation: none; box-shadow: none; }
+.cal-wrap .cal-cell.today:not(.sel) .cal-num {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.cal-wrap .cal-cell.today:not(.sel) .cal-num::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1487,7 +1506,7 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   animation: day-glow 2.6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .cal-cell.stacked.today:not(.sel) .cal-num::before {
+  .cal-wrap .cal-cell.today:not(.sel) .cal-num::before {
     animation: none;
     box-shadow: 0 0 8px 3px rgba(196, 85, 47, .38);
   }
@@ -1548,13 +1567,23 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
    child: grid-column/grid-row (set in JS) pick its week-row area — without
    disturbing the auto-placed day cells — and it sits UNDER the day cells
    (z-index 0 vs the cells' 1), with pointer-events off so taps and drags pass
-   through to the dates. The 2px top/bottom margin makes it the same height as
-   the sheets that can sit on top of it. */
+   through to the dates. It is centred in its row and 30px deep, the same as a
+   single-day box, so a sheet sitting on top of it is the same height as it; the
+   1px side inset leaves the band showing around that sheet's edges. */
 .occ-paper {
   position: absolute;
   grid-area: var(--gr) / var(--gc1) / var(--gr) / var(--gc2);
-  inset: 2px 1px; /* 2px top/bottom margin = a 30px-tall sheet; 1px side inset so
-                     a sheet sitting on top still shows around its edges */
+  /* One depth for every week, whatever height its row happens to be: a band is the
+     same 30px sheet a single-day box is, centred in the row, 1px off each side so a
+     sheet sitting on top of it still shows around its edges. It used to fill its row
+     instead, which made one holiday's band deeper than another's wherever the rows
+     differ in height — on the Orders calendar, where a delivery day carries its
+     booking count and so is taller than a plain day. */
+  left: 1px;
+  right: 1px;
+  top: 50%;
+  height: 30px;
+  transform: translateY(-50%);
   z-index: 0;
   pointer-events: none;
   border-radius: 9px;
