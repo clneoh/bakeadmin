@@ -6,6 +6,7 @@
 // access is guarded so importing the module is side-effect free.
 
 import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
+import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
 import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine } from "./state.js";
@@ -296,6 +297,14 @@ function storefrontPayload(state) {
         const v = p && p[k];
         if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
       }
+      // The days this product SELLS, marked on its own calendar: spans, each
+      // carrying the weekdays it covers (none = every day of the span, either end
+      // may be open). Kept to a sane length and re-checked on the shop's own
+      // terms, because this list alone decides whether a customer sees the
+      // product at all. No marks publishes no key, which the shop reads as
+      // "sell every delivery day".
+      const marked = normRules(p.sellRules).slice(0, 40);
+      if (marked.length) out.sellRules = marked;
       // How long the customer may still change or cancel this product's order —
       // shown on the card and in a mixed order's strictest window. Published
       // only when set; blank means the product states no window.

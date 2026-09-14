@@ -56,7 +56,15 @@ const en = {
   closedTo: "Only available for delivery up to %1",
   closedClose: "Orders close %1 days before delivery",
   closedCloseAdvice: " — pick a later date",
+  // The baker's marked sell days, when the chosen delivery date is not one of
+  // them. %1 is a weekday list the page joins in this language ("Mon, Wed and
+  // Fri"), so the names are built by the page, not here.
+  closedWeekday: "Only sold on %1",
+  closedUnmarked: "Not sold on this day",
   sentenceEnd: ".",
+  // Shown where the menu would be when every product is marked off today's
+  // delivery date — an empty space reads like a broken page.
+  noMenuToday: "Nothing is on the menu for this day. Please pick another delivery day.",
   fixSoldOut: "%1 just sold out — removed from your order.",
   fixPoolClamp: "%1: only %2 can fit with the rest of your order now — we changed your %3 to %2.",
   fixClamp: "%1: only %2 left now — we changed your %3 to %2.",
@@ -151,7 +159,10 @@ const zh = {
   closedTo: "只接受 %1 或之前的派送日订单",
   closedClose: "需在烘焙日前 %1 天下单",
   closedCloseAdvice: " — 请另选较后的日期",
+  closedWeekday: "只限 %1 出售",
+  closedUnmarked: "这一天没有出售",
   sentenceEnd: "。",
+  noMenuToday: "这一天没有商品在菜单上，请另选一个派送日。",
   fixSoldOut: "%1 刚刚售完 — 已从你的订单中移除。",
   fixPoolClamp: "%1：现在配合订单其余部分只装得下 %2 份 — 已把你的 %3 改为 %2。",
   fixClamp: "%1：现在只剩 %2 份 — 已把你的 %3 改为 %2。",
@@ -242,7 +253,10 @@ const ms = {
   closedTo: "Hanya tersedia untuk penghantaran sehingga %1",
   closedClose: "Tempahan ditutup %1 hari sebelum penghantaran",
   closedCloseAdvice: " — sila pilih tarikh yang lebih lewat",
+  closedWeekday: "Hanya dijual pada %1",
+  closedUnmarked: "Tidak dijual pada hari ini",
   sentenceEnd: ".",
+  noMenuToday: "Tiada apa-apa pada menu untuk hari ini. Sila pilih hari penghantaran yang lain.",
   fixSoldOut: "%1 baru sahaja habis — dikeluarkan dari tempahan anda.",
   fixPoolClamp: "%1: hanya %2 boleh dimuatkan bersama baki tempahan anda — kami telah tukar %3 anda kepada %2.",
   fixClamp: "%1: tinggal %2 sahaja sekarang — kami telah tukar %3 anda kepada %2.",

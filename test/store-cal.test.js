@@ -1,14 +1,22 @@
-// test/store-cal.test.js — the shop's month-grid helpers (store/calendar.js).
-// The shop carries its own copy of admin/js/calendar.js's two grid functions
-// rather than importing the backoffice tree (like the duplicated waNumber), so
-// the first test here pins the two copies together: any edit to one that is not
-// made to the other fails loudly instead of drifting on the customer's page.
+// test/store-cal.test.js — the shop's month-grid and occasion helpers
+// (store/calendar.js). The shop carries its own copies of these rather than
+// importing the backoffice tree (like the duplicated waNumber), so the first test
+// here pins the two copies together: any edit to one that is not made to the other
+// fails loudly instead of drifting on the customer's page. It matters most for the
+// occasion helpers, because the whole point of the shop's marks is that a day looks
+// the same to the customer as it does in the baker's own calendar.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { monthWeeks, addMonth } from "../store/calendar.js";
-import { monthWeeks as adminWeeks, addMonth as adminAddMonth } from "../admin/js/calendar.js";
+import {
+  monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occSingleDay,
+} from "../store/calendar.js";
+import {
+  monthWeeks as adminWeeks, addMonth as adminAddMonth,
+  occColour as adminColour, occDays as adminDays, occStrength as adminStrength,
+  occForDate as adminForDate, occSingleDay as adminSingleDay,
+} from "../admin/js/calendar.js";
 
 // Every month of two years plus a couple of far ones — leap years, 31/30/28-day
 // months, months starting on each weekday.
@@ -27,6 +35,50 @@ test("the shop's grid is identical to the app's, month for month", () => {
         `${y}-${m} ${delta} months agree`);
     }
   }
+});
+
+// The marks the shop draws are the app's own vocabulary copied across, so the two
+// copies of the occasion helpers have to agree on every shape a mark can take: the
+// eight colours, a missing or unrecognised colour, a single day, a run just long
+// enough to change strength and just long enough to change again, overlapping marks
+// (shortest wins the day), and a mark with no dates at all.
+const MARKS = [
+  { label: "one day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
+  { label: "three days", from: "2026-09-19", to: "2026-09-21", colour: "orange" },
+  { label: "four days", from: "2026-09-19", to: "2026-09-22", colour: "yellow" },
+  { label: "eleven days", from: "2026-09-19", to: "2026-09-29", colour: "green" },
+  { label: "twelve days", from: "2026-09-19", to: "2026-09-30", colour: "blue" },
+  { label: "no colour", from: "2026-10-01", to: "2026-10-02" },
+  { label: "odd colour", from: "2026-10-03", to: "2026-10-04", colour: "teal" },
+  { label: "no dates" },
+  { label: "backwards", from: "2026-10-10", to: "2026-10-01", colour: "purple" },
+  { label: "pink one", from: "2026-09-19", to: "2026-09-19", colour: "pink" },
+  { label: "red one", from: "2026-09-19", to: "2026-09-19", colour: "red" },
+];
+
+test("the shop's occasion helpers are the app's, mark for mark", () => {
+  for (const m of MARKS) {
+    assert.equal(occColour(m), adminColour(m), `${m.label} colour agrees`);
+    assert.equal(occDays(m), adminDays(m), `${m.label} length agrees`);
+    assert.equal(occStrength(m), adminStrength(m), `${m.label} strength agrees`);
+  }
+  // Every day of a fortnight that the marks above overlap on: the day's mark and
+  // its single-day box have to be the same one on both sides.
+  for (let d = 1; d <= 14; d++) {
+    const iso = `2026-09-${String(d).padStart(2, "0")}`;
+    assert.equal(occForDate(MARKS, iso)?.label, adminForDate(MARKS, iso)?.label,
+      `${iso} is named by the same mark`);
+    assert.equal(occSingleDay(MARKS, iso)?.label, adminSingleDay(MARKS, iso)?.label,
+      `${iso} draws the same single-day box`);
+  }
+});
+
+test("the strength steps at three and twelve days", () => {
+  assert.equal(occStrength({ from: "2026-09-01", to: "2026-09-01" }), "strong");
+  assert.equal(occStrength({ from: "2026-09-01", to: "2026-09-03" }), "strong");
+  assert.equal(occStrength({ from: "2026-09-01", to: "2026-09-04" }), "mid");
+  assert.equal(occStrength({ from: "2026-09-01", to: "2026-09-11" }), "mid");
+  assert.equal(occStrength({ from: "2026-09-01", to: "2026-09-12" }), "soft");
 });
 
 test("a month grid is whole Sun-first weeks with null padding", () => {

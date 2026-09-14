@@ -1,8 +1,101 @@
-# Jienluv2bake — change history (v54 → v80)
+# Jienluv2bake — change history (v54 → v82)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v82 (no database setup needed). A product's selling days
+are now marked on a little calendar inside the product's own screen — weekend,
+certain days, a season, or any mix of them.** Until today a product could say
+only two things about *when*: a notice period, and one from-date and to-date for
+a season. You asked to set it freely instead, so the two date boxes have become a
+card you mark.
+
+**Open a product and tap the Availability card.** It sits under Daily limit and
+stays folded until you tap its title, exactly like the product-text card you
+already know. Folded, its title tells you what is marked — "Every day", or "Sat
+& Sun", or "1-24 Dec 2026" — so the Products screen alone tells you a product's
+selling days without opening anything.
+
+**Inside, it is a month calendar and four gestures.** Tap a weekday letter (M, T,
+W...) and every one of that weekday **in the month shown** is marked: tap S twice
+and the product sells on Saturdays and Sundays. Tap one day to mark just that
+day. Slide your finger across several days and the whole run is marked. Tapping
+or sliding over a day that is already marked takes it back. Everything you mark
+is added together — mark Saturday and Sunday, then a week in the middle, and the
+product sells on all of them.
+
+**Nothing carries over into the next month**, which is the point of it: marks
+belong to the days you marked and no others, so a December-only set stays
+December-only and January starts with nothing marked. Page to another month with
+the arrows and mark that one too if you want to sell then. And a product whose
+card you have never opened sells on every delivery day exactly as before, so
+nothing on your live shop moves until you mark it.
+
+**A period that crosses a month or a year is one mark with two ends you can
+stretch.** The card lists your marks under the calendar; tap one and its
+**Starts** and **Ends** dates appear above it, and you can push either end as far
+as you like — a Sat & Sun run from 1 Dec to 4 Jan is one line, not two marks.
+Leave an end empty and the mark simply has no bound on that side ("from here
+on", or "up to here"). Type the two dates the wrong way round and they are put
+in order for you. A small x on a listed mark removes it whole.
+
+**On the order page, a day a product is not sold for is not a note — the product
+is simply not there.** No card, nothing to want and not have. If a customer
+already had it in their basket and then switches to a day it is not sold for, it
+leaves the basket and a short line says why. The one rule that keeps its note is
+the notice period: a product needing 14 days IS sold that day, it only has to be
+ordered earlier, so it stays on the menu reading "Orders close 14 days before
+delivery - pick a later date" — the two are different questions, and only the
+second one hides anything.
+
+**Two things worth saying plainly.** The old From/To season boxes are gone; a
+product that had them opens with that period already sitting in the card as one
+mark, so nothing you set before is lost. And a product whose selling days have
+all gone by keeps them, on purpose: your own rule is "if I have not indicated a
+selling date, it is not selling", so a mark you leave on says exactly that, and
+the way to put a product back on sale every day is to take its marks off with the
+x. No database setup, and delivery dates, capacity, value packs, ingredients,
+suppliers and everything else are untouched.
+
+**14 Sep 2026 — engine v81 (no database setup needed). A holiday you marked is
+now drawn on the shop's calendar exactly the way your own calendar draws it: a
+pale band across a run of days, a solid box for a single day.** The marks were
+already reaching the shop; it was only their shape that differed, and a mark
+that looks different on the customer's page than on yours is a mark your
+customer has to learn twice.
+
+**On the shop, a marked day now wears the mark your own calendar gives it.** The
+shop had been drawing each marked day as its own flat pale square, so a holiday
+running over a week read as a row of separate blocks where your own calendar
+shows one continuous shape. Now a holiday running over **several days** is a
+**pale see-through band** across those days - one unbroken rounded band per week
+row it crosses, in its own colour, and **deeper the shorter the run**, so a
+one-day holiday still stands out inside a long school break. A **single-day**
+holiday is a **solid box** in its full colour on its one day, a touch narrower
+than the band so a longer band still peeks out at its sides. The eight colours
+are your own calendar's eight, and the strength steps are the same three, so a
+marked day reads the same to your customer as it does to you.
+
+**The one place it gives way: a day you deliver for.** Green is the colour the
+delivery ring uses, and a solid box would swallow that ring - so on a day the
+bakery delivers for, the day a customer can actually order, the box goes pale
+there and the **green ring stays the first thing the eye reads**. The mark is
+still there on that day, and the day is still named on a tap. This is the one
+guard on the shop's calendar, and it covers every mark colour rather than green
+alone, so no colour can ever hide the days that can be ordered for.
+
+**Nothing else moves.** Tap a marked day - or, on a computer, rest the mouse
+pointer on it - and the same small bubble names it, e.g. "Malaysia Day"; tapping
+anywhere else puts the bubble away, and still nothing is listed under the grid.
+Today still breathes its soft glow. A run still stops at today rather than
+colouring days already gone, exactly as your own calendar leaves past days
+alone. And your own typed-in days still never reach the shop: only a day that is,
+by name and date, one of the built-in standard days can be published, exactly as
+before. No SQL, no schema change. The calendar the shop draws with is still a
+copy of your app's own, and a test now pins the two copies' mark rules together
+as well as their month grids, so a day can never again look like one thing here
+and something else there.
 
 **14 Sep 2026 — engine v80 (no database setup needed). Today glows instead of
 wearing a box, a holiday you marked is a soft tint you can tap to name, and the

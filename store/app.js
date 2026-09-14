@@ -5,7 +5,8 @@
 // config.js fallback at runtime.
 import { CONFIG } from "./config.js";
 import { poolCaps, poolGroups, clampPool, groupFor, poolPieces, closedReason, cancelDaysFor, strictestCancelDays } from "./pool.js";
-import { monthWeeks, addMonth } from "./calendar.js";
+import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occSingleDay } from "./calendar.js";
+import { normRules } from "../availability.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
 
@@ -54,18 +55,36 @@ function sub(s) {
   return out;
 }
 
+// "Mon, Wed and Fri" — the visitor's own way of listing things, so a closed
+// product's sentence does not read like a translation.
+function listJoin(items) {
+  if (!items.length) return "";
+  if (items.length === 1) return items[0];
+  const lang = loadLang();
+  if (lang === "zh") return `${items.slice(0, -1).join("、")}和${items[items.length - 1]}`;
+  const and = lang === "ms" ? "dan" : "and";
+  return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
+}
+
 // A closedReason() rule as a bare clause, in the visitor's language and with
 // the date written by fmtDay — so a Chinese or Malay visitor never reads an
-// English weekday. Used on the product card and quoted inside the basket notes.
+// English weekday. Used on the product card (the advance-notice note) and quoted
+// inside the basket notes.
 function closedReasonClause(reason) {
   if (!reason) return "";
   if (reason.kind === "close") return sub(t("closedClose"), reason.days);
+  if (reason.kind === "days") {
+    return sub(t("closedWeekday"), listJoin((reason.days || []).map(dayName)));
+  }
+  if (reason.kind === "unmarked") return t("closedUnmarked");
   const day = fmtDay(new Date(`${reason.date}T00:00:00`));
   return sub(t(reason.kind === "from" ? "closedFrom" : "closedTo"), day);
 }
 
 // The card's own sentence: the clause, the advice when the rule has one, then
-// the sentence-ending punctuation that language uses.
+// the sentence-ending punctuation that language uses. Now only the advance-notice
+// rule is ever worded on a card — a product that is not sold on the chosen day is
+// not on the menu at all (see renderMenu).
 function closedReasonText(reason) {
   if (!reason) return "";
   const advice = reason.kind === "close" ? t("closedCloseAdvice") : "";
@@ -243,7 +262,7 @@ export function mergeStorefront(base, remote) {
     const days = remote.deliveryDays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
     if (days.length) out.deliveryDays = days;
   }
-  // The standard days the bakery markets around, for the tinted days on the
+  // The standard days the bakery markets around, for the bands and boxes on the
   // customer's calendar and the bubble that names one when it is tapped. The app
   // publishes only marks that ARE built-in standard days, but the shop validates
   // every row again on its own terms: anything half-formed or unrecognised is
@@ -251,7 +270,7 @@ export function mergeStorefront(base, remote) {
   //
   // Replaced wholesale, unlike deliveryDays above: the app publishes a complete
   // snapshot, so an empty list is a real instruction — "she has no standard days
-  // marked" — and has to clear the tints an already-open page is still showing.
+  // marked" — and has to clear the marks an already-open page is still showing.
   // An empty list draws nothing at all, so it can never break the shop.
   if (Array.isArray(remote.occasions)) {
     const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -303,6 +322,14 @@ export function mergeStorefront(base, remote) {
           const v = p && p[k];
           if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
         }
+        // The days this product SELLS, marked on its own calendar: spans, each with
+        // the weekdays it covers (none = every day of the span, either end may be
+        // open). Validated here on the shop's own terms — availability.js drops a
+        // malformed span rather than trusting it — because this list is the only
+        // thing that decides whether the customer sees the product at all. An empty
+        // list is dropped, which reads as "no marks" and so keeps every day open.
+        const marked = normRules(p.sellRules).slice(0, 40);
+        if (marked.length) out.sellRules = marked;
         // The change/cancel window the baker states for this product. Blank
         // stays absent, so it never counts in a mixed order's strictest window.
         const cancel = Number(p.cancelDays);
@@ -477,16 +504,22 @@ export function render() {
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
     const groups = poolGroups(CONFIG.products);
-    menu.replaceChildren(...CONFIG.products.map((p) => {
+    const cards = [];
+    for (const p of CONFIG.products) {
       const lang = loadLang();
       const group = groupFor(groups, p);
       const baseLeft = group && byProduct[group.baseName] != null
         ? Number(byProduct[group.baseName]) : undefined;
       const caps = group && Number.isFinite(baseLeft) ? poolCaps(group, baseLeft, cart) : null;
-      // A product's own date rules can make it unorderable on this date — it
-      // reads sold out with the reason under it. A blank product (value pack
-      // included) has no early close, so it sells on any open date.
-      const reason = closedReasonText(closedReason(p, selected, todayKey));
+      // A product's own date rules decide whether it is on TODAY's menu at all.
+      // Not sold on the chosen delivery day → it is simply not there: the customer
+      // does not see a thing they cannot have. The one exception is the baker's
+      // advance notice: that product IS sold on the day, it only has to be ordered
+      // earlier, so it stays and says so (closedReasonText below). A product with
+      // no marks at all (value packs included) sells on any open date.
+      const closed = closedReason(p, selected, todayKey);
+      if (closed && closed.kind !== "close") continue;
+      const reason = closedReasonText(closed);
 
       // `left` drives the stamp + stepper cap. A live pool member is capped by
       // the shared pool (its pieces compete with every other pack/single in the
@@ -530,7 +563,7 @@ export function render() {
       // The card reads in the visitor's language: translated name/description/
       // unit when the product has them, else the English text.
       const desc = p && descFor(p, lang);
-      return el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
+      cards.push(el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
         el("div", { class: "card-head" },
           el("div", {},
             el("p", { class: "card-title" }, nameFor(p, lang)),
@@ -539,8 +572,12 @@ export function render() {
           stamp),
         el("div", { class: "stepper" }, dec, qtyLabel, inc),
         note,
-        cancelNote);
-    }));
+        cancelNote));
+    }
+    // Every product marked off today leaves nothing at all — say so rather than
+    // showing a blank space where the menu should be.
+    menu.replaceChildren(...(cards.length ? cards : [el("p", { class: "card-sub" },
+      t("noMenuToday"))]));
   };
 
   // Live slots left for `name` on the day currently shown. undefined (no live
@@ -642,11 +679,43 @@ export function render() {
   let tipIso = null;
   let tipInstalled = false;
 
-  // The occasion covering `iso`, if any. Overlaps simply take the first match —
-  // the shop draws one wash and names one day, so the app's finer "shorter mark
-  // wins" rule has nothing to decide here.
-  const occOn = (iso) => (Array.isArray(CONFIG.occasions) ? CONFIG.occasions : [])
-    .find((o) => o && o.from <= iso && iso <= o.to) || null;
+  // The marks the bakery let the shop see. Nothing decides privacy here — the
+  // published list is already only the standard days, never a mark she typed
+  // herself — so this is a shape guard and nothing more.
+  const marks = () => (Array.isArray(CONFIG.occasions) ? CONFIG.occasions : [])
+    .filter((o) => o && o.label && o.from && o.to);
+
+  // A mark running over several days is drawn the way the baker's own calendar
+  // draws it: one translucent rounded band across the days it covers in each
+  // week row, in her own colour, deeper the shorter the run. The bands are
+  // absolutely-placed grid children (see .occ-paper), so they span a row without
+  // disturbing the day cells, and they sit behind the numbers. A single-day mark
+  // is not a band — its own day draws a solid box (see .cal-cell.sol). Neither
+  // ever covers a past day, exactly as the office leaves them alone.
+  const occBands = (weeks, today) => {
+    const out = [];
+    const long = marks().filter((o) => occDays(o) >= 2)
+      .sort((a, b) => occDays(b) - occDays(a)); // longest first → painted behind
+    for (const occ of long) {
+      weeks.forEach((row, r) => {
+        let first = -1;
+        let last = -1;
+        row.forEach((iso, c) => {
+          if (iso && iso >= today && occ.from <= iso && iso <= occ.to) {
+            if (first === -1) first = c;
+            last = c;
+          }
+        });
+        if (first === -1) return;
+        // Grid row 1 is the day-of-week heading, so week r sits on grid row r + 2.
+        out.push(el("div", {
+          class: `occ-paper occ-${occColour(occ)} occ-${occStrength(occ)}`,
+          style: `--gr:${r + 2};--gc1:${first + 1};--gc2:${last + 2};`,
+        }));
+      });
+    }
+    return out;
+  };
 
   // The marked days are never listed, so the name is read only on request: a tap
   // anywhere outside a bubble puts it away. One listener serves the whole page, and
@@ -711,37 +780,43 @@ export function render() {
       arrow(t("calNext"), 1, canNext));
 
     const weeks = monthWeeks(calMonth.year, calMonth.month);
+    const all = marks();
     const cells = weeks.flat().map((iso) => {
       if (!iso) return el("span", { class: "cal-cell blank" });
       const spec = byKey.get(iso);
-      const occ = occOn(iso);
       const isSel = iso === selected;
       const past = iso < todayK;
       const full = !!spec && spec.soldOut;
       const open = !!spec && !full && !past;
+      // The mark this day is NAMED by — the shortest one covering it, the app's own
+      // "the more specific mark wins" rule, so a day inside a long break is still
+      // named by a short holiday sitting on it.
+      const named = past ? null : occForDate(all, iso);
+      // A single-day mark draws the solid box; a longer one is a band behind it.
+      const sol = past ? null : occSingleDay(all, iso);
       let cls = "cal-cell";
       if (spec && !full) cls += " avail";
       if (full) cls += " full";
       if (isSel) cls += " sel";
       if (iso === todayK) cls += " today";
       if (past) cls += " past";
-      if (occ) cls += ` occ-${occ.colour}`;
+      if (sol) cls += ` sol occ-${occColour(sol)}`;
       const kids = [el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))))];
       // The name waits in its own bubble and is never listed in advance. `hidden`
       // is set on the node itself, not through el(): the shop's el() skips only
       // null, so `hidden: false` would still set the attribute and hide it.
-      if (occ) {
-        const tip = el("span", { class: "cal-tip" }, occ.label);
+      if (named) {
+        const tip = el("span", { class: "cal-tip" }, named.label);
         tip.hidden = iso !== tipIso;
         kids.push(tip);
       }
       // A day she delivers with room left is tapped to choose it; a marked day is
       // tapped to read its name — and the one day can be both.
-      if (open || occ) {
+      if (open || named) {
         return el("button", {
-          class: cls + (open ? " tappable" : "") + (occ ? " tippable" : ""),
+          class: cls + (open ? " tappable" : "") + (named ? " tippable" : ""),
           onclick: () => {
-            if (occ) tipIso = iso;
+            if (named) tipIso = iso;
             if (open) selected = iso;
             // Rebuild the grid + menu together so the chosen day and the quantities
             // the customer chose are re-checked against this day's availability.
@@ -757,7 +832,9 @@ export function render() {
         head,
         el("div", { class: "cal-grid" },
           ...dowNames().map((d) => el("span", { class: "cal-dow" }, d)),
-          ...cells),
+          ...cells,
+          // The bands go in last and sit behind the cells (see .occ-paper).
+          ...occBands(weeks, todayK)),
         // The day they picked, in words — the one line under the grid.
         el("p", { class: "cal-chosen" },
           sub(t("calChosen"), fmtDay(new Date(`${selected}T00:00:00`)))),

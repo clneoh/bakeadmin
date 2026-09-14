@@ -1644,6 +1644,85 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .occ-row-dates { font-size: 12px; color: var(--muted); }
 .occ-row .btn { flex: none; min-height: 34px; padding: 6px 11px; font-size: 12px; }
 
+/* ── Availability — the days a product sells, marked on its own calendar ─────
+   The product form's second folded card. It reuses the .fold-head / .fold-body
+   rules above and the .cal-* grid rules below, so a day looks the same here as
+   it does on Delivery Dates; only what "on" means is new: a green tint over the
+   days that sell, and a green heading for a weekday marked right across the
+   month. A day the bakery does not deliver is dimmed (.cal-cell.off) but stays
+   visible — a mark there is allowed, it just never becomes an order. */
+.avail-head { min-width: 0; }
+.avail-head-end { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.avail-sum {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+}
+.avail-body { margin-top: 2px; }
+
+/* The weekday letters are buttons — tapping one marks every one of it in the
+   month shown. .cal-dow already sets the type; a button needs the reset. */
+.cal-dow.avail-dow {
+  appearance: none;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 7px;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-dow.avail-dow:active { background: var(--gray-bg); }
+/* The whole weekday is marked across this month / only part of it is. */
+.cal-dow.avail-dow-on { background: var(--green-bg); color: var(--green); }
+.cal-dow.avail-dow-part {
+  background: color-mix(in srgb, var(--green-bg) 55%, transparent);
+  color: var(--green);
+}
+
+/* A day this product is sold on. The tint is the whole answer; the inset ring
+   keeps the edge readable on a phone where the wash is faint. */
+.cal-cell.avail-on {
+  background: var(--green-bg);
+  color: var(--green);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 40%, transparent);
+}
+/* Marked, but the bakery does not deliver that day — shown, kept dim. */
+.cal-cell.avail-on.off { opacity: .55; }
+
+/* The two ends of the mark last touched, and the list of marks. */
+.avail-ends { margin-top: 10px; }
+.avail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.avail-row:last-child { border-bottom: none; }
+.avail-row-sel { background: var(--gray-bg); border-radius: var(--radius-sm); padding-left: 8px; padding-right: 8px; }
+.avail-row-lab {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.avail-row .btn { flex: none; min-height: 34px; padding: 6px 11px; font-size: 12px; }
+
 /* Home's "Upcoming holidays" card rows. */
 .hol-list { margin-top: 2px; }
 .hol-row {
