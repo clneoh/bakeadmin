@@ -112,7 +112,7 @@ export function importOccColour(entry) {
 const OCC_COLOUR_SET = ["red", "orange", "yellow", "green", "blue", "purple", "pink", "grey"];
 
 // The bakery's own calendar marks to hand to the customer page — the ones behind
-// the standard-days dots on the shop's delivery calendar, and nothing else.
+// the tinted days on the shop's delivery calendar, and nothing else.
 //
 // A mark is published ONLY when it is a built-in standard day: its `label|from`
 // must appear in OCCASION_CATALOG. That key is the app's own notion of "this mark
@@ -134,7 +134,7 @@ export function publishOccasions(occasions, todayISO) {
       label: occ.label,
       from: occ.from,
       to: occ.to,
-      // Her own colour, so the dot on the shop looks like the same dot in her
+      // Her own colour, so the wash on the shop looks like the same mark in her
       // app; an unrecognised one falls back to the plain grey wash.
       colour: OCC_COLOUR_SET.includes(occ.colour) ? occ.colour : "grey",
     });

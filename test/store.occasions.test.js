@@ -1,8 +1,12 @@
-// test/store.occasions.test.js — the coloured dots and the "Holidays" caption
-// under the customer's delivery calendar. What the shop publishes here is the
+// test/store.occasions.test.js — the soft wash on a standard day the bakery
+// marked, and the bubble that names it. What the shop publishes here is the
 // privacy boundary of the whole feature, so the render side is pinned: only the
 // standard days that arrive in CONFIG.occasions may draw anything, and nothing
 // draws at all when the list is empty.
+//
+// The name is never listed any more — the day-by-day caption under the grid was
+// removed — so these tests also pin the one route that is left: the name waits in
+// a hidden bubble and comes out when the day is tapped.
 //
 // Its own file because store/app.js renders once, at import: this one hands
 // CONFIG its days before that import, where store.avail.test.js renders a
@@ -55,8 +59,8 @@ globalThis.Date = MockDate;
 const { CONFIG } = await import("../store/config.js");
 // Sorted by start date, as the app publishes them. Three shapes are under test:
 // a single day, a long stretch, and a stretch that starts in the month before
-// this one — which still has to be named, because it covers the 1st and 2nd.
-// December's is here only to prove the caption stays inside the shown month.
+// this one — which still has to be washed, because it covers the 1st and 2nd.
+// December's is here only to prove a mark outside the shown month draws nothing.
 CONFIG.occasions = [
   { label: "Hungry Ghost", from: "2026-08-30", to: "2026-09-02", colour: "grey" },
   { label: "Malaysia Day", from: "2026-09-16", to: "2026-09-16", colour: "red" },
@@ -71,37 +75,46 @@ const grid = () => cal().children.find((c) => c.className === "cal-grid");
 const cells = () => grid().children.filter((c) => !c.className.includes("cal-dow"));
 // September 2026's 1st is a Tuesday, so two padding cells sit in front of it.
 const cell = (day) => cells()[2 + (day - 1)];
-const note = () => cal().children.find((c) => c.className === "cal-note");
-const items = () => note().children.filter((c) => c.className === "cal-note-item");
+const tipOf = (c) => c.children.find((x) => String(x.className).includes("cal-tip"));
+// Every node under the calendar, so a caption can never hide somewhere unexpected.
+function all(node, out = []) {
+  for (const c of node.children || []) { out.push(c); all(c, out); }
+  return out;
+}
 
-test("a single standard day wears its own colour as a dot", () => {
+test("a marked day wears a soft wash in its own colour", () => {
   const c = cell(16);
-  const dots = c.children.filter((x) => String(x.className).includes("cal-dot"));
-  assert.equal(dots.length, 1, "Malaysia Day draws one dot");
-  assert.ok(dots[0].className.includes("occ-red"), "in the colour she gave it");
-  assert.equal(cell(18).children.filter((x) => String(x.className).includes("cal-dot")).length, 0,
-    "a plain day in the same month draws none");
+  assert.ok(c.className.includes("occ-red"), "Malaysia Day is washed in the colour she gave it");
+  assert.ok(!cell(18).className.includes("occ-"), "a plain day in the same month is not washed");
+  assert.equal(c.children[0].children[0].text, "16", "the number is still the cell's first child");
 });
 
-test("a stretch of days draws a bar across every day it covers", () => {
+test("a stretch of days wears the wash across every day it covers", () => {
   for (const day of [19, 20, 21, 25, 27]) {
-    const bars = cell(day).children.filter((x) => String(x.className).includes("cal-bar"));
-    assert.equal(bars.length, 1, `${day} Sep sits inside the school break`);
-    assert.ok(bars[0].className.includes("occ-orange"));
+    assert.ok(cell(day).className.includes("occ-orange"), `${day} Sep sits inside the school break`);
   }
   for (const day of [18, 28]) {
-    assert.equal(cell(day).children.filter((x) => String(x.className).includes("cal-bar")).length, 0,
-      `${day} Sep falls outside it`);
+    assert.ok(!cell(day).className.includes("occ-"), `${day} Sep falls outside it`);
   }
 });
 
-test("the caption names this month's days, one entry each, with the Holidays label", () => {
-  const label = note().children.find((c) => c.className === "cal-note-label");
-  assert.equal(label.children[0].text, "Holidays");
+test("the name is never listed — it waits in a hidden bubble and comes out on a tap", () => {
+  const nodes = all(cal());
+  assert.equal(nodes.filter((c) => String(c.className).includes("cal-note-label")).length, 0,
+    "the Holidays caption is gone");
+  assert.equal(nodes.filter((c) => String(c.className).includes("cal-note-item")).length, 0,
+    "and no day is listed anywhere else either");
 
-  const shown = items().map((i) => i.children[0].text);
-  assert.deepEqual(shown,
-    ["30 Aug – 2 Sep · Hungry Ghost", "16 Sep · Malaysia Day", "19 Sep – 27 Sep · School break"],
-    "a single day reads as a date, a stretch as its range, the stretch from last month "
-    + "still gets named, and December's is left out");
+  const c = cell(16);
+  const tip = tipOf(c);
+  assert.ok(tip, "the marked day carries a bubble");
+  assert.equal(tip.children[0].text, "Malaysia Day", "holding the name she loaded");
+  assert.equal(tip.hidden, true, "shut until the day is tapped");
+
+  // The tap rebuilds the grid, so the same day has to be read again.
+  c._listeners.click[0]();
+  const after = cell(16);
+  assert.equal(tipOf(after).hidden, false, "the tap opens it");
+  assert.equal(tipOf(after).children[0].text, "Malaysia Day");
+  assert.equal(tipOf(cell(18)), undefined, "and a plain day still has no bubble");
 });

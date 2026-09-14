@@ -1,7 +1,10 @@
-// test/datepicker.test.js — the inline calendar behind the app's date controls
-// (admin/js/datepicker.js). The screens it serves sit behind the sign-in, so
-// these are the rules that would otherwise only be found by tapping: which days
-// are tappable, which months the arrows reach, and what the button says.
+// test/datepicker.test.js — the inline free date field behind the app's order
+// date (admin/js/datepicker.js). The screens it serves sit behind the sign-in,
+// so these are the rules that would otherwise only be found by tapping: which
+// days are tappable, which months the arrows reach, and what the button says.
+//
+// The delivery-day calendar it used to share this module with moved to the
+// Orders screen and is covered by test/orders-cal.test.js.
 //
 // "Now" is frozen at Tue 1 Sep 2026 so the grid is deterministic, as in
 // store.avail.test.js.
@@ -37,7 +40,7 @@ class MockDate extends RealDate {
 }
 globalThis.Date = MockDate;
 
-const { dateField, dayPicker } = await import("../admin/js/datepicker.js");
+const { dateField } = await import("../admin/js/datepicker.js");
 
 // ── reading the widget ───────────────────────────────────────────────────────
 const btn = (w) => w.children[0];
@@ -58,72 +61,6 @@ function cell(w, day) {
 const head = (w) => panel(w).children.find((c) => c.className === "cal-head");
 const arrows = (w) => [head(w).children[0], head(w).children[2]];
 const title = (w) => head(w).children[1].children[0].text;
-
-// ── the delivery-day picker ─────────────────────────────────────────────────
-const DAYS = [
-  { id: "d2", date: "2026-09-02" },
-  { id: "d17", date: "2026-09-17" },
-  { id: "d7", date: "2026-11-07" },
-];
-
-test("a day picker offers only the days it is given", () => {
-  const w = dayPicker("d2", DAYS, () => {});
-  assert.equal(label(w), "Wed, 2 Sep 2026", "the button names the chosen day with its weekday");
-
-  toggle(w);
-  assert.equal(title(w), "September 2026", "it opens on the chosen day's month");
-  assert.equal(cell(w, 2).tagName, "BUTTON", "a day in the list is tappable");
-  assert.ok(cell(w, 2).className.includes("sel"), "and the chosen one is marked");
-  assert.equal(cell(w, 17).tagName, "BUTTON", "so is the other day in this month");
-  assert.equal(cell(w, 3).tagName, "SPAN", "an ordinary day is not");
-  assert.equal(cell(w, 3).children[0].text, "3", "…but is still drawn");
-});
-
-test("picking a day reports its id and folds the calendar away", () => {
-  const picked = [];
-  const w = dayPicker("d2", DAYS, (id) => picked.push(id));
-  toggle(w);
-  cell(w, 17)._listeners.click[0]();
-
-  assert.deepEqual(picked, ["d17"], "the caller gets the day's id, not its date");
-  assert.equal(label(w), "Thu, 17 Sep 2026", "the button now names the new day");
-  assert.equal(panel(w).children.length, 0, "and the grid has folded away");
-});
-
-test("a day picker's arrows reach only the months its days span, plus this one", () => {
-  const w = dayPicker("d2", DAYS, () => {});
-  // Opened on September: September is the earliest month anything sits in, but
-  // today's month is September too, so back is the end of the line.
-  toggle(w);
-  assert.equal(arrows(w)[0].disabled, true, "nothing earlier to show");
-  assert.equal(arrows(w)[1].disabled, false, "November is still ahead");
-
-  arrows(w)[1]._listeners.click[0]();
-  assert.equal(title(w), "October 2026", "one month forward");
-  assert.equal(cell(w, 3).tagName, "SPAN", "a month with no delivery day offers nothing");
-
-  arrows(w)[1]._listeners.click[0]();
-  assert.equal(title(w), "November 2026");
-  assert.equal(cell(w, 7).tagName, "BUTTON", "the November day is offered here");
-  assert.equal(arrows(w)[1].disabled, true, "and November is the end of the line");
-  arrows(w)[0]._listeners.click[0]();
-  arrows(w)[0]._listeners.click[0]();
-  assert.equal(title(w), "September 2026");
-  assert.equal(arrows(w)[0].disabled, true, "September is the other end");
-});
-
-test("a day picker with no day chosen yet shows the placeholder and today's month", () => {
-  const w = dayPicker("", DAYS, () => {});
-  assert.equal(label(w), "Choose a delivery day…");
-  toggle(w);
-  assert.equal(title(w), "September 2026", "it opens on today's month");
-  assert.ok(!grid(w).some((c) => c.className.includes("sel")), "nothing is marked as chosen");
-});
-
-test("an id that is not in the list falls back to the placeholder rather than a broken date", () => {
-  const w = dayPicker("d_gone", DAYS, () => {});
-  assert.equal(label(w), "Choose a delivery day…");
-});
 
 // ── the free date field ─────────────────────────────────────────────────────
 test("a date field offers every day of the month, with a Today shortcut", () => {

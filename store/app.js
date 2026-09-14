@@ -95,8 +95,8 @@ function monthTitle(year, month) {
   return `${names[month]} ${year}`;
 }
 
-// "16 Sep" — a date without the weekday, for the one-line caption naming the
-// month's days. fmtDay is the full "Wed, 16 Sep" and too long to sit in a line.
+// "16 Sep" — a date without the weekday, for the Sold out note under the grid.
+// fmtDay is the full "Wed, 16 Sep" and too long to sit in a line.
 function shortDay(iso) {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return String(iso || "");
@@ -243,15 +243,15 @@ export function mergeStorefront(base, remote) {
     const days = remote.deliveryDays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
     if (days.length) out.deliveryDays = days;
   }
-  // The standard days the bakery markets around, for the coloured dots and the
-  // caption under the customer's calendar. The app publishes only marks that ARE
-  // built-in standard days, but the shop validates every row again on its own
-  // terms: anything half-formed or unrecognised is dropped here rather than
-  // drawn, so a malformed row can never reach the page.
+  // The standard days the bakery markets around, for the tinted days on the
+  // customer's calendar and the bubble that names one when it is tapped. The app
+  // publishes only marks that ARE built-in standard days, but the shop validates
+  // every row again on its own terms: anything half-formed or unrecognised is
+  // dropped here rather than drawn, so a malformed row can never reach the page.
   //
   // Replaced wholesale, unlike deliveryDays above: the app publishes a complete
   // snapshot, so an empty list is a real instruction — "she has no standard days
-  // marked" — and has to clear the dots an already-open page is still showing.
+  // marked" — and has to clear the tints an already-open page is still showing.
   // An empty list draws nothing at all, so it can never break the shop.
   if (Array.isArray(remote.occasions)) {
     const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -636,29 +636,39 @@ export function render() {
   // delivery day whenever the data changes.
   let calMonth = null;
 
+  // The marked day whose name is showing, as a YYYY-MM-DD key, or null. A tap sets
+  // it; any tap elsewhere clears it. It is read while the grid is rebuilt, so the
+  // bubble survives the rerender the tap itself triggers.
+  let tipIso = null;
+  let tipInstalled = false;
+
   // The occasion covering `iso`, if any. Overlaps simply take the first match —
-  // the shop only draws a dot and names the day, so the app's finer "shorter mark
+  // the shop draws one wash and names one day, so the app's finer "shorter mark
   // wins" rule has nothing to decide here.
   const occOn = (iso) => (Array.isArray(CONFIG.occasions) ? CONFIG.occasions : [])
     .find((o) => o && o.from <= iso && iso <= o.to) || null;
 
-  // A mark running this many days or more reads as a stretch rather than a day,
-  // and draws a soft bar across the cell instead of a dot. Same 3-day boundary
-  // the app's calendar uses for its solid-vs-band decision.
-  const occLong = (occ) => {
-    const days = Math.round(
-      (new Date(`${occ.to}T00:00:00`) - new Date(`${occ.from}T00:00:00`)) / 86400000) + 1;
-    return days >= 4;
-  };
+  // The marked days are never listed, so the name is read only on request: a tap
+  // anywhere outside a bubble puts it away. One listener serves the whole page, and
+  // it clears the key as well as hiding the live nodes — a later refresh rebuilds
+  // the grid from the key and would otherwise bring the bubble straight back.
+  if (!tipInstalled && typeof document !== "undefined"
+      && typeof document.addEventListener === "function") {
+    tipInstalled = true;
+    document.addEventListener("pointerdown", () => {
+      tipIso = null;
+      for (const n of document.querySelectorAll(".cal-tip")) n.hidden = true;
+    });
+  }
 
   const buildCalendar = () => {
     const specs = daySpecs(dates, avail || {});
     const open = specs.filter((s) => !s.soldOut);
     // `selected` is a YYYY-MM-DD key so it survives a rerender that rebuilds the
     // Date objects (availability/config can arrive after the customer taps). The
-    // first open day is chosen for them, exactly as the chip row did — ordering
-    // can never be blocked by forgetting to tap, and the line below now says
-    // which day that is instead of leaving it to a highlight alone.
+    // first open day is chosen for them, as it always has been — ordering can
+    // never be blocked by forgetting to tap, and the line below says which day
+    // that is instead of leaving it to a highlight alone.
     if (selected && !specs.some((s) => dateKey(s.date) === selected && !s.soldOut)) selected = null;
     if (!selected) selected = open.length ? dateKey(open[0].date) : null;
 
@@ -708,26 +718,36 @@ export function render() {
       const isSel = iso === selected;
       const past = iso < todayK;
       const full = !!spec && spec.soldOut;
+      const open = !!spec && !full && !past;
       let cls = "cal-cell";
       if (spec && !full) cls += " avail";
       if (full) cls += " full";
       if (isSel) cls += " sel";
       if (iso === todayK) cls += " today";
       if (past) cls += " past";
+      if (occ) cls += ` occ-${occ.colour}`;
       const kids = [el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))))];
+      // The name waits in its own bubble and is never listed in advance. `hidden`
+      // is set on the node itself, not through el(): the shop's el() skips only
+      // null, so `hidden: false` would still set the attribute and hide it.
       if (occ) {
-        kids.push(occLong(occ)
-          ? el("i", { class: `cal-bar occ-${occ.colour}` })
-          : el("i", { class: `cal-dot occ-${occ.colour}` }));
+        const tip = el("span", { class: "cal-tip" }, occ.label);
+        tip.hidden = iso !== tipIso;
+        kids.push(tip);
       }
-      // Only a day she delivers, with room left, can be tapped.
-      if (spec && !full && !past) {
-        return el("button", { class: `${cls} tappable`, onclick: () => {
-          selected = iso;
-          // Rebuild the grid + menu together so the chosen day and the quantities
-          // the customer chose are re-checked against this day's availability.
-          rerender();
-        } }, ...kids);
+      // A day she delivers with room left is tapped to choose it; a marked day is
+      // tapped to read its name — and the one day can be both.
+      if (open || occ) {
+        return el("button", {
+          class: cls + (open ? " tappable" : "") + (occ ? " tippable" : ""),
+          onclick: () => {
+            if (occ) tipIso = iso;
+            if (open) selected = iso;
+            // Rebuild the grid + menu together so the chosen day and the quantities
+            // the customer chose are re-checked against this day's availability.
+            rerender();
+          },
+        }, ...kids);
       }
       return el("span", { class: cls }, ...kids);
     });
@@ -742,9 +762,7 @@ export function render() {
         el("p", { class: "cal-chosen" },
           sub(t("calChosen"), fmtDay(new Date(`${selected}T00:00:00`)))),
         // Any day in this month with no room left, named rather than guessed at.
-        soldOutLine(specs, calMonth),
-        // The standard days in this month, named under the coloured dots.
-        holidayLine(weeks)));
+        soldOutLine(specs, calMonth)));
   };
 
   // "Sold out: 18 Sep, 25 Sep" — the days in the shown month that are already
@@ -756,24 +774,6 @@ export function render() {
       .map((s) => shortDay(dateKey(s.date)));
     if (!names.length) return null;
     return el("p", { class: "cal-note" }, `${t("soldOut")}: ${names.join(", ")}`);
-  }
-
-  // The standard days this month, named in one line: "16 Sep · Malaysia Day".
-  // A stretch of days reads as its range. Nothing published, nothing drawn.
-  // Each day is its own span, not one joined string: the entries are separated
-  // by the layout's gap, so a month carrying several never reads as one run.
-  function holidayLine(weeks) {
-    const occs = Array.isArray(CONFIG.occasions) ? CONFIG.occasions : [];
-    if (!occs.length) return null;
-    const shown = weeks.flat().filter(Boolean);
-    const first = shown[0];
-    const last = shown[shown.length - 1];
-    const inMonth = occs.filter((o) => o.from <= last && o.to >= first);
-    if (!inMonth.length) return null;
-    return el("p", { class: "cal-note" },
-      el("span", { class: "cal-note-label" }, t("calHolidays")),
-      ...inMonth.map((o) => el("span", { class: "cal-note-item" },
-        `${o.from === o.to ? shortDay(o.from) : `${shortDay(o.from)} – ${shortDay(o.to)}`} · ${o.label}`)));
   }
 
   // Recompute the dates + rebuild the calendar and menu. Called on first paint

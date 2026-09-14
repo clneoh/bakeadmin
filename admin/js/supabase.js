@@ -339,10 +339,10 @@ function storefrontPayload(state) {
     cutoff: (state.settings && state.settings.cutoff) || "",
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
     products,
-    // The standard days she has loaded onto her own calendar, for the coloured
-    // dots and the caption under the customer's delivery calendar. Always sent,
-    // even as an empty list, so deleting her last mark really does take the dots
-    // off the shop. publishOccasions drops everything she typed herself.
+    // The standard days she has loaded onto her own calendar, for the tinted days
+    // and their tap-to-name bubble on the customer's delivery calendar. Always
+    // sent, even as an empty list, so deleting her last mark really does take the
+    // tints off the shop. publishOccasions drops everything she typed herself.
     occasions: publishOccasions(state.occasions, todayISO()),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email

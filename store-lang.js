@@ -44,7 +44,6 @@ const en = {
   noDates: "No upcoming delivery dates right now — check back soon.",
   noOpenDates: "All upcoming deliveries are full right now — check back soon.",
   calChosen: "Your delivery day: %1",
-  calHolidays: "Holidays",
   calPrev: "Previous month",
   calNext: "Next month",
 
@@ -145,7 +144,6 @@ const zh = {
   noDates: "目前没有可预订的派送日 — 请稍后再来。",
   noOpenDates: "近期派送均已满 — 请稍后再来。",
   calChosen: "你的派送日：%1",
-  calHolidays: "节日",
   calPrev: "上个月",
   calNext: "下个月",
 
@@ -237,7 +235,6 @@ const ms = {
   noDates: "Tiada tarikh penghantaran buat masa ini — sila datang lagi nanti.",
   noOpenDates: "Semua penghantaran akan datang penuh buat masa ini — sila datang lagi nanti.",
   calChosen: "Hari penghantaran anda: %1",
-  calHolidays: "Hari cuti",
   calPrev: "Bulan sebelumnya",
   calNext: "Bulan seterusnya",
 

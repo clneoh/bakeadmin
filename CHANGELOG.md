@@ -1,8 +1,86 @@
-# Jienluv2bake — change history (v54 → v79)
+# Jienluv2bake — change history (v54 → v80)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v80 (no database setup needed). Today glows instead of
+wearing a box, a holiday you marked is a soft tint you can tap to name, and the
+Orders screen's sideways date strip becomes the same month calendar the shop
+shows.** Three small things, all pulling the same way: a calendar should read
+the same on both sides of the shop, and nothing drawn on it should look like
+something it is not.
+
+**On the shop, today no longer wears a little red rectangle.** It always meant
+to be a ring around the date, but on a day you do not deliver the app had no
+circle to draw that ring on, so it traced the day's number as a box instead —
+which is why it looked like a red square on the quiet days and only looked
+right on the days you deliver for. Today is now a **gentle glow** that breathes
+around the number, with no box at all, and it sits happily on a day you deliver
+for too: the **green ring** says you can order for this day, the soft brown
+glow says it is today. Under **prefers-reduced-motion** (a phone set to calm
+its animations) the glow holds steady instead of pulsing, so it is still there
+to find. The same fix reaches the app: the today marker on the Delivery Dates
+calendar, and inside every date picker, was a hard outline and is now the same
+soft glow.
+
+**A holiday you marked is now a soft wash, and its name comes out on a tap.**
+The shop's calendar used to mark a standard day with a small coloured dot and
+then list the month's names in a "Holidays" line under the grid — which crowded
+the very line that line was there to keep clear, and made a holiday compete
+with the days a customer can actually order for. A marked day now wears a
+**pale wash** of its own colour over the whole day. The wash is deliberately
+neither a ring nor a filled dot, because a ring is what "you can order for this
+day" looks like, and the two must never be read for each other. Tap a tinted
+day — or, on a computer, rest the mouse pointer on it — and a small dark
+**bubble** above it names the day, e.g. "Malaysia Day". Tapping anywhere else
+puts the bubble away. The "Holidays" line under the grid is gone. Your own
+typed-in days still never reach the shop: only a day that is, by name and date,
+one of the built-in standard days can be published, exactly as before.
+
+In the app the same holiday is named **beside the day** instead of in a list:
+open a delivery day and, if it carries a mark, its name sits under the date in
+the mark's own colour. Nothing at all is drawn on a day you have not marked.
+
+**The Orders screen's date strip is now a month calendar.** The row of date
+chips at the top of Orders grew a little longer every week. It is now the same
+**month calendar** the customer sees — one month at a time, with left and right
+arrow buttons either side of the month's name. The days you deliver for are
+ringed in **green**, and under each one is **how booked it is**: the same
+"3/12" the Home dials show, or **FULL** when the day has no room left. A day
+whose orders have already closed shows its count in **red**; a day already gone
+is dimmed but still opens, because you backfill and look back at old days.
+Every other day of the month is plain and cannot be tapped. Tap a green day and
+the app's view moves to it — that day is filled in on the calendar and its
+orders appear below — and tapping a day in the list below moves the calendar
+with it, so the two always agree. The arrows reach only the months your
+delivery days fall in, so paging never strands you on an empty month.
+
+**The ＋ New order card arrives folded, and leads with the calendar.** It used
+to sit open on every delivery day, which is not what that screen is for day to
+day. It now starts **shut**, showing just its title, "＋ New order" — tap the
+title to open it, and tap the title again (or tap anywhere else on the screen)
+to fold it away. Opened, it reads in the order you think in: **the month
+calendar first**, the same one the shop shows, already sitting on the day you
+are looking at, so tapping another green day moves the whole screen before you
+have typed anything; **then the customer's details** — name, WhatsApp number,
+self-collect or courier, a note; **then the items**, with "＋ Add another item"
+and "＋ Add order" at the end. It stays open after you add an order, so you can
+type the next one straight away, and coming back to the screen later starts it
+folded again.
+
+**The Edit pop-up now reads the same way.** Its **Delivery day** control was a
+button you had to tap to reveal a calendar; the calendar is simply there now,
+already open on the order's current day. The pop-up then reads the day, then
+the customer's details, then the items — the same order as the card. Every day
+still to come is tappable, plus the order's own day even if it has passed, so
+an old order always shows where it is, and the soft notes re-read underneath
+the moment you pick a different day. Moving an order is unchanged in every way
+that matters: still one delivery day per order, and capacity, the confirmation
+and the payment reminder, the track page and the WhatsApp messages are all
+exactly as they were. The button-style day picker the app used in these two
+places has been deleted along with its tests, because nothing calls it any
+more.
 
 **14 Sep 2026 — engine v79 (no database setup needed). The customer picks a
 delivery day on a calendar, and so do you in the app.** The shop used to show
@@ -49,7 +127,6 @@ reads better on a phone. No database setup needed — nothing about how orders
 are stored, counted, bought for or messaged changed.
 
 **13 Sep 2026 — engine v78 (no database setup needed). The two confusing
-"Add" buttons on the Delivery Dates calendar now say what they do.** On the**14 Sep 2026 — engine v78 (no database setup needed). The two confusing
 "Add" buttons on the Delivery Dates calendar now say what they do.** On the
 Delivery Dates screen, **Mark an occasion** used to carry a small button
 reading **"＋ Add occasion"**. The name did not tell you that it opens a

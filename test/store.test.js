@@ -337,7 +337,7 @@ test("mergeStorefront never carries the TNG QR — the shop shows no payment cod
   assert.equal(out.name, "Jienluv2bake", "other keys still merge");
 });
 
-// The standard days behind the coloured dots on the customer's calendar. The app
+// The standard days behind the tinted days on the customer's calendar. The app
 // publishes only built-in standard days, but the shop checks every row again on
 // its own terms, so a half-formed row is dropped rather than drawn.
 test("mergeStorefront keeps well-formed occasions and drops the rest", () => {
@@ -355,7 +355,7 @@ test("mergeStorefront keeps well-formed occasions and drops the rest", () => {
   for (const o of dropped) assert.deepEqual(o.occasions, [], "a row that does not hold up is not published");
 
   // A published snapshot is complete, so an empty list is a real instruction:
-  // she has no standard days marked, and the dots an open page is showing go.
+  // she has no standard days marked, and the tints an open page is showing go.
   assert.deepEqual(mergeStorefront({ occasions: [good] }, { occasions: [] }).occasions, []);
   // A payload that says nothing about occasions leaves the key alone.
   assert.deepEqual(mergeStorefront({ occasions: [good] }, { name: "X" }).occasions, [good]);
