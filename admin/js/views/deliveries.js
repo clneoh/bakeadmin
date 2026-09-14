@@ -9,7 +9,7 @@ import { deliveryStatus, longDate, todayISO, weekdayName } from "../dates.js";
 import { effectiveCapacity, totalUnitsOnDate } from "../bom.js";
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { newId, save } from "../state.js";
-import { maybeSync } from "../supabase.js";
+import { maybeSync, maybeSyncStorefront } from "../supabase.js";
 import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
   occColour, occDays, occForDateAll, occRange, occSingleDay, occStrength,
@@ -69,6 +69,18 @@ function deleteDate(state, date) {
     toast("Delivery date deleted — orders kept in history");
     renderAll(view(), state);
   }, { danger: true, yesLabel: "Delete" });
+}
+
+// Marking or clearing a holiday changes what the CUSTOMER's calendar draws, so
+// the storefront snapshot goes with it — the same two things a product edit
+// does. Only maybeSync() here would send the shared-data sync and leave the shop
+// wearing an old set of marks until a product or a setting happened to be saved:
+// on 14 Sep 2026 Malaysia Day sat on her calendar and the shop had never been
+// told about it.
+export function saveMarks(state) {
+  save(state);
+  maybeSync(state);
+  maybeSyncStorefront(state);
 }
 
 function addSelected(state) {
@@ -267,8 +279,7 @@ function deleteOccasion(state, occ) {
     + " Your delivery dates are untouched.",
     () => {
       state.occasions = state.occasions.filter((o) => o.id !== occ.id);
-      save(state);
-      maybeSync(state);
+      saveMarks(state);
       toast("Removed from the calendar");
       resetOcc();
       renderAll(view(), state);
@@ -422,8 +433,7 @@ function occImportAdd(state, picks, close) {
         label: e.label, colour: importOccColour(e),
       });
     }
-    save(state);
-    maybeSync(state);
+    saveMarks(state);
   }
   toast(fresh.length
     ? `Added ${fresh.length} occasion${fresh.length === 1 ? "" : "s"}`
@@ -457,8 +467,7 @@ function addOccasion(state, from, to, label, colour, close) {
     colour: OCC_COLOURS.includes(colour) ? colour : "grey",
   });
   rememberOccName(state, clean);
-  save(state);
-  maybeSync(state);
+  saveMarks(state);
   toast(`Marked "${clean}" on the calendar`);
   close();
   resetOcc();
@@ -492,8 +501,7 @@ function occLabelPicker(state, from, to, occ = null) {
         occ.label = name;
         occ.colour = ui.colour;
         rememberOccName(state, name);
-        save(state);
-        maybeSync(state);
+        saveMarks(state);
         toast(`Updated "${name}"`);
         close();
         renderAll(view(), state);

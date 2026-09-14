@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v82)
+# Jienluv2bake — change history (v54 → v83)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v83 (no database setup needed). Marking a holiday now
+tells the shop straight away.** A day you mark on the Delivery Dates calendar is
+drawn on the customer's own calendar (engine v79 to v81). But saving a mark only
+ever sent your delivery dates to the cloud - it never sent the customer's page
+anything - so the marks reached the shop only by accident, whenever you next
+happened to save a product or a setting. Mark the holiday, open the shop, and
+nothing had changed. Found while you were looking for a holiday on the shop and
+finding none.
+
+**Now the same save does both.** Marking a day, removing a mark, loading a set
+from the standard list, or renaming or recolouring one all republish the
+customer's page within a couple of seconds, exactly the way editing a product
+does. Nothing else about a mark changed: it is still only ever something to see
+while planning, it still never adds or removes a delivery date, and a name you
+typed yourself still never leaves your phone.
+
+**One tap to catch up the marks you already have.** The fix sends the marks from
+now on; the ones already on your calendar have never been sent at all, so open
+More → Settings → Storefront and tap **Publish now** once. After that the shop's
+calendar follows your marks by itself. Nothing to run in Supabase.
 
 **14 Sep 2026 — engine v82 (no database setup needed). A product's selling days
 are now marked on a little calendar inside the product's own screen — weekend,
