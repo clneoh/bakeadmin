@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v87)
+# Jienluv2bake — change history (v54 → v88)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Sep 2026 — engine v88 (no database setup needed). The holiday tint sits on
+the day numbers at the Orders screen, and a mouse resting on a marked day names
+it.** Two small things, both about the Orders screen and the bubble.
+
+**The tint now sits on the line of dates.** On the Orders calendar each delivery
+day carries its booking count, and that count sat *under* the date number, which
+pushed the number 5.5px above the middle of its row. The occasion wash is centred
+on the row, so on this one screen the tint sat lower than the numbers it was meant
+to be washing - and the dates themselves did not line up with each other. The count
+now sits at the foot of the day, every date number sits on one line, and the tint
+runs through that line. Nothing else about the calendar moved: the green ring, the
+chosen day's fill, and the counts all read exactly as before.
+
+**On a computer the name comes up on hover.** v87's bubble needed a tap. With a
+mouse, resting the pointer on a marked day now shows its name on its own, exactly
+as the customer's page does. This is deliberately only for a pointer that can
+hover: a touch screen keeps the tap, so a finger sweeping a run of days across the
+Availability or Delivery Dates calendars never drags a bubble along with it.
 
 **14 Sep 2026 — engine v87 (no database setup needed). Tap a marked day and it
 tells you its name — on every calendar in the app.** v85 drew your marks on all

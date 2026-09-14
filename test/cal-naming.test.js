@@ -354,13 +354,17 @@ test("every calendar asks occgrid.js what a day is called", () => {
   }
 });
 
-// The customer's shop page shows its bubble on hover as well, because a mouse is a
-// desktop pointer and its grid is a picker. The app's grids are DRAG SURFACES: a
+// A tooltip with a cursor means hover, so the app shows the bubble on hover too —
+// but ONLY where a pointer can actually hover. The app's grids are DRAG SURFACES: a
 // bubble that appeared under the finger while a run was swept would sit on top of
-// the days being swept. The app's copy must stay tap-only.
-test("the app's bubble is shown by a tap, never by hover", () => {
+// the days being swept, and a touch screen reports (hover: none).
+test("the app's bubble is shown on hover where a mouse is, and only there", () => {
   const css = read("admin/css/app.css");
   assert.ok(css.includes(".cal-tip {"), "the app has the bubble");
-  assert.ok(!/\.cal-cell:hover \.cal-tip/.test(css),
-    "no :hover rule on the app's grids — they are swept with a finger");
+  assert.match(css, /@media \(hover: hover\) \{\s*\.cal-cell:hover \.cal-tip \{ display: block; \}/,
+    "a mouse resting on a marked day shows its name");
+  // The rule must not exist outside that query, or a finger would get it too.
+  const withoutHoverBlock = css.replace(/@media \(hover: hover\) \{[^}]*\}/, "");
+  assert.ok(!/\.cal-cell:hover \.cal-tip/.test(withoutHoverBlock),
+    "every hover rule sits inside the (hover: hover) query");
 });

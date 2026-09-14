@@ -1459,13 +1459,23 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
    number — and any mark washed behind it — 6px higher than the delivery days beside
    it in the very same row, so a single-day holiday was drawn on a different line
    depending on whether she delivers that day. */
-.cal-wrap .cal-cell { height: auto; min-height: 46px; }
+.cal-wrap .cal-cell { height: auto; min-height: 52px; }
+/* The booking count is taken OUT of the flow and pinned to the foot of the cell, so
+   the number stays centred like every other calendar's day. Stacked under the number
+   instead, it pushed the number 5.5px above the row's centre — and the occasion wash
+   is centred on the row, so on this one screen the tint sat below the day numbers it
+   was meant to be washing. */
 .cal-cell.stacked {
-  flex-direction: column;
-  gap: 1px;
   height: auto;
-  min-height: 46px;
+  min-height: 52px;
   border-radius: var(--radius-sm);
+}
+.cal-cell.stacked .cal-count {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  text-align: center;
 }
 .cal-cell.deliv .cal-num {
   display: inline-flex;
@@ -1610,9 +1620,7 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 /* The name of a marked day, on request: a tap says what the day is. The same
    bubble the customer's shop page shows (v80), so one holiday reads the same on
    both sides of the sign-in. It sits above the day, outside the flow — it can
-   never shift the grid or cover a number — and NO :hover rule: the Availability
-   and Delivery Dates grids are drag surfaces, where a bubble appearing under the
-   finger while a run is swept would only get in the way. */
+   never shift the grid or cover a number. */
 .cal-tip {
   position: absolute;
   left: 50%;
@@ -1633,6 +1641,15 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 /* A day whose only job is to say its name — a holiday that IS one of the days she
    delivers, so its tap must not untick anything. */
 .cal-cell.tippable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* A mouse resting on a marked day names it too — that is what a tooltip means with a
+   cursor. Scoped to a pointer that can actually hover: a touch screen reports
+   (hover: none), so on a phone the name still takes a tap and a finger sweeping a run
+   across the Availability or Delivery Dates grids never drags a bubble along with it.
+   `display: block` is what beats the browser's own [hidden] rule, exactly as on the
+   customer's page. */
+@media (hover: hover) {
+  .cal-cell:hover .cal-tip { display: block; }
+}
 .cal-cell.sol::before {
   content: "";
   position: absolute;

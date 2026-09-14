@@ -59,11 +59,24 @@ test("the app's band has one depth, whatever its week row measures", () => {
 // and any mark washed behind it, 6px above the delivery days beside it. One height for
 // both, and the `.cal-wrap` hook the rule hangs on is pinned here too: renaming that
 // class in orders.js would silently drop the rule, both of them.
-test("every day on the Orders calendar is one height", () => {
-  assert.match(read("admin/css/app.css"), /\.cal-wrap \.cal-cell \{ height: auto; min-height: 46px; \}/,
+//
+// One height was only half of it. A delivery day's booking count then sat UNDER the
+// number, which pushed that number above the middle of its row while the band (centred
+// on the row) stayed put — the baker read that as the tint being off its days on this
+// one screen. The count is out of the flow at the foot of the cell now, so every number
+// sits on the row's centre line, where the band is.
+test("every day on the Orders calendar is one height, with its number on the band's line", () => {
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.cal-wrap \.cal-cell \{ height: auto; min-height: 52px; \}/,
     "app: every day of the Orders calendar shares one height");
+  assert.match(css, /\.cal-cell\.stacked \{[\s\S]*?min-height: 52px/,
+    "app: a delivery day is that same height");
+  assert.match(css, /\.cal-cell\.stacked \.cal-count \{[^}]*position: absolute;[^}]*bottom: \d+px;/,
+    "app: the booking count is pinned to the foot, out of the number's way");
+  assert.ok(!/\.cal-cell\.stacked \{[^}]*flex-direction: column/.test(css),
+    "app: the count no longer stacks under the number");
   assert.ok(read("admin/js/views/orders.js").includes('class: "cal-wrap"'),
-    "orders.js: still wraps its calendar in .cal-wrap, which the rule above needs");
+    "orders.js: still wraps its calendar in .cal-wrap, which the rules above need");
 });
 
 // The app owns five month calendars and every one of them asks occgrid.js for the
