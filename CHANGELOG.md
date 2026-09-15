@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v90)
+# Jienluv2bake — change history (v54 → v91)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v91 (no database setup needed). The Orders calendar now
+answers a tap it cannot act on.** One change, on one screen.
+
+**Tapping a day you do not deliver on.** The month calendar at the top of Orders
+rings your delivery days in green with how booked each one is, and draws every
+other day of the month plain. A plain day never did anything before — tapping it
+was silent, which left you guessing at the reason. Now the calendar answers: a
+warm line appears under the grid naming the day and saying it is not a delivery
+day, and that delivery days are added in More → Delivery dates. A marked day says
+its usual name above the day at the same time, so a holiday that is not a delivery
+date now tells you both what it is and why no order can go on it. Opening a real day,
+or tapping another plain one, replaces the line. Nothing can be ordered on a plain
+day, and nothing is created by the tap — the calendar simply says so now instead of
+staying quiet. A plain day already gone stays silent: there is nothing left to add
+to it.
+
+**Where it appears.** The month calendar at the top of Orders, the day picker
+inside the ＋ New order card, and the Delivery day picker in an order's Edit
+pop-up — every calendar in the app that offers only your delivery days.
+
+**Nothing else changed.** Delivery dates are still made in exactly one place, More
+→ Delivery dates (or **Generate next delivery dates** on Home). Tapping a calendar
+elsewhere in the app does not create one, and a tap that could open a day before
+still opens it.
 
 **15 Sep 2026 — engine v90 (no database setup needed). A product can stay on
 the shop on a day it cannot be ordered, with the date a customer can next have

@@ -127,6 +127,7 @@ function build() {
     getActiveId: () => "d7",
     month: { year: 2026, month: 8 },
     onPick: (id) => picked.push(id),
+    noteMisses: true, // what the Orders screen itself passes
   });
 }
 const grid = (cal) => cal.el.children.find((c) => c.className === "cal-grid");
@@ -146,8 +147,9 @@ test("a marked day the bakery does not deliver still says its name when tapped",
   assert.ok(day.className.includes("off"), "though it is not a day she delivers");
   assert.equal(tipIn(day).children[0].text, "Malaysia Day");
   assert.equal(tipIn(day).hidden, true, "and it says nothing until she asks");
-  assert.equal(cell(cal, 15).tagName, "SPAN", "an unmarked non-delivery day stays untappable");
-  assert.equal(tipIn(cell(cal, 15)), undefined, "with nothing to say");
+  assert.equal(cell(cal, 15).tagName, "BUTTON",
+    "the unmarked day beside it is tappable — the calendar answers that tap with a note, not a name");
+  assert.equal(tipIn(cell(cal, 15)), undefined, "but it has no name to give: a name needs a mark");
 
   fire(day);
   assert.deepEqual(picked, [], "naming a day is not opening it — there is no day there to open");

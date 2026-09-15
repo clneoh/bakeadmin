@@ -1465,6 +1465,22 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   }
 }
 .cal-cell.blank { visibility: hidden; }
+/* The calendar answering a tap it cannot act on: she tapped a day the bakery does
+   not deliver, so the grid says so and says where the day gets added. It sits in
+   the calendar card under the grid rather than in a bubble over the day (the way a
+   marked day names itself) — a bubble is a word or two wide and this is a whole
+   sentence, which at the left or right edge of a phone would run off the screen.
+   The warm fill is the brand answering her, not another piece of the calendar. */
+.cal-miss {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--brown-soft);
+  color: var(--brown-dark);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
 
 /* The Orders screen's delivery calendar (js/views/orders.js): one month at a time,
    the days you deliver wearing the same green ring the shop rings a day with, and
