@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v91)
+# Jienluv2bake — change history (v54 → v92)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v92 (no database setup needed). The New product card on
+Products folds away.** One change, on one screen.
+
+**Why.** The card that adds a product sat open at the top of the Products screen,
+and open it is a long form - it pushed your three lists (On the shop, Draft,
+Hidden) right off the bottom, so every look at what you sell began with a scroll
+past a form you were not filling in.
+
+**What it does now.** The card arrives folded to a single line reading **＋ New
+product**. Tap it and the form opens; tap the title again, or tap anywhere else on
+the screen, to fold it away. It stays open after you add a product - the toast
+still says it was saved as a draft - so you can type the next one straight away,
+and it starts folded again the next time you come to the screen. Nothing about
+adding a product changed: the form inside is exactly as it was, and it is still
+the same card that stays on the page while an Edit pop-up is open over it.
 
 **15 Sep 2026 — engine v91 (no database setup needed). The Orders calendar now
 answers a tap it cannot act on.** One change, on one screen.

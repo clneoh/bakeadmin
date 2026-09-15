@@ -1,6 +1,6 @@
 // views/products.js — products + recipe (BOM) editor. New products go in the
-// always-visible card at the top; tapping Edit opens the same form in a pop-up
-// over the screen, exactly like editing an order.
+// folded card at the top; tapping Edit opens the same form in a pop-up over the
+// screen, exactly like editing an order.
 
 import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
@@ -29,6 +29,12 @@ const FIELD_LABEL = { name: "Name", description: "Description", unit: "Selling u
 // nothing has to be unhooked when a pop-up is cancelled without re-rendering.
 const openCards = new Set();
 let collapseInstalled = false;
+// Whether the New product card is open. Module scope, not a node's: the card is
+// rebuilt whenever anything around it changes (a product added, published or
+// hidden), and the screen would otherwise fold itself shut under her hands. A
+// fresh visit to Products starts it folded — the lists are what the screen is
+// for, and an open add-form pushed them all down the page.
+let newFormOpen = false;
 
 function installCollapseOutside() {
   if (collapseInstalled || typeof document === "undefined" || typeof document.addEventListener !== "function") return;
@@ -43,6 +49,7 @@ function installCollapseOutside() {
 
 export function renderProducts(root, state) {
   installCollapseOutside();
+  newFormOpen = false; // a fresh visit starts with the add form folded away
   renderAll(root, state);
   // Whatever was built above goes away with this screen — forget the cards so a
   // later tap cannot reach into one that is no longer on the page.
@@ -903,12 +910,16 @@ function editorFields(state, editor) {
     editor.recipeCard);
 }
 
-// The always-visible "New product" card at the top (the add form stays put even
-// while an Edit pop-up is open, like "+ New order" does under the order pop-up).
+// The "New product" card at the top. It is folded to a single line until she
+// taps it — the add form is the setup part of this screen, and left open it
+// pushed every list she actually came to read off the bottom of the page. Opened,
+// it behaves like the ＋ New order card on Orders: tap the title again, or tap
+// anywhere else on the screen, to fold it away. It stays open after a product is
+// added, so the next one can be typed straight away, and it is still on the page
+// (only folded) while an Edit pop-up is open over the screen.
 function newProductCard(state, root) {
   const editor = buildEditor(state, null);
-  const card = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 10px" }, "New product"),
+  const body = el("div", { class: "fold-body", hidden: !newFormOpen },
     editorFields(state, editor),
     button("Add product", () => {
       const { error, values, tr } = editor.collect();
@@ -925,6 +936,33 @@ function newProductCard(state, root) {
       kickoffAutoTranslate(state, row); // fill the 中文/BM boxes online, if any
     }, "block primary"));
 
+  const caret = el("span", { class: "fold-caret" }, newFormOpen ? "▾" : "▸");
+  const controller = { card: null, open: false, close: null };
+  const shut = () => {
+    newFormOpen = false; // the card is rebuilt often — the module flag is the truth
+    body.hidden = true;
+    caret.textContent = "▸";
+    controller.open = false;
+    openCards.delete(controller);
+  };
+  const head = el("button", { class: "fold-head", type: "button" },
+    el("span", {}, "＋ New product"),
+    caret);
+  head.addEventListener("click", () => {
+    if (controller.open) { shut(); return; }
+    newFormOpen = true;
+    controller.open = true;
+    controller.close = shut;
+    body.hidden = false;
+    caret.textContent = "▾";
+    openCards.add(controller);
+  });
+  // A repaint while it is open rebuilds the card around her, so the rebuilt one
+  // has to re-register for the outside tap that folds it.
+  if (newFormOpen) { controller.open = true; controller.close = shut; openCards.add(controller); }
+
+  const card = el("div", { class: "card" }, head, body);
+  controller.card = card;
   editor.renderRecipeLines();
   return card;
 }
