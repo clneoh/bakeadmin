@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v89)
+# Jienluv2bake — change history (v54 → v90)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v90 (no database setup needed). A product can stay on
+the shop on a day it cannot be ordered, with the date a customer can next have
+it.** One new switch, off unless you turn it on.
+
+**Keep it on the shop.** A product's Availability card now opens with a switch at
+the very top, above the sell-day calendar. It is for the two or three hot items
+customers come back looking for - if it is not listed they wonder whether you
+still make it - but leave it on for everything and the menu fills up, so it is a
+decision you make one product at a time. The card's own title carries the state
+too, so you can read it while the card is still closed.
+
+**What the shop shows with it on.** On a delivery day the product is not sold on,
+the card stays instead of vanishing: greyed, stamped **Unavailable** (a day you
+never sell it is not the same as a day it ran out), with the reason it already
+writes ("Only sold on Mon") and one more line - the next date it can be ordered.
+On a day it has sold out the card is exactly what it was, **Sold out** stamp and
+all, and gains that same line. The line reads **Next available: Sat 19 Sep**, and
+names how many are left that day when a daily limit is set; it pulses gently so
+it reads through the dimming, and sits still - simply lit - if your phone asks for
+reduced motion. Nothing on a greyed card can be ordered: the + and - do nothing,
+it never enters a basket, and a line already in a basket still leaves with a note
+when the day changes. The switch never overrides **Draft** or **Hidden** - those
+still take a product off the shop entirely.
+
+**With the switch off, nothing at all changes.** Off is the default and no product
+you already have carries the setting, so every product behaves exactly as it does
+today until you switch one on. One consequence worth knowing: on a day where
+every product is unavailable, a shop with kept items shows those greyed cards
+instead of the "nothing is on the menu" line.
 
 **14 Sep 2026 — engine v89 (no database setup needed). The Delivery Dates screen
 trades its list for the calendar: a ticked day comes off when you tap it again,

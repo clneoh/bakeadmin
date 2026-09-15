@@ -153,6 +153,12 @@ function availabilityCard(state, product) {
   let rules = tidyRules(availRules(product));
   let sel = rules.length ? 0 : -1; // which mark the From / To pair edits
   const keyOf = (r) => `${r.days.join("-")}|${r.from}|${r.to}`;
+  // Keep this product on the shop when it cannot be ordered — for the few hot
+  // items a customer comes back looking for. Held in the closure, never on the
+  // switch node, because paint() rebuilds the whole body on every gesture and
+  // would take a retained node down with it. Absent on the product = off, so a
+  // product she never opens keeps exactly today's behaviour.
+  let listed = product && product.alwaysListed === true;
   // Re-normalise and re-sort the marks after every change, so the list and the
   // header can never disagree with what the calendar is drawing.
   const tidy = () => { rules = tidyRules(rules); };
@@ -160,6 +166,9 @@ function availabilityCard(state, product) {
   const summary = el("span", { class: "avail-sum" });
   const caret = el("span", { class: "fold-caret" }, "▸");
   const body = el("div", { class: "fold-body avail-body", hidden: true });
+  // The folded header carries the switch too, so its state reads without opening
+  // the card ("Every day · kept on the shop").
+  const summaryText = () => rulesSummary(rules) + (listed ? " · kept on the shop" : "");
 
   const controller = { card: null, open: false, close: null };
   const shut = () => {
@@ -384,14 +393,21 @@ function availabilityCard(state, product) {
   }
 
   function paint() {
-    summary.textContent = rulesSummary(rules);
+    summary.textContent = summaryText();
     if (body.hidden) return; // folded: the header is all there is to draw
     const mb = monthBounds(month.year, month.month);
     const prev = button("‹", () => { month = addMonth(month.year, month.month, -1); paint(); }, "ghost small cal-nav");
     const next = button("›", () => { month = addMonth(month.year, month.month, 1); paint(); }, "ghost small cal-nav");
     if (!before(thisMonth, month)) prev.disabled = true;
     if (!before(month, lastMonth)) next.disabled = true;
+    const box = el("input", { type: "checkbox", checked: listed,
+      onchange: (ev) => { listed = ev.target.checked; summary.textContent = summaryText(); } });
     body.replaceChildren(
+      el("div", { class: "avail-listed" },
+        el("label", { class: "switch" }, box, el("span", { class: "switch-track" },
+          el("span", { class: "switch-knob" }))),
+        el("span", { class: "avail-listed-text" },
+          "Keep it on the shop when it can't be ordered — for the few items customers come back looking for. It shows as Sold out or Unavailable with the next date you can take it.")),
       el("p", { class: "card-sub", style: "margin:8px 0 0" },
         rules.length
           ? "Only the days you mark are sold. Nothing carries over to the next month — open a month and mark it if you want to sell then."
@@ -417,7 +433,13 @@ function availabilityCard(state, product) {
 
   // An ended mark is kept, not dropped: with no marks at all the product would go
   // back to selling every delivery day, which is not what a dated special means.
-  return { card, collect: () => { const kept = tidyRules(rules); return kept.length ? kept : undefined; } };
+  return {
+    card,
+    collect: () => { const kept = tidyRules(rules); return kept.length ? kept : undefined; },
+    // A getter over the closure, so the product's collect() sees the switch even
+    // if the card was never opened (paint() draws nothing while folded).
+    listed: () => listed,
+  };
 }
 
 // Builds the fields + recipe lines once and hands back the nodes plus `collect()`
@@ -760,8 +782,12 @@ function buildEditor(state, product) {
     // The sell days, and the old from–to pair they replace: its period was read in
     // as a mark when the card opened, so dropping the pair loses nothing.
     const sellRules = availability.collect();
+    const listed = availability.listed();
     const drop = ["validFrom", "validTo"];
     if (!sellRules) drop.push("sellRules");
+    // Written only while on, and forgotten when switched off — so an absent key
+    // reads as off and a product she never opened is byte-for-byte unchanged.
+    if (!listed) drop.push("alwaysListed");
     const values = {
       name: pname,
       unit: chosenUom ? chosenUom.name : unitVal,
@@ -775,6 +801,7 @@ function buildEditor(state, product) {
       recipe,
     };
     if (sellRules) values.sellRules = sellRules;
+    if (listed) values.alwaysListed = true;
     return { values, tr: trCollect(), drop };
   }
 
