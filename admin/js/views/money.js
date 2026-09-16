@@ -6,7 +6,7 @@
 
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
-import { depositsBetween, expensesBetween, moneyBetween } from "../money.js";
+import { depositsBetween, expensesBetween, journalFor, moneyBetween } from "../money.js";
 import { categoriesOf, categoryLabels, isCash, isTng, methodLabel, methodsOf } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { dateField } from "../datepicker.js";
@@ -40,6 +40,37 @@ function spanFor(which) {
     ? new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)) // Monday first
     : new Date(d.getFullYear(), d.getMonth(), 1));
   return { from, to: today, label: from === today ? `${weekdayName(today)}, ${dayMonth(today)}` : `${dayMonth(from)} – ${dayMonth(today)}` };
+}
+
+// One method's book: every movement that way in the stretch, in order, ending on
+// what it should hold. Opened by tapping one of the money rows — "how can i see the
+// TnG journal and the Cash journal?" (16 Sep 2026) — because those rows are already
+// the totals of exactly these movements.
+function openJournal(state, method, from, to, label) {
+  const cur = state.settings.currency || "RM";
+  const j = journalFor(state, method, from, to);
+  const where = isCash(method) ? "what should be in your purse"
+    : isTng(method) ? "what should be on your phone"
+      : "money that never went near either";
+  // The label takes what room it needs and wraps; the figure never shrinks or
+  // collides with it — a journal line that reads "BeeRM 30.00" is no use to anyone.
+  const line = (r) => el("div", { class: "info-row journal-line" },
+    el("span", { class: "j-what" }, `${dayMonth(r.date)} · ${r.what}`),
+    el("span", { class: "info-val" }, `${r.dir === "in" ? "" : "−"}${fmtRM(r.amount, cur)}`));
+
+  showPopup(el("div", { class: "popup-title-row" }, `${label} journal`), () => el("div", {},
+    el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
+    j.rows.length
+      ? el("div", {}, ...j.rows.map(line))
+      : el("p", { class: "card-sub" }, "Nothing moved this way in this stretch."),
+    el("div", { class: "info-row pl-total" },
+      el("span", {}, "In"), el("span", { class: "info-val" }, fmtRM(j.inTotal, cur))),
+    el("div", { class: "info-row pl-total" },
+      el("span", {}, "Out"), el("span", { class: "info-val" }, fmtRM(-j.outTotal, cur))),
+    el("div", { class: "info-row pl-net" },
+      el("span", {}, "Net"), el("span", { class: "info-val" }, fmtRM(j.net, cur))),
+    el("p", { class: "card-sub", style: "margin:10px 0 0" },
+      `${label} is ${where}. Every order paid that way, everything you spent out of it and anything of your own you put in is listed above — the same rows the totals on the Money screen are made of.`)));
 }
 
 // Everything on the two lists, as a list of its own: tap a line to rename it, change
@@ -244,7 +275,12 @@ function openMoneyInForm(state, redraw) {
 
 export function renderMoney(root, state) {
   const cur = state.settings.currency || "RM";
-  const row = (label, value, extra, cls = "") => el("div", { class: `info-row${cls}` },
+  // `opens` turns a figure into a door: tapping it shows that method's book for the
+  // stretch, which is the list the figure was added up from.
+  const row = (label, value, extra, cls = "", opens = null) => el("div", {
+    class: `info-row${cls}${opens ? " tappable" : ""}`,
+    onclick: opens || null,
+  },
     el("span", {}, label),
     el("span", { class: "info-val" }, fmtRM(value, cur),
       extra ? el("span", { class: "muted" }, `  ${extra}`) : null));
@@ -271,15 +307,16 @@ export function renderMoney(root, state) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, label),
         el("div", { class: "money-rows" },
-          row("Cash in", m.cash + mine.cash),
-          row("TNG in", m.tng + mine.tng),
-          row("Cash out", out.cash),
-          row("TNG out", out.tng),
+          row("Cash in", m.cash + mine.cash, null, "", () => openJournal(state, "Cash", from, to, "Cash")),
+          row("TNG in", m.tng + mine.tng, null, "", () => openJournal(state, "TNG", from, to, "TNG")),
+          row("Cash out", out.cash, null, "", () => openJournal(state, "Cash", from, to, "Cash")),
+          row("TNG out", out.tng, null, "", () => openJournal(state, "TNG", from, to, "TNG")),
           row("Net", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
-          out.other || mine.other
-            ? row("Paid by loan / other", -(out.other - mine.other), "", " recv-row")
+          out.other || mine.other || m.other
+            ? row("Paid by loan / other", -(out.other - mine.other - m.other), "", " recv-row",
+                () => openJournal(state, "Loan", from, to, "Loan"))
             : null,
           row("Paid, no method", m.unmarked + mine.unmarked),
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
@@ -287,7 +324,7 @@ export function renderMoney(root, state) {
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
                 `· of the money in, ${fmtRM(mine.total, cur)} was your own`)
             : null,
-          out.other || mine.other
+          out.other || mine.other || m.other
             ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
                 "· loan, bank overdraft or any method you added that is not cash or TNG — it paid for things without coming out of your purse, so it is not in the net above.")
             : null)),
@@ -315,7 +352,7 @@ export function renderMoney(root, state) {
               `${categoryLabels(state).length} categories · ${methodsOf(state).join(", ")}`)),
           button("Edit", () => openListsManager(state, () => draw()), "ghost small"))),
       el("p", { class: "card-sub", style: "margin:0 2px" },
-        "Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are edited right above, or added on the spot with the ＋ chip on either form."),
+        "Tap Cash, TNG or a loan row to see that method's journal - every movement that way in this stretch, in order, ending on what it should hold. Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are edited right above, or added on the spot with the ＋ chip on either form."),
     );
   };
 

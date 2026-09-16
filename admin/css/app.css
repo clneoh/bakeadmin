@@ -1081,6 +1081,18 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .info-row.pl-total { border-top: 1px dashed var(--line); padding-top: 5px; margin-top: 4px; font-weight: 600; }
 .info-row.pl-net { border-top: 2px solid var(--line); padding-top: 6px; margin-top: 4px; }
 .info-row.pl-net .info-val { font-size: 16px; font-weight: 700; }
+/* A label-and-figure row: the words on the left, the money on the right, with a gap
+   that never closes. The admin's own screens use these (the Money screen and its
+   journals, the Profit statement, the lists); the store page has its own stylesheet.
+   Without this the two spans ran together as plain text — "Cash inRM 30.00". */
+.info-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 4px 0; font-size: 14px; }
+.info-row > span:first-child { min-width: 0; }
+/* A ✕ sitting inside one of these rows stays a small chip, not a full-size button. */
+.info-row .btn.small { padding: 2px 8px; min-height: 0; line-height: 1.3; }
+.info-val { font-variant-numeric: tabular-nums; }
+/* A journal line: the words take the room they need, the figure never shrinks. */
+.journal-line .j-what { flex: 1 1 auto; min-width: 0; }
+.journal-line .info-val { flex: 0 0 auto; white-space: nowrap; padding-left: 10px; }
 /* A settings row that opens an editor when tapped (the two money lists, v108). */
 .info-row.tappable { cursor: pointer; border-radius: 8px; }
 .info-row.tappable:active { background: var(--gray-bg); }

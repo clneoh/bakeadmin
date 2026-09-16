@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v108)
+# Jienluv2bake — change history (v54 → v109)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v109 (no database setup needed). A journal for each way the
+money moves — the cash book, the TNG book — and a bug that was hiding in the TNG
+column.** Two things, both from you asking how to see the journals.
+
+**A bug first, because it matters.** Every order you marked **Paid · TNG** since v106
+was landing in "Paid, no method" instead of the TNG column. The app was checking for
+the old way of writing it ("tng") while the paid buttons write the list's own label
+("TNG") - so the TNG in figure read RM 0.00 with the money in your phone, and the same
+money showed as unaccounted for. Fixed, and there is now a test that would have caught
+it. If your TNG column has looked wrong since v106, that was it.
+
+**Tap a figure, see its journal.** On the Money screen, **Cash in / TNG in / Cash out /
+TNG out** (and the loan line) can be tapped. Each opens that method's book for the
+stretch: every order paid that way with its code and customer, everything you spent out
+of it with its note, anything of your own you put in - in date order, ending on In /
+Out / **Net**, and a line saying what that is meant to be (your purse, your phone, or
+money that never went near either).
 
 **16 Sep 2026 — engine v108 (no database setup needed). Where the two lists live, and
 how to change one.** One fix and one addition, both about the categories and the ways

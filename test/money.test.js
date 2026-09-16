@@ -356,3 +356,86 @@ test("what a loan paid for is kept out of the purse", () => {
   assert.ok(rows.includes("Paid by loan / other=RM -250.00"),
     "and the loan-funded run is named on its own line instead");
 });
+
+// ── v109: a book per method ──────────────────────────────────────────────────
+const { journalFor } = await import("../admin/js/money.js");
+
+test("a method's journal lists every movement that way, and ends on what it should hold", () => {
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: "2026-09-18" }];
+  st.orders = [
+    row({ id: "a", status: "ready", paidReceived: true, paidMethod: "cash", qty: 2,
+      paidAt: "2026-09-16T09:00:00.000Z", unitPrice: 15 }),                    // RM30 in
+    row({ id: "b", status: "ready", paidReceived: true, paidMethod: "TNG",
+      paidAt: "2026-09-16T10:00:00.000Z" }),                                   // another book
+    row({ id: "c", status: "confirmed", paidReceived: false, paidMethod: "cash" }), // not collected yet
+  ];
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 18, category: "Packaging", method: "cash" }];
+  st.deposits = [{ id: "d1", date: "2026-09-15", amount: 100, method: "cash", note: "float" }];
+
+  const j = journalFor(st, "cash", "2026-09-15", "2026-09-16");
+  assert.equal(j.inTotal, 130, "RM30 of orders + RM100 of her own");
+  assert.equal(j.outTotal, 18);
+  assert.equal(j.net, 112, "what the purse should hold for this stretch");
+  assert.deepEqual(j.rows.map((r) => r.date), ["2026-09-15", "2026-09-16", "2026-09-16"], "in date order");
+  assert.match(j.rows[0].what, /Your own money in — float/);
+  assert.match(j.rows[1].what, /^Order #[0-9A-F]+ — /, "a customer's payment, with the code to match it back");
+  assert.match(j.rows[2].what, /^Packaging/, "and what it was spent on");
+});
+
+test("the TNG book is its own, and a loan never appears in either", () => {
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: "2026-09-18" }];
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "tng",
+    paidAt: "2026-09-16T09:00:00.000Z" })];
+  st.expenses = [
+    { id: "e1", date: "2026-09-16", amount: 250, category: "Ingredients & shopping", method: "Loan" },
+    { id: "e2", date: "2026-09-16", amount: 12, category: "Packaging", method: "TNG" },
+  ];
+  const tng = journalFor(st, "TNG", "2026-09-01", "2026-09-30");
+  assert.equal(tng.inTotal, 15);
+  assert.equal(tng.outTotal, 12, "the transfer book has only the transfer");
+  assert.equal(tng.rows.length, 2);
+
+  const cash = journalFor(st, "cash", "2026-09-01", "2026-09-30");
+  assert.equal(cash.rows.length, 0, "nothing happened in cash");
+  const loan = journalFor(st, "Loan", "2026-09-01", "2026-09-30");
+  assert.equal(loan.outTotal, 250, "and the loan has its own book, of its own spending");
+});
+
+test("the Money screen's figures are doors: tapping one opens its book", () => {
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: `${today}T09:00:00.000Z`, unitPrice: 15 })];
+  st.expenses = [{ id: "e1", date: today, amount: 18, category: "Packaging", method: "cash", note: "2 boxes" }];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const cashRow = allOf(root).filter((n) => String(n.className).includes("info-row"))
+    .find((r) => String(r.children?.[0]?.textContent || "") === "Cash out");
+  assert.ok(String(cashRow.className).includes("tappable"), "the figure says it can be opened");
+  cashRow._listeners.click.forEach((f) => f());
+
+  const pop = screen["popup-layer"];
+  const text = allOf(pop).map((n) => String(n.textContent || "")).join(" ");
+  assert.match(text, /Cash journal/, "the book opens");
+  assert.match(text, /Packaging — 2 boxes/, "listing every movement, with its note");
+  assert.match(text, /Net/, "and ending on what the purse should hold");
+});
+
+test("an order marked Paid · TNG counts as TNG, not as unknown (the v106 slip)", () => {
+  // The paid buttons write the LIST's label ("TNG"), while orders from before the
+  // list existed hold "tng". Comparing against one spelling sent every TNG order
+  // into "Paid, no method" — the TNG column read zero with the money in the till.
+  for (const method of ["TNG", "tng"]) {
+    const st = state();
+    st.deliveryDates = [{ id: "d18", date: "2026-09-16" }];
+    st.orders = [row({ status: "ready", paidReceived: true, paidMethod: method,
+      paidAt: "2026-09-16T09:00:00.000Z" })];
+    const m = moneyBetween(st, "2026-09-16", "2026-09-16");
+    assert.equal(m.tng, 15, `paid by "${method}" lands in the TNG column`);
+    assert.equal(m.unmarked, 0, "and nothing is left unexplained");
+  }
+});

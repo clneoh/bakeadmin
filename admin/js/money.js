@@ -9,8 +9,8 @@
 //     back to its delivery date, which is the day it was handed over.
 //   • money STILL TO COLLECT is counted by DELIVERY date — it is money owed for the
 //     orders she is about to hand over, whatever the calendar says today.
-import { groupOrders, orderLinePrice } from "./state.js";
-import { isCash, isOther, isTng } from "./accounts.js";
+import { groupOrders, orderCode, orderLinePrice } from "./state.js";
+import { isCash, isOther, isTng, methodLabel } from "./accounts.js";
 
 // The stages in order, so "is this past Paid?" can be asked here without importing
 // the Orders screen (which imports this one). The list has not changed since the app
@@ -39,10 +39,12 @@ export function isCollected(group) {
   return at >= PAID_STAGE && first.paidReceived !== false;
 }
 
-// "cash" | "tng" | "" — collected, but nobody wrote down how.
+// The method as it should be read: the list's own label, whichever spelling the row
+// was written with ("Cash" and "cash" are the same thing to the books), or "" for a
+// row nobody said how they paid. Returning only the old lower-case pair here is what
+// left every order paid since v106 looking unaccounted for.
 export function methodOf(group) {
-  const m = String(firstOf(group).paidMethod || "");
-  return m === "cash" || m === "tng" ? m : "";
+  return methodLabel(firstOf(group).paidMethod);
 }
 
 // The day a customer order is for: the delivery date record while it exists, its own
@@ -70,15 +72,22 @@ export function paidOf(state, group) {
   return deliveryOf(state, group);
 }
 
+// What a set of CUSTOMER orders came in by, bucketed the same way the pocket rows
+// are. The comparison goes through accounts.js rather than against the old lower-case
+// "cash"/"tng": a row written since the ways-to-pay list exists holds the label, so
+// testing for "tng" sent every TNG order into "Paid, no method" — the TNG column read
+// zero while the money was in the till (found 16 Sep 2026, from her asking for the
+// journals).
 function tally(state, groups) {
-  const out = { cash: 0, tng: 0, unmarked: 0, toCollect: 0, toCollectCount: 0, count: 0 };
+  const out = { cash: 0, tng: 0, other: 0, unmarked: 0, toCollect: 0, toCollectCount: 0, count: 0 };
   for (const g of groups) {
     out.count++;
     const value = groupValue(state, g);
     if (!isCollected(g)) { out.toCollect += value; out.toCollectCount++; continue; }
     const method = methodOf(g);
-    if (method === "cash") out.cash += value;
-    else if (method === "tng") out.tng += value;
+    if (isCash(method)) out.cash += value;
+    else if (isTng(method)) out.tng += value;
+    else if (isOther(method)) out.other += value;
     else out.unmarked += value;
   }
   return out;
@@ -130,6 +139,55 @@ export function expensesBetween(state, from, to) {
 // withdrawal", so it leaves through the same door as everything else.
 export function depositsBetween(state, from, to) {
   return tallyRows(rowsBetween(state.deposits, from, to));
+}
+
+// One method's journal for a stretch — the cash book, the TNG book (16 Sep 2026).
+// Everything that moved that way, in and out, in date order, ending on what the
+// method should hold: what the customer paid by it, what she spent out of it, and
+// what she put in herself. Built from the same rows the Money screen totals, so the
+// journal can never disagree with the figures it was opened from.
+export function journalFor(state, method, from, to) {
+  const want = methodLabel(method);
+  const rows = [];
+  for (const g of groupOrders(state.orders || [])) {
+    const first = firstOf(g);
+    if (!isCollected(g) || methodLabel(first.paidMethod) !== want) continue;
+    const day = paidOf(state, g);
+    if (!isWithin(day, from, to)) continue;
+    rows.push({
+      date: day,
+      what: `Order #${orderCode(first)} — ${first.customerName || "no name"}`,
+      amount: groupValue(state, g),
+      dir: "in",
+    });
+  }
+  for (const d of state.deposits || []) {
+    if (!d || methodLabel(d.method) !== want || !isWithin(String(d.date || "").slice(0, 10), from, to)) continue;
+    rows.push({
+      date: String(d.date).slice(0, 10),
+      what: `Your own money in${d.note ? ` — ${d.note}` : ""}`,
+      amount: Number(d.amount) || 0,
+      dir: "in",
+    });
+  }
+  for (const e of state.expenses || []) {
+    if (!e || methodLabel(e.method) !== want || !isWithin(String(e.date || "").slice(0, 10), from, to)) continue;
+    rows.push({
+      date: String(e.date).slice(0, 10),
+      what: `${e.poId ? "Shopping run (PO)" : (e.category || "Expense")}${e.note ? ` — ${e.note}` : ""}`,
+      amount: Number(e.amount) || 0,
+      dir: "out",
+    });
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+
+  let inTotal = 0;
+  let outTotal = 0;
+  for (const r of rows) {
+    if (r.dir === "in") inTotal += r.amount;
+    else outTotal += r.amount;
+  }
+  return { rows, inTotal, outTotal, net: inTotal - outTotal };
 }
 
 // A stretch of days, for the Money screen.
