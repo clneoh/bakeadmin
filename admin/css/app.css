@@ -1048,6 +1048,19 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   vertical-align: 2px;
 }
 .fulfill-tag.courier { color: #7a4a2a; background: #f4e6da; }
+/* How an order was paid, beside its status (v101): her own record for reconciling
+   cash in hand against the TNG app. Cash is the quiet default; TNG wears the brand
+   tint so a transfer is tellable at a glance. */
+.paid-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-dark, #2f6b2f);
+  background: var(--green-soft, #eaf6ea);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.paid-tag.tng { color: var(--brown-dark); background: var(--brown-soft); }
 .fulfill-sub {
   display: block;
   margin-top: 2px;
@@ -1483,6 +1496,9 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   }
 }
 .cal-cell.blank { visibility: hidden; }
+/* While a finger sweeps across the add-dates calendar, the days it crosses show the
+   same fill a picked day wears, so the run is readable under the finger (v102). */
+.cal-cell.drag-sel { background: var(--brown); color: #fff; font-weight: 700; }
 /* The calendar answering a tap it cannot act on: she tapped a day the bakery does
    not deliver, so the grid says so and says where the day gets added. It sits in
    the calendar card under the grid rather than in a bubble over the day (the way a

@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v100)
+# Jienluv2bake — change history (v54 → v102)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v102 (no database setup needed). Swipe across the calendar
+to pick a run of delivery dates.** One small change, on More → Delivery dates.
+
+You asked whether the delivery-date calendar could work the way a product's
+availability calendar does. It now does: **drag across days and the whole run fills
+in under your finger**, then **Add selected** puts them on the calendar. It is the
+same gesture as dragging a sell period on a product. A single tap still picks one day
+(or puts it back), and a day that is already a delivery date is left alone by a drag
+— it comes off by tapping it, the way it went on.
+
+That makes four ways in: tap dates, swipe a run, tap a weekday letter for every one
+of that day in the month, or **Generate the next dates** on your Settings pattern.
+
+**What I deliberately did NOT copy: the From / To boxes.** On a product's
+availability card those two boxes are how a SEASON is said — a sell period genuinely
+has two ends. A delivery date is one day, not a stretch, so a From/To here would only
+ever have been a slower way to do what swiping now does.
+
+**16 Sep 2026 — engine v101 (no database setup needed). A price you can change on
+an order, and the money recorded as cash or TNG.** Three things, all about money.
+
+**A price you can change on an order.** Every item line on the ＋ New order form and
+in the Edit pop-up now carries its selling price. It opens on what the product costs;
+type over it and THAT order is sold at your price — the confirmation, the payment and
+pickup reminders, the receipt, the customer's own track page and every money number in
+the app follow it. Your menu price is untouched, and a menu price you change next week
+never rewrites a sale already made. Blank keeps "whatever the product costs", which is
+how an unpriced product has always behaved. Both forms also show the items total as
+you go.
+
+**Cash or TNG, written down when the money lands.** The Paid button is now **Paid ·
+Cash** and **Paid · TNG** - one tap each. The order remembers which, and when, and
+shows it beside its status. The Note / tracking box (now **Note / tracking /
+payment**) carries a **Paid by** box as well, for an order you marked paid before you
+could tell, or one to correct later. None of this reaches the customer: their page
+just shows Paid.
+
+**Two places to check it against.** The delivery day's own header on Orders now
+carries a short till - "Cash RM 95 · TNG RM 120 · 1 to collect". And More → **Money**
+is a screen of its own, with **Today / This week / This month**: cash collected, TNG
+collected, paid but no method recorded, and what is still to collect with the number
+of orders. Collected money is counted by the day it LANDED, so a transfer that comes
+in today counts today even when the order delivers on Friday; what is still to collect
+is counted by delivery day, because that is the day you hand it over. An order paid
+before any of this existed shows under "Paid, no method" rather than being guessed at.
 
 **16 Sep 2026 — engine v100 (no database setup needed). Making delivery dates for
 a weekday is one tap again.** One change, on More → Delivery dates.

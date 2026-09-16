@@ -323,6 +323,18 @@ const dowButton = (root, letter) => addGrid(root).children
   .find((n) => String(n.className).includes("dow-pick") && (n.children[0] || {}).text === letter);
 const generateButton = (root) => walk(root).find((n) => n.tagName === "BUTTON"
   && (n.children[0] || {}).text === "Generate the next dates");
+// The add grid answers taps and swipes itself (the drag layer on the grid), so a
+// test drives it the way the browser does: elementFromPoint finds the day under the
+// finger, and the pointer events are handed to the grid's own listeners.
+const pointerAt = (cell) => {
+  globalThis.document.elementFromPoint = () => ({ closest: (sel) => (sel === ".pick-cell" ? cell : null) });
+  return { clientX: 0, clientY: 0, pointerId: 1, preventDefault() {} };
+};
+const tapDayOnGrid = (root, cell) => {
+  addGrid(root)._listeners.pointerdown.forEach((f) => f(pointerAt(cell)));
+  addGrid(root)._listeners.pointerup.forEach((f) => f(pointerAt(cell)));
+  globalThis.document.elementFromPoint = () => null;
+};
 
 test("a weekday letter picks every one of that day in the month at once", () => {
   quiet();
@@ -426,11 +438,33 @@ test("a marked day she has not added yet is named and ticked by the same tap", (
 
   const day = gridCell(root, 16);
   assert.ok(day.className.includes("tappable"), "it is the ordinary add-a-date tap");
+  assert.ok(day.className.includes("pick-cell"),
+    "and a day the drag layer owns, so the tap and the swipe cannot fight");
   assert.equal(tipIn(day).hidden, true);
-  fire(day);
+  tapDayOnGrid(root, day);
   redraw(root, state);
   assert.equal(tipIn(gridCell(root, 16)).hidden, false, "the tap names the day");
   assert.equal(addButton(root).children[0].text, "Add selected (1)", "and ticks it as before");
+});
+
+test("a swipe across the calendar picks the whole run", () => {
+  quiet();
+  const root = createEl("div");
+  const state = DSTATE();
+  state.deliveryDates = [];
+  renderDeliveries(root, state);
+
+  // The 14th to the 17th in one gesture — the same pointer gestures the add grid
+  // listens for, ending on a different day than it started on.
+  const from = gridCell(root, 14);
+  const to = gridCell(root, 17);
+  addGrid(root)._listeners.pointerdown.forEach((f) => f(pointerAt(from)));
+  addGrid(root)._listeners.pointermove.forEach((f) => f(pointerAt(to)));
+  addGrid(root)._listeners.pointerup.forEach((f) => f(pointerAt(to)));
+
+  redraw(root, state);
+  assert.equal(addButton(root).children[0].text, "Add selected (4)",
+    "four days picked by one swipe, ready to Add");
 });
 
 test("the mark grid names a tapped day in place, without repainting itself", () => {
