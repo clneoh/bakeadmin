@@ -511,3 +511,114 @@ test("each of those lines opens its own book, listing that method and nothing el
   assert.match(text, /-?RM 40\.00/, "and ending on what moved that way");
   assert.ok(!text.includes("flour run"), "and nothing from another way of paying");
 });
+
+// ── v112: paying a personal pocket back ──────────────────────────────────────
+// "can my own withdrawal payback to the cash register like Personal pocket Kean or
+// Suan?" (17 Sep 2026). A pocket that paid for something is owed by the till; paying it
+// back is two movements — money out of the till, and the pocket's line cleared — so the
+// form writes both, and this pins that both land right and nothing counts twice.
+const { pocketOwed } = await import("../admin/js/money.js");
+const { expensesBetween: spentIn, depositsBetween: putIn } = await import("../admin/js/money.js");
+
+function pocketState() {
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Personal Pocket Kean"];
+  st.settings.categories = [{ label: "Packaging", cls: "expense" }, { label: "My own withdrawal", cls: "drawing" }];
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 40, category: "Packaging",
+    method: "Personal Pocket Kean", note: "boxes" }];
+  return st;
+}
+
+test("what a pocket is owed is what it paid out, less what of its own went in", () => {
+  const st = pocketState();
+  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), 40);
+  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-17", "2026-09-30"), 0,
+    "a day it did nothing is not owed anything");
+  st.deposits = [{ id: "d1", date: "2026-09-16", amount: 15, method: "Personal Pocket Kean" }];
+  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), 25,
+    "money of its own that went in is not money the till owes it");
+  assert.equal(pocketOwed(st, "Cash", "2026-09-01", "2026-09-30"), 0, "and cash is not a pocket");
+});
+
+test("Pay back a pocket takes the money out of the till AND clears the pocket, in one go", (t) => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  // Saving raises a toast; a real timer would hold the test run open for 2.2s.
+  const realTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn) => { fn(); return 1; };
+  t.after(() => { globalThis.setTimeout = realTimeout; });
+  const today = todayISO();
+  const st = pocketState();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.expenses[0].date = today;
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  // The button is offered, and only because there is both a pocket and a till.
+  const open = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes("Pay back a pocket"));
+  assert.ok(open, "the Money screen offers it beside Put money in");
+  open._listeners.click.forEach((f) => f());
+
+  const form = screen["popup-layer"];
+  const inForm = (label) => allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === label);
+  const amount = inForm("How much you are paying back");
+  assert.equal(amount.value, "40", "opened on the pocket that is owed, pre-filled with what it is owed");
+  assert.ok(allOf(form).some((n) => n.textContent.includes("is owed RM 40.00")),
+    "and it says so, in her own figures");
+
+  amount.value = "25"; // she pays part of it back
+  const press = (text) => allOf(form).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === text);
+  press("Pay back")._listeners.click.forEach((f) => f());
+
+  // Two rows, no third: out of the till, and into the pocket's line.
+  const added = st.expenses.filter((e) => e.id !== "e1");
+  assert.equal(added.length, 1, "one expense, not two");
+  assert.equal(added[0].amount, 25);
+  assert.equal(added[0].category, "My own withdrawal", "her own money going back to her");
+  assert.equal(added[0].method, "Cash", "and it came out of the till");
+  assert.equal(st.deposits.length, 1);
+  assert.equal(st.deposits[0].method, "Personal Pocket Kean", "the pocket is told it was paid");
+  assert.equal(st.deposits[0].repay, true, "marked as a payback, not money she put in");
+  assert.equal(pocketOwed(st, "Personal Pocket Kean", today, today), 15, "so it is owed 15 now, not 40");
+
+  // And the money-in card names it for what it is, not as money she put in.
+  const rows = allOf(root)
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => r.textContent.replace(/\s+/g, " ").trim());
+  assert.ok(rows.some((r) => r.includes("Paid back by the till")),
+    "the pocket's own list says it was paid back");
+  assert.ok(!rows.some((r) => r.includes("From my pocket")), "and does not call it money she put in");
+});
+
+test("the payback lowers the till and the pocket line, and leaves profit alone", () => {
+  const st = pocketState();
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash", unitPrice: 15 })];
+  st.deliveryDates = [{ id: "d18", date: "2026-09-16" }];
+  st.orders[0].paidAt = "2026-09-16T09:00:00.000Z";
+  // What she would have by hand: the two entries this form writes.
+  st.expenses.push({ id: "e2", date: "2026-09-16", amount: 40, category: "My own withdrawal", method: "Cash" });
+  st.deposits = [{ id: "d2", date: "2026-09-16", amount: 40, method: "Personal Pocket Kean", repay: true }];
+
+  const m = moneyBetween(st, "2026-09-16", "2026-09-16");
+  const out = spentIn(st, "2026-09-16", "2026-09-16");
+  const mine = putIn(st, "2026-09-16", "2026-09-16");
+  assert.equal(m.cash, 15);
+  assert.equal(out.cash, 40, "the till really did give up the RM 40");
+  assert.equal(m.cash + mine.cash + mine.tng - out.cash - out.tng, -25, "so the purse is 25 down");
+  assert.equal(mine.cash, 0, "and none of it counts as money she put in");
+
+  const others = otherMethods(st, [m, mine], [out]);
+  assert.deepEqual(others.map((o) => `${o.label}=${o.net}`), ["Personal Pocket Kean=0"],
+    "the pocket's line is settled — the till owes it nothing now");
+  assert.equal(m.other + mine.other - out.other, 0, "and it was never in the till's own figures");
+});
+
+test("the payback reads as a payback in both books, not as money she put in", () => {
+  const st = pocketState();
+  st.deposits = [{ id: "d2", date: "2026-09-16", amount: 40, method: "Personal Pocket Kean", repay: true }];
+  const pocket = journalFor(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30");
+  assert.match(pocket.rows.find((r) => r.date === "2026-09-16" && r.dir === "in").what,
+    /Paid back to this pocket/, "the pocket's book says what happened");
+  const cash = journalFor(st, "Cash", "2026-09-01", "2026-09-30");
+  assert.equal(cash.outTotal, 0, "and the till's book has nothing from this pocket");
+});

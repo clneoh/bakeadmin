@@ -193,7 +193,12 @@ export function journalFor(state, method, from, to) {
     if (!d || methodLabel(d.method) !== want || !isWithin(String(d.date || "").slice(0, 10), from, to)) continue;
     rows.push({
       date: String(d.date).slice(0, 10),
-      what: `Your own money in${d.note ? ` — ${d.note}` : ""}`,
+      // A payback and money she put in are different things, though both arrive with the
+      // pocket: "Put money in" is her funding the bakery, a payback is the till settling
+      // up with her (17 Sep 2026).
+      what: d.repay
+        ? `Paid back to this pocket${d.note ? ` — ${d.note}` : ""}`
+        : `Your own money in${d.note ? ` — ${d.note}` : ""}`,
       amount: Number(d.amount) || 0,
       dir: "in",
     });
@@ -216,6 +221,21 @@ export function journalFor(state, method, from, to) {
     else outTotal += r.amount;
   }
   return { rows, inTotal, outTotal, net: inTotal - outTotal };
+}
+
+// What one pocket is owed in a stretch (17 Sep 2026): what it paid out for the bakery,
+// less what of its own money went in. Positive means it is out of pocket and the till
+// owes it. Read from the same two lists the Money screen totals, so the figure she is
+// offered as a payback is the figure her own line shows.
+export function pocketOwed(state, method, from, to) {
+  const want = methodLabel(method);
+  if (!want) return 0;
+  const sum = (list) => (list || []).reduce((s, r) => {
+    if (!r || methodLabel(r.method) !== want) return s;
+    const day = String(r.date || "").slice(0, 10);
+    return isWithin(day, from, to) ? s + (Number(r.amount) || 0) : s;
+  }, 0);
+  return sum(state.expenses) - sum(state.deposits);
 }
 
 // A stretch of days, for the Money screen.

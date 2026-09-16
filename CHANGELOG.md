@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v111)
+# Jienluv2bake — change history (v54 → v112)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v112 (no database setup needed). You can pay a personal pocket back
+out of the till in one go, and the category list on the expense form is no longer cut off.**
+From your question — *"can my own withdrawal payback to the cash register like Personal pocket
+Kean or Suan?"* — and your note about the categories.
+
+**Pay back a pocket.** On **More → Money**, beside **＋ Put money in**, there is now
+**＋ Pay back a pocket**. It is for the case where a pocket of yours — **Personal Pocket Kean**,
+**Personal Pocket Suan**, a loan, or one you add later — paid for something, so the money left
+you rather than the till; that pocket's line on the Money screen then reads **−RM 40.00**, which
+means *the till owes it 40*. Open the form and it comes up **already on the pocket that is
+owed**, with the amount filled in — Kean's RM 40 sitting in the box, and a line saying so. Say
+whether the money came out of **Cash** or **TNG**, check the day, and press **Pay back**.
+
+It writes both halves at once, which is the whole point: the **till goes down** by that amount
+(it shows in Cash out and in the Net, and in the Cash journal with your note), and the
+**pocket's line comes back to zero**. One pocket can be paid back without touching another.
+Because it is your own money going back to you, the till's side is recorded as a withdrawal —
+so it never counts as a cost and your **profit does not move**. On the pocket's own list it
+reads *"Paid back by the till"*, not *"From my pocket"* — the two are different things and now
+say so. Paying it back in part is fine: pay RM 25 of the RM 40 and the pocket reads −15 after.
+
+**The category list was being cut off — fixed.** Thank you for catching this. On the expense
+form, the row of categories ran off the side of the screen: it was laid out as one single line,
+so at phone width everything past about the sixth category — *Salary (you)*, *EPF / SOCSO*,
+*Marketing*, *Equipment & tools*, *Other*, *My own withdrawal*, and the **＋ New category**
+chip — was off the screen and impossible to reach. Measured on a 375-pixel phone, the row was
+744 pixels wide inside a 343-pixel box. The pills now **wrap onto as many lines as they need**,
+the same fix applies to the ways-to-pay row and to the new pay-back form, and the whole list is
+visible and tappable. Nothing about the categories themselves changed.
 
 **17 Sep 2026 — engine v111 (no database setup needed). Every figure on the books is now a
 door: a journal behind each line of spending in Profit & Loss, and a book for every way you

@@ -1674,6 +1674,16 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
    Longer marks are laid first so shorter ones paint on top of them. */
 .cal-modes { display: flex; gap: 8px; margin: 0 0 12px; }
 .cal-modes .btn { flex: 1; font-size: 13px; padding: 9px 0; }
+
+/* A row of pills whose LENGTH SHE CONTROLS — the categories, the ways to pay, the
+   pockets. `.cal-modes` above is for a fixed two or three buttons sharing the width;
+   these grow with her list, so they must WRAP. Without this, eleven categories sat on
+   one line 744px wide inside a 343px box and everything past "Utilities" — including
+   the ＋ New category chip — was off-screen and unreachable (17 Sep 2026: "category
+   complete list are not fully shown"). Pills take their own width and flow onto the
+   next line. */
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.pill-row .btn { flex: 0 0 auto; font-size: 13px; padding: 8px 13px; min-height: 36px; }
 .btn.cal-mode-on { background: var(--brown); border-color: var(--brown); color: #fff; box-shadow: none; }
 
 /* The eight mark colours. --occ-solid is a mark's own colour, used solid for its

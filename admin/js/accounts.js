@@ -88,6 +88,19 @@ export const isOther = (method) => {
 // Where a method sits in her list, for reading a row back in the same order the
 // form offers. An unknown one sorts last, which is where a row from an old list
 // belongs.
+// Her ways of paying, split by what they are to the till: the purse and the phone (the
+// two that hold her takings), and the pockets — a loan, the bank overdraft, someone's own
+// pocket — which pay for things without the money ever going near the till.
+export const purseMethods = (state) => methodsOf(state).filter((m) => isCash(m) || isTng(m));
+export const pocketMethods = (state) => methodsOf(state).filter((m) => isOther(m));
+
+// The category a drawing is recorded under — her own money going back to her. Taken
+// from HER chart rather than hard-coded, since she can rename it.
+export function drawingLabel(state) {
+  const found = categoriesOf(state).find((c) => c.cls === "drawing");
+  return found ? found.label : "My own withdrawal";
+}
+
 export function methodRank(state, method) {
   const list = methodsOf(state);
   const at = list.indexOf(methodLabel(method));

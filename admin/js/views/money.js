@@ -6,8 +6,8 @@
 
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
-import { depositsBetween, expensesBetween, journalFor, moneyBetween, otherMethods } from "../money.js";
-import { categoriesOf, categoryLabels, isCash, isTng, methodLabel, methodsOf } from "../accounts.js";
+import { depositsBetween, expensesBetween, journalFor, moneyBetween, otherMethods, pocketOwed } from "../money.js";
+import { categoriesOf, categoryLabels, drawingLabel, isCash, isTng, methodLabel, methodsOf, pocketMethods, purseMethods } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
@@ -139,7 +139,7 @@ function pocketRow(state, e, what, listKey, redraw, cur) {
 const expenseRow = (state, e, redraw, cur) =>
   pocketRow(state, e, e.poId ? "Shopping run (PO)" : (e.category || "Expense"), "expenses", redraw, cur);
 const depositRow = (state, e, redraw, cur) =>
-  pocketRow(state, e, "From my pocket", "deposits", redraw, cur);
+  pocketRow(state, e, e.repay ? "Paid back by the till" : "From my pocket", "deposits", redraw, cur);
 
 // One row of pills built from a list of names, ending in a ＋ chip that adds a new
 // one there and then (16 Sep 2026 — she asked why she could not find how to add a
@@ -149,7 +149,8 @@ const depositRow = (state, e, redraw, cur) =>
 // the new name straight into the caller's own state and reopens the form's body —
 // which rebuilds these pills with the new one already picked.
 function pillRow(names, current, onPick, { addKind, state, onAdded } = {}) {
-  const wrap = el("div", { class: "cal-modes" });
+  // `pill-row`, not `cal-modes`: the list is as long as she makes it, so the pills wrap.
+  const wrap = el("div", { class: "pill-row" });
   const mark = (label) => {
     for (const b of wrap.children) {
       if (b.tagName === "BUTTON") b.classList.toggle("cal-mode-on", b.textContent === label);
@@ -273,6 +274,104 @@ function openMoneyInForm(state, redraw) {
       }, "primary"))));
 }
 
+// Pay a personal pocket back out of the till (17 Sep 2026). When a pocket of hers —
+// Kean's, Suan's, or one she adds — pays for something, that money left the pocket and
+// never went near the till, so its line on the Money screen reads what the pocket is
+// owed. Paying it back is two movements, and doing them by hand is the sort of thing a
+// busy morning gets wrong. So this form writes both at once:
+//   • an expense out of the purse or the phone, under her own drawings category — a
+//     drawing, so it never counts as a cost and the profit statement does not move;
+//   • a money-in row for that pocket, marked `repay`, which clears the pocket's line.
+// Two rows rather than a new kind of record is deliberate: every screen she already
+// reads — both lists, the journals, the statement, the backups — understands them as
+// they are, so a payback is exactly the two entries she would have made herself.
+function openPayBackForm(state, from, to, redraw, label) {
+  const cur = state.settings.currency || "RM";
+  const pockets = pocketMethods(state);
+  const purse = purseMethods(state);
+  if (!pockets.length || !purse.length) return;
+
+  const owed = () => pocketOwed(state, pocket, from, to);
+  // Open on the pocket that is actually owed something — that is the one she came here
+  // to pay. Failing that, the first pocket she has.
+  let pocket = pockets.find((m) => pocketOwed(state, m, from, to) > 0) || pockets[0];
+  let outOf = purse.find(isCash) || purse[0]; // the cash register by default
+  let date = todayISO();
+
+  const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
+    min: "0", step: "0.01", placeholder: "RM", "aria-label": "How much you are paying back",
+    value: owed() > 0 ? String(owed()) : "" });
+  const note = el("input", { class: "input", placeholder: "e.g. the packaging you paid for",
+    value: "" });
+  const datePick = dateField(date, (iso) => { date = iso; });
+  const body = el("div", {});
+
+  // The pocket's own pills: picking one pre-fills what it is owed, unless she has already
+  // typed a figure — hers wins.
+  const pick = (m) => {
+    pocket = m;
+    amount.value = owed() > 0 ? String(owed()) : "";
+    paint();
+  };
+
+  const paint = () => {
+    const due = owed();
+    body.replaceChildren(
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "A pocket of yours paid for something, so the money left you rather than the till — its line on the Money screen says what it is owed. This takes the money out of the till and clears that line in one go. It is your own money going back to you: never a cost, so your profit does not move."),
+      el("div", { class: "field" }, el("label", {}, "Which pocket?"),
+        el("div", { class: "pill-row" },
+          ...pockets.map((m) => button(m, () => pick(m),
+            `ghost small${m === pocket ? " cal-mode-on" : ""}`)),
+          newEntryChip("method", () => { adding = true; paint(); })),
+        adding
+          ? entryForm(state, { kind: "method", onDone: (newLabel) => {
+              if (newLabel) pocket = newLabel;
+              adding = false;
+              paint();
+            } })
+          : null),
+      el("p", { class: "card-sub", style: "margin:0 0 8px" },
+        due > 0
+          ? `${pocket} is owed ${fmtRM(due, cur)} for ${label}.`
+          : `${pocket} is not owed anything${label ? ` for ${label}` : ""} right now — you can still record a payment if you need to.`),
+      el("div", { class: "field" }, el("label", {}, "How much are you paying back?"), amount),
+      el("div", { class: "field" }, el("label", {}, "Paid out of"),
+        el("div", { class: "pill-row" },
+          ...purse.map((m) => button(m, () => { outOf = m; paint(); },
+            `ghost small${m === outOf ? " cal-mode-on" : ""}`)))),
+      el("div", { class: "field" }, el("label", {}, "The day you paid it back"), datePick),
+      el("div", { class: "field" }, el("label", {}, "What it was for (optional)"), note),
+      el("div", { class: "popup-actions" },
+        button("Cancel", () => closePopup(), "ghost"),
+        button("Pay back", () => {
+          const value = Number(amount.value);
+          if (!amount.value.trim() || !Number.isFinite(value) || value <= 0) {
+            return toast("Type how much you are paying back");
+          }
+          const typed = note.value.trim();
+          state.expenses = Array.isArray(state.expenses) ? state.expenses : [];
+          state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
+          state.expenses.push({ id: newId("exp"), date, amount: value,
+            category: drawingLabel(state), method: outOf,
+            note: typed || `Paid back to ${pocket}` });
+          state.deposits.push({ id: newId("dep"), date, amount: value, method: pocket,
+            note: typed, repay: true });
+          save(state);
+          maybeSync(state);
+          toast(`Paid ${fmtRM(value, cur)} back to ${pocket} out of ${outOf}`);
+          closePopup();
+          redraw();
+        }, "primary")));
+  };
+
+  let adding = false;
+  let closePopup = () => {};
+  paint();
+  showPopup(el("div", { class: "popup-title-row" }, "Pay back a pocket"),
+    (refresh, close) => { closePopup = close; return body; });
+}
+
 export function renderMoney(root, state) {
   const cur = state.settings.currency || "RM";
   // `opens` turns a figure into a door: tapping it shows that method's book for the
@@ -324,9 +423,9 @@ export function renderMoney(root, state) {
             () => openJournal(state, o.label, from, to, o.label))),
           row("Paid, no method", m.unmarked + mine.unmarked),
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
-          mine.total
+          mine.cash + mine.tng
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
-                `· of the money in, ${fmtRM(mine.total, cur)} was your own`)
+                `· of the money in, ${fmtRM(mine.cash + mine.tng, cur)} was your own`)
             : null,
           others.length
             ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
@@ -339,7 +438,11 @@ export function renderMoney(root, state) {
           : el("p", { class: "card-sub", style: "margin:0 0 8px" }, "Nothing of your own put in this stretch."),
         ...mine.rows.map((e) => depositRow(state, e, () => draw(), cur)),
         el("div", { class: "btn-row", style: "margin-top:10px" },
-          button("＋ Put money in", () => openMoneyInForm(state, () => draw()), "soft"))),
+          button("＋ Put money in", () => openMoneyInForm(state, () => draw()), "soft"),
+          // Only when there is a pocket to pay and a till to pay it out of.
+          pocketMethods(state).length && purseMethods(state).length
+            ? button("＋ Pay back a pocket", () => openPayBackForm(state, from, to, () => draw(), label), "soft")
+            : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Expenses · ${label}`),
         out.rows.length
