@@ -353,8 +353,9 @@ test("what a loan paid for is kept out of the purse", () => {
     .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash out=RM 18.00"), "only the cash one leaves the purse");
   assert.ok(rows.includes("Net=RM -3.00"), "15 in, 18 out — the flour run never touched it");
-  assert.ok(rows.includes("Paid by loan / other=RM -250.00"),
-    "and the loan-funded run is named on its own line instead");
+  assert.ok(rows.includes("Paid by Loan=RM -250.00"),
+    "and the loan-funded run is named on its own line instead — by the method's own name, "
+    + "because it now has its own book to open (17 Sep 2026)");
 });
 
 // ── v109: a book per method ──────────────────────────────────────────────────
@@ -438,4 +439,75 @@ test("an order marked Paid · TNG counts as TNG, not as unknown (the v106 slip)"
     assert.equal(m.tng, 15, `paid by "${method}" lands in the TNG column`);
     assert.equal(m.unmarked, 0, "and nothing is left unexplained");
   }
+});
+
+// ── v111: a book for EVERY way of paying ─────────────────────────────────────
+// "each CASH, TNG, LOAN, Personal Pocket Kean, Personal Pocket Suan, and others that
+// might be added in future need a journal" (17 Sep 2026). The rows are read off the
+// data, not off her list, so a method she adds tomorrow needs no code change — and one
+// she has since renamed or taken away still has a line, because its money is still here.
+const { otherMethods } = await import("../admin/js/money.js");
+
+test("every non-cash method that moved gets its own line, in her list's order", () => {
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Personal Pocket Kean", "Personal Pocket Suan"];
+  st.deposits = [{ id: "d1", date: "2026-09-16", amount: 100, method: "Personal Pocket Kean" }];
+  st.expenses = [
+    { id: "e1", date: "2026-09-16", amount: 250, category: "Ingredients & shopping", method: "Loan" },
+    { id: "e2", date: "2026-09-16", amount: 40, category: "Packaging", method: "Personal Pocket Suan" },
+    { id: "e3", date: "2026-09-16", amount: 18, category: "Packaging", method: "Cash" },
+  ];
+  const others = otherMethods(st,
+    [moneyBetween(st, "2026-09-01", "2026-09-30"), depositsBetween(st, "2026-09-01", "2026-09-30")],
+    [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+
+  assert.deepEqual(others.map((o) => o.label), ["Loan", "Personal Pocket Kean", "Personal Pocket Suan"],
+    "one line each, in the order of her own list — and cash is not one of them");
+  assert.equal(others[0].net, -250, "a loan only ever paid out here");
+  assert.equal(others[1].net, 100, "her pocket money put in reads positive");
+  assert.equal(others[2].net, -40);
+});
+
+test("a method added tomorrow needs no code: the line comes from the rows", () => {
+  const st = state();
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 30, category: "Packaging", method: "Bank OD" }];
+  const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+  assert.deepEqual(others.map((o) => o.label), ["Bank OD"], "a label nothing knows about still gets a book");
+});
+
+test("a method she renamed keeps its line, so its money is never invisible", () => {
+  // The rename rewrote the list; these rows were written before it, and only the rows
+  // can say the money is there.
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Bank OD"];
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 250, category: "Ingredients & shopping", method: "Loan" }];
+  const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+  assert.deepEqual(others.map((o) => o.label), ["Loan"],
+    "an old label sorts after the current list and still shows, rather than vanishing from the books");
+});
+
+test("each of those lines opens its own book, listing that method and nothing else", () => {
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Personal Pocket Kean"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.expenses = [
+    { id: "e1", date: today, amount: 250, category: "Ingredients & shopping", method: "Loan", note: "flour run" },
+    { id: "e2", date: today, amount: 40, category: "Packaging", method: "Personal Pocket Kean", note: "boxes" },
+  ];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const line = (label) => allOf(root).filter((n) => String(n.className).includes("info-row"))
+    .find((r) => String(r.children?.[0]?.textContent || "") === label);
+  assert.ok(line("Paid by Loan"), "the loan is named as itself, not lumped into 'other'");
+  assert.ok(line("Paid by Personal Pocket Kean"), "and so is her own pocket");
+  assert.ok(String(line("Paid by Personal Pocket Kean").className).includes("tappable"));
+
+  line("Paid by Personal Pocket Kean")._listeners.click.forEach((f) => f());
+  const text = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
+  assert.match(text, /Personal Pocket Kean journal/, "its own book opens");
+  assert.match(text, /Packaging — boxes/, "with what it paid for");
+  assert.match(text, /-?RM 40\.00/, "and ending on what moved that way");
+  assert.ok(!text.includes("flour run"), "and nothing from another way of paying");
 });

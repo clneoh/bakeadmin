@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { profitBetween, monthSpan, orderDay, lineCost } = await import("../admin/js/profit.js");
+const { profitBetween, monthSpan, orderDay, lineCost, expenseRows } = await import("../admin/js/profit.js");
 const { classOfCategory, categoryLabels, DEFAULT_CATEGORIES } = await import("../admin/js/accounts.js");
 
 // Flour at 1 sen a gram; a Focaccia's recipe uses 100 g, so a loaf costs RM1.00 to
@@ -208,4 +208,68 @@ test("a month with nothing in it reads as zeroes, not blanks", () => {
   const rows = rowsOf(root);
   assert.ok(rows.includes("Sales=RM 0.00") && rows.includes("Net profit=RM 0.00"));
   assert.match(String(root.textContent), /0 order lines in this month/);
+});
+
+// --- the journal behind a statement line (v111) ------------------------------
+// "the expenses items in Profit & Loss should reveal its journals" (17 Sep 2026). A
+// line on a statement is a total; these are the transactions it is made of. What
+// matters is that they always ADD UP to the line above them — otherwise the journal
+// would quietly disagree with the statement it was opened from.
+
+test("a line's journal lists what made it up, in date order, with what and how paid", () => {
+  const st = state();
+  st.expenses = [
+    { id: "e1", date: "2026-09-07", amount: 12, category: "Packaging", method: "Cash", note: "boxes" },
+    { id: "e2", date: "2026-09-05", amount: 18, category: "Packaging", method: "TNG" },
+    { id: "e3", date: "2026-09-06", amount: 30, category: "Utilities" },
+  ];
+  const rows = expenseRows(st, "2026-09-01", "2026-09-30", "Packaging");
+  assert.deepEqual(rows.map((r) => r.id), ["e2", "e1"], "oldest first, so the month reads like a book");
+  assert.equal(rows[0].what, "Packaging", "no note written → the category stands in for it");
+  assert.equal(rows[0].method, "TNG", "and how it was paid comes along");
+  assert.equal(rows[1].what, "boxes", "her own note is what names the row when there is one");
+
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const pl = profitBetween(st, "2026-09-01", "2026-09-30");
+  assert.equal(total, pl.expenses.find((e) => e.label === "Packaging").amount,
+    "the journal adds up to the line it was opened from");
+});
+
+test("the Total line's journal is every running cost at once, and still adds up", () => {
+  const st = state();
+  st.orders = [order()];
+  st.expenses = [
+    { id: "e1", date: "2026-09-05", amount: 18, category: "Packaging" },
+    { id: "e2", date: "2026-09-06", amount: 30, category: "Utilities" },
+    { id: "e3", date: "2026-09-07", amount: 45.5, category: "Delivery & fuel" },
+    { id: "stock", date: "2026-09-04", amount: 250, category: "Ingredients & shopping" },
+    { id: "mine", date: "2026-09-04", amount: 100, category: "My own withdrawal" },
+  ];
+  const pl = profitBetween(st, "2026-09-01", "2026-09-30");
+  const rows = expenseRows(st, "2026-09-01", "2026-09-30", null);
+  assert.equal(rows.length, 3, "a shopping run and her own withdrawal are not running costs");
+  assert.equal(rows.reduce((s, r) => s + r.amount, 0), pl.expensesTotal,
+    "and the total is exactly the statement's own Total expenses");
+});
+
+test("a month's journal holds that month only", () => {
+  const st = state();
+  st.expenses = [
+    { id: "aug", date: "2026-08-31", amount: 99, category: "Rent" },
+    { id: "sep", date: "2026-09-01", amount: 50, category: "Rent" },
+    { id: "oct", date: "2026-10-01", amount: 77, category: "Rent" },
+  ];
+  const rows = expenseRows(st, "2026-09-01", "2026-09-30", "Rent");
+  assert.deepEqual(rows.map((r) => r.id), ["sep"], "a statement is a month, and so is its journal");
+});
+
+test("a category she deleted still opens, because its rows still count", () => {
+  const st = state();
+  st.settings.categories = [{ label: "Packaging", cls: "expense" }];
+  st.expenses = [{ id: "e1", date: "2026-09-05", amount: 18, category: "Packing" }];
+  const pl = profitBetween(st, "2026-09-01", "2026-09-30");
+  const line = pl.otherExpenses.find((e) => e.label === "Packing");
+  assert.ok(line, "the old label gets its own line rather than vanishing");
+  assert.deepEqual(expenseRows(st, "2026-09-01", "2026-09-30", "Packing").map((r) => r.id), ["e1"],
+    "so the line she can see has a journal she can open");
 });

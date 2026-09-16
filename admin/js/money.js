@@ -10,7 +10,7 @@
 //   • money STILL TO COLLECT is counted by DELIVERY date — it is money owed for the
 //     orders she is about to hand over, whatever the calendar says today.
 import { groupOrders, orderCode, orderLinePrice } from "./state.js";
-import { isCash, isOther, isTng, methodLabel } from "./accounts.js";
+import { isCash, isOther, isTng, methodLabel, methodRank } from "./accounts.js";
 
 // The stages in order, so "is this past Paid?" can be asked here without importing
 // the Orders screen (which imports this one). The list has not changed since the app
@@ -79,12 +79,16 @@ export function paidOf(state, group) {
 // zero while the money was in the till (found 16 Sep 2026, from her asking for the
 // journals).
 function tally(state, groups) {
-  const out = { cash: 0, tng: 0, other: 0, unmarked: 0, toCollect: 0, toCollectCount: 0, count: 0 };
+  const out = { cash: 0, tng: 0, other: 0, unmarked: 0, toCollect: 0, toCollectCount: 0, count: 0, byMethod: new Map() };
   for (const g of groups) {
     out.count++;
     const value = groupValue(state, g);
     if (!isCollected(g)) { out.toCollect += value; out.toCollectCount++; continue; }
     const method = methodOf(g);
+    // The same money, filed one way for the columns and one way per method: it is the
+    // method totals that give a loan, the bank overdraft or a personal pocket a row of
+    // its own, and a book of its own behind it (17 Sep 2026).
+    if (method) out.byMethod.set(method, (out.byMethod.get(method) || 0) + value);
     if (isCash(method)) out.cash += value;
     else if (isTng(method)) out.tng += value;
     else if (isOther(method)) out.other += value;
@@ -114,16 +118,40 @@ function rowsBetween(list, from, to) {
 // money that paid for something without going near either — a loan, the bank
 // overdraft — and unmarked is a row nobody said how they paid (older than the list).
 function tallyRows(rows) {
-  const out = { rows, cash: 0, tng: 0, other: 0, unmarked: 0, total: 0 };
+  const out = { rows, cash: 0, tng: 0, other: 0, unmarked: 0, total: 0, byMethod: new Map() };
   for (const e of rows) {
     const amount = Number(e.amount) || 0;
     out.total += amount;
-    if (isCash(e.method)) out.cash += amount;
-    else if (isTng(e.method)) out.tng += amount;
-    else if (isOther(e.method)) out.other += amount;
+    const label = methodLabel(e.method);
+    if (label) out.byMethod.set(label, (out.byMethod.get(label) || 0) + amount);
+    if (isCash(label)) out.cash += amount;
+    else if (isTng(label)) out.tng += amount;
+    else if (isOther(label)) out.other += amount;
     else out.unmarked += amount;
   }
   return out;
+}
+
+// Every way of paying that is neither cash nor TNG and that actually moved something in
+// this stretch — the loan, the bank overdraft, someone's own pocket — in the order of
+// her own list, each with what moved by it (17 Sep 2026: "each CASH, TNG, LOAN, Personal
+// Pocket Kean, Personal Pocket Suan, and others that might be added in future need a
+// journal"). Read off the ROWS rather than off her list, so a method she has since
+// renamed or taken off the list still gets a line: its money is still in the books, and
+// a figure she cannot open is a figure she has to take on faith.
+//
+// `inTallies` add (orders collected that way, money of her own she put in that way),
+// `outTallies` subtract (spending paid that way) — the same net the Money screen shows.
+export function otherMethods(state, inTallies = [], outTallies = []) {
+  const labels = new Set();
+  for (const t of [...inTallies, ...outTallies]) {
+    for (const label of (t && t.byMethod ? t.byMethod.keys() : [])) if (isOther(label)) labels.add(label);
+  }
+  const sum = (list, label) =>
+    list.reduce((s, t) => s + ((t && t.byMethod && t.byMethod.get(label)) || 0), 0);
+  return [...labels]
+    .sort((a, b) => methodRank(state, a) - methodRank(state, b) || a.localeCompare(b))
+    .map((label) => ({ label, net: sum(inTallies, label) - sum(outTallies, label) }));
 }
 
 // What she spent in a stretch, and how she paid for it — one half of the Money

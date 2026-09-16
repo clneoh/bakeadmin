@@ -6,7 +6,7 @@
 
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
-import { depositsBetween, expensesBetween, journalFor, moneyBetween } from "../money.js";
+import { depositsBetween, expensesBetween, journalFor, moneyBetween, otherMethods } from "../money.js";
 import { categoriesOf, categoryLabels, isCash, isTng, methodLabel, methodsOf } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { dateField } from "../datepicker.js";
@@ -51,7 +51,7 @@ function openJournal(state, method, from, to, label) {
   const j = journalFor(state, method, from, to);
   const where = isCash(method) ? "what should be in your purse"
     : isTng(method) ? "what should be on your phone"
-      : "money that never went near either";
+      : "kept out of the purse and phone figures, because the money did not move through either";
   // The label takes what room it needs and wraps; the figure never shrinks or
   // collides with it — a journal line that reads "BeeRM 30.00" is no use to anyone.
   const line = (r) => el("div", { class: "info-row journal-line" },
@@ -298,6 +298,12 @@ export function renderMoney(root, state) {
     // counts IN: it really is in the purse, and these rows are what she checks it
     // against. A line below says how much of it was hers, and the entries are listed.
     const net = m.cash + m.tng + mine.cash + mine.tng - out.cash - out.tng;
+    // Every way of paying that is not cash or TNG gets its own line here, each opening
+    // its own book — the loan, the bank overdraft, anyone's own pocket, and whatever she
+    // adds later. Her ask in so many words: "each CASH, TNG, LOAN, Personal Pocket Kean,
+    // Personal Pocket Suan, and others that might be added in future need a journal."
+    // Read off the rows, so a method she has renamed still has a line to open.
+    const others = otherMethods(state, [m, mine], [out]);
 
     root.replaceChildren(
       el("h2", { class: "section" }, "Money"),
@@ -314,19 +320,17 @@ export function renderMoney(root, state) {
           row("Net", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
-          out.other || mine.other || m.other
-            ? row("Paid by loan / other", -(out.other - mine.other - m.other), "", " recv-row",
-                () => openJournal(state, "Loan", from, to, "Loan"))
-            : null,
+          ...others.map((o, i) => row(`Paid by ${o.label}`, o.net, null, i === 0 ? " recv-row" : "",
+            () => openJournal(state, o.label, from, to, o.label))),
           row("Paid, no method", m.unmarked + mine.unmarked),
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
           mine.total
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
                 `· of the money in, ${fmtRM(mine.total, cur)} was your own`)
             : null,
-          out.other || mine.other || m.other
+          others.length
             ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
-                "· loan, bank overdraft or any method you added that is not cash or TNG — it paid for things without coming out of your purse, so it is not in the net above.")
+                "· these are the ways of paying that are not cash or TNG — a loan, the bank overdraft, someone's own pocket, or one you add later. Each paid for things (or money you put in) without coming out of your purse, so none of them is in the net above. Tap one to open its book.")
             : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),

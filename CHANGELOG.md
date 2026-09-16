@@ -1,8 +1,72 @@
-# Jienluv2bake — change history (v54 → v109)
+# Jienluv2bake — change history (v54 → v111)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v111 (no database setup needed). Every figure on the books is now a
+door: a journal behind each line of spending in Profit & Loss, and a book for every way you
+pay — Cash, TNG, Loan, Personal Pocket Kean, Personal Pocket Suan, and anything you add
+later.** From two notes close together: *"the expenses items in Profit & Loss should reveal
+its journals"*, then *"each CASH, TNG, LOAN, Personal Pocket Kean, Personal Pocket Suan, and
+others that might be added in future need a journal"*.
+
+**Profit & Loss — tap a spending line and see what made it up.** On **More → Profit**, the
+running-cost lines (Packaging, Utilities, Delivery & fuel…) are now tappable, and so is
+**Total expenses**. Tapping one opens its journal for the month on screen: every expense
+behind that figure, oldest first, each reading *"<day> · <what it was for> · <how it was
+paid>"* and ending on the total the statement itself shows. So *"Packaging RM -58.00"*
+opens two lines — the boxes paid from a pocket and the bags paid in cash. A line with nothing
+in it that month is not tappable; there is nothing behind it. The header now says **Running
+costs · tap a line to see the spending behind it**.
+
+**Money — one line and one book per way of paying.** The single *"Paid by loan / other"* row is
+gone. In its place, every way of paying that is not cash or TNG gets **its own line** with what
+moved by it, and its own journal behind it: **Paid by Loan**, **Paid by Personal Pocket Kean**,
+**Paid by Personal Pocket Suan**, **Paid by Bank OD** — whatever you have called them. Money of
+your own you put in that way reads as a plus on that line; what was paid out of it reads as a
+minus. Cash in, TNG in, Cash out, TNG out and the Net are exactly as they were, and none of
+these other ways is in the net — it never came out of your purse.
+
+**Why they appear by themselves.** The lines are read off your own transactions, not off a
+fixed list, so a method you add tomorrow needs nothing from me: record one payment with it and
+it has a line and a book. And a method you have since **renamed** keeps a line for the name its
+older rows were written with — those rows are still in the books, and a figure you cannot open
+is a figure you have to take on faith. Each book ends on **In / Out / Net** for that method.
+
+**One small correction while here:** the note at the foot of the Profit screen about your own
+hours now matches v110 — either pay yourself a **Salary (you)** expense (with EPF / SOCSO as
+their own category), or mark Labour as a not-bought ingredient and put the hours into the
+recipes. Count them one way, never both.
+
+**17 Sep 2026 — engine v110 (no database setup needed). An ingredient you never buy — your
+own labour, electricity, gas — can be marked as a cost, and it then never appears on a
+shopping list again.** From your note: *"certain ingredient we dont purchase, in ingredient we
+can set that as a non purchase item, like labour and electricity"*.
+
+**What it does.** Open **More → Ingredients** and tap **Edit** on the ingredient (or fill in the
+New ingredient card at the top). Above the cost there is now a switch: **Not something I buy —
+it only ever costs. It still counts in a recipe's cost, but it never appears on a shopping list
+or a purchase order.** Turn it on for Labour, Electricity, Gas, your own time.
+
+**Where you see it.**
+- The ingredient's **card** stops showing an On hand and a Keep-at-least line, and says instead:
+  *Not bought — a cost in your recipes, never on a shopping list*. Nothing else about the card
+  changes, and the cost you typed is untouched.
+- Every **shopping list** (the preview, the list you save, and an "orders changed" follow-up)
+  leaves that ingredient out — and says so at the foot of the list: *Not on this list: Labour,
+  Electricity — marked as not something you buy. Their cost still counts in the products that
+  use them.* So it reads as deliberate, not as something the app forgot.
+- The **recipe cost** is unchanged: a recipe using Labour at RM 8 an hour for 15 minutes still
+  adds RM 2.00 to that product's cost, and that runs on into the Profit screen's cost of sales.
+
+**Switching it OFF restores the ingredient exactly as it was** — the app removes the mark rather
+than storing a "No", so nothing that exists today changes unless you turn this on.
+
+**And a word on the books, since this touches Profit:** if you mark Labour as not-for-purchase
+because it is your own unpaid time, it is already inside each product's cost of sales through the
+recipe — so do **not** also record it as a Salary expense, or the same hours get counted twice.
+The **Salary (you)** category is for when you actually pay yourself money out of the till.
 
 **16 Sep 2026 — engine v109 (no database setup needed). A journal for each way the
 money moves — the cash book, the TNG book — and a bug that was hiding in the TNG

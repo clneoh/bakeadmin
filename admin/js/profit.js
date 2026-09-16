@@ -108,6 +108,37 @@ export function profitBetween(state, from, to) {
   };
 }
 
+// The transactions behind one line of the statement (17 Sep 2026: "the expenses items
+// in Profit & Loss should reveal its journals"). A line on a statement is a total; this
+// is what it is made of — the rows the Money screen wrote, in date order, each with how
+// it was paid. `label` null means every running cost at once, which is what the Total
+// line is made of.
+//
+// The same two classes are skipped here as in profitBetween, so the rows always add up
+// to the line above them: a stock purchase is cash and the shelf (never this stretch's
+// trading) and money she took out for herself is drawings.
+export function expenseRows(state, from, to, label = null) {
+  const rows = [];
+  for (const e of state.expenses || []) {
+    if (!e || !inRange(String(e.date || ""), from, to)) continue;
+    const cls = classOfCategory(state, e.category);
+    if (cls === "drawing" || cls === "stock") continue;
+    const category = e.category || "Other";
+    if (label && category !== label) continue;
+    rows.push({
+      id: e.id,
+      date: String(e.date || "").slice(0, 10),
+      // What it was for: her own note when she wrote one, else the category itself.
+      what: (e.note && String(e.note).trim()) || category,
+      category,
+      method: e.method || "",
+      amount: Number(e.amount) || 0,
+    });
+  }
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return rows;
+}
+
 // The first and last day of a month, as the statement works in months.
 export function monthSpan(year, month) {
   const last = new Date(year, month + 1, 0).getDate();
