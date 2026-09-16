@@ -226,7 +226,10 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
     .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash out=RM 0.00") && rows.includes("TNG out=RM 0.00"),
     "neither purse nor phone claims it");
-  assert.ok(rows.includes("Net=RM -12.00"), "but the net still knows about it");
+  assert.ok(rows.includes("Net=RM 0.00"),
+    "and the net — what should be in the purse and on the phone — leaves it out too");
+  assert.ok(rows.includes("Spent, no method recorded=RM -12.00"),
+    "but it is named, on its own line, rather than quietly dropped");
 });
 
 test("money taken just after midnight belongs to that day, not the day before", () => {
@@ -300,4 +303,56 @@ test("taking her money back out is offered as an expense category", () => {
   assert.ok(cats.includes("My own withdrawal"),
     "so the way back out needs no new machinery: same form, same money-out list");
   assert.ok(cats.includes("Packaging"), "and everything else is still there");
+});
+
+// ── v106: the two lists are hers to shape ────────────────────────────────────
+const { categoriesOf, methodsOf, classOfCategory, methodLabel, isCash, isTng, isOther } =
+  await import("../admin/js/accounts.js");
+
+test("the lists fall back to the built-in ones until she changes them", () => {
+  const bare = { settings: {} };
+  assert.deepEqual(methodsOf(bare), ["Cash", "TNG", "Loan"],
+    "the third choice she asked for: a loan, and room for a bank overdraft later");
+  assert.ok(categoriesOf(bare).some((c) => c.label === "Salary (you)"));
+  assert.equal(classOfCategory(bare, "Ingredients & shopping"), "stock");
+
+  const hers = { settings: { payMethods: ["Cash", "TNG", "Bank OD"], categories: [{ label: "Baking class", cls: "expense" }] } };
+  assert.deepEqual(methodsOf(hers), ["Cash", "TNG", "Bank OD"]);
+  assert.deepEqual(categoriesOf(hers).map((c) => c.label), ["Baking class"], "her list replaces the built-in one");
+  assert.equal(classOfCategory(hers, "Baking class"), "expense");
+  // A deleted category's rows are still understood: the safe reading is a cost.
+  assert.equal(classOfCategory(hers, "Rent"), "expense");
+});
+
+test("a method is read however it was written, and a loan is not the purse", () => {
+  assert.equal(methodLabel("tng"), "TNG", "rows written before the list existed");
+  assert.equal(methodLabel("cash"), "Cash");
+  assert.equal(methodLabel("Bank OD"), "Bank OD", "her own words come back as typed");
+  assert.equal(methodLabel(""), "");
+  assert.ok(isCash("cash") && isCash("Cash"));
+  assert.ok(isTng("tng") && isTng("TNG"));
+  assert.ok(isOther("Loan") && isOther("Bank OD"), "money that never went near the purse");
+  assert.equal(isOther("Cash"), false);
+  assert.equal(isOther(""), false, "an unrecorded method is its own case, not 'other'");
+});
+
+test("what a loan paid for is kept out of the purse", () => {
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: `${today}T09:00:00.000Z`, unitPrice: 15 })];
+  st.expenses = [
+    { id: "e1", date: today, amount: 250, category: "Ingredients & shopping", method: "Loan" },
+    { id: "e2", date: today, amount: 18, category: "Packaging", method: "Cash" },
+  ];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash out=RM 18.00"), "only the cash one leaves the purse");
+  assert.ok(rows.includes("Net=RM -3.00"), "15 in, 18 out — the flour run never touched it");
+  assert.ok(rows.includes("Paid by loan / other=RM -250.00"),
+    "and the loan-funded run is named on its own line instead");
 });

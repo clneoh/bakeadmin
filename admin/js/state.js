@@ -46,6 +46,11 @@ export function defaultState() {
         validDays: 90, // "" (blank) = never expires
       },
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
+      // The two lists the books are built from (16 Sep 2026). Empty means "the
+      // built-in ones" — see js/accounts.js — so a phone that never edits them
+      // behaves exactly as before, and both lists are shared between phones.
+      categories: [], // what an expense was for: [{ label, cls }]
+      payMethods: [], // how money moved: ["Cash", "TNG", "Loan", ...]
     },
     ingredients: [],
     suppliers: [],     // who you buy from (each has a WhatsApp number)
@@ -247,6 +252,8 @@ function normalize(s) {
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
+      categories: Array.isArray(((s.settings || {}).categories)) ? s.settings.categories : [],
+      payMethods: Array.isArray(((s.settings || {}).payMethods)) ? s.settings.payMethods : [],
       developer: cleanDeveloper(((s.settings || {}).developer)),
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],

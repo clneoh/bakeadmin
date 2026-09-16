@@ -2,10 +2,11 @@
 
 import { el, button, confirmDialog, toast } from "../ui.js";
 import { LS_KEY, newId, save } from "../state.js";
+import { categoriesOf, isCash, isTng, methodsOf } from "../accounts.js";
 import { hashPin, isPin, hasStoredPin } from "../pin.js";
 import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
-import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSyncStorefront } from "../supabase.js";
+import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSync, maybeSyncStorefront } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { refreshShareWarn } from "../sharewarn.js";
@@ -522,7 +523,8 @@ export function renderSettings(root, state) {
           button("Load sample data", () => loadSample(state), "soft")))
     : null;
 
-  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+  const listsCard = accountsCard(state);
+  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, listsCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
 
   function doImport(e) {
     const file = e.target.files && e.target.files[0];
@@ -647,6 +649,97 @@ export function renderSettings(root, state) {
 
   fillBackups();
   return () => { dead = true; };
+}
+
+// ── The two lists the books are built from (16 Sep 2026) ─────────────────────
+// What an expense was FOR (the chart of accounts, each entry carrying what it means
+// to the accounts) and HOW money moved (Cash, TNG, Loan, and whatever else she needs
+// — a bank overdraft, a cheque). Both are hers to shape, both live here, and both
+// fall back to the built-in lists until she changes them (js/accounts.js).
+//
+// Deleting one never touches a row already written: the label lives on the row, so
+// a deleted category still prints at the end of the statement's cost list, and a
+// deleted method still reads back on the entries that used it.
+function accountsCard(state) {
+  const redraw = () => renderSettings(document.getElementById("view"), state);
+  const cur = state.settings;
+  const clsWord = { stock: "ingredients", drawing: "your own money", expense: "running cost" };
+
+  const cats = categoriesOf(state);
+  const catRows = cats.map((c) => el("div", { class: "info-row" },
+    el("span", {}, c.label),
+    el("span", { class: "info-val" },
+      el("span", { class: "muted" }, `  ${clsWord[c.cls] || "running cost"}`),
+      button("✕", () => confirmDialog(
+        `Delete the "${c.label}" category? Expenses already recorded under it are kept, and still count.`,
+        () => {
+          cur.categories = cats.filter((x) => x.label !== c.label);
+          save(state);
+          maybeSync(state);
+          toast("Category deleted");
+          redraw();
+        }, { danger: true, yesLabel: "Delete" }), "ghost small"))));
+
+  const newCat = el("input", { class: "input", placeholder: "e.g. Baking class", value: "" });
+  let cls = "expense";
+  const clsChoices = [["expense", "A running cost"], ["stock", "Ingredients"], ["drawing", "My own money"]];
+  const clsPills = el("div", { class: "cal-modes" },
+    ...clsChoices.map(([id, text]) => button(text, () => {
+      cls = id;
+      for (const b of clsPills.children) b.classList.toggle("cal-mode-on", b.textContent === text);
+    }, `ghost small${id === cls ? " cal-mode-on" : ""}`)));
+  const addCat = button("＋ Add a category", () => {
+    const label = newCat.value.trim();
+    if (!label) return toast("Type a name for the category");
+    if (cats.some((c) => c.label === label)) return toast("That category is already there");
+    cur.categories = [...cats, { label, cls }];
+    save(state);
+    maybeSync(state);
+    toast("Category added");
+    redraw();
+  }, "soft");
+
+  const methods = methodsOf(state);
+  const methodRows = methods.map((m) => el("div", { class: "info-row" },
+    el("span", {}, m),
+    el("span", { class: "info-val" },
+      isCash(m) || isTng(m) ? el("span", { class: "muted" }, "  in your purse or phone") : null,
+      button("✕", () => {
+        if (methods.length <= 1) return toast("Keep at least one way to pay");
+        confirmDialog(`Delete "${m}"? Entries already recorded as paid that way are kept.`,
+          () => {
+            cur.payMethods = methods.filter((x) => x !== m);
+            save(state);
+            maybeSync(state);
+            toast("Removed");
+            redraw();
+          }, { danger: true, yesLabel: "Delete" });
+      }, "ghost small"))));
+
+  const newMethod = el("input", { class: "input", placeholder: "e.g. Bank OD", value: "" });
+  const addMethod = button("＋ Add a way to pay", () => {
+    const label = newMethod.value.trim();
+    if (!label) return toast("Type a name for it");
+    if (methods.some((m) => m.toLowerCase() === label.toLowerCase())) return toast("That one is already there");
+    cur.payMethods = [...methods, label];
+    save(state);
+    maybeSync(state);
+    toast("Added");
+    redraw();
+  }, "soft");
+
+  return el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Categories & ways to pay"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "What an expense was FOR, and how the money moved. The Money screen and the Profit statement both read these lists — deleting one never touches what you have already recorded, it only takes it off the pickers."),
+    ...catRows,
+    el("div", { class: "field", style: "margin-top:10px" }, el("label", {}, "A new category is"), clsPills),
+    el("div", { class: "field", style: "margin-top:8px" }, newCat),
+    el("div", { class: "btn-row", style: "margin-top:8px" }, addCat),
+    el("h3", { style: "margin:16px 0 4px" }, "Ways to pay"),
+    ...methodRows,
+    el("div", { class: "field", style: "margin-top:10px" }, newMethod),
+    el("div", { class: "btn-row", style: "margin-top:8px" }, addMethod));
 }
 
 function loadSample(state) {

@@ -10,6 +10,7 @@
 //   • money STILL TO COLLECT is counted by DELIVERY date — it is money owed for the
 //     orders she is about to hand over, whatever the calendar says today.
 import { groupOrders, orderLinePrice } from "./state.js";
+import { isCash, isOther, isTng } from "./accounts.js";
 
 // The stages in order, so "is this past Paid?" can be asked here without importing
 // the Orders screen (which imports this one). The list has not changed since the app
@@ -99,14 +100,18 @@ function rowsBetween(list, from, to) {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
-// What a set of pocket rows adds up to, split by how it was paid.
+// What a set of pocket rows adds up to, split by how it was paid. Three buckets,
+// not two: cash and TNG are what moves through her purse and her phone, "other" is
+// money that paid for something without going near either — a loan, the bank
+// overdraft — and unmarked is a row nobody said how they paid (older than the list).
 function tallyRows(rows) {
-  const out = { rows, cash: 0, tng: 0, unmarked: 0, total: 0 };
+  const out = { rows, cash: 0, tng: 0, other: 0, unmarked: 0, total: 0 };
   for (const e of rows) {
     const amount = Number(e.amount) || 0;
     out.total += amount;
-    if (e.method === "cash") out.cash += amount;
-    else if (e.method === "tng") out.tng += amount;
+    if (isCash(e.method)) out.cash += amount;
+    else if (isTng(e.method)) out.tng += amount;
+    else if (isOther(e.method)) out.other += amount;
     else out.unmarked += amount;
   }
   return out;

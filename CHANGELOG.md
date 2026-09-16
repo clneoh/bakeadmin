@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v105)
+# Jienluv2bake — change history (v54 → v106)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v106 (no database setup needed). A note on every transaction,
+and two lists you shape yourself.** Three small things, all on the money screens.
+
+**A note on each one.** Add an expense now takes a note ("Mydin run, 2 boxes") - the
+Put money in form already had one - and both lists on the Money screen show it beside
+the amount, so a row reads as what it was, not just a figure.
+
+**The categories are yours.** More → Settings gains a **Categories & ways to pay**
+card. Every category shows what it means to the accounts (ingredients / running cost /
+your own money), each has a ✕ to delete it, and you can add your own - "Baking class",
+"SSM licence" - choosing which of the three it is. Deleting one never touches what you
+have already recorded: those rows keep their label and still count, printed at the end
+of the statement's cost list rather than dropped.
+
+**And the ways to pay are yours too.** The list is Cash, TNG and **Loan** - the third
+choice you asked for - and you can add your own, a **Bank OD** or a cheque, so a
+shopping run nobody would pay for out of the till can still be recorded honestly. The
+same list appears on the Bought prompt (where the receipt is still in your hand) and
+on both money forms.
+
+**One thing that follows from it.** Money that never came out of your purse - a loan,
+an overdraft - no longer sits in the net. The Money screen leaves it out of the cash
+figures and names it on its own line, "Paid by loan / other", with a sentence saying
+why. Net now means exactly what it says: what should be in your purse and on your
+phone.
 
 **16 Sep 2026 — engine v105 (no database setup needed). The books: a profit and loss
 account, a month at a time.** One new screen, More → Profit.

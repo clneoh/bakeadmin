@@ -7,15 +7,10 @@
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
 import { depositsBetween, expensesBetween, moneyBetween } from "../money.js";
-import { CATEGORY_LABELS } from "../profit.js";
+import { categoryLabels, methodLabel, methodsOf } from "../accounts.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { maybeSync } from "../supabase.js";
-
-// One chart of accounts for the whole app (js/profit.js): the same labels the
-// statement prints, so a row she records here lands in the right line there. The
-// order is the chart's, which reads down the expense list.
-const CATEGORIES = CATEGORY_LABELS;
 
 // Which stretch is showing. Module scope, like the other screens' own pickers, so a
 // rebuild she did not ask for does not throw her back to Today.
@@ -50,7 +45,7 @@ function spanFor(which) {
 // everything else shows the category she picked, and a money-in row shows her note
 // ("from my pocket") or the word that stands in for it.
 function pocketRow(state, e, what, listKey, redraw, cur) {
-  const how = e.method === "tng" ? "TNG" : e.method === "cash" ? "Cash" : "no method";
+  const how = methodLabel(e.method) || "no method";
   return el("div", { class: "info-row" },
     el("span", {}, `${dayMonth(String(e.date))} · ${what}${e.note ? ` · ${e.note}` : ""}`),
     el("span", { class: "info-val" }, fmtRM(Number(e.amount) || 0, cur),
@@ -70,36 +65,51 @@ const expenseRow = (state, e, redraw, cur) =>
 const depositRow = (state, e, redraw, cur) =>
   pocketRow(state, e, "From my pocket", "deposits", redraw, cur);
 
+// The Paid-by row: one pill per method on HER list — Cash, TNG, Loan, and whatever
+// she adds (a bank overdraft, a cheque). The first is picked to begin with, so a
+// plain cash payment is no taps at all. The list lives in js/accounts.js and is hers
+// to shape in Settings.
+export function methodPicker(state) {
+  const list = methodsOf(state);
+  let chosen = list[0] || "Cash";
+  const wrap = el("div", { class: "cal-modes" });
+  const pills = new Map();
+  for (const m of list) {
+    const b = button(m, () => {
+      chosen = m;
+      for (const [label, other] of pills) other.classList.toggle("cal-mode-on", label === m);
+    }, `ghost small${m === chosen ? " cal-mode-on" : ""}`);
+    pills.set(m, b);
+    wrap.append(b);
+  }
+  return { el: wrap, value: () => chosen };
+}
+
 // The Add an expense form: everything the PO never sees — packaging, gas, a market
 // top-up, a new tray. Its own small pop-up, opened from the screen it lands on.
 function openExpenseForm(state, redraw) {
   const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "Amount" });
-  let category = CATEGORIES.includes("Packaging") ? "Packaging" : CATEGORIES[0];
-  let method = "cash";
+  // Her chart of accounts, read as the form opens, so a category she added in
+  // Settings a moment ago is on the list.
+  const chart = categoryLabels(state);
+  let category = chart.includes("Packaging") ? "Packaging" : chart[0];
   const cats = el("div", { class: "cal-modes" },
-    ...CATEGORIES.map((c) => button(c, () => {
+    ...chart.map((c) => button(c, () => {
       category = c;
       for (const b of cats.children) b.classList.toggle("cal-mode-on", b.textContent === c);
     }, `ghost small${c === category ? " cal-mode-on" : ""}`)));
-  const cashBtn = button("Cash", () => {
-    method = "cash";
-    cashBtn.classList.add("cal-mode-on");
-    tngBtn.classList.remove("cal-mode-on");
-  }, "ghost small cal-mode-on");
-  const tngBtn = button("TNG", () => {
-    method = "tng";
-    tngBtn.classList.add("cal-mode-on");
-    cashBtn.classList.remove("cal-mode-on");
-  }, "ghost small");
+  const paid = methodPicker(state);
+  const note = el("input", { class: "input", placeholder: "e.g. Mydin run, 2 boxes", value: "" });
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
   showPopup(el("div", { class: "popup-title-row" }, "Add an expense"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "What did you spend?"), amount),
     el("div", { class: "field" }, el("label", {}, "What for"), cats),
-    el("div", { class: "field" }, el("label", {}, "Paid by"), el("div", { class: "cal-modes" }, cashBtn, tngBtn)),
+    el("div", { class: "field" }, el("label", {}, "Paid by"), paid.el),
     el("div", { class: "field" }, el("label", {}, "The day you paid it"), datePick),
+    el("div", { class: "field" }, el("label", {}, "A note (optional)"), note),
     el("div", { class: "popup-actions" },
       button("Cancel", close, "ghost"),
       button("Save", () => {
@@ -108,7 +118,8 @@ function openExpenseForm(state, redraw) {
           return toast("Type how much you spent");
         }
         state.expenses = Array.isArray(state.expenses) ? state.expenses : [];
-        state.expenses.push({ id: newId("exp"), date, amount: value, category, method, note: "" });
+        state.expenses.push({ id: newId("exp"), date, amount: value, category,
+          method: paid.value(), note: note.value.trim() });
         save(state);
         maybeSync(state);
         toast(`Money out: ${fmtRM(value, state.settings.currency)}`);
@@ -126,17 +137,7 @@ function openMoneyInForm(state, redraw) {
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "How much you put in" });
   const note = el("input", { class: "input", placeholder: "e.g. from my pocket for the flour",
     value: "", oninput: function () { /* read at save */ } });
-  let method = "cash";
-  const cashBtn = button("Cash", () => {
-    method = "cash";
-    cashBtn.classList.add("cal-mode-on");
-    tngBtn.classList.remove("cal-mode-on");
-  }, "ghost small cal-mode-on");
-  const tngBtn = button("TNG", () => {
-    method = "tng";
-    tngBtn.classList.add("cal-mode-on");
-    cashBtn.classList.remove("cal-mode-on");
-  }, "ghost small");
+  const paid = methodPicker(state);
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
@@ -144,7 +145,7 @@ function openMoneyInForm(state, redraw) {
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       "Money of your own that went into the bakery — it counts into the money in for the day, and you can take it back out later with Add an expense → My own withdrawal."),
     el("div", { class: "field" }, el("label", {}, "How much?"), amount),
-    el("div", { class: "field" }, el("label", {}, "Paid in as"), el("div", { class: "cal-modes" }, cashBtn, tngBtn)),
+    el("div", { class: "field" }, el("label", {}, "Paid in as"), paid.el),
     el("div", { class: "field" }, el("label", {}, "The day you put it in"), datePick),
     el("div", { class: "field" }, el("label", {}, "What it was for (optional)"), note),
     el("div", { class: "popup-actions" },
@@ -155,7 +156,7 @@ function openMoneyInForm(state, redraw) {
           return toast("Type how much you put in");
         }
         state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
-        state.deposits.push({ id: newId("dep"), date, amount: value, method, note: note.value.trim() });
+        state.deposits.push({ id: newId("dep"), date, amount: value, method: paid.value(), note: note.value.trim() });
         save(state);
         maybeSync(state);
         toast(`Money in: ${fmtRM(value, state.settings.currency)} of your own`);
@@ -177,12 +178,13 @@ export function renderMoney(root, state) {
     const m = moneyBetween(state, from, to);
     const out = expensesBetween(state, from, to);
     const mine = depositsBetween(state, from, to);
-    // What is still to collect is money owed, not money held, so it stays out of
-    // the net — the net is what should be in her hand and on her phone right now.
-    // Her own money counts INTO the cash and TNG rows: it really is in the purse, and
-    // those rows are what she checks the purse against. A line below says how much of
-    // it was hers, and the entries are listed underneath.
-    const net = m.cash + m.tng + m.unmarked + mine.total - out.total;
+    // The net is what should be in her hand and on her phone RIGHT NOW, so three
+    // things stay out of it: money still to collect (owed, not held), anything paid
+    // by a method that never touched the purse (a loan, the bank overdraft), and —
+    // for the same reason — money in that arrived that way. Her own pocket money
+    // counts IN: it really is in the purse, and these rows are what she checks it
+    // against. A line below says how much of it was hers, and the entries are listed.
+    const net = m.cash + m.tng + mine.cash + mine.tng - out.cash - out.tng;
 
     root.replaceChildren(
       el("h2", { class: "section" }, "Money"),
@@ -199,10 +201,18 @@ export function renderMoney(root, state) {
           row("Net", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
+          out.other || mine.other
+            ? row("Paid by loan / other", -(out.other - mine.other), "", " recv-row")
+            : null,
           row("Paid, no method", m.unmarked + mine.unmarked),
+          out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
           mine.total
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
                 `· of the money in, ${fmtRM(mine.total, cur)} was your own`)
+            : null,
+          out.other || mine.other
+            ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
+                "· loan, bank overdraft or any method you added that is not cash or TNG — it paid for things without coming out of your purse, so it is not in the net above.")
             : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),
@@ -221,7 +231,7 @@ export function renderMoney(root, state) {
         el("div", { class: "btn-row", style: "margin-top:10px" },
           button("＋ Add an expense", () => openExpenseForm(state, () => draw()), "soft"))),
       el("p", { class: "card-sub", style: "margin:0 2px" },
-        "Money in is counted by the day it landed — an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over."),
+        "Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are yours to edit in More to Settings."),
     );
   };
 

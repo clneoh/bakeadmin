@@ -19,31 +19,7 @@
 // money-out list as the rest.
 import { byId, orderLinePrice } from "./state.js";
 import { costOf } from "./bom.js";
-
-// The chart of accounts, as a home bakery needs it: her words were "salary, EPF,
-// rental, electricity, gas, delivery charges". The LABELS are the strings stored on
-// rows already written, so none of the older ones may be renamed.
-export const CATEGORIES = [
-  { label: "Ingredients & shopping", cls: "stock" }, // cash out; costed through the recipes
-  { label: "Packaging", cls: "expense" },
-  { label: "Rent", cls: "expense" },
-  { label: "Utilities", cls: "expense" }, // electricity, gas, water
-  { label: "Delivery & fuel", cls: "expense" },
-  { label: "Salary (you)", cls: "expense" },
-  { label: "EPF / SOCSO", cls: "expense" },
-  { label: "Marketing", cls: "expense" },
-  { label: "Equipment & tools", cls: "expense" },
-  { label: "Other", cls: "expense" },
-  { label: "My own withdrawal", cls: "drawing" }, // her money back, never a cost
-];
-export const CATEGORY_LABELS = CATEGORIES.map((c) => c.label);
-
-// A category written before it was in the list is treated as an ordinary expense:
-// money went out, and the safe reading is that it counts.
-export function classOfCategory(label) {
-  const found = CATEGORIES.find((c) => c.label === label);
-  return found ? found.cls : "expense";
-}
+import { categoriesOf, classOfCategory } from "./accounts.js";
 
 // The day an order is FOR: the delivery date record while it exists, its own
 // snapshot after the date was deleted. Sales are counted by delivery day, the same
@@ -97,7 +73,7 @@ export function profitBetween(state, from, to) {
   for (const e of state.expenses || []) {
     if (!e || !inRange(String(e.date || ""), from, to)) continue;
     const amount = Number(e.amount) || 0;
-    const cls = classOfCategory(e.category);
+    const cls = classOfCategory(state, e.category);
     if (cls === "drawing") { drawings += amount; continue; }
     if (cls === "stock") continue; // cash and the shelf, not this stretch's trading
     const label = e.category || "Other";
@@ -118,12 +94,12 @@ export function profitBetween(state, from, to) {
     uncosted,
     // The chart of accounts in order, so the statement always reads the same way
     // even when a category has nothing in it.
-    expenses: CATEGORIES.filter((c) => c.cls === "expense")
+    expenses: categoriesOf(state).filter((c) => c.cls === "expense")
       .map((c) => ({ label: c.label, amount: byCategory.get(c.label) || 0 })),
     // Anything whose label is no longer in the chart, so nothing vanishes from the
     // books: an old category still shows, at the end.
     otherExpenses: [...byCategory.entries()]
-      .filter(([label]) => !CATEGORIES.some((c) => c.label === label))
+      .filter(([label]) => !categoriesOf(state).some((c) => c.label === label))
       .map(([label, amount]) => ({ label, amount })),
     expensesTotal,
     net: sales - cost - expensesTotal,

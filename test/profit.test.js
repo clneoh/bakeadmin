@@ -6,8 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { profitBetween, classOfCategory, monthSpan, orderDay, lineCost, CATEGORY_LABELS } =
-  await import("../admin/js/profit.js");
+const { profitBetween, monthSpan, orderDay, lineCost } = await import("../admin/js/profit.js");
+const { classOfCategory, categoryLabels, DEFAULT_CATEGORIES } = await import("../admin/js/accounts.js");
 
 // Flour at 1 sen a gram; a Focaccia's recipe uses 100 g, so a loaf costs RM1.00 to
 // bake and sells at RM15.
@@ -104,15 +104,27 @@ test("stock bought, and her own money, never touch profit", () => {
   assert.equal(pl.capital, 300, "and her money in is capital, not income");
 });
 
-test("the chart of accounts covers what she named, and is the money screen's list", () => {
+test("the chart of accounts covers what she named, and is hers to change", () => {
+  const st = state();
+  const labels = categoryLabels(st);
   for (const label of ["Rent", "Utilities", "Salary (you)", "EPF / SOCSO", "Delivery & fuel"]) {
-    assert.ok(CATEGORY_LABELS.includes(label), `${label} is a category`);
+    assert.ok(labels.includes(label), `${label} is a category`);
   }
-  assert.equal(classOfCategory("My own withdrawal"), "drawing");
-  assert.equal(classOfCategory("Ingredients & shopping"), "stock");
-  assert.equal(classOfCategory("Rent"), "expense");
-  assert.equal(classOfCategory("Something an old phone typed"), "expense",
+  assert.equal(classOfCategory(st, "My own withdrawal"), "drawing");
+  assert.equal(classOfCategory(st, "Ingredients & shopping"), "stock");
+  assert.equal(classOfCategory(st, "Rent"), "expense");
+  assert.equal(classOfCategory(st, "Something an old phone typed"), "expense",
     "an unknown label counts as an expense rather than vanishing");
+
+  // A category she adds is hers; one she deletes still classifies its old rows.
+  st.settings.categories = [...DEFAULT_CATEGORIES.map((c) => ({ ...c })), { label: "Baking class", cls: "expense" }];
+  assert.ok(categoryLabels(st).includes("Baking class"));
+  st.settings.categories = st.settings.categories.filter((c) => c.label !== "Rent");
+  assert.ok(!categoryLabels(st).includes("Rent"), "gone from the picker");
+  assert.equal(classOfCategory(st, "Rent"), "expense",
+    "but the rows already written under it still count as a cost");
+  assert.ok(profitBetween(st, "2026-09-01", "2026-09-30").expenses.every((e) => e.label !== "Rent"),
+    "and the statement stops printing a line for it");
 });
 
 test("a month spans its own days, leap years included", () => {
