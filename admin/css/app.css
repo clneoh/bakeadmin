@@ -1081,6 +1081,9 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .info-row.pl-total { border-top: 1px dashed var(--line); padding-top: 5px; margin-top: 4px; font-weight: 600; }
 .info-row.pl-net { border-top: 2px solid var(--line); padding-top: 6px; margin-top: 4px; }
 .info-row.pl-net .info-val { font-size: 16px; font-weight: 700; }
+/* A settings row that opens an editor when tapped (the two money lists, v108). */
+.info-row.tappable { cursor: pointer; border-radius: 8px; }
+.info-row.tappable:active { background: var(--gray-bg); }
 .info-row.net-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
 .info-row.net-row .info-val { font-size: 16px; }
 .info-row.recv-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }

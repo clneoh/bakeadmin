@@ -7,7 +7,8 @@
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
 import { depositsBetween, expensesBetween, moneyBetween } from "../money.js";
-import { categoryLabels, methodLabel, methodsOf } from "../accounts.js";
+import { categoriesOf, categoryLabels, isCash, isTng, methodLabel, methodsOf } from "../accounts.js";
+import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { maybeSync } from "../supabase.js";
@@ -41,6 +42,50 @@ function spanFor(which) {
   return { from, to: today, label: from === today ? `${weekdayName(today)}, ${dayMonth(today)}` : `${dayMonth(from)} – ${dayMonth(today)}` };
 }
 
+// Everything on the two lists, as a list of its own: tap a line to rename it, change
+// what kind it is, or delete it. Opened from the line under the money cards, because
+// this is where the spending is — a separate Settings card was the wrong home
+// (16 Sep 2026: "dont put the setting separately, it should be at where it suppose to
+// be"). The ＋ chips on the forms still add one on the spot.
+function openListsManager(state, redraw) {
+  // One editor at a time, in place of the line it is editing: no second pop-up, and
+  // she can see the rest of the list while she works.
+  let editing = null; // { kind, label } | { kind, label: "" } for a new one
+  const body = el("div", {});
+  const done = () => { editing = null; redraw(); show(); };
+
+  const show = () => {
+    const cats = categoriesOf(state); // { label, cls } — the labels alone carry no kind
+    const methods = methodsOf(state);
+    const row = (label, note, kind) => (
+      editing && editing.kind === kind && editing.label === label
+        ? entryForm(state, { kind, current: label, onDone: done })
+        : el("div", { class: "info-row tappable", onclick: () => { editing = { kind, label }; show(); } },
+            el("span", {}, label), el("span", { class: "info-val" },
+              el("span", { class: "muted" }, `  ${note}`),
+              el("span", { class: "muted", style: "margin-left:6px" }, "edit"))));
+
+    body.replaceChildren(
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "What an expense was for, and how the money moved. Tap a line to rename it, change what kind it is, or delete it."),
+      el("h3", { style: "margin:0 0 4px" }, "Categories"),
+      ...cats.map((c) => row(c.label, c.cls === "stock" ? "ingredients"
+        : c.cls === "drawing" ? "your own money" : "running cost", "category")),
+      el("div", { class: "btn-row", style: "margin-top:8px" },
+        editing && editing.kind === "category" && !editing.label
+          ? entryForm(state, { kind: "category", current: "", onDone: done })
+          : newEntryChip("category", () => { editing = { kind: "category", label: "" }; show(); })),
+      el("h3", { style: "margin:16px 0 4px" }, "Ways to pay"),
+      ...methods.map((m) => row(m, isCash(m) || isTng(m) ? "in your purse or phone" : "not from the purse", "method")),
+      el("div", { class: "btn-row", style: "margin-top:8px" },
+        editing && editing.kind === "method" && !editing.label
+          ? entryForm(state, { kind: "method", current: "", onDone: done })
+          : newEntryChip("method", () => { editing = { kind: "method", label: "" }; show(); })));
+  };
+  show();
+  showPopup(el("div", { class: "popup-title-row" }, "Categories & ways to pay"), () => body);
+}
+
 // One entry in a money list. A spending row from a shopping run says so by its poId;
 // everything else shows the category she picked, and a money-in row shows her note
 // ("from my pocket") or the word that stands in for it.
@@ -65,24 +110,35 @@ const expenseRow = (state, e, redraw, cur) =>
 const depositRow = (state, e, redraw, cur) =>
   pocketRow(state, e, "From my pocket", "deposits", redraw, cur);
 
-// The Paid-by row: one pill per method on HER list — Cash, TNG, Loan, and whatever
-// she adds (a bank overdraft, a cheque). The first is picked to begin with, so a
-// plain cash payment is no taps at all. The list lives in js/accounts.js and is hers
-// to shape in Settings.
-export function methodPicker(state) {
-  const list = methodsOf(state);
-  let chosen = list[0] || "Cash";
+// One row of pills built from a list of names, ending in a ＋ chip that adds a new
+// one there and then (16 Sep 2026 — she asked why she could not find how to add a
+// category, and the answer was that it was only in Settings).
+//
+// `current` is marked, `onPick` is told what she taps, and the chip's `onAdded` puts
+// the new name straight into the caller's own state and reopens the form's body —
+// which rebuilds these pills with the new one already picked.
+function pillRow(names, current, onPick, { addKind, state, onAdded } = {}) {
   const wrap = el("div", { class: "cal-modes" });
-  const pills = new Map();
-  for (const m of list) {
-    const b = button(m, () => {
-      chosen = m;
-      for (const [label, other] of pills) other.classList.toggle("cal-mode-on", label === m);
-    }, `ghost small${m === chosen ? " cal-mode-on" : ""}`);
-    pills.set(m, b);
-    wrap.append(b);
+  const mark = (label) => {
+    for (const b of wrap.children) {
+      if (b.tagName === "BUTTON") b.classList.toggle("cal-mode-on", b.textContent === label);
+    }
+  };
+  for (const name of names) {
+    wrap.append(button(name, () => { onPick(name); mark(name); },
+      `ghost small${name === current ? " cal-mode-on" : ""}`));
   }
-  return { el: wrap, value: () => chosen };
+  if (addKind) wrap.append(newEntryChip(addKind, () => { if (onAdded) onAdded(null); }));
+  return wrap;
+}
+
+// The Paid-by row of a money form: one pill per method on HER list — Cash, TNG, Loan,
+// and whatever she adds. The list itself lives in js/accounts.js.
+export function methodPills(state, current, onPick, refresh) {
+  return pillRow(methodsOf(state), current, onPick, {
+    addKind: "method", state,
+    onAdded: (label) => { onPick(label); refresh(); },
+  });
 }
 
 // The Add an expense form: everything the PO never sees — packaging, gas, a market
@@ -90,24 +146,38 @@ export function methodPicker(state) {
 function openExpenseForm(state, redraw) {
   const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "Amount" });
-  // Her chart of accounts, read as the form opens, so a category she added in
-  // Settings a moment ago is on the list.
-  const chart = categoryLabels(state);
-  let category = chart.includes("Packaging") ? "Packaging" : chart[0];
-  const cats = el("div", { class: "cal-modes" },
-    ...chart.map((c) => button(c, () => {
-      category = c;
-      for (const b of cats.children) b.classList.toggle("cal-mode-on", b.textContent === c);
-    }, `ghost small${c === category ? " cal-mode-on" : ""}`)));
-  const paid = methodPicker(state);
+  // Her own chart and her own list, read as the form opens; both are rebuilt when a
+  // ＋ chip adds something, while what she has already typed stays put (the inputs
+  // are made once, outside the body, and the body re-appends them).
+  let category = categoryLabels(state).includes("Packaging") ? "Packaging" : (categoryLabels(state)[0] || "Other");
+  let method = methodsOf(state)[0] || "Cash";
+  let adding = null; // "category" | "method" while the inline ＋ form is open
   const note = el("input", { class: "input", placeholder: "e.g. Mydin run, 2 boxes", value: "" });
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
   showPopup(el("div", { class: "popup-title-row" }, "Add an expense"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "What did you spend?"), amount),
-    el("div", { class: "field" }, el("label", {}, "What for"), cats),
-    el("div", { class: "field" }, el("label", {}, "Paid by"), paid.el),
+    el("div", { class: "field" }, el("label", {}, "What for"),
+      adding === "category" ? null : pillRow(categoryLabels(state), category, (c) => { category = c; },
+        { addKind: "category", state, onAdded: () => { adding = "category"; refresh(); } }),
+      adding === "category"
+        ? entryForm(state, { kind: "category", onDone: (label) => {
+            if (label) category = label; // pick what she just made, and carry on
+            adding = null;
+            refresh();
+          } })
+        : null),
+    el("div", { class: "field" }, el("label", {}, "Paid by"),
+      adding === "method" ? null : methodPills(state, method, (m) => { method = m; },
+        () => { adding = "method"; refresh(); }),
+      adding === "method"
+        ? entryForm(state, { kind: "method", onDone: (label) => {
+            if (label) method = label;
+            adding = null;
+            refresh();
+          } })
+        : null),
     el("div", { class: "field" }, el("label", {}, "The day you paid it"), datePick),
     el("div", { class: "field" }, el("label", {}, "A note (optional)"), note),
     el("div", { class: "popup-actions" },
@@ -119,7 +189,7 @@ function openExpenseForm(state, redraw) {
         }
         state.expenses = Array.isArray(state.expenses) ? state.expenses : [];
         state.expenses.push({ id: newId("exp"), date, amount: value, category,
-          method: paid.value(), note: note.value.trim() });
+          method, note: note.value.trim() });
         save(state);
         maybeSync(state);
         toast(`Money out: ${fmtRM(value, state.settings.currency)}`);
@@ -137,7 +207,8 @@ function openMoneyInForm(state, redraw) {
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "How much you put in" });
   const note = el("input", { class: "input", placeholder: "e.g. from my pocket for the flour",
     value: "", oninput: function () { /* read at save */ } });
-  const paid = methodPicker(state);
+  let method = methodsOf(state)[0] || "Cash";
+  let adding = false;
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
@@ -145,7 +216,13 @@ function openMoneyInForm(state, redraw) {
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       "Money of your own that went into the bakery — it counts into the money in for the day, and you can take it back out later with Add an expense → My own withdrawal."),
     el("div", { class: "field" }, el("label", {}, "How much?"), amount),
-    el("div", { class: "field" }, el("label", {}, "Paid in as"), paid.el),
+    el("div", { class: "field" }, el("label", {}, "Paid in as"),
+      adding ? null : methodPills(state, method, (m) => { method = m; }, () => { adding = true; refresh(); }),
+      adding ? entryForm(state, { kind: "method", onDone: (label) => {
+        if (label) method = label;
+        adding = false;
+        refresh();
+      } }) : null),
     el("div", { class: "field" }, el("label", {}, "The day you put it in"), datePick),
     el("div", { class: "field" }, el("label", {}, "What it was for (optional)"), note),
     el("div", { class: "popup-actions" },
@@ -156,7 +233,7 @@ function openMoneyInForm(state, redraw) {
           return toast("Type how much you put in");
         }
         state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
-        state.deposits.push({ id: newId("dep"), date, amount: value, method: paid.value(), note: note.value.trim() });
+        state.deposits.push({ id: newId("dep"), date, amount: value, method, note: note.value.trim() });
         save(state);
         maybeSync(state);
         toast(`Money in: ${fmtRM(value, state.settings.currency)} of your own`);
@@ -230,8 +307,15 @@ export function renderMoney(root, state) {
         ...out.rows.map((e) => expenseRow(state, e, () => draw(), cur)),
         el("div", { class: "btn-row", style: "margin-top:10px" },
           button("＋ Add an expense", () => openExpenseForm(state, () => draw()), "soft"))),
+      el("div", { class: "card" },
+        el("div", { class: "card-row" },
+          el("div", {},
+            el("p", { class: "card-title" }, "Categories & ways to pay"),
+            el("p", { class: "card-sub" },
+              `${categoryLabels(state).length} categories · ${methodsOf(state).join(", ")}`)),
+          button("Edit", () => openListsManager(state, () => draw()), "ghost small"))),
       el("p", { class: "card-sub", style: "margin:0 2px" },
-        "Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are yours to edit in More to Settings."),
+        "Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are edited right above, or added on the spot with the ＋ chip on either form."),
     );
   };
 

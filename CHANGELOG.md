@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v107)
+# Jienluv2bake — change history (v54 → v108)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v108 (no database setup needed). Where the two lists live, and
+how to change one.** One fix and one addition, both about the categories and the ways
+to pay.
+
+**Why.** v106 put them in a Settings card and you could not find it, and there was no
+way to change an entry once it existed - "dont put the setting separately, it should be
+at where it suppose to be."
+
+**They are on the Money screen now**, as a line under the money lists reading
+"Categories & ways to pay · 11 categories · Cash, TNG, Loan" with an **Edit** beside
+it. Tap Edit and the lists open: every category with its kind (ingredients / running
+cost / your own money) and every way to pay, each line saying "edit".
+
+**Tap a line and it turns into the form**: rename it, change what kind it is, or
+delete it - in place, with the rest of the list still in front of you. Renaming moves
+what you have already recorded with it, so a slip of the thumb does not split your
+history into "Packaging" and "Packing".
+
+**And the ＋ chips sit where you are working**: the Add an expense form and Put money
+in each end their pills with **＋ New category** / **＋ New way to pay**, which opens
+the same small form in place - the amount and the note you had already typed stay put.
+
+**No window inside a window.** These forms expand in place instead of opening a pop-up
+of their own, the same rule the date field follows: the app has one pop-up layer, so a
+second one would wipe out the form underneath it.
 
 **16 Sep 2026 — engine v107 (no database setup needed). The item line on an order
 reads properly again.** One fix, on the two forms where you type an order's items.

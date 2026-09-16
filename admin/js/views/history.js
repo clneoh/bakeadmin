@@ -10,9 +10,12 @@ import { maybeSync } from "../supabase.js";
 import { poTableEl } from "./poTable.js";
 import { fmtStockAmount } from "../purchasing.js";
 import { applyBought } from "../stock.js";
+import { methodsOf } from "../accounts.js";
 // The Paid-by pills, one list for the whole app (js/accounts.js) — a shopping run can
-// go on the loan or the bank overdraft, which is what the third choice is for.
-import { methodPicker } from "./money.js";
+// go on the loan or the bank overdraft, which is what the third choice is for. The
+// same row of pills the money forms use, with the same ＋ chip, so a way she needs
+// only once can still be recorded.
+import { methodPills } from "./money.js";
 
 // Navigate by hash so app.js isn't needed at import time.
 const navigate = (hash) => { location.hash = hash; };
@@ -159,13 +162,14 @@ function askWhatYouPaid(state, po) {
   const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "What you paid",
     value: estimate ? String(estimate) : "" });
-  const paid = methodPicker(state);
+  let method = methodsOf(state)[0] || "Cash";
 
   showPopup(el("div", { class: "popup-title-row" }, "What did you pay?"), (refresh, close) => el("div", {},
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       `The packs are on your stock. What did this shop cost${estimate ? ` — the list came to ${fmtRM(estimate, state.settings.currency)}` : ""}?`),
     el("div", { class: "field" }, amount),
-    el("div", { class: "field" }, el("label", {}, "Paid by"), paid.el),
+    el("div", { class: "field" }, el("label", {}, "Paid by"),
+      methodPills(state, method, (m) => { method = m; }, refresh)),
     el("div", { class: "popup-actions" },
       button("Skip the money", close, "ghost"),
       button("Save", () => {
@@ -180,7 +184,7 @@ function askWhatYouPaid(state, po) {
           date: todayISO(),
           amount: value,
           category: "Ingredients & shopping",
-          method: paid.value(),
+          method,
           poId: po.id,
           note: "",
         });
