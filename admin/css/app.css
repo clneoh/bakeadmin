@@ -1063,6 +1063,13 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .paid-tag.tng { color: var(--brown-dark); background: var(--brown-soft); }
 /* The Money screen's two sums worth stopping on: the net (what should be in her
    hand and on her phone) and the line below it where what is still owed starts. */
+/* The profit statement reads like a set of accounts: figures aligned, a rule under
+   the subtotals, and the bottom line standing out (v105). */
+.info-row.pl-row { margin: 2px 0; }
+.info-row.pl-row .info-val { font-variant-numeric: tabular-nums; }
+.info-row.pl-total { border-top: 1px dashed var(--line); padding-top: 5px; margin-top: 4px; font-weight: 600; }
+.info-row.pl-net { border-top: 2px solid var(--line); padding-top: 6px; margin-top: 4px; }
+.info-row.pl-net .info-val { font-size: 16px; font-weight: 700; }
 .info-row.net-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
 .info-row.net-row .info-val { font-size: 16px; }
 .info-row.recv-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }

@@ -7,21 +7,15 @@
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
 import { depositsBetween, expensesBetween, moneyBetween } from "../money.js";
+import { CATEGORY_LABELS } from "../profit.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { maybeSync } from "../supabase.js";
 
-// What she spent categories: short, and the first one is what a purchase order
-// records by itself, so most rows land there without her choosing anything.
-const CATEGORIES = [
-  "Ingredients & shopping",
-  "Packaging",
-  "Delivery & fuel",
-  "Utilities",
-  "Equipment & tools",
-  "My own withdrawal", // money she takes back out for herself, not a cost of baking
-  "Other",
-];
+// One chart of accounts for the whole app (js/profit.js): the same labels the
+// statement prints, so a row she records here lands in the right line there. The
+// order is the chart's, which reads down the expense list.
+const CATEGORIES = CATEGORY_LABELS;
 
 // Which stretch is showing. Module scope, like the other screens' own pickers, so a
 // rebuild she did not ask for does not throw her back to Today.
@@ -81,7 +75,7 @@ const depositRow = (state, e, redraw, cur) =>
 function openExpenseForm(state, redraw) {
   const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "Amount" });
-  let category = CATEGORIES[1]; // Packaging: the most common thing the PO misses
+  let category = CATEGORIES.includes("Packaging") ? "Packaging" : CATEGORIES[0];
   let method = "cash";
   const cats = el("div", { class: "cal-modes" },
     ...CATEGORIES.map((c) => button(c, () => {

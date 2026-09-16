@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v104)
+# Jienluv2bake — change history (v54 → v105)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v105 (no database setup needed). The books: a profit and loss
+account, a month at a time.** One new screen, More → Profit.
+
+**Why.** Money told you what was in your purse. It could not tell you whether the
+baking made money - a RM250 flour-and-butter run makes one week look like a disaster
+while the bread it went into sells the week after.
+
+**What it shows.** More → Profit, month by month (arrows either side), reading down
+like a set of accounts: Sales, Cost of sales, Gross profit, the running costs one line
+each, Total expenses and Net profit - with the gross margin beside the order count.
+Then, kept apart from all of it, your own money: capital you put in, drawings you took
+out, and what is left in the business.
+
+**The one rule that makes it accounting rather than a cash total.** Ingredient cost is
+what the baking cost to make, taken from your RECIPES as the bread sells - not the
+packs you bought. Buying and using sit in different places on purpose: a shopping run
+is money out on the Money screen and stock on your shelf, and it becomes a cost of sales
+here as the bread made from it goes out. Nothing is counted twice, and a big stock-up
+week stops looking like a loss.
+
+**Your own money is neither income nor a cost.** What you put in is capital; what you
+take out is drawings (including the "My own withdrawal" category). Both move cash -
+Money counts them - and neither changes profit. If you pay yourself a proper salary,
+record it as **Salary (you)**, with **EPF / SOCSO** as its own category, and those DO
+count as running costs.
+
+**The category list is now a chart of accounts:** Ingredients & shopping (stock),
+Packaging, Rent, Utilities, Delivery & fuel, Salary (you), EPF / SOCSO, Marketing,
+Equipment & tools, My own withdrawal, Other - the same list the Add an expense form
+offers, so every row lands on the right line of the statement.
+
+**Two things it will not pretend to know.** Your own unpaid hours are not a cost - if
+your time is worth paying, pay yourself a salary and it becomes one. And a product
+whose recipe prices to nothing is counted as costing nothing; the screen says how many
+lines that was, so it is visible rather than flattering.
 
 **16 Sep 2026 — engine v104 (no database setup needed). Money you put in yourself,
 and taking it back out.** One change, on More → Money.
