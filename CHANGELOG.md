@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v98)
+# Jienluv2bake — change history (v54 → v99)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v99 (no database setup needed). The customer can tap the
+"Next available" line and be given that day.** One change, on the order page.
+
+**Why.** A product you keep on the shop, on a day it cannot be ordered, tells the
+customer when it can be had - "Next available: Sat 19 Sep". Until now they had to
+go and find that date on the calendar themselves.
+
+**What it does now.** The line is a control: tapping it takes that delivery day, so
+the product in front of them can be ordered straight away, and the page moves up to
+the calendar, where the chosen day is written out in words. It keeps its gentle
+pulse, and wears a small arrow so it reads as something to tap.
+
+**The one time it does not take the day.** If the customer already has something in
+their basket, the line stays a plain label and tapping it answers instead: "Your
+basket is for Fri, 18 Sep. To order for another day, choose it on the calendar
+above." Taking a day then would silently move their whole order to a new date - and
+drop anything that does not fit there - which is not something a tap on a product
+line should ever do. Changing the day is what the calendar is for.
 
 **15 Sep 2026 — engine v98 (no database setup needed). The last status reads
 Collected / Shipped, and a placed order gains a Note / tracking button.** Two
