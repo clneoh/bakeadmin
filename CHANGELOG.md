@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v93)
+# Jienluv2bake — change history (v54 → v95)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v95 (no database setup needed). A day's total now counts
+only the products you actually sell that day.** One change, on your side of the
+app, with one knock-on for customers.
+
+**What it was doing.** The "x/y" on a day - the chip beside the date on Orders,
+the same number on the day in the month calendar, and the dials on Home - was
+adding up the daily limit of every product on your menu, whether or not that
+product can be ordered on the day you were looking at. So a day with one product
+on it (a limit of 12, say) still read **1/42**: thirty of those units were limits
+belonging to products that could never take an order that day.
+
+**What it does now.** Only the products on sale that day count. A Saturday-only
+loaf adds nothing to a Wednesday, and a product kept on the shop as **Unavailable**
+adds nothing to a day it is not sold on. The same day now reads **1/12** - what
+that day can really take. Products with no sell marks are unchanged (they sell
+every day, so they always count), and a day where nothing on sale has a daily limit
+falls back to the **default capacity** in Settings, exactly as before - it does not
+drop to 0, which would make the app call the day Sold out.
+
+**The knock-on worth knowing.** This same number is what the app tells the order
+page about a day, so a day now turns FULL at the moment every unit you are actually
+selling that day is booked, rather than at some larger number padded out by
+products that were never on sale. Past every real slot being taken, the order page
+stops offering that day - which was always the intent, and now happens at the right
+moment rather than late.
+
+**Nothing else moved.** Your over-capacity warning, the "N ordered · N left" line
+on a delivery date, the purchasing plan and each product's own "N left" stamp all
+read the same number they always did for products that are on sale.
+
+**15 Sep 2026 — engine v94 (no database setup needed). One sentence on the
+customer's greyed card, reworded.** Wording only - nothing behaves differently.
+
+On a product you keep on the shop, the line saying why it cannot be ordered today
+now reads **Only available on Mon.** where it read "Only sold on Mon." The old
+wording was the seller's voice on a customer's card, and "available" is what the
+rest of that same card already says ("Only available for delivery from 19 Sep").
+The Chinese and Bahasa Malaysia say the same thing as before, in their own words.
 
 **15 Sep 2026 — engine v93 (no database setup needed). The track link now lands
 on the track card, lit.** One change, on the customer's side of the shop.

@@ -10,6 +10,9 @@
 import { byId, round2 } from "./state.js";
 import { chosenSupplier, cookingUnit, belowReserve } from "./purchasing.js";
 import { shortDate } from "./dates.js";
+// The sell-day rules — one shared root module, the same copy the shop reads, so
+// the day a product sells on and the day it counts toward capacity can never drift.
+import { sellOpen } from "../../availability.js";
 
 const MAX_RECIPE_DEPTH = 6;
 const NO_DEMAND = new Map();
@@ -554,9 +557,22 @@ export function effectiveLimit(state, dateStr, productId) {
 // date's delta applied; with none limited it falls back to the default
 // capacity, matching today's all-unlimited day. If she pauses every product to
 // 0 the capacity is 0 — the whole day reads "Sold out" to customers.
+//
+// Only the products ON SALE that day count. A product's daily limit is capacity
+// she can bake AND sell that day; a product that is not sold on this date — a
+// Saturday-only loaf on a Wednesday, or one kept on the shop as Unavailable (v90)
+// — can never have an order put on it that day, so its limit is not capacity. The
+// day used to sum the whole menu regardless, which made a day with one product on
+// it read "1/42" (15 Sep 2026). `sellOpen` answers true for a product with no sell
+// marks, and for a date that is not a real day key, so nothing without marks and
+// no caller passing a made-up date changes at all.
+//
+// One consequence, deliberately accepted: this same number is what the shop
+// publishes as a day's remaining slots, so "full" now means every sellable unit is
+// booked rather than every unit across the whole menu — a day can fill sooner.
 export function effectiveCapacity(state, dateStr) {
   const active = (state.products || [])
-    .filter((p) => p.active !== false && Number(p.limit) > 0);
+    .filter((p) => p.active !== false && Number(p.limit) > 0 && sellOpen(p, dateStr));
   if (!active.length) return state.settings.defaultCapacity ?? 12;
   return active.reduce((sum, p) => sum + (effectiveLimit(state, dateStr, p.id) ?? 0), 0);
 }
