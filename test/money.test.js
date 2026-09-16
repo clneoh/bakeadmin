@@ -622,3 +622,62 @@ test("the payback reads as a payback in both books, not as money she put in", ()
   const cash = journalFor(st, "Cash", "2026-09-01", "2026-09-30");
   assert.equal(cash.outTotal, 0, "and the till's book has nothing from this pocket");
 });
+
+// ── v113: a book for every way of paying, however quiet ──────────────────────
+// "where can i find pocket journals" (17 Sep 2026). The money card's pocket rows are read
+// off what MOVED, so a pocket that did nothing in the stretch has no row there and no way
+// into its book. The Books door is always there.
+test("the Books door opens every method she has, even one that did nothing", () => {
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Personal Pocket Kean"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  // Kean's pocket moved nothing at all in this stretch.
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: `${today}T09:00:00.000Z`, unitPrice: 15 })];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const open = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === "Open");
+  assert.ok(open, "the Money screen has a Books door");
+  open._listeners.click.forEach((f) => f());
+
+  const form = screen["popup-layer"];
+  const lines = allOf(form).filter((n) => String(n.className).includes("info-row"));
+  const named = lines.map((r) => r.children[0].textContent);
+  for (const m of ["Cash", "TNG", "Loan", "Personal Pocket Kean"]) {
+    assert.ok(named.includes(m), `${m} has a line, whether or not it moved this stretch`);
+  }
+  assert.match(lines.find((r) => r.children[0].textContent === "Cash").children[1].textContent, /RM 15\.00/,
+    "with what moved by it in the stretch");
+  assert.ok(!allOf(form).some((n) => n.nodeType === 3 && n.text === "null"),
+    "no stray 'null' on the screen: replaceChildren prints one where el() would skip it");
+
+  // It opens a quiet pocket's book IN PLACE — a pop-up from a pop-up would wipe the list.
+  const kean = lines.find((r) => r.children[0].textContent === "Personal Pocket Kean");
+  kean._listeners.click.forEach((f) => f());
+  const after = allOf(screen["popup-layer"]);
+  assert.ok(after.some((n) => n.textContent.includes("Nothing moved this way in this stretch")),
+    "her quiet pocket's book opens and says so plainly");
+  assert.ok(after.filter((n) => String(n.className).includes("info-row"))
+    .some((r) => r.children[0].textContent === "Cash"),
+    "and the rest of the list is still there behind it");
+});
+
+test("a method she took off the list still has a book, because its money is still in", () => {
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG"]; // no pockets on the list at all now
+  st.expenses = [{ id: "e1", date: today, amount: 250, category: "Ingredients & shopping",
+    method: "Personal Pocket Kean", note: "flour run" }];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === "Open")
+    ._listeners.click.forEach((f) => f());
+  const form = screen["popup-layer"];
+  const kean = allOf(form).filter((n) => String(n.className).includes("info-row"))
+    .find((r) => r.children[0].textContent === "Personal Pocket Kean");
+  assert.ok(kean, "the old label still gets a line — it would otherwise be money she cannot see");
+  assert.match(kean.children[1].textContent, /RM -250\.00/);
+});

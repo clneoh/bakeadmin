@@ -1096,6 +1096,12 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 /* A settings row that opens an editor when tapped (the two money lists, v108). */
 .info-row.tappable { cursor: pointer; border-radius: 8px; }
 .info-row.tappable:active { background: var(--gray-bg); }
+
+/* The Books list: the line she tapped stays marked, and its book opens UNDER it behind a
+   rule, so it is obvious which line the rows belong to (the app has one shared pop-up
+   layer, so a book cannot be a window of its own from in here). */
+.info-row.book-open { background: var(--gray-bg); }
+.book-page { border-left: 2px solid var(--line); padding: 6px 0 10px 12px; margin: 2px 0 6px; }
 .info-row.net-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
 .info-row.net-row .info-val { font-size: 16px; }
 .info-row.recv-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }

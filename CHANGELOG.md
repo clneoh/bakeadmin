@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v112)
+# Jienluv2bake — change history (v54 → v113)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v113 (no database setup needed). Every way you pay now has a book you
+can always open — including a pocket that has been quiet — behind a new Books line on the Money
+screen.** From you asking *"where can i find pocket journals"*.
+
+**What was wrong.** The journal rows live on the money card, and that card only shows a pocket's
+row **when that pocket moved money in the stretch you are looking at**. The card opens on
+**Today**, so a pocket that paid for something last week had no row today — and no way into its
+book at all. Cash and TNG never had the problem: their four rows (Cash in, Cash out, TNG in, TNG
+out) are always there. The pockets were the only books that could go missing.
+
+**The Books line.** Under the two money cards there is now a second line beside *Categories & ways
+to pay*:
+
+> **Books**
+> Every way you pay · 5 books, each opening into its own rows  ［ Open ］
+
+**Open** lists **every** way you pay — Cash, TNG, Loan, Personal Pocket Kean, Personal Pocket Suan,
+and anything you add later — each with what moved by it in the stretch on screen, each opening into
+its own book **under the line you tapped**, so the list stays in front of you and you can step from
+one book to the next. The first method with anything in it opens ready; a quiet pocket says so
+plainly — *"Nothing moved this way in this stretch"* — with its In / Out / Net at zero.
+
+Two things this keeps honest: a method you have since **renamed or deleted** still gets a line,
+because its money is still in the books and a figure you cannot open is a figure you have to take
+on faith; and every figure in the list comes off the Money screen's own rows, so the list and those
+totals cannot drift apart.
+
+*A small thing the screenshot caught while building this: the first version printed the word
+"null" under each closed line. Fixed, and there is now a test that fails if it ever comes back.*
 
 **17 Sep 2026 — engine v112 (no database setup needed). You can pay a personal pocket back
 out of the till in one go, and the category list on the expense form is no longer cut off.**

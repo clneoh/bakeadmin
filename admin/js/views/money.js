@@ -7,7 +7,7 @@
 import { el, button, showPopup, toast, confirmDialog } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
 import { depositsBetween, expensesBetween, journalFor, moneyBetween, otherMethods, pocketOwed } from "../money.js";
-import { categoriesOf, categoryLabels, drawingLabel, isCash, isTng, methodLabel, methodsOf, pocketMethods, purseMethods } from "../accounts.js";
+import { categoriesOf, categoryLabels, drawingLabel, isCash, isTng, methodLabel, methodRank, methodsOf, pocketMethods, purseMethods } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
@@ -42,11 +42,11 @@ function spanFor(which) {
   return { from, to: today, label: from === today ? `${weekdayName(today)}, ${dayMonth(today)}` : `${dayMonth(from)} – ${dayMonth(today)}` };
 }
 
-// One method's book: every movement that way in the stretch, in order, ending on
-// what it should hold. Opened by tapping one of the money rows — "how can i see the
-// TnG journal and the Cash journal?" (16 Sep 2026) — because those rows are already
-// the totals of exactly these movements.
-function openJournal(state, method, from, to, label) {
+// One method's book, as a block: every movement that way in the stretch, in order,
+// ending on what it should hold. Built as a block rather than a pop-up so it can be
+// shown in two places — as a book of its own, and inside the Books list, where opening a
+// second window would wipe the list she is reading (the app has one shared pop-up layer).
+function journalBody(state, method, from, to, label) {
   const cur = state.settings.currency || "RM";
   const j = journalFor(state, method, from, to);
   const where = isCash(method) ? "what should be in your purse"
@@ -58,8 +58,7 @@ function openJournal(state, method, from, to, label) {
     el("span", { class: "j-what" }, `${dayMonth(r.date)} · ${r.what}`),
     el("span", { class: "info-val" }, `${r.dir === "in" ? "" : "−"}${fmtRM(r.amount, cur)}`));
 
-  showPopup(el("div", { class: "popup-title-row" }, `${label} journal`), () => el("div", {},
-    el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
+  return el("div", {},
     j.rows.length
       ? el("div", {}, ...j.rows.map(line))
       : el("p", { class: "card-sub" }, "Nothing moved this way in this stretch."),
@@ -70,7 +69,65 @@ function openJournal(state, method, from, to, label) {
     el("div", { class: "info-row pl-net" },
       el("span", {}, "Net"), el("span", { class: "info-val" }, fmtRM(j.net, cur))),
     el("p", { class: "card-sub", style: "margin:10px 0 0" },
-      `${label} is ${where}. Every order paid that way, everything you spent out of it and anything of your own you put in is listed above — the same rows the totals on the Money screen are made of.`)));
+      `${label} is ${where}. Every order paid that way, everything you spent out of it and anything of your own you put in is listed above — the same rows the totals on the Money screen are made of.`));
+}
+
+// One method's book on its own, opened by tapping a money row — "how can i see the TnG
+// journal and the Cash journal?" (16 Sep 2026) — because those rows are already the
+// totals of exactly these movements.
+function openJournal(state, method, from, to, label) {
+  showPopup(el("div", { class: "popup-title-row" }, `${label} journal`),
+    () => el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
+      journalBody(state, method, from, to, label)));
+}
+
+// Every way she pays, one book each — always reachable, however quiet the stretch. The
+// rows on the money card are read off what MOVED, so a pocket that did nothing has no row
+// there and its book would be unreachable; this is the door that never closes (17 Sep
+// 2026: "where can i find pocket journals"). Tapping a line opens that book UNDER the
+// line, in place: a second pop-up would wipe the list she is reading.
+function openBooks(state, from, to, stretchLabel) {
+  const cur = state.settings.currency || "RM";
+  // Every way she has on her list, plus any way that moved here but is no longer on it —
+  // a method she renamed still has money in the books, so it still gets a door.
+  const moved = new Set();
+  for (const t of [moneyBetween(state, from, to), depositsBetween(state, from, to), expensesBetween(state, from, to)]) {
+    for (const label of (t.byMethod ? t.byMethod.keys() : [])) moved.add(label);
+  }
+  const labels = [...new Set([...methodsOf(state), ...moved])]
+    .filter(Boolean)
+    .sort((a, b) => methodRank(state, a) - methodRank(state, b) || a.localeCompare(b));
+
+  let open = labels.find((m) => journalFor(state, m, from, to).rows.length) || null;
+  const body = el("div", {});
+
+  const draw = () => {
+    // replaceChildren takes the nodes as given — unlike el(), it has no null filter, so a
+    // bare null child prints the word "null" on the screen. Keep the filter.
+    const lines = labels.flatMap((m) => {
+      const j = journalFor(state, m, from, to);
+      const isOpen = open === m;
+      return [
+        el("div", { class: `info-row tappable${isOpen ? " book-open" : ""}`,
+          onclick: () => { open = isOpen ? null : m; draw(); } },
+          el("span", {}, m),
+          el("span", { class: "info-val" }, fmtRM(j.net, cur),
+            el("span", { class: "muted", style: "margin-left:6px" }, isOpen ? "close" : "book"))),
+        isOpen ? el("div", { class: "book-page" }, journalBody(state, m, from, to, m)) : null,
+      ];
+    }).filter((n) => n != null);
+
+    body.replaceChildren(
+      el("p", { class: "card-sub", style: "margin:0 0 4px" },
+        "A book for every way you pay — Cash, TNG, a loan, someone's own pocket, and any method you add later. Tap a line to read it: every order paid that way, what you spent out of it, and anything of your own that went in."),
+      el("p", { class: "card-sub", style: "margin:0 0 8px" }, stretchLabel),
+      ...lines,
+      el("p", { class: "card-sub", style: "margin:8px 0 0" },
+        "Every figure here is a figure off the Money screen's own rows, so this list and those totals can never disagree."));
+  };
+  draw();
+  showPopup(el("div", { class: "popup-title-row" }, "Books"), () => body);
 }
 
 // Everything on the two lists, as a list of its own: tap a line to rename it, change
@@ -457,7 +514,16 @@ export function renderMoney(root, state) {
             el("p", { class: "card-title" }, "Categories & ways to pay"),
             el("p", { class: "card-sub" },
               `${categoryLabels(state).length} categories · ${methodsOf(state).join(", ")}`)),
-          button("Edit", () => openListsManager(state, () => draw()), "ghost small"))),
+          button("Edit", () => openListsManager(state, () => draw()), "ghost small")),
+        // Its own door, always open: the money card's pocket rows only appear when that
+        // pocket moved something in the stretch on screen, so a quiet pocket's book would
+        // otherwise be unreachable (17 Sep 2026).
+        el("div", { class: "card-row", style: "margin-top:12px" },
+          el("div", {},
+            el("p", { class: "card-title" }, "Books"),
+            el("p", { class: "card-sub" },
+              `Every way you pay · ${methodsOf(state).length} books, each opening into its own rows`)),
+          button("Open", () => openBooks(state, from, to, label), "ghost small"))),
       el("p", { class: "card-sub", style: "margin:0 2px" },
         "Tap Cash, TNG or a loan row to see that method's journal - every movement that way in this stretch, in order, ending on what it should hold. Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. The two lists this screen reads - what you spend ON, and HOW you paid - are edited right above, or added on the spot with the ＋ chip on either form."),
     );
