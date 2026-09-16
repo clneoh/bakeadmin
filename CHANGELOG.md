@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v113)
+# Jienluv2bake — change history (v54 → v114)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v114 (no database setup needed). Every spending line in Profit & Loss now
+opens — including the ones reading 0.00 — and the lines are twice as tall, so they are easy to tap.**
+From you asking *"in profit the expenses is not clickable, is that a bug?"*
+
+**You were right, and it was my mistake.** The lines that open their journal were the ones with
+money in them. A line showing **0.00** was deliberately left dead, because there is no journal to
+show — but I made it look **exactly** the same as a live one: same colour, same font, no hint. So if
+your month has most categories at 0.00, nearly every line you tapped did nothing, and "not clickable"
+was the only sensible conclusion. A line that looks alive and does nothing is worse than no line.
+
+**What it does now.** Every spending line opens: *Packaging*, *Utilities*, *Delivery & fuel*, the
+categories you have added, and **Total expenses**. A line with money in it shows its journal as
+before. An empty one opens and **says so in your own words** — *"Nothing recorded under Rent in
+September 2026"*, In / Out / Net at zero, and a line telling you it will fill up on its own as you
+record spending under that category. The statement's own totals (**Sales**, **Cost of sales**,
+**Gross profit**, **Net profit**) stay figures rather than doors — you did not ask for those, and
+they are not spending.
+
+**Two more things found while fixing it.**
+- **The lines were only 17 pixels tall** — a small target for a finger, and easy to land in the gap
+  between two lines and hit nothing. Tappable rows everywhere (the Profit statement, the Money
+  screen's cash rows, the Books list) are now **36 pixels**, comfortably thumb-sized.
+- **The Total expenses journal did not say which category a row belonged to.** It read
+  *"2 Sep · boxes · Cash"* with no way to tell what "boxes" was for. It now names it —
+  *"2 Sep · Packaging — boxes · Cash"* — while a single category's journal still reads short, since
+  its title already says which category it is.
 
 **17 Sep 2026 — engine v113 (no database setup needed). Every way you pay now has a book you
 can always open — including a pocket that has been quiet — behind a new Books line on the Money
