@@ -59,6 +59,11 @@ export function defaultState() {
     // (which is why a row may carry a poId) and by the Add an expense form — one
     // list, so the Money screen has a single side to subtract from money in.
     expenses: [],
+    // Money she put in herself — a sudden packet of flour paid from her own purse,
+    // a float for change. Kept apart from orders so the Money screen can say how much
+    // of the till is her own money, and taken back out later through Add an expense
+    // (category "My own withdrawal"), which is the same money-out list.
+    deposits: [],
     credits: [], // bring-a-friend ledger: {holder, amountRM, role, expiresAt, ...}
     occasions: [], // delivery-calendar reminder marks: {from, to, label}
   };
@@ -255,6 +260,7 @@ function normalize(s) {
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
     expenses: Array.isArray(s.expenses) ? s.expenses : [],
+    deposits: Array.isArray(s.deposits) ? s.deposits : [],
     credits: Array.isArray(s.credits) ? s.credits : [],
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
   };

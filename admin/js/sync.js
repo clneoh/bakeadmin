@@ -31,6 +31,7 @@ const LISTS = {
   deliveryDates: "deliveryDates",
   purchaseOrders: "purchaseOrders",
   expenses: "expenses", // money out — what one phone spends, the other should see
+  deposits: "deposits", // money in from her own pocket — same on every phone
   credits: "credits", // bring-a-friend ledger rows
   occasions: "occasions", // delivery-calendar reminder marks
   customers: "customers", // customer profiles (dog name/photo, likes, notes)

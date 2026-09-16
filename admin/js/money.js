@@ -90,13 +90,17 @@ export function dayMoney(state, deliveryDateId) {
   return tally(state, groups);
 }
 
-// What she spent in a stretch, and how she paid for it — the other half of the
-// Money screen (16 Sep 2026). Every expense carries its own day, so this needs no
-// fallback rule: an expense is recorded on the day it was paid, by definition.
-export function expensesBetween(state, from, to) {
-  const rows = (state.expenses || [])
+// The rows of one of the pocket lists in a stretch, newest first. Every entry
+// carries its own day, so these need no fallback rule: money is recorded on the day
+// it moved, by definition.
+function rowsBetween(list, from, to) {
+  return (list || [])
     .filter((e) => e && e.date && isWithin(String(e.date), from, to))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date))); // newest first
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+// What a set of pocket rows adds up to, split by how it was paid.
+function tallyRows(rows) {
   const out = { rows, cash: 0, tng: 0, unmarked: 0, total: 0 };
   for (const e of rows) {
     const amount = Number(e.amount) || 0;
@@ -106,6 +110,21 @@ export function expensesBetween(state, from, to) {
     else out.unmarked += amount;
   }
   return out;
+}
+
+// What she spent in a stretch, and how she paid for it — one half of the Money
+// screen (16 Sep 2026).
+export function expensesBetween(state, from, to) {
+  return tallyRows(rowsBetween(state.expenses, from, to));
+}
+
+// Money she put IN herself in a stretch — the flour paid from her purse, a float for
+// change (16 Sep 2026). Counted beside the order takings so the cash and TNG rows are
+// what her purse and her phone should really hold; the Money screen says how much of
+// them is her own. Taking it back out is an ordinary expense, category "My own
+// withdrawal", so it leaves through the same door as everything else.
+export function depositsBetween(state, from, to) {
+  return tallyRows(rowsBetween(state.deposits, from, to));
 }
 
 // A stretch of days, for the Money screen.

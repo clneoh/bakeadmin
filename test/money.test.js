@@ -242,3 +242,62 @@ test("money taken just after midnight belongs to that day, not the day before", 
     "so it is in the right day's takings");
   assert.equal(moneyBetween(st, "2026-09-16", "2026-09-16").cash, 0);
 });
+
+// ── v104: money she puts in herself ──────────────────────────────────────────
+const { depositsBetween } = await import("../admin/js/money.js");
+
+test("money she put in is a pocket list of its own, counted the same way", () => {
+  const st = state();
+  st.deposits = [
+    { id: "d1", date: "2026-09-16", amount: 100, method: "cash", note: "flour money" },
+    { id: "d2", date: "2026-09-14", amount: 40, method: "tng" },
+    { id: "d3", date: "2026-09-20", amount: 5, method: "cash" },
+  ];
+  const week = depositsBetween(st, "2026-09-14", "2026-09-20");
+  assert.equal(week.total, 145);
+  assert.equal(week.cash, 105);
+  assert.equal(week.tng, 40);
+  assert.deepEqual(week.rows.map((d) => d.date), ["2026-09-20", "2026-09-16", "2026-09-14"],
+    "newest first, like the spending list");
+  assert.equal(depositsBetween(st, "2026-09-16", "2026-09-16").total, 100, "ranges apply");
+});
+
+test("her own money counts into the till, and the screen says how much was hers", () => {
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: `${today}T09:00:00.000Z`, unitPrice: 15 })];
+  st.deposits = [{ id: "d1", date: today, amount: 100, method: "cash", note: "flour money" }];
+  st.expenses = [{ id: "e1", date: today, amount: 30, category: "My own withdrawal", method: "cash" }];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash in=RM 115.00"), "RM15 of orders + RM100 of her own in the purse");
+  assert.ok(rows.includes("Cash out=RM 30.00"), "and the withdrawal leaves the same way as any spending");
+  assert.ok(rows.includes("Net=RM 85.00"), "the net still adds up");
+
+  assert.ok(allOf(root).some((n) => /of the money in, RM 100\.00 was your own/.test(String(n.textContent || ""))),
+    "the screen says how much of the till is hers");
+  assert.ok(allOf(root).some((n) => String(n.textContent || "").includes("From my pocket")
+    && String(n.textContent || "").includes("flour money")),
+    "and lists it, so she can see where it came from");
+});
+
+test("taking her money back out is offered as an expense category", () => {
+  const today = todayISO();
+  const st = state();
+  st.expenses = [];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const add = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes("Add an expense"));
+  (add._listeners.click || []).forEach((f) => f());
+  const pop = screen["popup-layer"];
+  const cats = allOf(pop).filter((n) => n.tagName === "BUTTON").map((b) => b.textContent.trim());
+  assert.ok(cats.includes("My own withdrawal"),
+    "so the way back out needs no new machinery: same form, same money-out list");
+  assert.ok(cats.includes("Packaging"), "and everything else is still there");
+});

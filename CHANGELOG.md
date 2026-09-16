@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v103)
+# Jienluv2bake — change history (v54 → v104)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v104 (no database setup needed). Money you put in yourself,
+and taking it back out.** One change, on More → Money.
+
+**Why.** Some spending happens before any order money arrives - a packet of flour paid
+from your own purse, a float of change for the day - and there was nowhere to put it.
+The Money screen only counted what customers paid.
+
+**Put money in.** More → Money now has a **Put money in** button beside Add an
+expense: how much, the day you put it in, cash or TNG, and a short line saying what it
+was for. It counts into the Cash in / TNG in rows, because your own money really is in
+your purse and those rows are what you check the purse against - and one line
+underneath says how much of the money in was yours: "of the money in, RM 100.00 was
+your own". The entry is listed in its own **Money in** card, so you can see where it
+came from, and take it off again.
+
+**Taking it out again.** Add an expense has a new category, **My own withdrawal** -
+money you take back for yourself rather than a cost of baking. It leaves through the
+same money-out list as everything else, so the net, the day lines and your backups
+count it with no new machinery. Your own money in and out is shared between your
+phones, like every other list.
 
 **16 Sep 2026 — engine v103 (no database setup needed). Money out: what you spend,
 beside what you take in.** One change, on the shopping side of the app.
