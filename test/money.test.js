@@ -107,3 +107,138 @@ test("a multi-item order counts once, at the sum of its lines", () => {
   assert.equal(m.cash, 38, "2 × RM15 + 1 × RM8");
   assert.equal(m.count, 1, "one customer order, not two");
 });
+
+// ── v103: money out ──────────────────────────────────────────────────────────
+const { expensesBetween } = await import("../admin/js/money.js");
+
+test("what she spent is counted on the day she paid it, split by method", () => {
+  const st = state();
+  st.expenses = [
+    { id: "e1", date: "2026-09-16", amount: 52.5, category: "Ingredients & shopping", method: "cash", poId: "po1" },
+    { id: "e2", date: "2026-09-15", amount: 18, category: "Packaging", method: "cash" },
+    { id: "e3", date: "2026-09-18", amount: 40, category: "Delivery & fuel", method: "tng" },
+    { id: "e4", date: "2026-09-17", amount: 9, category: "Other" },              // no method recorded
+  ];
+  const today = expensesBetween(st, "2026-09-16", "2026-09-16");
+  assert.equal(today.total, 52.5, "only the day asked for");
+  assert.equal(today.cash, 52.5);
+  assert.equal(today.tng, 0);
+  assert.equal(today.rows.length, 1);
+
+  const week = expensesBetween(st, "2026-09-14", "2026-09-20");
+  assert.equal(week.total, 119.5);
+  assert.equal(week.cash, 70.5);
+  assert.equal(week.tng, 40);
+  assert.equal(week.unmarked, 9, "one expense with no method, counted and flagged");
+  assert.deepEqual(week.rows.map((e) => e.date),
+    ["2026-09-18", "2026-09-17", "2026-09-16", "2026-09-15"], "newest first");
+});
+
+test("an app with no expenses yet is simply empty, not broken", () => {
+  const m = expensesBetween(state(), "2026-09-01", "2026-09-30");
+  assert.equal(m.total, 0);
+  assert.deepEqual(m.rows, []);
+});
+
+// ── the Money screen itself ──────────────────────────────────────────────────
+// A small DOM shim, as the other view tests use: createElement with a textContent
+// that reads back through children, so the lines can be read as words.
+function domShim() {
+  const registry = {};
+  const createEl = (tag) => {
+    const node = {
+      tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
+      className: "", style: {}, value: "", checked: false, disabled: false, hidden: false,
+      _listeners: {},
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+      appendChild(c) { if (c != null) this.children.push(c); return c; },
+      append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+      replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+      addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+      removeEventListener() {},
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getAttribute(k) { return this.attrs[k]; },
+      focus() {}, click() {},
+    };
+    Object.defineProperty(node, "textContent", {
+      get() { return this.children.map((c) => (c.nodeType === 3 ? c.text : c.textContent)).join(""); },
+      set(v) { this.children = v === "" ? [] : [{ nodeType: 3, text: String(v) }]; },
+    });
+    return node;
+  };
+  globalThis.document = {
+    createElement: createEl,
+    createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
+    getElementById: (id) => (registry[id] ||= createEl("div")),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    body: createEl("body"),
+  };
+  return registry;
+}
+const { todayISO } = await import("../admin/js/dates.js");
+const { renderMoney } = await import("../admin/js/views/money.js");
+const screen = domShim();
+const allOf = (node, out = []) => {
+  for (const c of node.children || []) { out.push(c); allOf(c, out); }
+  return out;
+};
+
+test("the Money screen puts what came in beside what went out, and the net", () => {
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: `${today}T09:00:00.000Z`, unitPrice: 15 })];
+  st.expenses = [{ id: "e1", date: today, amount: 5, category: "Packaging", method: "cash" }];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  // Each line read as label + value, so a missing space between the two cannot make
+  // a test pass or fail on its own.
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.deepEqual(rows, [
+    "Cash in=RM 15.00",
+    "TNG in=RM 0.00",
+    "Cash out=RM 5.00",
+    "TNG out=RM 0.00",
+    "Net=RM 10.00",
+    "Still to collect=RM 0.00",
+    "Paid, no method=RM 0.00",
+  ], "in, out, and what should be left — with what is still owed kept out of the net");
+
+  const expense = allOf(root).find((n) => String(n.className).includes("info-row")
+    && n.textContent.includes("Packaging"));
+  assert.ok(expense, "the spending in this stretch is listed by what it was for");
+  assert.ok(allOf(root).some((n) => n.textContent === "＋ Add an expense"), "with a way to add another");
+});
+
+test("an expense with no method recorded is flagged, not folded into cash", () => {
+  const today = todayISO();
+  const st = state();
+  st.expenses = [{ id: "e1", date: today, amount: 12, category: "Delivery & fuel" }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const rows = allOf(root).filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash out=RM 0.00") && rows.includes("TNG out=RM 0.00"),
+    "neither purse nor phone claims it");
+  assert.ok(rows.includes("Net=RM -12.00"), "but the net still knows about it");
+});
+
+test("money taken just after midnight belongs to that day, not the day before", () => {
+  // 16:30 UTC on the 16th is half past midnight on the 17th in Malaysia, where she
+  // is. The day the money landed is HER day. (This suite runs on her machine, so
+  // the local zone is the bakery's — the same assumption the store's own date tests
+  // already make.)
+  const st = state();
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    paidAt: "2026-09-16T16:30:00.000Z" })];
+  assert.equal(paidOf(st, { orders: [st.orders[0]] }), "2026-09-17");
+  assert.equal(moneyBetween(st, "2026-09-17", "2026-09-17").cash, 15,
+    "so it is in the right day's takings");
+  assert.equal(moneyBetween(st, "2026-09-16", "2026-09-16").cash, 0);
+});

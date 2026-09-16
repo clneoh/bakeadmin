@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v102)
+# Jienluv2bake — change history (v54 → v103)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v103 (no database setup needed). Money out: what you spend,
+beside what you take in.** One change, on the shopping side of the app.
+
+**Why.** v101 gave you the money coming in. Spending had nowhere to go: a purchase
+order worked out what a shopping run should cost, and tapping Bought put the packs on
+your shelf, but nothing recorded what you actually paid.
+
+**A shopping run now asks.** Tap **Bought** on a saved list and, once the packs are on
+your stock, a small box opens: **What did you pay?** - pre-filled with the list's own
+total, with **Cash** or **TNG** beside it. Accept the guess with one tap, or type what
+the receipt really said. **Skip the money** leaves the stock added and records nothing,
+exactly as the app behaved before.
+
+**Everything else goes in by hand.** More → Money now carries an **Add an expense**
+form for what a purchase order never sees - packaging, delivery and fuel, utilities,
+equipment, or a market top-up - each with the day you paid it, so a receipt found in
+your bag later still counts on the right day.
+
+**The Money screen adds it up both ways.** Cash in, TNG in, Cash out, TNG out and
+**Net** - what should be in your purse and on your phone for Today / This week / This
+month - with that stretch's spending listed underneath, each line showing what it was
+for and how you paid. What is still to collect stays out of the net: it is money owed,
+not money held. Expenses are shared between your phones, and counted in your backups,
+like every other list.
+
+**One fix along the way.** A payment taken just after midnight was being counted as
+the day before, because the app read the date off the stamp in UTC. It counts on your
+own day now.
 
 **16 Sep 2026 — engine v102 (no database setup needed). Swipe across the calendar
 to pick a run of delivery dates.** One small change, on More → Delivery dates.

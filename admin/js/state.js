@@ -55,6 +55,10 @@ export function defaultState() {
     orders: [],
     customers: [], // customer profiles (dog name/photo, likes, notes) keyed to orders
     purchaseOrders: [],
+    // Money out: what she spent, and how. Written by a shopping run marked Bought
+    // (which is why a row may carry a poId) and by the Add an expense form — one
+    // list, so the Money screen has a single side to subtract from money in.
+    expenses: [],
     credits: [], // bring-a-friend ledger: {holder, amountRM, role, expiresAt, ...}
     occasions: [], // delivery-calendar reminder marks: {from, to, label}
   };
@@ -250,6 +254,7 @@ function normalize(s) {
       : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
+    expenses: Array.isArray(s.expenses) ? s.expenses : [],
     credits: Array.isArray(s.credits) ? s.credits : [],
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
   };

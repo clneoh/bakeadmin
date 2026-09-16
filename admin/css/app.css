@@ -1061,6 +1061,11 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   border-radius: 999px;
 }
 .paid-tag.tng { color: var(--brown-dark); background: var(--brown-soft); }
+/* The Money screen's two sums worth stopping on: the net (what should be in her
+   hand and on her phone) and the line below it where what is still owed starts. */
+.info-row.net-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
+.info-row.net-row .info-val { font-size: 16px; }
+.info-row.recv-row { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }
 .fulfill-sub {
   display: block;
   margin-top: 2px;

@@ -53,9 +53,20 @@ export function deliveryOf(state, group) {
   return rec ? rec.date : "";
 }
 
-// The day the money landed.
+// The day the money landed, in HER day. paidAt is a full instant, so slicing the
+// UTC string counts a payment taken at half past midnight as the day before — it is
+// the local calendar day she reconciles against, so that is what is read off it.
 export function paidOf(state, group) {
-  return String(firstOf(group).paidAt || "").slice(0, 10) || deliveryOf(state, group);
+  const at = String(firstOf(group).paidAt || "");
+  if (at) {
+    const d = new Date(at);
+    if (!Number.isNaN(d.getTime())) {
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${d.getFullYear()}-${m}-${day}`;
+    }
+  }
+  return deliveryOf(state, group);
 }
 
 function tally(state, groups) {
@@ -77,6 +88,24 @@ export function dayMoney(state, deliveryDateId) {
   const groups = groupOrders(state.orders || [])
     .filter((g) => firstOf(g).deliveryDateId === deliveryDateId);
   return tally(state, groups);
+}
+
+// What she spent in a stretch, and how she paid for it — the other half of the
+// Money screen (16 Sep 2026). Every expense carries its own day, so this needs no
+// fallback rule: an expense is recorded on the day it was paid, by definition.
+export function expensesBetween(state, from, to) {
+  const rows = (state.expenses || [])
+    .filter((e) => e && e.date && isWithin(String(e.date), from, to))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date))); // newest first
+  const out = { rows, cash: 0, tng: 0, unmarked: 0, total: 0 };
+  for (const e of rows) {
+    const amount = Number(e.amount) || 0;
+    out.total += amount;
+    if (e.method === "cash") out.cash += amount;
+    else if (e.method === "tng") out.tng += amount;
+    else out.unmarked += amount;
+  }
+  return out;
 }
 
 // A stretch of days, for the Money screen.
