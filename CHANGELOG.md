@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v96)
+# Jienluv2bake — change history (v54 → v97)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v97 (one database line to run once). The last status is
+named for how the order leaves, and a posted order can carry its courier's
+tracking number.** One change, across the order row, the WhatsApp messages and the
+customer's track page.
+
+**The last status is Collected or Shipped.** The final step used to say
+"Delivered" for everything. It now reads **Collected** on an order the customer
+fetches from you and **Shipped** on one you post - the same step in the journey,
+named for what actually happened. That is true everywhere the status is named: the
+row's status list, the row's own journey map, the day's status filter, and the map
+the customer sees on their track page (in all three languages). Nothing about the
+step's behaviour changed, and every order already sitting at that step keeps its
+place - only the word is different.
+
+**A tracking number, typed where you post the parcel.** A courier order shows a
+**Courier tracking number** box under its details from Packed onwards, and a
+**Send shipped message** button beside the status. Type the number the courier gave
+you, press the button, and WhatsApp opens with the message already drafted: the
+order number, what was sent, and the tracking number. The box is in the Edit
+pop-up too, for a number you need to fix or read back over the phone.
+
+**The customer sees it.** The number is published with the order, so a posted
+order's track page shows it on its own line under the delivery details - they can
+read it to the courier without messaging you. Self-collect orders show no such
+line. The shipped message is only offered on courier orders: a self-collect order
+keeps its **Send pickup reminder**, which is the message that fits that hand-over.
+
+**What you need to run once.** The tracking number needs one column added to the
+tracking table - `supabase/track_no.sql` (a single ALTER, safe to re-run). Until
+that runs, everything else works; the number just reaches the message and not yet
+the customer's page.
 
 **15 Sep 2026 — engine v96 (no database setup needed). "Set day's availability"
 now shows how the day adds up.** One change, on the pop-up you already use.

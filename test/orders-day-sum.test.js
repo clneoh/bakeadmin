@@ -155,3 +155,23 @@ test("nothing on sale that day has a limit → the Settings default, never 0", (
     "= 12 the day's default capacity (Settings) — nothing on sale this day has a daily limit",
   ]);
 });
+
+// ── v97: the tracking number lives in the Edit pop-up too ────────────────────
+test("the Edit pop-up shows the tracking number and writes a new one back", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].trackingNo = "JT123";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  const box = all(pop).find((n) => n.tagName === "INPUT" && n.attrs.placeholder === "e.g. JT123456789");
+  assert.ok(box, "the pop-up carries a box for the courier's number");
+  assert.equal(box.value, "JT123", "opened on the number already saved");
+
+  box.value = "JT999 888";
+  box._listeners.input[0](); // the draft follows as she types
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+  assert.equal(st.orders[0].trackingNo, "JT999 888", "and it reaches the order on save");
+});

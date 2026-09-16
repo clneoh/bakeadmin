@@ -159,3 +159,64 @@ test("a rebuild around an open card leaves it open, and a fresh visit folds it",
   renderOrders(root, STATE, PARAMS());
   assert.equal(isHidden(byClass(root, "fold-body")), true);
 });
+
+// ── v97: the last stage is named for how the order leaves ────────────────────
+test("the last stage reads Collected or Shipped, by the order's own delivery method", () => {
+  const order = (extra) => ({
+    id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+    whatsapp: "60123456789", status: "ready", ...extra,
+  });
+  const labelsFor = (extra) => {
+    const root = createEl("div");
+    renderOrders(root, { ...STATE, orders: [order(extra)] }, PARAMS());
+    return all(root).filter((n) => String(n.className) === "oj-label").map((n) => n.children[0].text);
+  };
+
+  assert.equal(labelsFor({ fulfillment: "courier" })[5], "Shipped",
+    "an order she posts was shipped");
+  assert.equal(labelsFor({ fulfillment: "collect" })[5], "Collected",
+    "one the customer fetches was collected");
+
+  // The dropdown and the filter offer the same word, so nothing says Delivered.
+  const root = createEl("div");
+  renderOrders(root, { ...STATE, orders: [order({ fulfillment: "courier" })] }, PARAMS());
+  const opts = all(root).filter((n) => n.tagName === "OPTION").map((n) => n.children[0].text);
+  assert.ok(opts.includes("Shipped"), "the status list offers Shipped");
+  assert.ok(!opts.includes("Delivered"), "and nothing still offers Delivered");
+});
+
+test("a courier order at Packed carries the tracking box, and a collect one does not", () => {
+  const root = createEl("div");
+  renderOrders(root, { ...STATE, orders: [{
+    id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+    whatsapp: "60123456789", status: "ready", fulfillment: "courier", trackingNo: "JT123",
+  }] }, PARAMS());
+  const box = all(root).find((n) => String(n.className).includes("li-track-input"));
+  assert.ok(box, "the number can be typed where the parcel is packed");
+  assert.equal(box.value, "JT123", "showing the number already saved");
+  assert.ok(all(root).some((n) => n.tagName === "BUTTON" && n.textContent === "Send shipped message"),
+    "with the message that carries it");
+
+  const collect = createEl("div");
+  renderOrders(collect, { ...STATE, orders: [{
+    id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+    whatsapp: "60123456789", status: "ready", fulfillment: "collect",
+  }] }, PARAMS());
+  assert.equal(all(collect).find((n) => String(n.className).includes("li-track-input")), undefined,
+    "a self-collect order is not posted, so it has no tracking box");
+  assert.ok(all(collect).some((n) => n.tagName === "BUTTON" && n.textContent === "Send pickup reminder"),
+    "and keeps the pickup reminder instead");
+});
+
+test("typing a tracking number saves it on the whole order", () => {
+  const state = { ...STATE, orders: [{
+    id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+    whatsapp: "60123456789", status: "ready", fulfillment: "courier",
+  }] };
+  const root = createEl("div");
+  renderOrders(root, state, PARAMS());
+  const box = all(root).find((n) => String(n.className).includes("li-track-input"));
+  box.value = " JT123456789 ";
+  box._listeners.change[0]();
+  assert.equal(state.orders[0].trackingNo, "JT123456789", "saved trimmed, as typed");
+});

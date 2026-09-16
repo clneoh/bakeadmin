@@ -117,7 +117,9 @@ const en = {
   trkPaid: "Paid",
   trkBaking: "Baked",
   trkReady: "Packed",
-  trkDelivered: "Delivered",
+  trkShipped: "Shipped",
+  trkCollected: "Collected",
+  trackingNo: "Tracking number: %1",
 
   devBy: "Website by",
   devWa: "WhatsApp the developer",
@@ -214,7 +216,9 @@ const zh = {
   trkPaid: "已付款",
   trkBaking: "烘焙中",
   trkReady: "已打包",
-  trkDelivered: "已送达",
+  trkShipped: "已寄出",
+  trkCollected: "已取货",
+  trackingNo: "快递单号：%1",
 
   devBy: "网站制作：",
   devWa: "用 WhatsApp 联系开发者",
@@ -311,7 +315,9 @@ const ms = {
   trkPaid: "Dibayar",
   trkBaking: "Dibakar",
   trkReady: "Dibungkus",
-  trkDelivered: "Dihantar",
+  trkShipped: "Telah dihantar",
+  trkCollected: "Telah diambil",
+  trackingNo: "Nombor penjejakan: %1",
 
   devBy: "Laman web oleh",
   devWa: "WhatsApp pembangun",

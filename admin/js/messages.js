@@ -1,9 +1,10 @@
 // messages.js — the WhatsApp messages the baker sends from later stages of the
-// journey: the payment reminder (while an order is waiting on Paid) and the
-// pickup reminder (when an order is packed). Pure (no DOM, no fetch) so they run
-// under Node for tests. Like the confirmation, every message leads with the
-// order code so the customer can always match it back to their order, and stays
-// plain ASCII - emoji have come back as broken boxes on some phones.
+// journey: the payment reminder (while an order is waiting on Paid), the pickup
+// reminder (when an order is packed) and the shipped message (when a courier order
+// is handed to the courier, carrying its tracking number). Pure (no DOM, no fetch)
+// so they run under Node for tests. Like the confirmation, every message leads
+// with the order code so the customer can always match it back to their order, and
+// stays plain ASCII - emoji have come back as broken boxes on some phones.
 
 import { byId, fmtRM, orderCode, orderLineName, orderLinePrice, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
@@ -29,7 +30,10 @@ function basics(state, group, trackUrl) {
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
   const qr = String(sf.tngQr || "").trim();
-  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl };
+  // The courier's tracking number she typed on the order. Kept as typed (a
+  // pasted number may carry spaces or dashes) — it goes to the customer verbatim.
+  const trackingNo = String(first.trackingNo || "").trim();
+  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo };
 }
 
 export function buildPaymentReminder(state, group, trackUrl) {
@@ -50,6 +54,23 @@ export function buildPaymentReminder(state, group, trackUrl) {
   }
   msg += `Already paid? Please ignore this message.\n`;
   msg += `Track your order: ${b.trackUrl}`;
+  return { recipient: b.recipient, message: msg };
+}
+
+// "It's on its way" — sent when a courier order goes to the courier, carrying the
+// tracking number she typed (15 Sep 2026). Courier orders only: a self-collect
+// order is not shipped, and its "ready" moment is the pickup reminder above.
+// Without a number the line is left out rather than printed empty — the message
+// still tells the customer their order has gone.
+export function buildShippedMessage(state, group, trackUrl) {
+  const b = basics(state, group, trackUrl);
+  if (!b || !b.recipient) return null;
+  let msg = `Hi ${b.first.customerName || ""}! Your order from ${b.bakery} is on its way.\n`;
+  msg += `Order #${orderCode(b.first)}\n`;
+  msg += `Delivery: ${b.date} - Courier delivery\n`;
+  msg += `Items: ${b.items}\n`;
+  if (b.trackingNo) msg += `Tracking number: ${b.trackingNo}\n`;
+  msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }
 
