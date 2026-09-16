@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v92)
+# Jienluv2bake — change history (v54 → v93)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v93 (no database setup needed). The track link now lands
+on the track card, lit.** One change, on the customer's side of the shop.
+
+**Why.** Your confirmation message ends with a Track your order link. Tapping it
+opened the order page at the very top, with the tracking card somewhere below -
+the customer had to scroll and hunt for the very thing they had just tapped, on a
+page they have never seen before.
+
+**What it does now.** The page comes up with the Track your order card already in
+view AND gently glowing, so it cannot be missed. The glow does not fade on a
+timer: it goes when their pointer or finger reaches the card, so it is still
+burning while they are looking around for it. That is the same rule your own app
+uses when you tap an order in the New orders box and it flashes the row - the
+flash is there until you arrive.
+
+**Nothing else changed.** Typing a code into the box on the page behaves exactly
+as before (the card is already in front of them, so nothing moves), and a customer
+who simply opens the shop sees no glow at all.
 
 **15 Sep 2026 — engine v92 (no database setup needed). The New product card on
 Products folds away.** One change, on one screen.
