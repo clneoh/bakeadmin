@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v99)
+# Jienluv2bake — change history (v54 → v100)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v100 (no database setup needed). Making delivery dates for
+a weekday is one tap again.** One change, on More → Delivery dates.
+
+**Why.** You found the function missing: adding your delivery dates for, say, every
+Monday meant tapping each Monday by hand. Nothing had been removed - the app's only
+"do the dates for me" button lived on Home, inside the "No delivery dates yet"
+message. That message shows only while you have no upcoming dates, and pressing the
+button creates the very dates that hide it: it was a one-shot button that took
+itself off the page the moment it worked. So once you had dates, which is every day
+since your first week, it was never there again.
+
+**Three ways in now.** On More → Delivery dates: tap dates and **Add selected**, as
+before; or **tap a weekday letter** - tap **M** and every Monday in the month shown
+is picked for you, tap it again to put them back, and the letter underlines solid
+once that whole weekday is picked; or press **Generate the next dates**, which is
+always there, follows the delivery days in your Settings, and adds the next six
+dates that are not on the calendar yet. Generate moves the calendar to the month the
+new dates start in, so you can see what it just did.
+
+**One wrong line fixed with it.** Home's "no dates yet" message used to say "the next
+Mon/Wed/Fri dates" whatever your delivery days really were. It names your own days
+now (and so does the line under Generate).
 
 **15 Sep 2026 — engine v99 (no database setup needed). The customer can tap the
 "Next available" line and be given that day.** One change, on the order page.

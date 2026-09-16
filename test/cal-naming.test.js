@@ -318,6 +318,70 @@ test("taking a date off asks first when that day already holds orders", () => {
   assert.deepEqual(state.deliveryDates.map((d) => d.id), ["d20"], "confirming takes it off");
 });
 
+// ── v100: filling a month without tapping every day ─────────────────────────
+const dowButton = (root, letter) => addGrid(root).children
+  .find((n) => String(n.className).includes("dow-pick") && (n.children[0] || {}).text === letter);
+const generateButton = (root) => walk(root).find((n) => n.tagName === "BUTTON"
+  && (n.children[0] || {}).text === "Generate the next dates");
+
+test("a weekday letter picks every one of that day in the month at once", () => {
+  quiet();
+  const root = createEl("div");
+  const state = DSTATE();
+  renderDeliveries(root, state);
+
+  // Today is Thu 10 Sep 2026, so the Mondays still to come are the 14th, 21st and
+  // 28th — three taps' worth of work in one.
+  fire(dowButton(root, "M"));
+  redraw(root, state);
+  assert.equal(addButton(root).children[0].text, "Add selected (3)",
+    "one tap on M picked every Monday this month");
+  assert.ok(dowButton(root, "M").className.includes("on"), "and the letter says so");
+
+  fire(addButton(root));
+  redraw(root, state);
+  assert.deepEqual(state.deliveryDates.map((d) => d.date).sort(),
+    ["2026-09-14", "2026-09-16", "2026-09-20", "2026-09-21", "2026-09-28"],
+    "added on top of the two that were already there");
+
+  // A weekday already partly picked shows as part done, and the letter un-picks
+  // its own days rather than leaving her hunting for them one by one.
+  fire(dowButton(root, "W")); // Wednesdays: the 23rd and 30th (the 16th is a date)
+  redraw(root, state);
+  assert.equal(addButton(root).children[0].text, "Add selected (2)");
+  assert.ok(dowButton(root, "W").className.includes("on"));
+  fire(dowButton(root, "W"));
+  redraw(root, state);
+  assert.equal(addButton(root).children[0].text, "Add selected", "tapping it again puts them back");
+});
+
+test("Generate adds the next dates on her own delivery days, and shows that month", () => {
+  quiet();
+  const root = createEl("div");
+  const state = DSTATE();
+  renderDeliveries(root, state);
+  const before = state.deliveryDates.length;
+
+  fire(generateButton(root));
+  redraw(root, state);
+
+  // Mon/Wed/Fri from Settings, the next six that are not already on the calendar.
+  assert.deepEqual(state.deliveryDates.map((d) => d.date).slice(before),
+    ["2026-09-11", "2026-09-14", "2026-09-18", "2026-09-21", "2026-09-23", "2026-09-25"],
+    "the next six delivery days, skipping the two already there");
+  const caption = walk(root).find((n) => String(n.className).includes("card-sub")
+    && (n.children[0] || {}).text && (n.children[0].text || "").includes("follow your delivery days"));
+  assert.ok(caption, "the screen says what Generate follows");
+  assert.match(caption.children[0].text, /delivery days — Mon, Wed and Fri/,
+    "and it names HER pattern, read from Settings rather than the app's own default");
+
+  // Press it again: it keeps going, where Home's button took itself away after one
+  // use (the state it needed — a bare calendar — was the state it destroyed).
+  fire(generateButton(root));
+  redraw(root, state);
+  assert.equal(state.deliveryDates.length, before + 12, "another six, on the same pattern");
+});
+
 test("the past dates are one folded group, holding every one of them", () => {
   quiet();
   const root = createEl("div");

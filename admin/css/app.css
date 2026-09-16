@@ -1413,6 +1413,24 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   margin-top: 6px;
   position: relative; /* anchor the absolutely-placed occasion papers */
 }
+/* The weekday letters on Delivery Dates' add grid are controls (v100): tap M and
+   every Monday in the month is picked. A button arrives with its own chrome, so the
+   letter's look is restated — and dotted underlines say it can be tapped, solid
+   once every day of that weekday is picked, dashed when some are. On every other
+   calendar these letters stay plain headings. */
+.cal-dow.dow-pick {
+  appearance: none;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  text-decoration: underline dotted;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-dow.dow-pick:active { background: var(--brown-soft); }
+.cal-dow.dow-pick.on { color: var(--brown); text-decoration: underline; }
+.cal-dow.dow-pick.part { color: var(--brown); text-decoration: underline dashed; }
 .cal-dow {
   text-align: center;
   font-size: 11px;
