@@ -466,8 +466,8 @@ test("a Paid order lights up Paid on the journey, between Confirmed and Baked", 
         walk(c);
       }
     })(journey);
-    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Collected"],
-      "journey reads New → Confirmed → Paid → Baked → Packed → Collected (this one is collected, not shipped)");
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Collected / Shipped"],
+      "journey reads New → Confirmed → Paid → Baked → Packed → Collected / Shipped");
     assert.equal(steps.length, 6, "all six stages present");
     assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 2,
       "New and Confirmed are done before Paid");
@@ -500,8 +500,8 @@ test("a Packed order (status ready) shows the bakery steps done with only the la
         walk(c);
       }
     })(journey);
-    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Collected"],
-      "journey reads New → Confirmed → Paid → Baked → Packed → Collected");
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Collected / Shipped"],
+      "journey reads New → Confirmed → Paid → Baked → Packed → Collected / Shipped");
     assert.equal(steps.length, 6, "all six stages present");
     assert.equal(steps.filter((s) => String(s.className || "").includes("done")).length, 5,
       "everything before the delivery is green once the order is Packed");
@@ -509,7 +509,7 @@ test("a Packed order (status ready) shows the bakery steps done with only the la
       "no stage stays grey — the delivery is the only one left");
     const now = steps.find((s) => String(s.className || "").includes("now"));
     const nowLabel = (now.children || []).find((c) => String(c.className || "").includes("tj-label"));
-    assert.ok(nowLabel && String(nowLabel.children[0].text || "").includes("Collected"),
+    assert.ok(nowLabel && String(nowLabel.children[0].text || "").includes("Collected / Shipped"),
       "the last stage is the flashing (current) one while the order is Packed");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
@@ -619,7 +619,7 @@ const cardLabels = (box) => {
 const byExactClass = (box, name) =>
   box.children.find((c) => String(c.className || "").split(/\s+/).includes(name));
 
-test("a posted order shows the courier's tracking number, and its last step reads Shipped", async () => {
+test("a posted order shows the courier's tracking number", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
     status: "delivered", delivery: "9 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×1",
@@ -630,13 +630,13 @@ test("a posted order shows the courier's tracking number, and its last step read
     const no = byExactClass(box, "track-no");
     assert.ok(no, "the card carries the tracking number on its own line");
     assert.equal(no.children[0].text, "Tracking number: JT123456789");
-    assert.equal(cardLabels(box)[5], "Shipped", "the last step says how it went");
+    assert.equal(cardLabels(box)[5], "Collected / Shipped", "the last step wears the pair");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
 });
 
-test("a self-collect order shows no tracking line, and its last step reads Collected", async () => {
+test("a self-collect order shows no tracking line", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{
     status: "delivered", delivery: "9 Sep · Self collect", items: "Focaccia ×1",
@@ -646,7 +646,7 @@ test("a self-collect order shows no tracking line, and its last step reads Colle
     await trackOrder("A3F9C2");
     assert.equal(byExactClass(box, "track-no"), undefined,
       "nothing was posted, so there is no number to show");
-    assert.equal(cardLabels(box)[5], "Collected", "and the last step says so");
+    assert.equal(cardLabels(box)[5], "Collected / Shipped", "the label is the same pair");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }

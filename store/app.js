@@ -1193,18 +1193,10 @@ const JOURNEY = [
   ["paid", "trkPaid"],        // TNG payment received, right after Confirmed
   ["baking", "trkBaking"],
   ["ready", "trkReady"],
-  ["delivered", null],        // Shipped or Collected — see lastStepLabel
+  // One label covering both endings ("Collected / Shipped"), the same one the
+  // backoffice shows, so the two maps read alike.
+  ["delivered", "trkFinal"],
 ];
-
-// The last step is not one word: an order posted to the customer was shipped, one
-// they came and fetched was collected (15 Sep 2026). The published row says which,
-// as the second segment of its delivery line ("9 Sep · Courier · 12 Jalan Bunga" —
-// see trackingSnapshot in admin/js/supabase.js), which is the same string the
-// customer reads above the journey.
-function lastStepLabel(delivery) {
-  const method = String(String(delivery || "").split("·")[1] || "").trim().toLowerCase();
-  return method === "courier" ? t("trkShipped") : t("trkCollected");
-}
 
 // A progress line for the track card, like an online-shop parcel tracker: each
 // step is a circle joined to the next by a line. Reached steps are green with a
@@ -1243,7 +1235,7 @@ function journeyEl(row) {
       : state === "now" ? el("span", { class: "tj-dot" }) : null;
     root.append(el("div", { class: `tj-step ${state}` }, [
       el("div", { class: "tj-track" }, [el("div", { class: "tj-node" }, mark)]),
-      el("div", { class: "tj-label" }, labelKey ? t(labelKey) : lastStepLabel(row.delivery)),
+      el("div", { class: "tj-label" }, t(labelKey)),
     ]));
   });
   return root;

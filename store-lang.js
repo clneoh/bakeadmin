@@ -117,8 +117,7 @@ const en = {
   trkPaid: "Paid",
   trkBaking: "Baked",
   trkReady: "Packed",
-  trkShipped: "Shipped",
-  trkCollected: "Collected",
+  trkFinal: "Collected / Shipped",
   trackingNo: "Tracking number: %1",
 
   devBy: "Website by",
@@ -216,8 +215,7 @@ const zh = {
   trkPaid: "已付款",
   trkBaking: "烘焙中",
   trkReady: "已打包",
-  trkShipped: "已寄出",
-  trkCollected: "已取货",
+  trkFinal: "已取货 / 已寄出",
   trackingNo: "快递单号：%1",
 
   devBy: "网站制作：",
@@ -315,8 +313,7 @@ const ms = {
   trkPaid: "Dibayar",
   trkBaking: "Dibakar",
   trkReady: "Dibungkus",
-  trkShipped: "Telah dihantar",
-  trkCollected: "Telah diambil",
+  trkFinal: "Telah diambil / Telah dihantar",
   trackingNo: "Nombor penjejakan: %1",
 
   devBy: "Laman web oleh",

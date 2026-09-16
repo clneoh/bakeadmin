@@ -45,31 +45,20 @@ const STATUSES = [
   ["paid", "Paid"],           // TNG payment received, right after Confirmed
   ["baking", "Baked"],
   ["ready", "Packed"],
-  ["delivered", null],        // not one word — see statusLabel
+  // The last stage is one label covering both endings. v97 named it per order
+  // (Collected here, Shipped there); she asked for the pair itself instead, so the
+  // stage reads the same on every row and in every list (15 Sep 2026).
+  ["delivered", "Collected / Shipped"],
 ];
-
-// What a status is called ON THIS ORDER. The last stage is the one the owner
-// asked to have named for what actually happened (15 Sep 2026): an order she
-// hands over reads "Collected", one she posts reads "Shipped" — the same moment in
-// the journey, told straight. Every other stage has one word for both. Where there
-// is no order to read (the filter above the list, the empty day's route map) the
-// caller asks for the pair itself.
-function statusLabel(id, fulfillment) {
-  if (id === "delivered") return fulfillment === "courier" ? "Shipped" : "Collected";
-  const found = STATUSES.find(([sid]) => sid === id);
-  return (found && found[1]) || String(id);
-}
-const LAST_STATUS_LABEL = "Collected / Shipped";
 
 // A small route map shown when a delivery date has no orders yet, so the screen
 // still explains the journey: New → Confirmed → Paid → Baked → Packed →
-// Collected / Shipped. Real rows carry their own mini journey below them instead,
-// where the last step is named for that order's own delivery method.
+// Collected / Shipped. Real rows carry their own mini journey below them instead.
 function statusFlowEl() {
   const kids = [];
-  STATUSES.forEach(([id], i) => {
+  STATUSES.forEach(([, label], i) => {
     if (i) kids.push(el("span", { class: "flow-arrow", "aria-hidden": "true" }, "→"));
-    kids.push(el("span", { class: "flow-step" }, id === "delivered" ? LAST_STATUS_LABEL : statusLabel(id)));
+    kids.push(el("span", { class: "flow-step" }, label));
   });
   return el("div", { class: "status-flow", "aria-label": "Order status flow" }, ...kids);
 }
@@ -109,19 +98,18 @@ export function journeyMarks(order) {
 // each row, where every order is on the route — and watches the dot move as the
 // status changes and the Send confirmation / Paid / pickup-reminder actions are
 // done. An order at the last stage shows the whole line green, matching what the
-// customer sees — and that last step reads Collected or Shipped, whichever this
-// order is.
+// customer sees.
 function orderJourneyEl(order) {
   const root = el("div", { class: "oj", "aria-label": "Order status journey" });
   const marks = journeyMarks(order);
-  STATUSES.forEach(([id], i) => {
+  STATUSES.forEach(([, label], i) => {
     const state = marks[i];
     const mark =
       state === "done" ? el("span", { class: "oj-check" }, "✓")
       : state === "now" ? el("span", { class: "oj-dot" }) : null;
     root.append(el("div", { class: `oj-step ${state}` }, [
       el("div", { class: "oj-track" }, [el("div", { class: "oj-node" }, mark)]),
-      el("div", { class: "oj-label" }, statusLabel(id, order.fulfillment)),
+      el("div", { class: "oj-label" }, label),
     ]));
   });
   return root;
@@ -689,7 +677,7 @@ function orderFinderEl(state, root, selectDate, body) {
     const orphan = !date;
     const items = group.orders.map((o) => orderLineName(state, o));
     const qtyTotal = group.orders.reduce((s, o) => s + o.qty, 0);
-    const statusName = statusLabel(first.status || "new", first.fulfillment);
+    const statusName = (STATUSES.find(([v]) => v === (first.status || "new")) || [])[1];
     const sub = [first.customerName || "No name",
       date ? shortDate(date.date) : "delivery date removed", statusName]
       .filter(Boolean).join(" · ");
@@ -1479,8 +1467,7 @@ function orderList(state, dateId, root) {
     const filteredGroups = filterOrderGroups(groups, orderStatusFilter);
 
     const filterSel = select(
-      [{ value: "", label: "All statuses" },
-        ...STATUSES.map(([v]) => ({ value: v, label: v === "delivered" ? LAST_STATUS_LABEL : statusLabel(v) }))],
+      [{ value: "", label: "All statuses" }, ...STATUSES.map(([v, l]) => ({ value: v, label: l }))],
       orderStatusFilter,
       () => { orderStatusFilter = filterSel.value; rebuild(); });
     filterSel.className = "input";
@@ -1503,32 +1490,42 @@ function orderList(state, dateId, root) {
   return listEl;
 }
 
-// The tracking number, on the order's OWN row — she types it the moment she posts
-// the parcel, without opening anything (15 Sep 2026). Courier orders, from Packed
-// onwards: that is when there is a number to have, and it stays available at
-// Shipped for a correction. One field feeds both the shipped WhatsApp message and
-// the customer's track card, so the two can never say different numbers. It is
-// also in the Edit pop-up, for when she is in there anyway.
-function trackingLine(state, group, first, root, dateId) {
-  if (first.fulfillment !== "courier") return null;
-  if (!["ready", "delivered"].includes(first.status || "new")) return null;
-  const input = el("input", { class: "input li-track-input", type: "text", autocomplete: "off",
-    placeholder: "e.g. JT123456789", value: first.trackingNo || "",
-    "aria-label": "Courier tracking number" });
-  // Saved when she leaves the box, not on every keystroke: one write, one publish
-  // and one toast per number, and the row is not rebuilt under her while she types.
-  input.addEventListener("change", () => {
-    const value = input.value.trim();
-    if (value === String(first.trackingNo || "").trim()) return;
-    for (const o of group.orders) o.trackingNo = value; // the whole order shares it
-    save(state);
-    maybeSync(state);
-    publishTracking(state, group); // the customer's card carries it too
-    toast(value ? "Tracking number saved" : "Tracking number cleared");
-  });
-  return el("div", { class: "li-track" },
-    el("span", { class: "li-track-label" }, "Courier tracking number"),
-    input);
+// The two things she most often needs to change once an order is placed: its note,
+// and the courier's tracking number (15 Sep 2026). They get their own small pop-up
+// behind their own button, so a one-line change never means scrolling the whole
+// Edit form — and Edit keeps the rest (the delivery day, the customer, the
+// address, the items). v97 had the tracking box sitting on the row itself; she
+// asked for one simplified entry field with a button to reach it instead, which is
+// also the only version that works for an order that is not a courier's.
+function openNoteTrackingPopup(state, group, first, dateId, root) {
+  const note = el("input", { class: "input", placeholder: "Note (optional)",
+    value: first.note || "" });
+  const tracking = el("input", { class: "input", placeholder: "e.g. JT123456789",
+    autocomplete: "off", value: first.trackingNo || "" });
+  showPopup(el("div", { class: "popup-title-row" }, "Note / tracking number", orderCodeTag(first)),
+    (refresh, close) => el("div", {},
+      el("div", { class: "field" }, el("label", {}, "Note (optional)"), note),
+      el("div", { class: "field" },
+        el("label", {}, "Courier tracking number (optional)"), tracking),
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "This goes on the order and, for the tracking number, onto the customer's track card and into the shipped message. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
+      el("div", { class: "popup-actions" },
+        button("Cancel", close, "ghost"),
+        button("Save", () => {
+          // The whole order shares these, exactly as the Edit pop-up writes them.
+          const before = String(first.trackingNo || "").trim();
+          const number = tracking.value.trim();
+          for (const o of group.orders) {
+            o.note = note.value.trim();
+            o.trackingNo = number;
+          }
+          save(state);
+          maybeSync(state);
+          if (before !== number) publishTracking(state, group); // the card carries it
+          toast("Order updated");
+          close();
+          renderAll(root, state, new URLSearchParams({ date: dateId }));
+        }, "primary"))));
 }
 
 // "Send shipped message" — a courier order that has gone to the courier, carrying
@@ -1556,7 +1553,8 @@ function shippedMsgButton(state, group, first, root, dateId) {
 // "Paid", Baked offers "Print label" (to kit the order as it is packed), and
 // Packed offers the message for how the order leaves: a courier order gets "Send
 // shipped message" (with its tracking number), a self-collect one "Send pickup
-// reminder".
+// reminder". The last stage's NAME is the pair Collected / Shipped for both — only
+// which message it offers depends on the method.
 
 // Courier orders also get a "Mailing" pill (first): FROM = the bakery address
 // typed in Settings → Mailing labels, TO = the customer, ORDER = code/date/items.
@@ -1635,7 +1633,7 @@ function orderGroupRow(state, group, root, dateId) {
   const title = items.map((i) => i.name).join(" + ");
   const qtyTotal = items.reduce((s, i) => s + i.qty, 0);
   const sub = [first.customerName, waNumber(first.whatsapp), first.note].filter(Boolean).join(" · ");
-  const stSel = select(STATUSES.map(([v]) => ({ value: v, label: statusLabel(v, first.fulfillment) })), first.status || "new",
+  const stSel = select(STATUSES.map(([v, l]) => ({ value: v, label: l })), first.status || "new",
     () => {
       // Picking Confirmed starts the confirming step, and confirming is what
       // sends the WhatsApp confirmation with the payment QR — that needs a
@@ -1677,6 +1675,12 @@ function orderGroupRow(state, group, root, dateId) {
   actions.push(button("Edit", () => {
     anchorRowId = first.id; // keep the row where the baker tapped it
     openEditPopup(state, group, dateId, root);
+  }, "ghost small"));
+  // The quick way in for the two fields she reaches for most: one tap here instead
+  // of opening the whole Edit form.
+  actions.push(button("Note / tracking", () => {
+    anchorRowId = first.id;
+    openNoteTrackingPopup(state, group, first, dateId, root);
   }, "ghost small"));
 
   // The stage's WhatsApp action(s). Each message carries the order code, and the
@@ -1737,8 +1741,7 @@ function orderGroupRow(state, group, root, dateId) {
       multi ? el("div", { class: "li-sub" }, items.map((i) => `${i.name} ×${i.qty}`).join("  ·  ")) : null,
       placedLine,
       sub ? el("div", { class: "li-sub" }, sub) : null,
-      noWaHint,
-      trackingLine(state, group, first, root, dateId)),
+      noWaHint),
     el("div", { class: "li-right" },
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
       stSel,

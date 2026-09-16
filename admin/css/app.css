@@ -598,13 +598,6 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .list-item .li-title > span:last-child { overflow-wrap: anywhere; }
 .list-item .li-sub { font-size: 13px; color: var(--muted); }
 .list-item .li-right { display: flex; align-items: center; gap: 8px; row-gap: 6px; flex-wrap: wrap; }
-/* The courier's tracking number, on the order's own row: a small labelled box
-   under the row's details, drawn only on a courier order from Packed onwards —
-   the moment there is a number to have. It feeds the shipped WhatsApp message and
-   the customer's track card, so it is worth typing where the parcel is. */
-.list-item .li-track { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-.li-track-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.li-track-input { flex: 1; min-width: 0; font-size: 13px; padding: 6px 9px; }
 
 /* Customer profile avatar: a round photo thumb, or the paw mark standing in.
    sm = small (list rows); the default (no size) is the pop-up/profile size. */

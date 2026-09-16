@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v97)
+# Jienluv2bake — change history (v54 → v98)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v98 (no database setup needed). The last status reads
+Collected / Shipped, and a placed order gains a Note / tracking button.** Two
+small changes on the Orders screen.
+
+**One label for the last stage.** v97 named it per order - Collected on one the
+customer fetches, Shipped on one you post. You asked for the pair itself instead,
+so the stage now reads **Collected / Shipped** everywhere it is named: the row's
+status list, the row's own journey map, the day's status filter, and the map on the
+customer's track page (in all three languages). Which message the row offers is
+still decided by the delivery method - a courier order shows **Send shipped
+message**, a self-collect one **Send pickup reminder**.
+
+**A way in for the two fields you reach for most.** Beside Edit, every order now
+carries a **Note / tracking** button. It opens a small box with exactly two fields -
+the order's **Note** and the courier's **Courier tracking number** - and a Save.
+Send, and the note lands on the order, while the tracking number also goes onto the
+customer's track card and into the shipped message. Nothing else moved: **Edit**
+still opens the full form (the delivery day, the customer, the address, the items,
+the quantities) whenever you need it. The tracking box that sat on the row itself
+in v97 is gone - the button is the quicker, tidier way to the same field, and it
+works on any order rather than only a courier's.
 
 **15 Sep 2026 — engine v97 (one database line to run once). The last status is
 named for how the order leaves, and a posted order can carry its courier's
