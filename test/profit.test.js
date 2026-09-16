@@ -348,3 +348,34 @@ test("the journal behind a line adds up to the figure on the statement", () => {
   assert.match(all, /Utilities/, "including one with no note of its own");
   assert.ok(all.includes("RM -75.00"), "and ends on the month's whole spending: 18 + 12 + 45");
 });
+
+// ── the month arrows (v115) ──────────────────────────────────────────────────
+// "the profit month can move earlier but cannot move later" (17 Sep 2026). The arrows'
+// state was worked out once when the screen was opened and then reused on every redraw, so
+// after stepping back a month the "›" arrow was still disabled as it had been on the month
+// she started on — one-way traffic.
+test("the month arrows let her come back forward after stepping back", () => {
+  const walkAll = screenOf();
+  const arrows = (root) => walkAll(root).filter((n) => String(n.className).includes("cal-nav"));
+  const title = (root) => walkAll(root).find((n) => String(n.className).includes("cal-title")).textContent;
+  const press = (n) => n._listeners.click.forEach((f) => f());
+
+  const root = document.createElement("div");
+  renderProfit(root, state());
+  const now = new Date();
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  const thisMonth = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+  assert.equal(title(root), thisMonth, "it opens on this month");
+  assert.equal(arrows(root)[1].disabled, true, "and › is off: there are no numbers after today");
+
+  press(arrows(root)[0]); // ‹
+  assert.notEqual(title(root), thisMonth, "‹ steps back a month");
+  assert.equal(arrows(root)[1].disabled, false, "and › must come alive again, or she is stuck");
+
+  press(arrows(root)[1]); // ›
+  assert.equal(title(root), thisMonth, "› steps forward again");
+  assert.equal(arrows(root)[1].disabled, true, "and stops at this month, not a future one");
+  press(arrows(root)[1]);
+  assert.equal(title(root), thisMonth, "pressing it there does nothing at all");
+});

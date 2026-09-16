@@ -62,8 +62,6 @@ function currentMonth() {
 export function renderProfit(root, state) {
   const cur = state.settings.currency || "RM";
   if (!shown) shown = currentMonth();
-  const now = currentMonth();
-  const canNext = shown.year < now.year || (shown.year === now.year && shown.month < now.month);
 
   // `opens` makes a line tappable. EVERY spending line has it, including one reading 0.00:
   // a line that looks identical to the line above but does nothing when tapped reads as a
@@ -77,6 +75,12 @@ export function renderProfit(root, state) {
 
   const draw = (year, month) => {
     shown = { year, month };
+    // Read fresh on every draw, NOT once per visit: these were computed before `draw` ran,
+    // so after stepping back a month the "›" arrow stayed disabled as it had been on the
+    // month she started on, and she could not come forward again — one way traffic
+    // (17 Sep 2026: "the profit month can move earlier but cannot move later").
+    const now = currentMonth();
+    const canNext = shown.year < now.year || (shown.year === now.year && shown.month < now.month);
     const { from, to } = monthSpan(shown.year, shown.month);
     const pl = profitBetween(state, from, to);
     const margin = pl.sales > 0 ? Math.round((pl.gross / pl.sales) * 100) : 0;

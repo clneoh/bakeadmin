@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v114)
+# Jienluv2bake — change history (v54 → v115)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v115 (no database setup needed). The month arrows on Profit work both
+ways again.** From you telling me *"the profit month can move earlier but cannot move later"*.
+
+**What was wrong.** Open Profit — it starts on this month, where the **›** arrow is correctly
+switched off, because there are no numbers after today. Press **‹** to step back to August, and
+**›** stayed switched off too, so you could not get back to September. You could walk backwards
+through the months but never forwards again: to return you had to leave the screen and open it
+again. The arrow's state was worked out once, when you opened the screen, and then reused on every
+step — so it kept answering for the month you started on rather than the month you were looking at.
+
+**Fixed.** The arrows are worked out fresh on every step, so **‹** and **›** now move both ways
+between the months you have, and **›** switches off again only when you are back on this month.
+Verified by stepping back and forward repeatedly. The same fault did not exist on the other
+calendars — Orders, Delivery dates and the date pickers all recompute their arrows each time they
+draw.
 
 **17 Sep 2026 — engine v114 (no database setup needed). Every spending line in Profit & Loss now
 opens — including the ones reading 0.00 — and the lines are twice as tall, so they are easy to tap.**
