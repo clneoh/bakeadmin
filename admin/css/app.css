@@ -478,13 +478,24 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   gap: 10px;
   padding: 6px 0;
 }
+/* One line of an order: the product, how many, its selling price, and remove. It
+   wraps rather than squeezing: an <input> with no width of its own takes most of the
+   row, which left the product dropdown 2px wide and pushed it onto its own line
+   (16 Sep 2026 — the baker could not read what she had picked). On a phone the
+   product takes the first line and the controls sit under it; on a wide screen it
+   all fits on one. */
 .add-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 0;
 }
-.add-item select { flex: 1; min-width: 0; }
+.add-item select { width: 100%; }
+/* Its own line under the product: how many, the selling price (v101), remove — with
+   the price pushed to the right of them and kept small, because it is a figure. */
+.add-item-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.add-item-ctl .line-price { flex: 0 0 84px; width: 84px; text-align: right; margin-left: auto; }
 
 /* Order-status flow map above the Orders list */
 .status-flow {

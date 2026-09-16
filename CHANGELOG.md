@@ -1,8 +1,21 @@
-# Jienluv2bake — change history (v54 → v106)
+# Jienluv2bake — change history (v54 → v107)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Sep 2026 — engine v107 (no database setup needed). The item line on an order
+reads properly again.** One fix, on the two forms where you type an order's items.
+
+**What was wrong.** When the selling price joined the line (v101) it took most of the
+row. Measured on a 375px phone: the price box was 183 pixels wide and the product
+dropdown was squeezed to **2** — so the name of what you had picked was pushed onto a
+line of its own and unreadable, and the whole line looked broken.
+
+**What it does now.** Each item line is two clean lines: **the product across the
+top**, full width so its name reads, and its controls under it — how many, the selling
+price on the right, and the ✕ to remove. The same shape in the ＋ New order card and
+in the Edit pop-up, since both are the same row.
 
 **16 Sep 2026 — engine v106 (no database setup needed). A note on every transaction,
 and two lists you shape yourself.** Three small things, all on the money screens.
