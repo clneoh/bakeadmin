@@ -553,10 +553,11 @@ export function effectiveLimit(state, dateStr, productId) {
   return Math.max(0, limit + dayDelta(state, dateStr, productId));
 }
 
-// A day's order capacity. Product daily limits sum first, each with that
-// date's delta applied; with none limited it falls back to the default
-// capacity, matching today's all-unlimited day. If she pauses every product to
-// 0 the capacity is 0 — the whole day reads "Sold out" to customers.
+// A day's capacity, product by product: which products contribute a limit to that
+// day, what each contributes, and the total. `effectiveCapacity` is this total,
+// and the Orders screen's "Set day's availability" pop-up draws these lines — so
+// the sum the owner reads and the number the shop uses are one computation, and
+// cannot drift into disagreeing with each other.
 //
 // Only the products ON SALE that day count. A product's daily limit is capacity
 // she can bake AND sell that day; a product that is not sold on this date — a
@@ -567,14 +568,37 @@ export function effectiveLimit(state, dateStr, productId) {
 // marks, and for a date that is not a real day key, so nothing without marks and
 // no caller passing a made-up date changes at all.
 //
-// One consequence, deliberately accepted: this same number is what the shop
+// `overrides` maps a product id to the limit to use instead of the saved one, for
+// a caller previewing numbers the owner is still typing.
+export function dayCapacityParts(state, dateStr, overrides = null) {
+  const parts = (state.products || [])
+    .filter((p) => p.active !== false && Number(p.limit) > 0)
+    .map((p) => ({
+      productId: p.id,
+      name: p.name,
+      onSale: sellOpen(p, dateStr),
+      limit: overrides && p.id in overrides
+        ? Math.max(0, Number(overrides[p.id]) || 0)
+        : (effectiveLimit(state, dateStr, p.id) ?? 0),
+    }));
+  const counted = parts.filter((p) => p.onSale);
+  // With nothing limited on sale that day, the day falls back to the default
+  // capacity, matching an all-unlimited day — never 0, which would read as Sold
+  // out. If she pauses every product to 0, the total really is 0 and the whole
+  // day reads Sold out to customers.
+  const total = counted.length
+    ? counted.reduce((sum, p) => sum + p.limit, 0)
+    : (state.settings.defaultCapacity ?? 12);
+  return { parts, counted, off: parts.filter((p) => !p.onSale), total, fallback: counted.length === 0 };
+}
+
+// A day's order capacity: what its products add up to (see dayCapacityParts).
+//
+// One consequence, deliberately accepted (v95): this same number is what the shop
 // publishes as a day's remaining slots, so "full" now means every sellable unit is
 // booked rather than every unit across the whole menu — a day can fill sooner.
 export function effectiveCapacity(state, dateStr) {
-  const active = (state.products || [])
-    .filter((p) => p.active !== false && Number(p.limit) > 0 && sellOpen(p, dateStr));
-  if (!active.length) return state.settings.defaultCapacity ?? 12;
-  return active.reduce((sum, p) => sum + (effectiveLimit(state, dateStr, p.id) ?? 0), 0);
+  return dayCapacityParts(state, dateStr).total;
 }
 
 // Model for the "Set day's availability" pop-up: every active product with a

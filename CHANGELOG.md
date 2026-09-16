@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v95)
+# Jienluv2bake — change history (v54 → v96)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Sep 2026 — engine v96 (no database setup needed). "Set day's availability"
+now shows how the day adds up.** One change, on the pop-up you already use.
+
+**Why.** v95 made the day's total count only the products you sell that day, but
+the pop-up that sets those numbers still showed nothing about where the total came
+from - and a product you do not sell that day sat in the list looking as if it were
+part of it.
+
+**What it does now.** Under the product rows, the pop-up ends with **How the day
+adds up:** one line per product on sale that day with what it contributes, and a
+final line with the total - **the same number the order page uses for that day**.
+Type a + or a − and the lines and the total move as you type. Underneath, the
+pop-up names what it left out ("Not counted: Saturday loaf - not sold on this day,
+so no order can go on them here") and says what is already booked, so you can read
+how much the order page can still take. A product not sold that day keeps its row
+so you can still set its numbers; it simply does not enter the total.
+
+**One number, one place.** That sum and the day's capacity are computed by the same
+function the shop's numbers come from, so what you read on screen and what your
+customers get cannot drift apart.
 
 **15 Sep 2026 — engine v95 (no database setup needed). A day's total now counts
 only the products you actually sell that day.** One change, on your side of the
