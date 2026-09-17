@@ -651,3 +651,53 @@ test("a self-collect order shows no tracking line", async () => {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
 });
+
+// ── v117: the customer's line for a pickup payment ───────────────────────────
+// The track card draws its own copy of the journey, so it has to agree with the baker's: a
+// regular who pays at the counter has no Paid step on either (17 Sep 2026).
+test("a bypassed order shows the customer five steps, with no Paid tick", async () => {
+  const box = document.getElementById("track-result");
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+    status: "ready", confirmed_sent: true, paid_received: false,
+    delivery: "4 Sep · Self collect", items: "Sourdough ×2", total: "RM36.00", customer: "Ain",
+  }] });
+  try {
+    await trackOrder("A3F9C2");
+    const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    const labels = [];
+    const steps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) steps.push(c);
+        if (String(c.className || "").split(/\s+/).includes("tj-label")) {
+          labels.push((c.children[0] && c.children[0].text) || String(c.textContent || ""));
+        }
+        walk(c);
+      }
+    })(journey);
+    assert.deepEqual(labels, ["New", "Confirmed", "Baked", "Packed", "Collected / Shipped"],
+      "the paid step is not on this order's line at all");
+    assert.equal(steps.length, 5, "five steps, not six");
+    assert.equal(steps.filter((s) => String(s.className || "").includes("now")).length, 1,
+      "and exactly one step still flashes");
+
+    // The same order with the money recorded: the step is back, green, where it belongs.
+    globalThis.fetch = async () => ({ ok: true, json: async () => [{
+      status: "ready", confirmed_sent: true, paid_received: true,
+      delivery: "4 Sep · Self collect", items: "Sourdough ×2", total: "RM36.00", customer: "Ain",
+    }] });
+    await trackOrder("A3F9C2");
+    const paidLabels = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-label")) {
+          paidLabels.push((c.children[0] && c.children[0].text) || "");
+        }
+        walk(c);
+      }
+    })(box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj")));
+    assert.ok(paidLabels.includes("Paid"), "a recorded payment puts the step back on the customer's line");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});

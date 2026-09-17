@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v116)
+# Jienluv2bake — change history (v54 → v117)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v117 (no database setup needed). A regular who pays when she collects no
+longer has a Paid step on her order — and the Paid · Cash / Paid · TNG buttons stay on until the
+money is actually recorded, wherever the order has got to.** From your note about close customers
+paying by TNG or cash at pickup.
+
+**What was wrong.** Move an order from Confirmed straight to Baked — no payment — and the row's map
+still showed **Paid with a green tick**. It was claiming money you had not taken. The app assumed
+"past Paid means paid", which is fine for her old orders but false for a regular who settles up at
+the counter.
+
+**What happens now.**
+- **A bypassed order has no Paid step.** Her route reads New → Confirmed → Baked → Packed →
+  Collected / Shipped: **five dots instead of six**, and no tick for a payment that never happened.
+- **The Paid · Cash / Paid · TNG buttons stay on** at every stage from Paid onwards — Paid, Baked,
+  Packed, and Collected / Shipped — until the money is recorded. So the moment she hands over the
+  cash at the counter, wherever the order has got to, you press the button right there: **the order
+  stays where it is** (marking an order paid never drags it backwards) and the money is stamped with
+  the day it landed, which is the day the Money screen counts it.
+- **And the Paid step comes back once it is paid** — a green tick, in its proper place in the line,
+  with the **Cash** or **TNG** tag beside the row. So the map ends up telling the truth about that
+  order either way.
+- The buttons disappear the moment the payment is recorded, and they never appear before the order
+  reaches the Paid stage.
+- **The customer's own track page follows the same rule** — the same five dots, no Paid tick for a
+  payment that has not happened, and the step appears there too once it is recorded.
+
+One rule behind it, worth knowing: moving an order into Paid **or any later stage** without having
+pressed a Paid button is taken as *this order owes money*. That is what your older orders are
+protected from — nothing already in the app changes, because only orders you move now are marked.
 
 **17 Sep 2026 — engine v116 (no database setup needed). A Day one form: your opening balance —
 the cash in the tin, the money on your phone and what is on your shelf — entered once, in one

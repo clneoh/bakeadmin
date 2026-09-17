@@ -212,9 +212,12 @@ test("every order offers Note / tracking beside Edit, and the message for how it
 
 // ── v101: which way the money came in ────────────────────────────────────────
 test("Paid · Cash and Paid · TNG each mark it paid and record which, and when", () => {
+  // `paidReceived: false` is what the app itself writes when Paid is picked in the dropdown:
+  // the order is on the money stage and the money has not landed yet (which is also why the
+  // Paid buttons have to be here).
   const state = { ...STATE, orders: [{
     id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
-    whatsapp: "60123456789", status: "paid",
+    whatsapp: "60123456789", status: "paid", paidReceived: false,
   }] };
   const root = createEl("div");
   renderOrders(root, state, PARAMS());
@@ -253,4 +256,66 @@ test("the day header carries its own till — cash, TNG, still to collect", () =
   renderOrders(empty, { ...STATE }, PARAMS());
   assert.equal(all(empty).find((n) => String(n.className).split(/\s+/).includes("money-line")),
     undefined, "no orders, no money line");
+});
+
+// ── v117: a regular pays at pickup ───────────────────────────────────────────
+// "Some close customer prefer to pay either by TnG or Cash when they puck up" (17 Sep 2026).
+// Their order goes Confirmed -> Baked without ever passing through Paid, and the money is
+// handed over at the counter — so the Paid step is left off that row's map, and the two
+// buttons stay on wherever the order has got to until the money is recorded.
+const withOrder = (extra) => ({ ...STATE, orders: [{
+  id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+  whatsapp: "60123456789", ...extra,
+}] });
+const buttons = (root) => all(root).filter((n) => n.tagName === "BUTTON").map((n) => n.textContent);
+const press = (root, text) =>
+  all(root).find((n) => n.tagName === "BUTTON" && n.textContent === text)._listeners.click[0]();
+
+test("a bypassed order's map leaves the Paid step off, and keeps five steps", () => {
+  const root = createEl("div");
+  renderOrders(root, withOrder({ status: "baking", paidReceived: false }), PARAMS());
+  const steps = all(root).filter((n) => String(n.className).includes("oj-step"));
+  assert.equal(steps.length, 5, "five steps, not six — no Paid chip on this order's route");
+  assert.ok(!steps.some((s) => s.children[1].children[0].text === "Paid"),
+    "and it is Paid that is missing");
+
+  // The same order once the money is in: the step is back, because now there IS a payment.
+  const paidRoot = createEl("div");
+  renderOrders(paidRoot, withOrder({ status: "baking", paidReceived: true, paidMethod: "cash" }), PARAMS());
+  assert.equal(all(paidRoot).filter((n) => String(n.className).includes("oj-step")).length, 6,
+    "a recorded payment puts the step back");
+});
+
+test("Paid · Cash and Paid · TNG stay on at every stage from Paid onwards, until paid", () => {
+  for (const status of ["paid", "baking", "ready", "delivered"]) {
+    const root = createEl("div");
+    renderOrders(root, withOrder({ status, paidReceived: false }), PARAMS());
+    assert.ok(buttons(root).includes("Paid · Cash") && buttons(root).includes("Paid · TNG"),
+      `the money can be recorded at ${status} — that is when she collects it`);
+  }
+
+  // Once it is recorded they go: there is nothing left to press, and the row wears the tag.
+  const done = createEl("div");
+  renderOrders(done, withOrder({ status: "ready", paidReceived: true, paidMethod: "tng" }), PARAMS());
+  assert.ok(!buttons(done).includes("Paid · Cash"), "no buttons on an order that is already paid");
+  assert.ok(all(done).some((n) => String(n.className).split(/\s+/).includes("paid-tag")),
+    "the row says how it was paid instead");
+
+  // And an order that has not reached the money stage yet is left alone.
+  const early = createEl("div");
+  renderOrders(early, withOrder({ status: "confirmed", confirmedSent: true }), PARAMS());
+  assert.ok(!buttons(early).includes("Paid · Cash"),
+    "no Paid buttons before the order is at least on the money stage");
+});
+
+test("taking the money at the counter records it where the order already is", () => {
+  const state = withOrder({ status: "ready", paidReceived: false });
+  const root = createEl("div");
+  renderOrders(root, state, PARAMS());
+  press(root, "Paid · Cash");
+
+  assert.equal(state.orders[0].status, "ready", "the order stays packed — the money does not move it back");
+  assert.equal(state.orders[0].paidReceived, true);
+  assert.equal(state.orders[0].paidMethod, "cash");
+  assert.ok(state.orders[0].paidAt, "stamped when the money landed, which is the day the Money screen counts");
 });

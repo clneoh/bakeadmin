@@ -51,6 +51,12 @@ const STATUSES = [
   // stage reads the same on every row and in every list (15 Sep 2026).
   ["delivered", "Collected / Shipped"],
 ];
+// Where the money stage sits in that list. Used to tell "past Paid" from "on Paid", so a
+// regular who pays at the counter has no Paid step on their route at all.
+const PAID_AT = STATUSES.findIndex(([id]) => id === "paid");
+// Paid and everything after it: moving an order into any of these without the money recorded
+// means that order is owed money, not that it was paid.
+const STAGES_AT_OR_PAST_PAID = STATUSES.slice(PAID_AT).map(([id]) => id);
 
 // A small route map shown when a delivery date has no orders yet, so the screen
 // still explains the journey: New → Confirmed → Paid → Baked → Packed →
@@ -78,19 +84,30 @@ export function journeyMarks(order) {
   const at = idx < 0 ? 0 : idx;
   const confirmedDone = (order && order.confirmedSent) !== false;
   const paidDone = (order && order.paidReceived) !== false;
-  let end = 0; // first index NOT done; steps before it are green
-  for (let i = 0; i < STATUSES.length; i++) {
-    let done;
-    if (i < at) done = true;                          // already moved past
-    else if (i === at) done = i === 0 ? true          // New: done on arrival
-      : i === 1 ? confirmedDone                       // Confirmed: after Send confirmation
-      : i === 2 ? paidDone                            // Paid: after the Paid button
-      : true;                                         // Baked/Packed/Delivered: on selection
-    else done = false;
-    if (!done) break;
-    end = i + 1;
-  }
-  return STATUSES.map((_, i) => (i < end ? "done" : i === end ? "now" : "todo"));
+  // Some regulars pay at the counter, so their order goes from Confirmed straight to Baked
+  // and never passes through Paid. Once an order is PAST that stage owing money, the step is
+  // left off its route altogether ("skip") — the map must never show a tick for a payment
+  // that did not happen (17 Sep 2026). While the order is still ON that stage the step is
+  // there as usual, because it is exactly what is waiting to be done.
+  const paidSkipped = !paidDone && at > PAID_AT;
+
+  // Which steps are behind the order, then the first one that is not becomes the live step —
+  // exactly one pulsing dot, as the row has always shown.
+  const done = STATUSES.map((_, i) => {
+    if (i < at) return true;                     // already moved past
+    if (i > at) return false;
+    if (i === 0) return true;                    // New: done on arrival
+    if (i === 1) return confirmedDone;           // Confirmed: after Send confirmation
+    if (i === PAID_AT) return paidDone;          // Paid: after the Paid button
+    return true;                                 // Baked/Packed/Delivered: on selection
+  });
+  let live = false;
+  return STATUSES.map((_, i) => {
+    if (i === PAID_AT && paidSkipped) return "skip";
+    if (done[i]) return "done";
+    if (!live) { live = true; return "now"; }
+    return "todo";
+  });
 }
 
 // Every order row shows its own copy of the journey with where THAT order sits:
@@ -105,6 +122,9 @@ function orderJourneyEl(order) {
   const marks = journeyMarks(order);
   STATUSES.forEach(([, label], i) => {
     const state = marks[i];
+    // A step this order never passes through is left off its map entirely — five steps for a
+    // regular who pays at the counter, rather than a sixth that would always read wrong.
+    if (state === "skip") return;
     const mark =
       state === "done" ? el("span", { class: "oj-check" }, "✓")
       : state === "now" ? el("span", { class: "oj-dot" }) : null;
@@ -1769,7 +1789,15 @@ function orderGroupRow(state, group, root, dateId) {
         // button is pressed. Orders saved before these fields existed have no
         // flag, which reads as already done.
         if (stSel.value === "confirmed") o.confirmedSent = false;
-        else if (stSel.value === "paid") o.paidReceived = false;
+        // Stepping PAST Paid without the money recorded says so on the order: a regular who
+        // pays at the counter goes Confirmed -> Baked, and that order owes money. Without
+        // this the flag would stay absent, which reads as "already paid" (the rule that keeps
+        // her older orders from lighting up as unhandled), and the row would claim a payment
+        // that never happened (17 Sep 2026). Only ever set when it is not already true, so
+        // an order she did mark paid is never un-paid by moving it on.
+        else if (STAGES_AT_OR_PAST_PAID.includes(stSel.value) && o.paidReceived !== true) {
+          o.paidReceived = false;
+        }
       }
       anchorRowId = first.id; // keep this row pinned where the baker tapped it
       save(state);
@@ -1810,9 +1838,7 @@ function orderGroupRow(state, group, root, dateId) {
       sendOrderWhatsApp(state, group, { builder: buildPaymentReminder, doneMsg: "Payment reminder drafted — press Send in WhatsApp", root, dateId }),
       "soft small");
     if (!first.whatsapp) remindBtn.disabled = true;
-    actions.push(remindBtn,
-      button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
-      button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
+    actions.push(remindBtn);
   } else if (status === "baking") {
     // Print the label at Baked — the baker needs it in hand to kit the order
     // (stick it on the bag/box as the items go in), before it is marked Packed.
@@ -1833,6 +1859,17 @@ function orderGroupRow(state, group, root, dateId) {
     // Already marked Shipped: the message is still offered, because she may have
     // moved the status first and typed the tracking number afterwards.
     actions.push(shippedMsgButton(state, group, first, root, dateId));
+  }
+  // Money can be recorded at ANY stage from Paid onwards, not only while the order sits on
+  // the Paid step. That is the regulars' route: confirm the order, bake it, pack it, and she
+  // hands over the money when they collect — so the buttons stay on until the payment lands,
+  // wherever the order has got to (17 Sep 2026). They go the moment it is recorded, which is
+  // when the Cash / TNG tag appears beside the row.
+  const atOrPastPaid = STATUSES.findIndex(([id]) => id === status) >= PAID_AT;
+  if (atOrPastPaid && first.paidReceived === false) {
+    actions.push(
+      button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
+      button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
   }
   actions.push(button("✕", () => removeOrder(state, group, root, dateId), "ghost small"));
   const placedLine = el("div", { class: "li-sub" },
