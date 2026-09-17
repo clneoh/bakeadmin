@@ -675,9 +675,15 @@ test("a bypassed order shows the customer five steps, with no Paid tick", async 
         walk(c);
       }
     })(journey);
-    assert.deepEqual(labels, ["New", "Confirmed", "Baked", "Packed", "Collected / Shipped"],
-      "the paid step is not on this order's line at all");
-    assert.equal(steps.length, 5, "five steps, not six");
+    assert.deepEqual(labels, ["New", "Confirmed", "Paid", "Baked", "Packed", "Collected / Shipped"],
+      "every step keeps its place, so the customer's line reads like any other order's");
+    assert.equal(steps.length, 6, "six steps");
+    const paid = steps.find((s) => {
+      const l = (s.children || []).find((c) => String(c.className || "").includes("tj-label"));
+      return l && String(l.children[0].text || "").includes("Paid");
+    });
+    assert.ok(String(paid.className).includes("skipped"), "the Paid step is marked as gone past");
+    assert.ok(!String(paid.className).includes("done"), "and is not green while the money is owed");
     assert.equal(steps.filter((s) => String(s.className || "").includes("now")).length, 1,
       "and exactly one step still flashes");
 
@@ -696,7 +702,17 @@ test("a bypassed order shows the customer five steps, with no Paid tick", async 
         walk(c);
       }
     })(box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj")));
-    assert.ok(paidLabels.includes("Paid"), "a recorded payment puts the step back on the customer's line");
+    assert.ok(paidLabels.includes("Paid"), "the Paid step is on the customer's line either way");
+    const after = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
+    const allSteps = [];
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").split(/\s+/).includes("tj-step")) allSteps.push(c);
+        walk(c);
+      }
+    })(after);
+    assert.ok(!allSteps.some((s) => String(s.className || "").includes("skipped")),
+      "once the money is recorded the mark is gone");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }

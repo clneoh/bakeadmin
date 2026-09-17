@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v117)
+# Jienluv2bake — change history (v54 → v118)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v118 (no database setup needed). The Paid step now stays in its place on
+every order, wearing an X until the money is in — and turns into a green tick when it is.** This
+replaces what v117 did, on your instruction.
+
+**Your reasoning, and you are right.** The customer's track page is the design: they must see the
+same steps in the same places every time, and your own app has to read the same way. v117 left the
+Paid step **off** an order that skipped it — five dots instead of six — which meant the two lines
+did not line up, and a missing step is itself a thing to puzzle over.
+
+**What happens now.** A regular who pays when she collects still never passes through Paid. But that
+step keeps its place in the line, and it wears an **X** — amber, deliberate — instead of a tick, and
+it never turns green while the money is outstanding:
+
+> New ✓  ·  Confirmed ✓  ·  **Paid ✕**  ·  Baked ✓  ·  Packed ✓  ·  Collected / Shipped ●
+
+Press **Paid · Cash** or **Paid · TNG** when she hands the money over — at whatever stage the order
+has reached — and **the X becomes the tick**: the ordinary green ✓, in the same spot, with the
+**Cash** or **TNG** tag beside the row. The order itself stays where it was: taking the money never
+drags it backwards.
+
+**Both lines change together.** Your row's map and the **customer's own track page** draw the same
+six steps, so the X is on their page too, and it turns green there the moment you record the money.
+A step that is *deliberately gone past but not paid* now looks different from a step that has not
+been reached (grey) and from a step that is done (green) — which is exactly the distinction that was
+missing.
 
 **17 Sep 2026 — engine v117 (no database setup needed). A regular who pays when she collects no
 longer has a Paid step on her order — and the Paid · Cash / Paid · TNG buttons stay on until the

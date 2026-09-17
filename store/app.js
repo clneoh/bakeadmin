@@ -1260,10 +1260,10 @@ function journeyEl(row) {
   const at = idx;
   const confirmedDone = row.confirmed_sent !== false;
   const paidDone = row.paid_received !== false;
-  // A regular who pays when she collects never passes through Paid, so that step is left off
-  // the customer's line too — exactly the five dots the baker sees, rather than a green tick
-  // for a payment that has not happened (17 Sep 2026). Once the baker records it, the step is
-  // back, green, in its place.
+  // A regular who pays when she collects never passes through Paid: the step stays in its
+  // place and wears an X instead of a tick, never green, so the customer's line reads in the
+  // same places as the baker's and the one step still to settle is plain to see (17 Sep 2026).
+  // Once the baker records the money, the X becomes the green tick.
   const paidSkipped = !paidDone && at > PAID_AT;
   const done = JOURNEY.map((_, i) => {
     if (i < at) return true;                     // already moved past
@@ -1276,11 +1276,12 @@ function journeyEl(row) {
   const root = el("div", { class: "tj", "aria-label": "Order status journey" });
   let live = false; // the first step still to do is the one that flashes
   JOURNEY.forEach(([id, labelKey], i) => {
-    if (i === PAID_AT && paidSkipped) return;    // this order has no Paid step at all
-    const state = done[i] ? "done" : (!live ? "now" : "todo");
-    if (!done[i]) live = true;
+    const skipped = i === PAID_AT && paidSkipped;
+    const state = skipped ? "skipped" : done[i] ? "done" : (!live ? "now" : "todo");
+    if (!skipped && !done[i]) live = true;
     const mark =
       state === "done" ? el("span", { class: "tj-check" }, "✓")
+      : state === "skipped" ? el("span", { class: "tj-cross" }, "✕")
       : state === "now" ? el("span", { class: "tj-dot" }) : null;
     root.append(el("div", { class: `tj-step ${state}` }, [
       el("div", { class: "tj-track" }, [el("div", { class: "tj-node" }, mark)]),

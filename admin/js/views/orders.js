@@ -85,10 +85,11 @@ export function journeyMarks(order) {
   const confirmedDone = (order && order.confirmedSent) !== false;
   const paidDone = (order && order.paidReceived) !== false;
   // Some regulars pay at the counter, so their order goes from Confirmed straight to Baked
-  // and never passes through Paid. Once an order is PAST that stage owing money, the step is
-  // left off its route altogether ("skip") — the map must never show a tick for a payment
-  // that did not happen (17 Sep 2026). While the order is still ON that stage the step is
-  // there as usual, because it is exactly what is waiting to be done.
+  // and never passes through Paid. Once an order is PAST that stage owing money, the step
+  // stays exactly where it is but wears an X instead of a tick — a mark that says "gone past,
+  // not paid" — and it must never turn green (17 Sep 2026). Leaving the step out was tried
+  // first and rejected: the customer's line and the baker's have to read the same, in the
+  // same places. Press Paid · Cash / Paid · TNG and the X becomes the green tick.
   const paidSkipped = !paidDone && at > PAID_AT;
 
   // Which steps are behind the order, then the first one that is not becomes the live step —
@@ -103,7 +104,7 @@ export function journeyMarks(order) {
   });
   let live = false;
   return STATUSES.map((_, i) => {
-    if (i === PAID_AT && paidSkipped) return "skip";
+    if (i === PAID_AT && paidSkipped) return "skipped";
     if (done[i]) return "done";
     if (!live) { live = true; return "now"; }
     return "todo";
@@ -122,11 +123,11 @@ function orderJourneyEl(order) {
   const marks = journeyMarks(order);
   STATUSES.forEach(([, label], i) => {
     const state = marks[i];
-    // A step this order never passes through is left off its map entirely — five steps for a
-    // regular who pays at the counter, rather than a sixth that would always read wrong.
-    if (state === "skip") return;
     const mark =
       state === "done" ? el("span", { class: "oj-check" }, "✓")
+      // Gone past without the money: the step keeps its place and wears an X, so the order's
+      // route reads the same as everyone else's and the one step that is owed is visible.
+      : state === "skipped" ? el("span", { class: "oj-cross" }, "✕")
       : state === "now" ? el("span", { class: "oj-dot" }) : null;
     root.append(el("div", { class: `oj-step ${state}` }, [
       el("div", { class: "oj-track" }, [el("div", { class: "oj-node" }, mark)]),

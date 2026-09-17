@@ -271,19 +271,28 @@ const buttons = (root) => all(root).filter((n) => n.tagName === "BUTTON").map((n
 const press = (root, text) =>
   all(root).find((n) => n.tagName === "BUTTON" && n.textContent === text)._listeners.click[0]();
 
-test("a bypassed order's map leaves the Paid step off, and keeps five steps", () => {
+test("a bypassed order's Paid step wears an X, in its own place", () => {
   const root = createEl("div");
   renderOrders(root, withOrder({ status: "baking", paidReceived: false }), PARAMS());
   const steps = all(root).filter((n) => String(n.className).includes("oj-step"));
-  assert.equal(steps.length, 5, "five steps, not six — no Paid chip on this order's route");
-  assert.ok(!steps.some((s) => s.children[1].children[0].text === "Paid"),
-    "and it is Paid that is missing");
+  assert.equal(steps.length, 6, "all six steps stay, so every order's route reads alike");
+  const paid = steps.find((s) => s.children[1].children[0].text === "Paid");
+  assert.ok(String(paid.className).includes("skipped"), "Paid wears the skipped mark");
+  // The glyph is inside the node's mark span: el() appends a text node for it.
+  assert.equal(all(paid).find((n) => String(n.className).includes("oj-cross")).children[0].text,
+    "✕", "an X, not a tick");
+  assert.ok(!String(paid.className).includes("done"), "and it is never green while money is owed");
+  assert.equal(steps.filter((s) => String(s.className).includes("now")).length, 1,
+    "with exactly one step still flashing");
 
-  // The same order once the money is in: the step is back, because now there IS a payment.
+  // The same order once the money is in: the X becomes the ordinary green tick.
   const paidRoot = createEl("div");
   renderOrders(paidRoot, withOrder({ status: "baking", paidReceived: true, paidMethod: "cash" }), PARAMS());
-  assert.equal(all(paidRoot).filter((n) => String(n.className).includes("oj-step")).length, 6,
-    "a recorded payment puts the step back");
+  const after = all(paidRoot).filter((n) => String(n.className).includes("oj-step"))
+    .find((s) => s.children[1].children[0].text === "Paid");
+  assert.ok(String(after.className).includes("done"), "a recorded payment turns it green");
+  assert.equal(all(after).find((n) => String(n.className).includes("oj-check")).children[0].text,
+    "✓", "with the tick it always had");
 });
 
 test("Paid · Cash and Paid · TNG stay on at every stage from Paid onwards, until paid", () => {
