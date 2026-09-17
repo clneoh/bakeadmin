@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v115)
+# Jienluv2bake — change history (v54 → v116)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Sep 2026 — engine v116 (no database setup needed). A Day one form: your opening balance —
+the cash in the tin, the money on your phone and what is on your shelf — entered once, in one
+place.** From you telling me *"we need to enter opening balance"*.
+
+**What an opening balance is here.** Four answers about the morning your books begin: what is in
+the tin, what is on your phone, what is on your shelf, and who still owes you. Until now the app
+could take all four, but in three different places and one ingredient at a time, which is a poor
+way to start.
+
+**The form.** More → Money → the new **Day one** line (under **Books**) → **Set**. It asks for:
+
+- **Cash in your tin** and **Money on your phone (TNG)** — two boxes, and the day your books begin,
+  which takes any date but should be the day you are starting from.
+- **What is on your shelf** — your ingredients, one box each, already in the unit you use for that
+  ingredient (kg for the flour, g for the salt — no converting). Ingredients you have marked as
+  *not something I buy*, like labour, are left out: they have no shelf to count.
+- **Who still owes you** needs no box — those orders stay unpaid and show under **Still to collect**.
+
+**Nothing is half-saved.** Every box is checked before anything is written: if one has something
+that is not a number, nothing saves at all until you fix it. And **a box you leave empty is left
+exactly as it is** — so the form is safe to reopen later just to correct one figure, and safe to
+run again without wiping what you already had.
+
+**What it writes.** The tin and the phone become ordinary money-in rows dated that day (so from
+then on the Money screen's **Net** is what you should really hold, and the weekly check works from
+the first week), and the shelf becomes each ingredient's **On hand** — the figure your shopping
+lists subtract, so your first list buys only what you are genuinely short of.
+
+**What it deliberately does not do.** Money you **owe** — a loan for the oven, a supplier you have
+not paid — has nowhere to go: the app keeps a loan as a way of paying, not as a debt, so record what
+it pays for as it happens. Your own money in shows under **Capital you put in** on Profit, never as
+income. And the tin must not be entered as a sale: a sale has a customer behind it.
+
+Section 3 of the **Money and Profit** manual has been rewritten around the form — it is attached.
 
 **17 Sep 2026 — engine v115 (no database setup needed). The month arrows on Profit work both
 ways again.** From you telling me *"the profit month can move earlier but cannot move later"*.
