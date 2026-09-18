@@ -62,7 +62,7 @@ class MockDate extends RealDate {
 }
 globalThis.Date = MockDate;
 
-const { renderOrders } = await import("../admin/js/views/orders.js");
+const { renderOrders, productOptions } = await import("../admin/js/views/orders.js");
 
 const STATE = {
   deliveryDates: [
@@ -327,4 +327,58 @@ test("taking the money at the counter records it where the order already is", ()
   assert.equal(state.orders[0].paidReceived, true);
   assert.equal(state.orders[0].paidMethod, "cash");
   assert.ok(state.orders[0].paidAt, "stamped when the money landed, which is the day the Money screen counts");
+});
+
+// ── Engine v121 — the product picker's three kinds, in her order ─────────────
+// On the shop, then sold out for the day being added to, then taken down. Each
+// choice carries the tone the closed box wears, so the order and the colour come
+// from one decision and cannot disagree.
+const prod = (id, name, extra = {}) => ({ id, name, limit: 12, active: true, recipe: [], unit: "pc", ...extra });
+
+function picker(products, orders = []) {
+  return {
+    deliveryDates: [{ id: "d7", date: "2026-09-07" }],
+    products, orders, ingredients: [], occasions: [], dayAdjustments: [],
+    settings: { cutoff: "18:00", defaultCapacity: 12 },
+  };
+}
+// A day where `id` is fully booked — its whole limit taken in one order.
+const booking = (id, qty = 12) => ({ id: `o_${id}`, deliveryDateId: "d7", productId: id, qty, status: "new" });
+
+test("the picker reads on-the-shop first, then sold out, then taken down", () => {
+  const state = picker(
+    [prod("p3", "Pandan", { active: false }), prod("p2", "Ciabatta"), prod("p1", "Focaccia")],
+    [booking("p2")]);
+
+  const opts = productOptions(state, "d7");
+  assert.deepEqual(opts.map((o) => [o.label, o.tone]), [
+    ["Focaccia — 12 left", "ok"],
+    ["Ciabatta — sold out", "warn"],
+    ["Pandan — 12 left (hidden)", "off"],
+  ], "listed in the order she reaches for them, each labelled as before");
+});
+
+test("taken down outranks sold out — a hidden product sits with the hidden ones", () => {
+  const state = picker([prod("p1", "Pandan", { active: false })], [booking("p1")]);
+  assert.equal(productOptions(state, "d7")[0].tone, "off",
+    "off the menu is off the menu, whatever the day's count says");
+});
+
+test("a product with no daily limit is on the shop however many are ordered", () => {
+  const state = picker([prod("p1", "Focaccia", { limit: undefined })], [booking("p1", 99)]);
+  const [o] = productOptions(state, "d7");
+  assert.equal(o.tone, "ok");
+  assert.equal(o.label, "Focaccia", "and it has never shown a count");
+});
+
+test("a draft is left out of the picker entirely", () => {
+  const state = picker([prod("p1", "Focaccia"), prod("p2", "Still baking", { active: false, draft: true })]);
+  assert.deepEqual(productOptions(state, "d7").map((o) => o.value), ["p1"]);
+});
+
+test("the order she is editing does not count against its own product", () => {
+  const state = picker([prod("p1", "Focaccia")], [booking("p1")]);
+  assert.equal(productOptions(state, "d7")[0].tone, "warn", "a full day reads sold out");
+  assert.equal(productOptions(state, "d7", "o_p1")[0].tone, "ok",
+    "but the order being edited gives its own slots back");
 });

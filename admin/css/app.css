@@ -492,6 +492,12 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   padding: 6px 0;
 }
 .add-item select { width: 100%; }
+/* What the product picker holds, in colour — on the shop, sold out for that day,
+   taken down (18 Sep 2026). Only the CLOSED box can wear it: iOS draws the open
+   list itself and ignores anything set on the options inside it. */
+select.tone-ok { background: var(--green-bg); color: var(--green); }
+select.tone-warn { background: var(--amber-bg); color: var(--amber); }
+select.tone-off { background: var(--gray-bg); color: var(--muted); }
 /* Its own line under the product: how many, the selling price (v101), remove — with
    the price pushed to the right of them and kept small, because it is a figure. */
 .add-item-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }

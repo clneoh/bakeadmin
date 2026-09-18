@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v120)
+# Jienluv2bake — change history (v54 → v121)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Sep 2026 — engine v121 (no database setup needed). The product dropdown now shows you which
+kind of product each choice is, in colour, and lists them in the order you would look for them.**
+
+**What changed.** Adding items to an order — in **+ New order** and in **Edit** — the product list
+is now sorted into the three kinds you already know, in the order you would reach for them: what is
+**On the shop** first, then anything that has **sold out** for the day you are adding to, then
+whatever you have **taken down** (still marked "(hidden)"). A product still in Draft stays out of
+these lists entirely, as it always has.
+
+**The colour.** The closed box wears the colour of whatever is picked — **green** for on the shop,
+**amber** for sold out, **grey** for taken down. On an order with several lines that means one
+glance down the list tells you which lines need a second look, without reading each one.
+
+**Why only the closed box.** The open list is drawn by your phone itself, and iOS does not let a
+page colour the rows inside it. So the colour sits on the box you see while the list is shut, which
+is where you read it anyway.
+
+**Where to see it.** Orders → **+ New order** → Items, and Orders → open an order → **Edit**. The
+list itself is unchanged: the same products, the same "(hidden)" marker, the same "12 left" count.
+
+Nothing else moved — your prices, customers, delivery dates, the shop and the way messages are
+written are all exactly as they were.
 
 **18 Sep 2026 — engine v120 (no database setup needed). One customer is one row. The app now
 recognises a phone number by its digits, so the same person can no longer appear twice just because

@@ -949,11 +949,16 @@ export function openDayAdjustPopup(state, date, refresh) {
   }, { wide: true });
 }
 
+// Where each kind of choice sits in the picker — see productOptions.
+const TONE_RANK = { ok: 0, warn: 1, off: 2 };
+
 // Product choices for adding/editing an order. Unlike the customer menu, the
 // backoffice pickers show EVERY product — including hidden ones (marked
 // "(hidden)") — so the baker can still add or edit an order for a product she
-// has temporarily taken off the menu. Active products list first.
-function productOptions(state, dateId, excludeOrderId = null) {
+// has temporarily taken off the menu. They come in three kinds — on the shop,
+// sold out for that day, taken down — listed in that order, and each carries the
+// tone the picker's closed box wears (18 Sep 2026).
+export function productOptions(state, dateId, excludeOrderId = null) {
   // Drafts are never for sale yet, so they have no orders — keep them out of
   // the backoffice picker too. Hidden products stay (marked below) so an order
   // for something temporarily off the menu can still be added or edited.
@@ -964,9 +969,12 @@ function productOptions(state, dateId, excludeOrderId = null) {
       let label = pr ? `${p.name} — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : p.name;
       const hidden = p.active === false;
       if (hidden) label += " (hidden)";
-      return { value: p.id, label, hidden };
+      // Taken down outranks sold out: a hidden product is off the menu whatever
+      // its count for the day says.
+      const tone = hidden ? "off" : (pr && pr.remaining <= 0 ? "warn" : "ok");
+      return { value: p.id, label, tone };
     })
-    .sort((a, b) => (a.hidden === b.hidden ? 0 : a.hidden ? 1 : -1));
+    .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
 }
 
 // The order's shareable code as a small tag, e.g. "#A3F9C2". Shown on inbox

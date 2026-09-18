@@ -29,13 +29,35 @@ export function button(text, onClick, cls = "") {
   return el("button", { class: `btn ${cls}`.trim(), onclick: onClick }, text);
 }
 
+// The class a picker wears for the value it now holds — "" when it holds
+// nothing, or when the choice carries no tone.
+function toneClass(options, value) {
+  const chosen = options.find((o) => String(o.value) === String(value));
+  return chosen && chosen.tone ? `tone-${chosen.tone}` : "";
+}
+
 export function select(options, value, onchange, placeholder = "") {
-  const s = el("select", { onchange });
+  const s = el("select", {});
   if (placeholder) s.appendChild(el("option", { value: "", disabled: true, selected: !value }, placeholder));
   for (const o of options) {
     const opt = el("option", { value: o.value, selected: o.value === value }, o.label);
     s.appendChild(opt);
   }
+  // An option may carry a tone (the product picker gives each choice one) and the
+  // CLOSED picker wears it. Only the closed box can: iOS draws the open list
+  // itself and ignores page styling, so the colour belongs here rather than on
+  // the options. The current value is tracked rather than read back off the node,
+  // because the first paint happens before a browser has settled which option is
+  // selected.
+  let current = value;
+  const paint = () => {
+    // Rebuilt from the classes already there, so a caller's own class (the status
+    // filter sets "input") is never thrown away by a repaint.
+    const rest = String(s.className || "").split(/\s+/).filter((c) => c && !c.startsWith("tone-"));
+    s.className = [...rest, toneClass(options, current)].filter(Boolean).join(" ");
+  };
+  s.addEventListener("change", () => { current = s.value; paint(); if (onchange) onchange(); });
+  paint();
   return s;
 }
 
