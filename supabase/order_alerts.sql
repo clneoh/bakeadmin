@@ -319,20 +319,41 @@ select topic as "Your private ntfy topic" from public.order_alert_topic where id
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- OPTIONAL TIDY-UP — three old test functions still have your channel name
--- typed inside them. They are leftovers from setting this up; they are not the
--- live trigger (that is `alert_new_order`, replaced above). Each extra copy is
--- another copy of the password, so removing them is worth doing.
+-- typed inside them. They are leftovers from setting this up; none of them is
+-- the live trigger (that is `alert_new_order`, replaced above). Each extra copy
+-- is another copy of the password, so removing them is worth doing.
 --
--- Run this SEPARATELY, on its own, only if you want to. Plain `drop function`
--- is deliberate and never `cascade`: if one of them is still attached to
--- something, Postgres refuses and tells you, rather than dragging a trigger
--- down with it.
+-- Run these SEPARATELY, on their own, not as part of the file above.
 --
---   drop function if exists public.test_post();
---   drop function if exists public.probe_orders();
---   drop function if exists public.notify_new_orders();
+-- Step 1 — SEE what still carries it. This should list ONLY `alert_new_order`,
+-- which is correct and expected: the live function still has to name the ntfy
+-- service. Anything else in the list is a leftover.
 --
--- Check first — `prosrc like '%ntfy%'` should list them all, live one included:
 --   select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 --    where n.nspname = 'public' and p.prosrc like '%ntfy%';
+--
+-- Step 2 — REMOVE them. Plain `drop function` is deliberate and never
+-- `cascade`: if one of them is still attached to a trigger, Postgres refuses
+-- and tells you, rather than dragging the trigger down with it. It all runs as
+-- one block, so a refusal leaves the other two in place as well — nothing is
+-- ever half-done.
+--
+--   do $$
+--   declare r record; stmt text;
+--   begin
+--     for r in select n.nspname, p.proname,
+--                     pg_get_function_identity_arguments(p.oid) as args
+--                from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--               where n.nspname = 'public'
+--                 and p.proname in ('test_post','probe_orders','notify_new_orders')
+--     loop
+--       stmt := format('drop function if exists %I.%I(%s)', r.nspname, r.proname, r.args);
+--       raise notice 'Dropping %', stmt;
+--       execute stmt;
+--     end loop;
+--   end $$;
+--
+-- Step 3 — CHECK it is clean: run Step 1 again. Still just `alert_new_order`.
+-- After that, the only place your channel name exists is the table above and
+-- the ntfy app on your phones.
 -- ─────────────────────────────────────────────────────────────────────────────

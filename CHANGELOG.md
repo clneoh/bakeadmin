@@ -4,6 +4,27 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**18 Sep 2026 — engine v118 (one SQL step in Supabase; nothing to re-install). The order alert on
+your phone now arrives as a real notification instead of a wall of raw text.** The ping that
+reaches you when a customer orders was showing the whole message as unreadable computer text —
+curly brackets, quote marks, the word "title" — instead of a notification. The cause was the way the
+message was handed to the ntfy service: the channel name has to travel inside the message for
+ntfy to lay it out as a title and a body. It was missing, so ntfy did the only thing left and
+printed everything as plain text.
+
+**What you see now.** A notification titled **New order - Jien Luv 2 Bake**, with the delivery day
+written out in full (Sat 19 Sep 2026, not 2026-09-19), the total as money (RM 10.00), a bread
+icon, and a higher priority, so it is more likely to make a sound and pop up rather than wait
+quietly. A courier order also carries the address; a self-collect order no longer shows a
+delivery address it does not have.
+
+**A tidy-up came with it.** Your channel name used to be typed inside the rule that sends the
+pings, and three leftover test rules from setting this up carried copies of it too. It now lives
+in one small table, and the three leftovers have been removed — so the name that guards your
+alerts exists in exactly two places: your database, and the ntfy app on your phones.
+
+Nothing about ordering changed, and no phone needs re-subscribing.
+
 **17 Sep 2026 — engine v118 (no database setup needed). The Paid step now stays in its place on
 every order, wearing an X until the money is in — and turns into a green tick when it is.** This
 replaces what v117 did, on your instruction.
