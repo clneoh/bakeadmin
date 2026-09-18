@@ -618,6 +618,47 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .list-item .li-sub { font-size: 13px; color: var(--muted); }
 .list-item .li-right { display: flex; align-items: center; gap: 8px; row-gap: 6px; flex-wrap: wrap; }
 
+/* ---------- Customer suggestions under the name box ---------- */
+/* Typing a name in an order form offers the people she has already served (18 Sep
+   2026). The panel is an item of the form's own grid, sitting in the normal flow
+   under the name box and across both columns — never a floating overlay, because
+   the Edit pop-up's body scrolls and would clip one. `dense` is what keeps "Order
+   date" beside "Customer": without it, a full-width item after the first cell
+   leaves a hole and pushes the date down a row. Scoped to these two forms so no
+   other .form-grid in the app can shift; with the panel hidden it is not a grid
+   item at all, so dense has nothing to backfill. */
+.form-grid.order-sugg { grid-auto-flow: dense; }
+.sugg-panel {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.sugg-panel[hidden] { display: none; }
+/* A row is a finger's target, not a line of text — 36px, like every other tappable
+   row in the app. Written here rather than inherited: .list-item carries the row's
+   inset and its own press state, which is why it also needs the padding and the
+   :active that .list-item.tappable does not give it. */
+.sugg-row {
+  width: 100%;
+  padding: 11px 12px;
+  min-height: 36px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.sugg-row:active { background: var(--brown-soft); }
+
 /* Customer profile avatar: a round photo thumb, or the paw mark standing in.
    sm = small (list rows); the default (no size) is the pop-up/profile size. */
 .customer-avatar {

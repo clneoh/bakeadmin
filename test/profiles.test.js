@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { customerList } from "../admin/js/customers.js";
-import { attachProfiles, customerMatches, customerRowName, profileFor, profileForOrder, reconcileContacts, syncContactFromOrder, upsertProfile } from "../admin/js/profiles.js";
+import { attachProfiles, customerMatches, customerNameMatches, customerRowName, profileFor, profileForOrder, reconcileContacts, syncContactFromOrder, upsertProfile } from "../admin/js/profiles.js";
 
 // A tiny app-password hash constant unused here — kept to match sibling files.
 
@@ -135,6 +135,57 @@ test("customerMatches finds a number typed without its formatting or country cod
   const namey = { _key: "6012-111", name: "Aunty Bee", whatsapp: "+60 12-345 6789" };
   assert.equal(customerMatches(namey, "aisha6012"), false, "unrelated text + shared digits stays a miss");
   assert.equal(customerMatches({ _key: "x", name: "Raj", fav: "Sourdough" }, "6016"), false, "no number on the row");
+});
+
+// ---- customerNameMatches: the order form's name box (18 Sep 2026) ----
+// A narrower cousin of customerMatches. The finder below answers "who has a dog
+// called Milo"; this box answers "who is this", so a hit whose own title does not
+// contain the query would read as a wrong answer rather than a clever one.
+
+test("customerNameMatches searches the name shown, not a stale one underneath", () => {
+  // The saved card was touched more recently than the orders, so the row is shown
+  // under the card's name. What she can see is what she can type.
+  const row = {
+    _key: "k", name: "Bob", whatsapp: "012-345 6789",
+    profile: { name: "Aisha", updatedAt: "2026-09-10T10:00:00Z", orderEditAt: "2026-09-01T00:00:00Z" },
+  };
+  assert.equal(customerRowName(row), "Aisha");
+  assert.equal(customerNameMatches(row, "aisha"), true);
+  assert.equal(customerNameMatches(row, "bob"), false, "a spelling she cannot see is not offered");
+});
+
+test("customerNameMatches finds the number, with or without its formatting", () => {
+  const row = { _key: "k", name: "Aunty Bee", whatsapp: "+60 12-345 6789" };
+  assert.equal(customerNameMatches(row, "bee"), true);
+  assert.equal(customerNameMatches(row, "  aunty   bee "), true, "spacing on either side is ignored");
+  assert.equal(customerNameMatches(row, "012-345"), true);
+  assert.equal(customerNameMatches(row, "60123456789"), true, "the digits alone still find them");
+  assert.equal(customerNameMatches(row, "6016"), false, "a wrong exchange is not a hit");
+  // A record saved before the two copies of a number were kept in step can hold
+  // the only one there is.
+  const cardOnly = { _key: "k", name: "Aunty Bee", whatsapp: "", profile: { whatsapp: "012-999 8888" } };
+  assert.equal(customerNameMatches(cardOnly, "012-999"), true);
+});
+
+test("customerNameMatches stays on the name and number — it is not the finder", () => {
+  const row = {
+    _key: "k", name: "Aunty Bee", whatsapp: "6012-111", fav: "Sourdough",
+    profile: { dogName: "Coco", likes: "banana", avoid: "coconut", notes: "collects Saturdays" },
+  };
+  assert.equal(customerNameMatches(row, "bee"), true);
+  assert.equal(customerNameMatches(row, "coco"), false, "the dog belongs to the finder, not this box");
+  assert.equal(customerNameMatches(row, "banana"), false);
+  assert.equal(customerNameMatches(row, "coconut"), false);
+  assert.equal(customerNameMatches(row, "saturdays"), false);
+  assert.equal(customerNameMatches(row, "sourdough"), false);
+});
+
+test("customerNameMatches never offers a person with no name, and has no answer for a blank box", () => {
+  const anon = { _key: "o1", name: "(no name)", whatsapp: "012-345 6789" };
+  assert.equal(customerNameMatches(anon, "012"), false, "she could not recognise the row");
+  const row = { _key: "k", name: "Aunty Bee", whatsapp: "6012-111" };
+  assert.equal(customerNameMatches(row, ""), false,
+    "unlike the finder, a blank box suggests nobody; the form does the length gate");
 });
 
 test("profileForOrder finds the profile from a raw order (same keyOf)", () => {

@@ -216,6 +216,28 @@ export function customerRowName(row) {
   return orderAt >= cardAt ? orderName : saved;
 }
 
+// The order form's name box: a person matches when the name shown for them, or
+// their number, contains what was typed. Deliberately narrower than the finder
+// below — that one is free to answer "whose dog is called Milo", because she
+// opened a search box. This box answers "who is this", so a hit whose own title
+// does not contain the query would read as a wrong answer rather than a clever
+// one. A person with no name at all is never a match: she could not recognise
+// the row, so offering it only wastes a tap.
+export function customerNameMatches(row, query) {
+  const clean = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ");
+  const q = clean(query).trim();
+  if (!q) return false;
+  const name = customerRowName(row);
+  if (name === "(no name)") return false;
+  // The orders and the saved record hold one shared number, but a profile saved
+  // before the two were kept in step can carry the only copy.
+  const whatsapp = String((row && row.whatsapp) || ((row && row.profile && row.profile.whatsapp) || ""));
+  if (clean(name).includes(q) || clean(whatsapp).includes(q)) return true;
+  const qDigits = q.replace(/[^\d]/g, "");
+  if (qDigits.length < 2 || !/^[\d\s\-().+]+$/.test(q)) return false;
+  return whatsapp.replace(/[^\d]/g, "").includes(qDigits);
+}
+
 // A person matches the query when any of their fields contains it — the finder
 // looks across name, whatsapp number, dog name, what they like/avoid, notes and
 // their favourite product. Case- and space-insensitive on both sides. A number

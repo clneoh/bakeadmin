@@ -17,8 +17,8 @@ import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "
 import { maybeSync, publishTracking } from "../supabase.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
-import { keyOf } from "../customers.js";
-import { syncContactFromOrder } from "../profiles.js";
+import { customerList, keyOf } from "../customers.js";
+import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOrder } from "../profiles.js";
 
 let orderStatusFilter = "";
 // Text in the "Find an order" box at the top of the Orders screen (empty = box
@@ -39,6 +39,16 @@ let ordersCalMonth = null;
 // rebuilt whenever anything around it changes — including when a day is tapped in
 // its own calendar — and folding under her finger at that moment would be mad.
 let newFormOpen = false;
+// The customer's name and number as typed into the ＋ New order card. Module scope
+// for the same reason as the fold above, and one more: the draft inside orderForm
+// is built fresh on every rebuild, so a rebuild silently threw away what she had
+// put in the customer boxes — the comment down there claimed otherwise, but only
+// the item rows ever came back. Holding just these two fields out here makes the
+// claim true, which matters now that choosing from the suggestion list is a thing
+// she does in this card. Cleared on a fresh visit to the screen (with the fold)
+// and when an add actually completes — never when one is merely asked for, since
+// the capacity and closed-day warnings can still be cancelled.
+let newOrderContact = { customerName: "", whatsapp: "" };
 
 const STATUSES = [
   ["new", "New"],
@@ -275,6 +285,7 @@ export function renderOrders(root, state, params) {
   orderStatusFilter = "";
   orderQuery = ""; // a fresh visit to Orders starts with an empty finder box
   newFormOpen = false;  // …and with the New-order card shut
+  newOrderContact = { customerName: "", whatsapp: "" }; // …and with its customer boxes empty
   ordersCalMonth = null; // …and on the month of the day that opens
   installOrderCollapseOutside();
   renderAll(root, state, params);
@@ -1017,6 +1028,67 @@ function moneyLine(state, dateId) {
 
 // The manual "＋ Add order" card, always at the top of a delivery date. Takes
 // several items at once — they become ONE customer order (a shared group), the
+// Typing a customer's name in either order form offers the people she has already
+// served, drawn from her own order history — the same list the Customers screen
+// shows. A tap fills the name and the number; the delivery day, the items and
+// collect/courier stay hers (18 Sep 2026).
+//
+// The panel sits in the form's own grid, under the name box and across both
+// columns — in the normal flow, like the date picker's panel, never a floating
+// overlay: the Edit pop-up's body scrolls, and a floating panel inside it would be
+// clipped at its edge. It is hidden rather than emptied when there is nothing to
+// show, because an empty grid item still takes the grid's row gap.
+function customerSuggester(state, onPick) {
+  // Her order history does not change while she types, so the list is built once
+  // on the first keystroke that could show anything — not on every render of the
+  // screen, where the card is rebuilt far more often than it is typed into.
+  let rows = null;
+  const people = () => {
+    if (!rows) rows = attachProfiles(state, customerList(state, "recent", "all", todayISO()));
+    return rows;
+  };
+
+  const panel = el("div", { class: "sugg-panel", hidden: true });
+  const hide = () => { panel.hidden = true; panel.replaceChildren(); };
+
+  const paint = (query) => {
+    const q = String(query || "").trim();
+    // Two letters, the same floor the shop's finders use: one letter matches half
+    // her customers, which is a wall of names rather than a suggestion.
+    if (q.length < 2) { hide(); return; }
+    const hits = people().filter((r) => customerNameMatches(r, q)).slice(0, 5);
+    if (!hits.length) { hide(); return; }
+    panel.replaceChildren(...hits.map((r) => el("button", {
+      class: "list-item sugg-row", type: "button", onclick: () => { hide(); onPick(r); },
+    },
+      el("div", { class: "li-main" },
+        el("div", { class: "li-title" }, el("span", {}, customerRowName(r))),
+        el("div", { class: "li-sub" }, suggestionSub(r))))));
+    panel.hidden = false;
+  };
+
+  return { panel, paint, hide };
+}
+
+// The number to use for a suggested person. Normally the one on their orders, but
+// a record saved before the two copies were kept in step can hold the only one.
+function suggestionNumber(row) {
+  return String((row && row.whatsapp) || ((row && row.profile && row.profile.whatsapp) || "")).trim();
+}
+
+// What sits under a suggested name: the number, how many orders she has taken from
+// them, and what they buy most — the three things that tell two similar names
+// apart at a glance. A part she has no answer for is left out rather than shown
+// as a blank.
+function suggestionSub(row) {
+  const orders = Number(row.orders) || 0;
+  return [
+    suggestionNumber(row) || "No number saved",
+    orders === 1 ? "1 order" : `${orders} orders`,
+    row.fav ? `usually ${row.fav}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
 // same shape a multi-item storefront order arrives as, so the list/inbox/confirm
 // all treat it as a single order. Editing an order never replaces this card:
 // Edit opens a pop-up over the screen instead.
@@ -1030,13 +1102,31 @@ function orderForm(state, dateId, root, selectDate) {
 
   // The form edits a *draft*, not the orders directly, so a mid-edit re-render
   // (a sync pull, a fresh storefront import) rebuilds this form with what she
-  // actually typed. Nothing is written until Add order is pressed.
-  const draft = { customerName: "", whatsapp: "", fulfillment: "collect", address: "", note: "", orderDate: todayISO() };
+  // actually typed. Nothing is written until Add order is pressed. The customer's
+  // name and number are the two the draft alone could not keep across a rebuild,
+  // so they are seeded from newOrderContact and written back to it as she types.
+  const draft = {
+    customerName: newOrderContact.customerName, whatsapp: newOrderContact.whatsapp,
+    fulfillment: "collect", address: "", note: "", orderDate: todayISO(),
+  };
+  // Filling in from a suggestion has to write both the boxes and the draft: the
+  // draft is what the other controls read, the boxes are what she sees.
+  const suggester = customerSuggester(state, (r) => {
+    draft.customerName = newOrderContact.customerName = customerRowName(r);
+    draft.whatsapp = newOrderContact.whatsapp = suggestionNumber(r);
+    customer.value = draft.customerName;
+    whatsapp.value = draft.whatsapp;
+  });
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
-    value: draft.customerName, oninput: function () { draft.customerName = this.value; } });
+    value: draft.customerName,
+    oninput: function () {
+      draft.customerName = newOrderContact.customerName = this.value;
+      suggester.paint(this.value);
+    } });
   const whatsapp = el("input", { class: "input", type: "tel", inputmode: "tel",
     placeholder: "e.g. 012-345 6789", "data-suggest": "012-345 6789",
-    value: draft.whatsapp, oninput: function () { draft.whatsapp = this.value; } });
+    value: draft.whatsapp,
+    oninput: function () { draft.whatsapp = newOrderContact.whatsapp = this.value; } });
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
     draft.fulfillment, function () { draft.fulfillment = this.value; });
@@ -1124,8 +1214,9 @@ function orderForm(state, dateId, root, selectDate) {
     el("div", { class: "field", style: "margin-bottom:10px" },
       el("label", {}, "Delivery day"),
       dayCal.el),
-    el("div", { class: "form-grid" },
+    el("div", { class: "form-grid order-sugg" },
       el("div", {}, el("label", {}, "Customer"), customer),
+      suggester.panel,
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
@@ -1266,8 +1357,19 @@ function openEditPopup(state, group, dateId, root) {
 function popupEditBody(state, date, group, first, lines, draft, refresh, close, root) {
   const curId = draft.deliveryDateId || (date && date.id) || "";
   const products = productOptions(state, curId);
+  // Filling in from a suggestion writes the draft and both boxes. Unlike the
+  // New-order card this draft already lives outside the body, so the values
+  // survive a repaint with no help; the number goes through waNumber because
+  // that is the form this box opens on.
+  const suggester = customerSuggester(state, (r) => {
+    draft.customerName = customerRowName(r);
+    draft.whatsapp = waNumber(suggestionNumber(r));
+    customer.value = draft.customerName;
+    whatsapp.value = draft.whatsapp;
+  });
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
-    value: draft.customerName, oninput: function () { draft.customerName = this.value; } });
+    value: draft.customerName,
+    oninput: function () { draft.customerName = this.value; suggester.paint(this.value); } });
   const whatsapp = el("input", { class: "input", type: "tel", inputmode: "tel",
     placeholder: "e.g. 012-345 6789", "data-suggest": "012-345 6789",
     value: draft.whatsapp, oninput: function () { draft.whatsapp = this.value; } });
@@ -1356,8 +1458,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("label", {}, "Delivery day"),
       deliveryPick,
       deliveryNotes),
-    el("div", { class: "form-grid" },
+    el("div", { class: "form-grid order-sugg" },
       el("div", {}, el("label", {}, "Customer"), customer),
+      suggester.panel,
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
@@ -1480,6 +1583,9 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
   const st = deliveryStatus(date.date, state.settings);
 
   function commit() {
+    // The card keeps her customer across a rebuild, so a successful add has to
+    // clear it by hand or the next order would open on the person she just served.
+    newOrderContact = { customerName: "", whatsapp: "" };
     const row = {
       id: newId("ord"),
       deliveryDateId: date.id,
@@ -1527,6 +1633,8 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
   const st = deliveryStatus(date.date, state.settings);
 
   function commit() {
+    // See addNew: a completed add starts the card clean.
+    newOrderContact = { customerName: "", whatsapp: "" };
     const groupId = newId("ordg");
     const createdAt = new Date().toISOString();
     for (const it of items) {

@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v118)
+# Jienluv2bake — change history (v54 → v119)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Sep 2026 — engine v119 (no database setup needed). Start typing a customer's name in an
+order form and the people you have already served appear underneath — tap one and their name and
+WhatsApp number fill themselves in.**
+
+**How it works.** Type two letters — "aun" is plenty — and a short list appears right under the
+name box. Each row shows their number, how many orders they have placed, and the item they buy
+most, like **012-345 6789 · 5 orders · usually Focaccia**. Tap the right person and the name and the
+number both go in; the delivery day, the items and self-collect-or-courier stay yours to set. One
+letter on its own is not a search — it would offer you half your address book — and a name you have
+never served offers nothing at all. Typing a number without its dashes finds them too, so
+"012345" works the way "012-345" does.
+
+**Both order forms do it** — the **＋ New order** card and the **Edit** pop-up, the same way.
+
+**Two things worth knowing.** It draws on the orders already in the app, so on a brand-new setup it
+has nothing to offer until your first order is saved. And on the **Edit** form, saving a changed
+name has always carried that name to every other order belonging to the person it was — that is the
+one-saved-name rule from v68 and it has not changed, but picking a name is now much easier than
+typing one, so it is easier to do by accident. If you ever pick the wrong person while editing an
+order and save it, tell me and I will add a confirmation that asks first.
+
+Nothing else changed — the Customers screen, its finder, your prices and the shop are all exactly
+as they were.
 
 **18 Sep 2026 — engine v118 (one SQL step in Supabase; nothing to re-install). The order alert on
 your phone now arrives as a real notification instead of a wall of raw text.** The ping that
