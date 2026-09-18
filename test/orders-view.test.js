@@ -351,11 +351,11 @@ test("the picker reads on-the-shop first, then sold out, then taken down", () =>
     [booking("p2")]);
 
   const opts = productOptions(state, "d7");
-  assert.deepEqual(opts.map((o) => [o.label, o.tone]), [
-    ["Focaccia — 12 left", "ok"],
-    ["Ciabatta — sold out", "warn"],
-    ["Pandan — 12 left (hidden)", "off"],
-  ], "listed in the order she reaches for them, each labelled as before");
+  assert.deepEqual(opts.map((o) => [o.label, o.tone, o.group]), [
+    ["Focaccia — 12 left", "ok", "On the shop"],
+    ["Ciabatta — sold out", "warn", "Sold out"],
+    ["Pandan — 12 left (hidden)", "off", "Taken down"],
+  ], "listed in the order she reaches for them, each labelled and sectioned as before");
 });
 
 test("taken down outranks sold out — a hidden product sits with the hidden ones", () => {

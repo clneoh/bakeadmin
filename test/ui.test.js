@@ -71,24 +71,26 @@ test("select() placeholder is selected when the value is empty", () => {
   assert.equal(s.children[1].attrs.selected, undefined);
 });
 
-// ── Engine v121 — the closed picker wears the tone of what it holds ──────────
+// ── Engine v121/v122 — the product picker's tones and its sections ───────────
 // The product picker hands each choice a tone (on the shop / sold out today /
-// taken down) and the closed box is painted with it. Only the closed box can be:
-// iOS draws the open list itself.
+// taken down) and names its section. The closed box wears the tone — the only
+// part of a native list a page can reach — and each section becomes an
+// <optgroup>, which every platform draws as its own headed block.
 const TONED = [
-  { value: "a", label: "Focaccia", tone: "ok" },
-  { value: "b", label: "Ciabatta", tone: "warn" },
-  { value: "c", label: "Pandan", tone: "off" },
+  { value: "a", label: "Focaccia", tone: "ok", group: "On the shop" },
+  { value: "b", label: "Ciabatta", tone: "warn", group: "Sold out" },
+  { value: "c", label: "Pandan", tone: "off", group: "Taken down" },
 ];
 
 test("select() wears the tone of the option it holds", () => {
-  assert.equal(select(TONED, "a", () => {}).className, "tone-ok");
-  assert.equal(select(TONED, "b", () => {}).className, "tone-warn");
-  assert.equal(select(TONED, "c", () => {}).className, "tone-off");
+  assert.equal(select(TONED, "a", () => {}).className, "toned tone-ok");
+  assert.equal(select(TONED, "b", () => {}).className, "toned tone-warn");
+  assert.equal(select(TONED, "c", () => {}).className, "toned tone-off");
 });
 
 test("select() with no choice, or a toneless one, wears no colour", () => {
-  assert.equal(select(TONED, "", () => {}, "Product…").className, "", "nothing picked yet");
+  assert.equal(select(TONED, "", () => {}, "Product…").className, "toned",
+    "a toned menu with nothing picked yet is marked, but uncoloured");
   assert.equal(select(STATUSES, "new", () => {}).className, "", "a toneless list stays plain");
 });
 
@@ -97,8 +99,34 @@ test("select() repaints on change, and a caller's own class survives it", () => 
   s.className = "input";            // the status filter does exactly this
   s.value = "b";
   s._listeners.change[0]();         // what the browser fires when she picks
-  assert.equal(s.className, "input tone-warn", "the tone follows the choice, the class stays");
+  assert.equal(s.className, "input toned tone-warn", "the tone follows the choice, the class stays");
   s.value = "";
   s._listeners.change[0]();
-  assert.equal(s.className, "input", "and a repaint with no tone leaves it as it was");
+  assert.equal(s.className, "input toned", "and a repaint with no tone drops just the colour");
+});
+
+test("select() turns each run of options into a headed section", () => {
+  const s = select(TONED, "a", () => {}, "Product…");
+  assert.deepEqual(s.children.map((c) => c.tagName), ["OPTION", "OPTGROUP", "OPTGROUP", "OPTGROUP"],
+    "the placeholder stays outside, one group per section");
+  assert.deepEqual(s.children.slice(1).map((g) => [g.attrs.label, g.className, g.children.length]), [
+    ["On the shop", "tone-ok", 1],
+    ["Sold out", "tone-warn", 1],
+    ["Taken down", "tone-off", 1],
+  ], "each section is named and carries the tone it is drawn in");
+  assert.equal(s.children[1].children[0].value, "a", "and holds its own options");
+});
+
+test("select() leaves a one-section menu alone — a lone heading is noise", () => {
+  const s = select([
+    { value: "a", label: "Focaccia", tone: "ok", group: "On the shop" },
+    { value: "b", label: "Sourdough", tone: "ok", group: "On the shop" },
+  ], "a", () => {});
+  assert.deepEqual(s.children.map((c) => c.tagName), ["OPTION", "OPTION"], "no heading at all");
+  assert.equal(s.className, "toned tone-ok", "but the box is still tinted");
+});
+
+test("select() keeps a menu of plain options flat", () => {
+  const s = select(STATUSES, "new", () => {});
+  assert.deepEqual(s.children.map((c) => c.tagName), ["OPTION", "OPTION", "OPTION"]);
 });

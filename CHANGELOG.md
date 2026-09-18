@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v121)
+# Jienluv2bake — change history (v54 → v122)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Sep 2026 — engine v122 (no database setup needed). The product dropdown now shows the three
+kinds inside the list itself: each kind sits under its own heading, and on a newer phone each section
+is tinted in its colour.**
+
+**What changed.** Adding items to an order — in **+ New order** and in **Edit** — the product list
+now comes in three labelled sections instead of one long run of names: **On the shop** first, then
+**Sold out**, then **Taken down**. The headings appear on every phone, because they are part of the
+list itself.
+
+**The colour.** On a phone with the very latest system — a new iPhone or a recent Android — each
+section is also tinted inside the open list: **green** for on the shop, **amber** for sold out,
+**grey** for taken down. The menu then reads as three blocks you can tell apart without reading a
+word.
+
+**On an older phone.** The open list is drawn by your phone itself, and an older phone will not let
+a page colour it. You get the same three headings in the same order, and the closed box still wears
+the colour of whatever it holds — you lose the section tint and nothing else. Nothing is broken,
+and nothing has moved; only the colour is missing.
+
+**This replaces the v121 note below.** v121 put the colour on the closed box alone, because the
+open list could not be reached. Newer phones can be reached, so the list carries the colour too.
+
+**Where to see it.** Orders → **+ New order** → Items, and Orders → open an order → **Edit**. The
+list is otherwise unchanged: the same products, the same "(hidden)" marker, the same "12 left"
+count.
+
+Nothing else moved — your prices, customers, delivery dates, the shop and the way messages are
+written are all exactly as they were.
 
 **18 Sep 2026 — engine v121 (no database setup needed). The product dropdown now shows you which
 kind of product each choice is, in colour, and lists them in the order you would look for them.**

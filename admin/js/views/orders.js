@@ -949,15 +949,18 @@ export function openDayAdjustPopup(state, date, refresh) {
   }, { wide: true });
 }
 
-// Where each kind of choice sits in the picker — see productOptions.
+// Where each kind of choice sits in the picker, and what its section is called —
+// see productOptions.
 const TONE_RANK = { ok: 0, warn: 1, off: 2 };
+const TONE_SECTION = { ok: "On the shop", warn: "Sold out", off: "Taken down" };
 
 // Product choices for adding/editing an order. Unlike the customer menu, the
 // backoffice pickers show EVERY product — including hidden ones (marked
 // "(hidden)") — so the baker can still add or edit an order for a product she
 // has temporarily taken off the menu. They come in three kinds — on the shop,
-// sold out for that day, taken down — listed in that order, and each carries the
-// tone the picker's closed box wears (18 Sep 2026).
+// sold out for that day, taken down — listed in that order and grouped under
+// those three names, each section carrying the tone it is drawn in
+// (18 Sep 2026).
 export function productOptions(state, dateId, excludeOrderId = null) {
   // Drafts are never for sale yet, so they have no orders — keep them out of
   // the backoffice picker too. Hidden products stay (marked below) so an order
@@ -972,7 +975,7 @@ export function productOptions(state, dateId, excludeOrderId = null) {
       // Taken down outranks sold out: a hidden product is off the menu whatever
       // its count for the day says.
       const tone = hidden ? "off" : (pr && pr.remaining <= 0 ? "warn" : "ok");
-      return { value: p.id, label, tone };
+      return { value: p.id, label, tone, group: TONE_SECTION[tone] };
     })
     .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
 }

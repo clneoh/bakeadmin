@@ -492,12 +492,36 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   padding: 6px 0;
 }
 .add-item select { width: 100%; }
-/* What the product picker holds, in colour — on the shop, sold out for that day,
-   taken down (18 Sep 2026). Only the CLOSED box can wear it: iOS draws the open
-   list itself and ignores anything set on the options inside it. */
+/* The product picker's three kinds — on the shop, sold out for that day, taken
+   down — tinted on the SECTION rather than row by row, so the menu reads as
+   three blocks instead of a rainbow (18 Sep 2026). The closed box wears the
+   colour of whatever it holds, which is the only part of a native list a page
+   can reach; the section tints below are for the browsers that let a page draw
+   the list itself. */
 select.tone-ok { background: var(--green-bg); color: var(--green); }
 select.tone-warn { background: var(--amber-bg); color: var(--amber); }
 select.tone-off { background: var(--gray-bg); color: var(--muted); }
+optgroup.tone-ok { background: var(--green-bg); color: var(--green); }
+optgroup.tone-warn { background: var(--amber-bg); color: var(--amber); }
+optgroup.tone-off { background: var(--gray-bg); color: var(--muted); }
+option.tone-warn { color: var(--amber); }
+option.tone-off { color: var(--muted); }
+
+/* Where the browser lets a page draw the picker itself — Customizable Select,
+   Safari 27 / Chrome 135 and later — the open list becomes ours, so the section
+   tints above finally show up INSIDE it and the menu can be given the app's own
+   card. Everywhere else the control quietly keeps the phone's own list, with the
+   section names still showing and the OS drawing the rest. */
+@supports (appearance: base-select) {
+  select.toned { appearance: base-select; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: var(--radius-sm); min-height: 46px; font-size: 16px; }
+  select.toned::picker-icon { content: "▾"; color: var(--muted); }
+  select.toned::picker(select) { appearance: base-select; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg); padding: 4px; margin-top: 4px; }
+  select.toned option { padding: 8px 10px; border-radius: 8px; }
+  select.toned optgroup { font-weight: 600; }
+}
 /* Its own line under the product: how many, the selling price (v101), remove — with
    the price pushed to the right of them and kept small, because it is a figure. */
 .add-item-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
