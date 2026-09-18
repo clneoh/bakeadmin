@@ -329,14 +329,22 @@ test("taking the money at the counter records it where the order already is", ()
   assert.ok(state.orders[0].paidAt, "stamped when the money landed, which is the day the Money screen counts");
 });
 
-// ── Engine v121 — the product picker's three kinds, in her order ─────────────
-// On the shop, then sold out for the day being added to, then taken down. Each
-// choice carries the tone the closed box wears, so the order and the colour come
-// from one decision and cannot disagree.
+// ── Engine v121/v122 — the product picker's three kinds, in her order ────────
+// On the shop, then unavailable, then taken down. Each choice carries the tone
+// the picker wears, so the order and the colour come from one decision and
+// cannot disagree.
+//
+// "Unavailable" is ONE bucket on purpose (v122, 18 Sep 2026): an item sold out
+// for the day and an item the shop does not sell that day are both active
+// products she may still sell from the fridge, so splitting them told her
+// nothing. The picker is a guide while she sells, never a gate — and the shop's
+// order-by deadline is deliberately not asked, since it stops a stranger
+// ordering and says nothing about what she may sell by hand.
 const prod = (id, name, extra = {}) => ({ id, name, limit: 12, active: true, recipe: [], unit: "pc", ...extra });
 
 function picker(products, orders = []) {
   return {
+    // A Monday — so a Sat & Sun product is off-day for it.
     deliveryDates: [{ id: "d7", date: "2026-09-07" }],
     products, orders, ingredients: [], occasions: [], dayAdjustments: [],
     settings: { cutoff: "18:00", defaultCapacity: 12 },
@@ -344,8 +352,10 @@ function picker(products, orders = []) {
 }
 // A day where `id` is fully booked — its whole limit taken in one order.
 const booking = (id, qty = 12) => ({ id: `o_${id}`, deliveryDateId: "d7", productId: id, qty, status: "new" });
+// Sat & Sun only, the way a weekend-only special is marked on its card.
+const WEEKEND = { sellRules: [{ days: [6, 0] }] };
 
-test("the picker reads on-the-shop first, then sold out, then taken down", () => {
+test("the picker reads on-the-shop first, then unavailable, then taken down", () => {
   const state = picker(
     [prod("p3", "Pandan", { active: false }), prod("p2", "Ciabatta"), prod("p1", "Focaccia")],
     [booking("p2")]);
@@ -353,9 +363,43 @@ test("the picker reads on-the-shop first, then sold out, then taken down", () =>
   const opts = productOptions(state, "d7");
   assert.deepEqual(opts.map((o) => [o.label, o.tone, o.group]), [
     ["Focaccia — 12 left", "ok", "On the shop"],
-    ["Ciabatta — sold out", "warn", "Sold out"],
+    ["Ciabatta — sold out", "warn", "Unavailable"],
     ["Pandan — 12 left (hidden)", "off", "Taken down"],
-  ], "listed in the order she reaches for them, each labelled and sectioned as before");
+  ], "listed in the order she reaches for them, each labelled and sectioned");
+});
+
+test("a product the shop does not sell that day is unavailable, named by its sell days", () => {
+  const state = picker([prod("p1", "Focaccia"), prod("p2", "Pizza", WEEKEND)]);
+  const opts = productOptions(state, "d7");
+  assert.deepEqual(opts.map((o) => [o.label, o.tone, o.group]), [
+    ["Focaccia — 12 left", "ok", "On the shop"],
+    // Mon 7 Sep is not one of Pizza's sell days, so the shop offers none for it
+    // — and the label says which days it IS sold instead of a count for a day
+    // it was never on.
+    ["Pizza — only Sat & Sun", "warn", "Unavailable"],
+  ]);
+});
+
+test("an off-day product that is also fully booked is not called sold out", () => {
+  // Its count for a day it is not sold on means nothing — naming it "sold out"
+  // would send her looking for stock that was never on the menu that day.
+  const state = picker([prod("p1", "Pizza", WEEKEND)], [booking("p1")]);
+  const [o] = productOptions(state, "d7");
+  assert.equal(o.tone, "warn");
+  assert.equal(o.label, "Pizza — only Sat & Sun", "the sell days are the reason, not the count");
+});
+
+test("a product with no sell marks is on the shop every day", () => {
+  // The regression this guards: "no marks" means every delivery day, so such a
+  // product must never fall into the unavailable bucket.
+  const state = picker([prod("p1", "Focaccia")]);
+  assert.equal(productOptions(state, "d7")[0].tone, "ok");
+});
+
+test("an unknown delivery date falls back to the old behaviour", () => {
+  // No date to ask the sell-day rule about, so nothing is called off-day.
+  const state = picker([prod("p1", "Focaccia"), prod("p2", "Pizza", WEEKEND)]);
+  assert.deepEqual(productOptions(state, "nope").map((o) => o.tone), ["ok", "ok"]);
 });
 
 test("taken down outranks sold out — a hidden product sits with the hidden ones", () => {

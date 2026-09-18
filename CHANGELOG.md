@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v122)
+# Jienluv2bake — change history (v54 → v123)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Sep 2026 — engine v123 (no database setup needed). The product dropdown's middle section now
+groups sold-out and not-sold-that-day together, and a product the shop does not sell on a day is
+named by the days it IS sold instead of being given a count for a day it was never on.**
+
+**What was wrong.** The dropdown's middle section was called **Sold out** and read its count for the
+day you were adding to. But a product the shop does not sell on that day at all — a Saturday-only
+loaf on a Wednesday — was sitting in **On the shop**, and worse, could be labelled "sold out" from a
+count for a day it was never on the menu. Neither told you anything true.
+
+**What it does now.** The middle section is **Unavailable**, and it holds both kinds together: a
+product that has **sold out** for the day you are adding to, and a product the shop **does not sell
+on that day**. The second kind is named by the days it IS sold — a Saturday-only loaf on a Wednesday
+reads "(only Sat & Sun)". The headings are now **On the shop**, **Unavailable**, **Taken down**.
+
+**Why they are one section, not two.** They are the same thing to you: an active product you can
+still choose. You bake to a plan of your own, and as you put it — every day the kitchen may make 12
+focaccia, ordering closes the day before at 6pm, and the 12 are not necessarily sold off, so some go
+to a walk-in or into the fridge. **The picker is a guide while you sell, never a gate**: nothing is
+blocked, and the order-by deadline you set per product is deliberately not counted, because that
+deadline stops a stranger ordering — it says nothing about what you may sell by hand.
+
+**Where to see it.** Orders → **+ New order** → Items, and Orders → open an order → **Edit**.
+
+Nothing else moved — your prices, customers, delivery dates, the shop and the way messages are
+written are all exactly as they were.
 
 **18 Sep 2026 — engine v122 (no database setup needed). The product dropdown now shows the three
 kinds inside the list itself: each kind sits under its own heading, and on a newer phone each section

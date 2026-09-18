@@ -9,7 +9,7 @@ import { DOW, addMonth, monthLabel, monthWeeks, occColour, occForDate } from "..
 import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 // A product's sell days — the shared root copy the shop reads, so the day this
 // pop-up counts a product on is exactly the day the shop offers it.
-import { sellOpen } from "../../../availability.js";
+import { availSummary, sellOpen } from "../../../availability.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -952,29 +952,58 @@ export function openDayAdjustPopup(state, date, refresh) {
 // Where each kind of choice sits in the picker, and what its section is called —
 // see productOptions.
 const TONE_RANK = { ok: 0, warn: 1, off: 2 };
-const TONE_SECTION = { ok: "On the shop", warn: "Sold out", off: "Taken down" };
+const TONE_SECTION = { ok: "On the shop", warn: "Unavailable", off: "Taken down" };
 
 // Product choices for adding/editing an order. Unlike the customer menu, the
 // backoffice pickers show EVERY product — including hidden ones (marked
 // "(hidden)") — so the baker can still add or edit an order for a product she
-// has temporarily taken off the menu. They come in three kinds — on the shop,
-// sold out for that day, taken down — listed in that order and grouped under
-// those three names, each section carrying the tone it is drawn in
-// (18 Sep 2026).
+// has temporarily taken off the menu. They come in three kinds, listed in that
+// order and grouped under those three names, each section carrying the tone it
+// is drawn in (18 Sep 2026).
+//
+// The three kinds answer one question — is the SHOP offering this product for
+// this delivery date? — because the picker is a guide while she sells, never a
+// gate: she bakes to a plan of her own, so a product the shop has no orders for
+// is still one she may sell from the fridge or to a walk-in. So a sold-out item
+// and a not-sold-this-day item are one bucket ("Unavailable"), not two: they are
+// both active products she can still choose.
+//
+// The shop's order-by deadline (a product's closeDays) is deliberately NOT
+// asked. That deadline stops a stranger ordering; it says nothing about what she
+// may sell by hand, and counting it would leave a near delivery date with an
+// empty "On the shop" section, which is the opposite of a guide.
+//
+// (She settled this on 18 Sep 2026 — "say everyday the kitchen will produce 12
+// focaccia, but day before 6pm order will closed but not necessarily the 12 will
+// be sell off... what bakers want is some guide when she sell the product.
+// Flexible but not too much.")
 export function productOptions(state, dateId, excludeOrderId = null) {
+  const dateStr = (state.deliveryDates || []).find((d) => d.id === dateId)?.date;
   // Drafts are never for sale yet, so they have no orders — keep them out of
   // the backoffice picker too. Hidden products stay (marked below) so an order
   // for something temporarily off the menu can still be added or edited.
   return state.products
     .filter((p) => p.draft !== true)
     .map((p) => {
-      const pr = productRemaining(state, dateId, p.id, excludeOrderId);
-      let label = pr ? `${p.name} — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : p.name;
       const hidden = p.active === false;
-      if (hidden) label += " (hidden)";
-      // Taken down outranks sold out: a hidden product is off the menu whatever
-      // its count for the day says.
-      const tone = hidden ? "off" : (pr && pr.remaining <= 0 ? "warn" : "ok");
+      // Taken down outranks both others: a hidden product is off the menu
+      // whatever its sell days or its count for the day say.
+      if (hidden) {
+        const pr = productRemaining(state, dateId, p.id, excludeOrderId);
+        const count = pr ? ` — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : "";
+        return { value: p.id, label: `${p.name}${count} (hidden)`, tone: "off", group: TONE_SECTION.off };
+      }
+      // A product the shop does not sell on this date is never offered for it,
+      // so its count for the day means nothing here — name the days it IS sold
+      // instead. Ask this BEFORE the count: an off-day product's remaining can
+      // read 0, which would mislabel it "sold out".
+      if (!sellOpen(p, dateStr)) {
+        return { value: p.id, label: `${p.name} — only ${availSummary(p)}`,
+          tone: "warn", group: TONE_SECTION.warn };
+      }
+      const pr = productRemaining(state, dateId, p.id, excludeOrderId);
+      const label = pr ? `${p.name} — ${pr.remaining <= 0 ? "sold out" : `${pr.remaining} left`}` : p.name;
+      const tone = pr && pr.remaining <= 0 ? "warn" : "ok";
       return { value: p.id, label, tone, group: TONE_SECTION[tone] };
     })
     .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
