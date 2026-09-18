@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v119)
+# Jienluv2bake — change history (v54 → v120)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Sep 2026 — engine v120 (no database setup needed). One customer is one row. The app now
+recognises a phone number by its digits, so the same person can no longer appear twice just because
+their number was written with a + in front of it — and the duplicate already in your app joins
+itself into one the first time you open it after updating.**
+
+**What was wrong.** A customer used to be identified by their number written in exactly the same way
+every time. So **+60123456789** and **60123456789** looked like two different people, and the
+Customers list showed the same customer twice. Your messages always went to the right person — only
+the list disagreed. Numbers are now read by their digits, which means **012-345 6789**,
+**+60 12-345 6789** and **60123456789** are one person, the same way "012345" already found
+"012-345" in the finder.
+
+**It tidies itself once.** The first time you open the app after updating, it joins any customer who
+was split this way, carrying their dog's name and photo, what they like and avoid, and their note
+across to the one that remains. There is nothing to do — you will simply find one row where there
+were two. If you are the careful sort, take a cloud backup first from **More → Backups**: that is the
+way back if anything looks wrong, and it costs one tap.
+
+**New: "Join with another customer".** Open a customer's history and you will find the button under
+their number. Tap it, pick the duplicate from the list, and confirm. Reach for it when two rows are
+split for some other reason — a misspelt name with no number beside it, say — which the tidy above
+cannot guess at. It moves the other person's orders under the name and number of the customer you
+were looking at, so open the row you want to KEEP. This one cannot be undone inside the app; your
+cloud backup is the way back, and the confirm box says so before it acts.
+
+**Two things worth knowing.** Update both phones — a phone still on v119 can save a number the old
+way from its Profile card, and only the updated build does the tidy. And on the Profile card itself,
+the number you type is now stored in the one form every label, message and link already uses, so a
+"+" or a space can never split a customer again.
+
+Nothing else changed — your prices, your delivery dates, the shop and the way messages are written
+are all exactly as they were.
 
 **18 Sep 2026 — engine v119 (no database setup needed). Start typing a customer's name in an
 order form and the people you have already served appear underneath — tap one and their name and

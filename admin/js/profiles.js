@@ -13,7 +13,7 @@
 // is a re-key AND a rewrite: applyContact writes the new details onto every one
 // of their orders in the same step, so the profile can never drift off them.
 
-import { keyOf } from "./customers.js";
+import { keyOf, phoneDigits } from "./customers.js";
 import { newId, save, waNumber } from "./state.js";
 
 // The saved profile for a derived row (by its _key), or null.
@@ -68,6 +68,134 @@ function mergeDuplicateProfiles(state, base) {
   }
   const i = list.indexOf(clash);
   if (i >= 0) list.splice(i, 1);
+}
+
+// When the baker last touched a record, by the same authority customerRowName
+// uses to pick between a disagreeing card and order.
+function touchedAt(p) {
+  return Date.parse((p && (p.orderEditAt || p.updatedAt)) || "") || 0;
+}
+
+// Fill every blank on `base` from `other` — the contact details included. This
+// is NOT mergeDuplicateProfiles: that one deliberately keeps the contact the
+// baker just typed, because a hand edit must win. Here neither record was just
+// edited by anyone, so the only rule that cannot lose her knowledge is "never
+// throw away a value only one of them has".
+function foldProfileInto(base, other) {
+  for (const f of ["name", "whatsapp", "dogName", "dogPhoto", "likes", "avoid", "notes"]) {
+    if (!base[f] && other[f]) base[f] = other[f];
+  }
+  if (other.createdAt && (!base.createdAt || other.createdAt < base.createdAt)) {
+    base.createdAt = other.createdAt;
+  }
+}
+
+// Fold every group of profiles that now share one key down to a single record.
+// Grouped up front rather than walking the list, so removing a record can never
+// shift an index out from under the loop.
+function collapseByKey(list) {
+  const groups = new Map();
+  for (const p of list) {
+    if (!p || !p.key) continue;
+    if (!groups.has(p.key)) groups.set(p.key, []);
+    groups.get(p.key).push(p);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    // Keep the most recently touched record — its name is the one already on
+    // screen, so the person she sees does not change identity under her.
+    group.sort((a, b) => touchedAt(b) - touchedAt(a));
+    const keep = group[0];
+    for (const other of group.slice(1)) {
+      foldProfileInto(keep, other);
+      const i = list.indexOf(other);
+      if (i >= 0) list.splice(i, 1);
+    }
+  }
+}
+
+// One-time catch-up (v120). Until now a person was identified by their number's
+// exact spelling, so a profile saved as "+60123456789" and one saved as
+// "60123456789" were two people and the Customers list showed them twice. Bring
+// the whole book onto the digits rule once: re-key each saved record, fold the
+// ones that collapse together (keeping dog photos, likes and notes), and write
+// the canonical number onto the orders so what is displayed matches what is
+// dialled. Idempotent — a second run changes nothing, which the sync layer
+// depends on. Returns how many values moved.
+export function canonicaliseCustomers(state) {
+  let moved = 0;
+  const list = Array.isArray(state.customers) ? state.customers : [];
+  for (const p of list) {
+    if (!p || typeof p !== "object") continue;
+    // The record's OWN number must be canonical too, not just its key: the card
+    // seeds its box from this value, and a raw one left here would be written
+    // back onto the orders on her next save.
+    const digits = phoneDigits(p.whatsapp);
+    if (digits && digits !== p.whatsapp) { p.whatsapp = digits; moved++; }
+    const next = keyOf({ whatsapp: p.whatsapp, customerName: p.name, id: p.id });
+    if (next && p.key !== next) { p.key = next; moved++; }
+  }
+  collapseByKey(list);
+  for (const o of state.orders || []) {
+    if (!o || typeof o !== "object") continue;
+    const digits = phoneDigits(o.whatsapp);
+    if (digits && digits !== o.whatsapp) { o.whatsapp = digits; moved++; }
+  }
+  return moved;
+}
+
+// Join two records the baker has told us are one person. `keepKey` is the row
+// she opened (the one that stays), `absorbKey` is the duplicate she picked. The
+// absorbed person's orders are rewritten onto the kept contact, so they stop
+// being a separate row — that is the whole point, and it is not reversible from
+// inside the app.
+//
+// The kept contact is filled from the absorbed one's blanks first: joining a
+// person saved by name only with a numbered duplicate would otherwise take the
+// name but not the number, and leave them split anyway.
+export function mergeCustomers(state, keepKey, absorbKey) {
+  const keep = String(keepKey || "").trim();
+  const absorb = String(absorbKey || "").trim();
+  if (!keep || !absorb || keep === absorb) return null;
+
+  const keepProf = profileFor(state, keep);
+  const absorbProf = profileFor(state, absorb);
+  const keepHeld = contactOnOrders(state, keep);
+  const absorbHeld = contactOnOrders(state, absorb);
+
+  const name = String((keepProf && keepProf.name) || "").trim() || keepHeld.name
+    || String((absorbProf && absorbProf.name) || "").trim() || absorbHeld.name;
+  const whatsapp = String((keepProf && keepProf.whatsapp) || "").trim() || keepHeld.whatsapp
+    || String((absorbProf && absorbProf.whatsapp) || "").trim() || absorbHeld.whatsapp;
+
+  // Moves the absorbed person's orders under the kept details, and re-points any
+  // referral credit their number was holding.
+  const contact = applyContact(state, absorb, { name, whatsapp });
+
+  // The kept side's own orders can be keyed by their NAME — someone saved before
+  // they ever had a number. Writing the merged contact across only the absorbed
+  // orders would leave the two halves split, which is the bug this join exists
+  // to fix. A no-op whenever the kept orders already carry these details.
+  applyContact(state, keep, { name: contact.name, whatsapp: contact.whatsapp });
+
+  if (keepProf && absorbProf) {
+    foldProfileInto(keepProf, absorbProf);
+    const i = (state.customers || []).indexOf(absorbProf);
+    if (i >= 0) state.customers.splice(i, 1);
+  }
+  // One saved record survives, under the kept key — and if only the absorbed
+  // side had one, it becomes the kept person's rather than going in the bin with
+  // their dog photo.
+  const prof = keepProf || absorbProf;
+  if (prof) {
+    prof.key = contact.newKey || keep;
+    prof.name = contact.name;
+    prof.whatsapp = contact.whatsapp;
+    prof.updatedAt = new Date().toISOString();
+    prof.orderEditAt = prof.updatedAt;
+  }
+  save(state);
+  return prof;
 }
 
 // The write-through in action: take the details the baker typed, resolve them
