@@ -522,7 +522,11 @@ export function renderSettings(root, state) {
           button("Load sample data", () => loadSample(state), "soft")))
     : null;
 
-  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard, sampleCard);
+  // The sample-data card is optional — replaceChildren is not el(), and would
+  // print a literal "null" at the foot of Settings for every owner who has any
+  // product or ingredient, so it is spread only when it exists (19 Sep 2026).
+  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard,
+    ...(sampleCard ? [sampleCard] : []));
 
   function doImport(e) {
     const file = e.target.files && e.target.files[0];

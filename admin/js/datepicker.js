@@ -114,15 +114,20 @@ function build({ value, format, today, lo, hi, onPick, placeholder, todayShortcu
     const next = button("›", () => nav(1), "ghost small cal-nav");
     if (!before(lo, shown)) prev.disabled = true;
     if (!before(shown, hi)) next.disabled = true;
+    // The Today shortcut is optional, and replaceChildren is not el(): an absent
+    // one would print a literal "null" under the calendar, so it is filtered out
+    // rather than passed as null (19 Sep 2026).
     panel.replaceChildren(
       el("div", { class: "cal-head" },
         prev,
         el("span", { class: "cal-title" }, monthLabel(shown.year, shown.month)),
         next),
       gridEl(shown, { selected: current, today, onPick: choose, occasions }),
-      todayShortcut
-        ? el("div", { class: "datepick-foot" }, button("Today", () => choose(today), "ghost small"))
-        : null);
+      ...[
+        todayShortcut
+          ? el("div", { class: "datepick-foot" }, button("Today", () => choose(today), "ghost small"))
+          : null,
+      ].filter(Boolean));
   }
 
   paint();

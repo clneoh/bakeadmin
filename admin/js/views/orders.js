@@ -896,16 +896,22 @@ export function openDayAdjustPopup(state, date, refresh) {
     }
 
     const cap = capacityStatus(state, date.id);
+    // replaceChildren is not el(): it stringifies a null argument into a visible
+    // "null" text node rather than dropping it, so an absent line is filtered out
+    // here (19 Sep 2026 — it printed between the total and "Booked so far"
+    // whenever every product on sale that day was counted).
     sumEl.replaceChildren(
       el("div", { class: "cost-sum" },
         el("p", { class: "cost-sum-title" }, "How the day adds up:"),
         grid),
-      off.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
-        `Not counted: ${off.map((p) => p.name).join(", ")} — not sold on this day, so no order can go on them here.`) : null,
-      el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        cap.total >= total
-          ? `Booked so far: ${cap.total} — the order page shows this day full.`
-          : `Booked so far: ${cap.total}. The order page can still take ${total - cap.total}.`));
+      ...[
+        off.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
+          `Not counted: ${off.map((p) => p.name).join(", ")} — not sold on this day, so no order can go on them here.`) : null,
+        el("p", { class: "card-sub", style: "margin:6px 0 0" },
+          cap.total >= total
+            ? `Booked so far: ${cap.total} — the order page shows this day full.`
+            : `Booked so far: ${cap.total}. The order page can still take ${total - cap.total}.`),
+      ].filter(Boolean));
   };
 
   showPopup(el("div", { class: "popup-title-row" }, "Availability for this day"), (refreshBody, close) => {
@@ -1066,8 +1072,6 @@ function moneyLine(state, dateId) {
   return bits.length ? el("p", { class: "card-sub money-line" }, bits.join(" · ")) : null;
 }
 
-// The manual "＋ Add order" card, always at the top of a delivery date. Takes
-// several items at once — they become ONE customer order (a shared group), the
 // Typing a customer's name in either order form offers the people she has already
 // served, drawn from her own order history — the same list the Customers screen
 // shows. A tap fills the name and the number; the delivery day, the items and
@@ -1129,6 +1133,8 @@ function suggestionSub(row) {
   ].filter(Boolean).join(" · ");
 }
 
+// The manual "＋ Add order" card, always at the top of a delivery date. Takes
+// several items at once — they become ONE customer order (a shared group), the
 // same shape a multi-item storefront order arrives as, so the list/inbox/confirm
 // all treat it as a single order. Editing an order never replaces this card:
 // Edit opens a pop-up over the screen instead.

@@ -378,6 +378,17 @@ test("mergeStorefront sorts occasions by start date and trims the label", () => 
   assert.deepEqual(out.occasions.map((o) => o.from), ["2026-09-16", "2026-10-31"]);
 });
 
+// PostgREST returns ONLY the columns named in `select`, and a stub that answers
+// with the whole row regardless is exactly how a missing column hides: the card
+// draws a field the real server would never have sent. Every track stub goes
+// through this so the column list is part of what is being tested (19 Sep 2026).
+const onlySelected = (url, row) => {
+  const sel = /[?&]select=([^&]*)/.exec(String(url))?.[1];
+  if (!sel || sel === "*") return row;
+  const keep = decodeURIComponent(sel).split(",").map((s) => s.trim());
+  return Object.fromEntries(Object.entries(row).filter(([k]) => keep.includes(k)));
+};
+
 test("trackOrder re-fetches and re-renders every lookup (never stale)", async () => {
   const box = document.getElementById("track-result");
   const urls = [];
@@ -397,6 +408,8 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
     assert.equal(urls[1].opts.cache, "no-store");
     assert.ok(String(urls[0].url).includes("confirmed_sent,paid_received"),
       "the lookup fetches the stage flags so the map matches the app's");
+    assert.ok(/[?&]select=[^&]*\btracking_no\b/.test(String(urls[0].url)),
+      "and asks for tracking_no by name — PostgREST sends only the columns listed, so a number the baker typed is invisible to the card until this names it");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
@@ -621,10 +634,14 @@ const byExactClass = (box, name) =>
 
 test("a posted order shows the courier's tracking number", async () => {
   const box = document.getElementById("track-result");
-  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+  // Selected exactly like the real server, so dropping tracking_no from the
+  // lookup's select list fails here rather than passing on a stub that hands
+  // back every column.
+  const posted = {
     status: "delivered", delivery: "9 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×1",
     total: "RM15.00", customer: "Ain", tracking_no: "JT123456789",
-  }] });
+  };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
   try {
     await trackOrder("A3F9C2");
     const no = byExactClass(box, "track-no");

@@ -1354,8 +1354,13 @@ export async function trackOrder(code) {
     // cache: no-store so a repeated lookup (e.g. re-checking the same order
     // after the baker updates it) always gets the current status, never a
     // cached one from the phone's HTTP cache.
+    //
+    // PostgREST returns ONLY the columns named in `select`, and paintTrack draws
+    // the courier's number — so tracking_no has to be asked for here or the
+    // customer's half of v97/v98 is dead: the row carries the column, the card
+    // just never receives it (19 Sep 2026).
     const res = await fetch(
-      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,updated_at&code=eq.${clean}&limit=1`,
+      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,updated_at&code=eq.${clean}&limit=1`,
       { headers: { apikey: sb.anonKey }, cache: "no-store" });
     const rows = res.ok ? await res.json() : null;
     const row = Array.isArray(rows) && rows[0];
