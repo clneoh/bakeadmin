@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v132)
+# Jienluv2bake — change history (v54 → v133)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**20 Sep 2026 — engine v133 (no database step). The Production line now counts the whole bake
+day, not three jobs of it: weighing in and loading the mixer, weighing the dough out into pans
+and cooling and packing each have their own box to time, and any job you have not timed is
+named on the screen rather than quietly counted as free.**
+
+**What you asked.** "no time alocation for handling the mixer? and weighing the dough, no other
+process that need manpower, or should still need some resources?" You were right, and it was a
+real hole in the screen. It was timing three jobs - wash oil and fill, dimple and top, and the
+oven swap - and treating those three as the whole day's work. The mixing, the weighing out and
+the packing were not in the arithmetic at all, so the day it promised you was a day nobody
+could actually have delivered. Worse, the plan I wrote for this screen had named cooling and
+packing; the screen I built dropped it.
+
+**What changed.** "The rest of the kitchen work" is a new card on the Production line with
+three more boxes to time, the same shape as the three you already timed: weighing in and
+loading the mixer, weighing the dough out into pans, and cooling and packing. The list of jobs
+now reads all six, each with its minutes a pan or the words "not timed", and every pair of
+hands is placed against all six and not just three.
+
+**A job you have not timed is named, never assumed free.** Leaving a box blank is allowed -
+you may already have that time inside your wash, oil and fill figure, and there is a line under
+the box saying so. But a blank box does not silently count as nothing: the screen lists the
+jobs still untimed and tells you plainly that the day above looks longer than it really is
+until you time them. A time with nowhere to go - minutes on the mixer but no batch size for it
+to spread over - is treated the same way, rather than being divided by nothing.
+
+**The mixer is timed per mix, not per pan.** Its minutes are spread over the batch it makes,
+because that is the honest reading and it means a bigger mixer really does cost you less work
+for every pan. Twenty minutes of weighing in is one seventh of a pan's work in a 25-pan mixer
+and half that in a 50-pan one.
+
+**And the answer changes when you time them.** This is the part worth knowing before you do.
+At your own numbers with the three new boxes filled in - 20 minutes a mix, 3 minutes to weigh
+out 6 pans, 12 minutes to cool and pack 6 - the whole day's hand-work is 8.3 minutes a pan, so
+one pair of hands does about 7.2 pans an hour instead of the 12 the screen used to claim. Five
+hours then makes **36 pans, not 60**. The wall moves too: it stops being the chiller and
+becomes your own hands. Every number on the screen is yours to correct, and the day figure
+moves the moment you type.
+
+**Nothing to set up, and no database step.** Open the app and the three new boxes are there,
+blank and waiting to be timed once.
 
 **19 Sep 2026 — engine v132 (no database step). Your customer's own track page now keeps up
 with the order: anything you change about an order reaches their page when you save it, and an

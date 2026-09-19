@@ -63,6 +63,12 @@ export function defaultState() {
         washMin6: 18,
         topMin6: 8,
         swapMin6: 4,
+        // The rest of the hand-work: 0 means she has not timed it yet, and the
+        // screen says which steps are still uncounted rather than pretending
+        // they are free. Her own numbers replace these as she measures them.
+        mixMin: 0,
+        scaleMin6: 0,
+        coolMin6: 0,
       },
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
       // The two lists the books are built from (16 Sep 2026). Empty means "the

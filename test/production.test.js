@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_PLAN, allocation, computeLine, usefulPeople,
+  DEFAULT_PLAN, allocation, computeLine, labourPerPanOf, usefulPeople,
 } from "../admin/js/production.js";
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
@@ -71,11 +71,21 @@ test("usefulPeople is where another pair of hands stops buying anything", () => 
 });
 
 test("the seats split by largest remainder, so a fraction of a person is never left over", () => {
-  const seats = (people) => allocation({ ...DEFAULT_PLAN, people }).map((j) => j.seats);
-  assert.deepEqual(seats(1), [1, 0, 0], "one pair does the lot, starting at the wash");
-  assert.deepEqual(seats(2), [1, 1, 0], "the second goes to the topping, the biggest remaining share");
-  assert.deepEqual(seats(3), [2, 1, 0], "the third goes back to the wash, which is the biggest single job");
-  assert.equal(seats(3).reduce((s, n) => s + n, 0), 3, "every pair is placed somewhere");
+  // Named rather than positional: with six jobs on the list an array of seats
+  // says nothing about who stands where.
+  const seats = (people) => Object.fromEntries(
+    allocation({ ...DEFAULT_PLAN, people }).map((j) => [j.key, j.seats]));
+  assert.deepEqual(seats(1),
+    { mix: 0, wash: 1, scale: 0, top: 0, swap: 0, cool: 0 },
+    "one pair does the lot, starting at the wash");
+  assert.deepEqual(seats(2),
+    { mix: 0, wash: 1, scale: 0, top: 1, swap: 0, cool: 0 },
+    "the second goes to the topping, the biggest remaining share");
+  assert.deepEqual(seats(3),
+    { mix: 0, wash: 2, scale: 0, top: 1, swap: 0, cool: 0 },
+    "the third goes back to the wash, which is the biggest single job");
+  const all = Object.values(seats(3));
+  assert.equal(all.reduce((s, n) => s + n, 0), 3, "every pair is placed somewhere");
 });
 
 test("an empty field or an unmeasured station is left out rather than breaking the line", () => {
@@ -93,4 +103,46 @@ test("a day bigger than one mix says how many mixes it takes", () => {
   assert.equal(r.mixes, 3, "60 pans from a 25-pan mixer is three mixes, at 25, 25 and 10");
   const small = computeLine({ ...DEFAULT_PLAN, trays: 60, mixerPans: 100 });
   assert.equal(small.mixes, 1, "and a mixer that covers the day is never mentioned");
+});
+
+// The rest of the kitchen work (20 Sep 2026). She pointed out the line was only
+// counting three jobs — nothing for weighing in the mixer, nothing for weighing
+// the dough out, nothing for cooling and packing. These tests hold the shape of
+// the fix: an untimed step is NAMED, never silently counted as free.
+
+test("a step she has not timed is named, not counted as free", () => {
+  const r = computeLine(DEFAULT_PLAN);
+  assert.deepEqual(r.unmeasured,
+    ["Weighing in and loading the mixer", "Weighing the dough out into pans", "Cooling and packing"],
+    "the three steps with no minutes on them are reported, by name");
+  near(r.labourPerPan, 5, "and they add nothing to the work until she times them");
+});
+
+test("once the missing steps are timed they slow the hands down and shorten the day", () => {
+  const timed = { ...DEFAULT_PLAN, trays: 60, mixMin: 20, scaleMin6: 3, coolMin6: 12 };
+  const r = computeLine(timed);
+  // 20 min a mix over 25 pans is 0.8, plus 0.5 for scaling and 2.0 for packing,
+  // on top of the 5 minutes of washing, topping and swapping.
+  near(r.labourPerPan, 8.3, "the whole day's hand-work, per pan");
+  assert.deepEqual(r.unmeasured, [], "nothing is left untimed");
+  near(stationOf(r, "hands").rate, 7.23, "one pair now does about 7.2 pans an hour, not 12");
+  assert.equal(r.bottleneck.key, "hands", "so the hands, not the chiller, are the wall");
+  // The figure she asked about: the day she hoped to make in five hours.
+  assert.equal(r.dayCapacity, 36, "five hours now makes 36 pans, not the 60 she wants");
+});
+
+test("the mixer's minutes are spread over the mix, so a bigger mixer is less work a pan", () => {
+  const small = { ...DEFAULT_PLAN, mixMin: 20, mixerPans: 25 };
+  const big = { ...DEFAULT_PLAN, mixMin: 20, mixerPans: 50 };
+  assert.ok(labourPerPanOf(big) < labourPerPanOf(small),
+    "the same 20 minutes of weighing in costs half as much labour over twice the dough");
+  near(labourPerPanOf(small), 5.8, "20 minutes over a 25-pan mix, on top of the 5 minutes a pan");
+  near(labourPerPanOf(big), 5.4, "the same work over a 50-pan mix");
+});
+
+test("a mixer with no size set cannot spread its time, and says so rather than dividing by zero", () => {
+  const r = computeLine({ ...DEFAULT_PLAN, mixMin: 20, mixerPans: 0 });
+  near(r.labourPerPan, 5, "with no batch to spread it over, the mixing time counts for nothing");
+  assert.ok(r.unmeasured.includes("Weighing in and loading the mixer"),
+    "and the step is reported as untimed, because a time with nowhere to go is not a measurement");
 });

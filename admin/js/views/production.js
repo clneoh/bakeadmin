@@ -54,6 +54,17 @@ const GROUPS = [
       { key: "swapMin6", label: "Take 6 out and put 6 in", step: 1 },
     ],
   },
+  {
+    title: "The rest of the kitchen work",
+    sub: "The hand-work around the bake. Left blank until you have timed it — a blank step is named below rather than counted as free.",
+    fields: [
+      { key: "mixMin", label: "Weighing in and loading one mix", step: 1, optional: true,
+        hint: "For one whole mix — the pans your mixer makes at once. It is spread over that whole batch, so a bigger mix costs less work per pan." },
+      { key: "scaleMin6", label: "Weighing the dough out into 6 pans", step: 1, optional: true,
+        hint: "If this is already inside your wash, oil and fill time above, leave it blank so the same minutes are not counted twice." },
+      { key: "coolMin6", label: "Cooling and packing 6 pans", step: 1, optional: true },
+    ],
+  },
 ];
 
 export function renderProduction(root, state) {
@@ -68,11 +79,16 @@ export function renderProduction(root, state) {
     readout.replaceChildren(...blocks(state, plan));
   };
 
-  const onEdit = (key, raw) => {
+  const onEdit = (key, raw, optional) => {
     const n = Number(raw);
     // A cleared field is mid-typing, not a request for zero pans: hold the last
     // good number rather than storing a 0 the whole screen would have to explain.
-    if (Number.isFinite(n) && n > 0) {
+    // The steps she has yet to time are the exception — for those, blank and 0
+    // both mean "not measured", which is a real answer the screen reports on.
+    if (optional && (raw === "" || n === 0)) {
+      plan[key] = 0;
+      save(state);
+    } else if (Number.isFinite(n) && n > 0) {
       plan[key] = n;
       save(state);
     }
@@ -99,10 +115,12 @@ function groupCard(group, plan, onEdit) {
 function fieldRow(f, plan, onEdit) {
   const input = el("input", {
     class: "input", type: "number", inputmode: "decimal",
-    min: "1", step: String(f.step || 1),
-    value: plan[f.key] == null ? "" : String(plan[f.key]),
+    min: f.optional ? "0" : "1", step: String(f.step || 1),
+    // An untimed step stores a real 0, which is the same thing as blank on screen.
+    value: plan[f.key] == null || (f.optional && plan[f.key] === 0)
+      ? "" : String(plan[f.key]),
   });
-  input.addEventListener("input", () => onEdit(f.key, input.value));
+  input.addEventListener("input", () => onEdit(f.key, input.value, f.optional));
   return el("div", { class: "field" },
     el("label", {}, f.label),
     input,
@@ -195,7 +213,7 @@ function bottleneckWhy(r) {
     return `The chiller holds ${trim(p.trays)} trays of dough, and one tray is one pan. Nothing else you change can push past that.`;
   }
   if (r.bottleneck.key === "hands") {
-    return `That is ${trim(r.labourPerPan)} minutes of work for every pan — washing, oiling, filling, topping and swapping — shared between ${trim(p.people)} ${p.people === 1 ? "pair of hands" : "pairs of hands"}.`;
+    return `That is ${trim(r.labourPerPan)} minutes of hand-work for every pan, shared between ${trim(p.people)} ${p.people === 1 ? "pair of hands" : "pairs of hands"}.`;
   }
   if (r.bottleneck.key === "oven") {
     return `The oven bakes ${trim(p.ovenPans)} pans every ${trim(p.ovenMin)} minutes, and only one bake fits at a time.`;
@@ -217,32 +235,43 @@ function handsCard(r) {
       el("b", {}, `${people} pairs of hands is more than this line can use.`)));
     kids.push(el("p", { class: "card-sub", style: "margin:0" },
       `Past ${can} ${can === 1 ? "pair" : "pairs"}, a new person has nothing to do but wait, because ${lower(r.bottleneck.name)} ${be(r.bottleneck)} what's holding you back. Fix that first — then the extra hands are worth having.`));
-    return el("div", {}, el("h2", { class: "section" }, "Your hands"), el("div", { class: "card" }, ...kids));
-  }
-
-  if (people <= 1) {
+  } else if (people <= 1) {
     kids.push(el("p", { style: "margin:0 0 6px" },
-      `One pair of hands has nobody to share with, so you do all three jobs in turn — about ${trim(r.labourPerPan)} minutes of work for every pan.`));
+      `One pair of hands has nobody to share with, so you do every job in turn — about ${trim(r.labourPerPan)} minutes of work for every pan.`));
     kids.push(el("p", { class: "card-sub", style: "margin:0" },
-      "The three jobs, and what each one costs you per pan:"));
+      "The jobs, and what each one costs you per pan:"));
     kids.push(jobList(r));
     kids.push(el("p", { class: "card-sub", style: "margin:8px 0 0" },
       `That is what sets your ${trim(r.handsRate)} pans an hour — the work is the pace, not the oven.`));
-    return el("div", {}, el("h2", { class: "section" }, "Your hands"), el("div", { class: "card" }, ...kids));
+  } else {
+    const posts = r.allocation.filter((j) => j.seats > 0);
+    const floaters = r.allocation.filter((j) => j.seats === 0);
+    kids.push(el("p", { style: "margin:0 0 6px" },
+      `Split ${people} pairs of hands by how much work each job is, and every job finishes at the same moment — that is the whole trick to balancing a line.`));
+    kids.push(el("p", { style: "margin:0 0 8px" },
+      el("b", {}, posts.map((j) => `${j.seats} on the ${j.short}`).join(", ")),
+      floaters.length
+        ? `, and the other ${floaters.length === 1 ? "job" : `${floaters.length} jobs`} between you — ${listWords(floaters.map((j) => j.short))}.`
+        : "."));
+    kids.push(jobList(r));
+    kids.push(el("p", { class: "card-sub", style: "margin:8px 0 0" },
+      `Balanced this way the line runs at ${trim(r.handsRate)} pans an hour.`));
   }
 
-  const posts = r.allocation.filter((j) => j.seats > 0);
-  const floaters = r.allocation.filter((j) => j.seats === 0);
-  kids.push(el("p", { style: "margin:0 0 6px" },
-    `Split ${people} pairs of hands by how much work each job is, and every job finishes at the same moment — that is the whole trick to balancing a line.`));
-  kids.push(el("p", { style: "margin:0 0 8px" },
-    el("b", {}, posts.map((j) => `${j.seats} on the ${lower(j.name)}`).join(", ")),
-    floaters.length
-      ? `, and whoever is free takes the ${floaters.map((j) => lower(j.name)).join(" and the ")}.`
-      : "."));
-  kids.push(jobList(r));
-  kids.push(el("p", { class: "card-sub", style: "margin:8px 0 0" },
-    `Balanced this way the line runs at ${trim(r.handsRate)} pans an hour.`));
+  // The honest caveat, whichever of the three cards above was drawn: a step she
+  // has not timed is costing her something real, and the day would be longer for
+  // it. Saying nothing would leave a figure on screen the line cannot deliver.
+  if (r.unmeasured.length) {
+    const n = r.unmeasured.length;
+    // The first name opens the sentence, so it keeps its capital and the rest
+    // follow as a list — "Weighing in…, weighing the dough out… and cooling…".
+    const names = r.unmeasured.map(lower);
+    names[0] = upper(names[0]);
+    kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
+      el("b", {}, `${listWords(names)} ${n === 1 ? "is" : "are"} not timed yet,`),
+      ` so ${n === 1 ? "it counts" : "they count"} as nothing and the day above looks longer than it really is. Time ${n === 1 ? "it" : "them"} once and type the minutes in.`));
+  }
+
   return el("div", {}, el("h2", { class: "section" }, "Your hands"), el("div", { class: "card" }, ...kids));
 }
 
@@ -250,7 +279,14 @@ function jobList(r) {
   return el("div", { class: "job-list" },
     ...r.allocation.map((j) => el("div", { class: "info-row journal-line" },
       el("span", { class: "j-what" }, j.name),
-      el("span", { class: "info-val" }, `${trim(j.perPan)} min a pan`))));
+      // A step she has not timed is not a free step, and must not read as one.
+      el("span", { class: "info-val" }, j.perPan > 0 ? `${trim(j.perPan)} min a pan` : "not timed"))));
+}
+
+// "a, b and c" — so a sentence naming three steps still reads as a sentence.
+function listWords(items) {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 // ── What to change ─────────────────────────────────────────────────────────
@@ -315,6 +351,10 @@ function leverRow(l, r, helps) {
 
 function lower(s) {
   return String(s || "").charAt(0).toLowerCase() + String(s || "").slice(1);
+}
+
+function upper(s) {
+  return String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
 }
 
 // Two of the four stations are plural — "Your hands", "Your pans" — so a

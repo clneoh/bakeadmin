@@ -28,7 +28,32 @@ export const DEFAULT_PLAN = {
   washMin6: 18,   // wash, oil and fill 6 pans
   topMin6: 8,     // dimple and top 6 pans
   swapMin6: 4,    // take 6 out and put 6 in
+  // The rest of the hand-work (20 Sep 2026). These are 0 until she times them,
+  // and 0 means NOT MEASURED, not "free": the screen names every untimed step
+  // rather than quietly promising a day the hands could not actually deliver.
+  mixMin: 0,      // weighing in and loading ONE mix — spread over the whole batch
+  scaleMin6: 0,   // weighing the dough out into 6 pans
+  coolMin6: 0,    // cooling and packing 6 pans
 };
+
+// The steps of the line that are hers to time.
+//
+// `per` says what the minutes are counted over, which is what lets the mixer's
+// time be spread across the batch it makes: a bigger mixer genuinely costs less
+// labour for every pan.
+//
+// `name` is the full label for the list of jobs; `short` is the same job as it
+// reads inside a sentence ("1 on the packing", "the rest — weighing in, scaling
+// out"), because a full label dropped into running prose turns a sentence into
+// a paragraph.
+export const LABOUR_STEPS = [
+  { key: "mixMin", job: "mix", name: "Weighing in and loading the mixer", short: "weighing in", per: "mix" },
+  { key: "washMin6", job: "wash", name: "Wash, oil and fill", short: "wash, oil and fill", per: 6 },
+  { key: "scaleMin6", job: "scale", name: "Weighing the dough out into pans", short: "scaling out", per: 6 },
+  { key: "topMin6", job: "top", name: "Dimple and top", short: "topping", per: 6 },
+  { key: "swapMin6", job: "swap", name: "The oven swap", short: "oven swap", per: 6 },
+  { key: "coolMin6", job: "cool", name: "Cooling and packing", short: "packing", per: 6 },
+];
 
 const num = (v, fallback = 0) => {
   const n = Number(v);
@@ -66,7 +91,39 @@ export function planOf(settingsProduction) {
     washMin6: atLeast(p.washMin6, 0, 0),
     topMin6: atLeast(p.topMin6, 0, 0),
     swapMin6: atLeast(p.swapMin6, 0, 0),
+    mixMin: atLeast(p.mixMin, 0, 0),
+    scaleMin6: atLeast(p.scaleMin6, 0, 0),
+    coolMin6: atLeast(p.coolMin6, 0, 0),
   };
+}
+
+// One step's claim on the day, in minutes for every pan.
+//
+// Five of the six steps are timed per 6 pans. The mixer is timed per MIX, so its
+// minutes are divided by the batch it makes — which is the honest reading, and
+// means a bigger mixer really does cost less labour for every pan.
+//
+// This is the ONE place that decides whether a step was measured at all: no
+// minutes on it, or no batch size to spread the minutes over, and it claims
+// nothing. unmeasuredSteps() reports exactly those, so a step can never quietly
+// count as free while the screen presents a day the line could not deliver.
+function stepMinutes(p, s) {
+  const mins = num(p[s.key]);
+  if (mins <= 0) return 0;
+  const pansPer = s.per === "mix" ? num(p.mixerPans) : s.per;
+  return pansPer > 0 ? mins / pansPer : 0;
+}
+
+// Minutes of hand-work for every pan, from every step she has timed.
+export function labourPerPanOf(plan) {
+  const p = planOf(plan);
+  return LABOUR_STEPS.reduce((sum, s) => sum + stepMinutes(p, s), 0);
+}
+
+// The steps she has not timed yet, by their plain names.
+export function unmeasuredSteps(plan) {
+  const p = planOf(plan);
+  return LABOUR_STEPS.filter((s) => stepMinutes(p, s) <= 0).map((s) => s.name);
 }
 
 // The four things that can hold the line back, each in pans per hour.
@@ -83,11 +140,7 @@ export function stations(plan) {
   const people = p.people;
   const hours = p.hours;
 
-  const labourPerPan =
-    (num(p.washMin6) / PANS_PER_TASK) +
-    (num(p.topMin6) / PANS_PER_TASK) +
-    (num(p.swapMin6) / PANS_PER_TASK);
-
+  const labourPerPan = labourPerPanOf(p);
   const handsRate = labourPerPan > 0 ? (people * 60) / labourPerPan : Infinity;
   const ovenRate = ratePerHour(p.ovenPans, p.ovenMin);
   const panRate = ratePerHour(p.pans, p.ovenMin);
@@ -97,7 +150,7 @@ export function stations(plan) {
   return [
     {
       key: "hands", icon: "👋", name: "Your hands", rate: handsRate, plural: true,
-      sub: `${people} ${people === 1 ? "pair of hands" : "pairs of hands"} · wash, oil, fill, top, oven swap`,
+      sub: `${people} ${people === 1 ? "pair of hands" : "pairs of hands"} · every hand-job, from weighing in to packing`,
     },
     {
       key: "chiller", icon: "🧊", name: "The chiller", rate: chillRate,
@@ -137,8 +190,7 @@ export function computeLine(settingsProduction) {
     .map((r) => r.rate);
   const otherRate = withoutHands.length ? Math.min(...withoutHands) : Infinity;
 
-  const labourPerPan =
-    (num(p.washMin6) + num(p.topMin6) + num(p.swapMin6)) / PANS_PER_TASK;
+  const labourPerPan = labourPerPanOf(p);
 
   return {
     plan: p,
@@ -158,6 +210,9 @@ export function computeLine(settingsProduction) {
     allocation: allocation(p),
     mixes: mixesFor(p, dayCapacity),
     levers: leversFor(p, dayCapacity),
+    // The steps not yet timed, so the screen can say the day looks faster than
+    // it is rather than quietly presenting a number it cannot stand behind.
+    unmeasured: unmeasuredSteps(p),
   };
 }
 
@@ -165,8 +220,7 @@ export function computeLine(settingsProduction) {
 // hands themselves. One more than this buys no pans.
 export function usefulPeople(plan, otherRate = null) {
   const p = planOf(plan);
-  const perPan =
-    (num(p.washMin6) + num(p.topMin6) + num(p.swapMin6)) / PANS_PER_TASK;
+  const perPan = labourPerPanOf(p);
   if (perPan <= 0) return 1;
   let ceil = otherRate;
   if (ceil == null) {
@@ -191,17 +245,21 @@ export function usefulPeople(plan, otherRate = null) {
 export function allocation(plan) {
   const p = planOf(plan);
   const people = Math.max(1, Math.round(num(p.people, 1)));
-  const jobs = [
-    { key: "wash", name: "Wash, oil and fill", mins: num(p.washMin6) },
-    { key: "top", name: "Dimple and top", mins: num(p.topMin6) },
-    { key: "swap", name: "The oven swap", mins: num(p.swapMin6) },
-  ];
-  const total = jobs.reduce((s, j) => s + j.mins, 0);
-  const seats = apportion(jobs.map((j) => j.mins), people);
+  // Built from the same list the model measures, so the jobs on screen and the
+  // jobs in the arithmetic can never drift apart. Each is weighed by its claim
+  // on the day — minutes a pan — and a step she has not timed claims nothing.
+  const jobs = LABOUR_STEPS.map((s) => ({
+    key: s.job,
+    name: s.name,
+    short: s.short,
+    mins: num(p[s.key]),
+    perPan: stepMinutes(p, s),
+  }));
+  const total = jobs.reduce((s, j) => s + j.perPan, 0);
+  const seats = apportion(jobs.map((j) => j.perPan), people);
   return jobs.map((j, i) => ({
     ...j,
-    share: total > 0 ? j.mins / total : 0,
-    perPan: j.mins / PANS_PER_TASK,
+    share: total > 0 ? j.perPan / total : 0,
     seats: seats[i],
   }));
 }
