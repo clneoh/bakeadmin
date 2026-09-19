@@ -120,6 +120,10 @@ const en = {
   trkFinal: "Collected / Shipped",
   trackingNo: "Tracking number: %1",
   courierCharge: "Courier charge: %1",
+  // The same charge when the courier collects it at the door: COD is the word
+  // Malaysians know for a parcel the receiver pays for, so it is kept, with what to
+  // do about it spelled out beside it (19 Sep 2026).
+  courierCod: "Courier charge: %1 - COD, pay the courier on delivery",
   nextBlockedBasket: "Your basket is for %1. To order for another day, choose it on the calendar above.",
 
   devBy: "Website by",
@@ -220,6 +224,7 @@ const zh = {
   trkFinal: "已取货 / 已寄出",
   trackingNo: "快递单号：%1",
   courierCharge: "快递费：%1",
+  courierCod: "快递费：%1 - 货到付款，收货时付给快递员",
   nextBlockedBasket: "你的购物袋是 %1 的。想订另一天，请在上面的日历选择。",
 
   devBy: "网站制作：",
@@ -320,6 +325,7 @@ const ms = {
   trkFinal: "Telah diambil / Telah dihantar",
   trackingNo: "Nombor penjejakan: %1",
   courierCharge: "Caj kurier: %1",
+  courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
   nextBlockedBasket: "Bakul anda untuk %1. Untuk hari lain, pilih pada kalendar di atas.",
 
   devBy: "Laman web oleh",

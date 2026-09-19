@@ -515,3 +515,245 @@ test("clearing the charge republishes the customer's card without it", async () 
   assert.equal(posts[0].courier_fee, null, "and it no longer names a charge");
   assert.equal(posts[0].total, "RM 30.00", "nor has it the charge inside the total");
 });
+
+// ── v128: Courier COD — the charge the courier collects at the door ─────────
+// "courier charges can be collect, that means customer pay courier upon collect"
+// (19 Sep 2026). Same charge, same customer bears it — settled at the door instead
+// of with the order. Two failures this section exists to catch: the same RM8 asked
+// for twice (the total), and switching ONLY the mode leaving the customer's card
+// quoting a figure that no longer holds.
+const COD_LABEL = "COD - the courier collects it on delivery";
+const codSelIn = (pop) => selWith(pop, COD_LABEL);
+// Which option a dropdown OPENS on. select() marks the choice with the `selected`
+// property rather than the node's value — the first paint happens before a browser
+// has settled which option that is (ui.js:71) — so the marked option is what the
+// customer's phone will actually show, and the only honest thing to assert on.
+const openedOn = (sel) =>
+  sel.children.filter((o) => o.selected).map((o) => o.children[0].text);
+
+test("how they settle the charge is asked only when the customer bears it", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  const { pop } = courierBox(st);
+  assert.equal(codSelIn(pop), undefined, "no charge yet, so there is nothing to settle");
+
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  assert.equal(codSelIn(pop), undefined, "and an amount on its own owns nobody — who bears it decides");
+
+  const mine = selWith(pop, "I paid it");
+  mine.value = "me";
+  mine._listeners.change[0]();
+  assert.equal(codSelIn(layers["popup-layer"]), undefined,
+    "a charge she paid has nothing for anyone to collect at the door");
+
+  const theirs = selWith(layers["popup-layer"], "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  const sel = codSelIn(layers["popup-layer"]);
+  assert.ok(sel, "now it asks how they settle it, on the same branch it asks how she paid hers");
+  assert.deepEqual(sel.children.map((o) => o.children[0].text), ["With their order (in the total)", COD_LABEL],
+    "two ways, and with the order is the first — the way every charge already recorded was settled");
+  assert.deepEqual(openedOn(sel), ["With their order (in the total)"],
+    "and it opens on the old behaviour rather than re-labelling a charge already recorded");
+});
+
+test("the box names what the courier collects, and keeps it out of the total she asks for", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  const { pop } = courierBox(st);
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  let pop2 = layers["popup-layer"];
+  assert.match(popText(pop2), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+    "with the order, the charge is inside what she asks for, exactly as v126 read it");
+
+  const sel = codSelIn(pop2);
+  sel.value = "cod";
+  sel._listeners.change[0]();
+  assert.match(popText(layers["popup-layer"]),
+    /The customer owes RM 30\.00 — items total RM 30\.00, plus RM 8\.00 collected by the courier on delivery/,
+    "COD: the bread is what she asks for, and the charge is named as the courier's to take — never added in, or she asks for the RM8 twice");
+});
+
+test("a COD charge is written onto every row of the order, and goes with the mode", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].groupId = "ordgabc123";
+  st.orders.push({ ...st.orders[0], id: "o2", qty: 1 }); // a second item of one order
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  let pop = layers["popup-layer"];
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  pop = layers["popup-layer"];
+  const sel = codSelIn(pop);
+  sel.value = "cod";
+  sel._listeners.change[0]();
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  for (const o of st.orders) {
+    assert.equal(o.courierFee, 8, "the charge belongs to the order, so every row carries it");
+    assert.equal(o.courierPaidBy, "customer");
+    assert.equal(o.courierCod, true, "and the mode belongs to the order too");
+  }
+  assert.equal((st.expenses || []).length, 0, "a COD charge never reaches her books either way it is settled");
+
+  // Back to with the order: the flag goes, because the charge is no longer collected.
+  const root3 = createEl("div");
+  renderOrders(root3, st, new URLSearchParams({ date: "d10" }));
+  buttonByText(root3, "Note / tracking")._listeners.click[0]();
+  let pop3 = layers["popup-layer"];
+  const back = codSelIn(pop3);
+  assert.deepEqual(openedOn(back), [COD_LABEL],
+    "the box opens on the mode she saved, not back on the default — a re-save must not quietly undo it");
+  back.value = "";
+  back._listeners.change[0]();
+  buttonByText(layers["popup-layer"], "Save")._listeners.click[0]();
+  for (const o of st.orders) {
+    assert.equal("courierCod" in o, false, "with the order again, so the flag is deleted rather than left behind");
+    assert.equal(o.courierFee, 8, "the charge itself is untouched — only how it is settled moved");
+  }
+});
+
+test("the row tag says COD, so she knows the courier takes it rather than looking in her tin", () => {
+  const st = charged();
+  st.orders[0].courierCod = true;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  assert.equal(rowTag(root).textContent, "Courier RM 8.00 · customer · COD",
+    "both halves the v127 tag kept, plus which way the money moves");
+});
+
+test("clearing the payer takes the COD flag with the rest of the charge", () => {
+  const st = charged();
+  st.orders[0].courierCod = true;
+  const { root, pop } = courierBox(st);
+
+  const sel = selWith(pop, "The customer paid it");
+  sel.value = "";                      // back to "Not recorded"
+  sel._listeners.change[0]();
+  buttonByText(layers["popup-layer"], "Save")._listeners.click[0]();
+
+  assert.equal("courierFee" in st.orders[0], false, "a charge nobody owns is not a charge");
+  assert.equal("courierCod" in st.orders[0], false,
+    "and a COD flag on no charge would tell a customer the courier is collecting nothing");
+  assert.equal(rowTag(root), undefined, "so the row is left clean");
+});
+
+test("a charge she bore is never marked COD", () => {
+  // The flag is only ever true of a charge the CUSTOMER bears. Setting the payer to
+  // herself must take it with it, or a charge she has already paid would be read as
+  // one the courier is still going to collect.
+  const st = charged();
+  st.orders[0].courierCod = true;
+  const { pop } = courierBox(st);
+
+  const mine = selWith(pop, "I paid it");
+  mine.value = "me";
+  mine._listeners.change[0]();
+  buttonByText(layers["popup-layer"], "Save")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierPaidBy, "me");
+  assert.equal("courierCod" in st.orders[0], false, "her own charge has nothing for anyone to collect at the door");
+});
+
+test("an item swapped out through Edit leaves a COD charge on the order", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].courierCod = true;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  let pop = layers["popup-layer"];
+  all(pop).find((n) => String(n.className).includes("inbox-del"))._listeners.click[0](); // ✕ that item
+  pop = layers["popup-layer"];
+  buttonByText(pop, "＋ Add another item")._listeners.click[0]();
+  pop = layers["popup-layer"];
+  const prodSel = selWith(pop, "Product…");
+  prodSel.value = "p1";
+  prodSel._listeners.change[0]();
+  pop = layers["popup-layer"];
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierCod, true,
+    "Edit rewrites the whole row, so the mode rides along or editing quietly drops it");
+  assert.equal(st.orders[0].courierFee, 8);
+  assert.equal(st.orders[0].courierPaidBy, "customer");
+});
+
+test("switching only the mode republishes the customer's card", async () => {
+  // The trap: the charge itself does not move when she switches the mode, but the
+  // published TOTAL does, by the whole charge. A republish keyed only on the charge
+  // would leave the customer reading a total she is no longer asked for.
+  const st = charged();                 // RM8, the customer bears it, with the order
+  st.products[0].price = 15;            // 2 × RM15 of bread
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+  const { pop } = courierBox(st);
+
+  const sel = codSelIn(pop);
+  assert.ok(sel, "the box opens on the mode the charge is already settled in");
+  sel.value = "cod";
+  sel._listeners.change[0]();
+
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  try {
+    buttonByText(pop, "Save")._listeners.click[0]();
+    for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+  } finally { globalThis.fetch = real; }
+
+  assert.equal(posts.length, 1, "the card is republished even though the charge did not change");
+  assert.equal(posts[0].courier_cod, true, "carrying the flag the card needs to word the line");
+  assert.equal(posts[0].total, "RM 30.00", "and the total that no longer holds the charge");
+  assert.equal(posts[0].courier_fee, 8, "the RM8 is still named — the card tells them to pay the courier, not her");
+});
+
+test("saving an unchanged COD charge does not republish the card for nothing", async () => {
+  const st = charged();
+  st.orders[0].courierCod = true;
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+  const { pop } = courierBox(st);
+
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  try {
+    buttonByText(pop, "Save")._listeners.click[0]();
+    for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+  } finally { globalThis.fetch = real; }
+
+  assert.equal(posts.length, 0,
+    "nothing moved, so the customer's card is left alone — the mode is read before the loop, not after it");
+});

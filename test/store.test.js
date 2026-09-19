@@ -709,6 +709,52 @@ test("an order with no courier charge shows no charge line", async () => {
   }
 });
 
+// ── v128: the charge the courier collects at the door ───────────────────────
+test("a Courier COD charge tells the customer to pay the courier, not the baker", async () => {
+  const box = document.getElementById("track-result");
+  // The total the baker published is the items alone — the charge is the courier's
+  // to take at the door, so a card that added it in would ask for the same money twice.
+  const posted = {
+    status: "delivered", delivery: "9 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×1",
+    total: "RM15.00", customer: "Ain", tracking_no: "JT123456789",
+    courier_fee: 8, courier_cod: true,
+  };
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return { ok: true, json: async () => [onlySelected(url, posted)] };
+  };
+  try {
+    await trackOrder("A3F9C2");
+    assert.ok(/[?&]select=[^&]*\bcourier_cod\b/.test(urls[0]),
+      "the lookup names courier_cod — PostgREST sends only the columns listed, so the card can never know the charge is COD until this asks for it, and would word it as money owed to the baker");
+    const fee = deepByClass(box, "track-fee");
+    assert.ok(fee, "the charge is still named in full — the customer has to know what the courier will ask for");
+    assert.equal(fee.children[0].text, "Courier charge: RM8.00 - COD, pay the courier on delivery");
+    assert.equal(byExactClass(box, "track-note").children[0].text, "For Ain");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+test("a charge paid with the order still reads as the plain charge", async () => {
+  // The flag's absence is the old behaviour: nothing already published changes
+  // wording because this column appeared.
+  const box = document.getElementById("track-result");
+  const posted = {
+    status: "delivered", delivery: "9 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×1",
+    total: "RM23.00", customer: "Ain", courier_fee: 8,
+  };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
+  try {
+    await trackOrder("A3F9C2");
+    assert.equal(deepByClass(box, "track-fee").children[0].text, "Courier charge: RM8.00",
+      "no COD wording, and no flag sent — as every row published before this column existed");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
 test("a self-collect order shows no tracking line", async () => {
   const box = document.getElementById("track-result");
   globalThis.fetch = async () => ({ ok: true, json: async () => [{

@@ -8,7 +8,7 @@
 
 import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
-import { customerTotal } from "./courier.js";
+import { customerTotal, courierAddUp } from "./courier.js";
 
 function basics(state, group, trackUrl) {
   const orders = (group && group.orders) || [];
@@ -20,12 +20,13 @@ function basics(state, group, trackUrl) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} x${o.qty}`;
   }).join(", ");
-  // The customer's total, in its two parts: what they were sold, plus the courier's
-  // charge when THEY bear it — a charge the baker pays is her own cost and never
-  // reaches this number. One helper shared with the confirmation and the track card,
-  // so the three cannot quote different figures (19 Sep 2026).
-  const { items: itemsTotal, courier: courierFee, total: totalNum } = customerTotal(state, group);
-  const total = fmtRM(totalNum, state.settings.currency);
+  // The customer's total, in its parts: what they were sold, plus the courier's charge
+  // when THEY bear it — a charge the baker pays is her own cost and never reaches this
+  // number. One helper shared with the confirmation and the track card, so the three
+  // cannot quote different figures (19 Sep 2026). A COD charge is deliberately NOT in
+  // the total — the courier takes it at the door (19 Sep 2026).
+  const parts = customerTotal(state, group);
+  const total = fmtRM(parts.total, state.settings.currency);
   const del = byId(state.deliveryDates, first.deliveryDateId);
   const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
   const courier = first.fulfillment === "courier";
@@ -36,7 +37,10 @@ function basics(state, group, trackUrl) {
   // The courier's tracking number she typed on the order. Kept as typed (a
   // pasted number may carry spaces or dashes) — it goes to the customer verbatim.
   const trackingNo = String(first.trackingNo || "").trim();
-  return { first, recipient, items, itemsTotal, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, courierFee };
+  // The charge lines, built by the one helper the confirmation uses too, so the two
+  // messages word the charge identically. Empty when there is no charge at all.
+  const addUp = courierAddUp(state, parts);
+  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, addUp };
 }
 
 export function buildPaymentReminder(state, group, trackUrl) {
@@ -48,13 +52,10 @@ export function buildPaymentReminder(state, group, trackUrl) {
   msg += `Order #${orderCode(b.first)}\n`;
   msg += `Delivery: ${b.date} - ${b.fulfillment}\n`;
   msg += `Items: ${b.items}\n`;
-  // Shown as its two parts as well as the sum: the customer is being asked for money,
-  // and a figure that is RM8 more than the items they chose has to say so — and show
-  // them the RM8 (19 Sep 2026).
-  if (b.courierFee) {
-    msg += `Items total: ${fmtRM(b.itemsTotal, state.settings.currency)}\n`;
-    msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
-  }
+  // Shown as its parts as well as the sum: the customer is being asked for money, and a
+  // figure that is RM8 more than the items they chose has to say so — and show them the
+  // RM8 (19 Sep 2026). A COD charge is named here too, but outside the total below.
+  if (b.addUp.length) msg += `${b.addUp.join("\n")}\n`;
   msg += `Total: ${b.total}\n`;
   if (b.qr) {
     msg += `\nPay by TNG using the QR below:\n\n${b.qr}\n`;
@@ -84,9 +85,8 @@ export function buildShippedMessage(state, group, trackUrl) {
   // shows them, so the two never disagree (19 Sep 2026). The total follows it, because
   // a message that names a charge and then never says what the order now comes to
   // leaves the customer to do the arithmetic (19 Sep 2026).
-  if (b.courierFee) {
-    msg += `Items total: ${fmtRM(b.itemsTotal, state.settings.currency)}\n`;
-    msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
+  if (b.addUp.length) {
+    msg += `${b.addUp.join("\n")}\n`;
     msg += `Total: ${b.total}\n`;
   }
   msg += `\nTrack your order: ${b.trackUrl}`;

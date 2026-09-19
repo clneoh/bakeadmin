@@ -1201,3 +1201,46 @@ test("trackingSnapshot publishes the courier's tracking number, or null for none
   assert.equal(trackingSnapshot(state, order({})).tracking_no, null,
     "an order the baker never typed one on publishes null too");
 });
+
+// The charge the courier collects at the door (v128). The published row is what the
+// customer's card is built from, so what this asserts is the one thing that matters:
+// the total in the row is what the baker asks for, and a COD charge is not in it.
+// Both columns need their SQL run first — a column that does not exist makes the
+// upsert fail as a whole, and publishTracking swallows that silently.
+test("trackingSnapshot marks a Courier COD charge and keeps it out of the total", () => {
+  const state = makeState();
+  state.settings.currency = "RM";
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  const date = state.deliveryDates[0];
+  const order = (extra) => ({ orders: [{
+    id: "ord_1", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    fulfillment: "courier", status: "ready", createdAt: "2026-09-01T14:32:00",
+    courierFee: 8, courierPaidBy: "customer", ...extra,
+  }] });
+
+  const cod = trackingSnapshot(state, order({ courierCod: true }));
+  assert.equal(cod.courier_cod, true, "the flag the card reads to word the line as COD");
+  assert.equal(cod.courier_fee, 8, "the charge is still published in full, so the card can name it");
+  assert.equal(cod.total, "RM 30.00", "and the total the baker asks for is the bread alone");
+
+  const advance = trackingSnapshot(state, order({}));
+  assert.equal(advance.courier_cod, null,
+    "null for a charge with the order, so the card reads exactly as it did before this column existed");
+  assert.equal(advance.total, "RM 38.00");
+});
+
+test("trackingSnapshot publishes no COD flag for a charge the baker bore", () => {
+  const state = makeState();
+  state.settings.currency = "RM";
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  const date = state.deliveryDates[0];
+  const snap = trackingSnapshot(state, { orders: [{
+    id: "ord_1", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    fulfillment: "courier", status: "ready", createdAt: "2026-09-01T14:32:00",
+    courierFee: 8, courierPaidBy: "me", courierCod: true,
+  }] });
+
+  assert.equal(snap.courier_cod, null,
+    "a stray flag on a charge she paid must not tell the customer the courier is coming for money");
+  assert.equal(snap.courier_fee, null, "nor is her own cost published to them at all");
+});

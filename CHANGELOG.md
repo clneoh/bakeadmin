@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v127)
+# Jienluv2bake — change history (v54 → v128)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v128 (one database step — run supabase/courier_cod.sql BEFORE you
+deploy). A courier charge the customer bears can now be a Courier COD charge: the courier
+collects it at the door instead of it sitting in the total you ask for.**
+
+**What you told me.** "courier charges can be collect, that means customer pay courier upon
+collect." A charge the customer bears was always being added to the total you ask them for. That
+is right when they pay it with the order — but when the courier collects it at the door, asking
+for it by TNG as well means the same money is asked for twice, once by you and once by the
+courier.
+
+**What it does now. The Note / tracking box asks how they settle it.** Under **Who paid the
+courier**, answering **The customer paid it** now opens a third box, **How they pay it**, with
+two choices:
+
+- **With their order (in the total)** — the charge sits inside the total you ask for, exactly as
+  it always has. Nothing you have already recorded changes, because this is where that box
+  starts.
+- **COD - the courier collects it on delivery** — the charge comes out of the total you ask for,
+  and is named everywhere as payable to the courier when the order reaches them.
+
+**Nobody is asked for the same money twice.** The confirmation, the payment reminder and the
+shipped message all quote the items alone as the total, and name the charge underneath as COD
+with the instruction spelled out — "Courier charge: RM 8.00 - COD, pay the courier when your
+order reaches you". The customer's track card says the same. COD is the word the couriers
+themselves use for a parcel the receiver pays for; it is also called a reverse charge, but COD
+is what your customers will understand.
+
+**What you see.** The box tells you what the customer owes as you type, and it now reads
+differently for COD — "the customer owes RM 30.00 - items total RM 30.00, plus RM 8.00 collected
+by the courier on delivery" — so what you are asking for and what the courier is asking for are
+never confused. The Edit pop-up's order total follows the same rule. And the order's row is
+tagged **Courier RM 8.00 · customer · COD**, so you can see at a glance which charges the courier
+is collecting rather than looking for that money in your tin.
+
+**Your books are untouched, either way.** A charge the customer bears was already pass-through,
+and COD does not change that — it still never reaches your takings or **still to collect**. Only a
+charge you bore yourself becomes a Delivery & fuel expense, exactly as before.
+
+**One database step.** Run **supabase/courier_cod.sql** in the Supabase SQL editor BEFORE you
+deploy this build. The app publishes the whole tracking row in one call, so if that column does
+not exist yet the call is rejected as a whole and the customer's tracking page stops updating for
+EVERY order — not only the ones with a COD charge.
 
 **19 Sep 2026 — engine v127 (no database step this time). Deleting a courier charge really
 deletes it — the tag comes off the order and the charge leaves the customer's track card.**

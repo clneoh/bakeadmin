@@ -487,7 +487,11 @@ export function trackingSnapshot(state, group) {
   // THEY bear it; a charge the baker pays is her own cost and is not published here at
   // all (19 Sep 2026). The card shows the charge as its own line above this total — the
   // full add-up lives in their WhatsApp message, which is where they are asked for money.
-  const { courier: courierFee, total: totalNum } = customerTotal(state, group);
+  //
+  // A COD charge is published as its own column rather than folded in, because this
+  // total is what the card tells them the order comes to — and the courier is about to
+  // ask them for the charge at the door (19 Sep 2026).
+  const { courier: courierFee, cod: courierCod, total: totalNum } = customerTotal(state, group);
   const total = fmtRM(totalNum, state.settings.currency);
   return {
     code: orderCode(first),
@@ -500,7 +504,17 @@ export function trackingSnapshot(state, group) {
     // pays it, or there is no charge — and the card leaves the line out rather than
     // printing an empty label. NOTE: this column needs supabase/courier_fee.sql run
     // once, before this build is deployed (see that file).
-    courier_fee: courierFee || null,
+    //
+    // The WHOLE charge, whatever way it is settled: the card names it either way, and
+    // only the wording of the line changes with the flag below.
+    courier_fee: (courierFee + courierCod) || null,
+    // True when the courier collects the charge at the door rather than it being paid
+    // with the order — so the card says so instead of leaving them to wonder why the
+    // total is less than the charge. Null otherwise, and the line reads as before.
+    // NOTE: this column needs supabase/courier_cod.sql run once, before this build is
+    // deployed (see that file). A missing column kills publishing for EVERY order
+    // silently, because publishTracking swallows its errors.
+    courier_cod: courierCod > 0 ? true : null,
     delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}`,
     items,
     total,

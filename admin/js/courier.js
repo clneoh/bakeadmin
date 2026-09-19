@@ -18,9 +18,21 @@
 // feature — a customer's charge that both comes in and goes out is not profit, and
 // putting it in one side without the other would break her reconciliation.
 //
+// A customer-borne charge then splits again (19 Sep 2026), because it is not always
+// paid the same way: "courier charges can be collect, that means customer pay courier
+// upon collect". So it is either
+//
+//   • with the order — inside the total they are asked for, exactly as before, or
+//   • COD — handed to the courier at the door, so it must stay OUT of that total or
+//     the same RM8 is asked for twice, once by her and once by the courier.
+//
+// COD is her word for it, and Malaysia's: it is what EasyParcel, ABX, GDEX and DHL all
+// call a parcel the receiver pays for. The key is written only when the CUSTOMER bears
+// the charge — a charge she paid has nothing for anyone to collect at the door.
+//
 // Pure — no DOM, no fetch — so it runs under Node for tests.
 
-import { newId, orderCode, orderLinePrice } from "./state.js";
+import { newId, orderCode, orderLinePrice, fmtRM } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
 
@@ -41,16 +53,34 @@ export function courierPayerOf(first) {
   return who === "customer" || who === "me" ? who : "";
 }
 
+// Is this charge COD — handed to the courier at the door rather than paid with the
+// order? (19 Sep 2026.)
+//
+// The whole charge is required, not just the flag, for the same reason the row tag
+// needs both halves since v127: a lone courierCod on an order with no payer or no
+// amount says nothing about who owes what, and reading it as COD would take a charge
+// out of a total that never had one. Absent means "with the order" — the behaviour
+// every charge recorded before this existed already had, so nothing changes meaning.
+export function courierCodOf(first) {
+  return courierPayerOf(first) === "customer" && courierFeeOf(first) > 0
+    && !!(first && first.courierCod === true);
+}
+
 // What the customer owes on top of the items. Nothing unless they bear it — a
 // charge she pays is her own cost and must never turn up on their total.
 export function customerCourierFee(first) {
   return courierPayerOf(first) === "customer" ? courierFeeOf(first) : 0;
 }
 
-// The customer's total, in its two parts, so that everyone who shows it can show the
+// The customer's total, in its parts, so that everyone who shows it can show the
 // addition instead of a figure that appears from nowhere: "show the add up for rm72"
 // (19 Sep 2026). One source for the number the messages, the track card and the app
 // all quote, which is what makes them agree.
+//
+// Three parts once a charge can be COD: `courier` is the part INSIDE the advance
+// total, `cod` is the part paid to the courier at the door, and `total` — what they
+// are asked for now — is items + courier. A COD charge must never reach `total`, or
+// she asks for the RM8 and the courier asks for it again (19 Sep 2026).
 //
 // The items are counted at the price each line was SOLD at (orderLinePrice), exactly
 // as groupValue counts her takings — the two differ only by the customer's charge.
@@ -60,8 +90,27 @@ export function customerTotal(state, group) {
     const price = orderLinePrice(state, o);
     return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
   }, 0);
-  const courier = customerCourierFee(orders[0]);
-  return { items, courier, total: items + courier };
+  const charge = customerCourierFee(orders[0]);
+  const cod = courierCodOf(orders[0]) ? charge : 0;
+  const courier = charge - cod;
+  return { items, courier, cod, total: items + courier };
+}
+
+// The lines that name the charge and the sum it reaches, in ONE place so the
+// confirmation, the payment reminder and the shipped message cannot word it
+// differently — "And it should be the same for APP" (19 Sep 2026). The caller prints
+// each line on its own row; nothing here is tied to a screen.
+//
+// A COD charge says who is paid and when, in full words, because COD on its own
+// usually means paying for the GOODS at the door — here the goods are already paid
+// and only the charge is collected.
+export function courierAddUp(state, parts) {
+  const cur = state.settings.currency;
+  if (!parts.courier && !parts.cod) return [];
+  const charge = parts.cod
+    ? `Courier charge: ${fmtRM(parts.cod, cur)} - COD, pay the courier when your order reaches you`
+    : `Courier charge: ${fmtRM(parts.courier, cur)}`;
+  return [`Items total: ${fmtRM(parts.items, cur)}`, charge];
 }
 
 // Record the charge on the books. Called on save from the Note / tracking pop-up,

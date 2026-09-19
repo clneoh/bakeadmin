@@ -15,7 +15,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { applyCourierCharge, courierFeeOf, courierPayerOf, customerCourierFee } =
+const { applyCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, customerTotal } =
   await import("../admin/js/courier.js");
 const { groupValue, journalFor, moneyBetween } = await import("../admin/js/money.js");
 const { buildPaymentReminder, buildShippedMessage } = await import("../admin/js/messages.js");
@@ -299,4 +299,128 @@ test("a charge she bore is not published to the customer at all", () => {
   const snap = trackingSnapshot(st, groupOf(st));
   assert.equal(snap.total, "RM 30.00");
   assert.equal(snap.courier_fee, null, "null, and the card leaves the line out rather than printing it empty");
+});
+
+// ── Courier COD: the charge the courier collects at the door ───────────────
+//
+// "courier charges can be collect, that means customer pay courier upon collect"
+// (19 Sep 2026). Same charge, same customer bears it — settled differently. Every
+// test here exists to catch ONE failure: the same RM8 being asked for twice, once
+// by her TNG total and once by the courier at the door. So the total is the thing
+// under watch, in all three messages, in the app's own figures and on the track
+// card, not just in one of them.
+
+const codOrder = (st) => {
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].courierCod = true;
+  st.orders[0].whatsapp = "60123456789";
+  st.orders[0].fulfillment = "courier";
+  return groupOf(st);
+};
+
+test("COD is read the house way — a lone flag on no charge is not COD", () => {
+  assert.equal(courierCodOf({}), false, "no fields at all");
+  assert.equal(courierCodOf({ courierCod: true }), false,
+    "a flag with no amount or payer says nothing — reading it as COD would take a charge out of a total that never had one");
+  assert.equal(courierCodOf({ courierFee: 8, courierCod: true }), false, "no payer recorded");
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "me", courierCod: true }), false,
+    "a charge SHE paid has nothing for anyone to collect at the door");
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer" }), false,
+    "absent means with the order — the behaviour every charge recorded before this existed already had");
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: "true" }), false,
+    "only the boolean true counts; a truthy string is a stored accident, not a decision");
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: true }), true);
+});
+
+test("a COD charge is split OUT of the advance total, not folded into it", () => {
+  const st = state();
+  const parts = customerTotal(st, codOrder(st));
+  assert.deepEqual(parts, { items: 30, courier: 0, cod: 8, total: 30 },
+    "the charge is named in cod, and the total asks for the bread alone");
+});
+
+test("the same charge with the order still sits inside the total, exactly as before", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  assert.deepEqual(customerTotal(st, groupOf(st)), { items: 30, courier: 8, cod: 0, total: 38 },
+    "only the mode moved — with the order, the charge is in the total it was always in");
+});
+
+test("COD stays out of the total in all three messages, and is named as COD in each", () => {
+  const st = state();
+  const g = codOrder(st);
+  const messages = {
+    confirmation: buildConfirmation(st, g, "https://x/track").message,
+    reminder: buildPaymentReminder(st, g, "https://x/track").message,
+    shipped: buildShippedMessage(st, g, "https://x/track").message,
+  };
+  for (const [which, message] of Object.entries(messages)) {
+    assert.match(message, /Courier charge: RM 8\.00 - COD, pay the courier when your order reaches you/,
+      `the ${which} says who is paid and when — COD on its own reads as paying for the goods`);
+    const m = message.match(/Total: RM ([0-9.]+)/);
+    assert.ok(m, `the ${which} still quotes a total`);
+    assert.equal(Number(m[1]), 30,
+      `the ${which} asks for the bread alone — RM38 here is the RM8 asked for twice`);
+    assert.doesNotMatch(message, /Total: RM 38\.00/, `the ${which} must never quote the un-split figure`);
+  }
+});
+
+test("the COD charge is still shown in full, so the customer can add up what they hand over", () => {
+  const st = state();
+  const g = codOrder(st);
+  const message = buildConfirmation(st, g, "https://x/track").message;
+  const items = Number(message.match(/Items total: RM ([0-9.]+)/)[1]);
+  const cod = Number(message.match(/Courier charge: RM ([0-9.]+)/)[1]);
+  const total = Number(message.match(/Total: RM ([0-9.]+)/)[1]);
+  assert.equal(items, 30);
+  assert.equal(cod, 8, "the RM8 is not hidden — it is re-labelled, not removed");
+  assert.equal(total, items, "and the advance total is the items, which is what the reader can still check");
+  assert.equal(items + cod, 38, "what changes hands altogether is still bread + charge, whoever is paid");
+});
+
+test("an advance charge and a no-charge order are byte-identical to what v127 produced", () => {
+  const advance = state();
+  advance.orders[0].courierFee = 8;
+  advance.orders[0].courierPaidBy = "customer";
+  advance.orders[0].whatsapp = "60123456789";
+  advance.orders[0].fulfillment = "courier";
+  const msg = buildPaymentReminder(advance, groupOf(advance), "https://x/track").message;
+  assert.match(msg, /Items total: RM 30\.00\nCourier charge: RM 8\.00\nTotal: RM 38\.00\n/,
+    "the v126 lines, in the v126 order, with the v126 figures — the split added no line and moved none");
+
+  const none = state();
+  none.orders[0].whatsapp = "60123456789";
+  assert.doesNotMatch(buildPaymentReminder(none, groupOf(none), "https://x/track").message, /Items total/,
+    "and an order with no charge is not given an add-up it has nothing to add");
+});
+
+test("neither mode moves her takings — a COD charge is pass-through like any other", () => {
+  const st = state();
+  const plain = { value: groupValue(st, groupOf(st)), money: moneyBetween(st, "2026-09-01", "2026-09-30") };
+  const g = codOrder(st);
+
+  assert.equal(groupValue(st, g), plain.value, "the order is worth exactly what it was before");
+  assert.deepEqual(moneyBetween(st, "2026-09-01", "2026-09-30"), plain.money,
+    "counting a charge the courier collects would show her money she never keeps");
+});
+
+test("the published snapshot carries the flag, keeps the charge out of the total, and still names it", () => {
+  const st = state();
+  const snap = trackingSnapshot(st, codOrder(st));
+  assert.equal(snap.total, "RM 30.00", "the card quotes the same total the messages do");
+  assert.equal(snap.courier_cod, true, "the flag the card reads to word the line as COD");
+  assert.equal(snap.courier_fee, 8,
+    "and the whole charge is still published, so the card can name the RM8 it is telling them not to pay her");
+});
+
+test("a charge with the order publishes no COD flag, so nothing already recorded changes", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  const snap = trackingSnapshot(st, groupOf(st));
+  assert.equal(snap.total, "RM 38.00", "in the total, exactly as before this existed");
+  assert.equal(snap.courier_cod, null, "null, and the card's courier line reads as it did before this column existed");
+  assert.equal(snap.courier_fee, 8);
 });
