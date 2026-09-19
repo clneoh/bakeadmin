@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v134)
+# Jienluv2bake — change history (v54 → v135)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**20 Sep 2026 — engine v135 (no database step). The mixer box on the Production line now
+explains itself, and its number is right: 25 kg is about 28 pans, not 25.**
+
+**What you asked.** "Most dough in one mix, in pans — What is this?" Fair question, and the
+fault was mine. Your form asked for your mixer in **litres or kg** ("Most dough your mixer takes
+in one go — look for the bowl size on the mixer or in the manual"), and the Production line asks
+for it in **pans**, because every other number on that screen is in pans so it can be compared
+to the rest. I converted your answer without telling you, and never checked which unit you had
+meant. So the box read 25 and quietly meant "25 pans" — a figure you had never given.
+
+**What changed.** You told me your mixer takes **25 kg** of dough. One pan takes about **900 g**
+of dough — that is what bakes down to the 800 g you sell, the rest being water that bakes off
+and oil that goes in the pan — so 25 kg is about **28 pans**. That is now the figure the box is
+seeded with, and the hint under it says the whole thing in one line, so the conversion is on
+screen rather than in my head: *"Your mixer's bowl size, counted in pans: one pan takes about
+900 g of dough — that is what bakes down to your 800 g — so a 25 kg bowl is about 28 pans."*
+
+**One caveat, said plainly.** A 25 kg mixer means the bowl holds 25 kg, but a wet focaccia
+dough climbs the hook and will overflow a bowl filled to the brim, so what you can actually mix
+in one go is probably less. The hint says so too — lower the number if you never fill it. You
+know your mixer better than the arithmetic does.
+
+**If your box still reads 25, type 28.** The figure the app remembers for you is the one you
+last typed, so your own phone keeps showing 25 until you change it — the new seed only reaches a
+fresh phone. This is the one small thing to do by hand.
+
+**What it affects.** Two things, and both are small at your scale: how many mixes a day takes
+(the day's pans divided by this), and — once you time "Minutes to weigh in and load one mix" —
+the mixing minutes divided across each pan. At 28 pans a day of 36 is two mixes.
 
 **20 Sep 2026 — engine v134 (no database step). Every time box on the Production line now says
 what it wants: minutes.**

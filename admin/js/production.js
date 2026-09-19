@@ -21,7 +21,7 @@ export const DEFAULT_PLAN = {
   target: 60,     // pans she wants on a delivery day
   pans: 12,       // baking pans she owns
   trays: 12,      // trays of dough the chiller holds overnight — the day's ceiling
-  mixerPans: 25,  // most dough in one mix, in pans
+  mixerPans: 28,  // most dough in one mix, in pans
   ovenPans: 6,    // pans per bake
   ovenMin: 15,    // minutes per bake
   ovenShelves: 2, // shelves used

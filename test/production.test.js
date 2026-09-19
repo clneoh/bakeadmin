@@ -121,11 +121,11 @@ test("a step she has not timed is named, not counted as free", () => {
 test("once the missing steps are timed they slow the hands down and shorten the day", () => {
   const timed = { ...DEFAULT_PLAN, trays: 60, mixMin: 20, scaleMin6: 3, coolMin6: 12 };
   const r = computeLine(timed);
-  // 20 min a mix over 25 pans is 0.8, plus 0.5 for scaling and 2.0 for packing,
+  // 20 min a mix over 28 pans is 0.71, plus 0.5 for scaling and 2.0 for packing,
   // on top of the 5 minutes of washing, topping and swapping.
-  near(r.labourPerPan, 8.3, "the whole day's hand-work, per pan");
+  near(r.labourPerPan, 8.21, "the whole day's hand-work, per pan");
   assert.deepEqual(r.unmeasured, [], "nothing is left untimed");
-  near(stationOf(r, "hands").rate, 7.23, "one pair now does about 7.2 pans an hour, not 12");
+  near(stationOf(r, "hands").rate, 7.3, "one pair now does about 7.3 pans an hour, not 12");
   assert.equal(r.bottleneck.key, "hands", "so the hands, not the chiller, are the wall");
   // The figure she asked about: the day she hoped to make in five hours.
   assert.equal(r.dayCapacity, 36, "five hours now makes 36 pans, not the 60 she wants");

@@ -42,7 +42,7 @@ const GROUPS = [
       { key: "ovenPans", label: "Pans per bake", step: 1 },
       { key: "ovenMin", label: "Minutes per bake", step: 1 },
       { key: "mixerPans", label: "Most dough in one mix, in pans", step: 1,
-        hint: "Only matters if a day's baking needs more than one mix." },
+        hint: "Your mixer's bowl size, counted in pans: one pan takes about 900 g of dough — that is what bakes down to your 800 g — so a 25 kg bowl is about 28 pans. Leave room in the bowl for a wet dough, so lower this if you never fill it." },
     ],
   },
   {
