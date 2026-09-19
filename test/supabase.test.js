@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, trackingSnapshot, refreshStorefront, pendingReviewCount } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -1243,4 +1243,84 @@ test("trackingSnapshot publishes no COD flag for a charge the baker bore", () =>
   assert.equal(snap.courier_cod, null,
     "a stray flag on a charge she paid must not tell the customer the courier is coming for money");
   assert.equal(snap.courier_fee, null, "nor is her own cost published to them at all");
+});
+
+// ── v131: the card is offered the new version, and decides for itself ───────
+// "add new order and edit order din sync?" (19 Sep 2026). Her phones always agreed —
+// an order is a synced record. The customer's track card was published only when the
+// day, the tracking number or the charge moved, so an edit to the items, the price, the
+// address or the name left the card quoting the order it used to be. The list of fields
+// was the defect, so the fix is not a longer list: maybePublishTracking compares the
+// WHOLE row it is about to write with the one this device last wrote.
+function cloudState() {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon",
+    email: "a@b.c", password: "pw" };
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, active: true }];
+  return state;
+}
+function trackingCalls(calls) {
+  return calls.filter((c) => c.url.includes("/rest/v1/order_tracking"));
+}
+
+test("a card identical to the one already published is not written again", async () => {
+  const state = cloudState();
+  const date = state.deliveryDates[0];
+  const group = { orders: [{
+    id: "ord_ab12cd34ef56", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    customerName: "Ain", fulfillment: "collect", status: "confirmed",
+    createdAt: "2026-09-01T14:32:00",
+  }] };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, status: 201, text: async () => "" };
+  };
+  try {
+    forgetPublishedCards();
+    await maybePublishTracking(state, group);
+    assert.equal(trackingCalls(calls).length, 1, "the first save publishes the card");
+
+    await maybePublishTracking(state, group);
+    assert.equal(trackingCalls(calls).length, 1, "a second save of the same card writes nothing");
+
+    // What the card shows moved, so the next save has to reach it — the whole point.
+    group.orders[0].qty = 3;
+    await maybePublishTracking(state, group);
+    const written = trackingCalls(calls);
+    assert.equal(written.length, 2, "and a card that actually moved is written");
+    assert.equal(JSON.parse(written[1].opts.body)[0].items, "Focaccia ×3");
+    assert.equal(JSON.parse(written[1].opts.body)[0].total, "RM 45.00");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("a publish the server refused is not remembered as done", async () => {
+  // The trap this guards: publishTracking swallows every error, and a missing column —
+  // a SQL script not yet run — refuses EVERY write. If a refused write were remembered,
+  // the customer's card would never be retried and would stay wrong for good.
+  const state = cloudState();
+  const date = state.deliveryDates[0];
+  const group = { orders: [{
+    id: "ord_ab12cd34ef56", deliveryDateId: date.id, productId: "prd_1", qty: 2,
+    customerName: "Ain", fulfillment: "collect", status: "confirmed",
+    createdAt: "2026-09-01T14:32:00",
+  }] };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: false, status: 400, text: async () => "column does not exist" };
+  };
+  try {
+    forgetPublishedCards();
+    await maybePublishTracking(state, group);
+    await maybePublishTracking(state, group);
+    assert.equal(trackingCalls(calls).length, 2,
+      "the rejected write is tried again rather than counted as published");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

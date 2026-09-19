@@ -14,8 +14,8 @@ import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineNa
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { maybeSync, publishTracking } from "../supabase.js";
-import { applyCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee } from "../courier.js";
+import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
+import { applyCourierCharge, courierFeeOf, courierPayerOf, courierCodOf } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -1573,13 +1573,6 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   // there would be saved onto every row as a field of its own.
   const { courier = null, ...fields } = shared;
   const dest = byId(state.deliveryDates, fields.deliveryDateId) || date;
-  // Read before the write-back below: a new tracking number has to reach the
-  // customer's card, and an edit that did not touch it should not republish.
-  const trackingBefore = String(first.trackingNo || "");
-  // The charge reads the same way — what the customer's card shows for it now, so an
-  // edit that moves the charge republishes and one that did not leaves the card alone.
-  const chargedBefore = customerCourierFee(first);
-  const codBefore = !!courierCodOf(first);
   if (!dest) return toast("Choose a delivery day");
   // The capacity guard follows the order to its destination. Capacity is derived
   // from deliveryDateId, so the source day frees itself with no bookkeeping, and
@@ -1668,14 +1661,12 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
-    // The track card bakes the delivery-date string, so a move must republish it; so
-    // must a changed tracking number, and so must the charge, which the customer's card
-    // quotes in its total. An edit that touched none of them leaves the card alone.
-    const chargedAfter = courier && courier.who === "customer" ? courier.fee : 0;
-    if (!sameDay || trackingBefore !== String(fields.trackingNo || "")
-      || chargedBefore !== chargedAfter || codBefore !== !!(courier && courier.collect)) {
-      publishTracking(state, group);
-    }
+    // The customer's card carries the items, the total, the address, the name, the day,
+    // the tracking number and the charge — so every save here offers it the new version
+    // and the card itself decides whether anything it shows moved (19 Sep 2026). The
+    // hand-kept list this replaces named four fields, so an edit to the items or the
+    // address republished nothing and the customer kept reading the old order.
+    maybePublishTracking(state, group);
     toast(sameDay ? "Order updated" : "Order moved");
     close();
     renderAll(root, state, new URLSearchParams({ date: dest.id }));
@@ -1719,6 +1710,10 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
+    // The card exists from the moment the order does, so the tracking link she is about
+    // to send already has something behind it instead of showing the customer "not
+    // found" until the day she happens to change its status (19 Sep 2026).
+    maybePublishTracking(state, { orders: [row] });
     toast("Order added");
     renderAll(root, state, new URLSearchParams({ date: date.id }));
   }
@@ -1749,6 +1744,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
     newOrderContact = { customerName: "", whatsapp: "" };
     const groupId = newId("ordg");
     const createdAt = new Date().toISOString();
+    const rows = [];
     for (const it of items) {
       const row = {
         id: newId("ord"),
@@ -1769,10 +1765,13 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
       stampOrderLine(row, byId(state.products, it.productId));
       if (Number.isFinite(Number(it.price))) row.unitPrice = Number(it.price);
       state.orders.push(row);
+      rows.push(row);
     }
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
+    // One card for the whole order, as the group has one code — see addNew.
+    maybePublishTracking(state, { orders: rows });
     toast("Order added");
     renderAll(root, state, new URLSearchParams({ date: date.id }));
   }
@@ -1976,14 +1975,8 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
           button("Cancel", close, "ghost"),
           button("Save", () => {
             // The whole order shares these, exactly as the Edit pop-up writes them.
-            const before = String(first.trackingNo || "").trim();
             const number = tracking.value.trim();
             const method = paidSel.value;
-            // What the customer's card currently shows for the charge, so a change to it
-            // in EITHER direction republishes. Both are read BEFORE the loop below, which
-            // writes the new values straight onto these same orders.
-            const chargedBefore = customerCourierFee(first);
-            const codBefore = !!courierCodOf(first);
             // A charge is the amount AND who bore it — the payer is what decides what the
             // charge does, to her books and to the customer. So "Not recorded" for the
             // payer means there is no charge, and the amount goes with it: leaving the
@@ -2015,16 +2008,12 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             save(state);
             maybeSync(state);
             // The card carries the tracking number and, when the customer bears it, the
-            // charge and the total — so a charge that is added, changed OR cleared has to
-            // reach the card. Clearing it used to publish nothing, leaving the customer
-            // looking at a courier line she had just deleted (19 Sep 2026).
-            //
-            // Switching COD on or off has to republish too, and the charge does not
-            // change at all when she does it — but the published TOTAL does, by the whole
-            // charge. Without this the card would keep a total that no longer matches.
-            const chargedAfter = who === "customer" ? fee : 0;
-            if (before !== number || chargedBefore !== chargedAfter || codBefore !== collect)
-              publishTracking(state, group);
+            // charge and the total — so a charge added, changed OR cleared has to reach it,
+            // and so does a COD flag flipped on or off, which moves the published total by
+            // the whole charge without the charge itself changing at all. Which of those
+            // happened is not this box's business any more: the card is offered the new
+            // version and publishes when what it shows moved (19 Sep 2026).
+            maybePublishTracking(state, group);
             toast("Order updated");
             close();
             renderAll(root, state, new URLSearchParams({ date: dateId }));

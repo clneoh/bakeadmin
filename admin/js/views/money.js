@@ -15,7 +15,7 @@ import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { currentUomId, cookingFamilyOf } from "./ingredients.js";
 import { dateField } from "../datepicker.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
-import { maybeSync, publishTracking } from "../supabase.js";
+import { maybePublishTracking, maybeSync } from "../supabase.js";
 
 // Which stretch is showing. Module scope, like the other screens' own pickers, so a
 // rebuild she did not ask for does not throw her back to Today.
@@ -306,12 +306,12 @@ function pocketRow(state, e, what, listKey, redraw, cur) {
         () => {
           state[listKey] = (state[listKey] || []).filter((x) => x.id !== e.id);
           // A charge she paid lives in two places at once, so it has to leave both at
-          // once. The customer's total moves with it, which is why the card is
-          // republished here exactly as the order's own box does.
+          // once. The customer's total moves with it, which is why the card is offered
+          // the new version here exactly as the order's own box does.
           const cleared = courier ? clearCourierCharge(state, courier) : null;
           save(state);
           maybeSync(state);
-          if (cleared) publishTracking(state, cleared);
+          if (cleared) maybePublishTracking(state, cleared);
           toast(courier
             ? `Charge deleted, and taken off order #${courier}`
             : (listKey === "deposits" ? "Money-in record deleted" : "Expense deleted"));

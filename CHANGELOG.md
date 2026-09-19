@@ -1,8 +1,39 @@
-# Jienluv2bake — change history (v54 → v131)
+# Jienluv2bake — change history (v54 → v132)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v132 (no database step). Your customer's own track page now keeps up
+with the order: anything you change about an order reaches their page when you save it, and an
+order you have just added has a page behind its link from the moment it exists.**
+
+**What you asked.** "add new order and edit order din sync?" They were, on your own phones -
+an order is one record, so an edit made on one phone is on the other within seconds. What was
+NOT in step was your customer's track page, and that was a real defect. Their page was only
+rewritten when the delivery day moved, the tracking number changed or the courier charge
+changed - so if you corrected the items, the price, the address or the customer's name and
+saved, their page went on showing the order as it used to be: the old items, and the old total,
+in the very message you had already sent them the link in. Adding an order wrote no page at
+all, so a link you sent straight away could answer "not found".
+
+**What changed.** Every way of saving an order - adding one, editing one, the Note / tracking
+box, and deleting the courier's Delivery & fuel line on Money - now hands your customer's page
+the whole new version of the order, and the page itself decides whether anything it shows has
+moved. Where the app used to hold a short list of the things it believed that page showed, it
+now compares the entire row, so a figure on that page can never be left out of the decision
+again.
+
+**An added order has its page at once.** Adding an order publishes your customer's page there
+and then, instead of waiting for the first time you happen to change its status, so the track
+link in your confirmation message always has something behind it.
+
+**A save that changes nothing writes nothing.** The page compares itself with what you last
+published, so saving an order without changing anything they can see writes no page at all -
+and if a write is ever refused (a phone with no signal, a SQL script not yet run), the next
+save tries again rather than counting it as done.
+
+**Nothing to set up, and no database step.** Open the app and it is already in step.
 
 **19 Sep 2026 — engine v131 (no database step). A Production line screen: your bake day
 drawn as a row of bars, the station that is holding you back named and made the only red

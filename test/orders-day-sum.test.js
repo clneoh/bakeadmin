@@ -63,6 +63,7 @@ globalThis.Date = MockDate;
 const { renderOrders } = await import("../admin/js/views/orders.js");
 const { effectiveCapacity } = await import("../admin/js/bom.js");
 const { orderCode, orderLinePrice } = await import("../admin/js/state.js");
+const { forgetPublishedCards } = await import("../admin/js/supabase.js");
 
 // Focaccia sells every day; the Saturday loaf is marked Saturdays only, and the
 // day on screen (Thu 10 Sep) is not one of them. One order is already booked.
@@ -733,7 +734,12 @@ test("switching only the mode republishes the customer's card", async () => {
   assert.equal(posts[0].courier_fee, 8, "the RM8 is still named — the card tells them to pay the courier, not her");
 });
 
-test("saving an unchanged COD charge does not republish the card for nothing", async () => {
+test("a save that changes nothing publishes once, then leaves the card alone", async () => {
+  // The box now offers the card the new version on every save and lets the card decide
+  // (19 Sep 2026). Nothing has been published in this session yet, so the first save
+  // writes one row — the safe direction to be wrong in, because the other way costs the
+  // customer an order that never catches up. The second save is byte-identical, so it
+  // writes nothing at all.
   const st = charged();
   st.orders[0].courierCod = true;
   st.settings.supabase = { enabled: true, url: "https://project.test",
@@ -750,12 +756,18 @@ test("saving an unchanged COD charge does not republish the card for nothing", a
     return { ok: true, status: 201, json: async () => ({}) };
   };
   try {
-    buttonByText(pop, "Save")._listeners.click[0]();
+    forgetPublishedCards(); // nothing is on the customer's card yet
+    // Held on to: the save closes the box and rebuilds the screen, so the button cannot
+    // be looked up again — but it is the same box, with the same answers in it.
+    const save = buttonByText(pop, "Save");
+    save._listeners.click[0]();
     for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+    const afterFirst = posts.length;
+    save._listeners.click[0](); // the same box, saved again
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
+    assert.equal(afterFirst, 1, "the first save writes the card she has never published");
+    assert.equal(posts.length, 1, "and the identical second save writes nothing");
   } finally { globalThis.fetch = real; }
-
-  assert.equal(posts.length, 0,
-    "nothing moved, so the customer's card is left alone — the mode is read before the loop, not after it");
 });
 
 // ── v130: the courier charge's questions are under Edit too ─────────────────
@@ -939,4 +951,160 @@ test("changing who paid the courier keeps the note and the tracking number she w
   buttonByText(pop, "Save")._listeners.click[0]();
   assert.equal(st.orders[0].note, "no nuts", "and both of them still reach the order on save");
   assert.equal(st.orders[0].trackingNo, "JT999 888");
+});
+
+// ── v131: the customer's card keeps up with the order ───────────────────────
+// "add new order and edit order din sync?" (19 Sep 2026). Her own two phones were never
+// the problem — an order is a synced record. The customer's track card was: it was only
+// published when a day moved, the tracking number moved or the charge moved, so an edit
+// that changed the ITEMS, the price, the address or the name moved nothing, and a card
+// she had already sent the link for went on quoting the order it used to be. Adding an
+// order published no card at all.
+//
+// The fix is not a longer list of fields — that list is what failed. Every door now hands
+// the card the whole new version and the card itself decides, so a field the card shows
+// can never be left out of the decision again.
+const drain = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+const cloud = (st) => {
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+};
+function publishSpy() {
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  return { posts, stop: () => { globalThis.fetch = real; } };
+}
+// One item line picked, ready for "＋ Add order" — the item row's dropdown reads its own
+// value, which the shim cannot type into, so it is set and then fired by hand. A product
+// option is labelled with the day's count as well as the name ("Focaccia — 10 left"), so
+// the line is found by the name it starts with.
+const productSel = (root, name) => all(root).find((n) => n.tagName === "SELECT"
+  && all(n).some((o) => o.tagName === "OPTION" && o.textContent.startsWith(name)));
+function pickItem(root, productId, name) {
+  const sel = productSel(root, name);
+  sel.value = productId;
+  sel._listeners.change[0].call(sel);
+}
+// Press Add order, answering the backfill question the same way she does. A day whose
+// 6pm cutoff has passed asks before it takes the order, so a test that only pressed the
+// button would be testing the question rather than the add.
+function pressAdd(root) {
+  const layer = layers["confirm-layer"];
+  if (layer) layer.replaceChildren(); // an earlier test's dialog cannot answer this one
+  buttonByText(root, "＋ Add order")._listeners.click[0]();
+  const yes = buttonByText(layers["confirm-layer"], "Add anyway");
+  if (yes) yes._listeners.click[0]();
+}
+
+test("adding an order gives the customer's card something to be", async () => {
+  const st = state();
+  cloud(st);
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  pickItem(root, "p1", "Focaccia");
+
+  const spy = publishSpy();
+  try {
+    forgetPublishedCards();
+    pressAdd(root);
+    await drain();
+  } finally { spy.stop(); }
+
+  const added = st.orders.find((o) => o.id !== "o1");
+  assert.ok(added, "the order is in her list");
+  assert.equal(added.customerName, "", "with no name typed, as she added it");
+  assert.equal(spy.posts.length, 1, "and the card exists from the moment the order does");
+  assert.equal(spy.posts[0].code, orderCode(added), "keyed on the code her tracking link carries");
+  assert.equal(spy.posts[0].status, "new", "reading what the order is, not what a later tap made it");
+  assert.equal(spy.posts[0].items, "Focaccia ×1");
+});
+
+test("a multi-item add publishes one card for the whole order", async () => {
+  // The group has one code, so it has one card — the same rule a storefront order follows.
+  const st = state();
+  cloud(st);
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  buttonByText(root, "＋ Add another item")._listeners.click[0]();
+  const pickers = all(root).filter((n) => n.tagName === "SELECT"
+    && all(n).some((o) => o.tagName === "OPTION" && o.textContent.startsWith("Focaccia")));
+  assert.equal(pickers.length, 2, "the card offers two item lines");
+  for (const sel of pickers) { sel.value = "p1"; sel._listeners.change[0].call(sel); }
+
+  const spy = publishSpy();
+  try {
+    forgetPublishedCards();
+    pressAdd(root);
+    await drain();
+  } finally { spy.stop(); }
+
+  const added = st.orders.filter((o) => o.id !== "o1");
+  assert.equal(added.length, 2, "both lines are on the order");
+  assert.equal(added[0].groupId, added[1].groupId, "sharing one group, so one code");
+  assert.equal(spy.posts.length, 1, "and one card, not one per line");
+  assert.equal(spy.posts[0].code, orderCode(added[0]));
+  assert.match(spy.posts[0].items, /Focaccia ×1, Focaccia ×1/);
+});
+
+test("the price she types in Edit reaches the card the customer is reading", async () => {
+  // The gap she asked about, in its plainest form: the card's total comes from the rows,
+  // and a hand-kept list of "what the card shows" did not include the price.
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].unitPrice = 15;
+  cloud(st);
+  const { pop } = editOn(st);
+
+  const box = byClass(pop, "line-price");
+  box.value = "20";
+  box._listeners.input[0].call(box);
+
+  const spy = publishSpy();
+  try {
+    forgetPublishedCards();
+    buttonByText(pop, "Save changes")._listeners.click[0]();
+    await drain();
+  } finally { spy.stop(); }
+
+  assert.equal(st.orders[0].unitPrice, 20, "the order is sold at what she typed");
+  assert.equal(spy.posts.length, 1, "and the customer's card is brought up to date");
+  assert.equal(spy.posts[0].total, "RM 40.00", "with the total their order now comes to");
+  assert.equal(spy.posts[0].items, "Focaccia ×2", "and the quantity, which did not change");
+});
+
+test("an edit that changes nothing the card shows leaves it alone", async () => {
+  // The other half of the bargain: the door hands the card over on every save, so the
+  // card has to be the one that knows when there is nothing to say. The WhatsApp number
+  // is on the order but not on the card, so editing it writes no card at all.
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].unitPrice = 15;
+  cloud(st);
+  const spy = publishSpy();
+  try {
+    forgetPublishedCards();
+    const first = editOn(st);
+    buttonByText(first.pop, "Save changes")._listeners.click[0]();
+    await drain();
+    assert.equal(spy.posts.length, 1, "the first save is the card's first version");
+
+    const again = editOn(st);
+    const wa = all(again.pop).find((n) =>
+      n.tagName === "INPUT" && n.attrs && n.attrs.placeholder === "e.g. 012-345 6789");
+    assert.ok(wa, "the WhatsApp box is there to change");
+    wa.value = "60111222333";
+    wa._listeners.input[0].call(wa);
+    buttonByText(again.pop, "Save changes")._listeners.click[0]();
+    await drain();
+  } finally { spy.stop(); }
+
+  assert.equal(st.orders[0].whatsapp, "60111222333", "her own copy of the order did take the change");
+  assert.equal(spy.posts.length, 1, "and the customer's card was not written for a number it does not show");
 });
