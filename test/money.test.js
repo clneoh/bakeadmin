@@ -763,3 +763,86 @@ test("Day one leaves everything alone when the boxes are blank, and says so", (t
   assert.equal((st.deposits || []).length, 0, "one bad box holds the whole thing back");
   assert.equal(st.ingredients[0].onHand, 250, "so nothing lands half-done");
 });
+
+// ── v129: what is still to collect is what the customer will hand over ───────
+// "q1, it should reflex rm72" (19 Sep 2026) — RM64 of bread plus the RM8 the courier
+// is charging them. A charge the customer pays WITH the order is money she is handed
+// at the door, so this row has to promise the same figure their own message asks for.
+// A COD charge is the opposite: the courier takes it, so it never reaches this row.
+
+test("still to collect counts the courier charge the customer pays with the order", () => {
+  const st = state();
+  st.orders = [row({ status: "confirmed", paidReceived: false,
+    courierFee: 8, courierPaidBy: "customer" })];
+  const m = dayMoney(st, "d18");
+  assert.equal(m.toCollect, 23, "the RM15 focaccia and the RM8 courier are both handed over");
+  assert.equal(m.toCollectCount, 1, "and it is still one order, not two");
+});
+
+test("a COD charge stays out of still to collect — the courier takes it at the door", () => {
+  const st = state();
+  st.orders = [row({ status: "confirmed", paidReceived: false,
+    courierFee: 8, courierPaidBy: "customer", courierCod: true })];
+  assert.equal(dayMoney(st, "d18").toCollect, 15,
+    "only the bread: nobody hands her the courier's money, so counting it would promise RM23 she never sees");
+});
+
+test("a charge she bore is her own cost, and never lands in what is owed to her", () => {
+  const st = state();
+  st.orders = [row({ status: "confirmed", paidReceived: false,
+    courierFee: 8, courierPaidBy: "me" })];
+  assert.equal(dayMoney(st, "d18").toCollect, 15, "the customer owes the bread, not her postage");
+});
+
+test("a stray COD flag on a charge with no payer moves nothing", () => {
+  const st = state();
+  st.orders = [row({ status: "confirmed", paidReceived: false, courierFee: 8, courierCod: true })];
+  assert.equal(dayMoney(st, "d18").toCollect, 15,
+    "no payer means no charge to count — the same reading the row tag and the box make");
+});
+
+test("an order with no courier charge reads exactly as it always has", () => {
+  const st = state();
+  st.orders = [row({ status: "confirmed", paidReceived: false })];
+  assert.equal(dayMoney(st, "d18").toCollect, 15);
+});
+
+test("the money that has come in stays at the items — a pass-through charge is not her takings", () => {
+  const st = state();
+  st.orders = [row({ status: "ready", paidReceived: true, paidMethod: "cash",
+    courierFee: 8, courierPaidBy: "customer" })];
+  const m = dayMoney(st, "d18");
+  assert.equal(m.cash, 15, "the charge arrives and leaves again, so it is never part of what her purse should hold");
+  assert.equal(m.toCollect, 0, "and an order already paid is owed for nothing");
+});
+
+test("the Money screen's stretch counts the charge the same way a single day does", () => {
+  const st = state();
+  st.orders = [
+    row({ id: "a", status: "confirmed", paidReceived: false,
+      courierFee: 8, courierPaidBy: "customer" }),
+    row({ id: "b", deliveryDateId: "d20", deliveryDate: "2026-09-20", status: "confirmed",
+      paidReceived: false, courierFee: 8, courierPaidBy: "customer", courierCod: true }),
+  ];
+  const m = moneyBetween(st, "2026-09-18", "2026-09-20");
+  assert.equal(m.toCollect, 38, "RM23 for the one paying with the order, RM15 for the COD one");
+  assert.equal(m.toCollectCount, 2);
+});
+
+test("the Money screen's still-to-collect line shows the charge, not just the items", () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ deliveryDate: today, status: "confirmed", paidReceived: false,
+    courierFee: 8, courierPaidBy: "customer" })];
+
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const line = allOf(root).find((n) => String(n.className).includes("info-row")
+    && n.children[0] && n.children[0].textContent === "Still to collect");
+  assert.ok(line, "the line is on the card");
+  assert.ok(line.children[1].textContent.includes("RM 23.00"),
+    `the row reads what she will be handed, not the items alone (got "${line.children[1].textContent}")`);
+  assert.ok(line.children[1].textContent.includes("1 order"), "and still says how many orders it covers");
+});

@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v128)
+# Jienluv2bake — change history (v54 → v129)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v129 (no database step). Still to collect now counts the courier
+charge the customer pays with the order, so the row promises the same money their own
+message asks them for.**
+
+**What you told me.** "q1, it should reflex rm72." RM72 was RM64 of bread plus the RM8 the
+courier was charging, and the Money screen was showing RM64 — the items alone.
+
+**What it does now.** When the customer bears the courier charge and pays it with the order,
+**Still to collect** counts what they will actually hand over: the items plus that charge. So
+the figure on your Money screen is the same RM72 their own message asks them for, and you are
+never left counting a charge you are about to be paid.
+
+**A COD charge stays out of it.** When the courier collects the charge at the door, that money
+was never yours to collect — so it is not in this row either, exactly as it is not in the total
+you ask them for.
+
+**A charge you bore is not in it.** Nothing changes there: the bread is what they owe you, and
+the postage is your own cost.
+
+**Your takings do not move.** What has already come in — Cash in, TNG in, the net, every
+journal — still counts the items alone, because a charge the customer pays is pass-through: it
+arrives and leaves in the same breath, so it was never profit. Only **Still to collect** changed,
+because that is the one figure about money still on its way to you.
 
 **19 Sep 2026 — engine v128 (one database step — run supabase/courier_cod.sql BEFORE you
 deploy). A courier charge the customer bears can now be a Courier COD charge: the courier
@@ -39,8 +63,9 @@ tagged **Courier RM 8.00 · customer · COD**, so you can see at a glance which 
 is collecting rather than looking for that money in your tin.
 
 **Your books are untouched, either way.** A charge the customer bears was already pass-through,
-and COD does not change that — it still never reaches your takings or **still to collect**. Only a
-charge you bore yourself becomes a Delivery & fuel expense, exactly as before.
+and COD does not change that — it still never reaches your takings. Only a charge you bore
+yourself becomes a Delivery & fuel expense, exactly as before. (v129 above changes where that
+charge is counted under **Still to collect**.)
 
 **One database step.** Run **supabase/courier_cod.sql** in the Supabase SQL editor BEFORE you
 deploy this build. The app publishes the whole tracking row in one call, so if that column does

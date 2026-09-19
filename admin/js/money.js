@@ -9,8 +9,18 @@
 //     back to its delivery date, which is the day it was handed over.
 //   • money STILL TO COLLECT is counted by DELIVERY date — it is money owed for the
 //     orders she is about to hand over, whatever the calendar says today.
+//
+// What "still to collect" counts was settled on 19 Sep 2026: the customer's total, the
+// charge included — "it should reflex rm72", where RM64 was the bread and RM8 the
+// courier (v129). A charge the customer bears and pays with the order IS money she
+// will be handed, so leaving it out made the row promise less than the customer's own
+// message asks for. A COD charge is different and stays out: the courier takes that
+// money at the door, so it is never hers to collect at all. Meanwhile the money that
+// HAS come in stays at the items — that pass-through charge is not her takings — which
+// is why customerTotal() rather than groupValue() is read here and nowhere else.
 import { groupOrders, orderCode, orderLinePrice } from "./state.js";
 import { isCash, isOther, isTng, methodLabel, methodRank } from "./accounts.js";
+import { customerTotal } from "./courier.js";
 
 // The stages in order, so "is this past Paid?" can be asked here without importing
 // the Orders screen (which imports this one). The list has not changed since the app
@@ -83,7 +93,12 @@ function tally(state, groups) {
   for (const g of groups) {
     out.count++;
     const value = groupValue(state, g);
-    if (!isCollected(g)) { out.toCollect += value; out.toCollectCount++; continue; }
+    // Owed money is counted at what the customer will hand over — the items plus the
+    // courier charge when they pay it with the order. customerTotal() is the one
+    // helper the messages and the track card already quote, so the figure this row
+    // promises is the figure the customer was told to pay (19 Sep 2026). A COD charge
+    // is not in it: that money goes to the courier at the door, never to her.
+    if (!isCollected(g)) { out.toCollect += customerTotal(state, g).total; out.toCollectCount++; continue; }
     const method = methodOf(g);
     // The same money, filed one way for the columns and one way per method: it is the
     // method totals that give a loan, the bank overdraft or a personal pocket a row of
