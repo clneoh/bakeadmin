@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v135)
+# Jienluv2bake — change history (v54 → v136)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**20 Sep 2026 — engine v136 (no database step). The Production line now opens with a flow
+map: your bake day top to bottom, in the order it actually happens.**
+
+**What you asked.** "can you do a flow map so that i can visualise better, make a intuitive
+one". The four bars answered *how fast* each part is, but nothing on the screen showed the
+**order** — that the dough is mixed first, rests overnight, and only then goes pan by pan
+through the oven and back round again. Numbers side by side don't tell you what happens next.
+
+**What changed.** A new card called **The flow** now sits at the top of the screen, above the
+bars. It is the bake day written down the page, one step under the next with a numbered dot and
+a line running between them, so your eye follows it like a recipe:
+
+> 🥣 Weighing in and loading the mixer → 🧊 Retard overnight in the chiller → 👋 Wash, oil and
+> fill → 👋 Weighing the dough out into pans → 👋 Dimple and top → 🔥 The oven swap and bake →
+> 👋 Cooling and packing → ✅ The day.
+
+Each step carries its own cost: the hand steps say **minutes a pan**, the chiller, the oven and
+the pans going round say **pans an hour**, and a step you have not timed says **"not timed yet"**
+rather than quietly reading as free. The last node states the day the line actually makes.
+The four bars you already use are still there, unchanged, directly below the map.
+
+**The step that sets your pace is the red one.** The same red the bars use, so the two agree.
+Whichever step is the wall wears a **"the slow one"** tag and the one sentence that explains
+why — at your current numbers that is the chiller, holding 12 trays; fill in the three untimed
+steps and the mark moves to the wash, and the traffic goes to your hands instead.
+
+**One honest note about the hand steps.** The six hand jobs are one shared pool — you do them
+in turn — so no single one of them has a pace of its own. The map therefore shows each as
+**minutes a pan of work** and never as a rate, and when the wall is the hands the "slow one"
+mark goes on the heaviest job while the sentence beside it says the minutes are shared across
+your pairs of hands. Only the chiller, the oven and the pans are given a rate, because those
+are the only three that are not you.
 
 **20 Sep 2026 — engine v135 (no database step). The mixer box on the Production line now
 explains itself, and its number is right: 25 kg is about 28 pans, not 25.**

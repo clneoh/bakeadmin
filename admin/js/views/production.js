@@ -129,7 +129,125 @@ function fieldRow(f, plan, onEdit) {
 
 function blocks(state, plan) {
   const r = computeLine(plan);
-  return [lineCard(r), dayCard(r, state), handsCard(r), leverCard(r)];
+  return [flowCard(r), lineCard(r), dayCard(r, state), handsCard(r), leverCard(r)];
+}
+
+// ── The flow ───────────────────────────────────────────────────────────────
+// The bars answer "how fast is each part"; this answers the question they cannot
+// — what happens in what order, and where the day stops. Same numbers, laid out
+// the way the bake actually runs: the dough goes in, it rests overnight, then
+// pan after pan goes through the oven and comes back round.
+//
+// Hand-work is shown as minutes a pan and never given a rate of its own, because
+// the six hand jobs are one shared pool and no single one of them has a pace.
+// Only the three things that are not her — the chiller's racks, the oven, the
+// pans going round — can honestly be given pans an hour.
+//
+// Every hand step takes its name from the model's own job list, so a job can
+// never be called one thing here and another thing underneath.
+const FLOW = [
+  { job: "mix" },
+  { station: "chiller", name: "Retard overnight in the chiller", icon: "🧊" },
+  { job: "wash" },
+  { job: "scale" },
+  { job: "top" },
+  { job: "swap", station: "oven", name: "The oven swap and bake", icon: "🔥" },
+  { job: "cool" },
+  { outcome: true, name: "The day", icon: "✅" },
+];
+
+const FLOW_ICON = { mix: "🥣", swap: "🔥" };
+
+function flowCard(r) {
+  const wall = wallStep(r);
+  const why = wall >= 0 ? bottleneckWhy(r) : "";
+
+  return el("div", {},
+    el("h2", { class: "section" }, "The flow"),
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      "Your bake day in the order it happens, top to bottom. The step that sets your pace is the red one."),
+    el("div", { class: "card flow" },
+      ...FLOW.map((s, i) => flowStep(s, r, i, i === wall, why))));
+}
+
+function flowStep(s, r, i, isWall, why) {
+  const j = s.job ? r.allocation.find((x) => x.key === s.job) : null;
+  const icon = s.icon || FLOW_ICON[s.job] || "👋";
+  const name = s.name || (j ? j.name : "");
+  return el("div", { class: `flow-step${isWall ? " wall" : ""}${s.outcome ? " outcome" : ""}` },
+    el("div", { class: "flow-rail" },
+      el("span", { class: "flow-num" }, s.outcome ? "✓" : String(i + 1))),
+    el("div", { class: "flow-body" },
+      el("div", { class: "flow-head" },
+        el("span", { class: "flow-icon" }, icon),
+        el("span", { class: "flow-name" }, name),
+        isWall ? el("span", { class: "badge badge-over" }, "the slow one") : null),
+      el("div", { class: "li-sub" }, stepSub(s, r, j)),
+      // Why *this* step is the wall, in the one comparison that makes it obvious
+      // — the same sentence the day card uses, so the two cannot disagree.
+      isWall && why ? el("div", { class: "li-sub flow-why" }, why) : null));
+}
+
+function stepSub(s, r, j) {
+  const p = r.plan;
+
+  if (s.outcome) {
+    return `${r.dayCapacity} ${r.dayCapacity === 1 ? "pan" : "pans"} off the line in ${trim(r.hours)} ${r.hours === 1 ? "hour" : "hours"}` +
+      (r.target > 0 ? `, and you want ${r.target}.` : ".");
+  }
+
+  if (s.station === "chiller") {
+    const rate = stationRate(r, "chiller");
+    return `${trim(p.trays)} ${p.trays === 1 ? "tray" : "trays"} of dough, and one tray is one pan` +
+      (Number.isFinite(rate) && rate > 0 ? ` — ${trim(rate)} pans an hour across your ${trim(p.hours)} hours.` : ".");
+  }
+
+  if (s.station === "oven") {
+    const bits = [];
+    if (j && j.perPan > 0) bits.push(`${trim(j.perPan)} min a pan to swap`);
+    bits.push(`${trim(p.ovenPans)} pans every ${trim(p.ovenMin)} min`);
+    const rate = stationRate(r, "oven");
+    if (Number.isFinite(rate) && rate > 0) bits.push(`${trim(rate)} pans an hour`);
+    return `${bits.join(" · ")}.`;
+  }
+
+  if (s.job === "mix") {
+    return p.mixMin > 0 && p.mixerPans > 0
+      ? `${trim(p.mixMin)} min a mix · one mix is ${trim(p.mixerPans)} pans of dough`
+      : "not timed yet";
+  }
+
+  return j && j.perPan > 0 ? `${trim(j.perPan)} min a pan` : "not timed yet";
+}
+
+function stationRate(r, key) {
+  const s = r.stations.find((x) => x.key === key);
+  return s ? s.rate : Infinity;
+}
+
+// Which step on the chain is the one holding the day back. Three of the four
+// walls name themselves; the hands do not, because every hand step draws on the
+// same pool, so the mark goes on the heaviest of them rather than pretending one
+// step owns a pace that the pool actually sets.
+function wallStep(r) {
+  const b = r.bottleneck.key;
+  if (b === "chiller") return FLOW.findIndex((s) => s.station === "chiller");
+  if (b === "oven") return FLOW.findIndex((s) => s.station === "oven");
+  if (b === "pans") return FLOW.findIndex((s) => s.job === "wash");
+  if (b === "hands") {
+    let best = -1;
+    let heaviest = 0;
+    FLOW.forEach((s, i) => {
+      if (!s.job || s.station === "chiller") return;
+      const j = r.allocation.find((x) => x.key === s.job);
+      if (j && j.perPan > heaviest) {
+        heaviest = j.perPan;
+        best = i;
+      }
+    });
+    return best;
+  }
+  return -1;
 }
 
 // ── The line ───────────────────────────────────────────────────────────────

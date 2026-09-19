@@ -327,6 +327,42 @@ h2.section:first-child { margin-top: 0; }
 .lever-gain.up { color: var(--green); }
 .job-list { margin-top: 2px; }
 
+/* The flow (20 Sep 2026). The bake day in order, one step under the next, with a
+   rail down the left and a numbered dot per step so the eye can follow the line
+   down the page. The step that sets the pace turns red; the last node — the day
+   itself — is green, because by then there is nothing left to slow down. */
+.flow { padding: 10px 14px 4px; }
+.flow-step { display: flex; gap: 10px; }
+.flow-rail { position: relative; flex: 0 0 26px; display: flex; justify-content: center; }
+/* The line between one dot and the next. It runs from under this dot to the top
+   of the following one and stops at the last step, which has nothing after it. */
+.flow-rail::before {
+  content: ""; position: absolute; left: 50%; top: 26px; bottom: 0;
+  width: 2px; margin-left: -1px; background: var(--line);
+}
+.flow-step:last-child .flow-rail::before { display: none; }
+.flow-num {
+  position: relative; z-index: 1;
+  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--line);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.flow-body { flex: 1; min-width: 0; padding-bottom: 14px; }
+.flow-head {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-weight: 600; font-size: 15px; line-height: 24px;
+}
+.flow-name { min-width: 0; overflow-wrap: anywhere; }
+.flow-step.wall .flow-num { border-color: var(--red); background: var(--red-bg); color: var(--red); }
+.flow-step.wall .flow-rail::before { background: var(--red); opacity: .3; }
+.flow-step.wall .flow-name { color: var(--red); }
+.flow-why { margin-top: 4px; }
+.flow-step.outcome .flow-num { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.flow-step.outcome .flow-name { font-size: 16px; }
+.flow-step.outcome .flow-body { padding-bottom: 0; }
+
 /* ---------- Buttons ---------- */
 .btn {
   appearance: none;
