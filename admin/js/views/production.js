@@ -47,22 +47,22 @@ const GROUPS = [
   },
   {
     title: "The times you measured",
-    sub: "These are the figures you timed, each for 6 pans.",
+    sub: "These are the figures you timed, each for 6 pans, in minutes.",
     fields: [
-      { key: "washMin6", label: "Wash, oil and fill 6 pans", step: 1 },
-      { key: "topMin6", label: "Dimple and top 6 pans", step: 1 },
-      { key: "swapMin6", label: "Take 6 out and put 6 in", step: 1 },
+      { key: "washMin6", label: "Minutes to wash, oil and fill 6 pans", step: 1 },
+      { key: "topMin6", label: "Minutes to dimple and top 6 pans", step: 1 },
+      { key: "swapMin6", label: "Minutes to take 6 out and put 6 in", step: 1 },
     ],
   },
   {
     title: "The rest of the kitchen work",
-    sub: "The hand-work around the bake. Left blank until you have timed it — a blank step is named below rather than counted as free.",
+    sub: "The hand-work around the bake, in minutes. Left blank until you have timed it — a blank step is named below rather than counted as free.",
     fields: [
-      { key: "mixMin", label: "Weighing in and loading one mix", step: 1, optional: true,
+      { key: "mixMin", label: "Minutes to weigh in and load one mix", step: 1, optional: true,
         hint: "For one whole mix — the pans your mixer makes at once. It is spread over that whole batch, so a bigger mix costs less work per pan." },
-      { key: "scaleMin6", label: "Weighing the dough out into 6 pans", step: 1, optional: true,
+      { key: "scaleMin6", label: "Minutes to weigh the dough out into 6 pans", step: 1, optional: true,
         hint: "If this is already inside your wash, oil and fill time above, leave it blank so the same minutes are not counted twice." },
-      { key: "coolMin6", label: "Cooling and packing 6 pans", step: 1, optional: true },
+      { key: "coolMin6", label: "Minutes to cool and pack 6 pans", step: 1, optional: true },
     ],
   },
 ];

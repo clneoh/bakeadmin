@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v133)
+# Jienluv2bake — change history (v54 → v134)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**20 Sep 2026 — engine v134 (no database step). Every time box on the Production line now says
+what it wants: minutes.**
+
+**What you asked.** "the field input unit is not shown?" You were right, and it was worse than a
+missing label - it was six missing labels. Every other box on that screen carries its unit in
+its own name ("Minutes per bake", "Pans per bake", "Hours you'll bake for"), so the pattern was
+already there and the time boxes did not follow it. You saw "Wash, oil and fill 6 pans" above a
+box holding 18 and had to guess whether that meant minutes or seconds.
+
+**What changed.** All six hand-work boxes now lead with the unit, so the box and its number
+read as one thing:
+
+- **Minutes to wash, oil and fill 6 pans**
+- **Minutes to dimple and top 6 pans**
+- **Minutes to take 6 out and put 6 in**
+- **Minutes to weigh in and load one mix**
+- **Minutes to weigh the dough out into 6 pans**
+- **Minutes to cool and pack 6 pans**
+
+The two card headings say it as well - the times you measured are "each for 6 pans, in minutes",
+and the rest of the kitchen work is "the hand-work around the bake, in minutes".
+
+**Nothing else moved.** No number changed, no arithmetic changed, no figure on the screen reads
+differently. This is the labels only, so if you had already worked out what went in each box,
+nothing you typed has been affected.
+
+**Nothing to set up, and no database step.** Open the app and the boxes say minutes.
 
 **20 Sep 2026 — engine v133 (no database step). The Production line now counts the whole bake
 day, not three jobs of it: weighing in and loading the mixer, weighing the dough out into pans
