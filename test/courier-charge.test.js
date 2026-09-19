@@ -21,6 +21,7 @@ const { groupValue, journalFor, moneyBetween } = await import("../admin/js/money
 const { buildPaymentReminder, buildShippedMessage } = await import("../admin/js/messages.js");
 const { buildConfirmation } = await import("../admin/js/confirm.js");
 const { trackingSnapshot } = await import("../admin/js/supabase.js");
+const { todayISO } = await import("../admin/js/dates.js");
 
 // One customer order of two Focaccia at RM15 — sold at a frozen price, the way a
 // real order carries what it was sold for.
@@ -72,7 +73,7 @@ test("a charge she bore becomes one Delivery & fuel expense, and saving twice up
   assert.equal(st.expenses[0].category, "Delivery & fuel", "her own category, in her own words");
   assert.equal(st.expenses[0].method, "Cash", "and it lands in a real book on the Money screen");
   assert.equal(st.expenses[0].courierFor, code, "linked back to the order it belongs to");
-  assert.equal(st.expenses[0].date, "2026-09-19", "dated the day the money left");
+  assert.equal(st.expenses[0].date, todayISO(), "dated the day the money left, whichever day that is");
 
   // She corrects the amount a week later. One row, corrected — never a second row,
   // which is the failure a plain "push a new expense" would have shipped.
