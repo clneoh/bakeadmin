@@ -1462,7 +1462,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const cur = state.settings.currency;
     totalEl.textContent = priced.length
       ? `Order total: ${fmtRM(itemsTotal + courierFee, cur)}`
-        + (courierFee ? ` — items ${fmtRM(itemsTotal, cur)} + courier ${fmtRM(courierFee, cur)}` : "")
+        + (courierFee
+          ? ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(courierFee, cur)}`
+          : "")
       : "";
   };
   const rowFor = (line, i) => {
@@ -1823,7 +1825,9 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
         const theirs = payer === "customer" ? amount : 0;
         custTotal.textContent = `The customer owes ${fmtRM(itemsTotal + theirs, cur)}`
-          + (theirs ? ` — items ${fmtRM(itemsTotal, cur)} + courier ${fmtRM(theirs, cur)}` : "");
+          + (theirs
+            ? ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(theirs, cur)}`
+            : "");
       };
       const fee = el("input", { class: "input", type: "number", inputmode: "decimal",
         min: "0", step: "0.01", placeholder: "e.g. 8.00", value: feeRaw,

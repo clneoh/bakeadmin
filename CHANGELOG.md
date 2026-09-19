@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v125)
+# Jienluv2bake — change history (v54 → v126)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v126 (no database step this time). The messages that ask your customer
+for money now show how the total is reached, and the app shows you the same arithmetic.**
+
+**What you told me.** You pasted the confirmation for order #7E51BC — 4 × Focaccia 9"x12" 800g,
+self collect, RM8 courier, Total RM 72.00 — and said: "the message need to show the add up for
+rm72. And it should be the same for APP."
+
+**What was wrong.** The RM72 itself was right. What was missing was any sign of where it came
+from. The line above it named the bread without a price, so the RM64 of foccacia and the RM8
+courier charge were both invisible, and the total read as a figure picked out of the air. That is
+the worst place to leave it, because this is the message that asks them for the money.
+
+**What it does now.** When the customer bears a courier charge, the messages no longer state the
+answer on its own — they show the sum, in the same order every time, with the total underneath:
+
+- Items: Focaccia 9"x12" 800g x4
+- Items total: RM 64.00
+- Courier charge: RM 8.00
+- Total: RM 72.00
+
+**The app says the same words, in the same order.** One piece of code works out those two figures
+and their total, and the confirmation, the payment reminder, the shipped message and your own
+screens all quote it. Two surfaces cannot drift apart when there is only one sum.
+
+**On your side of the app.** The **Note / tracking** box's "The customer owes..." line and the
+**Edit** box's order total both now read the breakdown as **items total ... + courier charge ...**
+— the same two words the customer sees, so the figure in front of you and the figure they were
+sent are provably the same arithmetic.
+
+**An order with no courier charge is untouched.** Its messages come out byte for byte as they did
+before, and the tests hold that.
+
+**Where to see it.** Orders → an order with a charge the customer pays → **Send confirmation**,
+**Remind for payment** or **Send shipped message**. Your side: that same order's **Note /
+tracking** and **Edit** boxes.
+
+**One thing left for you to decide — not changed.** The Money screen's "still to collect" counts
+the items only: RM64 on this order, not the RM72 the customer will hand over. That is deliberate,
+because the line measures what stays in your purse and the RM8 arrives and leaves again in the
+same breath. If you would rather it showed the full amount you are about to be handed, tell me
+and I will change it.
 
 **19 Sep 2026 — engine v125 (no database step this time). The courier charge now appears in the
 two totals YOU read, and in the one customer message that was still missing it: the

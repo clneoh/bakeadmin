@@ -11,9 +11,9 @@
 // only - emoji have come back as broken "empty boxes" on some phones. The QR
 // is skipped when the baker hasn't set one.
 
-import { byId, fmtRM, orderCode, orderLineName, orderLinePrice, waNumber } from "./state.js";
+import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
-import { customerCourierFee } from "./courier.js";
+import { customerTotal } from "./courier.js";
 
 // Returns { recipient, message }, or null when the group has no orders.
 // `trackUrl` is the storefront track link (with ?track=CODE) for the message.
@@ -29,15 +29,14 @@ export function buildConfirmation(state, group, trackUrl) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} x${o.qty}`;
   }).join(", ");
-  // The customer's total: the items, plus the courier's charge when THEY bear it. This
-  // is the message that first asks them for money, so a charge missing from this Total
-  // is the one they would pay against and every later message would then contradict
-  // (19 Sep 2026).
-  const courierFee = customerCourierFee(first);
-  const total = fmtRM(orders.reduce((s, o) => {
-    const price = orderLinePrice(state, o);
-    return s + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0) + courierFee, state.settings.currency);
+  // The customer's total, in its two parts. This is the message that first asks them
+  // for money, so a charge missing from this Total is the one they would pay against
+  // and every later message would then contradict (19 Sep 2026). When there IS a
+  // charge the parts are shown as well as the sum — the customer should be able to add
+  // the figure up themselves rather than take it on trust (19 Sep 2026).
+  const { items: itemsTotal, courier: courierFee, total: totalNum } = customerTotal(state, group);
+  const cur = state.settings.currency;
+  const total = fmtRM(totalNum, cur);
 
   const del = byId(state.deliveryDates, first.deliveryDateId);
   const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
@@ -54,9 +53,13 @@ export function buildConfirmation(state, group, trackUrl) {
   msg += `Order #${orderCode(first)}\n`;
   msg += `Delivery: ${date} - ${fulfillment}${address}\n`;
   msg += `Items: ${items}\n`;
-  // Named above the total, never left to be discovered inside it — the same line the
-  // payment reminder and the track card show (19 Sep 2026).
-  if (courierFee) msg += `Courier charge: ${fmtRM(courierFee, state.settings.currency)}\n`;
+  // With a charge on top, the sum is shown as its two parts as well as the total, so the
+  // customer can add RM72 up themselves rather than take it on trust — "the message need
+  // to show the add up for rm72" (19 Sep 2026). No charge, and this message is unchanged.
+  if (courierFee) {
+    msg += `Items total: ${fmtRM(itemsTotal, cur)}\n`;
+    msg += `Courier charge: ${fmtRM(courierFee, cur)}\n`;
+  }
   msg += `Total: ${total}\n`;
   msg += `\nPay by TNG using the QR below:\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a

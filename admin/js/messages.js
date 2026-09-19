@@ -6,9 +6,9 @@
 // with the order code so the customer can always match it back to their order, and
 // stays plain ASCII - emoji have come back as broken boxes on some phones.
 
-import { byId, fmtRM, orderCode, orderLineName, orderLinePrice, waNumber } from "./state.js";
+import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
-import { customerCourierFee } from "./courier.js";
+import { customerTotal } from "./courier.js";
 
 function basics(state, group, trackUrl) {
   const orders = (group && group.orders) || [];
@@ -20,14 +20,12 @@ function basics(state, group, trackUrl) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} x${o.qty}`;
   }).join(", ");
-  // The customer's total: what they were sold, plus the courier's charge when THEY
-  // bear it. A charge the baker pays is her own cost and never reaches this number
-  // (19 Sep 2026).
-  const courierFee = customerCourierFee(first);
-  const total = fmtRM(orders.reduce((s, o) => {
-    const price = orderLinePrice(state, o);
-    return s + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0) + courierFee, state.settings.currency);
+  // The customer's total, in its two parts: what they were sold, plus the courier's
+  // charge when THEY bear it — a charge the baker pays is her own cost and never
+  // reaches this number. One helper shared with the confirmation and the track card,
+  // so the three cannot quote different figures (19 Sep 2026).
+  const { items: itemsTotal, courier: courierFee, total: totalNum } = customerTotal(state, group);
+  const total = fmtRM(totalNum, state.settings.currency);
   const del = byId(state.deliveryDates, first.deliveryDateId);
   const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
   const courier = first.fulfillment === "courier";
@@ -38,7 +36,7 @@ function basics(state, group, trackUrl) {
   // The courier's tracking number she typed on the order. Kept as typed (a
   // pasted number may carry spaces or dashes) — it goes to the customer verbatim.
   const trackingNo = String(first.trackingNo || "").trim();
-  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, courierFee };
+  return { first, recipient, items, itemsTotal, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, courierFee };
 }
 
 export function buildPaymentReminder(state, group, trackUrl) {
@@ -50,10 +48,13 @@ export function buildPaymentReminder(state, group, trackUrl) {
   msg += `Order #${orderCode(b.first)}\n`;
   msg += `Delivery: ${b.date} - ${b.fulfillment}\n`;
   msg += `Items: ${b.items}\n`;
-  // Named above the total rather than left to be discovered inside it: the customer
-  // is being asked for money, and a figure that is RM8 more than the items they
-  // chose has to say so (19 Sep 2026).
-  if (b.courierFee) msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
+  // Shown as its two parts as well as the sum: the customer is being asked for money,
+  // and a figure that is RM8 more than the items they chose has to say so — and show
+  // them the RM8 (19 Sep 2026).
+  if (b.courierFee) {
+    msg += `Items total: ${fmtRM(b.itemsTotal, state.settings.currency)}\n`;
+    msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
+  }
   msg += `Total: ${b.total}\n`;
   if (b.qr) {
     msg += `\nPay by TNG using the QR below:\n\n${b.qr}\n`;
@@ -79,11 +80,12 @@ export function buildShippedMessage(state, group, trackUrl) {
   msg += `Delivery: ${b.date} - Courier delivery\n`;
   msg += `Items: ${b.items}\n`;
   if (b.trackingNo) msg += `Tracking number: ${b.trackingNo}\n`;
-  // The courier's charge, when the customer bears it — the same line the track card
+  // The courier's charge, when the customer bears it — the same lines the track card
   // shows them, so the two never disagree (19 Sep 2026). The total follows it, because
   // a message that names a charge and then never says what the order now comes to
   // leaves the customer to do the arithmetic (19 Sep 2026).
   if (b.courierFee) {
+    msg += `Items total: ${fmtRM(b.itemsTotal, state.settings.currency)}\n`;
     msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
     msg += `Total: ${b.total}\n`;
   }

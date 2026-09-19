@@ -349,7 +349,7 @@ test("a price changed in the Edit pop-up is frozen onto that order", () => {
   assert.equal(orderLinePrice(st, st.orders[0]), 12.5, "and it stays that price afterwards");
 });
 
-// ── v124: the total the charge lands in, on HER side of the app ────────────
+// ── v125/v126: the total the charge lands in, on HER side of the app ───────
 // "if customer were to paid courier, the total is not shown to me and to
 // customer" (19 Sep 2026). The reminder, the shipped message and the track card
 // had it from the first save; the two figures SHE reads did not.
@@ -377,7 +377,7 @@ test("the courier box says what the customer owes, and moves the moment they bea
   theirs.value = "customer";
   theirs._listeners.change[0]();
   pop = layers["popup-layer"]; // the body repaints on the payer, as the method line does
-  assert.match(popText(pop), /The customer owes RM 38\.00 — items RM 30\.00 \+ courier RM 8\.00/,
+  assert.match(popText(pop), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
     "now it is their money: the bread, the charge, and the sum she will ask for, told apart");
 
   const mine = selWith(pop, "I paid it");
@@ -398,7 +398,7 @@ test("the Edit pop-up's order total counts a charge the customer bears, and name
 
   buttonByText(root, "Edit")._listeners.click[0]();
   assert.match(popText(layers["popup-layer"]),
-    /Order total: RM 38\.00 — items RM 30\.00 \+ courier RM 8\.00/,
+    /Order total: RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
     "the figure she reads as the order's worth includes what the customer pays the courier");
 });
 

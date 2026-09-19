@@ -194,6 +194,42 @@ test("the confirmation carries their charge, because it is the message that asks
     "read before the total it is part of");
 });
 
+// "the message need to show the add up for rm72. And it should be the same for APP"
+// (19 Sep 2026). Not just the charge named and the total correct — the customer has to
+// be able to ADD IT UP from what the message says, on every message that quotes a
+// total. So this reads the three figures back out of the message itself and does the
+// arithmetic, rather than trusting any of them.
+function addUpFrom(message) {
+  const pick = (label) => {
+    const m = message.match(new RegExp(`${label}: RM ([0-9.]+)`));
+    assert.ok(m, `the message says what "${label}" is: ${JSON.stringify(message)}`);
+    return Number(m[1]);
+  };
+  return { items: pick("Items total"), courier: pick("Courier charge"), total: pick("Total") };
+}
+
+test("every message that quotes a total shows the customer the sum that reaches it", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].whatsapp = "60123456789";
+  st.orders[0].fulfillment = "courier";
+  const g = groupOf(st);
+
+  const messages = {
+    confirmation: buildConfirmation(st, g, "https://x/track").message,
+    reminder: buildPaymentReminder(st, g, "https://x/track").message,
+    shipped: buildShippedMessage(st, g, "https://x/track").message,
+  };
+  for (const [which, message] of Object.entries(messages)) {
+    const { items, courier, total } = addUpFrom(message);
+    assert.equal(items + courier, total,
+      `the ${which} adds up: the bread plus the charge IS the total it asks for`);
+    assert.equal(items, 30, `and the ${which} counts the bread at the price it was sold at`);
+    assert.equal(courier, 8, `and the ${which} names the charge itself, so there is no mystery RM8`);
+  }
+});
+
 test("a charge SHE bore never reaches the confirmation either", () => {
   const st = state();
   st.orders[0].courierFee = 8;

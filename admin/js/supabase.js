@@ -9,9 +9,9 @@ import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
 import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
 import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine } from "./state.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
-import { customerCourierFee } from "./courier.js";
+import { customerTotal } from "./courier.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
 
@@ -482,15 +482,13 @@ export function trackingSnapshot(state, group) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} ×${o.qty}`;
   }).join(", ");
-  // The customer's total includes the courier's charge when THEY bear it — the same
-  // number their messages quote, so the message and the card never disagree. A
-  // charge the baker pays is her own cost and is not published here at all
-  // (19 Sep 2026).
-  const courierFee = customerCourierFee(first);
-  const total = fmtRM(orders.reduce((s, o) => {
-    const price = orderLinePrice(state, o);
-    return s + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0) + courierFee, state.settings.currency);
+  // The customer's total, from the one helper the messages use too, so the card and the
+  // messages can never quote different figures. The charge is only IN this number when
+  // THEY bear it; a charge the baker pays is her own cost and is not published here at
+  // all (19 Sep 2026). The card shows the charge as its own line above this total — the
+  // full add-up lives in their WhatsApp message, which is where they are asked for money.
+  const { courier: courierFee, total: totalNum } = customerTotal(state, group);
+  const total = fmtRM(totalNum, state.settings.currency);
   return {
     code: orderCode(first),
     status: first.status || "new",

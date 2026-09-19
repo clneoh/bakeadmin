@@ -20,7 +20,7 @@
 //
 // Pure — no DOM, no fetch — so it runs under Node for tests.
 
-import { newId, orderCode } from "./state.js";
+import { newId, orderCode, orderLinePrice } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
 
@@ -45,6 +45,23 @@ export function courierPayerOf(first) {
 // charge she pays is her own cost and must never turn up on their total.
 export function customerCourierFee(first) {
   return courierPayerOf(first) === "customer" ? courierFeeOf(first) : 0;
+}
+
+// The customer's total, in its two parts, so that everyone who shows it can show the
+// addition instead of a figure that appears from nowhere: "show the add up for rm72"
+// (19 Sep 2026). One source for the number the messages, the track card and the app
+// all quote, which is what makes them agree.
+//
+// The items are counted at the price each line was SOLD at (orderLinePrice), exactly
+// as groupValue counts her takings — the two differ only by the customer's charge.
+export function customerTotal(state, group) {
+  const orders = (group && group.orders) || [];
+  const items = orders.reduce((sum, o) => {
+    const price = orderLinePrice(state, o);
+    return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
+  }, 0);
+  const courier = customerCourierFee(orders[0]);
+  return { items, courier, total: items + courier };
 }
 
 // Record the charge on the books. Called on save from the Note / tracking pop-up,
