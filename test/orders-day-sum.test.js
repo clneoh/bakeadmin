@@ -348,3 +348,71 @@ test("a price changed in the Edit pop-up is frozen onto that order", () => {
   st.products[0].price = 22;
   assert.equal(orderLinePrice(st, st.orders[0]), 12.5, "and it stays that price afterwards");
 });
+
+// ── v124: the total the charge lands in, on HER side of the app ────────────
+// "if customer were to paid courier, the total is not shown to me and to
+// customer" (19 Sep 2026). The reminder, the shipped message and the track card
+// had it from the first save; the two figures SHE reads did not.
+const popText = (pop) => all(pop).map((n) => n.textContent).join(" | ");
+
+test("the courier box says what the customer owes, and moves the moment they bear it", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15; // 2 × RM15 of bread
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  let pop = layers["popup-layer"];
+  assert.match(popText(pop), /The customer owes RM 30\.00/,
+    "the box says what the order comes to before any charge is typed");
+
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box); // the handler reads this.value
+  assert.match(popText(pop), /The customer owes RM 30\.00/,
+    "an amount on its own asks nobody for it — who bears it is what decides");
+
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  pop = layers["popup-layer"]; // the body repaints on the payer, as the method line does
+  assert.match(popText(pop), /The customer owes RM 38\.00 — items RM 30\.00 \+ courier RM 8\.00/,
+    "now it is their money: the bread, the charge, and the sum she will ask for, told apart");
+
+  const mine = selWith(pop, "I paid it");
+  mine.value = "me";
+  mine._listeners.change[0]();
+  pop = layers["popup-layer"];
+  assert.match(popText(pop), /The customer owes RM 30\.00/,
+    "a charge she bears is her own cost — what the customer owes never moves for it");
+});
+
+test("the Edit pop-up's order total counts a charge the customer bears, and names it", () => {
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  assert.match(popText(layers["popup-layer"]),
+    /Order total: RM 38\.00 — items RM 30\.00 \+ courier RM 8\.00/,
+    "the figure she reads as the order's worth includes what the customer pays the courier");
+});
+
+test("a charge she bore stays out of the Edit order total", () => {
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  const text = popText(layers["popup-layer"]);
+  assert.match(text, /Order total: RM 30\.00/, "her own cost is not something the customer owes");
+  assert.doesNotMatch(text, /Order total: RM 38/,
+    "nor may it be added to the total she reads as the order's worth");
+});

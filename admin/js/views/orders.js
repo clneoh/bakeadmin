@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney } from "../money.js";
+import { dayMoney, groupValue } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks, occColour, occForDate } from "../calendar.js";
@@ -15,7 +15,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybeSync, publishTracking } from "../supabase.js";
-import { applyCourierCharge, courierFeeOf, courierPayerOf } from "../courier.js";
+import { applyCourierCharge, courierFeeOf, courierPayerOf, customerCourierFee } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -1451,11 +1451,18 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     ...moveNoteLines(state, group, curId).map((t) => el("p", { style: "margin:2px 0" }, t)));
 
   const totalEl = el("p", { class: "card-sub", style: "margin:8px 0 0" });
+  // A charge the customer bears belongs in this total, because this is the number she
+  // reads to know what the order is worth. Named when it is there, so a figure RM8
+  // above the items explains itself rather than looking like a mistake; a charge SHE
+  // bore is her own cost and stays out, exactly as it does on her books (19 Sep 2026).
+  const courierFee = customerCourierFee(first);
   const paintTotal = () => {
     const priced = lines.filter((l) => l.productId && l.price != null);
+    const itemsTotal = priced.reduce((sum, l) => sum + l.qty * Number(l.price), 0);
+    const cur = state.settings.currency;
     totalEl.textContent = priced.length
-      ? `Order total: ${fmtRM(priced.reduce((sum, l) => sum + l.qty * Number(l.price), 0),
-          state.settings.currency)}`
+      ? `Order total: ${fmtRM(itemsTotal + courierFee, cur)}`
+        + (courierFee ? ` — items ${fmtRM(itemsTotal, cur)} + courier ${fmtRM(courierFee, cur)}` : "")
       : "";
   };
   const rowFor = (line, i) => {
@@ -1805,9 +1812,22 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // The courier's charge, and who bore it. Two different things happen to the
       // books depending on that answer, which is why it is asked rather than assumed
       // — see courier.js.
+      // What the customer ends up owing, repainted as she types: the items, plus the
+      // charge when THEY bear it. A charge she bears is her own cost and never reaches
+      // this number. Without this line the fee box shows no consequence of its own
+      // (19 Sep 2026).
+      const custTotal = el("p", { class: "card-sub", style: "margin:10px 0 0" });
+      const itemsTotal = groupValue(state, group);
+      const paintCustTotal = () => {
+        const cur = state.settings.currency;
+        const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
+        const theirs = payer === "customer" ? amount : 0;
+        custTotal.textContent = `The customer owes ${fmtRM(itemsTotal + theirs, cur)}`
+          + (theirs ? ` — items ${fmtRM(itemsTotal, cur)} + courier ${fmtRM(theirs, cur)}` : "");
+      };
       const fee = el("input", { class: "input", type: "number", inputmode: "decimal",
         min: "0", step: "0.01", placeholder: "e.g. 8.00", value: feeRaw,
-        oninput: function () { feeRaw = this.value; } });
+        oninput: function () { feeRaw = this.value; paintCustTotal(); } });
       const payerSel = select([
         { value: "", label: "Not recorded" },
         { value: "me", label: "I paid it" },
@@ -1826,6 +1846,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         { value: "cash", label: "Cash" },
         { value: "tng", label: "TNG transfer" },
       ], first.paidMethod || "", () => {});
+      paintCustTotal();
       return el("div", {},
         el("div", { class: "field" }, el("label", {}, "Note (optional)"), note),
         el("div", { class: "field" },
@@ -1838,9 +1859,10 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             ? el("div", { class: "field", style: "margin:8px 0 0" },
                 el("label", {}, "How you paid the courier"), methodSel)
             : null),
+        custTotal,
         el("div", { class: "field" }, el("label", {}, "Paid by the customer"), paidSel),
         el("p", { class: "card-sub", style: "margin:0 0 10px" },
-          "A courier charge the customer pays is added to their total and shows on their track card and messages. One you pay becomes a Delivery & fuel expense and comes off your profit. The tracking number goes onto the customer's track card and into the shipped message. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
+          "A courier charge the customer pays is added to their total, and named on their confirmation, their messages and their track card. One you pay becomes a Delivery & fuel expense and comes off your profit. The tracking number goes onto the customer's track card and into the shipped message. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
         el("div", { class: "popup-actions" },
           button("Cancel", close, "ghost"),
           button("Save", () => {

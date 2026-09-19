@@ -1,8 +1,39 @@
-# Jienluv2bake — change history (v54 → v124)
+# Jienluv2bake — change history (v54 → v125)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v125 (no database step this time). The courier charge now appears in the
+two totals YOU read, and in the one customer message that was still missing it: the
+confirmation.**
+
+**What you told me.** Straight after deploying v124: "if customer were to paid courier, the total
+is not shown to me and to customer." You were right, and it was three places, not one.
+
+**What was wrong.** v124 did put a charge the customer bears into the payment reminder, the
+shipped message and the track card, and named it in each. But the **confirmation** — the very
+first message, the one carrying the TNG QR that asks them for the money — still quoted the items
+alone. And on your side of the app, the **Note / tracking / courier** box never showed what the
+customer owed, and the **Edit** box's order total left the charge out. So both totals you read
+were lower than the figure the customer had actually been asked for. A customer paying what the
+confirmation said would have come up short, and you would have had no way to see why.
+
+**What it does now.** The **confirmation** names the charge on its own line just above the total,
+exactly as the payment reminder already did — so the message that asks for the money and every
+message after it agree. The **shipped message**, which named the charge but never said what the
+order came to, now ends on the total as well. In your app, the **Note / tracking / courier** box
+tells you what the customer owes as you type the amount, and it moves the moment you say the
+customer paid it — showing the arithmetic, items plus courier, so the figure explains itself. The
+**Edit** box's order total counts the charge the same way.
+
+**A charge you bear still appears in none of the customer's totals** and in none of the figures
+they are shown — that part has not changed, and it is still deliberate. Your own books are
+untouched by a charge the customer pays, exactly as v124 had them.
+
+**Where to see it.** Orders -> open an order -> **Note / tracking** (the total sits under the
+question of who paid). **Edit** -> the Order total line. The customer's side: all four messages,
+and their track card.
 
 **19 Sep 2026 — engine v124 (one database step: run supabase/courier_fee.sql in Supabase
 BEFORE you deploy this build). The Note / tracking box now records the courier charge itself,

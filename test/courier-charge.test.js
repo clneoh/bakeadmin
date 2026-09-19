@@ -19,6 +19,7 @@ const { applyCourierCharge, courierFeeOf, courierPayerOf, customerCourierFee } =
   await import("../admin/js/courier.js");
 const { groupValue, journalFor, moneyBetween } = await import("../admin/js/money.js");
 const { buildPaymentReminder, buildShippedMessage } = await import("../admin/js/messages.js");
+const { buildConfirmation } = await import("../admin/js/confirm.js");
 const { trackingSnapshot } = await import("../admin/js/supabase.js");
 
 // One customer order of two Focaccia at RM15 — sold at a frozen price, the way a
@@ -171,6 +172,50 @@ test("the customer's total carries their courier charge, and says so", () => {
 
   const shipped = buildShippedMessage(st, g, "https://x/track");
   assert.match(shipped.message, /Courier charge: RM 8\.00/, "and the shipped message carries it too");
+  assert.match(shipped.message, /Total: RM 38\.00/,
+    "and ends on the same total the reminder quoted, so the two can never disagree");
+});
+
+// The confirmation is the message that FIRST asks for money, so a charge missing from
+// its Total is the one the customer would pay against — every later message would then
+// contradict it (19 Sep 2026).
+test("the confirmation carries their charge, because it is the message that asks for money", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].whatsapp = "60123456789";
+  st.orders[0].fulfillment = "courier";
+  const g = groupOf(st);
+
+  const msg = buildConfirmation(st, g, "https://x/track").message;
+  assert.match(msg, /Courier charge: RM 8\.00/, "named, not folded silently into the total");
+  assert.match(msg, /Total: RM 38\.00/, "RM30 of bread plus the RM8 charge");
+  assert.ok(msg.indexOf("Courier charge") < msg.indexOf("Total:"),
+    "read before the total it is part of");
+});
+
+test("a charge SHE bore never reaches the confirmation either", () => {
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  st.orders[0].whatsapp = "60123456789";
+  const g = groupOf(st);
+
+  const msg = buildConfirmation(st, g, "https://x/track").message;
+  assert.match(msg, /Total: RM 30\.00/, "what they owe is the bread, and only the bread");
+  assert.doesNotMatch(msg, /Courier charge/,
+    "asking them for a charge she is absorbing would be taking money she is not owed");
+});
+
+test("an order with no charge confirms exactly as it did before this existed", () => {
+  const st = state();
+  st.orders[0].whatsapp = "60123456789";
+  const g = groupOf(st);
+  const plain = buildConfirmation(state({ orders: orders({ whatsapp: "60123456789" }) }),
+    g, "https://x/track").message;
+  assert.equal(buildConfirmation(st, g, "https://x/track").message, plain,
+    "byte for byte — nothing about an order without a charge moved");
+  assert.doesNotMatch(plain, /Courier charge/);
 });
 
 test("a charge SHE bore is absent from the customer's total, and from what they are told", () => {
@@ -186,6 +231,8 @@ test("a charge SHE bore is absent from the customer's total, and from what they 
   assert.doesNotMatch(reminder.message, /Courier charge/,
     "she is absorbing it — telling the customer about it would ask them for money they do not owe");
   assert.doesNotMatch(buildShippedMessage(st, g, "https://x/track").message, /Courier charge/);
+  assert.doesNotMatch(buildShippedMessage(st, g, "https://x/track").message, /Total:/,
+    "and with no charge to explain, the shipped message is left exactly as it was");
 });
 
 test("no charge at all leaves every message exactly as it was", () => {

@@ -80,8 +80,13 @@ export function buildShippedMessage(state, group, trackUrl) {
   msg += `Items: ${b.items}\n`;
   if (b.trackingNo) msg += `Tracking number: ${b.trackingNo}\n`;
   // The courier's charge, when the customer bears it — the same line the track card
-  // shows them, so the two never disagree (19 Sep 2026).
-  if (b.courierFee) msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
+  // shows them, so the two never disagree (19 Sep 2026). The total follows it, because
+  // a message that names a charge and then never says what the order now comes to
+  // leaves the customer to do the arithmetic (19 Sep 2026).
+  if (b.courierFee) {
+    msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
+    msg += `Total: ${b.total}\n`;
+  }
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }
