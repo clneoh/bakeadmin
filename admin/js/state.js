@@ -45,6 +45,25 @@ export function defaultState() {
         referrerRM: 3, // the credit the referrer earns
         validDays: 90, // "" (blank) = never expires
       },
+      // The production line planner (19 Sep 2026): the numbers her line is
+      // measured from, typed by her on More → Production line. Seeded with the
+      // ones she measured on /form/ so the screen says something true on the
+      // first open. Nothing else in the app reads this — it is a planner, not a
+      // gate. See js/production.js for the model.
+      production: {
+        people: 1,
+        hours: 5,
+        target: 60,
+        pans: 12,
+        trays: 12,
+        mixerPans: 25,
+        ovenPans: 6,
+        ovenMin: 15,
+        ovenShelves: 2,
+        washMin6: 18,
+        topMin6: 8,
+        swapMin6: 4,
+      },
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
       // The two lists the books are built from (16 Sep 2026). Empty means "the
       // built-in ones" — see js/accounts.js — so a phone that never edits them
@@ -252,6 +271,7 @@ function normalize(s) {
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
+      production: { ...d.settings.production, ...(((s.settings || {}).production) || {}) },
       categories: Array.isArray(((s.settings || {}).categories)) ? s.settings.categories : [],
       payMethods: Array.isArray(((s.settings || {}).payMethods)) ? s.settings.payMethods : [],
       developer: cleanDeveloper(((s.settings || {}).developer)),

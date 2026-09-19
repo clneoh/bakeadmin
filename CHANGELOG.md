@@ -1,8 +1,64 @@
-# Jienluv2bake — change history (v54 → v130)
+# Jienluv2bake — change history (v54 → v131)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v131 (no database step). A Production line screen: your bake day
+drawn as a row of bars, the station that is holding you back named and made the only red
+thing on the screen, and a ranked list of the changes you could make with what each one
+actually buys you.**
+
+**What you told me.** "can i have a apps function that visualise the flow, bottle neck
+hightlight and something for me to optimise line balancing, so that i can have an optimise
+manpower usage?" Then, when I asked how it should help you decide: "Both - ranked levers and
+what-if", and the numbers should come from "A planner I type into". You asked for all four
+levers to be yours: **People**, **Pans and trays**, **The task times**, and **Days and hours**.
+
+**The line, drawn.** Open **More → Production line** and your day sits on one screen: one bar
+each for **your hands**, **the chiller**, **the oven** and **your pans**, every one measured in
+the same unit — **pans an hour** — so they can be compared honestly. The shortest bar is the
+one setting your pace. It wears a red wash, is named in a sentence just underneath, and it is
+the only red thing on the screen, so your eye lands on the one thing that matters. Each bar
+carries a plain line saying what that station is: "1 pair of hands · wash, oil, fill, top, oven
+swap", "12 trays of dough over 5 hours", "6 pans every 15 min".
+
+**What your own numbers already say.** The three tasks you timed for every 6 pans — 18 minutes
+washing, oiling and filling, 8 dimpling and topping, 4 for the oven swap — are 30 minutes of
+work for 6 pans, which is **5 minutes of work for every pan**. One pair of hands therefore
+finishes **12 pans an hour**; your oven does **24**. And the chiller, holding your trays of
+dough overnight at one tray to one pan, turns 12 trays through a 5-hour day at only **2.4 pans
+an hour**. So the screen names **the chiller as the wall, not the oven** — your day comes to
+**12 pans**, 48 short of the 60 you want — and it tells you that **one more pair of hands buys
+nothing at all** while the trays are already full.
+
+**The third pair of hands buys nothing.** That is the manpower answer, and the screen says it
+in words rather than leaving you to work it out: once the chiller is out of the way, the
+**second pair doubles the line** (12 pans an hour to 24) and the **third buys nothing**, because
+the oven stops at 24. Spending on help before fixing the wall is money standing around.
+
+**Where the hands go.** With two or more pairs the screen splits them by how much work each job
+is, so two pairs reads "1 on the wash, oil and fill, and 1 on the dimple and top", with the oven
+swap taken by whoever is free. Every job finishing at the same moment is the whole trick to
+balancing a line, and it is the same arithmetic at two pairs of hands or at six.
+
+**What to change, ranked.** Six moves are scored by the pans they actually buy on a day like
+yours and sorted best first — **one more pair of hands**, **six more trays**, **six more pans**,
+**a wash 10% faster**, **one more hour**, **one more pan per bake**. Each row says what the day
+becomes and which wall is left standing after it. At your numbers only **six more trays** gains
+anything (+6 pans, taking the day to 18) — and the other five keep their place and say so in as
+many words ("No help — the chiller still sets the pace"), so nothing on the screen ever looks
+like a button that does nothing.
+
+**A planner, not a gate.** Nothing on this screen reads an order, nothing here blocks a sale,
+and nothing here asks you to keep anything in step with it — the numbers are yours to correct
+right on the screen, and the screen's answers move as you type. It is seeded from the kitchen
+form you filled in, so it says something true the first time it opens. The planner shares
+between your phones like the rest of your settings, so both of you plan from the same numbers.
+
+**One number worth settling once.** Your form answered **8** trays where you have also told me
+**12**. The tray count is your day's hard ceiling, so it decides everything above — the field
+says so, and it is yours to set.
 
 **19 Sep 2026 — engine v130 (no database step). The courier charge can now be changed from
 Edit as well, and deleting the courier's line on the Money screen takes the charge off the

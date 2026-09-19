@@ -94,11 +94,13 @@ test("computeRecords: arrays become rows, settings becomes one default row", () 
   const settings = rows.find((r) => r.kind === "settings");
   assert.equal(settings.id, "default");
   // Only the business keys + the weekly checklist sync — connection config AND
-  // the app password stay per-device.
+  // the app password stay per-device. `production` is the line planner's
+  // numbers (19 Sep 2026): both phones bake, so both need the same ones.
   assert.deepEqual(settings.data, {
     defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
     weekCheck: { week: "", done: {} },
     referrals: {},
+    production: {},
   });
 });
 

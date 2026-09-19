@@ -22,6 +22,7 @@ export function renderMore(root, state) {
     menuItem("#/suppliers", "🏪 Suppliers", "Who you buy from, with their WhatsApp"),
     menuItem("#/money", "💰 Money", "What came in — cash, TNG, still to collect"),
     menuItem("#/profit", "📈 Profit", "Sales, ingredient cost, what the month left"),
+    menuItem("#/production", "🏭 Production line", "Where the line slows down, and the best use of your hands"),
     menuItem("#/deliveries", "📅 Delivery dates", "Set and manage delivery dates"),
     menuItem("#/ingredients", "🧂 Ingredients", "Cooking units + supplier prices for the PO"),
     menuItem("#/history", "📚 PO history", "Saved purchase orders"),

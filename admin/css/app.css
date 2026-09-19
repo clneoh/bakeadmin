@@ -295,6 +295,38 @@ h2.section:first-child { margin-top: 0; }
   text-shadow: 0 0 4px rgba(255,255,255,.7);
 }
 
+/* ---------- Production line (19 Sep 2026) ---------- */
+/* The station setting the pace wears the app's "over" colours and is the only
+   red thing on that screen, so the eye lands on it without being told. */
+.meter-fill.short { background: linear-gradient(90deg, #d0564b, var(--red)); }
+.station { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.station:last-child { border-bottom: none; }
+.station.short {
+  background: var(--red-bg);
+  border-radius: var(--radius-sm);
+  padding-left: 10px;
+  padding-right: 10px;
+  border-bottom-color: transparent;
+}
+.station-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.station-name { min-width: 0; overflow-wrap: anywhere; }
+.station .meter { margin: 6px 0 2px; }
+
+/* The ranked moves. A green edge means it buys pans; a flat one says why not. */
+.lever-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.lever-row { border-left: 3px solid var(--line); padding-left: 10px; }
+.lever-row.helps { border-left-color: var(--green); }
+.lever-top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 14px;
+}
+.lever-what { min-width: 0; font-weight: 600; }
+.lever-gain {
+  white-space: nowrap; font-weight: 600;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.lever-gain.up { color: var(--green); }
+.job-list { margin-top: 2px; }
+
 /* ---------- Buttons ---------- */
 .btn {
   appearance: none;
