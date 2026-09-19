@@ -32,7 +32,7 @@
 //
 // Pure — no DOM, no fetch — so it runs under Node for tests.
 
-import { newId, orderCode, orderLinePrice, fmtRM } from "./state.js";
+import { newId, orderCode, orderLinePrice, fmtRM, groupOrders } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
 
@@ -149,4 +149,32 @@ export function applyCourierCharge(state, group, fee, paidBy, method) {
   if (kept) expenses[at] = row;
   else expenses.push(row);
   return kept ? "updated" : "created";
+}
+
+// Take a charge off the order it belongs to, found by its order code — the way back
+// from the Money screen, where the expense row is all she can see of a charge she paid
+// herself (19 Sep 2026).
+//
+// A charge she paid is ONE thing with two halves: the Delivery & fuel row in her books
+// and the charge on the order. Deleting the row used to take only the books half, so the
+// order still wore the tag and its box still showed the charge — and the next Save in
+// that box quietly wrote the expense straight back. Now the row and the order go
+// together, which is what makes the delete mean one thing.
+//
+// Returns the group it cleared, so the caller can republish that customer's track card
+// (the card quotes the customer's total, which moves whenever a charge does), or null
+// when no order carries that code.
+export function clearCourierCharge(state, code) {
+  const want = String(code || "");
+  if (!want) return null;
+  const group = groupOrders(state.orders || [])
+    .find((g) => g.orders[0] && orderCode(g.orders[0]) === want);
+  if (!group) return null;
+  for (const o of group.orders) {
+    delete o.courierFee;
+    delete o.courierPaidBy;
+    // COD goes with the other two: it is a flag on a charge, so it cannot outlive one.
+    delete o.courierCod;
+  }
+  return group;
 }

@@ -846,3 +846,99 @@ test("the Money screen's still-to-collect line shows the charge, not just the it
     `the row reads what she will be handed, not the items alone (got "${line.children[1].textContent}")`);
   assert.ok(line.children[1].textContent.includes("1 order"), "and still says how many orders it covers");
 });
+
+// ── v130: deleting the courier's line takes the charge off the order ─────────
+// "q2, yes make deleting it clear the charge too" (19 Sep 2026). A charge she paid is
+// ONE thing with two halves — the Delivery & fuel row in her books, and the charge on
+// the order. The Money screen only shows her the row, so deleting it used to take that
+// half alone: the order still wore the tag, its box still showed the charge, and the
+// next Save in that box quietly wrote the row straight back.
+const COURIER_ROW = "Courier (order #1BED7)";   // orderCode() of id "o1bed7"
+
+function chargedBooks() {
+  const today = todayISO();
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ id: "o1bed7", deliveryDateId: "d18", deliveryDate: today,
+    status: "confirmed", paidReceived: false,
+    unitPrice: 15, courierFee: 8, courierPaidBy: "me" })];
+  st.expenses = [{ id: "e1", date: today, amount: 8, category: "Delivery & fuel",
+    method: "cash", courierFor: "1BED7", note: "" }];
+  return st;
+}
+
+const rowSaying = (root, text) => allOf(root).find((n) =>
+  String(n.className).includes("info-row") && n.children[0]
+  && n.children[0].textContent.includes(text));
+const crossIn = (row) => allOf(row).find((n) => n.tagName === "BUTTON" && n.textContent === "✕");
+const tapDelete = (screen) => {
+  const yes = allOf(screen["confirm-layer"])
+    .find((n) => n.tagName === "BUTTON" && n.textContent === "Delete");
+  assert.ok(yes, "the confirmation offers the delete");
+  yes._listeners.click[0]();
+};
+
+test("the courier's expense row is named as the courier's, not as a bare category", () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const st = chargedBooks();
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const row = rowSaying(root, COURIER_ROW);
+  assert.ok(row, "the row says which order's charge it is — the same words the journal uses");
+  assert.ok(row.children[0].textContent.includes("Delivery & fuel") === false,
+    "and it is not just the category, which would not tell her which order she is looking at");
+});
+
+test("deleting the courier's line takes the charge off the order with it", async () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const st = chargedBooks();
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  crossIn(rowSaying(root, COURIER_ROW))._listeners.click[0]();
+  assert.match(allOf(screen["confirm-layer"])[0].children[0].textContent,
+    /comes off order #1BED7 with it/,
+    "and she is told before she agrees that the order moves too");
+
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  try {
+    tapDelete(screen);
+    for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+  } finally { globalThis.fetch = real; }
+
+  assert.equal(st.expenses.length, 0, "the row is gone from her books");
+  for (const key of ["courierFee", "courierPaidBy", "courierCod"]) {
+    assert.equal(key in st.orders[0], false,
+      `${key} goes too — a charge on the order with no row in her books is the charge and the books disagreeing`);
+  }
+  assert.equal(posts.length, 1, "and the customer's card is republished, because its total moved");
+  assert.equal(posts[0].courier_fee, null, "with no charge on it");
+});
+
+test("deleting an ordinary expense leaves every order alone", () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const st = chargedBooks();
+  st.expenses.push({ id: "e2", date: todayISO(), amount: 5, category: "Packaging",
+    method: "cash", note: "" });
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  crossIn(rowSaying(root, "Packaging"))._listeners.click[0]();
+  tapDelete(screen);
+
+  assert.equal(st.expenses.length, 1, "the packaging row is the one that went");
+  assert.equal(st.expenses[0].courierFor, "1BED7", "and the courier's row was not touched by it");
+  assert.equal(st.orders[0].courierFee, 8,
+    "nor did an unrelated delete reach into an order — only a row that names its order may clear one");
+});

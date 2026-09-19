@@ -1458,12 +1458,17 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   //
   // A COD charge is the order's worth too, but it is NOT in this total: the courier
   // collects it, so it is named under the total instead (19 Sep 2026).
-  const courierCharge = customerCourierFee(first);
-  const courierCod = courierCodOf(first);
-  const paintTotal = () => {
+  //
+  // Read off the charge's own controls rather than off the saved order, so this figure
+  // follows the fee box as she types it here — the form can change the charge now, and a
+  // total that only moved after a save would be a figure she cannot check (19 Sep 2026).
+  function paintTotal() {
     const priced = lines.filter((l) => l.productId && l.price != null);
     const itemsTotal = priced.reduce((sum, l) => sum + l.qty * Number(l.price), 0);
     const cur = state.settings.currency;
+    const { fee, who, collect } = charge.read();
+    const courierCharge = who === "customer" ? fee : 0;
+    const courierCod = who === "customer" && collect;
     const here = courierCod ? 0 : courierCharge;
     totalEl.textContent = priced.length
       ? `Order total: ${fmtRM(itemsTotal + here, cur)}`
@@ -1473,7 +1478,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
             : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(courierCharge, cur)}`
           : "")
       : "";
-  };
+  }
+  // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
+  // 2026): the charge is part of what this order is, and Edit is where she changes what
+  // an order is. One shared block, so both doors settle the amount, the payer and the
+  // COD flag identically.
+  const charge = courierControls(state, first, paintTotal);
   const rowFor = (line, i) => {
     const prodSel = select(products, line.productId,
       () => {
@@ -1511,13 +1521,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       address: address.value.trim(),
       note: note.value.trim(),
       trackingNo: tracking.value.trim(),
-      // The courier charge is set in the Note / tracking pop-up, not here — but Edit
-      // rewrites the whole row, so these ride along or editing an order would quietly
-      // drop the charge she recorded. A group is one answer, so first's value goes
-      // onto every row (19 Sep 2026).
-      courierFee: first.courierFee,
-      courierPaidBy: first.courierPaidBy,
-      courierCod: first.courierCod,
+      // The courier charge rides as one object rather than three loose keys, because its
+      // four answers have to be written together: the amount, who bore it, whether the
+      // courier collects it, and how SHE paid it decide an order row AND an expense row,
+      // and a charge written half-way is a charge that disagrees with itself.
+      courier: charge.read(),
       orderDate: draft.orderDate,
       deliveryDateId: destId,
     }, close, root);
@@ -1540,6 +1548,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
       tracking),
+    charge.el,
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "Items"),
       el("p", { class: "card-sub", style: "margin:0 0 6px" },
@@ -1559,10 +1568,18 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
 // as one customer order). Removed lines' orders are deleted. Guards against
 // pushing the day over capacity.
 function applyPopupEdits(state, date, group, first, chosen, shared, close, root) {
-  const dest = byId(state.deliveryDates, shared.deliveryDateId) || date;
+  // The charge travels beside the shared row fields, never among them: they are copied
+  // straight onto the order rows with Object.assign, and a nested object riding along
+  // there would be saved onto every row as a field of its own.
+  const { courier = null, ...fields } = shared;
+  const dest = byId(state.deliveryDates, fields.deliveryDateId) || date;
   // Read before the write-back below: a new tracking number has to reach the
   // customer's card, and an edit that did not touch it should not republish.
   const trackingBefore = String(first.trackingNo || "");
+  // The charge reads the same way — what the customer's card shows for it now, so an
+  // edit that moves the charge republishes and one that did not leaves the card alone.
+  const chargedBefore = customerCourierFee(first);
+  const codBefore = !!courierCodOf(first);
   if (!dest) return toast("Choose a delivery day");
   // The capacity guard follows the order to its destination. Capacity is derived
   // from deliveryDateId, so the source day frees itself with no bookkeeping, and
@@ -1581,16 +1598,17 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
     // fixed here carries to their other orders and to their saved record too.
     // keyOf(first) is read before the loop below rewrites these rows, so it
     // still gives the person's pre-edit key.
-    syncContactFromOrder(state, keyOf(first), { customerName: shared.customerName, whatsapp: shared.whatsapp });
+    syncContactFromOrder(state, keyOf(first), { customerName: fields.customerName, whatsapp: fields.whatsapp });
     let gid = first.groupId;
     if (!gid && chosen.length > 1) gid = newId("ordg"); // single order gains a second item
+    const keptRows = [];
     for (const l of chosen) {
       const o = l.id ? byId(state.orders, l.id) : null;
       if (o) {
         const before = o.productId;
         o.productId = l.productId;
         o.qty = Number(l.qty) || 1;
-        Object.assign(o, shared);
+        Object.assign(o, fields);
         if (gid) o.groupId = gid;
         // Only a line swapped to a different product re-prices; leaving a line
         // alone keeps the price it was sold at.
@@ -1601,23 +1619,21 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         const typed = l.price == null ? NaN : Number(l.price);
         if (Number.isFinite(typed) && typed >= 0) o.unitPrice = typed;
         else delete o.unitPrice;
+        keptRows.push(o);
       } else {
         const row = {
           id: newId("ord"),
           deliveryDateId: dest.id,
           deliveryDate: dest.date,
-          orderDate: shared.orderDate || todayISO(),
+          orderDate: fields.orderDate || todayISO(),
           productId: l.productId,
           qty: Number(l.qty) || 1,
-          customerName: shared.customerName,
-          whatsapp: shared.whatsapp,
-          fulfillment: shared.fulfillment,
-          address: shared.address,
-          note: shared.note,
-          trackingNo: shared.trackingNo,
-          courierFee: shared.courierFee,
-          courierPaidBy: shared.courierPaidBy,
-          courierCod: shared.courierCod,
+          customerName: fields.customerName,
+          whatsapp: fields.whatsapp,
+          fulfillment: fields.fulfillment,
+          address: fields.address,
+          note: fields.note,
+          trackingNo: fields.trackingNo,
           status: first.status || "new",
           groupId: gid,
           createdAt: new Date().toISOString(),
@@ -1625,7 +1641,26 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         stampOrderLine(row, byId(state.products, row.productId));
         if (Number.isFinite(Number(l.price))) row.unitPrice = Number(l.price);
         state.orders.push(row);
+        keptRows.push(row);
       }
+    }
+    // The charge, written the way the Note / tracking box writes it: the amount and the
+    // payer settle together and the COD flag goes with them, so a charge cleared here
+    // leaves no key behind and cannot outlive the amount. `courier` is null only for a
+    // caller that does not ask for the charge, which then leaves it exactly as it was.
+    if (courier) {
+      for (const o of keptRows) {
+        if (courier.fee > 0) o.courierFee = courier.fee;
+        else delete o.courierFee;
+        if (courier.who) o.courierPaidBy = courier.who;
+        else delete o.courierPaidBy;
+        if (courier.collect) o.courierCod = true;
+        else delete o.courierCod;
+      }
+      // Her own charge is a Delivery & fuel expense as well as an order row; the
+      // customer's touches her books not at all. Same call the box makes, so saving the
+      // charge from either door leaves the order and the expense in step.
+      applyCourierCharge(state, group, courier.fee, courier.who, courier.method);
     }
     // Every kept row now sits on the destination day, with deliveryDateId and
     // the deliveryDate snapshot written together (self-heals a split group).
@@ -1633,9 +1668,12 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
-    // The track card bakes the delivery-date string, so a move must republish
-    // it. An in-place edit leaves it as it was.
-    if (!sameDay || trackingBefore !== String(shared.trackingNo || "")) {
+    // The track card bakes the delivery-date string, so a move must republish it; so
+    // must a changed tracking number, and so must the charge, which the customer's card
+    // quotes in its total. An edit that touched none of them leaves the card alone.
+    const chargedAfter = courier && courier.who === "customer" ? courier.fee : 0;
+    if (!sameDay || trackingBefore !== String(fields.trackingNo || "")
+      || chargedBefore !== chargedAfter || codBefore !== !!(courier && courier.collect)) {
       publishTracking(state, group);
     }
     toast(sameDay ? "Order updated" : "Order moved");
@@ -1794,6 +1832,83 @@ function orderList(state, dateId, root) {
   return listEl;
 }
 
+// The courier charge's questions — the amount, who bore it, how SHE paid it, and
+// whether the courier collects it at the door — built in ONE place, because two pop-ups
+// ask them now: the small Note / tracking box and the full Edit form (19 Sep 2026). A
+// second copy of this block is exactly how the two doors would start disagreeing about
+// one charge, and a charge she can reach from either door has to behave the same in both.
+//
+// Held in a closure rather than read back off the nodes, and repainted HERE rather than
+// by the pop-up holding it: the third box comes and goes with the payer, and asking the
+// whole form to rebuild for that would throw away everything else she had typed in it.
+//
+// `onChange` fires whenever an answer moves, so each caller repaints what it shows about
+// the charge. read() gives the answers in the terms applyCourierCharge and the three
+// order keys want: an amount of 0 with no payer is no charge at all.
+function courierControls(state, first, onChange = () => {}) {
+  let feeRaw = courierFeeOf(first) ? String(courierFeeOf(first)) : "";
+  let payer = courierPayerOf(first); // "" | "me" | "customer"
+  let codWanted = courierCodOf(first);
+  // How SHE paid the courier is not a field on the order: the expense row IS the record,
+  // so this opens on whatever that row already says. That is what stops a save which
+  // does not touch the answer from quietly resetting it to Cash.
+  const code = orderCode(first);
+  const spent = (state.expenses || []).find((e) => e && e.courierFor === code);
+  let paidWith = spent ? spent.method : "";
+  const methods = methodsOf(state);
+
+  const amountField = el("div", { class: "field" },
+    el("label", {}, "Courier charge (optional)"),
+    el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
+      placeholder: "e.g. 8.00", value: feeRaw, "aria-label": "Courier charge",
+      oninput: function () { feeRaw = this.value; onChange(); } }));
+  const payerSel = select([
+    { value: "", label: "Not recorded" },
+    { value: "me", label: "I paid it" },
+    { value: "customer", label: "The customer paid it" },
+  ], payer, () => { payer = payerSel.value; paint(); onChange(); });
+  const payerField = el("div", { class: "field", style: "margin:8px 0 0" },
+    el("label", {}, "Who paid the courier"), payerSel);
+  // Only asked when she bore it: it decides which book on the Money screen the money
+  // left from, and it means nothing when the customer paid.
+  const methodSel = select(methods.map((m) => ({ value: m, label: m })),
+    paidWith || methods[0], () => { paidWith = methodSel.value; });
+  const methodField = el("div", { class: "field", style: "margin:8px 0 0" },
+    el("label", {}, "How you paid the courier"), methodSel);
+  // Only asked when THEY bore it, and it changes what she asks them for: a charge paid
+  // with the order sits inside their total, a COD charge is collected at the door and
+  // must stay out of it. The pay button on the day is the same for both — what changes
+  // is only what the customer is told (19 Sep 2026).
+  const codSel = select([
+    { value: "", label: "With their order (in the total)" },
+    { value: "cod", label: "COD - the courier collects it on delivery" },
+  ], codWanted ? "cod" : "", () => { codWanted = codSel.value === "cod"; onChange(); });
+  const codField = el("div", { class: "field", style: "margin:8px 0 0" },
+    el("label", {}, "How they pay it"), codSel);
+
+  const wrap = el("div", {}, amountField, payerField);
+  // The amount and the payer stay where they are; only the third box comes and goes, so
+  // the box she is typing in is never rebuilt underneath her.
+  function paint() {
+    wrap.replaceChildren(...[amountField, payerField,
+      payer === "me" ? methodField : null,
+      payer === "customer" ? codField : null].filter(Boolean));
+  }
+  paint();
+
+  return {
+    el: wrap,
+    read: () => {
+      const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
+      // A charge is the amount AND who bore it, so no payer means no charge and the
+      // amount goes with it — the v127 lesson, read the same way here.
+      const who = amount > 0 ? payer : "";
+      return { amount, who, fee: who ? amount : 0,
+        collect: who === "customer" && codWanted, method: methodSel.value };
+    },
+  };
+}
+
 // The two things she most often needs to change once an order is placed: its note,
 // and the courier's tracking number (15 Sep 2026). They get their own small pop-up
 // behind their own button, so a one-line change never means scrolling the whole
@@ -1802,22 +1917,6 @@ function orderList(state, dateId, root) {
 // asked for one simplified entry field with a button to reach it instead, which is
 // also the only version that works for an order that is not a courier's.
 function openNoteTrackingPopup(state, group, first, dateId, root) {
-  // The courier charge and its two answers (19 Sep 2026). Held out here, not on the
-  // nodes, so the repaint that shows and hides the "how you paid" line never drops
-  // what she has typed or picked so far.
-  let feeRaw = courierFeeOf(first) ? String(courierFeeOf(first)) : "";
-  let payer = courierPayerOf(first); // "" | "me" | "customer"
-  // ... and, when the customer bears it, whether the courier collects it at the door.
-  // Opens on the recorded answer, and on "with their order" when nothing is recorded —
-  // which is what every charge recorded before this existed means (19 Sep 2026).
-  let codWanted = courierCodOf(first);
-  // How SHE paid the courier is not a field on the order: the expense row IS the
-  // record, so the form opens on whatever that row already says.
-  const code = orderCode(first);
-  const spent = (state.expenses || []).find((e) => e && e.courierFor === code);
-  let paidWith = spent ? spent.method : "";
-  const methods = methodsOf(state);
-
   showPopup(el("div", { class: "popup-title-row" }, "Note / tracking / courier / payment", orderCodeTag(first)),
     (refresh, close) => {
       const note = el("input", { class: "input", placeholder: "Note (optional)",
@@ -1833,42 +1932,27 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // (19 Sep 2026).
       const custTotal = el("p", { class: "card-sub", style: "margin:10px 0 0" });
       const itemsTotal = groupValue(state, group);
-      const paintCustTotal = () => {
+      function paintCustTotal() {
         const cur = state.settings.currency;
-        const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
-        const theirs = payer === "customer" ? amount : 0;
+        const { fee, who, collect } = charge.read();
+        const theirs = who === "customer" ? fee : 0;
         // A COD charge is still money they owe, but it is not money SHE collects — the
         // courier takes it at the door — so it is named under the total rather than
         // added into it, or she would ask for the same RM8 the courier is asking for
         // (19 Sep 2026).
-        const cod = payer === "customer" && codWanted ? theirs : 0;
+        const cod = who === "customer" && collect ? theirs : 0;
         custTotal.textContent = `The customer owes ${fmtRM(itemsTotal + theirs - cod, cur)}`
           + (theirs
             ? cod
               ? ` — items total ${fmtRM(itemsTotal, cur)}, plus ${fmtRM(cod, cur)} collected by the courier on delivery`
               : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(theirs, cur)}`
             : "");
-      };
-      const fee = el("input", { class: "input", type: "number", inputmode: "decimal",
-        min: "0", step: "0.01", placeholder: "e.g. 8.00", value: feeRaw,
-        oninput: function () { feeRaw = this.value; paintCustTotal(); } });
-      const payerSel = select([
-        { value: "", label: "Not recorded" },
-        { value: "me", label: "I paid it" },
-        { value: "customer", label: "The customer paid it" },
-      ], payer, () => { payer = payerSel.value; refresh(); });
-      // Only asked when she bore it: it decides which book on the Money screen the
-      // money left from, and it means nothing when the customer paid.
-      const methodSel = select(methods.map((m) => ({ value: m, label: m })),
-        paidWith || methods[0], () => { paidWith = methodSel.value; });
-      // Only asked when THEY bore it, and it changes what she asks them for: a charge
-      // paid with the order sits inside their total, a COD charge is collected at the
-      // door and must stay out of it. The pay button on the day is the same for both —
-      // what changes is only what the customer is told (19 Sep 2026).
-      const codSel = select([
-        { value: "", label: "With their order (in the total)" },
-        { value: "cod", label: "COD - the courier collects it on delivery" },
-      ], codWanted ? "cod" : "", () => { codWanted = codSel.value === "cod"; paintCustTotal(); });
+      }
+      // The charge's questions, built by the shared block so this box and the Edit form
+      // cannot word or write them differently. It repaints only itself when the payer
+      // changes, which is what lets the note and tracking boxes she may be part-way
+      // through keep what she typed (19 Sep 2026).
+      const charge = courierControls(state, first, paintCustTotal);
       // How the CUSTOMER paid HER. The Paid · Cash / Paid · TNG buttons are the fast
       // way in at the moment the money lands (they also stamp WHEN); this is for
       // fixing one later, or for an order she marked paid before she could tell. It
@@ -1883,22 +1967,11 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         el("div", { class: "field" }, el("label", {}, "Note (optional)"), note),
         el("div", { class: "field" },
           el("label", {}, "Courier tracking number (optional)"), tracking),
-        el("div", { class: "field" },
-          el("label", {}, "Courier charge (optional)"), fee,
-          el("div", { class: "field", style: "margin:8px 0 0" },
-            el("label", {}, "Who paid the courier"), payerSel),
-          payer === "me"
-            ? el("div", { class: "field", style: "margin:8px 0 0" },
-                el("label", {}, "How you paid the courier"), methodSel)
-            : null,
-          payer === "customer"
-            ? el("div", { class: "field", style: "margin:8px 0 0" },
-                el("label", {}, "How they pay it"), codSel)
-            : null),
+        charge.el,
         custTotal,
         el("div", { class: "field" }, el("label", {}, "Paid by the customer"), paidSel),
         el("p", { class: "card-sub", style: "margin:0 0 10px" },
-          "A courier charge the customer pays is added to their total, and named on their confirmation, their messages and their track card. Marked COD the courier collects it from them on delivery instead, so it stays out of the total and is named under it - that way nobody is asked for the same money twice. One you pay becomes a Delivery & fuel expense and comes off your profit. The tracking number goes onto the customer's track card and into the shipped message. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
+          "A courier charge the customer pays is added to their total, and named on their confirmation, their messages and their track card. Marked COD the courier collects it from them on delivery instead, so it stays out of the total and is named under it - that way nobody is asked for the same money twice. One you pay becomes a Delivery & fuel expense and comes off your profit. The tracking number goes onto the customer's track card and into the shipped message. The charge and the tracking number are both under Edit as well, so you can change them wherever you are - and deleting the courier's line on the Money screen takes the charge off this order with it. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
         el("div", { class: "popup-actions" },
           button("Cancel", close, "ghost"),
           button("Save", () => {
@@ -1906,7 +1979,6 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             const before = String(first.trackingNo || "").trim();
             const number = tracking.value.trim();
             const method = paidSel.value;
-            const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
             // What the customer's card currently shows for the charge, so a change to it
             // in EITHER direction republishes. Both are read BEFORE the loop below, which
             // writes the new values straight onto these same orders.
@@ -1918,12 +1990,12 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // amount behind tagged the row "Courier RM8.00 · customer" for a charge nobody
             // had assigned, and nothing could remove it. That was her report — "why i
             // delete courier charges and the tag is not remove?" (19 Sep 2026).
-            const who = amount > 0 ? payer : "";
-            const fee = who ? amount : 0;
-            // COD is only ever true of a charge the CUSTOMER bears: a charge she paid
-            // has nothing for anyone to collect at the door, so the key goes with the
-            // other two rather than lingering as a flag on no charge (19 Sep 2026).
-            const collect = who === "customer" && codWanted;
+            //
+            // COD is only ever true of a charge the CUSTOMER bears: a charge she paid has
+            // nothing for anyone to collect at the door, so the key goes with the other
+            // two rather than lingering as a flag on no charge. All of that reading is the
+            // shared block's, so this box and the Edit form settle it identically.
+            const { fee, who, collect, method: courierMethod } = charge.read();
             for (const o of group.orders) {
               o.note = note.value.trim();
               o.trackingNo = number;
@@ -1939,7 +2011,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // The books follow the payer: her own charge becomes an expense row, the
             // customer's leaves them alone entirely. Written here rather than at the
             // Money screen so one save keeps the order and the expense in step.
-            applyCourierCharge(state, group, fee, who, methodSel.value);
+            applyCourierCharge(state, group, fee, who, courierMethod);
             save(state);
             maybeSync(state);
             // The card carries the tracking number and, when the customer bears it, the

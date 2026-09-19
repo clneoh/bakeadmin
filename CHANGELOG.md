@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v129)
+# Jienluv2bake — change history (v54 → v130)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v130 (no database step). The courier charge can now be changed from
+Edit as well, and deleting the courier's line on the Money screen takes the charge off the
+order with it.**
+
+**What you told me.** "q2, yes make deleting it clear the charge too", and "edit a courier
+related now only at one button, we should make edit an order able to alter details for
+courier."
+
+**Deleting the courier's line now clears the charge.** A charge you paid has two halves: the
+**Delivery & fuel** row in your books, and the charge on the order. The Money screen only
+shows you the row, so deleting it used to take that half alone — the order still wore the
+charge, and the next Save in the order's own courier box quietly wrote the row straight back.
+Now the row and the order go together: the amount, who bore it and the COD mark all come off.
+The confirmation says so before you agree, naming the order, and the row is labelled
+**Courier (order #A3F9C2)** so you can see which order you are deleting it from. Deleting an
+ordinary expense still touches no order at all.
+
+**The courier charge is under Edit too.** The amount, who paid the courier, how they settle it
+and how you paid are now asked in the Edit order pop-up as well as in the **Note / tracking**
+box — one shared set of controls, so the two forms cannot word it differently or save a
+different charge. Edit's own order total moves as you type the amount, so you can check the
+figure before you save rather than after.
+
+**Nothing was taken away.** The Note / tracking box keeps all of it and is still the quick way
+in; Edit simply gained the same questions, so an order can be corrected end to end without
+opening a second box. Nothing changes on its own: a charge is only written when you save, and
+saving an unchanged form writes an unchanged charge.
 
 **19 Sep 2026 — engine v129 (no database step). Still to collect now counts the courier
 charge the customer pays with the order, so the row promises the same money their own

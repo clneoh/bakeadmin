@@ -62,7 +62,7 @@ globalThis.Date = MockDate;
 
 const { renderOrders } = await import("../admin/js/views/orders.js");
 const { effectiveCapacity } = await import("../admin/js/bom.js");
-const { orderLinePrice } = await import("../admin/js/state.js");
+const { orderCode, orderLinePrice } = await import("../admin/js/state.js");
 
 // Focaccia sells every day; the Saturday loaf is marked Saturdays only, and the
 // day on screen (Thu 10 Sep) is not one of them. One order is already booked.
@@ -756,4 +756,187 @@ test("saving an unchanged COD charge does not republish the card for nothing", a
 
   assert.equal(posts.length, 0,
     "nothing moved, so the customer's card is left alone — the mode is read before the loop, not after it");
+});
+
+// ── v130: the courier charge's questions are under Edit too ─────────────────
+// "edit a courier related now only at one button, we should make edit an order able
+// to alter details for courier" (19 Sep 2026). The charge is part of what an order IS,
+// and Edit is where she changes what an order is — so the same questions are asked
+// there, built by ONE shared block (courierControls) so the two doors cannot word or
+// write the charge differently.
+//
+// Two traps this section exists to catch. The charge travels BESIDE the row fields,
+// never among them: the row fields are copied onto every order with Object.assign, so a
+// charge riding in there would be saved onto the row as a field of its own. And Edit's
+// own total has to move as she types the fee here, or the figure she reads is one she
+// cannot check until after a save.
+const noteInput = (pop) => all(pop).find((n) =>
+  n.tagName === "INPUT" && n.attrs && n.attrs.placeholder === "Note (optional)");
+const trackingInput = (pop) => all(pop).find((n) =>
+  n.tagName === "INPUT" && n.attrs && n.attrs.placeholder === "e.g. JT123456789");
+
+function editOn(st) {
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  buttonByText(root, "Edit")._listeners.click[0]();
+  return { root, pop: layers["popup-layer"] };
+}
+
+test("Edit asks the courier charge's questions, and one Save writes the order and her books together", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  const { pop } = editOn(st);
+
+  const box = feeInput(pop);
+  assert.ok(box, "the amount is askable from Edit, not only from the Note / tracking box");
+  box.value = "8";
+  box._listeners.input[0].call(box);
+
+  const mine = selWith(pop, "I paid it");
+  mine.value = "me";
+  mine._listeners.change[0]();
+  const methodSel = selWith(pop, "Loan");
+  assert.ok(methodSel, "and how she paid the courier, once she says she did");
+  methodSel.value = "TNG";
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierFee, 8, "the charge reaches the order");
+  assert.equal(st.orders[0].courierPaidBy, "me");
+  assert.equal("courier" in st.orders[0], false,
+    "and the charge itself is never saved onto the row as a field of its own — it rides beside the row, not in it");
+  assert.equal(st.expenses.length, 1, "her own charge is a Delivery & fuel row, the same call the box makes");
+  assert.equal(st.expenses[0].amount, 8);
+  assert.equal(st.expenses[0].category, "Delivery & fuel");
+  assert.equal(st.expenses[0].method, "TNG", "filed in the book she said she paid from");
+  assert.equal(st.expenses[0].courierFor, orderCode(st.orders[0]), "and back-linked to this order");
+});
+
+test("Edit opens on the charge the order already carries, in all its parts", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].courierCod = true;
+  const { pop } = editOn(st);
+
+  assert.equal(feeInput(pop).value, "8", "the amount she recorded is in the box");
+  assert.deepEqual(openedOn(selWith(pop, "The customer paid it")),
+    ["The customer paid it"], "and who bore it is what the dropdown opens on");
+  assert.deepEqual(openedOn(codSelIn(pop)), [COD_LABEL],
+    "and how they settle it — a re-save from here must not quietly put a COD charge back into their total");
+});
+
+test("Edit's own total follows the fee box as she types, and names the charge", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;                 // 2 × RM15 of bread
+  const { pop } = editOn(st);
+  assert.match(popText(pop), /Order total: RM 30\.00/,
+    "no charge yet, so the total is the items and nothing else");
+
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  assert.match(popText(pop),
+    /Order total: RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+    "the figure she reads here moves with the box — a total that only moved after a save is one she cannot check");
+
+  const sel = codSelIn(pop);
+  sel.value = "cod";
+  sel._listeners.change[0]();
+  assert.match(popText(pop),
+    /Order total: RM 30\.00 — items total RM 30\.00, plus RM 8\.00 collected by the courier on delivery/,
+    "COD: the courier takes it, so it is named under the total rather than added into it");
+});
+
+test("a charge cleared through Edit leaves no key behind, and republishes the card", async () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].courierCod = true;
+  st.products[0].price = 15;
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+  const { pop } = editOn(st);
+
+  const box = feeInput(pop);
+  box.value = "";
+  box._listeners.input[0].call(box);
+
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  try {
+    buttonByText(pop, "Save changes")._listeners.click[0]();
+    for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+  } finally { globalThis.fetch = real; }
+
+  for (const key of ["courierFee", "courierPaidBy", "courierCod"]) {
+    assert.equal(key in st.orders[0], false,
+      `${key} is deleted, not left at 0 — a cleared charge is no charge`);
+  }
+  assert.equal(posts.length, 1, "and the customer's card is republished, because its total just moved");
+  assert.equal(posts[0].courier_fee, null, "without the charge on it");
+  assert.equal(posts[0].total, "RM 30.00");
+});
+
+test("Edit can mark a customer's charge COD, and it stays out of her books either way", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  const { pop } = editOn(st);
+
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+  const sel = codSelIn(pop);
+  sel.value = "cod";
+  sel._listeners.change[0]();
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierFee, 8);
+  assert.equal(st.orders[0].courierPaidBy, "customer");
+  assert.equal(st.orders[0].courierCod, true, "the courier collects it at the door");
+  assert.equal("courier" in st.orders[0], false, "still never saved as a field on the row");
+  assert.equal((st.expenses || []).length, 0, "and a customer's charge never writes to her books");
+});
+
+test("changing who paid the courier keeps the note and the tracking number she was part-way through", () => {
+  // Both doors ask the same questions now, and the block repaints only ITSELF when the
+  // payer changes. Rebuilding the whole pop-up for that would throw away whatever she
+  // had typed in the boxes beside it (19 Sep 2026).
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  const { pop } = courierBox(st);
+
+  const note = noteInput(pop);
+  const tracking = trackingInput(pop);
+  note.value = "no nuts";
+  tracking.value = "JT999 888";
+
+  const theirs = selWith(pop, "The customer paid it");
+  theirs.value = "customer";
+  theirs._listeners.change[0]();
+
+  assert.equal(noteInput(pop), note, "the note box is the one she was typing in, not a rebuilt one");
+  assert.equal(note.value, "no nuts", "so what she typed is still there");
+  assert.equal(tracking.value, "JT999 888", "and so is the tracking number");
+
+  buttonByText(pop, "Save")._listeners.click[0]();
+  assert.equal(st.orders[0].note, "no nuts", "and both of them still reach the order on save");
+  assert.equal(st.orders[0].trackingNo, "JT999 888");
 });
