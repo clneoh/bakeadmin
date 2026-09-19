@@ -88,6 +88,10 @@ const all = (node, out = []) => {
 const byClass = (root, name) => all(root).find((n) => String(n.className).includes(name));
 const buttonByText = (root, text) =>
   all(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes(text));
+// One pop-up now holds several dropdowns (who paid the courier, how they paid her),
+// so a select is picked by an option it offers rather than by being the only one.
+const selWith = (root, label) => all(root).find((n) => n.tagName === "SELECT"
+  && all(n).some((o) => o.tagName === "OPTION" && o.textContent === label));
 
 function openPopup(st) {
   const root = createEl("div");
@@ -188,12 +192,13 @@ test("Note / tracking opens just those fields, and save writes them onto the ord
   buttonByText(root, "Note / tracking")._listeners.click[0]();
   const pop = layers["popup-layer"];
   assert.match(all(pop).find((n) => String(n.className).includes("popup-title-row")).textContent,
-    /^Note \/ tracking \/ payment/, "a pop-up of its own, not the whole Edit form (with the order code beside it)");
+    /^Note \/ tracking \/ courier \/ payment/, "a pop-up of its own, not the whole Edit form (with the order code beside it)");
   const inputs = all(pop).filter((n) => n.tagName === "INPUT");
-  assert.equal(inputs.length, 2, "the note and the number — nothing else to scroll past");
+  assert.equal(inputs.length, 3, "the note, the number and the courier's charge — nothing else to scroll past");
   assert.equal(inputs[0].value, "no nuts", "the note as it stands");
   assert.equal(inputs[1].attrs.placeholder, "e.g. JT123456789", "and the courier's number");
-  const paidSel = all(pop).find((n) => n.tagName === "SELECT");
+  assert.equal(inputs[2].attrs.placeholder, "e.g. 8.00", "and what the courier charged");
+  const paidSel = selWith(pop, "TNG transfer");
   assert.ok(paidSel, "with how it was paid");
   assert.deepEqual(paidSel.children.map((o) => o.children[0].text),
     ["Not recorded", "Cash", "TNG transfer"], "as a three-way choice, not recorded by default");
@@ -212,9 +217,111 @@ test("Note / tracking opens just those fields, and save writes them onto the ord
   renderOrders(root2, st, new URLSearchParams({ date: "d10" }));
   buttonByText(root2, "Note / tracking")._listeners.click[0]();
   const pop2 = layers["popup-layer"];
-  all(pop2).find((n) => n.tagName === "SELECT").value = "";
+  selWith(pop2, "TNG transfer").value = "";
   buttonByText(pop2, "Save")._listeners.click[0]();
   assert.equal("paidMethod" in st.orders[0], false, "choosing Not recorded deletes the key");
+});
+
+// ── v124: the courier's charge, and who bore it ────────────────────────────
+// The pop-up she pointed at ("the paid by in the notes/courier Tracking is for
+// courier charges") now carries the charge itself. What these pin is the split she
+// chose — "off profit only if I paid it" — reaching the order AND her books from the
+// one Save.
+const inputWithPlaceholder = (pop, ph) =>
+  all(pop).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.placeholder === ph);
+const feeInput = (pop) => inputWithPlaceholder(pop, "e.g. 8.00");
+
+test("the courier charge reaches every row, and only she paying makes it an expense", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].groupId = "ordgabc123";
+  st.orders.push({ ...st.orders[0], id: "o2", qty: 1 }); // a second item of one order
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  let pop = layers["popup-layer"];
+  assert.equal(selWith(pop, "Loan"), undefined,
+    "how she paid is not asked until she says she paid it");
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box); // the handler reads this.value
+  const payerSel = selWith(pop, "I paid it");
+  payerSel.value = "me";
+  payerSel._listeners.change[0]();
+
+  pop = layers["popup-layer"]; // the body was rebuilt to reveal the question
+  const methodSel = selWith(pop, "Loan");
+  assert.ok(methodSel, "now it asks how she paid the courier");
+  methodSel.value = "TNG";
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal(st.orders.length, 2, "still one order of two items");
+  for (const o of st.orders) {
+    assert.equal(o.courierFee, 8, "the charge belongs to the order, so every row carries it");
+    assert.equal(o.courierPaidBy, "me");
+  }
+  assert.equal(st.expenses.length, 1, "and it became exactly one expense for that order");
+  assert.equal(st.expenses[0].amount, 8);
+  assert.equal(st.expenses[0].category, "Delivery & fuel");
+  assert.equal(st.expenses[0].method, "TNG", "filed in the book she said she paid from");
+});
+
+test("a charge the customer bears is tagged on the row and writes nothing to her books", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const tag = all(root).find((n) => String(n.className).includes("paid-tag courier"));
+  assert.ok(tag, "the charge is on the row, in the paid-tag's own family");
+  assert.equal(tag.textContent, "Courier RM 8.00 · customer");
+  assert.equal(String(tag.className).includes("mine"), false,
+    "and wears no amber — it is not her money going out");
+  assert.equal((st.expenses || []).length, 0, "nor is it an expense: it never touched her purse");
+});
+
+test("a charge she bore wears the amber tag, because it is already off her profit", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const tag = all(root).find((n) => String(n.className).includes("paid-tag courier"));
+  assert.equal(tag.textContent, "Courier RM 8.00 · me");
+  assert.ok(String(tag.className).includes("mine"), "told apart at a glance from one she did not pay");
+});
+
+test("an item swapped out through Edit leaves the courier charge on the order", () => {
+  // The charge belongs to the ORDER, not to any one item — so replacing the only
+  // item must not take it with it. Edit has no courier control of its own; it carries
+  // the two fields into the row it creates here, which is the only path where they
+  // would otherwise be dropped.
+  const st = state();
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  let pop = layers["popup-layer"];
+  all(pop).find((n) => String(n.className).includes("inbox-del"))._listeners.click[0](); // ✕ that item
+  pop = layers["popup-layer"];
+  buttonByText(pop, "＋ Add another item")._listeners.click[0]();
+  pop = layers["popup-layer"];
+  const prodSel = selWith(pop, "Product…");
+  prodSel.value = "p1";
+  prodSel._listeners.change[0]();
+  pop = layers["popup-layer"];
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders.length, 1, "one order of one item — the old line really was replaced");
+  assert.equal(st.orders[0].courierFee, 8, "and the order kept the charge it had");
+  assert.equal(st.orders[0].courierPaidBy, "me", "including who bore it");
 });
 
 // ── v101: the price she types on an order is what that order is sold at ─────

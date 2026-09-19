@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v123)
+# Jienluv2bake — change history (v54 → v124)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v124 (one database step: run supabase/courier_fee.sql in Supabase
+BEFORE you deploy this build). The Note / tracking box now records the courier charge itself,
+and who bore it — and the two answers behave differently on purpose: a charge the customer
+pays is added to their total and named where they can see it, and a charge you pay comes off
+your profit under Delivery & fuel.**
+
+**What was wrong.** You looked at the box behind an order's **Note / tracking** button and
+said the **Paid by** picker there was for courier charges. It was not. It records how the
+CUSTOMER paid YOU — Cash or TNG — and it is what puts an order's money into the right book on
+your Money screen. It has been there since v101, from your own words about needing to
+reconcile cash against the TNG app. Your reading was the more useful one though, because the
+thing you were looking for did not exist anywhere in the app: there was no field for what the
+courier charged, and none for who paid it.
+
+**What it does now.** That box carries the **Courier charge** — what it cost to send that
+order — and, under it, **Who paid the courier**.
+
+**When the customer pays it**, the charge is added to what they owe. It is named on its own
+line above the total in their payment reminder and their shipped message, and on their track
+card, so a total that runs a little more than the bread explains itself rather than looking
+wrong. Your books are not touched at all — and that is deliberate, not an oversight: in your
+purse that money arrives and leaves again in the same breath, so counting it as takings would
+only make a good day look better than it was.
+
+**When you pay it**, a third box asks **How you paid the courier**, and the charge becomes an
+ordinary **Delivery & fuel** expense dated the day you paid it. It then shows up on your Money
+screen, in that account's own journal, and as a line on your profit statement — so it comes off
+your profit like any other cost, which is exactly what you asked for: off profit only if you
+paid it. Recording the same order twice updates that one expense rather than adding a second,
+and clearing the amount takes it away again.
+
+**Either way, the order's row is tagged** with the charge and whose money it was — amber when
+it was yours, quiet grey when it was theirs, sitting beside the Cash / TNG tag.
+
+**The box you misread is renamed.** The picker that was called **Paid by** now reads **Paid by
+the customer**, and it sits below the courier charge rather than above it, so the two questions
+cannot be confused again: one is what THEY paid YOU, the other is what YOU paid the courier.
+
+**Where to see it.** Orders → open an order → **Note / tracking**. The customer's side:
+the payment reminder, the shipped message, and their track card.
+
+**Before you deploy.** Run **supabase/courier_fee.sql** once in Supabase (Dashboard → SQL →
+New query → Run). The app publishes each order's tracking row in a single call, so if that
+column is missing the call is refused whole and the customer's track page stops updating for
+every order — not only the ones with a charge. Run the SQL first, then deploy.
+
+Nothing else moved — your prices, customers, delivery dates, the shop and the way messages are
+written are all exactly as they were.
 
 **18 Sep 2026 — engine v123 (no database setup needed). The product dropdown's middle section now
 groups sold-out and not-sold-that-day together, and a product the shop does not sell on a day is

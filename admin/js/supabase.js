@@ -11,6 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
+import { customerCourierFee } from "./courier.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
 
@@ -481,10 +482,15 @@ export function trackingSnapshot(state, group) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} ×${o.qty}`;
   }).join(", ");
+  // The customer's total includes the courier's charge when THEY bear it — the same
+  // number their messages quote, so the message and the card never disagree. A
+  // charge the baker pays is her own cost and is not published here at all
+  // (19 Sep 2026).
+  const courierFee = customerCourierFee(first);
   const total = fmtRM(orders.reduce((s, o) => {
     const price = orderLinePrice(state, o);
     return s + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0), state.settings.currency);
+  }, 0) + courierFee, state.settings.currency);
   return {
     code: orderCode(first),
     status: first.status || "new",
@@ -492,6 +498,11 @@ export function trackingSnapshot(state, group) {
     // is none (a self-collect order, or one not posted yet) — the customer's card
     // leaves the line out entirely rather than printing an empty label.
     tracking_no: String(first.trackingNo || "").trim() || null,
+    // The courier's charge, when the customer bears it. Null when they don't — she
+    // pays it, or there is no charge — and the card leaves the line out rather than
+    // printing an empty label. NOTE: this column needs supabase/courier_fee.sql run
+    // once, before this build is deployed (see that file).
+    courier_fee: courierFee || null,
     delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}`,
     items,
     total,

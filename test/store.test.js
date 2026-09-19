@@ -631,6 +631,19 @@ const cardLabels = (box) => {
 };
 const byExactClass = (box, name) =>
   box.children.find((c) => String(c.className || "").split(/\s+/).includes(name));
+// The courier charge sits inside the details block rather than beside it, so it is
+// found by walking rather than by looking at the card's own children.
+const deepByClass = (box, name) => {
+  let hit;
+  (function walk(n) {
+    if (hit) return;
+    for (const c of n.children || []) {
+      if (String(c.className || "").split(/\s+/).includes(name)) { hit = c; return; }
+      walk(c);
+    }
+  })(box);
+  return hit;
+};
 
 test("a posted order shows the courier's tracking number", async () => {
   const box = document.getElementById("track-result");
@@ -648,6 +661,49 @@ test("a posted order shows the courier's tracking number", async () => {
     assert.ok(no, "the card carries the tracking number on its own line");
     assert.equal(no.children[0].text, "Tracking number: JT123456789");
     assert.equal(cardLabels(box)[5], "Collected / Shipped", "the last step wears the pair");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+// ── v124: the courier's charge on the customer's own card ────────────────────
+test("a courier charge the customer bears is named on the card, and the lookup asks for it", async () => {
+  const box = document.getElementById("track-result");
+  const posted = {
+    status: "delivered", delivery: "9 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×1",
+    total: "RM23.00", customer: "Ain", tracking_no: "JT123456789", courier_fee: 8,
+  };
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return { ok: true, json: async () => [onlySelected(url, posted)] };
+  };
+  try {
+    await trackOrder("A3F9C2");
+    assert.ok(/[?&]select=[^&]*\bcourier_fee\b/.test(urls[0]),
+      "the lookup names courier_fee — PostgREST sends only the columns listed, so the charge the baker typed is invisible to the card until this asks for it");
+    assert.ok(/[?&]select=[^&]*\bcustomer\b/.test(urls[0]),
+      "and customer, for the same reason: the name was in the row all along and the card never received it");
+    const fee = deepByClass(box, "track-fee");
+    assert.ok(fee, "the charge is named on its own line, above the total that includes it");
+    assert.equal(fee.children[0].text, "Courier charge: RM8.00");
+    assert.equal(byExactClass(box, "track-note").children[0].text, "For Ain",
+      "and the customer's own name reaches the card");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+test("an order with no courier charge shows no charge line", async () => {
+  const box = document.getElementById("track-result");
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{
+    status: "ready", delivery: "9 Sep · Self collect", items: "Focaccia ×1",
+    total: "RM15.00", customer: "Ain",
+  }] });
+  try {
+    await trackOrder("A3F9C2");
+    assert.equal(deepByClass(box, "track-fee"), undefined,
+      "nothing to name, so no line at all — not an empty label, and not a stray null");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }

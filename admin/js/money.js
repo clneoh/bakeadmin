@@ -207,7 +207,12 @@ export function journalFor(state, method, from, to) {
     if (!e || methodLabel(e.method) !== want || !isWithin(String(e.date || "").slice(0, 10), from, to)) continue;
     rows.push({
       date: String(e.date).slice(0, 10),
-      what: `${e.poId ? "Shopping run (PO)" : (e.category || "Expense")}${e.note ? ` — ${e.note}` : ""}`,
+      // A row written by an action elsewhere names what wrote it, so a figure she
+      // cannot place is openable under its own name: a shopping run, or the courier
+      // charge she paid on one order (19 Sep 2026).
+      what: `${e.poId ? "Shopping run (PO)"
+        : e.courierFor ? `Courier (order #${e.courierFor})`
+        : (e.category || "Expense")}${e.note ? ` — ${e.note}` : ""}`,
       amount: Number(e.amount) || 0,
       dir: "out",
     });

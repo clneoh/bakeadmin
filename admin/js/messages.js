@@ -8,6 +8,7 @@
 
 import { byId, fmtRM, orderCode, orderLineName, orderLinePrice, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
+import { customerCourierFee } from "./courier.js";
 
 function basics(state, group, trackUrl) {
   const orders = (group && group.orders) || [];
@@ -19,10 +20,14 @@ function basics(state, group, trackUrl) {
     const name = orderLineName(state, o);
     return `${name === "(deleted product)" ? "item" : name} x${o.qty}`;
   }).join(", ");
+  // The customer's total: what they were sold, plus the courier's charge when THEY
+  // bear it. A charge the baker pays is her own cost and never reaches this number
+  // (19 Sep 2026).
+  const courierFee = customerCourierFee(first);
   const total = fmtRM(orders.reduce((s, o) => {
     const price = orderLinePrice(state, o);
     return s + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0), state.settings.currency);
+  }, 0) + courierFee, state.settings.currency);
   const del = byId(state.deliveryDates, first.deliveryDateId);
   const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
   const courier = first.fulfillment === "courier";
@@ -33,7 +38,7 @@ function basics(state, group, trackUrl) {
   // The courier's tracking number she typed on the order. Kept as typed (a
   // pasted number may carry spaces or dashes) — it goes to the customer verbatim.
   const trackingNo = String(first.trackingNo || "").trim();
-  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo };
+  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, courierFee };
 }
 
 export function buildPaymentReminder(state, group, trackUrl) {
@@ -45,6 +50,10 @@ export function buildPaymentReminder(state, group, trackUrl) {
   msg += `Order #${orderCode(b.first)}\n`;
   msg += `Delivery: ${b.date} - ${b.fulfillment}\n`;
   msg += `Items: ${b.items}\n`;
+  // Named above the total rather than left to be discovered inside it: the customer
+  // is being asked for money, and a figure that is RM8 more than the items they
+  // chose has to say so (19 Sep 2026).
+  if (b.courierFee) msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
   msg += `Total: ${b.total}\n`;
   if (b.qr) {
     msg += `\nPay by TNG using the QR below:\n\n${b.qr}\n`;
@@ -70,6 +79,9 @@ export function buildShippedMessage(state, group, trackUrl) {
   msg += `Delivery: ${b.date} - Courier delivery\n`;
   msg += `Items: ${b.items}\n`;
   if (b.trackingNo) msg += `Tracking number: ${b.trackingNo}\n`;
+  // The courier's charge, when the customer bears it — the same line the track card
+  // shows them, so the two never disagree (19 Sep 2026).
+  if (b.courierFee) msg += `Courier charge: ${fmtRM(b.courierFee, state.settings.currency)}\n`;
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }
