@@ -1875,14 +1875,23 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             const number = tracking.value.trim();
             const method = paidSel.value;
             const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
-            // A blank or zero amount is "no charge", whatever the payer says.
+            // What the customer's card currently shows for the charge, so a change to it
+            // in EITHER direction republishes.
+            const chargedBefore = customerCourierFee(first);
+            // A charge is the amount AND who bore it — the payer is what decides what the
+            // charge does, to her books and to the customer. So "Not recorded" for the
+            // payer means there is no charge, and the amount goes with it: leaving the
+            // amount behind tagged the row "Courier RM8.00 · customer" for a charge nobody
+            // had assigned, and nothing could remove it. That was her report — "why i
+            // delete courier charges and the tag is not remove?" (19 Sep 2026).
             const who = amount > 0 ? payer : "";
+            const fee = who ? amount : 0;
             for (const o of group.orders) {
               o.note = note.value.trim();
               o.trackingNo = number;
               if (method) o.paidMethod = method;
               else delete o.paidMethod; // "Not recorded" is the absent key, as everywhere
-              if (amount > 0) o.courierFee = amount;
+              if (fee > 0) o.courierFee = fee;
               else delete o.courierFee;
               if (who) o.courierPaidBy = who;
               else delete o.courierPaidBy;
@@ -1890,14 +1899,15 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // The books follow the payer: her own charge becomes an expense row, the
             // customer's leaves them alone entirely. Written here rather than at the
             // Money screen so one save keeps the order and the expense in step.
-            applyCourierCharge(state, group, amount, who, methodSel.value);
+            applyCourierCharge(state, group, fee, who, methodSel.value);
             save(state);
             maybeSync(state);
-            if (before !== number) publishTracking(state, group); // the card carries it
-            // The customer's total and card both move when they bear the charge, so
-            // that republishes too. The tracking number is checked above; this only
-            // fires for the charge, and an unchanged one costs one redundant publish.
-            else if (amount > 0 && who === "customer") publishTracking(state, group);
+            // The card carries the tracking number and, when the customer bears it, the
+            // charge and the total — so a charge that is added, changed OR cleared has to
+            // reach the card. Clearing it used to publish nothing, leaving the customer
+            // looking at a courier line she had just deleted (19 Sep 2026).
+            const chargedAfter = who === "customer" ? fee : 0;
+            if (before !== number || chargedBefore !== chargedAfter) publishTracking(state, group);
             toast("Order updated");
             close();
             renderAll(root, state, new URLSearchParams({ date: dateId }));
@@ -2146,9 +2156,13 @@ function orderGroupRow(state, group, root, dateId) {
         : null,
       // The courier's charge, in the paid-tag's family so it reads as one more thing
       // about this order: neutral when the customer bore it (it costs her nothing),
-      // amber when it came out of her own pocket and is already off her profit
+      // amber when it came out of her own pocket and is already off her profit.
+      //
+      // Both halves are required before it is tagged at all: with no payer recorded an
+      // amount says nothing about who owes it, and the tag used to fill the blank in as
+      // "customer" — a claim she never made, on a row it could not be removed from
       // (19 Sep 2026).
-      courierFeeOf(first)
+      courierFeeOf(first) && courierPayerOf(first)
         ? el("span", { class: `paid-tag courier${courierPayerOf(first) === "me" ? " mine" : ""}` },
             `Courier ${fmtRM(courierFeeOf(first), state.settings.currency)} · ${courierPayerOf(first) === "me" ? "me" : "customer"}`)
         : null,

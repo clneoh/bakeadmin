@@ -416,3 +416,102 @@ test("a charge she bore stays out of the Edit order total", () => {
   assert.doesNotMatch(text, /Order total: RM 38/,
     "nor may it be added to the total she reads as the order's worth");
 });
+
+// ── v127: deleting the charge takes the tag off the row ────────────────────
+// "why i delete courier charges and the tag is not remove?" (19 Sep 2026).
+// The row's charge tag is the paid-tag wearing "courier" — NOT the fulfillment tag,
+// which also says "Courier" on a courier order.
+const rowTag = (root) => all(root).find((n) =>
+  String(n.className).includes("paid-tag") && String(n.className).includes("courier"));
+
+// Open the Note / tracking box on the first order of `st` and hand back both the
+// rendered day and the popped-up body.
+function courierBox(st) {
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  return { root, pop: layers["popup-layer"] };
+}
+
+const charged = () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  return st;
+};
+
+test("clearing the amount takes the charge, and its tag, off the row", () => {
+  const st = charged();
+  const { root, pop } = courierBox(st);
+  assert.ok(rowTag(root), "the charge is tagged to start with");
+
+  const box = feeInput(pop);
+  box.value = "";                      // she deletes the amount
+  box._listeners.input[0].call(box);
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierFee, undefined, "the field is gone");
+  assert.equal(rowTag(root), undefined, "and so is the tag");
+});
+
+test("setting the payer back to Not recorded deletes the charge rather than tagging it as the customer's", () => {
+  const st = charged();
+  const { root, pop } = courierBox(st);
+
+  const sel = selWith(pop, "The customer paid it");
+  sel.value = "";                      // back to "Not recorded"
+  sel._listeners.change[0]();
+  buttonByText(layers["popup-layer"], "Save")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierPaidBy, undefined, "nobody bears it any more");
+  assert.equal(st.orders[0].courierFee, undefined,
+    "and the amount goes with the payer — a charge nobody owns is not a charge");
+  assert.equal(rowTag(root), undefined, "so the row is left clean");
+});
+
+test("an amount recorded without a payer is never tagged as the customer's", () => {
+  // A charge from an older backup, or half-filled in by hand: the amount is there but
+  // nobody said who owed it. The row may not fill that blank in as "customer" — she
+  // never said so, and it would tell the customer they owe money they do not.
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierFee = 8;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  assert.equal(rowTag(root), undefined, "no payer, no tag");
+});
+
+// The customer's track card carries the charge, so CLEARING one has to reach the card
+// too. Publishing only fired for a new charge, which left the customer looking at a
+// courier line she had just deleted (19 Sep 2026).
+test("clearing the charge republishes the customer's card without it", async () => {
+  const st = charged();
+  st.products[0].price = 15;           // 2 × RM15 of bread, so the total is worth reading
+  st.settings.supabase = { enabled: true, url: "https://project.test",
+    anonKey: "anon", email: "a@b.c", password: "pw" };
+  const { pop } = courierBox(st);
+
+  const box = feeInput(pop);
+  box.value = "";
+  box._listeners.input[0].call(box);
+
+  const posts = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    if (String(url).includes("order_tracking")) posts.push(JSON.parse(opts.body)[0]);
+    if (String(url).includes("/auth/v1/token")) {
+      return { ok: true, status: 200, json: async () => ({ access_token: "t", expires_in: 3600 }) };
+    }
+    return { ok: true, status: 201, json: async () => ({}) };
+  };
+  try {
+    buttonByText(pop, "Save")._listeners.click[0]();
+    for (let i = 0; i < 20 && !posts.length; i++) await new Promise((r) => setTimeout(r, 0));
+  } finally { globalThis.fetch = real; }
+
+  assert.equal(posts.length, 1, "the card is republished when the charge goes");
+  assert.equal(posts[0].courier_fee, null, "and it no longer names a charge");
+  assert.equal(posts[0].total, "RM 30.00", "nor has it the charge inside the total");
+});

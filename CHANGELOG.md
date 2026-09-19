@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v126)
+# Jienluv2bake — change history (v54 → v127)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Sep 2026 — engine v127 (no database step this time). Deleting a courier charge really
+deletes it — the tag comes off the order and the charge leaves the customer's track card.**
+
+**What you told me.** "why i delete courier charges and the tag is not remove?" You were
+right, and it was a real fault, not a display quirk.
+
+**What was wrong.** The charge is two things: the amount, and **who paid it**. Putting **Who
+paid the courier** back to **Not recorded** felt like deleting the charge — and it is the
+obvious way to do it, because that picker is what decides where the charge goes — but it only
+deleted the answer to *who*, and left the amount behind. The order's row kept a tag reading
+**Courier RM 8.00 · customer** for a charge nobody had assigned, and nothing you could do in
+that box would take it off. Worse, it named the customer as the payer when nobody had said so,
+so a row could claim they owed money they did not.
+
+**What it does now. A charge is the amount AND the payer.** Put the payer back to **Not
+recorded** and both go: the tag comes off the row, the customer's total goes back to the bread
+alone, and the expense row goes out of your books. Clearing the amount still does the same, as
+before. And a charge with no payer recorded — one restored from an older backup, say — is
+tagged with nothing at all rather than being labelled as the customer's.
+
+**Clearing a charge now reaches the customer's track card too.** It did not before: the card was
+only republished when a charge was added, so a customer could keep looking at a courier line you
+had just deleted. Now the card is republished whenever the charge changes, in either direction.
+
+**Where to see it.** Orders → an order with a courier charge → **Note / tracking**, then set
+**Who paid the courier** back to **Not recorded** and Save. The tag goes from the row.
+
+**One thing left as it is, so you know.** Deleting the **Delivery & fuel** expense from your
+Money screen does *not* take the charge off the order — that row is your own record of money
+going out, and the order is the record of what happened, so the two are deliberately separate.
+If you would rather that deleting the expense cleared the order's charge as well, tell me.
 
 **19 Sep 2026 — engine v126 (no database step this time). The messages that ask your customer
 for money now show how the total is reached, and the app shows you the same arithmetic.**
