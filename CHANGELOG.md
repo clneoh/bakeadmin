@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v140)
+# Jienluv2bake — change history (v54 → v141)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v141 (no database step). A brick you have two of is now drawn
+as two lines, and each line carries its own person — so one worker stands at one job
+instead of wearing every hat in the day.**
+
+**What you asked.** In your own words: *"i want is just better drawing.. Since now one
+brick having 2 lines, each line can have its own person, and few line can have a combine
+person sharing to different lines. This will make training of worker easier, because one
+person would not need to wear to many hats"*. So this is the **drawing**, and **who is on
+each line** — nothing about how the day adds up has moved.
+
+**A line, and why a brick you have two of is two of them.** Everything on this screen was
+already worked out as if a brick you have two of were two streams taking the lots in turn
+— lot one and lot three on one, lot two and lot four on the other. The screen was drawing
+those two streams flattened into a single row. Now each one is a row of its own: the
+brick's own name, badges and minutes on the first line, and a row per further line
+underneath, tied together by an accent down the left and a dotted seam between them.
+
+**Who is on each line is yours to set.** Open the brick and, once *How many of these do you
+have* says 2 or more, you get a box per line — **Line 1 — who is on it**, **Line 2 — who is
+on it**. 0 means whoever is free. Put the same number on two lines and that is one person
+covering both, which is exactly what you asked for; if those two lines really do need them
+in the same minute, their row in the People list goes red and names the minute and which
+line collided with which. The line boxes and the brick's own *Who is at this brick* are the
+same number, so the two can never disagree.
+
+**The People list now counts hats.** Each person's row reads **at 3 bricks** — how many
+different bricks they are standing at — and every job on it names its line ("Stretch and
+fold in the tub, line 2"). That number is the whole point of this release: it is the one
+that tells you when somebody is wearing too many hats.
+
+**Your starting point in one tap.** **One a line** (it was *One a brick*) gives every line
+its own person, so a brick you have two of takes two people rather than one. It says *One a
+line* only when a brick in the scenario really is drawn as lines; otherwise it reads exactly
+as it always did. Its name and the message it leaves say which of the two it just did.
+
+**What has not moved.** With no lines drawn and nobody set — which is every brick you have
+— the day is computed exactly as before, and every figure you have already been given reads
+identically: your own scenario still 24 pans and exactly the day, the seeded line still 12
+pans with the chiller as its wall, your sister's still 4 pans in 8 bricks. Two of a brick
+still buys cycles out of the pans you planned; it does not bake pans you did not plan.
+
+**One thing it deliberately does not do.** With **Let its cycles overlap** switched on, a
+brick's lots no longer take turns, so there are no lines to draw and the brick goes back to
+one row with one person. The people you set per line are **kept**, not thrown away, and the
+brick's card says so — switch overlapping back off and your lines come back, each with the
+person you gave it.
+
+**Nothing to run in the database.** This is a screen and a drawing; no SQL, no new table.
 
 **21 Sep 2026 — engine v140 (no database step). A brick can now be told that its
 cycles may overlap — one switch, with the rule for when to use it written beside

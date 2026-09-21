@@ -2592,6 +2592,17 @@ tr.po-covered td { color: var(--muted); }
 .tl-row .tl-bar.locked .tl-touch { opacity: .8; }
 /* Two of a brick. Marked on the row rather than the bars, because it is one fact
    about the brick — the day's room doubled — and not a property of any cycle. */
+/* A brick she has more than one of is drawn as its LINES, one under the other: the
+   brick's own row first, then a row per further line. What ties them into one brick
+   is the name column — an accent running down every line of the block, and the
+   further lines tinted — because two rows that merely happen to be adjacent would
+   read as two bricks. The tracks are left exactly as they are, gridlines and all. */
+.tl-block { position: relative; }
+.tl-block > .tl-row.tl-line > .tl-name { padding-left: 8px; box-shadow: inset 3px 0 0 var(--brown-soft); }
+.tl-block > .tl-row.tl-line-sub > .tl-name { background: var(--strip); padding-left: 11px; }
+/* The seam between two lines of one brick is dashed, so it reads as a fold inside
+   the brick rather than as the edge between two of them. */
+.tl-block > .tl-row.tl-line:not(:last-child) { border-bottom: 1px dashed var(--line); }
 .badge-multi { background: var(--brown-soft); color: var(--brown-dark); font-weight: 600; }
 /* The minutes inside a bar, so a fold brick reads "28" where it is drawn. */
 .tl-lab {

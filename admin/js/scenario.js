@@ -181,6 +181,11 @@ const num = (v, fallback = 0) => {
 };
 const atLeast = (v, floor, fallback = 0) => Math.max(floor, num(v, fallback));
 
+// A person is a number from 0 to 8, where 0 means "whoever is free". Clamped in
+// one place so a brick, a line and a combination cannot disagree about what a
+// person is.
+const clampPerson = (v) => Math.max(0, Math.min(8, Math.round(num(v, 0))));
+
 // Every module filled in and clamped, and every scenario told apart from a
 // half-written one. Everything below reads modules through here, and the screen
 // reads the same values back out of computeScenario().modules — so a number
@@ -282,6 +287,20 @@ export function moduleOf(m) {
   const everyMin = atLeast(src.everyMin, 0, 0) || cycleMin;
   const repeats = Math.max(1, Math.round(atLeast(src.repeats, 1, 1)));
   const starts = startsOf(src.starts, src.startMin, repeats, everyMin);
+  const person = clampPerson(src.person);
+  const count = Math.max(1, Math.min(8, Math.round(atLeast(src.count, 1, 1))));
+  // Who is on each line, built to be exactly `count` long the same way `starts`
+  // is built to be exactly `repeats` long: one name per line she has, the ones
+  // she set kept, a line she has only just bought filled from the person she gave
+  // the brick. Short is continued and long is cut back rather than the whole list
+  // being thrown away, so raising how many of a brick she has does not forget
+  // which worker was on which line.
+  const given = Array.isArray(src.crew) ? src.crew : [];
+  const crew = [];
+  for (let i = 0; i < count; i += 1) {
+    const stored = num(given[i], NaN);
+    crew.push(Number.isFinite(stored) ? clampPerson(stored) : person);
+  }
   return {
     id: String(src.id || ""),
     icon: String(src.icon || "•"),
@@ -302,12 +321,15 @@ export function moduleOf(m) {
     // have two answers to one question.
     starts,
     startMin: starts[0],
-    // How many of this brick she has: two mixers, two ovens, two chillers. See
-    // moduleFacts for what a second one buys, and for the one thing it does not
-    // — it never invents cycles she did not plan. It also relaxes the brick's own
-    // lot-at-a-time rule to one lot per brick she has; `overlap` is the switch
-    // that takes that rule off altogether.
-    count: Math.max(1, Math.min(8, Math.round(atLeast(src.count, 1, 1)))),
+    // How many of this brick she has: two mixers, two ovens, two chillers, two
+    // people folding. See moduleFacts for what a second one buys, and for the one
+    // thing it does not — it never invents cycles she did not plan. It also
+    // relaxes the brick's own lot-at-a-time rule to one lot per brick she has;
+    // `overlap` is the switch that takes that rule off altogether. And because
+    // the rule takes them in TURNS — cycle 3 waits on cycle 1 — two of them are
+    // two LINES, the odd lots on one and the even lots on the other, which is how
+    // the screen draws them. See linesInForce.
+    count,
     // Whether this brick waits for the brick above it: its cycle 10 cannot start
     // until the brick before it has finished its own cycle 10. See chainLine.
     follow: src.follow === true,
@@ -316,10 +338,32 @@ export function moduleOf(m) {
     // only thing left that can move them. See chainLine for the criteria.
     overlap: src.overlap === true,
     people: Math.max(1, Math.round(atLeast(src.people, 1, 1))),
+    // Who is on each line — one name per line she has, so a brick worked by two
+    // people is two people on the screen and a worker can be given one job rather
+    // than the whole day. 0 = whoever is free.
+    crew,
     // 0 = whoever is free. 1..8 = that person, by name, so two bricks can be
-    // given to one person and the collision drawn rather than hidden.
-    person: Math.max(0, Math.min(8, Math.round(atLeast(src.person, 0, 0)))),
+    // given to one person and the collision drawn rather than hidden. Kept EQUAL
+    // to the first line's person here, the same way startMin is kept equal to the
+    // first cycle's start, so a brick cannot answer "who is on you" two ways.
+    person: crew[0],
   };
+}
+
+// How many LINES this brick is worked as: its copies, when they really do take
+// turns. Two of them means cycles 1, 3, 5 on the first line and 2, 4, 6 on the
+// second — which is what `count` already means in chainLine — so each line can be
+// given its own person.
+//
+// Zero means "not drawn as lines", and there are two ways to get there: a brick
+// she has one of, and a brick whose overlap switch is on. With overlap on its
+// cycles no longer take turns per copy at all (the clamp is off), so a per-line
+// person would be a claim the arithmetic does not support — the brick keeps the
+// one person she gave it, and its crew is kept in storage untouched for the day
+// she switches the lines back on.
+export function linesInForce(m) {
+  const mod = moduleOf(m);
+  return mod.count > 1 && !mod.overlap ? mod.count : 0;
 }
 
 // When each pass of a module happens. Every module — a single mix and a fold
@@ -333,6 +377,11 @@ export function passesOf(m) {
     out.push({
       at,
       end: at + mod.cycleMin,
+      // Which line this lot is on: the copies take the lots in turn, so cycle 1
+      // and cycle 3 are the same pair of hands. This is the single place the pass
+      // list is built, so everything downstream — the bars, the people, the
+      // collisions — reads the same answer.
+      line: k % mod.count,
       // The minutes of a person, taken from the START of the pass. A touch
       // longer than the pass itself is clamped: you cannot be at a module after
       // it has finished with the dough.
@@ -390,6 +439,10 @@ export function moduleFacts(m) {
     endMin: passes.reduce((t, p) => Math.max(t, p.end), mod.startMin + mod.cycleMin),
     fitsInDay,
     repeatsHeld,
+    // How many lines this brick is worked as, or 0 when it is not drawn as lines
+    // at all. Decided here, once, so the bars, the people rows and the collisions
+    // all read the same answer rather than each working it out. See linesInForce.
+    lines: mod.count > 1 && !mod.overlap ? mod.count : 0,
     // True when she has asked for more passes than a day can hold. The screen
     // says so out loud rather than quietly counting fewer.
     capped: repeatsHeld < mod.repeats,
@@ -485,7 +538,15 @@ export function touchWindows(modules) {
     for (const p of f.passes) {
       if (p.touchTo <= p.touchFrom) continue;
       windows.push({
-        module: f.id, icon: f.icon, name: f.name, person: f.person || 0,
+        module: f.id, icon: f.icon, name: f.name,
+        // The person on THIS lot's line — so a brick worked as two lines gives
+        // its odd lots to one worker and its even lots to the other. A brick that
+        // is not drawn as lines has one person, and `crew` was built from that
+        // same number, so both roads lead to the person she named.
+        person: f.lines && f.crew ? (f.crew[p.line] || 0) : (f.person || 0),
+        // Which line it came off, so a job on a person's row can say so and a
+        // clash can name which line of which brick collided with what.
+        line: f.lines ? p.line : -1,
         from: p.touchFrom, to: p.touchTo, people: f.people,
       });
     }
@@ -729,8 +790,42 @@ export function copyScenario(sc, name, id) {
     modules: s.modules.map((m) => ({
       ...m,
       starts: Array.isArray(m.starts) ? [...m.starts] : undefined,
+      // Who is on each line is a list for the same reason, and is copied the same
+      // way: two scenarios must never share one line's person.
+      crew: Array.isArray(m.crew) ? [...m.crew] : undefined,
     })),
   };
+}
+
+// One person's work, moved onto another — the two taps behind "Combine two…".
+//
+// Pure, and here rather than in the screen, because the LINES have to come with
+// the bricks: a brick worked as two lines carries one person per line, so moving
+// a person means rewriting every line that named them. Miss that and a line would
+// point at a number with no row left under it — the work would still be done, by
+// nobody, on a screen that showed nothing wrong.
+//
+// What moves is only who is standing at the brick. Every brick keeps the job it
+// does and the minutes it takes; whatever collides afterwards is exactly the
+// manpower the combination cannot pay for, which is the answer she is after.
+export function combinedScenario(saved, into, from) {
+  const s = scenarioOf(saved);
+  const keep = clampPerson(into);
+  const gone = clampPerson(from);
+  const merges = { ...(s.merges || {}) };
+  const fromMembers = merges[String(gone)] || [];
+  const members = [...new Set([...(merges[String(keep)] || []), gone, ...fromMembers])]
+    .filter((w) => w !== keep).sort((a, b) => a - b);
+
+  const modules = s.modules.map((m) => {
+    if (!m.crew.some((p) => p === gone)) return m;
+    const crew = m.crew.map((p) => (p === gone ? keep : p));
+    return { ...m, crew, person: crew[0] };
+  });
+
+  delete merges[String(gone)];
+  merges[String(keep)] = members;
+  return { ...s, modules, merges };
 }
 
 // ── A brick, handed to the capacity screen ─────────────────────────────────

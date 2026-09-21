@@ -13,8 +13,8 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, computeScenario, concurrency, copyScenario, hoursAndMinutes,
-  moduleFacts, moduleOf, moveModule, newModuleId, passesOf, peopleRows,
+  climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, hoursAndMinutes,
+  linesInForce, moduleFacts, moduleOf, moveModule, newModuleId, passesOf, peopleRows,
   removeModule, repeatsToPass, scenarioOf, touchWindows,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
 } from "../admin/js/scenario.js";
@@ -515,6 +515,9 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     assert.equal(back.count, 1, `${m.id}: a brick she has one of says so`);
     assert.equal(back.follow, false, `${m.id}: and no brick waits for another until she says so`);
     assert.equal(back.overlap, false, `${m.id}: and none of them lets two lots in at once yet`);
+    // A brick she has one of is ONE line, so it carries the one person it always
+    // had and no more — the extra lines arrive with the second one of them.
+    assert.deepEqual(back.crew, [back.person], `${m.id}: one line, carrying the brick's own person`);
     assert.deepEqual(moduleOf(back).starts, back.starts, `${m.id}: the cycle times read back the same`);
   }
   // Switched on, the switch itself is a value that has to survive the same trip —
@@ -526,6 +529,178 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     "two of them, waiting on the brick above, and free to hold two lots at once",
   );
   assert.deepEqual(moduleOf(on), on, "and a second read of it changes nothing at all");
+});
+
+// ── A brick she has two of is two lines, and each line has its own person ───
+//
+// Her ask: "i want is just better drawing.. Since now one brick having 2 lines,
+// each line can have its own person, and few line can have a combine person
+// sharing to different lines." So the arithmetic of "two of them" is untouched —
+// this is the drawing and who stands at each line, and both have to be able to
+// survive the trip through storage without her numbers moving.
+
+test("a brick carries a person for each line it is worked as", () => {
+  // Nothing stored: every line gets the brick's own person, and the brick's
+  // person is line 1's. One number written once, so they cannot disagree.
+  assert.deepEqual(moduleOf(brick({ person: 3 })).crew, [3],
+    "one of a brick is one line, and it is the person she named");
+  assert.deepEqual(moduleOf(brick({ person: 3, count: 2 })).crew, [3, 3],
+    "two of them and nobody said otherwise: the same person on both, as before");
+  // The array she typed is adopted only when it is exactly as long as the lines.
+  assert.deepEqual(moduleOf(brick({ person: 3, count: 2, crew: [1, 2] })).crew, [1, 2],
+    "two lines, two people, read back as she set them");
+  // Grown: the stored list is kept and the new lines take the brick's person, so
+  // raising how many she has never forgets who was on the lines she already had.
+  assert.deepEqual(moduleOf(brick({ person: 3, count: 3, crew: [1, 2] })).crew, [1, 2, 3],
+    "a third one of them keeps lines 1 and 2 and gives line 3 the brick's person");
+  // Cut back: the extra entries are dropped rather than kept as lines that are
+  // not there, because a crew longer than the lines is a line nobody can see. What
+  // is KEPT is the person she set on a line that still exists — so lowering how
+  // many she has never silently forgets who was standing at line 1, and raising it
+  // again brings line 2's person straight back off the stored list.
+  assert.deepEqual(moduleOf(brick({ person: 3, count: 1, crew: [1, 2] })).crew, [1],
+    "back to one of them keeps the person she had set on line 1");
+  // Nonsense in storage is clamped, not carried: a person is 0…8, and 0 means
+  // whoever is free — the same reading the editor and the People rows give it.
+  assert.deepEqual(moduleOf(brick({ person: 3, count: 2, crew: [-4, 99] })).crew, [0, 8],
+    "a person outside 0…8 is clamped rather than drawn");
+  // person is ALWAYS crew[0], the way startMin is always starts[0].
+  assert.equal(moduleOf(brick({ person: 3, count: 2, crew: [5, 6] })).person, 5,
+    "the brick's person is line 1's person, whether or not it was stored that way");
+  // And a wrong-length list left behind by a hand-edited backup is replaced, not
+  // partly adopted — half a crew is a line pointing at somebody who is not there.
+  assert.deepEqual(moduleOf(brick({ person: 2, count: 2, crew: "nonsense" })).crew, [2, 2],
+    "a crew that is not a list is not a crew");
+});
+
+test("lines are in force only while the brick's own cycles really take turns", () => {
+  assert.equal(linesInForce(brick({ count: 1 })), 0, "one of a brick is not drawn as lines");
+  assert.equal(linesInForce(brick({ count: 2 })), 2, "two of them take turns, so two lines");
+  assert.equal(linesInForce(brick({ count: 3 })), 3, "three of them is three lines");
+  // The overlap switch turns the taking-turns off, so there is only ever one lot
+  // in the brick — one row, one person, however many of it she has. The crew is
+  // kept in storage (the editor says so), but it is not what the day is worked as.
+  assert.equal(linesInForce(brick({ count: 2, overlap: true })), 0,
+    "free to overlap, the brick is one row again");
+  // A switched-off brick is not worked at all, so it is not a line either.
+  assert.equal(linesInForce(brick({ count: 2, on: false })), 2,
+    "switching a brick off is the day's business, not the drawing's");
+});
+
+test("each lot knows which line it came off", () => {
+  const m = moduleOf(brick({ count: 2, repeats: 6, cycleMin: 28, everyMin: 30, touchMin: 2 }));
+  assert.deepEqual(passesOf(m).map((p) => p.line), [0, 1, 0, 1, 0, 1],
+    "two of them take the lots in turn, so the lines alternate all the way down");
+  const one = moduleOf(brick({ count: 1, repeats: 3 }));
+  assert.deepEqual(passesOf(one).map((p) => p.line), [0, 0, 0],
+    "one of a brick puts every lot on its one line, exactly as it always did");
+});
+
+test("two lines give their odd lots to one person and their even lots to the other", () => {
+  const r = computeScenario(scenario({
+    modules: [brick({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 20, everyMin: 30, touchMin: 2 })],
+  }));
+  const wins = touchWindows(r.on);
+  // Four lots, two lines, two people: lots 1 and 3 to person 1, lots 2 and 4 to
+  // person 2 — the lines take the lots in turn, so the people do too.
+  assert.deepEqual(wins.map((w) => [w.person, w.line]), [[1, 0], [2, 1], [1, 0], [2, 1]],
+    "the lines carry their own people, and each lot says which line it came off");
+  const rows = peopleRows(r.on);
+  assert.equal(rows.length, 2, "two lines with two people is two rows, not one");
+  assert.deepEqual(rows.map((row) => row.person), [1, 2]);
+  // Each of them is at ONE brick — which is the count she asked this feature for,
+  // because one person should not have to wear every hat in the day.
+  assert.deepEqual(rows.map((row) => new Set(row.items.map((w) => w.module)).size), [1, 1],
+    "each worker is at one line of one brick");
+});
+
+test("the same person on both lines is one person, and a real clash says so", () => {
+  // Both lines on person 1 with minutes that do not meet: one row, and every lot
+  // still on it. One person covering two lines is what she asked for.
+  const apart = computeScenario(scenario({
+    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+  }));
+  const rows = peopleRows(apart.on);
+  assert.equal(rows.length, 1, "the same number on two lines is one person, not two");
+  assert.equal(rows[0].items.length, 4, "and every lot is still on their row");
+  assert.equal(rows[0].clashes.length, 0, "half an hour apart, so nothing of theirs collides");
+  // Both lines on person 1 with minutes that DO meet — 35 minutes of hands inside
+  // a 40-minute pass, with the next lot starting at 30. Same one row, now wearing
+  // the collision: the honest answer, and what she slides the bricks apart to fix.
+  const clash = computeScenario(scenario({
+    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 40, everyMin: 30, touchMin: 35 })],
+  }));
+  const clashed = peopleRows(clash.on);
+  assert.equal(clashed.length, 1, "one person is still one row");
+  assert.ok(clashed[0].clashes.length > 0, "two of their own lines in the same minute is a clash");
+  assert.equal(clashed[0].clashes[0].after.line, 1, "and the clash names the line that came second");
+});
+
+test("a brick that is not drawn as lines gives the windows it always gave", () => {
+  // The whole promise of this release: with no lines and no crew — which is every
+  // brick she has — the day is computed exactly as it was before the field existed.
+  const bare = computeScenario(scenario({
+    modules: [brick({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+  }));
+  const crewed = computeScenario(scenario({
+    modules: [brick({ id: "fold", person: 2, crew: [2], repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+  }));
+  assert.deepEqual(touchWindows(crewed.on), touchWindows(bare.on),
+    "spelling the crew out says nothing the brick did not already say");
+  assert.deepEqual(concurrency(crewed.on), concurrency(bare.on), "and the day's hands are untouched");
+});
+
+test("copying a scenario copies the line crews, deeply", () => {
+  const sc = scenario({
+    modules: [brick({ id: "fold", person: 1, count: 2, crew: [1, 2], repeats: 4 })],
+  });
+  const copy = copyScenario(sc, "A copy", "two");
+  assert.deepEqual(copy.modules[0].crew, [1, 2], "the copy has the crew");
+  copy.modules[0].crew[1] = 7;
+  assert.deepEqual(sc.modules[0].crew, [1, 2],
+    "and it is the copy's own array, so dragging in one scenario cannot rewrite the other");
+});
+
+test("combining two people moves their lines, and nobody is left pointing at a gone row", () => {
+  const sc = scenario({
+    modules: [
+      brick({ id: "fold", person: 2, count: 2, crew: [2, 5], repeats: 4 }),
+      brick({ id: "bake", person: 5, count: 1, repeats: 2 }),
+    ],
+  });
+  const next = combinedScenario(sc, 2, 5);
+  const fold = next.modules.find((m) => m.id === "fold");
+  assert.deepEqual(fold.crew, [2, 2], "person 5's line becomes person 2's line");
+  assert.equal(fold.person, 2, "and the brick's own person follows line 1");
+  assert.deepEqual(next.modules.find((m) => m.id === "bake").crew, [2],
+    "the other brick 5 was at moves with them");
+  // 5 is now covered by 2, so their row is gone and the combination says who took
+  // them — which is what makes the People list read as the day being worked.
+  assert.deepEqual(next.merges, { 2: [5] }, "5 is combined into 2");
+  // A person who was only ever on somebody's line 2 is still being covered — the
+  // test for "is this person free now" has to read the crew, not just `person`.
+  assert.deepEqual(combinedScenario(sc, 2, 5).merges, { 2: [5] });
+  assert.deepEqual(sc.modules[0].crew, [2, 5], "and the scenario she was looking at is not edited in place");
+  // Combining a person 2 already covers adds them rather than replacing them.
+  assert.deepEqual(combinedScenario({ ...sc, merges: { 2: [4] } }, 2, 5).merges, { 2: [4, 5] },
+    "what 2 already covered is kept, and the list stays in order");
+});
+
+test("the lines never reach the Production line's plan", () => {
+  // The bridge to the Production line reads named facts, not the module objects —
+  // so a crew, which is a planner idea, cannot leak into the day it measures. The
+  // guard is that the same bricks, with lines and crews, carry the identical plan.
+  const bare = scenarioPlanPatch(DEFAULT_SCENARIO, {}).patch;
+  const withLines = DEFAULT_SCENARIO.modules.map((m) => (
+    m.id === "mixer" ? { ...m, count: 2, crew: [1, 2] } : m
+  ));
+  const patch = scenarioPlanPatch({ ...DEFAULT_SCENARIO, modules: withLines }, {}).patch;
+  assert.deepEqual(patch, bare, "two of them and two people move no number on the other screen");
+  assert.equal(Object.keys(patch).some((k) => k === "crew" || k === "lines"), false,
+    "the plan carries pans and minutes, not lines and people");
+  // And the figure the pinned test above rests on is untouched.
+  assert.equal(patch.mixerPans, 28, "two of them still buys cycles out of the same planned pans");
+  assert.equal(patch.ovenPans, 6, "and the oven is where it always was");
 });
 
 // ── A brick can be doubled, and every cycle has its own time ───────────────

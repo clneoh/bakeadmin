@@ -29,6 +29,7 @@ import {
   computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
+  combinedScenario, linesInForce, moduleOf,
 } from "../scenario.js";
 
 // A colour per brick, so a bar on the timeline and the person carrying it can be
@@ -391,6 +392,12 @@ function dayCard(r, sc, on) {
 }
 
 function controlsRow(r, sc, on) {
+  // The jobs that actually need hands, and how many LINES those jobs are. The two
+  // numbers differ only when a brick she has two of is drawn as two lines — and
+  // that is exactly when the People button below is about to hand out a person
+  // per line rather than per brick, so it is also when its label has to change.
+  const jobs = r.modules.filter((m) => m.on !== false && Number(m.touchMin) > 0);
+  const lineJobs = jobs.reduce((t, m) => t + Math.max(1, m.lines || 0), 0);
   return el("div", { class: "tl-ctl" },
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Scale"),
@@ -404,29 +411,34 @@ function controlsRow(r, sc, on) {
       el("button", {
         type: "button", class: "tl-chip",
         onclick: () => {
-          // Her starting point: one person standing at every brick that needs
-          // hands. The clashes that appear are exactly what she then slides the
-          // bricks to remove — and it is the honest first answer, because a
-          // separate person per brick really does cover the day.
+          // Her starting point: one person standing at every job that needs hands.
+          // A job is a LINE, so a brick she has two of takes two people here and
+          // not one — which is what she wants this for: each worker on one line,
+          // learning one job rather than wearing every hat in the day. The clashes
+          // that appear are exactly what she then slides the bricks to remove, and
+          // it is the honest first answer, because a person per line really does
+          // cover the day.
           let n = 0;
           sc.modules = sc.modules.map((m) => {
             const needsHands = m.on !== false && Number(m.touchMin) > 0;
-            if (!needsHands) return { ...m, person: 0 };
-            n += 1;
-            return { ...m, person: n };
+            if (!needsHands) return { ...m, person: 0, crew: undefined };
+            const have = Math.max(1, linesInForce(m));
+            const crew = [];
+            for (let i = 0; i < have; i += 1) { n += 1; crew.push(n); }
+            return { ...m, crew, person: crew[0] };
           });
-          // Every brick has just been given its own person, so any combination
+          // Every job has just been given its own person, so any combination
           // label from before is describing a day that no longer exists.
           sc.merges = {};
           on.persist();
-          toast(`${n} ${n === 1 ? "person" : "people"}, one to a brick — now drag the bricks closer together`);
+          toast(`${n} ${n === 1 ? "person" : "people"}, one to ${lineJobs > jobs.length ? "a line" : "a brick"} — now drag the bricks closer together`);
           on.refresh();
         },
-      }, "One a brick"),
+      }, lineJobs > jobs.length ? "One a line" : "One a brick"),
       el("button", {
         type: "button", class: "tl-chip",
         onclick: () => {
-          sc.modules = sc.modules.map((m) => ({ ...m, person: 0 }));
+          sc.modules = sc.modules.map((m) => ({ ...m, person: 0, crew: undefined }));
           // Nobody is named any more, so nothing is being covered by anybody —
           // a leftover combination label would be a lie about the day.
           sc.merges = {};
@@ -539,14 +551,18 @@ function rulerRow(r, trackW) {
 // they are, which is her point two — each cycle has its own start time. The
 // default (-1) moves the whole row, which is what the model does when a brick's
 // start time is typed rather than a single cycle dragged.
-function passBars(m, tone, r, shift = 0, onlyK = -1) {
+function passBars(m, tone, r, shift = 0, onlyK = -1, line = null) {
   const bars = [];
-  // Which lane each cycle is drawn in. A brick's cycles are free to overlap — her
-  // own ask — so two of them can sit in the same minutes, and drawn on one row
-  // they would paint over each other and read as one long pass. Each cycle gets
-  // the first lane it fits in, which draws overlap as overlap.
-  const { laneOf, count: lanes } = passLanes(m.passes);
-  m.passes.forEach((p, k) => {
+  // Which cycles this row draws, and which lane each of them is in. A brick drawn
+  // as one row draws all of them and first-fits the lanes, because a brick whose
+  // cycles are free to overlap — her own ask — can put two of them in the same
+  // minutes, and drawn on one row they would paint over each other and read as one
+  // long pass. A brick drawn as several LINES draws one line's cycles here, and
+  // its first-fit is then over just those: normally one lane, and two only if
+  // something really has put two of one line's lots in the same minutes.
+  const { ks, laneOf, lanes } = lineLanes(m, line);
+  ks.forEach((k, i) => {
+    const p = m.passes[k];
     const moves = onlyK < 0 || onlyK === k;
     const at = p.at + (moves ? shift : 0);
     // A chained brick's times are the brick above's times, not hers to place, so
@@ -558,7 +574,7 @@ function passBars(m, tone, r, shift = 0, onlyK = -1) {
     const touchW = p.touchTo > p.touchFrom
       ? Math.max(2, Math.round((p.touchTo - p.touchFrom) * r.pxPerMin))
       : 0;
-    const top = lanes > 1 ? LANE_TOP + laneOf[k] * LANE_PITCH : null;
+    const top = lanes > 1 ? LANE_TOP + laneOf[i] * LANE_PITCH : null;
     const h = lanes > 1 ? LANE_H : null;
     bars.push(el("div", {
       class: `tl-bar ${tone}${m.follow ? " locked" : ""}${lanes > 1 ? " laned" : ""}`,
@@ -568,34 +584,44 @@ function passBars(m, tone, r, shift = 0, onlyK = -1) {
       style: `left:${left}px;width:${w}px` +
         (top == null ? "" : `;top:${top}px;height:${h}px`),
       // What the bar holds, in her terms: how many minutes the dough is in it.
-      title: `${m.name}, cycle ${k + 1}: ${trim(m.cycleMin)} min` +
+      title: `${m.name}${line == null ? "" : `, line ${line + 1}`}, cycle ${k + 1}: ${trim(m.cycleMin)} min` +
         (touchW ? `, ${trim(m.touchMin)} min of you` : ", no hands"),
     },
       touchW ? el("div", { class: "tl-touch", style: `width:${touchW}px` }) : null,
       // Only the first pass of a row carries the number, so a fold loop does
       // not repeat "28" four times across the day — and a laned bar is too short
       // to hold it, so the number is left to the row's own line instead.
-      k === 0 && w >= LAB_MIN_PX && h == null ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null));
+      i === 0 && w >= LAB_MIN_PX && h == null ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null));
   });
   return bars;
 }
 
-// How many cycles of this brick are in the brick at once, and which lane each one
-// belongs in. First-fit over the passes in TIME order (not cycle order — she can
-// have dragged cycle 4 before cycle 1), and two cycles that merely touch are not
-// overlapping, so a pass ending exactly where the next one starts stays in the
-// same lane and the row does not grow for a day that has not changed.
-function passLanes(passes) {
-  const order = passes.map((_, k) => k).sort((a, b) => (passes[a].at - passes[b].at) || (passes[a].end - passes[b].end));
+// The cycles one row draws and the lanes they need: every cycle of the brick for
+// a brick drawn as a single row, or one line's worth of them for a brick worked as
+// several lines. The lane assignment is a first-fit over that row's own cycles, in
+// TIME order (not cycle order — she can have dragged cycle 4 before cycle 1), and
+// two cycles that merely touch are not overlapping, so a pass ending exactly where
+// the next one starts stays in the same lane and a row does not grow for a day
+// that has not changed.
+//
+// Both the bars and the row's height come from here, so a row can never be drawn
+// taller than the bars it holds — or hold bars nothing has made room for.
+function lineLanes(m, line = null) {
+  const ks = [];
+  for (let k = 0; k < m.passes.length; k += 1) {
+    if (line == null || m.passes[k].line === line) ks.push(k);
+  }
+  const passes = ks.map((k) => m.passes[k]);
+  const order = passes.map((_, i) => i).sort((a, b) => (passes[a].at - passes[b].at) || (passes[a].end - passes[b].end));
   const laneOf = passes.map(() => 0);
   const ends = [];
-  for (const k of order) {
-    let lane = ends.findIndex((t) => t <= passes[k].at);
+  for (const i of order) {
+    let lane = ends.findIndex((t) => t <= passes[i].at);
     if (lane < 0) { lane = ends.length; ends.push(0); }
-    ends[lane] = passes[k].end;
-    laneOf[k] = lane;
+    ends[lane] = passes[i].end;
+    laneOf[i] = lane;
   }
-  return { laneOf, count: Math.max(1, ends.length) };
+  return { ks, laneOf, lanes: Math.max(1, ends.length) };
 }
 
 // Where each cycle of a brick is, as a plain array of minutes — the brick as the
@@ -634,26 +660,52 @@ function moduleRow(r, m, idx, trackW, sc, on) {
 
   // The raw brick in the stored scenario, which is what a drag writes to.
   const live = sc.modules.find((x) => x.id === m.id) || m;
+  const above = chainAbove(r, m);
+
+  // A brick she has two of is worked as two LINES — the copies take the lots in
+  // turn, odd lots on one and even on the other — so it is drawn as two rows, one
+  // per line, each naming the person on it. That is her own ask, and it is also
+  // the only drawing that can show two lines at all: the two lines' lots need not
+  // overlap in time, so flattening them onto one row would draw a single stream
+  // where there are really two.
+  //
+  // A brick that is not worked as lines gets the single row it has always had, to
+  // the pixel — which is every brick she has today.
+  const lines = m.lines || 0;
+  if (!lines) return brickRow(r, m, live, sc, on, tone, trackW, above, null);
+
+  const block = el("div", { class: "tl-block" });
+  for (let line = 0; line < lines; line += 1) {
+    block.append(brickRow(r, m, live, sc, on, tone, trackW, above, line));
+  }
+  return block;
+}
+
+// One row of a brick: the whole brick, or one of its lines. Its own name cell, its
+// own track and its own drag are all here, so a brick drawn as two lines is simply
+// two of these and nothing else on the screen has to know.
+function brickRow(r, m, live, sc, on, tone, trackW, above, line) {
   let drag = null;
   let swallow = false;
 
-  // A brick whose cycles overlap needs a taller track to draw them in lanes. A
-  // brick whose cycles do not gets the track it has always had, to the pixel.
-  const lanes = passLanes(m.passes).count;
+  // A row whose bars overlap needs a taller track to draw them in lanes. A row
+  // whose bars do not gets the track it has always had, to the pixel.
+  const { lanes } = lineLanes(m, line);
   const track = el("div", {
     class: "tl-track",
     style: `width:${trackW}px${lanes > 1 ? `;height:${laneTrackH(lanes)}px` : ""}`,
   });
-  track.replaceChildren(...passBars(m, tone, r));
+  track.replaceChildren(...passBars(m, tone, r, 0, -1, line));
 
-  // The start-time line is held onto, because a drag rewrites it as the finger
-  // moves — the brick should read its new time while it is still being placed.
-  const above = chainAbove(r, m);
-  const whenLine = el("div", { class: "tl-sub" });
-  whenLine.textContent = timeLine(m, r.dayStartMin) + (above ? ` · waits on ${above.name}` : "");
+  // The line a drag rewrites as the finger moves — the row should read its new
+  // time while the cycle is still being placed.
+  let whenLine = null;
+  let name = null;
 
-  const row = el("div", { class: "tl-row" },
-    el("div", { class: "tl-name" },
+  if (line == null) {
+    whenLine = el("div", { class: "tl-sub" });
+    whenLine.textContent = timeLine(m, r.dayStartMin) + (above ? ` · waits on ${above.name}` : "");
+    name = el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
         `${m.icon} ${m.name}`,
         // How many of this brick she has. Two mixers, two chillers, two people
@@ -670,8 +722,40 @@ function moduleRow(r, m, idx, trackW, sc, on) {
         // she typed it — the row just counts honestly and says why.
         m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null),
       whenLine,
-      el("div", { class: "tl-sub" }, costLine(m))),
-    track);
+      el("div", { class: "tl-sub" }, costLine(m)));
+  } else {
+    // A line of a brick: who is on it, how many lots it takes and the minutes it
+    // really runs, read off the cycles the chain has already placed rather than
+    // worked out again here. The brick's own name, badges and cost line stay on
+    // the first line, so a brick is still one thing she can read in one place.
+    const stats = lineStats(m, line);
+    const who = lineWho(m, line) + (stats ? ` · ${stats.lots} ${stats.lots === 1 ? "lot" : "lots"}` : "");
+    whenLine = el("div", { class: "tl-sub" }, stats
+      ? `${clockAt(r.dayStartMin, stats.from)} → ${clockAt(r.dayStartMin, stats.to)}`
+      // A line with nothing on it is the second machine she has bought and not
+      // yet used — so it says so, rather than looking like a brick that is simply
+      // empty for no reason.
+      : "nothing on this line yet — raise how many times it runs");
+    name = el("div", { class: "tl-name" },
+      line === 0
+        ? el("div", { class: "tl-name-top" },
+          `${m.icon} ${m.name}`,
+          el("span", { class: "badge badge-multi" }, `${m.lines} lines`),
+          above ? el("span", { class: "badge badge-past" }, "waits above") : null,
+          m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
+          m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null)
+        : null,
+      el("div", { class: "tl-sub" }, who),
+      whenLine,
+      line === 0 ? el("div", { class: "tl-sub" }, costLine(m)) : null,
+      line === 0 && above ? el("div", { class: "tl-sub" }, `waits on ${above.name}`) : null);
+  }
+
+  // A brick that is not drawn as lines gets the class list it has always had, to
+  // the letter — everything CSS says about a plain brick still applies to it.
+  const row = el("div", {
+    class: `tl-row${line == null ? "" : ` tl-line${line > 0 ? " tl-line-sub" : ""}`}`,
+  }, name, track);
 
   row.addEventListener("click", () => {
     if (swallow) { swallow = false; return; }
@@ -706,7 +790,7 @@ function moduleRow(r, m, idx, trackW, sc, on) {
     if (delta === drag.delta) return;
     drag.delta = delta;
     drag.moved = drag.moved || delta !== 0;
-    track.replaceChildren(...passBars(m, tone, r, delta, drag.k));
+    track.replaceChildren(...passBars(m, tone, r, delta, drag.k, line));
     whenLine.textContent = timeLine(m, r.dayStartMin, drag.from + delta, drag.k);
     e.preventDefault();
   });
@@ -731,11 +815,12 @@ function moduleRow(r, m, idx, trackW, sc, on) {
       // not the drag failing — so it says which, and names the switch that would
       // let two lots share the minutes when the switch is what is holding it.
       const landed = cycleLanded(sc, m, d.k, starts[d.k]);
+      const which = `${m.name}${m.lines ? `, line ${(d.k % m.count) + 1}` : ""}, cycle ${d.k + 1}`;
       toast(landed > starts[d.k]
-        ? `${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, landed)} — ${m.overlap
+        ? `${which} → ${clockAt(r.dayStartMin, landed)} — ${m.overlap
           ? "the brick above holds it back, so move that one and this follows"
-          : `the brick holds it back: ${m.count > 1 ? "one lot per brick you have" : "one lot at a time"}, so switch on Let its cycles overlap for two at once`}`
-        : `${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, starts[d.k])}`);
+          : `the brick holds it back: ${m.count > 1 ? "one lot per line you have" : "one lot at a time"}, so switch on Let its cycles overlap for two at once`}`
+        : `${which} → ${clockAt(r.dayStartMin, starts[d.k])}`);
     }
     on.refresh();
   };
@@ -743,6 +828,28 @@ function moduleRow(r, m, idx, trackW, sc, on) {
   track.addEventListener("pointercancel", drop);
 
   return row;
+}
+
+// One line of a brick: the lots on it and the minutes they take, read off the
+// cycles the chain has already placed. Null when the line has nothing on it yet.
+function lineStats(m, line) {
+  let from = Infinity;
+  let to = -Infinity;
+  let lots = 0;
+  for (const p of m.passes) {
+    if (p.line !== line) continue;
+    from = Math.min(from, p.at);
+    to = Math.max(to, p.end);
+    lots += 1;
+  }
+  return lots ? { from, to, lots } : null;
+}
+
+// Who is on a line: the person she named, or whoever is free — the same two
+// answers the rest of the screen gives, in the same words.
+function lineWho(m, line) {
+  const p = m.crew ? m.crew[line] : 0;
+  return p > 0 ? `👤 Person ${p}` : "👤 whoever is free";
 }
 
 // Where a cycle she has just dropped actually ends up, straight from the model —
@@ -786,13 +893,21 @@ function personRow(r, row, trackW, sc) {
   const bars = row.items.map((w) => el("div", {
     class: `tl-bar tone-${(toneIndex(r, w.module) || 0) % TONES}${isClash(row, w) ? " clash" : ""}`,
     style: `left:${Math.round(w.from * r.pxPerMin)}px;width:${Math.max(4, Math.round((w.to - w.from) * r.pxPerMin))}px`,
-    title: `${w.name}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`,
+    // Which line of which brick this stretch of the person's day is, so a doubled
+    // brick reads as that person being on line 2 rather than on "the fold".
+    title: `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`,
   }));
+
+  // How many different bricks this person is at — the hats they wear. It is the
+  // number she is planning down, because one worker covering one line is a worker
+  // who can be trained on one job.
+  const bricks = new Set(row.items.map((w) => w.module)).size;
 
   return el("div", { class: "tl-row person" },
     el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" }, `👤 ${personLabel(row, sc)}`),
-      el("div", { class: "tl-sub" }, `${hoursAndMinutes(row.busy)} of work`),
+      el("div", { class: "tl-sub" }, `${hoursAndMinutes(row.busy)} of work` +
+        (bricks > 1 ? ` · at ${bricks} bricks` : "")),
       row.clashes.length
         ? el("div", { class: "tl-sub bad" }, row.clashes.length === 1 ? "two jobs at once" : `${row.clashes.length} collisions`)
         : null),
@@ -807,9 +922,13 @@ function personLabel(row, sc) {
 // Which people this row is standing in for, kept only while it is true: the
 // moment she gives a brick back to person 3, person 3 has a row of its own again
 // and the "1+3" label must stop claiming them.
+//
+// A person counts as still at work if ANY line they are on is theirs, so being
+// the second pair of hands on somebody's line 2 is a job like any other.
 function mergeMembers(person, sc) {
   const listed = ((sc && sc.merges) || {})[String(person)] || [];
-  return listed.filter((who) => !(sc.modules || []).some((m) => Number(m.person) === who));
+  return listed.filter((who) => !(sc.modules || []).some((m) => (m.crew || [Number(m.person)])
+    .some((p) => Number(p) === who)));
 }
 
 // Her own example, as a control: combine person 1 with person 3 and see the two
@@ -855,18 +974,15 @@ function combinePopup(r, sc, on) {
 }
 
 function doCombine(sc, into, from, on) {
-  const merges = { ...(sc.merges || {}) };
-  const fromMembers = merges[String(from.person)] || [];
-  const members = [...new Set([...(merges[String(into)] || []), from.person, ...fromMembers])]
-    .filter((w) => w !== into).sort((a, b) => a - b);
-
-  sc.modules = sc.modules.map((m) => (Number(m.person) === from.person ? { ...m, person: into } : m));
-  delete merges[String(from.person)];
-  merges[String(into)] = members;
-  sc.merges = merges;
+  // The work itself is the model's, so it is the same answer every time and can
+  // be tested without a screen: it hands back the modules and the new label.
+  const next = combinedScenario(sc, into.person, from.person);
+  sc.modules = next.modules;
+  sc.merges = next.merges;
   on.persist();
   on.refresh();
-  toast(`Person ${into}+${members.join("+")} — the collisions are what they cannot cover`);
+  const members = (next.merges[String(into.person)] || []);
+  toast(`Person ${into.person}${members.length ? `+${members.join("+")}` : ""} — the collisions are what they cannot cover`);
 }
 
 // The total person she asked for: person 1, person 2, person 3 and the rest
@@ -907,13 +1023,22 @@ function totalRow(r, trackW) {
 // cannot both be done, and moving one of them is the fix. Her own reading of a
 // collision is the point of the whole exercise: it is the manpower she is
 // paying for twice, so it is counted as two people on the row above.
+// A job named the way it is drawn on the timeline: the brick, and which line of
+// it when the brick is worked as lines. Without the line, two lines of one brick
+// colliding read as the same brick twice — "Person 2 is at the fold and the fold
+// at the same time" — which is exactly the collision she is looking at.
+function jobName(w) {
+  if (!w) return "—";
+  return w.line >= 0 ? `${w.name}, line ${w.line + 1}` : w.name;
+}
+
 function clashNotes(r) {
   const notes = [];
   for (const row of r.rows) {
     const who = personLabel(row, r.scenario);
     for (const c of row.clashes) {
       if (notes.length >= 4) break;
-      notes.push(`${who} is at ${c.before ? c.before.name : "—"} and ${c.after.name} at the same time, ${clockAt(r.dayStartMin, c.from)} → ${clockAt(r.dayStartMin, c.to)}. Move one of them, or combine with another person and accept the collision.`);
+      notes.push(`${who} is at ${jobName(c.before)} and ${jobName(c.after)} at the same time, ${clockAt(r.dayStartMin, c.from)} → ${clockAt(r.dayStartMin, c.to)}. Move one of them, or combine with another person and accept the collision.`);
     }
   }
   if (!notes.length) return null;
@@ -1003,6 +1128,93 @@ function editModule(saved, sc, on, isNew = false) {
       refresh();
     });
 
+    // Her ask: "one brick having 2 lines, each line can have its own person".
+    // A brick she has two of is two lines, so this is where she says who is
+    // standing at each. Line 1 IS the brick's own person — one number written in
+    // two places, exactly as startMin is starts[0] — so a one-of-them brick still
+    // has the one box it always had, and the two can never disagree.
+    const linesBlock = () => {
+      const many = Math.max(1, Math.min(8, Math.round(Number(live.count) || 1)));
+      if (many < 2) return null;
+      if (live.overlap === true) {
+        return el("div", { class: "field" },
+          el("div", { class: "tl-ctl-lab" }, "Lines"),
+          el("div", { class: "hint", style: "margin-top:4px" },
+            "Let its cycles overlap is switched ON, so this brick's cycles no longer take turns and it is drawn as one row with one person. The people you set per line are kept, not thrown away — switch overlapping off and the brick is drawn as its lines again, each with its own."));
+      }
+      const cur = Array.isArray(live.crew) ? live.crew : [];
+      const who = (i) => {
+        const stored = Number(cur[i]);
+        return Number.isFinite(stored) ? stored : (Number(live.person) || 0);
+      };
+      const put = (i, raw) => {
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return;
+        const p = Math.max(0, Math.min(8, Math.round(n)));
+        const next = [];
+        for (let k = 0; k < many; k += 1) next.push(k === i ? p : who(k));
+        live.crew = next;
+        if (i === 0) live.person = p;
+        on.persist();
+        on.refresh();
+        refresh();
+      };
+      const rows = [];
+      for (let i = 0; i < many; i += 1) {
+        const input = el("input", {
+          class: "input", type: "number", inputmode: "numeric",
+          min: "0", max: "8", step: "1", value: String(who(i)),
+        });
+        input.addEventListener("input", () => put(i, input.value));
+        rows.push(el("div", { class: "field" },
+          el("label", {}, `Line ${i + 1} — who is on it`),
+          input,
+          i === 0
+            ? el("div", { class: "hint" },
+              "0 means whoever is free. Line 1 is the brick's own person — while the brick is drawn as these lines, this box is the one that answers Who is at this brick, and the two can never say different numbers.")
+            : null));
+      }
+      return el("div", { class: "field" },
+        el("div", { class: "tl-ctl-lab" }, "Lines"),
+        ...rows,
+        el("div", { class: "hint" },
+          "A line each, one under the other on the timeline, so the same number on two lines is one person covering both — and if those two lines really do need them in the same minute, that person's row in the People list goes red and names the minute. Give a line 0 and it is whoever is free."));
+    };
+
+    // Who is at this brick, for a brick drawn as one row. It asks the MODEL what
+    // the person is rather than reading the stored field, because the two can
+    // differ: lower how many of a brick she has and the second line's person goes
+    // with the line, so line 1 — this box — is not always what was last typed into
+    // it. Written back as both `person` and line 1 of the crew, so the box, the
+    // lines above and the People rows cannot end up giving three answers.
+    const personField = () => {
+      const many = Math.max(1, Math.min(8, Math.round(Number(live.count) || 1)));
+      const cur = Array.isArray(live.crew) ? live.crew : [];
+      const input = el("input", {
+        class: "input", type: "number", inputmode: "numeric",
+        min: "0", max: "8", step: "1", value: String(moduleOf(live).person),
+      });
+      input.addEventListener("input", () => {
+        const n = Number(input.value);
+        if (!Number.isFinite(n) || n < 0) return;
+        const p = Math.max(0, Math.min(8, Math.round(n)));
+        const crew = [];
+        for (let k = 0; k < many; k += 1) {
+          const stored = Number(cur[k]);
+          crew.push(k === 0 ? p : (Number.isFinite(stored) ? Math.max(0, Math.min(8, Math.round(stored))) : p));
+        }
+        live.crew = crew;
+        live.person = p;
+        on.persist();
+        on.refresh();
+      });
+      return el("div", { class: "field" },
+        el("label", {}, "Who is at this brick"),
+        input,
+        el("div", { class: "hint" },
+          "0 means whoever is free. Put 1, 2, 3… and that named person is given this brick — so two bricks on person 1 that overlap show up as a collision to move apart."));
+    };
+
     const order = sc.modules.findIndex((m) => m.id === live.id);
     const acts = [];
 
@@ -1034,7 +1246,7 @@ function editModule(saved, sc, on, isNew = false) {
       f("everyMin", "Minutes from one pass to the next", "The pace it repeats at. For your fold that is the 28 minutes of rest PLUS the 2-minute fold — so the brick restarts 30 minutes after the last time.", { min: 1 }),
       f("repeats", "How many times it runs in the day", "Set this above 1 and the brick restarts later in the day: the fold runs four times. The climb card raises this one for you — and a day can only hold so many, so a pass that takes hours is counted at the few that fit.", { min: 1, int: true }),
       // Her point one: the brick that became the bottleneck, had twice over.
-      f("count", "How many of these do you have", "Two mixers, two ovens, two chillers, two people folding. Two of them run two cycles side by side, so a cycle stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many times it runs to put the second one to work, or let the climb do it for you. And if the job is done by hand, two of them means a second pair of hands while both are running.", { min: 1, int: true }),
+      f("count", "How many of these do you have", "Two mixers, two ovens, two chillers, two people folding. Two of them run two cycles side by side, so a cycle stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many times it runs to put the second one to work, or let the climb do it for you. And a brick you have two of is drawn as that many LINES, one under the other, each with its own person — the boxes for that appear below as soon as this says 2.", { min: 1, int: true }),
       f("startMin", "Minutes in, when its first pass starts", `Counted from your day's start, so 90 is an hour and a half after you begin. Turn this one — or drag the bar on the timeline — to bring the people needed down. Cycle 1's time is this same number, so setting one sets the other.`, { min: 0 }),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, followBox,
@@ -1046,9 +1258,14 @@ function editModule(saved, sc, on, isNew = false) {
           el("span", { class: "check-label" }, "Let its cycles overlap")),
         el("div", { class: "hint", style: "margin-top:6px" },
           "Switch this ON when the minutes in one pass are the DOUGH's time and not a machine's — dough resting between folds, a second bin on the go. The brick then stops holding its own cycles apart, every cycle sits where you put it, and two lots at once are drawn as two bars in their own lanes. Leave it OFF when the dough is physically IN the thing — a sink, an oven, one tub — because two lots cannot be in one of those at once; if you need two of those, that is How many of these do you have, which lets one lot in per brick you have. Either way, overlapping never lets a lot start before the dough exists: a brick that waits for the brick above still waits. And switch it on with one eye on the People rows — if two of your own cycles need the same person in the same minute, that person's row goes red and names the minute.")),
+      linesBlock(),
       cycleField(live, sc, on, refresh),
       f("people", "People this pass needs", "Nearly always 1 — two people at one mixer is a different job.", { min: 1, int: true }),
-      f("person", "Who is at this brick", "0 means whoever is free. Put 1, 2, 3… and that named person is given this brick — so two bricks on person 1 that overlap show up as a collision to move apart.", { min: 0, int: true }),
+      // A brick drawn as lines is asked who is on each LINE, above — one box per
+      // line, line 1 being this same number. Two boxes for one question is the
+      // dead-control trap, so the brick-level box steps aside while the lines are
+      // in force and comes back when they are not.
+      linesInForce(live) ? null : personField(),
       acts.length ? el("div", { class: "tl-ctl", style: "margin-top:4px" }, ...acts) : null,
       el("div", { class: "popup-actions" },
         isNew ? null : button("Delete this brick", () => confirmDialog(
