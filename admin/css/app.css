@@ -2496,6 +2496,41 @@ tr.po-covered td { color: var(--muted); }
 .fact-value { font-size: 19px; font-weight: 700; font-family: var(--serif); margin-top: 1px; }
 .fact-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
 
+/* What the plan costs, in the three numbers she named: less man, less manhours,
+   shorter hours. Set above the fact grid because it is the sentence the rest of
+   the screen is arguing for, and tinted so it is not mistaken for a fourth fact. */
+.plan-cost {
+  margin: 0 0 10px; padding: 9px 11px;
+  background: var(--brown-soft); border-radius: var(--radius-sm);
+  font-size: 14px; color: var(--brown-dark);
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px;
+}
+.plan-cost-lab {
+  font-size: 11.5px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .04em; flex: 0 0 100%;
+}
+.plan-cost b { font-weight: 700; font-family: var(--serif); }
+.plan-cost-dot { color: var(--muted); }
+
+/* Every cycle of a brick as its own row: the number she types, and the time of
+   day it lands on. One lot of dough per row, so a slow one can be nudged on its
+   own without disturbing the rest of the brick. */
+.cyc-list {
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--line); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.cyc-row {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--surface); padding: 5px 9px;
+}
+.cyc-lab { flex: 1 1 auto; font-size: 12.5px; color: var(--ink); }
+.cyc-in { flex: 0 0 84px; width: 84px; text-align: right; }
+.cyc-at {
+  flex: 0 0 auto; min-width: 62px; text-align: right;
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+
 /* The climb — one rung per module, numbered, so it reads as the order she
    would actually do them in. */
 .climb-list { display: flex; flex-direction: column; gap: 10px; }
@@ -2545,6 +2580,14 @@ tr.po-covered td { color: var(--muted); }
    a bar stays scrollable, which is what the screen tells her. */
 .tl-row .tl-bar { touch-action: none; cursor: grab; }
 .tl-bar.dragging { cursor: grabbing; outline: 2px solid var(--brown); outline-offset: 1px; }
+/* A bar whose time came from the brick above it. It is not hers to place, so it
+   must not look draggable — a grip that does nothing reads as broken. Hatched
+   and greyed, with the row naming the brick it waits on. */
+.tl-row .tl-bar.locked { cursor: default; touch-action: auto; opacity: .6; }
+.tl-row .tl-bar.locked .tl-touch { opacity: .8; }
+/* Two of a brick. Marked on the row rather than the bars, because it is one fact
+   about the brick — the day's room doubled — and not a property of any cycle. */
+.badge-multi { background: var(--brown-soft); color: var(--brown-dark); font-weight: 600; }
 /* The minutes inside a bar, so a fold brick reads "28" where it is drawn. */
 .tl-lab {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;

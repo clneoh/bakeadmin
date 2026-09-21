@@ -237,9 +237,51 @@ function clampScale(px) {
   return choice;
 }
 
+// The start minute of every cycle, one per repeat — the list that lets each
+// cycle of a brick be its own thing she can move.
+//
+// It is BUILT here rather than merely kept, so a brick's cycle count and its
+// cycle times can never disagree: a stored list is adopted, an absent or short
+// one is continued at the brick's own pace, and a long one is cut back to what
+// she asked for. That last part is what lets the day's limit hold fewer cycles
+// than she planned without losing where she put the ones that do run.
+//
+// A brick she has never dragged comes out as `startMin + k * everyMin`, which is
+// exactly the sum this file did before the list existed — so every scenario built
+// earlier keeps its day to the minute.
+//
+// The two knobs must agree about cycle 1, and this is where they are made to:
+// the start-time box writes `startMin`, a drag writes `starts`, and when she
+// TYPES a new start the list is re-based onto it. So a typed number always moves
+// the brick, and the shape she dragged — the cycles that are no longer evenly
+// spaced — comes with it instead of being silently overruled by a stale list.
+function startsOf(src, rawStart, n, everyMin) {
+  const given = Array.isArray(src)
+    ? src.map((v) => Number(v)).filter((v) => Number.isFinite(v)).map((v) => Math.max(0, v))
+    : [];
+  // With no start time of its own, the list's own first cycle IS the start.
+  const base = given.length && !Number.isFinite(Number(rawStart))
+    ? given[0]
+    : Math.max(0, num(rawStart, 0));
+  const out = [];
+  for (let k = 0; k < n; k += 1) {
+    if (k < given.length) out.push(base + (given[k] - given[0]));
+    else if (given.length) out.push(out[given.length - 1] + (k - given.length + 1) * everyMin);
+    else out.push(base + k * everyMin);
+  }
+  // Rounded to a hundredth of a minute so a dragged-then-chained time cannot
+  // accumulate float dust, and so what she stores is readable.
+  return out.map((v) => Math.max(0, Math.round(v * 100) / 100));
+}
+
 export function moduleOf(m) {
   const src = m || {};
   const cycleMin = atLeast(src.cycleMin, 0, 0);
+  // A module with no gap of its own runs back to back, which is what "every
+  // cycle time" means for a simple machine.
+  const everyMin = atLeast(src.everyMin, 0, 0) || cycleMin;
+  const repeats = Math.max(1, Math.round(atLeast(src.repeats, 1, 1)));
+  const starts = startsOf(src.starts, src.startMin, repeats, everyMin);
   return {
     id: String(src.id || ""),
     icon: String(src.icon || "•"),
@@ -252,11 +294,21 @@ export function moduleOf(m) {
     cycleMin,
     batch: atLeast(src.batch, 0, 0),
     touchMin: atLeast(src.touchMin, 0, 0),
-    // A module with no gap of its own runs back to back, which is what "every
-    // cycle time" means for a simple machine.
-    everyMin: atLeast(src.everyMin, 0, 0) || cycleMin,
-    repeats: Math.max(1, Math.round(atLeast(src.repeats, 1, 1))),
-    startMin: Math.max(0, num(src.startMin, 0)),
+    everyMin,
+    repeats,
+    // When each cycle starts. Cycle 1's time IS the brick's start time, and they
+    // are kept equal HERE rather than left to agree by hand — otherwise dragging
+    // the first cycle and typing a start could drift apart and the brick would
+    // have two answers to one question.
+    starts,
+    startMin: starts[0],
+    // How many of this brick she has: two mixers, two ovens, two chillers. See
+    // moduleFacts for what a second one buys, and for the one thing it does not
+    // — it never invents cycles she did not plan.
+    count: Math.max(1, Math.min(8, Math.round(atLeast(src.count, 1, 1)))),
+    // Whether this brick waits for the brick above it: its cycle 10 cannot start
+    // until the brick before it has finished its own cycle 10. See chainLine.
+    follow: src.follow === true,
     people: Math.max(1, Math.round(atLeast(src.people, 1, 1))),
     // 0 = whoever is free. 1..8 = that person, by name, so two bricks can be
     // given to one person and the collision drawn rather than hidden.
@@ -271,7 +323,7 @@ export function passesOf(m) {
   const mod = moduleOf(m);
   const out = [];
   for (let k = 0; k < mod.repeats; k += 1) {
-    const at = mod.startMin + k * mod.everyMin;
+    const at = mod.starts[k];
     out.push({
       at,
       end: at + mod.cycleMin,
@@ -292,34 +344,110 @@ export function moduleFacts(m) {
   // How many times this module can possibly run in a day. A retard that holds
   // the dough for 720 minutes cannot be started a third time inside 1440 of
   // them; a 15-minute wash can be started ninety-six times.
+  //
+  // Two of a brick is two of that capacity — two chillers hold twice the bins,
+  // two mixers fit twice the mixes — so the day's room multiplies by how many
+  // she has. At one, which is where every brick starts, this is the old sum
+  // exactly.
   const fitsInDay = mod.everyMin > 0
-    ? Math.max(1, Math.floor(DAY_MIN / mod.everyMin))
+    ? mod.count * Math.max(1, Math.floor(DAY_MIN / mod.everyMin))
     : mod.repeats;
   // What she asked for, and what the day allows. The second is what the line
   // actually passes — see DAY_MIN for why this is not a detail.
   const repeatsHeld = Math.min(mod.repeats, fitsInDay);
   const held = { ...mod, repeats: repeatsHeld };
+  const passes = passesOf(held);
   return {
     ...mod,
-    passes: passesOf(held),
+    passes,
     // Minutes of the module for every pan through it — the same shape as the
     // capacity model's "minutes a pan", so the two screens can be compared.
     perPan: mod.batch > 0 ? perPass : 0,
     // Pans out of this module across the whole scenario. The line can only pass
     // what its stingiest module passes, so this is what the day is measured on.
+    // Note what is NOT here: `count`. A second mixer does not make pans she did
+    // not plan — it makes the CYCLES she planned achievable. To put a second one
+    // to work she raises how many times the brick runs, which is the climb's job.
     output: mod.batch * repeatsHeld,
-    // Pans an hour, from this module's own pace.
-    rate: mod.everyMin > 0 && mod.batch > 0 ? (mod.batch * 60) / mod.everyMin : 0,
+    // Pans an hour, from this module's own pace — and twice that with two of it.
+    rate: mod.everyMin > 0 && mod.batch > 0
+      ? (mod.count * mod.batch * 60) / mod.everyMin
+      : 0,
     // Minutes of a person for the whole scenario, and for every pan.
     touchTotal: mod.touchMin * repeatsHeld,
     needsYou: mod.touchMin > 0,
-    endMin: mod.startMin + (repeatsHeld - 1) * mod.everyMin + mod.cycleMin,
+    // The end of the last cycle that actually runs, read off the cycles rather
+    // than worked out from a formula. So a cycle she has dragged later lengthens
+    // the day instead of being contradicted by it, and a brick she has never
+    // touched still ends exactly where it always did: the last cycle sits at
+    // `startMin + (repeatsHeld-1) * everyMin`, which is this same number.
+    endMin: passes.reduce((t, p) => Math.max(t, p.end), mod.startMin + mod.cycleMin),
     fitsInDay,
     repeatsHeld,
     // True when she has asked for more passes than a day can hold. The screen
     // says so out loud rather than quietly counting fewer.
     capped: repeatsHeld < mod.repeats,
   };
+}
+
+// ── The chain ──────────────────────────────────────────────────────────────
+//
+// Her line, said as one rule: cycle 10 of a brick cannot start until the brick
+// before it has finished ITS cycle 10. A cycle is one lot of dough and a brick
+// is one station, so this is what a real batch line does — a slow fold holds
+// every later lot up behind it, and that is the thing she is trying to plan away.
+//
+// It is one forward pass down the list, and every cycle's real start is the
+// latest of three answers:
+//
+//   * where SHE put it — the time she dragged, or the brick's own pace
+//   * what the brick itself allows — one of it cannot begin cycle 3 until cycle 2
+//     has finished; two of it (count) cannot begin cycle 3 until cycle 1 has
+//   * what the brick above allows, when this brick waits for it
+//
+// The latest of the three is the honest one, and it makes a dragged time a floor
+// she sets rather than a wall she is stopped by: she can always push a cycle
+// later, and the chain carries that same cycle down the rest of the line with it.
+//
+// A switched-off brick is not in the build, so nothing waits on it — the chain
+// steps over it to the last brick that IS running, which is what happens at the
+// bench when a machine is not switched on.
+export function chainLine(modules) {
+  const list = (modules || []).map(moduleOf);
+  const placed = new Map();
+  const ends = new Map();
+  let prev = null;
+
+  for (const m of list) {
+    const out = [];
+    const ownEnds = [];
+    // One lot at a time per machine, so cycle k waits on cycle k-count.
+    const gap = m.count;
+    for (let k = 0; k < m.repeats; k += 1) {
+      let at = m.starts[k];
+      if (k - gap >= 0) at = Math.max(at, ownEnds[k - gap]);
+      if (m.follow && prev) {
+        const up = ends.get(prev.id) || [];
+        if (up.length) {
+          // A brick above with fewer cycles than this one cannot answer for a
+          // cycle it does not have, so this waits on the last one it does — and
+          // the screen says so rather than inventing a time for it.
+          at = Math.max(at, up[Math.min(k, up.length - 1)]);
+        }
+      }
+      out.push(at);
+      ownEnds.push(at + m.cycleMin);
+    }
+    placed.set(m.id, out);
+    ends.set(m.id, ownEnds);
+    if (m.on) prev = m;
+  }
+
+  // startMin is written back with the list, so that reading this result through
+  // moduleOf a second time is a no-op. Without it the re-basing in startsOf would
+  // pull a chained brick back to where she typed it, and the chain would undo
+  // itself the moment anything re-read the brick.
+  return list.map((m) => ({ ...m, starts: placed.get(m.id), startMin: placed.get(m.id)[0] }));
 }
 
 // Who has to be standing where, and when.
@@ -444,7 +572,12 @@ export function concurrency(modules) {
 // The whole answer, from one scenario.
 export function computeScenario(saved) {
   const s = scenarioOf(saved);
-  const facts = s.modules.map((m) => ({ ...moduleFacts(m), on: m.on }));
+  // The chain first, for the whole line in its own order, and only then the
+  // facts — so every brick below is read at the time it will ACTUALLY run rather
+  // than the time she typed. With nothing set to wait, the times this hands over
+  // are the ones the bricks already had, which is what keeps every scenario
+  // built before the chain existed reading exactly as it did.
+  const facts = chainLine(s.modules).map((m) => ({ ...moduleFacts(m), on: m.on }));
 
   // Only the modules switched on can hold anything back. The fridge sits in the
   // list switched off in scenario 1 — a module that isn't in the build cannot
@@ -469,6 +602,12 @@ export function computeScenario(saved) {
   // overnight rather than being folded into a number that hides it.
   const endMin = on.reduce((m, f) => Math.max(m, f.endMin), 0);
   const windowMin = Math.max(MIN_WINDOW_MIN, endMin);
+  // The run as a length in its own right: from the first thing that happens to
+  // the last, which is the "shorter hours" she is trying to buy. Kept here
+  // rather than worked out in the view so the number she reads under the fact
+  // grid and the number in the plan's cost line cannot drift apart.
+  const firstMin = on.length ? on.reduce((m, f) => Math.min(m, f.startMin), endMin) : 0;
+  const runMin = Math.max(0, endMin - Math.min(firstMin, endMin));
 
   return {
     scenario: s,
@@ -483,11 +622,18 @@ export function computeScenario(saved) {
     // People is the most she needs at any one minute — the fewest hands that can
     // cover the day, which is the number she is trying to bring down.
     people: demand.peak,
+    // And the rest of what the plan costs, in the words she used for the point
+    // of all this: "less man, less manhours, shorter hours". These are the other
+    // two. Minutes of a person is summed per ROW, so two bricks given to one
+    // person are that person's minutes and not two people's.
+    personMin: rows.reduce((t, row) => t + (row.busy || 0), 0),
     rows,
     demand,
     target,
     shortfall: Math.max(0, Math.round(target) - pansPerDay),
     endMin,
+    firstMin,
+    runMin,
     windowMin,
     hours: windowMin / 60,
     // The clock minute 0 of this scenario is, so every time on the screen reads
@@ -557,7 +703,15 @@ export function copyScenario(sc, name, id) {
     // Copied member by member, so editing one scenario's labels can never
     // rewrite the other's.
     merges: Object.fromEntries(Object.entries(s.merges).map(([k, v]) => [k, [...v]])),
-    modules: s.modules.map((m) => ({ ...m })),
+    // `starts` is copied by hand because it is a LIST: a plain spread would give
+    // both scenarios the same array, and dragging one cycle in one of them would
+    // silently move the other. A brick that has never had a cycle dragged has no
+    // list at all — every brick on her phone today — so it is left without one
+    // and the brick's own start and pace generate it, exactly as before.
+    modules: s.modules.map((m) => ({
+      ...m,
+      starts: Array.isArray(m.starts) ? [...m.starts] : undefined,
+    })),
   };
 }
 
@@ -705,7 +859,12 @@ export function repeatsToPass(module, want) {
   if (batch <= 0) return 0;
   const need = Math.max(1, Math.ceil(num(want) / batch));
   const mod = moduleOf(module);
-  const fits = mod.everyMin > 0 ? Math.max(1, Math.floor(DAY_MIN / mod.everyMin)) : need;
+  // Counted with `count`, exactly as moduleFacts counts it, so the rung the
+  // ladder proposes is a rung the day can really hold — with two of the brick
+  // the day has twice the room.
+  const fits = mod.everyMin > 0
+    ? mod.count * Math.max(1, Math.floor(DAY_MIN / mod.everyMin))
+    : need;
   return Math.min(need, fits);
 }
 
@@ -713,14 +872,28 @@ export function repeatsToPass(module, want) {
 // target is met or the number stops moving. Each step is one module and one
 // change, so the list reads as the order she would actually do them in.
 //
+// There are TWO ways to relieve one brick, and the ladder tries them in the
+// order they cost her money:
+//
+//   more often   raise `repeats` — free, and the first thing to try
+//   a second one raise `count` — the buying decision, and the ONLY answer left
+//                when the day is already full: a 12-hour retard that fits twice
+//                cannot be made to fit a third time by willpower
+//
+// The second rung has to raise `repeats` as well, or it would buy nothing: a
+// second chiller holds twice the bins but it does not run the cycles she did not
+// plan, so the rung asks for the cycles the target needs AND the second machine
+// that can hold them.
+//
 // It stops on repetition as well as on success — a module that is still the wall
-// after being relieved cannot be fixed by running it more often, and looping on
-// it for ever would be a hung screen rather than an answer.
+// after both rungs have been tried cannot be fixed by either, and looping on it
+// for ever would be a hung screen rather than an answer. That is why the guard is
+// per brick AND per rung.
 export function climbSteps(saved, target, limit = 12) {
   const want = Math.max(0, Math.round(num(target, 0)));
   let scenario = scenarioOf(saved);
   const steps = [];
-  let seen = new Set();
+  const seen = new Set();
 
   for (let i = 0; i < limit; i += 1) {
     const now = computeScenario(scenario);
@@ -729,26 +902,56 @@ export function climbSteps(saved, target, limit = 12) {
     }
     const w = now.wall;
     if (!w.id || w.batch <= 0) return { steps, reached: false, end: now, want };
-    if (seen.has(w.id)) return { steps, reached: false, end: now, want };
-    seen.add(w.id);
 
-    const to = repeatsToPass(w, want);
-    if (to <= w.repeats) return { steps, reached: false, end: now, want };
-    scenario = { ...scenario, modules: scenario.modules.map((m) => (m.id === w.id ? { ...m, repeats: to } : m)) };
+    const more = repeatsToPass(w, want);
+    const kind = more > w.repeats ? "repeats" : "count";
+    if (seen.has(`${w.id}:${kind}`)) return { steps, reached: false, end: now, want };
+    seen.add(`${w.id}:${kind}`);
+
+    const from = kind === "repeats" ? w.repeats : w.count;
+    const to = kind === "repeats" ? more : w.count + 1;
+    // What the second one has to be fed to be worth buying. This is the day's
+    // room for the brick WITH the extra one, asked of the model itself so the
+    // rung and the arithmetic can never disagree.
+    const roomier = kind === "count" ? moduleFacts({ ...w, count: to }).fitsInDay : 0;
+
+    // What this rung writes into the brick. A rung that buys a second one has to
+    // raise the cycles too, or the second one has nothing to do — the day's room
+    // doubles but the pans she asked for do not. The step carries the change it
+    // made, so the button that applies the ladder cannot write a different one.
+    const change = kind === "count"
+      ? { count: to, repeats: Math.max(w.repeats, Math.min(wantCycles(w, want), roomier)) }
+      // Re-spaced from `startMin` at the brick's own pace: a new cycle count is a
+      // new rhythm, and leaving the old times behind would place the extra
+      // cycles wherever the last one happened to be.
+      : { repeats: to, starts: undefined };
+    scenario = {
+      ...scenario,
+      modules: scenario.modules.map((x) => (x.id === w.id ? { ...x, ...change } : x)),
+    };
     const next = computeScenario(scenario);
     steps.push({
       id: w.id,
+      kind,
       module: w.name,
       icon: w.icon,
-      from: w.repeats,
+      from,
       to,
       batch: w.batch,
       before: now.pansPerDay,
       after: next.pansPerDay,
       wallThen: next.wall,
+      patch: change,
     });
   }
   return { steps, reached: false, end: computeScenario(scenario), want };
+}
+
+// How many cycles this brick would have to run to pass `want` pans.
+function wantCycles(module, want) {
+  const batch = num(module.batch);
+  if (batch <= 0) return 1;
+  return Math.max(1, Math.ceil(num(want) / batch));
 }
 
 // One line about a scenario, in the same words wherever it is listed — on the

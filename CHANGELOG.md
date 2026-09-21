@@ -1,8 +1,87 @@
-# Jienluv2bake — change history (v54 → v138)
+# Jienluv2bake — change history (v54 → v139)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v139 (no database step). The scenario planner now builds a
+real line: a brick can be two of them, every pass in a brick has its own start time
+you can drag or type, and a brick can be set to wait for the brick above it — lot 10
+waits for lot 10.**
+
+**What you asked.** In your own list: *"1. allow me to set the same brick to 2 or more, if
+that module became bottle neck."*, *"2. in a brick, let say we might need 8 cycles, each
+cycle should be able to have its own start time, drag-able."*, *"3. 2nd brick 1st cycle
+should follow 1st brick 1st cycle completion, and so on."*, *"4. Each brick, cycle10 only
+starts after one brick earlier cycle 10 ends, etc."*, and *"5. objectives are: less man,
+less manhours thru better planning, shorter hours."* Then, as I was building the screen:
+*"from your layout, the stretch and fold should have 2nd , 3rd brick as the person who do
+that process and start another cycle without having to wait for thee 1st cycle to finish"* —
+which is what **How many of these do you have** does: a second fold starts the next lot
+without waiting for the first to finish.
+
+**What changed. Everything below is inside More → 🧱 Scenario planner. Nothing else in the
+app moved, and every figure you have already given reads exactly as it did.**
+
+**Every pass in a brick is drawn on its own, and dragging one moves only that one.** Before
+this version a brick's passes were a single rhythm — a gap and a count — and every pass sat
+where that rhythm put it. Now each pass is **its own bar on the timeline** and can be dragged
+by itself: cycle 3 moves and cycles 1, 2 and 4 stay where they were. The toast when you let go
+names the one you moved — *"Cycle 3 → 4:15 pm"* — so there is no doubt which pass changed.
+For a small nudge, a number beats a careful finger: the brick's card now has **a row per
+cycle**, each with a box for the exact minute and the clock reading beside it, so a five-minute
+correction is typed rather than dragged. And **Space them evenly again** puts every pass back
+on the even rhythm from the first one, once you are done experimenting.
+
+**A brick can be two of them — or more.** A new box in the brick's card, **How many of these
+do you have**, and the row wears a **2 of them** tag when you raise it. What a second one
+really buys you, and what it does not: it lets the brick hold **twice as many passes in a
+day**, and it runs at **twice the pans an hour** — but it does **not** change the pans you
+planned, because a second mixer standing idle does not bake anything. To use it you raise the
+passes. That is the honest reading of buying one: it removes a wait, it does not invent work.
+With **2 of them**, that brick's own passes are allowed to overlap, because two machines can
+run at once — which is the whole point of having two.
+
+**A brick can wait for the brick above it — and that is the chain you described.** A switch in
+the brick's card called **Waits for the brick above**, and it does exactly your points 3 and 4:
+lot 1 of this brick cannot start until lot 1 of the brick above has finished, lot 2 waits for
+lot 2, and so on down the line. Turn it on for the bricks that really are one line and a slow
+pass upstream holds every later lot behind it — which is precisely why a second fold, or a
+second mixer, is worth buying. Two things worth knowing. **A chained bar cannot be dragged**,
+because where it sits is decided by the brick above: those bars are drawn faded and wear a
+**waits above** tag, so nothing on the screen looks like a control that does nothing. To move
+a chained lot you move the cycle it is waiting on, and the whole line moves with it — which is
+the lesson the screen is for. And **if two bricks have different numbers of passes**, the
+screen says so instead of guessing: passes past the end of the brick above follow its *last*
+pass, and the row names it. **The chain arrives switched off**, so nothing you have already
+measured moves until you turn it on yourself.
+
+**The line, in one tap — and your three objectives as three numbers.** You named the goal as
+three things, so the screen now says all three in one line under the day: **2 people · 13 h
+40 m of hands · a 16 h 20 m day**. **People** is the most hands needed at once (*less man*),
+**of hands** is every person-minute of the day added together (*less manhours*), and **the
+day** is first job to last (*shorter hours*). Drag a cycle, move a start, add a second brick,
+and all three answer again at once — so a change either improves all three or you can see
+which one it cost. Beside the timeline a chip reads **3 waits above**, or **Not chained**:
+tap it and it explains the rule, names which bricks are waiting, shows those same three
+numbers, and offers the whole thing in one tap — **Chain the whole line** or **Take the
+waiting off** — so you never set eight switches by hand.
+
+**The climb can now offer a second one, not only more passes.** The ladder used to relieve
+the wall by raising that brick's passes, and stopped where a day could not hold more of them.
+That stopping point is exactly where a second brick is the real answer, so a rung can now read
+**2 of them** as well as **more passes**, with the same before-and-after pans figures. A rung
+that adds a second one says what it costs in as many words — **that is a second one to buy** —
+because that rung is money where the others are time. A brick that needs both is offered both,
+in order.
+
+**One arithmetic change worth writing down, so it never looks like a bug.** A brick whose
+passes come round *faster* than one pass takes — a 5-minute gap on a 28-minute fold — was
+always a drawing of something that cannot happen: the same hands cannot start pass 2 while
+pass 1 is still on them. Those passes are now held apart to one at a time, when the brick is
+the only one of it and is not chained. None of your own bricks is built that way and every
+figure you have given reads exactly as it did, but if you ever type a gap shorter than a pass,
+the screen will hold the passes apart rather than draw a day you cannot work.
 
 **21 Sep 2026 — engine v138 (no database step). The scenario planner is yours to
 build in: bricks you make, move, give to a person and drag along the day, a ruler
@@ -115,7 +194,7 @@ so instead of filling them with a nought. Nothing is written until you press the
 the button counts the numbers that would really move — so a scenario you have already loaded
 says *"nothing here changes"* rather than promising eleven.
 
-**20 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out**21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
+**21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
 of modules, watch the day as a timing diagram, and raise the pans you want until something
 stops you.**
 

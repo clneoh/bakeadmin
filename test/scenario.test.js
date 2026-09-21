@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, clockOf,
+  DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
   climbSteps, computeScenario, concurrency, copyScenario, hoursAndMinutes,
   moduleFacts, moduleOf, moveModule, newModuleId, passesOf, peopleRows,
   removeModule, repeatsToPass, scenarioOf, touchWindows,
@@ -21,6 +21,16 @@ import {
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 const of = (r, id) => r.modules.find((m) => m.id === id);
+
+// A brick with only the numbers a test cares about spelled out, so the test says
+// what it is testing rather than spending ten lines setting up a kitchen.
+const brick = (m) => ({
+  id: "b", name: "A brick", on: true, cycleMin: 10, batch: 1, touchMin: 0,
+  everyMin: 10, repeats: 1, startMin: 0, people: 1, ...m,
+});
+// A scenario of nothing but the bricks handed in, so a test about the line is
+// never accidentally also a test about the seeded day.
+const scenario = (s) => ({ ...DEFAULT_SCENARIO, target: 0, modules: [], ...s });
 
 test("the seeded day makes twelve pans, and the chiller is what stops it", () => {
   const r = computeScenario(DEFAULT_SCENARIO);
@@ -88,22 +98,31 @@ test("a 12-hour retard fits twice in a day, and the model will not pretend other
   assert.equal(repeatsToPass(retard, 36), 2, "and it will not be talked up to three");
 });
 
-test("the ladder climbs while the day has room, then stops and names the real answer", () => {
-  // Thirty-six pans is not reachable on twelve trays, and the ladder says so
-  // rather than inventing a pass the day cannot hold. Three rungs get her from
-  // twelve pans to twenty-four; the fourth module it would have to touch is the
-  // retard, which is already running as often as a day allows.
+test("the ladder climbs while the day has room, then names what to buy", () => {
+  // Thirty-six pans is not reachable by running anything MORE OFTEN: a 12-hour
+  // retard fits twice in a day on one chiller, and the chiller holds twelve bins.
+  // So the ladder runs out of free rungs exactly where she asked it to change the
+  // subject — and it changes it to the thing that buys the number: a SECOND
+  // chiller, which holds twice the bins and so makes a third retard possible at
+  // all. Every rung it names is still one the day can really hold.
   const climb = climbSteps(DEFAULT_SCENARIO, 36);
-  assert.equal(climb.reached, false);
-  assert.equal(climb.end.pansPerDay, 24, "twelve trays cycled twice a day is the most this line can do");
-  assert.deepEqual(climb.steps.map((s) => s.id), ["load", "retard", "unload"]);
-  assert.deepEqual(climb.steps.map((s) => [s.from, s.to]), [[1, 3], [1, 2], [1, 2]]);
+  assert.equal(climb.reached, true);
+  assert.equal(climb.end.pansPerDay, 36);
+  // The free rungs come first, and they are the same ones they always were.
+  assert.deepEqual(climb.steps.slice(0, 3).map((s) => s.id), ["load", "retard", "unload"]);
+  assert.deepEqual(climb.steps.slice(0, 3).map((s) => [s.from, s.to]), [[1, 3], [1, 2], [1, 2]]);
+  assert.ok(climb.steps.slice(0, 3).every((s) => s.kind === "repeats"), "free rungs come first");
   assert.equal(climb.steps[0].before, 12);
   assert.equal(climb.steps[0].wallThen.id, "retard", "relieving the first tie reveals the next");
   assert.equal(climb.steps[2].after, 24);
-  // And the wall it stops on is the one that needs buying for, not running more.
-  assert.equal(climb.end.wall.id, "retard");
-  assert.equal(climb.end.wall.repeatsHeld, climb.end.wall.fitsInDay);
+  // And then it stops proposing more runs and starts naming what to buy.
+  const buys = climb.steps.filter((s) => s.kind === "count");
+  assert.ok(buys.length >= 1, "the ladder reaches the buying decision instead of stopping short");
+  const retard = climb.end.modules.find((m) => m.id === "retard");
+  assert.equal(retard.count, 2, "the buying decision lands on the brick as two of it");
+  assert.equal(retard.repeats, 3, "and it carries the cycles that second one makes possible");
+  assert.ok(retard.repeatsHeld <= retard.fitsInDay, "and never a cycle the day cannot hold");
+  assert.equal(retard.output, 36, "twelve bins, three times, on the chiller she would own two of");
 });
 
 test("a number the day can hold is still climbed to, all the way", () => {
@@ -490,5 +509,221 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     assert.equal(back.startMin, m.startMin, `${m.id}: the start time survives`);
     assert.equal(back.person, m.person, `${m.id}: the person survives`);
     assert.equal(back.job, m.job || "", `${m.id}: the line step survives`);
+    // The chain and the per-cycle drag added three fields, and reading a brick a
+    // second time must not lose any of them — that is what makes a chained
+    // placement survive being handed between the model and the screen.
+    assert.equal(back.count, 1, `${m.id}: a brick she has one of says so`);
+    assert.equal(back.follow, false, `${m.id}: and no brick waits for another until she says so`);
+    assert.deepEqual(moduleOf(back).starts, back.starts, `${m.id}: the cycle times read back the same`);
   }
+});
+
+// ── A brick can be doubled, and every cycle has its own time ───────────────
+//
+// The three things she asked for by number: two of a brick when it is the
+// bottleneck, a start time of its own for every cycle, and "cycle 10 of this
+// brick cannot start until cycle 10 of the brick before it has finished".
+//
+// The load-bearing claim under all of it is a NEGATIVE one, and it is the first
+// test here: with nothing set to wait and one of every brick, the model must
+// answer exactly what it answered before any of this existed. Everything she
+// already reasons with -- twelve pans, the chiller in the wall -- hangs on it.
+
+test("a brick she has one of, that waits for nothing, is the brick it always was", () => {
+  const r = computeScenario(DEFAULT_SCENARIO);
+  for (const f of r.modules) {
+    // The list is built from the same sum the day was always placed with, so a
+    // brick nobody has dragged sits exactly where `startMin + k x everyMin` put
+    // it -- to the last hundredth of a minute.
+    const spread = Array.from({ length: f.repeatsHeld }, (_, k) => f.startMin + k * f.everyMin);
+    near(f.passes.length, spread.length, `${f.id}: the same number of cycles`);
+    f.passes.forEach((p, k) => near(p.at, spread[k], `${f.id} cycle ${k + 1} is where it always was`));
+  }
+  // And the chained answer for a line with no chain is the line itself.
+  const chained = chainLine(scenarioOf(DEFAULT_SCENARIO).modules);
+  scenarioOf(DEFAULT_SCENARIO).modules.forEach((m, i) => {
+    assert.deepEqual(chained[i].starts, m.starts, `${m.id}: nothing moved`);
+  });
+});
+
+test("a cycle can be moved on its own, and the brick keeps its shape", () => {
+  // Cycle 2 of the fold pushed to 90 minutes: the others stay where they were,
+  // which is the whole point of a list rather than a formula.
+  const moved = { ...brick({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30 }), starts: [30, 90, 90, 120] };
+  const m = moduleFacts(moved);
+  assert.deepEqual(m.passes.map((p) => p.at), [30, 90, 90, 120]);
+  // And the day is as long as the LATEST cycle makes it, not as long as the
+  // formula would have guessed — a cycle dragged later lengthens the day.
+  assert.equal(m.endMin, 148, "120 + 28, the last cycle's own end");
+});
+
+test("typing a start time moves the whole brick, dragged cycles and all", () => {
+  // A start-time box and a drag are two ways to say one thing, so a typed number
+  // must never be silently ignored by a list that is out of date. The brick
+  // moves; the shape she dragged comes with it.
+  const dragged = brick({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30, starts: [30, 90, 90, 120] });
+  const retyped = moduleOf({ ...dragged, startMin: 130 });
+  assert.deepEqual(retyped.starts, [130, 190, 190, 220], "every cycle moved by the same hundred minutes");
+  // Which also means a brick whose list disagrees with its cycle count is
+  // repaired rather than believed.
+  assert.deepEqual(moduleOf({ cycleMin: 10, everyMin: 10, repeats: 3, startMin: 0, starts: [0, 10, 20, 30, 40] }).starts, [0, 10, 20]);
+  assert.deepEqual(moduleOf({ cycleMin: 10, everyMin: 10, repeats: 3, startMin: 5, starts: [5] }).starts, [5, 15, 25]);
+});
+
+test("cycle 10 waits for the brick above to finish its cycle 10", () => {
+  // The rule she wrote, on a line of two bricks: mix four lots, then fold four
+  // lots. The fold's first lot cannot start until the mix's first lot is out,
+  // and the second fold waits on the second mix — not on the fold before it.
+  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
+  const r = computeScenario(scenario({ modules: [mix, fold] }));
+  const f = of(r, "fold");
+  assert.deepEqual(f.passes.map((p) => p.at), [20, 50, 80, 110],
+    "each fold lot starts the minute its own lot left the mixer");
+  // The mixer keeps its own pace: nothing waits for the mixer.
+  assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 60, 90]);
+});
+
+test("pushing one lot later carries that lot down the whole line", () => {
+  // She drags the mixer's third lot later and the whole line re-forms around it.
+  // No cascade code does this: the fold simply asks what the mixer has finished.
+  const mix = { ...brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 }), starts: [0, 30, 120, 150] };
+  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
+  const r = computeScenario(scenario({ modules: [mix, fold] }));
+  assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 120, 150]);
+  assert.deepEqual(of(r, "fold").passes.map((p) => p.at), [20, 50, 140, 170],
+    "the fold's third and fourth lots moved with the mixer's, and the first two did not");
+});
+
+test("a brick above with fewer cycles holds the extra ones at its last", () => {
+  // Four mixes feeding six folds. Lots five and six have no counterpart above to
+  // wait for, so they wait on the last lot that does exist -- the model names the
+  // rule rather than inventing a time for a mix the mixer never runs.
+  //
+  // With one fold the rule is masked at lots five and six: a single fold takes 28
+  // minutes a lot, so its own machine would land the queued lots at 138 and 166
+  // whether the chain held them or not. What the rule still buys is both lots
+  // starting no earlier than the mixer's last lot ending at 110 -- on the fold's
+  // own 10-minute rhythm they would have gone at 40 and 50, i.e. folding dough
+  // the mixer had not mixed. The next test takes the queue away.
+  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
+
+  const r = computeScenario(scenario({ modules: [mix, fold] }));
+  const at = of(r, "fold").passes.map((p) => p.at);
+  assert.deepEqual(at, [20, 50, 80, 110, 138, 166]);
+  assert.ok(at.slice(4).every((t) => t >= 110), "no lot five or six before the mixer's last lot ends");
+  // The mixer itself keeps its own pace -- nothing waits on the fold.
+  assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 60, 90]);
+});
+
+test("a second fold is what stops the extra lots queueing", () => {
+  // The same line with a second fold. Now lot five lands exactly on the mixer's
+  // last lot ending at 110 and nothing else could have put it there: its own
+  // rhythm says 40 and the second fold frees its own machine to 85. So 110 is
+  // the chain, proven -- and lot six, one fold's work at 115, is the only queue
+  // left. That is her point one as arithmetic: the brick that became the
+  // bottleneck is relieved by a second of it, not by adding hours to the day.
+  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const one = { ...brick({ id: "fold", cycleMin: 5, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
+  const two = { ...one, count: 2 };
+
+  const withOne = computeScenario(scenario({ modules: [mix, one] }));
+  const withTwo = computeScenario(scenario({ modules: [mix, two] }));
+  // One fold: its own machine, not the chain, spaces the whole line.
+  assert.deepEqual(of(withOne, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 115, 120]);
+  // Two folds: lot five is placed by the chain at the mixer's last end, 110.
+  assert.deepEqual(of(withTwo, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 110, 115]);
+  assert.equal(of(withTwo, "fold").count, 2);
+  // A second fold buys room in the day, never pans she did not plan.
+  assert.equal(of(withTwo, "fold").output, of(withOne, "fold").output);
+  assert.ok(of(withTwo, "fold").fitsInDay > of(withOne, "fold").fitsInDay);
+});
+
+test("a switched-off brick is not in the build, so nothing waits on it", () => {
+  // The fridge parked, and the oven waiting on the fold rather than on a machine
+  // that is not switched on -- which is what happens at the bench.
+  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 });
+  const off = { ...brick({ id: "mid", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 }), on: false };
+  const oven = { ...brick({ id: "oven", cycleMin: 15, batch: 6, touchMin: 0, everyMin: 30, repeats: 2, startMin: 0 }), follow: true };
+  const r = computeScenario(scenario({ modules: [mix, off, oven] }));
+  assert.deepEqual(of(r, "oven").passes.map((p) => p.at), [20, 50], "it waits on the mixer, not on the parked brick");
+});
+
+test("a second brick is more room in the day, and never pans she did not plan", () => {
+  const one = moduleFacts({ id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 5, count: 1 });
+  const two = moduleFacts({ id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 5, count: 2 });
+  assert.equal(one.fitsInDay, 2);
+  assert.equal(two.fitsInDay, 4, "two chillers hold two days' worth of twelve-hour retards");
+  assert.equal(two.rate, one.rate * 2, "and pass them twice as fast");
+  // What a second one does NOT do: invent cycles. She planned five and the day
+  // now holds four, so four is what it passes -- the fifth is still hers to ask
+  // for by raising how many times the brick runs.
+  assert.equal(two.repeatsHeld, 4);
+  assert.equal(two.output, 48);
+  assert.equal(two.perPan, one.perPan, "and a pan still costs the same minutes of it");
+  // At one of it, every number is the number it was before `count` existed.
+  const plain = moduleFacts({ id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 5 });
+  assert.equal(plain.fitsInDay, one.fitsInDay);
+  assert.equal(plain.rate, one.rate);
+  assert.equal(plain.output, one.output);
+});
+
+test("two of a brick cannot run the same lot at once", () => {
+  // A machine takes 20 minutes over a lot. Two of it can hold two lots at once —
+  // so cycle 3 may begin while cycle 2 is still in — but cycle 2 may not begin
+  // until cycle 1 is out, because there are only two of them.
+  const one = moduleFacts({ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 1 });
+  const two = moduleFacts({ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 2 });
+  const solo = chainLine([{ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 1 }]);
+  const pair = chainLine([{ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 2 }]);
+  assert.deepEqual(solo[0].starts, [0, 20, 40], "one of it: the next lot waits for the one before");
+  assert.deepEqual(pair[0].starts, [0, 5, 20],
+    "two of it: lot 2 starts at once, lot 3 waits for lot 1 to come out");
+  assert.equal(one.passes.length, 3);
+  assert.equal(two.passes.length, 3);
+});
+
+test("a saved scenario keeps its own cycles, not a shared copy of them", () => {
+  // `starts` is a list, so a shallow copy would give both scenarios the same one
+  // and dragging a cycle in one would silently move the other.
+  const sc = scenarioOf({ ...DEFAULT_SCENARIO, modules: [brick({ id: "b", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 3, startMin: 30 })] });
+  const copy = copyScenario(sc, "A copy", "two");
+  assert.deepEqual(copy.modules[0].starts, sc.modules[0].starts);
+  copy.modules[0].starts[1] = 999;
+  assert.notEqual(sc.modules[0].starts[1], 999, "editing the copy cannot move the original");
+});
+
+test("a scenario saved before cycles existed can still be copied", () => {
+  // Every brick on her phone today has no `starts` list at all -- the field did
+  // not exist when it was saved. Copying a scenario must not assume it is there,
+  // and the copy must read the same day it did: the brick's own start and pace
+  // generate the cycles, which is exactly what it did before.
+  const old = { ...DEFAULT_SCENARIO, modules: [{
+    id: "b", icon: "🧱", name: "An old brick", on: true, job: "", person: 0,
+    cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 3, startMin: 30, people: 1,
+  }] };
+  const copy = copyScenario(scenarioOf(old), "A copy", "two");
+  assert.deepEqual(copy.modules[0].starts, [30, 60, 90], "the brick's own start and pace, as they always were");
+  const before = computeScenario(old);
+  const after = computeScenario(scenarioOf({ ...copy, id: "" }));
+  assert.equal(after.pansPerDay, before.pansPerDay);
+  assert.deepEqual(
+    after.on.map((m) => [m.id, m.startMin, m.endMin]),
+    before.on.map((m) => [m.id, m.startMin, m.endMin]));
+});
+
+test("the ladder will buy a second brick rather than promise a cycle a day cannot hold", () => {
+  // The buying rung exists for exactly one case: the day is full. It must raise
+  // the cycle count too -- a second chiller holds twice the bins but it does not
+  // run cycles she never planned -- and it must still respect the day.
+  const retard = { id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 2, count: 1 };
+  const climb = climbSteps(scenario({ target: 36, modules: [retard] }), 36);
+  assert.equal(climb.reached, true);
+  assert.equal(climb.steps[0].kind, "count", "there is no room left for another cycle, so it buys");
+  const after = climb.end.modules.find((m) => m.id === "r");
+  assert.equal(after.count, 2);
+  assert.equal(after.repeats, 3, "and the cycles that second one makes room for");
+  assert.ok(after.repeatsHeld <= after.fitsInDay, "and still nothing a day cannot hold");
+  assert.equal(climb.end.pansPerDay, 36);
 });

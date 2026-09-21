@@ -28,7 +28,7 @@ import { trim } from "../production.js";
 import {
   computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
-  PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary,
+  PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts,
 } from "../scenario.js";
 
 // A colour per brick, so a bar on the timeline and the person carrying it can be
@@ -203,6 +203,16 @@ function answerCard(r) {
         : "That is exactly the day — there is no slack in it at all."));
   }
 
+  kids.push(el("div", { class: "plan-cost" },
+    el("span", { class: "plan-cost-lab" }, "What this plan costs:"),
+    el("b", {}, `${r.people} ${r.people === 1 ? "person" : "people"}`),
+    el("span", { class: "plan-cost-dot" }, "·"),
+    el("b", {}, `${hoursAndMinutes(r.personMin)} of hands`),
+    el("span", { class: "plan-cost-dot" }, "·"),
+    el("b", {}, `a ${hoursAndMinutes(r.runMin)} day`),
+    el("div", { class: "card-sub", style: "margin:4px 0 0" },
+      "The three things you are buying down together — the most hands at any one minute, the total minutes of somebody's time, and how long the run takes. Move a brick or a cycle and all three answer again, so a change that helps one and costs another is visible rather than hidden in a single number.")));
+
   kids.push(factGrid(r));
   kids.push(el("p", { style: "margin:10px 0 0" },
     el("b", {}, `${r.wall.icon} ${r.wall.name} sets your pace.`)));
@@ -212,8 +222,6 @@ function answerCard(r) {
 }
 
 function factGrid(r) {
-  const starts = r.on.map((f) => f.startMin);
-  const first = starts.length ? Math.min(...starts) : 0;
   return el("div", { class: "facts" },
     fact("Pans a day", String(r.pansPerDay), "the least any brick passes"),
     fact("Cycle time", `${trim(round1(r.cycleMin))} min`, "for one pan off the line"),
@@ -224,8 +232,8 @@ function factGrid(r) {
     // takes, with the two real times of day it runs between.
     fact(
       "The run",
-      hoursAndMinutes(r.endMin - Math.min(first, r.endMin)),
-      `${clockAt(r.dayStartMin, first)} → ${clockAt(r.dayStartMin, r.endMin)}`));
+      hoursAndMinutes(r.runMin),
+      `${clockAt(r.dayStartMin, r.firstMin)} → ${clockAt(r.dayStartMin, r.endMin)}`));
 }
 
 function fact(label, value, sub) {
@@ -301,7 +309,7 @@ function climbCard(r, climb, sc, on) {
     const stuck = climb.end.wall;
     if (!climb.reached && stuck.id && stuck.repeatsHeld >= stuck.fitsInDay && stuck.batch > 0) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `A ${hoursAndMinutes(stuck.cycleMin)} pass fits ${stuck.fitsInDay} ${stuck.fitsInDay === 1 ? "time" : "times"} in a day, and it is already running that often. So this one cannot be run more often — it has to take more pans at once, which means ${stuck.batch} in a pass becoming more than ${stuck.batch}.`));
+        `A ${hoursAndMinutes(stuck.cycleMin)} pass fits ${stuck.fitsInDay} ${stuck.fitsInDay === 1 ? "time" : "times"} in a day, and it is already running that often — and a second one of it has been tried too. So this one cannot be run more often either way. It has to take more pans at once, which means ${stuck.batch} in a pass becoming more than ${stuck.batch}.`));
     }
     kids.push(el("div", { class: "popup-actions" },
       button("Use these numbers", () => applyClimb(sc, climb, on), "primary")));
@@ -314,12 +322,22 @@ function climbCard(r, climb, sc, on) {
 }
 
 function climbRow(s, i) {
+  // A rung is either "run it more often" or "have a second one", and the two
+  // read nothing alike — one buys cycles out of the same day, the other buys
+  // capacity she does not have. Naming which is the difference between a ladder
+  // she can act on and a number that moved.
+  const how = s.kind === "count"
+    ? `${s.from} → ${s.to} of them, run ${s.patch && s.patch.repeats} times over.`
+    : `${s.from} → ${s.to} ${s.to === 1 ? "pass" : "passes"} in the day, at ${s.batch} pans a pass.`;
   return el("div", { class: "climb-step" },
     el("div", { class: "climb-num" }, String(i + 1)),
     el("div", { class: "climb-body" },
       el("div", { class: "climb-what" }, `${s.icon} ${s.module}`),
-      el("div", { class: "li-sub" },
-        `${s.from} → ${s.to} ${s.to === 1 ? "pass" : "passes"} in the day, at ${s.batch} pans a pass.`),
+      el("div", { class: "li-sub" }, how),
+      s.kind === "count"
+        ? el("div", { class: "li-sub" },
+          "A day cannot hold this one any more often, so that is a second one to buy — and while it runs you need a second pair of hands if it is a job you do by hand.")
+        : null,
       el("div", { class: "li-sub" },
         `That takes the day from ${s.before} to ${s.after} pans` +
           (s.wallThen && s.wallThen.id ? `, and then ${s.wallThen.icon} ${lower(s.wallThen.name)} is the wall.` : ".")),
@@ -331,11 +349,13 @@ function climbRow(s, i) {
         : null));
 }
 
-// The one tap that makes the ladder real. It writes only `repeats`, and only on
-// the bricks the ladder named — every other number she has typed is left alone.
+// The one tap that makes the ladder real. Each rung writes the change the ladder
+// itself computed — `repeats`, or `count` with the cycles that go with it — and
+// only on the bricks the ladder named. Every other number she has typed is left
+// alone.
 function applyClimb(sc, climb, on) {
-  const to = new Map(climb.steps.map((s) => [s.id, s.to]));
-  sc.modules = sc.modules.map((m) => (to.has(m.id) ? { ...m, repeats: to.get(m.id) } : m));
+  const to = new Map(climb.steps.map((s) => [s.id, s.patch || { repeats: s.to }]));
+  sc.modules = sc.modules.map((m) => (to.has(m.id) ? { ...m, ...to.get(m.id) } : m));
   on.persist();
   toast("The ladder is in the bricks now");
   on.refresh();
@@ -408,14 +428,59 @@ function controlsRow(r, sc, on) {
         onclick: () => combinePopup(r, sc, on),
       }, "Combine two…")),
     el("div", { class: "tl-ctl-group" },
+      el("span", { class: "tl-ctl-lab" }, "The line"),
+      el("button", {
+        type: "button", class: "tl-chip",
+        onclick: () => chainPopup(r, sc, on),
+      }, chainedCount(r) ? `${chainedCount(r)} waits above` : "Not chained")),
+    el("div", { class: "tl-ctl-group" },
       el("button", {
         type: "button", class: "tl-chip add",
         onclick: () => addBrick(sc, on),
       }, "＋ New brick")));
 }
 
-function addBrick(sc, on) {
-  const id = newModuleId(sc.modules);
+// How many bricks are waiting on the one above them. Zero is the honest answer
+// for a line whose times she placed herself, and it is worth saying out loud:
+// nothing on the screen is being moved behind her back.
+function chainedCount(r) {
+  return r.on.filter((m) => m.follow).length;
+}
+
+// What the chain is, why two of a brick is an alternative to waiting, and one
+// tap either way. This is her points three and four said as a control, and the
+// three cost numbers make the difference between the two lines readable rather
+// than a matter of taste.
+function chainPopup(r, sc, on) {
+  const waiting = r.on.filter((m) => m.follow);
+  const cost = el("p", { class: "card-sub", style: "margin:10px 0 0" },
+    `${r.people} ${r.people === 1 ? "person" : "people"} · ${hoursAndMinutes(r.personMin)} of hands · a ${hoursAndMinutes(r.runMin)} day.`);
+
+  const setAll = (yes) => {
+    sc.modules = sc.modules.map((m) => (m.on === false ? m : { ...m, follow: yes }));
+    on.persist();
+    on.refresh();
+    toast(yes ? "Every brick now waits for the one above it" : "Nothing waits any more — your own times are in charge");
+    on.refresh();
+  };
+
+  showPopup("Bricks that wait", (refresh, close) => el("div", {},
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      "A brick set to wait cannot start a cycle until the brick above it has finished that same cycle: lot 1 waits for lot 1, lot 10 for lot 10. That is how a real line behaves — a slow fold holds every later lot behind it — and it is the thing to plan away, either by moving the slow brick or by having two of it."),
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      chainedCount(r)
+        ? `${chainedCount(r)} of your bricks ${chainedCount(r) === 1 ? "waits" : "wait"} on the brick above: ${waiting.map((m) => `${m.icon} ${m.name}`).join(", ")}. The rest keep the times you placed.`
+        : "Nothing is waiting right now, so every brick keeps the time you gave it. Switch the chain on and the line answers as one line rather than a set of separate jobs."),
+    cost,
+    el("div", { class: "popup-actions" },
+      chainedCount(r)
+        ? button("Take the waiting off", () => { setAll(false); close(); })
+        : null,
+      button(chainedCount(r) ? "Chain the whole line" : "Chain every brick", () => { setAll(true); close(); }, "primary"),
+      button("Close", close))));
+}
+
+function addBrick(sc, on) {  const id = newModuleId(sc.modules);
   sc.modules = [...sc.modules, blankModule(id)];
   on.persist();
   on.refresh();
@@ -454,30 +519,67 @@ function rulerRow(r, trackW) {
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...ticks));
 }
 
-// The bars of one brick, each pass of it. Drawn as its own node list so a drag
-// can repaint just this row's bars and leave the rest of the day alone.
-function passBars(m, tone, r, shift = 0) {
-  return m.passes
-    .filter((p) => p.at + shift < r.windowMin)
-    .map((p, k) => {
-      const left = Math.round((p.at + shift) * r.pxPerMin);
-      const right = Math.round(Math.min(p.end + shift, r.windowMin) * r.pxPerMin);
-      const w = Math.max(4, right - left);
-      const touchW = p.touchTo > p.touchFrom
-        ? Math.max(2, Math.round((p.touchTo - p.touchFrom) * r.pxPerMin))
-        : 0;
-      return el("div", {
-        class: `tl-bar ${tone}`,
-        style: `left:${left}px;width:${w}px`,
-        // What the bar holds, in her terms: how many minutes the dough is in it.
-        title: `${m.name}: ${trim(m.cycleMin)} min` +
-          (touchW ? `, ${trim(m.touchMin)} min of you` : ", no hands"),
-      },
-        touchW ? el("div", { class: "tl-touch", style: `width:${touchW}px` }) : null,
-        // Only the first pass of a row carries the number, so a fold loop does
-        // not repeat "28" four times across the day.
-        k === 0 && w >= LAB_MIN_PX ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null);
-    });
+// The bars of one brick, each pass of it — one bar is one cycle, and a cycle is
+// one lot of dough. Drawn as its own node list so a drag can repaint just this
+// row's bars and leave the rest of the day alone.
+//
+// `onlyK` is the cycle being dragged: its bar moves and the others stay where
+// they are, which is her point two — each cycle has its own start time. The
+// default (-1) moves the whole row, which is what the model does when a brick's
+// start time is typed rather than a single cycle dragged.
+function passBars(m, tone, r, shift = 0, onlyK = -1) {
+  const bars = [];
+  m.passes.forEach((p, k) => {
+    const moves = onlyK < 0 || onlyK === k;
+    const at = p.at + (moves ? shift : 0);
+    // A chained brick's times are the brick above's times, not hers to place, so
+    // those bars say so and do not offer a drag she cannot have.
+    if (at >= r.windowMin) return;
+    const left = Math.round(at * r.pxPerMin);
+    const right = Math.round(Math.min(p.end + (moves ? shift : 0), r.windowMin) * r.pxPerMin);
+    const w = Math.max(4, right - left);
+    const touchW = p.touchTo > p.touchFrom
+      ? Math.max(2, Math.round((p.touchTo - p.touchFrom) * r.pxPerMin))
+      : 0;
+    bars.push(el("div", {
+      class: `tl-bar ${tone}${m.follow ? " locked" : ""}`,
+      // Which cycle this is, so a drag knows what it is moving. The count, not
+      // the whole brick, is what she drags.
+      "data-k": String(k),
+      style: `left:${left}px;width:${w}px`,
+      // What the bar holds, in her terms: how many minutes the dough is in it.
+      title: `${m.name}, cycle ${k + 1}: ${trim(m.cycleMin)} min` +
+        (touchW ? `, ${trim(m.touchMin)} min of you` : ", no hands"),
+    },
+      touchW ? el("div", { class: "tl-touch", style: `width:${touchW}px` }) : null,
+      // Only the first pass of a row carries the number, so a fold loop does
+      // not repeat "28" four times across the day.
+      k === 0 && w >= LAB_MIN_PX ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null));
+  });
+  return bars;
+}
+
+// Where each cycle of a brick is, as a plain array of minutes — the brick as the
+// model has placed it, ready for one index to be overwritten by a drag. Reading
+// it from the computed `starts` (rather than re-deriving it) is what keeps the
+// cycles she has already dragged while she drags the next one.
+function cycleStarts(m) {
+  const out = [];
+  for (let k = 0; k < m.repeats; k += 1) {
+    const t = Number(m.starts && m.starts[k]);
+    out.push(Number.isFinite(t) ? t : 0);
+  }
+  return out;
+}
+
+// The brick a chained brick is waiting on: the one above it in the list that is
+// actually switched on. A machine that is off cannot pass dough down the line,
+// which is exactly how chainLine skips it.
+function chainAbove(r, m) {
+  if (!m.follow) return null;
+  const at = r.modules.findIndex((x) => x.id === m.id);
+  for (let i = at - 1; i >= 0; i -= 1) if (r.modules[i].on) return r.modules[i];
+  return null;
 }
 
 function moduleRow(r, m, idx, trackW, sc, on) {
@@ -501,13 +603,19 @@ function moduleRow(r, m, idx, trackW, sc, on) {
 
   // The start-time line is held onto, because a drag rewrites it as the finger
   // moves — the brick should read its new time while it is still being placed.
+  const above = chainAbove(r, m);
   const whenLine = el("div", { class: "tl-sub" });
-  whenLine.textContent = timeLine(m, r.dayStartMin);
+  whenLine.textContent = timeLine(m, r.dayStartMin) + (above ? ` · waits on ${above.name}` : "");
 
   const row = el("div", { class: "tl-row" },
     el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
         `${m.icon} ${m.name}`,
+        // How many of this brick she has. Two mixers, two chillers, two people
+        // folding: named on the row, because everything downstream of it — the
+        // day's room, the hands — follows from this one number.
+        m.count > 1 ? el("span", { class: "badge badge-multi" }, `${m.count} of them`) : null,
+        above ? el("span", { class: "badge badge-past" }, "waits above") : null,
         m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
         // She has asked for more passes than a day holds. The number is kept as
         // she typed it — the row just counts honestly and says why.
@@ -521,16 +629,23 @@ function moduleRow(r, m, idx, trackW, sc, on) {
     editModule(live, sc, on);
   });
 
-  // Dragging a bar moves the brick. The drag only starts on a BAR, so swiping
-  // the empty track still scrolls the day the way it always did — and it snaps
-  // to five-minute steps, because a start time is something she decides, not
-  // something a fingertip decides for her.
+  // Dragging a bar moves THAT cycle, not the brick — her point two. The drag
+  // only starts on a BAR, so swiping the empty track still scrolls the day the
+  // way it always did, and it snaps to five-minute steps, because a start time
+  // is something she decides, not something a fingertip decides for her.
+  //
+  // A chained brick is left alone here on purpose: its times are the brick
+  // above's times, so there is nothing to drag and no drag is offered. The tap
+  // still opens its editor, where the switch that made it wait is, and the row
+  // says which brick it is waiting on.
   track.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const bar = e.target && e.target.closest ? e.target.closest(".tl-bar") : null;
-    if (!bar) return;
+    if (!bar || m.follow) return;
     swallow = false;
-    drag = { id: e.pointerId, x0: e.clientX, from: Number(live.startMin) || 0, delta: 0, moved: false };
+    const k = Math.max(0, Math.round(Number(bar.dataset.k) || 0));
+    const starts = cycleStarts(m);
+    drag = { id: e.pointerId, x0: e.clientX, k, from: starts[k], delta: 0, moved: false };
     try { track.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
     bar.classList.add("dragging");
     e.preventDefault();
@@ -542,8 +657,8 @@ function moduleRow(r, m, idx, trackW, sc, on) {
     if (delta === drag.delta) return;
     drag.delta = delta;
     drag.moved = drag.moved || delta !== 0;
-    track.replaceChildren(...passBars(m, tone, r, delta));
-    whenLine.textContent = timeLine(m, r.dayStartMin, drag.from + delta);
+    track.replaceChildren(...passBars(m, tone, r, delta, drag.k));
+    whenLine.textContent = timeLine(m, r.dayStartMin, drag.from + delta, drag.k);
     e.preventDefault();
   });
 
@@ -553,9 +668,15 @@ function moduleRow(r, m, idx, trackW, sc, on) {
     drag = null;
     swallow = d.moved;
     if (d.moved) {
-      live.startMin = clampStart(d.from + d.delta, m);
+      // Stored as the brick's own list of cycle times. Cycle one's time IS the
+      // brick's start time and is written alongside it, so the two can never
+      // disagree about where the brick begins.
+      const starts = cycleStarts(m);
+      starts[d.k] = clampStart(d.from + d.delta, m);
+      live.starts = starts;
+      live.startMin = starts[0];
       on.persist();
-      toast(`${m.name} now starts at ${clockAt(r.dayStartMin, live.startMin)}`);
+      toast(`${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, starts[d.k])}`);
     }
     on.refresh();
   };
@@ -565,15 +686,21 @@ function moduleRow(r, m, idx, trackW, sc, on) {
   return row;
 }
 
-// A brick's start can move within the day, but its last pass still has to finish
-// inside one — a brick whose dough is still in the oven at midnight is a typing
-// mistake, not a plan.
+// One cycle's start can move within the day, but a pass still has to finish
+// inside one — dough still in the oven at midnight is a typing mistake, not a
+// plan. Every cycle is a pass of `cycleMin`, so the same ceiling holds for each.
 function clampStart(start, m) {
   const top = Math.max(0, DAY_MIN - (Number(m.cycleMin) || 0));
   return Math.max(0, Math.min(top, Math.round(Number(start) || 0)));
 }
 
-function timeLine(m, dayStartMin, startMin) {
+function timeLine(m, dayStartMin, startMin, k) {
+  // Mid-drag the line names the cycle under the finger, because "starts 3:28"
+  // for a brick that runs six times does not say which of the six just moved.
+  if (k != null) {
+    const t = startMin == null ? (m.starts && m.starts[k]) : startMin;
+    return `cycle ${k + 1} of ${m.repeatsHeld} at ${clockAt(dayStartMin, t)}`;
+  }
   const at = startMin == null ? m.startMin : startMin;
   const runs = m.repeatsHeld > 1 ? ` · runs ${m.repeatsHeld}×` : "";
   return `starts ${clockAt(dayStartMin, at)}${runs}`;
@@ -785,6 +912,17 @@ function editModule(saved, sc, on, isNew = false) {
       on.refresh();
     });
 
+    // Whether this brick is fed by the one above it. Her points three and four,
+    // as one switch: its cycle 10 cannot start until the brick before it has
+    // finished ITS cycle 10.
+    const followBox = el("input", { type: "checkbox", checked: live.follow === true });
+    followBox.addEventListener("change", () => {
+      live.follow = followBox.checked;
+      on.persist();
+      on.refresh();
+      refresh();
+    });
+
     const order = sc.modules.findIndex((m) => m.id === live.id);
     const acts = [];
 
@@ -815,7 +953,15 @@ function editModule(saved, sc, on, isNew = false) {
       f("touchMin", "Minutes of you, per pass", "0 means it runs itself — the honest reading of the retard and of the bake.", { min: 0 }),
       f("everyMin", "Minutes from one pass to the next", "The pace it repeats at. For your fold that is the 28 minutes of rest PLUS the 2-minute fold — so the brick restarts 30 minutes after the last time.", { min: 1 }),
       f("repeats", "How many times it runs in the day", "Set this above 1 and the brick restarts later in the day: the fold runs four times. The climb card raises this one for you — and a day can only hold so many, so a pass that takes hours is counted at the few that fit.", { min: 1, int: true }),
-      f("startMin", "Minutes in, when its first pass starts", `Counted from your day's start, so 90 is an hour and a half after you begin. Turn this one — or drag the bar on the timeline — to bring the people needed down.`, { min: 0 }),
+      // Her point one: the brick that became the bottleneck, had twice over.
+      f("count", "How many of these do you have", "Two mixers, two ovens, two chillers, two people folding. Two of them run two cycles side by side, so a cycle stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many times it runs to put the second one to work, or let the climb do it for you. And if the job is done by hand, two of them means a second pair of hands while both are running.", { min: 1, int: true }),
+      f("startMin", "Minutes in, when its first pass starts", `Counted from your day's start, so 90 is an hour and a half after you begin. Turn this one — or drag the bar on the timeline — to bring the people needed down. Cycle 1's time is this same number, so setting one sets the other.`, { min: 0 }),
+      el("div", { class: "field" },
+        el("label", { class: "check-row" }, followBox,
+          el("span", { class: "check-label" }, "Waits for the brick above")),
+        el("div", { class: "hint", style: "margin-top:6px" },
+          "Switch this on and its cycle 10 cannot start until the brick above has finished its own cycle 10 — which is how a real line behaves, and how a slow fold holds every later lot behind it. Switch it on for a brick the one before it really feeds, and leave it off for anything you place by hand. A brick that waits is not draggable on the timeline: move the brick above it and this one follows, and if the brick above has fewer cycles, the extra ones wait on its last.")),
+      cycleField(live, sc, on, refresh),
       f("people", "People this pass needs", "Nearly always 1 — two people at one mixer is a different job.", { min: 1, int: true }),
       f("person", "Who is at this brick", "0 means whoever is free. Put 1, 2, 3… and that named person is given this brick — so two bricks on person 1 that overlap show up as a collision to move apart.", { min: 0, int: true }),
       acts.length ? el("div", { class: "tl-ctl", style: "margin-top:4px" }, ...acts) : null,
@@ -832,6 +978,65 @@ function editModule(saved, sc, on, isNew = false) {
           { danger: true, yesLabel: "Delete" }), "danger"),
         button("Done", close, "primary")));
   });
+}
+
+// ── Every cycle, in its own right ──────────────────────────────────────────
+//
+// Her point two: a brick that runs eight times has eight start times, and any
+// one of them can move without disturbing the other seven. Each cycle is a lot
+// of dough, so this list IS the shape of the day — and typing a minute is the
+// exact control a drag on a phone is not. Drag on the timeline for the broad
+// move, type here for the nudge.
+function cycleField(live, sc, on, refresh) {
+  const m = moduleFacts(live);
+  const dayStart = Number(sc.dayStartMin) || 0;
+  const rows = [];
+
+  for (let k = 0; k < m.repeatsHeld; k += 1) {
+    const at = el("span", { class: "cyc-at" }, clockAt(dayStart, m.starts[k]));
+    const input = el("input", {
+      class: "input cyc-in", type: "number", inputmode: "numeric",
+      min: "0", step: String(SNAP_MIN), value: String(Math.round(m.starts[k])),
+    });
+    input.addEventListener("input", () => {
+      const n = Number(input.value);
+      if (!Number.isFinite(n) || n < 0) return;
+      const starts = cycleStarts(m);
+      starts[k] = Math.round(n);
+      live.starts = starts;
+      // Cycle one's time is the brick's start time — written together here for
+      // the same reason the model keeps them equal, so the two cannot drift.
+      live.startMin = starts[0];
+      on.persist();
+      on.refresh();
+      at.textContent = clockAt(dayStart, starts[k]);
+    });
+    rows.push(el("div", { class: "cyc-row" },
+      el("span", { class: "cyc-lab" }, `Cycle ${k + 1}`),
+      input,
+      at));
+  }
+
+  const evenly = button("Space them evenly again", () => {
+    // Dropping the stored list is what re-spaces them: with no list the brick
+    // falls back to its own start and pace, which is exactly what this means.
+    live.starts = undefined;
+    on.persist();
+    on.refresh();
+    refresh();
+    toast(`${live.name || "The brick"} — cycles back on their own pace`);
+  });
+
+  return el("div", { class: "field" },
+    el("label", {}, "When each cycle starts, in minutes from your day"),
+    m.repeatsHeld > 1
+      ? el("div", { class: "cyc-list" }, ...rows)
+      : rows[0] || null,
+    el("div", { class: "hint" },
+      m.repeatsHeld > 1
+        ? "Each cycle is one lot of dough, and each has its own time — drag it on the timeline, or type it here. Moving one leaves the others where they are."
+        : "This brick runs once, so it has a single start. Raise how many times it runs and a row appears for each cycle."),
+    m.repeatsHeld > 1 ? el("div", { class: "popup-actions" }, evenly) : null);
 }
 
 // Which station of the line a brick is, so the Production line screen can read
