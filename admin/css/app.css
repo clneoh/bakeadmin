@@ -2580,6 +2580,11 @@ tr.po-covered td { color: var(--muted); }
    a bar stays scrollable, which is what the screen tells her. */
 .tl-row .tl-bar { touch-action: none; cursor: grab; }
 .tl-bar.dragging { cursor: grabbing; outline: 2px solid var(--brown); outline-offset: 1px; }
+/* A brick whose cycles overlap: each cycle gets its own lane, so two lots in the
+   brick at once are drawn as two bars rather than one long one. The hairline edge
+   is what keeps two neighbouring lanes reading as two, since a laned bar is too
+   short for its minutes to be printed inside it. */
+.tl-bar.laned { border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .09); }
 /* A bar whose time came from the brick above it. It is not hers to place, so it
    must not look draggable — a grip that does nothing reads as broken. Hatched
    and greyed, with the row naming the brick it waits on. */

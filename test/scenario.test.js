@@ -514,8 +514,18 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     // placement survive being handed between the model and the screen.
     assert.equal(back.count, 1, `${m.id}: a brick she has one of says so`);
     assert.equal(back.follow, false, `${m.id}: and no brick waits for another until she says so`);
+    assert.equal(back.overlap, false, `${m.id}: and none of them lets two lots in at once yet`);
     assert.deepEqual(moduleOf(back).starts, back.starts, `${m.id}: the cycle times read back the same`);
   }
+  // Switched on, the switch itself is a value that has to survive the same trip —
+  // it is the one field whose default is off and whose being on changes the clock.
+  const on = moduleOf({ ...SISTER_SCENARIO.modules[0], count: 2, follow: true, overlap: true });
+  assert.deepEqual(
+    [on.count, on.follow, on.overlap],
+    [2, true, true],
+    "two of them, waiting on the brick above, and free to hold two lots at once",
+  );
+  assert.deepEqual(moduleOf(on), on, "and a second read of it changes nothing at all");
 });
 
 // ── A brick can be doubled, and every cycle has its own time ───────────────
@@ -600,44 +610,72 @@ test("a brick above with fewer cycles holds the extra ones at its last", () => {
   // wait for, so they wait on the last lot that does exist -- the model names the
   // rule rather than inventing a time for a mix the mixer never runs.
   //
-  // With one fold the rule is masked at lots five and six: a single fold takes 28
-  // minutes a lot, so its own machine would land the queued lots at 138 and 166
-  // whether the chain held them or not. What the rule still buys is both lots
-  // starting no earlier than the mixer's last lot ending at 110 -- on the fold's
-  // own 10-minute rhythm they would have gone at 40 and 50, i.e. folding dough
-  // the mixer had not mixed. The next test takes the queue away.
+  // What the rule buys is both lots starting no earlier than the mixer's last lot
+  // ending at 110: on the fold's own 10-minute rhythm they would have gone at 40
+  // and 50, i.e. folding dough the mixer had not mixed. The floor is the chain,
+  // but this fold's own one-lot-at-a-time rule is stronger than it, so lots four,
+  // five and six queue behind the lot before them -- 138 and 166, not 110 three
+  // times over. The next test is the switch that takes that own rule off.
   const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
   const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
 
   const r = computeScenario(scenario({ modules: [mix, fold] }));
   const at = of(r, "fold").passes.map((p) => p.at);
   assert.deepEqual(at, [20, 50, 80, 110, 138, 166]);
-  assert.ok(at.slice(4).every((t) => t >= 110), "no lot five or six before the mixer's last lot ends");
+  assert.ok(at.slice(3).every((t) => t >= 110), "no lot four, five or six before the mixer's last lot ends");
   // The mixer itself keeps its own pace -- nothing waits on the fold.
   assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 60, 90]);
 });
 
-test("a second fold is what stops the extra lots queueing", () => {
-  // The same line with a second fold. Now lot five lands exactly on the mixer's
-  // last lot ending at 110 and nothing else could have put it there: its own
-  // rhythm says 40 and the second fold frees its own machine to 85. So 110 is
-  // the chain, proven -- and lot six, one fold's work at 115, is the only queue
-  // left. That is her point one as arithmetic: the brick that became the
-  // bottleneck is relieved by a second of it, not by adding hours to the day.
+test("a brick holds its own lots apart until she says its cycles may overlap", () => {
+  // Her words: "allow overlap button and the overlapping criteria". Off -- where
+  // every brick starts, and every brick she already has -- one lot at a time: a
+  // fold cannot begin lot two until lot one is out. That is the right rule when the
+  // dough is physically IN the thing, and the wrong one when the 28 minutes are
+  // mostly the dough RESTING between folds. Switched on, her own times stand and
+  // the chain above is the only thing left that can move a lot.
   const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
-  const one = { ...brick({ id: "fold", cycleMin: 5, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
-  const two = { ...one, count: 2 };
+  const apart = { ...brick({ id: "fold", cycleMin: 5, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
+  const free = { ...apart, overlap: true };
 
-  const withOne = computeScenario(scenario({ modules: [mix, one] }));
-  const withTwo = computeScenario(scenario({ modules: [mix, two] }));
-  // One fold: its own machine, not the chain, spaces the whole line.
-  assert.deepEqual(of(withOne, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 115, 120]);
-  // Two folds: lot five is placed by the chain at the mixer's last end, 110.
-  assert.deepEqual(of(withTwo, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 110, 115]);
-  assert.equal(of(withTwo, "fold").count, 2);
-  // A second fold buys room in the day, never pans she did not plan.
-  assert.equal(of(withTwo, "fold").output, of(withOne, "fold").output);
-  assert.ok(of(withTwo, "fold").fitsInDay > of(withOne, "fold").fitsInDay);
+  const held = computeScenario(scenario({ modules: [mix, apart] }));
+  const loose = computeScenario(scenario({ modules: [mix, free] }));
+  assert.deepEqual(of(held, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 115, 120],
+    "switched off, each fold waits for the fold before it");
+  assert.deepEqual(of(loose, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 110, 110],
+    "switched on, the fold's own lots are hers, and the chain is all that is left");
+  assert.ok(of(loose, "fold").passes.slice(3).every((p) => p.at >= 110),
+    "and never before the dough exists: the mixer's last lot ends at 110");
+  // How many of these you have is NOT this switch: two folds means two lots at
+  // once, which is one lot per brick, not every lot at once.
+  const two = computeScenario(scenario({ modules: [mix, { ...apart, count: 2 }] }));
+  assert.deepEqual(of(two, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 110, 115],
+    "two bricks: lot three may start while lot one is still folding, lot four may not");
+  assert.equal(of(two, "fold").output, of(held, "fold").output, "and a second one never plans pans she did not");
+});
+
+test("a brick she has said may overlap sits on her own rhythm, all of it at once", () => {
+  // A 28-minute pass on a 10-minute rhythm is a brick in two or three lots at once,
+  // and this is the switch's whole point: dough resting between folds, a second bin
+  // on the go. Switched on, her rhythm is passed through and the screen draws the
+  // lots in lanes so all of them can be seen.
+  const solo = brick({ id: "s", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 4, startMin: 0 });
+  const lot = { ...solo, overlap: true };
+  const m = of(computeScenario(scenario({ modules: [lot] })), "s");
+  assert.deepEqual(m.passes.map((p) => p.at), [0, 10, 20, 30]);
+  assert.deepEqual(m.passes.map((p) => p.end), [28, 38, 48, 58]);
+  // Three of the four are in the brick at once at minute 20, which is what the
+  // lanes on the timeline are for.
+  const live = m.passes.filter((p) => p.at <= 20 && p.end > 20).length;
+  assert.equal(live, 3);
+  // And the day is as long as the last lot makes it, not as long as the rhythm
+  // alone would suggest.
+  assert.equal(m.endMin, 58);
+  // Switched off, the same brick on the same rhythm queues instead, because a lot
+  // cannot begin until the one before it is out of the brick.
+  const queued = of(computeScenario(scenario({ modules: [solo] })), "s");
+  assert.deepEqual(queued.passes.map((p) => p.at), [0, 28, 56, 84]);
+  assert.equal(queued.endMin, 112, "and the day is longer for it, which is the trade she is being shown");
 });
 
 test("a switched-off brick is not in the build, so nothing waits on it", () => {
@@ -669,19 +707,22 @@ test("a second brick is more room in the day, and never pans she did not plan", 
   assert.equal(plain.output, one.output);
 });
 
-test("two of a brick cannot run the same lot at once", () => {
-  // A machine takes 20 minutes over a lot. Two of it can hold two lots at once —
-  // so cycle 3 may begin while cycle 2 is still in — but cycle 2 may not begin
-  // until cycle 1 is out, because there are only two of them.
-  const one = moduleFacts({ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 1 });
-  const two = moduleFacts({ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 2 });
-  const solo = chainLine([{ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 1 }]);
-  const pair = chainLine([{ id: "m", cycleMin: 20, batch: 6, touchMin: 0, everyMin: 5, repeats: 3, startMin: 0, count: 2 }]);
-  assert.deepEqual(solo[0].starts, [0, 20, 40], "one of it: the next lot waits for the one before");
-  assert.deepEqual(pair[0].starts, [0, 5, 20],
-    "two of it: lot 2 starts at once, lot 3 waits for lot 1 to come out");
-  assert.equal(one.passes.length, 3);
-  assert.equal(two.passes.length, 3);
+test("overlapping lots are only flagged when her own hands are really in two places", () => {
+  // The honest half of the overlap switch. A brick's pass
+  // window is the whole cycle, but the minutes that need a PERSON are the touch —
+  // so two lots resting at once cost nobody anything, and only a brick she is
+  // hands-on for the whole pass doubles her up. Same person, same overlap, two
+  // different answers, and the difference is the touch minutes she typed.
+  const resting = scenario({ modules: [{ ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 3, person: 1, overlap: true }), follow: false }] });
+  const handsOn = scenario({ modules: [{ ...brick({ id: "wash", cycleMin: 18, batch: 6, touchMin: 18, everyMin: 9, repeats: 3, person: 1, overlap: true }), follow: false }] });
+
+  const rest = computeScenario(resting).rows.find((r) => r.person === 1);
+  assert.equal(rest.clashes.length, 0, "three lots resting at once are not three of her at once");
+  assert.equal(rest.busy, 6, "three passes, two minutes of her each");
+
+  const worked = computeScenario(handsOn).rows.find((r) => r.person === 1);
+  assert.equal(worked.clashes.length, 2, "nine minutes apart on an eighteen-minute job is a real collision");
+  assert.equal(worked.busy, 36, "and the row counts the union, not 18+18+18");
 });
 
 test("a saved scenario keeps its own cycles, not a shared copy of them", () => {

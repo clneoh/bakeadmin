@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v139)
+# Jienluv2bake — change history (v54 → v140)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v140 (no database step). A brick can now be told that its
+cycles may overlap — one switch, with the rule for when to use it written beside
+it — and the two lots are drawn as two bars.**
+
+**What you asked.** In your own words: *"i also want to allow each brick cycle to overlap,
+this will improve the visualisation"*, and then, as I was building it: *"allow overlap
+button and the overlapping criteria"*. So it is a **button** in the brick's card, **Let its
+cycles overlap**, and the criteria sit under it in plain words rather than in a rule you
+would have to work out.
+
+**What a brick did before, and still does unless you switch this on.** A brick held its own
+cycles apart: lot two could not begin until lot one was out of it. That is the right rule
+when the dough is physically *in* the thing, and it is what stops you folding dough that is
+still in the mixer. Where you switch it on: when the minutes in a pass are the **dough's**
+time and not a machine's — dough resting between folds, a second bin on the go. Then every
+cycle sits exactly where you put it.
+
+**How you can tell it is on.** The brick's row wears a **2 at once** tag naming how many lots
+are in it together, and the row grows taller so the overlapping lots are drawn as separate
+bars in their own lanes instead of painting over each other. A brick that is not overlapping
+looks exactly as it did — same bar, same height, same place.
+
+**Three things it deliberately does not do.** It never lets a lot start before the dough
+exists: a brick that waits for the brick above still waits, so switching this on is not a way
+around the chain. It does not put pans in the day that you did not plan. And it does not
+quietly double you up — if two of your own cycles need the same person in the same minute,
+that person's row still goes red and names the minute.
+
+**And it is not the same as a second brick.** **How many of these do you have** means one lot
+in per brick you have — with 2 of them, lot three may start while lot one is still folding,
+but lot four waits for lot two. **Let its cycles overlap** means every lot at once. The
+switch is the wider of the two.
+
+**One correction to v139, written down so it never looks like a bug.** v139 said a brick
+whose passes come round faster than one pass takes "now has its passes held apart instead of
+drawn overlapping — that day could never be worked". That is still what happens **with the
+switch off**, which is how every brick arrives. With it on, those passes are drawn
+overlapping, in lanes, which is the whole point of the switch.
+
+Nothing else in the app moved, and both of your scenarios read exactly as they did — the
+sister's line still 4 pans in 8 bricks. Tests are 1048 passing with none failing, and the
+guide (section 23) carries all of it.
 
 **21 Sep 2026 — engine v139 (no database step). The scenario planner now builds a
 real line: a brick can be two of them, every pass in a brick has its own start time

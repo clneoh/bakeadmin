@@ -28,7 +28,7 @@ import { trim } from "../production.js";
 import {
   computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
-  PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts,
+  PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
 } from "../scenario.js";
 
 // A colour per brick, so a bar on the timeline and the person carrying it can be
@@ -39,6 +39,18 @@ const TONES = 8;
 // minutes inside it.
 const SNAP_MIN = 5;
 const LAB_MIN_PX = 26;
+
+// When a brick's cycles overlap, they are stacked in lanes rather than painted
+// over each other. These are the same numbers as the single-lane bar's box, so a
+// row that does not overlap is drawn exactly as it always was: one 16px bar at
+// top 9. A row that does overlap splits that same 16px into as many lanes as it
+// needs — two lanes still fit the 34px track it always had, and a third grows the
+// row's own track to fit.
+const LANE_TOP = 3;
+const LANE_PITCH = 11;
+const LANE_H = 9;
+const TRACK_MIN_H = 34;
+const laneTrackH = (lanes) => Math.max(TRACK_MIN_H, LANE_TOP + lanes * LANE_PITCH + 4);
 
 const DAY_MIN = 24 * 60;
 
@@ -529,6 +541,11 @@ function rulerRow(r, trackW) {
 // start time is typed rather than a single cycle dragged.
 function passBars(m, tone, r, shift = 0, onlyK = -1) {
   const bars = [];
+  // Which lane each cycle is drawn in. A brick's cycles are free to overlap — her
+  // own ask — so two of them can sit in the same minutes, and drawn on one row
+  // they would paint over each other and read as one long pass. Each cycle gets
+  // the first lane it fits in, which draws overlap as overlap.
+  const { laneOf, count: lanes } = passLanes(m.passes);
   m.passes.forEach((p, k) => {
     const moves = onlyK < 0 || onlyK === k;
     const at = p.at + (moves ? shift : 0);
@@ -541,22 +558,44 @@ function passBars(m, tone, r, shift = 0, onlyK = -1) {
     const touchW = p.touchTo > p.touchFrom
       ? Math.max(2, Math.round((p.touchTo - p.touchFrom) * r.pxPerMin))
       : 0;
+    const top = lanes > 1 ? LANE_TOP + laneOf[k] * LANE_PITCH : null;
+    const h = lanes > 1 ? LANE_H : null;
     bars.push(el("div", {
-      class: `tl-bar ${tone}${m.follow ? " locked" : ""}`,
+      class: `tl-bar ${tone}${m.follow ? " locked" : ""}${lanes > 1 ? " laned" : ""}`,
       // Which cycle this is, so a drag knows what it is moving. The count, not
       // the whole brick, is what she drags.
       "data-k": String(k),
-      style: `left:${left}px;width:${w}px`,
+      style: `left:${left}px;width:${w}px` +
+        (top == null ? "" : `;top:${top}px;height:${h}px`),
       // What the bar holds, in her terms: how many minutes the dough is in it.
       title: `${m.name}, cycle ${k + 1}: ${trim(m.cycleMin)} min` +
         (touchW ? `, ${trim(m.touchMin)} min of you` : ", no hands"),
     },
       touchW ? el("div", { class: "tl-touch", style: `width:${touchW}px` }) : null,
       // Only the first pass of a row carries the number, so a fold loop does
-      // not repeat "28" four times across the day.
-      k === 0 && w >= LAB_MIN_PX ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null));
+      // not repeat "28" four times across the day — and a laned bar is too short
+      // to hold it, so the number is left to the row's own line instead.
+      k === 0 && w >= LAB_MIN_PX && h == null ? el("span", { class: "tl-lab" }, String(Math.round(m.cycleMin))) : null));
   });
   return bars;
+}
+
+// How many cycles of this brick are in the brick at once, and which lane each one
+// belongs in. First-fit over the passes in TIME order (not cycle order — she can
+// have dragged cycle 4 before cycle 1), and two cycles that merely touch are not
+// overlapping, so a pass ending exactly where the next one starts stays in the
+// same lane and the row does not grow for a day that has not changed.
+function passLanes(passes) {
+  const order = passes.map((_, k) => k).sort((a, b) => (passes[a].at - passes[b].at) || (passes[a].end - passes[b].end));
+  const laneOf = passes.map(() => 0);
+  const ends = [];
+  for (const k of order) {
+    let lane = ends.findIndex((t) => t <= passes[k].at);
+    if (lane < 0) { lane = ends.length; ends.push(0); }
+    ends[lane] = passes[k].end;
+    laneOf[k] = lane;
+  }
+  return { laneOf, count: Math.max(1, ends.length) };
 }
 
 // Where each cycle of a brick is, as a plain array of minutes — the brick as the
@@ -598,7 +637,13 @@ function moduleRow(r, m, idx, trackW, sc, on) {
   let drag = null;
   let swallow = false;
 
-  const track = el("div", { class: "tl-track", style: `width:${trackW}px` });
+  // A brick whose cycles overlap needs a taller track to draw them in lanes. A
+  // brick whose cycles do not gets the track it has always had, to the pixel.
+  const lanes = passLanes(m.passes).count;
+  const track = el("div", {
+    class: "tl-track",
+    style: `width:${trackW}px${lanes > 1 ? `;height:${laneTrackH(lanes)}px` : ""}`,
+  });
   track.replaceChildren(...passBars(m, tone, r));
 
   // The start-time line is held onto, because a drag rewrites it as the finger
@@ -616,6 +661,10 @@ function moduleRow(r, m, idx, trackW, sc, on) {
         // day's room, the hands — follows from this one number.
         m.count > 1 ? el("span", { class: "badge badge-multi" }, `${m.count} of them`) : null,
         above ? el("span", { class: "badge badge-past" }, "waits above") : null,
+        // And how many of its lots are in it at once, which is the one thing the
+        // taller row is telling her. Only shown when it is really happening, so a
+        // brick that is not overlapping never wears a badge about it.
+        lanes > 1 ? el("span", { class: "badge badge-over" }, `${lanes} at once`) : null,
         m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
         // She has asked for more passes than a day holds. The number is kept as
         // she typed it — the row just counts honestly and says why.
@@ -676,7 +725,17 @@ function moduleRow(r, m, idx, trackW, sc, on) {
       live.starts = starts;
       live.startMin = starts[0];
       on.persist();
-      toast(`${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, starts[d.k])}`);
+      // Where she dropped it is not always where it lands: a brick that takes one
+      // lot at a time puts the cycle back after the one before it, and a chained
+      // brick puts it back after the brick above. That is the rule doing its job,
+      // not the drag failing — so it says which, and names the switch that would
+      // let two lots share the minutes when the switch is what is holding it.
+      const landed = cycleLanded(sc, m, d.k, starts[d.k]);
+      toast(landed > starts[d.k]
+        ? `${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, landed)} — ${m.overlap
+          ? "the brick above holds it back, so move that one and this follows"
+          : `the brick holds it back: ${m.count > 1 ? "one lot per brick you have" : "one lot at a time"}, so switch on Let its cycles overlap for two at once`}`
+        : `${m.name}, cycle ${d.k + 1} → ${clockAt(r.dayStartMin, starts[d.k])}`);
     }
     on.refresh();
   };
@@ -684,6 +743,16 @@ function moduleRow(r, m, idx, trackW, sc, on) {
   track.addEventListener("pointercancel", drop);
 
   return row;
+}
+
+// Where a cycle she has just dropped actually ends up, straight from the model —
+// so the screen can tell her when her own brick's rule moved it, and where to.
+// Asking the model rather than re-deriving the rule here is the point: a second
+// copy of the arithmetic in the view is a second answer waiting to disagree.
+function cycleLanded(sc, m, k, dropped) {
+  const placed = chainLine(sc.modules).find((x) => x.id === m.id);
+  const at = placed && placed.starts ? Number(placed.starts[k]) : NaN;
+  return Number.isFinite(at) ? Math.max(at, dropped) : dropped;
 }
 
 // One cycle's start can move within the day, but a pass still has to finish
@@ -923,6 +992,17 @@ function editModule(saved, sc, on, isNew = false) {
       refresh();
     });
 
+    // Her ask, as a switch: "allow each brick cycle to overlap". Off, the brick
+    // holds its own cycles apart — one lot at a time — which is right when the
+    // dough is physically IN the thing. On, each cycle sits where she put it.
+    const overlapBox = el("input", { type: "checkbox", checked: live.overlap === true });
+    overlapBox.addEventListener("change", () => {
+      live.overlap = overlapBox.checked;
+      on.persist();
+      on.refresh();
+      refresh();
+    });
+
     const order = sc.modules.findIndex((m) => m.id === live.id);
     const acts = [];
 
@@ -961,6 +1041,11 @@ function editModule(saved, sc, on, isNew = false) {
           el("span", { class: "check-label" }, "Waits for the brick above")),
         el("div", { class: "hint", style: "margin-top:6px" },
           "Switch this on and its cycle 10 cannot start until the brick above has finished its own cycle 10 — which is how a real line behaves, and how a slow fold holds every later lot behind it. Switch it on for a brick the one before it really feeds, and leave it off for anything you place by hand. A brick that waits is not draggable on the timeline: move the brick above it and this one follows, and if the brick above has fewer cycles, the extra ones wait on its last.")),
+      el("div", { class: "field" },
+        el("label", { class: "check-row" }, overlapBox,
+          el("span", { class: "check-label" }, "Let its cycles overlap")),
+        el("div", { class: "hint", style: "margin-top:6px" },
+          "Switch this ON when the minutes in one pass are the DOUGH's time and not a machine's — dough resting between folds, a second bin on the go. The brick then stops holding its own cycles apart, every cycle sits where you put it, and two lots at once are drawn as two bars in their own lanes. Leave it OFF when the dough is physically IN the thing — a sink, an oven, one tub — because two lots cannot be in one of those at once; if you need two of those, that is How many of these do you have, which lets one lot in per brick you have. Either way, overlapping never lets a lot start before the dough exists: a brick that waits for the brick above still waits. And switch it on with one eye on the People rows — if two of your own cycles need the same person in the same minute, that person's row goes red and names the minute.")),
       cycleField(live, sc, on, refresh),
       f("people", "People this pass needs", "Nearly always 1 — two people at one mixer is a different job.", { min: 1, int: true }),
       f("person", "Who is at this brick", "0 means whoever is free. Put 1, 2, 3… and that named person is given this brick — so two bricks on person 1 that overlap show up as a collision to move apart.", { min: 0, int: true }),

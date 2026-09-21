@@ -304,11 +304,17 @@ export function moduleOf(m) {
     startMin: starts[0],
     // How many of this brick she has: two mixers, two ovens, two chillers. See
     // moduleFacts for what a second one buys, and for the one thing it does not
-    // — it never invents cycles she did not plan.
+    // — it never invents cycles she did not plan. It also relaxes the brick's own
+    // lot-at-a-time rule to one lot per brick she has; `overlap` is the switch
+    // that takes that rule off altogether.
     count: Math.max(1, Math.min(8, Math.round(atLeast(src.count, 1, 1)))),
     // Whether this brick waits for the brick above it: its cycle 10 cannot start
     // until the brick before it has finished its own cycle 10. See chainLine.
     follow: src.follow === true,
+    // Whether this brick may hold two lots at once. Off, one lot at a time (or one
+    // per brick, with `count`); on, her own times stand and the chain above is the
+    // only thing left that can move them. See chainLine for the criteria.
+    overlap: src.overlap === true,
     people: Math.max(1, Math.round(atLeast(src.people, 1, 1))),
     // 0 = whoever is free. 1..8 = that person, by name, so two bricks can be
     // given to one person and the collision drawn rather than hidden.
@@ -409,6 +415,16 @@ export function moduleFacts(m) {
 // she sets rather than a wall she is stopped by: she can always push a cycle
 // later, and the chain carries that same cycle down the rest of the line with it.
 //
+// The middle one is the brick's own machine, and it is the one she asked to be
+// able to switch off: "allow each brick cycle to overlap". `cycleMin` can mean
+// two different things on two different bricks. On a wash it is minutes the sink
+// is busy, so two lots really cannot be in it. On her fold it is dough RESTING,
+// and folding a second lot while the first rests is the whole trick of the day.
+// Only she can tell those apart, so `overlap` is the brick saying which it is:
+// off (where every brick starts) keeps one lot at a time, and on takes the
+// self-clamp away so her own times stand. Even then the chain still holds it, so
+// overlap never lets a lot start before the dough exists.
+//
 // A switched-off brick is not in the build, so nothing waits on it — the chain
 // steps over it to the last brick that IS running, which is what happens at the
 // bench when a machine is not switched on.
@@ -421,11 +437,13 @@ export function chainLine(modules) {
   for (const m of list) {
     const out = [];
     const ownEnds = [];
-    // One lot at a time per machine, so cycle k waits on cycle k-count.
-    const gap = m.count;
+    // One lot at a time per machine, so cycle k waits on cycle k-count — and a
+    // brick she has said may overlap its own cycles skips this entirely, leaving
+    // the chain above as the only thing that can still move one of her times.
+    const gap = m.overlap ? 0 : m.count;
     for (let k = 0; k < m.repeats; k += 1) {
       let at = m.starts[k];
-      if (k - gap >= 0) at = Math.max(at, ownEnds[k - gap]);
+      if (gap > 0 && k >= gap) at = Math.max(at, ownEnds[k - gap]);
       if (m.follow && prev) {
         const up = ends.get(prev.id) || [];
         if (up.length) {
