@@ -12,6 +12,9 @@ function createEl(tag) {
   return {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, textContent: "", value: "", checked: false, selected: false, disabled: false,
+    // A real element always answers these, so the shim must too: a pop-up body
+    // that reports scrollTop as undefined would let a scroll bug pass unnoticed.
+    scrollTop: 0, hidden: false,
     _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(c) { if (c != null) this.children.push(c); return c; },
@@ -25,16 +28,19 @@ function createEl(tag) {
     getAttribute(k) { return this.attrs[k]; },
   };
 }
+// By id, and the SAME node every time — a real getElementById does not hand back
+// a fresh element per call, and showPopup() fills the one shared #popup-layer.
+const registry = {};
 globalThis.document = {
   createElement: createEl,
   createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
-  getElementById: () => createEl("div"),
+  getElementById: (id) => (registry[id] ||= createEl("div")),
   querySelector: () => null,
   querySelectorAll: () => [],
   body: createEl("body"),
 };
 
-import { select } from "../admin/js/ui.js";
+import { select, showPopup, el } from "../admin/js/ui.js";
 
 const STATUSES = [
   { value: "new", label: "New" },
@@ -129,4 +135,28 @@ test("select() leaves a one-section menu alone — a lone heading is noise", () 
 test("select() keeps a menu of plain options flat", () => {
   const s = select(STATUSES, "new", () => {});
   assert.deepEqual(s.children.map((c) => c.tagName), ["OPTION", "OPTION", "OPTION"]);
+});
+
+// The Scenario planner's brick editor is a card taller than a phone — fifteen
+// boxes, one row per cycle, a box per line — so a repaint while she is working
+// down it must not throw her back to the top. showPopup() rebuilds by emptying
+// the body, and emptying it is exactly what used to reset the scroll.
+test("a pop-up repaint keeps the scroll where she was reading (v141)", () => {
+  let refresh = null;
+  showPopup("A tall card", (r) => { refresh = r; return el("div", { class: "field" }, "a box"); });
+  const layer = document.getElementById("popup-layer");
+  const body = layer.children[0].children[1];
+  assert.equal(body.className, "popup-body", "the pop-up body is the thing that scrolls");
+
+  body.scrollTop = 420;
+  refresh();
+
+  assert.equal(body.children.length, 1, "the repaint really did rebuild the body");
+  assert.equal(body.scrollTop, 420, "and left the card where she was reading");
+});
+
+test("opening a pop-up starts it at the top", () => {
+  showPopup("Another card", () => el("div", {}, "a box"));
+  const body = document.getElementById("popup-layer").children[0].children[1];
+  assert.equal(body.scrollTop, 0, "a card opened fresh is not inheriting a scroll position");
 });

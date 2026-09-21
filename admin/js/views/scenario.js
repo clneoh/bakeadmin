@@ -1074,7 +1074,6 @@ function editModule(saved, sc, on, isNew = false) {
       live[key] = opt && opt.int ? Math.round(n) : n;
       on.persist();
       on.refresh();
-      refresh();
     };
 
     const f = (key, label, hint, opt = {}) => {
@@ -1083,7 +1082,13 @@ function editModule(saved, sc, on, isNew = false) {
         min: String(opt.min == null ? 0 : opt.min), step: String(opt.step || 1),
         value: String(live[key] == null ? 0 : live[key]),
       });
+      // Typing writes the number and repaints the screen behind the pop-up, but
+      // it must NOT rebuild this card: this card is tall, and rebuilding it under
+      // her finger threw the scroll and destroyed the box she was typing in.
+      // A box whose answer changes the CARD's shape — one more line, one more
+      // cycle row — says so, and then it rebuilds once, when she leaves the box.
       input.addEventListener("input", () => set(key, input.value, opt));
+      if (opt.rebuild) input.addEventListener("change", () => refresh());
       return el("div", { class: "field" }, el("label", {}, label), input,
         hint ? el("div", { class: "hint" }, hint) : null);
     };
@@ -1157,7 +1162,6 @@ function editModule(saved, sc, on, isNew = false) {
         if (i === 0) live.person = p;
         on.persist();
         on.refresh();
-        refresh();
       };
       const rows = [];
       for (let i = 0; i < many; i += 1) {
@@ -1239,15 +1243,15 @@ function editModule(saved, sc, on, isNew = false) {
           "This is the Lego brick. Switch it off and the line answers without it, so you can see what a machine would buy you before you buy it. A brand new brick arrives switched off until its numbers are in.")),
       t("name", "What this brick is called", "Your words, so the timeline reads the way you would say it."),
       t("icon", "Its picture", "Any single emoji — it is what you will look for on the timeline."),
-      jobField(live, on, refresh),
+      jobField(live, on),
       f("cycleMin", "Minutes one pass holds it", "How long the dough is in the mixer, the pan is in the oven, or the dough sits between folds. For your fold that is the 28 minutes of rest, not the 30-minute gap.", { min: 1 }),
       f("batch", "Pans in one pass", "How many pans that one pass deals with.", { min: 1 }),
       f("touchMin", "Minutes of you, per pass", "0 means it runs itself — the honest reading of the retard and of the bake.", { min: 0 }),
       f("everyMin", "Minutes from one pass to the next", "The pace it repeats at. For your fold that is the 28 minutes of rest PLUS the 2-minute fold — so the brick restarts 30 minutes after the last time.", { min: 1 }),
-      f("repeats", "How many times it runs in the day", "Set this above 1 and the brick restarts later in the day: the fold runs four times. The climb card raises this one for you — and a day can only hold so many, so a pass that takes hours is counted at the few that fit.", { min: 1, int: true }),
+      f("repeats", "How many times it runs in the day", "Set this above 1 and the brick restarts later in the day: the fold runs four times. The climb card raises this one for you — and a day can only hold so many, so a pass that takes hours is counted at the few that fit.", { min: 1, int: true, rebuild: true }),
       // Her point one: the brick that became the bottleneck, had twice over.
-      f("count", "How many of these do you have", "Two mixers, two ovens, two chillers, two people folding. Two of them run two cycles side by side, so a cycle stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many times it runs to put the second one to work, or let the climb do it for you. And a brick you have two of is drawn as that many LINES, one under the other, each with its own person — the boxes for that appear below as soon as this says 2.", { min: 1, int: true }),
-      f("startMin", "Minutes in, when its first pass starts", `Counted from your day's start, so 90 is an hour and a half after you begin. Turn this one — or drag the bar on the timeline — to bring the people needed down. Cycle 1's time is this same number, so setting one sets the other.`, { min: 0 }),
+      f("count", "How many of these do you have", "Two mixers, two ovens, two chillers, two people folding. Two of them run two cycles side by side, so a cycle stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many times it runs to put the second one to work, or let the climb do it for you. And a brick you have two of is drawn as that many LINES, one under the other, each with its own person — the boxes for that appear below as soon as this says 2.", { min: 1, int: true, rebuild: true }),
+      f("startMin", "Minutes in, when its first pass starts", `Counted from your day's start, so 90 is an hour and a half after you begin. Turn this one — or drag the bar on the timeline — to bring the people needed down. Cycle 1's time is this same number, so setting one sets the other.`, { min: 0, rebuild: true }),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, followBox,
           el("span", { class: "check-label" }, "Waits for the brick above")),
@@ -1345,7 +1349,7 @@ function cycleField(live, sc, on, refresh) {
 // this brick's minutes and its batch straight off it. The answer is kept as a
 // job of its own rather than matched on the brick's name, so she is free to call
 // the wash whatever she calls it at the bench.
-function jobField(live, on, refresh) {
+function jobField(live, on) {
   const now = jobOf(live);
   const box = select([
     { value: "", label: "Not a step on the Production line" },
@@ -1354,7 +1358,6 @@ function jobField(live, on, refresh) {
     live.job = box.value;
     on.persist();
     on.refresh();
-    refresh();
   });
   box.className = "input";
   return el("div", { class: "field" },

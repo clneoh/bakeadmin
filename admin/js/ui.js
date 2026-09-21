@@ -144,7 +144,15 @@ export function showPopup(title, makeBody, { wide = false } = {}) {
     layer.replaceChildren();
   };
   const body = el("div", { class: "popup-body" });
-  const refresh = () => body.replaceChildren(makeBody(refresh, close));
+  // Repainting a pop-up replaces the body wholesale, which is fine for a short
+  // card but not for one tall enough to scroll: emptying the body drops its scroll
+  // to the top, so a repaint while she is working down a long card throws her back
+  // to the top of it. Keep where she was reading.
+  const refresh = () => {
+    const keepTop = body.scrollTop;
+    body.replaceChildren(makeBody(refresh, close));
+    body.scrollTop = keepTop;
+  };
   const card = el("div", { class: `popup-card${wide ? " wide" : ""}` },
     el("div", { class: "popup-head" },
       el("div", { class: "popup-title" }, title),

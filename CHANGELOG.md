@@ -1,8 +1,42 @@
-# Jienluv2bake — change history (v54 → v141)
+# Jienluv2bake — change history (v54 → v142)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v142 (no database step). Typing a number into a long card no
+longer throws the card — the box keeps your cursor and the card stays where you were
+reading.**
+
+**What you asked.** In your own words: *"why the display jump and it is very
+confusing"*. It was a real fault, and this is it fixed.
+
+**What was actually happening.** The brick's card is a long card — fifteen boxes, a box
+per line, a row for every cycle — and **every single number you typed into it was
+rebuilding the whole card underneath your finger**. That is the jump you saw: the box you
+were typing in was thrown away and a brand new one put in its place, so the cursor went
+with it and the keypad shut. On a phone that reads as one digit per tap, on a card that
+had moved somewhere else. It was worst on the three boxes that change how tall the card
+is — typing a 6 into *How many of these do you have* grew the card by a line's worth of
+boxes on every keystroke.
+
+**What it does now.** Typing a number writes the number and **leaves the card alone**. The
+box keeps your cursor, the keypad stays open, and the card stays exactly where you had
+scrolled to — checked box by box: the brick's own numbers, the people box, and every line
+box under *How many of these do you have*. Three boxes still change the card's shape,
+because their answer really does add a row or move a time — **How many times it runs** (one
+more row per cycle), **How many of these you have** (one more line box), and **Minutes in,
+when its first pass starts** (cycle 1's own time). Those three now redraw **once, when you
+leave the box**, instead of once per digit.
+
+**And it is not only the brick's card.** The jumping was in the shared pop-up that every
+screen in the app opens, so the same fix covers all of them: any card long enough to scroll
+keeps its place while you work down it, and a card you open fresh still starts at the top
+where it should.
+
+**Nothing you have is affected.** This changes only when the screen redraws, never what it
+redraws: every figure, every scenario and every saved line reads exactly as it did in v141.
+Nothing new to run in the database.
 
 **21 Sep 2026 — engine v141 (no database step). A brick you have two of is now drawn
 as two lines, and each line carries its own person — so one worker stands at one job
