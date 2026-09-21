@@ -123,6 +123,11 @@ function recordPayload(kind, rec) {
       // an empty scenario over the one she designed on the other phone.
       ...(Array.isArray((rec.scenario || {}).modules) && rec.scenario.modules.length
         ? { scenario: rec.scenario } : {}),
+      // The scenarios she has saved and named, once there are any — same guard
+      // again: a phone that never saved one must not push an empty shelf over
+      // hers.
+      ...(Array.isArray(rec.scenarios) && rec.scenarios.length
+        ? { scenarios: rec.scenarios } : {}),
       // The to-do list once she customises it. Absent until then: a phone that
       // never edited its tasks must not push the preset seed and overwrite the
       // other phone's customised list (last-write-wins below would clobber it).

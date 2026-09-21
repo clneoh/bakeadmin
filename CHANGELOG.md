@@ -1,10 +1,121 @@
-# Jienluv2bake — change history (v54 → v137)
+# Jienluv2bake — change history (v54 → v138)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
-**21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
+**21 Sep 2026 — engine v138 (no database step). The scenario planner is yours to
+build in: bricks you make, move, give to a person and drag along the day, a ruler
+and a start time, scenarios you save and name — and the scenario you choose can now
+be loaded onto the Production line.**
+
+**What you asked.** In your own list: *"1st i cannot change the time scale, say i want a
+strat at 8am. And i need an time scale ruler"*, *"I need to move the sequence of the lego
+brick"*, *"I want to be able to create, edit and delete lego brick"*, *"i want to be able to
+same and name a scenario. Edit or delete"*, *"how to have person 2?, I would want one person
+for each module, And a Total person showing overlapping persons time slot if any"*, *"The lego
+brick should be able to restart? if choosen to, and how, can it be drag tomove the start time
+of each brick"*, and *"The fold brick should show 28min, and its person should show 2 minutes,
+when i adjust the brick until minumum total person overlap, that will be best scenario for
+manpower planning."* Then, as I was building it: *"can allow to save a scenario? scenario and
+production line has some function overlapping, the chooses scenario should be able to be
+loaded to production line"*.
+
+**What changed. Everything below is inside More → 🧱 Scenario planner, plus one card on
+More → Production line. Nothing else in the app moved.**
+
+**The day starts when you say, and there is a ruler to set it by.** One box at the top sets
+**the time your day begins**, and every clock reading on the screen is counted from it — so
+*"say i want a strat at 8am"* is one field rather than ten start times to retype. A ruler now
+runs under the timeline: a tick every half hour with the o'clock ones named, so a bar can be
+read against the clock instead of guessed at. And the **time scale** is yours: four chips —
+**Wide**, **Standard**, **Close**, **Closest** — change how wide a minute is drawn, from the
+whole day on one phone screen to close enough to tell a 15-minute bake from the one before it.
+The hour lines on the timeline follow whichever you pick, so grid and ruler always agree.
+
+**A brick is now a thing you own, not a row you read.** **＋ New brick** adds one, and it
+arrives **switched off** so an empty brick cannot become the wall and answer your day with a
+nonsense figure. Open any brick and you can rename it, change its picture, change every number
+in it, and — this is new — **delete it** or move it **↑ Earlier / ↓ Later**, because the list
+order *is* the day's order: the timeline is read top to bottom and a tie for the wall goes to
+the earlier brick. So *"move the sequence of the lego brick"* is two buttons, and the day
+re-sorts around it.
+
+**One person for each module, and the Total person you described.** Every brick can be given to
+a person: **0** means whoever is free, **1, 2, 3…** names someone. Two chips do it in one tap —
+**One a brick** gives each job its own person, **Share them** hands them all back to whoever is
+free. Under the timeline there is now **one row per person**, each showing the jobs that person
+is at and how much work they carry, and where two of their jobs overlap the bar wears a red
+outline with a sentence naming **both jobs and the minute they clash**. Nothing blocks a plan
+that cannot work — the whole point is that it is *shown*. The **Total person** row stacks
+person 1, person 2, person 3 and the rest on top of each other, which is what you asked for:
+*"with that i can see, which time period utilise more manpower"*. It reads out the most people
+needed at once, the busiest stretch by name, and how many minutes are being worked two at a
+time. Bring the bricks closer together and that row flattens — that is the manpower planning.
+
+**Combining two people, which was your own example.** **Combine two…** asks two questions: the
+person who keeps the job, then whose bricks move to them. Person 1 then person 3 makes the row
+read **Person 1+3** — *"to generate person 1_3"*, in your words — and whatever then collides is
+exactly what that combination cannot pay for. Give one brick back in its own editor and the
+**1+3** label prunes itself the moment person 3 has a brick again, so a label can never claim
+somebody who is not really there.
+
+**A brick restarts, and a brick can be dragged.** Same number, two ways to move it. Type the
+gap and the number of runs and the brick restarts itself later in the day — your fold, four
+times. Or take the bar on the timeline with your finger and **drag it**: the start moves in
+5-minute steps, the row's times update as you drag, and letting go will not open the brick's
+card. Drag to move, tap to open. Your pans do not change when you drag; only your people do.
+
+**Your fold brick now reads the way you described it.** It **holds for 28 minutes**, it is
+**2 minutes of you**, and it restarts 30 minutes after the last fold, four times. One honest
+note: if your phone's fold brick still reads **30** in *minutes one pass holds it*, that is the
+copy your phone saved from the first version of this screen. Type **28** into that box and it
+is right. I have not overwritten it for you, because your numbers are never changed by an
+update — that is a rule of this app, not an oversight.
+
+**Save a scenario, name it, open it, rename it, delete it.** **Save changes** keeps the one you
+are in; **Save a copy…** makes a second named one and carries on in it — which is how you keep
+the line you have and the line you are thinking of buying side by side. **Your scenarios** lists
+everything saved: tap to open (the row you are in wears a ●), or tap the **✏️** to rename or
+delete it. Deleting a saved scenario never touches the bricks you are working on.
+
+**Your sister's line is in there too, built from her own words.** Next to your saved
+scenarios there is one more row — **＋ My sister proposal 21/9/2026** — and one tap puts it on
+the shelf and opens it. It is the line she wrote out, and it has **no mixer and no chiller in
+it**: everything mixed by hand in one big tub, folded in that same tub for 2 minutes every 30
+minutes three times, tipped into four pans, an hour in a proofing cabinet, then dimple and oil
+in the pan, half an hour of rest, the oven, and cooling and packing. As she described it that
+is **4 pans a day in 8 bricks**, and the thing stopping it is **mixing by hand in the tub** —
+not the oven. Bring the bricks closer together and the Total person row will show you where the
+three folds collide with filling the pans.
+
+**Two of its numbers are mine, not hers, and both say so on the brick.** She never gave a mixing
+time — she mixes by hand, so there is no machine time to give — and I have seeded it with the
+length of your own mixer pass so the brick is not blank. The **Into the pans** brick is worked
+out from **your** measured 3 minutes a pan, which is 12 minutes for four. Everything else is her
+own numbers, and every number on every brick is editable. The tub mixes **4 pans in one go**, so
+if her tub is bigger, change the batch on that brick and the whole day re-reads itself.
+
+**One repair under this.** Opening a saved scenario used to leave the box at the top of the
+screen still reading the scenario you were in *before* it — the name, the start time and the
+pans you want. It now repaints with the scenario you actually opened, so the top of the screen
+and the row you just tapped always agree.
+
+**And the chosen scenario loads onto the Production line.** A new card at the top of
+More → **Production line** — **Start from a scenario** — lists everything you have saved.
+Tapping one shows you **every number it would change before anything moves**: what it was, what
+it would become, and which numbers it would leave exactly as they are. So that the two screens
+can agree without retyping, every brick's card now carries one more line — **which step of your
+line is this** — where you say whether it is the mixer, the wash, weighing the dough out, the
+topping, the oven, the cooling or the retard. A brick's **minutes** and its **batch** are what
+cross over; a brick that is not a step of the line (your fold, loading the chiller) is named as
+left out rather than silently dropped. **How many pans you own** and **how many hours you will
+bake for** stay exactly as they are, because a scenario does not know them and the screen says
+so instead of filling them with a nought. Nothing is written until you press the button, and
+the button counts the numbers that would really move — so a scenario you have already loaded
+says *"nothing here changes"* rather than promising eleven.
+
+**20 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out**21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
 of modules, watch the day as a timing diagram, and raise the pans you want until something
 stops you.**
 

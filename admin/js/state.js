@@ -76,6 +76,11 @@ export function defaultState() {
       // that a phone which never opens it never pushes a preset over the one she
       // has built on the other phone. See js/scenario.js for the model.
       scenario: {},
+      // The scenarios she has saved and named (21 Sep 2026): [{ id, name,
+      // modules, ... }]. `scenario` above is the one she is working on; this is
+      // the shelf of them, so two designs — the line without a fridge and the
+      // line with one — can sit side by side. Empty means she has saved none.
+      scenarios: [],
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
       // The two lists the books are built from (16 Sep 2026). Empty means "the
       // built-in ones" — see js/accounts.js — so a phone that never edits them
@@ -285,6 +290,9 @@ function normalize(s) {
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
       production: { ...d.settings.production, ...(((s.settings || {}).production) || {}) },
       scenario: { ...d.settings.scenario, ...(((s.settings || {}).scenario) || {}) },
+      // Saved scenarios, guarded as a list: a hand-edited import that put an
+      // object here would otherwise break the shelf on the scenario screen.
+      scenarios: Array.isArray((s.settings || {}).scenarios) ? s.settings.scenarios : [],
       categories: Array.isArray(((s.settings || {}).categories)) ? s.settings.categories : [],
       payMethods: Array.isArray(((s.settings || {}).payMethods)) ? s.settings.payMethods : [],
       developer: cleanDeveloper(((s.settings || {}).developer)),

@@ -7,9 +7,10 @@
 // It is a planner she types into: nothing here reads an order, and nothing here
 // blocks a sale. Change a number and the whole screen answers again at once.
 
-import { el } from "../ui.js";
+import { el, button, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
 import { computeLine, trim } from "../production.js";
+import { scenarioPlanPatch, scenarioSummary } from "../scenario.js";
 
 // The numbers she types, in the order she'd say them. Everything is seeded from
 // the measurements she already gave on /form/, so the screen says something true
@@ -95,11 +96,23 @@ export function renderProduction(root, state) {
     refresh();
   };
 
-  const board = el("div", {},
-    el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "These are the numbers you measured. Change any of them and everything below answers again — nothing here is saved anywhere but your own phones."),
-    ...GROUPS.map((g) => groupCard(g, plan, onEdit)));
+  // The inputs are drawn once and then left alone while she types, so the field
+  // she is in keeps its place and its cursor. A load from a scenario rewrites the
+  // numbers themselves, which is the one thing that does need them redrawn.
+  const fields = el("div", {});
+  const drawFields = () => {
+    if (dead) return;
+    fields.replaceChildren(
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "These are the numbers you measured. Change any of them and everything below answers again — nothing here is saved anywhere but your own phones."),
+      ...GROUPS.map((g) => groupCard(g, plan, onEdit)));
+  };
 
+  const board = el("div", {},
+    loadCard(state, plan, () => { drawFields(); refresh(); }),
+    fields);
+
+  drawFields();
   refresh();
   root.replaceChildren(board, readout);
   return () => { dead = true; };
@@ -125,6 +138,113 @@ function fieldRow(f, plan, onEdit) {
     el("label", {}, f.label),
     input,
     f.hint ? el("div", { class: "hint" }, f.hint) : null);
+}
+
+// ── Starting from a scenario ───────────────────────────────────────────────
+// The two screens ask different questions about the same day, and she asked for
+// the one to feed the other: lay the day out in bricks, then ask the line what
+// that day can really deliver.
+//
+// What crosses over is what she typed into the bricks — their minutes and their
+// batches — and never a figure either screen invented. Nothing is written until
+// she has seen the list, and the numbers it does not touch are named rather than
+// quietly left to look as though they had been updated.
+function loadCard(state, plan, onLoad) {
+  const list = Array.isArray(state.settings.scenarios) ? state.settings.scenarios : [];
+  const kids = [
+    el("p", { class: "card-title" }, "Start from a scenario"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "Built a day out of bricks under More → Scenario planner? Load it here and this screen answers the same day the other way round — how fast it can go, and which step is holding it back. You will see every number it would change before anything moves."),
+  ];
+
+  if (!list.length) {
+    kids.push(el("p", { class: "card-sub", style: "margin:0" },
+      "You have not saved a scenario yet. Build one there, save it under a name, and it will appear here."));
+  } else {
+    kids.push(el("div", {}, ...list.map((s) => el("div", {
+      class: "info-row tappable",
+      onclick: () => previewLoad(s, plan, state, onLoad),
+    },
+      el("span", { class: "j-what" }, s.name || "Untitled"),
+      el("span", { class: "info-val" }, scenarioSummary(s))))));
+  }
+
+  return el("div", { class: "card" }, ...kids);
+}
+
+// What the load would do, line by line, before it does any of it. These are her
+// own measured numbers, so replacing one without showing her first would be the
+// same sin as a rule that quietly hides a sale.
+function previewLoad(s, plan, state, onLoad) {
+  const p = scenarioPlanPatch(s, plan);
+
+  showPopup(`Load “${s.name || "Untitled"}”`, (refresh, close) => {
+    const kids = [
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        scenarioSummary(s),
+        p.people > 0
+          ? ` there — and the bricks need ${p.people} ${p.people === 1 ? "pair" : "pairs"} of hands at once.`
+          : " there."),
+    ];
+
+    if (p.lines.length) {
+      kids.push(el("div", {}, ...p.lines.map(loadLine)));
+    } else {
+      kids.push(el("p", { class: "card-sub", style: "margin:0" },
+        "This scenario has no brick that is a step on this screen, so there is nothing here to load from it."));
+    }
+
+    // The steps of the line this scenario simply does not cover.
+    if (p.left.length) {
+      kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        `Nothing in this scenario feeds ${upper(listWords(p.left.map(lower)))} — ${p.left.length === 1 ? "it stays" : "they stay"} exactly as you typed ${p.left.length === 1 ? "it" : "them"}.`));
+    }
+    // Bricks that are real work but not a step of the line.
+    if (p.unmapped.length) {
+      kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        `${listWords(p.unmapped.map(upper))} ${p.unmapped.length === 1 ? "is not a step" : "are not steps"} on this screen, so nothing here comes from ${p.unmapped.length === 1 ? "it" : "them"}.`));
+    }
+    if (p.doubled.length) {
+      kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        `Two of your bricks are both ${listWords(p.doubled.map(lower))} — the load takes the first one in your list.`));
+    }
+    if (p.pans > 0) {
+      kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        `For your own reference: as built, those bricks pass ${p.pans} ${p.pans === 1 ? "pan" : "pans"} a day. This screen counts the day its own way, from your pans, your chiller and your oven.`));
+    }
+    kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      "How many pans you own and how many hours you will bake for are not in a scenario — those two stay as they are."));
+
+    // The count is the numbers that would actually MOVE. Every line above can
+    // read "no change" when she has already loaded this scenario, and a button
+    // promising eleven changes then would be the screen telling her a small lie.
+    const moves = p.lines.filter((l) => l.changes).length;
+    kids.push(el("div", { class: "popup-actions" },
+      button("Leave my numbers alone", close, "ghost"),
+      button(moves === 0
+        ? "Load it — nothing here changes"
+        : `Load ${moves} ${moves === 1 ? "number" : "numbers"}`,
+        () => {
+          Object.assign(plan, p.patch);
+          save(state);
+          close();
+          onLoad();
+          toast(`Loaded “${s.name || "Untitled"}” — the screen is answering for that day now`);
+        }, "primary")));
+
+    return el("div", {}, ...kids);
+  });
+}
+
+// One number it would take, in the terms the field itself names.
+function loadLine(l) {
+  const unit = l.unit ? ` ${l.unit}` : "";
+  const now = l.changes
+    ? (l.from > 0 ? `${trim(l.from)} → ${trim(l.to)}${unit}` : `blank → ${trim(l.to)}${unit}`)
+    : `${trim(l.to)}${unit} — no change`;
+  return el("div", { class: "info-row" },
+    el("span", { class: "j-what" }, l.label),
+    el("span", { class: "info-val" }, now));
 }
 
 function blocks(state, plan) {
