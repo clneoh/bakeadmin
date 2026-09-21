@@ -55,20 +55,37 @@ export function defaultState() {
         hours: 5,
         target: 60,
         pans: 12,
-        trays: 12,
-        mixerPans: 25,
+        prooferPans: 12, // what her proofer holds; the chiller is a what-if, not a station
+        mixerPans: 6,    // one tub fills one oven load, which is her actual cycle
         ovenPans: 6,
-        ovenMin: 15,
+        ovenMin: 15,     // one turn of the oven — bake and swap together
         ovenShelves: 2,
-        washMin6: 18,
-        topMin6: 8,
-        swapMin6: 4,
-        // The rest of the hand-work: 0 means she has not timed it yet, and the
-        // screen says which steps are still uncounted rather than pretending
-        // they are free. Her own numbers replace these as she measures them.
-        mixMin: 0,
-        scaleMin6: 0,
+        scaleMin6: 15,   // oiling the pans and weighing the dough out, one job one name
+        topMin6: 6,      // her minute a pan
+        swapMin6: 2,     // out and in, both halves
+        // The bake day she corrected on 22 Sep 2026, the chain the backwards
+        // plan walks: mix in the tub, the rests and folds, into pans, the
+        // proofer twice with the dimple between, the oven, then the cooling.
+        mixMin: 20,
+        foldRests: 4,
+        foldRestMin: 30,
+        foldMin: 1,
+        proofMin1: 45,
+        proofMin2: 30,
+        coolWaitMin: 30,
+        // The clock the backwards plan is built from, and the two bands she
+        // asked for: the rhythm she would like, and how many minutes early are
+        // still fine to shuffle work into.
+        readyAtMin: 480,
+        rhythmMin: 15,
+        tolMin: 5,
+        // The one step still untimed: 0 means she has not measured it, and the
+        // screen names it rather than pretending it is free.
         coolMin6: 0,
+        // Which cutting of the plan these numbers belong to. A phone holding
+        // the earlier one is carried across once, on load — see
+        // upgradeProductionPlan below.
+        planRev: 145,
       },
       // The scenario planner (21 Sep 2026): a line built out of modules on a
       // clock, so she can design a production flow rather than only read one.
@@ -319,7 +336,69 @@ function normalize(s) {
   ensurePlanningUnits(out);
   backfillUnitRefs(out);
   linkProductUnits(out);
+  upgradeProductionPlan(out.settings.production, ((s.settings || {}).production) || {});
   return out;
+}
+
+// The production plan was measured again on 22 Sep 2026, around the bake day she
+// corrected. Three of its fields changed meaning — the wash became the oiling
+// and weighing-out, the chiller's trays became her proofer's pans, and the
+// mixer's bowl became the tub one oven load comes from — so an older phone's
+// numbers cannot simply be kept. They are not dropped in silence either: every
+// one of them is named in the changelog of the release that moved it. This
+// normalize-time step is the only path that reaches a phone which already holds
+// its own copy (the same reason ensureCountUnits exists), and it runs once,
+// keyed on planRev.
+const PLAN_REV = 145;
+
+export function upgradeProductionPlan(plan, saved) {
+  if (!plan || typeof plan !== "object") return false;
+  // The marker is read off her own saved copy rather than the merged plan: by
+  // the time this runs the new defaults are already sitting in every unset key,
+  // so reading planRev off the merged plan would read 145 out of the defaults
+  // and skip the migration on the one phone that needs it.
+  const was = (saved && typeof saved === "object") ? saved : {};
+  if (Number(was.planRev) >= PLAN_REV) return false;
+  const had = (k) => Number(was[k]) || 0;
+
+  // Five fields changed what they are asked, and are re-seeded from the bake day
+  // she corrected. A number cannot be carried across a change of question — hers
+  // would make her phone contradict the chain she gave, and two of these are
+  // numbers she had typed (the mix read 6, the wash 20), so they are named one by
+  // one in the changelog with the value each replaces. That is what makes this an
+  // announced correction rather than a silent edit, and any of them can be typed
+  // back in a tap if her stopwatch disagrees.
+  //
+  //   mixMin    20  "mix the dough in the tub" is the whole mix now, not loading
+  //                 it — her own 20 minutes, against the 6 she had.
+  //   mixerPans  6  "pans one tub of dough makes". Her cycle is one tub, one oven
+  //                 load, six pans. The 28 answered "what does the mixer's bowl
+  //                 hold", and kept it would spread one 20-minute mix over four
+  //                 tubs of pans and break the chain outright.
+  //   scaleMin6 15  the oiling and the weighing-out were one job under two names,
+  //                 and the step is the 15 she gave for them together. Her 46
+  //                 minutes a batch is the proof: it counts them once.
+  //   topMin6    6  her minute a pan. The 8 was measured with the topping in it,
+  //                 which this step no longer includes.
+  //   swapMin6   2  taking six out and putting six in, both halves. The 4 was one
+  //                 half of it.
+  plan.mixMin = 20;
+  plan.mixerPans = 6;
+  plan.scaleMin6 = 15;
+  plan.topMin6 = 6;
+  plan.swapMin6 = 2;
+
+  // The wash has no successor — its job is inside the 15 above.
+  delete plan.washMin6;
+
+  // The trays belonged to the what-if chiller. Her proofer holds the pans now,
+  // and the count carries over where she had one: it was always the same
+  // cabinet, only ever named after the half of the day she is not running.
+  if (!(Number(was.prooferPans) > 0) && had("trays") > 0) plan.prooferPans = had("trays");
+  delete plan.trays;
+
+  plan.planRev = PLAN_REV;
+  return true;
 }
 
 // Give every ingredient a uomId that matches its `unit` string, creating the

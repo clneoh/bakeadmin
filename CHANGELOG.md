@@ -1,8 +1,123 @@
-# Jienluv2bake — change history (v54 → v144)
+# Jienluv2bake — change history (v54 → v145)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v145 (no database step). Your real bake day on the Production
+line — and the same day read backwards from the oven, so no dough is ever mixed too
+early.**
+
+**What you asked.** In your own words: *"work backwards, from end of process, the previous
+process whould have a latest start time, by going this way, we prevent preparing dough too
+early and prevent dough from over fermented. But we can fine tune each process to start
+earlier to better manage manpower utilisation."* You had corrected your own step order that
+morning, after checking it with your sister: *"i think my self confused, i double check with
+my sister and now understood the right flow. we cannot mix the dough too early, it will over
+fermented."* And you had already worked your ceiling out yourself and asked about it: *"6pan
+sit in it for 81min, proofer able to hold 12pans, so effectively the poofer can produde 6
+pan/40.5min? So the proofer became the bottle neck?"* Yes — 40.5 minutes exactly. This
+release gets that figure onto the screen out of your own numbers rather than out of a guess.
+
+**The flow on the Production line was not your day.** It read mix, then the chiller, then
+washing and oiling the pans, then weighing the dough out, then the oven. Against your day
+that put the chiller where you have none, transposed the oiling and the weighing out, and —
+the worst of it — had no fold in it at all. The map now runs your order, top to bottom: mix
+the dough in the tub; the rests and the stretch and folds; oil the pans and weigh the dough
+out; into the proofer; dimple and top; proofer again; the oven; then cutting and packing.
+The proofer is drawn twice because your day uses it twice, with the dimple in between.
+
+**The wall was a chiller you have not bought.** The screen watched a chiller of 12 trays over
+5 hours and made that your ceiling — 12 pans a day — which is a cap on a cabinet that is
+still only a what-if on your planner, kept switched off. The station you actually own is the
+proofer, and it is the honest ceiling: a batch sits in the cabinet for the whole 81 minutes
+(45, then the dimple, then 30), so 12 pans means one batch every 40.5 minutes and no faster.
+Change **Pans your proofer holds at once** to 18 and the screen answers 27 minutes instead,
+and says which of your limits is the wall now. It never tells you to buy one: at one pair of
+hands a bigger cabinet buys you nothing, and the screen says so.
+
+**Your day, read backwards.** A new card beside the flow, **Your day, backwards**, gives
+every step the last moment it may start, worked back from the oven — the end of the process,
+which is where you asked to start from. For the first six pans to be standing at the oven at
+8:00 am, the dough goes into the tub at 4:01 am:
+
+- Mix the dough in the tub — 4:01 am
+- The rests and the stretch and folds — 4:21 am
+- Oil the pans and weigh the dough out — 6:24 am
+- Into the proofer — 6:39 am
+- Dimple and top — 7:24 am
+- Proofer again — 7:30 am
+- The oven, bake and swap — 8:00 am
+
+That is **239 minutes** from the tub to the oven and **254** from the tub to the pans coming
+out, which is your own arithmetic and nothing else. One batch is **46 minutes of your hands**:
+20 mixing, 3 folding, 15 oiling and weighing, 6 dimpling, 2 swapping.
+
+**The clock is a field, not a rule.** The minute the first batch must be standing at the oven
+is yours to set — it arrives at 8:00 am — and every start time below is worked back from it.
+Move it and the whole day moves with it.
+
+**Five minutes early is allowed, and nothing is locked.** Every step also carries a five
+minute band above it: a step may begin up to five minutes early to suit your hands, which is
+the room you asked for to manage the people. It is advice drawn on the screen and it is never
+a gate — no time here stops you baking, hides an order, or overrules your own eye. You watch
+the dough; the timetable watches the clock.
+
+**Five numbers changed what they were asked, and each one is named here rather than changed
+quietly.** Your saved numbers move across by themselves the first time your phone opens this
+version, so you will see these the moment you load it — and every one of them can be typed
+back in one tap if your own timing says otherwise:
+
+- **Minutes to mix one tub of dough**: was 6, now 20. The old box asked how long it took you
+  to load a mix; this one asks how long the whole mix takes, which you gave as twenty minutes
+  for one tub.
+- **Pans one tub of dough makes**: was 28, now 6. The old box asked what your mixer's bowl
+  holds. Your cycle is one tub of dough into the pans of one oven load — six — and the mixing
+  and folding are spread over that tub, so this is the number the chain needs.
+- **Oil the pans and weigh the dough out, for 6 pans**: was two jobs under two names (your
+  washing and oiling read 20, and the weighing out was never timed), now one job at 15. Your
+  own count of the hand-work has it once, which is the proof they were one job: with the two
+  merged, the app's 46 minutes a batch is your 46 to the minute.
+- **Minutes to dimple and top 6 pans**: was 8, now 6 — your one minute a pan. The 8 was
+  measured with the topping in it.
+- **Minutes to take 6 pans out and put 6 in**: was 4, now 2 — *"2min covers out and in"*, as
+  you put it. One turn of the oven is the baking and the swapping together, 15 minutes as
+  before.
+
+Everything else of yours is untouched: your two pairs of hands, your 5 hours, your 24-pan
+day, your 12 pans, 6 pans a bake, 15 minutes a turn, the 30-minute cooling — and your 12
+minutes of cutting and packing, which you had timed and which is still yours.
+
+**A step with no minutes on it is still named, never counted as free.** Cutting and packing is
+the one job that arrives with an empty box — every other step of the day comes seeded with your
+own figure — so on a fresh phone the flow says **not timed yet** and the backwards card says in
+a sentence that it is not counted in the 254 minutes, rather than quietly treating your time at
+the table as free. You had already timed yours at 12 minutes for 6 pans, so on your phone that
+box holds your 12 and the card's heading reads **After the bake** rather than **Still to time**.
+A heading left reading **Still to time** over a figure you had given would read as the screen not
+having noticed it. Either way the step is drawn on the backwards card as sitting **after the
+bake, outside the 254 minutes**, because those minutes happen while you are waiting on the next
+batch. Nothing was reset.
+
+**One thing on the join between the two screens reads differently, and it is a correction.** When
+you tap a saved scenario under **Start from a scenario** on the Production line, the list of
+numbers it would change is now the corrected list: **oiling the pans and weighing the dough out**
+is one row where it used to be two, because it is one job under two names, and a **retard** brick
+is named as something the scenario said but the line has no field for rather than quietly writing
+a tray count onto a field that no longer exists. The bricks themselves are untouched, and nothing
+is written until you press the button. What did **not** ship is a button on the Scenario planner
+to push a planned day's own start times onto the bricks: your bricks are timed from a day that
+starts at 3 pm, and the bake day here is a morning that has to be ready by 8 am, so writing those
+times in would have moved every saved brick. The timetable is drawn, and it is not pushed
+anywhere yet.
+
+**What has not moved.** The Scenario planner, brick for brick. Your own line still reads 24
+pans across 9 bricks and your sister's still 4 pans in 8 bricks, and both are stored exactly
+as they were — not a brick, a start time or a merge has changed. The chiller bricks stay where
+they are, switched off, because the fridge is still worth planning for.
+
+CHANGELOG and the guide (section 24) both carry all of this, both PDFs rebuilt, and the tests
+are 1084 passing with none failing. No database step — nothing to run in Supabase.
 
 **21 Sep 2026 — engine v144 (no database step). The People row counts the places one
 person is in, a line of a brick counting as a place — and a collision is written so it

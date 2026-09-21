@@ -9,12 +9,18 @@
 
 import { el, button, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
-import { computeLine, trim } from "../production.js";
-import { scenarioPlanPatch, scenarioSummary } from "../scenario.js";
+import { computeLine, foldsIn, proofCycleOf, trim } from "../production.js";
+import { planBackwards } from "../bakeday.js";
+import { clockOf, scenarioPlanPatch, scenarioSummary } from "../scenario.js";
 
-// The numbers she types, in the order she'd say them. Everything is seeded from
-// the measurements she already gave on /form/, so the screen says something true
-// the first time it opens and she only has to correct what has changed.
+// The numbers she types, in the order she'd say them, and now in the order her
+// day runs them. Everything is seeded from the bake day she corrected on 22 Sep
+// 2026, so the screen says something true the first time it opens and she only
+// has to correct what has changed.
+//
+// Every label names its own unit, and says what it is measured over: a field
+// that says "Minutes" and leaves her to guess whether that means for one pan,
+// for six, or for a whole tub is a field she cannot fill in with confidence.
 const GROUPS = [
   {
     title: "Your hands",
@@ -29,11 +35,11 @@ const GROUPS = [
   },
   {
     title: "What you have",
-    sub: "The pans and the trays — the things you'd buy more of.",
+    sub: "The pans and the proofer — the things you'd buy more of.",
     fields: [
       { key: "pans", label: "Baking pans you own", step: 1 },
-      { key: "trays", label: "Trays of dough your chiller holds", step: 1,
-        hint: "One tray retards one pan overnight, so this is the ceiling on a day. Your form said 8 and you have also said 12 — set the one that is true." },
+      { key: "prooferPans", label: "Pans your proofer holds at once", step: 1,
+        hint: "The ceiling on your day, and it is the one you worked out yourself: a batch is in the cabinet for 81 minutes, so 12 pans means one batch every 40.5 minutes and no faster. Count the shelves honestly — if it holds 18, type 18 and everything below changes." },
     ],
   },
   {
@@ -41,29 +47,60 @@ const GROUPS = [
     sub: "What the machines can take at once.",
     fields: [
       { key: "ovenPans", label: "Pans per bake", step: 1 },
-      { key: "ovenMin", label: "Minutes per bake", step: 1 },
-      { key: "mixerPans", label: "Most dough in one mix, in pans", step: 1,
-        hint: "Your mixer's bowl size, counted in pans: one pan takes about 900 g of dough — that is what bakes down to your 800 g — so a 25 kg bowl is about 28 pans. Leave room in the bowl for a wet dough, so lower this if you never fill it." },
+      { key: "ovenMin", label: "Minutes one oven turn takes, bake and swap together", step: 1,
+        hint: "One turn of the oven is the baking and the swapping that goes with it. You timed the bake at 13 minutes and the swap at 2, so this is 15." },
+      { key: "mixerPans", label: "Pans one tub of dough makes", step: 1,
+        hint: "Your cycle is one tub of dough into the pans of one oven load — so six. Your mixer's bowl is bigger than that; this is how much dough you actually mix at once, which is what spreads the mixing and the folding over the batch." },
     ],
   },
   {
-    title: "The times you measured",
-    sub: "These are the figures you timed, each for 6 pans, in minutes.",
+    title: "Your bake day, step by step",
+    sub: "The minutes you measured, in the order the day runs them. The clock below is worked back from these, so a number you change here moves every start time with it.",
     fields: [
-      { key: "washMin6", label: "Minutes to wash, oil and fill 6 pans", step: 1 },
-      { key: "topMin6", label: "Minutes to dimple and top 6 pans", step: 1 },
-      { key: "swapMin6", label: "Minutes to take 6 out and put 6 in", step: 1 },
+      { key: "mixMin", label: "Minutes to mix one tub of dough", step: 1,
+        hint: "For one whole tub — the pans that tub makes at once. It is spread over that whole batch, so a bigger tub costs less work for every pan." },
+      { key: "foldRests", label: "How many rests the dough takes", step: 1,
+        hint: "How many times the dough sits before it goes into the pans — four, in your day." },
+      { key: "foldRestMin", label: "Minutes each rest lasts", step: 1,
+        hint: "Thirty minutes a rest for you." },
+      { key: "foldMin", label: "Minutes one stretch and fold takes", step: 1,
+        hint: "One minute for you. The last rest is a rest and nothing else, so a day with four rests carries three folds." },
+      { key: "scaleMin6", label: "Minutes to oil the pans and weigh the dough out, for 6 pans", step: 1,
+        hint: "Fifteen for you. Oiling the pans, weighing the dough out into them and filling them is one job under one name — which is why your own count of the hand-work has it once, not twice." },
+      { key: "proofMin1", label: "Minutes in the proofer before the dimple", step: 1,
+        hint: "Forty-five for you." },
+      { key: "topMin6", label: "Minutes to dimple and top 6 pans", step: 1,
+        hint: "You dimple a pan a minute, so six for six pans. If you also top them with oil and herbs, time that turn once and type the bigger number." },
+      { key: "proofMin2", label: "Minutes in the proofer after the dimple", step: 1,
+        hint: "Thirty for you. This is the second half of the 81 the cabinet holds a batch for." },
+      { key: "coolWaitMin", label: "Minutes the baked pans cool before they are cut", step: 1,
+        hint: "Thirty for you. This is waiting time, not hand-work — it sits after the 254 minutes, not inside them." },
     ],
   },
   {
-    title: "The rest of the kitchen work",
-    sub: "The hand-work around the bake, in minutes. Left blank until you have timed it — a blank step is named below rather than counted as free.",
+    title: "The clock you plan from",
+    sub: "Worked backwards from the oven, so no dough is ever mixed before it is needed.",
     fields: [
-      { key: "mixMin", label: "Minutes to weigh in and load one mix", step: 1, optional: true,
-        hint: "For one whole mix — the pans your mixer makes at once. It is spread over that whole batch, so a bigger mix costs less work per pan." },
-      { key: "scaleMin6", label: "Minutes to weigh the dough out into 6 pans", step: 1, optional: true,
-        hint: "If this is already inside your wash, oil and fill time above, leave it blank so the same minutes are not counted twice." },
-      { key: "coolMin6", label: "Minutes to cool and pack 6 pans", step: 1, optional: true },
+      { key: "readyAtMin", label: "Minutes after midnight the first 6 pans must be at the oven", step: 15,
+        clock: true,
+        hint: "480 is 8:00 am. Set the clock you want the first batch standing at the oven, and every start time below is worked back from it — which is how the dough is kept from being mixed too early." },
+      { key: "rhythmMin", label: "Minutes between batches you would like", step: 1,
+        hint: "Fifteen for you — the length of one oven turn, so a fresh batch is ready each time the oven comes free. The screen will tell you honestly whether the line can give you that." },
+      { key: "tolMin", label: "Minutes earlier than a start time that are still fine", step: 1,
+        hint: "Five for you. This is the soft band around each start — a step may begin this much early without the dough suffering, which is where you can shuffle work to suit your own hands." },
+    ],
+  },
+  {
+    // Named from what she has actually typed rather than from being empty: she
+    // has timed this one, and a heading still reading "Still to time" over her
+    // own twelve minutes reads as the screen not having noticed her number.
+    title: (p) => (Number(p.coolMin6) > 0 ? "After the bake" : "Still to time"),
+    sub: (p) => (Number(p.coolMin6) > 0
+      ? "Your time at the table once the pans are out — counted in the day's hand-work, and it sits after the 254 minutes rather than inside them."
+      : "Left blank until you have timed it — a blank step is named below rather than counted as free."),
+    fields: [
+      { key: "coolMin6", label: "Minutes to cut and pack 6 pans", step: 1, optional: true,
+        hint: "Your time at the table after the bake, not the cooling. Left blank, the screen names the step as untimed rather than counting it as free." },
     ],
   },
 ];
@@ -119,10 +156,22 @@ export function renderProduction(root, state) {
 }
 
 function groupCard(group, plan, onEdit) {
-  return el("div", { class: "card" },
-    el("p", { class: "card-title" }, group.title),
-    el("p", { class: "card-sub", style: "margin:0 0 10px" }, group.sub),
-    ...group.fields.map((f) => fieldRow(f, plan, onEdit)));
+  // A heading may be given as a plain string or worked out from the numbers, so
+  // a card can stop calling a step untimed the moment she has timed it. The two
+  // nodes are kept and their words rewritten in place — never rebuilt — because
+  // the box she is typing in has to stay alive (v142), and because a heading left
+  // saying "Still to time" over a number she has just cleared is the same lie
+  // the other way round.
+  const said = (v) => (typeof v === "function" ? v(plan) : v);
+  const title = el("p", { class: "card-title" }, said(group.title));
+  const sub = el("p", { class: "card-sub", style: "margin:0 0 10px" }, said(group.sub));
+  const again = (key, raw, optional) => {
+    onEdit(key, raw, optional);
+    title.textContent = said(group.title);
+    sub.textContent = said(group.sub);
+  };
+  return el("div", { class: "card" }, title, sub,
+    ...group.fields.map((f) => fieldRow(f, plan, again)));
 }
 
 function fieldRow(f, plan, onEdit) {
@@ -133,11 +182,28 @@ function fieldRow(f, plan, onEdit) {
     value: plan[f.key] == null || (f.optional && plan[f.key] === 0)
       ? "" : String(plan[f.key]),
   });
-  input.addEventListener("input", () => onEdit(f.key, input.value, f.optional));
+  // One field is a time of day, and asking her to work out that 480 means 8:00 am
+  // every time she wants to move it would be the screen making its own arithmetic
+  // her problem. The clock is written back underneath as she types — the field
+  // itself is never rebuilt, so her cursor and her keypad stay where they are.
+  let clock = null;
+  if (f.clock) {
+    clock = el("div", { class: "li-sub" }, clockReadout(input.value));
+  }
+  input.addEventListener("input", () => {
+    if (clock) clock.textContent = clockReadout(input.value);
+    onEdit(f.key, input.value, f.optional);
+  });
   return el("div", { class: "field" },
     el("label", {}, f.label),
     input,
+    clock,
     f.hint ? el("div", { class: "hint" }, f.hint) : null);
+}
+
+function clockReadout(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? `That is ${clockOf(n)}.` : "";
 }
 
 // ── Starting from a scenario ───────────────────────────────────────────────
@@ -210,7 +276,7 @@ function previewLoad(s, plan, state, onLoad) {
     }
     if (p.pans > 0) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `For your own reference: as built, those bricks pass ${p.pans} ${p.pans === 1 ? "pan" : "pans"} a day. This screen counts the day its own way, from your pans, your chiller and your oven.`));
+        `For your own reference: as built, those bricks pass ${p.pans} ${p.pans === 1 ? "pan" : "pans"} a day. This screen counts the day its own way, from your hands, your proofer and your oven.`));
     }
     kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
       "How many pans you own and how many hours you will bake for are not in a scenario — those two stay as they are."));
@@ -249,45 +315,66 @@ function loadLine(l) {
 
 function blocks(state, plan) {
   const r = computeLine(plan);
-  return [flowCard(r), lineCard(r), dayCard(r, state), handsCard(r), leverCard(r)];
+  return [
+    flowCard(r),
+    backwardsCard(plan),
+    lineCard(r),
+    dayCard(r, state),
+    handsCard(r),
+    leverCard(r),
+  ];
 }
 
 // ── The flow ───────────────────────────────────────────────────────────────
 // The bars answer "how fast is each part"; this answers the question they cannot
 // — what happens in what order, and where the day stops. Same numbers, laid out
-// the way the bake actually runs: the dough goes in, it rests overnight, then
-// pan after pan goes through the oven and comes back round.
+// in the order her day actually runs: the dough is mixed, it rests and is folded,
+// the pans are oiled and filled, then in and out of the proofer with the dimple
+// between, then the oven, then the cooling.
+//
+// The proofer appears twice, and it is the same machine both times. They are two
+// steps because the dimple sits between them, and that is the whole reason the
+// cabinet holds a batch for 81 minutes rather than 75 — she dimples one pan at a
+// time, so the cabinet is never emptied.
 //
 // Hand-work is shown as minutes a pan and never given a rate of its own, because
-// the six hand jobs are one shared pool and no single one of them has a pace.
-// Only the three things that are not her — the chiller's racks, the oven, the
-// pans going round — can honestly be given pans an hour.
+// the hand jobs are one shared pool and no single one of them has a pace. Only
+// the three things that are not her — the proofer, the oven, the pans going round
+// — can honestly be given pans an hour.
 //
 // Every hand step takes its name from the model's own job list, so a job can
-// never be called one thing here and another thing underneath.
+// never be called one thing here and another thing underneath. The proofer steps
+// are not hand jobs at all, so they name themselves.
 const FLOW = [
   { job: "mix" },
-  { station: "chiller", name: "Retard overnight in the chiller", icon: "🧊" },
-  { job: "wash" },
+  { job: "fold" },
   { job: "scale" },
+  { station: "proofer", phase: 1, name: "Into the proofer", icon: "🌡️" },
   { job: "top" },
+  { station: "proofer", phase: 2, name: "Proofer again", icon: "🌡️" },
   { job: "swap", station: "oven", name: "The oven swap and bake", icon: "🔥" },
   { job: "cool" },
   { outcome: true, name: "The day", icon: "✅" },
 ];
 
-const FLOW_ICON = { mix: "🥣", swap: "🔥" };
+const FLOW_ICON = { mix: "🥣", fold: "🫲", swap: "🔥" };
 
 function flowCard(r) {
-  const wall = wallStep(r);
-  const why = wall >= 0 ? bottleneckWhy(r) : "";
+  const walls = wallSteps(r);
+  const first = walls.length ? walls[0] : -1;
+  const why = walls.length ? bottleneckWhy(r) : "";
 
   return el("div", {},
     el("h2", { class: "section" }, "The flow"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Your bake day in the order it happens, top to bottom. The step that sets your pace is the red one."),
+      walls.length > 1
+        ? "Your bake day in the order it happens, top to bottom. The steps that set your pace are the red ones."
+        : "Your bake day in the order it happens, top to bottom. The step that sets your pace is the red one."),
     el("div", { class: "card flow" },
-      ...FLOW.map((s, i) => flowStep(s, r, i, i === wall, why))));
+      // The explanation is written once, under the first red step. Repeating it
+      // under the second proofer step would be the same paragraph twice on one
+      // screen, which reads as a fault rather than as emphasis.
+      ...FLOW.map((s, i) => flowStep(s, r, i, walls.includes(i), i === first ? why : ""))));
 }
 
 function flowStep(s, r, i, isWall, why) {
@@ -316,16 +403,23 @@ function stepSub(s, r, j) {
       (r.target > 0 ? `, and you want ${r.target}.` : ".");
   }
 
-  if (s.station === "chiller") {
-    const rate = stationRate(r, "chiller");
-    return `${trim(p.trays)} ${p.trays === 1 ? "tray" : "trays"} of dough, and one tray is one pan` +
-      (Number.isFinite(rate) && rate > 0 ? ` — ${trim(rate)} pans an hour across your ${trim(p.hours)} hours.` : ".");
+  // The same cabinet, twice on the list. The first half names what it is holding;
+  // the second names the pace, because that is the slot the next batch leaves
+  // through and the one the oven is waiting on.
+  if (s.station === "proofer") {
+    const mins = s.phase === 2 ? p.proofMin2 : p.proofMin1;
+    if (s.phase === 2) {
+      const rate = stationRate(r, "proofer");
+      const every = rate > 0 && Number.isFinite(rate) ? `6 pans come out every ${trim(360 / rate)} min` : "";
+      return [`${trim(mins)} min in the cabinet`, every].filter(Boolean).join(" · ");
+    }
+    return `${trim(mins)} min in the cabinet · the cabinet holds ${trim(p.prooferPans)} ${p.prooferPans === 1 ? "pan" : "pans"} at once`;
   }
 
   if (s.station === "oven") {
     const bits = [];
     if (j && j.perPan > 0) bits.push(`${trim(j.perPan)} min a pan to swap`);
-    bits.push(`${trim(p.ovenPans)} pans every ${trim(p.ovenMin)} min`);
+    bits.push(`${trim(p.ovenPans)} pans every ${trim(p.ovenMin)} min, bake and swap together`);
     const rate = stationRate(r, "oven");
     if (Number.isFinite(rate) && rate > 0) bits.push(`${trim(rate)} pans an hour`);
     return `${bits.join(" · ")}.`;
@@ -337,6 +431,18 @@ function stepSub(s, r, j) {
       : "not timed yet";
   }
 
+  // The one step whose wait is nothing like its hand-work: the dough rests for
+  // half an hour at a time and she is only on it for a minute of that. Showing
+  // its "minutes a pan" here would hide the wait that the clock below is built
+  // out of, so it shows both.
+  if (s.job === "fold") {
+    const folds = foldsIn(p);
+    const resting = p.foldRests * p.foldRestMin + folds * p.foldMin;
+    if (resting <= 0) return "not timed yet";
+    return `${trim(resting)} min of resting in ${trim(p.foldRests)} rests` +
+      (folds > 0 ? ` · ${trim(folds)} stretch and folds at ${trim(p.foldMin)} min each` : " · no fold, the dough only rests");
+  }
+
   return j && j.perPan > 0 ? `${trim(j.perPan)} min a pan` : "not timed yet";
 }
 
@@ -345,29 +451,126 @@ function stationRate(r, key) {
   return s ? s.rate : Infinity;
 }
 
-// Which step on the chain is the one holding the day back. Three of the four
-// walls name themselves; the hands do not, because every hand step draws on the
-// same pool, so the mark goes on the heaviest of them rather than pretending one
-// step owns a pace that the pool actually sets.
-function wallStep(r) {
+// ── Your day, backwards ────────────────────────────────────────────────────
+// The one thing the rest of this screen cannot answer. The flow above settles
+// what happens in what order; this settles when each step has to START, and it
+// is worked back from the oven because that is the only direction a start time
+// can be told the truth from.
+//
+// Mixed too early and the dough over-ferments — her own sentence, and the whole
+// reason this card exists. So every step gets a latest start and a soft band of
+// minutes before it that are still fine, which is where she can shuffle work to
+// suit her own hands.
+//
+// It gates nothing and it changes nothing. Every time here is advice; the dough
+// is judged by eye, and the card says so on the screen rather than leaving her to
+// remember it.
+function backwardsCard(plan) {
+  const b = planBackwards(plan);
+  const worst = b.limits.length ? b.limits[0] : null;
+
+  const kids = [
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `Every time below is the last moment that step may start, so no dough is ever mixed before it is needed. It is a timetable, not a clock — you watch the dough and judge it by eye, and any step may start up to ${trim(b.plan.tolMin)} ${b.plan.tolMin === 1 ? "minute" : "minutes"} early to suit your hands.`),
+  ];
+
+  // The anchor, then the answer that falls out of it. This is the sentence she
+  // asked the release for: a time to put the dough in the tub.
+  kids.push(el("p", { style: "margin:0 0 10px" },
+    `For the first ${trim(b.batchPans)} pans to be standing at the oven at `,
+    el("b", {}, b.readyClock),
+    `, the dough goes into the tub at `,
+    el("b", {}, b.mixClock),
+    ` — ${trim(b.readyAtMin - b.mixStartMin)} minutes before.`));
+
+  kids.push(el("div", { class: "job-list" }, ...b.steps.map(backwardsStep)));
+
+  kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
+    `One batch is ${trim(b.spanMin)} minutes from the tub to out of the oven, and ${trim(b.handWork)} of those minutes are your hands.`));
+
+  // The three limits, each with its own unit, and the one that decides the day.
+  if (worst) {
+    kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      "Minutes a batch, at their own pace: ",
+      `${listWords(b.limits.map((l) => `${lower(l.label)} ${trim(l.perBatch)} min`))}. `,
+      `The longest sets the day, and that is ${lower(worst.label)}.`));
+  }
+
+  // What she asked the rhythm to be against what the line will actually give —
+  // the honest answer, because a timetable that pretended otherwise would have
+  // her starting tubs the oven cannot take.
+  kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+    b.rhythm.beats
+      ? `You wanted a batch every ${trim(b.rhythm.asked)} min, and the line can keep to that.`
+      : `You wanted a batch every ${trim(b.rhythm.asked)} min. The line gives you one every ${trim(b.rhythm.allowed)} min, and not faster.`));
+
+  if (b.batches > 1) {
+    const last = b.batchPlan[b.batchPlan.length - 1];
+    kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      `A ${trim(b.plan.target)}-pan day is ${b.batches} batches, so the last tub goes in at ${last.mixClock} and that batch is at the oven at ${last.readyClock}.`));
+  }
+
+  if (b.notes.tubs > 0) {
+    kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      `That holds ${b.notes.tubs} ${b.notes.tubs === 1 ? "tub" : "tubs"} at once — a tub is busy from the mixing until the last fold is done.`));
+  }
+
+  // A step with no minutes on it is not part of the 254, and saying so here is
+  // the difference between a timetable and a promise.
+  if (b.untimed.length) {
+    kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      `${listWords(b.untimed.map(lower))} ${b.untimed.length === 1 ? "is" : "are"} not timed yet, so ${b.untimed.length === 1 ? "it is" : "they are"} not counted in those ${trim(b.spanMin)} minutes.`));
+  }
+
+  return el("div", {},
+    el("h2", { class: "section" }, "Your day, backwards"),
+    el("div", { class: "card" }, ...kids));
+}
+
+// One step of the clock: its latest start on the right, and underneath the
+// minutes it takes, how many of them are her hands, and how early it may begin.
+function backwardsStep(s) {
+  const bits = [`${trim(s.minutes)} min`];
+  if (s.hands > 0) bits.push(`${trim(s.hands)} min of your hands`);
+  else if (s.machine) bits.push("no hands — the machine works");
+  if (s.beyond) bits.push("after the bake, outside the 254 minutes");
+  if (s.window && s.window.early !== s.window.late) bits.push(`earliest ${s.earlyClock}`);
+
+  return el("div", {},
+    el("div", { class: "info-row journal-line" },
+      el("span", { class: "j-what" }, s.label),
+      el("span", { class: "info-val" }, s.clock)),
+    el("div", { class: "li-sub", style: "margin:-2px 0 6px" }, bits.join(" · ")));
+}
+
+// Which step on the chain is the one holding the day back, as a LIST of indices
+// — a list rather than one index because the proofer is drawn twice, and a wall
+// that marked only one of its two steps would read as a mistake.
+//
+// Three of the four walls name themselves. The hands do not, because every hand
+// step draws on the same pool, so the mark goes on the heaviest of them rather
+// than pretending one step owns a pace the pool actually sets.
+function wallSteps(r) {
   const b = r.bottleneck.key;
-  if (b === "chiller") return FLOW.findIndex((s) => s.station === "chiller");
-  if (b === "oven") return FLOW.findIndex((s) => s.station === "oven");
-  if (b === "pans") return FLOW.findIndex((s) => s.job === "wash");
+  const all = (test) => FLOW.map((s, i) => (test(s) ? i : -1)).filter((i) => i >= 0);
+
+  if (b === "proofer") return all((s) => s.station === "proofer");
+  if (b === "oven") return all((s) => s.station === "oven");
+  if (b === "pans") return all((s) => s.job === "scale");
   if (b === "hands") {
     let best = -1;
     let heaviest = 0;
     FLOW.forEach((s, i) => {
-      if (!s.job || s.station === "chiller") return;
+      if (!s.job) return;
       const j = r.allocation.find((x) => x.key === s.job);
       if (j && j.perPan > heaviest) {
         heaviest = j.perPan;
         best = i;
       }
     });
-    return best;
+    return best >= 0 ? [best] : [];
   }
-  return -1;
+  return [];
 }
 
 // ── The line ───────────────────────────────────────────────────────────────
@@ -447,8 +650,8 @@ function dayCard(r, state) {
 // Why *that* is the slow one, in the one comparison that makes it obvious.
 function bottleneckWhy(r) {
   const p = r.plan;
-  if (r.bottleneck.key === "chiller") {
-    return `The chiller holds ${trim(p.trays)} trays of dough, and one tray is one pan. Nothing else you change can push past that.`;
+  if (r.bottleneck.key === "proofer") {
+    return `A batch is in the cabinet for the whole ${trim(proofCycleOf(p))} minutes — both proofs with the dimple between them — and the cabinet holds ${trim(p.prooferPans)} pans. Nothing else you change can push past that.`;
   }
   if (r.bottleneck.key === "hands") {
     return `That is ${trim(r.labourPerPan)} minutes of hand-work for every pan, shared between ${trim(p.people)} ${p.people === 1 ? "pair of hands" : "pairs of hands"}.`;
@@ -457,7 +660,7 @@ function bottleneckWhy(r) {
     return `The oven bakes ${trim(p.ovenPans)} pans every ${trim(p.ovenMin)} minutes, and only one bake fits at a time.`;
   }
   if (r.bottleneck.key === "pans") {
-    return `${trim(p.pans)} pans is not many to keep turning over — the wash waits on pans coming back out of the oven.`;
+    return `${trim(p.pans)} pans is not many to keep turning over — oiling the pans and weighing the dough out waits on pans coming back out of the oven.`;
   }
   return "";
 }

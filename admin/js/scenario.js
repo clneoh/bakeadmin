@@ -915,6 +915,10 @@ export function scenarioPlanPatch(saved, plan) {
   const lines = [];
   const doubled = [];
   const unmapped = [];
+  // Set when either of the two bricks that share the oiling-and-weighing-out
+  // field fed it, so that step is not then reported as one the scenario said
+  // nothing about.
+  let scaleFed = false;
 
   const take = (key, label, value, unit) => {
     if (!Number.isFinite(value) || value <= 0) return;
@@ -926,7 +930,11 @@ export function scenarioPlanPatch(saved, plan) {
   const byJob = {};
   for (const f of r.on) {
     const job = jobOf(f);
-    if (!job) { unmapped.push(f.name); continue; }
+    // A retard brick is named rather than carried. The chiller is a what-if she
+    // has not bought, so it is not a station of the line she has any more, and
+    // writing its trays onto a field that no longer exists would be the screen
+    // quietly accepting a number it then does nothing with.
+    if (!job || job === "retard") { unmapped.push(f.name); continue; }
     if (byJob[job]) { doubled.push(jobLabel(job)); continue; }
     byJob[job] = f;
   }
@@ -938,29 +946,45 @@ export function scenarioPlanPatch(saved, plan) {
 
   const mix = byJob.mix;
   if (mix) {
-    take("mixMin", "Minutes to weigh in and load one mix", mix.touchMin, "min");
-    take("mixerPans", "Most dough in one mix, in pans", mix.batch, "pans");
+    take("mixMin", "Minutes to mix one tub of dough", mix.touchMin, "min");
+    take("mixerPans", "Pans one tub of dough makes", mix.batch, "pans");
   }
-  const mins = { wash: "washMin6", top: "topMin6", cool: "coolMin6", scale: "scaleMin6" };
-  for (const [job, key] of Object.entries(mins)) {
+
+  // The wash and the weighing-out are one job under two names now, so a brick of
+  // either kind fills the one field. A scenario holding both was counting the
+  // same work twice; the fuller of the two is taken, which is the reading that
+  // never understates her hands, and it is hers to correct either way.
+  const feeding = [byJob.scale, byJob.wash].filter(Boolean);
+  if (feeding.length) {
+    const f = feeding.reduce((best, x) => (per6(x) > per6(best) ? x : best));
+    take("scaleMin6", "Minutes to oil the pans and weigh the dough out, for 6 pans", per6(f), "min");
+    // One job, one field: whichever of the two bricks fed it, both of its old
+    // names are answered for, so neither is then reported as a step this scenario
+    // said nothing about while the screen fills that very step in.
+    scaleFed = true;
+  }
+
+  for (const [job, key] of Object.entries({ top: "topMin6", cool: "coolMin6" })) {
     const f = byJob[job];
     if (!f) continue;
     take(key, `Minutes for 6 pans — ${jobLabel(job).toLowerCase()}`, per6(f), "min");
   }
-  // The oven brick is the swap and the bake in one: her four minutes of hands
-  // and the fifteen the pan is in there. Both cross over.
+
+  // The oven brick is the swap and the bake in one: her two minutes of hands and
+  // the fifteen the pan is in there, and the two together are one oven turn.
   const oven = byJob.oven;
   if (oven) {
-    take("swapMin6", "Minutes to take 6 out and put 6 in", per6(oven), "min");
+    take("swapMin6", "Minutes to take 6 pans out and put 6 in", per6(oven), "min");
     take("ovenPans", "Pans per bake", oven.batch, "pans");
-    take("ovenMin", "Minutes per bake", oven.cycleMin, "min");
+    take("ovenMin", "Minutes one oven turn takes, bake and swap together", oven.cycleMin, "min");
   }
-  const retard = byJob.retard;
-  if (retard) take("trays", "Trays of dough your chiller holds", retard.batch, "trays");
 
-  // Every step of the line this scenario had nothing to say about.
+  // Every step of the line this scenario had nothing to say about. The retard is
+  // not one of them — it is not a step of this line at all — so it is left out of
+  // both lists rather than appearing on one of them twice.
   const fed = new Set(Object.keys(byJob));
-  const left = LINE_JOBS.filter((j) => !fed.has(j.key)).map((j) => j.label);
+  if (scaleFed) { fed.add("wash"); fed.add("scale"); }
+  const left = LINE_JOBS.filter((j) => j.key !== "retard" && !fed.has(j.key)).map((j) => j.label);
 
   return { patch, lines, left, unmapped, doubled: [...new Set(doubled)], pans: r.pansPerDay, people: r.people };
 }

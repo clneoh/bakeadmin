@@ -5,8 +5,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalize, defaultState, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
+import { planOf } from "../admin/js/production.js";
+import { planBackwards } from "../admin/js/bakeday.js";
 
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 
 test("normalize fills the default storefront when missing", () => {
   const out = normalize({ version: 1, settings: {} });
@@ -413,4 +416,93 @@ test("normalize keeps saved customer profiles and backfills a missing/non-array 
   assert.deepEqual(normalize({ version: 1 }).customers, [], "missing customers becomes [], not undefined");
   assert.deepEqual(normalize({ version: 1, customers: "junk" }).customers, [], "non-array is discarded");
   assert.ok(Array.isArray(defaultState().customers), "a fresh state starts with an empty customers list");
+});
+
+// v145 re-cut the production plan around the bake day she corrected on 22 Sep
+// 2026, and five fields changed what they are asked. The plan is stored per
+// phone and an older phone keeps its own copy wholesale, so this normalize-time
+// migration is the only thing standing between her and an app that opens showing
+// a chain contradicting the one she gave. The block below is her own saved plan,
+// copied off her phone exactly — the mix reading 6 minutes and the wash 20 are
+// hers, typed before any of this existed.
+const HER_PLAN_V144 = {
+  people: 2, hours: 5, target: 24, pans: 12, trays: 12, mixerPans: 28,
+  ovenPans: 6, ovenMin: 15, ovenShelves: 2, washMin6: 20, topMin6: 8,
+  swapMin6: 4, mixMin: 6, scaleMin6: 0, coolMin6: 12,
+};
+const herPlan = (extra = {}) =>
+  normalize({ version: 1, settings: { production: { ...HER_PLAN_V144, ...extra } } }).settings.production;
+
+test("the plan her phone already held is carried onto the corrected bake day", () => {
+  const p = herPlan();
+
+  assert.equal(p.mixMin, 20, "the mix is the whole mix now, not the 6 minutes she had put against loading it");
+  assert.equal(p.mixerPans, 6, "one tub makes one oven load, so the mixer's 28-pan bowl is retired");
+  assert.equal(p.scaleMin6, 15, "the oiling and the weighing-out are one job at the 15 she gave for them");
+  assert.equal(p.topMin6, 6, "her minute a pan, without the topping the 8 included");
+  assert.equal(p.swapMin6, 2, "out and in are both halves and the turn counts both");
+  assert.equal(p.prooferPans, 12, "the trays were the chiller's count, and they are the proofer's pans now");
+  assert.ok(!("trays" in p) && !("washMin6" in p), "the two retired keys do not linger on the phone");
+  assert.equal(p.planRev, 145, "and it is marked as done, so it never runs a second time");
+});
+
+test("the migration touches nothing that did not change what it is asked", () => {
+  const p = herPlan();
+  assert.equal(p.people, 2, "her two pairs of hands");
+  assert.equal(p.hours, 5);
+  assert.equal(p.target, 24, "the day she is planning");
+  assert.equal(p.pans, 12);
+  assert.equal(p.ovenPans, 6);
+  assert.equal(p.ovenMin, 15, "one turn of the oven, which is what it always meant");
+  assert.equal(p.ovenShelves, 2);
+  assert.equal(p.coolMin6, 12, "her twelve minutes of cutting and packing survive untouched — she measured them");
+  assert.equal(p.foldRests, 4, "and every new field arrives at the default the release set it to");
+  assert.equal(p.readyAtMin, 480);
+  assert.equal(p.tolMin, 5);
+});
+
+test("and the chain it draws for her is the chain she gave", () => {
+  // The release's whole claim, checked on her real saved numbers rather than on
+  // the defaults: 254 minutes from the mix to the pans coming out, 239 of them
+  // before they go in, and 46 minutes of her hands on the day itself.
+  const r = planBackwards(planOf(herPlan()));
+  near(r.spanMin, 254, "her own total");
+  near(r.readyAtMin - r.mixStartMin, 239, "and her own figure for reaching the oven");
+  near(r.steps.filter((s) => !s.beyond).reduce((n, s) => n + s.hands, 0), 46,
+    "her 46 minutes a batch, now that the oiling and the weighing-out are counted once");
+  near(r.steps.find((s) => s.key === "cool").hands, 12,
+    "with her own 12 minutes of cutting sitting past the end of the day, exactly as she timed it");
+
+  // She plans with two pairs of hands, so 23 minutes a batch against the
+  // proofer's 40.5: the proofer is the wall on her own screen, which is the
+  // finding she reached herself. Alone, the 46 leaves her hands the wall — the
+  // two answers differ only by the `people` field she set, not by the model.
+  assert.equal(r.rhythm.binds, "proofer", "on her two pairs of hands, the cabinet is the wall");
+  assert.equal(planBackwards(planOf(herPlan({ people: 1 }))).rhythm.binds, "hands",
+    "and on one pair of hands it is her own hands, out of the same fields");
+});
+
+test("a phone already on the new plan is left alone, and a number she types back sticks", () => {
+  const once = herPlan();
+  const twice = normalize({ version: 1, settings: { production: once } }).settings.production;
+  assert.deepEqual(twice, once, "running it again changes nothing");
+
+  // The point of marking it done: after it has run, a value she retypes is hers
+  // and is never overwritten again. She can put the mixer's 28 back in one tap.
+  const retyped = herPlan({ planRev: 145, mixerPans: 28, mixMin: 6 });
+  assert.equal(retyped.mixerPans, 28);
+  assert.equal(retyped.mixMin, 6);
+});
+
+test("a fresh install is seeded, not migrated, and a state with no plan gets the whole one", () => {
+  assert.deepEqual(normalize({ version: 1, settings: {} }).settings.production,
+    defaultState().settings.production,
+    "nothing to correct, so the defaults stand unchanged");
+});
+
+test("a proofer count she had already typed wins over the retired trays", () => {
+  assert.equal(herPlan({ trays: 18, prooferPans: 0 }).prooferPans, 18,
+    "trays she had counted carry over to the cabinet that holds them");
+  assert.equal(herPlan({ trays: 18, prooferPans: 24 }).prooferPans, 24,
+    "but a proofer count she has set herself is never overwritten by the old one");
 });

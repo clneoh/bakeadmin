@@ -16,43 +16,69 @@ export const PANS_PER_TASK = 6;
 // are only a starting point: every one is hers to correct on the screen, and
 // nothing else in the app reads them.
 export const DEFAULT_PLAN = {
-  people: 1,      // pairs of hands on a bake day
-  hours: 5,       // hours she is willing to bake for
-  target: 60,     // pans she wants on a delivery day
-  pans: 12,       // baking pans she owns
-  trays: 12,      // trays of dough the chiller holds overnight — the day's ceiling
-  mixerPans: 28,  // most dough in one mix, in pans
-  ovenPans: 6,    // pans per bake
-  ovenMin: 15,    // minutes per bake
-  ovenShelves: 2, // shelves used
-  washMin6: 18,   // wash, oil and fill 6 pans
-  topMin6: 8,     // dimple and top 6 pans
-  swapMin6: 4,    // take 6 out and put 6 in
-  // The rest of the hand-work (20 Sep 2026). These are 0 until she times them,
-  // and 0 means NOT MEASURED, not "free": the screen names every untimed step
-  // rather than quietly promising a day the hands could not actually deliver.
-  mixMin: 0,      // weighing in and loading ONE mix — spread over the whole batch
-  scaleMin6: 0,   // weighing the dough out into 6 pans
-  coolMin6: 0,    // cooling and packing 6 pans
+  people: 1,       // pairs of hands on a bake day
+  hours: 5,        // hours she is willing to bake for
+  target: 60,      // pans she wants on a delivery day
+  pans: 12,        // baking pans she owns
+  prooferPans: 12, // pans her proofer holds at once
+  mixerPans: 6,    // pans one tub of dough makes
+  ovenPans: 6,     // pans per bake
+  // The pans are in the oven 13 minutes and the swap around them is 2, so one
+  // turn of the oven is 15. Kept as the one figure the oven station reads, so
+  // "the oven does six pans every 15 minutes" stays reachable from her numbers.
+  ovenMin: 15,     // minutes one turn of the oven takes — bake and swap together
+  ovenShelves: 2,  // shelves used
+  scaleMin6: 15,   // oil the pans and weigh the dough out into 6 pans
+  topMin6: 6,      // dimple and top 6 pans — her 1 minute a pan
+  swapMin6: 2,     // take 6 out and put 6 in, both halves
+  // The bake day on a clock (22 Sep 2026), the chain the backwards plan walks.
+  // Her corrected order — see memory/bake-day. These are the minutes a step
+  // TAKES, which is not the same as the minutes her hands are busy on it: the
+  // proofer holds the dough for 45 and asks nothing of her.
+  mixMin: 20,       // mixing the dough in the tub, ONE mix — spread over the batch
+  foldRests: 4,     // how many rests the dough takes before it goes into pans
+  foldRestMin: 30,  // minutes of rest between folds
+  foldMin: 1,       // minutes ONE stretch and fold takes
+  proofMin1: 45,    // minutes in the proofer before the dimple
+  proofMin2: 30,    // minutes in the proofer after the dimple
+  coolWaitMin: 30,  // minutes the baked pans cool before they are cut
+  // The clock the backwards plan is built from, and the two bands she asked for.
+  readyAtMin: 480,  // when the first batch must be standing at the oven (8:00 am)
+  rhythmMin: 15,    // minutes between batches she would like — one oven turn
+  tolMin: 5,        // minutes earlier than a latest start that are still fine
+  // The hand-work that is still 0 until she times it, and 0 means NOT MEASURED,
+  // not "free": the screen names every untimed step rather than quietly
+  // promising a day the hands could not actually deliver.
+  coolMin6: 0,      // cutting and packing 6 pans
 };
 
-// The steps of the line that are hers to time.
+// The steps of the line that are hers to time, in the order her day runs them.
 //
-// `per` says what the minutes are counted over, which is what lets the mixer's
-// time be spread across the batch it makes: a bigger mixer genuinely costs less
-// labour for every pan.
+// `per` says what the minutes are counted over, which is what lets a job timed
+// on a whole batch be spread across the pans it makes: a bigger mixer genuinely
+// costs less labour for every pan.
+//
+//   "mix"   counted over ONE mix, spread over the pans that mix makes
+//   "fold"  counted over ONE fold, and a batch takes one fewer fold than it
+//           takes rests — the last rest is a rest and nothing else
+//   6       counted over six pans, which is how she timed them
 //
 // `name` is the full label for the list of jobs; `short` is the same job as it
-// reads inside a sentence ("1 on the packing", "the rest — weighing in, scaling
-// out"), because a full label dropped into running prose turns a sentence into
-// a paragraph.
+// reads inside a sentence ("1 on the packing", "the rest — mixing, oiling and
+// weighing out"), because a full label dropped into running prose turns a
+// sentence into a paragraph.
+//
+// There is no wash step of its own. "Wash, oil and fill" and "weighing the
+// dough out into pans" were always one job under two names — which is why her
+// own count of the hand-work leaves one of them out — so they are one step now,
+// measured by the same minutes she gave it to weigh out six pans.
 export const LABOUR_STEPS = [
-  { key: "mixMin", job: "mix", name: "Weighing in and loading the mixer", short: "weighing in", per: "mix" },
-  { key: "washMin6", job: "wash", name: "Wash, oil and fill", short: "wash, oil and fill", per: 6 },
-  { key: "scaleMin6", job: "scale", name: "Weighing the dough out into pans", short: "scaling out", per: 6 },
+  { key: "mixMin", job: "mix", name: "Mixing the dough in the tub", short: "mixing", per: "mix" },
+  { key: "foldMin", job: "fold", name: "The rests and the stretch and folds", short: "the folds", per: "fold" },
+  { key: "scaleMin6", job: "scale", name: "Oil the pans and weigh the dough out", short: "oiling and weighing out", per: 6 },
   { key: "topMin6", job: "top", name: "Dimple and top", short: "topping", per: 6 },
   { key: "swapMin6", job: "swap", name: "The oven swap", short: "oven swap", per: 6 },
-  { key: "coolMin6", job: "cool", name: "Cooling and packing", short: "packing", per: 6 },
+  { key: "coolMin6", job: "cool", name: "Cutting and packing", short: "packing", per: 6 },
 ];
 
 const num = (v, fallback = 0) => {
@@ -83,25 +109,41 @@ export function planOf(settingsProduction) {
     hours: atLeast(p.hours, 0.25, DEFAULT_PLAN.hours),
     target: atLeast(p.target, 0, 0),
     pans: atLeast(p.pans, 0, 0),
-    trays: atLeast(p.trays, 0, 0),
+    prooferPans: atLeast(p.prooferPans, 0, 0),
     mixerPans: atLeast(p.mixerPans, 0, 0),
     ovenPans: atLeast(p.ovenPans, 0, 0),
     ovenMin: atLeast(p.ovenMin, 0, 0),
     ovenShelves: atLeast(p.ovenShelves, 0, 0),
-    washMin6: atLeast(p.washMin6, 0, 0),
+    scaleMin6: atLeast(p.scaleMin6, 0, 0),
     topMin6: atLeast(p.topMin6, 0, 0),
     swapMin6: atLeast(p.swapMin6, 0, 0),
     mixMin: atLeast(p.mixMin, 0, 0),
-    scaleMin6: atLeast(p.scaleMin6, 0, 0),
+    foldRests: atLeast(p.foldRests, 0, 0),
+    foldRestMin: atLeast(p.foldRestMin, 0, 0),
+    foldMin: atLeast(p.foldMin, 0, 0),
+    proofMin1: atLeast(p.proofMin1, 0, 0),
+    proofMin2: atLeast(p.proofMin2, 0, 0),
+    coolWaitMin: atLeast(p.coolWaitMin, 0, 0),
+    // The clock and the two bands. 0 is a legitimate answer for all three — a
+    // day that starts at midnight, no rhythm asked for, no early tolerance — so
+    // they are clamped at 0 rather than given the "0 means unset" fallback that
+    // hours carries.
+    readyAtMin: atLeast(p.readyAtMin, 0, 0),
+    rhythmMin: atLeast(p.rhythmMin, 0, 0),
+    tolMin: atLeast(p.tolMin, 0, 0),
     coolMin6: atLeast(p.coolMin6, 0, 0),
   };
 }
 
 // One step's claim on the day, in minutes for every pan.
 //
-// Five of the six steps are timed per 6 pans. The mixer is timed per MIX, so its
-// minutes are divided by the batch it makes — which is the honest reading, and
-// means a bigger mixer really does cost less labour for every pan.
+// Most steps are timed per 6 pans. Two are not, and both are spread over the
+// batch they belong to — the honest reading, and the one that means a bigger
+// tub really does cost less labour for every pan:
+//
+//   the mix    its minutes are for the whole mix, over the pans that mix makes
+//   the folds  its minutes are for ONE fold, and a batch takes one fewer fold
+//              than it takes rests, so the count comes from foldRests
 //
 // This is the ONE place that decides whether a step was measured at all: no
 // minutes on it, or no batch size to spread the minutes over, and it claims
@@ -110,8 +152,21 @@ export function planOf(settingsProduction) {
 function stepMinutes(p, s) {
   const mins = num(p[s.key]);
   if (mins <= 0) return 0;
+  if (s.per === "fold") {
+    const folds = foldsIn(p);
+    const pansPer = num(p.mixerPans);
+    return folds > 0 && pansPer > 0 ? (mins * folds) / pansPer : 0;
+  }
   const pansPer = s.per === "mix" ? num(p.mixerPans) : s.per;
   return pansPer > 0 ? mins / pansPer : 0;
+}
+
+// How many stretch-and-folds a batch gets. The last rest is a rest and nothing
+// else, so it is always one fewer than the rests — her own description of the
+// day, in one line.
+export function foldsIn(plan) {
+  const p = planOf(plan);
+  return Math.max(0, Math.round(num(p.foldRests)) - 1);
 }
 
 // Minutes of hand-work for every pan, from every step she has timed.
@@ -128,12 +183,21 @@ export function unmeasuredSteps(plan) {
 
 // The four things that can hold the line back, each in pans per hour.
 //
-// The chiller is a day's worth of trays spread over the day, so it reads as a
-// rate like the rest — and, at her numbers, that is what makes it obvious that
-// the chiller and not the oven is the wall.
+// The proofer is the equipment that decides her day: a batch of six pans is in
+// it for the whole of both proofs with the dimple between them — 45, then 6,
+// then 30, 81 minutes — and the cabinet holds as many pans as it holds, so a
+// batch finishes every 81 minutes divided by the batches it can hold at once.
+// At 12 pans that is 40.5 minutes a batch, which is the ceiling she worked out
+// herself. She dimples one pan at a time, so the cabinet is never actually
+// emptied and the 81 stands.
 //
-// The hands are the one shared pool: three jobs, one set of people. Their rate
-// is the whole pool's, which is the balanced truth — see allocation() for who
+// It replaces the chiller, which used to read trays-over-hours and made a
+// what-if fridge the wall of a day she does not run. The fridge is still hers to
+// plan with — it is a brick in the Scenario planner — but it is not a station of
+// the line she has.
+//
+// The hands are the one shared pool: six jobs, one set of people. Their rate is
+// the whole pool's, which is the balanced truth — see allocation() for who
 // stands where.
 export function stations(plan) {
   const p = planOf(plan);
@@ -144,17 +208,18 @@ export function stations(plan) {
   const handsRate = labourPerPan > 0 ? (people * 60) / labourPerPan : Infinity;
   const ovenRate = ratePerHour(p.ovenPans, p.ovenMin);
   const panRate = ratePerHour(p.pans, p.ovenMin);
-  const trays = num(p.trays);
-  const chillRate = trays > 0 ? trays / hours : Infinity;
+  const prooferPans = num(p.prooferPans);
+  const proofMin = proofCycleOf(p);
+  const prooferRate = prooferPans > 0 && proofMin > 0 ? ratePerHour(prooferPans, proofMin) : Infinity;
 
   return [
     {
       key: "hands", icon: "👋", name: "Your hands", rate: handsRate, plural: true,
-      sub: `${people} ${people === 1 ? "pair of hands" : "pairs of hands"} · every hand-job, from weighing in to packing`,
+      sub: `${people} ${people === 1 ? "pair of hands" : "pairs of hands"} · every hand-job, from mixing to packing`,
     },
     {
-      key: "chiller", icon: "🧊", name: "The chiller", rate: chillRate,
-      sub: `${trays} ${trays === 1 ? "tray" : "trays"} of dough over ${trim(hours)} ${hours === 1 ? "hour" : "hours"}`,
+      key: "proofer", icon: "🌡️", name: "The proofer", rate: prooferRate,
+      sub: `${prooferPans} ${prooferPans === 1 ? "pan" : "pans"} held for ${trim(proofMin)} min · six pans every ${trim(proofMin / Math.max(1, prooferPans / PANS_PER_TASK))} min`,
     },
     {
       key: "oven", icon: "🔥", name: "The oven", rate: ovenRate,
@@ -165,6 +230,15 @@ export function stations(plan) {
       sub: `${num(p.pans)} pans turning over, one bake at a time`,
     },
   ];
+}
+
+// How long one batch of six pans is in the proofer, start to finish: the proof
+// before the dimple, the dimple itself, and the proof after it. This is the
+// figure that decides the proofer's rhythm, and it is the same 81 she arrived
+// at by hand.
+export function proofCycleOf(plan) {
+  const p = planOf(plan);
+  return num(p.proofMin1) + num(p.topMin6) + num(p.proofMin2);
 }
 
 // The whole answer, from one plan.
@@ -224,12 +298,12 @@ export function usefulPeople(plan, otherRate = null) {
   if (perPan <= 0) return 1;
   let ceil = otherRate;
   if (ceil == null) {
-    const hours = Math.max(0.25, num(p.hours, DEFAULT_PLAN.hours));
-    const trays = num(p.trays);
+    const prooferPans = num(p.prooferPans);
+    const proofMin = proofCycleOf(p);
     const rates = [
       ratePerHour(p.ovenPans, p.ovenMin),
       ratePerHour(p.pans, p.ovenMin),
-      trays > 0 ? trays / hours : Infinity,
+      prooferPans > 0 && proofMin > 0 ? ratePerHour(prooferPans, proofMin) : Infinity,
     ].filter((r) => Number.isFinite(r) && r > 0);
     ceil = rates.length ? Math.min(...rates) : Infinity;
   }
@@ -299,9 +373,9 @@ const MOVES = [
     cost: "the help",
   },
   {
-    key: "trays", label: "Six more trays",
-    apply: (p) => ({ ...p, trays: num(p.trays) + 6 }),
-    cost: "the trays",
+    key: "prooferPans", label: "A proofer holding six more pans",
+    apply: (p) => ({ ...p, prooferPans: num(p.prooferPans) + 6 }),
+    cost: "a bigger proofer",
   },
   {
     key: "pans", label: "Six more pans",
@@ -309,8 +383,8 @@ const MOVES = [
     cost: "the pans",
   },
   {
-    key: "wash", label: "Wash, oil and fill 10% faster",
-    apply: (p) => ({ ...p, washMin6: num(p.washMin6) * 0.9 }),
+    key: "scale", label: "Oil the pans and weigh the dough out 10% faster",
+    apply: (p) => ({ ...p, scaleMin6: num(p.scaleMin6) * 0.9 }),
     cost: "a better routine",
   },
   {

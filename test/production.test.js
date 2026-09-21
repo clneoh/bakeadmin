@@ -1,73 +1,107 @@
 // The production line model. The figures asserted here are the ones the whole
-// screen rests on, and the first two were worked out by hand from her measured
-// times before any of this was written — 18 + 8 + 4 minutes of work for every 6
-// pans is 12 pans an hour with one pair of hands, and the oven beside it does 24.
+// screen rests on, and every one of them is hers — the hand-work and the proofer
+// rhythm were both worked out by hand before any of this was written.
+//
+// Her own numbers, in her own units: 46 minutes of hand-work for every 6 pans is
+// 7.67 minutes a pan, so one pair of hands moves 7.83 pans an hour. The oven
+// beside it does 24. A batch sits in the proofer for 81 minutes and the cabinet
+// holds 12 pans, so it finishes a batch every 40.5 minutes — 8.89 pans an hour,
+// which is why the hands are the wall today and the proofer is 5.5 minutes
+// behind them, waiting.
+//
 // If this file ever disagrees with those, the screen is lying to her.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_PLAN, allocation, computeLine, labourPerPanOf, usefulPeople,
+  DEFAULT_PLAN, allocation, computeLine, foldsIn, labourPerPanOf, proofCycleOf, usefulPeople,
 } from "../admin/js/production.js";
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 const stationOf = (r, key) => r.stations.find((s) => s.key === key);
 
-test("at her measured numbers the hands run at 12 pans an hour and the oven at 24", () => {
+// Minutes of hand-work in one batch of six pans — the figure she counts in.
+const handWorkPer6 = (p) => labourPerPanOf(p) * 6;
+
+test("at her measured numbers the hands run at 7.83 pans an hour, the proofer at 8.89, the oven at 24", () => {
   const r = computeLine(DEFAULT_PLAN);
-  near(stationOf(r, "hands").rate, 12, "18 + 8 + 4 min for 6 pans is 5 min a pan, so 12 an hour");
+  near(r.labourPerPan, 7.6667, "46 minutes of work for 6 pans is 7.67 minutes a pan");
+  near(stationOf(r, "hands").rate, 7.8261, "so one pair of hands moves 7.83 pans an hour");
+  near(stationOf(r, "proofer").rate, 8.8889,
+    "12 pans in an 81-minute proof is 8.89 pans an hour — her own 40.5 minutes a batch");
   near(stationOf(r, "oven").rate, 24, "6 pans every 15 min is 24 an hour");
-  near(r.labourPerPan, 5, "three jobs add up to 5 minutes of work for every pan");
 });
 
-test("a second pair of hands doubles the line, and a third buys nothing while the oven is 24", () => {
-  // 300 trays over 10 hours is 30 an hour, deliberately clear of the oven's 24,
-  // so the oven and the hands are the only two things left that can bind.
-  const one = computeLine({ ...DEFAULT_PLAN, trays: 300, hours: 10 });
-  const two = computeLine({ ...DEFAULT_PLAN, trays: 300, hours: 10, people: 2 });
-  const three = computeLine({ ...DEFAULT_PLAN, trays: 300, hours: 10, people: 3 });
-
-  near(stationOf(one, "hands").rate, 12, "one pair");
-  near(stationOf(two, "hands").rate, 24, "two pairs");
-  near(stationOf(three, "hands").rate, 36, "three pairs — but the oven is still 24");
-
-  // The whole point: the third pair is standing about, because the oven now sets
-  // the pace, so the day is no longer than it was with two.
-  assert.equal(two.dayCapacity, three.dayCapacity,
-    "the third pair of hands buys no pans while the oven is the slow one");
-  assert.equal(three.bottleneck.key, "oven", "so the oven is named as the one holding it back");
+test("her chain is 254 minutes, and 239 of them are before the oven", () => {
+  // The one arithmetic the whole backwards plan hangs on, in one place: mix 20,
+  // four 30-minute rests with a 1-minute fold inside the first three, 15 to oil
+  // the pans and weigh the dough out, 45 in the proofer, 6 to dimple, 30 in the
+  // proofer again, then 15 for the oven's turn — bake and swap together.
+  const p = DEFAULT_PLAN;
+  const folds = foldsIn(p);
+  assert.equal(folds, 3, "four rests carry three folds — the last rest is a rest and nothing else");
+  const rests = p.foldRests * p.foldRestMin + folds * p.foldMin;
+  assert.equal(rests, 123, "four half-hours plus three single minutes");
+  near(proofCycleOf(p), 81, "the two proofs with the dimple between them, all in the cabinet at once");
+  const toOven = p.mixMin + rests + p.scaleMin6 + p.proofMin1 + p.topMin6 + p.proofMin2;
+  assert.equal(toOven, 239, "ready at the oven 239 minutes after the mix starts");
+  assert.equal(toOven + p.ovenMin, 254, "and unloaded fourteen minutes later");
+  near(handWorkPer6(p), 46, "and the whole batch asks for 46 minutes of her hands");
 });
 
-test("the chiller, not the oven, is what caps her day at her own numbers", () => {
+test("the hands are the wall at her numbers, and the proofer is 5.5 minutes behind them", () => {
   const r = computeLine(DEFAULT_PLAN);
-  assert.equal(r.bottleneck.key, "chiller",
-    "12 trays over a 5-hour day is 2.4 pans an hour — far below the oven's 24");
-  assert.equal(r.dayCapacity, 12, "so the day is 12 pans, whatever her hands can do");
-  assert.equal(r.shortfall, 48, "against the 60 she wants");
+  assert.equal(r.bottleneck.key, "hands",
+    "7.83 pans an hour from one pair of hands is less than the proofer's 8.89");
+  assert.equal(r.dayCapacity, 39, "five hours of that is 39 pans");
+  assert.equal(r.shortfall, 21, "against the 60 she wants");
+  // The proofer is not idle noise: the moment she is not alone it becomes the
+  // wall, which is the whole reason she is checking her cabinet's pan count.
+  near(stationOf(r, "proofer").rate - stationOf(r, "hands").rate, 1.06,
+    "the proofer is barely ahead of one pair of hands, and behind two");
 });
 
-test("more trays is the only move that buys pans at her numbers", () => {
+test("a bigger proofer buys nothing while she is alone, and her own time buys the most", () => {
   const r = computeLine(DEFAULT_PLAN);
-  assert.equal(r.levers[0].key, "trays", "the chiller is the wall, so trays come first");
-  assert.equal(r.levers[0].gain, 6, "six more trays is six more pans");
+  assert.equal(r.levers[0].key, "hours", "one more hour of her time is worth more pans than anything else");
+  assert.equal(r.levers[0].gain, 7, "a sixth hour at 7.83 pans an hour is seven more pans");
 
   const flat = r.levers.filter((l) => l.gain <= 0).map((l) => l.key);
-  assert.deepEqual(flat.sort(), ["hours", "oven", "pans", "people", "wash"],
-    "and every other move buys nothing at all — each one still gets a row saying so");
+  assert.deepEqual(flat.sort(), ["oven", "pans", "prooferPans"],
+    "and a bigger proofer, a bigger oven and more pans all buy nothing today — each still gets a row saying so");
 });
 
-test("once the chiller is big enough the hands become the wall", () => {
-  const r = computeLine({ ...DEFAULT_PLAN, trays: 60 });
-  assert.equal(r.bottleneck.key, "hands");
-  assert.equal(r.dayCapacity, 60, "12 pans an hour for 5 hours is exactly the 60 she wants");
+test("with the proofer out of the way the hands are already the wall", () => {
+  const r = computeLine({ ...DEFAULT_PLAN, prooferPans: 300 });
+  assert.equal(r.bottleneck.key, "hands", "30 pans of proofer cannot outrun 7.83 pans an hour of hands");
+  assert.equal(r.dayCapacity, 39, "so the day is still 39 pans");
+});
+
+test("a second pair of hands is worth having, and the oven needs four", () => {
+  // A proofer far bigger than her cabinet, so only the hands and the oven can
+  // bind — which is the question "how many people would this line use".
+  const big = { ...DEFAULT_PLAN, prooferPans: 300, hours: 10 };
+  const one = computeLine({ ...big, people: 1 });
+  const three = computeLine({ ...big, people: 3 });
+  const four = computeLine({ ...big, people: 4 });
+  const five = computeLine({ ...big, people: 5 });
+
+  near(stationOf(one, "hands").rate, 7.83, "one pair");
+  near(stationOf(three, "hands").rate, 23.48, "three pairs — still short of the oven's 24");
+  near(stationOf(four, "hands").rate, 31.3, "four pairs is the first that clears it");
+
+  assert.equal(three.bottleneck.key, "hands", "at three pairs her hands are still the slow one");
+  assert.equal(four.bottleneck.key, "oven", "at four the oven takes over");
+  assert.equal(five.dayCapacity, four.dayCapacity,
+    "so the fifth pair stands about — the oven sets the pace now");
 });
 
 test("usefulPeople is where another pair of hands stops buying anything", () => {
-  assert.equal(usefulPeople(DEFAULT_PLAN), 1,
-    "at her numbers the chiller caps the day, so one pair already covers it");
-  assert.equal(usefulPeople({ ...DEFAULT_PLAN, trays: 200, hours: 10 }), 2,
-    "with the chiller out of the way, two pairs are what the 24-an-hour oven can use");
+  assert.equal(usefulPeople(DEFAULT_PLAN), 2,
+    "her proofer will use two pairs and no more — the third would stand about");
+  assert.equal(usefulPeople({ ...DEFAULT_PLAN, prooferPans: 300, hours: 10 }), 4,
+    "with the proofer out of the way, four pairs are what the 24-an-hour oven can use");
 });
 
 test("the seats split by largest remainder, so a fraction of a person is never left over", () => {
@@ -76,73 +110,71 @@ test("the seats split by largest remainder, so a fraction of a person is never l
   const seats = (people) => Object.fromEntries(
     allocation({ ...DEFAULT_PLAN, people }).map((j) => [j.key, j.seats]));
   assert.deepEqual(seats(1),
-    { mix: 0, wash: 1, scale: 0, top: 0, swap: 0, cool: 0 },
-    "one pair does the lot, starting at the wash");
+    { mix: 1, fold: 0, scale: 0, top: 0, swap: 0, cool: 0 },
+    "one pair starts on the mixing, which is far the biggest single job");
   assert.deepEqual(seats(2),
-    { mix: 0, wash: 1, scale: 0, top: 1, swap: 0, cool: 0 },
-    "the second goes to the topping, the biggest remaining share");
+    { mix: 1, fold: 0, scale: 1, top: 0, swap: 0, cool: 0 },
+    "the second goes to oiling the pans and weighing the dough out");
   assert.deepEqual(seats(3),
-    { mix: 0, wash: 2, scale: 0, top: 1, swap: 0, cool: 0 },
-    "the third goes back to the wash, which is the biggest single job");
-  const all = Object.values(seats(3));
-  assert.equal(all.reduce((s, n) => s + n, 0), 3, "every pair is placed somewhere");
+    { mix: 1, fold: 0, scale: 1, top: 1, swap: 0, cool: 0 },
+    "the third goes to the dimpling and topping");
+  assert.deepEqual(seats(4),
+    { mix: 2, fold: 0, scale: 1, top: 1, swap: 0, cool: 0 },
+    "and the fourth back to the mixing, where the work is");
+  const all = Object.values(seats(4));
+  assert.equal(all.reduce((s, n) => s + n, 0), 4, "every pair is placed somewhere");
 });
 
 test("an empty field or an unmeasured station is left out rather than breaking the line", () => {
   const r = computeLine({ ...DEFAULT_PLAN, ovenMin: 0, mixerPans: 0 });
   assert.ok(!Number.isFinite(stationOf(r, "oven").rate),
     "an oven with no minutes is not a limit at all");
-  assert.equal(r.bottleneck.key, "chiller", "so the next real constraint is named instead");
+  assert.equal(r.bottleneck.key, "proofer", "so the next real constraint is named instead");
 
-  const none = computeLine({ people: 0, washMin6: 0, topMin6: 0, swapMin6: 0 });
+  const none = computeLine({ people: 0, topMin6: 0, swapMin6: 0, scaleMin6: 0 });
   assert.equal(none.plan.people, 1, "zero pairs of hands still counts as one person");
 });
 
-test("a day bigger than one mix says how many mixes it takes", () => {
-  const r = computeLine({ ...DEFAULT_PLAN, trays: 60, mixerPans: 25 });
-  assert.equal(r.mixes, 3, "60 pans from a 25-pan mixer is three mixes, at 25, 25 and 10");
-  const small = computeLine({ ...DEFAULT_PLAN, trays: 60, mixerPans: 100 });
-  assert.equal(small.mixes, 1, "and a mixer that covers the day is never mentioned");
+test("a day bigger than one tub says how many mixes it takes", () => {
+  const r = computeLine({ ...DEFAULT_PLAN, prooferPans: 300, mixerPans: 20 });
+  assert.equal(r.dayCapacity, 60, "a 20-pan tub spreads the 20-minute mix further, so the day is 60 pans");
+  assert.equal(r.mixes, 3, "and 60 pans out of a 20-pan tub is three mixes, at 20, 20 and 20");
+  const big = computeLine({ ...DEFAULT_PLAN, prooferPans: 300, mixerPans: 100 });
+  assert.equal(big.mixes, 1, "a tub that covers the day is never mentioned");
 });
 
-// The rest of the kitchen work (20 Sep 2026). She pointed out the line was only
-// counting three jobs — nothing for weighing in the mixer, nothing for weighing
-// the dough out, nothing for cooling and packing. These tests hold the shape of
-// the fix: an untimed step is NAMED, never silently counted as free.
+// An untimed step is NAMED, never silently counted as free.
 
 test("a step she has not timed is named, not counted as free", () => {
   const r = computeLine(DEFAULT_PLAN);
-  assert.deepEqual(r.unmeasured,
-    ["Weighing in and loading the mixer", "Weighing the dough out into pans", "Cooling and packing"],
-    "the three steps with no minutes on them are reported, by name");
-  near(r.labourPerPan, 5, "and they add nothing to the work until she times them");
+  assert.deepEqual(r.unmeasured, ["Cutting and packing"],
+    "the one step with no minutes on it is reported, by name");
+  near(r.labourPerPan, 7.6667, "and it adds nothing to the work until she times it");
 });
 
-test("once the missing steps are timed they slow the hands down and shorten the day", () => {
-  const timed = { ...DEFAULT_PLAN, trays: 60, mixMin: 20, scaleMin6: 3, coolMin6: 12 };
-  const r = computeLine(timed);
-  // 20 min a mix over 28 pans is 0.71, plus 0.5 for scaling and 2.0 for packing,
-  // on top of the 5 minutes of washing, topping and swapping.
-  near(r.labourPerPan, 8.21, "the whole day's hand-work, per pan");
+test("once the last missing step is timed the hands slow down and the day shortens", () => {
+  const r = computeLine({ ...DEFAULT_PLAN, coolMin6: 12 });
+  // Twelve minutes of cutting and packing for six pans is two minutes a pan, on
+  // top of the 7.67 of mixing, folding, oiling, dimpling and swapping.
+  near(r.labourPerPan, 9.6667, "the whole day's hand-work, per pan");
   assert.deepEqual(r.unmeasured, [], "nothing is left untimed");
-  near(stationOf(r, "hands").rate, 7.3, "one pair now does about 7.3 pans an hour, not 12");
-  assert.equal(r.bottleneck.key, "hands", "so the hands, not the chiller, are the wall");
-  // The figure she asked about: the day she hoped to make in five hours.
-  assert.equal(r.dayCapacity, 36, "five hours now makes 36 pans, not the 60 she wants");
+  near(stationOf(r, "hands").rate, 6.2069, "one pair now does about 6.2 pans an hour, not 7.83");
+  assert.equal(r.dayCapacity, 31, "so five hours makes 31 pans, not the 39 it promised");
 });
 
-test("the mixer's minutes are spread over the mix, so a bigger mixer is less work a pan", () => {
-  const small = { ...DEFAULT_PLAN, mixMin: 20, mixerPans: 25 };
-  const big = { ...DEFAULT_PLAN, mixMin: 20, mixerPans: 50 };
+test("the mix and the folds are spread over the batch, so a bigger tub is less work a pan", () => {
+  const small = { ...DEFAULT_PLAN, mixerPans: 25 };
+  const big = { ...DEFAULT_PLAN, mixerPans: 50 };
   assert.ok(labourPerPanOf(big) < labourPerPanOf(small),
-    "the same 20 minutes of weighing in costs half as much labour over twice the dough");
-  near(labourPerPanOf(small), 5.8, "20 minutes over a 25-pan mix, on top of the 5 minutes a pan");
-  near(labourPerPanOf(big), 5.4, "the same work over a 50-pan mix");
+    "the same mixing and folding costs less labour over twice the dough");
+  near(labourPerPanOf(small), 4.7533, "a 25-pan tub, on top of the oiling, dimpling and swapping");
+  near(labourPerPanOf(big), 4.2933, "the same work over a 50-pan tub");
 });
 
-test("a mixer with no size set cannot spread its time, and says so rather than dividing by zero", () => {
-  const r = computeLine({ ...DEFAULT_PLAN, mixMin: 20, mixerPans: 0 });
-  near(r.labourPerPan, 5, "with no batch to spread it over, the mixing time counts for nothing");
-  assert.ok(r.unmeasured.includes("Weighing in and loading the mixer"),
-    "and the step is reported as untimed, because a time with nowhere to go is not a measurement");
+test("a tub with no size set cannot spread its time, and says so rather than dividing by zero", () => {
+  const r = computeLine({ ...DEFAULT_PLAN, mixerPans: 0 });
+  near(r.labourPerPan, 3.8333, "with no batch to spread them over, the mixing and folding count for nothing");
+  assert.ok(r.unmeasured.includes("Mixing the dough in the tub"),
+    "and both are reported as untimed, because a time with nowhere to go is not a measurement");
+  assert.ok(r.unmeasured.includes("The rests and the stretch and folds"));
 });

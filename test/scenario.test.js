@@ -343,23 +343,28 @@ test("the clock reads the way she would say it", () => {
 
 test("the seeded bricks carry the line's own numbers across", () => {
   const p = scenarioPlanPatch(DEFAULT_SCENARIO, {});
-  // The mixer's 6 minutes a mix, its 28-pan bowl; the wash's 18 minutes and the
-  // top's 8; the oven brick's 4 minutes of hands, its 6 pans and its 15-minute
-  // bake; the retard's 12 trays. Every one of them is a number she typed.
+  // The mixer's 6 minutes a mix, its 28-pan tub; the wash brick's 18 minutes and
+  // the top's 8; the oven brick's 4 minutes of hands, its 6 pans and its
+  // 15-minute turn. Every one of them is a number she typed.
+  //
+  // The wash brick fills the one field the wash and the weighing-out share, so it
+  // arrives as scaleMin6 under its new single name. The retard brick no longer
+  // crosses at all: the chiller is not a station of the line she has, so its
+  // trays are named as skipped rather than written to a field that is gone.
   // The hands are the peak at once, not the number of rows she has drawn: the
   // seeded day is laid out so one pair covers every job, brick by brick.
   assert.deepEqual(p.patch, {
     target: 36, people: 1,
     mixMin: 6, mixerPans: 28,
-    washMin6: 18, topMin6: 8, coolMin6: 12,
+    scaleMin6: 18, topMin6: 8, coolMin6: 12,
     swapMin6: 4, ovenPans: 6, ovenMin: 15,
-    trays: 12,
   });
-  // Nothing was invented for the steps a seeded brick does not cover.
-  assert.equal(p.patch.scaleMin6, undefined, "no brick weighs the dough out, so that step is left alone");
-  assert.deepEqual(p.left, ["Weighing the dough out into pans"]);
+  // Every step of the line is answered for by one brick or another, so nothing is
+  // left over — the wash and the weighing-out are one job and one field now.
+  assert.deepEqual(p.left, [], "every step of the line has a brick feeding it");
   // And the bricks that are not a step of the line are named, not silently lost.
-  assert.deepEqual(p.unmapped, ["The fold loop", "Load the chiller", "Unload the chiller"]);
+  assert.deepEqual(p.unmapped,
+    ["The fold loop", "Load the chiller", "Retard overnight", "Unload the chiller"]);
 });
 
 test("a brick's minutes are scaled onto six pans, not handed over raw", () => {
@@ -369,9 +374,9 @@ test("a brick's minutes are scaled onto six pans, not handed over raw", () => {
     modules: [{ id: "wash", name: "Wash, oil and fill", job: "wash", on: true,
       cycleMin: 30, batch: 12, touchMin: 30, everyMin: 30, repeats: 1, startMin: 0, people: 1 }],
   });
-  const p = scenarioPlanPatch(s, { washMin6: 18 });
-  assert.equal(p.patch.washMin6, 15);
-  const line = p.lines.find((l) => l.key === "washMin6");
+  const p = scenarioPlanPatch(s, { scaleMin6: 18 });
+  assert.equal(p.patch.scaleMin6, 15);
+  const line = p.lines.find((l) => l.key === "scaleMin6");
   assert.equal(line.from, 18);
   assert.equal(line.changes, true, "18 → 15 is a real change and the screen has to say so");
 });
@@ -380,7 +385,7 @@ test("a brick saved before jobs existed is matched on the name it was seeded wit
   const old = { id: "w", name: "Wash, oil and fill", on: true, cycleMin: 18, batch: 6,
     touchMin: 20, everyMin: 18, repeats: 6, startMin: 0, people: 1 };
   assert.equal(jobOf(old), "wash", "no job field, and the name is the one the app seeded");
-  assert.equal(scenarioPlanPatch({ modules: [old] }, {}).patch.washMin6, 20);
+  assert.equal(scenarioPlanPatch({ modules: [old] }, {}).patch.scaleMin6, 20);
   // A name of her own with no job is honestly none of the line's steps.
   assert.equal(jobOf({ id: "x", name: "My own thing", on: true, cycleMin: 5, batch: 1, touchMin: 5 }), "");
 });
@@ -403,7 +408,7 @@ test("a switched-off brick crosses over as nothing at all", () => {
     ],
   });
   const p = scenarioPlanPatch(s, {});
-  assert.equal(p.patch.washMin6, 18);
+  assert.equal(p.patch.scaleMin6, 18);
   assert.equal(p.patch.ovenMin, undefined, "the brick is off, so the line answers without it");
   assert.deepEqual(p.unmapped, [], "and it is not even named as skipped work");
 });
@@ -412,16 +417,30 @@ test("two bricks that admit to the same job are named, and the first one wins", 
   const brick = (id, touchMin) => ({ id, name: id, job: "wash", on: true,
     cycleMin: 18, batch: 6, touchMin, everyMin: 18, repeats: 1, startMin: 0, people: 1 });
   const p = scenarioPlanPatch(scenarioOf({ modules: [brick("a", 18), brick("b", 25)] }), {});
-  assert.equal(p.patch.washMin6, 18, "the first brick in the day's order is the one that crosses");
+  assert.equal(p.patch.scaleMin6, 18, "the first brick in the day's order is the one that crosses");
   assert.deepEqual(p.doubled, ["Wash, oil and fill"]);
 });
 
+test("a wash brick and a weighing-out brick are one job, and neither is reported missing", () => {
+  // The two were always one job under two names, so a scenario holding both was
+  // counting the same work twice. The fuller reading crosses — it never
+  // understates her hands — and the single step they share is not then listed as
+  // one the scenario said nothing about.
+  const both = (id, job, touchMin) => ({ id, name: id, job, on: true, cycleMin: 18, batch: 6,
+    touchMin, everyMin: 18, repeats: 1, startMin: 0, people: 1 });
+  const p = scenarioPlanPatch(scenarioOf({
+    modules: [both("w", "wash", 18), both("s", "scale", 25)],
+  }), {});
+  assert.equal(p.patch.scaleMin6, 25, "the fuller of the two is taken");
+  assert.ok(!p.left.includes("Weighing the dough out into pans"),
+    "and the one step they share is not then named as unfed");
+  assert.deepEqual(p.unmapped, [], "nor is either brick named as work that feeds nothing");
+});
+
 test("the load says what it did and did not change", () => {
-  const p = scenarioPlanPatch(DEFAULT_SCENARIO, { washMin6: 18, trays: 8, ovenMin: 12 });
+  const p = scenarioPlanPatch(DEFAULT_SCENARIO, { scaleMin6: 18, ovenMin: 12 });
   const line = (key) => p.lines.find((l) => l.key === key);
-  assert.equal(line("washMin6").changes, false, "the same number is not a change");
-  assert.equal(line("trays").from, 8, "8 trays → 12 is a change she is shown before it happens");
-  assert.equal(line("trays").to, 12);
+  assert.equal(line("scaleMin6").changes, false, "the same number is not a change");
   assert.equal(line("ovenMin").from, 12);
   assert.equal(line("ovenMin").to, 15);
   // A step she has never timed arrives as blank rather than as a nought.
