@@ -29,7 +29,7 @@ import {
   computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
-  combinedScenario, linesInForce, moduleOf,
+  combinedScenario, linesInForce, moduleOf, minuteAtPx,
 } from "../scenario.js";
 
 // A colour per brick, so a bar on the timeline and the person carrying it can be
@@ -384,7 +384,7 @@ function dayCard(r, sc, on) {
   return el("div", {},
     el("h2", { class: "section" }, "The day"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Every brick as a bar, from the minute it starts, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you. Drag a bar sideways to move when that brick starts — it clicks along in five-minute steps — or tap its row to type the numbers instead. Swipe the empty space to scroll."),
+      "Every brick as a bar, from the minute it starts, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you. Drag a bar sideways to move when that brick starts — it clicks along in five-minute steps — or tap its row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two bricks up against each other. Swipe the empty space to scroll."),
     el("div", { class: "card tl-card" },
       controlsRow(r, sc, on),
       timeline(r, sc, on),
@@ -515,7 +515,9 @@ function addBrick(sc, on) {  const id = newModuleId(sc.modules);
 
 function timeline(r, sc, on) {
   const trackW = Math.round(r.windowMin * r.pxPerMin);
-  return el("div", { class: "tl", style: `--hour-w:${Math.round(60 * r.pxPerMin)}px` },
+  const lab = el("span", { class: "tl-cursor-lab" });
+  const cursor = el("div", { class: "tl-cursor", hidden: true }, lab);
+  const tl = el("div", { class: "tl", style: `--hour-w:${Math.round(60 * r.pxPerMin)}px` },
     el("div", { class: "tl-inner" },
       rulerRow(r, trackW),
       ...r.modules.map((m, i) => moduleRow(r, m, i, trackW, sc, on)),
@@ -524,7 +526,70 @@ function timeline(r, sc, on) {
       // them the whole lot stacked, which is the manpower at each minute.
       el("div", { class: "tl-split" }, "People"),
       ...r.rows.map((row) => personRow(r, row, trackW, sc)),
-      totalRow(r, trackW)));
+      totalRow(r, trackW),
+      // The day's own reading, drawn last so it runs over every bar rather than
+      // under one. See wireTimeCursor for what it does and who it answers to.
+      cursor));
+  wireTimeCursor(tl, r, cursor, lab);
+  return tl;
+}
+
+// The time cursor: a hairline down the whole day that reads the clock at
+// wherever she points. The ruler along the top says 8:00; this is what answers
+// "and what is here?" — which is the question she asks of a chart when she is
+// lining two bricks up. It only ever reads: nothing here writes a brick, moves a
+// bar, or changes a number.
+//
+// A mouse can hover and a finger cannot, so the two get the gestures they
+// actually have. Over the chart the line follows the pointer and leaves with it.
+// Along the clock strip the drag belongs to the cursor instead of the scroll —
+// that one band is the only part of the chart that does not pan — and because a
+// finger never hovers, the cursor it places simply stays where she let go, which
+// is what a finger needs to read a time against two bars. Swipe the chart
+// afterwards and the line travels with the minute it names.
+function wireTimeCursor(tl, r, cursor, lab) {
+  const ruler = tl.querySelector(".tl-ruler .tl-track");
+  if (!ruler) return;
+  let dragging = false;
+  const place = (clientX) => {
+    const t = minuteAtPx(clientX - ruler.getBoundingClientRect().left, r.pxPerMin, r.windowMin);
+    if (t == null) { cursor.hidden = true; return; }
+    cursor.hidden = false;
+    const x = t * r.pxPerMin;
+    cursor.style.left = `${Math.round(ruler.offsetLeft + x)}px`;
+    lab.textContent = clockAt(r.dayStartMin, t);
+    // The reading hangs off the right of the line, so at the far end of the day
+    // there is no room for it and it has to hang to the left instead. Measured
+    // in px rather than minutes, so it holds at every scale she can pick.
+    cursor.classList.toggle("at-end", x > r.windowMin * r.pxPerMin - 60);
+  };
+
+  // The clock strip. Capture means the drag keeps working once the finger
+  // wanders off the strip, so a time stays as easy to hit at the far left of the
+  // day as in the middle of it.
+  ruler.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    place(e.clientX);
+    // A pointer already gone by the time this runs cannot be captured, and it
+    // throws rather than saying so — but the reading is placed either way, so
+    // losing the capture must not lose the drag or the cursor with it.
+    try { ruler.setPointerCapture(e.pointerId); } catch { dragging = false; }
+  });
+  ruler.addEventListener("pointermove", (e) => { if (dragging) place(e.clientX); });
+  const end = () => { dragging = false; };
+  ruler.addEventListener("pointerup", end);
+  ruler.addEventListener("pointercancel", end);
+
+  // Everywhere else. A pen and a mouse read the chart without touching it, and
+  // the line leaves when the pointer does; a touch is skipped because there is
+  // no hovering one — its gesture is the strip above.
+  tl.addEventListener("pointermove", (e) => {
+    if (dragging || e.pointerType === "touch") return;
+    place(e.clientX);
+  });
+  tl.addEventListener("pointerleave", (e) => {
+    if (e.pointerType !== "touch") cursor.hidden = true;
+  });
 }
 
 function rulerRow(r, trackW) {

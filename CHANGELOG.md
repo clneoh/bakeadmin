@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v142)
+# Jienluv2bake — change history (v54 → v143)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v143 (no database step). A time cursor on the day chart: point
+at the chart and a line follows your pointer down the whole day, reading out the clock,
+so you can line two bricks up against each other.**
+
+**What you asked.** In your own words: *"i need a time x axis cursor on the time
+chart"*.
+
+**Where it is.** The day chart in **More → Scenario planner**. One change, in one screen.
+
+**How to use it.** Run the pointer across the chart and a fine line follows it, down
+through every row — the ruler, every brick, every person, the total. A little brown label
+at the top of the line reads the clock at that point: *5:05 pm*. Move the pointer and the
+reading moves with it; move the pointer off the chart and it goes away.
+
+**On a phone.** A finger cannot hover, so on a phone the **clock strip is the handle** —
+the one band along the top of the chart where the hours are written. Put your finger on
+that strip and slide it left or right and the line follows, reading out the time. Everywhere
+else on the chart your finger still scrolls the day the way it always did, so you have not
+lost the swipe.
+
+**Why it only counts in fives.** The line reads the clock to the same five minutes a bar
+snaps to when you drag it. That is deliberate: the cursor can never name a time the chart
+could not also set, so you are never shown a time you cannot ask for.
+
+**At the ends of the day.** Point before the day starts or past the end of it and the line
+goes away rather than naming a time that is not in your day. At the far end of the evening
+the reading hangs to the left of the line instead of the right, so it is always written out
+in full and never half cut off.
+
+**Two bricks lined up.** This is what the line is for. Point at where a brick starts, read
+the time off the label, then point at where the next one starts and read that — no counting
+squares. It reads the chart and it writes nothing: no brick, no time and no number changes
+because you pointed at something.
+
+**Nothing you have has moved.** Not one figure. Your own line still reads 24 pans across 9
+bricks, the starting line still 12 pans with the chiller as the wall, and your sister's still
+4 pans in 8 bricks.
+
+CHANGELOG and the guide (section 23) both carry all of this, both PDFs rebuilt, and the
+tests are 1061 passing with none failing. No database step — nothing to run in Supabase.
 
 **21 Sep 2026 — engine v142 (no database step). Typing a number into a long card no
 longer throws the card — the box keeps your cursor and the card stays where you were

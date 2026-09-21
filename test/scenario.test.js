@@ -14,8 +14,8 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
   climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, hoursAndMinutes,
-  linesInForce, moduleFacts, moduleOf, moveModule, newModuleId, passesOf, peopleRows,
-  removeModule, repeatsToPass, scenarioOf, touchWindows,
+  linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId, passesOf,
+  peopleRows, removeModule, repeatsToPass, scenarioOf, touchWindows,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
 } from "../admin/js/scenario.js";
 
@@ -942,4 +942,39 @@ test("the ladder will buy a second brick rather than promise a cycle a day canno
   assert.equal(after.repeats, 3, "and the cycles that second one makes room for");
   assert.ok(after.repeatsHeld <= after.fitsInDay, "and still nothing a day cannot hold");
   assert.equal(climb.end.pansPerDay, 36);
+});
+
+// ── The time cursor (v143) ──────────────────────────────────────────────────
+// The hairline she runs down the day to read the clock at a point. It is a
+// READING, so the only thing it may ever get wrong is the number it shows — and
+// this is that number, worked out from the scale she picked rather than read off
+// the screen. Two things matter: it rounds to the same five minutes a dragged
+// bar clicks to (so it never names a time the screen could not also set), and it
+// gives up rather than guessing past either end of the day.
+test("the time cursor reads the clock to the same five minutes a bar snaps to (v143)", () => {
+  // 1.6 px a minute is the scale the screen opens at, so 160px along the day is
+  // 100 minutes in — and it must say 100, not the 160 px it was handed.
+  assert.equal(minuteAtPx(160, 1.6, 720), 100);
+  // Rounded to fives, exactly as a drag clicks: 101 and 104 minutes both read
+  // 100, and 105 is the first px that reads 105.
+  assert.equal(minuteAtPx(162, 1.6, 720), 100, "101 minutes in is read as 100");
+  assert.equal(minuteAtPx(166, 1.6, 720), 105, "104 minutes in is read as 105");
+  // And it is counted from the start of HER day, so the two together are the
+  // reading she sees: her day's start plus the minute the cursor is standing on.
+  const t = minuteAtPx(200, 1.6, 720);
+  assert.equal(t, 125);
+  assert.equal(clockOf(DEFAULT_DAY_START + t), clockOf(DEFAULT_DAY_START + 125));
+});
+
+test("the time cursor gives up rather than naming a time off the day (v143)", () => {
+  // Past either end there is no time to read, and the caller is told so with a
+  // null rather than with a number clamped to the edge — that is what lets the
+  // cursor be taken away instead of lying against the last minute of the day.
+  assert.equal(minuteAtPx(-4, 1.6, 720), null, "left of the day's first minute");
+  assert.equal(minuteAtPx(720 * 1.6 + 20, 1.6, 720), null, "past the end of the day");
+  assert.equal(minuteAtPx(720 * 1.6, 1.6, 720), 720, "the last minute itself is still a time");
+  // A day that does not end on a five still stops at its own last minute.
+  assert.equal(minuteAtPx(722 * 2, 2, 722), 720);
+  // A chart with no scale on it has no times on it at all.
+  assert.equal(minuteAtPx(100, 0, 720), null);
 });

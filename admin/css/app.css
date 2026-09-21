@@ -2548,7 +2548,9 @@ tr.po-covered td { color: var(--muted); }
    put so a bar three screens to the right still says what it belongs to. */
 .tl-card { padding: 10px 12px; }
 .tl { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-.tl-inner { display: inline-block; min-width: 100%; }
+/* Positioned, so the time cursor can be a hairline down the whole day rather
+   than a line per row: one element inside the day, not one per track. */
+.tl-inner { display: inline-block; min-width: 100%; position: relative; }
 .tl-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
 .tl-row:last-child { border-bottom: 0; }
 .tl-name {
@@ -2633,6 +2635,37 @@ tr.po-covered td { color: var(--muted); }
 /* The half hour between the hours: enough to judge a 15-minute pass by, not
    enough to clutter a day. */
 .tl-tick.minor { border-left: 1px dashed var(--line); opacity: .7; }
+
+/* The time cursor. A hairline down the whole day with the clock at the top of
+   it, so the ruler's 8:00 becomes "8:47 is here" — the reading she needs when
+   she is lining two bricks up. It is below the name column (z-index 2) on
+   purpose: the name stays legible and the line starts where the day starts.
+   It takes no pointer of its own, or it would swallow the drag of any bar it
+   crosses. */
+.tl-cursor {
+  position: absolute; top: 0; bottom: 0;
+  width: 1px; background: var(--brown); opacity: .75;
+  pointer-events: none;
+}
+/* The reading hangs just off the right of the line rather than being centred on
+   it. Centred looks tidier on a wide chart, but the name column is sticky and
+   scrolled over the day, so a centred reading would slide away behind it the
+   moment she scrolled — and the reading is the whole point of the cursor. */
+.tl-cursor-lab {
+  position: absolute; top: 3px; left: 0;
+  transform: translateX(4px);
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--brown); color: #fff;
+  font-size: 10.5px; font-weight: 600; line-height: 1.5;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* At the far end of the day there is no room to the right, so it hangs to the
+   left instead — always fully readable, never half cut off. */
+.tl-cursor.at-end .tl-cursor-lab { transform: translateX(calc(-100% - 4px)); }
+/* The clock strip is the cursor's handle: it is the one band of the chart where
+   a drag moves the cursor instead of scrolling the day. Everything below it
+   still pans, which the day card's own sentence says. */
+.tl-ruler .tl-track { touch-action: none; cursor: crosshair; }
 
 /* The bars of a person's row and of the total: one solid colour, because the
    colour here is not a brick — it is the pair of hands. */
