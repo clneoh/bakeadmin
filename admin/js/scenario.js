@@ -611,6 +611,20 @@ export function peopleRows(modules) {
   return rows;
 }
 
+// How many different PLACES one person has to be in the day. It is the number she
+// is planning down — one worker in one place is a worker who can be taught one job
+// — so it belongs to the person's own row, not to the drawing.
+//
+// A LINE of a brick is a place of its own, which is the whole reason this is not a
+// count of bricks: two lines of one fold running at once are two places, and a
+// count of bricks alone read exactly that doubling-up as one place — the one thing
+// the row was there to show. `line` is -1 on a brick that is not drawn as lines, so
+// a brick she has one of counts exactly as it always did.
+export function placesOn(row) {
+  const items = (row && row.items) || [];
+  return new Set(items.map((w) => `${w.module}:${w.line}`)).size;
+}
+
 // How many people are needed AT ONCE, minute by minute — the "total person"
 // she asked for, and the shape she is sliding the bricks to flatten. Returned as
 // runs of a constant count so the screen can draw the demand rather than only

@@ -2682,6 +2682,14 @@ tr.po-covered td { color: var(--muted); }
   font-size: 12px; color: var(--red); background: var(--red-bg);
   border-radius: var(--radius-sm); padding: 6px 9px;
 }
+/* A collision reads as three parts rather than one sentence: who and when, then
+   the two jobs on a line each, then what to do. The jobs are indented under a
+   bullet so the eye counts them — the whole failure of the old single sentence
+   was that two forty-character brick names ran together and read as one. */
+.tl-note-who { font-weight: 600; }
+.tl-note-job { position: relative; margin: 3px 0 0 11px; }
+.tl-note-job::before { content: "•"; position: absolute; left: -11px; }
+.tl-note-how { margin-top: 4px; }
 
 /* The row of controls above the timeline: the scale she reads it at, and how the
    hands are handed out. Chips, like the rest of the app's small choices. */

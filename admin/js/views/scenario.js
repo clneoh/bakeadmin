@@ -29,7 +29,7 @@ import {
   computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
-  combinedScenario, linesInForce, moduleOf, minuteAtPx,
+  combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn,
 } from "../scenario.js";
 
 // A colour per brick, so a bar on the timeline and the person carrying it can be
@@ -963,16 +963,16 @@ function personRow(r, row, trackW, sc) {
     title: `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`,
   }));
 
-  // How many different bricks this person is at — the hats they wear. It is the
-  // number she is planning down, because one worker covering one line is a worker
-  // who can be trained on one job.
-  const bricks = new Set(row.items.map((w) => w.module)).size;
+  // How many different places this person has to be in — a line of a brick counts
+  // as a place of its own, which is the rule the model owns (placesOn), so it is
+  // tested there rather than here.
+  const places = placesOn(row);
 
   return el("div", { class: "tl-row person" },
     el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" }, `👤 ${personLabel(row, sc)}`),
       el("div", { class: "tl-sub" }, `${hoursAndMinutes(row.busy)} of work` +
-        (bricks > 1 ? ` · at ${bricks} bricks` : "")),
+        (places > 1 ? ` · in ${places} places` : "")),
       row.clashes.length
         ? el("div", { class: "tl-sub bad" }, row.clashes.length === 1 ? "two jobs at once" : `${row.clashes.length} collisions`)
         : null),
@@ -1097,18 +1097,40 @@ function jobName(w) {
   return w.line >= 0 ? `${w.name}, line ${w.line + 1}` : w.name;
 }
 
+// A collision, written so that it can actually be read. It used to be one
+// sentence — "Person 1 is at X and Y at the same time" — and a brick's name runs
+// to forty characters ("Mixing by hand in the tub (set the minutes)"), so the two
+// jobs the sentence is about were the one thing buried in it, and the word "and"
+// between them was lost. Each job now gets a line of its own, under a first line
+// that says who and when, and the two together are the whole of the fault. The
+// line number stays spelled out, because two lines of one brick read identically
+// without it.
+//
+// A row with several clashes gives several blocks, and past three the rest are
+// counted rather than dropped in silence — a list that quietly stops at four
+// reads as though the day has four problems when it has nine.
 function clashNotes(r) {
-  const notes = [];
+  const found = [];
   for (const row of r.rows) {
-    const who = personLabel(row, r.scenario);
-    for (const c of row.clashes) {
-      if (notes.length >= 4) break;
-      notes.push(`${who} is at ${jobName(c.before)} and ${jobName(c.after)} at the same time, ${clockAt(r.dayStartMin, c.from)} → ${clockAt(r.dayStartMin, c.to)}. Move one of them, or combine with another person and accept the collision.`);
-    }
+    for (const c of row.clashes) found.push({ row, c });
   }
-  if (!notes.length) return null;
+  if (!found.length) return null;
+  const shown = found.slice(0, 3);
+  const rest = found.length - shown.length;
   return el("div", { class: "tl-notes" },
-    ...notes.map((n) => el("div", { class: "tl-note" }, n)));
+    ...shown.map(({ row, c }) => el("div", { class: "tl-note" },
+      el("div", { class: "tl-note-who" },
+        `👤 ${personLabel(row, r.scenario)} — two jobs at once, ` +
+        `${clockAt(r.dayStartMin, c.from)} → ${clockAt(r.dayStartMin, c.to)}`),
+      el("div", { class: "tl-note-job" }, jobName(c.before)),
+      el("div", { class: "tl-note-job" }, jobName(c.after)),
+      el("div", { class: "tl-note-how" },
+        "Move one of them along the day, or combine with another person and accept the collision."))),
+    rest
+      ? el("div", { class: "tl-note" },
+          `…and ${rest} more ${rest === 1 ? "pair of jobs" : "pairs of jobs"} on one person at once. ` +
+          "Move the bricks apart and they go.")
+      : null);
 }
 
 function isClash(row, w) {

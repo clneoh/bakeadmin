@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v143)
+# Jienluv2bake — change history (v54 → v144)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v144 (no database step). The People row counts the places one
+person is in, a line of a brick counting as a place — and a collision is written so it
+can be read.**
+
+**What you asked.** In your own words: *"fix the hats count and the collision sentence.
+And what is the concept of hat, i dont understand, why name them by numbers?"*. Both were
+real faults, and the question was fair — "hat" was my word, and it was a poor one. It is
+gone from the app and from this book; what it meant is said plainly below.
+
+**What a "hat" was.** It was my shorthand for **the places one person has to be in the
+day**. You put it better yourself: *"one person would not need to wear too many hats"* —
+one worker asked to stand at six different jobs in one day is being handed six hats. That
+is the thing the People row is there to count, so that is what it now says: **in 6 places**.
+
+**The count was wrong.** Each person's row read **at 6 bricks** — the number of different
+bricks, not the number of places — so a worker on **line 1 and line 2 of the same fold**
+counted as being in **one** place. That is exactly the doubling-up the number is supposed
+to show you, and it was the one thing the row said nothing about. A line of a brick is a
+place of its own now, so that same worker reads **in 2 places**. On your own line the row
+has gone from **at 6 bricks** to **in 7 places**, because your fold is drawn as two lines.
+The number only appears when it is more than one, exactly as before.
+
+**The collision sentence was unreadable.** It was one long sentence — *Person 1 is at X and
+Y at the same time, …* — and your bricks have long names: *Mixing by hand in the tub (set
+the minutes)* is forty characters, twice in one sentence, with the word *and* between them
+lost in the middle. It is now three parts on four separate lines. Line one, who and when:
+*Person 1 — two jobs at once, 4:00 pm to 4:05 pm*. Lines two and three, each job on a line
+of its own with a bullet in front of it: *Mixing by hand in the tub (set the minutes), line
+1* and *Mixing by hand in the tub (set the minutes), line 2*. Line four, what to do about
+it: *Move one of them along the day, or combine with another person and accept the
+collision.* Two lines of one brick still say which line they are, because without that they
+read identically. And if a day has more than three of these, the last block **counts the
+rest** instead of quietly stopping — a list that stopped at four read as though the day had
+four problems when it had nine.
+
+**Why the people are numbers.** Because a number is what the app stores: who is on a brick
+is a number, combining two people is joining two numbers, and the same person on three
+bricks is the same number in three places. That is what makes "put person 1 on both lines"
+work in one tap. It also has nothing to do with you — **Person 1, 2, 3** are places in the
+day, not names of people, and the app never shows them to a customer. Naming them (Mei,
+Kak, Adik) is a small change on top and I have not built it — say the word if it would help
+you plan.
+
+**What has not moved.** The day itself. Not one minute, one pan or one figure. Your own line
+still reads **24 pans across 9 bricks**, the starting line still **12 pans with the chiller
+as the wall**, your sister's still **4 pans in 8 bricks**. Only the words on one row and the
+shape of one red note changed.
+
+CHANGELOG and the guide (section 23) both carry all of this, both PDFs rebuilt, and the
+tests are 1062 passing with none failing. No database step — nothing to run in Supabase.
 
 **21 Sep 2026 — engine v143 (no database step). A time cursor on the day chart: point
 at the chart and a line follows your pointer down the whole day, reading out the clock,
@@ -104,10 +155,14 @@ in the same minute, their row in the People list goes red and names the minute a
 line collided with which. The line boxes and the brick's own *Who is at this brick* are the
 same number, so the two can never disagree.
 
-**The People list now counts hats.** Each person's row reads **at 3 bricks** — how many
-different bricks they are standing at — and every job on it names its line ("Stretch and
-fold in the tub, line 2"). That number is the whole point of this release: it is the one
-that tells you when somebody is wearing too many hats.
+**The People list now counts the places one person has to be.** Each person's row reads how
+many different places that one person is in — and every job on it names its line ("Stretch
+and fold in the tub, line 2"). That number is the whole point of this release: it is the one
+that tells you when one person is being asked to be in too many places at once.
+
+*(This entry was first written as "counts hats", as **at 3 bricks**. Both the word and the
+count were wrong, and **v144** fixes them: the row now reads **in 3 places**, and a line of a
+brick counts as a place. See the v144 entry at the top.)*
 
 **Your starting point in one tap.** **One a line** (it was *One a brick*) gives every line
 its own person, so a brick you have two of takes two people rather than one. It says *One a

@@ -15,7 +15,7 @@ import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
   climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, hoursAndMinutes,
   linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId, passesOf,
-  peopleRows, removeModule, repeatsToPass, scenarioOf, touchWindows,
+  peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
 } from "../admin/js/scenario.js";
 
@@ -634,6 +634,43 @@ test("the same person on both lines is one person, and a real clash says so", ()
   assert.equal(clashed.length, 1, "one person is still one row");
   assert.ok(clashed[0].clashes.length > 0, "two of their own lines in the same minute is a clash");
   assert.equal(clashed[0].clashes[0].after.line, 1, "and the clash names the line that came second");
+});
+
+test("a person's places count the lines they are on, not just the bricks", () => {
+  // The fix: one person on BOTH lines of one brick is in two places, and the count
+  // of bricks alone read that as one — so the doubling-up she is planning down was
+  // the one thing the row said nothing about.
+  const both = computeScenario(scenario({
+    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+  }));
+  const one = peopleRows(both.on);
+  assert.equal(one.length, 1, "the same number on two lines is still one person");
+  assert.equal(one[0].items.length, 4, "on all four lots");
+  assert.equal(new Set(one[0].items.map((w) => w.module)).size, 1,
+    "one brick, which is what the old count saw");
+  assert.equal(placesOn(one[0]), 2, "and two places, which is what she is counting");
+  // Two lines, two people: each of them is in ONE place, so the count she is
+  // driving to is a real answer and not just "the brick again".
+  const split = computeScenario(scenario({
+    modules: [brick({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+  }));
+  assert.deepEqual(peopleRows(split.on).map(placesOn), [1, 1],
+    "one person per line is one place each");
+  // A brick she has one of has no lines to count, so it counts as one place
+  // whether or not anybody is named on it — every scenario built before lines
+  // existed reads exactly as it did.
+  const plain = computeScenario(scenario({
+    modules: [brick({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+  }));
+  assert.deepEqual(peopleRows(plain.on).map(placesOn), [1], "one brick is one place");
+  // Two bricks really are two places, which the old count did get right.
+  const two = computeScenario(scenario({
+    modules: [
+      brick({ id: "a", person: 1, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
+      brick({ id: "b", person: 1, startMin: 100, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
+    ],
+  }));
+  assert.deepEqual(peopleRows(two.on).map(placesOn), [2], "two bricks is two places");
 });
 
 test("a brick that is not drawn as lines gives the windows it always gave", () => {
