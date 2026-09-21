@@ -23,6 +23,7 @@ import { renderMore } from "./views/more.js";
 import { renderMoney } from "./views/money.js";
 import { renderProfit } from "./views/profit.js";
 import { renderProduction } from "./views/production.js";
+import { renderScenario } from "./views/scenario.js";
 import { renderLogin } from "./views/login.js";
 import { renderLock } from "./views/lock.js";
 import { refreshShareWarn } from "./sharewarn.js";
@@ -48,6 +49,7 @@ const routes = {
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },
   "/profit":    { title: "Profit",     tab: "more",      render: renderProfit },
   "/production":{ title: "Production line", tab: "more", render: renderProduction },
+  "/scenario":  { title: "Scenario planner", tab: "more", render: renderScenario },
   "/units":     { title: "Units",      tab: "more",      render: renderUnits },
   "/reviews":   { title: "Reviews",    tab: "more",      render: renderReviews },
   "/suppliers": { title: "Suppliers",  tab: "more",      render: renderSuppliers },

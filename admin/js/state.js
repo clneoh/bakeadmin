@@ -70,6 +70,12 @@ export function defaultState() {
         scaleMin6: 0,
         coolMin6: 0,
       },
+      // The scenario planner (21 Sep 2026): a line built out of modules on a
+      // clock, so she can design a production flow rather than only read one.
+      // Left empty here and seeded by the screen itself (views/scenario.js), so
+      // that a phone which never opens it never pushes a preset over the one she
+      // has built on the other phone. See js/scenario.js for the model.
+      scenario: {},
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
       // The two lists the books are built from (16 Sep 2026). Empty means "the
       // built-in ones" — see js/accounts.js — so a phone that never edits them
@@ -278,6 +284,7 @@ function normalize(s) {
       storefront: cleanStorefront((s.settings || {}).storefront),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
       production: { ...d.settings.production, ...(((s.settings || {}).production) || {}) },
+      scenario: { ...d.settings.scenario, ...(((s.settings || {}).scenario) || {}) },
       categories: Array.isArray(((s.settings || {}).categories)) ? s.settings.categories : [],
       payMethods: Array.isArray(((s.settings || {}).payMethods)) ? s.settings.payMethods : [],
       developer: cleanDeveloper(((s.settings || {}).developer)),

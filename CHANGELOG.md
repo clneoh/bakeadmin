@@ -1,8 +1,74 @@
-# Jienluv2bake — change history (v54 → v136)
+# Jienluv2bake — change history (v54 → v137)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
+of modules, watch the day as a timing diagram, and raise the pans you want until something
+stops you.**
+
+**What you asked.** "can i have a apps function that visualise the flow... something for me
+to optimise line balancing", and then, once we were talking about it: a screen you could
+**configure**, a **timing diagram**, and — this was the important one — *"not optimised for
+mobile, for a clearer interface"*, so you could "toase about all possibility to configure the
+production flows". You described the parts yourself: a module around the oven, a module around
+the mixer, a module around a fermentation, each with its **own cycle time**; the folds as a
+**loop**; ingredients going in "from time to time, not one shot"; and the fridge and the bins
+as **half-finished goods** sitting between steps. And you set the rule for the whole exercise:
+*"alll this are design, and require proofing, and before the proofing, the fugures have to be
+right first, at least logically."*
+
+**What changed.** A new screen, **More → 🧱 Scenario planner**. It is the one screen in the app
+that is **wider than the rest** — up to 900px instead of 540 — because a day laid out across a
+timeline needs the room. Everything else about the app is exactly as it was.
+
+**A module is a Lego brick: a machine *and* the pair of hands that tends it, counted as one
+thing.** Each module has its own cycle time — how long one pass holds it — how many pans that
+pass deals with, how many minutes of you it takes, and how often it repeats. Your fold loop is
+just a module that repeats more often, so a loop needs no special anything. Ten modules come
+seeded: the mixer, the fold loop, wash/oil/fill, load the chiller, retard overnight, unload,
+dimple and top, the oven, cool and pack — and the fridge, which arrives **switched off**.
+
+**Scenario 1 is the line without a fridge, and the fridge is a switch, not an absence.** It sits
+in the module list switched off and reads *"not in this scenario"*, so the screen answers
+without it. Switch it on and it appears. That is deliberate, because you said it plainly:
+*"if the output fulfilied my need now, then fridge would not be the 1st thing to buy for me"* —
+so the buying question and the design question had to be the same screen, one tap apart.
+
+**The day is a timing diagram.** One row per module running across the day, with the clock
+along the top every two hours. A **solid block is you standing there**; a pale one is the module
+running without you — the retard and the bake have no solid block at all because they need
+nobody. Below the modules is a row **per person**, carrying the jobs that person is at. There is
+one person on your seeded day, doing 4 h 56 min of work. Swipe sideways; the day is wider than
+the phone.
+
+**The climb — this is the part you asked for.** You described the method yourself: *"i will
+slowly increase the output needed per day until 1st limitation hit, tweaking the 1st limitation
+and expecting the output to grows, until the next limitation surface"*. So: type how many pans
+a day you want, and a ladder appears. Each rung names the one module that stops you at that
+number, exactly what to change about that module, what the day becomes, and which module
+becomes the wall next. **One tap puts the whole ladder into the modules.**
+
+**And the ladder has to be honest, which is where it earns its keep.** Your seeded day makes
+**12 pans** and it is the chiller that stops it. Raise the target to 36 and the ladder climbs
+to **24** — then stops, and says why in plain words: *"A 12 h pass fits 2 times in a day, and it
+is already running that often. So this one cannot be run more often — it has to take more pans
+at once."* Twelve trays, twice a day, is twenty-four pans and no amount of wanting makes it
+more. **Thirty-six pans needs eighteen trays.** It is the same trays-to-a-day arithmetic from
+the Production line, now holding this screen to account — and it means this screen can talk you
+**out** of a purchase as well as into one.
+
+**Every figure is yours to move.** Tap any row — or any brick in the "Not in this scenario" list
+— and one card opens with that module's numbers, each label naming its own unit: minutes one
+pass holds it, pans in one pass, minutes of you, minutes from one pass to the next, passes in
+the day, minutes in when the first pass starts, people this pass needs. Nothing here reads an
+order and nothing here blocks a sale; it is a planner you type into.
+
+**One more honest note.** A day can only hold so many passes of something: a 12-hour retard fits
+twice in 24 hours, and the screen will not count a third however many you type. Your number is
+kept exactly as you typed it — the row just wears an *"a day's limit"* tag and counts the passes
+that are really there.
 
 **20 Sep 2026 — engine v136 (no database step). The Production line now opens with a flow
 map: your bake day top to bottom, in the order it actually happens.**

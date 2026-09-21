@@ -2471,3 +2471,97 @@ tr.po-covered td { color: var(--muted); }
   position: absolute;
   width: 1px;
 }
+
+/* ---------- The scenario planner (21 Sep 2026) ----------
+   A screen for DESIGNING a line rather than reading one: modules on a clock,
+   each with its own cycle time, and the number of people it needs falling out
+   of when they start. She asked for it wider than the phone, so this route —
+   and only this route — is allowed to stretch out on a big screen. */
+.view.wide { max-width: 900px; }
+.tabbar.wide { max-width: 900px; }
+
+/* The four figures that answer "what does this scenario make". Two by two, so
+   they read as one block rather than a list to scroll. */
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.fact { background: var(--surface); padding: 9px 11px; }
+.fact-label { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.fact-value { font-size: 19px; font-weight: 700; font-family: var(--serif); margin-top: 1px; }
+.fact-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+
+/* The climb — one rung per module, numbered, so it reads as the order she
+   would actually do them in. */
+.climb-list { display: flex; flex-direction: column; gap: 10px; }
+.climb-step { display: flex; gap: 10px; }
+.climb-num {
+  flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brown-soft); color: var(--brown-dark);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.climb-body { flex: 1; min-width: 0; }
+.climb-what { font-weight: 600; font-size: 14.5px; }
+
+/* The timing diagram. A day wide and scrolling sideways; the name column stays
+   put so a bar three screens to the right still says what it belongs to. */
+.tl-card { padding: 10px 12px; }
+.tl { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.tl-inner { display: inline-block; min-width: 100%; }
+.tl-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+.tl-row:last-child { border-bottom: 0; }
+.tl-name {
+  position: sticky; left: 0; z-index: 2;
+  flex: 0 0 138px; width: 138px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  padding: 6px 9px 6px 0;
+  cursor: pointer;
+}
+.tl-name-top {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 600; line-height: 1.25;
+}
+.tl-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.tl-track {
+  position: relative; height: 34px; flex: 0 0 auto;
+  /* An hour gridline every 60 minutes, drawn rather than laid out so it costs
+     nothing however wide the day gets. */
+  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 96px);
+}
+.tl-bar { position: absolute; top: 9px; height: 16px; border-radius: 5px; overflow: hidden; }
+.tl-touch { height: 100%; border-radius: 5px 0 0 5px; }
+.tl-row.off .tl-name { opacity: .5; }
+.tl-row.off .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 96px); opacity: .45; }
+.tl-row.person { background: var(--strip); }
+.tl-row.person .tl-name { background: var(--strip); }
+.tl-row.person .tl-bar { top: 12px; height: 11px; }
+.tl-split {
+  position: sticky; left: 0;
+  font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  padding: 8px 0 3px;
+}
+.tl-ruler .tl-sub { padding-top: 2px; }
+.tl-tick {
+  position: absolute; top: 0; bottom: 0;
+  border-left: 1px solid var(--line);
+  padding-left: 4px;
+}
+.tl-tick span { font-size: 10.5px; color: var(--muted); line-height: 34px; white-space: nowrap; }
+
+/* One colour per module. The pale tone is the module running; the solid tone is
+   the minutes of a person inside it — so a bar says both things at once. */
+.tone-0 { background: #f6dcd0; } .tone-0 .tl-touch { background: #c4552f; }
+.tone-1 { background: #d6e6f2; } .tone-1 .tl-touch { background: #3f6f9e; }
+.tone-2 { background: #fbe9c8; } .tone-2 .tl-touch { background: #b26a16; }
+.tone-3 { background: #dcecd9; } .tone-3 .tl-touch { background: #3f7d4e; }
+.tone-4 { background: #e6dcf2; } .tone-4 .tl-touch { background: #6b4f9e; }
+.tone-5 { background: #d4eae6; } .tone-5 .tl-touch { background: #2f7d74; }
+.tone-6 { background: #f6d7e0; } .tone-6 .tl-touch { background: #a8436a; }
+.tone-7 { background: #e8e0d6; } .tone-7 .tl-touch { background: #7a6a5c; }

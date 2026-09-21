@@ -118,6 +118,11 @@ function recordPayload(kind, rec) {
       weekCheck: rec.weekCheck || { week: "", done: {} },
       referrals: rec.referrals || {}, // bring-a-friend scheme numbers
       production: rec.production || {}, // the line planner's numbers — both phones bake from them
+      // The scenario she has built, only once she has built one — same guard as
+      // the two lists below: a phone that never opened the planner must not push
+      // an empty scenario over the one she designed on the other phone.
+      ...(Array.isArray((rec.scenario || {}).modules) && rec.scenario.modules.length
+        ? { scenario: rec.scenario } : {}),
       // The to-do list once she customises it. Absent until then: a phone that
       // never edited its tasks must not push the preset seed and overwrite the
       // other phone's customised list (last-write-wins below would clobber it).

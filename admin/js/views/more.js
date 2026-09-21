@@ -23,6 +23,7 @@ export function renderMore(root, state) {
     menuItem("#/money", "💰 Money", "What came in — cash, TNG, still to collect"),
     menuItem("#/profit", "📈 Profit", "Sales, ingredient cost, what the month left"),
     menuItem("#/production", "🏭 Production line", "Where the line slows down, and the best use of your hands"),
+    menuItem("#/scenario", "🧱 Scenario planner", "Build the line from modules, and climb to the day you want"),
     menuItem("#/deliveries", "📅 Delivery dates", "Set and manage delivery dates"),
     menuItem("#/ingredients", "🧂 Ingredients", "Cooking units + supplier prices for the PO"),
     menuItem("#/history", "📚 PO history", "Saved purchase orders"),
