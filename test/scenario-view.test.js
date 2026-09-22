@@ -560,3 +560,199 @@ test("Stop takes the clock and any call away with it (v151)", () => {
   minutesLater(NOW, calls[calls.length - 1].at); tick();
   assert.equal(callsOnChart(root).length, 0, "a stopped day went on calling");
 });
+
+// ── The day's own card: working it backwards (v152) ───────────────────────
+// Her ask: "how to make the calculate backward works?" The control lives on
+// batch 1 of the last module in the build — the card she already gets by tapping
+// that bar — and it is a press, not a switch. These three tests pin the card, the
+// press and the way back.
+
+// The track of the row named `name`, so a tap can be aimed at one bar of it.
+function trackFor(root, name) {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes(name));
+  assert.ok(row, `no timeline row named ${name}`);
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  assert.ok(track, `no track in the row named ${name}`);
+  return track;
+}
+
+// Tapping a bar is a click on the track whose target is the bar: the view reads
+// the batch number off `closest(".tl-bar, .tl-btag")`, which the shim has no
+// bubbling to deliver for it.
+function tapBar(root, name, k) {
+  const bar = rowFor(root, name)[k];
+  assert.ok(bar, `${name} has no batch ${k + 1} drawn`);
+  trackFor(root, name).dispatchEvent({
+    type: "click", target: { closest: () => bar }, stopPropagation() {},
+  });
+  return bar;
+}
+
+const popupTitle = () => textOf(walk(layers["popup-layer"]).find((n) => hasClass(n, "popup-title")) || createEl("div"));
+const popupBody = () => textOf(layers["popup-layer"]);
+const popupButton = (re) => walk(layers["popup-layer"]).find((n) => n.tagName === "BUTTON" && re.test(textOf(n)));
+const starts = (state, id) => computeScenario(state.settings.scenario).modules.find((m) => m.id === id).starts;
+
+test("the backward card opens on batch 1 at the last module, and nowhere else (v152)", () => {
+  const { root, state } = render();
+
+  // The last module in the build: Cutting and packing, whose first batch ends at
+  // 9:09 am. That is the moment the whole day is hung from.
+  tapBar(root, "Cutting and packing", 0);
+  assert.match(popupTitle(), /the end of your first batch/, "batch 1 of the last module did not open the day's own card");
+  assert.match(popupBody(), /9:09 am/, "the card does not name the moment the day hangs from");
+  assert.match(popupBody(), /latest/, "the card does not say what each module's latest start is");
+  assert.ok(popupBody().includes("Pull them back to their latest start"), "a day with slack offers no way to take it out");
+
+  // The first module is not it: its batch 1 IS the module's own start time and the
+  // first thing in the day, so it keeps the card it has always had.
+  tapBar(root, "Mixing the dough in the tub", 0);
+  assert.doesNotMatch(popupTitle(), /the end of your first batch/, "the first module opened the day's own card");
+  assert.match(popupTitle(), /batch 1 of 4/, "the first module's own card is gone");
+
+  // And a line of a single module is not a chain at all, so nothing hangs from its
+  // last thing either — it keeps its ordinary card.
+  const one = render({ modules: [ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack")] });
+  tapBar(one.root, "Cutting and packing", 0);
+  assert.doesNotMatch(popupTitle(), /the end of your first batch/, "a one-module day opened the day's own card");
+  // The signpost to the card names the bar to tap, but only where there is one.
+  assert.match(textOf(one.root), /batch 1 of 4|Cutting and packing/);
+  void state;
+});
+
+test("one press works the day backwards and leaves the day's own numbers alone (v152)", () => {
+  const { root, state } = render();
+  const before = computeScenario(state.settings.scenario);
+  assert.equal(before.pansPerDay, 24, "one baker day does not make twenty-four pans before the press");
+  assert.equal(before.endMin, 570, "the day did not finish at 1:30 pm before the press");
+
+  tapBar(root, "Cutting and packing", 0);
+  const pull = popupButton(/Pull them back to their latest start/);
+  assert.ok(pull, "the day card has no pull-back button");
+  pull.dispatchEvent({ type: "click" });
+
+  const after = computeScenario(state.settings.scenario);
+  // The mix goes in as late as the chain allows — 4:43 am against the 4:01 am it
+  // was stored at — and every module above the last one comes with it.
+  assert.equal(starts(state, "solo_mix")[0], 43, "the mix was not pulled back to its latest start");
+  assert.deepEqual(starts(state, "solo_mix"), [43, 130, 217, 304], "the module's own rhythm did not come with it");
+  assert.deepEqual(starts(state, "solo_oven"), [282, 369, 456, 543], "a module in the middle did not come with the chain");
+  assert.deepEqual(starts(state, "solo_pack"), [297, 384, 471, 558], "the last module moved when there was nothing to pull it back to");
+
+  // The whole point of a backward pass: the day is now tight, and it still makes
+  // the same pans and still finishes in the same minute.
+  assert.equal(after.pansPerDay, 24, "the press changed how many pans the day makes");
+  assert.equal(after.endMin, 570, "the press moved the end of the day");
+  for (const m of after.on) {
+    const flat = m.passes.every((p, i, all) => i === 0 || Math.round(p.at - all[i - 1].at) === Math.round(m.everyMin));
+    assert.ok(flat, `${m.name}: the press changed the spacing between its batches`);
+  }
+
+  // And the press cannot walk the day into an impossible order: no module may end
+  // a lot after the module below it has started the same lot. The day was in order
+  // before, so this asks whether the press kept it — which is the whole reason the
+  // pass measures the room between neighbours instead of subtracting a sum.
+  const outOfOrder = (r) => {
+    let n = 0;
+    for (let i = 0; i < r.on.length - 1; i += 1) {
+      const above = r.on[i];
+      const below = r.on[i + 1];
+      for (let k = 0; k < above.passes.length; k += 1) {
+        if (above.passes[k].end > below.passes[k].at + 0.001) n += 1;
+      }
+    }
+    return n;
+  };
+  assert.equal(outOfOrder(before), 0, "the seeded day is not in order, so this test covers nothing");
+  assert.equal(outOfOrder(after), 0, "the press started a lot before the dough it is made of exists");
+
+  // A day with nothing left to take out says so rather than offering a button that
+  // would change nothing, and the way back appears with it.
+  assert.doesNotMatch(popupBody(), /Pull them back to their latest start/, "a tight day still offers the pull-back button");
+  assert.match(popupBody(), /already as late as it can go/, "a tight day does not say so");
+  assert.ok(popupButton(/Put my start times back/), "there is no way back from the press");
+});
+
+test("the way back puts every start time exactly where it was, and then goes (v152)", () => {
+  const { root, state } = render();
+  const was = { solo_mix: starts(state, "solo_mix"), solo_fold: starts(state, "solo_fold"), solo_oven: starts(state, "solo_oven") };
+  // Stored the way her own modules are: a start time and no list of its own, which
+  // is what the press has to survive without turning into a row of zeroes.
+  for (const m of state.settings.scenario.modules) {
+    assert.equal(m.starts, undefined, `${m.name} is stored with a list of times, so this test is not covering her case`);
+  }
+
+  tapBar(root, "Cutting and packing", 0);
+  popupButton(/Pull them back to their latest start/).dispatchEvent({ type: "click" });
+  assert.equal(starts(state, "solo_mix")[0], 43, "the press did not happen, so there is nothing to undo");
+
+  const back = popupButton(/Put my start times back/);
+  assert.ok(back, "the way back is missing");
+  back.dispatchEvent({ type: "click" });
+  assert.deepEqual(starts(state, "solo_mix"), was.solo_mix, "the mix was not put back");
+  assert.deepEqual(starts(state, "solo_fold"), was.solo_fold, "a module above was not put back");
+  assert.deepEqual(starts(state, "solo_oven"), was.solo_oven, "a module in the middle was not put back");
+  assert.equal(computeScenario(state.settings.scenario).endMin, 570, "the day did not come back as it was");
+  // The day she had is stored exactly as it was, list and all: putting a time back
+  // must not leave behind a list that turns Auto spacing into an even one.
+  for (const m of state.settings.scenario.modules) {
+    assert.equal(m.starts, undefined, `${m.name} came back with a list of times it did not have`);
+  }
+  assert.equal(popupButton(/Put my start times back/), undefined, "the way back is still offered after it was used");
+});
+
+test("the step pairs on the day card move the whole day and keep its shape (v152)", () => {
+  const { root, state } = render();
+  const before = computeScenario(state.settings.scenario);
+  const wasAt = new Map(before.on.map((f) => [f.id, Number(f.startMin)]));
+  // The room between neighbouring modules, which is the shape of the day: a move
+  // of the whole day leaves every one of these exactly where it was.
+  const gaps = (r) => r.on.slice(1).map((f, i) => Number(f.startMin) - Number(r.on[i].startMin));
+
+  tapBar(root, "Cutting and packing", 0);
+  const later = popupButton(/\+ 5 min/);
+  assert.ok(later, "the day's own card carries no five-minute pair");
+  later.dispatchEvent({ type: "click" });
+
+  const after = computeScenario(state.settings.scenario);
+  for (const f of after.on) {
+    assert.equal(Number(f.startMin) - wasAt.get(f.id), 5, `${f.name} did not move with the whole day`);
+  }
+  assert.deepEqual(gaps(after), gaps(before), "the whole-day move re-laid the day instead of moving it");
+  assert.equal(after.pansPerDay, 24, "moving the whole day changed how many pans it makes");
+
+  // A day moved by hand offers the same way back as a day pulled back, and it is
+  // the day she began with rather than the step before the last one.
+  const earlier = popupButton(/− 5 min/);
+  assert.ok(earlier, "the day's own card carries no earlier button");
+  earlier.dispatchEvent({ type: "click" });
+  const back = popupButton(/Put my start times back/);
+  assert.ok(back, "moving the whole day offers no way back");
+  back.dispatchEvent({ type: "click" });
+  for (const f of computeScenario(state.settings.scenario).on) {
+    assert.equal(Number(f.startMin), wasAt.get(f.id), `${f.name} was not put back to where the day began`);
+  }
+});
+
+test("the controls row signposts the moment the day hangs from, and where it is tapped (v152)", () => {
+  // v148's lesson: the climb's apply button sat four screens below its own heading
+  // and she reported that she could not find it. A control that lives behind a tap
+  // on one particular bar needs telling where that bar is, so the chip names the
+  // moment and the module, without doing the work for her.
+  const { root } = render();
+  const chip = walk(root).find((n) => n.tagName === "BUTTON" && /First batch out/.test(textOf(n)));
+  assert.ok(chip, "nothing on the screen says where the day is hung from");
+  assert.match(textOf(chip), /9:09 am/, "the signpost does not name the moment");
+  chip.dispatchEvent({ type: "click" });
+  const said = walk(document.body).filter((n) => hasClass(n, "toast"));
+  assert.ok(said.length, "the signpost says nothing when it is tapped");
+  assert.match(textOf(said[said.length - 1]), /batch 1 of that module/,
+    "the signpost does not say which bar to tap");
+
+  // A line of a single module is not a chain at all, so there is nothing to work
+  // back through and nothing to signpost.
+  const one = render({ modules: [ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack")] });
+  assert.equal(
+    walk(one.root).some((n) => n.tagName === "BUTTON" && /First batch out/.test(textOf(n))),
+    false, "a one-module day was signposted to a card it does not have");
+});

@@ -16,7 +16,7 @@ import {
   climbSteps, descentSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
-  clampBatchStart, alignBatches, batchMismatches, callWindows,
+  clampBatchStart, alignBatches, batchMismatches, callWindows, latestStarts,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
   ONE_BAKER_SCENARIO,
 } from "../admin/js/scenario.js";
@@ -1756,3 +1756,144 @@ test("the call is a minute before the job, and it is the job's own person (v151)
   assert.equal(fold.at, 50, "the fold is not called a minute before it happens");
   assert.equal(fold.from, 51, "the fold's own minute moved");
 });
+
+// ── Working the day backwards (v152) ──────────────────────────────────────
+// Her ask of 22 September: "how to make the calculate backward works?" Every
+// other time on this screen is worked out forwards, so a module can only ever be
+// pushed later and the day can only spill; the seeded one baker day is the
+// exception, and its eight times were worked out BACKWARDS by hand and stored as
+// numbers. latestStarts is that arithmetic, in code, so the screen can do it.
+//
+// The anchor is the end of the first batch at the LAST module in the build, not
+// the oven — add, remove or reorder a module and the moment the day hangs from
+// moves with her line. On one baker day that last process is Cutting and packing.
+
+test("the backward pass walks from the end of the first batch at the last module (v152)", () => {
+  const r = computeScenario(ONE_BAKER_SCENARIO);
+  // The anchor itself, read off the day rather than assumed: the last switched-on
+  // module's first batch ends at minute 309, which is 9:09 am.
+  const last = r.on[r.on.length - 1];
+  assert.equal(last.id, "solo_pack", "the last thing the line does for a batch moved");
+  assert.equal(last.passes[0].end, 309, "the end of the first batch is not where it was");
+
+  const latest = latestStarts(r.on);
+  assert.deepEqual(Object.fromEntries(latest), {
+    solo_mix: 43, solo_fold: 63, solo_scale: 186, solo_proof1: 201,
+    solo_top: 246, solo_proof2: 252, solo_oven: 282, solo_pack: 297,
+  }, "the latest starts are not the chain's own answer");
+
+  // Why those numbers are those numbers, measured off the day itself rather than
+  // repeated a second time: the only room anywhere in one baker day's chain is the
+  // forty-two minutes between the oven's first batch and the packing's, and every
+  // module above it gives that room back and no more. Every other neighbouring pair
+  // hands over with no minute to spare, so nothing else can move at all.
+  const oven = r.on.find((m) => m.id === "solo_oven");
+  const pack = r.on.find((m) => m.id === "solo_pack");
+  assert.equal(pack.passes[0].at - oven.passes[0].end, 42,
+    "the room between the oven and the packing is not forty-two minutes");
+  for (let i = 0; i < r.on.length - 1; i += 1) {
+    if (r.on[i].id === "solo_oven") continue;
+    const above = r.on[i];
+    const below = r.on[i + 1];
+    let room = Infinity;
+    for (let k = 0; k < above.passes.length; k += 1) {
+      room = Math.min(room, below.passes[k].at - above.passes[k].end);
+    }
+    assert.equal(room, 0, `${above.name} no longer hands over to ${below.name} with no minute to spare`);
+  }
+  // The last module is the anchor and does not move; every module above it moves by
+  // the room below it, which on this day is the same 42 all the way up.
+  assert.equal(latest.get(last.id), last.startMin, "the module the day hangs from was moved");
+  for (const f of r.on.slice(0, -1)) {
+    assert.equal(latest.get(f.id) - f.startMin, 42, `${f.name}: the day's own room is not what moved it`);
+  }
+
+  // What the number is FOR: the dough does not have to go in at 4:01 am. Forty-two
+  // minutes of that day are slack, and this is that slack as a number — the mix's
+  // latest start against the 1 it is stored at.
+  assert.equal(moduleOf(ONE_BAKER_SCENARIO.modules[0]).starts[0], 1, "the seeded mix no longer starts at 4:01 am");
+  assert.equal(latest.get("solo_mix"), 43, "the mix was not handed 4:43 am as its latest start");
+
+  // Nothing of hers moves: the pass only hands back an answer, and the line she
+  // already has is still drawn from her own stored times.
+  assert.deepEqual(chainLine(ONE_BAKER_SCENARIO.modules).map((m) => m.starts[0]),
+    [1, 21, 144, 159, 204, 210, 240, 297], "reading the backward pass moved a stored time");
+});
+
+test("the backward pass is measured off the day, not subtracted from the anchor (v152)", () => {
+  // The first version of this asked the anchor for the sum of every module's cycle
+  // minutes, and on a day whose modules do NOT sit end to end that answer is not the
+  // day she has. The seeded 12-pan line is exactly that day: its chain really spans
+  // 1095 minutes where the cycle minutes only add up to 875, and the seeded one baker
+  // day is the opposite case where the two agree by luck. So the pass has to measure
+  // the room between neighbouring modules instead — and the two answers must differ
+  // on the day that tells them apart.
+  const r = computeScenario(DEFAULT_SCENARIO);
+  const latest = latestStarts(r.on);
+  const sum = r.on.reduce((t, f) => t + f.cycleMin, 0);
+  const span = r.endMin - r.firstMin;
+  assert.notEqual(Math.round(sum), Math.round(span), "the seeded days no longer tell a sum from a span, so this test covers nothing");
+
+  // Measured room by room: the mixer may go in 220 minutes later than it does, which
+  // is the packing's room (64) plus the wash's (90) plus the fold's (56) plus its own
+  // (10) — the four places this day is not tight, added up the way the pass walks it.
+  assert.equal(latest.get("mixer") - r.on.find((f) => f.id === "mixer").startMin, 220,
+    "the mixer's latest start is not the day's own room walked back to it");
+  assert.equal(latest.get("pack"), r.on.find((f) => f.id === "pack").startMin,
+    "the module the day hangs from was moved");
+
+  // And a module is never handed a start before the one it already has: the pass
+  // gives room back, it does not take any away.
+  for (const f of r.on) {
+    assert.ok(latest.get(f.id) >= f.startMin, `${f.name} was handed an earlier start than it already has`);
+  }
+});
+
+test("a module that is switched off is stepped over, and gets no latest start (v152)", () => {
+  // The fridge sits in the seeded line switched off. A machine that is not switched
+  // on is not in the build, so nothing is worked back through it and nothing waits
+  // on it — exactly how chainLine steps over one.
+  const r = computeScenario(DEFAULT_SCENARIO);
+  const last = r.on[r.on.length - 1];
+  assert.equal(last.id, "pack", "the last thing the seeded day does moved");
+  assert.equal(r.on.some((f) => f.id === "fridge"), false, "the fridge is switched on, so this test is not covering it");
+  const latest = latestStarts(r.on);
+  assert.equal(latest.has("fridge"), false, "a switched-off module was given a latest start");
+  assert.equal(latest.size, 9, "the backward pass answered for a module that is not in the build");
+  // The pass walks the switched-on modules in the order they are built, so the last
+  // one of them is the anchor whatever is switched off above or below it.
+  assert.equal(latest.get("pack"), last.startMin, "the module the day hangs from is not the last one switched on");
+
+  // And it reads nothing off the screen: an empty line is an empty answer, not a crash.
+  assert.equal(latestStarts([]).size, 0, "an empty build answered for a module");
+  assert.equal(latestStarts(null).size, 0, "a missing build answered for a module");
+  assert.equal(latestStarts([{ id: "x" }, null]).size, 0, "a module with no passes drawn was answered for");
+});
+
+test("pressing the backward pass never moves a module earlier, and never twice (v152)", () => {
+  // Two things a press must always be. A latest start is a LATER start or no start,
+  // so no module is ever handed a time before the one it has — which is what makes a
+  // second press impossible to feel: with every module already at its latest start,
+  // the room between them all measures zero and there is nothing left to give.
+  const r = computeScenario(ONE_BAKER_SCENARIO);
+  const once = latestStarts(r.on);
+  for (const f of r.on) {
+    assert.ok(once.get(f.id) >= f.startMin, `${f.name} was handed an earlier start than the one it has`);
+  }
+  // The day as it stands after that press, fed back through the pass: every module
+  // and every bar of it moved by what it was handed, which is what writing a
+  // module's first batch does to a day whose spacing is its own.
+  const pressed = r.on.map((f) => {
+    const shift = once.get(f.id) - f.startMin;
+    return {
+      ...f,
+      startMin: f.startMin + shift,
+      passes: f.passes.map((p) => ({ ...p, at: p.at + shift, end: p.end + shift })),
+    };
+  });
+  const twice = latestStarts(pressed);
+  for (const f of pressed) {
+    assert.equal(twice.get(f.id), f.startMin, `${f.name} would move again on a second press`);
+  }
+});
+

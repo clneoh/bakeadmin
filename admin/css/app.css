@@ -2599,7 +2599,12 @@ tr.po-covered td { color: var(--muted); }
 /* The timing diagram. A day wide and scrolling sideways; the name column stays
    put so a bar three screens to the right still says what it belongs to. */
 .tl-card { padding: 10px 12px; }
-.tl { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+/* The chart is a panel of its own: it pans sideways for the length of the day and
+   scrolls down through the day's rows, with the clock strip pinned inside it. A
+   day of eight modules with more than one line each is taller than a phone, and a
+   clock she has scrolled away from is a clock she cannot read the bar against.
+   Capped, so the panel never grows past what she can see at once. */
+.tl { overflow: auto; max-height: min(66vh, 560px); -webkit-overflow-scrolling: touch; }
 /* Positioned, so the time cursor can be a hairline down the whole day rather
    than a line per row: one element inside the day, not one per track. */
 .tl-inner { display: inline-block; min-width: 100%; position: relative; }
@@ -2696,6 +2701,12 @@ tr.po-covered td { color: var(--muted); }
   font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
   padding: 8px 0 3px;
 }
+/* The clock strip is the chart's own header and it stays at the top of the panel
+   while the rows scroll under it — the pinned header is the whole reason the
+   chart is a panel. It needs its own background to be something to scroll under,
+   and a z-index above the rows for the same reason; the red now-line is drawn
+   over it, because what is happening outranks what she is reading. */
+.tl-ruler { position: sticky; top: 0; z-index: 3; background: var(--surface); }
 .tl-ruler .tl-sub { padding-top: 2px; }
 .tl-tick {
   position: absolute; top: 0; bottom: 0;
@@ -2721,18 +2732,25 @@ tr.po-covered td { color: var(--muted); }
 /* The reading hangs just off the right of the line rather than being centred on
    it. Centred looks tidier on a wide chart, but the name column is sticky and
    scrolled over the day, so a centred reading would slide away behind it the
-   moment she scrolled — and the reading is the whole point of the cursor. */
+   moment she scrolled — and the reading is the whole point of the cursor.
+   It is a SIBLING of the line and not a child of it: the line is drawn at 75%
+   opacity, and opacity below 1 makes a stacking context of its own, so a reading
+   inside it could never be lifted over the pinned clock strip — and being read
+   wherever she is looking is the whole point of the reading. Its own left and top
+   are written by wireTimeCursor, both of them, so it travels across the day with
+   the minute and down it with her finger. */
 .tl-cursor-lab {
-  position: absolute; top: 3px; left: 0;
+  position: absolute; top: 3px; left: 0; z-index: 5;
   transform: translateX(4px);
   padding: 1px 5px; border-radius: 4px;
   background: var(--brown); color: #fff;
   font-size: 10.5px; font-weight: 600; line-height: 1.5;
   font-variant-numeric: tabular-nums; white-space: nowrap;
+  pointer-events: none;
 }
 /* At the far end of the day there is no room to the right, so it hangs to the
    left instead — always fully readable, never half cut off. */
-.tl-cursor.at-end .tl-cursor-lab { transform: translateX(calc(-100% - 4px)); }
+.tl-cursor-lab.at-end { transform: translateX(calc(-100% - 4px)); }
 /* The clock strip is the cursor's handle: it is the one band of the chart where
    a drag moves the cursor instead of scrolling the day. Everything below it
    still pans, which the day card's own sentence says. */

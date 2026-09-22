@@ -29,7 +29,7 @@ import {
   computeScenario, climbSteps, descentSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
-  PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine,
+  PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine, latestStarts,
   combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
 } from "../scenario.js";
@@ -113,6 +113,12 @@ export function renderScenario(root, state) {
     wake: null,
     audio: null,
     pending: null,      // the call waiting for an OK
+    // The start times of every module, as they were before her first press on
+    // the day's own card — so working the day backwards is never a one-way door.
+    // Here for the same reason as everything else above: this is what the screen
+    // is DOING, not something she has said about her bake day, so it is never
+    // saved and it is gone when the screen is.
+    dayBefore: null,
   };
 
   // Only the answers are repainted when something changes — never the fields —
@@ -535,12 +541,30 @@ function dayCard(r, sc, on, state, run) {
   return el("div", {},
     el("h2", { class: "section" }, "The day"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Every module as a bar, one bar to a batch, each one tagged with its own batch number, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar or its batch number to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two modules up against each other. Swipe the empty space to scroll."),
+      "Every module as a bar, one bar to a batch, each one tagged with its own batch number, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar or its batch number to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day with the time on it — the balloon travels with your finger, and the clock strip stays at the top of the chart while you scroll down the rows under it — which is how you line two modules up against each other. Swipe the empty space to scroll."),
+    dayBackSignpost(r, sc),
     el("div", { class: "card tl-card" },
       controlsRow(r, sc, on, state, run),
       timeline(r, sc, on, state, run),
       batchNote(r),
       clashNotes(r, state)));
+}
+
+// Where the backward calculation lives, said on the day rather than left to be
+// found. v148's lesson was that the only button that applied a nine-rung ladder
+// sat four phone screens below its own heading and she reported it as missing, so
+// the one control that moves the whole day names itself here and names the bar to
+// tap. Null on a day that has no such moment — a line of a single module is not a
+// chain, and nothing hangs from it.
+function dayBackSignpost(r, sc) {
+  const owner = dayEndOf(r, sc);
+  const batch1 = owner && (owner.passes || [])[0];
+  if (!batch1) return null;
+  return el("p", { class: "card-sub", style: "margin:0 0 8px" },
+    `Your first batch comes out of ${owner.name} at ` +
+    `${clockAt(r.dayStartMin, batch1.end)}. Tap that bar — batch 1 of ${owner.name} — ` +
+    "and its card works the whole day back from that moment: every module above it " +
+    "gets its latest start, and one button takes the slack out.");
 }
 
 // Her rule's other half, said out loud: "say when it does not". A module whose
@@ -574,6 +598,9 @@ function controlsRow(r, sc, on, state, run) {
   // per line rather than per module, so it is also when its label has to change.
   const jobs = r.modules.filter((m) => m.on !== false && Number(m.touchMin) > 0);
   const lineJobs = jobs.reduce((t, m) => t + Math.max(1, m.lines || 0), 0);
+  // The moment her day hangs from, if there is a line to hang one from at all.
+  const dayOwner = dayEndOf(r, sc);
+  const dayEndBatch = dayOwner && (dayOwner.passes || [])[0];
   return el("div", { class: "tl-ctl" },
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Scale"),
@@ -633,6 +660,20 @@ function controlsRow(r, sc, on, state, run) {
         type: "button", class: "tl-chip",
         onclick: () => chainPopup(r, sc, on),
       }, chainedCount(r) ? `${chainedCount(r)} waits above` : "Not chained")),
+    // The signpost to the day-backwards card, because a control that lives behind
+    // a tap on one particular bar is a control she has to be told about — she
+    // reported exactly that of the climb's button in v148, sitting four screens
+    // below its own heading. The chip names the moment her day hangs from and says
+    // where that moment is tapped; it does not do the work for her, because the
+    // card is where she sees the whole chain before she presses anything.
+    dayEndBatch
+      ? el("div", { class: "tl-ctl-group" },
+        el("span", { class: "tl-ctl-lab" }, "Your day backwards"),
+        el("button", {
+          type: "button", class: "tl-chip",
+          onclick: () => toast(`Your first batch comes out of ${dayOwner.name} at ${clockAt(r.dayStartMin, dayEndBatch.end)}. Tap batch 1 of that module — the B1 above its first bar — to work the day backwards from that moment.`),
+        }, `First batch out ${clockAt(r.dayStartMin, dayEndBatch.end)}`))
+      : null,
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Walk the day"),
       el("button", {
@@ -715,8 +756,12 @@ function addModule(sc, on) {  const id = newModuleId(sc.modules);
 
 function timeline(r, sc, on, state, run) {
   const trackW = Math.round(r.windowMin * r.pxPerMin);
-  const lab = el("span", { class: "tl-cursor-lab" });
-  const cursor = el("div", { class: "tl-cursor", hidden: true }, lab);
+  // Two elements, one minute: the hairline down the day, and the reading that
+  // rides beside it. The reading is not a child of the line because the line is
+  // drawn at 75% opacity, which makes a stacking context — a reading inside it
+  // could never be lifted over the pinned clock strip. See .tl-cursor-lab.
+  const cursor = el("div", { class: "tl-cursor", hidden: true });
+  const lab = el("span", { class: "tl-cursor-lab", hidden: true });
   // The clock the day is being walked against. Its own line, its own label, and a
   // different colour from the hairlines she points with — a reading she takes must
   // never be mistaken for the minute the day is actually at.
@@ -735,15 +780,13 @@ function timeline(r, sc, on, state, run) {
       // The day's own reading, drawn last so it runs over every bar rather than
       // under one. See wireTimeCursor for what it does and who it answers to.
       cursor,
+      lab,
       // And the clock, drawn over everything, because it is the one thing on the
       // chart that is happening rather than planned.
       now));
-  // Where the now-line goes, cached for the tick — the ruler's own offset never
-  // moves while the screen is open, and measuring it sixty times a minute would
-  // be sixty layouts a minute for a number that cannot change.
+  // The ruler, kept so the now-line can be placed against it.
   run.line = now;
-  run.rulerLeft = tl.querySelector(".tl-ruler .tl-track")
-    ? tl.querySelector(".tl-ruler .tl-track").offsetLeft : 0;
+  run.ruler = tl.querySelector(".tl-ruler .tl-track");
   run.pxPerMin = r.pxPerMin;
   if (run.on) placeNow(run);
   wireTimeCursor(tl, r, cursor, lab);
@@ -757,7 +800,16 @@ function timeline(r, sc, on, state, run) {
 function placeNow(run) {
   const line = run.line;
   if (!line || !run.pxPerMin) return;
-  line.style.left = `${Math.round((run.rulerLeft || 0) + run.nowMin * run.pxPerMin)}px`;
+  // The ruler's own offset is measured HERE and not when the chart was built,
+  // and that is the whole point of the line being right: the chart is assembled
+  // before it is on the page, and an element that is not on the page has no
+  // offset at all — so the offset read at build time is always zero, and the line
+  // was drawn in the name column, 138px and about an hour and a half left of the
+  // minute it was naming. It moves the way she scrolls, so it is asked for its
+  // offset again each time rather than cached.
+  const ruler = run.ruler && run.ruler.isConnected ? run.ruler : null;
+  const left = ruler ? ruler.offsetLeft : (run.rulerLeft || 0);
+  line.style.left = `${Math.round(left + run.nowMin * run.pxPerMin)}px`;
   const lab = line.children && line.children[0];
   if (lab) lab.textContent = clockOf(run.dayStart + run.nowMin);
 }
@@ -922,18 +974,39 @@ function chirp(run, who) {
 function wireTimeCursor(tl, r, cursor, lab) {
   const ruler = tl.querySelector(".tl-ruler .tl-track");
   if (!ruler) return;
+  const frame = cursor.parentNode;
   let dragging = false;
-  const place = (clientX) => {
+  const place = (clientX, clientY) => {
     const t = minuteAtPx(clientX - ruler.getBoundingClientRect().left, r.pxPerMin, r.windowMin);
-    if (t == null) { cursor.hidden = true; return; }
+    if (t == null) { cursor.hidden = true; lab.hidden = true; return; }
     cursor.hidden = false;
+    lab.hidden = false;
     const x = t * r.pxPerMin;
-    cursor.style.left = `${Math.round(ruler.offsetLeft + x)}px`;
+    const left = Math.round(ruler.offsetLeft + x);
+    cursor.style.left = `${left}px`;
+    lab.style.left = `${left}px`;
+    // The reading follows the pointer down the day as well as across it. It used
+    // to sit at the top of the chart, which is the right place only while the top
+    // of the chart is on screen: with a mouse the pointer reads a bar four rows
+    // down and the clock is a screen away, and only a mouse ever hovers, so the
+    // one gesture that could not use it was the one that had it. Kept inside the
+    // chart, so a reading can never be parked off the edge of the day.
+    if (frame && Number.isFinite(clientY)) {
+      const box = frame.getBoundingClientRect();
+      const h = lab.offsetHeight || 18;
+      const y = clientY - box.top;
+      // Clear of the pointer rather than on it: a reading under her own finger is
+      // a reading that hides the bar she is holding it against. It sits above the
+      // touch, and drops below it only where the top of the chart leaves no room.
+      const above = y - h - 8;
+      const top = above >= 0 ? above : y + 14;
+      lab.style.top = `${Math.round(Math.min(Math.max(0, top), Math.max(0, box.height - h)))}px`;
+    }
     lab.textContent = clockAt(r.dayStartMin, t);
     // The reading hangs off the right of the line, so at the far end of the day
     // there is no room for it and it has to hang to the left instead. Measured
     // in px rather than minutes, so it holds at every scale she can pick.
-    cursor.classList.toggle("at-end", x > r.windowMin * r.pxPerMin - 60);
+    lab.classList.toggle("at-end", x > r.windowMin * r.pxPerMin - 60);
   };
 
   // The clock strip. Capture means the drag keeps working once the finger
@@ -941,13 +1014,13 @@ function wireTimeCursor(tl, r, cursor, lab) {
   // day as in the middle of it.
   ruler.addEventListener("pointerdown", (e) => {
     dragging = true;
-    place(e.clientX);
+    place(e.clientX, e.clientY);
     // A pointer already gone by the time this runs cannot be captured, and it
     // throws rather than saying so — but the reading is placed either way, so
     // losing the capture must not lose the drag or the cursor with it.
     try { ruler.setPointerCapture(e.pointerId); } catch { dragging = false; }
   });
-  ruler.addEventListener("pointermove", (e) => { if (dragging) place(e.clientX); });
+  ruler.addEventListener("pointermove", (e) => { if (dragging) place(e.clientX, e.clientY); });
   const end = () => { dragging = false; };
   ruler.addEventListener("pointerup", end);
   ruler.addEventListener("pointercancel", end);
@@ -957,10 +1030,10 @@ function wireTimeCursor(tl, r, cursor, lab) {
   // no hovering one — its gesture is the strip above.
   tl.addEventListener("pointermove", (e) => {
     if (dragging || e.pointerType === "touch") return;
-    place(e.clientX);
+    place(e.clientX, e.clientY);
   });
   tl.addEventListener("pointerleave", (e) => {
-    if (e.pointerType !== "touch") cursor.hidden = true;
+    if (e.pointerType !== "touch") { cursor.hidden = true; lab.hidden = true; }
   });
 }
 
@@ -1288,12 +1361,29 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     const hit = e.target && e.target.closest ? e.target.closest(".tl-bar, .tl-btag") : null;
     if (!hit) return;
     e.stopPropagation();
-    batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)));
+    batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)), run);
   });
 
   row.addEventListener("click", () => editModule(live, sc, on));
 
   return row;
+}
+
+// Which module owns the end of the day's first batch — the one the whole day is
+// hung from when she works it backwards.
+//
+// It is the last module in the build and NOT the first, and both halves of that
+// matter. The first module's batch 1 has a meaning of its own (it is the module's
+// own start time, and the first thing in the day), so it keeps it. A line of a
+// single module is not a chain at all — there is nothing above the last thing to
+// work back through — so it is left exactly as it was too. Null means "this tap is
+// an ordinary batch tap", and every caller reads it that way.
+function dayEndOf(r, sc) {
+  const on = r.on || [];
+  if (on.length < 2) return null;
+  const last = on[on.length - 1];
+  const at = (sc.modules || []).findIndex((x) => x.id === last.id);
+  return at > 0 ? last : null;
 }
 
 // One batch's own clock, and the only place a batch's start time is set from the
@@ -1306,18 +1396,29 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
 // pressed time and a typed one are the same answer, and when the model's own rule
 // puts the batch somewhere else she is told which rule it was — the same sentence
 // the drag used to give.
-function batchPopup(m, live, sc, on, k) {
+function batchPopup(m, live, sc, on, k, state) {
   const n = live.repeatsHeld || live.repeats || 1;
-  showPopup(`${live.icon || m.icon} ${live.name} · batch ${k + 1} of ${n}`, (refresh, close) => {
+  // The last module in the build is not one batch among many: its first batch is
+  // the moment the whole day hangs from, and its card is the day's own card. The
+  // heading is set before the card is built so it can say which of the two this
+  // tap opened — the two cards carry the same two button pairs, and a heading
+  // that named only the module would leave her unable to tell them apart.
+  const owner = dayEndOf(computeScenario(sc), sc);
+  const isDay = !!owner && k === 0 && owner.id === live.id;
+  showPopup(`${live.icon || m.icon} ${live.name} · ` + (isDay
+    ? "the end of your first batch"
+    : `batch ${k + 1} of ${n}`), (refresh, close) => {
     // Read afresh every time this card is built, because a press moves the day:
     // the times below have to be the ones the model has just answered with, not
     // the ones it answered with before the press.
-    const run = computeScenario(sc);
-    const here = run.modules.find((x) => x.id === live.id) || moduleFacts(live);
+    const r = computeScenario(sc);
+    const here = r.modules.find((x) => x.id === live.id) || moduleFacts(live);
     const p = (here.passes || [])[k] || null;
     const at = p ? p.at : Number((cycleStarts(live))[k]) || 0;
     const end = p ? p.end : at + (here.cycleMin || 0);
     const free = !live.follow;
+
+    if (isDay) return dayBackCard(r, live, sc, on, refresh, state, end);
 
     // The first module has nothing above it to hold a batch back FROM, so a move
     // there is its own start time — which is what every move has always been.
@@ -1331,7 +1432,7 @@ function batchPopup(m, live, sc, on, k) {
       const press = (sign) => el("button", {
         type: "button",
         "aria-label": `${by} minute${by === 1 ? "" : "s"} ${sign > 0 ? "later" : "earlier"}`,
-        onclick: () => moveBatch(run, live, sc, on, refresh, k, at, sign * by),
+        onclick: () => moveBatch(r, live, sc, on, refresh, k, at, sign * by),
       }, sign > 0 ? `+ ${by} min` : `− ${by} min`);
 
       return el("div", { class: "field" },
@@ -1345,10 +1446,10 @@ function batchPopup(m, live, sc, on, k) {
         el("span", { class: "cyc-lab" }, `Batch ${k + 1}`),
         el("span", { class: `cyc-at${delta ? " nudged" : ""}` },
           delta ? `Δt = +${delta} min` : (first ? "its own start" : "on the line")),
-        el("span", { class: "cyc-at" }, clockAt(run.dayStartMin, at))),
+        el("span", { class: "cyc-at" }, clockAt(r.dayStartMin, at))),
 
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `${clockAt(run.dayStartMin, at)} → ${clockAt(run.dayStartMin, end)}` +
+        `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, end)}` +
         ` · ${trim(here.cycleMin)} min, ${trim(here.touchMin)} of it your hands`),
 
       // A batch that is waiting on the module above has no start of its own —
@@ -1378,7 +1479,7 @@ function batchPopup(m, live, sc, on, k) {
                 on.persist();
                 on.refresh();
                 refresh();
-                toast(`Batch ${k + 1} back at ${clockAt(run.dayStartMin, at - delta)} — exactly where the line puts it.`);
+                toast(`Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
               }, "ghost"),
               el("div", { class: "hint" },
                 `This batch is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose. This takes the hold off, so it sits wherever the module above and this module's own minutes put it.`))
@@ -1389,6 +1490,263 @@ function batchPopup(m, live, sc, on, k) {
           "it becomes a time of its own, to move here."),
     );
   });
+}
+
+// The end of the first batch at the last module of the build, and the day that
+// hangs from it — the card behind her question, "how to make the calculate
+// backward works?".
+//
+// Every other card on this screen reads the day FORWARDS, and so does the model
+// under it: chainLine walks the modules in order and can only ever push one
+// later. This is the other direction, in the words she settled it in on 22
+// September: "work backwards, from end of process, the previous process should
+// have a latest start time, by going this way, we prevent preparing dough too
+// early". The Production line's own day-backwards card is the same idea on the
+// same day; this is it for her planner.
+//
+// So the card does three things and nothing else. It says what the backward
+// calculation says — every switched-on module, where it starts today and the
+// latest it may start — it gives her one button to take that slack out, and the
+// two step pairs she already knows from moving a batch, doing the other thing a
+// time on this chart can do: moving the whole day by the same amount everywhere,
+// so the shape of the day she arranged is kept and only the clock on it moves.
+// She sees the answer before she presses anything, which is the whole rule of
+// this app: a guide, never a gate.
+//
+// It is the last module in the build and not the first, deliberately. The first
+// module's batch 1 IS its own start time and the first thing in the day, so it
+// keeps that meaning; the END of the first batch at the last module is the
+// moment her whole day is hung from, whatever that last thing happens to be.
+function dayBackCard(r, live, sc, on, refresh, state, anchor) {
+  const latest = latestStarts(r.on);
+  const dayEnd = r.on.reduce((t, f) => Math.max(t, f.endMin), 0);
+  const rows = [];
+  let loose = 0;
+
+  for (const f of r.on) {
+    const want = latest.get(f.id);
+    if (want == null) continue;
+    const at = Number(f.startMin) || 0;
+    // A module that waits on the one above it has no start of its own to move:
+    // the line places it, and it comes along with the press anyway.
+    const held = !!f.follow;
+    const canMove = !held && Math.round(want) > Math.round(at);
+    if (canMove) loose += 1;
+    rows.push(el("div", { class: "cyc-row" },
+      el("span", { class: "cyc-lab" }, `${f.icon} ${f.name}`),
+      el("span", { class: "cyc-at" }, held
+        ? `${clockAt(r.dayStartMin, at)} · the line places it`
+        : (canMove
+          ? `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, want)}`
+          : `${clockAt(r.dayStartMin, at)} ✓`))));
+  }
+
+  // The same two pairs she already knows from moving a batch, doing the one other
+  // thing a time on this chart can do: moving the whole day. Five first, because
+  // five is the amount the day is read in.
+  const step = (by) => el("div", { class: "field" },
+    el("label", {}, by === 5 ? "Five minutes at a time" : "One minute at a time"),
+    el("div", { class: "step-pair" },
+      el("button", {
+        type: "button",
+        "aria-label": `the whole day ${by} minute${by === 1 ? "" : "s"} earlier`,
+        onclick: () => shiftDay(r, sc, on, refresh, state, -by),
+      }, `− ${by} min`),
+      el("button", {
+        type: "button",
+        "aria-label": `the whole day ${by} minute${by === 1 ? "" : "s"} later`,
+        onclick: () => shiftDay(r, sc, on, refresh, state, by),
+      }, `+ ${by} min`)),
+    el("div", { class: "hint" },
+      "This moves the WHOLE day, every module of it by the same amount, so the " +
+      "shape of your day is kept exactly as it is and only the clock on it moves. " +
+      "To move one module instead, tap its own bar."));
+
+  return el("div", {},
+    el("div", { class: "cyc-line", style: "margin:0 0 4px" },
+      el("span", { class: "cyc-lab" }, `${live.icon || "•"} ${live.name} · batch 1 ends`),
+      el("span", { class: "cyc-at" }, clockAt(r.dayStartMin, anchor))),
+    el("div", { class: "cyc-line", style: "margin:0 0 10px" },
+      el("span", { class: "cyc-lab" }, "Your day finishes"),
+      el("span", { class: "cyc-at" }, clockAt(r.dayStartMin, dayEnd))),
+
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `${live.name} is the last thing your line does for your first batch, so this ` +
+      "is the moment the whole day hangs from. Working back through the modules " +
+      "above it gives each one a latest start — the last minute it may begin and " +
+      "still have this batch come out of your last module on time, which is how " +
+      "the dough is kept from being mixed earlier than it has to be."),
+
+    el("div", { class: "cyc-list", style: "margin:0 0 8px" }, ...rows),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "A tick means that module is already as late as the line allows: mix the dough " +
+      "any later and your first batch comes out of this module after the moment above."),
+
+    loose
+      ? el("div", { class: "field" },
+        button("Pull them back to their latest start",
+          () => moveDayBack(r, sc, on, refresh, state), "primary"),
+        el("div", { class: "hint" },
+          `This moves the ${loose} module${loose === 1 ? "" : "s"} that can still ` +
+          "come later, and leaves every other one exactly where it is. It writes " +
+          "those start times into your scenario, so it is a real change to the day — " +
+          "the button below puts it back. A tighter day can also put two of your " +
+          "jobs in the same minute; if it does, the People area below says so."))
+      : el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "Every module of your line is already as late as it can go — there is " +
+        "nothing to pull back. The buttons below move the whole day instead."),
+
+    step(5),
+    step(1),
+
+    // The way back. The day she had before her first press is kept once, in this
+    // screen's own memory, so working the day backwards is a calculation she can
+    // try rather than a door that closes behind her.
+    state.dayBefore
+      ? el("div", { class: "field" },
+        button("Put my start times back", () => undoDayBack(r, sc, on, refresh, state), "ghost"),
+        el("div", { class: "hint" },
+          "Every module's start time, exactly as it was before your first press " +
+          "on this card. It lasts while you are on this screen — nothing about it " +
+          "is saved, the same way the running clock is not."))
+      : null,
+  );
+}
+
+// The day she had, kept before the first press of either pair of buttons on this
+// card and never overwritten by a later one, so the way back is the day she
+// began with rather than the step before the last one. Only modules that are
+// switched on are kept, because only those are the ones a press writes.
+function takeDayBefore(r, sc, state) {
+  if (state.dayBefore) return;
+  const ids = new Set(r.on.map((f) => f.id));
+  state.dayBefore = sc.modules
+    .filter((m) => ids.has(m.id))
+    .map((m) => ({ id: m.id, starts: m.starts, startMin: m.startMin }));
+}
+
+// One press of the card's own button: every module pulled back to its latest
+// start, as the chain measures it from the end of her first batch.
+//
+// Only a module's FIRST batch is written, and through the same writer a typed
+// time and the batch buttons already use. That is what keeps everything else of
+// hers intact: startsOf re-bases a stored list onto the new first time and
+// continues at the module's own pace, so Auto spacing, her un-even spacing, her
+// per-batch deltas and her cycles all come through the press untouched.
+//
+// The day's own forward pass still has the last word. This can only see the
+// chain — her hands are not something a measurement can see — so anything the
+// line pushes later than its latest start stays later, and the reading back at
+// the end says what actually happened rather than what was asked for.
+function moveDayBack(r, sc, on, refresh, state) {
+  const latest = latestStarts(r.on);
+  if (!latest.size) return;
+  const wasAt = new Map(r.on.map((f) => [f.id, Number(f.startMin) || 0]));
+  takeDayBefore(r, sc, state);
+
+  for (const m of sc.modules) {
+    const want = latest.get(m.id);
+    if (want == null) continue;
+    writeBatchStart(m, 0, want);
+  }
+  on.persist();
+  on.refresh();
+  refresh();
+
+  // What the day did with it, read back off the model rather than assumed — the
+  // same rule every other press here follows.
+  const after = computeScenario(sc);
+  const moved = [];
+  for (const f of after.on) {
+    const was = Number(wasAt.get(f.id));
+    if (Number.isFinite(was) && Math.round(was) !== Math.round(f.startMin)) {
+      moved.push({ name: f.name, was });
+    }
+  }
+  const owner = dayEndOf(after, sc);
+  const anchor = owner && (owner.passes || [])[0] ? owner.passes[0].end : null;
+  const end = after.on.reduce((t, f) => Math.max(t, f.endMin), 0);
+  const plural = moved.length === 1 ? "" : "s";
+  toast(moved.length
+    ? `${moved.length} module${plural} worked back to their latest start — your first batch still ends ` +
+      `${clockAt(after.dayStartMin, anchor == null ? end : anchor)}` +
+      (Math.round(end) === Math.round(anchor == null ? end : anchor)
+        ? ", and that is where the day ends too."
+        : ` and the day finishes at ${clockAt(after.dayStartMin, end)}.`) +
+      peopleNote(r, after)
+    : "Every module of your line is already as late as it can go — there is nothing left to pull back.");
+}
+
+// What the pressing cost her hands, when it cost her any.
+//
+// A backwards pass is only ever asked about the CHAIN — the modules' own minutes.
+// Squeezing the day to the shortest span the chain allows is exactly what puts two
+// of her jobs in the same minute, so the honest thing is to say the price at the
+// moment it is paid rather than to leave her to find a red outline further down the
+// screen. The People area shows the collision itself; this is the one-line warning.
+function peopleNote(before, after) {
+  if (!before || !after || after.people <= before.people) return "";
+  return ` The day is now as tight as the chain allows, and at that length your jobs ` +
+    `overlap: it reads ${after.people} people where it read ${before.people}.`;
+}
+
+// The whole day moved, every module of it by the same amount.
+//
+// This is the other thing a time on this chart can do and it is deliberately the
+// simpler of the two: a uniform move keeps the shape of her day exactly as she
+// arranged it, so it is the move for "the same day, an hour later" rather than a
+// re-lay. The pull-back above is the one that re-lays.
+//
+// Spacing survives it for the same reason it survives the pull-back — only each
+// module's first batch is written, and its own pace carries the rest. A day whose
+// first module is already at midnight cannot move earlier at all, and that is said
+// rather than pressed into nothing.
+function shiftDay(r, sc, on, refresh, state, by) {
+  const list = r.on.map((f) => ({ f, at: Number(f.startMin) || 0 }));
+  if (!list.length) return;
+  const lowest = list.reduce((t, x) => Math.min(t, x.at), Infinity);
+  const step = by < 0 ? -Math.min(Math.abs(by), Math.round(lowest)) : by;
+  if (step === 0) {
+    toast("Your first module already starts at midnight, so the whole day cannot move any earlier.");
+    return;
+  }
+  takeDayBefore(r, sc, state);
+  for (const { f, at } of list) {
+    const live = sc.modules.find((m) => m.id === f.id);
+    if (live) writeBatchStart(live, 0, at + step);
+  }
+  on.persist();
+  on.refresh();
+  refresh();
+
+  const after = computeScenario(sc);
+  const end = after.on.reduce((t, f) => Math.max(t, f.endMin), 0);
+  const firstStart = after.on.reduce((t, f) => Math.min(t, Number(f.startMin) || 0), Infinity);
+  const amount = `${Math.abs(step)} minute${Math.abs(step) === 1 ? "" : "s"}`;
+  const where = after.on.reduce((best, f) => ((Number(f.startMin) || 0) < (Number(best.startMin) || 0) ? f : best), after.on[0]);
+  toast(`The whole day moved ${amount} ${step > 0 ? "later" : "earlier"} — it now starts with ` +
+    `${where.name} at ${clockAt(after.dayStartMin, firstStart)} and finishes at ` +
+    `${clockAt(after.dayStartMin, end)}.${peopleNote(r, after)}`);
+}
+
+// The other half of that press: the day she had, put back exactly as it was, and
+// the snapshot cleared so the button goes with it. Restoring the stored `starts`
+// rather than re-deriving a time is deliberate — a module whose spacing was Auto
+// before the press must have no stored list at all afterwards either, or it
+// would come back as an even spacing she never asked for.
+function undoDayBack(r, sc, on, refresh, state) {
+  for (const keep of state.dayBefore || []) {
+    const live = sc.modules.find((m) => m.id === keep.id);
+    if (!live) continue;
+    if (keep.starts == null) delete live.starts;
+    else live.starts = keep.starts;
+    live.startMin = keep.startMin;
+  }
+  state.dayBefore = null;
+  on.persist();
+  on.refresh();
+  refresh();
+  toast("Your start times are back exactly where they were.");
 }
 
 // One press of those buttons. On the first module the move IS the start time, and
@@ -2206,13 +2564,40 @@ const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 // really landed, because a module that takes one batch at a time puts it back
 // after the one before it — and the model is what knows that, not this screen.
 function setBatchStart(live, sc, on, k, want) {
-  const starts = cycleStarts(live);
-  starts[k] = clampStart(want, live);
-  live.starts = starts;
-  live.startMin = starts[0];
+  const landed = writeBatchStart(live, k, want);
   on.persist();
   on.refresh();
-  return cycleLanded(sc, live, k, starts[k]);
+  return cycleLanded(sc, live, k, landed);
+}
+
+// The writing half on its own, with no save and no repaint, for the one press
+// that moves several modules at once. That press has to have every module written
+// BEFORE the day is asked where the batches really landed — the answer depends on
+// all of them together — and it wants one save for the lot rather than one per
+// module. There is still only one piece of arithmetic: clampStart, the same one a
+// typed time goes through.
+function writeBatchStart(live, k, want) {
+  // The module as the model reads it, so the list written back is the module's
+  // REAL one. Reading the stored list directly is what the day does not do: a
+  // module that has never had a list of its own — which is every module of hers —
+  // stores only its start time, and its other batches come from its own pace. Built
+  // from the stored number instead, the list comes back as the one batch she moved
+  // and a row of zeroes after it, and every one of those zeroes lands on the line
+  // as a batch starting the moment the one before it ends. That is not a move, it
+  // is the module's whole rhythm collapsing, and it is why a press here has to
+  // read the model first.
+  const m = moduleOf(live);
+  const at = clampStart(want, m);
+  const from = (m.starts || []).slice();
+  // Batch one IS the module's start time, so moving it moves the module: every
+  // batch after it comes along at the spacing she already set. Any later batch is
+  // a nudge on that batch alone, which is what lets one batch be held off a
+  // collision without sliding the rest of the day with it.
+  const starts = from.map((t, i) => (k === 0 ? t + (at - from[0]) : (i === k ? at : t)));
+  starts[k] = at;
+  live.starts = starts.map((t) => Math.max(0, Math.round(t * 100) / 100));
+  live.startMin = live.starts[0];
+  return live.starts[k];
 }
 
 // What a moved batch is told: the clock it asked for, and — when the module's own

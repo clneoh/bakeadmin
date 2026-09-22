@@ -945,6 +945,82 @@ export function chainLine(modules) {
   }));
 }
 
+// The backward pass this screen never had.
+//
+// Every other time on this screen is worked out forwards: chainLine walks the
+// modules in list order and a module can only ever be pushed LATER, never pulled
+// earlier. That is right for placing a day, and it is also why the day can only
+// spill — change a pace and the finish moves, never the start.
+//
+// This is the other direction, and it is the one her trade actually plans in. Her
+// own words of 22 September: "work backwards, from end of process, the previous
+// process should have a latest start time, by going this way, we prevent preparing
+// dough too early and prevent dough from over fermented." The Production line's
+// own day-backwards card is built on the same sentence; this is it for the planner.
+//
+// The anchor is the END of the first batch at the last module in the build — the
+// last thing her line has to do for that batch, whatever that last thing is. That
+// module does not move, and every module above it gives back the room it does not
+// need, so each is handed the last minute its own first batch may begin.
+//
+// The room is measured, not subtracted. The first version of this asked the anchor
+// for the sum of every module's cycle minutes, and on a day whose modules do not
+// sit end to end that answer is not the day she has: on her saved 24-pan line the
+// sum is 853 minutes against the 1107 the chain really spans, so the mix was told
+// it could start at 12:14 pm when it already starts at midnight, and the press
+// then pushed the whole day later into an order the day itself does not have. What
+// is measured instead is the room between one module's work and the module below
+// it, lot by lot, and the pass walks down from the last module adding that room up:
+//
+//   back(last) = 0
+//   back(i)    = the room between i and the module below it, plus back(i+1)
+//
+// Because the smallest room across the batches both of them run is the one taken,
+// the tightest lot is the one that decides — and since every module keeps its own
+// pace, that room is preserved for every lot at once. So the day comes out of the
+// press valid: no module ends after the module below it has started the same lot.
+//
+// The only wall it can see is the chain. Her hands are not a wall a subtraction can
+// see, and a pass that solved hand contention backwards as well would be a
+// different and much larger piece of work, so this hands back the chain's own
+// answer and the day's forward pass has the last word over it — the screen names
+// whatever the day moved on afterwards.
+//
+// Two things it refuses to do. It never moves a module EARLIER: a latest start is
+// a later start or no start. And where two modules already overlap — a day she has
+// arranged deliberately, because nothing here waits on anything unless she says so
+// — it neither widens that nor pretends to fix it; the room is simply not room.
+//
+// A switched-off module is stepped over, exactly as chainLine steps over one: a
+// machine that is not switched on is not in the build, and nothing waits on it.
+export function latestStarts(on) {
+  const list = (on || []).filter((m) => m && Array.isArray(m.passes) && m.passes.length);
+  const out = new Map();
+  let back = 0;
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const m = list[i];
+    if (i < list.length - 1) back = Math.max(0, back + roomBelow(m, list[i + 1]));
+    // Clamped at zero, because a latest start before midnight is not a time she
+    // can use. The screen says when it bites rather than quietly moving it.
+    out.set(m.id, Math.max(0, Math.round((num(m.startMin, 0) + back) * 100) / 100));
+  }
+  return out;
+}
+
+// The room between one module's work and the module below it: the smallest gap
+// across the lots both of them run, because the tightest lot is the one that would
+// collide first. A lot is measured end-to-start — this module's own end against the
+// same lot's start below — so a gap of zero is a handover and a negative one is an
+// overlap she has arranged on purpose.
+function roomBelow(above, below) {
+  const n = Math.min(above.passes.length, below.passes.length);
+  let room = Infinity;
+  for (let k = 0; k < n; k += 1) {
+    room = Math.min(room, num(below.passes[k].at, 0) - num(above.passes[k].end, 0));
+  }
+  return Number.isFinite(room) ? room : 0;
+}
+
 // Who has to be standing where, and when.
 //
 // A module's touch is a window, and two windows that overlap need two people.

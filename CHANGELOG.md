@@ -1,8 +1,101 @@
-# Jienluv2bake — change history (v54 → v151)
+# Jienluv2bake — change history (v54 → v152)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v152 (no database step). The planner can work your day
+backwards — the day hangs from your first batch, and every module gets its latest
+start.**
+
+**What you asked.** Your words: *'how to make the calculate backward works?'* The backward count
+already existed on More → Production line (section 24), where it counts back from the minute the
+first pans must be at the oven. The Scenario planner had none: it could only ever push a day
+later, never pull it earlier. So the planner has one now, on the planner's own day.
+
+**The moment your day hangs from is your own last module, not the oven.** The anchor is the end of
+your first batch at the last switched-on module of your line — whatever that module happens to be.
+Add, remove or reorder a module and the anchor moves with your line. On your own One baker day that
+module is Cutting and packing, so the day hangs from 9:09 am.
+
+**Where it is, and how you find it.** Tap the B1 over the first bar of that last module — the card
+you already get by tapping a batch — and it is now the day's own card. It reads the module, the end
+of your first batch and your day's finish, then every module with the time it sits at and the time
+it could sit at. On your line it reads: Mixing the dough in the tub 4:01 am to 4:43 am, The rests
+and the stretch and folds 4:21 to 5:03 am, Oil the pans and weigh the dough out 6:24 to 7:06 am,
+Into the proofer 6:39 to 7:21 am, Dimple and top 7:24 to 8:06 am, The proofer again 7:30 to
+8:12 am, The oven swap and the bake 8:00 to 8:42 am, and Cutting and packing 8:57 am with a tick. A
+tick means that module is already as late as the line allows. So the control is findable rather
+than hunted for, the day card also carries a chip reading First batch out 9:09 am with the sentence
+saying which bar to tap.
+
+**The rule is measured off your own day, not subtracted from the anchor.** This is the one place I
+departed from what I first planned, because the arithmetic was wrong on your own numbers. Counting
+backwards is not the sum of the cycle minutes: on your 24-pan line the eight modules' minutes add
+to 853 while the chain you actually run spans 1107 minutes, because your modules do not sit end to
+end — the fold loop and the proofer are wider than the few minutes a batch takes in them. Take 853
+off your anchor and the mix is handed a LATER start than the one it already has, which is the
+opposite of what you asked for. So the calculation measures the room between each pair of modules
+as your stored times really stand, and pulls each module back by that room. On your line it gives
+the mix 4:43 am, and the 42 minutes it gains are the slack your day really has.
+
+**One press, and a second press does nothing.** Pull them back to their latest start moves the
+seven modules that can still come later and leaves every other one exactly where it is. A module
+that is switched off is stepped over, exactly as the day already steps over one. A press never
+moves a module EARLIER than it already stands, and pressing it again finds nothing left to take.
+
+**It is a real change, and the way back is on the same card.** Said plainly rather than quietly:
+this rewrites the start times of your switched-on modules and saves them into your scenario. It is
+not a preview. So while you are on that screen the card carries a second button, Put my start times
+back, which puts every module the press moved exactly where it was and then goes. It is one-shot,
+and it lasts only while the screen is open, because it is never stored — the same reason the walk
+through's own clock is not. Leave the screen and the day you pressed is the day you have.
+
+**Below that are the same two pairs of buttons you already know, and here they move the whole day.**
+Five minutes at a time and One minute at a time, each with an earlier and a later button. Press one
+and every module moves together by that amount, so the day keeps its shape: on your line all eight
+modules move five minutes and every gap between them is the number it was. That is the move for
+reading what an earlier or a later start does to the whole day without re-drawing it.
+
+**A tighter day can need another pair of hands, and the app says so instead of hiding it.** This is
+the honest cost of taking the slack out. Squeeze the day to its shortest span and two of your jobs
+can land in the same minute, so a press can raise the people the day needs — on your One baker day
+from one person to two. Nothing blocks and nothing is refused: the toast reports it in words, the
+People area below shows the collision in red, and the button under it takes it back.
+
+**The clock you point with now follows your finger, and the clock strip stays where you can read
+it.** Your four asks of that day chart, all in this release. The reading follows the pointer DOWN
+the day as well as across it — it used to sit at the top of the chart, which is the right place
+only while the top of the chart is on screen, so pointing at a bar four rows down meant reading a
+clock a screen away. It rides 8px clear of your finger rather than under it, because a reading
+under your own finger hides the bar you are holding it against — and near the top of the chart,
+where there is no room above, it drops below the pointer instead. The chart is a panel of its own
+now: the clock strip is pinned at the top of that panel and the rows scroll under it, so the hours
+stay beside the bars you have scrolled to. The panel is capped, so it never grows past what you can
+see at once.
+
+**And one fault found while building it.** The red now-line of the walk through was being drawn in
+the chart's name column — 138px, about an hour and a half, to the LEFT of the minute it was naming,
+because its position was measured when the chart was built and a chart that is not yet on the page
+has no position at all. Measured off the clock strip's own column instead, it now stands on the
+minute it names. Nothing about the walk through changed except that the line is where it says.
+
+**What has not moved.** Your three shelf days were compared byte for byte before and after: No
+fridge, 1 person still reads 24 pans, My sister proposal 21/9/2026 still 4 pans, and One baker day
+still reads 24 pans across 8 modules with the first batch out at 9:09 am, the day finishing at
+1:30 pm and the stored rhythm of 4:01, 5:28, 6:55 and 8:22 am untouched. Not one module, batch,
+start time, cycle or saved scenario changed, because nothing moves except by your own press.
+Nothing here blocks a sale and nothing here reads an order.
+
+CHANGELOG and the guide (section 23, cross-referenced to section 24) both carry all of this, both
+PDFs rebuilt, and the tests are 1136 passing with none failing — nine of them new: four on the
+calculation (the exact latest start of every module on One baker day, that it is measured off the
+day rather than subtracted from the anchor, that a switched-off module is stepped over, and that a
+press never moves a module earlier nor does anything a second time) and five on the card and the
+drawing (the card opening on batch 1 at the last module and nowhere else, one press leaving the
+day's own numbers alone, the way back putting every start time exactly where it was, the step pairs
+moving the whole day with its shape kept, and the chip signposting the moment the day hangs from).
+No database step — nothing to run in Supabase.
 
 **22 Sep 2026 — engine v151 (no database step). The module card answers to you,
 every batch is numbered, and the day calls your people.**
