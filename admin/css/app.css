@@ -2603,8 +2603,19 @@ tr.po-covered td { color: var(--muted); }
    scrolls down through the day's rows, with the clock strip pinned inside it. A
    day of eight modules with more than one line each is taller than a phone, and a
    clock she has scrolled away from is a clock she cannot read the bar against.
-   Capped, so the panel never grows past what she can see at once. */
-.tl { overflow: auto; max-height: min(66vh, 560px); -webkit-overflow-scrolling: touch; }
+   Capped, so the panel never grows past what she can see at once.
+   Floored and capped further apart since v157, which is her ask for a taller
+   modules window: the floor is what makes it a window rather than a box that
+   resizes itself every time she edits a module, and the raised cap is what lets a
+   long day use the room the shortened control row and the removed paragraphs gave
+   back. Her day of eight modules is 502px of drawing, so it sits inside a 500px
+   floor at once and neither bound is what she sees. */
+.tl {
+  overflow: auto;
+  min-height: min(56vh, 500px);
+  max-height: min(80vh, 760px);
+  -webkit-overflow-scrolling: touch;
+}
 /* Positioned, so the time cursor can be a hairline down the whole day rather
    than a line per row: one element inside the day, not one per track. */
 .tl-inner { display: inline-block; min-width: 100%; position: relative; }
@@ -2625,38 +2636,45 @@ tr.po-covered td { color: var(--muted); }
   display: flex; align-items: center; gap: 0 5px; flex-wrap: wrap;
   font-size: 13px; font-weight: 600; line-height: 1.25;
 }
-/* The name takes the whole first line and the badges drop to the one below it.
-   Sharing that line was the real damage: her longest module, The rests and the
-   stretch and folds, had 35px of a 273px name to read, because a badge was sitting
-   in the rest of it. The row is no taller for the change — the badges line is 15px
-   and the bars beside it already ask for 45.
+/* The name has the cell's first line to itself. v155 gave it that line by moving her
+   module's badges under the name, because sharing it was the real damage: her longest
+   module, The rests and the stretch and folds, had 35px of a 273px name to read with a
+   badge sitting in the rest of it. v157 then took the badges off the row altogether,
+   so the name is now the whole of what is in here.
    The name itself is one line, shortened with an ellipsis where the column ends. It
    used to wrap, to seven lines on this column, and the row grew for it: with the two
    notes below, a module row could stand as tall as four bars. A whole name is on the
    row's own card, one tap away. */
 .tl-name-txt { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* A slimmer badge than the same badge wears elsewhere on the app, and only inside
-   this cell: the 23px chip it is by default plus a name line is 51px, which is 6px
-   taller than the bars beside it. At 11px it is 16px, so the name keeps the 6px of
-   breathing room it has always had and the row is still the height of its bars. */
-.tl-name-top .badge { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; }
 .tl-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .tl-sub.bad { color: var(--red); }
-/* A module's two notes are off the row, and the row is exactly as tall as the bars
-   it draws: eight modules of notes was 400px of a phone screen spent repeating what
-   the module's card says, and it is why the day scrolled. Pointing at the module's
-   title opens them as a tip instead — laid over the day, so the row it belongs to
-   never changes height while she is reading it. Only where there is a pointer that
-   can hover: a phone has no pointing at things, so it gets both notes, word for
-   word, on the module's own card.
+/* A module's tags and its two notes are off the row, and the row is exactly the
+   name and its bars: eight modules of notes was 400px of a phone screen spent
+   repeating what the module's card says, and it is why the day scrolled. Pointing
+   at the module's title opens them as a tip instead — laid over the day, so the row
+   it belongs to never changes height while she is reading it. Only where there is a
+   pointer that can hover: a phone has no pointing at things, so it gets the tags and
+   both notes, word for word, on the module's own card.
    The containing block is the name cell, which is already positioned (sticky) and
    already wears z-index 2, so the tip is drawn over the bars for free.
-   The box is capped under the row's own 46px so that a tip on the first or the last
-   module of a long day cannot be cut by the edge of the scrolling panel. */
+   Three lines since v157 (the tags joined the two notes) and so taller than the row
+   it belongs to. It is centred on its row, which is what keeps it inside the panel
+   at either end: a first module has the clock strip's row above it and a last module
+   has the rows under it, so half the box goes into slack either way. The width is
+   capped for the same reason the height is argued about — a wide tip on a narrow
+   window must not run off the panel's own right edge. */
 .tl-tip {
   display: none;
   position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%);
   z-index: 3;
+  /* The box may never be wider than the panel has room for beside the 156px name
+     column. Measured at 375 pixels: the tip's own left edge sits 162 pixels into
+     the panel and the page leaves 42 pixels to the right of it, so 240 pixels is
+     the whole of what the viewport must give up before the box may be as wide as
+     it likes. At any width a pointer can hover at — a phone has none — the 340px
+     cap is the one that binds, so this only ever bites on a window as narrow as a
+     phone's, where a tip cut by the edge is better than a tip that is not there. */
+  max-width: min(340px, calc(100vw - 240px));
   padding: 5px 8px;
   background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px;
@@ -2665,6 +2683,15 @@ tr.po-covered td { color: var(--muted); }
 }
 .tl-tip .tl-sub { margin-top: 0; line-height: 1.3; }
 .tl-tip .tl-sub + .tl-sub { margin-top: 2px; }
+/* The tags line alone may wrap: a module wearing every tag it can wear is a wider
+   line than the box is allowed to be, and a wrapped tag line is still one line of
+   reading. The two notes under it are sentences and stay on their own line each. */
+.tl-tip .tl-tag-line { white-space: normal; }
+
+/* The tags on the module's own card — the same tags, the same colours through the
+   same .badge classes, laid out as the row used to lay them out. */
+.tl-tag-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 0 0 6px; }
+.tl-tag-row .badge { flex: 0 0 auto; }
 @media (hover: hover) and (pointer: fine) {
   .tl-name:hover .tl-tip { display: block; }
 }
@@ -2956,6 +2983,31 @@ tr.po-covered td { color: var(--muted); }
 .tl-chip {
   font: inherit; font-size: 12px; line-height: 1;
   padding: 8px 11px; min-height: 36px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--brown-dark); cursor: pointer;
+}
+/* The scale, as the two presses she makes rather than the four stops of the dial.
+   The stop she is on is the word between them, and the end of the dial is a
+   disabled button rather than a button that does nothing. Both presses are the
+   app's 36px target. */
+.tl-step {
+  font: inherit; font-size: 16px; line-height: 1; font-weight: 600;
+  width: 36px; min-height: 36px; padding: 0;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--brown-dark); cursor: pointer;
+}
+.tl-step:active { background: var(--gray-bg); }
+.tl-step[disabled] { opacity: .4; cursor: default; }
+.tl-step-name {
+  font-size: 12px; min-width: 62px; text-align: center;
+  color: var(--brown-dark); font-variant-numeric: tabular-nums;
+}
+/* The people box. Wears a chip's shape so the row still reads as one row of
+   controls, and the same 36px target as everything beside it. */
+.tl-select {
+  font: inherit; font-size: 12px; line-height: 1;
+  min-height: 36px; max-width: 100%;
+  padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 999px;
   background: var(--surface); color: var(--brown-dark); cursor: pointer;
 }

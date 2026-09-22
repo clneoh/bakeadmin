@@ -34,6 +34,13 @@ function createEl(tag) {
     setAttribute(k, v) {
       this.attrs[k] = String(v);
       if (k === "hidden") this.hidden = true;
+      // A real DOM reflects its boolean attributes onto the properties a view
+      // reads back, so `setAttribute("disabled", true)` makes `node.disabled`
+      // true. A shim that kept only the attribute made a switched-off press read
+      // as live and a placeholder option read as a pickable answer — the same
+      // class of fault as the data-* gap below, on the other side of the same
+      // question: a stub must be as unforgiving as the browser it stands in for.
+      if (k === "disabled" || k === "selected" || k === "checked") this[k] = true;
       // A real DOM exposes a data-* attribute on `dataset`, and the timeline's tap
       // reads which batch it hit off `hit.dataset.k`. A shim that kept the attribute
       // and not the dataset made every bar tap read as batch 1: a whole class of
@@ -324,11 +331,11 @@ test("a long batch never falls back to the palest shade (v150)", () => {
 });
 
 test("the cycles box does not call a cycle a step (v150)", () => {
-  const { root } = render();
-  // The timeline's own legend, which is the copy she reads over the day chart.
-  assert.match(textOf(root), /the separate cycles of that batch/);
-  // And the cycles box, which only draws once a module is opened, read off the
-  // source — it is the sentence that made her doubt the feature existed.
+  // The chart's own legend paragraph used to be the rendered half of this test.
+  // She asked for that paragraph gone in v157 — 330 pixels of a phone screen
+  // between her and the chart — so what is left is the cycles box itself, read off
+  // the source: it is the sentence that made her doubt the feature existed, and the
+  // one place a cycle is named in her own words.
   const src = read("admin/js/views/scenario.js");
   assert.match(src, /Each cycle is one piece of this module's work/);
   assert.doesNotMatch(src, /one step of this module/, "the screen still teaches 'step' for a cycle");
@@ -603,15 +610,28 @@ const popupBody = () => textOf(layers["popup-layer"]);
 const popupButton = (re) => walk(layers["popup-layer"]).find((n) => n.tagName === "BUTTON" && re.test(textOf(n)));
 const starts = (state, id) => computeScenario(state.settings.scenario).modules.find((m) => m.id === id).starts;
 
-// The day-backwards group of the controls row, found by its own label rather than
-// by a button's words: the day's own card carries buttons with the same words on
-// them, so text alone cannot tell the row from the card.
+// The day-backwards group of the controls row. Until v157 it was found by its own
+// label; the label is gone — it re-stated the button's own name and wrapped to two
+// lines on her phone — so the group is found as the one holding the button, inside
+// the controls row and not on the day's own card, which carries buttons with the
+// same words on them.
 function dayBackGroup(root) {
-  const label = walk(root).find((n) => hasClass(n, "tl-ctl-lab") && /Your day backwards/.test(textOf(n)));
-  assert.ok(label, "the controls row has no day-backwards group");
-  const el = walk(root).find((n) => hasClass(n, "tl-ctl-group") && (n.children || []).includes(label));
-  assert.ok(el, "the day-backwards label is not the label of a group in the row");
-  return { el, label, button: (re) => walk(el).find((n) => n.tagName === "BUTTON" && re.test(textOf(n))) };
+  const holds = (n) => walk(n).some((x) => x.tagName === "BUTTON" && /Work the day backwards/.test(textOf(x)));
+  const row = walk(root).find((n) => hasClass(n, "tl-ctl") && holds(n));
+  assert.ok(row, "the controls row has no day-backwards button");
+  const el = walk(row).find((n) => hasClass(n, "tl-ctl-group") && holds(n));
+  assert.ok(el, "the day-backwards button is not the button of a group in the row");
+  return { el, button: (re) => walk(el).find((n) => n.tagName === "BUTTON" && re.test(textOf(n))) };
+}
+
+// One group of the controls row, found by the label it carries. The row is a
+// series of these, and a view that grows one and drops another is best read as
+// the groups it is made of rather than by counting children.
+function ctlGroup(root, label) {
+  const group = walk(root).find((n) => hasClass(n, "tl-ctl-group")
+    && walk(n).some((x) => hasClass(x, "tl-ctl-lab") && new RegExp(`^\\s*${label}\\s*$`).test(textOf(x))));
+  assert.ok(group, `the controls row has no group named ${label}`);
+  return group;
 }
 
 // The last thing the app has said, which is the press she just made.
@@ -773,10 +793,13 @@ test("the day's own row works the day backwards on the spot (v153)", () => {
   assert.equal(before.endMin, 570, "one baker day does not finish at 1:30 pm before the press");
 
   const group = dayBackGroup(root);
-  // The moment her day hangs from is a LABEL and not a second control: nothing
-  // beside the button may look pressable, because she has tapped a label that
-  // looked like a button once already and read it as a dead control.
-  assert.match(textOf(group.label), /9:09 am/, "the row does not name the moment the day hangs from");
+  // The moment her day hangs from is named on the card this button's own move
+  // opens, not above the button: v157 took the label out of the row, because it
+  // re-stated the button's own name and wrapped to two lines on her phone. What is
+  // left is the button and, once the day has moved, the way back — and still
+  // nothing beside the button that only looks pressable.
+  assert.equal(walk(group.el).filter((n) => hasClass(n, "tl-ctl-lab")).length, 0,
+    "the day-backwards group has a label above the button again");
   assert.equal(walk(group.el).filter((n) => n.tagName === "BUTTON").length, 1,
     "something beside the button in the day-backwards row looks pressable");
 
@@ -863,7 +886,9 @@ test("a line with no chain says so rather than drawing a dead button (v153)", ()
   // two this is instead of inventing a move.
   const one = render({ modules: [ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack")] });
   const group = dayBackGroup(one.root);
-  assert.doesNotMatch(textOf(group.label), /\d:\d\d/, "a one-module line named a moment it does not have");
+  // Nothing in this group claims a clock at all — since v157 there is no label
+  // here to name one, and a one-module line has no moment to name.
+  assert.doesNotMatch(textOf(group.el), /\d:\d\d/, "a one-module line named a moment it does not have");
 
   const wasAt = one.state.settings.scenario.modules[0].startMin;
   group.button(/Work the day backwards/).dispatchEvent({ type: "click" });
@@ -1158,26 +1183,238 @@ test("the notes open as a tip over the day, and the row keeps its height (v156)"
 });
 
 
-test("the name takes the row's first line and the badges take the next (v155)", () => {
+test("the name takes the whole of the row's first line (v155)", () => {
   const { root } = render();
   const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes("The rests and the stretch and folds"));
   const top = walk(row).find((n) => hasClass(n, "tl-name-top"));
   const name = walk(top).find((n) => hasClass(n, "tl-name-txt"));
   assert.ok(name, "the name is not in a span of its own, so a long one cannot be shortened");
   assert.equal(textOf(name).trim(), "🫙 The rests and the stretch and folds", "the row stopped naming the module in full");
-  const badges = walk(top).filter((n) => hasClass(n, "badge"));
-  assert.ok(badges.length, "the badges are not on the name cell at all");
 
   // Sharing the name's line was the real damage: this module's name is 273px wide
-  // and a badge beside it left 35px of it to read. The name now takes the whole
-  // line and the badges break onto the one below, which is 16px — under the 45px
-  // the bars already ask for, so the row is no taller for it.
+  // and a badge beside it left 35px of it to read. The name takes the whole line,
+  // and a badge — if one were ever put back here — breaks onto the one below,
+  // which is 16px, under the 45px the bars already ask for, so the row is no
+  // taller for it.
   const css = read("admin/css/app.css");
-  assert.match(css, /\.tl-name-top\s*\{[^}]*flex-wrap:\s*wrap/, "the name and its badges cannot break onto two lines");
+  assert.match(css, /\.tl-name-top\s*\{[^}]*flex-wrap:\s*wrap/, "the name and its badges could never break onto two lines");
   assert.match(css, /\.tl-name-txt\s*\{[^}]*flex:\s*1 1 100%/, "the name does not take the line it is on");
   assert.match(css, /\.tl-name-txt\s*\{[^}]*text-overflow:\s*ellipsis/, "a long name is not shortened, so it wraps the row taller than its bars");
-  // And the column those 146px of name live in, measured rather than promised.
+  // And the column those 156px of name live in, measured rather than promised.
   assert.match(css, /\.tl-name\s*\{[^}]*width:\s*156px/, "the name column is not the width the row was measured at");
+});
+
+// ── v157: every tag leaves the row, for the tip and the card ─────────────────
+//
+// Her ask of 22 September: "The module tag, can you put them in the tip tips?"
+// and then, asked which ones, "Every tag, into the tip". The badges were the last
+// words left on the row, and every word on the row is height the modules window
+// cannot have. They are everywhere the notes already are — in the tip a computer
+// opens under the pointer, and written out on the card her tap opens, which is
+// where a phone reads them, because a finger has no hover to open a tip with.
+
+test("every module tag is off the row, and in the tip and on the card instead (v157)", () => {
+  const { root } = render();
+
+  // Not one badge on any row of the whole day — not on a name cell and not beside
+  // one. The row is the name and its bars and nothing else, which is what makes it
+  // 46px and what the 54 pixels the old badges cost her phone buy back.
+  const rows = walk(root).filter((n) => hasClass(n, "tl-row"));
+  const onRow = rows.flatMap((r) => walk(r)).filter((n) => hasClass(n, "badge"));
+  assert.equal(onRow.length, 0, `a tag is still on a row: ${onRow.map((n) => textOf(n).trim()).join(" / ")}`);
+
+  // Every tag the tip carries is the same tag the module's own card carries, word
+  // for word. That is the whole promise of the move: nothing is lost, it is only
+  // somewhere a phone can reach it — a finger has no hover to open a tip with.
+  const tagged = rows.filter((r) => walk(r).some((n) => hasClass(n, "tl-tag-line")));
+  assert.ok(tagged.length, "no row carries a tag line at all, so the tags went nowhere");
+  for (const row of tagged) {
+    const named = walk(row).find((n) => hasClass(n, "tl-name-txt"));
+    if (!named) continue; // a second production line: its tags are the module's, on line 0
+    const name = textOf(named).replace(/\s+/g, " ").trim().replace(/^\S+\s+/, "");
+
+    const held = walk(row).find((n) => hasClass(n, "tl-tip"));
+    const tagLine = walk(held).find((n) => hasClass(n, "tl-tag-line"));
+    // The tag line is the first of the tip's three lines, because it is the
+    // shortest of them to read.
+    assert.equal(walk(held).filter((n) => hasClass(n, "tl-sub"))[0], tagLine,
+      `the tag line is not the first line of the tip on ${name}`);
+    const said = textOf(tagLine).replace(/\s+/g, " ").trim();
+
+    openModule(root, name);
+    const cardTags = walk(layers["popup-layer"]).find((n) => hasClass(n, "tl-tag-row"));
+    assert.ok(cardTags, `the card for ${name} has no tag row, so a phone cannot read its tags`);
+    const onCard = walk(cardTags).filter((n) => hasClass(n, "badge")).map((n) => textOf(n).replace(/\s+/g, " ").trim());
+    assert.equal(onCard.join(" · "), said, `the tip and the card disagree about ${name}`);
+  }
+});
+
+test("tags that only exist for a repeated module are carried the same way (v157)", () => {
+  // Two of the module: it wears "2 of them", which no number in the bars says.
+  const modules = ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_scale" ? { ...m, count: 2 } : { ...m }));
+  const { root } = render({ modules });
+
+  const rows = walk(root).filter((n) => hasClass(n, "tl-row"));
+  assert.equal(rows.flatMap((r) => walk(r)).filter((n) => hasClass(n, "badge")).length, 0,
+    "a tag is still on a row of a repeated module");
+
+  openModule(root, "Oil the pans");
+  const cardTags = walk(layers["popup-layer"]).find((n) => hasClass(n, "tl-tag-row"));
+  assert.ok(cardTags, "the card of a repeated module has no tag row");
+  assert.match(textOf(cardTags), /2 of them/, `the card does not say how many of it there are: ${textOf(cardTags)}`);
+});
+
+// The tip is three lines now — the tags, then when the module starts, then what a
+// batch costs — which is taller than the 46px row it belongs to. It is still not
+// cut by the edge of the scrolling panel, and that is not luck: it is centred on
+// its own row, so half the box goes into the slack above the first module (the
+// clock strip) or below the last one (the person rows).
+test("the three-line tip is held inside the panel it is drawn in (v157)", () => {
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.tl-tip\s*\{[^}]*max-width:\s*min\(340px, calc\(100vw - 240px\)\)/,
+    "a wide tag line can run the tip off the right edge of the panel");
+  assert.match(css, /\.tl-tip\s+\.tl-tag-line\s*\{[^}]*white-space:\s*normal/,
+    "the tag line cannot wrap, so a long one widens the box instead of folding");
+  assert.match(css, /\.tl-tip\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/,
+    "the tip is not centred on its row, so a first or last module's tip is cut in half");
+});
+
+// ── v157: a shorter control list, so the modules window gets the room ────────
+//
+// Her words: "Make the scale with + -, People: make it drop down option, The
+// line: this name is very unclear, we just need the button, WORK BACKWARD. The
+// idea is to make this list shorter and make room for a bigger modules windows."
+// Four named stops became two presses, three People chips became one drop-down
+// whose closed text is the arrangement in force, the "The line" group left the
+// row for the module card, and the day-backwards group lost its label and kept
+// only the button.
+
+test("the scale is two presses around the name of the stop it is on (v157)", () => {
+  const { root } = render();
+  const group = ctlGroup(root, "Scale");
+
+  const steps = walk(group).filter((n) => hasClass(n, "tl-step"));
+  assert.equal(steps.length, 2, `the scale is not exactly two presses: ${steps.length}`);
+  assert.deepEqual(steps.map((n) => textOf(n).trim()), ["−", "+"], "the two presses are not a minus and a plus");
+  // Each press says out loud what it will do, because a lone − and + on a phone
+  // says nothing about which way the day is about to move.
+  assert.match(steps[0].attrs["aria-label"] || "", /wider/i, "the minus does not say it widens the view");
+  assert.match(steps[1].attrs["aria-label"] || "", /closer/i, "the plus does not say it closes in");
+
+  // Between them, the name of the stop the view is on — the four names v154 put in
+  // four chips, kept as a read-out rather than as four taps.
+  const named = walk(group).find((n) => hasClass(n, "tl-step-name"));
+  assert.ok(named, "the scale no longer names the stop it is on");
+  assert.match(textOf(named), /Wide|Standard|Close|Closest/, `the scale reads "${textOf(named).trim()}"`);
+
+  // The four chips are gone — a shorter row was the whole point of the change.
+  assert.equal(walk(group).filter((n) => hasClass(n, "tl-chip")).length, 0, "the four scale chips are still in the row");
+
+  // And the presses do move the view, one stop at a time: on + the day is drawn
+  // closer, and at the closest stop the + is itself switched off rather than
+  // running past the end of the dial and leaving her day off the screen.
+  const { root: r2, state } = render();
+  const before = state.settings.scenario.pxPerMin;
+  walk(r2).filter((n) => hasClass(n, "tl-step"))[1].dispatchEvent({ type: "click" });
+  assert.ok(state.settings.scenario.pxPerMin > before, "the closer press did not close the view in");
+
+  const end = render({ pxPerMin: 1000 });
+  assert.equal(walk(end.root).filter((n) => hasClass(n, "tl-step"))[1].disabled, true,
+    "the closer press is still live at the closest stop");
+  const start = render({ pxPerMin: 0.1 });
+  assert.equal(walk(start.root).filter((n) => hasClass(n, "tl-step"))[0].disabled, true,
+    "the wider press is still live at the widest stop");
+});
+
+test("the people are one drop-down, and its closed text is the arrangement in force (v157)", () => {
+  const { root } = render();
+  const people = ctlGroup(root, "People");
+  const sel = walk(people).find((n) => n.tagName === "SELECT" && hasClass(n, "tl-select"));
+  assert.ok(sel, "the people are not a drop-down any more");
+
+  // One placeholder that shows as the closed control's own text, and three answers
+  // behind it. The placeholder is what she has now rather than an instruction — a
+  // control that only ever said "choose" would hide the answer she came here to read.
+  const options = walk(sel).filter((n) => n.tagName === "OPTION");
+  assert.equal(options.length, 4, `the drop-down does not hold a reading and three answers: ${options.length}`);
+  const showing = options[0];
+  assert.ok(showing.disabled && showing.selected, "the drop-down's closed text is not the reading");
+  assert.ok(sel.value === "" || sel.value === undefined, "the drop-down opens on an answer rather than on the reading");
+  assert.match(textOf(showing), /Sharing|One a module|One a line|Your own|Combined/,
+    `the closed control reads "${textOf(showing).trim()}", which is not the arrangement in force`);
+
+  const labels = options.slice(1).map((n) => textOf(n));
+  assert.ok(labels.some((l) => /One a module|One a line/.test(l)), `no one-to-a-job answer: ${labels.join(" / ")}`);
+  assert.ok(labels.some((l) => /Share them out/.test(l)), `no share-them-out answer: ${labels.join(" / ")}`);
+  assert.ok(labels.some((l) => /Combine two people/.test(l)), `no combine answer: ${labels.join(" / ")}`);
+
+  // And the three People chips v154 put in the row are gone, replaced by this one
+  // control rather than sitting beside it.
+  assert.equal(walk(people).filter((n) => hasClass(n, "tl-chip")).length, 0, "the People chips are still in the row");
+});
+
+test("the line's own group has left the control row for the module card (v157)", () => {
+  const { root } = render();
+
+  // Off the row: neither its label nor the bulk presses that lived under it. The
+  // name was the part she could not read — "this name is very unclear" — and the
+  // presses set a thing that is set per module anyway, beside the three answers
+  // that already do exactly that.
+  const ctl = walk(root).find((n) => hasClass(n, "tl-ctl"));
+  assert.ok(ctl, "the controls row is gone altogether");
+  assert.ok(!/\bline\b/i.test(walk(ctl).filter((n) => hasClass(n, "tl-ctl-lab")).map((n) => textOf(n)).join(" ")),
+    "the controls row still carries a label about the line");
+  assert.equal(walk(ctl).filter((n) => n.tagName === "BUTTON" && /^Chain |Take the waiting off/.test(textOf(n).trim())).length, 0,
+    "the chain-the-line press is still in the controls row");
+
+  // And on the card, which is what she asked for: "put into the module card".
+  openModule(root, "Mixing the dough in the tub");
+  assert.match(popupBody(), /Waiting on the module above/, "the module card does not carry the line's own words");
+  assert.match(popupBody(), /Nothing is waiting right now|waits? on the module above/,
+    "the card does not say what is waiting, which is what the group was for");
+  assert.ok(walk(layers["popup-layer"]).some((n) => n.tagName === "BUTTON" && /Chain every module/.test(textOf(n))),
+    "the module card offers no way to chain the line");
+
+  // Everything the chip's own card carried comes with the move, or it is not a move
+  // but a deletion: the three cost numbers were on that card, and a card that lost
+  // them while gaining the presses would be quietly thinner than the thing it
+  // replaced. The numbers are the day's own, in the shape the chip's card used.
+  assert.match(popupBody(), /\bperson\b|\bpeople\b/, "the card lost the count of people the chip's card carried");
+  assert.match(popupBody(), /of hands/, "the card lost the hands figure the chip's card carried");
+  assert.match(popupBody(), /day\./, "the card lost the length of the day the chip's card carried");
+});
+
+// ── v157: a taller window ────────────────────────────────────────────────────
+
+test("the modules window is taller, and the paragraphs above it are gone (v157)", () => {
+  const { root } = render();
+
+  // Her first ask, "i want to make the modules window taller", and her last,
+  // "remove?" on the two paragraphs. The window is given a floor so it reads as a
+  // window even on a short day, and a raised cap so a long day uses the room the
+  // shorter control row and the removed paragraphs gave back.
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.tl\s*\{[^}]*min-height:\s*min\(56vh, 500px\)/, "the modules window has no floor, so a short day is not a window");
+  assert.match(css, /\.tl\s*\{[^}]*max-height:\s*min\(80vh, 760px\)/, "the modules window's cap did not move, so the room reclaimed is not used");
+  assert.match(css, /\.tl\s*\{[^}]*overflow:\s*auto/, "the modules window no longer scrolls");
+
+  // The two paragraphs above the chart are gone from the day card, and so is the
+  // signpost that named the day-backwards control: the button names itself.
+  const src = read("admin/js/views/scenario.js");
+  assert.doesNotMatch(src, /dayBackSignpost/, "the removed day-backwards signpost is still built");
+});
+
+test("the day-backwards group is the button and nothing else (v157)", () => {
+  const { root } = render();
+  const group = dayBackGroup(root);
+
+  // "we just need the button, WORK BACKWARD" — no label over it, and no clock in
+  // the label. The button's own words say what it does.
+  assert.equal(walk(group.el).filter((n) => hasClass(n, "tl-ctl-lab")).length, 0,
+    "the day-backwards group has a label above the button again");
+  const buttons = walk(group.el).filter((n) => n.tagName === "BUTTON");
+  assert.equal(buttons.length, 1, `the group is not one button: ${buttons.map(textOf).join(" / ")}`);
+  assert.match(textOf(buttons[0]), /Work the day backwards/, "the button stopped saying what it does");
 });
 
 test("a module drawn as lines can wait on the module above it (v155)", () => {

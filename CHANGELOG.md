@@ -1,8 +1,123 @@
-# Jienluv2bake — change history (v54 → v156)
+# Jienluv2bake — change history (v54 → v157)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v157 (no database step). The Scenario planner's list of
+controls is much shorter and the modules window is taller: the module tags have
+moved into the tip, the scale is two presses around the stop it is on, the people
+are one box, and "The line" has left the row for the module's own card.**
+
+**What you asked.** In your words: "i want to make the modules window taller. The
+module tag, can you put them in the tip tips? Make the scale with+ -, People:
+make it drop down option, The line: this name is very unclear,, we just need the
+button, WORK BACKWARD. The idea is to make this list shorter and make room for a
+bigger modules windows." Every one of those six is below, and where a thing left
+the screen you told me where it should go instead: every tag into the tip, the
+line's own settings into the module's card, and the two paragraphs above the
+chart removed.
+
+**Two paragraphs left the day.** The two sentences that used to stand between the
+"The day" heading and the first bar are gone: the one teaching how to read the
+chart, and the one naming the moment your day hangs from. At 375 pixels they
+measured 330 pixels between them, 210 and 120, and they were the whole of what
+you scrolled past before you reached a bar. With them gone the first bar sits 278
+pixels below the heading where it sat 707. Nothing is lost by it: how to read the
+chart is section 23 of the operations guide, and the button that moves the day
+now says its own name in the row under the chart, so the move is still findable
+without a sentence pointing at it.
+
+**The modules window is taller, and now it fits.** The window has a floor of 500
+pixels and a cap of 760 where before it had only a cap of 560: the floor is what
+makes it a window rather than a box that resizes itself every time you edit a
+module, and the raised cap is what lets a long day use the room the rest of this
+release gave back. On your seeded day at 375 pixels the window is 616 pixels tall
+where it was 536, and the day's own drawing is 616 — so before this release the
+window hid 80 pixels of your day and now it hides none of it.
+
+**The tags are off the row and into the tip.** Every tag a row used to wear is
+gone from the row: how many of a module you have, how many of its lots are in it
+at once, whether it waits above, whether it runs itself, and whether you have
+asked for more passes than a day holds. Point at the module's own title and the
+tags are the first line of the box, joined with a dot, with the two notes under
+them. Measured at 1280 wide on your day, the box is 42.6 pixels for the two notes
+alone and 58.9 with the tag line, and all nine boxes measured inside the panel
+left and right.
+
+**The tip is now taller than the row it belongs to, and here is why that is all
+right.** Three lines of tip is 58.9 pixels against a 45-pixel row, so the box no
+longer fits inside its own row the way v156's did. What keeps it inside the panel
+is that it is centred on its row: half of it goes up into the clock strip's row
+above your first module, and half of it goes down into the rows below your last
+one. Every tip was measured inside the panel at both ends of the day, and nothing
+on the chart moves while one is open.
+
+**The scale is two presses.** The four stops are kept exactly as they were, with
+the same pixels behind them: Wide, Standard, Close, Closest. What changed is that
+they are no longer four buttons. There is a round minus and a round plus, and the
+stop you are standing on is the word between them, so you can see where the dial
+is without opening anything. At either end of the dial the press that would go
+past the end is off rather than doing nothing when you tap it.
+
+**The people are one box.** Three chips became one drop-down. What the box says
+when it is closed is the arrangement in force right now — Sharing them out, One a
+module, One to a line, Your own, or Combined when you have combined two people
+yourself — so the box names what it has done rather than hiding it. The four lines
+inside it are the arrangement in force and the two things it can do to your day,
+One a module (a person for each job, one job each) and Share them out (as few
+hands as can cover the day), and Combine two people on the end.
+
+**"The line" left the row, and its name with it.** You said the name was unclear
+and that its place is the module's own card, and it is there now. The control row
+reads Scale, People, Walk the day and nothing else. On the module's card, under
+the words **Waiting on the module above**, is the same sentence the old card
+opened with — which of your modules wait on the one above, by name, and which keep
+the times you placed — and the same two presses it always offered, Chain every
+module and Take the waiting off. One module's own three answers, As the one above
+finishes, Never before the one above finishes and Its own time, are untouched and
+still on that same card, which is where they have been since v154.
+
+**The button alone.** You said we only need the button, so the label that used to
+stand beside it is gone. It read "Your day backwards · first batch out 9:09 am",
+which at 375 pixels wrapped to two lines: 54 pixels of a phone screen spent
+explaining a button that already says what it does. What is left is the button,
+**Work the day backwards**, in the row under the chart.
+
+**What the row came back to.** At 375 pixels your control row is 222 pixels tall
+where it was 305, so 83 pixels came back to the chart. Together with the two
+paragraphs that left and the taller window, the run from the "The day" heading to
+the first bar is 278 pixels where it was 707, and the day itself is not scrolled
+to at all: the window is 616 and the drawing is 616.
+
+**Nothing on a phone is left without a way to read it.** A tip opens where there
+is a pointer that can hover at things, and a phone has not got one — measured at
+375 pixels with a touch phone emulated, no tip opens at all. Everything a tip
+carries, the tag line and the two notes, is written out word for word at the top
+of the module's own card, in the row's own tag colours, and that card is what a
+tap on the row has always opened. There is nothing new to learn and nothing new
+to find.
+
+**What has not moved, measured rather than promised.** Your three saved days were
+compared before and after this release. One baker day still reads 24 pans across
+8 modules, its first batch out at 9:09 am and its day finishing at 1:30 pm. No
+fridge, 1 person still reads 24 pans. My sister proposal 21/9/2026 still reads 4
+pans. Not one module, batch, start time, cycle or saved scenario of yours changed
+in this release. Nothing here blocks a sale and nothing here reads an order.
+
+**No database step.** The whole of this is drawn from the scenario already on
+your phone, so there is nothing to run in Supabase.
+
+The app's own More screen reads Engine v157. The tests are 1166 passing with none
+failing, eight of them new: that no tag is left on any module row and that every
+tag the tip carries is the same tag the module's card carries word for word, that
+a module you have two of is carried the same way, that the taller tip is still
+held inside the panel it is drawn in, that the scale is exactly two presses
+around the name of the stop it is on and that each press is off at its end of the
+dial, that the people are one drop-down whose closed text is the arrangement in
+force, that the line's own group has left the control row for the module's card,
+that the window is taller and wider-capped and the two paragraphs above it are
+gone, and that the day-backwards group is the button and nothing else.
 
 **22 Sep 2026 — engine v156 (no database step). The module's notes now open as a
 tip over the day when you point at its title, and the row keeps its height while

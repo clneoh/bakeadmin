@@ -87,8 +87,9 @@ const TAG_BAND = 11;
 
 const DAY_MIN = 24 * 60;
 
-// The scale chips, in the order of PX_PER_MIN_CHOICES: a whole day, the
-// standard reading, close, and closest.
+// The four stops of the scale, in the order of PX_PER_MIN_CHOICES: a whole day,
+// the standard reading, close, and closest. Since v157 the control is a step of
+// two buttons and one of these words stands between them as the stop in force.
 const SCALE_NAMES = ["Wide", "Standard", "Close", "Closest"];
 
 export function renderScenario(root, state) {
@@ -539,38 +540,21 @@ function applyDescent(sc, down, on) {
 // person and a total row underneath. It is the thing the capacity screen cannot
 // draw — not how fast a station is, but WHEN it runs and which of those times
 // collide.
+// The day's own card. Two paragraphs used to stand above the chart — the one
+// explaining how to read it, and the one naming the moment her day hangs from —
+// and she asked for both of them gone, which is 330 pixels of a phone screen she
+// no longer scrolls past to reach the chart. Nothing is lost by it: the reading of
+// the chart is section 23 of the operations guide, and the button that moves the
+// day now says its own name in the row under the chart, so the move is findable
+// without a sentence pointing at it.
 function dayCard(r, sc, on, state, run) {
   return el("div", {},
     el("h2", { class: "section" }, "The day"),
-    el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Every module as a bar, one bar to a batch, each one tagged with its own batch number, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar or its batch number to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day with the time on it — the balloon travels with your finger, and the clock strip stays at the top of the chart while you scroll down the rows under it — which is how you line two modules up against each other. Swipe the empty space to scroll."),
-    dayBackSignpost(r, sc),
     el("div", { class: "card tl-card" },
       controlsRow(r, sc, on, state, run),
       timeline(r, sc, on, state, run),
       batchNote(r),
       clashNotes(r, state)));
-}
-
-// Where the backward calculation lives, said on the day rather than left to be
-// found. v148's lesson was that the only button that applied a nine-rung ladder
-// sat four phone screens below its own heading and she reported it as missing, so
-// the control that moves the whole day names itself here — and since v153 it also
-// names the button, because the two doors onto this move are not the same door:
-// the row does it on the spot, the bar's card lays the whole chain out first.
-// Null on a day that has no such moment — a line of a single module is not a
-// chain, and nothing hangs from it.
-function dayBackSignpost(r, sc) {
-  const owner = dayEndOf(r, sc);
-  const batch1 = owner && (owner.passes || [])[0];
-  if (!batch1) return null;
-  return el("p", { class: "card-sub", style: "margin:0 0 8px" },
-    `Your first batch comes out of ${owner.name} at ` +
-    `${clockAt(r.dayStartMin, batch1.end)}, and that is the moment your day hangs ` +
-    `from. Work the day backwards from it and every module above gets its latest ` +
-    `start. The button in the row under this chart does it in one press; tapping ` +
-    `batch 1 of ${owner.name} — the B1 above its first bar — opens the same move ` +
-    `with the whole chain laid out before you press it, which is the one to read first.`);
 }
 
 // Her rule's other half, said out loud: "say when it does not". A module whose
@@ -600,76 +584,45 @@ function batchNote(r) {
 function controlsRow(r, sc, on, state, run) {
   // The jobs that actually need hands, and how many LINES those jobs are. The two
   // numbers differ only when a module she has two of is drawn as two lines — and
-  // that is exactly when the People button below is about to hand out a person
-  // per line rather than per module, so it is also when its label has to change.
+  // that is exactly when the People box below is about to hand out a person per
+  // line rather than per module, so it is also when its wording has to change.
   const jobs = r.modules.filter((m) => m.on !== false && Number(m.touchMin) > 0);
   const lineJobs = jobs.reduce((t, m) => t + Math.max(1, m.lines || 0), 0);
-  // The moment her day hangs from, if there is a line to hang one from at all. It
-  // is the row's label and never a control of its own: the pressable thing in this
-  // group is the button, so nothing beside it has to look like one.
-  const dayEndOwner = dayEndOf(r, sc);
-  const dayEndBatch = dayEndOwner && (dayEndOwner.passes || [])[0];
+  const perLine = lineJobs > jobs.length;
+
+  // The scale as a step rather than as four chips. Four chips were four stops of
+  // one dial said as four buttons, and she uses two of them: the step she makes is
+  // narrower or closer, so those are the two buttons and the stop she is standing
+  // on is the word between them. Nothing about the scale itself changed — the same
+  // four stops, the same pixels per minute, and the same stop she left it on.
+  const at = PX_PER_MIN_CHOICES.findIndex((px) => Math.abs(r.pxPerMin - px) < 0.01);
+  const step = (by) => {
+    const to = Math.max(0, Math.min(PX_PER_MIN_CHOICES.length - 1, at + by));
+    if (to === at) return; // the end of the dial is not a move
+    sc.pxPerMin = PX_PER_MIN_CHOICES[to];
+    on.persist();
+    on.refresh();
+  };
+
   return el("div", { class: "tl-ctl" },
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Scale"),
-      ...PX_PER_MIN_CHOICES.map((px, i) => el("button", {
-        type: "button",
-        class: `tl-chip${Math.abs(r.pxPerMin - px) < 0.01 ? " on" : ""}`,
-        onclick: () => { sc.pxPerMin = px; on.persist(); on.refresh(); },
-      }, SCALE_NAMES[i] || `${px}x`))),
+      el("button", {
+        type: "button", class: "tl-step", disabled: at <= 0,
+        "aria-label": "A wider view — more of the day on the screen",
+        onclick: () => step(-1),
+      }, "−"),
+      el("span", { class: "tl-step-name" }, at < 0 ? `${r.pxPerMin}x` : SCALE_NAMES[at]),
+      el("button", {
+        type: "button", class: "tl-step", disabled: at >= PX_PER_MIN_CHOICES.length - 1,
+        "aria-label": "A closer view — the minutes, larger",
+        onclick: () => step(1),
+      }, "+")),
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "People"),
-      el("button", {
-        type: "button", class: "tl-chip",
-        onclick: () => {
-          // Her starting point: one person standing at every job that needs hands.
-          // A job is a LINE, so a module she has two of takes two people here and
-          // not one — which is what she wants this for: each worker on one line,
-          // learning one job rather than wearing every hat in the day. The clashes
-          // that appear are exactly what she then slides the modules to remove, and
-          // it is the honest first answer, because a person per line really does
-          // cover the day.
-          let n = 0;
-          sc.modules = sc.modules.map((m) => {
-            const needsHands = m.on !== false && Number(m.touchMin) > 0;
-            if (!needsHands) return { ...m, person: 0, crew: undefined };
-            const have = Math.max(1, linesInForce(m));
-            const crew = [];
-            for (let i = 0; i < have; i += 1) { n += 1; crew.push(n); }
-            return { ...m, crew, person: crew[0] };
-          });
-          // Every job has just been given its own person, so any combination
-          // label from before is describing a day that no longer exists.
-          sc.merges = {};
-          on.persist();
-          toast(`${n} ${n === 1 ? "person" : "people"}, one to ${lineJobs > jobs.length ? "a line" : "a module"} — now move the modules closer together`);
-          on.refresh();
-        },
-      }, lineJobs > jobs.length ? "One a line" : "One a module"),
-      el("button", {
-        type: "button", class: "tl-chip",
-        onclick: () => {
-          sc.modules = sc.modules.map((m) => ({ ...m, person: 0, crew: undefined }));
-          // Nobody is named any more, so nothing is being covered by anybody —
-          // a leftover combination label would be a lie about the day.
-          sc.merges = {};
-          on.persist();
-          toast("Sharing them out — as few hands as can cover the day");
-          on.refresh();
-        },
-      }, "Share them"),
-      el("button", {
-        type: "button", class: "tl-chip",
-        onclick: () => combinePopup(r, sc, on, state),
-      }, "Combine two…")),
-    el("div", { class: "tl-ctl-group" },
-      el("span", { class: "tl-ctl-lab" }, "The line"),
-      el("button", {
-        type: "button", class: "tl-chip",
-        onclick: () => chainPopup(r, sc, on),
-      }, chainedCount(r) ? `${chainedCount(r)} waits above` : "Not chained")),
+      peoplePicker(r, sc, on, state, perLine)),
     // The day worked backwards, as a real button in the row rather than only behind
-    // a tap on one particular bar.
+    // a tap on one particular bar — and, since v157, as nothing but the button.
     //
     // v152 first shipped this place as a chip that NAMED the moment and then told
     // her which bar to tap, and she reported it as what it looks like: "why no
@@ -684,11 +637,11 @@ function controlsRow(r, sc, on, state, run) {
     // fault. On a finished day the press says so and writes nothing, which
     // moveDayBack already answers; on a line with no module above its last one the
     // card does not exist at all, so saying so is workDayBack's own job.
+    //
+    // The label that used to stand above it is gone: it re-stated the button's own
+    // name and, at 375 pixels, wrapped to two lines — 54 pixels of a phone screen
+    // spent explaining a button that already says what it does.
     el("div", { class: "tl-ctl-group" },
-      el("span", { class: "tl-ctl-lab" },
-        dayEndBatch
-          ? `Your day backwards · first batch out ${clockAt(r.dayStartMin, dayEndBatch.end)}`
-          : "Your day backwards"),
       el("button", {
         type: "button", class: "tl-chip",
         // No popup to repaint from here: on.refresh() already redraws this whole
@@ -737,59 +690,119 @@ function controlsRow(r, sc, on, state, run) {
       }, "＋ New module")));
 }
 
+// One of the two things the People box does to the day, in the words it has
+// always toasted with. The arrangement now in force is the box's closed label —
+// "one a module", "one to a line", "sharing them out", "combined" — and a day she
+// arranged herself says exactly that, because calling it "one a module" would be a
+// promise about a day nobody made that way.
+function peopleState(r, sc, perLine) {
+  const mods = sc.modules || [];
+  if (Object.keys(sc.merges || {}).length) return "Combined";
+  if (mods.some((m) => (m.crew || []).length)) return perLine ? "One to a line" : "One to a module";
+  if (mods.some((m) => Number(m.person) > 0)) return "Your own";
+  return "Sharing them out";
+}
+
+// The hands, as a drop-down. Three arrangements, each of which redraws the whole
+// day's people at once, behind one box that says which of them is in force now.
+// It was three chips and it wrapped to two lines on her phone; the box is the one
+// line, and it still names the arrangement rather than hiding it, because a
+// control that does not say what it has done is a control she has to open to find
+// out.
+function peoplePicker(r, sc, on, state, perLine) {
+  const sel = select([
+    {
+      value: "one",
+      label: perLine
+        ? "One a line — a person for each line, one job each"
+        : "One a module — a person for each job, one job each",
+    },
+    { value: "share", label: "Share them out — as few hands as can cover the day" },
+    { value: "combine", label: "Combine two people…" },
+  ], "", () => {
+    const pick = sel.value;
+    // Back to the arrangement the box names, whatever this turns out to be: the
+    // menu is three presses, not a fourth setting standing beside them.
+    sel.value = "";
+    if (pick === "one") {
+      // Her starting point: one person standing at every job that needs hands.
+      // A job is a LINE, so a module she has two of takes two people here and not
+      // one — which is what she wants this for: each worker on one line, learning
+      // one job rather than wearing every hat in the day. The clashes that appear
+      // are exactly what she then slides the modules to remove, and it is the
+      // honest first answer, because a person per line really does cover the day.
+      let n = 0;
+      sc.modules = sc.modules.map((m) => {
+        const needsHands = m.on !== false && Number(m.touchMin) > 0;
+        if (!needsHands) return { ...m, person: 0, crew: undefined };
+        const have = Math.max(1, linesInForce(m));
+        const crew = [];
+        for (let i = 0; i < have; i += 1) { n += 1; crew.push(n); }
+        return { ...m, crew, person: crew[0] };
+      });
+      // Every job has just been given its own person, so any combination label
+      // from before is describing a day that no longer exists.
+      sc.merges = {};
+      on.persist();
+      toast(`${n} ${n === 1 ? "person" : "people"}, one to ${perLine ? "a line" : "a module"} — now move the modules closer together`);
+      on.refresh();
+    } else if (pick === "share") {
+      sc.modules = sc.modules.map((m) => ({ ...m, person: 0, crew: undefined }));
+      // Nobody is named any more, so nothing is being covered by anybody — a
+      // leftover combination label would be a lie about the day.
+      sc.merges = {};
+      on.persist();
+      toast("Sharing them out — as few hands as can cover the day");
+      on.refresh();
+    } else if (pick === "combine") {
+      combinePopup(r, sc, on, state);
+    }
+  }, peopleState(r, sc, perLine));
+  sel.className = "tl-select";
+  return sel;
+}
+
 // How many of the people on the screen the day would actually call.
 function callCount(r, state) {
   const calls = state.settings.personCalls || {};
   return r.rows.filter((row) => calls[row.person] !== false).length;
 }
 
-// How many modules are waiting on the one above them. Zero is the honest answer
-// for a line whose times she placed herself, and it is worth saying out loud:
-// nothing on the screen is being moved behind her back.
+// How many modules are waiting on the one above them.
 function chainedCount(r) {
   return r.on.filter((m) => m.follow).length;
 }
 
-// What the chain is, why two of a module is an alternative to waiting, and one
-// tap either way. This is her points three and four said as a control, and the
-// three cost numbers make the difference between the two lines readable rather
-// than a matter of taste.
-function chainPopup(r, sc, on) {
+// The line's own floor, set on every module at once. This was a chip in the
+// control row until v157 — she asked for that row to be shorter, and for what it
+// said to sit on the module's own card, which is where the setting has always been
+// made one module at a time.
+//
+// It goes through the model's own writer, so the whole line and one module's card
+// cannot end up with two answers to "what is this module set to". The bulk press
+// sets the floor, which is the answer this has always given; the tight follow is a
+// per-module choice, made on that module's own card.
+function chainAll(sc, on, yes) {
+  sc.modules = sc.modules.map((m) => {
+    if (m.on === false) return m;
+    const next = { ...m };
+    setStartMode(next, yes ? "wait" : "own");
+    return next;
+  });
+  on.persist();
+  on.refresh();
+  toast(yes ? "Every module now waits for the one above it" : "Nothing waits any more — your own times are in charge");
+}
+
+// Which modules are waiting on the one above them, said by name — the sentence the
+// chain card used to open with, now read on the module's own card. Zero is the
+// honest answer for a line whose times she placed herself, and it is worth saying
+// out loud: nothing on the screen is being moved behind her back.
+function chainSentence(r) {
   const waiting = r.on.filter((m) => m.follow);
-  const cost = el("p", { class: "card-sub", style: "margin:10px 0 0" },
-    `${r.people} ${r.people === 1 ? "person" : "people"} · ${hoursAndMinutes(r.personMin)} of hands · a ${hoursAndMinutes(r.runMin)} day.`);
-
-  const setAll = (yes) => {
-    // Through the model's own writer, so the whole line and one module's card
-    // cannot end up with two answers to "what is this module set to". The bulk
-    // action sets the floor, which is the answer this button has always given; the
-    // tight follow is a per-module choice, made on the module's own card.
-    sc.modules = sc.modules.map((m) => {
-      if (m.on === false) return m;
-      const next = { ...m };
-      setStartMode(next, yes ? "wait" : "own");
-      return next;
-    });
-    on.persist();
-    on.refresh();
-    toast(yes ? "Every module now waits for the one above it" : "Nothing waits any more — your own times are in charge");
-    on.refresh();
-  };
-
-  showPopup("Modules that wait", (refresh, close) => el("div", {},
-    el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "A module set to wait cannot start a batch until the module above it has finished that same batch: batch 1 waits for batch 1, batch 10 for batch 10. That is how a real line behaves — a slow fold holds every later batch behind it — and it is the thing to plan away, either by moving the slow module or by having two of it. The two buttons below set that floor on every module at once. A module you want to start the MINUTE the one above finishes, with no gap at all, is set one module at a time — How this module takes its start, on that module's own card, where As the one above finishes is the first of the three."),
-    el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      chainedCount(r)
-        ? `${chainedCount(r)} of your modules ${chainedCount(r) === 1 ? "waits" : "wait"} on the module above: ${waiting.map((m) => `${m.icon} ${m.name}`).join(", ")}. The rest keep the times you placed.`
-        : "Nothing is waiting right now, so every module keeps the time you gave it. Switch the chain on and the line answers as one line rather than a set of separate jobs."),
-    cost,
-    el("div", { class: "popup-actions" },
-      chainedCount(r)
-        ? button("Take the waiting off", () => { setAll(false); close(); })
-        : null,
-      button(chainedCount(r) ? "Chain the whole line" : "Chain every module", () => { setAll(true); close(); }, "primary"),
-      button("Close", close))));
+  return waiting.length
+    ? `${waiting.length} of your ${r.on.length} modules ${waiting.length === 1 ? "waits" : "wait"} on the module above: ${waiting.map((m) => `${m.icon} ${m.name}`).join(", ")}. The rest keep the times you placed.`
+    : "Nothing is waiting right now, so every module keeps the time you gave it. Switch the chain on and the line answers as one line rather than a set of separate jobs.";
 }
 
 function addModule(sc, on) {  const id = newModuleId(sc.modules);
@@ -1307,16 +1320,51 @@ function chainAbove(r, m) {
 // places print them — the row shows them on hover on a computer, and the card a
 // tap opens shows them always — and two printings of one sentence is how a screen
 // ends up disagreeing with itself.
-function moduleNotes(r, m, live) {
+function moduleNotes(r, m, live, line = null) {
   const above = chainAbove(r, m);
   const after = above ? startModeOf(live) === "after" : false;
   return {
     above,
-    badge: above ? (after ? "follows above" : "waits above") : "",
     when: timeLine(m, r.dayStartMin) +
       (above ? (after ? ` · starts as ${above.name} finishes` : ` · waits on ${above.name}`) : ""),
     cost: costLine(m),
+    tags: moduleTags(m, above, after, line),
   };
+}
+
+// The tags a row used to wear, in the order it wore them — every one of them now
+// in the module's own tip, and on the module's own card, because a finger has no
+// hover to open a tip with.
+//
+// Built here rather than in the row for the same reason the notes are: two places
+// print them now, and two printings of one tag is how a screen ends up telling her
+// two stories. The colours are the row's own — a limit being hit and a module
+// running itself are both worth noticing, and they are not the same kind of thing.
+function moduleTags(m, above, after, line = null) {
+  const { lanes } = lineLanes(m, line);
+  const tags = [];
+  if (line == null && m.count > 1) tags.push({ text: `${m.count} of them`, cls: "badge-multi" });
+  if (line != null && m.lines > 1) tags.push({ text: `${m.lines} lines`, cls: "badge-multi" });
+  if (above) tags.push({ text: after ? "follows above" : "waits above", cls: "badge-past" });
+  if (line == null && lanes > 1) tags.push({ text: `${lanes} at once`, cls: "badge-over" });
+  if (!m.needsYou) tags.push({ text: "itself", cls: "badge-past" });
+  // She has asked for more passes than a day holds. The number is kept as she
+  // typed it — the row just counts honestly and says why.
+  if (m.capped) tags.push({ text: "a day's limit", cls: "badge-over" });
+  return tags;
+}
+
+// The tip a module's title opens on a computer, in the order the module's card
+// says them: the tags it wears, when it starts and how many batches it runs, then
+// what one batch costs it in minutes and in her hands. One builder, because the
+// card prints the same three lines and a second printing is how the two drift.
+function tipBody(notes) {
+  return el("div", { class: "tl-tip" },
+    notes.tags.length
+      ? el("div", { class: "tl-sub tl-tag-line" }, notes.tags.map((t) => t.text).join(" · "))
+      : null,
+    el("div", { class: "tl-sub" }, notes.when),
+    el("div", { class: "tl-sub" }, notes.cost));
 }
 
 function moduleRow(r, m, idx, trackW, sc, on, state, run) {
@@ -1332,7 +1380,6 @@ function moduleRow(r, m, idx, trackW, sc, on, state, run) {
 
   // The raw module in the stored scenario, which is what a drag writes to.
   const live = sc.modules.find((x) => x.id === m.id) || m;
-  const above = chainAbove(r, m);
 
   // A module she has two of is worked as two LINES — the copies take the lots in
   // turn, odd lots on one and even on the other — so it is drawn as two rows, one
@@ -1344,11 +1391,11 @@ function moduleRow(r, m, idx, trackW, sc, on, state, run) {
   // A module that is not worked as lines gets the single row it has always had, to
   // the pixel — which is every module she has today.
   const lines = m.lines || 0;
-  if (!lines) return timelineRow(r, m, live, sc, on, tone, trackW, above, null, state, run);
+  if (!lines) return timelineRow(r, m, live, sc, on, tone, trackW, null, state, run);
 
   const block = el("div", { class: "tl-block" });
   for (let line = 0; line < lines; line += 1) {
-    block.append(timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run));
+    block.append(timelineRow(r, m, live, sc, on, tone, trackW, line, state, run));
   }
   return block;
 }
@@ -1356,7 +1403,7 @@ function moduleRow(r, m, idx, trackW, sc, on, state, run) {
 // One row of a module: the whole module, or one of its lines. Its own name cell
 // and its own track are here, so a module drawn as two lines is simply two of
 // these and nothing else on the screen has to know.
-function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) {
+function timelineRow(r, m, live, sc, on, tone, trackW, line, state, run) {
   // A row whose bars overlap needs a taller track to draw them in lanes. A row
   // whose bars do not gets the track it has always had, plus the band at the top
   // that carries the batch numbers — see BATCH_TAG_BAND.
@@ -1374,44 +1421,29 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
   // because the badge on a module drawn as lines used to be read from a name that
   // only existed on the other side of this if. A module with two production line
   // that also waits on the module above threw instead of drawing.
-  const notes = moduleNotes(r, m, live);
+  const notes = moduleNotes(r, m, live, line);
 
   if (line == null) {
-    // The module above, named the way THIS module is set to take its start from it.
-    // "waits on" and "starts as … finishes" are two different promises — the first
-    // is a floor, the second has no gap at all — so a row that used one phrase for
-    // both would be telling her the wrong one on half her modules.
-    // Off the row and onto the pointer: the row is the bar now, so the two notes
-    // live in a tip that opens when she points at the module's own title. See
-    // .tl-tip in the CSS. The module card prints them word for word, which is
-    // where her phone reads them, and where the tip cannot reach.
-    whenLine = el("div", { class: "tl-sub" });
-    whenLine.textContent = notes.when;
+    // The module above is named the way THIS module is set to take its start from
+    // it. "waits on" and "starts as … finishes" are two different promises — the
+    // first is a floor, the second has no gap at all — so a row that used one
+    // phrase for both would be telling her the wrong one on half her modules.
+    //
+    // The row is the name and its bars and nothing else. Its tags and its two
+    // notes are in the tip that opens when she points at the title (.tl-tip), and
+    // word for word on the card her tap opens — which is where her phone reads
+    // them, because a finger has no hover to open a tip with.
     name = el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
         // Its own span, so a long name is shortened with an ellipsis at the column's
         // edge instead of wrapping the row taller than the bars it draws. The whole
         // name is on the card, one tap away.
-        el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`),
-        // How many of this module she has. Two mixers, two chillers, two people
-        // folding: named on the row, because everything downstream of it — the
-        // day's room, the hands — follows from this one number.
-        m.count > 1 ? el("span", { class: "badge badge-multi" }, `${m.count} of them`) : null,
-        above ? el("span", { class: "badge badge-past" }, notes.badge) : null,
-        // And how many of its lots are in it at once, which is the one thing the
-        // taller row is telling her. Only shown when it is really happening, so a
-        // module that is not overlapping never wears a badge about it.
-        lanes > 1 ? el("span", { class: "badge badge-over" }, `${lanes} at once`) : null,
-        m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
-        // She has asked for more passes than a day holds. The number is kept as
-        // she typed it — the row just counts honestly and says why.
-        m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null),
-      el("div", { class: "tl-tip" }, whenLine, el("div", { class: "tl-sub" }, notes.cost)));
+        el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`)),
+      tipBody(notes));
   } else {
     // A line of a module: who is on it, how many lots it takes and the minutes it
     // really runs, read off the cycles the chain has already placed rather than
-    // worked out again here. The module's own name, badges and cost line stay on
-    // the first line, so a module is still one thing she can read in one place.
+    // worked out again here.
     //
     // A line's own clock and the hands on it are the ONE thing a second line has to
     // say — nothing else on the screen says it — so they stay on the row. Its cost
@@ -1428,19 +1460,11 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     name = el("div", { class: "tl-name" },
       line === 0
         ? el("div", { class: "tl-name-top" },
-          el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`),
-          el("span", { class: "badge badge-multi" }, `${m.lines} lines`),
-          above ? el("span", { class: "badge badge-past" }, notes.badge) : null,
-          m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
-          m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null)
+          el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`))
         : null,
       el("div", { class: "tl-sub" }, who),
       whenLine,
-      line === 0
-        ? el("div", { class: "tl-tip" },
-          el("div", { class: "tl-sub" }, notes.cost),
-          above ? el("div", { class: "tl-sub" }, `waits on ${above.name}`) : null)
-        : null);
+      line === 0 ? tipBody(notes) : null);
   }
 
   // A module that is not drawn as lines gets the class list it has always had, to
@@ -2419,6 +2443,33 @@ function editModule(saved, sc, on, isNew = false, r = null) {
       })(),
       el("div", { class: "hint", style: "margin-top:2px" }, START_MODE_HINTS[startModeOf(live)]));
 
+    // What the control row's "The line" chip used to carry, on the card of the
+    // module whose own three answers set it — her ask, and a line off the row she
+    // asked to shorten. Everything the chip's own card carried comes with it: the
+    // sentence naming which modules wait, the same three cost numbers, and the same
+    // two presses. What is gone is the chip that stood in the row saying them.
+    //
+    // `r` is the computed day, so a brand-new module has nothing here: there is no
+    // day yet for a chain to be part of.
+    const chainBlock = () => (r ? el("div", { class: "field" },
+      el("div", { class: "tl-ctl-lab" }, "Waiting on the module above"),
+      el("div", { class: "hint", style: "margin-top:4px" }, chainSentence(r)),
+      el("div", { class: "hint", style: "margin-top:4px" },
+        `${r.people} ${r.people === 1 ? "person" : "people"} · ` +
+        `${hoursAndMinutes(r.personMin)} of hands · a ${hoursAndMinutes(r.runMin)} day.`),
+      el("div", { class: "tl-ctl", style: "margin:6px 0 0" },
+        el("div", { class: "tl-ctl-group" },
+          chainedCount(r)
+            ? el("button", {
+              type: "button", class: "tl-chip",
+              onclick: () => { chainAll(sc, on, false); refresh(); },
+            }, "Take the waiting off")
+            : null,
+          el("button", {
+            type: "button", class: "tl-chip",
+            onclick: () => { chainAll(sc, on, true); refresh(); },
+          }, chainedCount(r) ? "Chain the whole line" : "Chain every module")))) : null);
+
     // Her ask, as a switch: "allow each module cycle to overlap". Off, the module
     // holds its own cycles apart — one lot at a time — which is right when the
     // dough is physically IN the thing. On, each cycle sits where she put it.
@@ -2587,6 +2638,13 @@ function editModule(saved, sc, on, isNew = false, r = null) {
     const summary = cm ? (() => {
       const n = moduleNotes(r, cm, live);
       return [
+        // The tags the row used to wear, in the row's own colours, before the two
+        // notes: since v157 the row is the name and its bars and nothing else, and
+        // this is where a phone reads what it left behind.
+        n.tags.length
+          ? el("div", { class: "tl-tag-row" },
+            ...n.tags.map((t) => el("span", { class: `badge ${t.cls}` }, t.text)))
+          : null,
         el("p", { class: "card-sub", style: "margin:0 0 4px" }, n.when),
         el("p", { class: "card-sub", style: "margin:0 0 10px" }, n.cost),
       ];
@@ -2616,6 +2674,7 @@ function editModule(saved, sc, on, isNew = false, r = null) {
         "Two mixers, two ovens, two chillers, two people folding. Two production line of one module take a batch side by side, so a batch stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many batches it runs to put the second one to work, or let the climb do it for you. A module you have two production line of is drawn as that many lines, one under the other, each with its own person — the boxes for that appear below as soon as this says 2. Put 1 here and Allow multiple production line ON: then this module is one line with one person, and this number is not in force.",
         { min: 1, int: true, rebuild: true }),
       startField,
+      chainBlock(),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, overlapBox,
           el("span", { class: "check-label" }, "Allow multiple production line")),
