@@ -1,8 +1,142 @@
-# Jienluv2bake — change history (v54 → v150)
+# Jienluv2bake — change history (v54 → v151)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v151 (no database step). The module card answers to you,
+every batch is numbered, and the day calls your people.**
+
+**What you asked for, in your own words.** Eleven things in one message, all of them inside
+More → Scenario planner: the scenario's name first; the module card asking only what you alone
+can answer; a B number over every batch; moving a batch at any module the same way you move one
+at the first; naming Person 1 and Person 2; a marker that reads as a person; and the day calling
+you a minute before each job. It all ships together, as you asked. One of the eleven was not a
+wish but a fault: a person's card could not be opened at all before this, which is why naming
+Person 1 and Person 2 had no way in.
+
+**The scenario's name comes first.** The card at the top of the planner now reads What this
+scenario is called, then My day starts at, then Pans a day you want from it. Going to that
+screen to rename a scenario used to mean reading past two numbers you did not come for.
+
+**The module card no longer asks you two things you do not think in.** Which job of your line is
+this has gone. How you place each batch's start time has gone as well, and you said an
+alternative is coming — so the batches' stored times are kept exactly where they are, and nothing
+reads differently for it. What taking those two blocks out costs you is written at the end of
+this note, honestly.
+
+**A new module now arrives ready to use.** One cycle of 20 minutes with all 20 of them as your
+hands at the start, Pans in one batch 1, waits for the module above switched on, allow multiple
+production line switched on. Before this a new module arrived at 15 minutes with both switches
+off, and you had to type five things before it was a module at all.
+
+**Batches follow the one above, unless you say otherwise.** Minutes from one batch to the next
+and How many batches it runs in the day both carry an Auto. Auto is written as an empty box with
+the word in it, so you can always tell a number you set from a number the day worked out. The
+batch count is a box on the first module — that is where your day's number comes from — and on
+any module that has a number of its own. A module on Auto says its number out loud and names
+what it is following, and beside it is one button, Give it its own number, which keeps the count
+it is running now so taking the wheel never moves your day a minute. Auto spacing is not new
+behaviour: the day has always read a module with no pace of its own as one batch following the
+one before it end to end. It has a name now.
+
+**How many production line do you have — the number is unchanged, the words are yours.** You
+said it yourself: "that 2 refer to 2 production line, if the meaning is for that purpose, a
+better remark needed for that. no functional changes needed." So the behaviour is exactly what
+it was, and the remark is rewritten around production line instead of the word lines. It also
+says plainly what happens when Allow multiple production line is on: then the module is one
+production line with one person, and this number is not in force. And Let its batches overlap is
+called Allow multiple production line now, everywhere on the card and in the note under the day.
+
+**Duplicate this module.** At the foot of the module card, beside Delete, there is now
+Duplicate this module. The copy lands directly under the one you copied and carries its cycles,
+its numbers and its person exactly — a copy is a copy and none of the new-module defaults reach
+it. You asked for this because you can add modules as you wish now, and two ovens of yours are
+two of the same thing.
+
+**Every batch is numbered, on every module and every production line.** A small B1, B2, B3
+above each bar, in a band the row grew for it, on every module including one drawn as two
+production line. The number carries the batch it names, so tapping B3 opens batch 3's own clock
+— a number you use to tell one batch from another is no use if it is not also a way to pick one.
+
+**Move a batch at any module, not only at the first.** Tapping a bar or its number opens that
+batch's clock, and the card now says the batch number and its delta t beside each other. On the first
+module a move is the batch's own start time, which is what it always was. On every later module
+a move is a delta t — a hold measured from where the production line puts that batch — so the batch
+rides the chain: move the module above it and this batch comes with it, keeping its offset. A
+delta t can only ever hold a batch back, because a batch cannot start before the dough it is made of
+exists, and the tag over the bar shows delta t = +5 whenever there is one. When your batch is held back
+on purpose the card also offers Back onto the line, which takes the hold off, so a nudge is never
+a one-way door.
+
+**Your people have names, and the card that was unreachable opens.** This is the fault you
+reported: "in the person card, now person card is not accessible". The person's row had no
+handler of any kind, so no gesture anywhere opened their card. Tapping a person's row below the
+day now opens it: a box for what you call them, a switch for whether the day calls them, and the
+jobs they are on today. The name is kept in the app's settings rather than in the scenario, so
+you type it once and every scenario uses it — person numbers start again at 1 in each scenario,
+so the name you give person 1 shows wherever person 1 is working, and the card says so. The
+card's own heading and its "Call them a minute before their next job" line follow the name as you
+type it, so the card never goes on calling them Person 1 while the row behind it already says
+their name. The box itself is never rebuilt while you are typing in it, which is what keeps your
+cursor where you left it.
+
+**A person's marker is theirs now, not the module's.** The People rows used to be tinted by the
+module each stretch of work came from, so one person's row was eight colours and read as
+nothing in particular. Each person now has their own colour, with their name on the stretch where
+it is wide enough — so a row reads as one worker's day and two rows are two people. A collision
+still wears its red outline over the top.
+
+**The day walks, and it calls you.** A Start the day now button in the Walk the day row, with
+Stop beside it while it runs, and a red now-line that follows the real clock down the chart. The
+call comes one minute before each job a person owns — one minute and not the minute of it,
+because your fold is a one-minute job and telling you to fold as you should already be folding
+is telling you too late. A call card appears over everything: their name, their own colour, the
+job, and the clock time it is for, with one OK. OK takes it away. If you do not tap it, the next
+call simply replaces it rather than queuing behind it, which is your own rule. Each person's call
+is a different note, so two people called in the same minute are two sounds. The card and the
+guide both say the limit plainly: it runs only while this screen is open and awake, and a phone
+that locks or a browser that closes stops it. It is a call for the day you are walking through,
+not an alarm that survives the app being shut.
+
+**The call names the cycle only when you have named it.** A module's own name can be a mouthful
+("The rests and the stretch and folds"), and the thing you can actually go and do is the cycle
+inside it, so the call carries the cycle's name as a line of its own when that cycle has one.
+An unnamed cycle gives no line at all. That last part is a fault this release nearly shipped: the
+line was drawn through the same number-formatting helper the rest of the chart uses, and on a
+cycle with no name that helper answers "0", so the card went out printing a bare 0 above the
+clock. There is a test on it now, and it is written so it fails if the line ever comes back.
+
+**Your day start is never rewritten by it.** Starting the day sets the run's own minute zero to
+the minute you press, and nothing is saved — so a 4:01 am plan started at 9 am calls at 9 am,
+and your scenario's own day start is exactly where you left it.
+
+**What this release takes away, said plainly rather than quietly.** Three things are gone with
+the two blocks removed from the module card. The job list is gone, so the way to CORRECT a module
+whose name the Production line does not recognise is gone with it — a module still crosses over
+by what you call it, exactly as before, and every module of yours already crosses. The per-batch
+start boxes are gone from the card, so the one control that put every batch back on its own
+even spacing, Space them evenly again, is gone too; tapping a bar gives you the same five-minute
+and one-minute moves, but not that reset. Say the word and any of the three comes back in one
+line.
+
+**What has not moved.** Your two saved lines and the seeded starting line were compared
+byte-for-byte before and after this release: No fridge, 1 person still reads 24 pans, My sister
+proposal 21/9/2026 still reads 12, and the seeded starting line still reads 12 with the chiller
+as the wall. Not one module, batch, start time, cycle or saved scenario of yours changed, because
+every new default is for a module you have not filled in yet — a stored number or a stored start
+is yours and is never rewritten, which is the same rule the cycles migration used. Nothing here
+blocks a sale and nothing here reads an order.
+
+CHANGELOG and the guide (section 26) both carry all of this, both PDFs rebuilt, and the tests are
+1127 passing with none failing — fourteen of them new: five on the model (a new module's own
+defaults; Auto following the one above while a number of your own is never overruled; a delta t riding
+the chain and never pulling a batch in front; reading a line twice still a no-op; all three seeded
+lines pinned batch time by batch time; and the call landing one minute before the job) and nine
+on the drawing and the card (a batch number on every bar including two production line, a copy
+carrying its source's cycles, the person's name on the row, the card's own heading following it,
+a named cycle on the call and no line at all for an unnamed one, and the four halves of the live
+clock). No database step — nothing to run in Supabase.
 
 **22 Sep 2026 — engine v150 (no database step). The word is cycle — and a batch of
 four now reads as four.**
@@ -828,8 +962,8 @@ update — that is a rule of this app, not an oversight.
 **Save a scenario, name it, open it, rename it, delete it.** **Save changes** keeps the one you
 are in; **Save a copy…** makes a second named one and carries on in it — which is how you keep
 the line you have and the line you are thinking of buying side by side. **Your scenarios** lists
-everything saved: tap to open (the row you are in wears a ●), or tap the **✏️** to rename or
-delete it. Deleting a saved scenario never touches the bricks you are working on.
+everything saved: tap to open (the row you are in wears a filled dot), or tap the **pencil** to
+rename or delete it. Deleting a saved scenario never touches the bricks you are working on.
 
 **Your sister's line is in there too, built from her own words.** Next to your saved
 scenarios there is one more row — **＋ My sister proposal 21/9/2026** — and one tap puts it on

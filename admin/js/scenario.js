@@ -318,6 +318,25 @@ const atLeast = (v, floor, fallback = 0) => Math.max(floor, num(v, fallback));
 // person is.
 const clampPerson = (v) => Math.max(0, Math.min(8, Math.round(num(v, 0))));
 
+// What to CALL the person doing the work. She asked for this on 22 Sep 2026 —
+// "when we click on the person module, we should be allow to change person1 to a
+// name" — and it is here rather than in the screen because three places have to
+// agree about it: the person row, the collision notes, and the call the day makes.
+//
+// A person is a NUMBER, and the name is looked up by that number, so one name
+// serves every scenario she has. Say that plainly rather than hiding it: the
+// numbers restart at 1 in each scenario, so a name given to person 1 shows
+// wherever person 1 is working.
+//
+// Pure, and it never invents a name: an unnamed person is still "Person 1".
+export function personName(who, names) {
+  const n = clampPerson(who);
+  if (n === 0) return "Whoever is free";
+  const given = names && typeof names === "object" ? names[n] : "";
+  const name = String(given == null ? "" : given).trim();
+  return name || `Person ${n}`;
+}
+
 // Every module filled in and clamped, and every scenario told apart from a
 // half-written one. Everything below reads modules through here, and the screen
 // reads the same values back out of computeScenario().modules — so a number
@@ -536,11 +555,36 @@ export function moduleOf(m) {
   // module is what keeps a scenario readable by a phone that has not synced yet.
   const cycleMin = cycleSpan(cycles);
   const touchMin = cycleLabour(cycles);
-  // A module with no gap of its own runs back to back, which is what "minutes
-  // from one batch to the next" means for a simple machine.
-  const everyMin = atLeast(src.everyMin, 0, 0) || cycleMin;
+  // Whether the pace is hers or is simply this module's own cycle length, so one
+  // batch begins the moment the one before it ends. Read from ABSENCE, the same
+  // rule the cycles upgrade used: a module that has never been given a pace of its
+  // own is automatic, and a module that already stores one keeps it. The number is
+  // still resolved and still drives the arithmetic below — this only remembers
+  // that she left it to the usual answer, so the box can come back empty and stay
+  // empty when she lengthens a cycle.
+  const everyAuto = src.everyMin == null ? true : src.everyAuto === true;
+  // A module with no pace of its own runs back to back, which is what "minutes
+  // from one batch to the next" means for a simple machine. Auto is that same
+  // answer given a name — and because it reads off the cycles, lengthening a cycle
+  // lengthens the rhythm instead of leaving behind a number she never typed.
+  const everyMin = everyAuto ? cycleMin : (atLeast(src.everyMin, 0, 0) || cycleMin);
   const repeats = Math.max(1, Math.round(atLeast(src.repeats, 1, 1)));
+  // Whether the batch count is hers or follows the module above. Same absence
+  // rule: no count of its own means automatic, and a count of its own — which is
+  // every module she has, so nothing of hers changes — means hers. chainLine is
+  // what actually follows the module above; this is only the flag it reads.
+  const repeatsAuto = src.repeats == null ? true : src.repeatsAuto === true;
   const starts = startsOf(src.starts, src.startMin, repeats, everyMin);
+  // The little later-than-the-line nudge she can put on ONE batch, in minutes, so
+  // a batch at any module below the first can be moved the way the first module's
+  // can. Built to be exactly `repeats` long, the same way `starts` and `crew` are,
+  // so raising the count does not forget the nudge she put on the batches that
+  // remain. It is a DELTA on purpose: move the module above and this batch follows
+  // with its offset intact. See chainLine for where it is added, and for why it can
+  // only ever hold a batch back.
+  const givenDelta = Array.isArray(src.startDelta) ? src.startDelta : [];
+  const startDelta = [];
+  for (let i = 0; i < repeats; i += 1) startDelta.push(Math.max(0, Math.round(num(givenDelta[i], 0))));
   const person = clampPerson(src.person);
   const count = Math.max(1, Math.min(8, Math.round(atLeast(src.count, 1, 1))));
   // Who is on each line, built to be exactly `count` long the same way `starts`
@@ -568,7 +612,12 @@ export function moduleOf(m) {
     batch: atLeast(src.batch, 0, 0),
     touchMin,
     everyMin,
+    // Whether that pace, and the batch count below, are hers or are following —
+    // so a module she has filled in is never given a default she did not choose,
+    // and a module she has not is never left as a row of zeroes.
+    everyAuto,
     repeats,
+    repeatsAuto,
     // A batch's process, in order. A module with no cycles of its own gets the
     // single cycle its stored minutes always described, so nothing in a saved
     // scenario has to be rewritten — see cyclesOf. Every batch of this module
@@ -583,6 +632,12 @@ export function moduleOf(m) {
     // question.
     starts,
     startMin: starts[0],
+    // One nudge per batch, in minutes, always exactly `repeats` long so it reads
+    // back the same way `starts` and `crew` do. Kept beside `starts` because the
+    // two are the module's two answers to "when does this batch start": `starts`
+    // is the time it lands on, and this is only the part of that time SHE put
+    // there — see chainLine, which adds it back on after the chain has spoken.
+    startDelta,
     // How many of this module she has: two mixers, two ovens, two chillers, two
     // people folding. See moduleFacts for what a second one buys, and for the one
     // thing it does not — it never invents batches she did not plan. It also
@@ -802,18 +857,30 @@ export function chainLine(modules) {
   const list = (modules || []).map(moduleOf);
   const placed = new Map();
   const ends = new Map();
+  const runs = new Map();
   let prev = null;
 
   for (const m of list) {
+    // How many batches this module really runs. A module with no count of its own
+    // follows the last module above it that is switched ON — her own rule, "we
+    // just indicate in the 1st module" — and a module with a count of its own
+    // keeps it. The first module of the line has nothing above it, so it is always
+    // the one carrying the number the rest follow.
+    const reps = m.repeatsAuto && prev ? Math.max(1, Math.round(prev.repeats)) : m.repeats;
+    // The times they start from. When the count has just been followed, her own
+    // list is only as long as the count it was stored with, so the rest of the
+    // batches come off the module's own pace — exactly as they would for a module
+    // she had typed the number into herself.
+    const seed = reps === m.repeats ? m.starts : startsOf(m.starts, m.startMin, reps, m.everyMin);
     const out = [];
     const ownEnds = [];
     // One batch at a time per LINE. A module free to overlap its own batches
     // skips this entirely, leaving the chain above as the only thing that can
     // still move one of her times.
     const lineEnd = new Array(m.count).fill(-Infinity);
-    const seed = [];
-    for (let k = 0; k < m.repeats; k += 1) {
-      let at = m.starts[k];
+    const waits = [];
+    for (let k = 0; k < reps; k += 1) {
+      let at = seed[k];
       if (m.follow && prev) {
         const up = ends.get(prev.id) || [];
         if (up.length) {
@@ -823,15 +890,23 @@ export function chainLine(modules) {
           at = Math.max(at, up[Math.min(k, up.length - 1)]);
         }
       }
-      seed.push(at);
+      waits.push(at);
     }
     // Which line each batch lands on, decided once and for both lists: the times
     // below and the line labels the bars and the people rows read.
-    const lines = pickLines(m.count, seed, m.cycleMin, m.overlap);
-    for (let k = 0; k < m.repeats; k += 1) {
+    const lines = pickLines(m.count, waits, m.cycleMin, m.overlap);
+    // Her nudge, one per batch. Added AFTER the latest of the three answers above
+    // rather than instead of one of them, so it can only ever hold a batch back —
+    // never in front of what the module above or the module's own machine allows.
+    // That is what lets the same button pair move a batch at any module while the
+    // time she moves TO stays honest.
+    const delta = [];
+    for (let k = 0; k < reps; k += 1) delta.push(Math.max(0, num((m.startDelta || [])[k], 0)));
+    for (let k = 0; k < reps; k += 1) {
       // A module free to hold two batches at once never waits on its own lines —
       // her times stand, and only the chain above can move one.
-      const at = m.overlap ? seed[k] : Math.max(seed[k], lineEnd[lines[k]]);
+      const base = m.overlap ? waits[k] : Math.max(waits[k], lineEnd[lines[k]]);
+      const at = Math.max(0, base + delta[k]);
       out.push(at);
       if (!m.overlap) lineEnd[lines[k]] = at + m.cycleMin;
       // Per BATCH, because this is what a module below waits for when it is told
@@ -840,14 +915,34 @@ export function chainLine(modules) {
     }
     placed.set(m.id, out);
     ends.set(m.id, ownEnds);
-    if (m.on) prev = m;
+    runs.set(m.id, reps);
+    // What a following module reads is this module's REAL count, not the one it
+    // happens to be stored with — otherwise a chain of two automatic modules would
+    // follow a module that was itself following, and each would fall back to 1.
+    if (m.on) prev = { ...m, repeats: reps };
   }
 
   // startMin is written back with the list, so that reading this result through
   // moduleOf a second time is a no-op. Without it the re-basing in startsOf would
   // pull a chained module back to where she typed it, and the chain would undo
   // itself the moment anything re-read the module.
-  return list.map((m) => ({ ...m, starts: placed.get(m.id), startMin: placed.get(m.id)[0] }));
+  //
+  // `repeats` is written back for the same reason: a module that followed the one
+  // above has that count IN its times now, and handing it back a count of 1 would
+  // throw all but the first of them away the moment anything re-read it.
+  //
+  // `startDelta` comes back ZEROED, and that is the load-bearing half. The nudge is
+  // already inside `starts` above, so a delta handed back as well would be applied
+  // a second time the moment anything re-read this result — and `chainLine` is read
+  // through moduleOf by every screen and every repaint. Consumed here, the function
+  // keeps its own invariant: reading its answer again moves nothing.
+  return list.map((m) => ({
+    ...m,
+    repeats: runs.get(m.id),
+    starts: placed.get(m.id),
+    startMin: placed.get(m.id)[0],
+    startDelta: (placed.get(m.id) || []).map(() => 0),
+  }));
 }
 
 // Who has to be standing where, and when.
@@ -950,6 +1045,29 @@ export function peopleRows(modules) {
     }
   }
   return rows;
+}
+
+// When the day calls each person. Her rule, in her words: "make announcement 1
+// min before the next cycle start he is responsible to". So the call minute is
+// the minute a stretch of their hands BEGINS, less one.
+//
+// One minute early is not a detail and it is not a rounding-up: a fold is a
+// one-minute job, and telling her to fold at the very minute she should already
+// be folding is telling her too late. A call is a call to go and stand somewhere.
+//
+// Every window is a call, so a person with three separate stretches is called
+// three times. The day never calls twice for the same stretch: the caller reads
+// this list by minute, so the same window arriving in two ticks is one call.
+export function callWindows(sc) {
+  const mods = chainLine((sc && sc.modules) || []).map(moduleFacts);
+  const out = [];
+  for (const row of peopleRows(mods)) {
+    for (const w of row.items) {
+      out.push({ ...w, who: row.person, at: Math.max(0, w.from - 1) });
+    }
+  }
+  out.sort((a, b) => (a.at - b.at) || (a.to - b.to));
+  return out;
 }
 
 // How many different PLACES one person has to be in the day. It is the number she
@@ -1119,11 +1237,20 @@ export function newModuleId(mods) {
 export function blankModule(id) {
   return moduleOf({
     id, icon: "🧱", name: "New module", on: false, person: 0,
-    batch: 1, everyMin: 15, repeats: 1, startMin: 0, people: 1,
-    // One cycle to begin with, which is what a module with no cycles of its own
-    // already read as — written out so the editor opens on a cycle she can give a
-    // name to, add a second one after, or split into a load and an unload.
-    cycles: [{ name: "", min: 15, load: 15, unload: 0 }],
+    batch: 1, startMin: 0, people: 1,
+    // A new module arrives usable rather than as a row of zeroes to fill in. Her
+    // own list of what a module should open on, 22 Sep 2026: one 20-minute cycle
+    // with all 20 minutes on the load, the pace left to Auto, the batch count
+    // following the module above, waiting on that module, and free to hold more
+    // than one production line at once.
+    //
+    // Every one of these is the module saying "the usual answer" — none of it is
+    // written onto a module she has already filled in, because `everyMin` and
+    // `repeats` are simply ABSENT here and both flags read from that absence. Every
+    // module of every saved scenario stores both, so nothing of hers is touched.
+    follow: true,
+    overlap: true,
+    cycles: [{ name: "", min: 20, load: 20, unload: 0 }],
   });
 }
 
@@ -1560,12 +1687,22 @@ export function alignBatches(mods, id, repeats) {
 
 // Every module whose batch count is not the same as the module before it, in the
 // day's order. The first module has nothing before it, so it is never named.
+//
+// A module whose count is AUTOMATIC is never named, because it cannot differ: it
+// took the count from the module above it. Naming it would turn her own setting —
+// "we just indicate in the 1st module" — into a note that reads as a fault.
 export function batchMismatches(mods) {
   const chain = (Array.isArray(mods) ? mods : [])
     .filter((m) => m && m.on !== false)
-    .map((m) => ({ id: m.id, name: m.name || "A module", repeats: batchesOf(m) }));
+    .map((m) => ({
+      id: m.id,
+      name: m.name || "A module",
+      repeats: batchesOf(m),
+      auto: m.repeatsAuto === true,
+    }));
   const out = [];
   for (let i = 1; i < chain.length; i += 1) {
+    if (chain[i].auto) continue;
     if (chain[i].repeats !== chain[i - 1].repeats) {
       out.push({ ...chain[i], before: chain[i - 1] });
     }

@@ -29,10 +29,17 @@ import {
   computeScenario, climbSteps, descentSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
-  PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
+  PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine,
   combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
-  alignBatches, batchMismatches,
+  alignBatches, batchMismatches, personName, callWindows,
 } from "../scenario.js";
+
+// A colour per PERSON, so a row reads as one worker's day rather than as a
+// patchwork of the modules they passed through. The person rows used to be tinted
+// by the module each stretch of work came from, which made one person's row eight
+// different colours and told her nothing about the person.
+const PERSON_TONES = 8;
+const personTone = (who) => `ptone-${((Math.max(1, Math.round(Number(who) || 1)) - 1) % PERSON_TONES) + 1}`;
 
 // A colour per module, so a bar on the timeline and the person carrying it can be
 // matched by eye. It cycles, so a module added later still gets a colour.
@@ -70,6 +77,12 @@ const laneTrackH = (lanes) => Math.max(TRACK_MIN_H, LANE_TOP + lanes * LANE_PITC
 // must never end on the faintest band — and the bar's own tooltip names each one.
 const CYCLE_SHADES = 4;
 
+// The band at the top of a track that carries the batch numbers. A tag cannot be
+// drawn inside its bar — `.tl-bar` is 16px tall with overflow hidden, so anything
+// written in there is clipped — so each row grows by this much and the tags sit in
+// the space above the bars.
+const TAG_BAND = 11;
+
 const DAY_MIN = 24 * 60;
 
 // The scale chips, in the order of PX_PER_MIN_CHOICES: a whole day, the
@@ -82,11 +95,31 @@ export function renderScenario(root, state) {
   const readout = el("div", {});
   let dead = false;
 
+  // What the day is DOING, as opposed to what it says it will do. Never stored:
+  // `sc` IS the saved scenario, so anything written here would be saved with it and
+  // a clock would start ticking again the next time she opened the screen. Held in
+  // this closure for as long as the screen is open, and thrown away with it.
+  const run = {
+    on: false,          // whether the day is being walked through right now
+    startedMs: 0,       // the wall clock when she pressed Start
+    nowMin: 0,          // where the now-line is, in minutes from the start of her day
+    lastMin: -1,        // the last minute already called, so no call is made twice
+    line: null,         // the now-line element, kept across repaints
+    rulerLeft: 0,       // the ruler's own offset, measured once per repaint
+    pxPerMin: 1,        // this scenario's scale, so the line can be placed
+    dayStart: 0,        // the clock minute 0 of THIS run, so its label reads true
+    host: root,         // where a call card is drawn — dies with the screen
+    timer: null,
+    wake: null,
+    audio: null,
+    pending: null,      // the call waiting for an OK
+  };
+
   // Only the answers are repainted when something changes — never the fields —
   // so the box she is typing in keeps its place and its cursor.
   const on = {
     refresh: () => {
-      if (!dead) readout.replaceChildren(...blocks(sc, state, on));
+      if (!dead) readout.replaceChildren(...blocks(sc, state, on, run));
     },
     // The one thing that does redraw the fields. Opening a saved scenario, or
     // renaming the one she is in, replaces the name, the start time and the
@@ -114,6 +147,9 @@ export function renderScenario(root, state) {
 
   return () => {
     dead = true;
+    // Leaving the screen stops the day. A clock that went on ticking behind another
+    // tab would be a call with nothing on screen saying where it came from.
+    stopDay(run, on);
     root.classList.remove("wide");
     if (tabbar) tabbar.classList.remove("wide");
   };
@@ -190,6 +226,9 @@ function askCard(sc, on) {
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         "A scenario is the sum of its modules. Scenario 1 is the line you have now with no fridge in it — the fridge is in the list switched off, so you can see what adding one would buy without buying one."),
       el("div", { class: "field" },
+        el("label", {}, "What this scenario is called"),
+        name),
+      el("div", { class: "field" },
         el("label", {}, "My day starts at"),
         start,
         el("div", { class: "hint" },
@@ -198,17 +237,14 @@ function askCard(sc, on) {
         el("label", {}, "Pans a day you want from it"),
         target,
         el("div", { class: "hint" },
-          "Raise this and the ladder below answers again: it names the module that stops you at this number, what to change to get past it, and what becomes the wall next.")),
-      el("div", { class: "field" },
-        el("label", {}, "What this scenario is called"),
-        name)));
+          "Raise this and the ladder below answers again: it names the module that stops you at this number, what to change to get past it, and what becomes the wall next."))));
 }
 
-function blocks(sc, state, on) {
+function blocks(sc, state, on, run) {
   const r = computeScenario(sc);
   const climb = climbSteps(sc, r.target);
   return [
-    answerCard(r), climbCard(r, climb, sc, on), dayCard(r, sc, on),
+    answerCard(r), climbCard(r, climb, sc, on), dayCard(r, sc, on, state, run),
     parkedCard(r, sc, on), scenariosCard(sc, state, on),
   ];
 }
@@ -495,16 +531,16 @@ function applyDescent(sc, down, on) {
 // person and a total row underneath. It is the thing the capacity screen cannot
 // draw — not how fast a station is, but WHEN it runs and which of those times
 // collide.
-function dayCard(r, sc, on) {
+function dayCard(r, sc, on, state, run) {
   return el("div", {},
     el("h2", { class: "section" }, "The day"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Every module as a bar, one bar to a batch, from the minute it starts, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two modules up against each other. Swipe the empty space to scroll."),
+      "Every module as a bar, one bar to a batch, each one tagged with its own batch number, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar or its batch number to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two modules up against each other. Swipe the empty space to scroll."),
     el("div", { class: "card tl-card" },
-      controlsRow(r, sc, on),
-      timeline(r, sc, on),
+      controlsRow(r, sc, on, state, run),
+      timeline(r, sc, on, state, run),
       batchNote(r),
-      clashNotes(r)));
+      clashNotes(r, state)));
 }
 
 // Her rule's other half, said out loud: "say when it does not". A module whose
@@ -531,7 +567,7 @@ function batchNote(r) {
         "This is only a note, not a rule: the day runs on the numbers you have put in. Changing a module's batch count carries the ones after it with you and stops where a module has a number of its own — set that one to the same, or leave the day as you planned it.")));
 }
 
-function controlsRow(r, sc, on) {
+function controlsRow(r, sc, on, state, run) {
   // The jobs that actually need hands, and how many LINES those jobs are. The two
   // numbers differ only when a module she has two of is drawn as two lines — and
   // that is exactly when the People button below is about to hand out a person
@@ -589,7 +625,7 @@ function controlsRow(r, sc, on) {
       }, "Share them"),
       el("button", {
         type: "button", class: "tl-chip",
-        onclick: () => combinePopup(r, sc, on),
+        onclick: () => combinePopup(r, sc, on, state),
       }, "Combine two…")),
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "The line"),
@@ -598,10 +634,34 @@ function controlsRow(r, sc, on) {
         onclick: () => chainPopup(r, sc, on),
       }, chainedCount(r) ? `${chainedCount(r)} waits above` : "Not chained")),
     el("div", { class: "tl-ctl-group" },
+      el("span", { class: "tl-ctl-lab" }, "Walk the day"),
+      el("button", {
+        type: "button", class: `tl-chip${run.on ? " on" : ""}`,
+        onclick: () => (run.on ? stopDay(run, on) : startDay(run, sc, state, on)),
+      }, run.on ? "Stop" : "Start the day now"),
+      el("button", {
+        type: "button", class: "tl-chip",
+        onclick: () => {
+          // Nothing to set here: who gets called is set on the person's own card,
+          // where their name is. This only says how many of them it is — a number
+          // she can see without opening anybody, and a signpost when it is none.
+          const n = callCount(r, state);
+          toast(n
+            ? `${n} of ${r.rows.length} ${r.rows.length === 1 ? "person" : "people"} will be called — one minute before their next job. Tap a person's row to name them or to stop their calls.`
+            : "Nobody will be called. Tap a person's row below the day and switch their calls back on.");
+        },
+      }, callCount(r, state) ? `🔔 ${callCount(r, state)} called` : "🔔 Calls off")),
+    el("div", { class: "tl-ctl-group" },
       el("button", {
         type: "button", class: "tl-chip add",
         onclick: () => addModule(sc, on),
       }, "＋ New module")));
+}
+
+// How many of the people on the screen the day would actually call.
+function callCount(r, state) {
+  const calls = state.settings.personCalls || {};
+  return r.rows.filter((row) => calls[row.person] !== false).length;
 }
 
 // How many modules are waiting on the one above them. Zero is the honest answer
@@ -653,25 +713,197 @@ function addModule(sc, on) {  const id = newModuleId(sc.modules);
   editModule(added, sc, on, true);
 }
 
-function timeline(r, sc, on) {
+function timeline(r, sc, on, state, run) {
   const trackW = Math.round(r.windowMin * r.pxPerMin);
   const lab = el("span", { class: "tl-cursor-lab" });
   const cursor = el("div", { class: "tl-cursor", hidden: true }, lab);
+  // The clock the day is being walked against. Its own line, its own label, and a
+  // different colour from the hairlines she points with — a reading she takes must
+  // never be mistaken for the minute the day is actually at.
+  const nowLab = el("span", { class: "tl-now-lab" }, "now");
+  const now = el("div", { class: "tl-now", hidden: !run.on }, nowLab);
   const tl = el("div", { class: "tl", style: `--hour-w:${Math.round(60 * r.pxPerMin)}px` },
     el("div", { class: "tl-inner" },
       rulerRow(r, trackW),
-      ...r.modules.map((m, i) => moduleRow(r, m, i, trackW, sc, on)),
+      ...r.modules.map((m, i) => moduleRow(r, m, i, trackW, sc, on, state, run)),
       // The people are the answer to her question, so they are drawn as what
       // they are: a row each, carrying the modules that row attends — and under
       // them the whole lot stacked, which is the manpower at each minute.
       el("div", { class: "tl-split" }, "People"),
-      ...r.rows.map((row) => personRow(r, row, trackW, sc)),
+      ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
       totalRow(r, trackW),
       // The day's own reading, drawn last so it runs over every bar rather than
       // under one. See wireTimeCursor for what it does and who it answers to.
-      cursor));
+      cursor,
+      // And the clock, drawn over everything, because it is the one thing on the
+      // chart that is happening rather than planned.
+      now));
+  // Where the now-line goes, cached for the tick — the ruler's own offset never
+  // moves while the screen is open, and measuring it sixty times a minute would
+  // be sixty layouts a minute for a number that cannot change.
+  run.line = now;
+  run.rulerLeft = tl.querySelector(".tl-ruler .tl-track")
+    ? tl.querySelector(".tl-ruler .tl-track").offsetLeft : 0;
+  run.pxPerMin = r.pxPerMin;
+  if (run.on) placeNow(run);
   wireTimeCursor(tl, r, cursor, lab);
   return tl;
+}
+
+// Move the now-line to where the day has got to. Only its own position is
+// touched — nothing else on the chart is repainted, because the day's numbers do
+// not change as the clock runs and repainting them every second would fight the
+// scroll she is reading.
+function placeNow(run) {
+  const line = run.line;
+  if (!line || !run.pxPerMin) return;
+  line.style.left = `${Math.round((run.rulerLeft || 0) + run.nowMin * run.pxPerMin)}px`;
+  const lab = line.children && line.children[0];
+  if (lab) lab.textContent = clockOf(run.dayStart + run.nowMin);
+}
+
+// Walk the day for real.
+//
+// She asked for the announcement as a live clock rather than a play-through, so
+// this is not a rehearsal of her plan and it never rewrites one. The chart keeps
+// the times she planned — the ruler still reads 4:00 am, because that is her day
+// — and the now-line reads out the actual clock, because that is what time it is.
+// Nothing here is saved, so nothing here can surprise her tomorrow: the run lives
+// in a closure and dies with the screen.
+//
+// The one thing that could not be done quietly is the sound. A phone blocks audio
+// until a real finger has touched the page, and the Start press is that finger,
+// so the audio context is made here and not later.
+const atMinute = (sec) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+
+function startDay(run, sc, state, on) {
+  if (run.on) return;
+  const now = new Date();
+  run.on = true;
+  // Minute 0 of the plan is this very minute, so a 4:01 am plan started at 9 am
+  // calls at 9 am. Held on the run and never written to the scenario: her day
+  // start is a number she set, and a walk-through must not move it.
+  run.dayStart = now.getHours() * 60 + now.getMinutes();
+  run.startedMs = Date.now();
+  run.nowMin = 0;
+  run.lastMin = -1;
+
+  // Best effort, all of it. A browser without audio, a phone that refuses a wake
+  // lock, a page that is not allowed either — the day still walks and calls are
+  // still drawn, so none of these may be allowed to stop the run.
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx && !run.audio) run.audio = new Ctx();
+  } catch { run.audio = null; }
+  try {
+    if (navigator.wakeLock && !run.wake) {
+      navigator.wakeLock.request("screen").then((s) => { run.wake = s; }).catch(() => {});
+    }
+  } catch { /* nothing to do: the run does not depend on it */ }
+
+  if (run.timer) clearInterval(run.timer);
+  run.timer = setInterval(() => tickDay(run, sc, state, on), 1000);
+
+  on.refresh();
+  toast(`Walking the day from ${clockOf(run.dayStart)}. A call comes one minute before each job, in that person's own colour — tap a person's row below the day to name them or to stop their calls.`);
+}
+
+// Stop is the whole undo. The plan was never touched, so there is nothing to put
+// back: the line goes, the card goes, and the sound and the wake lock are let go
+// of so a phone that is left on the table goes back to sleep.
+function stopDay(run, on) {
+  if (run.timer) { clearInterval(run.timer); run.timer = null; }
+  run.on = false;
+  run.nowMin = 0;
+  run.lastMin = -1;
+  run.line = null;
+  if (run.pending) { run.pending.remove(); run.pending = null; }
+  try { if (run.audio) run.audio.close(); } catch { /* already gone */ }
+  run.audio = null;
+  try { if (run.wake) run.wake.release(); } catch { /* already gone */ }
+  run.wake = null;
+  if (on) on.refresh();
+}
+
+// One second of the day. The line is the only thing that moves — the bars are the
+// plan and the plan does not change as the clock runs — so this never repaints,
+// which is what keeps a chart she is reading still under her finger.
+function tickDay(run, sc, state, on) {
+  if (!run.on) return;
+  const nowMin = (Date.now() - run.startedMs) / 60000;
+  const whole = Math.floor(nowMin);
+  run.nowMin = nowMin;
+  placeNow(run);
+  if (whole <= run.lastMin) return;
+
+  // Everything due in the minute just gone. Only the LAST one is shown, which is
+  // her own rule: an announcement she has not acknowledged is replaced by the one
+  // after it rather than queuing up behind it.
+  const calls = state.settings.personCalls || {};
+  const due = callWindows(sc)
+    .filter((w) => calls[w.who] !== false && w.at > run.lastMin && w.at <= whole);
+  run.lastMin = whole;
+  if (!due.length) return;
+  const w = due[due.length - 1];
+  showCall(run, w, sc, state, on);
+}
+
+// The call. His name, his own colour, what he is about to do and the real clock
+// time he has to be there — and one OK, which is the only thing she has to do.
+// Undismissed it does not go away on a timer, because a call that vanishes while
+// she is walking to the bench is a call she never got.
+function showCall(run, w, sc, state, on) {
+  if (run.pending) { run.pending.remove(); run.pending = null; }
+  const who = w.who;
+  const at = run.dayStart + w.from;
+  const host = run.host;
+  if (!host) return;
+
+  // Which cycle of that batch the hands are for, when she has named it: the fold
+  // inside a rest is the one worth saying, because "the rests and the stretch and
+  // folds" is not a thing anybody can go and do.
+  const mod = chainLine(sc.modules || []).map(moduleFacts).find((m) => m.id === w.module);
+  // String(name).trim(), NOT trim() — the imported trim is production.js's number
+  // formatter, and on an unnamed cycle it answers "0", which is what the card used
+  // to print above the clock. An unnamed cycle says nothing here.
+  const cyc = mod && w.cycle >= 0 && mod.cycles[w.cycle] ? String(mod.cycles[w.cycle].name || "").trim() : "";
+
+  const card = el("div", { class: `tl-call ${personTone(who)}` },
+    el("div", { class: "tl-call-who" }, personName(who, namesOf(state))),
+    el("div", { class: "tl-call-what" }, jobName(w)),
+    cyc ? el("div", { class: "tl-call-cyc" }, cyc) : null,
+    el("div", { class: "tl-call-when" }, `${clockOf(at)} — ${atMinute(Math.max(0, Math.round((w.at - run.nowMin) * 60)))} from now`),
+    el("button", {
+      type: "button", class: "tl-call-ok",
+      onclick: () => { if (run.pending === card) { card.remove(); run.pending = null; } },
+    }, "OK"));
+  run.pending = card;
+  host.append(card);
+  chirp(run, who);
+}
+
+// One short note per person, a different one each, so two people called in the
+// same minute are two sounds and not one. Whole tones apart rather than fractions
+// of a tone: a phone's own speaker is small and two notes have to be obviously
+// two notes. A run with no audio at all simply skips this.
+function chirp(run, who) {
+  const ctx = run.audio;
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 440 * Math.pow(2, ((((who || 1) - 1) % 6) * 2) / 12);
+    // A shape rather than a click: up in a few milliseconds, held, and gone
+    // inside a fifth of a second so it reads as a call and not as an alarm.
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.24);
+  } catch { /* a phone that will not make a sound still shows the card */ }
 }
 
 // The time cursor: a hairline down the whole day that reads the clock at
@@ -765,6 +997,44 @@ function rulerRow(r, trackW) {
 // one line's batches here, and its first-fit is then over just those: normally
 // one lane, and two only if something really has put two of one line's lots in
 // the same minutes.
+// Which batch each bar is, said above the bar: her ask of 22 Sep 2026, "I want
+// the each batch to be labeled, B=?, small word above it ... at every module,
+// every production line". So there is one for every bar of every module, drawn as
+// a row-line as well as a single-row module.
+//
+// The nudge she has put on a batch rides beside the number — dt=+5 — which is the
+// other half of the same ask. It is read off the STORED module rather than off the
+// computed one, because chainLine consumes the delta into the times it hands back;
+// what she typed lives on the module itself. See chainLine.
+//
+// A tag cannot live inside its bar — the bar is 16px tall and clips — so it is a
+// sibling in the track, in the band the row grew for it. It carries the same
+// `data-k` the bar does and the track's own click handler accepts either, so the
+// number is a handle she can hit rather than a label she has to aim past.
+function batchTags(r, m, live, line = null) {
+  const { ks } = lineLanes(m, line);
+  const trackW = r.windowMin * r.pxPerMin;
+  const deltas = Array.isArray(live.startDelta) ? live.startDelta : [];
+  const out = [];
+  ks.forEach((k) => {
+    const p = m.passes[k];
+    if (p.at >= r.windowMin) return;
+    // Kept on the chart at the very end of the day, so the last batch's number is
+    // never half off the edge of the screen.
+    const x = Math.max(0, Math.min(Math.round(p.at * r.pxPerMin), Math.max(0, trackW - 26)));
+    const d = Math.max(0, Math.round(Number(deltas[k]) || 0));
+    out.push(el("div", {
+      class: `tl-btag${d ? " nudged" : ""}`,
+      "data-k": String(k),
+      style: `left:${x}px`,
+      title: d
+        ? `Batch ${k + 1} of ${m.name}: held back ${d} min from where the line puts it`
+        : `Batch ${k + 1} of ${m.name} — tap to move it`,
+    }, `B${k + 1}${d ? ` Δt=+${d}` : ""}`));
+  });
+  return out;
+}
+
 function passBars(m, tone, r, line = null) {
   const bars = [];
   const { ks, laneOf, lanes } = lineLanes(m, line);
@@ -774,14 +1044,18 @@ function passBars(m, tone, r, line = null) {
     const left = Math.round(p.at * r.pxPerMin);
     const right = Math.round(Math.min(p.end, r.windowMin) * r.pxPerMin);
     const w = Math.max(4, right - left);
-    const top = lanes > 1 ? LANE_TOP + laneOf[i] * LANE_PITCH : null;
+    // The bar always carries its own top now, because every row has grown by the
+    // batch-number band and the bar has to sit BELOW it. The single-lane top is the
+    // one CSS gave it, pushed down by the band, so a row that does not overlap is
+    // still the 16px bar it always was, in the same place relative to its own track.
+    const top = TAG_BAND + (lanes > 1 ? LANE_TOP + laneOf[i] * LANE_PITCH : 9);
     const h = lanes > 1 ? LANE_H : null;
     bars.push(el("div", {
       class: `tl-bar ${tone}${m.follow ? " locked" : ""}${lanes > 1 ? " laned" : ""}`,
       // Which batch this bar is, so the +/- control knows which start it moves.
       "data-k": String(k),
-      style: `left:${left}px;width:${w}px` +
-        (top == null ? "" : `;top:${top}px;height:${h}px`),
+      style: `left:${left}px;width:${w}px;top:${top}px` +
+        (h == null ? "" : `;height:${h}px`),
       // What the bar holds, in her terms: how many minutes the dough is in it,
       // and how much of that is her hands.
       title: `${m.name}${line == null ? "" : `, line ${line + 1}`}, batch ${k + 1}: ${trim(m.cycleMin)} min` +
@@ -895,7 +1169,7 @@ function chainAbove(r, m) {
   return null;
 }
 
-function moduleRow(r, m, idx, trackW, sc, on) {
+function moduleRow(r, m, idx, trackW, sc, on, state, run) {
   const tone = `tone-${idx % TONES}`;
 
   if (!m.on) {
@@ -920,11 +1194,11 @@ function moduleRow(r, m, idx, trackW, sc, on) {
   // A module that is not worked as lines gets the single row it has always had, to
   // the pixel — which is every module she has today.
   const lines = m.lines || 0;
-  if (!lines) return timelineRow(r, m, live, sc, on, tone, trackW, above, null);
+  if (!lines) return timelineRow(r, m, live, sc, on, tone, trackW, above, null, state, run);
 
   const block = el("div", { class: "tl-block" });
   for (let line = 0; line < lines; line += 1) {
-    block.append(timelineRow(r, m, live, sc, on, tone, trackW, above, line));
+    block.append(timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run));
   }
   return block;
 }
@@ -932,15 +1206,16 @@ function moduleRow(r, m, idx, trackW, sc, on) {
 // One row of a module: the whole module, or one of its lines. Its own name cell
 // and its own track are here, so a module drawn as two lines is simply two of
 // these and nothing else on the screen has to know.
-function timelineRow(r, m, live, sc, on, tone, trackW, above, line) {
+function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) {
   // A row whose bars overlap needs a taller track to draw them in lanes. A row
-  // whose bars do not gets the track it has always had, to the pixel.
+  // whose bars do not gets the track it has always had, plus the band at the top
+  // that carries the batch numbers — see BATCH_TAG_BAND.
   const { lanes } = lineLanes(m, line);
   const track = el("div", {
     class: "tl-track",
-    style: `width:${trackW}px${lanes > 1 ? `;height:${laneTrackH(lanes)}px` : ""}`,
+    style: `width:${trackW}px;height:${laneTrackH(lanes) + TAG_BAND}px`,
   });
-  track.replaceChildren(...passBars(m, tone, r, line));
+  track.replaceChildren(...batchTags(r, m, live, line), ...passBars(m, tone, r, line));
 
   let whenLine = null;
   let name = null;
@@ -972,7 +1247,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line) {
     // worked out again here. The module's own name, badges and cost line stay on
     // the first line, so a module is still one thing she can read in one place.
     const stats = lineStats(m, line);
-    const who = lineWho(m, line) + (stats ? ` · ${stats.lots} ${stats.lots === 1 ? "lot" : "lots"}` : "");
+    const who = lineWho(m, line, state) + (stats ? ` · ${stats.lots} ${stats.lots === 1 ? "lot" : "lots"}` : "");
     whenLine = el("div", { class: "tl-sub" }, stats
       ? `${clockAt(r.dayStartMin, stats.from)} → ${clockAt(r.dayStartMin, stats.to)}`
       // A line with nothing on it is the second machine she has bought and not
@@ -1006,11 +1281,14 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line) {
   // four, and it is why the drag is gone: a hairline was being chased across the
   // day by a bar as she dragged, and a fingertip sliding is the wrong tool for
   // deciding a minute anyway.
+  // The bar AND its batch number open the same card: they are the same batch, and
+  // a number she has just been handed as the way to tell one batch from another is
+  // no use if it is not also a way to pick one.
   track.addEventListener("click", (e) => {
-    const bar = e.target && e.target.closest ? e.target.closest(".tl-bar") : null;
-    if (!bar) return;
+    const hit = e.target && e.target.closest ? e.target.closest(".tl-bar, .tl-btag") : null;
+    if (!hit) return;
     e.stopPropagation();
-    batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(bar.dataset.k) || 0)));
+    batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)));
   });
 
   row.addEventListener("click", () => editModule(live, sc, on));
@@ -1041,6 +1319,14 @@ function batchPopup(m, live, sc, on, k) {
     const end = p ? p.end : at + (here.cycleMin || 0);
     const free = !live.follow;
 
+    // The first module has nothing above it to hold a batch back FROM, so a move
+    // there is its own start time — which is what every move has always been.
+    // Every later module writes a delta instead, so the batch rides the chain:
+    // move the module above and this batch follows, keeping its offset.
+    const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
+    const deltas = Array.isArray(live.startDelta) ? live.startDelta : [];
+    const delta = Math.max(0, Math.round(Number(deltas[k]) || 0));
+
     const step = (by, label, hint) => {
       const press = (sign) => el("button", {
         type: "button",
@@ -1055,6 +1341,12 @@ function batchPopup(m, live, sc, on, k) {
     };
 
     return el("div", {},
+      el("div", { class: "cyc-line", style: "margin:0 0 8px" },
+        el("span", { class: "cyc-lab" }, `Batch ${k + 1}`),
+        el("span", { class: `cyc-at${delta ? " nudged" : ""}` },
+          delta ? `Δt = +${delta} min` : (first ? "its own start" : "on the line")),
+        el("span", { class: "cyc-at" }, clockAt(run.dayStartMin, at))),
+
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         `${clockAt(run.dayStartMin, at)} → ${clockAt(run.dayStartMin, end)}` +
         ` · ${trim(here.cycleMin)} min, ${trim(here.touchMin)} of it your hands`),
@@ -1067,9 +1359,30 @@ function batchPopup(m, live, sc, on, k) {
       free
         ? el("div", {},
           step(5, "Five minutes at a time",
-            "The amount the day is read in, and the amount the time line reads out."),
+            first
+              ? "The amount the day is read in, and the amount the time line reads out."
+              : "The amount the day is read in, and the amount the time line reads out. This batch rides the module above it, so this is how far behind where the line puts it you want it held."),
           step(1, "One minute at a time",
-            "For lifting a batch off a collision with another."))
+            "For lifting a batch off a collision with another."),
+          // A nudge can only ever hold a batch BACK, so on a later module the
+          // buttons can go one way and no further. That is right — it is a delay
+          // and not a schedule — but it would also be a one-way door, and a door
+          // with no handle is the fault v149 was built to fix. So the way back is
+          // here, named, and only when there is something to undo.
+          delta && !first
+            ? el("div", { class: "field" },
+              button("Back onto the line", () => {
+                const next = deltas.slice();
+                next[k] = 0;
+                live.startDelta = next;
+                on.persist();
+                on.refresh();
+                refresh();
+                toast(`Batch ${k + 1} back at ${clockAt(run.dayStartMin, at - delta)} — exactly where the line puts it.`);
+              }, "ghost"),
+              el("div", { class: "hint" },
+                `This batch is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose. This takes the hold off, so it sits wherever the module above and this module's own minutes put it.`))
+            : null)
         : el("p", { class: "card-sub", style: "margin:0" },
           "This batch waits on the module above it, so its time is that module's batch " +
           `${k + 1}. Switch off "Waits for the module above" in this module's own editor and ` +
@@ -1078,12 +1391,36 @@ function batchPopup(m, live, sc, on, k) {
   });
 }
 
-// One press of those buttons: the move itself is setBatchStart's, and what gets
-// said about it is toastBatch's, so the timeline's tap and the editor's buttons
-// are one answer in one wording rather than two that can drift apart.
+// One press of those buttons. On the first module the move IS the start time, and
+// the arithmetic is setBatchStart's. On any module after it the move is a DELTA
+// from where the chain puts the batch, so the batch follows the line instead of
+// being pinned to a clock — and a delta can only ever hold it back, because a
+// batch cannot start before the dough it is made of exists.
+//
+// What gets said about it is toastBatch's in the first case, so the timeline's tap
+// and the editor's old buttons stay one answer in one wording. A delta is a
+// different fact and says so in its own words.
 function moveBatch(run, live, sc, on, refresh, k, from, by) {
-  const landed = setBatchStart(live, sc, on, k, from + by);
-  toastBatch(live, k, from + by, landed, run.dayStartMin);
+  const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
+  if (first) {
+    const landed = setBatchStart(live, sc, on, k, from + by);
+    toastBatch(live, k, from + by, landed, run.dayStartMin);
+  } else {
+    const deltas = Array.isArray(live.startDelta) ? live.startDelta.slice() : [];
+    const before = Math.max(0, Math.round(Number(deltas[k]) || 0));
+    const after = Math.max(0, before + by);
+    deltas[k] = after;
+    live.startDelta = deltas;
+    on.persist();
+    on.refresh();
+    if (after === before) {
+      toast(by < 0
+        ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
+        : `Batch ${k + 1} stays where it is.`);
+    } else {
+      toast(`Batch ${k + 1} held back ${after} minute${after === 1 ? "" : "s"} from where the line puts it — move the module above it and this batch comes with it.`);
+    }
+  }
   // And the card itself, so the clock at the top of it reads the time the batch
   // is at now rather than the one it was at when she opened it.
   refresh();
@@ -1106,9 +1443,16 @@ function lineStats(m, line) {
 
 // Who is on a line: the person she named, or whoever is free — the same two
 // answers the rest of the screen gives, in the same words.
-function lineWho(m, line) {
+function lineWho(m, line, state) {
   const p = m.crew ? m.crew[line] : 0;
-  return p > 0 ? `👤 Person ${p}` : "👤 whoever is free";
+  return p > 0 ? `👤 ${personName(p, namesOf(state))}` : "👤 whoever is free";
+}
+
+// The names she has typed, one table for the whole app so a person keeps their
+// name from one scenario to the next. Read through here rather than touched at
+// each call site, so there is one answer to "who is person 3" on every screen.
+function namesOf(state) {
+  return (state && state.settings && state.settings.personNames) || {};
 }
 
 // Where a cycle she has just dropped actually ends up, straight from the model —
@@ -1144,23 +1488,37 @@ function costLine(m) {
   return `${trim(m.cycleMin)} min a batch · ${trim(m.touchMin)} min of you`;
 }
 
-function personRow(r, row, trackW, sc) {
+function personRow(r, row, trackW, sc, on, state) {
+  const who = row.person;
+  const tone = personTone(who);
+  // How wide a stretch has to be before it can hold a name. Measured in minutes at
+  // the scale she is reading at, so the name appears at Close and Closest — where
+  // she is studying one person — and not on a Wide day where every stretch is a
+  // sliver.
+  const nameFits = 46 / (r.pxPerMin || 1);
   const bars = row.items.map((w) => el("div", {
-    class: `tl-bar tone-${(toneIndex(r, w.module) || 0) % TONES}${isClash(row, w) ? " clash" : ""}`,
+    // The PERSON'S own colour, not the module's. Tinted by module, one person's row
+    // was a patchwork of eight colours that said nothing about the person standing
+    // there; tinted by person, a row is one worker's day and two rows are two
+    // people. A collision still wears its red outline over the top.
+    class: `tl-bar ${tone}${isClash(row, w) ? " clash" : ""}`,
     style: `left:${Math.round(w.from * r.pxPerMin)}px;width:${Math.max(4, Math.round((w.to - w.from) * r.pxPerMin))}px`,
     // Which line of which module this stretch of the person's day is, so a doubled
     // module reads as that person being on line 2 rather than on "the fold".
     title: `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`,
-  }));
+  }, w.to - w.from >= nameFits ? el("span", { class: "tl-pname" }, personName(who, namesOf(state))) : null));
 
   // How many different places this person has to be in — a line of a module counts
   // as a place of its own, which is the rule the model owns (placesOn), so it is
   // tested there rather than here.
   const places = placesOn(row);
 
-  return el("div", { class: "tl-row person" },
+  // The row is tappable, and that is the fix for what she reported: "in the person
+  // card, now person card is not accessible". There was no handler here at all, so
+  // the card that names her people could not be opened by any gesture.
+  return el("div", { class: `tl-row person tappable ${tone}`, onclick: () => personPopup(row, sc, on, state) },
     el("div", { class: "tl-name" },
-      el("div", { class: "tl-name-top" }, `👤 ${personLabel(row, sc)}`),
+      el("div", { class: "tl-name-top" }, `👤 ${personLabel(row, sc, state)}`),
       el("div", { class: "tl-sub" }, `${hoursAndMinutes(row.busy)} of work` +
         (places > 1 ? ` · in ${places} places` : "")),
       row.clashes.length
@@ -1169,9 +1527,94 @@ function personRow(r, row, trackW, sc) {
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
 }
 
-function personLabel(row, sc) {
+function personLabel(row, sc, state) {
   const also = mergeMembers(row.person, sc);
-  return `Person ${row.person}${also.length ? `+${also.join("+")}` : ""}`;
+  const base = personName(row.person, namesOf(state));
+  return also.length ? `${base} (with ${also.join(", ")})` : base;
+}
+
+// The card that could not be reached. Her words, 22 Sep 2026: "when we click on
+// the person module, we should be allow to change person1 to a name, person2 to a
+// name. Can we set whether to make announcement 1 min before the next cycle start
+// he is responsible to?"
+//
+// Both answers live in the app's settings rather than in the scenario, so a name
+// typed once is the name every scenario uses — and the card says so out loud,
+// because person numbers restart at 1 in each scenario and that is hers to know.
+function personPopup(row, sc, on, state) {
+  const who = row.person;
+  const settings = state.settings;
+  const names = (settings.personNames ||= {});
+  const calls = (settings.personCalls ||= {});
+
+  let titleEl = null;
+  showPopup(`👤 ${personName(who, names)}`, () => {
+    const field = el("input", {
+      class: "input", type: "text", value: names[who] || "", placeholder: `Person ${who}`,
+    });
+    const callLabel = el("label", {}, `Call ${personName(who, names)} a minute before their next job`);
+    field.addEventListener("input", () => {
+      const typed = field.value.trim();
+      if (typed) names[who] = typed;
+      else delete names[who];
+      on.persist();
+      // The chart is repainted, never this card — so the name appears on the row
+      // while she is still typing it and the box keeps its cursor.
+      on.refresh();
+      // The card's own two mentions of the person follow the name here, by hand,
+      // rather than through the repaint above — the title lives outside this body
+      // and rebuilding it is exactly what would take the cursor out of the box.
+      // A text node through replaceChildren, not innerText, so the same code
+      // updates the heading and the sentence in a browser and under the test shim.
+      const said = `👤 ${personName(who, names)}`;
+      if (titleEl) titleEl.replaceChildren(document.createTextNode(said));
+      callLabel.replaceChildren(document.createTextNode(
+        `Call ${personName(who, names)} a minute before their next job`));
+    });
+
+    const call = el("input", { type: "checkbox", checked: calls[who] !== false });
+    call.addEventListener("change", () => {
+      // Kept as a real false rather than deleted, so "off" is a choice she made
+      // and not an absence that a later default could quietly switch back on.
+      calls[who] = call.checked;
+      on.persist();
+    });
+
+    const jobs = (row.items || []).slice(0, 6).map((w) => el("div", { class: "tl-note-job" },
+      `${clockAt(sc.dayStartMin, w.from)} — ${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}`));
+
+    return el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        `${hoursAndMinutes(row.busy)} of work` + (placesOn(row) > 1 ? `, in ${placesOn(row)} places` : "") +
+        (row.clashes.length ? `, with ${row.clashes.length} collision${row.clashes.length === 1 ? "" : "s"} to sort out.` : ", and nothing collides.")),
+
+      el("div", { class: "field" },
+        el("label", {}, "What you call them"),
+        field,
+        el("div", { class: "hint" },
+          "The name is used in every scenario, not just this one — the person numbers start again at 1 in each scenario, so a name you give to person 1 shows wherever person 1 is working.")),
+
+      el("div", { class: "field" },
+        el("label", {}, "No name yet is fine"),
+        el("div", { class: "hint", style: "margin:0" },
+          `Leave it empty and the day goes on saying Person ${who}.`)),
+
+      el("div", { class: "field" },
+        callLabel,
+        el("label", { class: "row-check" }, call,
+          el("span", {}, "Tick to have the day call them")),
+        el("div", { class: "hint" },
+          "One minute, not at the minute — a call is a call to go and stand somewhere, and a fold is a one-minute job, so telling them the moment they should already be folding is too late. Off, they still work the day; they are simply not called.")),
+
+      el("div", { class: "tl-notes", style: "margin-top:12px" },
+        el("div", { class: "tl-note" },
+          el("div", { class: "tl-note-who" }, "What they do today"),
+          ...(jobs.length ? jobs : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]),
+          row.items.length > jobs.length
+            ? el("div", { class: "tl-note-job" }, `…and ${row.items.length - jobs.length} more.`)
+            : null)));
+
+  }, { onTitle: (node) => { titleEl = node; } });
 }
 
 // Which people this row is standing in for, kept only while it is true: the
@@ -1190,7 +1633,7 @@ function mergeMembers(person, sc) {
 // rows become one — the modules move, the label follows, and whatever collides is
 // exactly the manpower the combination cannot pay for. Two taps, because that is
 // the sentence she said: this person, then that person.
-function combinePopup(r, sc, on) {
+function combinePopup(r, sc, on, state) {
   const named = r.rows.filter((x) => x.named);
   if (named.length < 2) {
     toast(named.length
@@ -1210,10 +1653,10 @@ function combinePopup(r, sc, on) {
       onclick: () => {
         if (into == null) { into = x.person; refresh(); return; }
         if (into === x.person) { into = null; refresh(); return; }
-        doCombine(sc, into, x, on);
+        doCombine(sc, into, x, on, state);
         close();
       },
-    }, `${personLabel(x, sc)} · ${x.items.length} ${x.items.length === 1 ? "job" : "jobs"}, ${hoursAndMinutes(x.busy)}`);
+    }, `${personLabel(x, sc, state)} · ${x.items.length} ${x.items.length === 1 ? "job" : "jobs"}, ${hoursAndMinutes(x.busy)}`);
 
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
@@ -1221,14 +1664,14 @@ function combinePopup(r, sc, on) {
       el("p", { class: "card-sub", style: "margin:0 0 8px" },
         into == null
           ? "Tap the person who keeps the job."
-          : `Tap whose modules should move to ${personLabel({ person: into }, sc)}.`),
+          : `Tap whose modules should move to ${personLabel({ person: into }, sc, state)}.`),
       el("div", {}, ...named.map(chipFor)),
       el("p", { class: "card-sub", style: "margin:10px 0 0" },
         "Every module keeps the job it does; only who is standing at it changes. Giving one module back is done in that module's own editor."));
   });
 }
 
-function doCombine(sc, into, from, on) {
+function doCombine(sc, into, from, on, state) {
   // The work itself is the model's, so it is the same answer every time and can
   // be tested without a screen: it hands back the modules and the new label.
   const next = combinedScenario(sc, into.person, from.person);
@@ -1237,7 +1680,7 @@ function doCombine(sc, into, from, on) {
   on.persist();
   on.refresh();
   const members = (next.merges[String(into.person)] || []);
-  toast(`Person ${into.person}${members.length ? `+${members.join("+")}` : ""} — the collisions are what they cannot cover`);
+  toast(`${personName(into.person, namesOf(state))}${members.length ? ` +${members.join("+")}` : ""} — the collisions are what they cannot cover`);
 }
 
 // The total person she asked for: person 1, person 2, person 3 and the rest
@@ -1299,7 +1742,7 @@ function jobName(w) {
 // A row with several clashes gives several blocks, and past three the rest are
 // counted rather than dropped in silence — a list that quietly stops at four
 // reads as though the day has four problems when it has nine.
-function clashNotes(r) {
+function clashNotes(r, state) {
   const found = [];
   for (const row of r.rows) {
     for (const c of row.clashes) found.push({ row, c });
@@ -1310,7 +1753,7 @@ function clashNotes(r) {
   return el("div", { class: "tl-notes" },
     ...shown.map(({ row, c }) => el("div", { class: "tl-note" },
       el("div", { class: "tl-note-who" },
-        `👤 ${personLabel(row, r.scenario)} — two jobs at once, ` +
+        `👤 ${personLabel(row, r.scenario, state)} — two jobs at once, ` +
         `${clockAt(r.dayStartMin, c.from)} → ${clockAt(r.dayStartMin, c.to)}`),
       el("div", { class: "tl-note-job" }, jobName(c.before)),
       el("div", { class: "tl-note-job" }, jobName(c.after)),
@@ -1363,17 +1806,35 @@ function editModule(saved, sc, on, isNew = false) {
     };
 
     const f = (key, label, hint, opt = {}) => {
+      // Auto is an empty box with the word in it, and it writes a real 0 rather
+      // than nothing: the model already reads a 0 spacing as "each batch starts
+      // the moment the one before it ends", and a stored 0 is a number that
+      // survives a reload. The flag beside it is what remembers that she did not
+      // type it — so a module she has not paced keeps following its own cycle
+      // length when she changes the cycle, which is the whole point of Auto.
+      const auto = opt.auto ? live[opt.auto] === true : false;
       const input = el("input", {
         class: "input", type: "number", inputmode: "decimal",
         min: String(opt.min == null ? 0 : opt.min), step: String(opt.step || 1),
-        value: String(live[key] == null ? 0 : live[key]),
+        placeholder: opt.auto ? "Auto" : null,
+        value: auto ? "" : String(live[key] == null ? 0 : live[key]),
       });
+      // A typed number is hers, so the flag goes off for good the moment she
+      // types one — and comes back on only if she empties the box again.
+      const write = (raw) => {
+        if (opt.auto) {
+          const blank = String(raw).trim() === "";
+          live[opt.auto] = blank;
+          if (blank) { set(key, 0, opt); return; }
+        }
+        set(key, raw, opt);
+      };
       // Typing writes the number and repaints the screen behind the pop-up, but
       // it must NOT rebuild this card: this card is tall, and rebuilding it under
       // her finger threw the scroll and destroyed the box she was typing in.
       // A box whose answer changes the CARD's shape — one more line, one more
       // cycle row — says so, and then it rebuilds once, when she leaves the box.
-      input.addEventListener("input", () => set(key, input.value, opt));
+      input.addEventListener("input", () => write(input.value));
       if (opt.rebuild) input.addEventListener("change", () => refresh());
       return el("div", { class: "field" }, el("label", {}, label), input,
         hint ? el("div", { class: "hint" }, hint) : null);
@@ -1429,9 +1890,9 @@ function editModule(saved, sc, on, isNew = false) {
       if (many < 2) return null;
       if (live.overlap === true) {
         return el("div", { class: "field" },
-          el("div", { class: "tl-ctl-lab" }, "Lines"),
+          el("div", { class: "tl-ctl-lab" }, "Production line"),
           el("div", { class: "hint", style: "margin-top:4px" },
-            "Let its batches overlap is switched ON, so this module's batches no longer take turns and it is drawn as one row with one person. The people you set per line are kept, not thrown away — switch overlapping off and the module is drawn as its lines again, each with its own."));
+            "Allow multiple production line is switched ON, so this module's batches no longer take turns and it is drawn as one production line with one person. The people you set per line are kept, not thrown away — switch overlapping off and the module is drawn as its lines again, each with its own."));
       }
       const cur = Array.isArray(live.crew) ? live.crew : [];
       const who = (i) => {
@@ -1457,18 +1918,18 @@ function editModule(saved, sc, on, isNew = false) {
         });
         input.addEventListener("input", () => put(i, input.value));
         rows.push(el("div", { class: "field" },
-          el("label", {}, `Line ${i + 1} — who is on it`),
+          el("label", {}, `Production line ${i + 1} — who is on it`),
           input,
           i === 0
             ? el("div", { class: "hint" },
-              "0 means whoever is free. Line 1 is the module's own person — while the module is drawn as these lines, this box is the one that answers Who is at this module, and the two can never say different numbers.")
+              "0 means whoever is free. Production line 1 is the module's own person — while the module is drawn as these lines, this box is the one that answers Who is at this module, and the two can never say different numbers.")
             : null));
       }
       return el("div", { class: "field" },
-        el("div", { class: "tl-ctl-lab" }, "Lines"),
+        el("div", { class: "tl-ctl-lab" }, "Production line"),
         ...rows,
         el("div", { class: "hint" },
-          "A line each, one under the other on the timeline, so the same number on two lines is one person covering both — and if those two lines really do need them in the same minute, that person's row in the People list goes red and names the minute. Give a line 0 and it is whoever is free."));
+          "A production line each, one under the other on the timeline, so the same number on two lines is one person covering both — and if those two lines really do need them in the same minute, that person's row in the People list goes red and names the minute. Give a production line 0 and it is whoever is free."));
     };
 
     // Who is at this module, for a module drawn as one row. It asks the MODEL what
@@ -1505,6 +1966,49 @@ function editModule(saved, sc, on, isNew = false) {
           "0 means whoever is free. Put 1, 2, 3… and that named person is given this module — so two modules on person 1 that overlap show up as a collision to move apart."));
     };
 
+    // How many batches it runs in the day. Her ask: "It should be auto as it
+    // should follow the earlier module, we just indicate in the 1st module."
+    //
+    // So the box is on the FIRST module, where the number is hers to set, and on
+    // any module that already has a number of its own. Every module she has ever
+    // saved keeps its number and keeps its box — an Auto state is only ever
+    // arrived at by a module that had none, which is why nothing of hers moves.
+    // An automatic module still says its number out loud, and still names what it
+    // is following, because a count that is not on the screen is a count she
+    // cannot check — and it says the same thing the note under the day says.
+    const repeatsField = () => {
+      const order = sc.modules.findIndex((m) => m.id === live.id);
+      const auto = live.repeatsAuto === true;
+      if (!auto || order <= 0) {
+        return f("repeats", "How many batches it runs in the day",
+          "Set this above 1 and the module runs again later in the day: the fold runs its batch four times. Change it and the modules after this one that were running the same number follow you, and stop where one has a number of its own — the line under the day names any that no longer match. The climb card raises this one for you — and a day can only hold so many, so a batch that takes hours is counted at the few that fit.",
+          { min: 1, int: true, rebuild: true, carry: true });
+      }
+
+      const above = sc.modules.slice(0, order).reverse()
+        .find((m) => m.on !== false && (Number(m.touchMin) > 0 || Number(m.cycleMin) > 0));
+      const count = moduleOf(live).repeats;
+      const aboveName = above ? above.name : "the module above";
+      const aboveCount = above ? moduleOf(above).repeats : count;
+      return el("div", { class: "field" },
+        el("label", {}, "How many batches it runs in the day"),
+        el("div", { class: "cyc-line" },
+          el("div", { class: "input cyc-auto" },
+            `${count} ${count === 1 ? "batch" : "batches"} — auto`),
+          button("Give it its own number", () => {
+            // A number of her own, written from what the day is already running so
+            // that taking the wheel never moves the day a single minute.
+            live.repeats = count;
+            live.repeatsAuto = false;
+            live.starts = undefined;
+            on.persist();
+            on.refresh();
+            refresh();
+          }, "ghost")),
+        el("div", { class: "hint" },
+          `Auto, so this module runs what the one before it runs — following ${aboveName}, which runs ${aboveCount}. A module follows the one above until one of them has a number of its own, and it is only the first module that has to have one, because that is where your day's number comes from. Take it on yourself and the module keeps the count it is running now: from there it is yours, and the modules after it follow you instead.`));
+    };
+
     const order = sc.modules.findIndex((m) => m.id === live.id);
     const acts = [];
 
@@ -1529,7 +2033,6 @@ function editModule(saved, sc, on, isNew = false) {
           "A module is one piece of your equipment and the hands that tend it, counted as one thing. Switch it off and the line answers without it, so you can see what a machine would buy you before you buy it. A brand new module arrives switched off until its numbers are in.")),
       t("name", "What this module is called", "Your words, so the timeline reads the way you would say it."),
       t("icon", "Its picture", "Any single emoji — it is what you will look for on the timeline."),
-      jobField(live, on),
       f("batch", "Pans in one batch", "How many pans one batch deals with.", { min: 1 }),
       // The cycles come first among the numbers, because in this model they ARE
       // the numbers: the module's minutes and its minutes-of-you are the sum of
@@ -1537,26 +2040,23 @@ function editModule(saved, sc, on, isNew = false) {
       // sentence is the reason: a batch is not a process, a cycle is.
       cyclesField(live, on, refresh),
       f("everyMin", "Minutes from one batch to the next",
-        "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone.",
-        { min: 1 }),
-      f("repeats", "How many batches it runs in the day",
-        "Set this above 1 and the module runs again later in the day: the fold runs its batch four times. Change it and the modules after this one that were running the same number follow you, and stop where one has a number of its own — the line under the day names any that no longer match. The climb card raises this one for you — and a day can only hold so many, so a batch that takes hours is counted at the few that fit.",
-        { min: 1, int: true, rebuild: true, carry: true }),
+        "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone. Left on Auto it is the length of the cycles you just set, which is one batch following the one before it end to end.",
+        { min: 1, auto: "everyAuto" }),
+      repeatsField(),
       // Her point one: the module that became the bottleneck, had twice over.
-      f("count", "How many of these do you have",
-        "Two mixers, two ovens, two chillers, two people folding. Two of them take a batch side by side, so a batch stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many batches it runs to put the second one to work, or let the climb do it for you. And a module you have two of is drawn as that many LINES, one under the other, each with its own person — the boxes for that appear below as soon as this says 2.",
+      f("count", "How many production line do you have",
+        "Two mixers, two ovens, two chillers, two people folding. Two production line of one module take a batch side by side, so a batch stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many batches it runs to put the second one to work, or let the climb do it for you. A module you have two production line of is drawn as that many lines, one under the other, each with its own person — the boxes for that appear below as soon as this says 2. Put 1 here and Allow multiple production line ON: then this module is one line with one person, and this number is not in force.",
         { min: 1, int: true, rebuild: true }),
-      batchField(live, sc, on, refresh),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, followBox,
           el("span", { class: "check-label" }, "Waits for the module above")),
         el("div", { class: "hint", style: "margin-top:6px" },
-          "Switch this on and its batch 10 cannot start until the module above has finished its own batch 10 — which is how a real line behaves, and how a slow fold holds every later lot behind it. Switch it on for a module the one before it really feeds, and leave it off for anything you place by hand. A module that waits has no start time of its own: move the module above it and this one follows, and if the module above runs fewer batches, the extra ones wait on its last.")),
+          "Switch this on and its batch 10 cannot start until the module above has finished its own batch 10 — which is how a real production line behaves, and how a slow fold holds every later lot behind it. Switch it on for a module the one before it really feeds, and leave it off for anything you place by hand. A module that waits has no start time of its own: move the module above it and this one follows, and if the module above runs fewer batches, the extra ones wait on its last. A new module arrives with this already on.")),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, overlapBox,
-          el("span", { class: "check-label" }, "Let its batches overlap")),
+          el("span", { class: "check-label" }, "Allow multiple production line")),
         el("div", { class: "hint", style: "margin-top:6px" },
-          "Switch this ON when the minutes in one batch are the DOUGH's time and not a machine's — dough resting between folds, a second bin on the go. The module then stops holding its own batches apart, every batch sits where you put it, and two at once are drawn as two bars in their own lanes. Leave it OFF when the dough is physically IN the thing — a sink, an oven, one tub — because two batches cannot be in one of those at once; if you need two of those, that is How many of these do you have, which lets one batch in per module you have. Either way, overlapping never lets a batch start before the dough exists: a module that waits for the module above still waits. And switch it on with one eye on the People rows — if two of your own batches need the same person in the same minute, that person's row goes red and names the minute.")),
+          "Switch this ON when the minutes in one batch are the DOUGH's time and not a machine's — dough resting between folds, a second bin on the go. The module then stops holding its own batches apart, every batch sits where you put it, and two at once are drawn as two bars in their own lanes. Leave it OFF when the dough is physically IN the thing — a sink, an oven, one tub — because two batches cannot be in one of those at once; if you need two of those, that is How many production line do you have, which lets one batch in per production line you have. Either way, allowing them to overlap never lets a batch start before the dough exists: a module that waits for the module above still waits. And switch it on with one eye on the People rows — if two of your own batches need the same person in the same minute, that person's row goes red and names the minute. A new module arrives with this already on.")),
       linesBlock(),
       f("people", "People this batch needs", "Nearly always 1 — two people at one mixer is a different job.", { min: 1, int: true }),
       // A module drawn as lines is asked who is on each LINE, above — one box per
@@ -1566,6 +2066,28 @@ function editModule(saved, sc, on, isNew = false) {
       linesInForce(live) ? null : personField(),
       acts.length ? el("div", { class: "tl-ctl", style: "margin-top:4px" }, ...acts) : null,
       el("div", { class: "popup-actions" },
+        // Her ask: "we can now add module as we wish, a button at the bottom
+        // with, Duplicate this module, will be helpful."
+        //
+        // A copy is a COPY, not a new module: it carries the cycles, the numbers
+        // and the person verbatim, so none of the new-module defaults reach it.
+        // That is the whole point — two ovens of hers are two of the same thing,
+        // and retyping eight numbers to say so is the chore this removes.
+        button("Duplicate this module", () => {
+          const copy = {
+            ...JSON.parse(JSON.stringify(live)),
+            id: newModuleId(sc.modules),
+            name: `${live.name} (copy)`,
+          };
+          const at = sc.modules.findIndex((m) => m.id === live.id);
+          const next = sc.modules.slice();
+          next.splice(at + 1, 0, copy);
+          sc.modules = next;
+          on.persist();
+          on.refresh();
+          toast(`${copy.name} added just below it — change its name and its numbers to say how it is different.`);
+          close();
+        }, "ghost"),
         isNew ? null : button("Delete this module", () => confirmDialog(
           `Delete ${live.name}? The day will answer without it.`,
           () => {
@@ -1678,84 +2200,6 @@ function putCycles(live, on, next) {
 
 const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-// ── When each batch starts ─────────────────────────────────────────────────
-//
-// Her point four: a batch has one start time and it is the only thing about a
-// batch she can move, so each row here is a batch and the buttons beside it move
-// that one batch. The same control the timeline's own tap opens, in the same
-// words — a big pair at five minutes and a small pair at one.
-//
-// Typing is kept beside the buttons because it still has a job: the timeline
-// snaps to five minutes, and a minute or two either side of where the last few
-// boxes landed is easier typed than pressed nineteen times.
-function batchField(live, sc, on, refresh) {
-  const m = moduleFacts(live);
-  const dayStart = Number(sc.dayStartMin) || 0;
-  const rows = [];
-  const many = m.repeatsHeld > 1;
-
-  for (let k = 0; k < m.repeatsHeld; k += 1) {
-    const at = el("span", { class: "cyc-at" }, clockAt(dayStart, m.starts[k]));
-    const input = el("input", {
-      class: "input cyc-in", type: "number", inputmode: "numeric",
-      min: "0", step: String(SNAP_MIN), value: String(Math.round(m.starts[k])),
-      "aria-label": `Batch ${k + 1} start, in minutes from your day`,
-    });
-    input.addEventListener("input", () => {
-      const n = Number(input.value);
-      if (!Number.isFinite(n) || n < 0) return;
-      const landed = setBatchStart(live, sc, on, k, n);
-      at.textContent = clockAt(dayStart, landed);
-    });
-
-    const press = (by) => el("button", {
-      type: "button", class: "cyc-step",
-      "aria-label": `Batch ${k + 1} ${by} minutes ${by > 0 ? "later" : "earlier"}`,
-      onclick: () => {
-        const from = cycleStarts(moduleFacts(live))[k];
-        const landed = setBatchStart(live, sc, on, k, from + by);
-        input.value = String(Math.round(landed));
-        at.textContent = clockAt(dayStart, landed);
-        toastBatch(live, k, from + by, landed, dayStart);
-      },
-    }, by > 0 ? `+${by}` : `${by}`);
-
-    const steps = m.follow ? null : el("div", { class: "cyc-steps" },
-      press(-5), press(-1), press(1), press(5));
-
-    // Two lines, built as two, for the same reason the order form is: a label, a
-    // number and four buttons on one line leaves the number box too narrow to
-    // read on a phone.
-    rows.push(el("div", { class: "cyc-row cyc-batch" },
-      el("div", { class: "cyc-line" },
-        el("span", { class: "cyc-lab" }, `Batch ${k + 1}`),
-        input,
-        at),
-      steps));
-  }
-
-  const evenly = button("Space them evenly again", () => {
-    // Dropping the stored list is what re-spaces them: with no list the module
-    // falls back to its own start and pace, which is exactly what this means.
-    live.starts = undefined;
-    on.persist();
-    on.refresh();
-    refresh();
-    toast(`${live.name || "The module"} — batches back on their own pace`);
-  });
-
-  return el("div", { class: "field" },
-    el("label", {}, "When each batch starts, in minutes from your day"),
-    many ? el("div", { class: "cyc-list" }, ...rows) : rows[0] || null,
-    el("div", { class: "hint" },
-      m.follow
-        ? "This module waits for the module above, so its batch times are that module's — there is nothing to set here until you switch Waiting off. This row is only reading them back."
-        : many
-          ? "One row per batch, the minutes counted from your day's start, so 90 is an hour and a half after you begin. A batch is the only thing with a start time of its own: the cycles inside it follow from it. Turn these to bring the people needed down, or tap a bar on the timeline for the same buttons."
-          : "This module runs one batch, so it has a single start. Raise how many batches it runs and a row appears for each."),
-    many ? el("div", { class: "popup-actions" }, evenly) : null);
-}
-
 // One batch's start time, written the way a typed time is written: into this
 // batch's own slot, with the module's start time following batch one so the two
 // can never disagree about where the module begins. Hands back where the batch
@@ -1789,24 +2233,6 @@ function toastBatch(live, k, asked, landed, dayStartMin) {
 // this module's minutes and its batch straight off it. The answer is kept as a
 // job of its own rather than matched on the module's name, so she is free to call
 // the wash whatever she calls it at the bench.
-function jobField(live, on) {
-  const now = jobOf(live);
-  const box = select([
-    { value: "", label: "Not a job on the Production line" },
-    ...LINE_JOBS.map((j) => ({ value: j.key, label: j.label })),
-  ], now, () => {
-    live.job = box.value;
-    on.persist();
-    on.refresh();
-  });
-  box.className = "input";
-  return el("div", { class: "field" },
-    el("label", {}, "Which job of your line is this"),
-    box,
-    el("div", { class: "hint" },
-      "The Production line screen asks the same day a different question — how many pans it can deliver, and which stage of the day is holding you back. Tell it which job this module is and your own numbers cross over: this module's minutes become that job's minutes, and its batch becomes that job's batch. Modules that are not a job of the line — the fold, loading the chiller — are simply left out of the load, and the screen says so."));
-}
-
 function lower(s) {
   return String(s || "").charAt(0).toLowerCase() + String(s || "").slice(1);
 }

@@ -136,7 +136,7 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
 // screen with a dimmed scrim; `makeBody(refresh, close)` is called to (re)fill
 // the scrollable body, so callers re-invoke `refresh()` after changing anything
 // that should re-render the form (e.g. adding an item row). Returns close().
-export function showPopup(title, makeBody, { wide = false } = {}) {
+export function showPopup(title, makeBody, { wide = false, onTitle = null } = {}) {
   const layer = document.getElementById("popup-layer");
   if (!layer) return () => {};
   const close = () => {
@@ -153,9 +153,16 @@ export function showPopup(title, makeBody, { wide = false } = {}) {
     body.replaceChildren(makeBody(refresh, close));
     body.scrollTop = keepTop;
   };
+  const titleEl = el("div", { class: "popup-title" }, title);
+  // The card's heading is built once and never repainted, which is right for every
+  // card whose heading is a name it was opened with. The one card whose heading
+  // follows something she is still typing — the person's name — takes the node and
+  // rewrites it itself, because there is no other way to reach a heading that lives
+  // outside the body the card is free to rebuild.
+  if (onTitle) onTitle(titleEl);
   const card = el("div", { class: `popup-card${wide ? " wide" : ""}` },
     el("div", { class: "popup-head" },
-      el("div", { class: "popup-title" }, title),
+      titleEl,
       button("✕", close, "ghost small")),
     body);
   layer.replaceChildren(card);

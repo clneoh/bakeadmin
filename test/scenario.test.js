@@ -16,7 +16,7 @@ import {
   climbSteps, descentSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
-  clampBatchStart, alignBatches, batchMismatches,
+  clampBatchStart, alignBatches, batchMismatches, callWindows,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
   ONE_BAKER_SCENARIO,
 } from "../admin/js/scenario.js";
@@ -1566,4 +1566,193 @@ test("the way down says why when a batch is bigger than the number she wants (v1
   assert.equal(down.reached, false);
   assert.equal(down.tooBig.batch, 6, "and the reason is the size of one batch");
   assert.equal(down.end.pansPerDay, 6, "the day is left exactly where it was");
+});
+
+// ── A new module arrives filled in (v151) ──────────────────────────────────
+// Her ask, 22 Sep 2026: *"default: Cycle1: Minutes=20, load=20,unload=0"*, the
+// pace *"should be empty? Or Auto"*, the batch count *"should be auto as it should
+// follow the earlier module, we just indicate in the 1st module"*, and *"set as
+// default tick for Wait for the module above"* and for multiple production lines.
+//
+// The rule underneath all of it is the one v147's cycles migration used: a default
+// is for a module she has not filled in yet, and is never applied backwards onto a
+// module that already carries her own numbers. That is what test 2 here pins.
+
+test("a new module arrives with her own defaults, ready to use (v151)", () => {
+  const fresh = blankModule("brick9");
+  const cyc = fresh.cycles;
+  assert.equal(cyc.length, 1, "one cycle to begin with");
+  assert.equal(cyc[0].min, 20, "twenty minutes of work");
+  assert.equal(cyc[0].load, 20, "all twenty of them with her hands on it");
+  assert.equal(cyc[0].unload, 0, "and nothing at the far end");
+  assert.equal(fresh.cycleMin, 20, "so the cycle is twenty minutes");
+  assert.equal(fresh.touchMin, 20, "and so is the hands time");
+
+  // Auto, both of them. The numbers are still resolved — nothing downstream has to
+  // know about Auto — but the flags say she never typed them, which is what lets
+  // the box open empty and go on following.
+  assert.equal(fresh.everyAuto, true, "the pace is Auto");
+  assert.equal(fresh.everyMin, 20, "which is this module's own cycle length");
+  assert.equal(fresh.repeatsAuto, true, "the batch count is Auto");
+
+  assert.equal(fresh.follow, true, "waiting on the module above, ticked from new");
+  assert.equal(fresh.overlap, true, "and free to hold more than one production line");
+  assert.equal(fresh.on, false, "still switched off until she fills it in, as before");
+});
+
+test("Auto follows the module above, and a number of her own is never overruled (v151)", () => {
+  // Her line: a first module carrying the number, then two that have never been
+  // given one. That is the shape a new module lands in, so it is the shape tested.
+  const line = [
+    module({ id: "a", name: "Mix", repeats: 4, cycleMin: 20, everyMin: 87, startMin: 1 }),
+    module({ id: "b", name: "Rest", repeats: null, repeatsAuto: true, cycleMin: 30, everyMin: 30, startMin: 0 }),
+    module({ id: "c", name: "Oven", repeats: null, repeatsAuto: true, cycleMin: 13, everyMin: 87, startMin: 0 }),
+  ];
+  const out = chainLine(line);
+  assert.deepEqual(out.map((m) => m.repeats), [4, 4, 4], "the two with no number of their own followed the one above");
+
+  // The module that HAS a number of her own keeps it, even when the module above
+  // it says something else — "we just indicate in the 1st module" is a habit, not
+  // a rule that seizes a number she typed.
+  const own = chainLine([line[0], module({ id: "b", name: "Rest", repeats: 2, cycleMin: 30 })]);
+  assert.deepEqual(own.map((m) => m.repeats), [4, 2], "a count she typed is hers and is not overwritten");
+
+  // And the three scenarios on her shelf store a count on every module, so not one
+  // of them is Auto and not one of their mixed counts moves.
+  const kept = (sc) => chainLine(sc.modules).map((m) => m.repeats);
+  assert.deepEqual(kept(DEFAULT_SCENARIO), DEFAULT_SCENARIO.modules.map((m) => m.repeats));
+  assert.deepEqual(kept(SISTER_SCENARIO), SISTER_SCENARIO.modules.map((m) => m.repeats));
+  assert.deepEqual(kept(ONE_BAKER_SCENARIO), ONE_BAKER_SCENARIO.modules.map((m) => m.repeats));
+  assert.ok(DEFAULT_SCENARIO.modules.some((m) => m.repeats === 1) && DEFAULT_SCENARIO.modules.some((m) => m.repeats === 6),
+    "the seeded day really does carry two different counts, so the line above is a real test");
+  // An Auto module is never named as out of step: it cannot differ, it took the
+  // number. A module with a count of its own still is.
+  const mixed = [
+    module({ id: "a", name: "Mix", repeats: 4 }),
+    module({ id: "b", name: "Rest", repeats: null, repeatsAuto: true }),
+    module({ id: "c", name: "Oven", repeats: 2 }),
+  ];
+  assert.deepEqual(batchMismatches(chainLine(mixed)).map((m) => m.name), ["Oven"],
+    "an automatic module was named as out of step, or one with its own count was not");
+});
+
+test("a batch's own nudge rides the chain and can only hold it back (v151)", () => {
+  const base = [
+    module({ id: "a", name: "Mix", repeats: 2, cycleMin: 20, everyMin: 60, startMin: 0 }),
+    module({ id: "b", name: "Oven", repeats: 2, cycleMin: 15, everyMin: 60, startMin: 0, startDelta: [0, 10], follow: true }),
+  ];
+  const out = chainLine(base);
+  const b = out.find((m) => m.id === "b");
+  // Batch 1 of Mix ends at 20, so the oven's own batch 1 waits for it; batch 2 at
+  // 80. The nudge of 10 holds the SECOND batch ten minutes later and leaves the
+  // first alone — it is per batch, not per module.
+  assert.deepEqual(b.starts, [20, 90], "the nudge landed on the batch she put it on");
+
+  // Move the whole module above an hour later. The nudge is a delta, so batch 2
+  // follows with its ten minutes intact rather than staying where it was.
+  const moved = chainLine(base.map((m) => (m.id === "a" ? { ...m, startMin: 60, starts: [60, 120] } : m)));
+  assert.deepEqual(moved.find((m) => m.id === "b").starts, [80, 150], "the nudge rode the chain instead of pinning the batch");
+
+  // It can only ever hold a batch back. A nudge would pull batch 1 to minute 5,
+  // in front of the dough it is made from, and the chain refuses: the module above
+  // still has the last word.
+  const early = chainLine(base.map((m) => (m.id === "b" ? { ...m, starts: [5, 5], startDelta: [0, 0] } : m)));
+  assert.deepEqual(early.find((m) => m.id === "b").starts, [20, 80], "a time in front of the module above is not honoured");
+
+  // Reading the answer again moves nothing, and the nudge is consumed rather than
+  // applied twice — the invariant the whole screen rests on, because chainLine's
+  // result IS what every repaint reads.
+  assert.deepEqual(chainLine(chainLine(base)).map((m) => m.starts), out.map((m) => m.starts),
+    "a second read of the line moved a batch");
+  assert.deepEqual(chainLine(base).find((m) => m.id === "b").startDelta, [0, 0],
+    "the nudge is in the times now, and handing it back would apply it twice");
+  // A nudge is never negative, whatever is stored, and the list is exactly as long
+  // as the batches — the same shape `starts` and `crew` are kept in.
+  const clean = moduleOf({ id: "x", repeats: 3, startDelta: [-5, "junk", 3] });
+  assert.deepEqual(clean.startDelta, [0, 0, 3]);
+  assert.equal(clean.startDelta.length, clean.repeats, "one nudge per batch, always");
+});
+
+test("nothing of hers moves: the three seeded lines read exactly as before (v151)", () => {
+  // The three scenarios the app ships, read as the day she sees. Every one of them
+  // stores its own numbers, so not one of them is Auto and not one new default can
+  // reach them. Pinned here in full — pans, day length and every batch time — so a
+  // future default cannot quietly rewrite a line she already has.
+  // Every batch time of all three, as they read the moment before this release.
+  const times = (sc) => Object.fromEntries(chainLine(sc.modules).map((m) => [m.id, m.starts]));
+  assert.deepEqual(times(DEFAULT_SCENARIO), {
+    mixer: [0], fold: [30, 60, 90, 120], wash: [150, 168, 186, 204, 222, 240],
+    load: [258], retard: [273], unload: [993], top: [1008, 1023, 1038, 1053, 1068, 1083],
+    oven: [1016, 1031, 1046, 1061, 1076, 1091], pack: [1095, 1110, 1125, 1140, 1155, 1170],
+    fridge: [0],
+  }, "the seeded day moved");
+  assert.deepEqual(times(SISTER_SCENARIO), {
+    tubmix: [0], tubfold: [30, 60, 90], panfill: [90], proofer: [102],
+    dimpleoil: [162], bench: [166], oven: [196], pack: [211],
+  }, "her sister's line moved");
+  assert.deepEqual(times(ONE_BAKER_SCENARIO), {
+    solo_mix: [1, 88, 175, 262], solo_fold: [21, 108, 195, 282], solo_scale: [144, 231, 318, 405],
+    solo_proof1: [159, 246, 333, 420], solo_top: [204, 291, 378, 465], solo_proof2: [210, 297, 384, 471],
+    solo_oven: [240, 327, 414, 501], solo_pack: [297, 384, 471, 558],
+  }, "one baker day moved");
+
+  assert.equal(computeScenario(DEFAULT_SCENARIO).pansPerDay, 12, "the seeded day still makes twelve pans");
+  assert.equal(computeScenario(SISTER_SCENARIO).pansPerDay, 4, "her sister's line still makes four");
+  assert.equal(computeScenario(ONE_BAKER_SCENARIO).pansPerDay, 24, "and one baker day still makes twenty-four");
+  // Reading the line twice must still be a no-op, now that chainLine writes a count
+  // and consumes a nudge.
+  assert.deepEqual(chainLine(chainLine(DEFAULT_SCENARIO.modules)), chainLine(DEFAULT_SCENARIO.modules),
+    "reading the seeded line twice gave two different days");
+
+  // Auto is per module and reads from ABSENCE, so a stored scenario has none of it
+  // — the whole protection in one assertion.
+  for (const sc of [DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO]) {
+    for (const m of sc.modules) {
+      assert.equal(moduleOf(m).repeatsAuto, false, `${sc.id}/${m.id}: a stored count became Auto`);
+      assert.equal(moduleOf(m).everyAuto, false, `${sc.id}/${m.id}: a stored pace became Auto`);
+    }
+  }
+});
+
+// ── When the day calls her people (v151) ──────────────────────────────────
+// Her ask: "Can we set whether to make announcement 1 min before the next cycle
+// start he is responsible to?" One minute early, and one minute early is not a
+// rounding-up — her fold is a one-minute job, so a call at the minute of the job
+// is a call after it has begun.
+
+test("the call is a minute before the job, and it is the job's own person (v151)", () => {
+  const mods = chainLine(ONE_BAKER_SCENARIO.modules).map(moduleFacts);
+  const windows = touchWindows(mods);
+  const calls = callWindows(ONE_BAKER_SCENARIO);
+  assert.ok(calls.length > 0, "the day calls nobody");
+
+  // One call per stretch of hands, each one minute before the stretch begins —
+  // and never before the day itself starts, because minute zero minus one is not
+  // a minute anybody can be called at.
+  assert.equal(calls.length, windows.length, "a stretch of hands went uncalled, or was called twice");
+  for (const c of calls) {
+    assert.equal(c.at, Math.max(0, c.from - 1), `${c.name} is called at ${c.at} for a job at ${c.from}`);
+  }
+  // In clock order, so a tick that reads the list from where it got to can never
+  // miss one and go back for it later.
+  for (let i = 1; i < calls.length; i += 1) assert.ok(calls[i].at >= calls[i - 1].at);
+
+  // The person a call names is the person the day gives that window — the same
+  // answer the person rows are drawn from, so a call and the row it came from
+  // cannot name two different people.
+  const rows = peopleRows(mods);
+  for (const c of calls) {
+    const row = rows.find((x) => x.person === c.who);
+    assert.ok(row, `a call names person ${c.who}, who has no row`);
+    assert.ok(row.items.some((i) => i.from === c.from && i.module === c.module),
+      `${c.name} is called for person ${c.who}, who is not on that job`);
+  }
+  // Her fold: the first rest is a rest and nothing else, and the one after it ends
+  // in a one-minute fold — so the first call of the fold's day comes the minute
+  // before that fold and not at the minute of it. The fold is at 51 (the batch
+  // starts at 21 and its first rest runs 31 minutes) and the call is at 50.
+  const fold = calls.find((c) => c.module === "solo_fold");
+  assert.ok(fold, "the fold's own day has no call in it");
+  assert.equal(fold.at, 50, "the fold is not called a minute before it happens");
+  assert.equal(fold.from, 51, "the fold's own minute moved");
 });

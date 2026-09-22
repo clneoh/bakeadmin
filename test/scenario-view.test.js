@@ -35,6 +35,15 @@ function createEl(tag) {
     getAttribute(k) { return this.attrs[k]; },
     getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 400 }; },
     focus() {}, click() {},
+    // A real node detaches itself from its parent and this one has to as well:
+    // a call card that could only be "removed" by the shim quietly doing nothing
+    // would let a dismissed announcement sit on the screen in every test.
+    remove() {
+      if (!this.parent) return;
+      const i = this.parent.children.indexOf(this);
+      if (i >= 0) this.parent.children.splice(i, 1);
+      this.parent = null;
+    },
     querySelector() { return null; },
   };
 }
@@ -50,6 +59,15 @@ globalThis.document = {
 };
 globalThis.setTimeout = (fn) => { fn(); return 1; };
 globalThis.clearTimeout = () => {};
+// The live clock's tick. The run holds a real interval in a browser and a handle
+// here, so a test can drive the day a minute at a time instead of waiting for it.
+const ticks = [];
+globalThis.setInterval = (fn) => { ticks.push(fn); return ticks.length; };
+globalThis.clearInterval = () => {};
+// The wall clock the run measures itself against. Frozen, so a call's minute is
+// an assertion rather than a race — and moved on by hand to walk the day.
+let NOW = new Date("2026-09-22T09:00:00").getTime();
+Date.now = () => NOW;
 if (typeof crypto === "undefined" || !crypto.randomUUID) {
   globalThis.crypto = { randomUUID: () => "00000000-0000-4000-8000-000000000000" };
 }
@@ -61,7 +79,7 @@ globalThis.localStorage = {
 };
 
 const { renderScenario } = await import("../admin/js/views/scenario.js");
-const { ONE_BAKER_SCENARIO, climbSteps, computeScenario } = await import("../admin/js/scenario.js");
+const { ONE_BAKER_SCENARIO, climbSteps, computeScenario, callWindows } = await import("../admin/js/scenario.js");
 
 // Every element under `root`, depth-first, in document order.
 function walk(root, out = []) {
@@ -112,6 +130,13 @@ const bandsOf = (bar) => (bar.children || []).filter((c) => c.nodeType === 1 && 
 const cyclesOf = (bar) => (bar.children || []).filter((c) => c.nodeType === 1 && hasClass(c, "tl-cycle"));
 // The shade class of a cycle segment, as `shade-N`.
 const shadeOf = (seg) => (String(seg.className).match(/shade-\d+/) || [""])[0];
+// The batch numbers drawn above the bars of the row named `name`.
+function tagsFor(root, name) {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes(name));
+  assert.ok(row, `no timeline row named ${name}`);
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  return walk(track).filter((n) => hasClass(n, "tl-btag"));
+}
 
 test("the fold is drawn at its own minute, at the end of its rest", () => {
   const { root } = render();
@@ -298,4 +323,240 @@ test("the cycles box does not call a cycle a step (v150)", () => {
   assert.match(src, /Each cycle is one piece of this module's work/);
   assert.doesNotMatch(src, /one step of this module/, "the screen still teaches 'step' for a cycle");
   assert.doesNotMatch(src, /the separate steps of that batch/);
+});
+
+// ── Batch numbers on the day (v151) ────────────────────────────────────────
+// Her ask, 22 Sep 2026: "I want the each batch to be labeled, B=?, small word
+// above it drown batch at every module, every production line."
+
+test("every bar of every module carries its own batch number (v151)", () => {
+  const { root } = render();
+  const tags = walk(root).filter((n) => hasClass(n, "tl-btag"));
+  assert.ok(tags.length > 0, "no batch numbers on the chart at all");
+  // One per drawn batch, numbered from B1, and each one names the batch its bar
+  // does — that data-k is what makes the number a handle and not just a label.
+  for (const t of tags) {
+    assert.match(textOf(t).trim(), /^B\d+( Δt=\+\d+)?$/, `a batch number reads "${textOf(t).trim()}"`);
+    assert.ok(t.attrs["data-k"] != null, "a batch number carries no batch to open");
+    assert.ok(px(t, "left") != null, "a batch number is not placed over its bar");
+  }
+  // The fold runs four batches in the day, so its row wears four.
+  assert.equal(tagsFor(root, "The rests and the stretch and folds").length, 4);
+});
+
+test("a module she has two of wears a number on every one of its lines (v151)", () => {
+  // Two ovens. The module is drawn as two lines, one under the other, and every
+  // bar on both of them is a batch she has to be able to tell apart.
+  const modules = ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_oven" ? { ...m, count: 2, overlap: false } : m));
+  const { root } = render({ modules });
+  const block = walk(root).find((n) => hasClass(n, "tl-block") && textOf(n).includes("The oven swap and the bake"));
+  assert.ok(block, "a module she has two of is not drawn as two lines");
+  const tags = walk(block).filter((n) => hasClass(n, "tl-btag"));
+  // Four batches down two lines: two lots each, and every one of the four bars
+  // numbered. A batch number on only the first line would leave half the day
+  // unlabelled — which is exactly the module she asked to have labelled.
+  assert.equal(tags.length, 4, `two lines of four batches drew ${tags.length} numbers`);
+  // The batches are the MODULE's, not the line's: the odd lots take line one and
+  // the even lots line two, so both lines together are B1 to B4 and neither line
+  // repeats a number.
+  const shown = tags.map((t) => textOf(t).trim()).sort();
+  assert.deepEqual(shown, ["B1", "B2", "B3", "B4"]);
+});
+
+test("a duplicated module is a copy of it, not a new module (v151)", () => {
+  const { root, state } = render();
+  const before = state.settings.scenario.modules.length;
+  const fold = state.settings.scenario.modules.find((m) => m.id === "solo_fold");
+
+  // Open the fold's own editor the way she does — by tapping its row.
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes("The rests and the stretch and folds"));
+  row.dispatchEvent({ type: "click" });
+  const btn = walk(layers["popup-layer"]).find((n) => n.tagName === "BUTTON" && /Duplicate this module/.test(textOf(n)));
+  assert.ok(btn, "the module editor offers no way to duplicate it");
+  btn.dispatchEvent({ type: "click" });
+
+  const mods = state.settings.scenario.modules;
+  assert.equal(mods.length, before + 1, "duplicate did not add exactly one module");
+  const at = mods.findIndex((m) => m.id === "solo_fold");
+  const copy = mods[at + 1];
+  assert.ok(copy && copy.id !== "solo_fold", "the copy is not a module of its own");
+  assert.equal(copy.name, `${fold.name} (copy)`);
+  // The copy carries the source's work verbatim. A new module's defaults are
+  // exactly what must NOT reach it — retyping four cycles is the chore this
+  // button exists to remove, and a copy that arrived as a fresh 20-minute module
+  // would be that chore with extra steps.
+  assert.deepEqual(copy.cycles, fold.cycles, "the copy did not carry the source's cycles");
+  assert.equal(copy.everyMin, fold.everyMin);
+  assert.equal(copy.repeats, fold.repeats);
+  assert.equal(copy.batch, fold.batch);
+  assert.equal(copy.person, fold.person);
+});
+
+// ── Her people (v151) ─────────────────────────────────────────────────────
+// Her ask: "we should be allow to change person1 to a name, person2 to a name"
+// — and her report on why she could not: "in the person card, now person card is
+// not accessible". The row had no handler of any kind.
+
+test("the person row opens their card, and a name typed there is the name on the chart (v151)", () => {
+  const { root, state } = render();
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "tappable") && textOf(n).includes("Person 1"));
+  assert.ok(row, "the person row is not a tappable row");
+  row.dispatchEvent({ type: "click" });
+
+  const field = walk(layers["popup-layer"]).find((n) => n.tagName === "INPUT" && n.attrs.type === "text");
+  assert.ok(field, "the person card has no name field");
+  field.value = "Ah Hock";
+  field.dispatchEvent({ type: "input" });
+
+  // Kept in the app's settings, not in the scenario: person numbers restart at 1
+  // in every scenario, so a name has to belong to the person and not to the line.
+  assert.equal(state.settings.personNames[1], "Ah Hock");
+  assert.match(textOf(root), /Ah Hock/, "the chart still calls them Person 1");
+  assert.doesNotMatch(textOf(root), /👤 Person 1/);
+
+  // The card she is typing in follows too. It is not rebuilt — that is what keeps
+  // the cursor in the box — so its own two mentions of the person are rewritten by
+  // hand, and a card that went on saying "Call Person 1" over a row that said
+  // "Ah Hock" is the card telling her the name did not take.
+  const layer = textOf(layers["popup-layer"]);
+  assert.match(layer, /👤 Ah Hock/, "the card's own title still says Person 1");
+  assert.match(layer, /Call Ah Hock a minute before their next job/);
+  assert.doesNotMatch(layer, /Call Person 1/);
+});
+
+// ── The live clock (v151) ─────────────────────────────────────────────────
+// Her answer when asked how the announcement should be triggered: "A live
+// clock". One minute before each job a person owns, in their own colour, with
+// their name and a sound — and an unacknowledged call is replaced by the next.
+
+function startTheDay(root) {
+  NOW = new Date("2026-09-22T09:00:00").getTime();
+  ticks.length = 0;
+  const btn = walk(root).find((n) => n.tagName === "BUTTON" && /Start the day now/.test(textOf(n)));
+  assert.ok(btn, "no way to start the day");
+  btn.dispatchEvent({ type: "click" });
+  assert.equal(ticks.length, 1, "the day is not walking");
+  return () => ticks[ticks.length - 1]();
+}
+const minutesLater = (base, min) => { NOW = base + min * 60000; };
+const callsOnChart = (root) => walk(root).filter((n) => hasClass(n, "tl-call"));
+
+test("the call comes a minute before the job, and names the person and the job (v151)", () => {
+  const { root, state } = render();
+  const tick = startTheDay(root);
+  const calls = callWindows(state.settings.scenario);
+  // The second call of the day, so the first one's own minute is behind us and
+  // the assertion is about where the call lands rather than about starting the
+  // day at all.
+  const second = calls.filter((c) => c.at > 0)[0];
+  assert.ok(second, "the seeded day has no second call to test with");
+
+  const base = NOW;
+  minutesLater(base, second.at - 1); tick();
+  minutesLater(base, second.at); tick();
+
+  const shown = callsOnChart(root);
+  assert.equal(shown.length, 1, "the day drew no call, or drew more than one");
+  assert.match(textOf(shown[0]), new RegExp(second.name.slice(0, 12)));
+  // One minute early and not at the minute: a call is a call to go and stand
+  // somewhere, and her fold is a one-minute job.
+  assert.match(textOf(shown[0]), /— 0\d:\d\d from now/);
+  assert.ok(hasClass(shown[0], "tl-call"));
+});
+
+test("a person whose calls are switched off is not called (v151)", () => {
+  const { root, state } = render();
+  const calls = callWindows(state.settings.scenario);
+  const second = calls.filter((c) => c.at > 0)[0];
+  state.settings.personCalls = { [second.who]: false };
+
+  const tick = startTheDay(root);
+  const base = NOW;
+  minutesLater(base, second.at - 1); tick();
+  minutesLater(base, second.at); tick();
+
+  // Nobody was called for that job. (Another person's call in the same minute
+  // would still be theirs to make, so this asks about the one person, not about
+  // the screen being empty.)
+  const wrong = callsOnChart(root).filter((n) => new RegExp(second.name.slice(0, 12)).test(textOf(n)));
+  assert.equal(wrong.length, 0, "a person she switched off was called anyway");
+});
+
+test("an unacknowledged call is replaced by the next, and OK dismisses one (v151)", () => {
+  const { root, state } = render();
+  const tick = startTheDay(root);
+  const calls = callWindows(state.settings.scenario);
+  const base = NOW;
+
+  // Walk to the next two calls without ever pressing OK.
+  const first = calls[0];
+  minutesLater(base, first.at); tick();
+  const one = callsOnChart(root);
+  assert.equal(one.length, 1, "the first call never arrived");
+
+  // OK takes it away.
+  const ok = walk(one[0]).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "OK");
+  assert.ok(ok, "the call carries no OK");
+  ok.dispatchEvent({ type: "click" });
+  assert.equal(callsOnChart(root).length, 0, "OK did not take the call away");
+
+  // And the next one is not queued behind it: it is simply the next call.
+  const last = calls[calls.length - 1];
+  minutesLater(base, last.at); tick();
+  const again = callsOnChart(root);
+  assert.equal(again.length, 1, "the next call did not arrive after the first was dismissed");
+  assert.match(textOf(again[0]), new RegExp(last.name.slice(0, 12)));
+});
+
+test("the call carries the cycle's name when she has given it one, and nothing when she has not (v151)", () => {
+  // One module, one batch, starting a minute into the day — so the call at minute
+  // 0 is unambiguously the one the assertions are about.
+  const one = (name) => ({
+    id: "solo", icon: "🥣", name: "Mixing the dough in the tub", job: "mix", on: true, person: 0,
+    cycles: [{ name, min: 20, load: 20, unload: 0 }],
+    batch: 6, everyMin: 0, repeats: 1, startMin: 1, people: 1,
+  });
+  const callFor = (name) => {
+    const { root } = render({ modules: [one(name)] });
+    const tick = startTheDay(root);
+    minutesLater(NOW, 0); tick();
+    const shown = callsOnChart(root);
+    assert.equal(shown.length, 1, `no call arrived for a ${name ? "named" : "unnamed"} cycle`);
+    return shown[0];
+  };
+
+  // Unnamed: no line at all. This is the assertion that catches the imported
+  // trim() — it is production.js's NUMBER formatter, so trim("") answers "0" and
+  // the card went out printing a bare 0 above the clock.
+  const bare = callFor("");
+  assert.equal(walk(bare).filter((n) => hasClass(n, "tl-call-cyc")).length, 0,
+    "an unnamed cycle drew a line of its own");
+
+  // Named: the line is there and it is her own words. "The rests and the stretch
+  // and folds" is not a thing anybody can go and do, which is why the cycle's own
+  // name is worth saying at all.
+  const named = callFor("The fold");
+  const line = walk(named).find((n) => hasClass(n, "tl-call-cyc"));
+  assert.ok(line, "a cycle she named is not on the call");
+  assert.match(textOf(line), /The fold/);
+});
+
+test("Stop takes the clock and any call away with it (v151)", () => {
+  const { root, state } = render();
+  const tick = startTheDay(root);
+  const calls = callWindows(state.settings.scenario);
+  minutesLater(NOW, calls[0].at); tick();
+  assert.equal(callsOnChart(root).length, 1);
+
+  const stop = walk(root).find((n) => n.tagName === "BUTTON" && /Stop/.test(textOf(n)));
+  assert.ok(stop, "no way to stop the day once it is walking");
+  stop.dispatchEvent({ type: "click" });
+  assert.equal(callsOnChart(root).length, 0, "a call survived Stop");
+  // The now-line is gone too — it is hidden rather than removed, so the class is
+  // what to ask about.
+  const nowLine = walk(root).find((n) => hasClass(n, "tl-now"));
+  assert.ok(nowLine && nowLine.hidden, "the now-line is still drawn after Stop");
+  // And the walk is over, so a later tick cannot call anybody.
+  minutesLater(NOW, calls[calls.length - 1].at); tick();
+  assert.equal(callsOnChart(root).length, 0, "a stopped day went on calling");
 });
