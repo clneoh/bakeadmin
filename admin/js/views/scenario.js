@@ -553,8 +553,10 @@ function dayCard(r, sc, on, state, run) {
 // Where the backward calculation lives, said on the day rather than left to be
 // found. v148's lesson was that the only button that applied a nine-rung ladder
 // sat four phone screens below its own heading and she reported it as missing, so
-// the one control that moves the whole day names itself here and names the bar to
-// tap. Null on a day that has no such moment — a line of a single module is not a
+// the control that moves the whole day names itself here — and since v153 it also
+// names the button, because the two doors onto this move are not the same door:
+// the row does it on the spot, the bar's card lays the whole chain out first.
+// Null on a day that has no such moment — a line of a single module is not a
 // chain, and nothing hangs from it.
 function dayBackSignpost(r, sc) {
   const owner = dayEndOf(r, sc);
@@ -562,9 +564,11 @@ function dayBackSignpost(r, sc) {
   if (!batch1) return null;
   return el("p", { class: "card-sub", style: "margin:0 0 8px" },
     `Your first batch comes out of ${owner.name} at ` +
-    `${clockAt(r.dayStartMin, batch1.end)}. Tap that bar — batch 1 of ${owner.name} — ` +
-    "and its card works the whole day back from that moment: every module above it " +
-    "gets its latest start, and one button takes the slack out.");
+    `${clockAt(r.dayStartMin, batch1.end)}, and that is the moment your day hangs ` +
+    `from. Work the day backwards from it and every module above gets its latest ` +
+    `start. The button in the row under this chart does it in one press; tapping ` +
+    `batch 1 of ${owner.name} — the B1 above its first bar — opens the same move ` +
+    `with the whole chain laid out before you press it, which is the one to read first.`);
 }
 
 // Her rule's other half, said out loud: "say when it does not". A module whose
@@ -598,9 +602,11 @@ function controlsRow(r, sc, on, state, run) {
   // per line rather than per module, so it is also when its label has to change.
   const jobs = r.modules.filter((m) => m.on !== false && Number(m.touchMin) > 0);
   const lineJobs = jobs.reduce((t, m) => t + Math.max(1, m.lines || 0), 0);
-  // The moment her day hangs from, if there is a line to hang one from at all.
-  const dayOwner = dayEndOf(r, sc);
-  const dayEndBatch = dayOwner && (dayOwner.passes || [])[0];
+  // The moment her day hangs from, if there is a line to hang one from at all. It
+  // is the row's label and never a control of its own: the pressable thing in this
+  // group is the button, so nothing beside it has to look like one.
+  const dayEndOwner = dayEndOf(r, sc);
+  const dayEndBatch = dayEndOwner && (dayEndOwner.passes || [])[0];
   return el("div", { class: "tl-ctl" },
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Scale"),
@@ -660,20 +666,50 @@ function controlsRow(r, sc, on, state, run) {
         type: "button", class: "tl-chip",
         onclick: () => chainPopup(r, sc, on),
       }, chainedCount(r) ? `${chainedCount(r)} waits above` : "Not chained")),
-    // The signpost to the day-backwards card, because a control that lives behind
-    // a tap on one particular bar is a control she has to be told about — she
-    // reported exactly that of the climb's button in v148, sitting four screens
-    // below its own heading. The chip names the moment her day hangs from and says
-    // where that moment is tapped; it does not do the work for her, because the
-    // card is where she sees the whole chain before she presses anything.
-    dayEndBatch
-      ? el("div", { class: "tl-ctl-group" },
-        el("span", { class: "tl-ctl-lab" }, "Your day backwards"),
-        el("button", {
+    // The day worked backwards, as a real button in the row rather than only behind
+    // a tap on one particular bar.
+    //
+    // v152 first shipped this place as a chip that NAMED the moment and then told
+    // her which bar to tap, and she reported it as what it looks like: "why no
+    // button for work backward, this is to reeposition the batches latest start
+    // time". A control shaped like a button whose whole effect is to send her
+    // elsewhere is a control that reads as dead. So this one does the work — the
+    // card's own press, one press, no card in the way — and the card keeps the
+    // whole chain laid out and the way back.
+    //
+    // It is drawn on every line, including one already worked back and one too
+    // short to work back along, because a button that comes and goes reads as a
+    // fault. On a finished day the press says so and writes nothing, which
+    // moveDayBack already answers; on a line with no module above its last one the
+    // card does not exist at all, so saying so is workDayBack's own job.
+    el("div", { class: "tl-ctl-group" },
+      el("span", { class: "tl-ctl-lab" },
+        dayEndBatch
+          ? `Your day backwards · first batch out ${clockAt(r.dayStartMin, dayEndBatch.end)}`
+          : "Your day backwards"),
+      el("button", {
+        type: "button", class: "tl-chip",
+        // No popup to repaint from here: on.refresh() already redraws this whole
+        // card, and this row is inside it. moveDayBack takes a second repaint for
+        // the popup that opened it; from the row there is none to give it.
+        onclick: () => workDayBack(r, sc, on, () => {}, run),
+      }, "Work the day backwards"),
+      // The way back, on the button that moved the day, and only while there is
+      // something to put back — Stop beside Start's pattern. Without it a press
+      // from here would move her whole day and leave the undo three taps away on
+      // one bar, which is the same hunt this button exists to end.
+      //
+      // `run` and never `state`: the snapshot lives on the screen's own record, so
+      // a press here and a press on the card share one snapshot and one way back.
+      // Writing it to the saved state instead would put it in her data blob, where
+      // a reload would resurrect a day she has since left and offer to put her
+      // times back to a shape that is no longer hers.
+      run.dayBefore
+        ? el("button", {
           type: "button", class: "tl-chip",
-          onclick: () => toast(`Your first batch comes out of ${dayOwner.name} at ${clockAt(r.dayStartMin, dayEndBatch.end)}. Tap batch 1 of that module — the B1 above its first bar — to work the day backwards from that moment.`),
-        }, `First batch out ${clockAt(r.dayStartMin, dayEndBatch.end)}`))
-      : null,
+          onclick: () => undoDayBack(r, sc, on, () => {}, run),
+        }, "Put my start times back")
+        : null),
     el("div", { class: "tl-ctl-group" },
       el("span", { class: "tl-ctl-lab" }, "Walk the day"),
       el("button", {
@@ -1396,7 +1432,7 @@ function dayEndOf(r, sc) {
 // pressed time and a typed one are the same answer, and when the model's own rule
 // puts the batch somewhere else she is told which rule it was — the same sentence
 // the drag used to give.
-function batchPopup(m, live, sc, on, k, state) {
+function batchPopup(m, live, sc, on, k, hold) {
   const n = live.repeatsHeld || live.repeats || 1;
   // The last module in the build is not one batch among many: its first batch is
   // the moment the whole day hangs from, and its card is the day's own card. The
@@ -1418,7 +1454,7 @@ function batchPopup(m, live, sc, on, k, state) {
     const end = p ? p.end : at + (here.cycleMin || 0);
     const free = !live.follow;
 
-    if (isDay) return dayBackCard(r, live, sc, on, refresh, state, end);
+    if (isDay) return dayBackCard(r, live, sc, on, refresh, hold, end);
 
     // The first module has nothing above it to hold a batch back FROM, so a move
     // there is its own start time — which is what every move has always been.
@@ -1517,7 +1553,7 @@ function batchPopup(m, live, sc, on, k, state) {
 // module's batch 1 IS its own start time and the first thing in the day, so it
 // keeps that meaning; the END of the first batch at the last module is the
 // moment her whole day is hung from, whatever that last thing happens to be.
-function dayBackCard(r, live, sc, on, refresh, state, anchor) {
+function dayBackCard(r, live, sc, on, refresh, hold, anchor) {
   const latest = latestStarts(r.on);
   const dayEnd = r.on.reduce((t, f) => Math.max(t, f.endMin), 0);
   const rows = [];
@@ -1550,12 +1586,12 @@ function dayBackCard(r, live, sc, on, refresh, state, anchor) {
       el("button", {
         type: "button",
         "aria-label": `the whole day ${by} minute${by === 1 ? "" : "s"} earlier`,
-        onclick: () => shiftDay(r, sc, on, refresh, state, -by),
+        onclick: () => shiftDay(r, sc, on, refresh, hold, -by),
       }, `− ${by} min`),
       el("button", {
         type: "button",
         "aria-label": `the whole day ${by} minute${by === 1 ? "" : "s"} later`,
-        onclick: () => shiftDay(r, sc, on, refresh, state, by),
+        onclick: () => shiftDay(r, sc, on, refresh, hold, by),
       }, `+ ${by} min`)),
     el("div", { class: "hint" },
       "This moves the WHOLE day, every module of it by the same amount, so the " +
@@ -1585,7 +1621,7 @@ function dayBackCard(r, live, sc, on, refresh, state, anchor) {
     loose
       ? el("div", { class: "field" },
         button("Pull them back to their latest start",
-          () => moveDayBack(r, sc, on, refresh, state), "primary"),
+          () => moveDayBack(r, sc, on, refresh, hold), "primary"),
         el("div", { class: "hint" },
           `This moves the ${loose} module${loose === 1 ? "" : "s"} that can still ` +
           "come later, and leaves every other one exactly where it is. It writes " +
@@ -1602,9 +1638,9 @@ function dayBackCard(r, live, sc, on, refresh, state, anchor) {
     // The way back. The day she had before her first press is kept once, in this
     // screen's own memory, so working the day backwards is a calculation she can
     // try rather than a door that closes behind her.
-    state.dayBefore
+    hold.dayBefore
       ? el("div", { class: "field" },
-        button("Put my start times back", () => undoDayBack(r, sc, on, refresh, state), "ghost"),
+        button("Put my start times back", () => undoDayBack(r, sc, on, refresh, hold), "ghost"),
         el("div", { class: "hint" },
           "Every module's start time, exactly as it was before your first press " +
           "on this card. It lasts while you are on this screen — nothing about it " +
@@ -1617,10 +1653,10 @@ function dayBackCard(r, live, sc, on, refresh, state, anchor) {
 // card and never overwritten by a later one, so the way back is the day she
 // began with rather than the step before the last one. Only modules that are
 // switched on are kept, because only those are the ones a press writes.
-function takeDayBefore(r, sc, state) {
-  if (state.dayBefore) return;
+function takeDayBefore(r, sc, hold) {
+  if (hold.dayBefore) return;
   const ids = new Set(r.on.map((f) => f.id));
-  state.dayBefore = sc.modules
+  hold.dayBefore = sc.modules
     .filter((m) => ids.has(m.id))
     .map((m) => ({ id: m.id, starts: m.starts, startMin: m.startMin }));
 }
@@ -1638,11 +1674,11 @@ function takeDayBefore(r, sc, state) {
 // chain — her hands are not something a measurement can see — so anything the
 // line pushes later than its latest start stays later, and the reading back at
 // the end says what actually happened rather than what was asked for.
-function moveDayBack(r, sc, on, refresh, state) {
+function moveDayBack(r, sc, on, refresh, hold) {
   const latest = latestStarts(r.on);
   if (!latest.size) return;
   const wasAt = new Map(r.on.map((f) => [f.id, Number(f.startMin) || 0]));
-  takeDayBefore(r, sc, state);
+  takeDayBefore(r, sc, hold);
 
   for (const m of sc.modules) {
     const want = latest.get(m.id);
@@ -1677,6 +1713,29 @@ function moveDayBack(r, sc, on, refresh, state) {
     : "Every module of your line is already as late as it can go — there is nothing left to pull back.");
 }
 
+// The same press, made from the day's own controls row.
+//
+// It IS the card's press and nothing else — one writer, one wording, one snapshot
+// and one way back — so a press from the row and a press from the card are the
+// same day, and neither can drift from the other.
+//
+// The one thing it answers for itself is a line with no module above its last one.
+// There the card does not exist and never has, because dayEndOf has nothing to
+// give it, so a press that drew nothing would look broken. It says which of the
+// two it is instead of inventing a move: a single module's first batch is that
+// module's own start time, and there is no chain above it to measure a latest
+// start against.
+function workDayBack(r, sc, on, refresh, hold) {
+  if (!dayEndOf(r, sc)) {
+    toast("This line has no module above its last one, so there is no chain to " +
+      "work back along: the first batch of your only module is simply that " +
+      "module's own start time. Add a module below it and every one above gets " +
+      "its latest start.");
+    return;
+  }
+  moveDayBack(r, sc, on, refresh, hold);
+}
+
 // What the pressing cost her hands, when it cost her any.
 //
 // A backwards pass is only ever asked about the CHAIN — the modules' own minutes.
@@ -1701,7 +1760,7 @@ function peopleNote(before, after) {
 // module's first batch is written, and its own pace carries the rest. A day whose
 // first module is already at midnight cannot move earlier at all, and that is said
 // rather than pressed into nothing.
-function shiftDay(r, sc, on, refresh, state, by) {
+function shiftDay(r, sc, on, refresh, hold, by) {
   const list = r.on.map((f) => ({ f, at: Number(f.startMin) || 0 }));
   if (!list.length) return;
   const lowest = list.reduce((t, x) => Math.min(t, x.at), Infinity);
@@ -1710,7 +1769,7 @@ function shiftDay(r, sc, on, refresh, state, by) {
     toast("Your first module already starts at midnight, so the whole day cannot move any earlier.");
     return;
   }
-  takeDayBefore(r, sc, state);
+  takeDayBefore(r, sc, hold);
   for (const { f, at } of list) {
     const live = sc.modules.find((m) => m.id === f.id);
     if (live) writeBatchStart(live, 0, at + step);
@@ -1734,15 +1793,15 @@ function shiftDay(r, sc, on, refresh, state, by) {
 // rather than re-deriving a time is deliberate — a module whose spacing was Auto
 // before the press must have no stored list at all afterwards either, or it
 // would come back as an even spacing she never asked for.
-function undoDayBack(r, sc, on, refresh, state) {
-  for (const keep of state.dayBefore || []) {
+function undoDayBack(r, sc, on, refresh, hold) {
+  for (const keep of hold.dayBefore || []) {
     const live = sc.modules.find((m) => m.id === keep.id);
     if (!live) continue;
     if (keep.starts == null) delete live.starts;
     else live.starts = keep.starts;
     live.startMin = keep.startMin;
   }
-  state.dayBefore = null;
+  hold.dayBefore = null;
   on.persist();
   on.refresh();
   refresh();

@@ -593,6 +593,24 @@ const popupBody = () => textOf(layers["popup-layer"]);
 const popupButton = (re) => walk(layers["popup-layer"]).find((n) => n.tagName === "BUTTON" && re.test(textOf(n)));
 const starts = (state, id) => computeScenario(state.settings.scenario).modules.find((m) => m.id === id).starts;
 
+// The day-backwards group of the controls row, found by its own label rather than
+// by a button's words: the day's own card carries buttons with the same words on
+// them, so text alone cannot tell the row from the card.
+function dayBackGroup(root) {
+  const label = walk(root).find((n) => hasClass(n, "tl-ctl-lab") && /Your day backwards/.test(textOf(n)));
+  assert.ok(label, "the controls row has no day-backwards group");
+  const el = walk(root).find((n) => hasClass(n, "tl-ctl-group") && (n.children || []).includes(label));
+  assert.ok(el, "the day-backwards label is not the label of a group in the row");
+  return { el, label, button: (re) => walk(el).find((n) => n.tagName === "BUTTON" && re.test(textOf(n))) };
+}
+
+// The last thing the app has said, which is the press she just made.
+function lastToast() {
+  const said = walk(document.body).filter((n) => hasClass(n, "toast"));
+  assert.ok(said.length, "the press said nothing at all");
+  return textOf(said[said.length - 1]);
+}
+
 test("the backward card opens on batch 1 at the last module, and nowhere else (v152)", () => {
   const { root, state } = render();
 
@@ -734,25 +752,113 @@ test("the step pairs on the day card move the whole day and keep its shape (v152
   }
 });
 
-test("the controls row signposts the moment the day hangs from, and where it is tapped (v152)", () => {
-  // v148's lesson: the climb's apply button sat four screens below its own heading
-  // and she reported that she could not find it. A control that lives behind a tap
-  // on one particular bar needs telling where that bar is, so the chip names the
-  // moment and the module, without doing the work for her.
-  const { root } = render();
-  const chip = walk(root).find((n) => n.tagName === "BUTTON" && /First batch out/.test(textOf(n)));
-  assert.ok(chip, "nothing on the screen says where the day is hung from");
-  assert.match(textOf(chip), /9:09 am/, "the signpost does not name the moment");
-  chip.dispatchEvent({ type: "click" });
-  const said = walk(document.body).filter((n) => hasClass(n, "toast"));
-  assert.ok(said.length, "the signpost says nothing when it is tapped");
-  assert.match(textOf(said[said.length - 1]), /batch 1 of that module/,
-    "the signpost does not say which bar to tap");
+test("the day's own row works the day backwards on the spot (v153)", () => {
+  // v152 put this move behind a tap on one particular bar and left a chip in the
+  // row that only said where that bar was. She reported it as what it looks like —
+  // "why no button for work backward, this is to reeposition the batches latest
+  // start time" — so the row does the work now: one press, no card in the way, and
+  // the card keeps the chain and the way back.
+  const { root, state } = render();
+  const before = computeScenario(state.settings.scenario);
+  assert.equal(before.endMin, 570, "one baker day does not finish at 1:30 pm before the press");
 
-  // A line of a single module is not a chain at all, so there is nothing to work
-  // back through and nothing to signpost.
+  const group = dayBackGroup(root);
+  // The moment her day hangs from is a LABEL and not a second control: nothing
+  // beside the button may look pressable, because she has tapped a label that
+  // looked like a button once already and read it as a dead control.
+  assert.match(textOf(group.label), /9:09 am/, "the row does not name the moment the day hangs from");
+  assert.equal(walk(group.el).filter((n) => n.tagName === "BUTTON").length, 1,
+    "something beside the button in the day-backwards row looks pressable");
+
+  group.button(/Work the day backwards/).dispatchEvent({ type: "click" });
+
+  // Exactly the card's own press: the mix in as late as the chain allows, the
+  // anchor and the day's finish untouched, and the same pans on the shelf.
+  assert.equal(starts(state, "solo_mix")[0], 43, "the row press did not put the mix at its latest start");
+  assert.deepEqual(starts(state, "solo_mix"), [43, 130, 217, 304], "the module's own rhythm did not come with it");
+  assert.deepEqual(starts(state, "solo_oven"), [282, 369, 456, 543], "a module above did not come with the chain");
+  assert.deepEqual(starts(state, "solo_pack"), [297, 384, 471, 558], "the module the day hangs from moved");
+  const after = computeScenario(state.settings.scenario);
+  assert.equal(after.pansPerDay, 24, "the press changed how many pans the day makes");
+  assert.equal(after.endMin, 570, "the press moved the end of the day");
+
+  // And it says what it did, which is the card's own sentence rather than a second
+  // wording to keep in step.
+  const said = lastToast();
+  assert.match(said, /worked back to their latest start/, "the row press does not say what moved");
+  assert.match(said, /9:09 am/, "the row press does not read the moment back");
+});
+
+test("a day already worked back keeps the button, and it says it is done (v153)", () => {
+  // The other half of her answer: a button that vanishes once the work is done
+  // reads as a fault, which is the shape of the report this release answers.
+  const { root, state } = render();
+  dayBackGroup(root).button(/Work the day backwards/).dispatchEvent({ type: "click" });
+  assert.equal(starts(state, "solo_mix")[0], 43, "the first press did not work the day back");
+
+  const still = dayBackGroup(root).button(/Work the day backwards/);
+  assert.ok(still, "the button disappeared once the day had been worked back");
+  const was = starts(state, "solo_mix");
+  still.dispatchEvent({ type: "click" });
+  assert.deepEqual(starts(state, "solo_mix"), was, "a second press moved a day that was already tight");
+  assert.match(lastToast(), /already as late as it can go/, "a finished day does not say so");
+});
+
+test("the row carries the way back beside the button that moved the day (v153)", () => {
+  // Without this the row's press would move her whole day and leave the undo three
+  // taps away on one bar — the same hunt the row's button exists to end.
+  const { root, state } = render();
+  const was = starts(state, "solo_mix");
+  assert.equal(dayBackGroup(root).button(/Put my start times back/), undefined,
+    "the way back is offered before anything has moved");
+
+  dayBackGroup(root).button(/Work the day backwards/).dispatchEvent({ type: "click" });
+  assert.equal(starts(state, "solo_mix")[0], 43, "the press did not happen, so there is nothing to undo");
+
+  const back = dayBackGroup(root).button(/Put my start times back/);
+  assert.ok(back, "a press from the row offers no way back in the row");
+  back.dispatchEvent({ type: "click" });
+  assert.deepEqual(starts(state, "solo_mix"), was, "the row's way back did not put the day where it was");
+  assert.equal(dayBackGroup(root).button(/Put my start times back/), undefined,
+    "the way back is still offered after it was used");
+  // A module whose spacing was Auto before the press must have no stored list
+  // afterwards either, or it comes back as an even spacing she never asked for.
+  assert.equal(state.settings.scenario.modules.every((m) => m.starts === undefined), true,
+    "the way back left behind a list of times the module did not have");
+});
+
+test("the way back lives in the screen, not in her saved data (v153)", () => {
+  // The snapshot must never reach her data blob. Written there, a reload would
+  // resurrect a day she has since left and offer to put her times back to a shape
+  // that is no longer hers — and this was found by measuring the blob after a
+  // press, not by reading the code, because the two doors passed different things
+  // in and only one of them was the screen's own record.
+  const { root, state } = render();
+  dayBackGroup(root).button(/Work the day backwards/).dispatchEvent({ type: "click" });
+  assert.equal(starts(state, "solo_mix")[0], 43, "the press did not happen");
+  assert.equal(state.dayBefore, undefined, "the row press wrote its snapshot into her saved state");
+
+  // Both doors are one press: the card she would have opened first carries the way
+  // back for a day the ROW moved, because both read the one snapshot.
+  tapBar(root, "Cutting and packing", 0);
+  assert.ok(popupButton(/Put my start times back/),
+    "a press from the row leaves the card with no way back, so the two doors are not the same press");
+  assert.equal(state.dayBefore, undefined, "opening the card wrote a snapshot into her saved state");
+});
+
+test("a line with no chain says so rather than drawing a dead button (v153)", () => {
+  // A line of a single module is not a chain: its first batch is that module's own
+  // start time and there is nothing above it to measure a latest start against.
+  // The button stays where it is — it never comes and goes — and says which of the
+  // two this is instead of inventing a move.
   const one = render({ modules: [ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack")] });
-  assert.equal(
-    walk(one.root).some((n) => n.tagName === "BUTTON" && /First batch out/.test(textOf(n))),
-    false, "a one-module day was signposted to a card it does not have");
+  const group = dayBackGroup(one.root);
+  assert.doesNotMatch(textOf(group.label), /\d:\d\d/, "a one-module line named a moment it does not have");
+
+  const wasAt = one.state.settings.scenario.modules[0].startMin;
+  group.button(/Work the day backwards/).dispatchEvent({ type: "click" });
+  assert.match(lastToast(), /no module above its last one/, "a one-module line said nothing useful");
+  assert.equal(one.state.settings.scenario.modules[0].startMin, wasAt, "a one-module line was moved anyway");
+  assert.equal(dayBackGroup(one.root).button(/Put my start times back/), undefined,
+    "a line that never moved offered a way back");
 });

@@ -1,8 +1,82 @@
-# Jienluv2bake — change history (v54 → v152)
+# Jienluv2bake — change history (v54 → v153)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v153 (no database step). The day's own row works your day
+backwards — one press, and it is a button that acts instead of one that only
+tells you where to tap.**
+
+**What you asked.** Your words: *'why no button for work backward, this is to
+reeposition the batches latest start time'*. You were right, and it was about a
+control that only talked: v152 put the move behind a tap on one bar and left the
+row carrying a chip that named the moment and then told you which bar to tap. A
+thing shaped like a button whose whole effect is to send you somewhere else reads
+as a dead control, and that is what it was.
+
+1. **The button does the work now.** The row under the chart reads **Your day
+   backwards · first batch out 9:09 am**, and the one pressable thing beside it is
+   **Work the day backwards**. One press and the day is worked back on the spot —
+   no card in the way, the same seven modules pulled to their latest starts, and
+   the same message saying what moved and what it cost your hands.
+
+2. **It is the card's own press, not a second one.** Same writer, same words, same
+   snapshot, same way back — so the two doors cannot drift apart. Press from the
+   row, then open the card on batch 1 of *Cutting and packing*, and the card is
+   showing you the day the row just made, with the way back on it.
+
+3. **Pressed on a day already worked back, it says so and writes nothing.** This
+   was your own choice and it is the rule the button lives by: a button that comes
+   and goes reads as a fault, so it stays in the row on every day. On a tight day
+   the press answers *Every module of your line is already as late as it can go —
+   there is nothing left to pull back.*
+
+4. **The way back is beside the button that moved the day.** While there is
+   something to put back, the row carries **Put my start times back** next to
+   **Work the day backwards** — the pattern Stop beside Start already uses. The
+   card keeps its own copy, so the undo is either one tap away or three, and never
+   missing. It is still one-shot and still lasts only while the screen is open:
+   leave the screen and the day you pressed is the day you have.
+
+5. **A line with no chain says so, rather than drawing a dead button again.** A
+   day of a single module is not a chain — its first batch is simply that module's
+   own start time — so the button is drawn, carries no moment in its label, and
+   says in words that there is no module above the last one to work back through.
+   The fault you found is the one thing this release refuses to repeat.
+
+6. **The sentence above the chart now names the button.** It used to tell you to
+   tap batch 1 of *Cutting and packing* and stop there, which was the only door
+   v152 had. It now names both: the button in the row does it in one press, and
+   tapping batch 1 opens the same move with the whole chain laid out before you
+   press it, which is the one to read first.
+
+7. **One fault found while building it, and it was in this release's own new
+   code.** The undo works off a snapshot of the day kept in the screen's own
+   memory and never stored, and v152's card took it from the right place. The row's
+   new press first took it from the app's saved state instead, which put that
+   snapshot into your data — and a reload would then have offered you a way back to
+   a day you had already left. It was found by measuring the stored data after a
+   press rather than by reading the code, it is fixed, and there is now a test that
+   fails if the snapshot ever reaches your data again. Nothing of yours was changed
+   by it.
+
+8. **What has not moved.** Your three shelf days were compared byte-for-byte
+   before and after: *No fridge, 1 person* still reads 24 pans, *My sister
+   proposal 21/9/2026* still reads 4, and *One baker day* still reads 24 pans with
+   the first batch out at 9:09 am and the day finishing at 1:30 pm. A press
+   followed by the way back leaves the stored data byte-for-byte identical to what
+   it was — measured, not promised — and the snapshot is gone when the screen is.
+   Nothing here blocks a sale and nothing here reads an order.
+
+CHANGELOG and the guide (section 23) both carry this, both PDFs rebuilt, the
+app's own More screen reads Engine v153, and the tests are 1140 passing with none
+failing — five of them new: the row press moving the day exactly as the card
+does, a finished day keeping its button and saying it is done, the way back
+sitting beside the button that moved the day with the card offering it too, a
+line with no chain saying so instead of drawing a dead button, and the one that
+pins the snapshot out of your saved data. No database step — nothing to run in
+Supabase.
 
 **22 Sep 2026 — engine v152 (no database step). The planner can work your day
 backwards — the day hangs from your first batch, and every module gets its latest
