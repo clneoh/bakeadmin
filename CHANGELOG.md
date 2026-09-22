@@ -1,8 +1,132 @@
-# Jienluv2bake — change history (v54 → v157)
+# Jienluv2bake — change history (v54 → v158)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v158 (no database step). The Scenario planner's people
+rows come down to one line each and hold still, everything about a person moves
+into a tip on their own name, the "PEOPLE" heading is gone, and the clock ruler
+now reaches a single minute where you are zoomed in the closest.**
+
+**What you asked.** In your words: "can i have all the peoples cards noted in
+tool tips as well?", "i dont need the PEOPLE title", and "make the ruler
+resolution to 1min". Every one of those is below. Where a thing left the screen
+you told me where it should go instead: every person's own notes into the tip on
+their own name, and the ruler stepped so a minute is drawn where a minute can be
+drawn.
+
+**The people rows are one line each, and their height can no longer move.** A
+person's row used to print its own notes as text on the row - how much work they
+are carrying, how many places they have to be, and a red line when two of their
+jobs collide. That made it the only part of the chart taller than the bars beside
+it, and the only part that changed height as you worked: measured at 375 pixels,
+a row was 56 pixels on a clean day and 70 pixels when someone had a collision, so
+the whole strip measured 91 pixels one moment and 105 the next. **The strip sits
+pinned at the foot of the window**, which is what you asked for at v154 - and a
+pinned block that grows and shrinks as you scroll is a block that moves the very
+thing you are reading it against. The notes have left the row, so a person's row
+is **35 pixels** now, **on a clean day and on a day with a collision alike**, and
+the strip measures a flat 70 pixels either way. Those 35 pixels are what the row
+is: the same name cell the modules wear, and nothing else.
+
+**Everything about a person is in the tip on their own name.** Point at a
+person's name on a computer and their own box opens beside it, carrying all of
+it: who they are (the whole label, including " (with 2, 3)", which the row
+shortens), how much work they are carrying, how many places they have to be, the
+red collision line in the words it already used, and **What they do today** -
+their jobs, each with its clock, up to six of them and then a count of the rest.
+It is the same list their own card carries, from the same builder, so the tip and
+the card cannot drift apart and say different things. The tip opens from the
+**title** alone, exactly as the module tips do since v156: pointing anywhere else
+on the row does nothing, and the tint that used to follow the pointer across the
+whole row is gone. That was your own v156 instruction - "only the note should
+shot as a too tip" - now applied to the last rows on the chart that had not had
+it.
+
+**Told rather than hidden: the tip is bottom-anchored, because the last row sits
+on the bottom edge.** A module tip is centred on its row, which is what keeps a
+first or a last module's box off the edge of the window. The people strip is
+different - its last row **is** the bottom edge - so a centred box would be cut in
+half. A person's tip now sits on its row's own bottom line and grows **upward**
+into the day. Measured at the window's tightest, on a person with a collision and
+six jobs, the tallest possible tip is 196 pixels tall and it clears the clock
+strip above it with room to spare.
+
+**The widest-person trap, measured rather than promised.** A person's tip is
+taller than a module's, so its lines have to be allowed to fold - and a folding
+box inside a 156-pixel name cell collapses to the width of its widest single
+word: measured live at 66 pixels wide and 923 pixels tall, one word to a line.
+The box is now told to be as wide as its own content, and the rule carries a note
+saying why, because the fault looks like a styling detail and is not. Measured
+after: 272 by 180 pixels, sitting on its row's bottom line, inside the window.
+
+**The "PEOPLE" heading is gone.** It named what every row under it already names -
+each one wears a person glyph - so the strip is now its rows with nothing over
+them. The strip keeps its line and its shadow, so it still reads as the foot of
+the day.
+
+**The tally row's three facts are in its own tip, and on a phone they are
+unreachable.** The **People at once** row is the one you asked for: the most hands
+the day needs at once, the busiest stretch by name, and the minutes paid for
+twice. Those three facts are printed nowhere else in the app, and that row has no
+tap of its own - so once they are in a tip, a phone has no gesture that can open
+them. **You chose this, with the consequence in front of you** ("tip only, no
+card"), and it is written here rather than left to be found: on your phone those
+three facts are now unreadable. On a computer nothing is lost. Giving that row its
+own card is one line whenever you want it, and this note is the place that says
+so.
+
+**The collision is not lost by the row giving up its red line.** Under the day
+there is still a note for every collision, in full: who it is, **two jobs at once**
+with the minute it happens, both jobs named on lines of their own, and the
+sentence saying what to do about it - move one along the day, or combine with
+another person and accept it. The red outline on the bar itself is unchanged. So
+the row's red line leaving costs nothing you were reading.
+
+**The ruler now reaches a minute where a minute can be drawn.** The day is drawn
+at four scales, from 1.2 to 3.2 pixels to a minute, and a minute hairline is
+physically undrawable at the two wide ones - so the tick step follows the scale, which is
+what you chose ("a minute where it can be drawn"). **Wide** ticks every 30
+minutes, 36 pixels apart, which is the ruler you had. **Standard** ticks every 15
+minutes, 24 pixels apart. **Close** ticks every 5 minutes, 12 pixels apart. And
+**Closest** ticks every **single minute**, 3.2 pixels apart. The hour is still
+solid and labelled at every one of the four, and the half hour
+is still the dashed tick it always was - the one you judge a 15-minute pass by.
+Everything finer is a new thin hairline at reduced weight, so a ruler at Standard
+does not read as a ruler made of dashes. The count is honest: at Closest your
+24-hour window draws 1441 ticks, and a full redraw takes 2.8 milliseconds against
+2.3 at Wide - half a millisecond for the lot, so the ruler is drawn as elements
+rather than as a painted pattern.
+
+**And the cursor reads the exact minute.** The hairline that follows your pointer
+down the day used to snap to the five minutes a batch's buttons step by. That was
+stricter than the screen it reads: a batch can be nudged by **one** minute, so the
+cursor could not name a time the chart was already able to set. It reads to the
+minute now - measured, a pointer 101 minutes into the day reads **5:41 am** where
+it used to read 5:40 am - and it still refuses to name a time outside your day,
+and still hangs its label to the left at the far end of the evening.
+
+**What has not moved, measured rather than promised.** Your three saved days were
+compared before and after: **One baker day** still reads 24 pans across 8 modules,
+**No fridge, 1 person** still reads 24 pans, and **My sister proposal 21/9/2026**
+still reads 4 pans, each with the target it had. Their stored numbers were
+compared byte for byte and are untouched - the whole of this release is drawn from
+the scenario already on your phone. Nothing here blocks a sale and nothing here
+reads an order.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
+
+CHANGELOG and the guide (section 23) both carry all of this, both PDFs rebuilt and
+read back, the app's own More screen reads Engine v158, and the tests are 1174
+passing with none failing - eight of them new: that no person row prints its own
+notes and the tip carries them all, that the tip and the person's own card agree
+word for word, that a collision changes nothing about a row's shape, that the tip
+is a sibling of the name and not inside it, that the two tip rules both survive as
+file text, that the tally's three facts are in its tip and off its row, that the
+"PEOPLE" heading is gone, and that the ruler's step follows the scale at all four
+stops.
 
 **22 Sep 2026 — engine v157 (no database step). The Scenario planner's list of
 controls is much shorter and the modules window is taller: the module tags have

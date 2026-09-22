@@ -47,9 +47,7 @@ const personTone = (who) => `ptone-${((Math.max(1, Math.round(Number(who) || 1))
 // matched by eye. It cycles, so a module added later still gets a colour.
 const TONES = 8;
 
-// The nudge a batch's own buttons move it by, and the shortest bar that still
-// carries its minutes inside it.
-const SNAP_MIN = 5;
+// The shortest bar that still carries its minutes inside it.
 const LAB_MIN_PX = 26;
 
 // The narrowest a stretch of her hands is ever drawn inside a bar. A minute of
@@ -91,6 +89,20 @@ const DAY_MIN = 24 * 60;
 // the standard reading, close, and closest. Since v157 the control is a step of
 // two buttons and one of these words stands between them as the stop in force.
 const SCALE_NAMES = ["Wide", "Standard", "Close", "Closest"];
+
+// How fine the clock ruler is drawn, one entry per stop of PX_PER_MIN_CHOICES.
+//
+// Her ask of 22 September: "make the ruler resolution to 1min". A minute hairline
+// is only a reading if it can be told apart from the one beside it, and at the two
+// wide stops a minute is 1.2px and 1.6px — a solid band of them is a grey smear,
+// not a ruler. So the step follows the scale, which is her own answer ("a minute
+// where it can be drawn"): half hours across a whole day, quarter hours at the
+// standard reading, five minutes at Close, and a minute at Closest, where she is
+// lining two bars up and the minute is the thing she is looking at.
+//
+// A table and not a formula, because which step is worth drawing at which scale is
+// a reading decision, and it should be possible to read it here.
+const TICK_MIN = [30, 15, 5, 1];
 
 export function renderScenario(root, state) {
   const sc = ensureScenario(state);
@@ -842,7 +854,6 @@ function timeline(r, sc, on, state, run) {
       // at all, so the row stays where she can see it while they pass behind it.
       // See .tl-people for why it is opaque and what may draw over it.
       el("div", { class: "tl-people" },
-        el("div", { class: "tl-split" }, "People"),
         ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
         totalRow(r, trackW)),
       // The day's own reading, drawn last so it runs over every bar rather than
@@ -1105,15 +1116,35 @@ function wireTimeCursor(tl, r, cursor, lab) {
   });
 }
 
+// How many minutes the ruler steps by at the scale the day is drawn at. Nearest
+// stop, the same match the scale's own step uses — a hand-typed pixels-per-minute
+// is normalised to one of the four, so this only ever has to land on the stop she
+// is actually reading at.
+function tickStepFor(pxPerMin) {
+  const at = PX_PER_MIN_CHOICES.reduce(
+    (best, c, i) => (Math.abs(c - pxPerMin) < Math.abs(PX_PER_MIN_CHOICES[best] - pxPerMin) ? i : best), 0);
+  return TICK_MIN[at];
+}
+
 function rulerRow(r, trackW) {
+  const step = tickStepFor(r.pxPerMin || PX_PER_MIN_CHOICES[1]);
   const ticks = [];
-  for (let t = 0; t <= r.windowMin; t += 30) {
+  for (let t = 0; t <= r.windowMin; t += step) {
     const x = Math.round(t * r.pxPerMin);
     if (t % 60 === 0) {
+      // On the hour: solid, and it says the time.
       ticks.push(el("div", { class: "tl-tick", style: `left:${x}px` },
         el("span", {}, clockAt(r.dayStartMin, t))));
-    } else {
+    } else if (t % 30 === 0) {
+      // The half hour: the dashed tick that has always been here, and still the
+      // landmark a quarter-hour pass is judged against.
       ticks.push(el("div", { class: "tl-tick minor", style: `left:${x}px` }));
+    } else {
+      // Everything finer than the half hour, and it only ever appears at the two
+      // closest stops. A thin solid hairline and not a dash: sixty dashes an hour
+      // is noise on a ruler, and a dashed mark beside the half hour's dashes would
+      // read as the same kind of landmark when it is not.
+      ticks.push(el("div", { class: "tl-tick fine", style: `left:${x}px` }));
     }
   }
   return el("div", { class: "tl-row tl-ruler" },
@@ -1365,6 +1396,55 @@ function tipBody(notes) {
       : null,
     el("div", { class: "tl-sub" }, notes.when),
     el("div", { class: "tl-sub" }, notes.cost));
+}
+
+// What one person's row has to say about itself beyond their name: how much of
+// the day is theirs and how many places it puts them in, whether anything of
+// theirs collides, and the jobs themselves.
+//
+// Built here, beside the module's own notes, for exactly the same reason: two
+// places print them — the tip that opens under the pointer on a computer, and the
+// person's card, which is what a tap opens — and a second printing is how the two
+// end up telling her two stories. On a phone the tip never opens at all, so the
+// card is not a copy of it; it is the only place these words can be read.
+//
+// The cap on the list is here and not at either printing: two caps for one list is
+// the same drift in a different coat.
+const PERSON_JOB_CAP = 6;
+
+function personNotes(row, sc, state, dayStartMin) {
+  const places = placesOn(row);
+  const all = (row.items || []).map((w) => `${clockAt(dayStartMin, w.from)} — ${jobName(w)}`);
+  const jobs = all.slice(0, PERSON_JOB_CAP);
+  const clashes = row.clashes.length;
+  return {
+    who: personLabel(row, sc, state),
+    busy: row.busy,
+    places,
+    clashes,
+    clash: clashes ? (clashes === 1 ? "two jobs at once" : `${clashes} collisions`) : null,
+    jobs,
+    more: all.length - jobs.length,
+  };
+}
+
+// The tip a person's title opens on a computer: everything their row used to
+// print, and everything their card prints, in the card's own order. Their row is
+// one line and their height cannot move — a strip pinned to the foot of the panel
+// that grew a line whenever two of their jobs collided was the last thing on the
+// chart that moved while she scrolled it.
+function personTip(notes) {
+  return el("div", { class: "tl-tip tl-tip-person" },
+    el("div", { class: "tl-sub" }, `👤 ${notes.who}`),
+    el("div", { class: "tl-sub" },
+      `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? ` · in ${notes.places} places` : "")),
+    notes.clash ? el("div", { class: "tl-sub bad" }, notes.clash) : null,
+    el("div", { class: "tl-sub" },
+      el("div", { class: "tl-note-who" }, "What they do today"),
+      ...(notes.jobs.length
+        ? notes.jobs.map((j) => el("div", { class: "tl-note-job" }, j))
+        : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]),
+      notes.more > 0 ? el("div", { class: "tl-note-job" }, `…and ${notes.more} more.`) : null));
 }
 
 function moduleRow(r, m, idx, trackW, sc, on, state, run) {
@@ -2073,20 +2153,26 @@ function personRow(r, row, trackW, sc, on, state) {
 
   // How many different places this person has to be in — a line of a module counts
   // as a place of its own, which is the rule the model owns (placesOn), so it is
-  // tested there rather than here.
-  const places = placesOn(row);
+  // tested there rather than here. The whole of what the row used to print is in
+  // the notes now, built in one place with the card's.
+  const notes = personNotes(row, sc, state, r.dayStartMin);
 
   // The row is tappable, and that is the fix for what she reported: "in the person
   // card, now person card is not accessible". There was no handler here at all, so
   // the card that names her people could not be opened by any gesture.
+  //
+  // The name cell is the person and their tip and nothing else — the same two
+  // things a module's name cell holds — so a person's row is the height of its own
+  // bars and stays that height on a day where two of their jobs collide. The label
+  // is in a span of its own for the same reason a module's is: a bare string in a
+  // flex row is an anonymous flex item that no rule can reach, so without the span
+  // the ellipsis never applies and a long "(with …)" label wraps the row taller
+  // than the bars it is read against.
   return el("div", { class: `tl-row person tappable ${tone}`, onclick: () => personPopup(row, sc, on, state) },
     el("div", { class: "tl-name" },
-      el("div", { class: "tl-name-top" }, `👤 ${personLabel(row, sc, state)}`),
-      el("div", { class: "tl-sub" }, `${hoursAndMinutes(row.busy)} of work` +
-        (places > 1 ? ` · in ${places} places` : "")),
-      row.clashes.length
-        ? el("div", { class: "tl-sub bad" }, row.clashes.length === 1 ? "two jobs at once" : `${row.clashes.length} collisions`)
-        : null),
+      el("div", { class: "tl-name-top" },
+        el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
+      personTip(notes)),
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
 }
 
@@ -2143,13 +2229,15 @@ function personPopup(row, sc, on, state) {
       on.persist();
     });
 
-    const jobs = (row.items || []).slice(0, 6).map((w) => el("div", { class: "tl-note-job" },
-      `${clockAt(sc.dayStartMin, w.from)} — ${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}`));
+    // The list and the numbers come from the same builder the row's tip uses, so
+    // the two cannot drift: the cap, the order and the count are decided once.
+    const notes = personNotes(row, sc, state, sc.dayStartMin);
+    const jobs = notes.jobs.map((j) => el("div", { class: "tl-note-job" }, j));
 
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `${hoursAndMinutes(row.busy)} of work` + (placesOn(row) > 1 ? `, in ${placesOn(row)} places` : "") +
-        (row.clashes.length ? `, with ${row.clashes.length} collision${row.clashes.length === 1 ? "" : "s"} to sort out.` : ", and nothing collides.")),
+        `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? `, in ${notes.places} places` : "") +
+        (notes.clashes ? `, with ${notes.clashes} collision${notes.clashes === 1 ? "" : "s"} to sort out.` : ", and nothing collides.")),
 
       el("div", { class: "field" },
         el("label", {}, "What you call them"),
@@ -2173,8 +2261,8 @@ function personPopup(row, sc, on, state) {
         el("div", { class: "tl-note" },
           el("div", { class: "tl-note-who" }, "What they do today"),
           ...(jobs.length ? jobs : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]),
-          row.items.length > jobs.length
-            ? el("div", { class: "tl-note-job" }, `…and ${row.items.length - jobs.length} more.`)
+          notes.more > 0
+            ? el("div", { class: "tl-note-job" }, `…and ${notes.more} more.`)
             : null)));
 
   }, { onTitle: (node) => { titleEl = node; } });
@@ -2265,17 +2353,29 @@ function totalRow(r, trackW) {
   // from, so the words and the shape can never disagree.
   const busiest = r.demand.segments.find((s) => s.count === r.demand.peak);
 
+  // Three facts that are printed nowhere else in the app — how many people the
+  // day's busiest minute asks for, when that minute is, and how much of the day is
+  // paid for twice — now in a tip on the row's own title, which is where every
+  // other row of the chart keeps what it has to say. The row itself is one line,
+  // the same height as every other row, so the foot of the panel holds still.
+  //
+  // Told rather than hidden: a tip opens where there is a pointer that can hover,
+  // and this row has no tap handler, so on a phone these three facts are reachable
+  // by no gesture at all. That is her own choice, made with the consequence in
+  // front of her; giving the row a card is one line of code when she wants it.
   return el("div", { class: "tl-row person total-row" },
     el("div", { class: "tl-name" },
-      el("div", { class: "tl-name-top" }, "👥 People at once"),
-      el("div", { class: "tl-sub" },
-        r.people === 1 ? "one at a time" : `up to ${r.people} at once`),
-      busiest && r.people > 1
-        ? el("div", { class: "tl-sub" }, `busiest ${clockAt(r.dayStartMin, busiest.from)}–${clockAt(r.dayStartMin, busiest.to)}`)
-        : null,
-      r.demand.overlapMin > 0
-        ? el("div", { class: "tl-sub bad" }, `${hoursAndMinutes(r.demand.overlapMin)} with two at a time`)
-        : null),
+      el("div", { class: "tl-name-top" },
+        el("span", { class: "tl-name-txt" }, "👥 People at once")),
+      el("div", { class: "tl-tip tl-tip-person" },
+        el("div", { class: "tl-sub" },
+          r.people === 1 ? "one at a time" : `up to ${r.people} at once`),
+        busiest && r.people > 1
+          ? el("div", { class: "tl-sub" }, `busiest ${clockAt(r.dayStartMin, busiest.from)}–${clockAt(r.dayStartMin, busiest.to)}`)
+          : null,
+        r.demand.overlapMin > 0
+          ? el("div", { class: "tl-sub bad" }, `${hoursAndMinutes(r.demand.overlapMin)} with two at a time`)
+          : null)),
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
 }
 

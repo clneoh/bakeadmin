@@ -2771,11 +2771,22 @@ tr.po-covered td { color: var(--muted); }
 .tl-row.person { background: var(--strip); }
 .tl-row.person .tl-name { background: var(--strip); }
 .tl-row.person .tl-bar { top: 12px; height: 11px; }
-.tl-split {
-  position: sticky; left: 0;
-  font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
-  padding: 8px 0 3px;
-}
+/* A person's tip and the tally's tip are blocks of reading rather than sets of
+   one-liners: a job line is a module's name with a clock and a line number in
+   front of it, and "4:21 am — The rests and the stretch and folds, line 1" is
+   wider than the box is ever allowed to be. So the box folds instead of running
+   past the width it is given — the same fix the module's tag line got in v157.
+   The width has to be said out loud here, and that is not tidiness. An absolutely
+   positioned box with only its left edge set is shrink-to-fit, and it measures
+   itself against the 156px name cell it hangs off — already narrower than the 162px
+   the box starts at, so the room for it is a negative number. With the module tip's
+   nowrap that does no harm, because a line that may not break can only be its own
+   width; allow it to break, as this one must, and the same box collapses to its
+   widest single word — measured at 66px wide and 923px tall on her own day, one
+   word to a line. max-content asks for the width the words actually want and
+   max-width then caps it, so the box is as wide as it can usefully be and folds
+   only past the cap. */
+.tl-tip-person { white-space: normal; width: max-content; }
 /* The clock strip is the chart's own header and it stays at the top of the panel
    while the rows scroll under it — the pinned header is the whole reason the
    chart is a panel. It needs its own background to be something to scroll under,
@@ -2798,7 +2809,19 @@ tr.po-covered td { color: var(--muted); }
   background: var(--surface);
   border-top: 1px solid var(--line);
   box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
+  /* No overflow, and that is load-bearing: the rows in here carry hover tips, and
+     any overflow other than visible would clip them. Nothing in this block needs
+     to scroll — a row is the height of its own bars, so the strip's height is
+     whatever its rows add up to. */
 }
+/* A tip inside the strip at the foot of the panel opens UPWARD.
+   The module tip is centred on its row, which is what keeps a first or last
+   module's box inside the panel — but the tally sits ON the panel's bottom edge,
+   and a centred box there would be cut in half by it. So the box's foot is put on
+   the row's own foot and it grows up into the scrollport, where the room is.
+   An override and not a rewrite: the module rows still need the centring, and the
+   rule above it is what a v157 test stands on. */
+.tl-people .tl-tip { top: auto; bottom: 0; transform: none; }
 .tl-ruler .tl-sub { padding-top: 2px; }
 .tl-tick {
   position: absolute; top: 0; bottom: 0;
@@ -2809,6 +2832,12 @@ tr.po-covered td { color: var(--muted); }
 /* The half hour between the hours: enough to judge a 15-minute pass by, not
    enough to clutter a day. */
 .tl-tick.minor { border-left: 1px dashed var(--line); opacity: .7; }
+/* Everything finer than the half hour, and it only appears where the scale can
+   draw it at all (TICK_MIN in the screen): a quarter hour at the standard
+   reading, five minutes at Close, a minute at Closest. A solid hairline at low
+   opacity rather than a dash — sixty dashes an hour is noise on a ruler, and a
+   dash beside the half hour's dashes would read as the same landmark. */
+.tl-tick.fine { border-left: 1px solid var(--line); opacity: .45; }
 
 /* The time cursor. A hairline down the whole day with the clock at the top of
    it, so the ruler's 8:00 becomes "8:47 is here" — the reading she needs when
@@ -2897,7 +2926,6 @@ tr.po-covered td { color: var(--muted); }
 /* The row that opens their card. It is a button in behaviour, so it reads as one:
    the whole row is the target, which is what a 36px row can afford. */
 .tl-row.person.tappable { cursor: pointer; }
-.tl-row.person.tappable:hover .tl-name { background: var(--line); }
 
 /* The clock the day is being walked against. Deliberately NOT the cursor's
    colour and not the cursor's shape: a reading she takes must never be mistaken

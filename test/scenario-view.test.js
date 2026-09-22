@@ -1103,7 +1103,12 @@ test("the people are held below the modules, so a slot can be read against any m
     "the person rows are not in the held block");
   assert.ok(inside.some((n) => hasClass(n, "total-row") && /People at once/.test(textOf(n))),
     "the total row is not in the held block");
-  assert.equal(inside.filter((n) => hasClass(n, "tl-row") && textOf(n).includes("Cutting and packing")).length, 0,
+  // A MODULE row, and the class is what makes that a real assertion rather than a
+  // lucky one: since v158 a person's row carries the jobs they do in its tip, so
+  // "Cutting and packing" is now a name that appears inside the held block legit —
+  // it is one of Person 1's jobs. The row wearing the name is the module row.
+  assert.equal(inside.filter((n) => hasClass(n, "tl-row") && !hasClass(n, "person")
+    && textOf(n).includes("Cutting and packing")).length, 0,
     "a module row is inside the held block, so the block is not the people");
   // Drawn once, not once per module.
   assert.equal(walk(root).filter((n) => hasClass(n, "tl-people")).length, 1, "the people block is drawn more than once");
@@ -1415,6 +1420,238 @@ test("the day-backwards group is the button and nothing else (v157)", () => {
   const buttons = walk(group.el).filter((n) => n.tagName === "BUTTON");
   assert.equal(buttons.length, 1, `the group is not one button: ${buttons.map(textOf).join(" / ")}`);
   assert.match(textOf(buttons[0]), /Work the day backwards/, "the button stopped saying what it does");
+});
+
+// ── v158: the people rows come down to one line, the tally becomes a ruler ──
+//
+// Her ask of 22 September, following v157: "can i have all the peoples cards
+// noted in tool tips as well?" — and then, asked how far it should go, "not on
+// the whole roll, just the title. The height of people is fix. show everything
+// about them in tooltips". So the people rows and the tally at the foot of the
+// day keep what every module row already keeps: the name and nothing else, with
+// everything they have to say in a tip on the title.
+//
+// The height is the point of it. A person's row was ≈42px and ≈56px on a day
+// where two of their jobs collided, against a module row's 46px — so the strip
+// pinned to the foot of the panel grew and shrank as she scrolled the day, which
+// is the one thing v157's window was for.
+
+// Every person row in the held block: the people, never the tally.
+function personRows(root) {
+  return walk(root).filter((n) => hasClass(n, "tl-row") && hasClass(n, "person") && !hasClass(n, "total-row"));
+}
+const nameCell = (row) => walk(row).find((n) => hasClass(n, "tl-name"));
+const tipOf = (row) => walk(row).find((n) => hasClass(n, "tl-tip"));
+// The direct children of an element, elements only.
+const kidElements = (n) => (n.children || []).filter((c) => c.nodeType === 1);
+// What a node says with every tip inside it left out — the reading she gets
+// without pointing at anything, which on a phone is the only reading there is.
+function textWithoutTips(n) {
+  if (n.nodeType === 1 && hasClass(n, "tl-tip")) return "";
+  let s = n.textContent || "";
+  for (const c of n.children || []) {
+    if (c.nodeType === 3) s += ` ${c.text}`;
+    else if (c.nodeType === 1) s += ` ${textWithoutTips(c)}`;
+  }
+  return s;
+}
+// The day where two of a person's jobs collide: the oven and the packing both on
+// person 2, both starting at the same minute. Nothing stored is touched — this is
+// a scenario built for the test and handed to the screen.
+function collidingDay() {
+  return ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_pack"
+    ? { ...m, person: 2, startMin: 250 }
+    : m.id === "solo_oven" ? { ...m, person: 2 } : { ...m }));
+}
+
+test("a person's row is their name and nothing else, and their tip carries the rest (v158)", () => {
+  const { root } = render();
+  const rows = personRows(root);
+  assert.ok(rows.length, "the day has no person rows at all");
+
+  for (const row of rows) {
+    const cell = nameCell(row);
+    assert.ok(cell, "a person row has no name cell");
+    // Nothing under the name outside the tip: the work total, the places and the
+    // red collision line used to be printed here, on the row, and they are what
+    // made the row taller than the bars beside it.
+    const loose = walk(cell).filter((n) => hasClass(n, "tl-sub") && !walk(tipOf(row)).includes(n));
+    assert.equal(loose.length, 0,
+      `a person row still prints ${loose.length} line(s) of its own: ${loose.map((n) => textOf(n).trim()).join(" / ")}`);
+    const own = textWithoutTips(cell);
+    assert.doesNotMatch(own, /of work/, "the work total is still on the row itself");
+    assert.doesNotMatch(own, /collisions|two jobs at once/, "the collision line is still on the row itself");
+
+    // And all of it is in the tip, which is what a computer points at.
+    const tip = tipOf(row);
+    assert.ok(tip, "the person's row carries no tip, so their notes went nowhere");
+    assert.match(textOf(tip), /of work/, "the tip does not carry the work total");
+    assert.match(textOf(tip), /What they do today/, "the tip does not carry the jobs");
+  }
+});
+
+test("a person's tip and their card say the same things, word for word (v158)", () => {
+  const { root } = render();
+  for (const row of personRows(root)) {
+    const tip = tipOf(row);
+    const workLine = walk(tip).find((n) => hasClass(n, "tl-sub") && /of work/.test(textOf(n)));
+    assert.ok(workLine, "the tip carries no work total at all");
+    const work = textOf(workLine).split(" · ")[0].replace(/\s+/g, " ").trim();
+    // Every job line the tip carries, in the tip's own order — read off the same
+    // list the card prints, with the same cap of six and the same "…and N more".
+    const jobs = walk(tip).filter((n) => hasClass(n, "tl-note-job"))
+      .map((n) => textOf(n).replace(/\s+/g, " ").trim());
+
+    row.dispatchEvent({ type: "click" });
+    const body = popupBody();
+    assert.ok(body.includes(work), `the tip says "${work}" and the card does not`);
+    assert.ok(jobs.length, "the tip carries no job lines at all");
+    let from = 0;
+    for (const job of jobs) {
+      const at = body.indexOf(job, from);
+      assert.ok(at >= 0, `the card does not carry the tip's job line "${job}"`);
+      from = at + job.length;
+    }
+  }
+});
+
+test("a collision changes nothing about a row's shape, so the strip's height is fixed (v158)", () => {
+  const { root } = render({ modules: collidingDay() });
+  const rows = personRows(root);
+  // The shape of a name cell, by what each part is for rather than by its exact
+  // class list — a person's tip wears one class more than a module's, and the
+  // question here is which parts are in the cell, not what they are painted with.
+  const shape = (row) => kidElements(nameCell(row)).map((c) => (hasClass(c, "tl-tip") ? "tip"
+    : hasClass(c, "tl-name-top") ? "name" : String(c.className))).join(" + ");
+
+  const clashing = rows.find((r) => /collisions|two jobs at once/.test(textOf(tipOf(r))));
+  const clean = rows.find((r) => !/collisions|two jobs at once/.test(textOf(tipOf(r))));
+  assert.ok(clashing, "no person on this day has a collision, so the comparison proves nothing");
+  assert.ok(clean, "every person on this day has a collision, so there is no clean row to compare with");
+
+  assert.equal(shape(clashing), shape(clean),
+    "a collision still adds a line to its own row, so the foot of the panel moves under her");
+
+  // And a person's row is shaped exactly like a module's — the same two things in
+  // the name cell — which is why it is the same height and why the height cannot
+  // move. A module row carries its name and its tip; nothing else.
+  const moduleRow = walk(root).find((n) => hasClass(n, "tl-row") && !hasClass(n, "person") && tipOf(n));
+  assert.ok(moduleRow, "no module row carries a tip");
+  assert.equal(shape(clean), shape(moduleRow),
+    `a person's row is not shaped like a module's: ${shape(clean)} against ${shape(moduleRow)}`);
+});
+
+test("the tip is a sibling of the name and not inside it (v158)", () => {
+  const { root } = render();
+  for (const row of personRows(root)) {
+    const cell = nameCell(row);
+    const kids = kidElements(cell);
+    assert.equal(kids.length, 2, `a person's name cell holds ${kids.length} things, not two`);
+    assert.ok(hasClass(kids[0], "tl-name-top"), "the name cell does not open with the name's line");
+    assert.ok(hasClass(kids[1], "tl-tip"), "the tip is not a sibling of the name's line");
+    // Inside the name's own line, opening the tip would be back in the row's flow —
+    // which is the growing row v156 exists to stop.
+    assert.equal(walk(kids[0]).filter((n) => hasClass(n, "tl-tip")).length, 0,
+      "the tip is inside the name's own line, so opening it can move the row");
+
+    // The label is in a span of its own, without which the ellipsis can never
+    // apply: a bare string in a flex row is an anonymous flex item no rule reaches.
+    const label = walk(kids[0]).find((n) => hasClass(n, "tl-name-txt"));
+    assert.ok(label, "the person's label is a bare string, so a long one wraps the row taller than its bars");
+    assert.match(textOf(label), /Person 1/, `the label stopped naming the person: ${textOf(label)}`);
+  }
+});
+
+test("a tip inside the strip at the foot of the panel opens upward, and the module's still centres (v158)", () => {
+  const css = read("admin/css/app.css");
+  // The module tip is unchanged, and a v157 test stands on this line: it is
+  // centred on its row, which is what keeps a first or last module's box inside
+  // the panel. The tally sits ON the panel's bottom edge, where a centred box
+  // would be cut in half, so it gets an override rather than a rewrite.
+  assert.match(css, /\.tl-tip\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/,
+    "the module's tip stopped being centred on its row");
+  assert.match(css, /\.tl-people\s+\.tl-tip\s*\{[^}]*top:\s*auto[^}]*bottom:\s*0[^}]*transform:\s*none/,
+    "a tip in the strip at the foot is not opened upward, so it is cut in half by the panel's own edge");
+  // And it folds instead of widening: a job line is a module's name with a clock
+  // and a line number in front of it, and that is wider than the box is allowed.
+  assert.match(css, /\.tl-tip-person\s*\{[^}]*white-space:\s*normal/,
+    "a job line cannot fold, so the box runs past the width it is allowed");
+  // The strip itself may not clip what it holds.
+  assert.doesNotMatch(css, /\.tl-people\s*\{[^}]*overflow\s*:\s*(?!visible)/,
+    "the strip has an overflow of its own, which would clip the tips inside it");
+  // And the hover tint on a person's row is gone, her own v156 instruction applied
+  // to the last rows that had not had it: only the title opens the note.
+  assert.doesNotMatch(css, /\.tl-row\.person\.tappable:hover/,
+    "a person's row still reacts when the pointer is not on their title");
+});
+
+test("the tally's three facts are in its tip and off the row (v158)", () => {
+  const { root } = render({ modules: collidingDay() });
+  const total = walk(root).find((n) => hasClass(n, "total-row"));
+  assert.ok(total, "the day has no tally row");
+
+  const tip = tipOf(total);
+  assert.ok(tip, "the tally carries no tip, so its three facts went nowhere");
+  // All three, and they are printed nowhere else in the app.
+  assert.match(textOf(tip), /up to 2 at once/, "the tip does not say how many the day asks for");
+  assert.match(textOf(tip), /busiest/, "the tip does not name the busiest stretch");
+  assert.match(textOf(tip), /with two at a time/, "the tip does not say how much of the day is paid for twice");
+
+  // And none of them is on the row, which is one line like every other row. The
+  // row's own NAME is "People at once", so the facts are what is looked for here
+  // and not the phrase — "up to 2 at once" is a fact, "People at once" is a title.
+  const own = textWithoutTips(nameCell(total));
+  assert.doesNotMatch(own, /up to \d+ at once|one at a time|busiest|with two at a time/,
+    `the tally still prints itself on the row: ${own.trim()}`);
+  assert.equal(kidElements(nameCell(total)).length, 2, "the tally's name cell is not the name and its tip");
+});
+
+test("the PEOPLE heading is gone (v158)", () => {
+  const { root } = render();
+  assert.equal(walk(root).filter((n) => hasClass(n, "tl-split")).length, 0,
+    "the PEOPLE heading is still drawn over the people");
+  // And its rules went with it, rather than being left in the stylesheet for the
+  // next reader to wonder about.
+  assert.doesNotMatch(read("admin/js/views/scenario.js"), /tl-split/, "the PEOPLE heading is still built");
+  assert.doesNotMatch(read("admin/css/app.css"), /\.tl-split\s*\{/,
+    "the PEOPLE heading's rule is still in the stylesheet with nothing on the screen wearing it");
+});
+
+test("the ruler's step follows the scale, and reaches the minute at Closest (v158)", () => {
+  // Her ask: "make the ruler resolution to 1min" — and, asked where a minute could
+  // be drawn at all, "a minute where it can be drawn". A minute is 1.2px at the
+  // wide stop and 3.2px at the closest, so the step follows the scale: half hours
+  // across a whole day, quarter hours at the standard reading, five minutes at
+  // Close, and a minute at Closest.
+  const windowMin = computeScenario(ONE_BAKER_SCENARIO).windowMin;
+  const hourCount = Math.floor(windowMin / 60) + 1;
+  const minorCount = Math.max(0, Math.floor((windowMin - 30) / 60) + 1);
+
+  for (const c of [
+    { pxPerMin: 1.2, step: 30, name: "Wide" },
+    { pxPerMin: 1.6, step: 15, name: "Standard" },
+    { pxPerMin: 2.4, step: 5, name: "Close" },
+    { pxPerMin: 3.2, step: 1, name: "Closest" },
+  ]) {
+    const { root } = render({ pxPerMin: c.pxPerMin });
+    const ruler = walk(root).find((n) => hasClass(n, "tl-ruler"));
+    assert.ok(ruler, `no ruler at ${c.name}`);
+    const ticks = walk(ruler).filter((n) => hasClass(n, "tl-tick"));
+    assert.equal(ticks.length, Math.floor(windowMin / c.step) + 1,
+      `at ${c.name} the ruler is not drawn every ${c.step} minutes`);
+
+    // On the hour: solid and labelled, and nothing else is labelled. The half
+    // hour: the dashed tick it has always been. Anything finer: the new fine
+    // hairline, which is the only thing v158 added to the ruler.
+    const labelled = ticks.filter((n) => walk(n).some((x) => x.tagName === "SPAN"));
+    assert.equal(labelled.length, hourCount, `at ${c.name} something other than an hour is labelled`);
+    const minor = ticks.filter((n) => hasClass(n, "minor"));
+    assert.equal(minor.length, minorCount, `at ${c.name} the half hour is not the dashed tick`);
+    const fine = ticks.filter((n) => hasClass(n, "fine"));
+    assert.equal(fine.length, ticks.length - hourCount - minorCount, `at ${c.name} the fine ticks are not the rest`);
+    if (c.step < 30) assert.ok(fine.length > 0, `at ${c.name} the ruler is not drawn finer than the half hour`);
+    else assert.equal(fine.length, 0, `at ${c.name} a minute is ${c.pxPerMin}px and there is no room for a finer mark`);
+  }
 });
 
 test("a module drawn as lines can wait on the module above it (v155)", () => {

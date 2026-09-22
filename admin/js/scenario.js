@@ -1912,18 +1912,19 @@ export function clockOf(mins) {
 }
 
 // Where the time cursor points, as minutes from the start of her day, from the
-// px offset she is pointing at. It reads off the same five-minute step the batch
-// buttons step by, so the cursor can never name a time the screen could not also
-// set; and it answers null — rather than guessing — when the pointer is past
-// either end of the day, which is the caller's cue to take the cursor away. A
-// minute is the only thing this returns: it reads the chart, and writes nothing.
+// px offset she is pointing at. It reads the minute the pointer is really on —
+// the batch buttons step by five minutes AND by one, so a cursor that rounded to
+// fives was stricter than the screen it was reading, and named a time no closer
+// than the ruler beside it. It answers null — rather than guessing — when the
+// pointer is past either end of the day, which is the caller's cue to take the
+// cursor away. A minute is the only thing this returns: it reads the chart, and
+// writes nothing.
 export function minuteAtPx(px, pxPerMin, windowMin) {
   const scale = num(pxPerMin);
   const x = Number(px);
   if (!(scale > 0) || !Number.isFinite(x)) return null;
   const mins = x / scale;
   if (mins < 0 || mins > num(windowMin)) return null;
-  // Snapped to the five-minute step the batch buttons move by — and never past
-  // the end of the day, which does not always end on a five.
-  return Math.min(Math.round(mins / 5) * 5, num(windowMin));
+  // To the minute, and never past the end of the day, which need not land on one.
+  return Math.min(Math.round(mins), num(windowMin));
 }
