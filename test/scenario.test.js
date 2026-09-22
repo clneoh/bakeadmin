@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
+  climbSteps, descentSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   clampBatchStart, alignBatches, batchMismatches,
@@ -1479,4 +1479,91 @@ test("the time cursor gives up rather than naming a time off the day (v143)", ()
   assert.equal(minuteAtPx(722 * 2, 2, 722), 720);
   // A chart with no scale on it has no times on it at all.
   assert.equal(minuteAtPx(100, 0, 720), null);
+});
+
+// ── The way down (v149) ─────────────────────────────────────────────────────
+// The climb could raise a day to a number and could not bring it back down: every
+// rung adds a batch and not one of them takes a batch away. Her report, 22 Sep
+// 2026, on a One baker day she had climbed to 36 and then asked for 24: "this does
+// not agrees?" — a card reading "already makes your 24 pans" directly under a line
+// saying the day makes 36, with nothing to press anywhere on it.
+//
+// Coming down is one move rather than a ladder, and that is the arithmetic: the
+// day is the LEAST any module turns out, so every module sitting on that least is
+// holding it there, and lowering all of them to what the target needs lands the
+// day on the number at once.
+
+// Her own day, raised the way the climb raises it, so these tests start from the
+// day she was actually looking at rather than from a number typed in here.
+function raisedTo(scenario, want) {
+  const climb = climbSteps(scenario, want);
+  const out = copyScenario(scenario);
+  for (const s of climb.steps) {
+    out.modules = out.modules.map((m) => (m.id === s.id ? { ...m, ...(s.patch || { repeats: s.to }) } : m));
+  }
+  return out;
+}
+
+test("the way down brings the day to her number in one move (v149)", () => {
+  const day = raisedTo(ONE_BAKER_SCENARIO, 36);
+  assert.equal(computeScenario(day).pansPerDay, 36, "the climb did take her day to 36");
+  const down = descentSteps(day, 24);
+  assert.equal(down.steps.length, 1, "coming down is one settling move, not a ladder");
+  assert.equal(down.reached, true);
+  assert.equal(down.end.pansPerDay, 24);
+  const step = down.steps[0];
+  assert.equal(step.before, 36);
+  assert.equal(step.after, 24);
+  // Every module at the day's own number moves, because any one left high would
+  // only become the wall again the moment the others came down.
+  assert.equal(step.items.length, 8, "all eight modules are holding the day up");
+  assert.ok(step.items.every((it) => it.from === 6 && it.to === 4), "six batches down to four, in every one");
+  assert.ok(step.items.every((it) => it.batch === 6), "and at six pans a batch, unchanged");
+});
+
+test("the way down takes nothing off a day already at her number (v149)", () => {
+  // Already there: nothing to move, and nothing offered to press. Asking for MORE
+  // than the day makes is the climb's job, and this half must stay out of it.
+  assert.deepEqual(descentSteps(ONE_BAKER_SCENARIO, 24).steps, []);
+  assert.equal(descentSteps(ONE_BAKER_SCENARIO, 24).reached, false);
+  assert.deepEqual(descentSteps(ONE_BAKER_SCENARIO, 36).steps, []);
+  assert.equal(descentSteps(ONE_BAKER_SCENARIO, 0).steps.length, 0, "no number asked for, no way down");
+});
+
+test("the way down leaves the batch times she has dragged exactly where she put them (v149)", () => {
+  // The one place the two directions deliberately differ. Raising a count is a new
+  // rhythm, so the climb re-spaces a module's times from its start. LOWERING one
+  // only takes batches off the END of the day, so the times she has already dragged
+  // have to survive the move untouched.
+  const day = raisedTo(ONE_BAKER_SCENARIO, 36);
+  // She has dragged the mixing's third batch an hour later than its own rhythm.
+  day.modules = day.modules.map((m) => (m.id === "solo_mix" ? { ...m, starts: [1, 88, 235, 262, 349, 436] } : m));
+  const down = descentSteps(day, 24);
+  // Applied the way the screen applies it: `repeats` and nothing else.
+  const applied = {
+    ...day,
+    modules: day.modules.map((m) => {
+      const it = down.steps[0].items.find((x) => x.id === m.id);
+      return it ? { ...m, repeats: it.to } : m;
+    }),
+  };
+  const mix = scenarioOf(applied).modules.find((m) => m.id === "solo_mix");
+  assert.equal(mix.repeats, 4, "the mixing runs four batches");
+  assert.deepEqual(mix.starts, [1, 88, 235, 262], "and her dragged batch is still at the minute she put it");
+});
+
+test("the way down says why when a batch is bigger than the number she wants (v149)", () => {
+  // Six pans a batch, one batch a day, and she asks for three pans. Running fewer
+  // batches cannot get there — one batch is already six — so there is no move to
+  // offer and the card has to say that rather than show a button that would do
+  // nothing. The mirror of the climb stopping at a day's own limit.
+  const day = {
+    ...ONE_BAKER_SCENARIO,
+    modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, repeats: 1 })),
+  };
+  const down = descentSteps(day, 3);
+  assert.equal(down.steps.length, 0, "nothing to press");
+  assert.equal(down.reached, false);
+  assert.equal(down.tooBig.batch, 6, "and the reason is the size of one batch");
+  assert.equal(down.end.pansPerDay, 6, "the day is left exactly where it was");
 });

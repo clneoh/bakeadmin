@@ -26,7 +26,7 @@ import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
 import { save } from "../state.js";
 import { trim } from "../production.js";
 import {
-  computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
+  computeScenario, climbSteps, descentSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
@@ -311,9 +311,22 @@ function wallWhy(r) {
 // her, relieve that one thing, and meet the next wall. Every rung is one module
 // and one change, so the list reads as the order she would do them in.
 function climbCard(r, climb, sc, on) {
+  // The day above the number in the box — the way down. The climb only ever adds
+  // a batch, so a day that overshoots had nothing to press at all.
+  const down = r.target > 0 && r.pansPerDay > r.target ? descentSteps(sc, r.target) : null;
+  const downReady = !!(down && down.steps.length);
+  // The heading and the card's own opening line follow the SUBJECT — which way the
+  // numbers say the day has to move — and not whether there is a button to press.
+  // A day above her number with a batch too big to come down past has no button and
+  // is still entirely about coming down; headed "The climb" it would read as the
+  // wrong card, and the paragraph under the heading would be telling her to raise a
+  // day that is already too high.
+  const overshoot = r.target > 0 && r.pansPerDay > r.target;
   const kids = [
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Raise the day until something stops you, fix that one thing, and meet the next wall. This is that ladder, for the number you asked for."),
+      overshoot
+        ? "Your day makes more than the number you asked for, so this is the ladder read the other way: the batches to take off to bring it down. Every rung of the climb adds a batch and none takes one away, which is why this half had to be built separately."
+        : "Raise the day until something stops you, fix that one thing, and meet the next wall. This is that ladder, for the number you asked for."),
   ];
 
   // NOTE the order: `climb.reached` means the LADDER gets there, not that the
@@ -322,7 +335,31 @@ function climbCard(r, climb, sc, on) {
   if (r.target <= 0) {
     kids.push(el("p", { class: "card-sub" },
       "Type how many pans a day you want above, and the ladder appears here."));
-  } else if (r.pansPerDay >= r.target) {
+  } else if (r.pansPerDay > r.target) {
+    // The day, not the ladder, is what stops this one: every module at the day's
+    // own number is holding it there, and running fewer batches in all of them is
+    // the only way down that does not go through a bigger batch.
+    kids.push(el("p", { style: "margin:0 0 6px" },
+      el("b", {}, `This scenario makes ${r.pansPerDay} pans, and you want ${r.target}.`)));
+    const spare = r.pansPerDay - r.target;
+    kids.push(el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `That is ${spare} ${spare === 1 ? "pan" : "pans"} more than you asked for.`));
+    if (downReady) {
+      kids.push(el("div", { class: "climb-list" }, down.steps.map(descentRow)));
+      kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        down.reached
+          ? `That brings it to the ${down.want} pans you asked for.`
+          : `That brings it to ${down.end.pansPerDay} pans, which is as low as running fewer batches can take it.`));
+      kids.push(el("div", { class: "popup-actions" },
+        button("Use these numbers", () => applyDescent(sc, down, on), "primary")));
+    } else {
+      // The mirror of the climb's "it has to take more pans at once": a batch is
+      // already bigger than the day she asked for, so no count of them is small
+      // enough. Said plainly, because a card with no button reads as a bug.
+      kids.push(el("p", { class: "card-sub", style: "margin:0" },
+        `Running fewer batches cannot get there: one batch is ${down.tooBig.batch} pans, so this line can never come below ${down.tooBig.batch}. To go under that, a batch has to take fewer pans at once — ${down.tooBig.batch} in a batch becoming less than ${down.tooBig.batch}, on every module that is holding the day up.`));
+    }
+  } else if (r.pansPerDay === r.target) {
     kids.push(el("p", { style: "margin:0 0 6px" },
       el("b", {}, `This scenario already makes your ${r.target} pans.`)));
     kids.push(el("p", { class: "card-sub", style: "margin:0" },
@@ -355,12 +392,47 @@ function climbCard(r, climb, sc, on) {
   // control she has to scroll past the whole thing to reach is a control that has
   // gone missing. Both press the same thing, and the heading carries it only when
   // the card below really has something to apply.
-  const canApply = r.target > 0 && r.pansPerDay < r.target && climb.steps.length > 0;
+  const canApply = r.target > 0 && ((r.pansPerDay < r.target && climb.steps.length > 0) || downReady);
+  const apply = downReady ? () => applyDescent(sc, down, on) : () => applyClimb(sc, climb, on);
   return el("div", {},
     el("div", { class: canApply ? "section-row" : "" },
-      el("h2", { class: "section" }, "The climb"),
-      canApply ? button("Use these numbers", () => applyClimb(sc, climb, on), "primary") : null),
+      el("h2", { class: "section" }, overshoot ? "The way down" : "The climb"),
+      canApply ? button("Use these numbers", apply, "primary") : null),
     el("div", { class: "card" }, ...kids));
+}
+
+// One rung of the way down. It names every module the move touches, because a
+// move that quietly rewrites eight of her modules and says one name would be a
+// worse lie than the sentence this half exists to fix. Where they all change the
+// same way — which is the usual case, since a day run in step is a day whose
+// modules all hold it up together — one line says the change and the names follow
+// it, so eight identical lines do not have to be read to learn one fact.
+function descentRow(d) {
+  const items = d.items;
+  const one = items.length === 1;
+  const same = items.every((x) => x.from === items[0].from && x.to === items[0].to);
+  const change = (x) => `${x.from} → ${x.to} ${x.to === 1 ? "batch" : "batches"} in the day, at ${x.batch} pans a batch.`;
+  return el("div", { class: "climb-step" },
+    el("div", { class: "climb-num" }, "↓"),
+    el("div", { class: "climb-body" },
+      el("div", { class: "climb-what" },
+        one
+          ? `${items[0].icon} ${items[0].name}`
+          : `All ${items.length} modules holding the day at ${d.before} pans`),
+      ...(same
+        ? [el("div", { class: "li-sub" },
+          one ? change(items[0]) : `${change(items[0])} The same change in each of them.`)]
+        : items.map((x) => el("div", { class: "li-sub" }, `${x.icon} ${x.name} — ${change(x)}`))),
+      ...(!one
+        ? [el("div", { class: "li-sub" }, items.map((x) => x.name).join(", "))]
+        : []),
+      el("div", { class: "li-sub" }, `That takes the day from ${d.before} to ${d.after} pans.`),
+      // A move that changes nothing has to say why, or it reads as a dud. A module
+      // whose batches are already capped by the day's own room holds its output
+      // wherever its count is, so taking batches off it cannot move it.
+      d.after === d.before
+        ? el("div", { class: "li-sub" }, "On its own that buys nothing — the day's own limit is holding this one at the same number.")
+        : null));
 }
 
 function climbRow(s, i) {
@@ -400,6 +472,18 @@ function applyClimb(sc, climb, on) {
   sc.modules = sc.modules.map((m) => (to.has(m.id) ? { ...m, ...to.get(m.id) } : m));
   on.persist();
   toast("The ladder is in the modules now");
+  on.refresh();
+}
+
+// The way down, applied. Deliberately NOT a call into applyClimb with a reshaped
+// ladder: the move names several modules at once, and it writes `repeats` and
+// nothing else. `starts` is left exactly as she set it — see descentSteps for why
+// the climb re-spaces the times and this does not.
+function applyDescent(sc, down, on) {
+  const to = new Map(down.steps[0].items.map((it) => [it.id, it.to]));
+  sc.modules = sc.modules.map((m) => (to.has(m.id) ? { ...m, repeats: to.get(m.id) } : m));
+  on.persist();
+  toast("The day is down to the number you asked for");
   on.refresh();
 }
 

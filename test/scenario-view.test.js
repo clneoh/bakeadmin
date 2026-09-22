@@ -58,7 +58,7 @@ globalThis.localStorage = {
 };
 
 const { renderScenario } = await import("../admin/js/views/scenario.js");
-const { ONE_BAKER_SCENARIO } = await import("../admin/js/scenario.js");
+const { ONE_BAKER_SCENARIO, climbSteps, computeScenario } = await import("../admin/js/scenario.js");
 
 // Every element under `root`, depth-first, in document order.
 function walk(root, out = []) {
@@ -167,4 +167,83 @@ test("a scenario that already makes the number she wants offers no button to pre
   const all = walk(root).filter((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
   assert.equal(all.length, 0, "there is nothing to apply, so there must be nothing to press");
   assert.match(textOf(root), /already makes your 24 pans/);
+});
+
+// ── The way down (v149) ─────────────────────────────────────────────────────
+// Her report, 22 Sep 2026, on a One baker day the ladder had raised to 36 and
+// then asked for 24: "this does not agrees?" The card said the day already made
+// her 24 pans while the line directly above it said the day made 36, and there
+// was nothing anywhere on the card to press. Both halves of that are pinned here.
+
+// Her own day, raised the way the ladder raises it, so these tests start from the
+// day she was actually looking at rather than from a scenario written in here.
+function raisedTo(want) {
+  const climb = climbSteps(ONE_BAKER_SCENARIO, want);
+  const out = { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })) };
+  for (const s of climb.steps) {
+    out.modules = out.modules.map((m) => (m.id === s.id ? { ...m, ...(s.patch || { repeats: s.to }) } : m));
+  }
+  return out;
+}
+
+test("a day above the number she asked for is headed The way down and offers the button", () => {
+  const raised = raisedTo(36);
+  const { root } = render({ modules: raised.modules, target: 24 });
+  const heading = walk(root).find((n) => hasClass(n, "section") && textOf(n).includes("The way down"));
+  assert.ok(heading, "the card is not headed the way down");
+  assert.match(textOf(root), /This scenario makes 36 pans, and you want 24\./);
+  // The heading carries it, and the foot of the card still does: the day of nine
+  // modules that made the climb's ladder long makes this card long too.
+  const btn = walk(heading.parent).find((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.ok(btn, "the heading does not carry the apply button");
+  const all = walk(root).filter((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.equal(all.length, 2);
+});
+
+test("the card cannot say it already makes her number while it says the day makes more", () => {
+  // The exact contradiction she reported, as an assertion: the two sentences can
+  // never appear together, because the branch that reads "already makes" is only
+  // reached when the two numbers really do agree.
+  const raised = raisedTo(36);
+  const { root } = render({ modules: raised.modules, target: 24 });
+  assert.doesNotMatch(textOf(root), /already makes your 24 pans/, "the card still says the two numbers agree");
+  // And the honest reading of the gap is there instead.
+  assert.match(textOf(root), /12 pans more than you asked for/);
+});
+
+test("pressing Use these numbers brings the day down and leaves her batch times alone", () => {
+  const raised = raisedTo(36);
+  // She has dragged the mixing's third batch an hour later than its own rhythm.
+  // Coming down takes batches off the END of the day, so the times she set by hand
+  // have to survive the move — the one place this half deliberately differs from
+  // the climb, which re-spaces a module's times because a new count is a new rhythm.
+  raised.modules = raised.modules.map((m) => (m.id === "solo_mix" ? { ...m, starts: [1, 88, 235, 262, 349, 436] } : m));
+  const { root, state } = render({ modules: raised.modules, target: 24 });
+  const btn = walk(root).find((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.ok(btn, "no button to press");
+  btn.dispatchEvent({ type: "click" });
+
+  const mods = state.settings.scenario.modules;
+  assert.ok(mods.every((m) => m.repeats === 4), "the button did not bring every module holding the day down");
+  assert.equal(computeScenario(state.settings.scenario).pansPerDay, 24, "the day did not land on her number");
+  // The stored list can still be longer than the batches that are left — the move
+  // writes the count and never throws away a time she set by hand. Every reader
+  // takes only the first `repeats` of it, so the four that remain are hers and
+  // the ones off the end are kept rather than destroyed.
+  const mix = mods.find((m) => m.id === "solo_mix");
+  assert.deepEqual(mix.starts.slice(0, 4), [1, 88, 235, 262], "her dragged batch time was rewritten by the move");
+});
+
+test("a batch bigger than the number she wants says so instead of offering a dead button", () => {
+  // Six pans a batch and one batch a day; she asks for three. Running fewer
+  // batches cannot get under one batch, so there is no move to offer — and a card
+  // with nothing on it has to say why rather than read as broken.
+  const thin = { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, repeats: 1 })) };
+  const { root } = render({ modules: thin.modules, target: 3 });
+  assert.equal(walk(root).filter((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n))).length, 0);
+  assert.match(textOf(root), /one batch is 6 pans/);
+  // Headed by its subject and not by whether a button is there: a card about the
+  // day being too high must not be headed "The climb".
+  const heading = walk(root).find((n) => hasClass(n, "section") && /The way down|The climb/.test(textOf(n)));
+  assert.match(textOf(heading), /The way down/);
 });

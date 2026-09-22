@@ -1448,6 +1448,60 @@ export function climbSteps(saved, target, limit = 12) {
   return { steps, reached: false, end: computeScenario(scenario), want };
 }
 
+// The climb's other direction — the half it never had (2026-09-22).
+//
+// A day could be raised to a number and never brought back down. Every rung of the
+// climb ADDS a batch and not one of them takes one away, so a scenario she had
+// climbed to 36 sat above a box reading 24 with nothing to press — and the card
+// said "already makes your 24 pans" directly under a line saying it makes 36. Her
+// report, in her own words: "this does not agrees?"
+//
+// Coming down is ONE move and not a ladder, and that is the arithmetic rather than
+// a shortcut. The day is the LEAST any module turns out, so every module sitting
+// on that least is holding it there; taking them all down to what the target needs
+// lands the day on the number in a single move. A module left above it would only
+// become the wall again the moment the others came down, which is why the move
+// takes every module at the day's own number and not just the first.
+//
+// `starts` is deliberately not re-spaced here, the one place this differs from the
+// climb. Raising a count is a new rhythm and the old times cannot describe it;
+// lowering one only removes batches from the END of the day, so the times she has
+// already dragged stay exactly where she put them.
+export function descentSteps(saved, target) {
+  const want = Math.max(0, Math.round(num(target, 0)));
+  const sc = scenarioOf(saved);
+  const now = computeScenario(sc);
+  if (want <= 0 || now.pansPerDay <= want) return { steps: [], reached: false, end: now, want };
+
+  const holding = now.on.filter((f) => f.output > 0 && f.output === now.pansPerDay);
+  const items = [];
+  for (const f of holding) {
+    const to = Math.max(1, Math.ceil(want / (f.batch || 1)));
+    if (to < f.repeats) items.push({ id: f.id, icon: f.icon, name: f.name, from: f.repeats, to, batch: f.batch });
+  }
+  // Nothing can come off this way: one batch is already more than the number she
+  // asked for. The mirror of the climb stopping at a day's limit, and it has to say
+  // so rather than offer a press that would move nothing.
+  if (!items.length) {
+    const one = holding[0] || { batch: 1, name: "", icon: "" };
+    return {
+      steps: [], reached: false, end: now, want,
+      tooBig: { batch: one.batch, name: one.name, icon: one.icon, floor: one.batch },
+    };
+  }
+  const byId = new Map(items.map((it) => [it.id, it]));
+  const next = computeScenario({
+    ...sc,
+    modules: sc.modules.map((m) => (byId.has(m.id) ? { ...m, repeats: byId.get(m.id).to } : m)),
+  });
+  return {
+    steps: [{ kind: "down", items, before: now.pansPerDay, after: next.pansPerDay }],
+    reached: next.pansPerDay <= want,
+    end: next,
+    want,
+  };
+}
+
 // How many batches this module would have to run to turn out `want` pans.
 function wantBatches(module, want) {
   const batch = num(module.batch);

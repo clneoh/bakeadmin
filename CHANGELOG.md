@@ -1,8 +1,67 @@
-# Jienluv2bake — change history (v54 → v148)
+# Jienluv2bake — change history (v54 → v149)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v149 (no database step). The way down — taking batches off,
+so a day that makes more than you asked for can come back to your number.**
+
+**What you found, in your own words: "This scenario makes 36 pans, and you want 24. this
+does not agrees?"** You were right, and it was two faults in one card, not one. Your One baker
+day made 24 pans. You typed 36, pressed **Use these numbers**, and the ladder did what a ladder
+does — it raised all eight modules from 4 batches to 6 and the day made 36 pans, which is what
+you had just asked it for. Then you put 24 back in the box. The card underneath said "This
+scenario already makes your 24 pans" while the line directly above it said the day makes 36.
+Both sentences were drawn from the same card, one of them had to be wrong, and the ladder that
+could have settled it only ever went one way.
+
+**The climb only adds.** Every rung of it raises something: more batches in the day, or a
+second machine. Not one rung has ever taken a batch away, so there was no way on that screen
+to bring 36 back to 24 — no amount of pressing would have done it. That half simply did not
+exist, and no wording change could have covered for its absence.
+
+**There is now a way down.** When the day makes more than the number you asked for, the card
+is headed **The way down** and carries one rung: every module the day is waiting on, and the
+batches to take off each of them. On the day you were looking at it reads: all eight modules
+holding the day at 36 pans, 6 → 4 batches in the day at 6 pans a batch, the same change in each
+of them — that takes the day from 36 to 24. The same **Use these numbers** button applies it,
+on the heading and at the foot of the card.
+
+**Why it is one move and not a ladder.** The day is the **least** any module turns out, so
+every module sitting on that least is holding the day there. Bring one of them down alone and
+the day does not move at all, because one of the others takes its place as the limit. They have
+to come down together, and then the day lands on your number in a single move. That is why this
+half is a settling move rather than a rung-by-rung climb.
+
+**The batch times you have set by hand are left exactly where you put them.** This is the one
+place the way down deliberately differs from the climb. Raising a count makes a new rhythm, so
+the climb re-spaces a module's batch times from its start. **Lowering** a count only takes
+batches off the **end** of the day — so if you have dragged a batch to a time that suits your
+morning, that time stays. Nothing on this move rewrites a minute you chose.
+
+**When a batch is bigger than the number you asked for, it says so.** Six pans a batch and one
+batch a day, and you ask for three: no count of batches gets under one batch, so there is no
+move to offer and no button to press. The card says it plainly instead — one batch is 6 pans,
+so this line can never come below 6 — because a card with nothing on it and no explanation
+reads as broken.
+
+**The two numbers can no longer contradict each other.** The branch that reads "already makes
+your 24 pans" is now only reached when the day really does make 24. When the day makes more,
+you get the way down and the honest reading of the gap: "This scenario makes 36 pans, and you
+want 24. That is 12 pans more than you asked for."
+
+**What has not moved.** Not one module, batch time, cycle or saved scenario. Your own saved
+line still reads 24 pans across 9 modules, the seeded starting line still 12 pans with the
+chiller as the wall, and your sister's still 4 pans in 8 modules. Nothing here reads an order
+and nothing here blocks a sale.
+
+Engine 149. Tests are 1110 passing with none failing, eight of them new — four on the move
+itself (the 36 → 24 settling move on all eight modules, a day already at your number offering
+nothing, a dragged batch time surviving the move untouched, and a batch too big to come down
+past) and four on the card (its heading and button, the two numbers never contradicting each
+other, the button actually bringing the day down, and the plain answer when a batch is too
+big). No database step — nothing to run in Supabase.
 
 **22 Sep 2026 — engine v148 (no database step). A cycle's labour drawn where you
 work it, and the ladder's button found.**
