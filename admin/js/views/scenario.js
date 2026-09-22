@@ -32,6 +32,8 @@ import {
   PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine, latestStarts,
   combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
+  START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
+  startModeOf, setStartMode,
 } from "../scenario.js";
 
 // A colour per PERSON, so a row reads as one worker's day rather than as a
@@ -758,7 +760,16 @@ function chainPopup(r, sc, on) {
     `${r.people} ${r.people === 1 ? "person" : "people"} · ${hoursAndMinutes(r.personMin)} of hands · a ${hoursAndMinutes(r.runMin)} day.`);
 
   const setAll = (yes) => {
-    sc.modules = sc.modules.map((m) => (m.on === false ? m : { ...m, follow: yes }));
+    // Through the model's own writer, so the whole line and one module's card
+    // cannot end up with two answers to "what is this module set to". The bulk
+    // action sets the floor, which is the answer this button has always given; the
+    // tight follow is a per-module choice, made on the module's own card.
+    sc.modules = sc.modules.map((m) => {
+      if (m.on === false) return m;
+      const next = { ...m };
+      setStartMode(next, yes ? "wait" : "own");
+      return next;
+    });
     on.persist();
     on.refresh();
     toast(yes ? "Every module now waits for the one above it" : "Nothing waits any more — your own times are in charge");
@@ -767,7 +778,7 @@ function chainPopup(r, sc, on) {
 
   showPopup("Modules that wait", (refresh, close) => el("div", {},
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "A module set to wait cannot start a batch until the module above it has finished that same batch: batch 1 waits for batch 1, batch 10 for batch 10. That is how a real line behaves — a slow fold holds every later batch behind it — and it is the thing to plan away, either by moving the slow module or by having two of it."),
+      "A module set to wait cannot start a batch until the module above it has finished that same batch: batch 1 waits for batch 1, batch 10 for batch 10. That is how a real line behaves — a slow fold holds every later batch behind it — and it is the thing to plan away, either by moving the slow module or by having two of it. The two buttons below set that floor on every module at once. A module you want to start the MINUTE the one above finishes, with no gap at all, is set one module at a time — How this module takes its start, on that module's own card, where As the one above finishes is the first of the three."),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
       chainedCount(r)
         ? `${chainedCount(r)} of your modules ${chainedCount(r) === 1 ? "waits" : "wait"} on the module above: ${waiting.map((m) => `${m.icon} ${m.name}`).join(", ")}. The rest keep the times you placed.`
@@ -810,9 +821,17 @@ function timeline(r, sc, on, state, run) {
       // The people are the answer to her question, so they are drawn as what
       // they are: a row each, carrying the modules that row attends — and under
       // them the whole lot stacked, which is the manpower at each minute.
-      el("div", { class: "tl-split" }, "People"),
-      ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
-      totalRow(r, trackW),
+      //
+      // The whole block is pinned to the foot of the panel, and that is her own
+      // ask of 22 September: "I want to freeze the persons card, so that by
+      // scrolling thru modules i can see exactly where that slot of that person
+      // tie up to". Reading a person's row is the point of scrolling the modules
+      // at all, so the row stays where she can see it while they pass behind it.
+      // See .tl-people for why it is opaque and what may draw over it.
+      el("div", { class: "tl-people" },
+        el("div", { class: "tl-split" }, "People"),
+        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
+        totalRow(r, trackW)),
       // The day's own reading, drawn last so it runs over every bar rather than
       // under one. See wireTimeCursor for what it does and who it answers to.
       cursor,
@@ -1330,8 +1349,18 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
   let name = null;
 
   if (line == null) {
+    // The module above, named the way THIS module is set to take its start from it.
+    // "waits on" and "starts as … finishes" are two different promises — the first
+    // is a floor, the second has no gap at all — so a row that used one phrase for
+    // both would be telling her the wrong one on half her modules.
+    const aboveSub = above
+      ? (startModeOf(live) === "after" ? ` · starts as ${above.name} finishes` : ` · waits on ${above.name}`)
+      : "";
+    const aboveBadge = above
+      ? (startModeOf(live) === "after" ? "follows above" : "waits above")
+      : "";
     whenLine = el("div", { class: "tl-sub" });
-    whenLine.textContent = timeLine(m, r.dayStartMin) + (above ? ` · waits on ${above.name}` : "");
+    whenLine.textContent = timeLine(m, r.dayStartMin) + aboveSub;
     name = el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
         `${m.icon} ${m.name}`,
@@ -1339,7 +1368,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
         // folding: named on the row, because everything downstream of it — the
         // day's room, the hands — follows from this one number.
         m.count > 1 ? el("span", { class: "badge badge-multi" }, `${m.count} of them`) : null,
-        above ? el("span", { class: "badge badge-past" }, "waits above") : null,
+        above ? el("span", { class: "badge badge-past" }, aboveBadge) : null,
         // And how many of its lots are in it at once, which is the one thing the
         // taller row is telling her. Only shown when it is really happening, so a
         // module that is not overlapping never wears a badge about it.
@@ -1368,7 +1397,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
         ? el("div", { class: "tl-name-top" },
           `${m.icon} ${m.name}`,
           el("span", { class: "badge badge-multi" }, `${m.lines} lines`),
-          above ? el("span", { class: "badge badge-past" }, "waits above") : null,
+          above ? el("span", { class: "badge badge-past" }, aboveBadge) : null,
           m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
           m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null)
         : null,
@@ -1452,7 +1481,6 @@ function batchPopup(m, live, sc, on, k, hold) {
     const p = (here.passes || [])[k] || null;
     const at = p ? p.at : Number((cycleStarts(live))[k]) || 0;
     const end = p ? p.end : at + (here.cycleMin || 0);
-    const free = !live.follow;
 
     if (isDay) return dayBackCard(r, live, sc, on, refresh, hold, end);
 
@@ -1461,8 +1489,18 @@ function batchPopup(m, live, sc, on, k, hold) {
     // Every later module writes a delta instead, so the batch rides the chain:
     // move the module above and this batch follows, keeping its offset.
     const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
+    const mode = startModeOf(live);
     const deltas = Array.isArray(live.startDelta) ? live.startDelta : [];
     const delta = Math.max(0, Math.round(Number(deltas[k]) || 0));
+    // Where this module's own offset from the line is read out: batch 1, and only
+    // batch 1 — her own ask of 22 September, "just need to show delta on the batch
+    // 1st offset only, then following module of that step dont have to show the
+    // delta because it follow the previous module tightly". Below batch 1 the
+    // batches run at this module's own pace, so there is nothing of the module's
+    // to read there; a batch that is held back on purpose still says so, on its own
+    // card and on its own bar, because a batch that is off the line must not look
+    // like one that is on it.
+    const showsModuleOffset = !first && k === 0;
 
     const step = (by, label, hint) => {
       const press = (sign) => el("button", {
@@ -1477,53 +1515,68 @@ function batchPopup(m, live, sc, on, k, hold) {
         hint ? el("div", { class: "hint" }, hint) : null);
     };
 
+    // A nudge can only ever hold a batch BACK, so below the first module the
+    // buttons can go one way and no further. That is right — it is a delay and not
+    // a schedule — but it would also be a one-way door, and a door with no handle is
+    // the fault v149 was built to fix. So the way back is here, named, and only when
+    // there is something to undo. On batch 1 of a module that starts as the one
+    // above finishes it takes the whole module back, because that is what the press
+    // that put it there moved.
+    const back = (delta && !first)
+      ? el("div", { class: "field" },
+        button("Back onto the line", () => {
+          const next = deltas.slice();
+          if (showsModuleOffset) for (let i = 0; i < next.length; i += 1) next[i] = 0;
+          else next[k] = 0;
+          live.startDelta = next;
+          on.persist();
+          on.refresh();
+          refresh();
+          toast(showsModuleOffset
+            ? `Every batch of ${live.name} back where the line puts it.`
+            : `Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
+        }, "ghost"),
+        el("div", { class: "hint" },
+          showsModuleOffset
+            ? `This module is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose, so every batch of it sits that much later than the minute the module above finishes. This takes the hold off.`
+            : `This batch is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose. This takes the hold off, so it sits wherever the module above and this module's own minutes put it.`))
+      : null;
+
+    // What the two pairs do here, in this module's own terms. It used to be one
+    // sentence for everything, and it was the sentence that hid a real difference:
+    // above module 1 there is nothing to be held back from, so a move IS a time;
+    // below it, a move is a hold on top of whatever the line already says.
+    const fiveHint = first
+      ? "The amount the day is read in, and the amount the time line reads out."
+      : k === 0
+        ? `The amount the day is read in. Moving batch 1 moves this whole module with it, at the pace you set below — and because this module is set to ${START_MODE_LABELS[mode].toLowerCase()}, that move is a hold on top of where the line already puts it.`
+        : "The amount the day is read in, and the amount the time line reads out. This batch rides the module above it, so this is how far behind where the line puts it you want it held.";
+
     return el("div", {},
       el("div", { class: "cyc-line", style: "margin:0 0 8px" },
         el("span", { class: "cyc-lab" }, `Batch ${k + 1}`),
         el("span", { class: `cyc-at${delta ? " nudged" : ""}` },
-          delta ? `Δt = +${delta} min` : (first ? "its own start" : "on the line")),
+          delta ? `Δt = +${delta} min`
+            : first ? "its own start"
+              : showsModuleOffset ? START_MODE_READINGS[mode] : "on the line"),
         el("span", { class: "cyc-at" }, clockAt(r.dayStartMin, at))),
 
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, end)}` +
         ` · ${trim(here.cycleMin)} min, ${trim(here.touchMin)} of it your hands`),
 
-      // A batch that is waiting on the module above has no start of its own —
-      // its time IS that module's batch k. Saying so is the difference between a
-      // control she cannot use and a control that reads as broken, so the
-      // buttons are simply not offered and the switch that would free them is
-      // named instead.
-      free
-        ? el("div", {},
-          step(5, "Five minutes at a time",
-            first
-              ? "The amount the day is read in, and the amount the time line reads out."
-              : "The amount the day is read in, and the amount the time line reads out. This batch rides the module above it, so this is how far behind where the line puts it you want it held."),
-          step(1, "One minute at a time",
-            "For lifting a batch off a collision with another."),
-          // A nudge can only ever hold a batch BACK, so on a later module the
-          // buttons can go one way and no further. That is right — it is a delay
-          // and not a schedule — but it would also be a one-way door, and a door
-          // with no handle is the fault v149 was built to fix. So the way back is
-          // here, named, and only when there is something to undo.
-          delta && !first
-            ? el("div", { class: "field" },
-              button("Back onto the line", () => {
-                const next = deltas.slice();
-                next[k] = 0;
-                live.startDelta = next;
-                on.persist();
-                on.refresh();
-                refresh();
-                toast(`Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
-              }, "ghost"),
-              el("div", { class: "hint" },
-                `This batch is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose. This takes the hold off, so it sits wherever the module above and this module's own minutes put it.`))
-            : null)
-        : el("p", { class: "card-sub", style: "margin:0" },
-          "This batch waits on the module above it, so its time is that module's batch " +
-          `${k + 1}. Switch off "Waits for the module above" in this module's own editor and ` +
-          "it becomes a time of its own, to move here."),
+      // The two pairs, on EVERY batch now. They used to be refused on a module set
+      // to wait, with a sentence telling her to go and change the module instead —
+      // and "each batch start time adjustable, like the 1st module" is the thing
+      // she asked for. What keeps that honest is the model underneath: every press
+      // goes through the same clamp a typed time goes through, the answer is read
+      // back off the model, and when the module above or the module's own minutes
+      // put the batch somewhere else the toast names which rule did it.
+      el("div", {},
+        step(5, "Five minutes at a time", fiveHint),
+        step(1, "One minute at a time",
+          "For lifting a batch off a collision with another."),
+        back),
     );
   });
 }
@@ -1819,21 +1872,54 @@ function undoDayBack(r, sc, on, refresh, hold) {
 // different fact and says so in its own words.
 function moveBatch(run, live, sc, on, refresh, k, from, by) {
   const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
-  if (first) {
+  const mode = startModeOf(live);
+  // A batch is written as a HOLD rather than as a start in two places: below batch
+  // 1, where the batch rides the module above and its move is a delay on top of
+  // that; and on batch 1 of a module set to start as the one above finishes, where
+  // this module has no start time of its own to write at all. That second one
+  // matters: where that module begins is the minute the module above ends, decided
+  // by the chain and not by a number stored here, so writing a start would be a
+  // press that changed nothing on the chart — the dead control this screen is built
+  // to keep out. Written as the module's own hold, the whole module comes with it,
+  // exactly as moving batch 1 moves a first module.
+  const held = !first && (k > 0 || mode === "after");
+  if (!held) {
     const landed = setBatchStart(live, sc, on, k, from + by);
     toastBatch(live, k, from + by, landed, run.dayStartMin);
   } else {
-    const deltas = Array.isArray(live.startDelta) ? live.startDelta.slice() : [];
+    const deltas = (Array.isArray(live.startDelta) ? live.startDelta : []).slice();
+    while (deltas.length < Math.max(1, moduleOf(live).repeats)) deltas.push(0);
     const before = Math.max(0, Math.round(Number(deltas[k]) || 0));
     const after = Math.max(0, before + by);
-    deltas[k] = after;
+    if (k === 0) {
+      // The module's own offset: every batch of it moves by the same amount, so a
+      // press on batch 1 means the same thing here as it means on the first module
+      // — the module moves, and its shape is kept.
+      const step = after - before;
+      for (let i = 0; i < deltas.length; i += 1) {
+        deltas[i] = Math.max(0, Math.round(Number(deltas[i]) || 0) + step);
+      }
+    } else {
+      deltas[k] = after;
+    }
     live.startDelta = deltas;
     on.persist();
     on.refresh();
     if (after === before) {
-      toast(by < 0
-        ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
-        : `Batch ${k + 1} stays where it is.`);
+      toast(k === 0
+        ? `${live.name} is already as early as the line allows — there is nothing left to take off.`
+        : by < 0
+          ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
+          : `Batch ${k + 1} stays where it is.`);
+    } else if (after === 0) {
+      // The hold taken all the way off is a real change and says so: "held 0
+      // minutes behind" is not a sentence about a hold coming off, it is a
+      // sentence about nothing happening.
+      toast(k === 0
+        ? `${live.name} is back on the line — every batch of it starts where the module above finishes.`
+        : `Batch ${k + 1} is back on the line, where the module above and this module's own minutes put it.`);
+    } else if (k === 0) {
+      toast(`${live.name} held ${after} minute${after === 1 ? "" : "s"} behind where the module above finishes — every batch of it moved with that.`);
     } else {
       toast(`Batch ${k + 1} held back ${after} minute${after === 1 ? "" : "s"} from where the line puts it — move the module above it and this batch comes with it.`);
     }
@@ -2275,16 +2361,27 @@ function editModule(saved, sc, on, isNew = false) {
       on.refresh();
     });
 
-    // Whether this module is fed by the one above it. Her points three and four,
-    // as one switch: its cycle 10 cannot start until the module before it has
-    // finished ITS cycle 10.
-    const followBox = el("input", { type: "checkbox", checked: live.follow === true });
-    followBox.addEventListener("change", () => {
-      live.follow = followBox.checked;
-      on.persist();
-      on.refresh();
-      refresh();
-    });
+    // Whether this module is fed by the one above it. Her points three and four
+    // were one switch; it is one CHOICE of three now, because her report of 22
+    // September was that the switch could not do what its own label said — the
+    // floor it really was cannot pull a packing step back onto the cooling's end,
+    // which is the thing she was trying to do. See START_MODES in the model for
+    // where the three live and chainLine for where they are obeyed.
+    const startField = el("div", { class: "field" },
+      el("label", {}, "How this module takes its start"),
+      (() => {
+        const row = el("div", { class: "pill-row" });
+        for (const mode of START_MODES) {
+          row.append(button(START_MODE_LABELS[mode], () => {
+            setStartMode(live, mode);
+            on.persist();
+            on.refresh();
+            refresh();
+          }, `ghost small${startModeOf(live) === mode ? " cal-mode-on" : ""}`));
+        }
+        return row;
+      })(),
+      el("div", { class: "hint", style: "margin-top:2px" }, START_MODE_HINTS[startModeOf(live)]));
 
     // Her ask, as a switch: "allow each module cycle to overlap". Off, the module
     // holds its own cycles apart — one lot at a time — which is right when the
@@ -2464,11 +2561,7 @@ function editModule(saved, sc, on, isNew = false) {
       f("count", "How many production line do you have",
         "Two mixers, two ovens, two chillers, two people folding. Two production line of one module take a batch side by side, so a batch stops waiting for the one before it and the day's room doubles. It does NOT make pans you did not plan — raise how many batches it runs to put the second one to work, or let the climb do it for you. A module you have two production line of is drawn as that many lines, one under the other, each with its own person — the boxes for that appear below as soon as this says 2. Put 1 here and Allow multiple production line ON: then this module is one line with one person, and this number is not in force.",
         { min: 1, int: true, rebuild: true }),
-      el("div", { class: "field" },
-        el("label", { class: "check-row" }, followBox,
-          el("span", { class: "check-label" }, "Waits for the module above")),
-        el("div", { class: "hint", style: "margin-top:6px" },
-          "Switch this on and its batch 10 cannot start until the module above has finished its own batch 10 — which is how a real production line behaves, and how a slow fold holds every later lot behind it. Switch it on for a module the one before it really feeds, and leave it off for anything you place by hand. A module that waits has no start time of its own: move the module above it and this one follows, and if the module above runs fewer batches, the extra ones wait on its last. A new module arrives with this already on.")),
+      startField,
       el("div", { class: "field" },
         el("label", { class: "check-row" }, overlapBox,
           el("span", { class: "check-label" }, "Allow multiple production line")),

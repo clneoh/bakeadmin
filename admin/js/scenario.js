@@ -66,6 +66,62 @@ export const DEFAULT_DAY_START = 15 * 60;
 export const PX_PER_MIN_DEFAULT = 1.6;
 export const PX_PER_MIN_CHOICES = [1.2, 1.6, 2.4, 3.2];
 
+// How a module takes its start from the module above it — ONE choice per module,
+// hers to make, and the only place this rule lives. Her own words, 2026-09-22:
+// "the behaviour has to base on configuration, not a hard wired".
+//
+//   "after" batch 1 starts the minute the module above finishes its batch 1, batch
+//           2 on batch 2 and so on — a TIGHT follow. The only one of the three
+//           that can pull a batch EARLIER than the time she typed, which is what
+//           makes a packing step land on the end of the cooling before it.
+//   "wait"  never before that minute, but a later time of hers stands. This is
+//           what the old "Waits for the module above" switch did.
+//   "own"   the module above does not touch this module at all.
+//
+// The labels are here rather than in the screen because the same three sentences
+// are read on the module card, in the batch card and in the guide, and two copies
+// of a rule's own words are two answers waiting to disagree.
+export const START_MODES = ["after", "wait", "own"];
+export const START_MODE_LABELS = {
+  after: "As the one above finishes",
+  wait: "Never before the one above finishes",
+  own: "Its own time",
+};
+export const START_MODE_HINTS = {
+  after: "Batch 1 of this module starts the minute the module above finishes its own batch 1, batch 2 on batch 2, and so on — a tight follow with no gap. Use it for a step the one above really feeds: put it on Cutting and packing and the packing starts the moment the cooling ends, whatever you call the modules above it and in whatever order you keep them.",
+  wait: "A batch here can never start before the module above has finished that same batch, but a later time you set yourself stands. This is the floor, and it is what the old Waits for the module above switch did — a module set this way keeps the time you gave it whenever that time is already the later one.",
+  own: "The module above has no say over this one. Its batches sit at the times you gave them and only its own minutes can move them. Use it for anything you place by hand.",
+};
+
+// The same three in the short form the batch card reads out beside the clock,
+// where there is room for a phrase and not for the sentence above.
+export const START_MODE_READINGS = {
+  after: "follows the module above",
+  wait: "never before the module above",
+  own: "on the line",
+};
+
+// Which of the three a module is on, read the SAME way from a module straight out
+// of storage and from one the model has already filled in. Every reader in the app
+// goes through here, so the screen and the arithmetic cannot end up with two
+// answers to "what is this module set to" — the same rule startMin and person are
+// kept equal to their first answers under.
+export function startModeOf(src) {
+  const m = src || {};
+  return START_MODES.includes(m.startMode) ? m.startMode : (m.follow === true ? "wait" : "own");
+}
+
+// Her tap, written once: the mode itself, and the old flag beside it so a phone
+// still running the older app reads the closest thing that version has — a module
+// that follows tightly reads there as one that waits, which is one answer to a
+// question that version can only ask one way.
+export function setStartMode(live, mode) {
+  const m = START_MODES.includes(mode) ? mode : "own";
+  live.startMode = m;
+  live.follow = m !== "own";
+  return m;
+}
+
 export const DEFAULT_SCENARIO = {
   name: "What I have now",
   note: "No new fridge — the line as it stands, using the chiller you already own.",
@@ -599,6 +655,14 @@ export function moduleOf(m) {
     const stored = num(given[i], NaN);
     crew.push(Number.isFinite(stored) ? clampPerson(stored) : person);
   }
+  // How this module takes its start from the module above it — see START_MODES.
+  // Every scenario she has saved carries `follow` and nothing else, and those two
+  // answers map one for one onto two of the three modes: follow on was the floor,
+  // follow off (or absent) was no touch at all. So a day saved before this release
+  // answers "wait" or "own" and behaves exactly as it behaved then; nothing of hers
+  // moves by being read here, and nothing of hers is rewritten by it either — the
+  // deriving happens on the way IN, and only her own tap writes a mode back out.
+  const startMode = startModeOf(src);
   return {
     id: String(src.id || ""),
     icon: String(src.icon || "•"),
@@ -647,9 +711,15 @@ export function moduleOf(m) {
     // two LINES, the odd lots on one and the even lots on the other, which is how
     // the screen draws them. See linesInForce.
     count,
-    // Whether this module waits for the module above it: its batch 10 cannot start
-    // until the module before it has finished its own batch 10. See chainLine.
-    follow: src.follow === true,
+    // How this module takes its start from the module above it. See START_MODES,
+    // and chainLine for where it is obeyed.
+    startMode,
+    // Whether the module above gets a say over this one at all — true for a tight
+    // follow as well as for the floor. Derived rather than stored a second time,
+    // because the two could then disagree; kept because the bar's own mark and the
+    // "modules that wait" card ask only "does anything above me get a say", and
+    // because a phone still running the older app reads this one key.
+    follow: startMode !== "own",
     // Whether this module may hold two lots at once. Off, one lot at a time (or one
     // per module, with `count`); on, her own times stand and the chain above is the
     // only thing left that can move them. See chainLine for the criteria.
@@ -834,11 +904,18 @@ export function moduleFacts(m) {
 //   * where SHE put it — the time she typed, or the module's own pace
 //   * what the module itself allows — one of it cannot begin batch 3 until batch 2
 //     has finished; two of it (count) cannot begin batch 3 until batch 1 has
-//   * what the module above allows, when this module waits for it
+//   * what the module above allows, and here the module itself says WHICH of two
+//     things that is (see START_MODES): "wait" makes the module above a floor,
+//     "after" makes it the answer outright, and "own" takes the module above off
+//     this batch's question altogether
 //
-// The latest of the three is the honest one, and it makes a time she sets a floor
-// rather than a wall she is stopped by: she can always push a batch later, and the
-// chain carries that same batch down the rest of the line with it.
+// Where the first two meet, the latest is the honest one, and it makes a time she
+// sets a floor rather than a wall she is stopped by: she can always push a batch
+// later, and the chain carries that same batch down the rest of the line with it.
+// A module set to "after" is the one exception and it is deliberate: she has said
+// the module above decides where this one begins, so the minute it finishes IS the
+// start time, and the only thing left that can hold that batch back is her own
+// offset on it (startDelta), which is what the +/- buttons on batch 1 write.
 //
 // The middle one is the module's own machine, and it is the one she asked to be
 // able to switch off: "allow each module cycle to overlap". `cycleMin` can mean
@@ -858,6 +935,7 @@ export function chainLine(modules) {
   const placed = new Map();
   const ends = new Map();
   const runs = new Map();
+  const holds = new Map();
   let prev = null;
 
   for (const m of list) {
@@ -881,13 +959,21 @@ export function chainLine(modules) {
     const waits = [];
     for (let k = 0; k < reps; k += 1) {
       let at = seed[k];
-      if (m.follow && prev) {
+      if (m.startMode !== "own" && prev) {
         const up = ends.get(prev.id) || [];
         if (up.length) {
           // A module above with fewer batches than this one cannot answer for a
-          // batch it does not have, so this waits on the last one it does — and
-          // the screen says so rather than inventing a time for it.
-          at = Math.max(at, up[Math.min(k, up.length - 1)]);
+          // batch it does not have, so this reads the last one it does — and the
+          // screen says so rather than inventing a time for it.
+          const above = up[Math.min(k, up.length - 1)];
+          // Her own choice per module, never a wired-in rule — "after" is the tight
+          // follow, taking this batch's time AS the minute the module above finished
+          // its own batch k, while "wait" is the floor it has always been and only
+          // ever moves a time she placed EARLIER than that. Both still hold a batch
+          // behind the dough it is made of, which is why neither mode can run the
+          // day out of order; only "after" can pull a batch back towards the one
+          // above it, and that is the whole of what it is for.
+          at = m.startMode === "after" ? above : Math.max(at, above);
         }
       }
       waits.push(at);
@@ -916,6 +1002,7 @@ export function chainLine(modules) {
     placed.set(m.id, out);
     ends.set(m.id, ownEnds);
     runs.set(m.id, reps);
+    holds.set(m.id, delta);
     // What a following module reads is this module's REAL count, not the one it
     // happens to be stored with — otherwise a chain of two automatic modules would
     // follow a module that was itself following, and each would fall back to 1.
@@ -931,17 +1018,27 @@ export function chainLine(modules) {
   // above has that count IN its times now, and handing it back a count of 1 would
   // throw all but the first of them away the moment anything re-read it.
   //
-  // `startDelta` comes back ZEROED, and that is the load-bearing half. The nudge is
-  // already inside `starts` above, so a delta handed back as well would be applied
-  // a second time the moment anything re-read this result — and `chainLine` is read
-  // through moduleOf by every screen and every repaint. Consumed here, the function
-  // keeps its own invariant: reading its answer again moves nothing.
+  // `startDelta` comes back ZEROED on a module whose start times are its own, and
+  // that is the load-bearing half. The nudge is already inside `starts` above, so a
+  // delta handed back as well would be applied a second time the moment anything
+  // re-read this result — and `chainLine` is read through moduleOf by every screen
+  // and every repaint. Consumed here, the function keeps its own invariant: reading
+  // its answer again moves nothing.
+  //
+  // A module set to "after" is the one exception, and it has to be: its times are
+  // NOT its own, it begins where the module above ends whatever `starts` says, so
+  // the hold lives ONLY in the delta. Zeroing it there would drop the hold the
+  // moment anything re-read the module, which is the same lost edit by another
+  // road. Handed back, the second read puts the batch at the same minute: the hold
+  // is the offset from the module above, and the module above has not moved.
   return list.map((m) => ({
     ...m,
     repeats: runs.get(m.id),
     starts: placed.get(m.id),
     startMin: placed.get(m.id)[0],
-    startDelta: (placed.get(m.id) || []).map(() => 0),
+    startDelta: m.startMode === "after"
+      ? (holds.get(m.id) || []).slice()
+      : (placed.get(m.id) || []).map(() => 0),
   }));
 }
 
@@ -1324,6 +1421,12 @@ export function blankModule(id) {
     // written onto a module she has already filled in, because `everyMin` and
     // `repeats` are simply ABSENT here and both flags read from that absence. Every
     // module of every saved scenario stores both, so nothing of hers is touched.
+    //
+    // The start choice a new module arrives on is "wait" and not "after", which is
+    // the answer the old switch gave and therefore the one that changes nothing for
+    // her: a new module is one she has not yet told what feeds it, and "after" would
+    // move the day the moment she added one. Choosing it is one tap on the card.
+    startMode: "wait",
     follow: true,
     overlap: true,
     cycles: [{ name: "", min: 20, load: 20, unload: 0 }],

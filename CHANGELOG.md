@@ -1,8 +1,143 @@
-# Jienluv2bake — change history (v54 → v153)
+# Jienluv2bake — change history (v54 → v154)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v154 (no database step). A module now says how it takes
+its start — three answers where there was one switch — so the packing begins the
+minute the cooling ends; every batch's own card offers the move again; and the
+people's rows are held below the modules so you can read a slot against them.**
+
+**What you asked.** Your three reports, in your own words: "the cut and packing
+batch din follow the earlier batch end", and then your own correction, "cutting
+and packing sit below cooling down, so cutting and packing batch start should
+follow cooling down batch end". "The delta t disappeared, before this we have it.
+I want each batch start time to be adjustable, like the 1st module. Just need to
+show delta on the batch 1st offset only, then following module of that step dont
+have to show the delta because it follow the previous module tightly." And "I
+want to freeze the persons card, so that by scrolling thru modules i can see
+exactly where that slot of that person tie up to and searching for opportunity to
+move some batch start time to reduce the number of person needed." You also set
+the rule the first of them had to be built by: "the behaviour has to base on
+configuration, not a hard wired".
+
+1. **What was actually wrong, and it was words against behaviour.** The old
+   switch was called **Waits for the module above**, and its hint promised a
+   follow — __2nd module 1st cycle should follow 1st module 1st cycle
+   completion__. What the day really did with it was a **floor**: a batch could be
+   pushed later than the module above, never pulled back onto it. So a packing
+   step sitting 8 minutes after the cooling ended could never come back onto it,
+   however the switch was set. Your report was right and it was the most useful
+   kind: the sentence on the card and the arithmetic under it disagreed.
+
+2. **A module now says how it takes its start, in one of three answers.** Open
+   any module and the card asks **How this module takes its start**, with three
+   choices: **As the one above finishes** (batch 1 of this module starts the
+   minute the module above finishes its own batch 1, batch 2 on batch 2 — a tight
+   follow with no gap); **Never before the one above finishes** (a batch here can
+   never start before the module above has finished that same batch, but a later
+   time you set yourself stands — this is the old switch, kept exactly as it
+   behaved); and **Its own time** (the module above has no say over this one).
+   Each one carries a sentence saying what it means before you tap it.
+
+3. **The choice is on the module, not on a module's name.** This was your rule and
+   it is the way it is built: nothing in the day knows a module by what it is
+   called. Set **As the one above finishes** on your packing and it lands on
+   whatever really sits above it — cooling, or anything else you put there, in
+   whatever order you keep your modules. There is a test that renames every
+   module of a day and confirms the same answer, so this cannot quietly become a
+   rule about cooling.
+
+4. **Nothing of yours was re-laid by being read.** A saved module keeps the
+   behaviour it already had: a module that was waiting on the one above it opens
+   on **Never before the one above finishes**, and a module that stood on its own
+   opens on **Its own time**. A **new** module arrives on **Never before the one
+   above finishes** too, because **As the one above finishes** on a module you
+   have not yet told what feeds it would move your day the moment you added it.
+   Your three days were compared before and after: 24 pans on One baker day,
+   12 on the seeded line, 4 on your sister's, and not one start time of yours
+   changed.
+
+5. **Every batch's card offers the move again — this is your second report.** A
+   batch below batch 1 of a module set to wait used to be **refused** the two
+   button pairs, with a sentence telling you to go and change the module instead.
+   Every batch at every module now offers **Five minutes at a time** and **One
+   minute at a time**, and the last paragraph of this note says plainly what a
+   move means in each place so the two cannot disagree.
+
+6. **The offset is read out on batch 1, and only on batch 1 — exactly as you asked
+   for it.** On batch 1 of a module that is not the first, the card reads how this
+   module takes its start, in words: **follows the module above**, **never before
+   the module above**, or **on the line**. The batches below batch 1 do not repeat
+   that, because they ride the module above at this module's own pace — there is
+   no offset of the module's to read on them. A batch you have **held** on purpose
+   is the exception, and it is a deliberate one: it reads **delta t = +5 min** on
+   its own card, because a batch that is off the line must never look like one
+   that is on it.
+
+7. **A move below the first module is a hold, and a hold can only ever put a batch
+   later.** That is not a limitation of the buttons: a batch cannot start before
+   the dough it is made of exists. What makes it safe rather than a wall is that a
+   hold is an **offset measured from where the line puts the batch**, not a time —
+   so move the module above it, or change how many batches it runs, and the held
+   batch comes with it, keeping its place in the queue. The card of a held batch
+   carries **Back onto the line**, which takes the hold off, and taking a hold all
+   the way off now says so — __Cutting and packing is back on the line__ — where
+   it used to say __held 0 minutes behind__, which is a sentence about nothing
+   happening.
+
+8. **A press on batch 1 of a module that follows moves the whole module.** A
+   module set to **As the one above finishes** has no start time of its own to
+   write: it begins where the module above ends, whatever a stored start says. So
+   a press there writes the module's own hold instead, and **every** batch of it
+   comes with it — which also keeps a press on batch 1 meaning the same thing on
+   every module, rather than being a button that appears to do nothing on one of
+   them.
+
+9. **The people are held below the modules — this is your third report.** The
+   module rows scroll inside the day's own panel and the **People** rows and the
+   **People at once** total are pinned at its foot, so scrolling down through eight
+   modules never takes the person you are reading away from the bar you are
+   reading it against. This is the move the whole report was for: hold a slot in
+   view, look for the batch you can move to empty it, then go and move that batch.
+   The red now-line of the walk through still runs over the people's rows, because
+   that line is the day happening rather than a reading of it.
+
+10. **One fault found while testing, and it is worth writing down.** The test that
+    stands in for the browser kept an attribute a real browser also exposes as
+    **dataset** — and the chart reads which batch you tapped off that. So every
+    simulated tap had been reading as **batch 1**: a whole class of taps the tests
+    could not see, which is exactly why "the delta t disappeared" could be true on
+    your phone while a test suite said all was well. The stand-in is unforgiving
+    now, the way the browser is. Two tests written against it failed immediately
+    and both were real: the wording of a hold taken off, and the day's own card
+    opening where a batch's card should.
+
+11. **No database step, and it is on every phone.** Nothing to run in Supabase.
+    The planner travels with the app's own settings row, so this new per-module
+    answer goes up with everything else the planner holds and comes down onto your
+    other devices the same way — the choice you make on your phone is the choice
+    your tablet reads.
+
+12. **What has not moved.** One baker day still reads 24 pans across 8 modules
+    with its four stored rhythm times untouched; the seeded line still makes 12
+    with the chiller as the wall; your sister's line still makes 4. v152's
+    backwards press and v153's button on the row are unchanged, and neither this
+    release nor those reads a single order or blocks a single sale.
+
+The CHANGELOG and the guide (sections 23 and 26) both carry all of this, both
+PDFs are rebuilt, and the app's own More screen reads Engine v154. The tests are
+1154 passing with none failing — 14 of them new: 8 on the model (the three
+answers and how a saved module is read through them, the packing landing on the
+cooling's end, the follow being a choice on the module and not a rule about a
+name, a switched-off module stepped over, a module above with fewer batches
+answering for the batches it has, a hold riding the module above and never
+pulling a batch earlier, and her three days reading the same times) and 6 on the
+screen (the three pills on the module card, the packing landing on the oven, the
+pairs on every batch, the offset read on batch 1 alone, a press on batch 1 of a
+following module moving the whole module with its way back, and the people's rows
+held below the modules). No database step — nothing to run in Supabase.
 
 **22 Sep 2026 — engine v153 (no database step). The day's own row works your day
 backwards — one press, and it is a button that acts instead of one that only

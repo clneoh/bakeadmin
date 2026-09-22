@@ -17,6 +17,7 @@ import {
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   clampBatchStart, alignBatches, batchMismatches, callWindows, latestStarts,
+  START_MODES, START_MODE_LABELS, startModeOf, setStartMode,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
   ONE_BAKER_SCENARIO,
 } from "../admin/js/scenario.js";
@@ -1897,3 +1898,206 @@ test("pressing the backward pass never moves a module earlier, and never twice (
   }
 });
 
+
+// Her report of 22 September, in her own words and then her own correction:
+// "the cut and packing batch din follow the earlier batch end", and then "cutting
+// and packing sit below cooling down, so cutting and packing batch start should
+// follow cooling down batch end".
+//
+// The answer to it cannot be a rule about cooling, and it is not one. The day
+// below is the shape she described — the oven, the cooling, then the packing — and
+// the only thing that changes between the readings is the packing module's own
+// answer. Her directive for this release: "the behaviour has to base on
+// configuration, not a hard wired".
+const coolDay = (pack = {}) => scenario({
+  modules: [
+    // Four lots out of the oven 90 minutes apart, each 15 minutes in it.
+    module({ id: "oven", name: "The oven swap and the bake", cycleMin: 15, everyMin: 90, repeats: 4, startMin: 0, overlap: true }),
+    // A lot is 42 minutes cooling from the minute the oven lets go of it — set to
+    // never before the oven, which is the old switch's answer — so its four lots end
+    // at 57, 147, 237 and 327 minutes past the start of the day.
+    module({ id: "cool", name: "Cooling down", cycleMin: 42, everyMin: 90, repeats: 4, startMin: 15, startMode: "wait", overlap: true }),
+    // The packing is the one she wrote about: 12 minutes a lot, and the times
+    // stored for it sit 8 minutes after the cooling ends each one.
+    module({ id: "pack", name: "Cutting and packing", cycleMin: 12, everyMin: 90, repeats: 4, startMin: 65, overlap: true, ...pack }),
+  ],
+});
+const startsIn = (mods, id) => mods.find((m) => m.id === id).starts;
+
+test("the packing starts the minute the cooling ends, once she says so (v154)", () => {
+  // Set to never before the cooling — which is what the old switch on, and the
+  // default a new module arrives on, has always meant — the later time she set
+  // stands and the day reads exactly as it did before this release.
+  const wait = chainLine(coolDay({ startMode: "wait" }).modules);
+  assert.deepEqual(startsIn(wait, "pack"), [65, 155, 245, 335],
+    "a packing set to never-before-the-cooling stopped keeping the later time she set");
+
+  // Set to start as the one above finishes, the packing lands on the cooling's own
+  // end — lot 1 on the end of cooling lot 1, lot 2 on lot 2, and so on. That is the
+  // eight minutes she was trying to take out of every lot.
+  const after = chainLine(coolDay({ startMode: "after" }).modules);
+  assert.deepEqual(startsIn(after, "pack"), [57, 147, 237, 327],
+    "the packing did not land on the end of the cooling");
+  const cool = startsIn(after, "cool");
+  for (let k = 0; k < 4; k += 1) near(startsIn(after, "pack")[k], cool[k] + 42, `packing lot ${k + 1} is not on the cooling's end`);
+
+  // And it is one module's answer and not the line's: the modules above it have not
+  // moved, so what she sets below can never re-lay the day above her back.
+  assert.deepEqual(startsIn(after, "cool"), startsIn(wait, "cool"), "setting the packing to follow moved the cooling");
+  assert.deepEqual(startsIn(after, "oven"), startsIn(wait, "oven"), "setting the packing to follow moved the oven");
+
+  // The three answers are a closed set of three and each one is named.
+  assert.deepEqual(START_MODES, ["after", "wait", "own"]);
+  for (const mode of START_MODES) assert.ok(START_MODE_LABELS[mode], `the mode ${mode} has no name to show her`);
+});
+
+test("the follow is a choice on the module, not a rule about a name (v154)", () => {
+  // Her directive, kept as a test rather than as a promise: nothing here knows a
+  // module by its name. The same three modules with every name replaced by
+  // nonsense answer identically, because the answer is read off startMode and
+  // nothing else.
+  const renamed = coolDay({ startMode: "after" }).modules.map((m, i) => ({ ...m, name: `Step ${i + 1}` }));
+  assert.deepEqual(startsIn(chainLine(renamed), "pack"), [57, 147, 237, 327],
+    "the follow is reading a module's name");
+
+  // And the same choice on a line she has never had is an ordinary choice there,
+  // with no cooling and no packing anywhere in it.
+  const other = scenario({ modules: [
+    module({ id: "a", cycleMin: 20, everyMin: 60, repeats: 2, startMin: 0, overlap: true }),
+    module({ id: "z", cycleMin: 5, everyMin: 60, repeats: 2, startMin: 7, startMode: "after", overlap: true }),
+  ] });
+  assert.deepEqual(startsIn(chainLine(other.modules), "z"), [20, 80],
+    "the tight follow only works on the modules this release was written about");
+});
+
+test("a module that is switched off is stepped over, however she sets the one below it (v154)", () => {
+  const off = coolDay({ startMode: "after" });
+  // A machine between the two that is not switched on: it is not in the build, so
+  // nothing waits on it and the packing still reads the cooling.
+  off.modules.splice(2, 0, module({ id: "off", name: "A machine that is off", on: false, cycleMin: 200, everyMin: 90, repeats: 4, startMin: 300 }));
+  assert.deepEqual(startsIn(chainLine(off.modules), "pack"), [57, 147, 237, 327],
+    "the packing waited on a module that is not switched on");
+});
+
+test("a module above with fewer lots answers for the lots it has (v154)", () => {
+  // Two lots cooling, four lots packing: the cooling has no third or fourth lot to
+  // answer with, so the last one it does have is the answer — the same reading the
+  // screen already gives, rather than a time invented for a lot that does not exist.
+  const short = scenario({ modules: [
+    module({ id: "cool", cycleMin: 42, everyMin: 90, repeats: 2, startMin: 15, overlap: true }),
+    module({ id: "pack", cycleMin: 12, everyMin: 90, repeats: 4, startMin: 65, startMode: "after", overlap: true }),
+  ] });
+  assert.deepEqual(startsIn(chainLine(short.modules), "pack"), [57, 147, 147, 147]);
+});
+
+test("a hold can only ever push a batch later, and it rides the module above (v154)", () => {
+  // The +/- pairs write this hold. It comes on TOP of the line's own answer rather
+  // than instead of it, which is what lets the same pair move a batch at a module
+  // whose start time is not stored on it at all — a module set to the tight follow
+  // has no start of its own to write, so a press that wrote one would be the dead
+  // control this screen is built to keep out.
+  const held = chainLine(coolDay({ startMode: "after", startDelta: [5, 5, 5, 5] }).modules);
+  assert.deepEqual(startsIn(held, "pack"), [62, 152, 242, 332], "the hold did not come on top of the line's own answer");
+
+  // A negative hold would be a batch placed in front of the dough it is made of,
+  // so it is read as no hold at all rather than as an earlier start.
+  const pulled = chainLine(coolDay({ startMode: "after", startDelta: [-9, -9, -9, -9] }).modules);
+  assert.deepEqual(startsIn(pulled, "pack"), [57, 147, 237, 327], "a negative hold pulled a batch in front of the cooling");
+
+  // The hold is an offset and not a time, so a change she makes further up the line
+  // carries the held lot with it instead of leaving it behind.
+  const upstream = coolDay({ startMode: "after", startDelta: [5, 5, 5, 5] });
+  upstream.modules[0].startMin = 10;
+  assert.deepEqual(startsIn(chainLine(upstream.modules), "pack"), [72, 162, 252, 342],
+    "the held lot did not come with the module above it");
+
+  // The hold is handed back in the shape a second read can use, and the two shapes
+  // are not the same. On a module whose start times are its own — "own" or "wait" —
+  // the hold is already inside `starts`, so the delta comes back zeroed and reading
+  // the answer again cannot count it twice.
+  const ownHeld = chainLine([
+    module({ id: "a", cycleMin: 10, everyMin: 60, repeats: 2, startMin: 0, overlap: true }),
+    module({ id: "b", cycleMin: 10, everyMin: 60, repeats: 2, startMin: 60, startMode: "wait", overlap: true, startDelta: [7, 7] }),
+  ]);
+  assert.deepEqual(startsIn(ownHeld, "b"), [67, 127], "the hold did not come on top of the time she set");
+  assert.deepEqual(ownHeld.find((m) => m.id === "b").startDelta, [0, 0],
+    "a module whose times are its own handed the hold back as well as applying it, so a second read would count it twice");
+  assert.deepEqual(startsIn(chainLine(ownHeld), "b"), [67, 127], "reading the chain's own answer moved the day");
+
+  // A module set to the tight follow has no start times of its own to hold the
+  // offset in, so there the delta IS the hold and it is handed back — a second read
+  // has to give the same minute rather than quietly dropping the one she set.
+  assert.deepEqual(held.find((m) => m.id === "pack").startDelta, [5, 5, 5, 5],
+    "a module set to the tight follow dropped the hold on the way out");
+  assert.deepEqual(startsIn(chainLine(held), "pack"), [62, 152, 242, 332], "reading the chain's own answer dropped the hold");
+});
+
+test("how a module takes its start is her choice of three, and a saved module keeps the answer it behaved with (v154)", () => {
+  // Before this release a module carried one switch, Waits for the module above. On
+  // meant the floor; off meant no touch at all. Those two answers map one for one
+  // onto the two modes that keep her saved days behaving exactly as they did, and
+  // that mapping is the reason nothing of hers moved.
+  assert.equal(startModeOf({ follow: true }), "wait");
+  assert.equal(startModeOf({ follow: false }), "own");
+  assert.equal(startModeOf({}), "own");
+  assert.equal(startModeOf({ follow: true, startMode: "after" }), "after", "an answer she gave later was overruled by the old switch");
+  assert.equal(startModeOf({ startMode: "nonsense" }), "own", "a mode that is not one of the three was trusted");
+
+  // moduleOf is where a stored module becomes a working one, and both keys have to
+  // be on its answer: the new one for the three-way choice, and the old one because
+  // the rest of the screen reads it and an older phone still writes it.
+  assert.equal(moduleOf({ id: "x", follow: true }).startMode, "wait");
+  assert.equal(moduleOf({ id: "x", follow: true }).follow, true);
+  assert.equal(moduleOf({ id: "x", startMode: "after" }).startMode, "after");
+  assert.equal(moduleOf({ id: "x", startMode: "after" }).follow, true, "a tight follow is still a module with a module above it");
+  assert.equal(moduleOf({ id: "x", startMode: "own" }).follow, false);
+
+  // The setter writes both, so the two can never come to disagree.
+  const live = module({});
+  setStartMode(live, "after");
+  assert.equal(live.startMode, "after");
+  assert.equal(live.follow, true);
+  setStartMode(live, "own");
+  assert.equal(live.follow, false);
+  setStartMode(live, "nonsense");
+  assert.equal(live.startMode, "own", "a mode that is not one of the three was stored");
+
+  // A brand new module arrives on the old switch's answer, so adding one to a day
+  // never re-lays it — "after" there would move the day the moment it appeared.
+  assert.equal(blankModule("new").startMode, "wait");
+});
+
+test("not one module of hers was put on the tight follow by being read (v154)", () => {
+  // Every day she has saved was built when a module's answer was a single switch,
+  // so not one module of hers can be on the tight follow. If one is, a release has
+  // silently re-laid her day. MEASURED, not promised: this reads her own lines.
+  for (const [what, sc] of [["the seeded starting line", DEFAULT_SCENARIO], ["One baker day", ONE_BAKER_SCENARIO], ["My sister's line", SISTER_SCENARIO]]) {
+    for (const m of scenarioOf(sc).modules) {
+      assert.notEqual(m.startMode, "after", `${what}: ${m.name} was put on the tight follow`);
+      assert.equal(m.startMode, m.follow ? "wait" : "own", `${what}: ${m.name} answers two ways at once`);
+    }
+  }
+});
+
+test("her own days read the same times after the three modes (v154)", () => {
+  // The numbers her three saved days are made of, byte for byte: twenty-four pans
+  // across the one baker day's eight modules, the twelve-pan seeded line, and her
+  // sister's four. Pinned here because "nothing of hers moved" has to be measured
+  // rather than intended.
+  const one = computeScenario(ONE_BAKER_SCENARIO);
+  assert.equal(one.pansPerDay, 24);
+  assert.equal(one.endMin, 570, "the one baker day no longer finishes at 1:30 pm");
+  assert.deepEqual(of(one, "solo_mix").starts, [1, 88, 175, 262]);
+  assert.deepEqual(of(one, "solo_oven").starts, [240, 327, 414, 501]);
+  assert.deepEqual(of(one, "solo_pack").starts, [297, 384, 471, 558]);
+
+  const seed = computeScenario(DEFAULT_SCENARIO);
+  assert.equal(seed.pansPerDay, 12, "the seeded line no longer makes twelve pans");
+  assert.deepEqual(of(seed, "fold").starts, [30, 60, 90, 120]);
+  assert.deepEqual(of(seed, "unload").starts, [993]);
+
+  const sister = computeScenario(SISTER_SCENARIO);
+  assert.equal(sister.pansPerDay, 4, "her sister's line no longer makes four pans");
+  assert.deepEqual(of(sister, "tubfold").starts, [30, 60, 90]);
+  assert.deepEqual(of(sister, "oven").starts, [196]);
+});

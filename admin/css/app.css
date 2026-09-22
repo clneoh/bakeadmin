@@ -2663,10 +2663,14 @@ tr.po-covered td { color: var(--muted); }
    edge is what keeps two neighbouring lanes reading as two, since a laned bar is
    too short for its minutes to be printed inside it. */
 .tl-bar.laned { border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .09); }
-/* A bar whose time came from the module above it. It is not hers to place, so it
-   must not look like a button — a grip that does nothing reads as broken. Greyed,
-   with the row naming the module it waits on. */
-.tl-row .tl-bar.locked { cursor: default; opacity: .6; }
+/* A bar whose time came from the module above it: greyed, with the row naming the
+   module it waits on. The fade is the mark that this time is the line's and not
+   one she placed — it is NOT a "do not touch": the bar still opens the batch's own
+   card and that card's buttons work on every batch now (v154), so it keeps the
+   pointer every other bar has. It used to say, in its own comment, that such a bar
+   "must not look like a button — a grip that does nothing reads as broken", and
+   that was true while the card refused the buttons; it is not true any more. */
+.tl-row .tl-bar.locked { opacity: .6; }
 .tl-row .tl-bar.locked .tl-touch { opacity: .8; }
 /* Two of a module. Marked on the row rather than the bars, because it is one fact
    about the module — the day's room doubled — and not a property of any cycle. */
@@ -2707,6 +2711,23 @@ tr.po-covered td { color: var(--muted); }
    and a z-index above the rows for the same reason; the red now-line is drawn
    over it, because what is happening outranks what she is reading. */
 .tl-ruler { position: sticky; top: 0; z-index: 3; background: var(--surface); }
+/* The people rows, pinned to the FOOT of the panel — her own ask of 22 September:
+   "I want to freeze the persons card, so that by scrolling thru modules i can see
+   exactly where that slot of that person tie up to". The clock strip is already
+   pinned at the top and the names at the left, so this is the third edge of the
+   same idea, and it is the one that answers the question she scrolls for: whose
+   minute is this, and where does moving a batch free a person.
+   Opaque, because a row of bars sliding under a see-through panel is unreadable —
+   the person rows keep their own strip tint over this. z-index 2, level with the
+   name column, so the module rows pass BEHIND it. The day's own red now-line
+   (z-index 3) still runs over it, because that one is the day happening rather
+   than a reading; the grey pointer hairline stops at the panel's edge. */
+.tl-people {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
+}
 .tl-ruler .tl-sub { padding-top: 2px; }
 .tl-tick {
   position: absolute; top: 0; bottom: 0;

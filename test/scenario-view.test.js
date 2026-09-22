@@ -31,7 +31,17 @@ function createEl(tag) {
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },
     dispatchEvent(ev) { (this._listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
-    setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; },
+    setAttribute(k, v) {
+      this.attrs[k] = String(v);
+      if (k === "hidden") this.hidden = true;
+      // A real DOM exposes a data-* attribute on `dataset`, and the timeline's tap
+      // reads which batch it hit off `hit.dataset.k`. A shim that kept the attribute
+      // and not the dataset made every bar tap read as batch 1: a whole class of
+      // taps the tests could not see, because the stub was more forgiving than the
+      // browser it stands in for.
+      const m = /^data-(.+)$/.exec(k);
+      if (m) this.dataset[m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = String(v);
+    },
     getAttribute(k) { return this.attrs[k]; },
     getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 400 }; },
     focus() {}, click() {},
@@ -861,4 +871,221 @@ test("a line with no chain says so rather than drawing a dead button (v153)", ()
   assert.equal(one.state.settings.scenario.modules[0].startMin, wasAt, "a one-module line was moved anyway");
   assert.equal(dayBackGroup(one.root).button(/Put my start times back/), undefined,
     "a line that never moved offered a way back");
+});
+
+// ── How a module takes its start, and the people she is reading it against (v154)
+// Her three reports of 22 September, all inside the Scenario planner:
+//
+//   1. "the cut and packing batch din follow the earlier batch end", corrected by
+//      her to "cutting and packing sit below cooling down, so cutting and packing
+//      batch start should follow cooling down batch end".
+//   2. "The delta t disappeared, before this we have it. I want each batch start
+//      time to be adjustable, like the 1st module. Just need to show delta on the
+//      batch 1st offset only, then following module of that step dont have to show
+//      the delta because it follow the previous module tightly."
+//   3. "I want to freeze the persons card, so that by scrolling thru modules i can
+//      see exactly where that slot of that person tie up to and searching for
+//      opportunity to move some batch start time to reduce the number of person
+//      needed."
+//
+// Her directive for the first of them: "the behaviour has to base on configuration,
+// not a hard wired" — so the answer is three pills on the module's own card.
+
+// The module editor of the row named `name`, opened the way she opens it.
+function openModule(root, name) {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && !hasClass(n, "person") && textOf(n).includes(name));
+  assert.ok(row, `no module row named ${name}`);
+  row.dispatchEvent({ type: "click" });
+  return row;
+}
+
+test("the module card offers the three answers, and the packing lands on the oven (v154)", () => {
+  const { root, state } = render();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+
+  openModule(root, "Cutting and packing");
+  assert.match(popupBody(), /How this module takes its start/, "the card does not ask how this module takes its start");
+  for (const label of ["As the one above finishes", "Never before the one above finishes", "Its own time"]) {
+    assert.ok(popupButton(new RegExp(label)), `the card offers no way to say ${label}`);
+  }
+  // It opens on the answer the module already behaves with. Her saved packing has a
+  // start time of its own and nothing above it has a say, which is what the old
+  // switch being off meant — so the pill it opens on is "Its own time".
+  assert.ok(hasClass(popupButton(/Its own time/), "cal-mode-on"), "the card does not show which answer this module is on");
+
+  const before = px(rowFor(root, "Cutting and packing")[0], "left");
+  popupButton(/As the one above finishes/).dispatchEvent({ type: "click" });
+
+  // Both keys are written: the new one for the three-way choice, and the old switch
+  // a save made by an older phone is still read through.
+  assert.equal(pack().startMode, "after", "the answer she picked was not stored");
+  assert.equal(pack().follow, true, "the old switch was not written with it");
+  // The packing now starts the minute the oven ends its own lot — 8:15 am against
+  // the 8:57 am she had it at, on every one of its four lots.
+  assert.deepEqual(starts(state, "solo_pack"), [255, 342, 429, 516], "the packing did not land on the end of the oven");
+  // Nothing above it moved, so what she sets below can never re-lay the day above her.
+  assert.deepEqual(starts(state, "solo_oven"), [240, 327, 414, 501], "setting the packing moved the oven");
+  // And the day still makes what it made: a tight follow takes the waiting out, not
+  // the pans.
+  assert.equal(computeScenario(state.settings.scenario).pansPerDay, 24, "the answer she picked changed how many pans the day makes");
+  assert.ok(px(rowFor(root, "Cutting and packing")[0], "left") < before, "the bar was not redrawn where the new answer puts it");
+});
+
+test("a module that waits keeps the later time she set, and one that follows does not (v154)", () => {
+  const { root, state } = render();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+  const was = starts(state, "solo_pack");
+
+  // "Never before the one above finishes" is the floor, and the floor is what her
+  // saved modules already behave with: a time she set that is already the later one
+  // stands exactly where it is.
+  openModule(root, "Cutting and packing");
+  popupButton(/Never before the one above finishes/).dispatchEvent({ type: "click" });
+  assert.equal(pack().startMode, "wait");
+  assert.deepEqual(starts(state, "solo_pack"), was, "the floor moved a time it should have left alone");
+
+  // "As the one above finishes" is the tight follow, and it is the only one of the
+  // three that can pull a lot EARLIER — which is the whole of her first report.
+  popupButton(/As the one above finishes/).dispatchEvent({ type: "click" });
+  assert.deepEqual(starts(state, "solo_pack"), [255, 342, 429, 516], "the tight follow did not pull the packing onto the oven");
+  for (let k = 0; k < 4; k += 1) {
+    assert.ok(starts(state, "solo_pack")[k] < was[k], `packing lot ${k + 1} was not pulled earlier`);
+  }
+});
+
+test("every batch's own card offers the pair, on a module that waits included (v154)", () => {
+  const { root, state } = render();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+  const was = starts(state, "solo_pack").slice();
+
+  // Her report: "The delta t disappeared, before this we have it. I want each batch
+  // start time to be adjustable, like the 1st module." Batch 2 of the last module
+  // used to be refused the pair outright, with a sentence telling her to go and
+  // change the module instead.
+  tapBar(root, "Cutting and packing", 1);
+  assert.match(popupBody(), /Batch 2/, "batch 2's own card did not open");
+  const later = popupButton(/\+ 5 min/);
+  assert.ok(later, "batch 2's card offers no way to move it");
+  later.dispatchEvent({ type: "click" });
+
+  // Below batch 1 the lot rides the module above, so its move is written as a hold
+  // on that lot — not as a start time, which the line would overwrite on the next
+  // repaint.
+  assert.equal(pack().startDelta[1], 5, "the move on batch 2 was not written as a hold on batch 2");
+  assert.equal(pack().startDelta[0], 0, "moving batch 2 moved batch 1");
+  assert.equal(starts(state, "solo_pack")[1], was[1] + 5, "batch 2 did not move");
+  assert.equal(starts(state, "solo_pack")[2], was[2], "a batch after the one she moved came with it");
+  assert.match(lastToast(), /Batch 2 held back 5 minutes/, "the move did not say what it did");
+
+  // And it is not a one-way door: the card offers the way back, on that batch alone.
+  popupButton(/Back onto the line/).dispatchEvent({ type: "click" });
+  assert.equal(pack().startDelta[1], 0, "the way back left the batch held");
+  assert.deepEqual(starts(state, "solo_pack"), was, "the way back did not put the batch where it was");
+});
+
+test("batch 1 reads this module's offset, and the batches below it read as riding the line (v154)", () => {
+  const { root } = render();
+  // Her ask: "Just need to show delta on the batch 1st offset only, then following
+  // module of that step dont have to show the delta because it follow the previous
+  // module tightly." Read on the oven, which is a module in the middle of her day:
+  // the last module's first batch opens the day's own card (v152) and the first
+  // module's first batch is its own start time, so neither is where an offset from
+  // a module above would be read.
+  openModule(root, "The oven swap and the bake");
+  popupButton(/Never before the one above finishes/).dispatchEvent({ type: "click" });
+
+  // Batch 1 of a module below the first carries the module's own answer about the
+  // module above it.
+  tapBar(root, "The oven swap and the bake", 0);
+  assert.match(popupBody(), /never before the module above/, "batch 1 does not read this module's own answer");
+  assert.doesNotMatch(popupBody(), /Δt =/, "a batch that is not held claims an offset it does not have");
+
+  // The batches below it do not repeat the module's offset, because they ride the
+  // module above at this module's own pace and there is nothing of the module's to
+  // read on them.
+  tapBar(root, "The oven swap and the bake", 2);
+  assert.match(popupBody(), /on the line/, "a later batch does not read as riding the line");
+  assert.doesNotMatch(popupBody(), /never before the module above/, "a later batch repeats the module's own offset");
+
+  // A batch she HAS held says so on its own card, because a lot that is off the
+  // line must never look like one that is on it.
+  popupButton(/\+ 5 min/).dispatchEvent({ type: "click" });
+  assert.match(popupBody(), /Δt = \+5 min/, "a held batch does not read out its own hold");
+});
+
+// Her own day with one more step after the packing. The last module of the build
+// is where batch 1 opens the day's own card (v152), so a test about a batch card at
+// the packing needs the packing to not be the last thing she does.
+const oneMore = () => render({
+  modules: [
+    ...ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, cycles: (m.cycles || []).map((c) => ({ ...c })) })),
+    {
+      id: "solo_label", icon: "🏷️", name: "Labelling and boxing", on: true, job: "", cycleMin: 5, batch: 1,
+      touchMin: 5, everyMin: 87, everyAuto: false, repeats: 4, repeatsAuto: false, startMin: 320,
+      startMode: "own", follow: false, overlap: true, people: 1, person: 0, crew: [0], count: 1,
+      cycles: [{ name: "", min: 5, load: 5, unload: 0 }],
+    },
+  ],
+});
+
+test("a press on batch 1 of a module that follows moves the whole module, and there is a way back (v154)", () => {
+  const { root, state } = oneMore();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+  openModule(root, "Cutting and packing");
+  popupButton(/As the one above finishes/).dispatchEvent({ type: "click" });
+
+  // A module set this way has no start time of its own to write — it begins where
+  // the oven ends, whatever a stored start says — so a press that wrote one would
+  // be a button that does nothing. It writes the module's own hold instead, which
+  // is also what keeps a press on batch 1 meaning the same thing on every module.
+  const was = starts(state, "solo_pack").slice();
+  tapBar(root, "Cutting and packing", 0);
+  popupButton(/\+ 5 min/).dispatchEvent({ type: "click" });
+
+  assert.deepEqual(pack().startDelta.slice(0, 4), [5, 5, 5, 5], "the press did not hold the whole module");
+  const now = starts(state, "solo_pack");
+  for (let k = 0; k < 4; k += 1) assert.equal(now[k], was[k] + 5, `lot ${k + 1} did not come with the module`);
+  assert.match(lastToast(), /held 5 minutes behind where the module above finishes/, "the press did not say what it did");
+
+  // An earlier press can only ever take the hold off again, and it cannot go past
+  // the line: below zero there is nothing left to take off, and the card says so
+  // rather than quietly doing nothing.
+  popupButton(/− 5 min/).dispatchEvent({ type: "click" });
+  assert.deepEqual(pack().startDelta.slice(0, 4), [0, 0, 0, 0], "the way back left part of the module held");
+  assert.deepEqual(starts(state, "solo_pack"), was, "the way back did not put the whole module where it was");
+  assert.match(lastToast(), /back on the line/, "taking the hold all the way off did not say so");
+
+  // And a press with nothing left to take off says that rather than doing nothing
+  // quietly: the hold is off, so a further earlier press cannot move the module.
+  popupButton(/− 5 min/).dispatchEvent({ type: "click" });
+  assert.deepEqual(starts(state, "solo_pack"), was, "a press took the module past the line");
+  assert.match(lastToast(), /already as early as the line allows|nothing left to take off/, "a module with nothing left to take off did not say so");
+});
+
+test("the people are held below the modules, so a slot can be read against any module (v154)", () => {
+  const { root } = render();
+  // Her ask: "I want to freeze the persons card, so that by scrolling thru modules
+  // i can see exactly where that slot of that person tie up to and searching for
+  // opportunity to move some batch start time to reduce the number of person
+  // needed." The modules scroll; the people do not.
+  const people = walk(root).find((n) => hasClass(n, "tl-people"));
+  assert.ok(people, "the people rows are not held in a block of their own, so they scroll away with the modules");
+
+  // Every person's row and the total are inside it — the total is half of reading
+  // one slot against another — and no module row is.
+  const inside = walk(people);
+  assert.ok(inside.some((n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1")),
+    "the person rows are not in the held block");
+  assert.ok(inside.some((n) => hasClass(n, "total-row") && /People at once/.test(textOf(n))),
+    "the total row is not in the held block");
+  assert.equal(inside.filter((n) => hasClass(n, "tl-row") && textOf(n).includes("Cutting and packing")).length, 0,
+    "a module row is inside the held block, so the block is not the people");
+  // Drawn once, not once per module.
+  assert.equal(walk(root).filter((n) => hasClass(n, "tl-people")).length, 1, "the people block is drawn more than once");
+
+  // And it is pinned by its own rule rather than by hope: sticky at the foot of the
+  // panel, opaque, over the module rows but under the day's own now-line.
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.tl-people\s*\{[^}]*position:\s*sticky;\s*bottom:\s*0/, "the people block is not pinned to the foot of the panel");
+  assert.match(css, /\.tl-people\s*\{[^}]*background:/, "the people block is see-through, so the modules show through it");
 });
