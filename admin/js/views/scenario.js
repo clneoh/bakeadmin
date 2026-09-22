@@ -43,6 +43,14 @@ const TONES = 8;
 const SNAP_MIN = 5;
 const LAB_MIN_PX = 26;
 
+// The narrowest a stretch of her hands is ever drawn inside a bar. A minute of
+// the fold is under two pixels at the scale the day is read in, and drawn at
+// that width it lands exactly on the seam between two cycles and reads as that
+// seam rather than as her working there. It is the same floor the person rows
+// give a stretch of her day, so a bar and the person row that attends it agree
+// about what a one-minute job looks like.
+const MIN_TOUCH_PX = 4;
+
 // When a module's cycles overlap, they are stacked in lanes rather than painted
 // over each other. These are the same numbers as the single-lane bar's box, so a
 // row that does not overlap is drawn exactly as it always was: one 16px bar at
@@ -342,7 +350,17 @@ function climbCard(r, climb, sc, on) {
       "Nothing on this ladder moves that number. Look at the modules below — one of them turns out nothing at all."));
   }
 
-  return el("div", {}, el("h2", { class: "section" }, "The climb"), el("div", { class: "card" }, ...kids));
+  // The same button sits on the heading as well as at the foot of the card. The
+  // ladder can be a dozen rungs long — a day of nine modules gives nine — and a
+  // control she has to scroll past the whole thing to reach is a control that has
+  // gone missing. Both press the same thing, and the heading carries it only when
+  // the card below really has something to apply.
+  const canApply = r.target > 0 && r.pansPerDay < r.target && climb.steps.length > 0;
+  return el("div", {},
+    el("div", { class: canApply ? "section-row" : "" },
+      el("h2", { class: "section" }, "The climb"),
+      canApply ? button("Use these numbers", () => applyClimb(sc, climb, on), "primary") : null),
+    el("div", { class: "card" }, ...kids));
 }
 
 function climbRow(s, i) {
@@ -726,13 +744,16 @@ function cycleMarks(m, p, r, w) {
 
   for (const t of p.touches || []) {
     const from = Math.max(0, px(t.from - p.at));
-    const to = Math.min(w, px(t.to - p.at));
-    if (to > from) {
-      out.push(el("div", {
-        class: "tl-touch",
-        style: `left:${from}px;width:${to - from}px`,
-      }));
-    }
+    const trueW = Math.min(w, px(t.to - p.at)) - from;
+    if (trueW <= 0) continue;
+    // Drawn from its real minute and no wider than the bar leaves it, so the
+    // picture still says WHEN; only the width is floored, and the bar's own
+    // tooltip and the cycle's name still carry the true minutes.
+    out.push(el("div", {
+      class: "tl-touch",
+      style: `left:${from}px;width:${Math.min(Math.max(MIN_TOUCH_PX, trueW), w - from)}px`,
+      title: `${t.name ? `${t.name}: ` : ""}${trim(t.to - t.from)} min of you at ${clockAt(r.dayStartMin, t.from)}`,
+    }));
   }
   return out;
 }

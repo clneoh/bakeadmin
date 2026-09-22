@@ -1,0 +1,170 @@
+// test/scenario-view.test.js — the Scenario planner's day chart rendered under a
+// small DOM shim. Two things it pins, both from 22 Sep 2026:
+//
+//   1. A cycle's labour is drawn at the minute she really works it, and it is
+//      never thinner inside the bar than the same job is on the person row
+//      below it. Drawn one pixel wide, the fold landed exactly on the seam
+//      between two cycles and read as that seam rather than as her working there.
+//
+//   2. The button that applies the ladder sits on the climb card's own heading.
+//      A day of nine modules makes a nine-rung ladder, and a control she has to
+//      scroll past all of it to reach is a control that has gone missing.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+function createEl(tag) {
+  return {
+    tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
+    className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
+    scrollTop: 0, hidden: false, _listeners: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
+    append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
+    replaceChildren(...cs) {
+      this.children = [];
+      for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; }
+    },
+    addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+    removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },
+    dispatchEvent(ev) { (this._listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
+    setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; },
+    getAttribute(k) { return this.attrs[k]; },
+    getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 400 }; },
+    focus() {}, click() {},
+    querySelector() { return null; },
+  };
+}
+const layers = { "confirm-layer": createEl("div"), "popup-layer": createEl("div") };
+globalThis.document = {
+  createElement: createEl,
+  createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
+  getElementById: (id) => layers[id] || null,
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  addEventListener() {}, removeEventListener() {},
+  body: createEl("body"),
+};
+globalThis.setTimeout = (fn) => { fn(); return 1; };
+globalThis.clearTimeout = () => {};
+if (typeof crypto === "undefined" || !crypto.randomUUID) {
+  globalThis.crypto = { randomUUID: () => "00000000-0000-4000-8000-000000000000" };
+}
+const store = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+
+const { renderScenario } = await import("../admin/js/views/scenario.js");
+const { ONE_BAKER_SCENARIO } = await import("../admin/js/scenario.js");
+
+// Every element under `root`, depth-first, in document order.
+function walk(root, out = []) {
+  for (const c of root.children || []) {
+    if (c.nodeType !== 1) continue;
+    out.push(c);
+    walk(c, out);
+  }
+  return out;
+}
+// The shim keeps text in child text nodes, so this walks them rather than
+// trusting a `textContent` a real browser would maintain.
+function textOf(n) {
+  let s = n.textContent || "";
+  for (const c of n.children || []) {
+    if (c.nodeType === 3) s += ` ${c.text}`;
+    else if (c.nodeType === 1) s += ` ${textOf(c)}`;
+  }
+  return s;
+}
+const hasClass = (n, cls) => new RegExp(`(^|\\s)${cls}(\\s|$)`).test(n.className || "");
+// A px value out of the inline style string the view writes.
+function px(node, key) {
+  const m = new RegExp(`${key}:(-?\\d+(?:\\.\\d+)?)px`).exec(node.attrs.style || "");
+  return m ? Number(m[1]) : null;
+}
+
+function render(overrides = {}) {
+  const scen = {
+    ...ONE_BAKER_SCENARIO,
+    modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, cycles: (m.cycles || []).map((c) => ({ ...c })) })),
+    ...overrides,
+  };
+  const state = { settings: { currency: "RM", deliveryDays: [1, 3, 5], scenario: scen, scenarios: [] }, uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [] };
+  const root = createEl("div");
+  renderScenario(root, state);
+  return { root, state };
+}
+
+// The bars of the row whose name cell carries `name`.
+function rowFor(root, name) {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes(name));
+  assert.ok(row, `no timeline row named ${name}`);
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  return walk(track).filter((n) => hasClass(n, "tl-bar"));
+}
+const bandsOf = (bar) => (bar.children || []).filter((c) => c.nodeType === 1 && hasClass(c, "tl-touch"));
+
+test("the fold is drawn at its own minute, at the end of its rest", () => {
+  const { root } = render();
+  const bar = rowFor(root, "The rests and the stretch and folds")[0];
+  const barW = px(bar, "width");
+  const bands = bandsOf(bar);
+  assert.equal(bands.length, 3, "the first three rests each end in a fold");
+  // The batch is 31 + 31 + 31 + 30 minutes and the fold is the last minute of
+  // each rest, so the drawn position is 30/123 of the way along the bar — and it
+  // must not be drawn at the bar's start, which is where the old screen put it.
+  const where = px(bands[0], "left") / barW;
+  assert.ok(Math.abs(where - 30 / 123) < 0.01, `fold drawn at ${where} of the batch, expected ${30 / 123}`);
+});
+
+test("a one-minute job is never thinner on the bar than on the person row", () => {
+  const { root } = render();
+  const bar = rowFor(root, "The rests and the stretch and folds")[0];
+  const band = bandsOf(bar)[0];
+  const bandW = px(band, "width");
+  assert.ok(bandW >= 4, `the fold is drawn ${bandW}px wide — too thin to read`);
+
+  // The same minute of her day, on the person row that attends it. The two rows
+  // are the same arithmetic drawn twice, so they must agree about its width —
+  // and its position must agree to within the pixel each of them rounds to.
+  const at = px(bar, "left") + px(band, "left");
+  const person = rowFor(root, "Person 1")
+    .map((b) => ({ left: px(b, "left"), width: px(b, "width") }))
+    .filter((b) => Math.abs(b.left - at) <= 1);
+  assert.equal(person.length, 1, `no single person-row stretch starts at the fold (px ${at})`);
+  assert.equal(person[0].width, bandW, "the bar and the person row disagree about a one-minute job");
+});
+
+test("the oven swap is drawn after the bake, not before it", () => {
+  const { root } = render();
+  const bar = rowFor(root, "The oven swap and the bake")[0];
+  const barW = px(bar, "width");
+  const band = bandsOf(bar)[0];
+  // The module is a 13-minute bake then a 2-minute swap, so her hands are at the
+  // far end of it. Drawn at the start it would read as hands going in before the
+  // pans came out.
+  const where = px(band, "left") / barW;
+  assert.ok(Math.abs(where - 13 / 15) < 0.01, `the swap is drawn at ${where} of the module, expected ${13 / 15}`);
+});
+
+test("the climb card carries its apply button on the heading when there is a ladder", () => {
+  const { root } = render({ target: 48 });
+  const heading = walk(root).find((n) => hasClass(n, "section") && textOf(n).includes("The climb"));
+  assert.ok(heading, "no climb card");
+  const row = heading.parent;
+  const btn = walk(row).find((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.ok(btn, "the heading does not carry the apply button");
+  // And the foot of the card still does, so both ends of a long ladder offer it.
+  const all = walk(root).filter((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.equal(all.length, 2);
+});
+
+test("a scenario that already makes the number she wants offers no button to press", () => {
+  const { root } = render({ target: 24 });
+  const all = walk(root).filter((n) => n.tagName === "BUTTON" && /Use these numbers/.test(textOf(n)));
+  assert.equal(all.length, 0, "there is nothing to apply, so there must be nothing to press");
+  assert.match(textOf(root), /already makes your 24 pans/);
+});

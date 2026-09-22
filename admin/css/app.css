@@ -242,6 +242,13 @@ h2.section {
 }
 h2.section:first-child { margin-top: 0; }
 
+/* A heading that carries its own action: the title on the left, the thing to do
+   about it on the right, sitting on the heading's own line so it is above the
+   card it acts on rather than buried at the foot of it. */
+.section-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.section-row h2.section { margin-bottom: 10px; }
+.section-row .btn { flex: 0 0 auto; }
+
 /* ---------- Badges ---------- */
 .badge {
   display: inline-flex;
@@ -2624,8 +2631,12 @@ tr.po-covered td { color: var(--muted); }
 /* Her hands, drawn where she really works them: at a cycle's load, at its unload,
    or at both ends of it — so the fold sits at the END of its rest and the oven
    swap sits AFTER the bake, because that is where they happen. Absolute, so more
-   than one of them can be on a bar at once. */
-.tl-touch { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+   than one of them can be on a bar at once. The hairline down each side is what
+   keeps a one-minute job readable where it lands on the seam between two cycles:
+   without it the band and the seam are the same hard edge and her hands disappear
+   into the shading. */
+.tl-touch { position: absolute; top: 0; bottom: 0; border-radius: 2px;
+  box-shadow: -1px 0 0 rgba(255, 255, 255, .8), 1px 0 0 rgba(255, 255, 255, .8); }
 /* A bar is a button now: it opens its batch's own clock. The cursor says so, and
    a tap is left to the browser so the track still scrolls under a finger. */
 .tl-row .tl-bar { cursor: pointer; }

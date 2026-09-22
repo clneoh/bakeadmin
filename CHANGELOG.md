@@ -1,8 +1,56 @@
-# Jienluv2bake — change history (v54 → v147)
+# Jienluv2bake — change history (v54 → v148)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v148 (no database step). A cycle's labour drawn where you
+work it, and the ladder's button found.**
+
+**A cycle's labour is now drawn where you work it, and wide enough to see.** This is your
+own sentence from 22 September: "cycle should be drawn with its labour shown at the
+appropriate timing." It was being drawn at the right minute already — the fold at the end
+of its rest, the oven swap after its bake — but it was drawn too small to find. A one-minute
+fold is under two pixels at the scale the day is read in, and where it fell it landed exactly
+on the seam between two rests, so what you saw was the seam and not your hands. Two changes,
+and neither of them moves a minute:
+
+- **The width has a floor.** A stretch of your hands inside a bar is now never drawn thinner
+  than 4 pixels, which is the same floor the person row below already gives the same stretch
+  of your day. So the bar and the person attending it now agree about what a one-minute job
+  looks like — before this, the fold was 1 pixel on the bar and 4 pixels on the person row,
+  which is two drawings of one fact disagreeing with each other.
+- **Each end of it wears a fine light edge,** so a band that lands on the seam between two
+  cycles still reads as a band rather than as the join.
+
+Only the width is floored. **The position is the model's own minute**, so the picture still
+says WHEN: the fold sits at the end of its rest and the oven swap sits after the bake. Hover
+or long-press a bar and it now names the cycle and the exact minute, so the true length of a
+floored band is never lost — it reads, for example, "1 min of you at 4:51 am".
+
+**The button that applies the ladder is now on the ladder's own heading.** You told me you
+could not find **Use these numbers**. You were right, and the reason was arithmetic: it sat
+at the very foot of The climb card, and a day of nine modules makes a nine-rung ladder, so on
+a phone the button was about four screens below the heading it belongs to. It is now on the
+heading as well, beside the words The climb, and it is still at the foot of the card. Both
+press exactly the same thing.
+
+**When there is nothing to apply, there is no button — and the card says so.** If your
+scenario already makes the number you asked for, the card reads "This scenario already makes
+your 24 pans" and offers nothing to press, because there is nothing for it to change. That is
+the other half of why the button could not be found: on a scenario that already reaches your
+number it does not exist at all. Raise the number you want above what the line makes, and the
+ladder appears with its button on the heading.
+
+**What has not moved.** Not one module, batch time, cycle or saved scenario. The day still
+reads the same numbers it read in v147: One baker day is still 24 pans in 8 modules, one
+person, 3 h 52 min of hands, 4:01 am to 1:30 pm. Nothing here reads an order and nothing here
+blocks a sale.
+
+Engine 148. Tests are 1102 passing with none failing, five of them new — they pin the fold's
+drawn minute, the bar and the person row agreeing about a one-minute job, the oven swap being
+drawn after the bake, and the apply button being on the heading. No database step — nothing
+to run in Supabase.
 
 **22 Sep 2026 — engine v147 (no database step). Module, batch, cycle — the three
 words on the Scenario planner, and the model that moved with them.**
