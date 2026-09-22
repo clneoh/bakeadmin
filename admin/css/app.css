@@ -2632,8 +2632,8 @@ tr.po-covered td { color: var(--muted); }
    and the bars beside it already ask for 45.
    The name itself is one line, shortened with an ellipsis where the column ends. It
    used to wrap, to seven lines on this column, and the row grew for it: with the two
-   notes below, a module row could stand as tall as four bars. Whole names are on the
-   row's own card, one tap away, and on a computer under the pointer. */
+   notes below, a module row could stand as tall as four bars. A whole name is on the
+   row's own card, one tap away. */
 .tl-name-txt { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A slimmer badge than the same badge wears elsewhere on the app, and only inside
    this cell: the 23px chip it is by default plus a name line is 51px, which is 6px
@@ -2642,17 +2642,31 @@ tr.po-covered td { color: var(--muted); }
 .tl-name-top .badge { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; }
 .tl-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .tl-sub.bad { color: var(--red); }
-/* A module's two notes are off the row now, and the row is exactly as tall as the
-   bars it draws: eight modules of notes was 400px of a phone screen spent repeating
-   what the module's card says, and it is why the day scrolled. They come back on a
-   computer under the pointer, where there is a pointer, and on every device on the
-   card a tap opens. The row grows while they are showing rather than laying them
-   over the day, so a note is never clipped by the edge of the panel. */
-.tl-detail { display: none; }
+/* A module's two notes are off the row, and the row is exactly as tall as the bars
+   it draws: eight modules of notes was 400px of a phone screen spent repeating what
+   the module's card says, and it is why the day scrolled. Pointing at the module's
+   title opens them as a tip instead — laid over the day, so the row it belongs to
+   never changes height while she is reading it. Only where there is a pointer that
+   can hover: a phone has no pointing at things, so it gets both notes, word for
+   word, on the module's own card.
+   The containing block is the name cell, which is already positioned (sticky) and
+   already wears z-index 2, so the tip is drawn over the bars for free.
+   The box is capped under the row's own 46px so that a tip on the first or the last
+   module of a long day cannot be cut by the edge of the scrolling panel. */
+.tl-tip {
+  display: none;
+  position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+  z-index: 3;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+  white-space: nowrap; text-align: left;
+}
+.tl-tip .tl-sub { margin-top: 0; line-height: 1.3; }
+.tl-tip .tl-sub + .tl-sub { margin-top: 2px; }
 @media (hover: hover) and (pointer: fine) {
-  .tl-row:hover { background: var(--strip); }
-  .tl-row:hover .tl-name { background: var(--strip); }
-  .tl-row:hover .tl-detail { display: block; }
+  .tl-name:hover .tl-tip { display: block; }
 }
 .tl-track {
   position: relative; height: 34px; flex: 0 0 auto;

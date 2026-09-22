@@ -1381,10 +1381,11 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     // "waits on" and "starts as … finishes" are two different promises — the first
     // is a floor, the second has no gap at all — so a row that used one phrase for
     // both would be telling her the wrong one on half her modules.
-    // Carried, not shown: the row itself is the bar now. See .tl-detail in the CSS
-    // — a computer brings these back under the pointer, and the module card prints
-    // them word for word, which is where her phone reads them.
-    whenLine = el("div", { class: "tl-sub tl-detail" });
+    // Off the row and onto the pointer: the row is the bar now, so the two notes
+    // live in a tip that opens when she points at the module's own title. See
+    // .tl-tip in the CSS. The module card prints them word for word, which is
+    // where her phone reads them, and where the tip cannot reach.
+    whenLine = el("div", { class: "tl-sub" });
     whenLine.textContent = notes.when;
     name = el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
@@ -1405,8 +1406,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
         // She has asked for more passes than a day holds. The number is kept as
         // she typed it — the row just counts honestly and says why.
         m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null),
-      whenLine,
-      el("div", { class: "tl-sub tl-detail" }, notes.cost));
+      el("div", { class: "tl-tip" }, whenLine, el("div", { class: "tl-sub" }, notes.cost)));
   } else {
     // A line of a module: who is on it, how many lots it takes and the minutes it
     // really runs, read off the cycles the chain has already placed rather than
@@ -1415,8 +1415,8 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     //
     // A line's own clock and the hands on it are the ONE thing a second line has to
     // say — nothing else on the screen says it — so they stay on the row. Its cost
-    // line and its waiting are the module's own words twice over, so they go behind
-    // .tl-detail with the rest.
+    // line and its waiting are the module's own words twice over, so they go into
+    // .tl-tip with the rest.
     const stats = lineStats(m, line);
     const who = lineWho(m, line, state) + (stats ? ` · ${stats.lots} ${stats.lots === 1 ? "lot" : "lots"}` : "");
     whenLine = el("div", { class: "tl-sub" }, stats
@@ -1436,8 +1436,11 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
         : null,
       el("div", { class: "tl-sub" }, who),
       whenLine,
-      line === 0 ? el("div", { class: "tl-sub tl-detail" }, notes.cost) : null,
-      line === 0 && above ? el("div", { class: "tl-sub tl-detail" }, `waits on ${above.name}`) : null);
+      line === 0
+        ? el("div", { class: "tl-tip" },
+          el("div", { class: "tl-sub" }, notes.cost),
+          above ? el("div", { class: "tl-sub" }, `waits on ${above.name}`) : null)
+        : null);
   }
 
   // A module that is not drawn as lines gets the class list it has always had, to

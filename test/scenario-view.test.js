@@ -1106,19 +1106,15 @@ test("a module row carries its notes but does not print them, and its card does 
 
   // Both notes are still built and still say what they said — they are carried, not
   // dropped, so the card below and a computer's hover can print them word for word.
-  const held = walk(row).filter((n) => hasClass(n, "tl-detail"));
-  assert.equal(held.length, 2, "the row does not carry exactly its two notes");
+  const held = walk(row).filter((n) => hasClass(n, "tl-tip"));
+  assert.equal(held.length, 1, "the row does not carry exactly one tip");
   assert.match(textOf(held[0]), /starts 4:01 am · 4 batches/,
-    `the row's first note no longer says when the module starts: ${textOf(held[0])}`);
-  assert.match(textOf(held[1]), /20 min a batch · 20 min of you/,
-    `the row's second note no longer says what a batch costs: ${textOf(held[1])}`);
-
-  // Off the row by rule, and back only under a pointer that can hover: a phone has
-  // no hover, so a reveal tied to one would be a reveal her phone can never reach.
-  const css = read("admin/css/app.css");
-  assert.match(css, /\.tl-detail\s*\{\s*display:\s*none/, "the notes are not off the row, so the row is still as tall as them");
-  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.tl-row:hover\s+\.tl-detail\s*\{\s*display:\s*block/,
-    "the notes cannot be brought back on a computer");
+    `the tip no longer says when the module starts: ${textOf(held[0])}`);
+  assert.match(textOf(held[0]), /20 min a batch · 20 min of you/,
+    `the tip no longer says what a batch costs: ${textOf(held[0])}`);
+  // The same two sentences, as two lines rather than one run together.
+  assert.equal(walk(held[0]).filter((n) => hasClass(n, "tl-sub")).length, 2,
+    "the tip does not hold the module's two notes as two lines");
 
   // The card the row's tap opens carries both, at the top, before anything else.
   openModule(root, "Mixing the dough in the tub");
@@ -1126,6 +1122,41 @@ test("a module row carries its notes but does not print them, and its card does 
   assert.match(body, /starts 4:01 am · 4 batches/, "the module card does not carry the row's first note");
   assert.match(body, /20 min a batch · 20 min of you/, "the module card does not carry the row's second note");
 });
+
+// ── v156: the tip does not expand the module ────────────────────────────────
+//
+// Her correction of 22 September, on seeing it described: "i prefer not to expend
+// the module with mouse hoover. Remain the height. When mouse hoover to the module
+// title, only the note should shot as a too tip". v155 revealed the notes by making
+// the row taller, which is the very thing this release exists to stop: a row that
+// grows under the pointer moves everything below it, so the bar she was reading is
+// no longer where she left it. The notes are laid OVER the day instead, from the
+// title cell alone, and the row's height is the same whether or not the tip is open.
+
+test("the notes open as a tip over the day, and the row keeps its height (v156)", () => {
+  const css = read("admin/css/app.css");
+
+  // Hidden until the title is pointed at, and taken out of the row's flow while it
+  // is showing: absolute is what keeps the height. A revealed block here would be
+  // v155 again, and the row would grow by two lines the moment she pointed at it.
+  assert.match(css, /\.tl-tip\s*\{[^}]*display:\s*none/, "the tip is not off the row, so the row is still as tall as its notes");
+  assert.match(css, /\.tl-tip\s*\{[^}]*position:\s*absolute/, "the tip is laid out in the row, so opening it moves every row below it");
+  assert.match(css, /\.tl-tip\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/, "the tip is not centred on the row it belongs to");
+
+  // Opened by the title cell, and only by it — she asked for the note, not for the
+  // row to react — and only where there is a pointer that can hover. A phone has no
+  // hover, so a reveal tied to one would be a reveal her phone can never reach.
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.tl-name:hover\s+\.tl-tip\s*\{\s*display:\s*block/,
+    "the tip is not opened by pointing at the module's own title");
+  assert.ok(!/\.tl-row:hover[^{]*\{[^}]*display:\s*block/.test(css),
+    "something on the row is still revealed in the row's own flow, which is what grew it");
+
+  // And the height it must not change: the box is capped under the row's own 46px,
+  // so a tip on the first or the last module of a long day is not cut by the edge of
+  // the scrolling panel.
+  assert.match(css, /\.tl-tip\s+\.tl-sub\s*\{[^}]*line-height:\s*1\.3/, "the tip's two lines are not held to a height that fits inside a row");
+});
+
 
 test("the name takes the row's first line and the badges take the next (v155)", () => {
   const { root } = render();

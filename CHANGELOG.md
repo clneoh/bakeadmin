@@ -1,8 +1,62 @@
-# Jienluv2bake — change history (v54 → v155)
+# Jienluv2bake — change history (v54 → v156)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v156 (no database step). The module's notes now open as a
+tip over the day when you point at its title, and the row keeps its height while
+you read them.**
+
+**What you asked.** In your words: "i prefer not to expend the module with mouse
+hoover. Remain the height. When mouse hoover to the module title, only the note
+should shot as a too tip." That is a correction to v155, and it is a fair one:
+v155 brought the notes back by making the row taller, which moves every row below
+it the moment you point at it, so the bar you were reading is no longer where you
+left it. Reading a number should never move the thing you were reading it
+against.
+
+**The tip, and where it comes from.** Point at a module's own title and its two
+notes open in a small box beside the name: the time the module starts and how
+many batches it runs, then what a batch costs in minutes and in your own hands.
+It is drawn over the day rather than in it, so nothing on the chart moves while
+it is open - not the row it belongs to, and not one row under it. Point away and
+it is gone.
+
+**Measured rather than promised.** On your One baker day, with the tip open on
+the mixing module, the row reads 46 pixels before and 46 pixels after, the row
+underneath starts on the same pixel it did, and the day's own total is 527 pixels
+either way. The box is 43 pixels tall, which is inside the row it belongs to -
+that is deliberate, because it means a tip on the first or the last module of a
+long day cannot be cut off by the edge of the panel. The whole box measured
+inside the panel on the first module and on the last one.
+
+**Only on a computer, and only on the title.** The tip opens where there is a
+pointer that can hover at things, which a phone has not got: on your phone
+pointing is a finger and a finger is a tap. There the notes are written out word
+for word at the top of the module's own card, which is what a tap on the row
+already opens, and that is unchanged from v155. Pointing at the row anywhere
+other than the title does nothing, because you asked for the note and not for the
+row to react.
+
+**What has not moved.** Everything v155 did to the row is kept: a row is still
+exactly as tall as the bars it draws, the name still takes the row's first line
+with the badges on the line beneath, the name column is still 156 pixels, and
+your whole day still fits the window. Your three saved days were compared byte
+for byte before and after: One baker day still reads 24 pans across 8 modules
+with its first batch out at 9:09 am and its day finishing at 1:30 pm, No fridge,
+1 person still reads 24 pans, and My sister proposal 21/9/2026 still reads 4
+pans. Nothing here blocks a sale and nothing here reads an order.
+
+**No database step.** The tip is drawn from the scenario already on your phone,
+so there is nothing to run in Supabase.
+
+This change history and the operations guide (section 23) both carry all of
+this, both PDFs rebuilt, the app's own More screen reads Engine v156, and the
+tests are 1158 passing with none failing - one of them new: the tip is off the
+row, laid out absolutely so the row cannot grow, centred on the row it belongs
+to, opened by the title alone, and its two lines are held to a height that fits
+inside a row.
 
 **22 Sep 2026 — engine v155 (no database step). Every module row is now as tall
 as its own bars, so your whole day fits the window with no scrolling; the two
