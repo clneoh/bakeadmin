@@ -1297,13 +1297,35 @@ function chainAbove(r, m) {
   return null;
 }
 
+// What a module has to say about itself beyond its name: when its first batch
+// starts and how many it runs, what it is waiting on, and what one batch costs it
+// in minutes and in her hands.
+//
+// These two sentences used to sit under every module name, and they were what made
+// the row tall: eight modules of notes is 400px of a phone screen spent repeating
+// what the module's own card says. They are built in one place now, because two
+// places print them — the row shows them on hover on a computer, and the card a
+// tap opens shows them always — and two printings of one sentence is how a screen
+// ends up disagreeing with itself.
+function moduleNotes(r, m, live) {
+  const above = chainAbove(r, m);
+  const after = above ? startModeOf(live) === "after" : false;
+  return {
+    above,
+    badge: above ? (after ? "follows above" : "waits above") : "",
+    when: timeLine(m, r.dayStartMin) +
+      (above ? (after ? ` · starts as ${above.name} finishes` : ` · waits on ${above.name}`) : ""),
+    cost: costLine(m),
+  };
+}
+
 function moduleRow(r, m, idx, trackW, sc, on, state, run) {
   const tone = `tone-${idx % TONES}`;
 
   if (!m.on) {
-    return el("div", { class: "tl-row off", onclick: () => editModule(m, sc, on) },
+    return el("div", { class: "tl-row off", onclick: () => editModule(m, sc, on, false, r) },
       el("div", { class: "tl-name" },
-        el("div", { class: "tl-name-top" }, `${m.icon} ${m.name}`),
+        el("div", { class: "tl-name-top" }, el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`)),
         el("div", { class: "tl-sub" }, "not in this scenario")),
       el("div", { class: "tl-track", style: `width:${trackW}px` }));
   }
@@ -1348,27 +1370,33 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
   let whenLine = null;
   let name = null;
 
+  // Built before the branch, because both branches wear the waiting badge — and
+  // because the badge on a module drawn as lines used to be read from a name that
+  // only existed on the other side of this if. A module with two production line
+  // that also waits on the module above threw instead of drawing.
+  const notes = moduleNotes(r, m, live);
+
   if (line == null) {
     // The module above, named the way THIS module is set to take its start from it.
     // "waits on" and "starts as … finishes" are two different promises — the first
     // is a floor, the second has no gap at all — so a row that used one phrase for
     // both would be telling her the wrong one on half her modules.
-    const aboveSub = above
-      ? (startModeOf(live) === "after" ? ` · starts as ${above.name} finishes` : ` · waits on ${above.name}`)
-      : "";
-    const aboveBadge = above
-      ? (startModeOf(live) === "after" ? "follows above" : "waits above")
-      : "";
-    whenLine = el("div", { class: "tl-sub" });
-    whenLine.textContent = timeLine(m, r.dayStartMin) + aboveSub;
+    // Carried, not shown: the row itself is the bar now. See .tl-detail in the CSS
+    // — a computer brings these back under the pointer, and the module card prints
+    // them word for word, which is where her phone reads them.
+    whenLine = el("div", { class: "tl-sub tl-detail" });
+    whenLine.textContent = notes.when;
     name = el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
-        `${m.icon} ${m.name}`,
+        // Its own span, so a long name is shortened with an ellipsis at the column's
+        // edge instead of wrapping the row taller than the bars it draws. The whole
+        // name is on the card, one tap away.
+        el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`),
         // How many of this module she has. Two mixers, two chillers, two people
         // folding: named on the row, because everything downstream of it — the
         // day's room, the hands — follows from this one number.
         m.count > 1 ? el("span", { class: "badge badge-multi" }, `${m.count} of them`) : null,
-        above ? el("span", { class: "badge badge-past" }, aboveBadge) : null,
+        above ? el("span", { class: "badge badge-past" }, notes.badge) : null,
         // And how many of its lots are in it at once, which is the one thing the
         // taller row is telling her. Only shown when it is really happening, so a
         // module that is not overlapping never wears a badge about it.
@@ -1378,12 +1406,17 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
         // she typed it — the row just counts honestly and says why.
         m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null),
       whenLine,
-      el("div", { class: "tl-sub" }, costLine(m)));
+      el("div", { class: "tl-sub tl-detail" }, notes.cost));
   } else {
     // A line of a module: who is on it, how many lots it takes and the minutes it
     // really runs, read off the cycles the chain has already placed rather than
     // worked out again here. The module's own name, badges and cost line stay on
     // the first line, so a module is still one thing she can read in one place.
+    //
+    // A line's own clock and the hands on it are the ONE thing a second line has to
+    // say — nothing else on the screen says it — so they stay on the row. Its cost
+    // line and its waiting are the module's own words twice over, so they go behind
+    // .tl-detail with the rest.
     const stats = lineStats(m, line);
     const who = lineWho(m, line, state) + (stats ? ` · ${stats.lots} ${stats.lots === 1 ? "lot" : "lots"}` : "");
     whenLine = el("div", { class: "tl-sub" }, stats
@@ -1395,16 +1428,16 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     name = el("div", { class: "tl-name" },
       line === 0
         ? el("div", { class: "tl-name-top" },
-          `${m.icon} ${m.name}`,
+          el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`),
           el("span", { class: "badge badge-multi" }, `${m.lines} lines`),
-          above ? el("span", { class: "badge badge-past" }, aboveBadge) : null,
+          above ? el("span", { class: "badge badge-past" }, notes.badge) : null,
           m.needsYou ? null : el("span", { class: "badge badge-past" }, "itself"),
           m.capped ? el("span", { class: "badge badge-over" }, "a day's limit") : null)
         : null,
       el("div", { class: "tl-sub" }, who),
       whenLine,
-      line === 0 ? el("div", { class: "tl-sub" }, costLine(m)) : null,
-      line === 0 && above ? el("div", { class: "tl-sub" }, `waits on ${above.name}`) : null);
+      line === 0 ? el("div", { class: "tl-sub tl-detail" }, notes.cost) : null,
+      line === 0 && above ? el("div", { class: "tl-sub tl-detail" }, `waits on ${above.name}`) : null);
   }
 
   // A module that is not drawn as lines gets the class list it has always had, to
@@ -1429,7 +1462,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line, state, run) 
     batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)), run);
   });
 
-  row.addEventListener("click", () => editModule(live, sc, on));
+  row.addEventListener("click", () => editModule(live, sc, on, false, r));
 
   return row;
 }
@@ -2284,7 +2317,7 @@ function toneIndex(r, id) {
 // what it is, how long it holds, how much of her it takes, when it starts, and
 // who is standing at it. The start is the knob she named, so it sits beside the
 // explanation of what turning it does.
-function editModule(saved, sc, on, isNew = false) {
+function editModule(saved, sc, on, isNew = false, r = null) {
   showPopup(`${saved.icon} ${saved.name}`, (refresh, close) => {
     // The module list is edited in place, so each field writes only its own value
     // back; the screen behind the pop-up catches up when it closes.
@@ -2539,7 +2572,25 @@ function editModule(saved, sc, on, isNew = false) {
         }, "↓ Later")));
     }
 
+    // The two sentences the row no longer carries, word for word and at the top of
+    // the card the row's tap opens — which is where her phone reads them, because a
+    // finger has no hover to bring them back with. Built by the same helper the row
+    // uses, so the card and a computer's hover can never tell her two stories.
+    //
+    // A module the day could not place (a parked one) has no computed time, and a
+    // module she has just added has not been laid out for her yet: neither shows a
+    // summary, which is honest rather than a guess.
+    const cm = r ? (r.modules || []).find((x) => x.id === live.id) : null;
+    const summary = cm ? (() => {
+      const n = moduleNotes(r, cm, live);
+      return [
+        el("p", { class: "card-sub", style: "margin:0 0 4px" }, n.when),
+        el("p", { class: "card-sub", style: "margin:0 0 10px" }, n.cost),
+      ];
+    })() : null;
+
     return el("div", {},
+      ...(summary || []),
       el("div", { class: "field" },
         el("label", { class: "check-row" }, toggle,
           el("span", { class: "check-label" }, "This module is in the scenario")),
@@ -2782,7 +2833,7 @@ function parkedCard(r, sc, on) {
     el("div", { class: "card" },
       el("p", { class: "card-sub", style: "margin:0 0 8px" },
         "A module that is switched off cannot be the bottleneck, and adds nothing to the day. These are the modules you have set aside — tap one to put it in."),
-      ...r.parked.map((m) => el("div", { class: "info-row tappable", onclick: () => editModule(m, sc, on) },
+      ...r.parked.map((m) => el("div", { class: "info-row tappable", onclick: () => editModule(m, sc, on, false, r) },
         el("span", { class: "j-what" }, `${m.icon} ${m.name}`),
         el("span", { class: "info-val" }, m.needsYou ? "needs you" : "runs itself")))));
 }

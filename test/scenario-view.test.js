@@ -1089,3 +1089,83 @@ test("the people are held below the modules, so a slot can be read against any m
   assert.match(css, /\.tl-people\s*\{[^}]*position:\s*sticky;\s*bottom:\s*0/, "the people block is not pinned to the foot of the panel");
   assert.match(css, /\.tl-people\s*\{[^}]*background:/, "the people block is see-through, so the modules show through it");
 });
+
+// ── v155: the module row is the height of its bars ──────────────────────────
+//
+// Her report of 22 September: "The window for scrolling module became too small,
+// why not reduce the height of each module, the notes can just shown up upon mouse
+// hoover." The two notes under every module name were what made a row tall — on her
+// own day they ran to 912px of rows inside a 536px window. They are off the row
+// now, printed instead on the module's own card, which is what a tap on the row
+// opens; a computer gets them back under the pointer, where there is a pointer.
+
+test("a module row carries its notes but does not print them, and its card does (v155)", () => {
+  const { root } = render();
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes("Mixing the dough in the tub"));
+  assert.ok(row, "no timeline row for the mixing module");
+
+  // Both notes are still built and still say what they said — they are carried, not
+  // dropped, so the card below and a computer's hover can print them word for word.
+  const held = walk(row).filter((n) => hasClass(n, "tl-detail"));
+  assert.equal(held.length, 2, "the row does not carry exactly its two notes");
+  assert.match(textOf(held[0]), /starts 4:01 am · 4 batches/,
+    `the row's first note no longer says when the module starts: ${textOf(held[0])}`);
+  assert.match(textOf(held[1]), /20 min a batch · 20 min of you/,
+    `the row's second note no longer says what a batch costs: ${textOf(held[1])}`);
+
+  // Off the row by rule, and back only under a pointer that can hover: a phone has
+  // no hover, so a reveal tied to one would be a reveal her phone can never reach.
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.tl-detail\s*\{\s*display:\s*none/, "the notes are not off the row, so the row is still as tall as them");
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.tl-row:hover\s+\.tl-detail\s*\{\s*display:\s*block/,
+    "the notes cannot be brought back on a computer");
+
+  // The card the row's tap opens carries both, at the top, before anything else.
+  openModule(root, "Mixing the dough in the tub");
+  const body = popupBody();
+  assert.match(body, /starts 4:01 am · 4 batches/, "the module card does not carry the row's first note");
+  assert.match(body, /20 min a batch · 20 min of you/, "the module card does not carry the row's second note");
+});
+
+test("the name takes the row's first line and the badges take the next (v155)", () => {
+  const { root } = render();
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && textOf(n).includes("The rests and the stretch and folds"));
+  const top = walk(row).find((n) => hasClass(n, "tl-name-top"));
+  const name = walk(top).find((n) => hasClass(n, "tl-name-txt"));
+  assert.ok(name, "the name is not in a span of its own, so a long one cannot be shortened");
+  assert.equal(textOf(name).trim(), "🫙 The rests and the stretch and folds", "the row stopped naming the module in full");
+  const badges = walk(top).filter((n) => hasClass(n, "badge"));
+  assert.ok(badges.length, "the badges are not on the name cell at all");
+
+  // Sharing the name's line was the real damage: this module's name is 273px wide
+  // and a badge beside it left 35px of it to read. The name now takes the whole
+  // line and the badges break onto the one below, which is 16px — under the 45px
+  // the bars already ask for, so the row is no taller for it.
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.tl-name-top\s*\{[^}]*flex-wrap:\s*wrap/, "the name and its badges cannot break onto two lines");
+  assert.match(css, /\.tl-name-txt\s*\{[^}]*flex:\s*1 1 100%/, "the name does not take the line it is on");
+  assert.match(css, /\.tl-name-txt\s*\{[^}]*text-overflow:\s*ellipsis/, "a long name is not shortened, so it wraps the row taller than its bars");
+  // And the column those 146px of name live in, measured rather than promised.
+  assert.match(css, /\.tl-name\s*\{[^}]*width:\s*156px/, "the name column is not the width the row was measured at");
+});
+
+test("a module drawn as lines can wait on the module above it (v155)", () => {
+  // Found while building v155, and it is older than this release: a module drawn as
+  // two production line read the waiting badge's words from `aboveBadge`, which was
+  // declared inside the other half of an if. Two production line on a module that
+  // waits on the one above — two taps on her own card — threw instead of drawing.
+  // Nothing she has saved is drawn as lines, which is the only reason it is a latent
+  // fault rather than a report.
+  const modules = ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_scale" ? { ...m, count: 2, follow: true, startMode: "wait" } : { ...m }));
+  const { root } = render({ modules });
+
+  const lines = walk(root).filter((n) => hasClass(n, "tl-row") && hasClass(n, "tl-line"));
+  assert.equal(lines.length, 2, "the module's two production line were not drawn");
+  const first = lines.find((n) => textOf(n).includes("Oil the pans"));
+  assert.ok(first, "the line rows do not name the module they belong to");
+  assert.match(textOf(first), /waits above/, "the line row lost the badge saying it waits on the module above");
+  // And the module is still one thing she can read in one place: its name and its
+  // waiting are on the first line, never repeated on the second.
+  const second = lines.find((n) => !textOf(n).includes("Oil the pans"));
+  assert.ok(!/waits above/.test(textOf(second)), "the waiting badge is repeated on the second production line");
+});

@@ -2612,18 +2612,48 @@ tr.po-covered td { color: var(--muted); }
 .tl-row:last-child { border-bottom: 0; }
 .tl-name {
   position: sticky; left: 0; z-index: 2;
-  flex: 0 0 138px; width: 138px;
+  /* A little wider than the 138px it was: with the badges off the name's line,
+     these 18px are the difference between one of her module names reading whole
+     and three of them doing so. The chart pans sideways for the rest of the day. */
+  flex: 0 0 156px; width: 156px;
   background: var(--surface);
   border-right: 1px solid var(--line);
   padding: 6px 9px 6px 0;
   cursor: pointer;
 }
 .tl-name-top {
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; gap: 0 5px; flex-wrap: wrap;
   font-size: 13px; font-weight: 600; line-height: 1.25;
 }
+/* The name takes the whole first line and the badges drop to the one below it.
+   Sharing that line was the real damage: her longest module, The rests and the
+   stretch and folds, had 35px of a 273px name to read, because a badge was sitting
+   in the rest of it. The row is no taller for the change — the badges line is 15px
+   and the bars beside it already ask for 45.
+   The name itself is one line, shortened with an ellipsis where the column ends. It
+   used to wrap, to seven lines on this column, and the row grew for it: with the two
+   notes below, a module row could stand as tall as four bars. Whole names are on the
+   row's own card, one tap away, and on a computer under the pointer. */
+.tl-name-txt { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A slimmer badge than the same badge wears elsewhere on the app, and only inside
+   this cell: the 23px chip it is by default plus a name line is 51px, which is 6px
+   taller than the bars beside it. At 11px it is 16px, so the name keeps the 6px of
+   breathing room it has always had and the row is still the height of its bars. */
+.tl-name-top .badge { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; }
 .tl-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .tl-sub.bad { color: var(--red); }
+/* A module's two notes are off the row now, and the row is exactly as tall as the
+   bars it draws: eight modules of notes was 400px of a phone screen spent repeating
+   what the module's card says, and it is why the day scrolled. They come back on a
+   computer under the pointer, where there is a pointer, and on every device on the
+   card a tap opens. The row grows while they are showing rather than laying them
+   over the day, so a note is never clipped by the edge of the panel. */
+.tl-detail { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .tl-row:hover { background: var(--strip); }
+  .tl-row:hover .tl-name { background: var(--strip); }
+  .tl-row:hover .tl-detail { display: block; }
+}
 .tl-track {
   position: relative; height: 34px; flex: 0 0 auto;
   /* An hour gridline every 60 minutes, drawn rather than laid out so it costs

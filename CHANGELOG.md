@@ -1,8 +1,78 @@
-# Jienluv2bake — change history (v54 → v154)
+# Jienluv2bake — change history (v54 → v155)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v155 (no database step). Every module row is now as tall
+as its own bars, so your whole day fits the window with no scrolling; the two
+note lines come off the row and come back when you point at it on a computer,
+and they are always written out on the module's own card.**
+
+**What you asked, and you were right.** In your words: "The window for scrolling
+module became too small, why not reduce the height of each module, the notes can
+just shown up upon mouse hoover." You were right that the rows were too tall,
+and the cause was not the bars. On your One baker day the eight module rows
+measured 912 pixels of drawing inside a window about 536 pixels tall, so only
+about four of them could be seen at once and the rest had to be scrolled to. The
+bars themselves need only 45 pixels; it was the words beside them that made the
+rows tall. The name column is 138 pixels wide, and a name like The rests and the
+stretch and folds wraps to seven lines in it, with each of the two note lines
+wrapping to two more.
+
+**Every module row is now the height of its bars.** A row measures 46 pixels on
+its own day, and the whole of it - the clock strip at the top, your eight
+modules and your people at the foot - now measures about 502 pixels inside the
+527 the window gives it, so the day is read in one look and nothing is scrolled
+to. Every number in it is the number it was.
+
+**The two notes leave the row, and two things bring them back.** On a computer,
+pointing at a row brings both notes back and tints the row, and the row grows
+taller to hold them rather than covering what is beside it, so a note is never
+cut in half. On your phone there is no pointing, so a reveal that needed one
+would be a reveal your phone could never reach; the notes are written out
+instead at the top of the module's own card, which is what a tap on the row
+already opens. Nothing new to learn and nothing new to find. On your mixing
+module the card now opens with what the row used to whisper: the time it starts
+and how many batches, then what a batch costs in minutes and in your own hands.
+
+**The name takes the row, and the badges drop below it.** This was the real
+damage of the old row, and it is worth naming. Your longest module name is 273
+pixels wide, and it was sharing its line with a small badge, which left just 35
+pixels of the name to read - about two words of it. The name now has the row's
+first line to itself and the badges sit on the line beneath, and four of your
+eight module names now read whole where one did before. The name column is 18
+pixels wider as well, from 138 to 156, which is the difference between one and
+three more of your names reading whole. A name still too long for the row is
+shortened with three dots, and the whole of it is on the module's card and under
+the pointer on a computer.
+
+**A fault found while building it, worth naming.** A module drawn as two
+production line and set to wait on the module above it could not be drawn at
+all: the drawing asked for the waiting badge's words in a place where they did
+not exist, and that is not a blank space, it is an error that stops the screen.
+Two taps on your own module card would have found it. None of your saved modules
+is drawn as two production line, which is the only reason you never met it. It
+is fixed, and a test now stands on it so it cannot come back.
+
+**What has not moved, measured rather than promised.** Your three saved days
+were compared byte for byte before and after this release. One baker day still
+reads 24 pans across 8 modules, its first batch out at 9:09 am and its day
+finishing at 1:30 pm. No fridge, 1 person still reads 24 pans. My sister
+proposal 21/9/2026 still reads 4 pans. Not one module, batch, start time, cycle
+or saved scenario of yours changed, and the change is in how a row is drawn, not
+in what any row says. Nothing here blocks a sale and nothing here reads an
+order.
+
+**No database step.** The row is drawn from the scenario already on your phone,
+so there is nothing to run in Supabase.
+
+This change history and the operations guide (section 23) both carry all of
+this, both PDFs rebuilt, the app's own More screen reads Engine v155, and the
+tests are 1157 passing with none failing - three of them new: one on the notes
+being carried by the row and printed by the card, one on the name taking its own
+line ahead of its badges, and one on the module drawn as two production line
+that waits on the module above.
 
 **22 Sep 2026 — the documents, not the app (no engine version, no database
 step). The guides and this change history print their own italics now, so the
