@@ -162,6 +162,84 @@ export const SISTER_SCENARIO = {
   ],
 };
 
+// ── The day she bakes alone ────────────────────────────────────────────────
+//
+// Her ask, in her own words (22 Sep 2026): *"i need you to create one scenario
+// and save it as One baker day. Set the bricks for me, with latest start time
+// each brick batch."*
+//
+// So this is her own bake day from the Production line, set on the one pair of
+// hands she actually has. Every brick carries her chain's own minutes, and every
+// brick's FIRST cycle is the latest start v145 works out backwards from the oven
+// (the anchor is the first 6 pans at the oven at 8:00 am):
+//
+//   mixing the dough in the tub          4:01 am   (239 min before the oven)
+//   the rests and the stretch and folds  4:21 am
+//   oil the pans and weigh the dough out 6:24 am
+//   into the proofer                     6:39 am
+//   dimple and top                       7:24 am
+//   the proofer again                    7:30 am
+//   the oven swap and the bake           8:00 am   (the anchor, batch 1)
+//   cutting and packing                  8:27 am
+//
+// ONE number is not simply her chain's own offset, and it is the whole finding
+// of this scenario: the packing starts at 8:27 am where her chain says 8:15,
+// because alone she is still folding the last tub until 8:27 — that is the first
+// minute the packing needs nobody else.
+//
+// The batch rhythm is 81 minutes, not the 40.5 the proofer allows. 40.5 assumes
+// somebody is free to feed the cabinet the moment it empties; with one pair of
+// hands there is no such minute, because the six jobs of a batch come to 58
+// minutes of hands. At 81 minutes every hand-window in the day tiles exactly —
+// each one begins where the last one ends — and the proofer is never asked to
+// hold two batches at once. Every figure here was swept against the real model
+// rather than reasoned out by eye.
+//
+// Nothing is a gate. Every number is on a brick she can open and move, the way
+// all three scenarios in this file are.
+export const ONE_BAKER_SCENARIO = {
+  id: "s_one_baker_day",
+  name: "One baker day",
+  note: "Your own bake day on one pair of hands: the six-pan chain end to end, four batches 81 minutes apart, so the packing starts at 8:27 am and the last one comes out of the proofer at 12:30 pm.",
+  target: 24,
+  // 4 am, because the dough goes into the tub at 4:01 and the first batch is at
+  // the oven at eight. Starting the window at four keeps the whole day on one
+  // screen without an empty hour in front of it.
+  dayStartMin: 240,
+  pxPerMin: PX_PER_MIN_DEFAULT,
+  merges: {},
+  modules: [
+    // Her own 20 minutes, and the tub is what a 24-pan day starts four times.
+    { id: "solo_mix", icon: "🥣", name: "Mixing the dough in the tub", job: "mix", on: true, person: 0,
+      cycleMin: 20, batch: 6, touchMin: 20, everyMin: 81, repeats: 4, startMin: 1, people: 1 },
+    // The four rests with a stretch and fold inside each: 4 x 30 + 3 x 1 = 123
+    // minutes, of which three are her hands. Marked as overlapping because the
+    // dough is what is holding the time — she is free to be somewhere else, which
+    // is exactly the criterion v140 put the switch behind. Nothing here is
+    // clamped, so the rest runs as long as the rest runs.
+    { id: "solo_fold", icon: "🫙", name: "The rests and the stretch and folds", on: true, person: 0,
+      cycleMin: 123, batch: 6, touchMin: 3, everyMin: 81, repeats: 4, startMin: 21, people: 1,
+      overlap: true },
+    { id: "solo_scale", icon: "🥘", name: "Oil the pans and weigh the dough out", job: "scale", on: true, person: 0,
+      cycleMin: 15, batch: 6, touchMin: 15, everyMin: 81, repeats: 4, startMin: 144, people: 1 },
+    // No hands at all: the dough waits in the cabinet. It appears twice because
+    // her day does — the pans go in, come out to be dimpled one at a time, and go
+    // back in.
+    { id: "solo_proof1", icon: "🌡️", name: "Into the proofer", on: true, person: 0,
+      cycleMin: 45, batch: 6, touchMin: 0, everyMin: 81, repeats: 4, startMin: 159, people: 1 },
+    { id: "solo_top", icon: "🫳", name: "Dimple and top", job: "top", on: true, person: 0,
+      cycleMin: 6, batch: 6, touchMin: 6, everyMin: 81, repeats: 4, startMin: 204, people: 1 },
+    { id: "solo_proof2", icon: "🌡️", name: "The proofer again", on: true, person: 0,
+      cycleMin: 30, batch: 6, touchMin: 0, everyMin: 81, repeats: 4, startMin: 210, people: 1 },
+    // Her anchor: the first six pans are at the oven at 8:00 am, which is the
+    // minute the whole card is counted backwards from.
+    { id: "solo_oven", icon: "🔥", name: "The oven swap and the bake", job: "oven", on: true, person: 0,
+      cycleMin: 15, batch: 6, touchMin: 2, everyMin: 81, repeats: 4, startMin: 240, people: 1 },
+    { id: "solo_pack", icon: "📦", name: "Cutting and packing", job: "cool", on: true, person: 0,
+      cycleMin: 12, batch: 6, touchMin: 12, everyMin: 81, repeats: 4, startMin: 267, people: 1 },
+  ],
+};
+
 // The window the timeline draws. A day, because the retard runs through the
 // night — and a scenario whose modules run past it stretches the window rather
 // than being drawn off the edge.

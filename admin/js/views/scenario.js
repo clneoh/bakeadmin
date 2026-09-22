@@ -26,7 +26,8 @@ import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
 import { save } from "../state.js";
 import { trim } from "../production.js";
 import {
-  computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, hoursAndMinutes,
+  computeScenario, climbSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
+  hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, LINE_JOBS, jobOf, scenarioSummary, moduleFacts, chainLine,
   combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn,
@@ -1521,6 +1522,23 @@ function scenariosCard(sc, state, on) {
           type: "button", class: "tl-chip",
           onclick: (e) => { e.stopPropagation(); editSavedPopup(s, sc, state, on, list); },
         }, "✏️")))));
+  }
+
+  // Her own day on one pair of hands, set for her — the eight bricks of the
+  // Production line's chain, each carrying the latest start the card works out
+  // from the oven. Offered on the same terms as the line below it: never dropped
+  // in, and it stops being offered the moment she has it.
+  if (!list.some((s) => s.id === ONE_BAKER_SCENARIO.id)) {
+    kids.push(el("div", {
+      class: "info-row tappable", style: "margin-top:10px",
+      onclick: () => {
+        const entry = copyScenario(ONE_BAKER_SCENARIO, ONE_BAKER_SCENARIO.name, ONE_BAKER_SCENARIO.id);
+        list.push(entry);
+        openScenario(entry, state, on);
+      },
+    },
+      el("span", { class: "j-what" }, `＋ ${ONE_BAKER_SCENARIO.name}`),
+      el("span", { class: "info-val" }, "One pair of hands, set for you")));
   }
 
   // A second line, ready to open. Offered rather than dropped in on her: a

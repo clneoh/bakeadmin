@@ -1,8 +1,94 @@
-# Jienluv2bake — change history (v54 → v145)
+# Jienluv2bake — change history (v54 → v146)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v146 (no database step). One baker day — your own bake day
+set on the bricks, with a latest start on every batch.**
+
+**What you asked.** In your own words: *"i need you to create one scenario and save it as
+One baker day. Set the bricks for me, with latest start time each brick batch."*
+
+**Where it is.** More → Scenario planner. Under **Your scenarios** there is one new row,
+**＋ One baker day**, reading **One pair of hands, set for you**. One tap puts it on your
+shelf and opens it. From then on it is an ordinary saved scenario, exactly like your own
+line and your sister's proposal: it stays in your list, it opens when you tap it, and the
+row that offered it is gone because you already have it. Delete it the way you delete any
+scenario, and it stays deleted — it is never dropped back in on you.
+
+**The eight bricks are your eight steps, in your own order.** Mixing the dough in the tub;
+the rests and the stretch and folds; oiling the pans and weighing the dough out; into the
+proofer; dimple and top; the proofer again; the oven swap and the bake; cutting and
+packing. Nothing invented, nothing left out. The fold and the two proofer bricks carry no
+line step against them, because the Production line has no field for them — and the screen
+names them rather than writing their minutes onto a field that means something else.
+
+**Every brick's first cycle is a latest start, which is what you asked for.** Open the day
+and the eight bricks read:
+
+- Mixing the dough in the tub — **4:01 am** (20 minutes, all of it yours)
+- The rests and the stretch and folds — **4:21 am** (123 minutes, 3 of them your hands)
+- Oil the pans and weigh the dough out — **6:24 am** (15 minutes of you)
+- Into the proofer — **6:39 am** (45 minutes, no hands)
+- Dimple and top — **7:24 am** (6 minutes of you)
+- The proofer again — **7:30 am** (30 minutes, no hands)
+- The oven swap and the bake — **8:00 am**, the anchor: the minute the first 6 pans have to
+  be at the oven (2 minutes of you)
+- Cutting and packing — **8:27 am** (12 minutes of you)
+
+The four batches sit **81 minutes apart**, so the second tub starts at 5:22 am, the third at
+6:43 am and the fourth at 8:04 am. The last batch of the day is packed at 12:30 pm and the
+day is done at 12:42 pm.
+
+**One of the eight is not where your chain puts it, and that is the whole finding of the
+scenario.** Your own chain would start the cutting and packing at **8:15 am**, fifteen
+minutes after the oven. Alone, you are still folding the last tub at 8:27, so **8:27 is the
+first minute that job needs nobody else**. It is not a preference: start it a single minute
+earlier, at any minute from 8:26 backwards, and the day asks for a **second pair of hands**.
+The window you can move it in without buying anybody is **8:27 to 8:33 am**, and the seeded
+day sits at the start of it.
+
+**Why the batches are 81 minutes apart and not 40.5.** This is your own proofer figure, from
+the same morning: a batch is in the cabinet 81 minutes — 45 in, 6 out to be dimpled, 30 back
+in — so the cabinet could take a new batch every **40.5 minutes**, about 8.9 pans an hour.
+But 40.5 assumes somebody is free to carry a batch out and the next one in the moment the
+cabinet empties, and with one pair of hands there is no such minute: the hand-work of a
+single batch is 58 minutes by itself. Rather than guess, every rhythm from 40.5 upwards was
+swept through the app's own arithmetic, and **81 minutes is the pace one pair of hands can
+hold**: every hand-window in the day then tiles exactly, each one beginning where the last
+one ends, and the proofer is never asked to hold two batches at once. It still works at 80.5
+minutes; at 80, or at 40.5, the very same day reads **2 people**. So the two figures you have
+are both right and they answer different questions: the card's 40.5 is what the cabinet
+allows when you are not alone, and this scenario's 81 is what one baker can actually feed it.
+
+**What the day reads.** **24 pans a day in 8 bricks** — four batches of the six pans you
+bake. **One person**, **3 h 52 min of hands** across the whole day, and a run from
+**4:01 am to 12:42 pm**, which is 8 h 41 min. There are **no red notes** under the day,
+because nothing collides: one pair of hands, no job doubled up. The brick setting the pace
+is the **mixing**, and seven others pass the same 24 pans — so the card says they are one
+limit between them, and relieving only one of them will not move the day.
+
+**It loads onto the Production line as your own numbers.** Under **Start from a scenario** at
+More → Production line, tapping **One baker day** shows you everything it would change before
+anything moves: minutes to mix one tub 20, oiling the pans and weighing the dough out 15,
+dimple and top 6, take 6 pans out and put 6 in 2, minutes the pans are in the oven 13, pans in
+one load 6, cutting and packing 12, the target 24 pans, and 1 person. The fold and the two
+proofer bricks are listed by name, because that screen has no field for them. Nothing is
+written until you press the button.
+
+**Every number is yours to move.** The day is seeded, not frozen: drag a bar, open a brick
+and type a number, change how many pans a day you want, or move the time your day starts,
+and the whole thing answers again the way every other scenario does.
+
+**What has not moved.** Your own saved line still reads **24 pans across 9 bricks** and
+exactly the day you asked for, the seeded starting line still reads **12 pans with the chiller
+as the wall**, and your sister's still **4 pans in 8 bricks**. One baker day arrives as a row
+you choose: not one brick, start time, merge or saved scenario of yours changed, and nothing
+here blocks a sale.
+
+CHANGELOG and the guide (section 25) both carry all of this, both PDFs rebuilt, and the tests
+are 1090 passing with none failing. No database step — nothing to run in Supabase.
 
 **22 Sep 2026 — engine v145 (no database step). Your real bake day on the Production
 line — and the same day read backwards from the oven, so no dough is ever mixed too

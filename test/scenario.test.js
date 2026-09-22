@@ -17,6 +17,7 @@ import {
   linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId, passesOf,
   peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
+  ONE_BAKER_SCENARIO,
 } from "../admin/js/scenario.js";
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
@@ -548,6 +549,151 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     "two of them, waiting on the brick above, and free to hold two lots at once",
   );
   assert.deepEqual(moduleOf(on), on, "and a second read of it changes nothing at all");
+});
+
+// ── "One baker day", the third scenario ────────────────────────────────────
+//
+// Her ask, 22 Sep 2026: *"i need you to create one scenario and save it as One
+// baker day. Set the bricks for me, with latest start time each brick batch."*
+//
+// So the arithmetic below is the load-bearing part of that scenario, not
+// decoration: her own chain's minutes, the latest starts the Production line
+// works out backwards from the oven, and the one number that is NOT simply her
+// chain's offset — the packing, which alone she cannot start until the last
+// tub's folds are done. Everything else here was swept against this file's own
+// model rather than reasoned out by eye, so if the seeded day and the model ever
+// drift apart, this is where it shows.
+
+// The scenario with one number moved, so a claim about "this is the only rhythm
+// that works" is tested by moving it rather than by asserting the sentence.
+const soloWith = (every, packStart) => ({
+  ...ONE_BAKER_SCENARIO,
+  modules: ONE_BAKER_SCENARIO.modules.map((m) => ({
+    ...m,
+    everyMin: every,
+    startMin: m.id === "solo_pack" ? packStart : m.startMin,
+  })),
+});
+
+test("one baker day is her own chain on one pair of hands", () => {
+  const r = computeScenario(ONE_BAKER_SCENARIO);
+  assert.equal(r.pansPerDay, 24, "four batches of the six pans she bakes");
+  assert.equal(r.people, 1, "and one pair of hands carries all of it");
+  assert.equal(r.personMin, 232, "232 minutes of those hands across the day");
+  assert.equal(r.rows.length, 1, "one row, because there is one person");
+  assert.deepEqual(r.rows[0].clashes, [], "and nothing on the day collides with anything else");
+  assert.equal(r.dayStartMin, 240, "the window starts at 4 am, an hour before the tub");
+  assert.equal(clockOf(r.dayStartMin + r.firstMin), "4:01 am", "the first thing the day does is mix");
+  assert.equal(clockOf(r.dayStartMin + r.endMin), "12:42 pm", "and the last pack ends quarter to one");
+  assert.equal(r.shortfall, 0, "the day she asked for is the day it delivers");
+  assert.equal(scenarioSummary(ONE_BAKER_SCENARIO), "24 pans a day · 8 bricks");
+});
+
+test("every brick's cycles are the latest starts, 81 minutes apart", () => {
+  const r = computeScenario(ONE_BAKER_SCENARIO);
+  const at = (id) => clockOf(r.dayStartMin + of(r, id).passes[0].at);
+  // The chain top to bottom, in the times the Production line's own card works
+  // out backwards from the oven. The oven is the anchor: the first six pans are
+  // at it at the minute she said, 8 am, which is 239 minutes after the tub.
+  assert.equal(at("solo_mix"), "4:01 am", "the tub, 239 minutes before the oven");
+  assert.equal(at("solo_fold"), "4:21 am", "the rests and the folds");
+  assert.equal(at("solo_scale"), "6:24 am", "the pans oiled and the dough weighed out");
+  assert.equal(at("solo_proof1"), "6:39 am", "into the proofer");
+  assert.equal(at("solo_top"), "7:24 am", "the dimple and the topping");
+  assert.equal(at("solo_proof2"), "7:30 am", "the proofer again");
+  assert.equal(at("solo_oven"), "8:00 am", "the oven, batch one: the anchor of the whole day");
+  assert.equal(at("solo_pack"), "8:27 am", "and the packing, which waits for the last fold");
+  assert.equal(r.dayStartMin + of(r, "solo_oven").passes[0].at, 480,
+    "8 am exactly, the minute the card counts backwards from");
+
+  // Every brick of her day runs at the same pace, so the four halves of a
+  // 24-pan day line up the way the day does.
+  for (const m of r.modules) {
+    assert.equal(m.repeats, 4, `${m.id}: four batches, because a day of 24 is four of six pans`);
+    assert.equal(m.batch, 6, `${m.id}: and every batch is the six pans of one oven load`);
+    const gaps = m.passes.slice(1).map((p, i) => p.at - m.passes[i].at);
+    assert.deepEqual(gaps, [81, 81, 81], `${m.id}: a batch every 81 minutes`);
+  }
+});
+
+test("81 minutes is the one rhythm a single pair of hands can hold", () => {
+  // The proofer on her own numbers would allow a batch every 40.5 minutes. One
+  // person cannot feed it that often, and this is the test that says so: at her
+  // own chain's pace the day needs two or three people. 81 is the proofer's own
+  // occupancy time (45 + 6 + 30), and it is the only minute-wide rhythm that
+  // tiles (80.5 also works, with the fold's block landing differently).
+  for (const every of [40.5, 45, 55, 58, 60, 70, 80]) {
+    const r = computeScenario(soloWith(every, 267));
+    assert.ok(r.people > 1, `a batch every ${every} min needs ${r.people} people, not one`);
+  }
+  for (const every of [80.5, 81]) {
+    const r = computeScenario(soloWith(every, 267));
+    assert.equal(r.people, 1, `a batch every ${every} min is one pair of hands`);
+    assert.equal(r.demand.overlapMin, 0, `and at ${every} nothing is doubled up`);
+  }
+  assert.equal(of(computeScenario(ONE_BAKER_SCENARIO), "solo_proof1").everyMin, 81,
+    "the seeded rhythm is the proofer's own 81 minutes, the number she derived herself");
+});
+
+test("the packing waits for the last fold, and 8:27 is the first free minute", () => {
+  // The single deviation from her chain's own offsets: cutting and packing would
+  // start at 8:15, fifteen minutes after the oven, but alone she is still folding
+  // the last tub until 8:27. It is not a preference — a minute earlier needs a
+  // second pair of hands.
+  assert.equal(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack").startMin, 267,
+    "8:27 am, counted from the 4 am window");
+  for (const start of [255, 260, 266]) {
+    const r = computeScenario(soloWith(81, start));
+    assert.ok(r.people > 1, `starting the packing at minute ${start} needs ${r.people} people`);
+  }
+  // And the window she can move it in without buying anybody: seven minutes,
+  // because past 8:33 the dimpling of the next batch is already hers to do.
+  const free = [];
+  for (let start = 250; start <= 280; start += 1) {
+    if (computeScenario(soloWith(81, start)).people === 1) free.push(start);
+  }
+  assert.deepEqual(free, [267, 268, 269, 270, 271, 272, 273],
+    "8:27 to 8:33 am is the window, and the seed sits at its start");
+});
+
+test("every brick of one baker day is reachable from the brick editor", () => {
+  // The same rule her sister's line is held to: a figure the model quietly
+  // discards is a setting she cannot reach, and this scenario is hers to move.
+  for (const m of ONE_BAKER_SCENARIO.modules) {
+    const back = moduleOf(m);
+    assert.equal(back.cycleMin, m.cycleMin, `${m.id}: cycle minutes survive`);
+    assert.equal(back.batch, m.batch, `${m.id}: the batch survives`);
+    assert.equal(back.touchMin, m.touchMin, `${m.id}: the hands minutes survive`);
+    assert.equal(back.everyMin, m.everyMin, `${m.id}: the pace survives`);
+    assert.equal(back.repeats, m.repeats, `${m.id}: the number of passes survives`);
+    assert.equal(back.startMin, m.startMin, `${m.id}: the start time survives`);
+    assert.equal(back.person, m.person, `${m.id}: the person survives`);
+    assert.equal(back.job, m.job || "", `${m.id}: the line step survives`);
+    assert.equal(back.overlap, m.overlap === true, `${m.id}: and the fold keeps its overlap switch`);
+  }
+  // The fold is the one brick whose minutes are the DOUGH's, not hers — which is
+  // the criterion v140 put the overlap switch behind, and the reason its 123
+  // minutes may sit inside an 81-minute batch rhythm at all.
+  assert.equal(moduleOf(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_fold")).overlap, true,
+    "the rests and the folds are marked as the dough holding the time");
+  assert.equal(of(computeScenario(ONE_BAKER_SCENARIO), "solo_fold").touchMin, 3,
+    "and three of its minutes are hers: one per fold, her own number");
+});
+
+test("one baker day loads her own numbers onto the Production line", () => {
+  const patch = scenarioPlanPatch(ONE_BAKER_SCENARIO, null).patch;
+  assert.deepEqual(patch, {
+    target: 24, people: 1,
+    mixMin: 20, mixerPans: 6,
+    scaleMin6: 15, topMin6: 6, coolMin6: 12,
+    swapMin6: 2, ovenPans: 6, ovenMin: 15,
+  }, "every figure is the one she measured, not the seeded day's");
+  // The fold and the two proofs are named as things the capacity screen has no
+  // field for, rather than being written onto a field that means something else.
+  const { unmapped } = scenarioPlanPatch(ONE_BAKER_SCENARIO, null);
+  assert.deepEqual(unmapped.map((u) => u.name || u), [
+    "The rests and the stretch and folds", "Into the proofer", "The proofer again",
+  ], "and the three bricks with no step on that screen say so by name");
 });
 
 // ── A brick she has two of is two lines, and each line has its own person ───
