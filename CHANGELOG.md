@@ -4,6 +4,30 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**22 Sep 2026 — the documents, not the app (no engine version, no database
+step). The guides and this change history print their own italics now, so the
+stray asterisks are gone.**
+
+Every one of these documents is built from a markup in which one asterisk on
+each side of a word means "print this in italics". The builder stopped
+understanding the single asterisk at some point and reads only the pair, so a
+word meant to lean quietly came out wearing its own asterisks instead:
+__'why no button for work backward'__, __Cutting and packing__, __status New__.
+Not one sentence read wrongly, which is why it went unnoticed for so long.
+There were 116 of them in this change history, 44 in the operations guide, and 9
+more across the money and profit guide, the alert guide and the safety guide.
+All of them now use the pair of underscores the builder does understand, so they
+print as the italics they were always meant to be.
+
+The asterisks that were meant to be read stay exactly as they are: the one
+marking a required field on the order form, and the fill-in lines on the weekly
+note sheet. Those are marks, not markup.
+
+Nothing in the app changed. More still reads Engine v154, every screen is
+exactly where it was, and no test moved. All five documents were rebuilt and
+read back to check: this change history prints no asterisk at all now, and the
+only two left in the operations guide are the two that are meant to be there.
+
 **22 Sep 2026 — engine v154 (no database step). A module now says how it takes
 its start — three answers where there was one switch — so the packing begins the
 minute the cooling ends; every batch's own card offers the move again; and the
@@ -143,8 +167,8 @@ held below the modules). No database step — nothing to run in Supabase.
 backwards — one press, and it is a button that acts instead of one that only
 tells you where to tap.**
 
-**What you asked.** Your words: *'why no button for work backward, this is to
-reeposition the batches latest start time'*. You were right, and it was about a
+**What you asked.** Your words: __'why no button for work backward, this is to
+reeposition the batches latest start time'__. You were right, and it was about a
 control that only talked: v152 put the move behind a tap on one bar and left the
 row carrying a chip that named the moment and then told you which bar to tap. A
 thing shaped like a button whose whole effect is to send you somewhere else reads
@@ -158,14 +182,14 @@ as a dead control, and that is what it was.
 
 2. **It is the card's own press, not a second one.** Same writer, same words, same
    snapshot, same way back — so the two doors cannot drift apart. Press from the
-   row, then open the card on batch 1 of *Cutting and packing*, and the card is
+   row, then open the card on batch 1 of __Cutting and packing__, and the card is
    showing you the day the row just made, with the way back on it.
 
 3. **Pressed on a day already worked back, it says so and writes nothing.** This
    was your own choice and it is the rule the button lives by: a button that comes
    and goes reads as a fault, so it stays in the row on every day. On a tight day
-   the press answers *Every module of your line is already as late as it can go —
-   there is nothing left to pull back.*
+   the press answers __Every module of your line is already as late as it can go —
+   there is nothing left to pull back.__
 
 4. **The way back is beside the button that moved the day.** While there is
    something to put back, the row carries **Put my start times back** next to
@@ -181,7 +205,7 @@ as a dead control, and that is what it was.
    The fault you found is the one thing this release refuses to repeat.
 
 6. **The sentence above the chart now names the button.** It used to tell you to
-   tap batch 1 of *Cutting and packing* and stop there, which was the only door
+   tap batch 1 of __Cutting and packing__ and stop there, which was the only door
    v152 had. It now names both: the button in the row does it in one press, and
    tapping batch 1 opens the same move with the whole chain laid out before you
    press it, which is the one to read first.
@@ -197,8 +221,8 @@ as a dead control, and that is what it was.
    by it.
 
 8. **What has not moved.** Your three shelf days were compared byte-for-byte
-   before and after: *No fridge, 1 person* still reads 24 pans, *My sister
-   proposal 21/9/2026* still reads 4, and *One baker day* still reads 24 pans with
+   before and after: __No fridge, 1 person__ still reads 24 pans, __My sister
+   proposal 21/9/2026__ still reads 4, and __One baker day__ still reads 24 pans with
    the first batch out at 9:09 am and the day finishing at 1:30 pm. A press
    followed by the way back leaves the stored data byte-for-byte identical to what
    it was — measured, not promised — and the snapshot is gone when the screen is.
@@ -217,7 +241,7 @@ Supabase.
 backwards — the day hangs from your first batch, and every module gets its latest
 start.**
 
-**What you asked.** Your words: *'how to make the calculate backward works?'* The backward count
+**What you asked.** Your words: __'how to make the calculate backward works?'__ The backward count
 already existed on More → Production line (section 24), where it counts back from the minute the
 first pans must be at the oven. The Scenario planner had none: it could only ever push a day
 later, never pull it earlier. So the planner has one now, on the planner's own day.
@@ -602,8 +626,8 @@ to run in Supabase.
 **22 Sep 2026 — engine v147 (no database step). Module, batch, cycle — the three
 words on the Scenario planner, and the model that moved with them.**
 
-**What you asked.** In your own words: *"let us realign our terms use in the production
-line"* — a module instead of a brick, batches inside a module, and cycles inside a batch,
+**What you asked.** In your own words: __"let us realign our terms use in the production
+line"__ — a module instead of a brick, batches inside a module, and cycles inside a batch,
 with a batch's time moved by buttons instead of a drag. The words and the model under them
 were changed together on purpose: renaming first and building the cycles later would have
 left the word **cycle** meaning two different things while you were learning it.
@@ -612,8 +636,8 @@ left the word **cycle** meaning two different things while you were learning it.
 tending it — what this app has called a brick until now. A **batch** is one lot: the six
 pans of one oven load, one tub of dough. A module can run several batches in a day, and how
 many is yours to set. A **cycle** is one step of that module's work, and it is the cycle
-that owns the minutes and the labour. Your own sentence settled it: *"batch is not a process
-but cycle is."* So a batch carries no minutes of its own — the time it holds is the sum of
+that owns the minutes and the labour. Your own sentence settled it: __"batch is not a process
+but cycle is."__ So a batch carries no minutes of its own — the time it holds is the sum of
 the cycles inside it. A batch with a single cycle is drawn on the day as one plain bar,
 exactly the way a module has always been drawn.
 
@@ -693,8 +717,8 @@ the days themselves did not.
 **22 Sep 2026 — engine v146 (no database step). One baker day — your own bake day
 set on the bricks, with a latest start on every batch.**
 
-**What you asked.** In your own words: *"i need you to create one scenario and save it as
-One baker day. Set the bricks for me, with latest start time each brick batch."*
+**What you asked.** In your own words: __"i need you to create one scenario and save it as
+One baker day. Set the bricks for me, with latest start time each brick batch."__
 
 **Where it is.** More → Scenario planner. Under **Your scenarios** there is one new row,
 **＋ One baker day**, reading **One pair of hands, set for you**. One tap puts it on your
@@ -780,15 +804,15 @@ are 1090 passing with none failing. No database step — nothing to run in Supab
 line — and the same day read backwards from the oven, so no dough is ever mixed too
 early.**
 
-**What you asked.** In your own words: *"work backwards, from end of process, the previous
+**What you asked.** In your own words: __"work backwards, from end of process, the previous
 process whould have a latest start time, by going this way, we prevent preparing dough too
 early and prevent dough from over fermented. But we can fine tune each process to start
-earlier to better manage manpower utilisation."* You had corrected your own step order that
-morning, after checking it with your sister: *"i think my self confused, i double check with
+earlier to better manage manpower utilisation."__ You had corrected your own step order that
+morning, after checking it with your sister: __"i think my self confused, i double check with
 my sister and now understood the right flow. we cannot mix the dough too early, it will over
-fermented."* And you had already worked your ceiling out yourself and asked about it: *"6pan
+fermented."__ And you had already worked your ceiling out yourself and asked about it: __"6pan
 sit in it for 81min, proofer able to hold 12pans, so effectively the poofer can produde 6
-pan/40.5min? So the proofer became the bottle neck?"* Yes — 40.5 minutes exactly. This
+pan/40.5min? So the proofer became the bottle neck?"__ Yes — 40.5 minutes exactly. This
 release gets that figure onto the screen out of your own numbers rather than out of a guess.
 
 **The flow on the Production line was not your day.** It read mix, then the chiller, then
@@ -852,7 +876,7 @@ back in one tap if your own timing says otherwise:
   merged, the app's 46 minutes a batch is your 46 to the minute.
 - **Minutes to dimple and top 6 pans**: was 8, now 6 — your one minute a pan. The 8 was
   measured with the topping in it.
-- **Minutes to take 6 pans out and put 6 in**: was 4, now 2 — *"2min covers out and in"*, as
+- **Minutes to take 6 pans out and put 6 in**: was 4, now 2 — __"2min covers out and in"__, as
   you put it. One turn of the oven is the baking and the swapping together, 15 minutes as
   before.
 
@@ -895,13 +919,13 @@ are 1084 passing with none failing. No database step — nothing to run in Supab
 person is in, a line of a brick counting as a place — and a collision is written so it
 can be read.**
 
-**What you asked.** In your own words: *"fix the hats count and the collision sentence.
-And what is the concept of hat, i dont understand, why name them by numbers?"*. Both were
+**What you asked.** In your own words: __"fix the hats count and the collision sentence.
+And what is the concept of hat, i dont understand, why name them by numbers?"__. Both were
 real faults, and the question was fair — "hat" was my word, and it was a poor one. It is
 gone from the app and from this book; what it meant is said plainly below.
 
 **What a "hat" was.** It was my shorthand for **the places one person has to be in the
-day**. You put it better yourself: *"one person would not need to wear too many hats"* —
+day**. You put it better yourself: __"one person would not need to wear too many hats"__ —
 one worker asked to stand at six different jobs in one day is being handed six hats. That
 is the thing the People row is there to count, so that is what it now says: **in 6 places**.
 
@@ -913,15 +937,15 @@ place of its own now, so that same worker reads **in 2 places**. On your own lin
 has gone from **at 6 bricks** to **in 7 places**, because your fold is drawn as two lines.
 The number only appears when it is more than one, exactly as before.
 
-**The collision sentence was unreadable.** It was one long sentence — *Person 1 is at X and
-Y at the same time, …* — and your bricks have long names: *Mixing by hand in the tub (set
-the minutes)* is forty characters, twice in one sentence, with the word *and* between them
+**The collision sentence was unreadable.** It was one long sentence — __Person 1 is at X and
+Y at the same time, …__ — and your bricks have long names: __Mixing by hand in the tub (set
+the minutes)__ is forty characters, twice in one sentence, with the word __and__ between them
 lost in the middle. It is now three parts on four separate lines. Line one, who and when:
-*Person 1 — two jobs at once, 4:00 pm to 4:05 pm*. Lines two and three, each job on a line
-of its own with a bullet in front of it: *Mixing by hand in the tub (set the minutes), line
-1* and *Mixing by hand in the tub (set the minutes), line 2*. Line four, what to do about
-it: *Move one of them along the day, or combine with another person and accept the
-collision.* Two lines of one brick still say which line they are, because without that they
+__Person 1 — two jobs at once, 4:00 pm to 4:05 pm__. Lines two and three, each job on a line
+of its own with a bullet in front of it: __Mixing by hand in the tub (set the minutes), line
+1__ and __Mixing by hand in the tub (set the minutes), line 2__. Line four, what to do about
+it: __Move one of them along the day, or combine with another person and accept the
+collision.__ Two lines of one brick still say which line they are, because without that they
 read identically. And if a day has more than three of these, the last block **counts the
 rest** instead of quietly stopping — a list that stopped at four read as though the day had
 four problems when it had nine.
@@ -946,14 +970,14 @@ tests are 1062 passing with none failing. No database step — nothing to run in
 at the chart and a line follows your pointer down the whole day, reading out the clock,
 so you can line two bricks up against each other.**
 
-**What you asked.** In your own words: *"i need a time x axis cursor on the time
-chart"*.
+**What you asked.** In your own words: __"i need a time x axis cursor on the time
+chart"__.
 
 **Where it is.** The day chart in **More → Scenario planner**. One change, in one screen.
 
 **How to use it.** Run the pointer across the chart and a fine line follows it, down
 through every row — the ruler, every brick, every person, the total. A little brown label
-at the top of the line reads the clock at that point: *5:05 pm*. Move the pointer and the
+at the top of the line reads the clock at that point: __5:05 pm__. Move the pointer and the
 reading moves with it; move the pointer off the chart and it goes away.
 
 **On a phone.** A finger cannot hover, so on a phone the **clock strip is the handle** —
@@ -987,8 +1011,8 @@ tests are 1061 passing with none failing. No database step — nothing to run in
 longer throws the card — the box keeps your cursor and the card stays where you were
 reading.**
 
-**What you asked.** In your own words: *"why the display jump and it is very
-confusing"*. It was a real fault, and this is it fixed.
+**What you asked.** In your own words: __"why the display jump and it is very
+confusing"__. It was a real fault, and this is it fixed.
 
 **What was actually happening.** The brick's card is a long card — fifteen boxes, a box
 per line, a row for every cycle — and **every single number you typed into it was
@@ -996,13 +1020,13 @@ rebuilding the whole card underneath your finger**. That is the jump you saw: th
 were typing in was thrown away and a brand new one put in its place, so the cursor went
 with it and the keypad shut. On a phone that reads as one digit per tap, on a card that
 had moved somewhere else. It was worst on the three boxes that change how tall the card
-is — typing a 6 into *How many of these do you have* grew the card by a line's worth of
+is — typing a 6 into __How many of these do you have__ grew the card by a line's worth of
 boxes on every keystroke.
 
 **What it does now.** Typing a number writes the number and **leaves the card alone**. The
 box keeps your cursor, the keypad stays open, and the card stays exactly where you had
 scrolled to — checked box by box: the brick's own numbers, the people box, and every line
-box under *How many of these do you have*. Three boxes still change the card's shape,
+box under __How many of these do you have__. Three boxes still change the card's shape,
 because their answer really does add a row or move a time — **How many times it runs** (one
 more row per cycle), **How many of these you have** (one more line box), and **Minutes in,
 when its first pass starts** (cycle 1's own time). Those three now redraw **once, when you
@@ -1021,10 +1045,10 @@ Nothing new to run in the database.
 as two lines, and each line carries its own person — so one worker stands at one job
 instead of wearing every hat in the day.**
 
-**What you asked.** In your own words: *"i want is just better drawing.. Since now one
+**What you asked.** In your own words: __"i want is just better drawing.. Since now one
 brick having 2 lines, each line can have its own person, and few line can have a combine
 person sharing to different lines. This will make training of worker easier, because one
-person would not need to wear to many hats"*. So this is the **drawing**, and **who is on
+person would not need to wear to many hats"__. So this is the **drawing**, and **who is on
 each line** — nothing about how the day adds up has moved.
 
 **A line, and why a brick you have two of is two of them.** Everything on this screen was
@@ -1034,12 +1058,12 @@ those two streams flattened into a single row. Now each one is a row of its own:
 brick's own name, badges and minutes on the first line, and a row per further line
 underneath, tied together by an accent down the left and a dotted seam between them.
 
-**Who is on each line is yours to set.** Open the brick and, once *How many of these do you
-have* says 2 or more, you get a box per line — **Line 1 — who is on it**, **Line 2 — who is
+**Who is on each line is yours to set.** Open the brick and, once __How many of these do you
+have__ says 2 or more, you get a box per line — **Line 1 — who is on it**, **Line 2 — who is
 on it**. 0 means whoever is free. Put the same number on two lines and that is one person
 covering both, which is exactly what you asked for; if those two lines really do need them
 in the same minute, their row in the People list goes red and names the minute and which
-line collided with which. The line boxes and the brick's own *Who is at this brick* are the
+line collided with which. The line boxes and the brick's own __Who is at this brick__ are the
 same number, so the two can never disagree.
 
 **The People list now counts the places one person has to be.** Each person's row reads how
@@ -1047,13 +1071,13 @@ many different places that one person is in — and every job on it names its li
 and fold in the tub, line 2"). That number is the whole point of this release: it is the one
 that tells you when one person is being asked to be in too many places at once.
 
-*(This entry was first written as "counts hats", as **at 3 bricks**. Both the word and the
+__(This entry was first written as "counts hats", as **at 3 bricks**. Both the word and the
 count were wrong, and **v144** fixes them: the row now reads **in 3 places**, and a line of a
-brick counts as a place. See the v144 entry at the top.)*
+brick counts as a place. See the v144 entry at the top.)__
 
-**Your starting point in one tap.** **One a line** (it was *One a brick*) gives every line
-its own person, so a brick you have two of takes two people rather than one. It says *One a
-line* only when a brick in the scenario really is drawn as lines; otherwise it reads exactly
+**Your starting point in one tap.** **One a line** (it was __One a brick__) gives every line
+its own person, so a brick you have two of takes two people rather than one. It says __One a
+line__ only when a brick in the scenario really is drawn as lines; otherwise it reads exactly
 as it always did. Its name and the message it leaves say which of the two it just did.
 
 **What has not moved.** With no lines drawn and nobody set — which is every brick you have
@@ -1074,15 +1098,15 @@ person you gave it.
 cycles may overlap — one switch, with the rule for when to use it written beside
 it — and the two lots are drawn as two bars.**
 
-**What you asked.** In your own words: *"i also want to allow each brick cycle to overlap,
-this will improve the visualisation"*, and then, as I was building it: *"allow overlap
-button and the overlapping criteria"*. So it is a **button** in the brick's card, **Let its
+**What you asked.** In your own words: __"i also want to allow each brick cycle to overlap,
+this will improve the visualisation"__, and then, as I was building it: __"allow overlap
+button and the overlapping criteria"__. So it is a **button** in the brick's card, **Let its
 cycles overlap**, and the criteria sit under it in plain words rather than in a rule you
 would have to work out.
 
 **What a brick did before, and still does unless you switch this on.** A brick held its own
 cycles apart: lot two could not begin until lot one was out of it. That is the right rule
-when the dough is physically *in* the thing, and it is what stops you folding dough that is
+when the dough is physically __in__ the thing, and it is what stops you folding dough that is
 still in the mixer. Where you switch it on: when the minutes in a pass are the **dough's**
 time and not a machine's — dough resting between folds, a second bin on the go. Then every
 cycle sits exactly where you put it.
@@ -1118,14 +1142,14 @@ real line: a brick can be two of them, every pass in a brick has its own start t
 you can drag or type, and a brick can be set to wait for the brick above it — lot 10
 waits for lot 10.**
 
-**What you asked.** In your own list: *"1. allow me to set the same brick to 2 or more, if
-that module became bottle neck."*, *"2. in a brick, let say we might need 8 cycles, each
-cycle should be able to have its own start time, drag-able."*, *"3. 2nd brick 1st cycle
-should follow 1st brick 1st cycle completion, and so on."*, *"4. Each brick, cycle10 only
-starts after one brick earlier cycle 10 ends, etc."*, and *"5. objectives are: less man,
-less manhours thru better planning, shorter hours."* Then, as I was building the screen:
-*"from your layout, the stretch and fold should have 2nd , 3rd brick as the person who do
-that process and start another cycle without having to wait for thee 1st cycle to finish"* —
+**What you asked.** In your own list: __"1. allow me to set the same brick to 2 or more, if
+that module became bottle neck."__, __"2. in a brick, let say we might need 8 cycles, each
+cycle should be able to have its own start time, drag-able."__, __"3. 2nd brick 1st cycle
+should follow 1st brick 1st cycle completion, and so on."__, __"4. Each brick, cycle10 only
+starts after one brick earlier cycle 10 ends, etc."__, and __"5. objectives are: less man,
+less manhours thru better planning, shorter hours."__ Then, as I was building the screen:
+__"from your layout, the stretch and fold should have 2nd , 3rd brick as the person who do
+that process and start another cycle without having to wait for thee 1st cycle to finish"__ —
 which is what **How many of these do you have** does: a second fold starts the next lot
 without waiting for the first to finish.
 
@@ -1136,7 +1160,7 @@ app moved, and every figure you have already given reads exactly as it did.**
 this version a brick's passes were a single rhythm — a gap and a count — and every pass sat
 where that rhythm put it. Now each pass is **its own bar on the timeline** and can be dragged
 by itself: cycle 3 moves and cycles 1, 2 and 4 stay where they were. The toast when you let go
-names the one you moved — *"Cycle 3 → 4:15 pm"* — so there is no doubt which pass changed.
+names the one you moved — __"Cycle 3 → 4:15 pm"__ — so there is no doubt which pass changed.
 For a small nudge, a number beats a careful finger: the brick's card now has **a row per
 cycle**, each with a box for the exact minute and the clock reading beside it, so a five-minute
 correction is typed rather than dragged. And **Space them evenly again** puts every pass back
@@ -1161,15 +1185,15 @@ because where it sits is decided by the brick above: those bars are drawn faded 
 **waits above** tag, so nothing on the screen looks like a control that does nothing. To move
 a chained lot you move the cycle it is waiting on, and the whole line moves with it — which is
 the lesson the screen is for. And **if two bricks have different numbers of passes**, the
-screen says so instead of guessing: passes past the end of the brick above follow its *last*
+screen says so instead of guessing: passes past the end of the brick above follow its __last__
 pass, and the row names it. **The chain arrives switched off**, so nothing you have already
 measured moves until you turn it on yourself.
 
 **The line, in one tap — and your three objectives as three numbers.** You named the goal as
 three things, so the screen now says all three in one line under the day: **2 people · 13 h
-40 m of hands · a 16 h 20 m day**. **People** is the most hands needed at once (*less man*),
-**of hands** is every person-minute of the day added together (*less manhours*), and **the
-day** is first job to last (*shorter hours*). Drag a cycle, move a start, add a second brick,
+40 m of hands · a 16 h 20 m day**. **People** is the most hands needed at once (__less man__),
+**of hands** is every person-minute of the day added together (__less manhours__), and **the
+day** is first job to last (__shorter hours__). Drag a cycle, move a start, add a second brick,
 and all three answer again at once — so a change either improves all three or you can see
 which one it cost. Beside the timeline a chip reads **3 waits above**, or **Not chained**:
 tap it and it explains the rule, names which bricks are waiting, shows those same three
@@ -1185,7 +1209,7 @@ because that rung is money where the others are time. A brick that needs both is
 in order.
 
 **One arithmetic change worth writing down, so it never looks like a bug.** A brick whose
-passes come round *faster* than one pass takes — a 5-minute gap on a 28-minute fold — was
+passes come round __faster__ than one pass takes — a 5-minute gap on a 28-minute fold — was
 always a drawing of something that cannot happen: the same hands cannot start pass 2 while
 pass 1 is still on them. Those passes are now held apart to one at a time, when the brick is
 the only one of it and is not chained. None of your own bricks is built that way and every
@@ -1197,24 +1221,24 @@ build in: bricks you make, move, give to a person and drag along the day, a rule
 and a start time, scenarios you save and name — and the scenario you choose can now
 be loaded onto the Production line.**
 
-**What you asked.** In your own list: *"1st i cannot change the time scale, say i want a
-strat at 8am. And i need an time scale ruler"*, *"I need to move the sequence of the lego
-brick"*, *"I want to be able to create, edit and delete lego brick"*, *"i want to be able to
-same and name a scenario. Edit or delete"*, *"how to have person 2?, I would want one person
-for each module, And a Total person showing overlapping persons time slot if any"*, *"The lego
+**What you asked.** In your own list: __"1st i cannot change the time scale, say i want a
+strat at 8am. And i need an time scale ruler"__, __"I need to move the sequence of the lego
+brick"__, __"I want to be able to create, edit and delete lego brick"__, __"i want to be able to
+same and name a scenario. Edit or delete"__, __"how to have person 2?, I would want one person
+for each module, And a Total person showing overlapping persons time slot if any"__, __"The lego
 brick should be able to restart? if choosen to, and how, can it be drag tomove the start time
-of each brick"*, and *"The fold brick should show 28min, and its person should show 2 minutes,
+of each brick"__, and __"The fold brick should show 28min, and its person should show 2 minutes,
 when i adjust the brick until minumum total person overlap, that will be best scenario for
-manpower planning."* Then, as I was building it: *"can allow to save a scenario? scenario and
+manpower planning."__ Then, as I was building it: __"can allow to save a scenario? scenario and
 production line has some function overlapping, the chooses scenario should be able to be
-loaded to production line"*.
+loaded to production line"__.
 
 **What changed. Everything below is inside More → 🧱 Scenario planner, plus one card on
 More → Production line. Nothing else in the app moved.**
 
 **The day starts when you say, and there is a ruler to set it by.** One box at the top sets
 **the time your day begins**, and every clock reading on the screen is counted from it — so
-*"say i want a strat at 8am"* is one field rather than ten start times to retype. A ruler now
+__"say i want a strat at 8am"__ is one field rather than ten start times to retype. A ruler now
 runs under the timeline: a tick every half hour with the o'clock ones named, so a bar can be
 read against the clock instead of guessed at. And the **time scale** is yours: four chips —
 **Wide**, **Standard**, **Close**, **Closest** — change how wide a minute is drawn, from the
@@ -1225,8 +1249,8 @@ The hour lines on the timeline follow whichever you pick, so grid and ruler alwa
 arrives **switched off** so an empty brick cannot become the wall and answer your day with a
 nonsense figure. Open any brick and you can rename it, change its picture, change every number
 in it, and — this is new — **delete it** or move it **↑ Earlier / ↓ Later**, because the list
-order *is* the day's order: the timeline is read top to bottom and a tie for the wall goes to
-the earlier brick. So *"move the sequence of the lego brick"* is two buttons, and the day
+order __is__ the day's order: the timeline is read top to bottom and a tie for the wall goes to
+the earlier brick. So __"move the sequence of the lego brick"__ is two buttons, and the day
 re-sorts around it.
 
 **One person for each module, and the Total person you described.** Every brick can be given to
@@ -1235,15 +1259,15 @@ a person: **0** means whoever is free, **1, 2, 3…** names someone. Two chips d
 free. Under the timeline there is now **one row per person**, each showing the jobs that person
 is at and how much work they carry, and where two of their jobs overlap the bar wears a red
 outline with a sentence naming **both jobs and the minute they clash**. Nothing blocks a plan
-that cannot work — the whole point is that it is *shown*. The **Total person** row stacks
+that cannot work — the whole point is that it is __shown__. The **Total person** row stacks
 person 1, person 2, person 3 and the rest on top of each other, which is what you asked for:
-*"with that i can see, which time period utilise more manpower"*. It reads out the most people
+__"with that i can see, which time period utilise more manpower"__. It reads out the most people
 needed at once, the busiest stretch by name, and how many minutes are being worked two at a
 time. Bring the bricks closer together and that row flattens — that is the manpower planning.
 
 **Combining two people, which was your own example.** **Combine two…** asks two questions: the
 person who keeps the job, then whose bricks move to them. Person 1 then person 3 makes the row
-read **Person 1+3** — *"to generate person 1_3"*, in your words — and whatever then collides is
+read **Person 1+3** — __"to generate person 1_3"__, in your words — and whatever then collides is
 exactly what that combination cannot pay for. Give one brick back in its own editor and the
 **1+3** label prunes itself the moment person 3 has a brick again, so a label can never claim
 somebody who is not really there.
@@ -1256,7 +1280,7 @@ card. Drag to move, tap to open. Your pans do not change when you drag; only you
 
 **Your fold brick now reads the way you described it.** It **holds for 28 minutes**, it is
 **2 minutes of you**, and it restarts 30 minutes after the last fold, four times. One honest
-note: if your phone's fold brick still reads **30** in *minutes one pass holds it*, that is the
+note: if your phone's fold brick still reads **30** in __minutes one pass holds it__, that is the
 copy your phone saved from the first version of this screen. Type **28** into that box and it
 is right. I have not overwritten it for you, because your numbers are never changed by an
 update — that is a rule of this app, not an oversight.
@@ -1285,7 +1309,7 @@ own numbers, and every number on every brick is editable. The tub mixes **4 pans
 if her tub is bigger, change the batch on that brick and the whole day re-reads itself.
 
 **One repair under this.** Opening a saved scenario used to leave the box at the top of the
-screen still reading the scenario you were in *before* it — the name, the start time and the
+screen still reading the scenario you were in __before__ it — the name, the start time and the
 pans you want. It now repaints with the scenario you actually opened, so the top of the screen
 and the row you just tapped always agree.
 
@@ -1301,7 +1325,7 @@ left out rather than silently dropped. **How many pans you own** and **how many 
 bake for** stay exactly as they are, because a scenario does not know them and the screen says
 so instead of filling them with a nought. Nothing is written until you press the button, and
 the button counts the numbers that would really move — so a scenario you have already loaded
-says *"nothing here changes"* rather than promising eleven.
+says __"nothing here changes"__ rather than promising eleven.
 
 **21 Sep 2026 — engine v137 (no database step). More → Scenario planner: build your line out
 of modules, watch the day as a timing diagram, and raise the pans you want until something
@@ -1309,20 +1333,20 @@ stops you.**
 
 **What you asked.** "can i have a apps function that visualise the flow... something for me
 to optimise line balancing", and then, once we were talking about it: a screen you could
-**configure**, a **timing diagram**, and — this was the important one — *"not optimised for
-mobile, for a clearer interface"*, so you could "toase about all possibility to configure the
+**configure**, a **timing diagram**, and — this was the important one — __"not optimised for
+mobile, for a clearer interface"__, so you could "toase about all possibility to configure the
 production flows". You described the parts yourself: a module around the oven, a module around
 the mixer, a module around a fermentation, each with its **own cycle time**; the folds as a
 **loop**; ingredients going in "from time to time, not one shot"; and the fridge and the bins
 as **half-finished goods** sitting between steps. And you set the rule for the whole exercise:
-*"alll this are design, and require proofing, and before the proofing, the fugures have to be
-right first, at least logically."*
+__"alll this are design, and require proofing, and before the proofing, the fugures have to be
+right first, at least logically."__
 
 **What changed.** A new screen, **More → 🧱 Scenario planner**. It is the one screen in the app
 that is **wider than the rest** — up to 900px instead of 540 — because a day laid out across a
 timeline needs the room. Everything else about the app is exactly as it was.
 
-**A module is a Lego brick: a machine *and* the pair of hands that tends it, counted as one
+**A module is a Lego brick: a machine __and__ the pair of hands that tends it, counted as one
 thing.** Each module has its own cycle time — how long one pass holds it — how many pans that
 pass deals with, how many minutes of you it takes, and how often it repeats. Your fold loop is
 just a module that repeats more often, so a loop needs no special anything. Ten modules come
@@ -1330,9 +1354,9 @@ seeded: the mixer, the fold loop, wash/oil/fill, load the chiller, retard overni
 dimple and top, the oven, cool and pack — and the fridge, which arrives **switched off**.
 
 **Scenario 1 is the line without a fridge, and the fridge is a switch, not an absence.** It sits
-in the module list switched off and reads *"not in this scenario"*, so the screen answers
+in the module list switched off and reads __"not in this scenario"__, so the screen answers
 without it. Switch it on and it appears. That is deliberate, because you said it plainly:
-*"if the output fulfilied my need now, then fridge would not be the 1st thing to buy for me"* —
+__"if the output fulfilied my need now, then fridge would not be the 1st thing to buy for me"__ —
 so the buying question and the design question had to be the same screen, one tap apart.
 
 **The day is a timing diagram.** One row per module running across the day, with the clock
@@ -1342,18 +1366,18 @@ nobody. Below the modules is a row **per person**, carrying the jobs that person
 one person on your seeded day, doing 4 h 56 min of work. Swipe sideways; the day is wider than
 the phone.
 
-**The climb — this is the part you asked for.** You described the method yourself: *"i will
+**The climb — this is the part you asked for.** You described the method yourself: __"i will
 slowly increase the output needed per day until 1st limitation hit, tweaking the 1st limitation
-and expecting the output to grows, until the next limitation surface"*. So: type how many pans
+and expecting the output to grows, until the next limitation surface"__. So: type how many pans
 a day you want, and a ladder appears. Each rung names the one module that stops you at that
 number, exactly what to change about that module, what the day becomes, and which module
 becomes the wall next. **One tap puts the whole ladder into the modules.**
 
 **And the ladder has to be honest, which is where it earns its keep.** Your seeded day makes
 **12 pans** and it is the chiller that stops it. Raise the target to 36 and the ladder climbs
-to **24** — then stops, and says why in plain words: *"A 12 h pass fits 2 times in a day, and it
+to **24** — then stops, and says why in plain words: __"A 12 h pass fits 2 times in a day, and it
 is already running that often. So this one cannot be run more often — it has to take more pans
-at once."* Twelve trays, twice a day, is twenty-four pans and no amount of wanting makes it
+at once."__ Twelve trays, twice a day, is twenty-four pans and no amount of wanting makes it
 more. **Thirty-six pans needs eighteen trays.** It is the same trays-to-a-day arithmetic from
 the Production line, now holding this screen to account — and it means this screen can talk you
 **out** of a purchase as well as into one.
@@ -1366,14 +1390,14 @@ order and nothing here blocks a sale; it is a planner you type into.
 
 **One more honest note.** A day can only hold so many passes of something: a 12-hour retard fits
 twice in 24 hours, and the screen will not count a third however many you type. Your number is
-kept exactly as you typed it — the row just wears an *"a day's limit"* tag and counts the passes
+kept exactly as you typed it — the row just wears an __"a day's limit"__ tag and counts the passes
 that are really there.
 
 **20 Sep 2026 — engine v136 (no database step). The Production line now opens with a flow
 map: your bake day top to bottom, in the order it actually happens.**
 
 **What you asked.** "can you do a flow map so that i can visualise better, make a intuitive
-one". The four bars answered *how fast* each part is, but nothing on the screen showed the
+one". The four bars answered __how fast__ each part is, but nothing on the screen showed the
 **order** — that the dough is mixed first, rests overnight, and only then goes pan by pan
 through the oven and back round again. Numbers side by side don't tell you what happens next.
 
@@ -1416,8 +1440,8 @@ meant. So the box read 25 and quietly meant "25 pans" — a figure you had never
 of dough — that is what bakes down to the 800 g you sell, the rest being water that bakes off
 and oil that goes in the pan — so 25 kg is about **28 pans**. That is now the figure the box is
 seeded with, and the hint under it says the whole thing in one line, so the conversion is on
-screen rather than in my head: *"Your mixer's bowl size, counted in pans: one pan takes about
-900 g of dough — that is what bakes down to your 800 g — so a 25 kg bowl is about 28 pans."*
+screen rather than in my head: __"Your mixer's bowl size, counted in pans: one pan takes about
+900 g of dough — that is what bakes down to your 800 g — so a 25 kg bowl is about 28 pans."__
 
 **One caveat, said plainly.** A 25 kg mixer means the bowl holds 25 kg, but a wet focaccia
 dough climbs the hook and will overflow a bowl filled to the brim, so what you can actually mix
@@ -1694,7 +1718,7 @@ right, and it was a real fault, not a display quirk.
 **What was wrong.** The charge is two things: the amount, and **who paid it**. Putting **Who
 paid the courier** back to **Not recorded** felt like deleting the charge — and it is the
 obvious way to do it, because that picker is what decides where the charge goes — but it only
-deleted the answer to *who*, and left the amount behind. The order's row kept a tag reading
+deleted the answer to __who__, and left the amount behind. The order's row kept a tag reading
 **Courier RM 8.00 · customer** for a charge nobody had assigned, and nothing you could do in
 that box would take it off. Worse, it named the customer as the payer when nobody had said so,
 so a row could claim they owed money they did not.
@@ -1713,7 +1737,7 @@ had just deleted. Now the card is republished whenever the charge changes, in ei
 **Who paid the courier** back to **Not recorded** and Save. The tag goes from the row.
 
 **One thing left as it is, so you know.** Deleting the **Delivery & fuel** expense from your
-Money screen does *not* take the charge off the order — that row is your own record of money
+Money screen does __not__ take the charge off the order — that row is your own record of money
 going out, and the order is the record of what happened, so the two are deliberately separate.
 If you would rather that deleting the expense cleared the order's charge as well, tell me.
 
@@ -2017,7 +2041,7 @@ drags it backwards.
 
 **Both lines change together.** Your row's map and the **customer's own track page** draw the same
 six steps, so the X is on their page too, and it turns green there the moment you record the money.
-A step that is *deliberately gone past but not paid* now looks different from a step that has not
+A step that is __deliberately gone past but not paid__ now looks different from a step that has not
 been reached (grey) and from a step that is done (green) — which is exactly the distinction that was
 missing.
 
@@ -2048,12 +2072,12 @@ the counter.
   payment that has not happened, and the step appears there too once it is recorded.
 
 One rule behind it, worth knowing: moving an order into Paid **or any later stage** without having
-pressed a Paid button is taken as *this order owes money*. That is what your older orders are
+pressed a Paid button is taken as __this order owes money__. That is what your older orders are
 protected from — nothing already in the app changes, because only orders you move now are marked.
 
 **17 Sep 2026 — engine v116 (no database setup needed). A Day one form: your opening balance —
 the cash in the tin, the money on your phone and what is on your shelf — entered once, in one
-place.** From you telling me *"we need to enter opening balance"*.
+place.** From you telling me __"we need to enter opening balance"__.
 
 **What an opening balance is here.** Four answers about the morning your books begin: what is in
 the tin, what is on your phone, what is on your shelf, and who still owes you. Until now the app
@@ -2066,7 +2090,7 @@ way to start.
   which takes any date but should be the day you are starting from.
 - **What is on your shelf** — your ingredients, one box each, already in the unit you use for that
   ingredient (kg for the flour, g for the salt — no converting). Ingredients you have marked as
-  *not something I buy*, like labour, are left out: they have no shelf to count.
+  __not something I buy__, like labour, are left out: they have no shelf to count.
 - **Who still owes you** needs no box — those orders stay unpaid and show under **Still to collect**.
 
 **Nothing is half-saved.** Every box is checked before anything is written: if one has something
@@ -2087,7 +2111,7 @@ income. And the tin must not be entered as a sale: a sale has a customer behind 
 Section 3 of the **Money and Profit** manual has been rewritten around the form — it is attached.
 
 **17 Sep 2026 — engine v115 (no database setup needed). The month arrows on Profit work both
-ways again.** From you telling me *"the profit month can move earlier but cannot move later"*.
+ways again.** From you telling me __"the profit month can move earlier but cannot move later"__.
 
 **What was wrong.** Open Profit — it starts on this month, where the **›** arrow is correctly
 switched off, because there are no numbers after today. Press **‹** to step back to August, and
@@ -2104,7 +2128,7 @@ draw.
 
 **17 Sep 2026 — engine v114 (no database setup needed). Every spending line in Profit & Loss now
 opens — including the ones reading 0.00 — and the lines are twice as tall, so they are easy to tap.**
-From you asking *"in profit the expenses is not clickable, is that a bug?"*
+From you asking __"in profit the expenses is not clickable, is that a bug?"__
 
 **You were right, and it was my mistake.** The lines that open their journal were the ones with
 money in them. A line showing **0.00** was deliberately left dead, because there is no journal to
@@ -2112,10 +2136,10 @@ show — but I made it look **exactly** the same as a live one: same colour, sam
 your month has most categories at 0.00, nearly every line you tapped did nothing, and "not clickable"
 was the only sensible conclusion. A line that looks alive and does nothing is worse than no line.
 
-**What it does now.** Every spending line opens: *Packaging*, *Utilities*, *Delivery & fuel*, the
+**What it does now.** Every spending line opens: __Packaging__, __Utilities__, __Delivery & fuel__, the
 categories you have added, and **Total expenses**. A line with money in it shows its journal as
-before. An empty one opens and **says so in your own words** — *"Nothing recorded under Rent in
-September 2026"*, In / Out / Net at zero, and a line telling you it will fill up on its own as you
+before. An empty one opens and **says so in your own words** — __"Nothing recorded under Rent in
+September 2026"__, In / Out / Net at zero, and a line telling you it will fill up on its own as you
 record spending under that category. The statement's own totals (**Sales**, **Cost of sales**,
 **Gross profit**, **Net profit**) stay figures rather than doors — you did not ask for those, and
 they are not spending.
@@ -2125,13 +2149,13 @@ they are not spending.
   between two lines and hit nothing. Tappable rows everywhere (the Profit statement, the Money
   screen's cash rows, the Books list) are now **36 pixels**, comfortably thumb-sized.
 - **The Total expenses journal did not say which category a row belonged to.** It read
-  *"2 Sep · boxes · Cash"* with no way to tell what "boxes" was for. It now names it —
-  *"2 Sep · Packaging — boxes · Cash"* — while a single category's journal still reads short, since
+  __"2 Sep · boxes · Cash"__ with no way to tell what "boxes" was for. It now names it —
+  __"2 Sep · Packaging — boxes · Cash"__ — while a single category's journal still reads short, since
   its title already says which category it is.
 
 **17 Sep 2026 — engine v113 (no database setup needed). Every way you pay now has a book you
 can always open — including a pocket that has been quiet — behind a new Books line on the Money
-screen.** From you asking *"where can i find pocket journals"*.
+screen.** From you asking __"where can i find pocket journals"__.
 
 **What was wrong.** The journal rows live on the money card, and that card only shows a pocket's
 row **when that pocket moved money in the stretch you are looking at**. The card opens on
@@ -2139,8 +2163,8 @@ row **when that pocket moved money in the stretch you are looking at**. The card
 book at all. Cash and TNG never had the problem: their four rows (Cash in, Cash out, TNG in, TNG
 out) are always there. The pockets were the only books that could go missing.
 
-**The Books line.** Under the two money cards there is now a second line beside *Categories & ways
-to pay*:
+**The Books line.** Under the two money cards there is now a second line beside __Categories & ways
+to pay__:
 
 > **Books**
 > Every way you pay · 5 books, each opening into its own rows  ［ Open ］
@@ -2149,26 +2173,26 @@ to pay*:
 and anything you add later — each with what moved by it in the stretch on screen, each opening into
 its own book **under the line you tapped**, so the list stays in front of you and you can step from
 one book to the next. The first method with anything in it opens ready; a quiet pocket says so
-plainly — *"Nothing moved this way in this stretch"* — with its In / Out / Net at zero.
+plainly — __"Nothing moved this way in this stretch"__ — with its In / Out / Net at zero.
 
 Two things this keeps honest: a method you have since **renamed or deleted** still gets a line,
 because its money is still in the books and a figure you cannot open is a figure you have to take
 on faith; and every figure in the list comes off the Money screen's own rows, so the list and those
 totals cannot drift apart.
 
-*A small thing the screenshot caught while building this: the first version printed the word
-"null" under each closed line. Fixed, and there is now a test that fails if it ever comes back.*
+__A small thing the screenshot caught while building this: the first version printed the word
+"null" under each closed line. Fixed, and there is now a test that fails if it ever comes back.__
 
 **17 Sep 2026 — engine v112 (no database setup needed). You can pay a personal pocket back
 out of the till in one go, and the category list on the expense form is no longer cut off.**
-From your question — *"can my own withdrawal payback to the cash register like Personal pocket
-Kean or Suan?"* — and your note about the categories.
+From your question — __"can my own withdrawal payback to the cash register like Personal pocket
+Kean or Suan?"__ — and your note about the categories.
 
 **Pay back a pocket.** On **More → Money**, beside **＋ Put money in**, there is now
 **＋ Pay back a pocket**. It is for the case where a pocket of yours — **Personal Pocket Kean**,
 **Personal Pocket Suan**, a loan, or one you add later — paid for something, so the money left
 you rather than the till; that pocket's line on the Money screen then reads **−RM 40.00**, which
-means *the till owes it 40*. Open the form and it comes up **already on the pocket that is
+means __the till owes it 40__. Open the form and it comes up **already on the pocket that is
 owed**, with the amount filled in — Kean's RM 40 sitting in the box, and a line saying so. Say
 whether the money came out of **Cash** or **TNG**, check the day, and press **Pay back**.
 
@@ -2177,13 +2201,13 @@ It writes both halves at once, which is the whole point: the **till goes down** 
 **pocket's line comes back to zero**. One pocket can be paid back without touching another.
 Because it is your own money going back to you, the till's side is recorded as a withdrawal —
 so it never counts as a cost and your **profit does not move**. On the pocket's own list it
-reads *"Paid back by the till"*, not *"From my pocket"* — the two are different things and now
+reads __"Paid back by the till"__, not __"From my pocket"__ — the two are different things and now
 say so. Paying it back in part is fine: pay RM 25 of the RM 40 and the pocket reads −15 after.
 
 **The category list was being cut off — fixed.** Thank you for catching this. On the expense
 form, the row of categories ran off the side of the screen: it was laid out as one single line,
-so at phone width everything past about the sixth category — *Salary (you)*, *EPF / SOCSO*,
-*Marketing*, *Equipment & tools*, *Other*, *My own withdrawal*, and the **＋ New category**
+so at phone width everything past about the sixth category — __Salary (you)__, __EPF / SOCSO__,
+__Marketing__, __Equipment & tools__, __Other__, __My own withdrawal__, and the **＋ New category**
 chip — was off the screen and impossible to reach. Measured on a 375-pixel phone, the row was
 744 pixels wide inside a 343-pixel box. The pills now **wrap onto as many lines as they need**,
 the same fix applies to the ways-to-pay row and to the new pay-back form, and the whole list is
@@ -2192,20 +2216,20 @@ visible and tappable. Nothing about the categories themselves changed.
 **17 Sep 2026 — engine v111 (no database setup needed). Every figure on the books is now a
 door: a journal behind each line of spending in Profit & Loss, and a book for every way you
 pay — Cash, TNG, Loan, Personal Pocket Kean, Personal Pocket Suan, and anything you add
-later.** From two notes close together: *"the expenses items in Profit & Loss should reveal
-its journals"*, then *"each CASH, TNG, LOAN, Personal Pocket Kean, Personal Pocket Suan, and
-others that might be added in future need a journal"*.
+later.** From two notes close together: __"the expenses items in Profit & Loss should reveal
+its journals"__, then __"each CASH, TNG, LOAN, Personal Pocket Kean, Personal Pocket Suan, and
+others that might be added in future need a journal"__.
 
 **Profit & Loss — tap a spending line and see what made it up.** On **More → Profit**, the
 running-cost lines (Packaging, Utilities, Delivery & fuel…) are now tappable, and so is
 **Total expenses**. Tapping one opens its journal for the month on screen: every expense
-behind that figure, oldest first, each reading *"<day> · <what it was for> · <how it was
-paid>"* and ending on the total the statement itself shows. So *"Packaging RM -58.00"*
+behind that figure, oldest first, each reading __"<day> · <what it was for> · <how it was
+paid>"__ and ending on the total the statement itself shows. So __"Packaging RM -58.00"__
 opens two lines — the boxes paid from a pocket and the bags paid in cash. A line with nothing
 in it that month is not tappable; there is nothing behind it. The header now says **Running
 costs · tap a line to see the spending behind it**.
 
-**Money — one line and one book per way of paying.** The single *"Paid by loan / other"* row is
+**Money — one line and one book per way of paying.** The single __"Paid by loan / other"__ row is
 gone. In its place, every way of paying that is not cash or TNG gets **its own line** with what
 moved by it, and its own journal behind it: **Paid by Loan**, **Paid by Personal Pocket Kean**,
 **Paid by Personal Pocket Suan**, **Paid by Bank OD** — whatever you have called them. Money of
@@ -2226,8 +2250,8 @@ recipes. Count them one way, never both.
 
 **17 Sep 2026 — engine v110 (no database setup needed). An ingredient you never buy — your
 own labour, electricity, gas — can be marked as a cost, and it then never appears on a
-shopping list again.** From your note: *"certain ingredient we dont purchase, in ingredient we
-can set that as a non purchase item, like labour and electricity"*.
+shopping list again.** From your note: __"certain ingredient we dont purchase, in ingredient we
+can set that as a non purchase item, like labour and electricity"__.
 
 **What it does.** Open **More → Ingredients** and tap **Edit** on the ingredient (or fill in the
 New ingredient card at the top). Above the cost there is now a switch: **Not something I buy —
@@ -2236,12 +2260,12 @@ or a purchase order.** Turn it on for Labour, Electricity, Gas, your own time.
 
 **Where you see it.**
 - The ingredient's **card** stops showing an On hand and a Keep-at-least line, and says instead:
-  *Not bought — a cost in your recipes, never on a shopping list*. Nothing else about the card
+  __Not bought — a cost in your recipes, never on a shopping list__. Nothing else about the card
   changes, and the cost you typed is untouched.
 - Every **shopping list** (the preview, the list you save, and an "orders changed" follow-up)
-  leaves that ingredient out — and says so at the foot of the list: *Not on this list: Labour,
+  leaves that ingredient out — and says so at the foot of the list: __Not on this list: Labour,
   Electricity — marked as not something you buy. Their cost still counts in the products that
-  use them.* So it reads as deliberate, not as something the app forgot.
+  use them.__ So it reads as deliberate, not as something the app forgot.
 - The **recipe cost** is unchanged: a recipe using Labour at RM 8 an hour for 15 minutes still
   adds RM 2.00 to that product's cost, and that runs on into the Profit screen's cost of sales.
 
@@ -2748,7 +2772,7 @@ the day numbers at the Orders screen, and a mouse resting on a marked day names
 it.** Two small things, both about the Orders screen and the bubble.
 
 **The tint now sits on the line of dates.** On the Orders calendar each delivery
-day carries its booking count, and that count sat *under* the date number, which
+day carries its booking count, and that count sat __under__ the date number, which
 pushed the number 5.5px above the middle of its row. The occasion wash is centred
 on the row, so on this one screen the tint sat lower than the numbers it was meant
 to be washing - and the dates themselves did not line up with each other. The count
@@ -2781,7 +2805,7 @@ either.
 
 **Two kinds of day could not be read at all before, and now can.** On the Orders
 calendar a marked day you do not deliver was a quiet number with nothing to tap,
-and on the Delivery Dates calendar a marked day that is *already* one of your
+and on the Delivery Dates calendar a marked day that is __already__ one of your
 delivery dates could not be tapped either - its tick is removed from the list
 below the calendar, never by tapping its square, so its tap was free. Both now
 say their name when tapped, and nothing else about them moved: a Delivery Dates
@@ -2900,7 +2924,7 @@ calendar follows your marks by itself. Nothing to run in Supabase.
 **14 Sep 2026 — engine v82 (no database setup needed). A product's selling days
 are now marked on a little calendar inside the product's own screen — weekend,
 certain days, a season, or any mix of them.** Until today a product could say
-only two things about *when*: a notice period, and one from-date and to-date for
+only two things about __when__: a notice period, and one from-date and to-date for
 a season. You asked to set it freely instead, so the two date boxes have become a
 card you mark.
 
