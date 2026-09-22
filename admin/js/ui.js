@@ -132,6 +132,91 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   }
 }
 
+// A card opens over the screen it is about, and on a phone it covers the very
+// thing she opened it to decide about: the batch clock sits over the bars it
+// moves. So a card's own title bar is a handle — every card's, because the head
+// is the same strip on all of them, and a card that looked identical but refused
+// to move is a difference she would only find by trying it twice.
+//
+// The position is not remembered. A card is built fresh by showPopup, so the next
+// one opens where cards have always opened: the drag is a way to push a card
+// aside while she works, not a setting.
+//
+// The card moves by a transform, which leaves the layer's own layout untouched.
+// What keeps that honest is the clamp. A transformed box still counts toward a
+// scroller's scrollable overflow, so a card dragged past the edge would hand
+// .popup-layer a scroll surface it has never had — and she could then scroll her
+// own close button off the top, where no finger reaches it. Holding the whole card
+// inside the layer contributes no overflow at all and means no control can ever be
+// parked out of reach. On a phone the card is already nearly the full width, so the
+// travel she gets is vertical, which is the axis she wants.
+function dragByHead(card, head, layer) {
+  let dx = 0;
+  let dy = 0;
+  let start = null;
+
+  const finish = () => {
+    // Implicit release would cover it, but every other drag in this app releases
+    // explicitly and there is no reason for this one to be the exception.
+    if (start) {
+      try { head.releasePointerCapture(start.id); } catch { /* already gone */ }
+    }
+    start = null;
+    head.classList.remove("dragging");
+  };
+
+  head.addEventListener("pointerdown", (e) => {
+    // The close button lives on this strip. A press on it is a press on the
+    // button, not on the handle — and it has to stay that way, because a captured
+    // pointer would send the button's own click somewhere else. No card in the app
+    // puts anything else in its head today; the guard is what keeps that true if
+    // one ever does.
+    if (e.target && e.target.closest &&
+        e.target.closest("button, input, select, textarea, label, a")) return;
+    // On a phone a long press on the title raises the selection callout, which
+    // fires pointercancel and kills the drag in her hand.
+    e.preventDefault();
+    const box = layer.getBoundingClientRect();
+    const at = card.getBoundingClientRect();
+    // `at` already includes whatever an earlier drag left behind, so the card's
+    // own untouched corner is that rect less the offset in force. Reading the rect
+    // again mid-drag would count the offset twice and the card would run away.
+    start = {
+      id: e.pointerId, x: e.clientX, y: e.clientY, dx, dy, box,
+      left: at.left - dx, top: at.top - dy, width: at.width, height: at.height,
+    };
+    head.classList.add("dragging");
+    // A pointer already gone by the time this runs cannot be captured, and it
+    // throws rather than saying so — but the drag works either way, so losing the
+    // capture must not lose the drag with it.
+    try { head.setPointerCapture(e.pointerId); } catch { /* older engine, or a pointer already gone */ }
+  });
+
+  head.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const s = start;
+    let nx = s.dx + (e.clientX - s.x);
+    let ny = s.dy + (e.clientY - s.y);
+    // A little air, so a card parked against the edge does not read as cropped by it.
+    const air = 6;
+    const loX = s.box.left + air - s.left;
+    const hiX = s.box.right - s.width - air - s.left;
+    const loY = s.box.top + air - s.top;
+    const hiY = s.box.bottom - s.height - air - s.top;
+    // A card as wide or as tall as the screen has nowhere to go. An inverted range
+    // means exactly that, and it is not a fault to clamp away — the clamp stands
+    // down and the card sits where the layer puts it.
+    if (loX <= hiX) nx = Math.min(Math.max(nx, loX), hiX);
+    if (loY <= hiY) ny = Math.min(Math.max(ny, loY), hiY);
+    dx = nx;
+    dy = ny;
+    card.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+
+  head.addEventListener("pointerup", finish);
+  head.addEventListener("pointercancel", finish);
+}
+
 // A reusable centered pop-up (used for editing an order). Layers over the whole
 // screen with a dimmed scrim; `makeBody(refresh, close)` is called to (re)fill
 // the scrollable body, so callers re-invoke `refresh()` after changing anything
@@ -160,13 +245,13 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null } = {}
   // rewrites it itself, because there is no other way to reach a heading that lives
   // outside the body the card is free to rebuild.
   if (onTitle) onTitle(titleEl);
-  const card = el("div", { class: `popup-card${wide ? " wide" : ""}` },
-    el("div", { class: "popup-head" },
-      titleEl,
-      button("✕", close, "ghost small")),
-    body);
+  const head = el("div", { class: "popup-head" },
+    titleEl,
+    button("✕", close, "ghost small"));
+  const card = el("div", { class: `popup-card${wide ? " wide" : ""}` }, head, body);
   layer.replaceChildren(card);
   layer.hidden = false;
+  dragByHead(card, head, layer);
   refresh();
   return close;
 }

@@ -1497,6 +1497,36 @@ export function combinedScenario(saved, into, from) {
   return { ...s, modules, merges };
 }
 
+// One job, handed to somebody else — the drop-down behind a tap on a person's own
+// marker on the timeline.
+//
+// Pure, and beside combinedScenario because it is the same move made one module at
+// a time: what changes is only who is standing at it. Every module keeps its job
+// and its minutes, so whatever collides afterwards is exactly the manpower the new
+// arrangement costs, which is the answer she is reading the chart for.
+//
+// `line` is which production line the marker came off, or -1 for a module that is
+// not drawn as lines — the same -1 touchWindows writes. A module's `person` is its
+// FIRST line everywhere in the app, so it is rebuilt from the crew rather than
+// written straight: a crew whose first entry disagreed with `person` would show one
+// worker in the module's own box and another in the people's rows.
+export function reassignPerson(saved, moduleId, line, who) {
+  const s = scenarioOf(saved);
+  const p = clampPerson(who);
+  const at = Math.round(Number(line));
+  const modules = s.modules.map((m) => {
+    if (m.id !== moduleId) return m;
+    const crew = Array.isArray(m.crew) ? [...m.crew] : [];
+    // A marker off a production line moves that line alone. A marker off a module
+    // with no lines moves the module's own person, which is its first line.
+    if (at >= 0 && at < crew.length) crew[at] = p;
+    else if (crew.length) crew[0] = p;
+    else crew.push(p);
+    return { ...m, crew, person: crew[0] };
+  });
+  return { ...s, modules };
+}
+
 // ── A module, handed to the capacity screen ─────────────────────────────────
 //
 // The two screens answer different questions about the same day, and she asked

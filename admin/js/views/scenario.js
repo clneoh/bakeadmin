@@ -30,7 +30,7 @@ import {
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine, latestStarts,
-  combinedScenario, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
+  combinedScenario, reassignPerson, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
   startModeOf, setStartMode,
@@ -103,6 +103,17 @@ const SCALE_NAMES = ["Wide", "Standard", "Close", "Closest"];
 // A table and not a formula, because which step is worth drawing at which scale is
 // a reading decision, and it should be possible to read it here.
 const TICK_MIN = [30, 15, 5, 1];
+
+// The step of the grid carried down every row under the ruler. A second ladder,
+// and not the ruler's own step, because a ruler may step by a minute where a grid
+// may not: at the closest stop a minute is 3.2 pixels wide, and a line every 3.2
+// pixels is not a grid, it is a wash of grey. So the grid takes the smallest step
+// that is BOTH at least the ruler's step — which makes every grid line a tick as
+// well, so the two can never disagree about where a minute is — and at least
+// GRID_MIN_PX wide. 60 is deliberately absent: the hour line is already drawn by
+// --hour-w, and a second layer under it would only double it.
+const TICK_GRID_MIN = [1, 5, 15, 30];
+const GRID_MIN_PX = 12;
 
 export function renderScenario(root, state) {
   const sc = ensureScenario(state);
@@ -839,7 +850,14 @@ function timeline(r, sc, on, state, run) {
   // never be mistaken for the minute the day is actually at.
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
   const now = el("div", { class: "tl-now", hidden: !run.on }, nowLab);
-  const tl = el("div", { class: "tl", style: `--hour-w:${Math.round(60 * r.pxPerMin)}px` },
+  // --hour-w is the hour line every track has always drawn. --tick-w is the grid
+  // this release carries down under it, set from the same scale so the two stay in
+  // step — see gridStepFor for why it is a coarser step than the ruler's at the two
+  // closest stops.
+  const tl = el("div", {
+    class: "tl",
+    style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
+  },
     el("div", { class: "tl-inner" },
       rulerRow(r, trackW),
       ...r.modules.map((m, i) => moduleRow(r, m, i, trackW, sc, on, state, run)),
@@ -1124,6 +1142,18 @@ function tickStepFor(pxPerMin) {
   const at = PX_PER_MIN_CHOICES.reduce(
     (best, c, i) => (Math.abs(c - pxPerMin) < Math.abs(PX_PER_MIN_CHOICES[best] - pxPerMin) ? i : best), 0);
   return TICK_MIN[at];
+}
+
+// How far apart the grid drawn under the ruler is, in minutes. See TICK_GRID_MIN
+// for why it is not simply the ruler's step: 30 minutes at the widest reading, the
+// quarter hour at the standard one, and five minutes at both of the close
+// readings — 36, 24, 12 and 16 pixels apart, so no stop is ever asked to draw a
+// line it cannot separate from its neighbour.
+function gridStepFor(pxPerMin) {
+  const scale = Number(pxPerMin) > 0 ? Number(pxPerMin) : PX_PER_MIN_CHOICES[1];
+  const ruler = tickStepFor(scale);
+  return TICK_GRID_MIN.find((s) => s >= ruler && s * scale >= GRID_MIN_PX)
+    || TICK_GRID_MIN[TICK_GRID_MIN.length - 1];
 }
 
 function rulerRow(r, trackW) {
@@ -2168,12 +2198,141 @@ function personRow(r, row, trackW, sc, on, state) {
   // flex row is an anonymous flex item that no rule can reach, so without the span
   // the ellipsis never applies and a long "(with …)" label wraps the row taller
   // than the bars it is read against.
+  // Two gestures on this row, and which one she gets is decided by where the
+  // finger lands on the track — the same pair the module rows have had since v154.
+  // A tap on a stretch of their day hands that job to somebody else; a tap
+  // anywhere else on the row still opens the person's own card, which is what
+  // every tap on this row did before. Her ask, 23 September: "can the personX
+  // marker be click to change it job to personY, by a drop down person selector",
+  // and then, asked which gesture she meant, "click on the person's occupied time
+  // slot, a drop down list, list the other people available".
+  //
+  // The stretch is found by the MINUTE under the finger rather than by
+  // closest(".tl-bar"), which is what the module rows do. A person's bar carries no
+  // dataset at all, so a bar could not say which module it belongs to — and the
+  // target is small twice over: the bar is 11 pixels in a 34-pixel row, and at the
+  // widest reading a one-minute job is 1.2 pixels wide. Reading the minute gives
+  // her the row's whole height, and nearestSlot gives her the sliver.
+  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars);
+  track.addEventListener("click", (e) => {
+    // An activation that never had a pointer — a test's synthetic event, or a
+    // keyboard's. There is no coordinate to read, so there is nothing to decide:
+    // leave the event alone and let the row open the person's card.
+    if (typeof e.clientX !== "number") return;
+    const min = minuteAtPx(e.clientX - track.getBoundingClientRect().left, r.pxPerMin, r.windowMin);
+    if (min == null) return;
+    const hit = row.items.find((w) => min >= w.from && min < w.to)
+      || nearestSlot(row.items, min, r.pxPerMin);
+    // Nothing within reach: say nothing, and let the tap through to the row.
+    if (!hit) return;
+    e.stopPropagation();
+    slotPopup(r, row, hit, sc, on, state);
+  });
   return el("div", { class: `tl-row person tappable ${tone}`, onclick: () => personPopup(row, sc, on, state) },
     el("div", { class: "tl-name" },
       el("div", { class: "tl-name-top" },
         el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
       personTip(notes)),
-    el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
+    track);
+}
+
+// The stretch of a person's day nearest the minute she tapped, if that minute is
+// within reach of it — measured in PIXELS and not in minutes, so the reach is the
+// same distance under her finger at every scale. Six pixels either side is a
+// fingertip; two minutes at the closest reading is the same six.
+function nearestSlot(items, min, pxPerMin) {
+  const scale = Number(pxPerMin) > 0 ? Number(pxPerMin) : 1;
+  const reach = Math.max(2, 6 / scale);
+  let best = null;
+  let bestGap = Infinity;
+  for (const w of items) {
+    // Zero inside the stretch, and how far outside it otherwise — the half-open
+    // rule the bars are drawn by, so a minute a job ends on is the next job's.
+    const gap = Math.max(w.from - min, min - w.to + 1, 0);
+    if (gap <= reach && gap < bestGap) { best = w; bestGap = gap; }
+  }
+  return best;
+}
+
+// The card a tap on a stretch of somebody's day opens: hand that job to another of
+// the people on the chart.
+//
+// What is offered is the OTHER people on this day and not all eight numbers. A
+// person with no row on this chart is not standing anywhere on it, so listing them
+// would be offering an answer the day cannot give — and with only one person on the
+// whole day there is nothing to list at all, which the card says out loud rather
+// than opening an empty menu.
+function slotPopup(r, row, w, sc, on, state) {
+  const who = row.person;
+  const others = r.rows.map((x) => x.person).filter((p) => p > 0 && p !== who).sort((a, b) => a - b);
+  if (!others.length) {
+    toast("Nobody else is on this day yet — give a module to a second person, and their row can take this job");
+    return;
+  }
+
+  // Which module this stretch came off, and HOW MANY BATCHES go with it. Counted
+  // off the module's own batches rather than off the row's stretches, because
+  // touchWindows writes one stretch per touch of a batch: a batch she folds three
+  // times is three stretches, and counting those would promise her the movement of
+  // three jobs where one is being made.
+  const mod = r.modules.find((m) => m.id === w.module);
+  const batches = mod
+    ? (mod.lines ? mod.passes.filter((p) => p.line === w.line).length : mod.passes.length)
+    : 1;
+  const job = `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ` +
+    `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`;
+
+  // Held out here and not inside the body builder, which runs again on every
+  // repaint — a variable declared in there would be wiped by the first one.
+  let to = others[0];
+  showPopup(`Move this job off ${personName(who, namesOf(state))}`, (refresh, close) => {
+    const picker = select(
+      others.map((p) => ({ value: String(p), label: personName(p, namesOf(state)) })),
+      String(to),
+      // Repainted rather than left alone, so the press below names whoever she has
+      // just picked — the same reason combinePopup repaints its own card.
+      () => {
+        to = Math.max(1, Math.min(8, Math.round(Number(picker.value) || 0)));
+        refresh();
+      },
+    );
+
+    return el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 10px" }, job),
+      el("div", { class: "field" },
+        el("label", {}, "Hand it to"),
+        picker,
+        el("div", { class: "hint" },
+          batches > 1
+            // Said on the card rather than left to be discovered, because a module
+            // carries ONE person for all of its batches: moving one marker really
+            // moves every batch beside it on that line, and she is the one who
+            // knows whether that is what she meant.
+            ? `This module runs ${batches} batches on that line, and a module carries one person for all of them — so all ${batches} move together.`
+            : "The day is redrawn as soon as it moves: the two rows swap this job over, and anything that now collides is drawn red.")),
+      el("div", { class: "popup-actions" },
+        // Named with who she picked, so the press says what it will do rather than
+        // "confirm" — and it is the only press on the card, so nothing happens
+        // until she makes it.
+        button(`Move it to ${personName(to, namesOf(state))}`, () => doReassign(sc, w, to, on, state, close), "primary")));
+  });
+}
+
+function doReassign(sc, w, to, on, state, close) {
+  // The work itself is the model's, so it is one answer everywhere and can be
+  // tested without a screen.
+  const next = reassignPerson(sc, w.module, w.line, to);
+  sc.modules = next.modules;
+  on.persist();
+  on.refresh();
+  toast(`${w.name} handed to ${personName(to, namesOf(state))}`);
+  // The card goes with the move. Its heading says which person the job is being
+  // taken off, and once the day has redrawn that is no longer true: the marker is
+  // on somebody else's row, so leaving the card up would offer a press that names
+  // a person who no longer holds the job and does nothing when she takes it. The
+  // toast is what confirms the move; a second tap on the marker — now on its new
+  // row — opens a fresh card that says where it stands.
+  if (typeof close === "function") close();
 }
 
 function personLabel(row, sc, state) {

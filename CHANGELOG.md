@@ -1,8 +1,176 @@
-# Jienluv2bake — change history (v54 → v158)
+# Jienluv2bake — change history (v54 → v160)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v160 (no database step). In the Scenario planner, the
+ruler's lines now carry on down through the people's markers, and a tap on a
+stretch of somebody's day hands that job to another of your people.**
+
+**What you asked, and it was two things.** In your words: "can the ruler extend
+down to peoples marker area?", and "can the personX marker be click to change it
+job to personY, by a drop down person selector". Asked which way you wanted the
+ruler to reach the markers, you chose **a faint grid down every row** - the clock
+itself stays where it has always been, at the top. Asked what the tap should do,
+you told me: "click on the person's occupied time slot, a drop down list, list
+the other people available".
+
+**The ruler's lines reach the markers.** Every row of the day has always drawn a
+faint line on the hour, so a marker could be traced up to an hour and no closer.
+That grid now carries on down through the module rows and through the people's
+rows, so the edge of a marker always lands on a line you can follow up the chart
+to the clock. On your day the lines are 36 pixels apart at the widest reading, 24
+at the standard one, and 12 and 16 at the two close ones - so the grid you read
+a marker against is the ruler's own step everywhere the ruler can be read at all.
+
+**Why the grid has a step of its own.** At the closest reading a single minute is
+3.2 pixels wide. A line every 3.2 pixels is not a grid, it is a wash of grey. So
+the grid takes the smallest step that is both at least the ruler's own - which is
+what makes every grid line also a tick on the ruler, so the two can never disagree
+about where a minute is - and at least twelve pixels of your day. The clock strip
+at the top keeps its own ticks and is untouched; a module you have switched off
+keeps the grid rather than losing the only thing its dimmed bars are read against.
+
+**It costs nothing on the screen.** The grid is painted, not drawn one line at a
+time, so your day is exactly as fast to open and to scroll as it was - which
+matters, because the ruler alone draws one tick for every minute at the closest
+reading.
+
+**Tap a stretch of someone's day and hand it over.** Tap a person's marker on the
+timeline and a small card opens naming the job it is about - the module, its line
+where it has one, and the clock it runs from and to, in the same words the marker
+says under your pointer. Under it is a list of the other people on this day, and
+one press - "Move it to ...", named with whoever you picked - hands that job over.
+The two rows swap it the moment you press, and anything that now collides is drawn
+red, exactly as before.
+
+**What the card tells you before you press it.** A module carries one person for
+all of its batches, so if the module you tapped runs four batches on that line,
+all four move together - and the card says so, with the number, rather than
+letting you find out afterwards. The list offers only people who have a row on
+this chart, because somebody who is not standing anywhere on your day is not an
+answer the day can give. If you have only one person on the whole day, the card
+tells you that instead of opening an empty list.
+
+**The card goes with the job.** The moment you press, the job leaves that
+person's row and the card closes with it, so what is left on the screen is the day
+as it now stands. A tap on the marker again - now on the other person's row -
+opens a fresh card naming whoever holds it. A card left standing would have gone
+on offering to move a job off somebody who no longer has it, and the press under
+it would have done nothing.
+
+**The tap is read by the minute under your finger, not by the marker.** A person's
+marker is 11 pixels tall in a 34-pixel row, and at the widest reading one minute of
+work is 1.2 pixels wide - so a fingertip lands beside a job far more often than on
+it. The tap takes the whole height of the row, and it takes the nearest stretch of
+work within about six pixels, which is what makes the narrow end of the scale
+usable at all. A tap where that person is not working is not swallowed: it still
+opens the person's own card, which is what every tap on a person's row did before.
+
+**Nothing of yours is rewritten.** The only thing that changes is the one job you
+hand over with your own press. No module, no batch, no start time, no cycle and no
+saved scenario moves by being read, and there is nothing to run in Supabase - the
+whole of this release is drawn from the planner you already have on your phone.
+
+**What is not in it, so you are not left looking for it.** Moving the person on
+one batch of a module, leaving its other batches where they are, cannot be done
+without a new stored field on the module and a one-time step in Supabase. It is a
+release of its own whenever you want it. And a clock repeated above the people's
+rows was the other way to reach the markers - you chose the grid, and the other
+way stays available.
+
+**Measured rather than promised.** The grid's spacing at each of the four readings,
+its reach and the card's own list are all covered by tests, as is the card closing
+the moment the job moves: the suite is 1186 passing with none failing, six tests
+new for this release and one of those standing on the card going with the job. The
+app's own More screen reads Engine v160.
+
+**23 Sep 2026 — engine v159 (no database step). Every card that opens over a
+screen can now be pushed aside by its own title bar, and the Scenario planner's
+chart window is one fixed height that no longer changes as you add people.**
+
+**What you asked.** In your words: "whenni click on batch to adjust the start
+time the pop up windows should be allow to drag" - and then, while I was working
+on it: "the chart window became shorter and shorter as no. of people grows. the
+window height should be fix".
+
+**What you settled, in three answers.** You asked about the batch card and told
+me it should be **every** card, not only that one. You told me the position
+should **always reset** - a card opens where cards have always opened, and
+nothing is remembered. And you asked for **a faint grip line** on the title bar
+so it reads as something to hold rather than something to discover.
+
+**The batch card sat over the very bars it moves.** The card that adjusts a
+batch's start time opens over the day it is about, and on a phone it covers the
+bars you are deciding between. That is what the drag is for: push it down out of
+the way, keep working, and it stays where you put it until you close it.
+
+**It is every card, not only the batch one.** All of the cards that open over a
+screen share one title bar, so all of them now move the same way: the batch
+clock, a module, a person, an order, a customer, a product, a supplier, a unit
+and the rest. A card that looked the same but refused to move is a difference you
+would only find by trying it twice.
+
+**A card always opens where cards have always opened.** The drag is a way to push
+a card aside while you work - it is not a setting and it is not remembered. Open
+the next card and it is where every card has always been.
+
+**The grip is what says so.** There is a short faint bar near the top of every
+card's title bar, and the pointer over that bar becomes a hand. Measured, the bar
+is 34 pixels wide.
+
+**A card is held inside the screen, and that is deliberate.** A card can be
+pushed until its own edge comes close to the edge of the screen, and no further.
+This matters more than it sounds. A card that could be dragged past the edge
+would hand the screen behind it something to scroll that it never had - and you
+could then scroll your own close button off the top, where no finger reaches it.
+Holding **the whole card** inside the screen means no button on it can ever be
+parked out of reach. On the phone a card is already nearly the full width, so
+what you get is vertical travel, which is the direction you want.
+
+**Measured rather than promised.** On your One baker day the batch card for the
+mixing module is 337 pixels tall. Dragged down by 300, it moved by exactly 300
+and its whole box stayed on the screen, and the screen behind it gained nothing
+to scroll. Dragged by 900 - far further than a finger can reach - it moved by 8
+pixels and stopped, because 8 pixels is all the room it had. A module card,
+784 pixels tall, moves 8 pixels; a person card, dragged 2000 pixels across and
+down, stopped with its whole box still inside the window; a wide card on a phone,
+347 pixels wide in a 375-pixel screen, moves 8 pixels sideways, which is all the
+room it has. A drag on the card's close button is a press on that button and
+nothing else: measured, the card does not move and the cross still closes it.
+
+**The buttons keep working after a drag.** Pressing the plus-five-minutes button
+on a batch card that has been dragged aside moves the batch and leaves the card
+where you put it - the card redraws its contents without going back to the top.
+
+**A drag on the day itself still scrolls the day.** The title bar asks to be
+handled by hand; nothing else on the screen does. Dragging the chart - or the
+page - moves the page exactly as it did before, and the page does not move while
+you are dragging a card.
+
+**The chart window is one fixed height now.** This is the second thing you asked
+for. The panel showing the day used to be a rubber band: its height was whatever
+the day's rows added up to, held between a floor and a cap. Measured at 375
+pixels with one person it was 473 pixels tall and with a taller people list it
+was 648 - so the window grew as you added people, and once it had grown to its
+cap the pinned people list at its foot carried on growing into the days above it.
+At the same phone size your eight-module day left eight rows of modules visible
+with one person and four with a crowd. The panel is now **one height** - 80
+percent of your screen, up to 760 pixels - and it does not change whatever you
+add. On your phone it is 649 pixels at 375 by 812 and 720 pixels at 1280 by 900.
+Your own eight-module day draws 473 pixels inside it, so **all eight module rows
+are visible at once**, and even your tallest people arrangement - seven person
+rows, which draws 648 pixels - still fits in the window with nothing to scroll.
+
+**Nothing of yours was rewritten.** Your three saved days were compared byte for
+byte before and after this release: One baker day, No fridge 1 person and My
+sister proposal 21/9/2026 still stand on the targets they had, and not one
+module, batch, start time, cycle or saved scenario changed. Nothing here blocks a
+sale and nothing here reads an order.
+
+**No database step.** The whole of this is drawn from the scenario already on
+your phone, so there is nothing to run in Supabase.
 
 **22 Sep 2026 — engine v158 (no database step). The Scenario planner's people
 rows come down to one line each and hold still, everything about a person moves

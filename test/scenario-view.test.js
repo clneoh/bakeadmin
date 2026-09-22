@@ -1395,13 +1395,21 @@ test("the modules window is taller, and the paragraphs above it are gone (v157)"
   const { root } = render();
 
   // Her first ask, "i want to make the modules window taller", and her last,
-  // "remove?" on the two paragraphs. The window is given a floor so it reads as a
-  // window even on a short day, and a raised cap so a long day uses the room the
-  // shorter control row and the removed paragraphs gave back.
+  // "remove?" on the two paragraphs.
+  //
+  // v157 answered the height with a floor and a raised cap, and v159 replaced both
+  // with ONE height: the pair left the panel a rubber band that followed the day's
+  // rows, which is the fault she reported on 23 September. What v157 was for is
+  // kept — the window is still a window and still scrolls — so the assertions are
+  // the same two facts, read off the rule that carries them now.
   const css = read("admin/css/app.css");
-  assert.match(css, /\.tl\s*\{[^}]*min-height:\s*min\(56vh, 500px\)/, "the modules window has no floor, so a short day is not a window");
-  assert.match(css, /\.tl\s*\{[^}]*max-height:\s*min\(80vh, 760px\)/, "the modules window's cap did not move, so the room reclaimed is not used");
+  assert.match(css, /\.tl\s*\{[^}]*height:\s*min\(80vh, 760px\)/, "the modules window has no height of its own, so it is not a window");
   assert.match(css, /\.tl\s*\{[^}]*overflow:\s*auto/, "the modules window no longer scrolls");
+  // And the rubber band is gone with it: one height, and no floor or cap left to
+  // hand the panel back to the day's rows. See v159 below for what that fixed.
+  const tlRule = css.slice(css.indexOf(".tl {"), css.indexOf("}", css.indexOf(".tl {")));
+  assert.doesNotMatch(tlRule, /min-height/, "the modules window still has a floor, so its height is the day's again");
+  assert.doesNotMatch(tlRule, /max-height/, "the modules window still has a cap, so it stops growing only where the day stops");
 
   // The two paragraphs above the chart are gone from the day card, and so is the
   // signpost that named the day-backwards control: the button names itself.
@@ -1462,6 +1470,14 @@ function collidingDay() {
   return ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_pack"
     ? { ...m, person: 2, startMin: 250 }
     : m.id === "solo_oven" ? { ...m, person: 2 } : { ...m }));
+}
+// A day where one person has a single module's work and nothing else, so their row
+// is four short stretches and then empty ground the rest of the way down. Handed to
+// the screen as a scenario of its own; nothing she has saved is touched.
+function oneJobDay() {
+  return ONE_BAKER_SCENARIO.modules.map((m) => (
+    m.id === "solo_mix" ? { ...m, person: 1 } : { ...m, person: 2 }
+  ));
 }
 
 test("a person's row is their name and nothing else, and their tip carries the rest (v158)", () => {
@@ -1673,4 +1689,230 @@ test("a module drawn as lines can wait on the module above it (v155)", () => {
   // waiting are on the first line, never repeated on the second.
   const second = lines.find((n) => !textOf(n).includes("Oil the pans"));
   assert.ok(!/waits above/.test(textOf(second)), "the waiting badge is repeated on the second production line");
+});
+
+// ── The ruler's lines carried down to the people (v160) ───────────────────
+// Her ask: "can the ruler extend down to peoples marker area?" The clock strip is
+// one row at the top of the chart and the markers are rows below it, so the lines
+// are painted down every track instead — and a marker's edge then lands on a line
+// she can follow up to the clock. Asked which way she wanted it, she chose a faint
+// grid down every row; a clock repeated above the people was the other option.
+//
+// The grid's step is the ruler's own wherever the ruler can be read, and a coarser
+// one where it cannot: at the closest stop a minute is 3.2px, and a line every
+// 3.2px is a wash of grey rather than a grid. It takes the smallest step that is
+// BOTH at least the ruler's — which is what makes every grid line a tick as well,
+// so the two can never disagree about where a minute is — and at least twelve
+// pixels wide.
+test("the ruler's lines are carried down every row, at a step that is still a grid (v160)", () => {
+  // The grid is PAINTED rather than laid out — a second gradient layer on the
+  // track, which is zero new nodes. That is not a detail: the ruler alone draws
+  // 1441 tick elements at the closest stop, and duplicating those down eight
+  // module rows and every person row would be ten thousand nodes in the panel.
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  const trackRules = rules(/\.tl-track\s*\{[^}]*\}/g);
+  const twoLayer = trackRules.filter((r) => (r.match(/repeating-linear-gradient/g) || []).length === 2);
+  assert.equal(twoLayer.length, 1,
+    `the track does not carry the hour line with a grid under it: ${trackRules.length} rule(s), ${twoLayer.length} with two layers`);
+  assert.match(twoLayer[0], /--tick-w/, "the grid layer is not drawn at --tick-w");
+  // The hour line is written first because it is the one painted on top: where the
+  // two fall on the same pixel it must be the line she reads the clock by.
+  assert.ok(twoLayer[0].indexOf("--hour-w") < twoLayer[0].indexOf("--tick-w"),
+    "the grid is painted over the hour line rather than under it");
+
+  // The ruler's own track keeps the hour line alone. Its tick elements already draw
+  // on top of it, so a finer layer under them would put lines between the ticks the
+  // clock is read off.
+  const rulerRules = rules(/\.tl-ruler \.tl-track\s*\{[^}]*\}/g);
+  assert.ok(rulerRules.length, "the ruler's own track is not told apart from the rows under it");
+  assert.ok(rulerRules.every((r) => !/--tick-w/.test(r)),
+    "the ruler's track carries the grid under its own ticks");
+
+  // And a module switched off keeps both layers rather than dropping the only thing
+  // its own dimmed bars are read against.
+  const offRules = rules(/\.tl-row\.off \.tl-track\s*\{[^}]*\}/g);
+  assert.ok(offRules.length, "there is no rule for a switched-off module's track");
+  assert.ok(offRules.every((r) => !/background-image/.test(r)),
+    "a switched-off module paints its own background and so drops the grid");
+
+  // The step at each of the four stops, as the chart itself sets it — read off the
+  // .tl element's own style rather than recomputed, so the test cannot agree with a
+  // rule the screen does not use.
+  for (const c of [
+    { pxPerMin: 1.2, step: 30, gridMin: 30, tickW: 36, name: "Wide" },
+    { pxPerMin: 1.6, step: 15, gridMin: 15, tickW: 24, name: "Standard" },
+    { pxPerMin: 2.4, step: 5, gridMin: 5, tickW: 12, name: "Close" },
+    { pxPerMin: 3.2, step: 1, gridMin: 5, tickW: 16, name: "Closest" },
+  ]) {
+    const { root } = render({ pxPerMin: c.pxPerMin });
+    const tl = walk(root).find((n) => hasClass(n, "tl"));
+    assert.ok(tl, `no chart at ${c.name}`);
+    assert.equal(px(tl, "--hour-w"), Math.round(60 * c.pxPerMin), `at ${c.name} the hour line moved`);
+    assert.equal(px(tl, "--tick-w"), c.tickW,
+      `at ${c.name} the grid is not every ${c.gridMin} minutes (${c.gridMin * c.pxPerMin}px)`);
+    // Never a line she cannot tell from its neighbour — which is the whole reason
+    // the grid has a step of its own and does not simply follow the ruler.
+    assert.ok(c.gridMin * c.pxPerMin >= 12,
+      `at ${c.name} the grid is ${c.gridMin * c.pxPerMin}px apart, which reads as a wash`);
+    // And never a step that lands between the ruler's own ticks: a grid line that
+    // is not also a tick is a second opinion about where a minute is.
+    assert.equal(c.gridMin % c.step, 0,
+      `at ${c.name} a grid line every ${c.gridMin} min is not on the ruler's ${c.step} min ticks`);
+  }
+});
+
+// ── Handing one job to somebody else (v160) ──────────────────────────────
+// Her ask: "can the personX marker be click to change it job to personY, by a drop
+// down person selector" — and then, asked which gesture she meant, "click on the
+// person's occupied time slot, a drop down list, list the other people available".
+//
+// The stretch is found by the MINUTE under the finger and not by closest(".tl-bar"),
+// which is what the module rows do: a person's marker carries no dataset at all, so
+// a bar could not say which module it came off. Reading the minute also gives her
+// the row's whole height instead of the 11px sliver a bar is.
+
+// A tap on a person's track at the pixel `x` along the day. The view reads the
+// minute under the finger, so the test states a position and not a bar — and the
+// shim's own rects start at zero, so `x` is the day's own offset. Returns whether
+// the tap was swallowed, because what happens to an unswallowed one is that the
+// row underneath opens the person's own card.
+function tapSlot(track, x) {
+  let stopped = false;
+  track.dispatchEvent({ type: "click", clientX: x, target: track, stopPropagation() { stopped = true; } });
+  return stopped;
+}
+// The track of the person row wearing the tone class `tone`, so a row is found by
+// who it is rather than by a name that may also read out of a module above it.
+function personTrack(root, tone) {
+  const row = personRows(root).find((n) => hasClass(n, tone));
+  assert.ok(row, `the day has no ${tone} person row`);
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  assert.ok(track, `the ${tone} person row has no track`);
+  return track;
+}
+const barsOf = (track) => walk(track).filter((n) => hasClass(n, "tl-bar"));
+// Every person row as the tone it wears and the job titles it carries, which is how
+// a move is read back: the marker that was on one row is on the other. A row for a
+// person who has been left with nothing is not here at all, which is itself one of
+// the answers.
+function rowsByTone(root) {
+  return personRows(root).map((n) => ({
+    tone: (String(n.className).match(/ptone-\d+/) || [""])[0],
+    titles: barsOf(walk(n).find((x) => hasClass(x, "tl-track"))).map((b) => String(b.attrs.title)),
+  }));
+}
+const titlesOf = (root, tone) => (rowsByTone(root).find((r) => r.tone === tone) || { titles: [] }).titles;
+
+test("a tap on a person's occupied stretch offers the other people, and the move lands (v160)", () => {
+  // One person with one module's work and one with the rest of the day: two rows,
+  // and a stretch wide enough that the middle of it is unambiguously that job.
+  const { root, state } = render({ modules: oneJobDay() });
+  const track = personTrack(root, "ptone-1");
+  const bars = barsOf(track);
+  assert.ok(bars.length, "person 1 has nothing on their row to tap");
+
+  // The middle of the first stretch of their day, in the day's own pixels.
+  const bar = bars[0];
+  const job = String(bar.attrs.title || "");
+  assert.ok(job, "a person's marker does not name the job it carries");
+  const x = px(bar, "left") + px(bar, "width") / 2;
+  assert.equal(tapSlot(track, x), true,
+    "a tap on a stretch of the day was let through to the person's own card");
+
+  // The card names the job it is about, in the same words the marker's own title
+  // carries — so there is no doubt which stretch of the day she tapped.
+  assert.match(popupTitle(), /Move this job off Person 1/, `the tap opened "${popupTitle()}"`);
+  assert.ok(popupBody().includes(job), `the card is not about "${job}": ${popupBody().slice(0, 180)}`);
+
+  // And what it offers is the OTHER people on this day: person 2 is here, person 1
+  // is the one giving the job away. A person with no row is not standing anywhere
+  // on the chart, so listing them would be offering an answer the day cannot give.
+  const picker = walk(layers["popup-layer"]).find((n) => n.tagName === "SELECT");
+  assert.ok(picker, "the card offers no list of people to hand the job to");
+  const options = walk(picker).filter((n) => n.tagName === "OPTION");
+  assert.deepEqual(options.map((o) => String(o.value)), ["2"],
+    "the list is not the other people on this day");
+  assert.match(textOf(options[0]), /Person 2/, "an unnamed person is not named by their number");
+  const press = popupButton(/Move it to/);
+  assert.ok(press, "the card offers no press to make the move");
+  assert.match(textOf(press), /Person 2/, "the press does not say who it will hand the job to");
+
+  // The move. Her own day is what changes and nothing else, and the chart she is
+  // reading is redrawn with it — which is how she sees the two rows swap.
+  press.dispatchEvent({ type: "click" });
+  assert.match(lastToast(), /handed to Person 2/, `the press said "${lastToast()}"`);
+  assert.ok(!titlesOf(root, "ptone-1").includes(job), "the job is still on person 1's row after the move");
+  assert.ok(titlesOf(root, "ptone-2").includes(job), "the job did not arrive on person 2's row");
+  // And the module's own person is what moved, which is what the editor's "Who is
+  // at this module" box reads — the model's answer, not the chart's.
+  const named = String(job).split(":")[0].replace(/, line \d+$/, "");
+  const moved = computeScenario(state.settings.scenario).modules.find((m) => m.name === named);
+  assert.ok(moved, `no module named ${named} after the move`);
+  assert.equal(moved.person, 2, "the module's own person did not follow the marker");
+  assert.equal(moved.person, moved.crew[0], "the module and its first line disagree about who is standing there");
+
+  // And the card goes with the job. Its heading names the person the job is being
+  // taken off, and once the day has redrawn that person no longer holds it — so a
+  // card left standing would offer a press against a state that is gone. Measured
+  // on the layer itself, since an empty card and a closed one differ only here.
+  assert.equal(walk(layers["popup-layer"]).length, 0,
+    "the card is still on the screen after the move, describing a job that has left the row");
+  assert.equal(layers["popup-layer"].hidden, true, "the card is empty but the layer is still showing");
+});
+
+test("a tap on a person's empty day still opens their own card (v160)", () => {
+  // The other half of the gesture: the tap must only be swallowed where there is a
+  // job under it. One person with one stretch of work leaves the rest of their row
+  // as empty ground, and a tap there has to fall through to the row's own handler —
+  // which is what opens the person's card, exactly as it did before this release.
+  const { root } = render({ modules: oneJobDay() });
+  const track = personTrack(root, "ptone-1");
+  const bars = barsOf(track);
+  assert.equal(bars.length, 4, "the one-job day does not draw four batches for person 1");
+
+  const scale = 1.6;
+  const trackW = px(track, "width");
+  const right = Math.max(...bars.map((b) => px(b, "left") + px(b, "width")));
+  // Past the last stretch by a fingertip's reach and a whole minute more, and
+  // still inside the day — so the only reason nothing is found there is that
+  // nothing is there.
+  const gapX = right + Math.max(2 * scale, 6) + scale + 2;
+  assert.ok(gapX < trackW - 1,
+    `the day ends at ${trackW}px with the last stretch at ${right}px, so there is no empty ground to tap`);
+  assert.equal(tapSlot(track, gapX), false,
+    "a tap where the person is not working was swallowed by the marker's own handler");
+
+  // A tap just past a marker's edge is still that marker: a one-minute job is 1.2
+  // pixels at the widest reading, so a finger lands beside a job far more often
+  // than on it. Without the reach the narrow end of the scale could not be tapped.
+  const last = bars[bars.length - 1];
+  const lastJob = String(last.attrs.title || "");
+  assert.ok(lastJob, "the last marker of the day does not name its job");
+  assert.equal(tapSlot(track, px(last, "left") + px(last, "width") + 2), true,
+    "a tap beside a marker found nothing, so a sliver of a job cannot be tapped");
+  assert.ok(popupBody().includes(lastJob),
+    `the nearest-stretch reach opened a card about something else: ${popupBody().slice(0, 180)}`);
+});
+
+test("a day with nobody else on it says so rather than offering an empty list (v160)", () => {
+  // Every module on one person, so there is no second row to hand anything to. The
+  // click is real — the day is hers and the gesture is hers — so the card must
+  // answer rather than open a menu with nothing in it.
+  const { root } = render({ modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, person: 1 })) });
+  assert.equal(personRows(root).length, 1, "the day does not have exactly one person on it");
+  // The shim's pop-up layer is one layer for the whole file, so it is emptied here:
+  // what this test asks is whether THIS tap opened anything, not what the test
+  // before it left lying there.
+  layers["popup-layer"].replaceChildren();
+  const track = personTrack(root, "ptone-1");
+  const bar = barsOf(track)[0];
+  assert.equal(tapSlot(track, px(bar, "left") + px(bar, "width") / 2), true,
+    "a tap on a job with nobody to hand it to did nothing at all");
+  assert.match(lastToast(), /Nobody else is on this day/,
+    `the tap said "${lastToast()}" instead of saying there is nobody else`);
+  // The tap is answered and swallowed rather than opening a second card over the
+  // first: the person's own card is one tap away on the row around this job.
+  assert.equal(walk(layers["popup-layer"]).filter((n) => n.tagName === "SELECT").length, 0,
+    "a card with an empty list of people was opened");
 });

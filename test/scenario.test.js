@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, descentSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
+  climbSteps, descentSteps, combinedScenario, reassignPerson, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   clampBatchStart, alignBatches, batchMismatches, callWindows, latestStarts,
@@ -1187,6 +1187,65 @@ test("combining two people moves their lines, and nobody is left pointing at a g
   // Combining a person 2 already covers adds them rather than replacing them.
   assert.deepEqual(combinedScenario({ ...sc, merges: { 2: [4] } }, 2, 5).merges, { 2: [4, 5] },
     "what 2 already covered is kept, and the list stays in order");
+});
+
+test("handing a job to somebody else changes that line and nobody else's (v160)", () => {
+  // Her ask of 23 September: "can the personX marker be click to change it job to
+  // personY, by a drop down person selector" — and, asked which gesture she meant,
+  // "click on the person's occupied time slot, a drop down list, list the other
+  // people available". The work itself is here, as one pure answer, so the chart
+  // and the module editor cannot disagree about who is standing where.
+  const sc = scenario({
+    modules: [
+      module({ id: "mix", person: 2, count: 2, crew: [2, 5], repeats: 3 }),
+      module({ id: "bake", person: 5, count: 1, repeats: 2 }),
+    ],
+  });
+  const next = reassignPerson(sc, "mix", 1, 7);
+  const mix = of(next, "mix");
+  assert.deepEqual(mix.crew, [2, 7], "the line she tapped did not change hands");
+  assert.equal(mix.person, 2, "line 1 changed with it, which is not what a line-2 marker asked for");
+  assert.deepEqual(of(next, "bake").crew, [5], "a marker on one module moved somebody else's module");
+  assert.deepEqual(sc.modules[0].crew, [2, 5], "and the scenario she was looking at was edited in place");
+
+  // A line 2 that is named moves that line alone; and when the FIRST line is the one
+  // handed over, the module's own person follows it. `person` is the module's first
+  // line everywhere in the app — the editor's "Who is at this module" box and the
+  // people's rows both read it — so the two must never give different answers.
+  const first = reassignPerson(sc, "mix", 0, 4);
+  assert.deepEqual(of(first, "mix").crew, [4, 5], "handing line 1 over did not change line 1");
+  assert.equal(of(first, "mix").person, 4, "the module's own person did not follow its first line");
+  assert.equal(of(first, "mix").person, of(first, "mix").crew[0],
+    "the module and its own first line disagree about who is standing there");
+});
+
+test("handing a job off a module with no lines moves its own person (v160)", () => {
+  const sc = scenario({
+    modules: [
+      module({ id: "mix", person: 2, repeats: 3 }),
+      module({ id: "bake", person: 2, repeats: 2 }),
+    ],
+  });
+  // -1 is what touchWindows writes for a module that is not drawn as lines, so a
+  // marker on one has to be movable by the same gesture as a marker on a line.
+  const next = reassignPerson(sc, "mix", -1, 4);
+  const mix = of(next, "mix");
+  assert.equal(mix.person, 4, "the module's own person did not change");
+  assert.deepEqual(mix.crew, [4], "the module's first line did not follow its own person");
+  assert.equal(mix.person, mix.crew[0], "the module and its own first line disagree about who is there");
+  assert.equal(of(next, "bake").person, 2, "the other module on that person moved with it");
+
+  // A module nobody was ever put on — the whole seeded day, whose modules are all
+  // "whoever is free" — takes the job rather than losing it.
+  const bare = scenario({ modules: [module({ id: "mix", person: 0, repeats: 1 })] });
+  const moved = reassignPerson(bare, "mix", -1, 3);
+  assert.equal(moved.modules[0].person, 3, "a module nobody was put on did not take the job");
+  assert.equal(moved.modules[0].person, moved.modules[0].crew[0], "and its first line did not follow");
+
+  // The number is held to the eight a day can hold, exactly as every other way of
+  // naming a person is. The card only ever offers people who have a row, so this is
+  // the model's own floor rather than a path she can reach.
+  assert.equal(reassignPerson(sc, "mix", -1, 99).modules[0].person, 8, "a person out of range was taken");
 });
 
 test("the lines never reach the Production line's plan", () => {

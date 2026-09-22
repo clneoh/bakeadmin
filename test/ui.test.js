@@ -7,6 +7,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 function createEl(tag) {
   return {
@@ -17,15 +20,33 @@ function createEl(tag) {
     scrollTop: 0, hidden: false,
     _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    appendChild(c) { if (c != null) this.children.push(c); return c; },
-    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
-    replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+    appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
+    append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
+    replaceChildren(...cs) {
+      this.children = [];
+      for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; }
+    },
+    // A real node walks up its own ancestors, so the shim keeps a parent link and
+    // walks the same way. The drag handle asks whether a press landed on a button
+    // or a field (`closest`), and a shim without it would answer "no control here"
+    // for every press — including the ones on the close button, which is the one
+    // press that must never start a drag.
+    closest(sel) {
+      const want = String(sel).split(",").map((s) => s.trim().toUpperCase());
+      let n = this;
+      while (n && n.nodeType === 1) {
+        if (want.includes(String(n.tagName).toUpperCase())) return n;
+        n = n.parent;
+      }
+      return null;
+    },
     // Recorded, not dropped: select() paints the picker on change, and the only
     // way to prove that here is to fire the handler the caller would fire.
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
+    getBoundingClientRect() { return { left: 0, top: 0, right: 600, bottom: 400, width: 600, height: 400 }; },
   };
 }
 // By id, and the SAME node every time — a real getElementById does not hand back
@@ -159,4 +180,117 @@ test("opening a pop-up starts it at the top", () => {
   showPopup("Another card", () => el("div", {}, "a box"));
   const body = document.getElementById("popup-layer").children[0].children[1];
   assert.equal(body.scrollTop, 0, "a card opened fresh is not inheriting a scroll position");
+});
+
+// ── Engine v159 — a card can be pushed aside by its title bar ────────────────
+//
+// The card's own box, and nothing else, is the geometry the drag clamps against,
+// so the shim is told the card's real size rather than handed the same box for
+// everything. Its rect has to move with the transform the way a browser's does:
+// that is what proves the drag reads the box ONCE at the start. A card that
+// re-read its own translated rect mid-drag would count the offset twice and walk
+// away from her finger, and a shim that reported the untransformed box every time
+// would never show it.
+function openCard(title, wide) {
+  showPopup(title, () => el("div", {}, "a box"), { wide });
+  const layer = document.getElementById("popup-layer");
+  const card = layer.children[0];
+  const head = card.children[0];
+  const base = { left: 15, top: 14, width: 345, height: 300 };
+  layer.getBoundingClientRect = () => ({ left: 0, top: 0, right: 375, bottom: 812, width: 375, height: 812 });
+  card.getBoundingClientRect = () => {
+    const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(card.style.transform || "");
+    const dx = m ? Number(m[1]) : 0;
+    const dy = m ? Number(m[2]) : 0;
+    return {
+      left: base.left + dx, top: base.top + dy, width: base.width, height: base.height,
+      right: base.left + dx + base.width, bottom: base.top + dy + base.height,
+    };
+  };
+  return { layer, card, head, base };
+}
+
+function press(node, at, target) {
+  for (const f of node._listeners.pointerdown || []) {
+    f({ target: target || node, clientX: at[0], clientY: at[1], pointerId: 7, preventDefault() {} });
+  }
+}
+function moveTo(node, at) {
+  for (const f of node._listeners.pointermove || []) f({ clientX: at[0], clientY: at[1] });
+}
+function release(node) {
+  for (const f of node._listeners.pointerup || []) f({});
+}
+
+test("a card follows the title bar she drags it by", () => {
+  const { card, head } = openCard("A batch clock");
+  press(head, [200, 100]);
+  moveTo(head, [200, 300]);
+  release(head);
+  assert.equal(card.style.transform, "translate(0px, 200px)",
+    "the card moves by the pointer's own delta, down the day it is covering");
+});
+
+test("a second drag of the same card does not run away from her finger", () => {
+  const { card, head } = openCard("A batch clock");
+  press(head, [200, 100]);
+  moveTo(head, [200, 300]);
+  release(head);
+  // The card is now 200px down, so its own rect has moved with it. Read again
+  // without subtracting that offset, the next 50px would be counted as 250.
+  press(head, [400, 400]);
+  moveTo(head, [400, 450]);
+  release(head);
+  assert.equal(card.style.transform, "translate(0px, 250px)");
+});
+
+test("a card cannot be pushed out of the layer it is drawn in", () => {
+  const { card, head, base } = openCard("A batch clock");
+  press(head, [200, 100]);
+  moveTo(head, [600, 2000]);
+  release(head);
+  assert.equal(card.style.transform, "translate(9px, 492px)",
+    "held inside the layer, so the drag adds the layer no scroll surface");
+  // And the whole box, not just the title bar: a control parked below the fold
+  // is a control she cannot press.
+  const at = card.getBoundingClientRect();
+  assert.ok(at.left >= 0 && at.right <= 375, "the card's whole width stays on screen");
+  assert.ok(at.top >= 0 && at.bottom <= 812, "and its whole height, Save button and all");
+});
+
+test("a press on the close button does not drag the card", () => {
+  const { card, head } = openCard("A batch clock");
+  const x = head.children[1];
+  assert.equal(x.tagName, "BUTTON", "the close button really is on the strip");
+  press(head, [300, 20], x);
+  moveTo(head, [340, 260]);
+  release(head);
+  assert.equal(card.style.transform, undefined,
+    "a press on a control is a press on that control, and the ✕ keeps its own click");
+});
+
+test("the next card opens where cards have always opened", () => {
+  const first = openCard("A batch clock");
+  press(first.head, [200, 100]);
+  moveTo(first.head, [200, 300]);
+  release(first.head);
+  assert.equal(first.card.style.transform, "translate(0px, 200px)", "this one really did move");
+
+  const second = openCard("Another batch clock");
+  assert.equal(second.card.style.transform, undefined,
+    "nothing is remembered: a card opened later is not inheriting a position");
+});
+
+test("the handle and its grip are declared as file text (v159)", () => {
+  const css = read("admin/css/app.css");
+  const head = css.slice(css.indexOf(".popup-head {"), css.indexOf(".popup-head.dragging"));
+  assert.match(head, /cursor:\s*grab/, "the pointer says the strip can be held");
+  assert.match(head, /touch-action:\s*none/,
+    "a finger on the strip drags the card rather than scrolling the layer");
+  assert.match(head, /-webkit-touch-callout:\s*none/,
+    "no long-press callout on iOS, which would cancel the drag in her hand");
+  // A pseudo-element and not a node: a real child of this flex row would become a
+  // flex item and push the title across, and a new node would move the card's own
+  // children under the positional tests above.
+  assert.match(css, /\.popup-head::after\s*\{[^}]*content:/s, "the grip is drawn, not added");
 });
