@@ -12,6 +12,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 function createEl(tag) {
   return {
@@ -106,6 +109,9 @@ function rowFor(root, name) {
   return walk(track).filter((n) => hasClass(n, "tl-bar"));
 }
 const bandsOf = (bar) => (bar.children || []).filter((c) => c.nodeType === 1 && hasClass(c, "tl-touch"));
+const cyclesOf = (bar) => (bar.children || []).filter((c) => c.nodeType === 1 && hasClass(c, "tl-cycle"));
+// The shade class of a cycle segment, as `shade-N`.
+const shadeOf = (seg) => (String(seg.className).match(/shade-\d+/) || [""])[0];
 
 test("the fold is drawn at its own minute, at the end of its rest", () => {
   const { root } = render();
@@ -246,4 +252,50 @@ test("a batch bigger than the number she wants says so instead of offering a dea
   // day being too high must not be headed "The climb".
   const heading = walk(root).find((n) => hasClass(n, "section") && /The way down|The climb/.test(textOf(n)));
   assert.match(textOf(heading), /The way down/);
+});
+
+// ── The cycles inside a batch (v150) ───────────────────────────────────────
+// Her report, 22 Sep 2026: "there is not steps term in this project, i want the
+// cycle shown in batch, and the cycle labour shown visually". The drawing was
+// already there; what was wrong was the word the screen used for a cycle, and a
+// shade ladder that claimed "a batch of four reads as four" while giving a
+// four-cycle batch the shades 0, 1, 2, 0 — the first and the last cycle wearing
+// the same palest band.
+
+test("a batch of four cycles is drawn in four different shades (v150)", () => {
+  const { root } = render();
+  // The seeded day's fold is one batch of four cycles: three 30-minute rests
+  // each ending in a fold, and a last rest that is a rest and nothing else.
+  const bar = rowFor(root, "The rests and the stretch and folds")[0];
+  const shades = cyclesOf(bar).map(shadeOf);
+  assert.equal(shades.length, 4, `the four cycles of the batch drew ${shades.length} segments`);
+  assert.deepEqual(shades, ["shade-0", "shade-1", "shade-2", "shade-3"],
+    "a four-cycle batch fell back to a shade it had already used");
+});
+
+test("a long batch never falls back to the palest shade (v150)", () => {
+  // Five cycles on one batch. The ladder caps rather than wraps, so the fifth
+  // wears the darkest band and the batch never ends on the faintest one — the
+  // whole point of the ladder is that a cycle reads as a band of its own.
+  const five = [{ name: "Rest", min: 25, load: 0, unload: 1 }, { name: "Rest", min: 25, load: 0, unload: 1 },
+    { name: "Rest", min: 25, load: 0, unload: 1 }, { name: "Rest", min: 24, load: 0, unload: 1 },
+    { name: "Rest", min: 24, load: 0, unload: 0 }];
+  const modules = ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_fold" ? { ...m, cycles: five } : m));
+  const { root } = render({ modules });
+  const shades = cyclesOf(rowFor(root, "The rests and the stretch and folds")[0]).map(shadeOf);
+  assert.equal(shades.length, 5, `the five cycles drew ${shades.length} segments`);
+  assert.equal(shades[4], "shade-3", "the fifth cycle fell back to the palest shade");
+  assert.notEqual(shades[4], shades[0]);
+});
+
+test("the cycles box does not call a cycle a step (v150)", () => {
+  const { root } = render();
+  // The timeline's own legend, which is the copy she reads over the day chart.
+  assert.match(textOf(root), /the separate cycles of that batch/);
+  // And the cycles box, which only draws once a module is opened, read off the
+  // source — it is the sentence that made her doubt the feature existed.
+  const src = read("admin/js/views/scenario.js");
+  assert.match(src, /Each cycle is one piece of this module's work/);
+  assert.doesNotMatch(src, /one step of this module/, "the screen still teaches 'step' for a cycle");
+  assert.doesNotMatch(src, /the separate steps of that batch/);
 });

@@ -38,7 +38,7 @@ import {
 // matched by eye. It cycles, so a module added later still gets a colour.
 const TONES = 8;
 
-// The step a batch's own buttons move it by, and the shortest bar that still
+// The nudge a batch's own buttons move it by, and the shortest bar that still
 // carries its minutes inside it.
 const SNAP_MIN = 5;
 const LAB_MIN_PX = 26;
@@ -63,10 +63,12 @@ const LANE_H = 9;
 const TRACK_MIN_H = 34;
 const laneTrackH = (lanes) => Math.max(TRACK_MIN_H, LANE_TOP + lanes * LANE_PITCH + 4);
 
-// How many shades the cycles inside a batch are drawn in, cycling round. Three
-// is what a 16px bar can hold and still read as separate steps; a fourth cycle
-// reuses the first shade, and the bar's own tooltip names each one.
-const CYCLE_SHADES = 3;
+// How many shades the cycles inside a batch are drawn in. Four is what a batch
+// of four needs to be read as four, and the palest of them is lifted off the
+// floor so it still shows over the pastel bar tones. A fifth cycle and beyond
+// reuse the darkest shade rather than falling back to the palest — a long batch
+// must never end on the faintest band — and the bar's own tooltip names each one.
+const CYCLE_SHADES = 4;
 
 const DAY_MIN = 24 * 60;
 
@@ -254,8 +256,8 @@ function factGrid(r) {
     fact("Pans a day", String(r.pansPerDay), "the least any module turns out"),
     // The minutes a pan costs the line, counted off the slowest module. It is
     // labelled "minutes a pan" and NOT "cycle time", because "cycle" is now her own
-    // word for one step inside a batch, and one word with two meanings on one
-    // screen is how a new vocabulary fails to take.
+    // word for one piece of work inside a batch, and one word with two meanings on
+    // one screen is how a new vocabulary fails to take.
     fact("Minutes a pan", `${trim(round1(r.cycleMin))} min`, "off the slowest module"),
     fact("People needed", String(r.people), r.people === 1 ? "pair of hands" : "pairs of hands"),
     // "The day" would be a lie the moment the chiller cycles twice: a 12-hour
@@ -497,7 +499,7 @@ function dayCard(r, sc, on) {
   return el("div", {},
     el("h2", { class: "section" }, "The day"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "Every module as a bar, one bar to a batch, from the minute it starts, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate steps of that batch. Tap a bar to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two modules up against each other. Swipe the empty space to scroll."),
+      "Every module as a bar, one bar to a batch, from the minute it starts, against the time of day along the top. A solid block is you standing at it; a pale one is it running without you, and the paler bands inside a bar are the separate cycles of that batch. Tap a bar to open that batch's own clock and move it earlier or later — or tap the row to type the numbers instead. Run the pointer, or your finger along the clock strip, and a line follows it down the day reading out the time, which is how you line two modules up against each other. Swipe the empty space to scroll."),
     el("div", { class: "card tl-card" },
       controlsRow(r, sc, on),
       timeline(r, sc, on),
@@ -507,7 +509,7 @@ function dayCard(r, sc, on) {
 
 // Her rule's other half, said out loud: "say when it does not". A module whose
 // batch count is not the module before it is named here, with both numbers, so a
-// count out of step is a sentence she reads rather than a difference she has to
+// count that differs is a sentence she reads rather than a difference she has to
 // spot. Nothing is locked by it — the day is drawn exactly as the numbers say.
 function batchNote(r) {
   const off = batchMismatches(r.modules);
@@ -517,13 +519,13 @@ function batchNote(r) {
   return el("div", { class: "tl-notes" },
     el("div", { class: "tl-note" },
       el("div", { class: "tl-note-who" },
-        "Batch counts out of step with the module before them"),
+        "Batch counts that differ from the module before them"),
       ...shown.map((m) => el("div", { class: "tl-note-job" },
         `${m.name} — ${m.repeats} ${m.repeats === 1 ? "batch" : "batches"}, ` +
         `${m.before.name} — ${m.before.repeats}`)),
       rest
         ? el("div", { class: "tl-note-job" },
-            `…and ${rest} more ${rest === 1 ? "module" : "modules"} out of step.`)
+            `…and ${rest} more ${rest === 1 ? "module" : "modules"} that differ.`)
         : null,
       el("div", { class: "tl-note-how" },
         "This is only a note, not a rule: the day runs on the numbers you have put in. Changing a module's batch count carries the ones after it with you and stops where a module has a number of its own — set that one to the same, or leave the day as you planned it.")));
@@ -808,7 +810,7 @@ function cycleMarks(m, p, r, w) {
   const px = (min) => Math.round(min * r.pxPerMin);
   const out = [];
 
-  // One shade per cycle, so a batch of four reads as four steps. A single-cycle
+  // One shade per cycle, so a batch of four reads as four cycles. A single-cycle
   // batch draws no segments — that bar IS its cycle.
   if (list.length > 1) {
     let off = 0;
@@ -817,7 +819,7 @@ function cycleMarks(m, p, r, w) {
       const to = Math.min(w, px(off + c.min));
       if (to > from) {
         out.push(el("div", {
-          class: `tl-cycle shade-${i % CYCLE_SHADES}`,
+          class: `tl-cycle shade-${Math.min(i, CYCLE_SHADES - 1)}`,
           style: `left:${from}px;width:${to - from}px`,
           title: `${c.name || `Cycle ${i + 1}`}: ${trim(c.min)} min`,
         }));
@@ -1018,8 +1020,8 @@ function timelineRow(r, m, live, sc, on, tone, trackW, above, line) {
 
 // One batch's own clock, and the only place a batch's start time is set from the
 // chart. A big pair of buttons at five minutes and a small pair at one, because
-// five is the step the day is read in and one is the nudge that lifts a batch off
-// a collision — her own answer for the two steps.
+// five is the amount the day is read in and one is the nudge that lifts a batch
+// off a collision — her own answer for the two amounts.
 //
 // Nothing here does arithmetic of its own. Every press goes through the same
 // clampStart a typed time goes through and is then read back OFF the model, so a
@@ -1065,7 +1067,7 @@ function batchPopup(m, live, sc, on, k) {
       free
         ? el("div", {},
           step(5, "Five minutes at a time",
-            "The step the day is read in, and the one the time line reads out."),
+            "The amount the day is read in, and the amount the time line reads out."),
           step(1, "One minute at a time",
             "For lifting a batch off a collision with another."))
         : el("p", { class: "card-sub", style: "margin:0" },
@@ -1538,7 +1540,7 @@ function editModule(saved, sc, on, isNew = false) {
         "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone.",
         { min: 1 }),
       f("repeats", "How many batches it runs in the day",
-        "Set this above 1 and the module runs again later in the day: the fold runs its batch four times. Change it and the modules after this one that were running the same number follow you, and stop where one has a number of its own — the line under the day names any that end up out of step. The climb card raises this one for you — and a day can only hold so many, so a batch that takes hours is counted at the few that fit.",
+        "Set this above 1 and the module runs again later in the day: the fold runs its batch four times. Change it and the modules after this one that were running the same number follow you, and stop where one has a number of its own — the line under the day names any that no longer match. The climb card raises this one for you — and a day can only hold so many, so a batch that takes hours is counted at the few that fit.",
         { min: 1, int: true, rebuild: true, carry: true }),
       // Her point one: the module that became the bottleneck, had twice over.
       f("count", "How many of these do you have",
@@ -1647,7 +1649,7 @@ function cyclesField(live, on, refresh) {
     el("label", {}, "Cycles in one batch"),
     el("div", { class: "cyc-list" }, ...rows),
     el("div", { class: "hint" },
-      "Each cycle is one step of this module, in the order you work them, and a cycle cannot start until the one above it ends — together they are the minutes one batch holds it. Load is your hands at the start of a cycle and Unload is your hands at the end: your weighing out is a load, and the fold at the end of a rest is an unload. A batch with a single cycle is drawn on the timeline as one plain bar."),
+      "Each cycle is one piece of this module's work, in the order you work them, and a cycle cannot start until the one above it ends — together they are the minutes one batch holds it. Load is your hands at the start of a cycle and Unload is your hands at the end: your weighing out is a load, and the fold at the end of a rest is an unload. A batch with a single cycle is drawn on the timeline as one plain bar."),
     el("div", { class: "popup-actions" }, add));
 }
 
@@ -1783,14 +1785,14 @@ function toastBatch(live, k, asked, landed, dayStartMin) {
       : "one batch at a time"}, so switch on Let its batches overlap for two at once`));
 }
 
-// Which station of the line a module is, so the Production line screen can read
+// Which job of the line a module is, so the Production line screen can read
 // this module's minutes and its batch straight off it. The answer is kept as a
 // job of its own rather than matched on the module's name, so she is free to call
 // the wash whatever she calls it at the bench.
 function jobField(live, on) {
   const now = jobOf(live);
   const box = select([
-    { value: "", label: "Not a step on the Production line" },
+    { value: "", label: "Not a job on the Production line" },
     ...LINE_JOBS.map((j) => ({ value: j.key, label: j.label })),
   ], now, () => {
     live.job = box.value;
@@ -1799,10 +1801,10 @@ function jobField(live, on) {
   });
   box.className = "input";
   return el("div", { class: "field" },
-    el("label", {}, "Which step of your line is this"),
+    el("label", {}, "Which job of your line is this"),
     box,
     el("div", { class: "hint" },
-      "The Production line screen asks the same day a different question — how many pans it can deliver, and which step is holding you back. Tell it which step this module is and your own numbers cross over: this module's minutes become that step's minutes, and its batch becomes that step's batch. Modules that are not a step of the line — the fold, loading the chiller — are simply left out of the load, and the screen says so."));
+      "The Production line screen asks the same day a different question — how many pans it can deliver, and which stage of the day is holding you back. Tell it which job this module is and your own numbers cross over: this module's minutes become that job's minutes, and its batch becomes that job's batch. Modules that are not a job of the line — the fold, loading the chiller — are simply left out of the load, and the screen says so."));
 }
 
 function lower(s) {

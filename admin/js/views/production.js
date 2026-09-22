@@ -54,7 +54,7 @@ const GROUPS = [
     ],
   },
   {
-    title: "Your bake day, step by step",
+    title: "Your bake day, one stage at a time",
     sub: "The minutes you measured, in the order the day runs them. The clock below is worked back from these, so a number you change here moves every start time with it.",
     fields: [
       { key: "mixMin", label: "Minutes to mix one tub of dough", step: 1,
@@ -87,7 +87,7 @@ const GROUPS = [
       { key: "rhythmMin", label: "Minutes between batches you would like", step: 1,
         hint: "Fifteen for you — the length of one oven turn, so a fresh batch is ready each time the oven comes free. The screen will tell you honestly whether the line can give you that." },
       { key: "tolMin", label: "Minutes earlier than a start time that are still fine", step: 1,
-        hint: "Five for you. This is the soft band around each start — a step may begin this much early without the dough suffering, which is where you can shuffle work to suit your own hands." },
+        hint: "Five for you. This is the soft band around each start — a stage may begin this much early without the dough suffering, which is where you can shuffle work to suit your own hands." },
     ],
   },
   {
@@ -97,10 +97,10 @@ const GROUPS = [
     title: (p) => (Number(p.coolMin6) > 0 ? "After the bake" : "Still to time"),
     sub: (p) => (Number(p.coolMin6) > 0
       ? "Your time at the table once the pans are out — counted in the day's hand-work, and it sits after the 254 minutes rather than inside them."
-      : "Left blank until you have timed it — a blank step is named below rather than counted as free."),
+      : "Left blank until you have timed it — a blank stage is named below rather than counted as free."),
     fields: [
       { key: "coolMin6", label: "Minutes to cut and pack 6 pans", step: 1, optional: true,
-        hint: "Your time at the table after the bake, not the cooling. Left blank, the screen names the step as untimed rather than counting it as free." },
+        hint: "Your time at the table after the bake, not the cooling. Left blank, the screen names the stage as untimed rather than counting it as free." },
     ],
   },
 ];
@@ -121,7 +121,7 @@ export function renderProduction(root, state) {
     const n = Number(raw);
     // A cleared field is mid-typing, not a request for zero pans: hold the last
     // good number rather than storing a 0 the whole screen would have to explain.
-    // The steps she has yet to time are the exception — for those, blank and 0
+    // The stages she has yet to time are the exception — for those, blank and 0
     // both mean "not measured", which is a real answer the screen reports on.
     if (optional && (raw === "" || n === 0)) {
       plan[key] = 0;
@@ -157,7 +157,7 @@ export function renderProduction(root, state) {
 
 function groupCard(group, plan, onEdit) {
   // A heading may be given as a plain string or worked out from the numbers, so
-  // a card can stop calling a step untimed the moment she has timed it. The two
+  // a card can stop calling a stage untimed the moment she has timed it. The two
   // nodes are kept and their words rewritten in place — never rebuilt — because
   // the box she is typing in has to stay alive (v142), and because a heading left
   // saying "Still to time" over a number she has just cleared is the same lie
@@ -178,7 +178,7 @@ function fieldRow(f, plan, onEdit) {
   const input = el("input", {
     class: "input", type: "number", inputmode: "decimal",
     min: f.optional ? "0" : "1", step: String(f.step || 1),
-    // An untimed step stores a real 0, which is the same thing as blank on screen.
+    // An untimed stage stores a real 0, which is the same thing as blank on screen.
     value: plan[f.key] == null || (f.optional && plan[f.key] === 0)
       ? "" : String(plan[f.key]),
   });
@@ -220,7 +220,7 @@ function loadCard(state, plan, onLoad) {
   const kids = [
     el("p", { class: "card-title" }, "Start from a scenario"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Built a day out of modules under More → Scenario planner? Load it here and this screen answers the same day the other way round — how fast it can go, and which step is holding it back. You will see every number it would change before anything moves."),
+      "Built a day out of modules under More → Scenario planner? Load it here and this screen answers the same day the other way round — how fast it can go, and which stage is holding it back. You will see every number it would change before anything moves."),
   ];
 
   if (!list.length) {
@@ -257,18 +257,18 @@ function previewLoad(s, plan, state, onLoad) {
       kids.push(el("div", {}, ...p.lines.map(loadLine)));
     } else {
       kids.push(el("p", { class: "card-sub", style: "margin:0" },
-        "This scenario has no module that is a step on this screen, so there is nothing here to load from it."));
+        "This scenario has no module that is a stage on this screen, so there is nothing here to load from it."));
     }
 
-    // The steps of the line this scenario simply does not cover.
+    // The stages of the line this scenario simply does not cover.
     if (p.left.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
         `Nothing in this scenario feeds ${upper(listWords(p.left.map(lower)))} — ${p.left.length === 1 ? "it stays" : "they stay"} exactly as you typed ${p.left.length === 1 ? "it" : "them"}.`));
     }
-    // Modules that are real work but not a step of the line.
+    // Modules that are real work but not a stage of the line.
     if (p.unmapped.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `${listWords(p.unmapped.map(upper))} ${p.unmapped.length === 1 ? "is not a step" : "are not steps"} on this screen, so nothing here comes from ${p.unmapped.length === 1 ? "it" : "them"}.`));
+        `${listWords(p.unmapped.map(upper))} ${p.unmapped.length === 1 ? "is not a stage" : "are not stages"} on this screen, so nothing here comes from ${p.unmapped.length === 1 ? "it" : "them"}.`));
     }
     if (p.doubled.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
@@ -333,7 +333,7 @@ function blocks(state, plan) {
 // between, then the oven, then the cooling.
 //
 // The proofer appears twice, and it is the same machine both times. They are two
-// steps because the dimple sits between them, and that is the whole reason the
+// stages because the dimple sits between them, and that is the whole reason the
 // cabinet holds a batch for 81 minutes rather than 75 — she dimples one pan at a
 // time, so the cabinet is never emptied.
 //
@@ -342,8 +342,8 @@ function blocks(state, plan) {
 // the three things that are not her — the proofer, the oven, the pans going round
 // — can honestly be given pans an hour.
 //
-// Every hand step takes its name from the model's own job list, so a job can
-// never be called one thing here and another thing underneath. The proofer steps
+// Every hand stage takes its name from the model's own job list, so a job can
+// never be called one thing here and another thing underneath. The proofer stages
 // are not hand jobs at all, so they name themselves.
 const FLOW = [
   { job: "mix" },
@@ -368,11 +368,11 @@ function flowCard(r) {
     el("h2", { class: "section" }, "The flow"),
     el("p", { class: "card-sub", style: "margin:0 0 8px" },
       walls.length > 1
-        ? "Your bake day in the order it happens, top to bottom. The steps that set your pace are the red ones."
-        : "Your bake day in the order it happens, top to bottom. The step that sets your pace is the red one."),
+        ? "Your bake day in the order it happens, top to bottom. The stages that set your pace are the red ones."
+        : "Your bake day in the order it happens, top to bottom. The stage that sets your pace is the red one."),
     el("div", { class: "card flow" },
-      // The explanation is written once, under the first red step. Repeating it
-      // under the second proofer step would be the same paragraph twice on one
+      // The explanation is written once, under the first red stage. Repeating it
+      // under the second proofer stage would be the same paragraph twice on one
       // screen, which reads as a fault rather than as emphasis.
       ...FLOW.map((s, i) => flowStep(s, r, i, walls.includes(i), i === first ? why : ""))));
 }
@@ -390,7 +390,7 @@ function flowStep(s, r, i, isWall, why) {
         el("span", { class: "flow-name" }, name),
         isWall ? el("span", { class: "badge badge-over" }, "the slow one") : null),
       el("div", { class: "li-sub" }, stepSub(s, r, j)),
-      // Why *this* step is the wall, in the one comparison that makes it obvious
+      // Why *this* stage is the wall, in the one comparison that makes it obvious
       // — the same sentence the day card uses, so the two cannot disagree.
       isWall && why ? el("div", { class: "li-sub flow-why" }, why) : null));
 }
@@ -431,7 +431,7 @@ function stepSub(s, r, j) {
       : "not timed yet";
   }
 
-  // The one step whose wait is nothing like its hand-work: the dough rests for
+  // The one stage whose wait is nothing like its hand-work: the dough rests for
   // half an hour at a time and she is only on it for a minute of that. Showing
   // its "minutes a pan" here would hide the wait that the clock below is built
   // out of, so it shows both.
@@ -453,12 +453,12 @@ function stationRate(r, key) {
 
 // ── Your day, backwards ────────────────────────────────────────────────────
 // The one thing the rest of this screen cannot answer. The flow above settles
-// what happens in what order; this settles when each step has to START, and it
+// what happens in what order; this settles when each stage has to START, and it
 // is worked back from the oven because that is the only direction a start time
 // can be told the truth from.
 //
 // Mixed too early and the dough over-ferments — her own sentence, and the whole
-// reason this card exists. So every step gets a latest start and a soft band of
+// reason this card exists. So every stage gets a latest start and a soft band of
 // minutes before it that are still fine, which is where she can shuffle work to
 // suit her own hands.
 //
@@ -471,7 +471,7 @@ function backwardsCard(plan) {
 
   const kids = [
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      `Every time below is the last moment that step may start, so no dough is ever mixed before it is needed. It is a timetable, not a clock — you watch the dough and judge it by eye, and any step may start up to ${trim(b.plan.tolMin)} ${b.plan.tolMin === 1 ? "minute" : "minutes"} early to suit your hands.`),
+      `Every time below is the last moment that stage may start, so no dough is ever mixed before it is needed. It is a timetable, not a clock — you watch the dough and judge it by eye, and any stage may start up to ${trim(b.plan.tolMin)} ${b.plan.tolMin === 1 ? "minute" : "minutes"} early to suit your hands.`),
   ];
 
   // The anchor, then the answer that falls out of it. This is the sentence she
@@ -515,7 +515,7 @@ function backwardsCard(plan) {
       `That holds ${b.notes.tubs} ${b.notes.tubs === 1 ? "tub" : "tubs"} at once — a tub is busy from the mixing until the last fold is done.`));
   }
 
-  // A step with no minutes on it is not part of the 254, and saying so here is
+  // A stage with no minutes on it is not part of the 254, and saying so here is
   // the difference between a timetable and a promise.
   if (b.untimed.length) {
     kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
@@ -527,7 +527,7 @@ function backwardsCard(plan) {
     el("div", { class: "card" }, ...kids));
 }
 
-// One step of the clock: its latest start on the right, and underneath the
+// One stage of the clock: its latest start on the right, and underneath the
 // minutes it takes, how many of them are her hands, and how early it may begin.
 function backwardsStep(s) {
   const bits = [`${trim(s.minutes)} min`];
@@ -543,13 +543,13 @@ function backwardsStep(s) {
     el("div", { class: "li-sub", style: "margin:-2px 0 6px" }, bits.join(" · ")));
 }
 
-// Which step on the chain is the one holding the day back, as a LIST of indices
+// Which stage on the chain is the one holding the day back, as a LIST of indices
 // — a list rather than one index because the proofer is drawn twice, and a wall
-// that marked only one of its two steps would read as a mistake.
+// that marked only one of its two stages would read as a mistake.
 //
 // Three of the four walls name themselves. The hands do not, because every hand
-// step draws on the same pool, so the mark goes on the heaviest of them rather
-// than pretending one step owns a pace the pool actually sets.
+// stage draws on the same pool, so the mark goes on the heaviest of them rather
+// than pretending one stage owns a pace the pool actually sets.
 function wallSteps(r) {
   const b = r.bottleneck.key;
   const all = (test) => FLOW.map((s, i) => (test(s) ? i : -1)).filter((i) => i >= 0);
@@ -699,7 +699,7 @@ function handsCard(r) {
       `Balanced this way the line runs at ${trim(r.handsRate)} pans an hour.`));
   }
 
-  // The honest caveat, whichever of the three cards above was drawn: a step she
+  // The honest caveat, whichever of the three cards above was drawn: a stage she
   // has not timed is costing her something real, and the day would be longer for
   // it. Saying nothing would leave a figure on screen the line cannot deliver.
   if (r.unmeasured.length) {
@@ -720,11 +720,11 @@ function jobList(r) {
   return el("div", { class: "job-list" },
     ...r.allocation.map((j) => el("div", { class: "info-row journal-line" },
       el("span", { class: "j-what" }, j.name),
-      // A step she has not timed is not a free step, and must not read as one.
+      // A stage she has not timed is not a free stage, and must not read as one.
       el("span", { class: "info-val" }, j.perPan > 0 ? `${trim(j.perPan)} min a pan` : "not timed"))));
 }
 
-// "a, b and c" — so a sentence naming three steps still reads as a sentence.
+// "a, b and c" — so a sentence naming three stages still reads as a sentence.
 function listWords(items) {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;

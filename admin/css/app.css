@@ -2640,15 +2640,19 @@ tr.po-covered td { color: var(--muted); }
 /* A bar is a button now: it opens its batch's own clock. The cursor says so, and
    a tap is left to the browser so the track still scrolls under a finger. */
 .tl-row .tl-bar { cursor: pointer; }
-/* The cycles inside one batch, as shaded segments of the batch's own bar. Three
-   shades cycling round, so a batch of four reads as four steps — and adjacent
-   cycles never share a shade, so no hairline is needed to tell them apart. A
-   single-cycle batch draws no segments at all, which is her own rule: it shows up
-   as a batch. Under the hands, so a load is never hidden behind a shade. */
+/* The cycles inside one batch, as shaded segments of the batch's own bar. Four
+   evenly spaced shades, the palest lifted off the floor so it still reads as a
+   wash over the pastel bar tones, so a batch of four reads as four cycles — and
+   adjacent cycles never share a shade, so no hairline is needed to tell them
+   apart. A fifth cycle and beyond reuses the darkest rather than falling back to
+   the palest, so a long batch never ends on the faintest band. A single-cycle
+   batch draws no segments at all, which is her own rule: it shows up as a batch.
+   Under the hands, so a load is never hidden behind a shade. */
 .tl-cycle { position: absolute; top: 0; bottom: 0; }
-.tl-cycle.shade-0 { background: rgba(0, 0, 0, .07); }
-.tl-cycle.shade-1 { background: rgba(0, 0, 0, .16); }
+.tl-cycle.shade-0 { background: rgba(0, 0, 0, .10); }
+.tl-cycle.shade-1 { background: rgba(0, 0, 0, .18); }
 .tl-cycle.shade-2 { background: rgba(0, 0, 0, .26); }
+.tl-cycle.shade-3 { background: rgba(0, 0, 0, .34); }
 /* A module whose batches overlap: each batch gets its own lane, so two batches in
    the module at once are drawn as two bars rather than one long one. The hairline
    edge is what keeps two neighbouring lanes reading as two, since a laned bar is

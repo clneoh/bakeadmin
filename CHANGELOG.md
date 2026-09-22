@@ -1,8 +1,60 @@
-# Jienluv2bake — change history (v54 → v149)
+# Jienluv2bake — change history (v54 → v150)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v150 (no database step). The word is cycle — and a batch of
+four now reads as four.**
+
+**What you told me, in your own words: "there is not steps term in this project, i want the
+cycle shown in batch, and the cycle labour shown visually".** You were right on the first
+point, and the app was the thing saying it. I measured the day chart before changing anything:
+nothing had disappeared. On your One baker day the fold is one batch of four cycles and its bar
+draws four shaded bands with your three folds on them, and the oven is one batch of two cycles
+with your two-minute swap on the second — 24 cycle bands and 32 stretches of your hands across
+the day. The feature was built and it was drawing. What was wrong was the word on it.
+
+**Why your own two saved lines look plain.** Both the line you call No fridge, 1 person and
+My sister proposal 21/9/2026 have exactly one cycle in every module, because both were saved
+before cycles existed and were given one cycle each so the bar's shape would not move. One
+cycle is drawn as one plain bar. You settled that yourself, and the app agrees with you: each
+batch has at least one cycle, and a batch with one cycle is that cycle. So nothing of yours was
+rewritten — both lines are correct as they stand, and not one module, batch, start time or
+saved scenario was touched.
+
+**The cycles box no longer calls a cycle a step.** It used to say "Each cycle is one step of
+this module", which is exactly the sentence that made you doubt the feature was there. It now
+says "Each cycle is one piece of this module's work", in the order you work them. The hint over
+the day chart says the same thing in the same word: the paler bands inside a bar are the
+separate cycles of that batch. Three more places where the app said step while it meant in
+sync now say what they mean — batch counts that differ from the module before them, and the
+line under the day naming any that no longer match. The batch's own card used to say "the step
+the day is read in"; it now says the amount the day is read in, which is what it is.
+
+**The Production line says stage, not step.** That screen walks your bake day in order, and it
+called each part of the day a step. It now calls each of them a stage. The word job is left
+alone there on purpose: on that screen job already means a hand-job — one of the six jobs you
+do — and the proofer is not one of them, which the screen says in its own sentence. Calling the
+proofer a job would have put two contradicting sentences on one screen.
+
+**A batch of four now really does read as four.** This is the one fault in the drawing, and it
+was a real one. The shades the cycles are drawn in said "a batch of four reads as four steps",
+but the ladder only had three shades and started again at the fourth — so on a four-cycle batch
+the first cycle and the fourth wore the same palest band, and the palest of the three was so
+faint over the pastel bars that it barely showed at all. There are four shades now, spaced
+evenly, and the palest has been lifted off the floor so it still reads as a wash. A fifth cycle
+and beyond reuse the darkest rather than falling back to the palest, so a long batch never ends
+on the faintest band.
+
+**What has not moved.** Not one minute, position or labour band on the day chart. Your own
+saved line still reads 24 pans across 9 modules, the seeded starting line still 12 pans with
+the chiller as the wall, and your sister's still 4 pans in 8 modules. Nothing here blocks a
+sale and nothing here reads an order.
+
+The tests are 1113 passing with none failing — three of them new, and one of them fails if a
+four-cycle batch is ever drawn with two cycles sharing a shade. No database step — nothing to
+run in Supabase.
 
 **22 Sep 2026 — engine v149 (no database step). The way down — taking batches off,
 so a day that makes more than you asked for can come back to your number.**

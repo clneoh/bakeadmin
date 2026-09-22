@@ -18,7 +18,7 @@
 // when it starts.
 
 // A module, and what each field means in her terms. Her words, 2026-09-22: a
-// MODULE is the station; a BATCH is one lot through it; a CYCLE is one step of
+// MODULE is the station; a BATCH is one lot through it; a CYCLE is one piece of
 // that batch's process. A batch is a count and nothing else — "batch is not a
 // process but cycle is" — so the minutes and the hands live on the cycles.
 //
