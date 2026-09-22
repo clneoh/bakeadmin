@@ -13,9 +13,10 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, hoursAndMinutes,
-  linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId, passesOf,
-  peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
+  climbSteps, combinedScenario, computeScenario, concurrency, copyScenario, cycleOffsets,
+  cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
+  passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
+  clampBatchStart, alignBatches, batchMismatches,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
   ONE_BAKER_SCENARIO,
 } from "../admin/js/scenario.js";
@@ -23,13 +24,13 @@ import {
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 const of = (r, id) => r.modules.find((m) => m.id === id);
 
-// A brick with only the numbers a test cares about spelled out, so the test says
+// A module with only the numbers a test cares about spelled out, so the test says
 // what it is testing rather than spending ten lines setting up a kitchen.
-const brick = (m) => ({
-  id: "b", name: "A brick", on: true, cycleMin: 10, batch: 1, touchMin: 0,
+const module = (m) => ({
+  id: "b", name: "A module", on: true, cycleMin: 10, batch: 1, touchMin: 0,
   everyMin: 10, repeats: 1, startMin: 0, people: 1, ...m,
 });
-// A scenario of nothing but the bricks handed in, so a test about the line is
+// A scenario of nothing but the modules handed in, so a test about the line is
 // never accidentally also a test about the seeded day.
 const scenario = (s) => ({ ...DEFAULT_SCENARIO, target: 0, modules: [], ...s });
 
@@ -120,7 +121,7 @@ test("the ladder climbs while the day has room, then names what to buy", () => {
   const buys = climb.steps.filter((s) => s.kind === "count");
   assert.ok(buys.length >= 1, "the ladder reaches the buying decision instead of stopping short");
   const retard = climb.end.modules.find((m) => m.id === "retard");
-  assert.equal(retard.count, 2, "the buying decision lands on the brick as two of it");
+  assert.equal(retard.count, 2, "the buying decision lands on the module as two of it");
   assert.equal(retard.repeats, 3, "and it carries the cycles that second one makes possible");
   assert.ok(retard.repeatsHeld <= retard.fitsInDay, "and never a cycle the day cannot hold");
   assert.equal(retard.output, 36, "twelve bins, three times, on the chiller she would own two of");
@@ -193,8 +194,8 @@ test("a person free at the minute the next job starts is free", () => {
   assert.equal(concurrency([at("a", 0), at("b", 10)]).peak, 1, "and the total person row agrees");
 });
 
-test("a brick she has given to a person goes there, collision and all", () => {
-  // Her ask: one person per module, then slide the bricks until the collisions
+test("a module she has given to a person goes there, collision and all", () => {
+  // Her ask: one person per module, then slide the modules until the collisions
   // are gone. A named person is her plan, so the plan is SHOWN rather than
   // quietly rearranged onto somebody who happens to be free — otherwise the
   // collision she is trying to see would be hidden from her.
@@ -216,7 +217,7 @@ test("a brick she has given to a person goes there, collision and all", () => {
 
 test("the total person row stacks whoever is working, named or not", () => {
   // The row she asked for: person 1, person 2, person 3 added up, so a doubled
-  // stretch is a shape rather than a number. A named brick and a shared-out one
+  // stretch is a shape rather than a number. A named module and a shared-out one
   // are the same thing to this count.
   const at = (id, startMin, person) => moduleFacts({
     id, icon: "•", name: id, on: true, person, cycleMin: 10, batch: 1,
@@ -232,7 +233,7 @@ test("the total person row stacks whoever is working, named or not", () => {
 });
 
 test("combining two people is a label, and it stops claiming them when undone", () => {
-  // Her own example: person 1 combined with person 3 is "person 1_3". The bricks
+  // Her own example: person 1 combined with person 3 is "person 1_3". The modules
   // are what the day is built from, so the combination is stored as a label and
   // the arithmetic is unchanged by it.
   const sc = scenarioOf({ ...DEFAULT_SCENARIO, merges: { 1: [1, 3], 9: [9], bad: "x", 2: [2] } });
@@ -261,12 +262,12 @@ test("the day starts when she says it does, and the scale is one of the four", (
   assert.equal(DEFAULT_SCENARIO.dayStartMin, DEFAULT_DAY_START);
 });
 
-test("a brick can be made, moved in the order, and deleted", () => {
+test("a module can be made, moved in the order, and deleted", () => {
   const mods = DEFAULT_SCENARIO.modules.map((m) => ({ ...m }));
   const id = newModuleId(mods);
-  assert.equal(id, "brick1", "a name no other brick is using");
+  assert.equal(id, "brick1", "a name no other module is using");
 
-  // A new brick arrives SWITCHED OFF: a brick with no numbers in it must not
+  // A new module arrives SWITCHED OFF: a module with no numbers in it must not
   // become the wall and answer the day with "1 pan".
   const fresh = blankModule(id);
   assert.equal(fresh.on, false);
@@ -281,7 +282,7 @@ test("a brick can be made, moved in the order, and deleted", () => {
   const moved = moveModule(grown, "fold", -1);
   assert.deepEqual(moved.slice(0, 2).map((m) => m.id), ["fold", "mixer"]);
   assert.equal(moved.length, grown.length, "moving is a reorder, never a copy");
-  assert.deepEqual(moveModule(grown, "mixer", -1).map((m) => m.id), grown.map((m) => m.id), "the first brick cannot move up");
+  assert.deepEqual(moveModule(grown, "mixer", -1).map((m) => m.id), grown.map((m) => m.id), "the first module cannot move up");
   assert.deepEqual(moveModule(grown, "brick1", 1).map((m) => m.id), grown.map((m) => m.id), "nor the last down");
   assert.equal(moveModule(grown, "nope", -1).length, grown.length);
 
@@ -290,7 +291,93 @@ test("a brick can be made, moved in the order, and deleted", () => {
   assert.equal(newModuleId(removeModule(grown, "brick1")), "brick1", "and its name comes free again");
 });
 
-test("a saved scenario is a copy, not a second name for the same bricks", () => {
+test("a batch stepped by the buttons lands on the minute a typed time lands on", () => {
+  // The screen has TWO ways to move one batch: press the pair at 5 minutes or the
+  // pair at 1, or type the minute. They must be the same answer, and the only way
+  // to promise that is for both to go through one function — which is why
+  // clampBatchStart lives in the model. This walks the view's own write path:
+  // clamp the wanted minute, write it into that batch's slot, keep startMin equal
+  // to the first batch, then read the batch back OFF the model.
+  const seed = module({ id: "m", cycleMin: 15, everyMin: 15, repeats: 4, startMin: 60 });
+  // The typed path in three lines: the minute she types goes through the same
+  // clamp, startMin is kept equal to the first batch the way moduleOf keeps it, and
+  // the batch is read back OFF the model.
+  const place = (starts) => {
+    const mod = moduleOf(seed);
+    const next = starts.map((v) => clampBatchStart(v, mod));
+    return moduleOf({ ...seed, starts: next, startMin: next[0] }).starts;
+  };
+  // One press, mirrored exactly: setBatchStart asks for the current minute plus the
+  // step and writes the clamped answer into that batch's slot, leaving the others.
+  const press = (starts, k, by) => {
+    const next = starts.slice();
+    next[k] = next[k] + by;
+    return place(next);
+  };
+  const presses = (times, by, k = 3) => {
+    let list = moduleOf(seed).starts;
+    for (let i = 0; i < times; i += 1) list = press(list, k, by);
+    return list[k];
+  };
+  assert.deepEqual(moduleOf(seed).starts, [60, 75, 90, 105], "evenly spaced until she moves one");
+
+  // Four presses of the big pair, on the last batch, is twenty minutes.
+  const stepped = presses(4, 5);
+  const typed = place([60, 75, 90, 105 + 20])[3];
+  assert.equal(stepped, 125, "4 x +5 on 105");
+  assert.equal(stepped, typed, "and a typed 125 is the same minute, not a nearby one");
+
+  // Twenty presses of the small pair is the same twenty minutes.
+  assert.equal(presses(20, 1), stepped, "20 x +1 agrees with 4 x +5 to the minute");
+
+  // One batch moves and the others do not — the shape she has set is kept.
+  assert.deepEqual(press(moduleOf(seed).starts, 1, 5), [60, 80, 90, 105], "only the batch she pressed moves");
+
+  // The ends of the day hold for a press and for a typed number alike. The ceiling
+  // is the last minute at which the batch still finishes inside the day.
+  assert.equal(place([60, 75, 90, -30])[3], 0, "a typed negative is midnight, not an error");
+  assert.equal(presses(30, -5), 0, "and pressing earlier past midnight stops at midnight too");
+  const ceiling = 24 * 60 - 15;
+  assert.equal(place([60, 75, 90, 9999])[3], ceiling, "a typed number past the day stops at the ceiling");
+  assert.equal(presses(300, 5), ceiling, "and pressing later past the day stops at the same minute");
+});
+
+test("a batch count follows the module before it, and says when it does not", () => {
+  // Her rule, 2026-09-22: "follow the one before, and say when it does not". A
+  // fresh line each time, because both halves write the modules they are given.
+  const line = (counts) => counts.map((n, i) => module({ id: `m${i}`, name: `Step ${i + 1}`, repeats: n }));
+  const counts = (list) => list.map((m) => m.repeats);
+
+  // A line in step: editing the first carries every one of them with it.
+  assert.deepEqual(
+    counts(alignBatches(line([4, 4, 4, 4, 4, 4]), "m0", 3)),
+    [3, 3, 3, 3, 3, 3],
+    "the whole line follows");
+  assert.deepEqual(batchMismatches(line([3, 3, 3, 3, 3, 3])), [], "and nothing is left out of step");
+
+  // A module with a number of her own is never quietly overwritten, and the carry
+  // stops AT it rather than reaching past it.
+  assert.deepEqual(
+    counts(alignBatches(line([4, 4, 6, 4, 4, 4]), "m0", 2)),
+    [2, 2, 6, 4, 4, 4],
+    "2 and 6 are hers, and the fours behind the 6 are not touched");
+  assert.deepEqual(
+    batchMismatches(line([2, 2, 6, 4, 4, 4])).map((m) => [m.name, m.repeats, m.before.name, m.before.repeats]),
+    [["Step 3", 6, "Step 2", 2], ["Step 4", 4, "Step 3", 6]],
+    "both steps in the counts are named, with both numbers");
+
+  // A module switched out of the day is not in the chain: it neither follows nor
+  // breaks a run of them.
+  const off = line([4, 4, 4, 4]);
+  off[1].on = false;
+  assert.deepEqual(counts(alignBatches(off, "m0", 5)), [5, 4, 5, 5], "the off module is stepped over");
+  assert.deepEqual(batchMismatches(off), [], "and it is not named as out of step");
+
+  // Editing something that is not there is not an error.
+  assert.equal(alignBatches(line([4, 4]), "nope", 2).length, 2, "a module that is not in the line is left alone");
+});
+
+test("a saved scenario is a copy, not a second name for the same modules", () => {
   // Two designs side by side — the line without a fridge and the line with one —
   // must not be able to edit each other.
   const sc = scenarioOf(DEFAULT_SCENARIO);
@@ -306,7 +393,7 @@ test("a saved scenario is a copy, not a second name for the same bricks", () => 
 test("every touch window is the minutes of a person, and nothing else is", () => {
   const r = computeScenario(DEFAULT_SCENARIO);
   const windows = touchWindows(r.on);
-  // Nine bricks, but only the ones that need her: the retard runs itself, and a
+  // Nine modules, but only the ones that need her: the retard runs itself, and a
   // 6-pass loop is six windows, not one.
   assert.equal(windows.filter((w) => w.module === "retard").length, 0);
   assert.equal(windows.filter((w) => w.module === "fold").length, 4);
@@ -336,40 +423,40 @@ test("the clock reads the way she would say it", () => {
   assert.equal(hoursAndMinutes(45), "45 min");
 });
 
-// ── Handing a brick to the Production line ─────────────────────────────────
+// ── Handing a module to the Production line ─────────────────────────────────
 //
 // These are the figures that cross from one screen to the other, and the point
-// of each is the same: only what she typed into a brick may cross. The seeded
+// of each is the same: only what she typed into a module may cross. The seeded
 // day is the case that matters, because it is the one she will load first.
 
-test("the seeded bricks carry the line's own numbers across", () => {
+test("the seeded modules carry the line's own numbers across", () => {
   const p = scenarioPlanPatch(DEFAULT_SCENARIO, {});
-  // The mixer's 6 minutes a mix, its 28-pan tub; the wash brick's 18 minutes and
-  // the top's 8; the oven brick's 4 minutes of hands, its 6 pans and its
+  // The mixer's 6 minutes a mix, its 28-pan tub; the wash module's 18 minutes and
+  // the top's 8; the oven module's 4 minutes of hands, its 6 pans and its
   // 15-minute turn. Every one of them is a number she typed.
   //
-  // The wash brick fills the one field the wash and the weighing-out share, so it
-  // arrives as scaleMin6 under its new single name. The retard brick no longer
+  // The wash module fills the one field the wash and the weighing-out share, so it
+  // arrives as scaleMin6 under its new single name. The retard module no longer
   // crosses at all: the chiller is not a station of the line she has, so its
   // trays are named as skipped rather than written to a field that is gone.
   // The hands are the peak at once, not the number of rows she has drawn: the
-  // seeded day is laid out so one pair covers every job, brick by brick.
+  // seeded day is laid out so one pair covers every job, module by module.
   assert.deepEqual(p.patch, {
     target: 36, people: 1,
     mixMin: 6, mixerPans: 28,
     scaleMin6: 18, topMin6: 8, coolMin6: 12,
     swapMin6: 4, ovenPans: 6, ovenMin: 15,
   });
-  // Every step of the line is answered for by one brick or another, so nothing is
+  // Every step of the line is answered for by one module or another, so nothing is
   // left over — the wash and the weighing-out are one job and one field now.
-  assert.deepEqual(p.left, [], "every step of the line has a brick feeding it");
-  // And the bricks that are not a step of the line are named, not silently lost.
+  assert.deepEqual(p.left, [], "every step of the line has a module feeding it");
+  // And the modules that are not a step of the line are named, not silently lost.
   assert.deepEqual(p.unmapped,
     ["The fold loop", "Load the chiller", "Retard overnight", "Unload the chiller"]);
 });
 
-test("a brick's minutes are scaled onto six pans, not handed over raw", () => {
-  // One wash brick that does 12 pans in 30 minutes is 15 minutes for every 6.
+test("a module's minutes are scaled onto six pans, not handed over raw", () => {
+  // One wash module that does 12 pans in 30 minutes is 15 minutes for every 6.
   const s = scenarioOf({
     target: 0,
     modules: [{ id: "wash", name: "Wash, oil and fill", job: "wash", on: true,
@@ -382,7 +469,7 @@ test("a brick's minutes are scaled onto six pans, not handed over raw", () => {
   assert.equal(line.changes, true, "18 → 15 is a real change and the screen has to say so");
 });
 
-test("a brick saved before jobs existed is matched on the name it was seeded with", () => {
+test("a module saved before jobs existed is matched on the name it was seeded with", () => {
   const old = { id: "w", name: "Wash, oil and fill", on: true, cycleMin: 18, batch: 6,
     touchMin: 20, everyMin: 18, repeats: 6, startMin: 0, people: 1 };
   assert.equal(jobOf(old), "wash", "no job field, and the name is the one the app seeded");
@@ -391,14 +478,14 @@ test("a brick saved before jobs existed is matched on the name it was seeded wit
   assert.equal(jobOf({ id: "x", name: "My own thing", on: true, cycleMin: 5, batch: 1, touchMin: 5 }), "");
 });
 
-test("a job is kept apart from the name, so renaming a brick cannot break the link", () => {
+test("a job is kept apart from the name, so renaming a module cannot break the link", () => {
   const renamed = { id: "w", name: "The oily pan bit", job: "wash", on: true,
     cycleMin: 18, batch: 6, touchMin: 18, everyMin: 18, repeats: 6, startMin: 0, people: 1 };
   assert.equal(jobOf(renamed), "wash");
   assert.equal(jobOf({ ...renamed, job: "" }), "", "and the name it now wears is nobody's step");
 });
 
-test("a switched-off brick crosses over as nothing at all", () => {
+test("a switched-off module crosses over as nothing at all", () => {
   const s = scenarioOf({
     target: 20,
     modules: [
@@ -410,19 +497,19 @@ test("a switched-off brick crosses over as nothing at all", () => {
   });
   const p = scenarioPlanPatch(s, {});
   assert.equal(p.patch.scaleMin6, 18);
-  assert.equal(p.patch.ovenMin, undefined, "the brick is off, so the line answers without it");
+  assert.equal(p.patch.ovenMin, undefined, "the module is off, so the line answers without it");
   assert.deepEqual(p.unmapped, [], "and it is not even named as skipped work");
 });
 
-test("two bricks that admit to the same job are named, and the first one wins", () => {
-  const brick = (id, touchMin) => ({ id, name: id, job: "wash", on: true,
+test("two modules that admit to the same job are named, and the first one wins", () => {
+  const module = (id, touchMin) => ({ id, name: id, job: "wash", on: true,
     cycleMin: 18, batch: 6, touchMin, everyMin: 18, repeats: 1, startMin: 0, people: 1 });
-  const p = scenarioPlanPatch(scenarioOf({ modules: [brick("a", 18), brick("b", 25)] }), {});
-  assert.equal(p.patch.scaleMin6, 18, "the first brick in the day's order is the one that crosses");
+  const p = scenarioPlanPatch(scenarioOf({ modules: [module("a", 18), module("b", 25)] }), {});
+  assert.equal(p.patch.scaleMin6, 18, "the first module in the day's order is the one that crosses");
   assert.deepEqual(p.doubled, ["Wash, oil and fill"]);
 });
 
-test("a wash brick and a weighing-out brick are one job, and neither is reported missing", () => {
+test("a wash module and a weighing-out module are one job, and neither is reported missing", () => {
   // The two were always one job under two names, so a scenario holding both was
   // counting the same work twice. The fuller reading crosses — it never
   // understates her hands — and the single step they share is not then listed as
@@ -435,7 +522,7 @@ test("a wash brick and a weighing-out brick are one job, and neither is reported
   assert.equal(p.patch.scaleMin6, 25, "the fuller of the two is taken");
   assert.ok(!p.left.includes("Weighing the dough out into pans"),
     "and the one step they share is not then named as unfed");
-  assert.deepEqual(p.unmapped, [], "nor is either brick named as work that feeds nothing");
+  assert.deepEqual(p.unmapped, [], "nor is either module named as work that feeds nothing");
 });
 
 test("the load says what it did and did not change", () => {
@@ -450,8 +537,8 @@ test("the load says what it did and did not change", () => {
 });
 
 test("the summary of a scenario reads the same on both screens", () => {
-  assert.equal(scenarioSummary(DEFAULT_SCENARIO), "12 pans a day · 9 bricks");
-  assert.equal(LINE_JOBS.length, 7, "the steps of the line a brick can be, plus the retard");
+  assert.equal(scenarioSummary(DEFAULT_SCENARIO), "12 pans a day · 9 modules");
+  assert.equal(LINE_JOBS.length, 7, "the steps of the line a module can be, plus the retard");
   assert.equal(new Set(LINE_JOBS.map((j) => j.key)).size, LINE_JOBS.length);
 });
 
@@ -467,14 +554,14 @@ test("her sister's line is a different kitchen: no mixer and no chiller", () => 
   const r = computeScenario(SISTER_SCENARIO);
   const ids = r.modules.map((m) => m.id);
   assert.equal(r.scenario.name, "My sister proposal 21/9/2026");
-  assert.equal(ids.includes("mixer"), false, "the dough is mixed by hand in the tub, so there is no mixer brick");
+  assert.equal(ids.includes("mixer"), false, "the dough is mixed by hand in the tub, so there is no mixer module");
   assert.equal(ids.includes("retard"), false, "a proofing cabinet takes the chiller's place");
   assert.equal(ids.includes("load"), false, "and with it the loading and unloading of the chiller");
   assert.equal(ids.includes("proofer"), true);
-  assert.equal(ids.includes("bench"), true, "the 30 minutes of rest before the oven is its own brick");
+  assert.equal(ids.includes("bench"), true, "the 30 minutes of rest before the oven is its own module");
 });
 
-test("her sister's numbers are the ones on the bricks", () => {
+test("her sister's numbers are the ones on the modules", () => {
   const r = computeScenario(SISTER_SCENARIO);
   const folds = of(r, "tubfold");
   assert.equal(folds.batch, 4, "the tub fills four doughs");
@@ -499,8 +586,8 @@ test("her sister's numbers are the ones on the bricks", () => {
 test("her sister's day reads as four pans, and the tub is what stops it", () => {
   const r = computeScenario(SISTER_SCENARIO);
   assert.equal(r.pansPerDay, 4, "one tub of four is all the day passes");
-  assert.equal(r.wall.id, "tubmix", "ties go to the earliest brick, and mixing is the first thing the day does");
-  assert.equal(scenarioSummary(SISTER_SCENARIO), "4 pans a day · 8 bricks");
+  assert.equal(r.wall.id, "tubmix", "ties go to the earliest module, and mixing is the first thing the day does");
+  assert.equal(scenarioSummary(SISTER_SCENARIO), "4 pans a day · 8 modules");
 });
 
 test("the two numbers she never gave are named as hers to set", () => {
@@ -509,12 +596,12 @@ test("the two numbers she never gave are named as hers to set", () => {
   // rule the v135 mixer box was fixed under. Both are called out by name so she
   // finds them without reading a changelog.
   assert.match(of(r, "tubmix").name, /set the minutes/,
-    "the mixing-by-hand placeholder says so on the brick itself");
+    "the mixing-by-hand placeholder says so on the module itself");
   assert.equal(of(r, "panfill").touchMin, 12,
     "tipping into the pans uses her own measured 3 minutes a pan, which is 12 for four");
 });
 
-test("every brick of her sister's line is reachable from the brick editor", () => {
+test("every module of her sister's line is reachable from the module editor", () => {
   // Nothing is stored that moduleOf would drop, so every number she can see is
   // a number she can change -- which is what she meant by "numbers need to be
   // configurable". A field the model quietly discards would be a setting she
@@ -529,15 +616,15 @@ test("every brick of her sister's line is reachable from the brick editor", () =
     assert.equal(back.startMin, m.startMin, `${m.id}: the start time survives`);
     assert.equal(back.person, m.person, `${m.id}: the person survives`);
     assert.equal(back.job, m.job || "", `${m.id}: the line step survives`);
-    // The chain and the per-cycle drag added three fields, and reading a brick a
+    // The chain and the per-cycle drag added three fields, and reading a module a
     // second time must not lose any of them — that is what makes a chained
     // placement survive being handed between the model and the screen.
-    assert.equal(back.count, 1, `${m.id}: a brick she has one of says so`);
-    assert.equal(back.follow, false, `${m.id}: and no brick waits for another until she says so`);
+    assert.equal(back.count, 1, `${m.id}: a module she has one of says so`);
+    assert.equal(back.follow, false, `${m.id}: and no module waits for another until she says so`);
     assert.equal(back.overlap, false, `${m.id}: and none of them lets two lots in at once yet`);
-    // A brick she has one of is ONE line, so it carries the one person it always
+    // A module she has one of is ONE line, so it carries the one person it always
     // had and no more — the extra lines arrive with the second one of them.
-    assert.deepEqual(back.crew, [back.person], `${m.id}: one line, carrying the brick's own person`);
+    assert.deepEqual(back.crew, [back.person], `${m.id}: one line, carrying the module's own person`);
     assert.deepEqual(moduleOf(back).starts, back.starts, `${m.id}: the cycle times read back the same`);
   }
   // Switched on, the switch itself is a value that has to survive the same trip —
@@ -546,7 +633,7 @@ test("every brick of her sister's line is reachable from the brick editor", () =
   assert.deepEqual(
     [on.count, on.follow, on.overlap],
     [2, true, true],
-    "two of them, waiting on the brick above, and free to hold two lots at once",
+    "two of them, waiting on the module above, and free to hold two lots at once",
   );
   assert.deepEqual(moduleOf(on), on, "and a second read of it changes nothing at all");
 });
@@ -554,7 +641,7 @@ test("every brick of her sister's line is reachable from the brick editor", () =
 // ── "One baker day", the third scenario ────────────────────────────────────
 //
 // Her ask, 22 Sep 2026: *"i need you to create one scenario and save it as One
-// baker day. Set the bricks for me, with latest start time each brick batch."*
+// baker day. Set the modules for me, with latest start time each module batch."*
 //
 // So the arithmetic below is the load-bearing part of that scenario, not
 // decoration: her own chain's minutes, the latest starts the Production line
@@ -584,17 +671,19 @@ test("one baker day is her own chain on one pair of hands", () => {
   assert.deepEqual(r.rows[0].clashes, [], "and nothing on the day collides with anything else");
   assert.equal(r.dayStartMin, 240, "the window starts at 4 am, an hour before the tub");
   assert.equal(clockOf(r.dayStartMin + r.firstMin), "4:01 am", "the first thing the day does is mix");
-  assert.equal(clockOf(r.dayStartMin + r.endMin), "12:42 pm", "and the last pack ends quarter to one");
+  assert.equal(clockOf(r.dayStartMin + r.endMin), "1:30 pm", "and the last pack ends at half past one");
   assert.equal(r.shortfall, 0, "the day she asked for is the day it delivers");
-  assert.equal(scenarioSummary(ONE_BAKER_SCENARIO), "24 pans a day · 8 bricks");
+  assert.equal(scenarioSummary(ONE_BAKER_SCENARIO), "24 pans a day · 8 modules");
 });
 
-test("every brick's cycles are the latest starts, 81 minutes apart", () => {
+test("every module's cycles are the latest starts, 87 minutes apart", () => {
   const r = computeScenario(ONE_BAKER_SCENARIO);
   const at = (id) => clockOf(r.dayStartMin + of(r, id).passes[0].at);
   // The chain top to bottom, in the times the Production line's own card works
   // out backwards from the oven. The oven is the anchor: the first six pans are
-  // at it at the minute she said, 8 am, which is 239 minutes after the tub.
+  // at it at the minute she said, 8 am, which is 239 minutes after the tub. Not
+  // one of these moved when the fold and the swap were put at their real end —
+  // only the PACE between batches did.
   assert.equal(at("solo_mix"), "4:01 am", "the tub, 239 minutes before the oven");
   assert.equal(at("solo_fold"), "4:21 am", "the rests and the folds");
   assert.equal(at("solo_scale"), "6:24 am", "the pans oiled and the dough weighed out");
@@ -602,82 +691,165 @@ test("every brick's cycles are the latest starts, 81 minutes apart", () => {
   assert.equal(at("solo_top"), "7:24 am", "the dimple and the topping");
   assert.equal(at("solo_proof2"), "7:30 am", "the proofer again");
   assert.equal(at("solo_oven"), "8:00 am", "the oven, batch one: the anchor of the whole day");
-  assert.equal(at("solo_pack"), "8:27 am", "and the packing, which waits for the last fold");
+  assert.equal(at("solo_pack"), "8:57 am", "and the packing, which waits for the last fold");
   assert.equal(r.dayStartMin + of(r, "solo_oven").passes[0].at, 480,
     "8 am exactly, the minute the card counts backwards from");
 
-  // Every brick of her day runs at the same pace, so the four halves of a
+  // Every module of her day runs at the same pace, so the four batches of a
   // 24-pan day line up the way the day does.
   for (const m of r.modules) {
     assert.equal(m.repeats, 4, `${m.id}: four batches, because a day of 24 is four of six pans`);
     assert.equal(m.batch, 6, `${m.id}: and every batch is the six pans of one oven load`);
     const gaps = m.passes.slice(1).map((p, i) => p.at - m.passes[i].at);
-    assert.deepEqual(gaps, [81, 81, 81], `${m.id}: a batch every 81 minutes`);
+    assert.deepEqual(gaps, [87, 87, 87], `${m.id}: a batch every 87 minutes`);
   }
+  // The two the corrected labour moved, read off the day itself: the fold is at
+  // the END of a rest, and the swap is AFTER the bake.
+  assert.deepEqual(of(r, "solo_fold").passes[0].touches.map((t) => [t.from, t.to]),
+    [[51, 52], [82, 83], [113, 114]],
+    "three 1-minute folds, each at the minute its 30-minute rest ends");
+  assert.deepEqual(of(r, "solo_oven").passes[0].touches.map((t) => [t.from, t.to]),
+    [[253, 255]], "and the 2-minute swap is the two minutes after the 13-minute bake");
 });
 
-test("81 minutes is the one rhythm a single pair of hands can hold", () => {
-  // The proofer on her own numbers would allow a batch every 40.5 minutes. One
-  // person cannot feed it that often, and this is the test that says so: at her
-  // own chain's pace the day needs two or three people. 81 is the proofer's own
-  // occupancy time (45 + 6 + 30), and it is the only minute-wide rhythm that
-  // tiles (80.5 also works, with the fold's block landing differently).
-  for (const every of [40.5, 45, 55, 58, 60, 70, 80]) {
-    const r = computeScenario(soloWith(every, 267));
-    assert.ok(r.people > 1, `a batch every ${every} min needs ${r.people} people, not one`);
+test("87 minutes is the pace one pair of hands finishes soonest, and 81 no longer holds", () => {
+  // The proofer on her own numbers would allow a batch every 40.5 minutes, and
+  // her old 81-minute rhythm was the pace a single pair of hands could hold when
+  // the drawing had her folding two rests early. Put the fold at the end of the
+  // rest where she really does it and 81 is gone: the second rest's fold lands on
+  // minute 82 and the second batch's mixing has to begin on minute 82 as well, so
+  // the app puts a second person on it — and no start time for the packing can
+  // undo a clash that happens that far upstream.
+  for (const every of [40.5, 45, 55, 58, 60, 70, 80, 84]) {
+    let anyStart = false;
+    for (let s = 255; s <= 430; s += 1) if (computeScenario(soloWith(every, s)).people === 1) anyStart = true;
+    assert.equal(anyStart, false,
+      `a batch every ${every} min needs more than one pair of hands whatever the packing does`);
   }
-  for (const every of [80.5, 81]) {
-    const r = computeScenario(soloWith(every, 267));
-    assert.equal(r.people, 1, `a batch every ${every} min is one pair of hands`);
-    assert.equal(r.demand.overlapMin, 0, `and at ${every} nothing is doubled up`);
+  assert.equal(computeScenario(soloWith(81, 297)).people, 2,
+    "and 81, the pace that used to hold, now asks for a second person");
+  // The mechanism, named so a red test says why: batch one's second fold and
+  // batch two's mixing are on the same minute.
+  const r81 = computeScenario(soloWith(81, 297));
+  assert.deepEqual(of(r81, "solo_fold").passes[0].touches.map((t) => [t.from, t.to])[1], [82, 83],
+    "at 81 the second rest is folded from minute 82");
+  assert.equal(of(r81, "solo_mix").passes[1].at, 82, "and batch two goes into the tub on minute 82");
+
+  // 87 is where the day is seeded, and it is the soonest finish of any WHOLE
+  // minute. The sweep is finer than whole minutes, and saying so is the point of
+  // this block rather than a gap in it: 86 fails outright and 86.25 fails with
+  // it, while 86.5 and 86.75 BOTH hold and both finish a shade sooner than 87 —
+  // 568.5 and 569.25 against 570. The seed stays on 87 because a baker plans a
+  // day in whole minutes: ninety seconds off a nine-and-a-half-hour day is not
+  // worth reading every start time on the screen as half past something. So the
+  // boundary is a choice she can see, not a claim the arithmetic does not support.
+  const finish = (every) => {
+    let soonest = null;
+    for (let s = 255; s <= 520; s += 1) {
+      const r = computeScenario(soloWith(every, s));
+      if (r.people === 1 && (soonest === null || r.endMin < soonest)) soonest = r.endMin;
+    }
+    return soonest;
+  };
+  assert.equal(finish(87), 570, "87: the last pack ends at minute 570, half past one");
+  for (const every of [88, 89, 90, 113, 116, 159, 210]) {
+    assert.ok(finish(every) > 570, `a batch every ${every} min finishes later than 87 does`);
   }
-  assert.equal(of(computeScenario(ONE_BAKER_SCENARIO), "solo_proof1").everyMin, 81,
-    "the seeded rhythm is the proofer's own 81 minutes, the number she derived herself");
+  assert.equal(finish(86), null, "86 minutes holds nowhere at all");
+  assert.equal(finish(86.25), null, "and neither does a quarter of a minute more");
+  assert.equal(finish(86.5), 568.5, "86.5 holds, and finishes a minute and a half sooner");
+  assert.equal(finish(86.75), 569.25, "86.75 too, and by three quarters of a minute");
+  // Below 87 exactly one whole minute holds, and it can only pack from 9:40 am,
+  // so it buys nothing back: it trades the day's whole morning for the pace.
+  assert.equal(finish(85), 607, "85 holds, but only by pushing the packing to 9:40 am");
+  assert.equal(of(computeScenario(ONE_BAKER_SCENARIO), "solo_proof1").everyMin, 87,
+    "and the seeded rhythm is 87, the pace this day was swept to");
 });
 
-test("the packing waits for the last fold, and 8:27 is the first free minute", () => {
-  // The single deviation from her chain's own offsets: cutting and packing would
-  // start at 8:15, fifteen minutes after the oven, but alone she is still folding
-  // the last tub until 8:27. It is not a preference — a minute earlier needs a
-  // second pair of hands.
-  assert.equal(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack").startMin, 267,
-    "8:27 am, counted from the 4 am window");
-  for (const start of [255, 260, 266]) {
-    const r = computeScenario(soloWith(81, start));
-    assert.ok(r.people > 1, `starting the packing at minute ${start} needs ${r.people} people`);
-  }
-  // And the window she can move it in without buying anybody: seven minutes,
-  // because past 8:33 the dimpling of the next batch is already hers to do.
+test("the packing waits for the last fold, and 8:57 is the first free minute", () => {
+  // The deviation from her chain's own offsets: cutting and packing would start
+  // fifteen minutes after the oven, but alone she is still folding the last tub
+  // until 8:57. It is not a preference — a single minute earlier needs a second
+  // pair of hands, and the clash that appears is upstream of the packing, so no
+  // start time can undo it but the packing's own.
+  assert.equal(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_pack").startMin, 297,
+    "8:57 am, counted from the 4 am window");
+  assert.equal(computeScenario(soloWith(87, 296)).people, 2,
+    "8:56 am, one minute earlier, needs two people");
+  assert.equal(computeScenario(soloWith(87, 297)).people, 1, "and 8:57 am is the first minute that is hers");
+  // The room she has to move it in without buying anybody, measured: four minutes
+  // at the seed itself — 8:57 to 9:00 am — and three later windows in the morning
+  // where it also holds, 9:44–10:02, 10:24–10:33 and 11:09–11:10. Everything
+  // between is a minute where the packing would have to be in two places at once.
   const free = [];
-  for (let start = 250; start <= 280; start += 1) {
-    if (computeScenario(soloWith(81, start)).people === 1) free.push(start);
+  for (let start = 255; start <= 430; start += 1) {
+    if (computeScenario(soloWith(87, start)).people === 1) free.push(start);
   }
-  assert.deepEqual(free, [267, 268, 269, 270, 271, 272, 273],
-    "8:27 to 8:33 am is the window, and the seed sits at its start");
+  const runs = [];
+  let runStart = free[0];
+  for (let i = 1; i <= free.length; i += 1) {
+    if (free[i] !== free[i - 1] + 1) { runs.push([runStart, free[i - 1]]); runStart = free[i]; }
+  }
+  assert.deepEqual(runs, [[297, 300], [344, 362], [384, 393], [429, 430]],
+    "the packing's own free minutes, and the seed sits at the start of the first run");
+  assert.equal(free.includes(296), false, "and it does not open a minute earlier");
 });
 
-test("every brick of one baker day is reachable from the brick editor", () => {
+test("no machine is ever doubled at her own pace", () => {
+  // At one pair of hands the wall is her hands, not the cabinet — which is only
+  // true if the cabinet is never asked to hold two batches at once. The fold is
+  // left out on purpose: its 123 minutes are the DOUGH's, which is the criterion
+  // its overlap switch is behind, so its own batches are meant to overlap.
+  const r = computeScenario(ONE_BAKER_SCENARIO);
+  for (const m of r.on) {
+    if (m.overlap) continue;
+    const ps = m.passes;
+    for (let i = 0; i < ps.length; i += 1) {
+      for (let j = i + 1; j < ps.length; j += 1) {
+        const doubled = ps[i].at < ps[j].end && ps[j].at < ps[i].end;
+        assert.equal(doubled, false, `${m.id}: batches ${i + 1} and ${j + 1} are in it at once`);
+      }
+    }
+  }
+});
+
+test("every module of one baker day is reachable from the module editor", () => {
   // The same rule her sister's line is held to: a figure the model quietly
   // discards is a setting she cannot reach, and this scenario is hers to move.
+  // The cycles are the process now, so this is where the minutes and the hands
+  // are read back from — and the two mirrors beside them are checked to be the
+  // sums of the cycles rather than numbers of their own.
   for (const m of ONE_BAKER_SCENARIO.modules) {
     const back = moduleOf(m);
-    assert.equal(back.cycleMin, m.cycleMin, `${m.id}: cycle minutes survive`);
+    assert.deepEqual(back.cycles, m.cycles, `${m.id}: the cycles survive, loads and unloads and all`);
+    assert.equal(back.cycleMin, back.cycles.reduce((n, c) => n + c.min, 0),
+      `${m.id}: the module's minutes ARE its cycles, not a number beside them`);
+    assert.equal(back.touchMin, back.cycles.reduce((n, c) => n + c.load + c.unload, 0),
+      `${m.id}: and its hands are their loads and unloads`);
     assert.equal(back.batch, m.batch, `${m.id}: the batch survives`);
-    assert.equal(back.touchMin, m.touchMin, `${m.id}: the hands minutes survive`);
     assert.equal(back.everyMin, m.everyMin, `${m.id}: the pace survives`);
-    assert.equal(back.repeats, m.repeats, `${m.id}: the number of passes survives`);
+    assert.equal(back.repeats, m.repeats, `${m.id}: the number of batches survives`);
     assert.equal(back.startMin, m.startMin, `${m.id}: the start time survives`);
     assert.equal(back.person, m.person, `${m.id}: the person survives`);
     assert.equal(back.job, m.job || "", `${m.id}: the line step survives`);
     assert.equal(back.overlap, m.overlap === true, `${m.id}: and the fold keeps its overlap switch`);
   }
-  // The fold is the one brick whose minutes are the DOUGH's, not hers — which is
+  // The fold is the one module whose minutes are the DOUGH's, not hers — which is
   // the criterion v140 put the overlap switch behind, and the reason its 123
-  // minutes may sit inside an 81-minute batch rhythm at all.
+  // minutes may sit inside an 87-minute batch rhythm at all.
   assert.equal(moduleOf(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_fold")).overlap, true,
     "the rests and the folds are marked as the dough holding the time");
   assert.equal(of(computeScenario(ONE_BAKER_SCENARIO), "solo_fold").touchMin, 3,
     "and three of its minutes are hers: one per fold, her own number");
+  // The two corrected modules, read as the cycles she would open in the editor.
+  const fold = moduleOf(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_fold"));
+  assert.deepEqual(fold.cycles.map((c) => [c.min, c.load, c.unload]),
+    [[31, 0, 1], [31, 0, 1], [31, 0, 1], [30, 0, 0]],
+    "four rests, the first three folded at their end");
+  const oven = moduleOf(ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_oven"));
+  assert.deepEqual(oven.cycles.map((c) => [c.min, c.load, c.unload]),
+    [[13, 0, 0], [2, 2, 0]],
+    "the bake with nobody watching, then the swap in at its start");
 });
 
 test("one baker day loads her own numbers onto the Production line", () => {
@@ -693,77 +865,205 @@ test("one baker day loads her own numbers onto the Production line", () => {
   const { unmapped } = scenarioPlanPatch(ONE_BAKER_SCENARIO, null);
   assert.deepEqual(unmapped.map((u) => u.name || u), [
     "The rests and the stretch and folds", "Into the proofer", "The proofer again",
-  ], "and the three bricks with no step on that screen say so by name");
+  ], "and the three modules with no step on that screen say so by name");
 });
 
-// ── A brick she has two of is two lines, and each line has its own person ───
+// ── A module she has two of is two lines, and each line has its own person ───
 //
-// Her ask: "i want is just better drawing.. Since now one brick having 2 lines,
+// Her ask: "i want is just better drawing.. Since now one module having 2 lines,
 // each line can have its own person, and few line can have a combine person
 // sharing to different lines." So the arithmetic of "two of them" is untouched —
 // this is the drawing and who stands at each line, and both have to be able to
 // survive the trip through storage without her numbers moving.
 
-test("a brick carries a person for each line it is worked as", () => {
-  // Nothing stored: every line gets the brick's own person, and the brick's
+test("a module carries a person for each line it is worked as", () => {
+  // Nothing stored: every line gets the module's own person, and the module's
   // person is line 1's. One number written once, so they cannot disagree.
-  assert.deepEqual(moduleOf(brick({ person: 3 })).crew, [3],
-    "one of a brick is one line, and it is the person she named");
-  assert.deepEqual(moduleOf(brick({ person: 3, count: 2 })).crew, [3, 3],
+  assert.deepEqual(moduleOf(module({ person: 3 })).crew, [3],
+    "one of a module is one line, and it is the person she named");
+  assert.deepEqual(moduleOf(module({ person: 3, count: 2 })).crew, [3, 3],
     "two of them and nobody said otherwise: the same person on both, as before");
   // The array she typed is adopted only when it is exactly as long as the lines.
-  assert.deepEqual(moduleOf(brick({ person: 3, count: 2, crew: [1, 2] })).crew, [1, 2],
+  assert.deepEqual(moduleOf(module({ person: 3, count: 2, crew: [1, 2] })).crew, [1, 2],
     "two lines, two people, read back as she set them");
-  // Grown: the stored list is kept and the new lines take the brick's person, so
+  // Grown: the stored list is kept and the new lines take the module's person, so
   // raising how many she has never forgets who was on the lines she already had.
-  assert.deepEqual(moduleOf(brick({ person: 3, count: 3, crew: [1, 2] })).crew, [1, 2, 3],
-    "a third one of them keeps lines 1 and 2 and gives line 3 the brick's person");
+  assert.deepEqual(moduleOf(module({ person: 3, count: 3, crew: [1, 2] })).crew, [1, 2, 3],
+    "a third one of them keeps lines 1 and 2 and gives line 3 the module's person");
   // Cut back: the extra entries are dropped rather than kept as lines that are
   // not there, because a crew longer than the lines is a line nobody can see. What
   // is KEPT is the person she set on a line that still exists — so lowering how
   // many she has never silently forgets who was standing at line 1, and raising it
   // again brings line 2's person straight back off the stored list.
-  assert.deepEqual(moduleOf(brick({ person: 3, count: 1, crew: [1, 2] })).crew, [1],
+  assert.deepEqual(moduleOf(module({ person: 3, count: 1, crew: [1, 2] })).crew, [1],
     "back to one of them keeps the person she had set on line 1");
   // Nonsense in storage is clamped, not carried: a person is 0…8, and 0 means
   // whoever is free — the same reading the editor and the People rows give it.
-  assert.deepEqual(moduleOf(brick({ person: 3, count: 2, crew: [-4, 99] })).crew, [0, 8],
+  assert.deepEqual(moduleOf(module({ person: 3, count: 2, crew: [-4, 99] })).crew, [0, 8],
     "a person outside 0…8 is clamped rather than drawn");
   // person is ALWAYS crew[0], the way startMin is always starts[0].
-  assert.equal(moduleOf(brick({ person: 3, count: 2, crew: [5, 6] })).person, 5,
-    "the brick's person is line 1's person, whether or not it was stored that way");
+  assert.equal(moduleOf(module({ person: 3, count: 2, crew: [5, 6] })).person, 5,
+    "the module's person is line 1's person, whether or not it was stored that way");
   // And a wrong-length list left behind by a hand-edited backup is replaced, not
   // partly adopted — half a crew is a line pointing at somebody who is not there.
-  assert.deepEqual(moduleOf(brick({ person: 2, count: 2, crew: "nonsense" })).crew, [2, 2],
+  assert.deepEqual(moduleOf(module({ person: 2, count: 2, crew: "nonsense" })).crew, [2, 2],
     "a crew that is not a list is not a crew");
 });
 
-test("lines are in force only while the brick's own cycles really take turns", () => {
-  assert.equal(linesInForce(brick({ count: 1 })), 0, "one of a brick is not drawn as lines");
-  assert.equal(linesInForce(brick({ count: 2 })), 2, "two of them take turns, so two lines");
-  assert.equal(linesInForce(brick({ count: 3 })), 3, "three of them is three lines");
+test("lines are in force only while the module's own cycles really take turns", () => {
+  assert.equal(linesInForce(module({ count: 1 })), 0, "one of a module is not drawn as lines");
+  assert.equal(linesInForce(module({ count: 2 })), 2, "two of them take turns, so two lines");
+  assert.equal(linesInForce(module({ count: 3 })), 3, "three of them is three lines");
   // The overlap switch turns the taking-turns off, so there is only ever one lot
-  // in the brick — one row, one person, however many of it she has. The crew is
+  // in the module — one row, one person, however many of it she has. The crew is
   // kept in storage (the editor says so), but it is not what the day is worked as.
-  assert.equal(linesInForce(brick({ count: 2, overlap: true })), 0,
-    "free to overlap, the brick is one row again");
-  // A switched-off brick is not worked at all, so it is not a line either.
-  assert.equal(linesInForce(brick({ count: 2, on: false })), 2,
-    "switching a brick off is the day's business, not the drawing's");
+  assert.equal(linesInForce(module({ count: 2, overlap: true })), 0,
+    "free to overlap, the module is one row again");
+  // A switched-off module is not worked at all, so it is not a line either.
+  assert.equal(linesInForce(module({ count: 2, on: false })), 2,
+    "switching a module off is the day's business, not the drawing's");
 });
 
 test("each lot knows which line it came off", () => {
-  const m = moduleOf(brick({ count: 2, repeats: 6, cycleMin: 28, everyMin: 30, touchMin: 2 }));
+  const m = moduleOf(module({ count: 2, repeats: 6, cycleMin: 28, everyMin: 30, touchMin: 2 }));
   assert.deepEqual(passesOf(m).map((p) => p.line), [0, 1, 0, 1, 0, 1],
     "two of them take the lots in turn, so the lines alternate all the way down");
-  const one = moduleOf(brick({ count: 1, repeats: 3 }));
+  const one = moduleOf(module({ count: 1, repeats: 3 }));
   assert.deepEqual(passesOf(one).map((p) => p.line), [0, 0, 0],
-    "one of a brick puts every lot on its one line, exactly as it always did");
+    "one of a module puts every lot on its one line, exactly as it always did");
 });
 
+test("whichever line is free puts a batch exactly where taking turns did", () => {
+  // Her rule is that a batch goes into whichever line is free rather than being
+  // handed to the next line in turn. Every batch of a module is the same length,
+  // so the line that has been free longest is always the one whose turn it is —
+  // and the two rules agree on every day that can be built. This asserts that,
+  // exhaustively, so a later change to the picker that would move a saved day
+  // goes red here instead of silently re-drawing her week.
+  const turns = (count, starts, cycleMin) => {
+    const out = [];
+    const own = [];
+    for (let k = 0; k < starts.length; k += 1) {
+      let at = starts[k];
+      if (k >= count) at = Math.max(at, own[k - count]);
+      out.push(k % count);
+      own.push(at + cycleMin);
+    }
+    return out;
+  };
+  const seqs = [];
+  const build = (len, max, cur) => {
+    if (cur.length === len) { seqs.push([...cur]); return; }
+    for (let v = cur.length ? cur[cur.length - 1] : 0; v <= max; v += 1) {
+      cur.push(v); build(len, max, cur); cur.pop();
+    }
+  };
+  let compared = 0;
+  for (const count of [2, 3, 4]) {
+    for (const cycleMin of [1, 2, 3, 5, 10]) {
+      for (const len of [4, 5, 6]) {
+        seqs.length = 0;
+        build(len, 14, []);
+        for (const starts of seqs) {
+          compared += 1;
+          assert.deepEqual(pickLines(count, starts, cycleMin, false), turns(count, starts, cycleMin),
+            `count ${count}, span ${cycleMin}, starts ${starts.join(",")}`);
+        }
+      }
+    }
+  }
+  assert.ok(compared > 700000, `the sweep really ran (${compared} rhythms compared)`);
+});
+
+test("a module with no cycles of its own reads as one cycle, to the digit", () => {
+  // The migration. Every module she has ever saved, and every seeded one, carries
+  // minutes and a touch and no cycles — so the model has to read each of those as
+  // the single cycle it always was, or the day she has been looking at all along
+  // would come back different. Proven, not asserted: the whole line is rebuilt
+  // with the cycles written out by hand and every pass compared.
+  const twins = [
+    DEFAULT_SCENARIO,
+    ONE_BAKER_SCENARIO,
+    SISTER_SCENARIO,
+  ];
+  let checked = 0;
+  for (const sc of twins) {
+    for (const raw of sc.modules) {
+      // A module that already carries cycles of its own is not a module this
+      // migration can say anything about — its one cycle is not the point.
+      if (Array.isArray(raw.cycles) && raw.cycles.length) continue;
+      const legacy = moduleOf(raw);
+      const spelledOut = {
+        ...raw,
+        cycles: [{ name: "", min: legacy.cycleMin, load: legacy.touchMin, unload: 0 }],
+      };
+      assert.deepEqual(passesOf(spelledOut), passesOf(raw),
+        `${raw.id}: wording the one cycle out loud moves nothing`);
+      assert.deepEqual(touchWindows([moduleFacts(spelledOut)]), touchWindows([moduleFacts(raw)]),
+        `${raw.id}: and the hands are where they were`);
+      checked += 1;
+    }
+  }
+  // The seeded day (10) and her sister's line (8): every module of the three
+  // seeded scenarios that has no cycles of its own. One baker day's eight are
+  // skipped by name above, because they were authored with their cycles spelled
+  // out — so this count is what stops a scenario changing shape unnoticed.
+  assert.equal(checked, 18, "every cycle-less module of the three seeded scenarios was compared");
+});
+
+test("cycles are a batch's process, and the minutes and the hands add up from them", () => {
+  const mod = moduleOf({
+    ...module({ id: "day", repeats: 2 }),
+    // A 30-minute rest folded at the end, then a 13-minute bake and the 2-minute
+    // swap afterwards: the two ends of a cycle, which is what load and unload are.
+    cycles: [
+      { min: 30, load: 0, unload: 1 },
+      { min: 13, load: 0, unload: 0 },
+      { min: 2, load: 2, unload: 0 },
+    ],
+    // A stale mirror, deliberately wrong: the cycles win over it.
+    cycleMin: 999,
+    touchMin: 999,
+  });
+  assert.equal(mod.cycleMin, 45, "a batch is as long as its cycles, and not as long as a stale mirror");
+  assert.equal(mod.touchMin, 3, "and its hands are every load and every unload in it");
+  assert.deepEqual(mod.cycles.map((c) => c.min), [30, 13, 2], "the cycles are kept in her order");
+  assert.deepEqual(passesOf(mod).map((p) => [p.at, p.end]), [[0, 45], [10, 55]],
+    "and every batch of the module runs that same list from its own start");
+  // Her own rule, from the model's side: a cycle cannot begin before the one
+  // ahead of it ends, so its offset is the minutes of everything before it.
+  assert.deepEqual(cycleOffsets(mod.cycles), [0, 30, 43]);
+});
+
+test("a cycle's hands are at the end she works them at, not at the module's door", () => {
+  // Her own two corrections. The 30-minute rest is FOLDED AT ITS END: the dough
+  // rests, then she folds it, and the old screen had her folding two rests early
+  // because it put every module's hands at the module's start. And the oven's
+  // 2-minute swap happens AFTER the bake, when the pans come out — the old drawing
+  // had the swap at the minute the bake began.
+  const rest = { name: "", min: 31, load: 0, unload: 1 };
+  assert.deepEqual(cycleTouches([rest], 100), [{ from: 130, to: 131, cycle: 0, name: "" }],
+    "one minute of hands, at the minute the rest ends");
+  // The oven: 13 minutes of baking with nobody watching, then the swap.
+  const bake = [{ name: "", min: 13, load: 0, unload: 0 }, { name: "", min: 2, load: 2, unload: 0 }];
+  assert.deepEqual(cycleTouches(bake, 0), [{ from: 13, to: 15, cycle: 1, name: "" }],
+    "the swap is the two minutes after the bake, named as the cycle it belongs to");
+  // Both ends of one cycle: two windows, and the row can tell them apart.
+  assert.deepEqual(cycleTouches([{ name: "mix", min: 20, load: 8, unload: 4 }], 0).map((w) => [w.from, w.to]),
+    [[0, 8], [16, 20]], "a cycle she loads and unloads herself is two stretches of her time");
+  // A cycle worked end to end is ONE window, not two that happen to touch.
+  assert.deepEqual(cycleTouches([{ name: "", min: 10, load: 7, unload: 6 }], 0).map((w) => [w.from, w.to]),
+    [[0, 10]], "hands from the start to the end of the cycle are one stretch");
+  // And the migration's promise, read from the windows: a module with no cycles of
+  // its own still has exactly the one window it always had.
+  const plain = moduleFacts(module({ id: "w", repeats: 1, cycleMin: 15, touchMin: 4 }));
+  assert.deepEqual(plain.passes[0].touches, [{ from: 0, to: 4, cycle: 0, name: "" }],
+    "one cycle, one window, at the module's own start, exactly as before");
+  assert.deepEqual(touchWindows([plain]).map((w) => [w.from, w.to]), [[0, 4]]);
+});
 test("two lines give their odd lots to one person and their even lots to the other", () => {
   const r = computeScenario(scenario({
-    modules: [brick({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 20, everyMin: 30, touchMin: 2 })],
+    modules: [module({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 20, everyMin: 30, touchMin: 2 })],
   }));
   const wins = touchWindows(r.on);
   // Four lots, two lines, two people: lots 1 and 3 to person 1, lots 2 and 4 to
@@ -773,17 +1073,17 @@ test("two lines give their odd lots to one person and their even lots to the oth
   const rows = peopleRows(r.on);
   assert.equal(rows.length, 2, "two lines with two people is two rows, not one");
   assert.deepEqual(rows.map((row) => row.person), [1, 2]);
-  // Each of them is at ONE brick — which is the count she asked this feature for,
+  // Each of them is at ONE module — which is the count she asked this feature for,
   // because one person should not have to wear every hat in the day.
   assert.deepEqual(rows.map((row) => new Set(row.items.map((w) => w.module)).size), [1, 1],
-    "each worker is at one line of one brick");
+    "each worker is at one line of one module");
 });
 
 test("the same person on both lines is one person, and a real clash says so", () => {
   // Both lines on person 1 with minutes that do not meet: one row, and every lot
   // still on it. One person covering two lines is what she asked for.
   const apart = computeScenario(scenario({
-    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+    modules: [module({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
   }));
   const rows = peopleRows(apart.on);
   assert.equal(rows.length, 1, "the same number on two lines is one person, not two");
@@ -791,9 +1091,9 @@ test("the same person on both lines is one person, and a real clash says so", ()
   assert.equal(rows[0].clashes.length, 0, "half an hour apart, so nothing of theirs collides");
   // Both lines on person 1 with minutes that DO meet — 35 minutes of hands inside
   // a 40-minute pass, with the next lot starting at 30. Same one row, now wearing
-  // the collision: the honest answer, and what she slides the bricks apart to fix.
+  // the collision: the honest answer, and what she slides the modules apart to fix.
   const clash = computeScenario(scenario({
-    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 40, everyMin: 30, touchMin: 35 })],
+    modules: [module({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 40, everyMin: 30, touchMin: 35 })],
   }));
   const clashed = peopleRows(clash.on);
   assert.equal(clashed.length, 1, "one person is still one row");
@@ -801,60 +1101,60 @@ test("the same person on both lines is one person, and a real clash says so", ()
   assert.equal(clashed[0].clashes[0].after.line, 1, "and the clash names the line that came second");
 });
 
-test("a person's places count the lines they are on, not just the bricks", () => {
-  // The fix: one person on BOTH lines of one brick is in two places, and the count
-  // of bricks alone read that as one — so the doubling-up she is planning down was
+test("a person's places count the lines they are on, not just the modules", () => {
+  // The fix: one person on BOTH lines of one module is in two places, and the count
+  // of modules alone read that as one — so the doubling-up she is planning down was
   // the one thing the row said nothing about.
   const both = computeScenario(scenario({
-    modules: [brick({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+    modules: [module({ id: "fold", count: 2, crew: [1, 1], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
   }));
   const one = peopleRows(both.on);
   assert.equal(one.length, 1, "the same number on two lines is still one person");
   assert.equal(one[0].items.length, 4, "on all four lots");
   assert.equal(new Set(one[0].items.map((w) => w.module)).size, 1,
-    "one brick, which is what the old count saw");
+    "one module, which is what the old count saw");
   assert.equal(placesOn(one[0]), 2, "and two places, which is what she is counting");
   // Two lines, two people: each of them is in ONE place, so the count she is
-  // driving to is a real answer and not just "the brick again".
+  // driving to is a real answer and not just "the module again".
   const split = computeScenario(scenario({
-    modules: [brick({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
+    modules: [module({ id: "fold", count: 2, crew: [1, 2], repeats: 4, cycleMin: 10, everyMin: 30, touchMin: 4 })],
   }));
   assert.deepEqual(peopleRows(split.on).map(placesOn), [1, 1],
     "one person per line is one place each");
-  // A brick she has one of has no lines to count, so it counts as one place
+  // A module she has one of has no lines to count, so it counts as one place
   // whether or not anybody is named on it — every scenario built before lines
   // existed reads exactly as it did.
   const plain = computeScenario(scenario({
-    modules: [brick({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+    modules: [module({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
   }));
-  assert.deepEqual(peopleRows(plain.on).map(placesOn), [1], "one brick is one place");
-  // Two bricks really are two places, which the old count did get right.
+  assert.deepEqual(peopleRows(plain.on).map(placesOn), [1], "one module is one place");
+  // Two modules really are two places, which the old count did get right.
   const two = computeScenario(scenario({
     modules: [
-      brick({ id: "a", person: 1, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
-      brick({ id: "b", person: 1, startMin: 100, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
+      module({ id: "a", person: 1, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
+      module({ id: "b", person: 1, startMin: 100, repeats: 1, cycleMin: 10, everyMin: 60, touchMin: 5 }),
     ],
   }));
-  assert.deepEqual(peopleRows(two.on).map(placesOn), [2], "two bricks is two places");
+  assert.deepEqual(peopleRows(two.on).map(placesOn), [2], "two modules is two places");
 });
 
-test("a brick that is not drawn as lines gives the windows it always gave", () => {
+test("a module that is not drawn as lines gives the windows it always gave", () => {
   // The whole promise of this release: with no lines and no crew — which is every
-  // brick she has — the day is computed exactly as it was before the field existed.
+  // module she has — the day is computed exactly as it was before the field existed.
   const bare = computeScenario(scenario({
-    modules: [brick({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+    modules: [module({ id: "fold", person: 2, repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
   }));
   const crewed = computeScenario(scenario({
-    modules: [brick({ id: "fold", person: 2, crew: [2], repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
+    modules: [module({ id: "fold", person: 2, crew: [2], repeats: 3, cycleMin: 10, everyMin: 20, touchMin: 3 })],
   }));
   assert.deepEqual(touchWindows(crewed.on), touchWindows(bare.on),
-    "spelling the crew out says nothing the brick did not already say");
+    "spelling the crew out says nothing the module did not already say");
   assert.deepEqual(concurrency(crewed.on), concurrency(bare.on), "and the day's hands are untouched");
 });
 
 test("copying a scenario copies the line crews, deeply", () => {
   const sc = scenario({
-    modules: [brick({ id: "fold", person: 1, count: 2, crew: [1, 2], repeats: 4 })],
+    modules: [module({ id: "fold", person: 1, count: 2, crew: [1, 2], repeats: 4 })],
   });
   const copy = copyScenario(sc, "A copy", "two");
   assert.deepEqual(copy.modules[0].crew, [1, 2], "the copy has the crew");
@@ -866,16 +1166,16 @@ test("copying a scenario copies the line crews, deeply", () => {
 test("combining two people moves their lines, and nobody is left pointing at a gone row", () => {
   const sc = scenario({
     modules: [
-      brick({ id: "fold", person: 2, count: 2, crew: [2, 5], repeats: 4 }),
-      brick({ id: "bake", person: 5, count: 1, repeats: 2 }),
+      module({ id: "fold", person: 2, count: 2, crew: [2, 5], repeats: 4 }),
+      module({ id: "bake", person: 5, count: 1, repeats: 2 }),
     ],
   });
   const next = combinedScenario(sc, 2, 5);
   const fold = next.modules.find((m) => m.id === "fold");
   assert.deepEqual(fold.crew, [2, 2], "person 5's line becomes person 2's line");
-  assert.equal(fold.person, 2, "and the brick's own person follows line 1");
+  assert.equal(fold.person, 2, "and the module's own person follows line 1");
   assert.deepEqual(next.modules.find((m) => m.id === "bake").crew, [2],
-    "the other brick 5 was at moves with them");
+    "the other module 5 was at moves with them");
   // 5 is now covered by 2, so their row is gone and the combination says who took
   // them — which is what makes the People list read as the day being worked.
   assert.deepEqual(next.merges, { 2: [5] }, "5 is combined into 2");
@@ -891,7 +1191,7 @@ test("combining two people moves their lines, and nobody is left pointing at a g
 test("the lines never reach the Production line's plan", () => {
   // The bridge to the Production line reads named facts, not the module objects —
   // so a crew, which is a planner idea, cannot leak into the day it measures. The
-  // guard is that the same bricks, with lines and crews, carry the identical plan.
+  // guard is that the same modules, with lines and crews, carry the identical plan.
   const bare = scenarioPlanPatch(DEFAULT_SCENARIO, {}).patch;
   const withLines = DEFAULT_SCENARIO.modules.map((m) => (
     m.id === "mixer" ? { ...m, count: 2, crew: [1, 2] } : m
@@ -905,22 +1205,22 @@ test("the lines never reach the Production line's plan", () => {
   assert.equal(patch.ovenPans, 6, "and the oven is where it always was");
 });
 
-// ── A brick can be doubled, and every cycle has its own time ───────────────
+// ── A module can be doubled, and every cycle has its own time ───────────────
 //
-// The three things she asked for by number: two of a brick when it is the
+// The three things she asked for by number: two of a module when it is the
 // bottleneck, a start time of its own for every cycle, and "cycle 10 of this
-// brick cannot start until cycle 10 of the brick before it has finished".
+// module cannot start until cycle 10 of the module before it has finished".
 //
 // The load-bearing claim under all of it is a NEGATIVE one, and it is the first
-// test here: with nothing set to wait and one of every brick, the model must
+// test here: with nothing set to wait and one of every module, the model must
 // answer exactly what it answered before any of this existed. Everything she
 // already reasons with -- twelve pans, the chiller in the wall -- hangs on it.
 
-test("a brick she has one of, that waits for nothing, is the brick it always was", () => {
+test("a module she has one of, that waits for nothing, is the module it always was", () => {
   const r = computeScenario(DEFAULT_SCENARIO);
   for (const f of r.modules) {
     // The list is built from the same sum the day was always placed with, so a
-    // brick nobody has dragged sits exactly where `startMin + k x everyMin` put
+    // module nobody has dragged sits exactly where `startMin + k x everyMin` put
     // it -- to the last hundredth of a minute.
     const spread = Array.from({ length: f.repeatsHeld }, (_, k) => f.startMin + k * f.everyMin);
     near(f.passes.length, spread.length, `${f.id}: the same number of cycles`);
@@ -933,10 +1233,10 @@ test("a brick she has one of, that waits for nothing, is the brick it always was
   });
 });
 
-test("a cycle can be moved on its own, and the brick keeps its shape", () => {
+test("a cycle can be moved on its own, and the module keeps its shape", () => {
   // Cycle 2 of the fold pushed to 90 minutes: the others stay where they were,
   // which is the whole point of a list rather than a formula.
-  const moved = { ...brick({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30 }), starts: [30, 90, 90, 120] };
+  const moved = { ...module({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30 }), starts: [30, 90, 90, 120] };
   const m = moduleFacts(moved);
   assert.deepEqual(m.passes.map((p) => p.at), [30, 90, 90, 120]);
   // And the day is as long as the LATEST cycle makes it, not as long as the
@@ -944,25 +1244,25 @@ test("a cycle can be moved on its own, and the brick keeps its shape", () => {
   assert.equal(m.endMin, 148, "120 + 28, the last cycle's own end");
 });
 
-test("typing a start time moves the whole brick, dragged cycles and all", () => {
+test("typing a start time moves the whole module, dragged cycles and all", () => {
   // A start-time box and a drag are two ways to say one thing, so a typed number
-  // must never be silently ignored by a list that is out of date. The brick
+  // must never be silently ignored by a list that is out of date. The module
   // moves; the shape she dragged comes with it.
-  const dragged = brick({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30, starts: [30, 90, 90, 120] });
+  const dragged = module({ id: "f", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 4, startMin: 30, starts: [30, 90, 90, 120] });
   const retyped = moduleOf({ ...dragged, startMin: 130 });
   assert.deepEqual(retyped.starts, [130, 190, 190, 220], "every cycle moved by the same hundred minutes");
-  // Which also means a brick whose list disagrees with its cycle count is
+  // Which also means a module whose list disagrees with its cycle count is
   // repaired rather than believed.
   assert.deepEqual(moduleOf({ cycleMin: 10, everyMin: 10, repeats: 3, startMin: 0, starts: [0, 10, 20, 30, 40] }).starts, [0, 10, 20]);
   assert.deepEqual(moduleOf({ cycleMin: 10, everyMin: 10, repeats: 3, startMin: 5, starts: [5] }).starts, [5, 15, 25]);
 });
 
-test("cycle 10 waits for the brick above to finish its cycle 10", () => {
-  // The rule she wrote, on a line of two bricks: mix four lots, then fold four
+test("cycle 10 waits for the module above to finish its cycle 10", () => {
+  // The rule she wrote, on a line of two modules: mix four lots, then fold four
   // lots. The fold's first lot cannot start until the mix's first lot is out,
   // and the second fold waits on the second mix — not on the fold before it.
-  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
-  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
+  const mix = module({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const fold = { ...module({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
   const r = computeScenario(scenario({ modules: [mix, fold] }));
   const f = of(r, "fold");
   assert.deepEqual(f.passes.map((p) => p.at), [20, 50, 80, 110],
@@ -974,15 +1274,15 @@ test("cycle 10 waits for the brick above to finish its cycle 10", () => {
 test("pushing one lot later carries that lot down the whole line", () => {
   // She drags the mixer's third lot later and the whole line re-forms around it.
   // No cascade code does this: the fold simply asks what the mixer has finished.
-  const mix = { ...brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 }), starts: [0, 30, 120, 150] };
-  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
+  const mix = { ...module({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 }), starts: [0, 30, 120, 150] };
+  const fold = { ...module({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 30, repeats: 4, startMin: 0 }), follow: true };
   const r = computeScenario(scenario({ modules: [mix, fold] }));
   assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 120, 150]);
   assert.deepEqual(of(r, "fold").passes.map((p) => p.at), [20, 50, 140, 170],
     "the fold's third and fourth lots moved with the mixer's, and the first two did not");
 });
 
-test("a brick above with fewer cycles holds the extra ones at its last", () => {
+test("a module above with fewer cycles holds the extra ones at its last", () => {
   // Four mixes feeding six folds. Lots five and six have no counterpart above to
   // wait for, so they wait on the last lot that does exist -- the model names the
   // rule rather than inventing a time for a mix the mixer never runs.
@@ -993,8 +1293,8 @@ test("a brick above with fewer cycles holds the extra ones at its last", () => {
   // but this fold's own one-lot-at-a-time rule is stronger than it, so lots four,
   // five and six queue behind the lot before them -- 138 and 166, not 110 three
   // times over. The next test is the switch that takes that own rule off.
-  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
-  const fold = { ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
+  const mix = module({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const fold = { ...module({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
 
   const r = computeScenario(scenario({ modules: [mix, fold] }));
   const at = of(r, "fold").passes.map((p) => p.at);
@@ -1004,15 +1304,15 @@ test("a brick above with fewer cycles holds the extra ones at its last", () => {
   assert.deepEqual(of(r, "mix").passes.map((p) => p.at), [0, 30, 60, 90]);
 });
 
-test("a brick holds its own lots apart until she says its cycles may overlap", () => {
+test("a module holds its own lots apart until she says its cycles may overlap", () => {
   // Her words: "allow overlap button and the overlapping criteria". Off -- where
-  // every brick starts, and every brick she already has -- one lot at a time: a
+  // every module starts, and every module she already has -- one lot at a time: a
   // fold cannot begin lot two until lot one is out. That is the right rule when the
   // dough is physically IN the thing, and the wrong one when the 28 minutes are
   // mostly the dough RESTING between folds. Switched on, her own times stand and
   // the chain above is the only thing left that can move a lot.
-  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
-  const apart = { ...brick({ id: "fold", cycleMin: 5, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
+  const mix = module({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 4, startMin: 0 });
+  const apart = { ...module({ id: "fold", cycleMin: 5, batch: 6, touchMin: 2, everyMin: 10, repeats: 6, startMin: 0 }), follow: true };
   const free = { ...apart, overlap: true };
 
   const held = computeScenario(scenario({ modules: [mix, apart] }));
@@ -1024,48 +1324,48 @@ test("a brick holds its own lots apart until she says its cycles may overlap", (
   assert.ok(of(loose, "fold").passes.slice(3).every((p) => p.at >= 110),
     "and never before the dough exists: the mixer's last lot ends at 110");
   // How many of these you have is NOT this switch: two folds means two lots at
-  // once, which is one lot per brick, not every lot at once.
+  // once, which is one lot per module, not every lot at once.
   const two = computeScenario(scenario({ modules: [mix, { ...apart, count: 2 }] }));
   assert.deepEqual(of(two, "fold").passes.map((p) => p.at), [20, 50, 80, 110, 110, 115],
-    "two bricks: lot three may start while lot one is still folding, lot four may not");
+    "two modules: lot three may start while lot one is still folding, lot four may not");
   assert.equal(of(two, "fold").output, of(held, "fold").output, "and a second one never plans pans she did not");
 });
 
-test("a brick she has said may overlap sits on her own rhythm, all of it at once", () => {
-  // A 28-minute pass on a 10-minute rhythm is a brick in two or three lots at once,
+test("a module she has said may overlap sits on her own rhythm, all of it at once", () => {
+  // A 28-minute pass on a 10-minute rhythm is a module in two or three lots at once,
   // and this is the switch's whole point: dough resting between folds, a second bin
   // on the go. Switched on, her rhythm is passed through and the screen draws the
   // lots in lanes so all of them can be seen.
-  const solo = brick({ id: "s", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 4, startMin: 0 });
+  const solo = module({ id: "s", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 4, startMin: 0 });
   const lot = { ...solo, overlap: true };
   const m = of(computeScenario(scenario({ modules: [lot] })), "s");
   assert.deepEqual(m.passes.map((p) => p.at), [0, 10, 20, 30]);
   assert.deepEqual(m.passes.map((p) => p.end), [28, 38, 48, 58]);
-  // Three of the four are in the brick at once at minute 20, which is what the
+  // Three of the four are in the module at once at minute 20, which is what the
   // lanes on the timeline are for.
   const live = m.passes.filter((p) => p.at <= 20 && p.end > 20).length;
   assert.equal(live, 3);
   // And the day is as long as the last lot makes it, not as long as the rhythm
   // alone would suggest.
   assert.equal(m.endMin, 58);
-  // Switched off, the same brick on the same rhythm queues instead, because a lot
-  // cannot begin until the one before it is out of the brick.
+  // Switched off, the same module on the same rhythm queues instead, because a lot
+  // cannot begin until the one before it is out of the module.
   const queued = of(computeScenario(scenario({ modules: [solo] })), "s");
   assert.deepEqual(queued.passes.map((p) => p.at), [0, 28, 56, 84]);
   assert.equal(queued.endMin, 112, "and the day is longer for it, which is the trade she is being shown");
 });
 
-test("a switched-off brick is not in the build, so nothing waits on it", () => {
+test("a switched-off module is not in the build, so nothing waits on it", () => {
   // The fridge parked, and the oven waiting on the fold rather than on a machine
   // that is not switched on -- which is what happens at the bench.
-  const mix = brick({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 });
-  const off = { ...brick({ id: "mid", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 }), on: false };
-  const oven = { ...brick({ id: "oven", cycleMin: 15, batch: 6, touchMin: 0, everyMin: 30, repeats: 2, startMin: 0 }), follow: true };
+  const mix = module({ id: "mix", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 });
+  const off = { ...module({ id: "mid", cycleMin: 20, batch: 6, touchMin: 5, everyMin: 30, repeats: 2, startMin: 0 }), on: false };
+  const oven = { ...module({ id: "oven", cycleMin: 15, batch: 6, touchMin: 0, everyMin: 30, repeats: 2, startMin: 0 }), follow: true };
   const r = computeScenario(scenario({ modules: [mix, off, oven] }));
-  assert.deepEqual(of(r, "oven").passes.map((p) => p.at), [20, 50], "it waits on the mixer, not on the parked brick");
+  assert.deepEqual(of(r, "oven").passes.map((p) => p.at), [20, 50], "it waits on the mixer, not on the parked module");
 });
 
-test("a second brick is more room in the day, and never pans she did not plan", () => {
+test("a second module is more room in the day, and never pans she did not plan", () => {
   const one = moduleFacts({ id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 5, count: 1 });
   const two = moduleFacts({ id: "r", cycleMin: 720, batch: 12, touchMin: 0, everyMin: 720, repeats: 5, count: 2 });
   assert.equal(one.fitsInDay, 2);
@@ -1073,7 +1373,7 @@ test("a second brick is more room in the day, and never pans she did not plan", 
   assert.equal(two.rate, one.rate * 2, "and pass them twice as fast");
   // What a second one does NOT do: invent cycles. She planned five and the day
   // now holds four, so four is what it passes -- the fifth is still hers to ask
-  // for by raising how many times the brick runs.
+  // for by raising how many times the module runs.
   assert.equal(two.repeatsHeld, 4);
   assert.equal(two.output, 48);
   assert.equal(two.perPan, one.perPan, "and a pan still costs the same minutes of it");
@@ -1085,13 +1385,13 @@ test("a second brick is more room in the day, and never pans she did not plan", 
 });
 
 test("overlapping lots are only flagged when her own hands are really in two places", () => {
-  // The honest half of the overlap switch. A brick's pass
+  // The honest half of the overlap switch. A module's pass
   // window is the whole cycle, but the minutes that need a PERSON are the touch —
-  // so two lots resting at once cost nobody anything, and only a brick she is
+  // so two lots resting at once cost nobody anything, and only a module she is
   // hands-on for the whole pass doubles her up. Same person, same overlap, two
   // different answers, and the difference is the touch minutes she typed.
-  const resting = scenario({ modules: [{ ...brick({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 3, person: 1, overlap: true }), follow: false }] });
-  const handsOn = scenario({ modules: [{ ...brick({ id: "wash", cycleMin: 18, batch: 6, touchMin: 18, everyMin: 9, repeats: 3, person: 1, overlap: true }), follow: false }] });
+  const resting = scenario({ modules: [{ ...module({ id: "fold", cycleMin: 28, batch: 6, touchMin: 2, everyMin: 10, repeats: 3, person: 1, overlap: true }), follow: false }] });
+  const handsOn = scenario({ modules: [{ ...module({ id: "wash", cycleMin: 18, batch: 6, touchMin: 18, everyMin: 9, repeats: 3, person: 1, overlap: true }), follow: false }] });
 
   const rest = computeScenario(resting).rows.find((r) => r.person === 1);
   assert.equal(rest.clashes.length, 0, "three lots resting at once are not three of her at once");
@@ -1105,7 +1405,7 @@ test("overlapping lots are only flagged when her own hands are really in two pla
 test("a saved scenario keeps its own cycles, not a shared copy of them", () => {
   // `starts` is a list, so a shallow copy would give both scenarios the same one
   // and dragging a cycle in one would silently move the other.
-  const sc = scenarioOf({ ...DEFAULT_SCENARIO, modules: [brick({ id: "b", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 3, startMin: 30 })] });
+  const sc = scenarioOf({ ...DEFAULT_SCENARIO, modules: [module({ id: "b", cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 3, startMin: 30 })] });
   const copy = copyScenario(sc, "A copy", "two");
   assert.deepEqual(copy.modules[0].starts, sc.modules[0].starts);
   copy.modules[0].starts[1] = 999;
@@ -1113,16 +1413,16 @@ test("a saved scenario keeps its own cycles, not a shared copy of them", () => {
 });
 
 test("a scenario saved before cycles existed can still be copied", () => {
-  // Every brick on her phone today has no `starts` list at all -- the field did
+  // Every module on her phone today has no `starts` list at all -- the field did
   // not exist when it was saved. Copying a scenario must not assume it is there,
-  // and the copy must read the same day it did: the brick's own start and pace
+  // and the copy must read the same day it did: the module's own start and pace
   // generate the cycles, which is exactly what it did before.
   const old = { ...DEFAULT_SCENARIO, modules: [{
-    id: "b", icon: "🧱", name: "An old brick", on: true, job: "", person: 0,
+    id: "b", icon: "🧱", name: "An old module", on: true, job: "", person: 0,
     cycleMin: 28, batch: 28, touchMin: 2, everyMin: 30, repeats: 3, startMin: 30, people: 1,
   }] };
   const copy = copyScenario(scenarioOf(old), "A copy", "two");
-  assert.deepEqual(copy.modules[0].starts, [30, 60, 90], "the brick's own start and pace, as they always were");
+  assert.deepEqual(copy.modules[0].starts, [30, 60, 90], "the module's own start and pace, as they always were");
   const before = computeScenario(old);
   const after = computeScenario(scenarioOf({ ...copy, id: "" }));
   assert.equal(after.pansPerDay, before.pansPerDay);
@@ -1131,7 +1431,7 @@ test("a scenario saved before cycles existed can still be copied", () => {
     before.on.map((m) => [m.id, m.startMin, m.endMin]));
 });
 
-test("the ladder will buy a second brick rather than promise a cycle a day cannot hold", () => {
+test("the ladder will buy a second module rather than promise a cycle a day cannot hold", () => {
   // The buying rung exists for exactly one case: the day is full. It must raise
   // the cycle count too -- a second chiller holds twice the bins but it does not
   // run cycles she never planned -- and it must still respect the day.

@@ -2512,9 +2512,9 @@ tr.po-covered td { color: var(--muted); }
 .plan-cost b { font-weight: 700; font-family: var(--serif); }
 .plan-cost-dot { color: var(--muted); }
 
-/* Every cycle of a brick as its own row: the number she types, and the time of
-   day it lands on. One lot of dough per row, so a slow one can be nudged on its
-   own without disturbing the rest of the brick. */
+/* Every batch of a module as its own row: the number she types, and the time of
+   day it lands on. One batch per row, so a single one can be nudged without
+   disturbing the rest of the module. */
 .cyc-list {
   display: flex; flex-direction: column; gap: 1px;
   background: var(--line); border: 1px solid var(--line);
@@ -2530,6 +2530,51 @@ tr.po-covered td { color: var(--muted); }
   flex: 0 0 auto; min-width: 62px; text-align: right;
   font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
 }
+/* A batch's row carries its start time AND the buttons that move it, so it is
+   two lines rather than one: a label, a number and four buttons on a single line
+   would leave the number box too narrow to read on a phone. */
+.cyc-line { display: flex; align-items: center; gap: 9px; width: 100%; }
+.cyc-batch { flex-direction: column; align-items: stretch; gap: 6px; }
+/* The four move buttons, in one row under the number: two minutes either side of
+   it. The minus pair and the plus pair are drawn in their own order (−5 −1 +1 +5)
+   so the biggest move is at each end and the smallest in the middle, where a thumb
+   lands most often. */
+.cyc-steps { display: flex; gap: 6px; }
+.cyc-step {
+  flex: 1 1 0; min-height: 38px;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--brown-soft); color: var(--brown-dark);
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.cyc-step:active { background: var(--brown); color: #fff; }
+/* A cycle's own row: what it is called, then its three numbers. The name gets the
+   full width so a forty-character name is readable, and the numbers sit under it. */
+.cyc-cycle { flex-direction: column; align-items: stretch; gap: 6px; padding: 7px 9px; }
+.cyc-name { flex: 1 1 auto; min-width: 0; }
+.cyc-nums { display: flex; gap: 6px; }
+.cyc-num { flex: 1 1 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cyc-num > span { font-size: 10.5px; color: var(--muted); letter-spacing: .02em; }
+.cyc-num .cyc-in { flex: 1 1 auto; width: 100%; }
+.cyc-del {
+  flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--surface); color: var(--muted);
+  font-size: 15px; cursor: pointer;
+}
+.cyc-del:active { background: var(--brown-soft); color: var(--brown-dark); }
+
+/* Two buttons that move one thing earlier and later, in the card that opens when
+   she taps a batch on the timeline. Big, because a minute at the bench is easier
+   pressed than typed. */
+.step-pair { display: flex; gap: 8px; }
+.step-pair button {
+  flex: 1 1 0; min-height: 44px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--brown-soft); color: var(--brown-dark);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.step-pair button:active { background: var(--brown); color: #fff; }
 
 /* The climb — one rung per module, numbered, so it reads as the order she
    would actually do them in. */
@@ -2576,37 +2621,48 @@ tr.po-covered td { color: var(--muted); }
   background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px));
 }
 .tl-bar { position: absolute; top: 9px; height: 16px; border-radius: 5px; overflow: hidden; }
-.tl-touch { height: 100%; border-radius: 5px 0 0 5px; }
-/* A bar is draggable, so it takes the finger for itself — otherwise a sideways
-   drag would scroll the day instead of moving the brick. Everything that is NOT
-   a bar stays scrollable, which is what the screen tells her. */
-.tl-row .tl-bar { touch-action: none; cursor: grab; }
-.tl-bar.dragging { cursor: grabbing; outline: 2px solid var(--brown); outline-offset: 1px; }
-/* A brick whose cycles overlap: each cycle gets its own lane, so two lots in the
-   brick at once are drawn as two bars rather than one long one. The hairline edge
-   is what keeps two neighbouring lanes reading as two, since a laned bar is too
-   short for its minutes to be printed inside it. */
+/* Her hands, drawn where she really works them: at a cycle's load, at its unload,
+   or at both ends of it — so the fold sits at the END of its rest and the oven
+   swap sits AFTER the bake, because that is where they happen. Absolute, so more
+   than one of them can be on a bar at once. */
+.tl-touch { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+/* A bar is a button now: it opens its batch's own clock. The cursor says so, and
+   a tap is left to the browser so the track still scrolls under a finger. */
+.tl-row .tl-bar { cursor: pointer; }
+/* The cycles inside one batch, as shaded segments of the batch's own bar. Three
+   shades cycling round, so a batch of four reads as four steps — and adjacent
+   cycles never share a shade, so no hairline is needed to tell them apart. A
+   single-cycle batch draws no segments at all, which is her own rule: it shows up
+   as a batch. Under the hands, so a load is never hidden behind a shade. */
+.tl-cycle { position: absolute; top: 0; bottom: 0; }
+.tl-cycle.shade-0 { background: rgba(0, 0, 0, .07); }
+.tl-cycle.shade-1 { background: rgba(0, 0, 0, .16); }
+.tl-cycle.shade-2 { background: rgba(0, 0, 0, .26); }
+/* A module whose batches overlap: each batch gets its own lane, so two batches in
+   the module at once are drawn as two bars rather than one long one. The hairline
+   edge is what keeps two neighbouring lanes reading as two, since a laned bar is
+   too short for its minutes to be printed inside it. */
 .tl-bar.laned { border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .09); }
-/* A bar whose time came from the brick above it. It is not hers to place, so it
-   must not look draggable — a grip that does nothing reads as broken. Hatched
-   and greyed, with the row naming the brick it waits on. */
-.tl-row .tl-bar.locked { cursor: default; touch-action: auto; opacity: .6; }
+/* A bar whose time came from the module above it. It is not hers to place, so it
+   must not look like a button — a grip that does nothing reads as broken. Greyed,
+   with the row naming the module it waits on. */
+.tl-row .tl-bar.locked { cursor: default; opacity: .6; }
 .tl-row .tl-bar.locked .tl-touch { opacity: .8; }
-/* Two of a brick. Marked on the row rather than the bars, because it is one fact
-   about the brick — the day's room doubled — and not a property of any cycle. */
-/* A brick she has more than one of is drawn as its LINES, one under the other: the
-   brick's own row first, then a row per further line. What ties them into one brick
+/* Two of a module. Marked on the row rather than the bars, because it is one fact
+   about the module — the day's room doubled — and not a property of any cycle. */
+/* A module she has more than one of is drawn as its LINES, one under the other: the
+   module's own row first, then a row per further line. What ties them into one module
    is the name column — an accent running down every line of the block, and the
    further lines tinted — because two rows that merely happen to be adjacent would
-   read as two bricks. The tracks are left exactly as they are, gridlines and all. */
+   read as two modules. The tracks are left exactly as they are, gridlines and all. */
 .tl-block { position: relative; }
 .tl-block > .tl-row.tl-line > .tl-name { padding-left: 8px; box-shadow: inset 3px 0 0 var(--brown-soft); }
 .tl-block > .tl-row.tl-line-sub > .tl-name { background: var(--strip); padding-left: 11px; }
-/* The seam between two lines of one brick is dashed, so it reads as a fold inside
-   the brick rather than as the edge between two of them. */
+/* The seam between two lines of one module is dashed, so it reads as a fold inside
+   the module rather than as the edge between two of them. */
 .tl-block > .tl-row.tl-line:not(:last-child) { border-bottom: 1px dashed var(--line); }
 .badge-multi { background: var(--brown-soft); color: var(--brown-dark); font-weight: 600; }
-/* The minutes inside a bar, so a fold brick reads "28" where it is drawn. */
+/* The minutes inside a bar, so a fold module reads "31" where it is drawn. */
 .tl-lab {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-size: 9.5px; font-weight: 700; color: var(--brown-dark); opacity: .75;
@@ -2638,7 +2694,7 @@ tr.po-covered td { color: var(--muted); }
 
 /* The time cursor. A hairline down the whole day with the clock at the top of
    it, so the ruler's 8:00 becomes "8:47 is here" — the reading she needs when
-   she is lining two bricks up. It is below the name column (z-index 2) on
+   she is lining two modules up. It is below the name column (z-index 2) on
    purpose: the name stays legible and the line starts where the day starts.
    It takes no pointer of its own, or it would swallow the drag of any bar it
    crosses. */
@@ -2668,12 +2724,12 @@ tr.po-covered td { color: var(--muted); }
 .tl-ruler .tl-track { touch-action: none; cursor: crosshair; }
 
 /* The bars of a person's row and of the total: one solid colour, because the
-   colour here is not a brick — it is the pair of hands. */
+   colour here is not a module — it is the pair of hands. */
 .tl-bar.total { background: #e3d3bd; }
 .tl-bar.total.many { background: var(--amber); opacity: .85; }
 .tl-bar.total .tl-lab { color: #4a3a28; opacity: 1; }
-/* Two bricks given to one person that overlap in time. Outlined rather than
-   re-coloured, so the brick it belongs to is still readable underneath. */
+/* Two modules given to one person that overlap in time. Outlined rather than
+   re-coloured, so the module it belongs to is still readable underneath. */
 .tl-bar.clash { outline: 2px solid var(--red); outline-offset: 1px; }
 
 /* The collisions, in words, under the diagram. */
@@ -2685,7 +2741,7 @@ tr.po-covered td { color: var(--muted); }
 /* A collision reads as three parts rather than one sentence: who and when, then
    the two jobs on a line each, then what to do. The jobs are indented under a
    bullet so the eye counts them — the whole failure of the old single sentence
-   was that two forty-character brick names ran together and read as one. */
+   was that two forty-character module names ran together and read as one. */
 .tl-note-who { font-weight: 600; }
 .tl-note-job { position: relative; margin: 3px 0 0 11px; }
 .tl-note-job::before { content: "•"; position: absolute; left: -11px; }

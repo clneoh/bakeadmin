@@ -137,8 +137,8 @@ test("select() keeps a menu of plain options flat", () => {
   assert.deepEqual(s.children.map((c) => c.tagName), ["OPTION", "OPTION", "OPTION"]);
 });
 
-// The Scenario planner's brick editor is a card taller than a phone — fifteen
-// boxes, one row per cycle, a box per line — so a repaint while she is working
+// The Scenario planner's module editor is a card taller than a phone — fifteen
+// boxes, a row per cycle, a box per batch — so a repaint while she is working
 // down it must not throw her back to the top. showPopup() rebuilds by emptying
 // the body, and emptying it is exactly what used to reset the scroll.
 test("a pop-up repaint keeps the scroll where she was reading (v141)", () => {

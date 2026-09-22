@@ -1,8 +1,99 @@
-# Jienluv2bake — change history (v54 → v146)
+# Jienluv2bake — change history (v54 → v147)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**22 Sep 2026 — engine v147 (no database step). Module, batch, cycle — the three
+words on the Scenario planner, and the model that moved with them.**
+
+**What you asked.** In your own words: *"let us realign our terms use in the production
+line"* — a module instead of a brick, batches inside a module, and cycles inside a batch,
+with a batch's time moved by buttons instead of a drag. The words and the model under them
+were changed together on purpose: renaming first and building the cycles later would have
+left the word **cycle** meaning two different things while you were learning it.
+
+**The three words, and what each one is.** A **module** is the equipment plus the hands
+tending it — what this app has called a brick until now. A **batch** is one lot: the six
+pans of one oven load, one tub of dough. A module can run several batches in a day, and how
+many is yours to set. A **cycle** is one step of that module's work, and it is the cycle
+that owns the minutes and the labour. Your own sentence settled it: *"batch is not a process
+but cycle is."* So a batch carries no minutes of its own — the time it holds is the sum of
+the cycles inside it. A batch with a single cycle is drawn on the day as one plain bar,
+exactly the way a module has always been drawn.
+
+**Labour now sits at its real end of a cycle: its load, or its unload, or both.** Open a
+module and under **Cycles in one batch** every cycle has a name box, **Minutes**, **Load**
+and **Unload**. Load is your hands at the start of that cycle, unload is your hands at the
+end, and the day draws them where they really happen. A cycle cannot start until the cycle
+above it ends, so a cycle is never offered a start time of its own — its position is set by
+its minutes.
+
+**Two of your eight steps were in the wrong place, and both are corrected.** Your 1-minute
+fold was drawn two rests early; it is now the **unload of each 30-minute rest**, so the
+rests run back to back inside the batch — 30 minutes, fold, 30 minutes, fold, 30 minutes,
+fold, 30 minutes — and the fold lands at the end of the rest, where your hands really are.
+And your **oven swap is a cycle of its own after the 13-minute bake** rather than labour
+before it, so the first swap now reads 8:13 am, thirteen minutes after the pans went in.
+Nothing else about the eight steps moved: the tub is still 4:01 am and the first six pans
+are still at the oven at 8:00 am, the minute the whole day is counted backwards from.
+
+**Moving a batch is buttons now, and the drag is gone.** Tap a batch on the day chart and a
+small card opens with that batch's clock and its own two pairs of buttons: **Five minutes
+at a time** and **One minute at a time**, each with an earlier and a later button, plus the
+batch's own times written out. Five is the step the day is read in and the step the time
+line reads out; one is the nudge for lifting a batch off a collision. This replaced
+dragging a bar completely, and it was your call: a bar being dragged across the day and the
+hairline of the time cursor were fighting over the same finger. Nothing about a press does
+arithmetic of its own — a pressed time and a typed time give the same answer — and when the
+day's own rule puts the batch somewhere else the card says which rule it was. A cycle drawn
+inside a bar is not a separate control: tap it and you get that batch's card, because a
+cycle's start is its batch's start plus the cycles above it.
+
+**A batch that waits on the module above offers no buttons, and says why.** Where a module
+has **Waits for the module above** switched on, a batch's time is not its own — batch 3 of
+that module IS batch 3 of the module above — so there is nothing to step and nothing to
+mislead you. The card says exactly that, in as many words, and names the switch that would
+free the time. The row itself carries a **waits above** tag and the words **waits on** and
+the module it is waiting for, so a chained batch is never silent about why it is where it
+is.
+
+**Batch counts follow the one before, and the day says when one does not.** Editing **How
+many batches it runs in the day** carries down to the modules after it that were running
+the same number, and stops dead where a module has a number of its own — it is never
+quietly overwritten. A standing line under the day then names each module whose batch count
+differs from the one before it, both numbers written out, with a plain sentence that it is
+a note and not a rule: the day runs on the numbers you have put in. On the seeded starting
+line, for instance, it reads **Wash, oil and fill — 6 batches, The fold loop — 4**. Nothing
+is locked by it and nothing is refused.
+
+**The tile that said Cycle time now says Minutes a pan.** Same quantity it always was — the
+minutes one pan takes off the slowest module, with that module named under it — said in the
+words this app already uses elsewhere, because cycle now means a step inside a batch. No
+arithmetic moved with the name.
+
+**A module can have as many lines as the day needs, and lots go to the free one.** **How
+many of these do you have** is that — a mixer, a sink, two ovens. At the even spacing the
+app works out, the lots take their turns down the lines exactly as before; where you have
+moved a start, a lot leaving one module now goes to whichever line is actually free rather
+than the one whose turn it is. No figure on an untouched day changes because of it.
+
+**One baker day was re-derived, and it is an hour later than the last version of it said.**
+Correcting where your fold and your swap really happen costs the day a work slot, so the
+pace one pair of hands can hold is **87 minutes** between batches, not 81: the tubs now go
+in at 4:01, 5:28, 6:55 and 8:22 am, the packing starts at **8:57 am**, the last batch is
+packed at 1:18 pm and the day ends at **1:30 pm**, which is 9 h 29 min. The 81 no longer
+holds, and the reason is checkable rather than a matter of opinion: at 81 the second rest's
+fold lands on minute 82, the very minute the second tub's dough has to be mixed, so the app
+puts a second person on it. It still reads 24 pans a day in 8 modules, one person, and
+3 h 52 min of hands, and nothing collides. Guide section 25 carries the whole story,
+including what the sweep of every other pace found.
+
+**What has not moved.** Your own saved line still reads 24 pans across 9 modules and
+exactly the day you asked for; the seeded starting line still reads 12 pans with the
+chiller as the wall; your sister's still 4 pans in 8 modules. Not one saved module, batch
+time or scenario was altered — the words you read and the way you move a time changed, and
+the days themselves did not.
 
 **22 Sep 2026 — engine v146 (no database step). One baker day — your own bake day
 set on the bricks, with a latest start on every batch.**

@@ -193,7 +193,7 @@ export function unmeasuredSteps(plan) {
 //
 // It replaces the chiller, which used to read trays-over-hours and made a
 // what-if fridge the wall of a day she does not run. The fridge is still hers to
-// plan with — it is a brick in the Scenario planner — but it is not a station of
+// plan with — it is a module in the Scenario planner — but it is not a station of
 // the line she has.
 //
 // The hands are the one shared pool: six jobs, one set of people. Their rate is

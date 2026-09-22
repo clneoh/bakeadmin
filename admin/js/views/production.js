@@ -208,10 +208,10 @@ function clockReadout(raw) {
 
 // ── Starting from a scenario ───────────────────────────────────────────────
 // The two screens ask different questions about the same day, and she asked for
-// the one to feed the other: lay the day out in bricks, then ask the line what
+// the one to feed the other: lay the day out in modules, then ask the line what
 // that day can really deliver.
 //
-// What crosses over is what she typed into the bricks — their minutes and their
+// What crosses over is what she typed into the modules — their minutes and their
 // batches — and never a figure either screen invented. Nothing is written until
 // she has seen the list, and the numbers it does not touch are named rather than
 // quietly left to look as though they had been updated.
@@ -220,7 +220,7 @@ function loadCard(state, plan, onLoad) {
   const kids = [
     el("p", { class: "card-title" }, "Start from a scenario"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Built a day out of bricks under More → Scenario planner? Load it here and this screen answers the same day the other way round — how fast it can go, and which step is holding it back. You will see every number it would change before anything moves."),
+      "Built a day out of modules under More → Scenario planner? Load it here and this screen answers the same day the other way round — how fast it can go, and which step is holding it back. You will see every number it would change before anything moves."),
   ];
 
   if (!list.length) {
@@ -249,7 +249,7 @@ function previewLoad(s, plan, state, onLoad) {
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         scenarioSummary(s),
         p.people > 0
-          ? ` there — and the bricks need ${p.people} ${p.people === 1 ? "pair" : "pairs"} of hands at once.`
+          ? ` there — and the modules need ${p.people} ${p.people === 1 ? "pair" : "pairs"} of hands at once.`
           : " there."),
     ];
 
@@ -257,7 +257,7 @@ function previewLoad(s, plan, state, onLoad) {
       kids.push(el("div", {}, ...p.lines.map(loadLine)));
     } else {
       kids.push(el("p", { class: "card-sub", style: "margin:0" },
-        "This scenario has no brick that is a step on this screen, so there is nothing here to load from it."));
+        "This scenario has no module that is a step on this screen, so there is nothing here to load from it."));
     }
 
     // The steps of the line this scenario simply does not cover.
@@ -265,18 +265,18 @@ function previewLoad(s, plan, state, onLoad) {
       kids.push(el("p", { class: "card-sub", style: "margin:10px 0 0" },
         `Nothing in this scenario feeds ${upper(listWords(p.left.map(lower)))} — ${p.left.length === 1 ? "it stays" : "they stay"} exactly as you typed ${p.left.length === 1 ? "it" : "them"}.`));
     }
-    // Bricks that are real work but not a step of the line.
+    // Modules that are real work but not a step of the line.
     if (p.unmapped.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
         `${listWords(p.unmapped.map(upper))} ${p.unmapped.length === 1 ? "is not a step" : "are not steps"} on this screen, so nothing here comes from ${p.unmapped.length === 1 ? "it" : "them"}.`));
     }
     if (p.doubled.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `Two of your bricks are both ${listWords(p.doubled.map(lower))} — the load takes the first one in your list.`));
+        `Two of your modules are both ${listWords(p.doubled.map(lower))} — the load takes the first one in your list.`));
     }
     if (p.pans > 0) {
       kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `For your own reference: as built, those bricks pass ${p.pans} ${p.pans === 1 ? "pan" : "pans"} a day. This screen counts the day its own way, from your hands, your proofer and your oven.`));
+        `For your own reference: as built, those modules turn out ${p.pans} ${p.pans === 1 ? "pan" : "pans"} a day. This screen counts the day its own way, from your hands, your proofer and your oven.`));
     }
     kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" },
       "How many pans you own and how many hours you will bake for are not in a scenario — those two stay as they are."));
