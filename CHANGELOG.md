@@ -1,8 +1,77 @@
-# Jienluv2bake — change history (v54 → v167)
+# Jienluv2bake — change history (v54 → v168)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v168 (no database step). The extra slider between your two
+chart windows is gone, so each window's own sideways bar is the pan. The modules
+window is taller. The "People at once" row is out of the people's window, and an
+overlap is still shown in red. All inside More → Scenario planner.**
+
+**What you asked, in your own words.** First: "since the both windows have their
+own slider, additional slider is redundent. Remove that" — so the slider that sat
+between the two windows is removed. What you asked for when the two windows were
+built still stands and is untouched: the two windows stay in step, so any minute is
+in the same place on both, whichever one you drag. Then: "can you increase the
+modulle window further?" — the modules window is taller. And: "im thinking of
+remove the people at once?", settled by "you can just show when there is
+overlapping highligt in red box, like previously have" — the row is out, and the
+overlap is still shown in red.
+
+**The extra slider is gone, and the two windows still move as one.** Measured on
+your day at a phone's width, 375 by 812: nothing sits between the two windows any
+more but their own two edges — the chart is the modules' window and the people's
+window, in that order, with nothing in between. Dragging one window's day sideways
+moved the other to the same pixel, and the window under your finger took no write
+back at all, so a drag is never fought by the window that is following it. On the
+two windows being able to reach the same place: they could not quite, and it was
+one pixel. The ruler's last hour sits at the very end of the day, and its line was
+being drawn one pixel past it, which made the modules window 2,461 pixels wide
+against the people's 2,460. Both windows now read 2,460 and both pan to 2,139. That
+last hour's name is also written to the left of its own line now, where a ruler
+with an end on it has always put it, and it reads in full inside the day —
+measured, all 25 of the ruler's names sit inside the day, the last of them ending 3
+pixels short of its end.
+
+**The modules window is taller, and here is exactly what that buys.** It takes the
+larger half of the chart's ceiling now: 64 of the 84 parts where it had 50 of the
+80, and 590 pixels where it had 470. On your phone at 812 tall this changes nothing
+you will see — your day's modules already fitted the window exactly (403 pixels of
+modules in a window that was already wide enough for them), so the taller window is
+room there rather than a difference on your screen. Where it shows is a shorter
+screen: at 667 tall the old window held 333 pixels and made your day scroll, while
+the new one holds 427, so your whole day sits in front of you with nothing to
+scroll. It is also the room the next two module rows will need as you add them.
+
+**The "People at once" row is out of the people's window.** You were right that the
+day already says it without that row. An overlap is still shown in red, in the
+places that were already saying it: the red outline on the colliding bar in the
+people's window, the colliding stretch of that person's own row, the red line in
+their card, and the collisions written out in words under the diagram — "two jobs
+at once", or how many. Nothing about an overlap is hidden by the row going, and it
+is one line to bring back when there is a second pair of hands to weigh up.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. No bar
+changed colour, and every tap still opens exactly what it opened before — a batch
+its Batch card, a cycle its own card, a person's stretch the hand-over card. Your
+stored data was compared before and after: 13,561 characters, byte for byte the
+same, and your three saved days still read 24, 12 and 24 pans.
+
+**Four rules now stand on it, each proved load-bearing rather than assumed.** The
+ones from v167 still hold, with the slider's part of them narrowed to what is left:
+the two windows are adjacent with nothing between them, and a drag on either moves
+the other while the window under the finger takes no write back. Three are new. One
+asserts that the "People at once" row leaves nothing on the chart while a collision
+is still marked in red. One asserts the ruler's last name is drawn inside the day,
+and that the ruler's own track clips, so the two windows cannot disagree by even a
+single pixel. One asserts the modules window holds the larger half of the chart's
+ceiling, 64 of the 84. Every one was proved by putting the fault back and watching
+it fail by name, then restored byte-identically.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
 
 **23 Sep 2026 — engine v167 (no database step). The day chart is now two windows
 sharing one horizontal slider — the process above, the people below, one ruler's
@@ -87,6 +156,11 @@ fault back and watching it fail by name, then restored byte-identically.
 
 **No database step.** Not one stored field is added or changed, so there is
 nothing to run in Supabase.
+
+__Added at v168:__ the single slider shared by the two windows, described above, has
+since been removed — each window now carries only its own sideways bar, and the two
+still move as one. Read the v168 note at the top of this file for what is on the
+screen now.
 
 **23 Sep 2026 — engine v166 (no database step). The ruler's lines are now drawn
 strongly enough to be seen on a phone — including across your batches, your cycles

@@ -2650,10 +2650,15 @@ tr.po-covered td { color: var(--muted); }
    reporting, so the rule becomes NEVER MORE THAN the number rather than ALWAYS
    exactly it: the cap survives, the floor does not.
 
-   The budget is unchanged, and it is the invariant to keep: the two pane caps plus
-   the slider's own height must not add up to more than min(80vh, 760px) — the
-   tallest this chart has ever been drawn, and still short enough to leave the top of
-   her phone free for the day above it. Move one number and another has to move. */
+   The budget, and it is still the invariant to keep: the two pane caps must not add
+   up to more than min(84vh, 780px), and that is the chart's own ceiling. It was
+   min(80vh, 760px) while a shared slider sat between the windows; at v168 she took
+   the slider out — "since the both windows have their own slider, additional slider
+   is redundent. Remove that" — and asked in the same breath for more room for the
+   modules — "can you increase the modulle window further?" — so the ceiling keeps
+   the twenty pixels the slider used to spend, and the split moved the same way: the
+   modules now hold 64vh of the 84 where they held 50vh of the 80, and the people
+   hold 20vh where they held 28vh. Move one number and another has to move. */
 .tl-wrap {
   display: flex; flex-direction: column;
   /* The hour line and the grid step are set ONCE, here, and inherited by both panes
@@ -2670,55 +2675,32 @@ tr.po-covered td { color: var(--muted); }
      NOT a shrinkable item, deliberately: a max-height on a flex container is not a
      definite main size, so an item shrinking against one is the part of flexbox
      browsers do not agree on — and the day that went wrong the panes would spill out
-     of the card on her phone and not on mine. */
+     of the card on her phone and not on mine.
+
+     The horizontal overflow is kept on purpose: it is what pins each pane's name
+     column, so a pane without it slides its names off the left edge with the day. And
+     each pane's own horizontal scrollbar is the pan. v167 hid both bars so that a
+     shared slider between the windows would be the only one on the screen, and hid
+     them with ::-webkit-scrollbar — which only WebKit and Blink honour, so on any
+     other engine she saw all three bars and said so: "since the both windows have
+     their own slider, additional slider is redundent. Remove that". The slider is
+     gone and the bars are back, which is the arrangement this chart had before that
+     release. */
   flex: 0 0 auto;
 }
-/* The modules window: the clock strip and the day's modules. 50vh + 28vh, and
-   470px + 270px, are what the old single panel was allowed — 78vh and 740px of it,
-   leaving the slider's own 20px inside the same budget. */
-.tl-pane-proc { max-height: min(50vh, 470px); }
+/* The modules window: the clock strip and the day's modules. 64vh + 20vh, and
+   590px + 190px, are the whole of the chart's ceiling — 84vh and 780px — with
+   nothing between the two windows now. The modules hold the lion's share of it,
+   which is where her work is: 64vh of the 84. */
+.tl-pane-proc { max-height: min(64vh, 590px); }
 .tl-pane-people {
-  max-height: min(28vh, 270px);
+  max-height: min(20vh, 190px);
   /* The seam between the two windows, and it belongs to the PANE rather than to the
      .tl-people block inside it: a border or a shadow on the block would scroll away
      under the pane's own top edge, which is the opposite of what a seam is for. */
   border-top: 1px solid var(--line);
   box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
 }
-/* The one horizontal control, between the two windows. A native range rather than
-   a home-made thumb: it is touch-native, it takes a keyboard for free, and it needs
-   no hit-target arithmetic on a phone. The panes' own horizontal scrollbars are
-   hidden below, so this is the only one on the screen. */
-.tl-slider {
-  flex: 0 0 auto;
-  display: block; width: 100%; height: 20px; margin: 0;
-  appearance: none; -webkit-appearance: none;
-  background: transparent;
-  touch-action: none;
-}
-.tl-slider::-webkit-slider-runnable-track {
-  height: 4px; border-radius: 2px; background: var(--line);
-}
-.tl-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 34px; height: 20px; margin-top: -8px;
-  border-radius: 6px; border: 0;
-  background: var(--brown);
-}
-/* A day that fits its window has nothing to pan, so the slider is switched off
-   rather than left draggable and doing nothing — her own rule, from the two rows
-   that used to look alike and behave differently: "a tap that does nothing must
-   explain itself or look inert". It is spent, and it says so. */
-.tl-slider:disabled { opacity: .45; }
-.tl-slider:disabled::-webkit-slider-thumb { background: var(--muted); }
-/* The panes keep their horizontal overflow — that is what pins the name column —
-   but the shared slider is the only horizontal scrollbar she is meant to see, so
-   theirs are hidden. Only the horizontal one: the vertical scrollbar is how she
-   knows there are more modules below the fold. Firefox has no per-axis control
-   (scrollbar-width is both axes or neither), so it keeps both; every engine she
-   reads this app on — Safari, and Chrome on the desktop — honours these. */
-.tl::-webkit-scrollbar:horizontal { height: 0; }
-.tl::-webkit-scrollbar-corner { background: transparent; }
 /* Positioned, so the time cursor can be a hairline down the whole day rather
    than a line per row: one element inside the day, not one per track. */
 .tl-inner { display: inline-block; min-width: 100%; position: relative; }
@@ -2956,7 +2938,21 @@ tr.po-covered td { color: var(--muted); }
    --tick-w is the same 30 minutes as its step, so the two would sit on top of each
    other saying one thing twice. The grid carried down the day starts below the
    ruler, which is where it is read. */
-.tl-ruler .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); }
+.tl-ruler .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); overflow: hidden; }
+/* Why the ruler's own track clips, and only the ruler's. An hour tick is a 1px border
+   on the LEFT edge of a box placed at that hour, so a tick standing exactly on the end
+   of the day draws its line in the pixel AFTER the day — outside the track. Measured on
+   her day at a phone's width that made the modules window's scroll range 2461 pixels
+   against the people's 2460, one pixel of travel the second window does not have. The
+   two windows hold the same day and must be able to reach the same end, or a minute can
+   sit at two different places on one screen, so the overflow is clipped: the day's
+   ruling is the day, 156px of name column plus its own width and nothing past it. No
+   label is lost by it — the last hour's name is set to the left of its line (see
+   .tl-tick.last) and every other tick's name starts inside the day. Scoped to the
+   ruler's track, which carries no bars and nothing that is meant to hang over an edge;
+   the module rows' tracks are untouched, and .tl-ruler itself must never be clipped,
+   because its name cell is the sticky one. */
+
 /* The people rows, in the second window and pinned to nothing. Her own ask of
    22 September was "I want to freeze the persons card, so that by scrolling thru
    modules i can see exactly where that slot of that person tie up to", and a window
@@ -3000,6 +2996,15 @@ tr.po-covered td { color: var(--muted); }
   padding-left: 4px;
 }
 .tl-tick span { font-size: 10.5px; color: var(--muted); line-height: 34px; white-space: nowrap; }
+/* The last hour of the day, which has no day to its right to write its name in, so
+   the name is set on the other side of its own line — where a ruler with an end on it
+   has always put it. It is not a nicety: the name hanging off the end of the day made
+   the modules window 47 pixels wider than the people's window, and two windows that
+   can pan to different places are two windows that can disagree about where a minute
+   is, which is the one thing the ruler exists to settle. The line itself does not
+   move; only the name changes side. */
+.tl-tick.last { padding-left: 0; }
+.tl-tick.last > span { position: absolute; right: 100%; margin-right: 4px; top: 0; }
 /* The half hour between the hours: enough to judge a 15-minute pass by, not
    enough to clutter a day. */
 .tl-tick.minor { border-left: 1px dashed var(--line); opacity: .7; }

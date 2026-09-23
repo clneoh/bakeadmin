@@ -880,25 +880,24 @@ function timeline(r, sc, on, state, run) {
       // chart that is happening rather than planned.
       now));
   // The people are the answer to her question, so they are drawn as what they are:
-  // a row each, carrying the modules that row attends — and under them the whole
-  // lot stacked, which is the manpower at each minute. See .tl-people for why the
+  // a row each, carrying the modules that row attends. See .tl-people for why the
   // block is opaque.
+  //
+  // The stacked "People at once" row is NOT here, and that is her own call of 23
+  // September: "im thinking of remove the people at once?", settled by "you can just
+  // show when there is overlapping highligt in red box, like previously have". She is
+  // right that the day already says it three times without that row: the red outline
+  // on a colliding bar, the colliding stretch of a person's own row (the same
+  // outline), the red line in their tip, and the collisions written out under the
+  // diagram by clashNotes. It was a second copy of one person's own row until she
+  // hires, and it comes back in one line when there is a second pair of hands to
+  // weigh up. Nothing stored changed, and no collision is hidden by its going.
   const people = el("div", { class: "tl tl-pane-people" },
     el("div", { class: "tl-inner" },
       el("div", { class: "tl-people" },
-        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
-        totalRow(r, trackW)),
+        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state))),
       cursor2,
       now2));
-  // The one horizontal control, and it sits between the two windows rather than
-  // under either of them — her own ask: "can the 2 window share the horizontal
-  // slider, place between the 2 windows, make the 2 windows as close as possible".
-  // A range rather than a hand-made thumb: touch-native, keyboard-operable, and it
-  // needs no hit arithmetic on a phone. wirePaneScroll owns its max and its value.
-  const slider = el("input", {
-    type: "range", class: "tl-slider", min: "0", step: "1", value: "0",
-    "aria-label": "Scroll the day sideways",
-  });
   // --hour-w is the hour line every track has always drawn. --tick-w is the grid
   // v160 carries down under it, set from the same scale so the two stay in step —
   // see gridStepFor for why it is a coarser step than the ruler's at the two
@@ -908,10 +907,16 @@ function timeline(r, sc, on, state, run) {
   // copies could drift apart and nothing on the screen would say so, and the whole
   // point of the grid is that the lines and the ruler cannot disagree about where a
   // minute is.
+  //
+  // The two windows are stacked with nothing at all between them, and each one's own
+  // horizontal scrollbar is the pan. v167 put a shared slider here as well; she took
+  // it back out — "since the both windows have their own slider, additional slider is
+  // redundent. Remove that" — and the half of that release she wanted, the two
+  // windows staying in step, is what wirePaneScroll still does.
   const wrap = el("div", {
     class: "tl-wrap",
     style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
-  }, proc, slider, people);
+  }, proc, people);
   // The header, kept so the now-line can be placed against it. ONE origin: both
   // windows put their ruler's track at the same offset, because the name column is
   // 156px wide in both and box-sizing is border-box throughout, so the same left is
@@ -921,7 +926,7 @@ function timeline(r, sc, on, state, run) {
   run.pxPerMin = r.pxPerMin;
   if (run.on) placeNow(run);
   wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
-  wirePaneScroll(proc, people, slider);
+  wirePaneScroll(proc, people);
   return wrap;
 }
 
@@ -1203,110 +1208,50 @@ function wireTimeCursor(tl, r, cursor, lab, clock, mirror) {
   });
 }
 
-// The two windows pan as one. Her own ask: "can the 2 window share the horizontal
-// slider, place between the 2 windows". The slider is that shared control; the two
-// windows keep their own horizontal overflow, which is what pins their name columns
-// — give a pane no horizontal overflow and its names slide off the left edge with
-// the day — so the three have to be kept in step rather than being the same
+// The two windows pan as one. Each keeps its own horizontal overflow — that is what
+// pins its name column, and a pane with no horizontal overflow slides its names off
+// the left edge with the day — so the two are kept in step rather than being one
 // scrollport.
 //
-// Two rules, and both are load-bearing:
-//
-// A DEADBAND, not a lock. Assigning scrollLeft does not fire a scroll event
-// synchronously in Chrome or WebKit; it is queued to the next rendering
-// opportunity. So a flag set before the write and cleared after it is already
-// clear by the time the echo arrives, the echo is not suppressed, and it writes
-// back to the window her finger is on — which is the documented way to kill
-// momentum scrolling on iOS, and the pan under her thumb stops dead. A tolerance
-// of one pixel drops the echo of our own write and can never oscillate on a
-// fractional scrollLeft. The writer is coalesced to one per frame for the same
-// reason: one forced layout a frame on a phone under momentum, not one per event.
+// v167 shared one horizontal slider between them. She took it back out, 23 September:
+// "since the both windows have their own slider, additional slider is redundent.
+// Remove that" — so each window's own scrollbar is the pan, and what is left to do
+// here is the half of that release she did want: "let the ruler sync in the 2
+// windows". Kept in step by a DEADBAND, not a lock. Assigning scrollLeft does not
+// fire a scroll event synchronously in Chrome or WebKit; it is queued to the next
+// rendering opportunity. So a flag set before the write and cleared after it is
+// already clear by the time the echo arrives, the echo is not suppressed, and it
+// writes back to the window her finger is on — which is the documented way to kill
+// momentum scrolling on iOS, and the pan under her thumb stops dead. A tolerance of
+// one pixel drops the echo of our own write and can never oscillate on a fractional
+// scrollLeft. The writer is coalesced to one per frame for the same reason: one
+// forced layout a frame on a phone under momentum, not one per event.
 //
 // scrollLeft ONLY. The two windows' vertical positions are independent on purpose
 // (that is the whole point of splitting them, so growing people cannot squeeze the
 // processes), and a handler that mirrored both would still pass every horizontal
 // check anyone would think to write.
-function wirePaneScroll(a, b, slider) {
+//
+// Neither window is clamped to the other's travel, and it does not need to be: both
+// hold the same day, so both can pan to the same place. What used to make them
+// differ is gone — see .tl-tick.last, where the last hour of the ruler stopped
+// hanging its name off the end of the day and making the modules window 47 pixels
+// wider than the people's.
+function wirePaneScroll(a, b) {
   const panes = [a, b];
   const after = (fn) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(fn) : setTimeout(fn, 0));
-  // How far the day can be panned. Both windows hold the same day, so the smaller
-  // of the two is the honest maximum — a stale or larger max would let the slider
-  // ask for a position one window cannot reach.
-  const scrollMax = () => {
-    let max = Infinity;
-    for (const p of panes) {
-      const w = Number(p.scrollWidth) || 0;
-      const c = Number(p.clientWidth) || 0;
-      max = Math.min(max, Math.max(0, w - c));
-    }
-    return Number.isFinite(max) ? Math.round(max) : 0;
-  };
-  // A pointer held on the slider: its own value is not written back while she is
-  // dragging it, or the write fights her thumb.
-  let held = false;
   let queued = 0;
-  const drawSlider = () => {
-    const max = scrollMax();
-    slider.max = String(max);
-    // A day that fits its window has nothing to pan. It goes inert and says so,
-    // rather than sitting there draggable and doing nothing.
-    slider.disabled = max <= 0;
-    if (!held) slider.value = String(Math.min(max, Math.max(0, Number(a.scrollLeft) || 0)));
-  };
   const follow = (from) => {
     if (queued) return;
     queued = after(() => {
       queued = 0;
-      const max = scrollMax();
-      const x = Math.min(max, Math.max(0, Number(from.scrollLeft) || 0));
+      const x = Math.max(0, Number(from.scrollLeft) || 0);
       for (const other of panes) {
         if (other !== from && Math.abs((Number(other.scrollLeft) || 0) - x) > 1) other.scrollLeft = x;
       }
-      drawSlider();
     });
   };
   for (const p of panes) p.addEventListener("scroll", () => follow(p));
-  slider.addEventListener("pointerdown", () => { held = true; });
-  const release = () => { held = false; drawSlider(); };
-  slider.addEventListener("pointerup", release);
-  slider.addEventListener("pointercancel", release);
-  // The slider drives both. The panes' own scroll events will follow and find
-  // nothing left to do, because both are already where it sent them.
-  slider.addEventListener("input", () => {
-    const max = scrollMax();
-    const x = Math.min(max, Math.max(0, Number(slider.value) || 0));
-    for (const p of panes) {
-      if (Math.abs((Number(p.scrollLeft) || 0) - x) > 1) p.scrollLeft = x;
-    }
-  });
-  // The day's width is set by the scale and the window's by the viewport, so both
-  // can change without the chart being rebuilt — a phone turned on its side, or the
-  // scale stepped. Observed rather than hooked to the window, so the observer dies
-  // with the chart instead of accumulating a listener per repaint, and skipped
-  // where it does not exist.
-  if (typeof ResizeObserver === "function") {
-    const ro = new ResizeObserver(() => drawSlider());
-    ro.observe(a);
-    ro.observe(b);
-  }
-  // The slider is drawn twice, and both draws are load-bearing.
-  //
-  // The first, here, is so the control never exists in a state that is a lie: a
-  // slider built with no max is draggable and does nothing, which reads to her as a
-  // bug, so it is settled the moment it exists.
-  //
-  // The second is the one that measures anything. A chart is built DETACHED and
-  // appended by the caller after this function has returned, and a detached node has
-  // no scrollWidth at all — so the honest reading of the day cannot be taken yet. It
-  // is taken in a microtask rather than on a frame on purpose: a microtask runs as
-  // soon as the caller's own task ends, which is after the append, and it is
-  // delivered even in a tab that is not being drawn — where a frame never comes at
-  // all, and the ResizeObserver below stays silent with it. Measured live in such a
-  // tab: with the draw on a frame the slider sat at max 0 and disabled on a day whose
-  // own window was 321 pixels wide holding 2,507 pixels of day; on the microtask the
-  // same day reads its true 2,139 pixels of travel with no frame ever running.
-  drawSlider();
-  queueMicrotask(drawSlider);
 }
 
 // How many minutes the ruler steps by at the scale the day is drawn at. Nearest
@@ -1333,12 +1278,26 @@ function gridStepFor(pxPerMin) {
 
 function rulerRow(r, trackW) {
   const step = tickStepFor(r.pxPerMin || PX_PER_MIN_CHOICES[1]);
+  // The last hour the day reaches, and the room a name needs beside its own line: a
+  // label is about 45 pixels of 10.5px type set 5 pixels to the right of its tick.
+  // Only the last hour can be short of that room.
+  const lastHour = Math.floor(r.windowMin / 60) * 60;
+  const LABEL_ROOM = 50;
   const ticks = [];
   for (let t = 0; t <= r.windowMin; t += step) {
     const x = Math.round(t * r.pxPerMin);
     if (t % 60 === 0) {
-      // On the hour: solid, and it says the time.
-      ticks.push(el("div", { class: "tl-tick", style: `left:${x}px` },
+      // On the hour: solid, and it says the time. The last one writes its name on the
+      // other side of its own line when there is no longer a day to its right to
+      // write it in — see .tl-tick.last for why that is not a detail: a name hanging
+      // off the end of the day made the modules window 47 pixels wider than the
+      // people's, and two windows that can pan to different places are two windows
+      // that can disagree about where a minute is. Not the tick at zero: with less
+      // than an hour of day there is one name and it sits on the day's own start.
+      ticks.push(el("div", {
+        class: t === lastHour && t > 0 && trackW - x < LABEL_ROOM ? "tl-tick last" : "tl-tick",
+        style: `left:${x}px`,
+      },
         el("span", {}, clockAt(r.dayStartMin, t))));
     } else if (t % 30 === 0) {
       // The half hour: the dashed tick that has always been here, and still the
@@ -2766,59 +2725,6 @@ function doCombine(sc, into, from, on, state) {
   on.refresh();
   const members = (next.merges[String(into.person)] || []);
   toast(`${personName(into.person, namesOf(state))}${members.length ? ` +${members.join("+")}` : ""} — the collisions are what they cannot cover`);
-}
-
-// The total person she asked for: person 1, person 2, person 3 and the rest
-// stacked on top of each other, so a doubled stretch is a shape she can see
-// rather than a number she has to trust. It is also where the day is won: bring
-// the modules closer together and the tall part of this row comes down.
-function totalRow(r, trackW) {
-  const bars = r.demand.segments.map((s) => {
-    const w = Math.max(3, Math.round((s.to - s.from) * r.pxPerMin));
-    return el("div", {
-      class: `tl-bar total${s.count > 1 ? " many" : ""}`,
-      style: `left:${Math.round(s.from * r.pxPerMin)}px;width:${w}px`,
-      title: `${clockAt(r.dayStartMin, s.from)} → ${clockAt(r.dayStartMin, s.to)}: ${s.count} ${s.count === 1 ? "person" : "people"}`,
-    }, s.count > 1 && w >= 16 ? el("span", { class: "tl-lab" }, String(s.count)) : null);
-  });
-
-  // The busiest stretch, named — the "which time period uses more manpower" half
-  // of her question. Taken from the peak of the same sweep the bars are drawn
-  // from, so the words and the shape can never disagree.
-  const busiest = r.demand.segments.find((s) => s.count === r.demand.peak);
-
-  // Three facts that are printed nowhere else in the app — how many people the
-  // day's busiest minute asks for, when that minute is, and how much of the day is
-  // paid for twice — now in a tip on the row's own title, which is where every
-  // other row of the chart keeps what it has to say. The row itself is one line,
-  // the same height as every other row, so the foot of the panel holds still.
-  //
-  // Told rather than hidden: a tip opens where there is a pointer that can hover,
-  // and this row has no tap handler, so on a phone these three facts are reachable
-  // by no gesture at all. That is her own choice, made with the consequence in
-  // front of her; giving the row a card is one line of code when she wants it.
-  // This row's card is placed by the same function a person's card is, so the two
-  // cannot behave differently: on the screen this row sits in the same scrolling
-  // window as the people above it, and a card left at its static position inside
-  // that window is cut by the window's own edge exactly as a person's was.
-  const tip = el("div", { class: "tl-tip tl-tip-person" },
-    el("div", { class: "tl-sub" },
-      r.people === 1 ? "one at a time" : `up to ${r.people} at once`),
-    busiest && r.people > 1
-      ? el("div", { class: "tl-sub" }, `busiest ${clockAt(r.dayStartMin, busiest.from)}–${clockAt(r.dayStartMin, busiest.to)}`)
-      : null,
-    r.demand.overlapMin > 0
-      ? el("div", { class: "tl-sub bad" }, `${hoursAndMinutes(r.demand.overlapMin)} with two at a time`)
-      : null);
-  const nameCell = el("div", { class: "tl-name" },
-    el("div", { class: "tl-name-top" },
-      el("span", { class: "tl-name-txt" }, "👥 People at once")),
-    tip);
-  wirePersonTip(nameCell, tip);
-
-  return el("div", { class: "tl-row person total-row" },
-    nameCell,
-    el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
 }
 
 // The collisions in words, under the diagram, because a red outline on a narrow
