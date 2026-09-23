@@ -2757,12 +2757,24 @@ tr.po-covered td { color: var(--muted); }
    "i requested a ruler to draw into person's line time slot", and, asked how,
    "just like the ruler draw over the batches and cycles". So there is now ONE
    ruling and it is drawn over everything, and the whole day reads as one ruled
-   sheet. pointer-events: none keeps every tap on a bar exactly as it was. */
+   sheet. pointer-events: none keeps every tap on a bar exactly as it was.
+
+   Since v166 the lines are drawn in a strength that survives a phone. v165 drew
+   them over the bars but far too faintly to be seen there: the tick line was
+   18% of --muted, which over a person's slot (#cfe0f5) composites to rgb(197,208,
+   221) against the slot's own rgb(207,224,245) — a 1-pixel line that differs by
+   ten parts in 255. Drawn, and invisible, which is the same as not there: she
+   read it back as "you still fail to reveal the ruler at person's time slot".
+   Both lines are now measured against the bar they cross rather than against the
+   cream paper, in one colour family at two weights — the hour line at .34, the
+   grid at .20 — so a line is legible on the paper and on a pastel bar alike. The
+   colour is written as a plain rgba and not color-mix, so no phone's browser
+   version can fail to parse the gradient and drop the whole ruling with it. */
 .tl-track::after {
   content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background-image:
-    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)),
-    repeating-linear-gradient(to right, color-mix(in srgb, var(--muted) 18%, transparent) 0 1px, transparent 1px var(--tick-w, 96px));
+    repeating-linear-gradient(to right, rgba(122, 96, 74, .34) 0 1px, transparent 1px var(--hour-w, 96px)),
+    repeating-linear-gradient(to right, rgba(122, 96, 74, .20) 0 1px, transparent 1px var(--tick-w, 96px));
 }
 /* The ruler's own track keeps the hour line alone. Its tick elements already draw
    the reading she takes, and a second ruling over them would be a second opinion
@@ -2973,8 +2985,13 @@ tr.po-covered td { color: var(--muted); }
    because the bar is 16px tall and clips — a tag inside it would be cut in half.
    It carries the same data-k the bar does, so it is a handle as much as a label:
    tapping B3 opens batch 3's own clock. */
+/* Lifted above the ruling, like the person's name below. The ruling is drawn over
+   the bars she reads, and a label is the one thing on a bar that a line must never
+   cross: a B-number with a gridline through it is a number she has to guess at.
+   A bar has no z-index of its own, so a positive one here still resolves against
+   the track — above the ruling, and below nothing that matters. */
 .tl-btag {
-  position: absolute; top: 0;
+  position: absolute; top: 0; z-index: 3;
   height: 11px; line-height: 11px;
   padding: 0 4px; border-radius: 4px;
   background: var(--strip); color: var(--muted);
@@ -3002,7 +3019,7 @@ tr.po-covered td { color: var(--muted); }
 /* The person's name, on their own stretch, where the stretch is wide enough to
    hold it. A narrow one keeps its tooltip and stays clean. */
 .tl-pname {
-  position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
+  position: absolute; z-index: 3; left: 4px; top: 50%; transform: translateY(-50%);
   font-size: 9.5px; font-weight: 600; color: #4a3a28;
   white-space: nowrap; overflow: hidden; pointer-events: none;
 }

@@ -1,8 +1,53 @@
-# Jienluv2bake — change history (v54 → v165)
+# Jienluv2bake — change history (v54 → v166)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v166 (no database step). The ruler's lines are now drawn
+strongly enough to be seen on a phone — including across your batches, your cycles
+and your people's occupied slots.**
+
+**What you reported.** In your words: "At ver165, you still fail to reveal the
+ruler at person's time slot". You were right, and this release is that same
+fault finished rather than a new idea.
+
+**What v165 got right, and what it got wrong.** v165 did draw the ruler over the
+bars — that part worked, and it is untouched. What it got wrong was the strength
+of the ink. The grid line was drawn at about one part in six of full strength, and
+over one of your slots it came out as a colour that differs from the slot by about
+ten parts in 255 — a hairline the eye cannot find on a phone in normal light. So
+the ruler was drawn, and it was invisible, which on a screen is the same as not
+being there. That is why you came back with the same words a second time.
+
+**What changed, and it is only the ink.** Both lines are drawn in a strength
+measured against the bar they cross rather than against the cream paper between
+the bars — the hour line at about a third of full strength and the finer grid at
+about a fifth. The lines themselves are in the same places as before, at the same
+intervals for the scale you are reading at, and the ruler at the top of the chart
+still draws none of them over its own ticks. Nothing moved; the day simply reads
+as one ruled sheet now, so the edge of a marker has a line beside it wherever you
+look.
+
+**And a line never crosses a label.** Your B-numbers on the bars, and the name of
+the person on a stretch of their day, are now laid over the ruling rather than
+under it. A gridline drawn through a B2 is a number you have to guess at, and the
+whole point of the ruling is to make the day easier to read, not harder.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. No bar
+changed colour, and every tap is untouched — the ruling takes no taps at all. Your
+stored numbers were compared before and after and are byte for byte the same, and
+your three saved days still read 24, 12 and 24 pans.
+
+**About the height of the planner window, which you also raised.** That is not in
+this release. You are right that it is a real thing, and what you proposed — two
+windows, one for the process and one for the people, sharing one ruler — is the
+honest fix rather than another tweak. It is written up as its own piece of work,
+so it is decided on its own rather than half-done here.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
 
 **23 Sep 2026 — engine v165 (no database step). The ruler's lines are now drawn
 over your batches, your cycles and your people's occupied slots. Before this the

@@ -1828,6 +1828,64 @@ test("the ruler's lines are drawn over the bars, not stopped by them (v165)", ()
     "a bar now has a z-index of its own, so the ruling may no longer be over it");
 });
 
+// ── The ruling in a strength she can see (v166) ──────────────────────────
+// v165 drew the ruling over the bars and she came straight back with "you still
+// fail to reveal the ruler at person's time slot". She was right, and the fault
+// was the strength, not the mechanism: at 18% of --muted the tick line composites
+// to rgb(197,208,221) over a person's slot, which is rgb(207,224,245) — ten parts
+// in 255 on a one-pixel line. Drawn, and invisible, which reads as absent.
+//
+// So this test measures each line against the BAR it crosses, not against the
+// cream paper it was designed on. It composites the ruling's own alpha over the
+// palest bar colour in the chart and asserts the line still stands out from it.
+test("the ruling is drawn strongly enough to be seen on a bar (v166)", () => {
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g)
+    .filter((r) => /repeating-linear-gradient/.test(r));
+  assert.equal(ruling.length, 1, `expected one ruling rule, found ${ruling.length}`);
+
+  // Every gradient layer must state its own colour AND its alpha. A bare colour,
+  // or a color-mix, is what made the last one unmeasurable — and color-mix is also
+  // the one form an older phone browser can fail to parse, which would drop the
+  // whole background-image and take the ruling with it.
+  const layers = [...ruling[0].matchAll(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/g)]
+    .map((m) => Number(m[1]));
+  assert.equal(layers.length, 2,
+    `expected both ruling layers in a plain rgba colour, found ${layers.length}`);
+  assert.ok(!/color-mix/.test(ruling[0]),
+    "the ruling is written with color-mix, which an older phone browser can drop");
+
+  // The bar colours the ruling has to be read against. #cfe0f5 is the palest of
+  // the eight person tones and the one measured live; the module bars are darker.
+  const PALE_BAR = [207, 224, 245];
+  const INK = [122, 96, 74];
+  const over = (bg, a) => INK.map((c, i) => a * c + (1 - a) * bg[i]);
+  const delta = (a, b) => Math.max(...a.map((c, i) => Math.abs(c - b[i])));
+  for (const a of layers) {
+    const d = delta(over(PALE_BAR, a), PALE_BAR);
+    assert.ok(d >= 20,
+      `a ruling line at alpha ${a} differs from a person's slot by only ${d.toFixed(1)} parts in 255, which is invisible on a phone — the v165 fault`);
+  }
+
+  // The hour line still leads the grid: it is the line a marker is traced up to
+  // the clock with, so it must not be the fainter of the two.
+  assert.ok(Math.max(...layers) > Math.min(...layers),
+    "the hour line and the grid are the same strength, so neither leads the eye");
+
+  // And no line may cross a label. The badges and the person's own name are lifted
+  // above the ruling, because a bar has no z-index of its own — so a positive one
+  // here still resolves against the track and puts the label over the line.
+  for (const sel of [".tl-btag", ".tl-pname"]) {
+    const rule = rules(new RegExp(`\\${sel}\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(rule.length, 1, `expected one rule for ${sel}, found ${rule.length}`);
+    const z = rule[0].match(/z-index:\s*(-?\d+)/);
+    assert.ok(z, `${sel} has no z-index, so a gridline is drawn through the label`);
+    assert.ok(Number(z[1]) >= 3,
+      `${sel} sits at z-index ${z[1]}, which does not put it over the ruling`);
+  }
+});
+
 // ── The clock, drawn once (v162 reverted) ────────────────────────────────
 // v162 drew the clock a second time directly above the people's rows, at her own
 // ask — "yes, draw the clock above the people's rows". Read on the screen, she did
