@@ -1723,11 +1723,15 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
 
   // The ruler's own track keeps the hour line alone. Its tick elements already draw
   // on top of it, so a finer layer under them would put lines between the ticks the
-  // clock is read off.
-  const rulerRules = rules(/\.tl-ruler \.tl-track\s*\{[^}]*\}/g);
+  // clock is read off. Since v162 there are two rulers and the rule names both, so
+  // the same property is asked of the clock above the people's rows: it is the same
+  // clock and it is read the same way.
+  const rulerRules = rules(/\.tl-ruler \.tl-track[^{]*\{[^}]*\}/g);
   assert.ok(rulerRules.length, "the ruler's own track is not told apart from the rows under it");
   assert.ok(rulerRules.every((r) => !/--tick-w/.test(r)),
     "the ruler's track carries the grid under its own ticks");
+  assert.ok(rulerRules.every((r) => /\.tl-ruler-foot \.tl-track/.test(r)),
+    "the clock at the foot is not given the header's track rule, so the two clocks can be styled apart");
 
   // And a module switched off keeps both layers rather than dropping the only thing
   // its own dimmed bars are read against.
@@ -1760,6 +1764,101 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
     assert.equal(c.gridMin % c.step, 0,
       `at ${c.name} a grid line every ${c.gridMin} min is not on the ruler's ${c.step} min ticks`);
   }
+});
+
+// ── The clock drawn again above the people's rows (v162) ──────────────────
+// Her ask of 23 September: "why cant you draw the ruler into person's lines?"
+// Shown that the ruler's LINES already reach her people's rows — that is the v160
+// grid above — and that the clock itself was the thing left at the top, she said:
+// "yes, draw the clock above the people's rows".
+//
+// So the clock is drawn twice: the header, pinned at the top of the panel as it
+// has always been, and a second one standing directly above the people's rows
+// inside the block that is already pinned to the foot. Both come from ONE builder,
+// which is what makes them the same clock rather than two clocks that happen to
+// agree today — and both take the drag, because a strip wearing the ruler's face
+// that will not measure like it is a strip that lies about what it is showing.
+test("the clock is drawn again directly above the people's rows (v162)", () => {
+  const { root } = render();
+  const header = walk(root).find((n) => hasClass(n, "tl-ruler"));
+  const foot = walk(root).find((n) => hasClass(n, "tl-ruler-foot"));
+  assert.ok(header, "the clock has gone from the top of the chart");
+  assert.ok(foot, "the clock asked for above the people's rows is not drawn");
+
+  // It is inside the held block — the one already pinned to the foot, so the day
+  // scrolls behind it — and it stands ABOVE the people rather than under them.
+  const people = walk(root).find((n) => hasClass(n, "tl-people"));
+  const inside = walk(people);
+  assert.ok(inside.includes(foot),
+    "the second clock is outside the block pinned to the foot, so the day would scroll it away");
+  assert.ok(!inside.includes(header), "the header has been moved into the foot block");
+  const firstPerson = inside.find((n) => hasClass(n, "tl-row") && hasClass(n, "person"));
+  assert.ok(firstPerson, "no person's row for the second clock to stand above");
+  assert.ok(inside.indexOf(foot) < inside.indexOf(firstPerson),
+    "the second clock is drawn below the people rather than above them");
+
+  // One builder, so one set of minutes at every zoom: the same ticks, on the same
+  // pixels, read out as the same times. This is the whole promise of the second
+  // clock — it is the ruler, and not a picture of one. Asked at all four stops
+  // rather than the one she happens to be reading at, because the step follows the
+  // scale and a second clock that agreed only at Standard would be four clocks.
+  const trackOf = (row) => walk(row).find((n) => hasClass(n, "tl-track"));
+  const ticksOf = (row) => walk(row).filter((n) => hasClass(n, "tl-tick"));
+  const labelsOf = (row) => ticksOf(row)
+    .filter((n) => walk(n).some((x) => x.tagName === "SPAN"))
+    .map((n) => textOf(n).replace(/\s+/g, " ").trim());
+  for (const scale of [1.2, 1.6, 2.4, 3.2]) {
+    const chart = render({ pxPerMin: scale });
+    const h = walk(chart.root).find((n) => hasClass(n, "tl-ruler"));
+    const f = walk(chart.root).find((n) => hasClass(n, "tl-ruler-foot"));
+    assert.ok(h && f, `only one clock is drawn at ${scale} pixels to a minute`);
+    assert.ok(ticksOf(h).length, `the header draws no ticks at all at ${scale}`);
+    assert.equal(ticksOf(f).length, ticksOf(h).length,
+      `at ${scale} the two clocks are drawn on different minutes`);
+    assert.deepEqual(ticksOf(f).map((n) => px(n, "left")), ticksOf(h).map((n) => px(n, "left")),
+      `at ${scale} the second clock's ticks do not land on the header's`);
+    assert.deepEqual(labelsOf(f), labelsOf(h), `at ${scale} the two clocks read out different times`);
+    assert.equal(px(trackOf(f), "width"), px(trackOf(h), "width"),
+      `at ${scale} the second clock is a different width from the header's, so its ticks cannot line up with the day's`);
+  }
+
+  // And it is the FOOT clock, not a second copy of the header. The header's class
+  // carries `position: sticky; top: 0`, which on a row inside the pinned foot
+  // block would fling the clock up over the day it is there to be read against.
+  assert.ok(!hasClass(foot, "tl-ruler"),
+    "the second clock wears the header's class, so it would take the header's pin");
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  assert.match(css, /\.tl-ruler\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/,
+    "the header is no longer pinned to the top of the panel");
+  const footRules = rules(/\.tl-ruler-foot\s*\{[^}]*\}/g);
+  assert.ok(footRules.length, "the second clock has no rule of its own");
+  assert.ok(footRules.every((r) => !/position:\s*sticky/.test(r)),
+    "the second clock is pinned like the header, which would fly it up over the day");
+
+  // It takes the drag, and it reads the same minute as the header for the same
+  // finger. A clock that looks like the ruler and will not measure like it is the
+  // fault this app has been bitten by before: a control that reads as live and
+  // does nothing.
+  const cursor = walk(root).find((n) => hasClass(n, "tl-cursor"));
+  const lab = walk(root).find((n) => hasClass(n, "tl-cursor-lab"));
+  assert.ok(cursor && lab, "the chart draws no time cursor to read against");
+  assert.ok((trackOf(header)._listeners.pointerdown || []).length, "the header clock cannot be dragged");
+  assert.ok((trackOf(foot)._listeners.pointerdown || []).length,
+    "the clock above the people's rows looks like the ruler and cannot be dragged");
+  const readAt = (band, x) => {
+    band.dispatchEvent({ type: "pointerdown", clientX: x, clientY: 100, pointerId: 1 });
+    const reading = { at: lab.textContent, left: lab.style.left, hidden: cursor.hidden };
+    band.dispatchEvent({ type: "pointerup", clientX: x, clientY: 100, pointerId: 1 });
+    return reading;
+  };
+  const onHeader = readAt(trackOf(header), 400);
+  const onFoot = readAt(trackOf(foot), 400);
+  assert.ok(!onFoot.hidden, "a drag along the second clock reads nothing at all");
+  assert.equal(onFoot.at, onHeader.at,
+    "the two clocks read out different minutes for the same finger position");
+  assert.equal(onFoot.left, onHeader.left,
+    "the two clocks place their reading in different places");
 });
 
 // ── Handing one stretch of somebody's day to somebody else (v160, v161) ──

@@ -1,8 +1,79 @@
-# Jienluv2bake — change history (v54 → v161)
+# Jienluv2bake — change history (v54 → v162)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v162 (no database step). The times along the clock are
+written a second time, standing directly above your people's rows, so a marker at
+the foot of the day can be read without tracing it 368 pixels up to the top.**
+
+**What you asked.** In your words: "why cant you draw the ruler into person's
+lines?" I went and measured it rather than answering from memory, because the
+answer turned out to be "half of it already is". The ruler's __lines__ have
+reached your people's rows since v160 - every row of the day carries the faint
+grid, so a marker's edge already lands on a line you can follow up the chart. What
+had not reached them is the __clock__: the times written along the ruler, which
+lived only at the top of the panel. On your own day the top of the chart stood 368
+pixels above your people's rows - the whole height of your eight module rows - so
+reading the clock and reading a marker meant looking in two places far apart.
+Asked which of the two ways to close that gap you wanted, you chose this one: "yes,
+draw the clock above the people's rows".
+
+**The clock is now drawn twice.** Once at the top of the panel where it has always
+been, and once more standing directly above the people's rows, inside the block
+that is already pinned to the foot of the chart - so it rides the same pin as the
+rows it was asked for, and the day scrolling can never leave it behind. The foot
+one sits on the first person's row with no gap at all between them, measured on
+your own day.
+
+**The two clocks cannot disagree, because they are the same clock.** They are
+built by one and the same function, from the same minute, with the same step and
+the same labels - so the top of the chart and the foot of it can never say two
+different things about where a minute is. Measured on your day at your usual
+reading: 97 ticks each, every label the same, and the 8:00 am tick at exactly the
+same pixel on both, whether the day is scrolled or not.
+
+**And the foot clock is read exactly as the top one is.** Point at it, or drag
+your finger along it, and the same hairline follows with the same reading in the
+same words and to the same minute, snapped the same way. It wears a crosshair
+under a computer's pointer, as the top one does. Two clocks that look alike now
+behave alike; there is no second way to work the foot one.
+
+**What it cost, measured rather than promised.** About 35 pixels of the chart
+window. On your own day at a phone's width the block at the foot grew from 70
+pixels to 105, and your day still fits inside the window with nothing to scroll -
+so those 35 pixels came out of empty space under your bars, not out of your day.
+At a wide screen the window is 720 tall holding 705 of content, and the day still
+fits.
+
+**One fault was found by testing on the real app, not by a test.** The code that
+finds a clock's own track asked the wrong kind of list for the answer, and a real
+browser's list does not have that question to ask - so the screen failed to open
+at all with "This screen couldn't load", while every test stayed green, because
+the test's stand-in list is more forgiving than a real one. That is the standing
+lesson about stand-ins, and it is written into the code beside the line so the
+next person to touch it cannot repeat it. Fixed, and the tests now cover the
+wiring that hid it.
+
+**What has not moved.** Not one module, batch, start time, cycle or saved scenario
+of yours changed, and nothing here blocks a sale or reads an order. Your three
+saved days were compared before and after: One baker day makes 24 pans still, No
+fridge, 1 person makes 24 pans still, and My sister proposal 21/9/2026 makes 4
+pans still, each on the target it had, their stored numbers byte for byte the
+same.
+
+**What is not in it, so you are not left looking for it.** The other way to reach
+the markers - moving the clock times around rather than drawing a second one -
+stays available if you ever want it instead. And the per-batch person, letting one
+batch go to somebody else while its neighbours stay, is still a release of its own
+because it needs a stored field and a one-time step in Supabase.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
+
+The operations guide (section 23) carries the same change, and the tests are 1188
+passing with none failing.
 
 **23 Sep 2026 — engine v161 (no database step). Your people's rows are the app's
 own white now, and a tap on one of their markers moves THAT STRETCH and nothing
