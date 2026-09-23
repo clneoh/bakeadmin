@@ -6,6 +6,57 @@ import { normRules } from "../../availability.js";
 
 export const LS_KEY = "bakeadmin.v1";
 
+// The numbers every phone starts with on More → Production line, in one place
+// so that two screens can ask the same question of them: the screen that seeds
+// the plan on a phone that has never had one, and the sync code, which has to
+// tell a plan she has typed into from a plan that is still exactly this.
+//
+// That question is the whole reason this constant exists. A phone set up today
+// carries a full plan of these numbers before she has touched anything, so
+// "this phone has nothing to say about the line" cannot be read from the plan
+// being missing — the only signature of a phone with no opinion is a plan that
+// still matches this list, number for number. See planIsStock in js/sync.js.
+//
+// A plan that no longer matches is a plan she has typed into. Nothing here is
+// a gate: the production line is a planner, and no number on it blocks a sale.
+export const STOCK_PRODUCTION = {
+  people: 1,
+  hours: 5,
+  target: 60,
+  pans: 12,
+  prooferPans: 12, // what her proofer holds; the chiller is a what-if, not a station
+  mixerPans: 6,    // one tub fills one oven load, which is her actual cycle
+  ovenPans: 6,
+  ovenMin: 15,     // one turn of the oven — bake and swap together
+  ovenShelves: 2,
+  scaleMin6: 15,   // oiling the pans and weighing the dough out, one job one name
+  topMin6: 6,      // her minute a pan
+  swapMin6: 2,     // out and in, both halves
+  // The bake day she corrected on 22 Sep 2026, the chain the backwards plan
+  // walks: mix in the tub, the rests and folds, into pans, the proofer twice
+  // with the dimple between, the oven, then the cooling.
+  mixMin: 20,
+  foldRests: 4,
+  foldRestMin: 30,
+  foldMin: 1,
+  proofMin1: 45,
+  proofMin2: 30,
+  coolWaitMin: 30,
+  // The clock the backwards plan is built from, and the two bands she asked
+  // for: the rhythm she would like, and how many minutes early are still fine
+  // to shuffle work into.
+  readyAtMin: 480,
+  rhythmMin: 15,
+  tolMin: 5,
+  // The one step still untimed: 0 means she has not measured it, and the screen
+  // names it rather than pretending it is free.
+  coolMin6: 0,
+  // Which cutting of the plan these numbers belong to. A phone holding the
+  // earlier one is carried across once, on load — see upgradeProductionPlan
+  // below.
+  planRev: 145,
+};
+
 export function defaultState() {
   return {
     version: 1,
@@ -49,44 +100,9 @@ export function defaultState() {
       // measured from, typed by her on More → Production line. Seeded with the
       // ones she measured on /form/ so the screen says something true on the
       // first open. Nothing else in the app reads this — it is a planner, not a
-      // gate. See js/production.js for the model.
-      production: {
-        people: 1,
-        hours: 5,
-        target: 60,
-        pans: 12,
-        prooferPans: 12, // what her proofer holds; the chiller is a what-if, not a station
-        mixerPans: 6,    // one tub fills one oven load, which is her actual cycle
-        ovenPans: 6,
-        ovenMin: 15,     // one turn of the oven — bake and swap together
-        ovenShelves: 2,
-        scaleMin6: 15,   // oiling the pans and weighing the dough out, one job one name
-        topMin6: 6,      // her minute a pan
-        swapMin6: 2,     // out and in, both halves
-        // The bake day she corrected on 22 Sep 2026, the chain the backwards
-        // plan walks: mix in the tub, the rests and folds, into pans, the
-        // proofer twice with the dimple between, the oven, then the cooling.
-        mixMin: 20,
-        foldRests: 4,
-        foldRestMin: 30,
-        foldMin: 1,
-        proofMin1: 45,
-        proofMin2: 30,
-        coolWaitMin: 30,
-        // The clock the backwards plan is built from, and the two bands she
-        // asked for: the rhythm she would like, and how many minutes early are
-        // still fine to shuffle work into.
-        readyAtMin: 480,
-        rhythmMin: 15,
-        tolMin: 5,
-        // The one step still untimed: 0 means she has not measured it, and the
-        // screen names it rather than pretending it is free.
-        coolMin6: 0,
-        // Which cutting of the plan these numbers belong to. A phone holding
-        // the earlier one is carried across once, on load — see
-        // upgradeProductionPlan below.
-        planRev: 145,
-      },
+      // gate. See js/production.js for the model, and STOCK_PRODUCTION above for
+      // why these numbers are named in one place rather than written here.
+      production: { ...STOCK_PRODUCTION },
       // The scenario planner (21 Sep 2026): a line built out of modules on a
       // clock, so she can design a production flow rather than only read one.
       // Left empty here and seeded by the screen itself (views/scenario.js), so

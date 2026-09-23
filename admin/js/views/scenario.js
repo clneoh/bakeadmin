@@ -1735,11 +1735,6 @@ function boardPersonCard(row, sc, state, r) {
     // modules they are trained for: that is a planning number, and the worker's own
     // "What they do" list is the bench answer and is a few lines below.
     ["Their hours", notes.shiftLine],
-    // The same stretch the row wears, in words: a worker reading their own card wants
-    // the clock their own day starts and finishes at, which is not the same fact as
-    // "here all day" above it — and on a board that is the first thing a worker looks
-    // for.
-    ["Working", notes.workLine],
     ["Their day", hoursAndMinutes(notes.busy) + (notes.places > 1 ? ` of work, in ${notes.places} places` : " of work")],
     ...(notes.clashes ? [["Watch out", notes.clash]] : []),
     ...(notes.outside.length
@@ -2446,9 +2441,11 @@ function personNotes(row, sc, state, dayStartMin) {
     shiftLine: shift
       ? `Here ${clockAt(dayStartMin, shift.startMin)} → ${clockAt(dayStartMin, shift.endMin)}`
       : "Here all day",
-    // The stretch their own jobs take up, worked out rather than typed: the same two
-    // numbers the row is shaded with, so the words and the shape cannot disagree.
-    workLine: `Working ${clockAt(dayStartMin, row.span.startMin)} → ${clockAt(dayStartMin, row.span.endMin)}`,
+    // There is no "Working …" line, and its absence is deliberate. It was worked out
+    // from the day (v179) and printed beside "11 min of work" while claiming 93, so the
+    // card answered one question twice with two different answers. Her word of
+    // 24 September: the shade follows what she set and nothing else, and this line was
+    // the same invention in words.
     outside: outside.slice(0, PERSON_OUTSIDE_CAP),
     outsideMore: Math.max(0, outside.length - PERSON_OUTSIDE_CAP),
     trained,
@@ -2520,7 +2517,6 @@ function personTip(notes) {
     el("div", { class: "tl-sub" },
       `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? ` · in ${notes.places} places` : "")),
     el("div", { class: "tl-sub" }, notes.shiftLine),
-    el("div", { class: "tl-sub" }, notes.workLine),
     notes.trainedLine ? el("div", { class: "tl-sub" }, notes.trainedLine) : null,
     notes.clash ? el("div", { class: "tl-sub bad" }, notes.clash) : null,
     ...notes.outside.map((o) => el("div", { class: "tl-sub bad" }, o.text)),
@@ -2732,14 +2728,16 @@ function batchPopup(m, live, sc, on, k, hold) {
     const mode = startModeOf(live);
     const deltas = Array.isArray(live.startDelta) ? live.startDelta : [];
     const delta = Math.max(0, Math.round(Number(deltas[k]) || 0));
-    // Where this module's own offset from the line is read out: batch 1, and only
-    // batch 1 — her own ask of 22 September, "just need to show delta on the batch
-    // 1st offset only, then following module of that step dont have to show the
-    // delta because it follow the previous module tightly". Below batch 1 the
-    // batches run at this module's own pace, so there is nothing of the module's
-    // to read there; a batch that is held back on purpose still says so, on its own
-    // card and on its own bar, because a batch that is off the line must not look
-    // like one that is on it.
+    // With no hold on it, what is read out is what PLACES the batch, and for batch 1
+    // that is the answer she gave the module — her own ask of 22 September, "just
+    // need to show delta on the batch 1st offset only, then following module of that
+    // step dont have to show the delta because it follow the previous module
+    // tightly". Below batch 1 the batches run at this module's own pace, so there is
+    // no module-level answer to read there; a batch that is held back on purpose
+    // still says so, on its own card and on its own bar, because a batch that is off
+    // the line must not look like one that is on it. Since v182 that hold is the
+    // batch's own on batch 1 as on every other, so this reading is about where the
+    // module starts and never about a press that moves the rest of it.
     const showsModuleOffset = !first && k === 0;
 
     const step = (by, label, hint) => {
@@ -2759,9 +2757,8 @@ function batchPopup(m, live, sc, on, k, hold) {
     // buttons can go one way and no further. That is right — it is a delay and not
     // a schedule — but it would also be a one-way door, and a door with no handle is
     // the fault v149 was built to fix. So the way back is here, named, and only when
-    // there is something to undo. On batch 1 of a module that starts as the one
-    // above finishes it takes the whole module back, because that is what the press
-    // that put it there moved.
+    // there is something to undo, and it takes off the hold the press beside it put
+    // on: one batch's, on the batch it is standing on, for the reason in moveBatch.
     //
     // It carries no sentence of its own, for the same reason the pairs lost theirs:
     // the line above the button already reads out the hold it takes off, and the
@@ -2771,21 +2768,15 @@ function batchPopup(m, live, sc, on, k, hold) {
       ? el("div", { class: "field" },
         button("Back onto the line", () => {
           const next = deltas.slice();
-          if (showsModuleOffset) for (let i = 0; i < next.length; i += 1) next[i] = 0;
-          else next[k] = 0;
+          next[k] = 0;
           live.startDelta = next;
           on.persist();
           on.refresh();
           refresh();
-          // Where it lands is named against the rule that actually put it there.
-          // Only batch 1 can be against the module above; below batch 1 the lot
-          // rides this module's own pace, so the sentence it has always had stands.
-          const own = mode === "own";
-          toast(showsModuleOffset
-            ? (own
-              ? `Every batch of ${live.name} is back at the time you gave it.`
-              : `Every batch of ${live.name} back where the line puts it.`)
-            : `Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
+          // Where it lands is named against the rule that actually put it there:
+          // this batch rides the module above and this module's own pace, so the
+          // sentence it has always had stands.
+          toast(`Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
         }, "ghost"))
       : null;
 
@@ -3144,16 +3135,23 @@ function undoDayBack(r, sc, on, refresh, hold) {
 // of every later module, batch 1 included, whatever that module is set to take
 // her start from.
 //
-// It was narrowed at v154 to "below batch 1, or batch 1 of a module set to start
-// as the one above finishes", on the argument that a module keeping its own time
-// has a start of its own to write. Her report of 23 September is what that
-// narrowing cost: "i ask for delta time, that function is not worker across the
-// chart ... Before this the delta t was there, why it disappeared." Every module
-// of her own day is set to "Its own time", so batch 1 of every one of her modules
-// took the absolute path — no hold was ever written, so no Δt was ever drawn
-// anywhere on her chart, and the card's own way back, which only exists while a
-// hold does, went with it. This is the v151 rule put back, one line, and the two
-// readings it restores come back with it.
+// The one exception this rule ever had is gone. It was narrowed at v154 to "below
+// batch 1, or batch 1 of a module set to start as the one above finishes", on the
+// argument that a module keeping its own time has a start of its own to write. Her
+// report of 23 September is what that narrowing cost: "i ask for delta time, that
+// function is not worker across the chart ... Before this the delta t was there,
+// why it disappeared." Every module of her own day is set to "Its own time", so
+// batch 1 of every one of her modules took the absolute path — no hold was ever
+// written, so no Δt was ever drawn anywhere on her chart, and the card's own way
+// back, which only exists while a hold does, went with it. The v151 rule is put
+// back, one line, and the two readings it restores come back with it.
+//
+// One press moves ONE batch, and only the one it was pressed on. Her rule of 24
+// September: "delta t on one batch of the module dont change the module batches, it
+// should not be." Batch 1 used to be the exception — its press read as the module's
+// own offset and carried the rest of the module with it — and that is retired here;
+// see the measurement in moveBatch, and the module's own start time for the one
+// press that moves a module whole.
 //
 // A hold is still only ever a HOLD and never a schedule: it is added after the
 // latest of the module's own time, the chain above and the module's own machine,
@@ -3166,10 +3164,6 @@ function undoDayBack(r, sc, on, refresh, hold) {
 function moveBatch(run, live, sc, on, refresh, k, from, by) {
   const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
   const held = !first;
-  // Whether the module follows the one above decides how each sentence below
-  // reads, because on a module that keeps its own time there is no "where the
-  // line puts it" to be held back from — only the time she gave it.
-  const follows = startModeOf(live) !== "own";
   if (!held) {
     const landed = setBatchStart(live, sc, on, k, from + by);
     toastBatch(live, k, from + by, landed, run.dayStartMin);
@@ -3178,41 +3172,33 @@ function moveBatch(run, live, sc, on, refresh, k, from, by) {
     while (deltas.length < Math.max(1, moduleOf(live).repeats)) deltas.push(0);
     const before = Math.max(0, Math.round(Number(deltas[k]) || 0));
     const after = Math.max(0, before + by);
-    if (k === 0) {
-      // The module's own offset: every batch of it moves by the same amount, so a
-      // press on batch 1 means the same thing here as it means on the first module
-      // — the module moves, and its shape is kept.
-      const step = after - before;
-      for (let i = 0; i < deltas.length; i += 1) {
-        deltas[i] = Math.max(0, Math.round(Number(deltas[i]) || 0) + step);
-      }
-    } else {
-      deltas[k] = after;
-    }
+    // A press moves the batch it was pressed on, and nothing else. Her report of
+    // 24 September: "delta t on one batch of the module dont change the module
+    // batches, it should not be." Until now batch 1 was the exception: its press
+    // read as the module's own offset and carried every other batch of the module
+    // with it, so a hold of 5 minutes on batch 1 moved twelve folds on a module she
+    // had only touched once. Measured on her own day at a 4:00 am start, holding
+    // batch 1 of The oven swap and the bake by five minutes read [240, 327, 414,
+    // 501] before and [245, 332, 419, 506] after — all four batches moved. Holding
+    // batch 3 by the same five minutes moved batch 3 alone, which is the answer she
+    // is asking for everywhere: [240, 327, 419, 501].
+    //
+    // Moving a whole module is still one press away, and it is the honest one: the
+    // module's own start time on the module card, which every other batch is then
+    // spaced from by the module's own pace.
+    deltas[k] = after;
     live.startDelta = deltas;
     on.persist();
     on.refresh();
     if (after === before) {
-      toast(k === 0
-        ? (follows
-          ? `${live.name} is already as early as the line allows — there is nothing left to take off.`
-          : `${live.name} is already at the time you gave it — there is nothing left to take off.`)
-        : by < 0
-          ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
-          : `Batch ${k + 1} stays where it is.`);
+      toast(by < 0
+        ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
+        : `Batch ${k + 1} stays where it is.`);
     } else if (after === 0) {
       // The hold taken all the way off is a real change and says so: "held 0
       // minutes behind" is not a sentence about a hold coming off, it is a
       // sentence about nothing happening.
-      toast(k === 0
-        ? (follows
-          ? `${live.name} is back on the line — every batch of it starts where the module above finishes.`
-          : `${live.name} is back at the time you gave it — every batch of it moved with that.`)
-        : `Batch ${k + 1} is back on the line, where the module above and this module's own minutes put it.`);
-    } else if (k === 0) {
-      toast(follows
-        ? `${live.name} held ${after} minute${after === 1 ? "" : "s"} behind where the module above finishes — every batch of it moved with that.`
-        : `${live.name} held ${after} minute${after === 1 ? "" : "s"} later than the time you gave it — every batch of it moved with that.`);
+      toast(`Batch ${k + 1} is back on the line, where the module above and this module's own minutes put it.`);
     } else {
       toast(`Batch ${k + 1} held back ${after} minute${after === 1 ? "" : "s"} from where the line puts it — move the module above it and this batch comes with it.`);
     }
@@ -3314,25 +3300,12 @@ function personRow(r, row, trackW, sc, on, state, run) {
     title: notes.shiftLine,
   }) : null;
 
-  // The stretch of the day their work actually occupies, drawn INSIDE the hours they
-  // are here — second in the track, still before every bar, and still with no z-index of
-  // its own, for the reason the band above carries in full. Where they have been given a
-  // job outside the hours they typed, this shape shows it by standing outside theirs,
-  // which is the same fault the row already names in words; where the day has given them
-  // nothing, there is no shape at all.
-  //
-  // And where she has said the hours herself there is no shape at all either, because
-  // row.shade is nothing in that case. Her rule of 23 September, quoted in full where the
-  // model makes the decision: "dont shade if the person have indicated work time". The
-  // band above is then the only band on the row, and the working stretch is still named
-  // in the words the row, the tip and the card all carry.
-  const work = row.shade ? el("div", {
-    class: "tl-work",
-    style: `left:${Math.round(row.shade.startMin * r.pxPerMin)}px;`
-      + `width:${Math.max(1, Math.round((row.shade.endMin - row.shade.startMin) * r.pxPerMin))}px`,
-    title: notes.workLine,
-  }) : null;
-
+  // There is no second, computed shape on this row. v179 drew one across the person's
+  // work — first job to last, gaps included — and her word of 24 September retires it:
+  // "shade should just follow what i set, not other consideration". The band above is
+  // the only thing shaded on a person's row, and where she has typed no hours there is
+  // no shade at all. See the model (scenario.js, peopleRows) for the measurement that
+  // settled it.
   const bars = row.items.map((w) => el("div", {
     // The PERSON'S own colour, not the module's. Tinted by module, one person's row
     // was a patchwork of eight colours that said nothing about the person standing
@@ -3371,7 +3344,7 @@ function personRow(r, row, trackW, sc, on, state, run) {
   // target is small twice over: the bar is 11 pixels in a 34-pixel row, and at the
   // widest reading a one-minute job is 1.2 pixels wide. Reading the minute gives
   // her the row's whole height, and nearestSlot gives her the sliver.
-  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, band, work, ...bars);
+  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, band, ...bars);
   track.addEventListener("click", (e) => {
     // A right press pans the day and opens nothing. See isPrimaryClick.
     if (!isPrimaryClick(e)) return;
@@ -3630,15 +3603,17 @@ function personPopup(row, sc, on, state, r) {
     // reason the name field below repaints the chart and not itself.
     const paint = () => {
       const n = personNotes(freshRow(), sc, state, sc.dayStartMin);
+      // One sentence per line. These used to be bare text nodes in one box, which the
+      // browser ran together with no space between them — "…and nothing collides.Here
+      // all day." — so a sentence boundary read as a typo.
       readout.replaceChildren(...[
         `${hoursAndMinutes(n.busy)} of work` + (n.places > 1 ? `, in ${n.places} places` : "") +
         (n.clashes ? `, with ${n.clashes} collision${n.clashes === 1 ? "" : "s"} to sort out.` : ", and nothing collides."),
         n.shiftLine + ".",
-        n.workLine + ".",
         n.trainedLine,
         ...n.outside.map((o) => o.text),
         n.outsideMore > 0 ? `…and ${n.outsideMore} more like that.` : null,
-      ].filter(Boolean).map((t) => document.createTextNode(t)));
+      ].filter(Boolean).map((t) => el("div", {}, t)));
       const rows = (n.jobs.length ? n.jobs.map((j) => el("div", { class: "tl-note-job" }, j))
         : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]);
       if (n.more > 0) rows.push(el("div", { class: "tl-note-job" }, `…and ${n.more} more.`));

@@ -217,62 +217,39 @@ test("a module she has given to a person goes there, collision and all", () => {
   assert.equal(concurrency([at("a", 0, 1), at("b", 5, 1)]).peak, 2);
 });
 
-test("a person's own working stretch runs from their first job to their last, gaps and all (v179)", () => {
-  // The shape drawn on their row, and it has to be the STRETCH rather than the minutes
-  // they work: a person back in half an hour has not gone home, so the shape covers the
-  // gap and the two jobs sit inside it. Her ask of 23 September, "can you shade their
-  // working hours in their line?" — and it is answered from the day, so it is on every
-  // day she has ever built rather than only on the ones she has typed hours into.
+test("the only stretch a person's row carries is the hours she typed, worked out nowhere (v182)", () => {
+  // Her rule of 24 September, retiring the computed shade that v179 drew and v180
+  // suppressed: "Wei should not have any shade because there is no work time set for
+  // him, shade should just follow what i set, not other consideration." So there is no
+  // `span` and no `shade` on a row at all — nothing in the model works a working day out
+  // from the jobs. Where she has typed hours, `row.shift` carries them, and that is what
+  // the view draws; where she has not, the row is drawn with no band.
   const at = (id, startMin, touchMin, person = 0) => moduleFacts({
     id, icon: "•", name: id, on: true, person, cycleMin: touchMin, batch: 1,
     touchMin, everyMin: touchMin, repeats: 1, startMin, people: 1,
   });
-  const apart = peopleRows([at("a", 0, 4, 1), at("b", 30, 4, 1)]);
-  assert.equal(apart.length, 1, "two jobs on one person are one row");
-  assert.deepEqual(apart[0].span, { startMin: 0, endMin: 34 },
-    "the stretch is not the person's own first job to their own last");
-  assert.ok(apart[0].span.endMin - apart[0].span.startMin > apart[0].busy,
-    "the stretch came out as the busy minutes, so the gaps between their jobs are missing from it");
+  const on = [at("a", 0, 4, 1), at("b", 30, 4, 1)];
 
-  // And the end is the LATEST job end, not the end of the last item in the list: on a
-  // day where two jobs overlap, the item that starts second is not the item that
-  // finishes last, and reading the list's last entry would cut the shade short of work
-  // the person is still doing.
-  const over = peopleRows([at("a", 0, 30, 1), at("b", 10, 5, 1)]);
-  assert.deepEqual(over[0].items.map((i) => [i.from, i.to]), [[0, 30], [10, 15]],
-    "the row's items are in start order, as the row reads them");
-  assert.deepEqual(over[0].span, { startMin: 0, endMin: 30 },
-    "the stretch stopped at the last item's end rather than at the latest job end");
-});
-
-test("the shade stands down where she has said the hours herself (v180)", () => {
-  // Her rule of 23 September, on seeing the two drawn together: "dont shade if the person
-  // have indicated work time". A window she typed and a window worked out for her are two
-  // answers to one question, so the computed one is not drawn — that person's shade is
-  // nothing at all. row.span itself is untouched by this, because that is the work's own
-  // extent and the words about it still stand on the row, in the tip and on the card.
-  const at = (id, startMin, touchMin, person = 0) => moduleFacts({
-    id, icon: "•", name: id, on: true, person, cycleMin: touchMin, batch: 1,
-    touchMin, everyMin: touchMin, repeats: 1, startMin, people: 1,
-  });
-  const on = [at("a", 30, 4, 1)];
   const plain = peopleRows(on);
-  assert.deepEqual(plain[0].shade, { startMin: 30, endMin: 34 },
-    "a person with no hours typed has lost the shade, which is every day built before this");
+  assert.equal(plain.length, 1, "two jobs on one person are one row");
+  assert.equal("span" in plain[0], false,
+    "the row still carries a working stretch worked out from the day");
+  assert.equal("shade" in plain[0], false,
+    "the row still carries a shade to draw, so a person with no hours typed is shaded anyway");
+  assert.strictEqual(plain[0].shift, null,
+    "a person whose hours nobody typed has no band");
+  assert.equal(plain[0].busy, 8, "the minutes they actually work are untouched by this");
+  assert.equal(plain[0].items.length, 2, "and so are their jobs");
 
   const typed = peopleRows(on, { 1: { startMin: 0, endMin: 600 } });
-  assert.strictEqual(typed[0].shade, null,
-    "the shade is still drawn over hours she typed herself, so the row answers one question twice");
-  assert.deepEqual(typed[0].span, { startMin: 30, endMin: 34 },
-    "the working stretch itself was thrown away with the shade, so the words about it lost their numbers");
-
-  // Typing hours over only ONE person takes the shade off that row alone: a shade is a
-  // fact about a person, never about the day.
+  assert.deepEqual(typed[0].shift, { startMin: 0, endMin: 600 },
+    "the hours she typed are what the row draws");
+  // A shift is a fact about a person, never about the day: typing hours over one person
+  // leaves every other row alone.
   const two = peopleRows([at("a", 30, 4, 1), at("b", 0, 10, 2)], { 1: { startMin: 0, endMin: 600 } });
-  assert.strictEqual(two.find((r) => r.person === 1).shade, null,
-    "the person whose hours were typed still wears a shade");
-  assert.deepEqual(two.find((r) => r.person === 2).shade, { startMin: 0, endMin: 10 },
-    "the shade came off a person whose hours nobody had typed");
+  assert.deepEqual(two.find((r) => r.person === 1).shift, { startMin: 0, endMin: 600 });
+  assert.strictEqual(two.find((r) => r.person === 2).shift, null,
+    "somebody else's hours were put on a person nobody typed them for");
 });
 
 test("the total person row stacks whoever is working, named or not", () => {

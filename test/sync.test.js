@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as sync from "../admin/js/sync.js";
+import { STOCK_PRODUCTION } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;
@@ -1283,6 +1284,123 @@ test("mergeRows: a shelf she deliberately emptied is NOT put back by the other p
       "an empty shelf the other phone SPOKE is an answer, so nothing is put back over it");
     assert.deepEqual(st.settings.scenarios, [],
       "and this phone takes her deletion");
+  } finally { restore(); }
+});
+
+// ── the line numbers on More → Production line (v182) ─────────────────────
+//
+// `production` is guarded by the same three rules as the keys above and could not be
+// judged the same way: every payload carries a whole plan, so a phone's silence about
+// it is not an absent key but a plan that is still exactly the numbers every phone is
+// set up with. These tests pin the content test that stands in for absence, in both
+// directions, because the fault was symmetric — a newly set up phone's stock plan
+// replaced her line numbers whether it was pushing or pulling.
+
+const TYPED_PLAN = { ...STOCK_PRODUCTION, ovenMin: 18, prooferMin: 55 };
+
+test("mergeRows: a phone that has never touched the line takes the cloud's numbers, and its push carries them", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.production = { ...STOCK_PRODUCTION }; // set up, never typed into
+    st.settings.cutoff = "19:00"; // a real edit, so this phone is the one pushing
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    const r = sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", production: TYPED_PLAN }, "2026-09-24T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    assert.equal(st.settings.production.ovenMin, 18,
+      "the line numbers she typed on the other phone did not reach a phone that had never touched them");
+    assert.equal(queuedSettings(store).data.production.ovenMin, 18,
+      "the push about to go out carries the stock numbers, so it would put them over hers");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone with its own line numbers keeps them when the cloud is holding the stock ones", () => {
+  // The fault v181 measured from this end: a brand-new phone's stock plan is pushed to
+  // the cloud as it is set up, and the cloud row is then the newest. Without the
+  // content test the cloud-wins merge would hand those stock numbers to the phone she
+  // had typed on, which is the loss this version closes.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.production = { ...TYPED_PLAN };
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    const r = sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", production: { ...STOCK_PRODUCTION } }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(r.changed, true, "the row was still read");
+    assert.equal(st.settings.production.ovenMin, 18,
+      "a stock plan the cloud was only carrying replaced the numbers she had typed");
+    assert.equal(st.settings.production.prooferMin, 55, "and it took a second number with it");
+    const p = queuedSettings(store);
+    assert.ok(p, "one publish is queued, so the cloud row is put back to hers with no press");
+    assert.equal(p.data.production.ovenMin, 18, "the queued publish carries the stock plan back up");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone whose line numbers are still the stock ones queues no publish", () => {
+  // The other half, and what stops the two phones from pushing at each other forever:
+  // a phone with no numbers of its own has nothing to put back, so a stock cloud row
+  // and a stock phone make no publish between them.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.production = { ...STOCK_PRODUCTION };
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", production: { ...STOCK_PRODUCTION } }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(queuedSettings(store), undefined,
+      "a phone that has never typed a number was made to publish a plan it has no opinion about");
+  } finally { restore(); }
+});
+
+test("mergeRows: a cloud row with no plan at all, and a phone that has one, is put back", () => {
+  // A row written before the line numbers existed carries no `production` key at all.
+  // That is the cloud being silent about them in the plainest way, so the same rule
+  // covers it as covers a stock plan.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.production = { ...TYPED_PLAN };
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { cutoff: "18:00" }, "2026-09-20T00:00:00.000Z")]);
+    const p = queuedSettings(store);
+    assert.ok(p, "a cloud row with no plan left the phone's own numbers unpublished");
+    assert.equal(p.data.production.ovenMin, 18);
+    assert.equal(st.settings.production.ovenMin, 18, "and her own numbers are still on the phone");
+  } finally { restore(); }
+});
+
+test("mergeRows: the line numbers she typed come down to a phone that has none", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.production = { ...STOCK_PRODUCTION };
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", production: { ...TYPED_PLAN } }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(st.settings.production.ovenMin, 18,
+      "the cloud's own line numbers did not reach a phone that had never typed any");
+    assert.equal(queuedSettings(store), undefined,
+      "a cloud row that has numbers of its own was treated as one that needs repairing");
+  } finally { restore(); }
+});
+
+test("mergeRows: a plan missing one of the stock numbers counts as hers, not as silence", () => {
+  // The content test is the whole plan, key by key, so a plan that differs in any way —
+  // a number typed, a field dropped by a hand-edited file — is a plan somebody wrote and
+  // is protected. A comparison on `planRev` alone would have read this one as stock.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    const partial = { ...STOCK_PRODUCTION };
+    delete partial.ovenMin;
+    st.settings.production = partial;
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", production: { ...STOCK_PRODUCTION } }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(Object.prototype.hasOwnProperty.call(st.settings.production, "ovenMin"), false,
+      "a plan with a number missing was read as the stock plan and overwritten");
+    assert.ok(queuedSettings(store), "and no repair was queued for it either");
   } finally { restore(); }
 });
 

@@ -1,8 +1,105 @@
-# Jienluv2bake — change history (v54 → v181)
+# Jienluv2bake — change history (v54 → v182)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v182, THE SHADE IS ONLY WHAT YOU SET, ONE PRESS MOVES ONE BATCH, AND THE
+PRODUCTION-LINE NUMBERS ARE PROTECTED (no database step). Three things in one version, all of them
+inside the Scenario planner except the last. First: the shaded band the app used to work out for you
+is gone for good. Her rule, in her own words: "Wei should not have any shade because there is no
+work time set for him, shade should just follow what i set, not other consideration." So the only
+shade a person's row ever carries is the two hours you typed on their card, and a person whose hours
+nobody has typed carries none — no band, no "Working ..." line, nothing. Second: "delta t on one
+batch of the module dont change the module batches, it should not be." It did — one press on the
+first batch of a module moved every batch of it — and it does not now. One press moves the batch
+under your finger and nothing else, and Back onto the line takes off that one batch's hold and
+leaves any other batch's hold standing. Third, carried over from what v181 measured and left
+unprotected: the numbers on More -> Production line are now guarded exactly like your saved days, so
+a newly set-up phone can no longer push its own defaults over the numbers you typed.**
+
+**1. What you reported, in your own words.** "build v182. And the working time shade is wrong", and
+then, while this was being built: "delta t on one batch of the module dont change the module
+batches, it should not be." Both were measured before anything was changed, and both were real.
+
+**2. The shade, and why it goes rather than gets quieter.** v179 drew a band on each person's row
+worked out from their own day — their first job to their last, the gaps between included — and v180
+made that band stand down on a row where you had typed hours. Both were answers to a question you
+had already answered yourself, and v180 left the app holding two opinions about one working day. The
+measurement that settled it was on your own day: the computed band was drawn 93 minutes wide, 4:00
+am to 5:33 am, on a row whose five jobs come to eleven minutes, beside a card that already read "11
+min of work". It was measuring the stretch and calling it the work. So it is deleted — from the day,
+from the row, from the card, and from the drawing itself — and what is left is the one thing you
+actually said: the hours you type. Typed hours draw a band; no typed hours draw nothing. The card
+still says "Here all day" for a person with no hours set, because that is the real answer for every
+person on every day you have ever built, and a blank where a fact should be reads as a fault.
+
+**3. The delta t, and the batch it belongs to.** A press on a batch is a hold — the batch runs later
+than the line puts it, and it comes with the module above it when that module moves. Since v154 the
+first batch of a module had been read as the module's own offset, so holding it moved every batch of
+that module with it: on a module running four batches you pressed one bar and four moved. Batch
+three, pressed the same way, moved only itself — which is the answer you asked for, so every batch
+now behaves like batch three. Moving a whole module is still one press away and it is the honest
+one: the module's own start time on the module card, from which every other batch is spaced by the
+module's own pace. The words changed with the rule, so nothing on the screen claims a move the app
+no longer makes: the toast now reads "Batch 3 held back 5 minutes from where the line puts it", the
+tip on a held bar "held back 5 min", and the way back "Batch 1 back at 4:00 am — exactly where the
+line puts it."
+
+**4. The Production-line numbers, which v181 measured and left open.** v181 closed the same family
+of fault for your saved days — silence must never delete — and named this one as not fixed: the
+numbers on More -> Production line have no "empty" of their own, so a brand-new phone could still
+push its defaults over what the cloud had. It is fixed here, and it needed no new stored field. The
+signature of a phone with no opinion about the line is a plan that still reads exactly the stock
+numbers; that signature is now asked of both sides, so a phone that has never touched the line takes
+the cloud's numbers on its first pull and carries them in its first push, a phone whose numbers are
+your own keeps them against a stock cloud and queues one publish to put them back, and a plan you
+deliberately set to the stock numbers is the one case that cannot be told apart from silence — by
+design, and said plainly rather than hidden.
+
+**5. Measured on your own phone, at 375 x 812, signed out of the cloud.** Your own day first: four
+person rows, not one computed band anywhere in the app, not one typed band, and the word "Working"
+appearing nowhere on any screen; Wei's card read "17 min of work, in 3 places", "Here all day", and
+nothing else about her hours. Then hours typed onto Wei's card, 5:00 am and 9:00 am: stored as 60
+and 300 minutes from your 4:00 am start, and drawn as one band 96 pixels along the row and 384 wide
+at your own 1.6 pixels a minute — 60 minutes and 240 minutes — with the computed band still absent
+and the card reading "Wei is set to be here 5:00 am → 9:00 am, but Dimple and top runs to 4:06 am -
+a job that cannot fit inside those hours." Then the delta, measured by giving the oven four batches
+for the length of the test: its four bars sat at 0, 139, 278 and 418 pixels. Pressing + 5 min on
+batch 1 moved that bar 0 to 8 pixels — five minutes at 1.6 — its card read 4:00 am -> 4:15 am
+becoming 4:05 am -> 4:20 am, its tag read B1 delta t=+5, and batches 2, 3 and 4 did not move a
+pixel, at 139, 278 and 418 exactly as they were. Pressing + 5 min on batch 3 moved batch 3 alone,
+278 to 286. Pressing Back onto the line on batch 1 put it back to 4:00 am with a plain B1 tag and
+said "Batch 1 back at 4:00 am — exactly where the line puts it", and batch 3's hold was still
+standing.
+
+**6. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day. The
+copy of your stored data taken before the first press was put back afterwards and compared: byte for
+byte the same 13,888 characters, with the four batches used for the measurement gone and the oven
+back to the one batch you had it at, and with the two hours typed onto Wei's card taken back off
+again. Your three saved days are exactly the ones you had — 24, 4 and 24 pans. The only keys left
+in the phone's storage are the app's own two, and nothing here blocks a sale or reads an order.
+
+**7. Every rule that stands on it was proved load-bearing, not assumed.** Eleven faults were put
+back in all, each watched failing by a test that names it, then restored byte-identically. Among
+them: with the computed band put back into the day's own model it fails reading that a person's row
+carries nothing but the hours she typed; with it put back into the row's drawing it fails that same
+test from the other end; with the rule put back into the styling it fails the third time; and with
+it put back onto the worker's board it fails reading that the board shows the hours she typed and
+nothing the app worked out for her. With the first batch's press carrying the rest of the module
+again, three named tests fail — including the one on the last module's own bar. Of the production
+guard: dropping the key from the guarded list fails four tests; making every plan count as somebody's
+opinion fails five; dropping the cloud-side guard fails two; and reading a plan that has no field at
+all as an opinion fails the test that says a cloud with no plan and a phone that has one is put
+back. One fault escaped on the first pass and is worth naming: restoring the old "Back onto the line"
+spread was NOT caught, because every test pressed the way back on a batch that happened to be the
+only one held — the tests had pinned the press and left the undo unpinned. A test was written that
+holds two batches of one module and takes one back, and the fault now fails by name. The suite is
+1312 passing with none failing.
+
+**8. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. The production guard reads a signature off the numbers your phone already syncs, and the
+batch hold has always lived in the delta your plan already carries.
 
 **24 Sep 2026 — engine v181, A NEW PHONE NO LONGER EMPTIES THE OTHER ONE (no database step). You
 reported that signing in on a new phone showed none of your saved scenarios. It was real, and it

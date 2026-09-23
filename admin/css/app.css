@@ -3068,32 +3068,22 @@ tr.po-covered td { color: var(--muted); }
 .tl-row.person .tl-name { background: var(--surface); }
 .tl-row.person .tl-bar { top: 12px; height: 11px; }
 /* The hours a person is here, as a wash under everything the day draws on their own
-   row — v177. It is drawn FIRST inside the track and it carries NO z-index on
-   purpose: a positioned element given a z-index creates a stacking context, and
-   inside a track that is exactly how the v174 fault came back (the day's writing
-   climbing over the pinned module titles). With none, the band stays on the floor
-   and every bar, mark and name lands on top of it by simple document order. It is
-   a wash and not a block, so the day reads through it, and it takes no pointer
-   events at all, so it can never swallow a tap meant for the stretch over it. */
+   row — v177, and since v182 the ONLY shade a person's row ever wears. Her word of
+   24 September: "shade should just follow what i set, not other consideration". A
+   person whose two hour boxes nobody has filled in has no band at all, and the
+   second, computed shape v179 drew across their work is gone.
+   It is drawn FIRST inside the track and it carries NO z-index on purpose: a
+   positioned element given a z-index creates a stacking context, and inside a track
+   that is exactly how the v174 fault came back (the day's writing climbing over the
+   pinned module titles). With none, the band stays on the floor and every bar, mark
+   and name lands on top of it by simple document order. It is a wash and not a
+   block, so the day reads through it, and it takes no pointer events at all, so it
+   can never swallow a tap meant for the stretch over it. */
 .tl-row.person .tl-shift {
   position: absolute; top: 0; bottom: 0;
   background: rgba(122, 96, 74, .07);
   border-left: 1px solid rgba(122, 96, 74, .35);
   border-right: 1px solid rgba(122, 96, 74, .35);
-  pointer-events: none;
-}
-/* The stretch their work actually occupies — v179 — drawn second in the track, inside
-   the hours above it. It is the same wash turned up rather than a second colour, so the
-   two read as one fact and its shadow: what she said, and what the day made of it. The
-   hairline top and bottom is what keeps the inner band legible where it lies inside the
-   outer one, which is the ordinary case; where a job has been given outside those hours
-   the shape simply stands outside them, which is the row's own warning drawn.
-   NO z-index, for the reason spelled out above the rule this one sits under. */
-.tl-row.person .tl-work {
-  position: absolute; top: 0; bottom: 0;
-  background: rgba(122, 96, 74, .16);
-  border-top: 1px solid rgba(122, 96, 74, .3);
-  border-bottom: 1px solid rgba(122, 96, 74, .3);
   pointer-events: none;
 }
 /* A person's tip and the tally's tip are blocks of reading rather than sets of

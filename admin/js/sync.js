@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { save } from "./state.js";
+import { save, STOCK_PRODUCTION } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 
 const SYNC_KEY = "bakeadmin.sync";
@@ -165,15 +165,78 @@ function recordPayload(kind, rec) {
 //
 // Rules 2 and 3 both lean on rule 1: they can treat absence as ignorance only
 // because a deletion she made is said out loud instead of going quiet.
+//
+// v182 widens all three to the last key they did not cover — `production`, the
+// numbers on More → Production line — by changing what "silence" means for it.
+// Every other guarded key is simply missing from a payload whose phone has
+// nothing to say; `production` is always present, so a phone is silent about it
+// exactly when its plan is still the stock numbers every phone starts with.
+// That test is hasOpinion below, and it is asked about the cloud as well as the
+// phone, which is what stops a newly set up phone's stock plan from replacing
+// hers in either direction.
 const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "developer"];
+
+// `production` — the numbers on More → Production line — is guarded by the same
+// three rules but cannot be judged the same way, and it was the one key left
+// outside them when v181 landed. Every other guarded key is ABSENT from a
+// payload whose phone has no opinion about it; `production` is not, because
+// `recordPayload` always carries a whole plan and every phone holds one from the
+// day it is set up. Its silence is a CONTENT question: a phone with no opinion
+// is a phone whose plan is still exactly the numbers every phone starts with
+// (STOCK_PRODUCTION in state.js). So it joins the list here and its own test,
+// hasOpinion below, is what rules 2 and 3 ask about it.
+const GUARDED_ALL = [...GUARDED, "production"];
 
 // The guarded keys where an empty value is an answer she gave, and so must be
 // SPOKEN rather than left out. `tasks` and `wishList` need no listing — they are
 // carried whenever they are arrays, so an emptied list already goes out as one.
+// `production` needs none either: it has no empty to speak, and a plan she has
+// cleared back to the stock numbers reads as no opinion rather than a deletion.
 const SPEAK_EMPTY = ["scenarios", "developer"];
 
 function has(obj, k) {
   return Object.prototype.hasOwnProperty.call(obj, k);
+}
+
+// Is `plan` still exactly the plan every phone is set up with? Compared key by
+// key over both lists, so a plan that is missing a number or carrying one the
+// stock plan has not got is NOT stock — it is a plan somebody wrote. Numbers are
+// compared as numbers, since a plan that has been through storage or the cloud
+// may come back with a "60" where the stock plan has a 60, and that is the same
+// plan. `Number(undefined)` is NaN and NaN is never equal to itself, which is
+// what makes a missing or extra key count as a difference for free.
+//
+// A plan with NO keys at all is the one exception, and it is silence rather than
+// a written plan: that is `{}`, which is what a payload carries for settings that
+// have never held a plan, and what a cloud row written before the line numbers
+// existed has no field for. Read as "somebody wrote this", it would refuse to
+// take her numbers from the cloud on a phone that has never had any and refuse to
+// put them back into an old row — silence misread as an opinion.
+function planIsStock(plan) {
+  const p = (plan && typeof plan === "object") ? plan : {};
+  if (Object.keys(p).length === 0) return true;
+  const keys = new Set([...Object.keys(STOCK_PRODUCTION), ...Object.keys(p)]);
+  for (const k of keys) {
+    if (Number(STOCK_PRODUCTION[k]) !== Number(p[k])) return false;
+  }
+  return true;
+}
+
+// Rules 2 and 3 both turn on the same question — does this side have something
+// of its own to say about this key? — and for four of the five guarded keys that
+// is simply "is the key here". `production` is the exception above: a plan is
+// always here, so what is asked is whether it has left the stock numbers.
+//
+// It is deliberately asked of BOTH sides and means the same thing on both. On a
+// phone her numbers are an opinion, so the cloud's copy never overwrites them and
+// the phone puts its own back up when the cloud has none. On the cloud a stock
+// plan is what a phone with nothing to say pushed there, so it is handed down to
+// a phone that has no numbers of its own and ignored by the phone that does.
+// Without that, a newly set up phone replaced her line numbers in both
+// directions, which is what v182 exists to close.
+function hasOpinion(k, src) {
+  if (k === "production") return !planIsStock(src && src.production);
+  return has(src, k);
 }
 
 // Rule 1. `prev` is the canonical shape this phone last recorded for the row:
@@ -316,15 +379,18 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
         // Every guarded key this phone is SILENT about is therefore taken from the
         // cloud: into the outgoing payload, so the push cannot delete it, and into
         // this phone's own settings, so a phone that has never had her saved days
-        // receives them on this very pull. `snapshot` is deliberately left alone,
+        // receives them on this very pull. `production` rides the same loop with
+        // the content test above in place of the absent key: the cloud's plan is
+        // taken only when the cloud has numbers of its own and this phone is
+        // still on the stock ones. `snapshot` is deliberately left alone,
         // so what this phone stores afterwards is its own state and not a
         // re-queue that would put the keys back out again.
         const phoneOwn = (pending && pending.data && typeof pending.data === "object")
           ? pending.data
           : recordPayload("settings", state.settings);
         let next = null;
-        for (const k of GUARDED) {
-          if (has(phoneOwn, k) || !has(payload, k)) continue;
+        for (const k of GUARDED_ALL) {
+          if (hasOpinion(k, phoneOwn) || !hasOpinion(k, payload)) continue;
           next = next || { ...state.settings };
           next[k] = payload[k];
           if (pending && pending.data && typeof pending.data === "object") pending.data[k] = payload[k];
@@ -348,6 +414,12 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
           (state.settings && state.settings.weekCheck) || {},
           cloudWc || {}),
       };
+      // `production` is the one guarded key a payload always carries, so at this
+      // point it is about to overwrite whatever this phone holds. It is dropped
+      // here when the cloud has no plan of its own — stock numbers pushed up by a
+      // phone that had nothing to say — so the numbers she typed survive a cloud
+      // row that a freshly set up phone happened to stamp newest.
+      if (!hasOpinion("production", payload)) delete merged.production;
       state.settings = { ...state.settings, ...merged };
       const own = recordPayload("settings", state.settings);
       b.meta[key] = cloudAt;
@@ -361,7 +433,11 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
       // first time an older phone with her saved days meets a cloud row that lost
       // them. A key she deleted is spoken by rule 1, so a key that is merely
       // absent is a key this phone never saw, and putting it back cannot undo her.
-      if (GUARDED.some((k) => !has(payload, k) && has(own, k))) {
+      // The same sentence covers `production`, where "the cloud says nothing"
+      // means the cloud is still holding the stock numbers: a line she has typed
+      // into is put back up, and a plan she left at the stock numbers is not,
+      // because that phone has nothing of its own to say either.
+      if (GUARDED_ALL.some((k) => !hasOpinion(k, payload) && hasOpinion(k, own))) {
         b.pending[key] = { kind: "settings", id: row.id, updated_at: nowIso, data: own, _deleted: false };
         b.meta[key] = nowIso;
       }

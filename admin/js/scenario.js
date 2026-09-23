@@ -1429,30 +1429,16 @@ export function peopleRows(modules, shifts = {}, skills = {}) {
     // collected as they were placed, so this list cannot hold a stretch twice and
     // cannot come out in a different order from the row it is about.
     row.outside = row.items.filter((i) => i.outsideHours === true || i.outsideSkill === true);
-    // The stretch of the day this person is actually working: their first job's start to
-    // their last job's end, the gaps between jobs included, because a person who is back
-    // in an hour has not gone home. Worked out from the day rather than typed, so it is
-    // drawn on every day she has ever built and not only on the ones she has filled the
-    // hour boxes in for — her ask of 23 September, "can you shade their working hours in
-    // their line?", answered from the work itself. Every row here has at least one job by
-    // construction, because a row is only ever made to hold one.
-    //
-    // The end is the LATEST job end rather than the last item's, because a person in two
-    // places at once has an item list that is not sorted by where it finishes.
-    row.span = {
-      startMin: row.items[0].from,
-      endMin: row.items.reduce((m, i) => Math.max(m, i.to), row.items[0].to),
-    };
-    // And it stands down the moment she has said the hours herself. Her rule of
-    // 23 September, on seeing the two drawn together: "dont shade if the person have
-    // indicated work time". A window she typed and a window worked out for her are two
-    // answers to one question, and the answer she gave is the one that stands — where
-    // both were drawn, one band sat inside the other and neither read as the truth. So
-    // row.shade is what the row is shaded with: the stretch above while nobody has said
-    // the hours, and NOTHING at all once somebody has. Note that this is the shade only.
-    // row.span above is still the work's own extent, and the row, the tip, the person's
-    // card and the worker's board all still name it in words.
-    row.shade = row.shift ? null : row.span;
+    // There is deliberately NOTHING here that works out a working stretch from the
+    // day. v179 drew one — the person's first job to their last, gaps included — and
+    // v180 suppressed it where she had typed hours. Her word of 24 September retires
+    // the whole idea: "shade should just follow what i set, not other consideration".
+    // So the only shade on a person's row is the two hours she typed (row.shift above,
+    // drawn by the view), and a person whose hours nobody has typed carries no shade at
+    // all. Measured on her own day before it went: Wei was shaded 93 minutes wide —
+    // 4:00 am to 5:33 am — for five jobs totalling eleven minutes, against a whole day
+    // whose hands come to 58. The shade was the stretch, not the work, and it read as
+    // a lie beside the row's own "11 min of work".
     let edge = -1;
     let prev = null;
     for (const i of row.items) {
