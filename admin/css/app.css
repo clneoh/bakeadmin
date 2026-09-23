@@ -3442,3 +3442,59 @@ tr.po-covered td { color: var(--muted); }
 .tl.tl-dragging .tl-btag,
 .tl.tl-dragging .tl-name,
 .tl.tl-dragging .tl-row.person { cursor: grabbing; }
+
+/* ---------- The Production line board (v176) ------------------------------------
+
+   The Production line screen is a board a worker reads, not a form she fills in. The
+   day chart on it is the Scenario planner's own drawing, brought across whole, so
+   nothing below restyles the chart: only what the board ADDS is styled here.
+
+   Two additions. The strip above the chart says what each person is on now and what
+   follows it, in clock times. The cards the board opens are read-only, built from one
+   builder (boardReadout) so no card can quietly acquire a control.
+
+   The person's own colour is the same eight tones the calls and the person rows
+   already use — the hexes are copied from .tl-call.ptone-N so a name in the strip is
+   the same colour as that person's row on the chart under it. */
+.bd-top { display: flex; flex-direction: column; gap: 10px; }
+.bd-note { font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+/* One person, and the two things they need to know: what they are on and how long,
+   then what follows. Separated by a dashed rule rather than a gap, because on a
+   four-person day four names read as one paragraph without it. */
+.bd-next { display: flex; flex-direction: column; gap: 1px; }
+.bd-next + .bd-next { border-top: 1px dashed var(--line); padding-top: 9px; }
+.bd-job { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.bd-who { font-weight: 700; font-size: 14px; }
+.bd-what { font-size: 13.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bd-then { font-size: 12.5px; color: var(--muted); padding-left: 2px; }
+
+/* The foot of the strip: what would be called, and the one button a board has. The
+   sentence gets its own full line and the button sits under it, right-aligned — an
+   optional offer should not be the loudest thing on the screen, and a sentence
+   squeezed into the width left over beside a button wraps to five thin lines. */
+.bd-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.bd-foot { border-top: 1px solid var(--line); padding-top: 10px; }
+.bd-actions { display: flex; gap: 8px; align-self: stretch; justify-content: flex-end; }
+
+/* The person's own colour, on their name in the strip. */
+.bd-who.ptone-1 { color: #5b86c2; }
+.bd-who.ptone-2 { color: #c9743a; }
+.bd-who.ptone-3 { color: #4f9153; }
+.bd-who.ptone-4 { color: #8a5aa8; }
+.bd-who.ptone-5 { color: #b8912f; }
+.bd-who.ptone-6 { color: #2f8b83; }
+.bd-who.ptone-7 { color: #b8506f; }
+.bd-who.ptone-8 { color: #7a6a5c; }
+
+/* A read-only card. Label left, reading right, and the reading wraps rather than
+   running off the card — the same rule the chart's own reading row learned, because
+   the clock is the thing she opened the card for. */
+.bd-card { display: flex; flex-direction: column; gap: 9px; }
+.bd-row { display: flex; align-items: flex-start; gap: 8px; }
+.bd-lab { flex: 0 0 82px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.bd-val { flex: 1 1 auto; min-width: 0; font-size: 14px; line-height: 1.5;
+          font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* A line inside a reading: one job of a person's day, one batch of a module's. */
+.bd-sub { font-size: 13px; line-height: 1.5; }

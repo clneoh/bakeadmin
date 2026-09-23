@@ -42,9 +42,17 @@ function createEl(tag) {
     get firstChild() { return this.children[0] || null; },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
     append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
+    // Faithful on purpose: the real `replaceChildren` does NOT skip a null the way
+    // `el()` skips a null child — it converts every argument with String(), so a null
+    // reaches the screen as the word "null". A shim that quietly dropped one would make
+    // that invisible to every test here, which is the same lesson this file already
+    // carries about a stand-in more forgiving than the browser it stands in for.
     replaceChildren(...cs) {
       this.children = [];
-      for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; }
+      for (const c of cs) {
+        if (c && c.nodeType) { this.children.push(c); if (c.nodeType === 1) c.parent = this; }
+        else this.children.push(globalThis.document.createTextNode(String(c)));
+      }
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },

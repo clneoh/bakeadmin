@@ -1,8 +1,124 @@
-# Jienluv2bake — change history (v54 → v175)
+# Jienluv2bake — change history (v54 → v176)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v176 (no database step). The Production line is now a board a worker
+reads, not a form you fill in: the day chart from your plan, a clock line showing where the real
+time falls in it, and a strip saying what each person does next and how long they have. The
+screen used to ask you for 21 numbers; it now asks for 12, and 8 of those are folded away.**
+
+**What you asked, in your own words.** "can we simplify the productioon portion, it ask for alot of
+key in" — and then the shape of what you wanted: "maybe one function for production line, 1. copy
+the chart into Prodcution line, but should not be editable, it become a dashboard for worker, give
+the worker good inform of what next for them, how long, and others, you can be creeative". And of
+the boxes on the screen you said the thing that made this simple to build: "must of the question are
+answered in scenario plan". They are, and that is where the board now reads them from.
+
+**1. The day chart is carried across, not drawn a second time.** The board and the Scenario planner
+are the same drawing, produced by the same code, so the two screens can never disagree about a day
+— not its modules, not its batches, not its times, and not who is on what. What the board drops is
+everything that changes the day: the Scale buttons, the People box, the backwards chip, the undo
+chip, the Start the day now button, New module, and Save changes. Measured on your own day: the
+planner wears 8 buttons above the chart, and the board wears none of them — with the two cards shut
+the whole screen carries two buttons, and those two are the fold heads at the foot. What the board
+keeps is everything that only reads: you can pan the day with a right press, the clock follows your
+finger along the ruler, and the tips on the module names still open. A board that could not be panned
+would be a worse board on a long day.
+
+**2. A clock line, drawn with no press at all.** A board nobody has touched yet still has to say what
+time it is, so the line is placed the moment the screen opens and kept in place once a second. It is
+drawn exactly where the real clock falls in your day: at 96 pixels an hour on your own day, a press
+of nothing at all puts the line at 156 pixels for your 4:00 am start, and the clock it reads out
+matches the ruler under it. Measured live on your own day: at 5:00 am the line stands at 252 pixels
+and reads 5:00 am — which is 156 plus exactly one hour of 96. At 4:30 am it stands at 204 and reads
+4:30 am. Before your day begins it parks at your day's own start and says "day starts 4:00 am"; after
+your day has ended it parks where the day ended and says "day ended 6:03 am". It never wraps around
+to the other end of the ruler, which is the tempting wrong answer and would have put the line in the
+middle of a day that is not the one on the screen.
+
+**3. What is next, in clock times and not countdowns.** Above the chart the board says, for each
+person, the job they are on and the one after it, with the clock time each starts and how many
+minutes it runs: on your own day at 5:00 am that reads "Wei — the rests and the stretch and folds,
+5:01 am, 1 min, then the rests and the stretch and folds at 5:32 am". Clock times and not a countdown
+on purpose: a countdown means rewriting a box somebody is reading every single second, and this app
+has a rule about that — a redraw must never move what you are looking at. On a day that is not shared
+out to people, the strip falls back to one list of what the line does next.
+
+**4. And the strip answers AGAIN as the clock runs, without touching the chart.** This one was found
+while measuring, not reported: the strip was drawn once when the screen opened, so a worker opening
+the board at 4 am would still be reading "next: mix at 4:01" at eight in the morning. It now looks
+again whenever the clock has changed the answer, and only then — inside the working day it redraws at
+the exact minute a job starts or ends, and never in between. The chart itself is not redrawn, which is
+the planner's own rule and the reason a worker's scroll is never lost. Measured live across a job
+boundary: at 9:00 am the strip names Cutting and packing, at 9:10 am it names the oven swap, and the
+number of times the strip has been rebuilt does not change between them.
+
+**5. Three things about a day the clock has already gone past.** The first was a real fault, found by
+opening the board in the evening. The strip had one fallback sentence for two different empty lists,
+so a day that finished at 6:03 am was being described as "Nothing on this day needs hands" — which is
+a different thing entirely, and the opposite of true. A day whose jobs have all been and gone now
+says so: "The day is finished — every job on it has been and gone." The second is the offer to make a
+sound. The board rings people one minute before each job, and it rings by working out from the clock
+which jobs are due — but on a day that is already over there is nothing left due, so switching calls
+on would ring for nobody. That offer is now withdrawn on a finished day rather than left promising a
+sound it cannot make. Measured live at 7:16 pm on your own day: no Start calling button, and the line
+under the strip reads "The day is finished". The third is the other half of that, and it matters
+more: calls you turned on earlier can ALWAYS still be turned off. Stop calling stays on a finished
+day, so a sound started before cannot be left ringing with no way to stop it.
+
+**6. What left the screen, and where the numbers went.** Twenty-one boxes became twelve. Nine of them
+are now read off the day you built under More → Scenario planner — how many pairs of hands, the pans
+a tub makes, oiling and weighing out, the dimple, the packing, the oven and the bake-and-swap — so
+those questions are asked once and answered on both screens. The twelve left are the ones genuinely
+yours: four behind the first fold (how long you will bake for, the pans you own, what your proofer
+holds, and the pace between batches you would like), and eight behind the second fold (the rests, the
+fold, the two proofs, the cooling, the clock you want the first batch at the oven, and the minutes of
+soft tolerance around a start). Both folds start shut and open in place, so opening one never redraws
+the chart above it. The line card still answers while it is shut, in one line: measured on your own
+day, "44 pans today · the proofer is the wall that holds it back", worked out from the day rather than
+typed anywhere.
+
+**7. And the timetable card is folded, which is where it belongs.** The backwards timetable — the last
+moment each stage may start — was left on this screen on your word ("you decide, that is your baby")
+because it is worker information: it is the one thing on the screen that says when the dough has to
+be in the tub. But it is a page of advice, not a glance, and it was sitting out on the board in front
+of a worker who came to read what is next. It now lives behind its own fold head. Measured at a
+phone's width with both cards as they come: the timetable card is 64 pixels tall, its head and nothing
+else, where it was 943 while the timetable sat outside it. That one change alone takes the whole
+screen from 2005 pixels to 1126.
+
+**8. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day changed by
+this version, and nothing here blocks a sale or reads an order. The board is a READING of your day,
+and every number on it is computed rather than stored — the box you type a number into writes the one
+number you typed and nothing else. Measured live, going through a full pass of presses on the board: a
+bar tap, a module tap, a right press, and both cards opened and shut twice each, with your stored data
+compared before and after. Your data reads 13,888 characters, and it is byte for byte the same
+characters it read before the first press.
+
+**9. Every rule that stands on it was proved load-bearing, not assumed.** Nine faults were put back in
+all, and each was watched failing by name. The strip: with the finished-day sentence taken off, the
+test fails reading that a finished day falls back to the sentence for a day with no hands on it; with
+the calling offer always drawn, it fails reading that a finished day offers a sound it cannot make;
+with the foot dropped whenever the day is over rather than only when calls are off, it fails reading
+that a sound already started cannot be turned off; with the strip never rebuilt, it fails reading that
+the strip still names a job the clock has passed; and with the live minute taken off the strip's own
+signature, it fails reading that the parked sentence no longer names the hour it is standing in. Two
+more put a null where the parked sentence goes, and each was caught by the word "null" appearing on
+the screen. The fold: with the timetable put back outside its fold, the test fails reading that a shut
+card is already showing the clock times its caret says are behind it; and with the test's own reader
+taken back to one that walks straight through a hidden box, the same test fails — the reader had been
+reading text the browser never paints, which is the same lesson this test file already carried about a
+stand-in being more forgiving than the real thing. Every one was restored byte-identically afterwards.
+The suite is 1266 passing with none failing.
+
+**10. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. The day the board draws is the one already synced, and the four numbers behind the first
+fold were already synced with the rest of your production plan.
+
+CHANGELOG and the guide both carry all of this, the app's own More screen reads Engine v176, and the
+Production line names itself as the board it now is.
 
 **23 Sep 2026 — engine v175 (no database step). Two things you reported: the scenario
 windows no longer jump back to the start when you press something, and the right-button

@@ -116,8 +116,27 @@ const TICK_GRID_MIN = [1, 5, 15, 30];
 const GRID_MIN_PX = 12;
 
 export function renderScenario(root, state) {
-  const sc = ensureScenario(state);
-  const ask = el("div", {});
+  return plannerInto(root, state, false);
+}
+
+// The same day, drawn for somebody who did not plan it. Her words, 23 September
+// 2026: "copy the chart into Prodcution line, but should not be editable, it become
+// a dashboard for worker, give the worker good inform of what next for them, how
+// long". So it is this file's own chart and not a second drawing of it: two
+// renderers of one day drift apart, and this app's rule is that two screens may not
+// disagree about the same day.
+//
+// A second EXPORT rather than a third argument on renderScenario, deliberately:
+// app.js already passes the route's own params as the third argument, so an options
+// object in that position would be a URLSearchParams and the board would switch
+// itself on for any address carrying a query string.
+export function renderBoard(root, state) {
+  return plannerInto(root, state, true);
+}
+
+function plannerInto(root, state, board) {
+  const sc = board ? boardScenario(state) : ensureScenario(state);
+  const ask = board ? null : el("div", {});
   const readout = el("div", {});
   let dead = false;
 
@@ -145,7 +164,18 @@ export function renderScenario(root, state) {
     // is DOING, not something she has said about her bake day, so it is never
     // saved and it is gone when the screen is.
     dayBefore: null,
+    // Whether this screen is a BOARD — the same chart with nothing to edit. Kept on
+    // this record rather than threaded through every signature, because `run` already
+    // reaches every row, every bar and every card here, and a flag passed down a dozen
+    // calls is a dozen chances to forget one. It is true of `run` the same way the
+    // rest of this object is: it is what the screen is DOING, not anything she said
+    // about her bake day, so it is never saved.
+    board: false,
+    boardR: null,     // the computed day the board's own clock is placed against
+    callsOn: false,   // whether a board is calling people (needs her press, for sound)
+    nowNote: "",      // what the now-line says when the real clock is outside her day
   };
+  run.board = board;
 
   // Work a card asks for once it is actually on the screen. A block cannot measure
   // itself while it is being built — the node it would measure is not attached yet,
@@ -229,7 +259,7 @@ export function renderScenario(root, state) {
     // action she took deliberately, never while she is typing.
     reload: () => {
       if (dead) return;
-      ask.replaceChildren(askCard(sc, on));
+      if (ask) ask.replaceChildren(askCard(sc, on));
       on.refresh();
     },
     // Every edit goes through the app's own save, which is what the sync engine
@@ -242,8 +272,37 @@ export function renderScenario(root, state) {
   const tabbar = document.getElementById("tabbar");
   if (tabbar) tabbar.classList.add("wide");
 
-  root.replaceChildren(ask, readout);
+  // The ask strip is left OUT on a board rather than passed as a null: the real
+  // `replaceChildren` does not skip a null the way `el()` skips a null child, it
+  // converts it with String() — so `replaceChildren(null, readout)` puts the word
+  // "null" on the screen above the day.
+  root.replaceChildren(...(ask ? [ask] : []), readout);
+
+  // A board's clock is the REAL clock, and where it stands is worked out BEFORE the
+  // first paint rather than after it. The strip at the top of a board says what each
+  // person is at and what comes next, and that answer depends on the minute it is
+  // now — so a strip drawn for minute zero with only the line moved afterwards would
+  // be telling the worker the wrong thing until something else happened to redraw it.
+  if (board) {
+    const r0 = computeScenario(sc);
+    run.boardR = r0;
+    const at = boardNow(sc, r0);
+    run.dayStart = Number(sc.dayStartMin) || 0;
+    run.nowMin = at.min;
+    run.nowNote = at.note;
+  }
+
   on.reload();
+
+  // The line is placed at once and then kept placed with no press at all — a
+  // dashboard nobody has touched yet still has to say what time it is. It rides the
+  // same interval slot the planner's walk-through uses, so the teardown below
+  // (stopDay) is the whole undo for either of them.
+  if (board) {
+    const beat = () => tickBoard(run, sc, state, on);
+    beat();
+    run.timer = setInterval(beat, 1000);
+  }
 
   return () => {
     dead = true;
@@ -257,6 +316,27 @@ export function renderScenario(root, state) {
     root.classList.remove("wide");
     if (tabbar) tabbar.classList.remove("wide");
   };
+}
+
+// The day a BOARD draws.
+//
+// A board is a screen somebody else reads, and opening it must not put anything into
+// her settings — least of all a whole scenario she did not build. `ensureScenario`
+// seeds a bare scenario from the default, which is right on the planner (a screen she
+// came to in order to lay a day out has to open on something) and wrong here: on the
+// Production line it would write modules, a name, a start time and a target into her
+// settings, and the sync engine would carry them to her other phone as though she had
+// made them.
+//
+// So a board with no day of her own draws a deep copy of the default instead. Deep,
+// and not a spread: the drawing is allowed to write an arrangement onto the modules it
+// is given, and `{ ...DEFAULT_SCENARIO }` shares the module OBJECTS with the constant
+// itself — the one write would then follow every future reader of the default. The
+// copy is plain JSON data, so a JSON round-trip is exact.
+function boardScenario(state) {
+  const s = state.settings.scenario;
+  if (s && Array.isArray(s.modules) && s.modules.length) return s;
+  return JSON.parse(JSON.stringify(DEFAULT_SCENARIO));
 }
 
 // The stored scenario, seeded on first open so the screen says something true
@@ -347,6 +427,12 @@ function askCard(sc, on) {
 function blocks(sc, state, on, run) {
   const r = computeScenario(sc);
   const climb = climbSteps(sc, r.target);
+  // A board is the day drawn for somebody who did not plan it: the same chart, the
+  // same read-only answer card, and a strip saying what is next for each person —
+  // and none of the cards that change the day, because there is nothing here to
+  // change. The two cards that are hers to edit (the climb ladder and the shelf of
+  // saved days) are simply not drawn, rather than drawn dead.
+  if (run.board) return [boardTopCard(r, sc, state, run, on), dayCard(r, sc, on, state, run)];
   return [
     answerCard(r), climbCard(r, climb, sc, on), dayCard(r, sc, on, state, run),
     parkedCard(r, sc, on), scenariosCard(sc, state, on),
@@ -644,9 +730,13 @@ function applyDescent(sc, down, on) {
 // without a sentence pointing at it.
 function dayCard(r, sc, on, state, run) {
   return el("div", {},
-    el("h2", { class: "section" }, "The day"),
+    el("h2", { class: "section" }, run.board ? "The day as planned" : "The day"),
     el("div", { class: "card tl-card" },
-      controlsRow(r, sc, on, state, run),
+      // The scale, the People box, the two day-shaping presses and "New module" are
+      // all ways of changing the day, so a board has none of them — it is the day as
+      // the planner left it. Nothing is hidden behind them: the chart below is the
+      // whole of what they were for.
+      run.board ? null : controlsRow(r, sc, on, state, run),
       timeline(r, sc, on, state, run),
       batchNote(r),
       clashNotes(r, state)));
@@ -942,9 +1032,9 @@ function timeline(r, sc, on, state, run) {
   // never be mistaken for the minute the day is actually at. Drawn in both windows
   // from one computation, for the same reason the hairline is.
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
-  const now = el("div", { class: "tl-now", hidden: !run.on }, nowLab);
+  const now = el("div", { class: "tl-now", hidden: !(run.on || run.board) }, nowLab);
   const nowLab2 = el("span", { class: "tl-now-lab" }, "now");
-  const now2 = el("div", { class: "tl-now", hidden: !run.on }, nowLab2);
+  const now2 = el("div", { class: "tl-now", hidden: !(run.on || run.board) }, nowLab2);
   // The clock, drawn at the top of the modules window. Held here rather than found
   // again by class name, so the cursor is wired to the clock the chart actually
   // drew.
@@ -979,7 +1069,7 @@ function timeline(r, sc, on, state, run) {
   const people = el("div", { class: "tl tl-pane-people" },
     el("div", { class: "tl-inner" },
       el("div", { class: "tl-people" },
-        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state))),
+        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state, run))),
       cursor2,
       now2));
   // --hour-w is the hour line every track has always drawn. --tick-w is the grid
@@ -1013,6 +1103,11 @@ function timeline(r, sc, on, state, run) {
   run.lines = [now, now2];
   run.ruler = trackOf(headClock);
   run.pxPerMin = r.pxPerMin;
+  // A board places its line from the real clock, so it keeps the day it was drawn
+  // against: the minute the line sits on is read against the day's own width and
+  // its own start, and reading those off a stale snapshot is how a clock ends up
+  // naming a minute the chart no longer has.
+  if (run.board) run.boardR = r;
   if (run.on) placeNow(run);
   wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
   wirePaneScroll(proc, people);
@@ -1049,7 +1144,12 @@ function placeNow(run) {
   const ruler = run.ruler && run.ruler.isConnected ? run.ruler : null;
   const left = ruler ? ruler.offsetLeft : (run.rulerLeft || 0);
   const at = `${Math.round(left + run.nowMin * run.pxPerMin)}px`;
-  const label = clockOf(run.dayStart + run.nowMin);
+  // A board reading a real clock that has not reached her day yet (or has gone past
+  // it) parks the line at the day's own edge and says so, rather than wrapping round
+  // into a part of the day that is not the one on the screen. `nowNote` is that
+  // sentence; on the planner's walk-through, and on a board inside the day, it is
+  // empty and the label is simply the time of day the line is standing on.
+  const label = run.nowNote || clockOf(run.dayStart + run.nowMin);
   // Both windows: one line is the day happening in the modules, the other is it
   // happening to the people. One left serves both, for the reason run.ruler is one
   // origin — the name column is 156px in both windows.
@@ -1112,6 +1212,7 @@ function startDay(run, sc, state, on) {
 function stopDay(run, on) {
   if (run.timer) { clearInterval(run.timer); run.timer = null; }
   run.on = false;
+  run.callsOn = false;
   run.nowMin = 0;
   run.lastMin = -1;
   run.lines = [];
@@ -1202,6 +1303,367 @@ function chirp(run, who) {
     osc.start(t);
     osc.stop(t + 0.24);
   } catch { /* a phone that will not make a sound still shows the card */ }
+}
+
+// ── The board ──────────────────────────────────────────────────────────────
+//
+// The same day, drawn for whoever is standing at the bench rather than for the
+// person who planned it. Her words, 23 September 2026: "copy the chart into
+// Prodcution line, but should not be editable, it become a dashboard for worker,
+// give the worker good inform of what next for them, how long, and others".
+//
+// Nothing on a board may be a control that does nothing — a tap that answers with
+// silence reads as a fault — so every tap on this chart opens a card that READS:
+// one batch, one module, one person, or one stretch of somebody's day. Each of
+// those cards is built from values the chart has already worked out, and the two
+// that have anything to say reuse the planner's own moduleNotes and personNotes,
+// so a board cannot drift from the day it is showing.
+//
+// The one thing a board adds to the day is the clock, and it is the real one.
+
+// Where the real clock falls inside her planned day, and what to say when it falls
+// outside it.
+//
+// Outside is not an error and it is not a wrap. Her day starts at a time she set, so
+// a board opened before it says so rather than leaving the line on the left edge for
+// the worker to interpret. Wrapping round to the other end is the tempting wrong
+// answer: the seeded retard day runs past midnight, so a "now" that has gone past
+// the day's end would come back in the middle of a day that is not the one on
+// screen.
+//
+// The one carry backwards is the overnight shift, and it is not a wrap: a day of more
+// than twenty-four hours really can still be running after midnight, so if
+// yesterday's start plus the minutes elapsed still lands inside the day's own real
+// end, that is where now is. A day that finished at 11 am is not carried into the
+// small hours, because `endMin` says it is over.
+function boardNow(sc, r) {
+  const now = new Date();
+  const real = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  const dayStart = Number(sc.dayStartMin) || 0;
+  const endMin = Number(r && r.endMin) || 0;
+  let t = real - dayStart;
+  if (t < 0 && t + DAY_MIN <= endMin) t += DAY_MIN;
+  if (t < 0) return { min: 0, note: `day starts ${clockOf(dayStart)}` };
+  if (t > endMin) return { min: endMin, note: `day ended ${clockOf(dayStart + endMin)}` };
+  return { min: t, note: "" };
+}
+
+// One second of a board's clock: the line, and the one call that came due in the
+// minute just gone. It repaints nothing, which is the planner's own rule at
+// tickDay — the chart is the plan, the plan does not change as the clock runs, and
+// redrawing it every second would fight the scroll a worker is reading.
+//
+// `run.dayStart` is the day's own start here and not the wall-clock minute a
+// walk-through began at. That is the one place a board and the planner deliberately
+// differ: a board reads the real clock rather than replaying the day from now, and
+// everything that names a time — showCall's card, the line's own label — is built
+// from this, so setting it once means they cannot disagree.
+function tickBoard(run, sc, state, on) {
+  if (!run.board) return;
+  const r = run.boardR;
+  if (!r) return;
+  const at = boardNow(sc, r);
+  run.dayStart = Number(sc.dayStartMin) || 0;
+  run.nowMin = at.min;
+  run.nowNote = at.note;
+  placeNow(run);
+  // The strip is the one thing on a board that is not the plan: "what is next" is a
+  // question about the clock, so it is answered again whenever the clock has changed
+  // the answer — and left alone the rest of the time. The chart is not redrawn here,
+  // which is the planner's own rule and the reason a worker's scroll is never lost.
+  if (run.strip) {
+    const key = boardAheadKey(r, sc, state, run);
+    if (key !== run.stripKey) {
+      run.stripKey = key;
+      run.strip.replaceChildren(...boardTopBody(r, sc, state, run, on));
+    }
+  }
+  if (!run.callsOn) return;
+  const whole = Math.floor(run.nowMin);
+  if (whole <= run.lastMin) return;
+  const calls = state.settings.personCalls || {};
+  // Only the LAST call due is shown, which is her own rule: an announcement nobody
+  // has acknowledged is replaced by the one after it rather than queued behind it.
+  const due = callWindows(sc)
+    .filter((w) => calls[w.who] !== false && w.at > run.lastMin && w.at <= whole);
+  run.lastMin = whole;
+  if (!due.length) return;
+  showCall(run, due[due.length - 1], sc, state, on);
+}
+
+// Calls, switched on by a finger.
+//
+// This is the whole of what a board borrows from the planner's walk-through, and it
+// borrows it for one reason: a phone blocks sound until something real has touched
+// the page, and this press is that touch. It does NOT call startDay — a board is
+// reading the day's real clock, not walking her day from this minute — so all it
+// takes are the audio context, the wake lock, and the promise that the minute just
+// gone has already been answered for. Seeded from the minute the board is standing
+// on, so switching calls on at 9:40 does not fire every call the morning has already
+// made.
+function boardCallsStart(run, on) {
+  if (run.callsOn) return;
+  run.lastMin = Math.floor(run.nowMin);
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx && !run.audio) run.audio = new Ctx();
+  } catch { run.audio = null; }
+  try {
+    if (navigator.wakeLock && !run.wake) {
+      navigator.wakeLock.request("screen").then((s) => { run.wake = s; }).catch(() => {});
+    }
+  } catch { /* the board does not depend on it */ }
+  run.callsOn = true;
+  on.refresh();
+  toast("Calls are on — one minute before each job, in that person's own colour.");
+}
+
+function boardCallsOff(run, on) {
+  if (!run.callsOn) return;
+  run.callsOn = false;
+  run.lastMin = -1;
+  if (run.pending) { run.pending.remove(); run.pending = null; }
+  on.refresh();
+  toast("Calls are off.");
+}
+
+// What is next, and how long it is. This is the whole of what she asked a board to
+// say — "give the worker good inform of what next for them, how long" — and it says
+// it in CLOCK TIMES, never in countdowns. A countdown means rewriting a box on the
+// screen every second, which is the repaint-under-her-scroll this app has already
+// been bitten by.
+//
+// By person where the day has people of its own, because that is the question a
+// worker asks — "what am I on now, and what is after it". A day that is sharing
+// them out has no people of its own: its row numbers are the packing's invention
+// and they are renamed whenever anything moves, so the board names the JOBS instead.
+// That is not a lesser answer — the job and the time are what somebody standing at
+// the bench acts on.
+function boardAhead(sc, state, run) {
+  const calls = state.settings.personCalls || {};
+  const mine = callWindows(sc).filter((w) => calls[w.who] !== false && w.to > run.nowMin);
+  const shared = (sc.modules || []).some((m) => Number(m.person) > 0
+    || (m.crew || []).some((p) => Number(p) > 0)
+    || Object.values(m.slotPerson || {}).some((v) => Number(v) > 0));
+  if (!shared) return { people: [], jobs: mine.slice(0, 3) };
+  const byWho = new Map();
+  for (const w of mine) {
+    if (!byWho.has(w.who)) byWho.set(w.who, []);
+    byWho.get(w.who).push(w);
+  }
+  return {
+    people: [...byWho].slice(0, 6).map(([who, list]) => ({
+      who, doing: list[0], then: list[1] || null,
+    })),
+    jobs: [],
+  };
+}
+
+// Everything the board's heading card holds. Split out from the card itself because
+// what it says is about the CLOCK and not about the plan: "what is next" stops being
+// true the moment that job starts, so this is the one piece of the board that has to
+// be said again as the day runs. See `boardAheadKey` for when.
+function boardTopBody(r, sc, state, run, on) {
+  const ahead = boardAhead(sc, state, run);
+  const called = callCount(r, state);
+  // The clock has already gone past the day's last job. `boardAhead` drops everything
+  // whose end has gone by, so on this one day its list is empty for a reason that is
+  // the opposite of "there is nothing here to do" — see the two sentences below.
+  const over = /^day ended /.test(run.nowNote);
+  const what = (w) => `${jobName(w)} — ${clockAt(sc.dayStartMin, w.from)} · ${trim(w.to - w.from)} min`;
+  const lines = [];
+  if (ahead.people.length) {
+    for (const a of ahead.people) {
+      lines.push(el("div", { class: "bd-next" },
+        el("div", { class: "bd-job" },
+          el("span", { class: `bd-who ${personTone(a.who)}` }, personName(a.who, namesOf(state))),
+          el("span", { class: "bd-what" }, what(a.doing))),
+        a.then
+          ? el("div", { class: "bd-then" }, `then ${jobName(a.then)} at ${clockAt(sc.dayStartMin, a.then.from)}`)
+          : null));
+    }
+  } else {
+    for (const w of ahead.jobs) {
+      lines.push(el("div", { class: "bd-next" }, el("div", { class: "bd-job" },
+        el("span", { class: "bd-what" }, what(w)))));
+    }
+  }
+
+  // A real `replaceChildren` does NOT skip a null the way `el()` skips a null child —
+  // it converts every argument with String(), so one null here puts the word "null" on
+  // the screen. Nothing in this array may be a null; leave the sentence out instead.
+  const parked = run.nowNote
+    // The board says when the real clock is outside the day it is drawing. The
+    // line itself carries the short form; this is the sentence that explains it.
+    ? [el("div", { class: "bd-note" },
+      `It is ${clockOf(Math.round(currentMinutesOfDay()))} now, and ${run.nowNote.replace(/^day /, "your day ")} — so the line on the chart is parked at that edge.`)]
+    : [];
+
+  const next = lines.length
+    ? lines
+    : [el("div", { class: "bd-note" }, over
+      ? "The day is finished — every job on it has been and gone."
+      : "Nothing on this day needs hands, so there is nobody to be anywhere next.")];
+
+  // A day the clock has already passed is the one case where the count below is not
+  // the whole truth. The board seeds `lastMin` from the minute it is standing on, so
+  // switching calls on now would ring for nobody — the offer is withdrawn rather than
+  // left to promise a sound it cannot make. Stop stays, because calls turned on
+  // earlier must always be switchable off.
+  const foot = over && !run.callsOn ? [] : [el("div", { class: "bd-foot" },
+    // How many of them would be called, said before the button rather than behind it
+    // — the same count the planner's own bell chip gives her.
+    el("div", { class: "bd-note" }, run.callsOn
+      ? (over
+        ? "Calling is on, but this day is finished — there is nothing left to call."
+        : `Calling ${called} ${called === 1 ? "person" : "people"} — one minute before each job, in that person's own colour.`)
+      : (called
+        ? `${called} ${called === 1 ? "person" : "people"} would be called. Sound needs a press, so start it here.`
+        : "Nobody is set to be called on this day.")),
+    el("div", { class: "bd-actions" }, run.callsOn
+      ? button("Stop calling", () => boardCallsOff(run, on), "ghost")
+      : button("Start calling", () => boardCallsStart(run, on), "primary")))];
+
+  return [...parked, ...next, ...foot];
+}
+
+// The board's own heading card: what is next, and the one button a board has.
+//
+// The button is not "start the day" — a board is not walking anything — and the
+// only reason it exists at all is that a phone will not make a sound until a real
+// finger has touched the page. It reads as an offer rather than as a step, because
+// that is what it is: everything on this screen works with it left alone.
+function boardTopCard(r, sc, state, run, on) {
+  const card = el("div", { class: "card bd-top" }, ...boardTopBody(r, sc, state, run, on));
+  run.strip = card;
+  run.stripKey = boardAheadKey(r, sc, state, run);
+  return el("div", {}, el("h2", { class: "section" }, "Next up"), card);
+}
+
+// What the strip would say, boiled down to one string, so the board's own beat can
+// tell whether the answer has changed without building anything to compare.
+//
+// It has to be watched at all because what is next moves as the clock runs, and a
+// strip drawn once when the board was opened would still be naming a job that finished
+// hours ago — which is the whole of what this screen is for. It is compared rather
+// than rebuilt so the card is left stone still through the long stretches where
+// nothing has changed, and the chart under it is never touched either way.
+//
+// The live minute rides on this key ONLY while the line is parked outside her day.
+// Inside the day `nowNote` is empty and nothing here is a clock reading, so the key
+// holds until a job really starts or ends. Parked, the sentence above the strip names
+// the time on the wall, and a sentence naming the wrong hour is worse than the work of
+// saying it again.
+function boardAheadKey(r, sc, state, run) {
+  const a = boardAhead(sc, state, run);
+  const id = (w) => `${w.module}.${w.cycle}.${w.batch}.${w.slot}`;
+  return [
+    run.callsOn ? "on" : "off",
+    /^day ended /.test(run.nowNote) ? "over" : "running",
+    callCount(r, state),
+    run.nowNote ? String(Math.floor(currentMinutesOfDay())) : "",
+    a.people.map((p) => `${p.who}=${id(p.doing)}>${p.then ? id(p.then) : ""}`).join(","),
+    a.jobs.map(id).join(","),
+  ].join("|");
+}
+
+// The minute of the day the wall clock is on, as a number. Kept beside boardNow and
+// read the same way, so the sentence above the strip cannot name a different time
+// from the line on the chart.
+function currentMinutesOfDay() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+}
+
+// A read-only card: a list of readings, and nothing that writes. Every card on a
+// board is built from this, so there is exactly one place a board's card can be
+// shaped and no card can quietly acquire a control.
+//
+// A row whose value is empty is dropped rather than drawn blank — a board's card
+// lists what is true of this batch, this module or this person, and "Cycle: (nothing)"
+// is a line about a thing that is not there.
+function boardReadout(title, lines) {
+  const rows = lines.filter((r) => r && r[1] != null && r[1] !== "");
+  showPopup(title, () => el("div", { class: "bd-card" },
+    ...rows.map(([lab, val]) => el("div", { class: "bd-row" },
+      lab ? el("span", { class: "bd-lab" }, lab) : null,
+      el("span", { class: "bd-val" }, val)))));
+}
+
+// One batch, as a worker reads it: which batch of how many, the two clock times,
+// how long the dough is in it and how much of that is hands, and who is on it.
+function boardJobCard(r, m, live, sc, state, k) {
+  // `m` is the module as the DAY has it (its computed passes) and `live` the stored
+  // module; a module that is switched off has only the one. So the times come from
+  // whichever of them is carrying a pass, and nothing here computes a time of its own.
+  const here = r.modules.find((x) => x.id === live.id) || m;
+  const p = (here.passes || [])[k] || null;
+  // How many batches the DAY runs, not how many she asked for: a module asked for six
+  // batches that a day can only hold four of draws four bars, and a card calling the
+  // fourth "4 of 6" would be describing a bar that is not on the chart.
+  const n = here.repeatsHeld || (here.passes || []).length || here.repeats || 1;
+  const at = p ? p.at : Number((cycleStarts(live))[k]) || 0;
+  const end = p ? p.end : at + (here.cycleMin || 0);
+  // Which cycle of the batch these hands are for, when she has named it. String(…).trim()
+  // and NOT trim() — the imported trim is production.js's number formatter and answers
+  // "0" for an unnamed cycle, which is what the module's card used to print above the clock.
+  const win = callWindows(sc).find((w) => w.module === live.id && w.batch === k) || null;
+  const cyc = win && win.cycle >= 0 ? (here.cycles || [])[win.cycle] : null;
+  const name = cyc ? String(cyc.name || "").trim() : "";
+  boardReadout(`${live.icon || m.icon} ${live.name} · batch ${k + 1} of ${n}`, [
+    ["When", `${clockAt(sc.dayStartMin, at)} → ${clockAt(sc.dayStartMin, end)}`],
+    ["How long", `${trim(here.cycleMin)} min a batch` + (here.touchMin ? `, ${trim(here.touchMin)} min of hands` : ", no hands")],
+    ["Where", here.lines > 1 ? `line ${(p && p.line != null ? p.line : 0) + 1} of ${here.lines}` : null],
+    ["What for", name || null],
+    ["Who", win ? personName(win.who, namesOf(state)) : null],
+  ]);
+}
+
+// One module, as a worker reads it: the tags it wears, when it starts and how many
+// batches it runs, what a batch costs it, and then one line per batch. The first
+// three lines are the planner's own moduleNotes, which is the whole point — the
+// module's card on a board and the module's card in the planner cannot say different
+// things about the same module.
+//
+// `m` is the module as the day has it, `live` the module as stored; the times come
+// from `m` because only it has been through the chain.
+function boardModuleCard(r, m, live, sc, state) {
+  const notes = moduleNotes(r, m, live);
+  const batches = (m.passes || []).map((p, k) => ["", `Batch ${k + 1}: ${clockAt(sc.dayStartMin, p.at)} → ${clockAt(sc.dayStartMin, p.end)}`]);
+  boardReadout(`${(live.icon || m.icon)} ${live.name || m.name}`, [
+    ["", notes.tags.length ? notes.tags.map((t) => t.text).join(" · ") : null],
+    ["When", notes.when],
+    ["One batch", notes.cost],
+    ...(batches.length > 1 ? [["", "Every batch in this module"], ...batches] : []),
+  ]);
+}
+
+// One stretch of somebody's day, as a worker reads it: whose it is, what the job is,
+// the two clock times and how long it is. It is deliberately NOT the planner's
+// card — that one exists to hand the stretch to somebody else, and a board has
+// nothing to hand over.
+function boardStretchCard(row, w, sc, state) {
+  boardReadout(jobName(w), [
+    ["Who", personName(row.person, namesOf(state))],
+    ["When", `${clockAt(sc.dayStartMin, w.from)} → ${clockAt(sc.dayStartMin, w.to)}`],
+    ["How long", `${trim(w.to - w.from)} min`],
+  ]);
+}
+
+// One person's whole day, as a worker reads it — the same words their card carries in
+// the planner, from the same builder, plus their name and how much of the day is
+// theirs.
+function boardPersonCard(row, sc, state, r) {
+  const notes = personNotes(row, sc, state, r.dayStartMin);
+  boardReadout(`👤 ${notes.who}`, [
+    ["Their day", hoursAndMinutes(notes.busy) + (notes.places > 1 ? ` of work, in ${notes.places} places` : " of work")],
+    ...(notes.clashes ? [["Watch out", notes.clash]] : []),
+    ["What they do", el("div", { class: "bd-sub" },
+      ...(notes.jobs.length
+        ? notes.jobs.map((j) => el("div", { class: "bd-sub" }, j))
+        : [el("div", { class: "bd-sub" }, "Nothing on this person yet.")]),
+      notes.more > 0 ? el("div", { class: "bd-sub" }, `…and ${notes.more} more.`) : null)],
+  ]);
 }
 
 // The time cursor: a hairline down the whole day that reads the clock at
@@ -1611,7 +2073,7 @@ function rulerRow(r, trackW) {
 // sibling in the track, in the band the row grew for it. It carries the same
 // `data-k` the bar does and the track's own click handler accepts either, so the
 // number is a handle she can hit rather than a label she has to aim past.
-function batchTags(r, m, live, line = null) {
+function batchTags(r, m, live, line = null, board = false) {
   const { ks } = lineLanes(m, line);
   const trackW = r.windowMin * r.pxPerMin;
   const deltas = Array.isArray(live.startDelta) ? live.startDelta : [];
@@ -1623,13 +2085,18 @@ function batchTags(r, m, live, line = null) {
     // never half off the edge of the screen.
     const x = Math.max(0, Math.min(Math.round(p.at * r.pxPerMin), Math.max(0, trackW - 26)));
     const d = Math.max(0, Math.round(Number(deltas[k]) || 0));
+    // The tip on a board describes and never invites. "Tap to move it" is the
+    // planner's own words and they are true there; a board's tap opens a read-only
+    // card, so a tooltip promising a move would be advertising the one thing this
+    // screen will not do.
+    const said = d
+      ? `Batch ${k + 1} of ${m.name}: held back ${d} min from where the line puts it`
+      : (board ? `Batch ${k + 1} of ${m.name}` : `Batch ${k + 1} of ${m.name} — tap to move it`);
     out.push(el("div", {
       class: `tl-btag${d ? " nudged" : ""}`,
       "data-k": String(k),
       style: `left:${x}px`,
-      title: d
-        ? `Batch ${k + 1} of ${m.name}: held back ${d} min from where the line puts it`
-        : `Batch ${k + 1} of ${m.name} — tap to move it`,
+      title: said,
     }, `B${k + 1}${d ? ` Δt=+${d}` : ""}`));
   });
   return out;
@@ -1930,7 +2397,11 @@ function moduleRow(r, m, idx, trackW, sc, on, state, run) {
   const tone = `tone-${idx % TONES}`;
 
   if (!m.on) {
-    return el("div", { class: "tl-row off", onclick: () => editModule(m, sc, on, false, r, state) },
+    // A module that is switched off is still a thing on the day's own list, so a tap
+    // on it on a board says what it is rather than doing nothing at all.
+    return el("div", { class: "tl-row off", onclick: () => (run.board
+      ? boardModuleCard(r, m, sc.modules.find((x) => x.id === m.id) || m, sc, state)
+      : editModule(m, sc, on, false, r, state)) },
       el("div", { class: "tl-name" },
         el("div", { class: "tl-name-top" }, el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`)),
         el("div", { class: "tl-sub" }, "not in this scenario")),
@@ -1971,7 +2442,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, line, state, run) {
     class: "tl-track",
     style: `width:${trackW}px;height:${laneTrackH(lanes) + TAG_BAND}px`,
   });
-  track.replaceChildren(...batchTags(r, m, live, line), ...passBars(m, tone, r, line));
+  track.replaceChildren(...batchTags(r, m, live, line, run.board), ...passBars(m, tone, r, line));
 
   let whenLine = null;
   let name = null;
@@ -2047,10 +2518,18 @@ function timelineRow(r, m, live, sc, on, tone, trackW, line, state, run) {
     const hit = e.target && e.target.closest ? e.target.closest(".tl-bar, .tl-btag") : null;
     if (!hit) return;
     e.stopPropagation();
-    batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)), run);
+    const k = Math.max(0, Math.round(Number(hit.dataset.k) || 0));
+    // A board reads and a planner writes, and the two are the same tap: which card
+    // opens is decided by what this screen is for, not by where the finger landed.
+    if (run.board) return boardJobCard(r, m, live, sc, state, k);
+    batchPopup(m, live, sc, on, k, run);
   });
 
-  row.addEventListener("click", (e) => { if (isPrimaryClick(e)) editModule(live, sc, on, false, r, state); });
+  row.addEventListener("click", (e) => {
+    if (!isPrimaryClick(e)) return;
+    if (run.board) return boardModuleCard(r, m, live, sc, state);
+    editModule(live, sc, on, false, r, state);
+  });
 
   return row;
 }
@@ -2614,7 +3093,7 @@ function costLine(m) {
   return `${trim(m.cycleMin)} min a batch · ${trim(m.touchMin)} min of you`;
 }
 
-function personRow(r, row, trackW, sc, on, state) {
+function personRow(r, row, trackW, sc, on, state, run) {
   const who = row.person;
   const tone = personTone(who);
   // How wide a stretch has to be before it can hold a name. Measured in minutes at
@@ -2681,6 +3160,9 @@ function personRow(r, row, trackW, sc, on, state) {
     // Nothing within reach: say nothing, and let the tap through to the row.
     if (!hit) return;
     e.stopPropagation();
+    // A board has nothing to hand over, so its tap on a stretch reads it out: whose
+    // job it is, when, and how long. The planner's card is the one that moves it.
+    if (run.board) return boardStretchCard(row, hit, sc, state);
     slotPopup(r, row, hit, sc, on, state);
   });
   const tip = personTip(notes);
@@ -2692,7 +3174,14 @@ function personRow(r, row, trackW, sc, on, state) {
   return el("div", {
     class: `tl-row person tappable ${tone}`,
     // A right press pans the day and opens nothing. See isPrimaryClick.
-    onclick: (e) => { if (isPrimaryClick(e)) personPopup(row, sc, on, state); },
+    onclick: (e) => {
+      if (!isPrimaryClick(e)) return;
+      // The person's own card — the same words in both places, from the same
+      // builder; a board's just has no switches on it, because who is called and who
+      // is on what are hers to decide and not the worker's.
+      if (run.board) return boardPersonCard(row, sc, state, r);
+      personPopup(row, sc, on, state);
+    },
   },
     nameCell,
     track);

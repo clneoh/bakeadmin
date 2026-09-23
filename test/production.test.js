@@ -15,8 +15,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_PLAN, allocation, computeLine, foldsIn, labourPerPanOf, proofCycleOf, usefulPeople,
+  DEFAULT_PLAN, allocation, computeLine, foldsIn, labourPerPanOf, planOf, proofCycleOf, usefulPeople,
 } from "../admin/js/production.js";
+import { scenarioOf, scenarioPlanPatch } from "../admin/js/scenario.js";
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 const stationOf = (r, key) => r.stations.find((s) => s.key === key);
@@ -177,4 +178,72 @@ test("a tub with no size set cannot spread its time, and says so rather than div
   assert.ok(r.unmeasured.includes("Mixing the dough in the tub"),
     "and both are reported as untimed, because a time with nowhere to go is not a measurement");
   assert.ok(r.unmeasured.includes("The rests and the stretch and folds"));
+});
+
+// ── The plan the line is read from, and the day it must never invent (v176) ──
+//
+// The Production line screen now reads nine of its numbers off her Scenario planner
+// day instead of asking her for them. That makes two things load-bearing that were
+// not before, and both of them are silent when they break: the object the line is
+// computed from must not be hers, so nothing the screen does can reach her stored
+// settings; and with no day of her own stored, the screen must read HER plan and not
+// a default day it made up.
+
+test("planOf keeps its own twenty-three keys and drops anything else it was handed", () => {
+  // The screen builds a throwaway plan by spreading her stored settings and the
+  // numbers it read off her day together. `planOf` answering with an explicit
+  // literal is what stops that throwaway carrying an unknown key forward into
+  // computeLine, where a station would read it and behave differently.
+  const p = planOf({ ...DEFAULT_PLAN, capacity: 99, band: "late", modules: [1, 2, 3] });
+  assert.equal("capacity" in p, false, "an unknown key reached the line's arithmetic");
+  assert.equal("band" in p, false);
+  assert.equal("modules" in p, false);
+  assert.equal(Object.keys(p).length, 23, `planOf answers with ${Object.keys(p).length} keys`);
+  assert.equal(Object.keys(p).length, Object.keys(planOf({})).length,
+    "the keys depend on what was handed in, so a screen can change the shape of a plan");
+});
+
+test("computeLine does not write to the plan it was handed", () => {
+  // ES modules are strict, so a write to a frozen object THROWS rather than being
+  // swallowed — which is what makes this a measurement and not a hope. Every level
+  // is frozen, because a shallow freeze would let a nested object be written and
+  // this test would still pass.
+  const deepFreeze = (o) => {
+    for (const v of Object.values(o)) if (v && typeof v === "object") deepFreeze(v);
+    return Object.freeze(o);
+  };
+  const frozen = deepFreeze({ ...DEFAULT_PLAN });
+  const r = computeLine(frozen);
+  assert.ok(r.dayCapacity > 0, "the frozen plan did not compute at all");
+  assert.notEqual(r.plan, frozen, "the line hands back the very object it was given, so a caller can write through it");
+  assert.equal(frozen.target, DEFAULT_PLAN.target, "the plan came back changed");
+});
+
+test("the plan the screen builds is a copy, so computing it cannot touch what she stored", () => {
+  // The exact shape the screen uses: her stored row, then the numbers read off her
+  // day spread over it. If this were not a copy, the spread would BE her settings and
+  // the first derived number would be written straight into her stored plan.
+  const stored = { ...DEFAULT_PLAN };
+  const before = JSON.stringify(stored);
+  const merged = { ...stored, target: 36, people: 2 };
+  computeLine(planOf(merged));
+  assert.equal(JSON.stringify(stored), before, "computing the line wrote into her stored settings");
+  assert.equal(stored.target, DEFAULT_PLAN.target);
+});
+
+test("with no day of her own the screen reads her plan, not a day it invented", () => {
+  // The trap the screen's gate closes, measured rather than argued. An empty scenario
+  // is not an empty day: the model's own reader falls back to a full ten-module
+  // default day, and its patch then hands the line ten numbers off a day she never
+  // built. Measured here: her own plan says 39 pans today and that invented day says
+  // 40 — the screen would have been quietly reading the wrong day, and saying a
+  // number she never chose.
+  const mine = computeLine(planOf(DEFAULT_PLAN)).dayCapacity;
+  const invented = computeLine({ ...DEFAULT_PLAN, ...scenarioPlanPatch({}, DEFAULT_PLAN).patch }).dayCapacity;
+  assert.notEqual(mine, invented,
+    "the two days no longer tell apart, so this test cannot see which one the screen read");
+  assert.equal(scenarioOf({}).modules.length, 10,
+    "scenarioOf no longer falls back to a default day, so the gate is guarding nothing");
+  assert.equal(Object.keys(scenarioPlanPatch({}, DEFAULT_PLAN).patch).length, 10,
+    "an empty scenario no longer patches the plan, so the gate is guarding nothing");
 });
