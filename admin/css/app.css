@@ -2815,8 +2815,19 @@ tr.po-covered td { color: var(--muted); }
    instead — the grid is what its own bars are read against, so a row without it
    would be the one row she cannot line up. */
 .tl-row.off .tl-track { opacity: .45; }
-.tl-row.person { background: var(--strip); }
-.tl-row.person .tl-name { background: var(--strip); }
+/* Her own ask of 23 September: "I want to have white background for person's line".
+   The people's rows wore the cream strip tint, which is the colour of every other
+   soft band in the app and reads as a highlight sitting under the markers rather
+   than as the plain ground the day is read against. They take the app's own white
+   now — the same --surface the panel behind them and every module's name cell are
+   already painted in, so the foot of the chart is the same paper as the rest of it.
+   The name cell is set too, and not left to inherit: its base rule is --surface
+   anyway, but the strip used to be asked for here and a rule that only half goes
+   away is a rule that comes back. What still marks the block is .tl-people's own
+   border-top and shadow, and the row-to-row hairlines, so the strip reads as the
+   pinned foot of the day exactly as it did. */
+.tl-row.person { background: var(--surface); }
+.tl-row.person .tl-name { background: var(--surface); }
 .tl-row.person .tl-bar { top: 12px; height: 11px; }
 /* A person's tip and the tally's tip are blocks of reading rather than sets of
    one-liners: a job line is a module's name with a clock and a line number in

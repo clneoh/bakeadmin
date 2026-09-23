@@ -1,8 +1,79 @@
-# Jienluv2bake — change history (v54 → v160)
+# Jienluv2bake — change history (v54 → v161)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v161 (no database step). Your people's rows are the app's
+own white now, and a tap on one of their markers moves THAT STRETCH and nothing
+else - the batch it belongs to is untouched.**
+
+**What you asked, and it was two things.** In your words: "I want to have white
+background for person's line", and "The reassign job to next person is not whole
+day, it is that slot only". Asked what one tap should take with it, you told me:
+"we dont change the batch. Say a labour slot belongs to person1, clicking that
+slot, will offer to swap it to others, this basically to balance work load".
+
+**Your people's rows take the app's own white.** They wore the cream band that
+every soft strip in the app wears, which reads as a highlight sitting under the
+markers rather than as the plain paper the day is read against. They are now the
+same white as the panel behind them and as every module's name cell, so the foot
+of the chart is the same paper as the rest of it. What still marks the block as
+the foot of the day is untouched: its own line above it, its own shadow, and the
+hairline between one person's row and the next.
+
+**A tap now moves one stretch, not the whole job.** Until this release, tapping a
+marker handed over the whole module on that line - every batch of it. Your fold
+loop folds three times in one batch, so a tap anywhere near it took three of your
+markers with it. That is not what you asked for and it is not what balancing a
+day needs. What changes hands now is the single stretch your finger is on: the
+one batch, and which part of that batch. Its neighbours stay exactly where they
+were, and the batch itself is never touched.
+
+**The card says so before you press it, with the number.** If the batch you
+tapped has more than one stretch on that person's row, the card counts them and
+says only the one you tapped moves. You are told what is about to happen rather
+than finding out from the chart afterwards.
+
+**And what you can hand a stretch to.** The list is the other people who have a
+row on this day, named as you have named them - plus "whoever is free". That last
+one is not a person; it is what the day does when nobody is named, and without it
+a stretch on a module nobody was put on could be handed to somebody and could
+never be handed back. Pick it and the press under the list changes to say so,
+before you press it.
+
+**Your module's own card keeps up.** A hand-over is now one stretch of a module
+rather than the whole of it, so "Who is at this module" is the module's default
+and no longer the whole answer. The card now carries a note naming what has been
+handed on, and to whom, with the count - so a card reading Person 2 while a
+marker of that module sits on Person 1's row cannot happen. On a day where you
+have handed nothing over, there is no note at all.
+
+**One thing the earlier note got wrong, said plainly.** v160's entry said that
+moving the person on one batch of a module would need a new stored field on the
+module and a one-time step in Supabase. The stored field was indeed needed - it
+is there now - and the Supabase step was not. Your planner travels inside the
+app's own settings record, so nothing had to be run.
+
+**Nothing of yours is rewritten.** The only thing that changes is the one stretch
+you hand over with your own press. Your day was read before and after: One baker
+day still makes 24 pans, and its one person's row still carries the same 32
+stretches across the same clock. No module, no batch, no start time and no cycle
+moves by being read, and there is nothing to run in Supabase.
+
+**Measured on the real app rather than assumed.** A stretch was tapped on your own
+day and handed over: the toast named the module and the clock, the marker left one
+person's row and arrived on the other, and the module's other three batches stayed
+where they were. Tapping in a gap still opens that person's own card, exactly as
+it always did.
+
+**Measured rather than promised.** The suite is 1187 passing with none failing.
+The two tests that stood on the module-level move are now three that stand on the
+single stretch - that only the one key is written and the module's own person, its
+crew and its times are untouched; that a second hand-over keeps the first; that a
+stretch handed back to whoever is free survives as its own answer; and that the
+chart puts exactly the tapped stretch on the other row. The app's own More screen
+reads Engine v161.
 
 **23 Sep 2026 — engine v160 (no database step). In the Scenario planner, the
 ruler's lines now carry on down through the people's markers, and a tap on a

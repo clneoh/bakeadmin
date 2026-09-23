@@ -30,7 +30,7 @@ import {
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine, latestStarts,
-  combinedScenario, reassignPerson, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
+  combinedScenario, reassignSlot, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
   startModeOf, setStartMode,
@@ -1481,7 +1481,7 @@ function moduleRow(r, m, idx, trackW, sc, on, state, run) {
   const tone = `tone-${idx % TONES}`;
 
   if (!m.on) {
-    return el("div", { class: "tl-row off", onclick: () => editModule(m, sc, on, false, r) },
+    return el("div", { class: "tl-row off", onclick: () => editModule(m, sc, on, false, r, state) },
       el("div", { class: "tl-name" },
         el("div", { class: "tl-name-top" }, el("span", { class: "tl-name-txt" }, `${m.icon} ${m.name}`)),
         el("div", { class: "tl-sub" }, "not in this scenario")),
@@ -1599,7 +1599,7 @@ function timelineRow(r, m, live, sc, on, tone, trackW, line, state, run) {
     batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)), run);
   });
 
-  row.addEventListener("click", () => editModule(live, sc, on, false, r));
+  row.addEventListener("click", () => editModule(live, sc, on, false, r, state));
 
   return row;
 }
@@ -2254,14 +2254,24 @@ function nearestSlot(items, min, pxPerMin) {
   return best;
 }
 
-// The card a tap on a stretch of somebody's day opens: hand that job to another of
-// the people on the chart.
+// The card a tap on a stretch of somebody's day opens: hand THAT STRETCH to another
+// of the people on the chart.
 //
-// What is offered is the OTHER people on this day and not all eight numbers. A
-// person with no row on this chart is not standing anywhere on it, so listing them
-// would be offering an answer the day cannot give — and with only one person on the
-// whole day there is nothing to list at all, which the card says out loud rather
-// than opening an empty menu.
+// One stretch and not the module, not the batch and not the day. Her own correction
+// of 23 September, after v160 shipped the move at module level: "The reassign job to
+// next person is not whole day, it is that slot only", and then, asked what one tap
+// should take with it, "we dont change the batch. Say a labour slot belongs to
+// person1, clicking that slot, will offer to swap it to others, this basically to
+// balance work load". So the thing that changes hands is the marker under her finger
+// and nothing else — a fold loop that folds three times in a batch draws three
+// markers, and the other two stay where they are.
+//
+// What is offered is the other people who have a row on this chart, plus "whoever is
+// free". A person with no row is not standing anywhere on the day, so listing them
+// would be offering an answer the day cannot give — but 0 is not a person, it is the
+// day's own arrangement, and it is both the way back to automatic for a module nobody
+// was put on and a legitimate answer on its own. Without it a stretch handed to a
+// named person on such a module could never be handed back.
 function slotPopup(r, row, w, sc, on, state) {
   const who = row.person;
   const others = r.rows.map((x) => x.person).filter((p) => p > 0 && p !== who).sort((a, b) => a - b);
@@ -2270,29 +2280,28 @@ function slotPopup(r, row, w, sc, on, state) {
     return;
   }
 
-  // Which module this stretch came off, and HOW MANY BATCHES go with it. Counted
-  // off the module's own batches rather than off the row's stretches, because
-  // touchWindows writes one stretch per touch of a batch: a batch she folds three
-  // times is three stretches, and counting those would promise her the movement of
-  // three jobs where one is being made.
-  const mod = r.modules.find((m) => m.id === w.module);
-  const batches = mod
-    ? (mod.lines ? mod.passes.filter((p) => p.line === w.line).length : mod.passes.length)
-    : 1;
-  const job = `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ` +
-    `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`;
+  const job = `${jobName(w)}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`;
+  // How many other stretches of THIS batch are on the row she tapped. Not how many
+  // batches the module runs — she is moving one stretch now, so what she needs told
+  // is what is coming with it, which is: nothing. Said with the number rather than
+  // left to be discovered, because the number is the whole reason the card was
+  // rewritten.
+  const beside = row.items.filter((x) => x.module === w.module && x.batch === w.batch).length;
 
   // Held out here and not inside the body builder, which runs again on every
-  // repaint — a variable declared in there would be wiped by the first one.
+  // repaint — a variable declared in there would be wiped by the first one. It opens
+  // on a person rather than on "whoever is free", because the free answer is already
+  // what the day is doing with this stretch and pressing it would change nothing.
   let to = others[0];
-  showPopup(`Move this job off ${personName(who, namesOf(state))}`, (refresh, close) => {
+  showPopup(`Move this slot off ${personName(who, namesOf(state))}`, (refresh, close) => {
     const picker = select(
-      others.map((p) => ({ value: String(p), label: personName(p, namesOf(state)) })),
+      [{ value: "0", label: "Whoever is free" },
+        ...others.map((p) => ({ value: String(p), label: personName(p, namesOf(state)) }))],
       String(to),
       // Repainted rather than left alone, so the press below names whoever she has
       // just picked — the same reason combinePopup repaints its own card.
       () => {
-        to = Math.max(1, Math.min(8, Math.round(Number(picker.value) || 0)));
+        to = Math.max(0, Math.min(8, Math.round(Number(picker.value) || 0)));
         refresh();
       },
     );
@@ -2300,39 +2309,76 @@ function slotPopup(r, row, w, sc, on, state) {
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 10px" }, job),
       el("div", { class: "field" },
-        el("label", {}, "Hand it to"),
+        el("label", {}, "Hand this stretch to"),
         picker,
         el("div", { class: "hint" },
-          batches > 1
-            // Said on the card rather than left to be discovered, because a module
-            // carries ONE person for all of its batches: moving one marker really
-            // moves every batch beside it on that line, and she is the one who
-            // knows whether that is what she meant.
-            ? `This module runs ${batches} batches on that line, and a module carries one person for all of them — so all ${batches} move together.`
-            : "The day is redrawn as soon as it moves: the two rows swap this job over, and anything that now collides is drawn red.")),
+          beside > 1
+            ? `This batch has ${beside} stretches on ${personName(who, namesOf(state))}'s row, and only the one you tapped moves — the other ${beside - 1} stay where they are.`
+            : `Only this stretch moves: the rest of ${w.name} is untouched. The day is redrawn as soon as it goes, and anything that now collides is drawn red.`)),
       el("div", { class: "popup-actions" },
         // Named with who she picked, so the press says what it will do rather than
         // "confirm" — and it is the only press on the card, so nothing happens
         // until she makes it.
-        button(`Move it to ${personName(to, namesOf(state))}`, () => doReassign(sc, w, to, on, state, close), "primary")));
+        button(`Move it to ${to > 0 ? personName(to, namesOf(state)) : "whoever is free"}`,
+          () => doReassignSlot(sc, r, w, to, on, state, close), "primary")));
   });
 }
 
-function doReassign(sc, w, to, on, state, close) {
+function doReassignSlot(sc, r, w, to, on, state, close) {
   // The work itself is the model's, so it is one answer everywhere and can be
-  // tested without a screen.
-  const next = reassignPerson(sc, w.module, w.line, to);
+  // tested without a screen. `batch` and `slot` are the two numbers touchWindows
+  // writes on every window, which is what makes this the stretch she tapped and not
+  // its neighbours.
+  const next = reassignSlot(sc, w.module, w.batch, w.slot, to);
   sc.modules = next.modules;
   on.persist();
   on.refresh();
-  toast(`${w.name} handed to ${personName(to, namesOf(state))}`);
-  // The card goes with the move. Its heading says which person the job is being
+  const clock = `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`;
+  toast(`${w.name}, ${clock} — ${to > 0 ? `handed to ${personName(to, namesOf(state))}` : "back to whoever is free"}`);
+  // The card goes with the move. Its heading says which person the stretch is being
   // taken off, and once the day has redrawn that is no longer true: the marker is
   // on somebody else's row, so leaving the card up would offer a press that names
-  // a person who no longer holds the job and does nothing when she takes it. The
-  // toast is what confirms the move; a second tap on the marker — now on its new
-  // row — opens a fresh card that says where it stands.
+  // a person who no longer holds it and does nothing when she takes it. The toast is
+  // what confirms the move; a second tap on the marker — now on its new row — opens
+  // a fresh card that says where it stands.
   if (typeof close === "function") close();
+}
+
+// The note a module's card wears when some of its stretches have been handed to
+// somebody else. Null when none have, which is every module until she hands one over.
+//
+// A hand-over is ONE stretch and not the module (reassignSlot), so "Who is at this
+// module" is the module's default and no longer the whole answer: without this the
+// box could read 1 while three markers sat on person 2's row, and the card and the
+// chart would be disagreeing about the same day. Counted off the chart's own windows
+// rather than out of the stored map, because an entry that no longer resolves to a
+// batch is not a stretch at all — and read as "differs from what this module would
+// have given it anyway", so a stretch handed to whoever is free is still a hand-over
+// on a module nobody was put on, and is not one on a module that was already free.
+function handedOverNote(r, live, state) {
+  if (!r || !Array.isArray(r.rows)) return null;
+  const facts = (r.modules || []).find((x) => x.id === live.id);
+  if (!facts) return null;
+  const counts = new Map();
+  for (const row of r.rows) {
+    for (const w of row.items || []) {
+      if (w.module !== live.id) continue;
+      const own = facts.lines ? (facts.crew[w.line] || 0) : (facts.person || 0);
+      if (w.person === own) continue;
+      counts.set(w.person, (counts.get(w.person) || 0) + 1);
+    }
+  }
+  if (!counts.size) return null;
+  const total = [...counts.values()].reduce((t, n) => t + n, 0);
+  const said = [...counts.keys()].sort((a, b) => a - b).map((p) => {
+    const n = counts.get(p);
+    return n > 1 ? `${n} to ${personName(p, namesOf(state))}` : personName(p, namesOf(state));
+  }).join(", ");
+  return el("div", { class: "field" },
+    el("div", { class: "tl-ctl-lab" }, "Stretches handed on"),
+    el("div", { class: "hint" },
+      `${total === 1 ? "1 stretch of this module has" : `${total} stretches of this module have`} been handed to somebody else: ${said}. ` +
+      "The person above is still who this module is put on; a hand-over is one stretch of it, and it is changed by tapping that stretch on the person's own row of the day."));
 }
 
 function personLabel(row, sc, state) {
@@ -2603,7 +2649,7 @@ function toneIndex(r, id) {
 // what it is, how long it holds, how much of her it takes, when it starts, and
 // who is standing at it. The start is the knob she named, so it sits beside the
 // explanation of what turning it does.
-function editModule(saved, sc, on, isNew = false, r = null) {
+function editModule(saved, sc, on, isNew = false, r = null, state = null) {
   showPopup(`${saved.icon} ${saved.name}`, (refresh, close) => {
     // The module list is edited in place, so each field writes only its own value
     // back; the screen behind the pop-up catches up when it closes.
@@ -2946,6 +2992,11 @@ function editModule(saved, sc, on, isNew = false, r = null) {
       // dead-control trap, so the module-level box steps aside while the lines are
       // in force and comes back when they are not.
       linesInForce(live) ? null : personField(),
+      // And what of it is no longer that person's. Her ask of 23 September moved the
+      // hand-over onto ONE stretch, so the box above is the module's default and the
+      // note below is the exception — without it the card could read 1 while three
+      // markers sat on person 2's row.
+      handedOverNote(r, live, state),
       acts.length ? el("div", { class: "tl-ctl", style: "margin-top:4px" }, ...acts) : null,
       el("div", { class: "popup-actions" },
         // Her ask: "we can now add module as we wish, a button at the bottom

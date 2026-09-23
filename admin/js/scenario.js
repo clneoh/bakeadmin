@@ -655,6 +655,28 @@ export function moduleOf(m) {
     const stored = num(given[i], NaN);
     crew.push(Number.isFinite(stored) ? clampPerson(stored) : person);
   }
+  // A person named for ONE stretch of one batch. Her own ask of 23 September: "The
+  // reassign job to next person is not whole day, it is that slot only … Say a labour
+  // slot belongs to person1, clicking that slot, will offer to swap it to others, this
+  // basically to balance work load." What she points at on the timeline is a single
+  // stretch of hands, and a fold loop that folds three times in one batch draws three
+  // of them — so the assignment is kept per stretch, and moving one leaves the other
+  // two exactly where they were. That is also why this is a sparse map keyed
+  // "<batch>.<stretch>" rather than a list built to a length the way starts and crew
+  // are: there is no count of stretches for it to be built to, and an entry she has
+  // not made must stay ABSENT so the module's own person goes on answering for it.
+  //
+  // Never pruned against the module's batch count, and that is deliberate. A module
+  // whose count follows the one above it is given its batches by chainLine, AFTER
+  // this has run — so a key judged too high here could be a real assignment for a
+  // batch that is about to exist. An entry that no longer resolves is simply never
+  // read, which costs nothing and can never move a job to the wrong place.
+  const givenSlots = src.slotPerson && typeof src.slotPerson === "object" ? src.slotPerson : {};
+  const slotPerson = {};
+  for (const [at, v] of Object.entries(givenSlots)) {
+    if (!/^\d+\.\d+$/.test(at)) continue;
+    slotPerson[at] = clampPerson(v);
+  }
   // How this module takes its start from the module above it — see START_MODES.
   // Every scenario she has saved carries `follow` and nothing else, and those two
   // answers map one for one onto two of the three modes: follow on was the floor,
@@ -734,6 +756,12 @@ export function moduleOf(m) {
     // to the first line's person here, the same way startMin is kept equal to the
     // first batch's start, so a module cannot answer "who is on you" two ways.
     person: crew[0],
+    // Who she has named for a single stretch of a single batch, keyed
+    // "<batch>.<stretch>" — see above, where it is read. This is the module's own
+    // person's exception list, not a second answer to "who is on you": a stretch
+    // with no entry here belongs to `person` (or to the line's own crew, for a
+    // module drawn as lines) exactly as it always did.
+    slotPerson,
   };
 }
 
@@ -1132,7 +1160,8 @@ export function touchWindows(modules) {
   const windows = [];
   for (const f of modules) {
     if (!f.on || f.touchMin <= 0) continue;
-    for (const p of f.passes) {
+    for (let k = 0; k < f.passes.length; k += 1) {
+      const p = f.passes[k];
       if (p.touchTo <= p.touchFrom) continue;
       // One window for every stretch of hands in the batch — the load of a cycle,
       // its unload, or the single traditional window of a module with no cycles of
@@ -1141,20 +1170,35 @@ export function touchWindows(modules) {
       const spans = p.touches && p.touches.length
         ? p.touches
         : [{ from: p.touchFrom, to: p.touchTo }];
-      for (const span of spans) {
+      // Who this stretch belongs to if she has not named anyone for it. The person
+      // on THIS lot's line, so a module worked as two lines gives its odd lots to
+      // one worker and its even lots to the other; a module that is not drawn as
+      // lines has one person, and `crew` was built from that same number, so both
+      // roads lead to the person she named.
+      const linePerson = f.lines && f.crew ? (f.crew[p.line] || 0) : (f.person || 0);
+      const slots = f.slotPerson || {};
+      for (let i = 0; i < spans.length; i += 1) {
+        const span = spans[i];
+        // And who she has named for this ONE stretch, if she has named anyone. Read
+        // as absent-versus-stored rather than as a number, because a stored 0 is a
+        // real answer — "whoever is free" — and is not the same as never having
+        // touched this stretch at all.
+        const named = slots[`${k}.${i}`];
         windows.push({
           module: f.id, icon: f.icon, name: f.name,
-          // The person on THIS lot's line — so a module worked as two lines gives
-          // its odd lots to one worker and its even lots to the other. A module that
-          // is not drawn as lines has one person, and `crew` was built from that
-          // same number, so both roads lead to the person she named.
-          person: f.lines && f.crew ? (f.crew[p.line] || 0) : (f.person || 0),
+          person: named == null ? linePerson : named,
           // Which line it came off, so a job on a person's row can say so and a
           // clash can name which line of which module collided with what.
           line: f.lines ? p.line : -1,
           // Which cycle of the batch these hands are at, so a row can name the
           // rest she is folding rather than calling every window the module.
           cycle: span.cycle ?? -1,
+          // Which BATCH, and which stretch of that batch, these hands are — the two
+          // numbers her own hand-over is written back with, so the tap that moves
+          // one stretch cannot move a neighbour. `k` counts the module's batches in
+          // the order the day runs them, which is the order passesOf built them.
+          batch: k,
+          slot: i,
           from: span.from, to: span.to, people: f.people,
         });
       }
@@ -1497,33 +1541,33 @@ export function combinedScenario(saved, into, from) {
   return { ...s, modules, merges };
 }
 
-// One job, handed to somebody else — the drop-down behind a tap on a person's own
-// marker on the timeline.
+// One stretch of one batch, handed to somebody else — the drop-down behind a tap on
+// a person's own marker on the timeline.
 //
-// Pure, and beside combinedScenario because it is the same move made one module at
-// a time: what changes is only who is standing at it. Every module keeps its job
-// and its minutes, so whatever collides afterwards is exactly the manpower the new
+// Her own words, 23 September: "The reassign job to next person is not whole day, it
+// is that slot only … Say a labour slot belongs to person1, clicking that slot, will
+// offer to swap it to others, this basically to balance work load." So this writes a
+// person for ONE stretch and touches nothing else — not the module's own person, not
+// its crew, not its batches, not its times. Every module keeps its job and its
+// minutes, so whatever collides afterwards is exactly the manpower the new
 // arrangement costs, which is the answer she is reading the chart for.
 //
-// `line` is which production line the marker came off, or -1 for a module that is
-// not drawn as lines — the same -1 touchWindows writes. A module's `person` is its
-// FIRST line everywhere in the app, so it is rebuilt from the crew rather than
-// written straight: a crew whose first entry disagreed with `person` would show one
-// worker in the module's own box and another in the people's rows.
-export function reassignPerson(saved, moduleId, line, who) {
+// `batch` and `slot` are the two numbers touchWindows writes on every window: which
+// batch of the module, and which stretch of that batch. Pure, and beside
+// combinedScenario for the same reason that one is — the work is the model's, so it
+// is one answer everywhere and can be tested without a screen.
+//
+// A stored 0 is written out rather than dropped, and it means what it means in every
+// other person box in the app: whoever is free. Handing a stretch BACK to the module's
+// own person is a different write — that person's own number — and both have to be
+// reachable, which is why neither of them is the absence of an entry.
+export function reassignSlot(saved, moduleId, batch, slot, who) {
   const s = scenarioOf(saved);
+  const at = `${Math.max(0, Math.round(num(batch, 0)))}.${Math.max(0, Math.round(num(slot, 0)))}`;
   const p = clampPerson(who);
-  const at = Math.round(Number(line));
-  const modules = s.modules.map((m) => {
-    if (m.id !== moduleId) return m;
-    const crew = Array.isArray(m.crew) ? [...m.crew] : [];
-    // A marker off a production line moves that line alone. A marker off a module
-    // with no lines moves the module's own person, which is its first line.
-    if (at >= 0 && at < crew.length) crew[at] = p;
-    else if (crew.length) crew[0] = p;
-    else crew.push(p);
-    return { ...m, crew, person: crew[0] };
-  });
+  const modules = s.modules.map((m) => (
+    m.id === moduleId ? { ...m, slotPerson: { ...m.slotPerson, [at]: p } } : m
+  ));
   return { ...s, modules };
 }
 

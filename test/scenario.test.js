@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, descentSteps, combinedScenario, reassignPerson, computeScenario, concurrency, copyScenario, cycleOffsets,
+  climbSteps, descentSteps, combinedScenario, reassignSlot, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   clampBatchStart, alignBatches, batchMismatches, callWindows, latestStarts,
@@ -1189,64 +1189,110 @@ test("combining two people moves their lines, and nobody is left pointing at a g
     "what 2 already covered is kept, and the list stays in order");
 });
 
-test("handing a job to somebody else changes that line and nobody else's (v160)", () => {
-  // Her ask of 23 September: "can the personX marker be click to change it job to
-  // personY, by a drop down person selector" — and, asked which gesture she meant,
-  // "click on the person's occupied time slot, a drop down list, list the other
-  // people available". The work itself is here, as one pure answer, so the chart
-  // and the module editor cannot disagree about who is standing where.
+test("one stretch of one batch changes hands, and nothing beside it does (v161)", () => {
+  // Her correction of 23 September, after v160 shipped the move at module level:
+  // "The reassign job to next person is not whole day, it is that slot only", and
+  // then, asked what one tap should take with it, "we dont change the batch. Say a
+  // labour slot belongs to person1, clicking that slot, will offer to swap it to
+  // others, this basically to balance work load". The work itself is here, as one
+  // pure answer, so the chart and the module editor cannot disagree about who is
+  // standing where.
+  //
+  // So the write is per STRETCH — the batch she tapped and which stretch of it —
+  // and it leaves the module's own person, its crew and its times exactly as they
+  // were. A module that runs four batches has four of its stretches on one person,
+  // and handing one over is handing one over.
   const sc = scenario({
     modules: [
       module({ id: "mix", person: 2, count: 2, crew: [2, 5], repeats: 3 }),
       module({ id: "bake", person: 5, count: 1, repeats: 2 }),
     ],
   });
-  const next = reassignPerson(sc, "mix", 1, 7);
+  const held = JSON.stringify(sc);
+  const next = reassignSlot(sc, "mix", 1, 0, 7);
   const mix = of(next, "mix");
-  assert.deepEqual(mix.crew, [2, 7], "the line she tapped did not change hands");
-  assert.equal(mix.person, 2, "line 1 changed with it, which is not what a line-2 marker asked for");
-  assert.deepEqual(of(next, "bake").crew, [5], "a marker on one module moved somebody else's module");
-  assert.deepEqual(sc.modules[0].crew, [2, 5], "and the scenario she was looking at was edited in place");
+  assert.deepEqual(mix.slotPerson, { "1.0": 7 }, "the stretch she tapped is not the one that changed hands");
+  assert.deepEqual(mix.crew, [2, 5], "a stretch handed over changed a production line's person with it");
+  assert.equal(mix.person, 2, "a stretch handed over changed the module's own person");
+  assert.equal(JSON.stringify(sc), held, "and the scenario she was looking at was edited in place");
 
-  // A line 2 that is named moves that line alone; and when the FIRST line is the one
-  // handed over, the module's own person follows it. `person` is the module's first
-  // line everywhere in the app — the editor's "Who is at this module" box and the
-  // people's rows both read it — so the two must never give different answers.
-  const first = reassignPerson(sc, "mix", 0, 4);
-  assert.deepEqual(of(first, "mix").crew, [4, 5], "handing line 1 over did not change line 1");
-  assert.equal(of(first, "mix").person, 4, "the module's own person did not follow its first line");
-  assert.equal(of(first, "mix").person, of(first, "mix").crew[0],
-    "the module and its own first line disagree about who is standing there");
-});
-
-test("handing a job off a module with no lines moves its own person (v160)", () => {
-  const sc = scenario({
-    modules: [
-      module({ id: "mix", person: 2, repeats: 3 }),
-      module({ id: "bake", person: 2, repeats: 2 }),
-    ],
-  });
-  // -1 is what touchWindows writes for a module that is not drawn as lines, so a
-  // marker on one has to be movable by the same gesture as a marker on a line.
-  const next = reassignPerson(sc, "mix", -1, 4);
-  const mix = of(next, "mix");
-  assert.equal(mix.person, 4, "the module's own person did not change");
-  assert.deepEqual(mix.crew, [4], "the module's first line did not follow its own person");
-  assert.equal(mix.person, mix.crew[0], "the module and its own first line disagree about who is there");
-  assert.equal(of(next, "bake").person, 2, "the other module on that person moved with it");
-
-  // A module nobody was ever put on — the whole seeded day, whose modules are all
-  // "whoever is free" — takes the job rather than losing it.
-  const bare = scenario({ modules: [module({ id: "mix", person: 0, repeats: 1 })] });
-  const moved = reassignPerson(bare, "mix", -1, 3);
-  assert.equal(moved.modules[0].person, 3, "a module nobody was put on did not take the job");
-  assert.equal(moved.modules[0].person, moved.modules[0].crew[0], "and its first line did not follow");
+  // A second hand-over keeps the first, and brings nobody else's module with it.
+  const two = reassignSlot(next, "mix", 2, 1, 4);
+  assert.deepEqual(of(two, "mix").slotPerson, { "1.0": 7, "2.1": 4 }, "a second hand-over dropped the first");
+  assert.deepEqual(of(two, "bake").slotPerson, {}, "a stretch on one module moved somebody else's module");
 
   // The number is held to the eight a day can hold, exactly as every other way of
-  // naming a person is. The card only ever offers people who have a row, so this is
-  // the model's own floor rather than a path she can reach.
-  assert.equal(reassignPerson(sc, "mix", -1, 99).modules[0].person, 8, "a person out of range was taken");
+  // naming a person is.
+  assert.deepEqual(reassignSlot(sc, "mix", 0, 0, 99).modules[0].slotPerson, { "0.0": 8 },
+    "a person out of range was taken");
 });
+
+test("a hand-over moves the one stretch onto the other person's row (v161)", () => {
+  // The same answer read the way the chart reads it, because the rows are built
+  // from these windows and nothing else. The fold is the case her own day is full
+  // of: one batch, three stretches of hands at it, three markers on the row.
+  // Three folds of one minute each, so one batch of this module draws three
+  // separate stretches of hands — which is the shape that makes "one slot" and
+  // "one batch" different answers. The pace is wide enough that the two batches
+  // fall nowhere near each other, so the day begins clean.
+  const fold = () => module({
+    id: "fold", name: "The fold loop", person: 1, repeats: 2, everyMin: 200,
+    cycles: [
+      { name: "Rest, then fold", min: 31, load: 0, unload: 1 },
+      { name: "Rest, then fold", min: 31, load: 0, unload: 1 },
+      { name: "Rest, then fold", min: 31, load: 0, unload: 1 },
+    ],
+  });
+  const sc = scenario({ modules: [fold()] });
+  const before = peopleRows(computeScenario(sc).on);
+  assert.equal(before.length, 1, "the day does not begin as one person's");
+  assert.equal(before[0].items.length, 6, "two batches of three stretches is not six windows");
+
+  // Batch 0's third stretch — the second fold of the first batch — to person 2.
+  const moved = scenario({ modules: [fold()] });
+  const next = reassignSlot(moved, "fold", 0, 2, 2);
+  const rows = peopleRows(computeScenario(next).on);
+  const one = rows.find((x) => x.person === 1);
+  const two = rows.find((x) => x.person === 2);
+  assert.ok(two, "the stretch did not land on a row of its own");
+  assert.equal(two.items.length, 1, "more than the one stretch she handed over moved");
+  assert.equal(one.items.length, 5, "the stretches beside it did not stay where they were");
+  // And it is the RIGHT one: the windows carry which batch and which stretch of it
+  // they are, so the moved window is the one her finger was on.
+  assert.deepEqual([two.items[0].batch, two.items[0].slot], [0, 2], "the wrong stretch changed hands");
+  assert.equal(two.items[0].module, "fold", "the stretch that moved came off another module");
+
+  // A module nobody was ever put on can still be handed one stretch — and given it
+  // back. 0 is stored rather than dropped, because "whoever is free" is a real
+  // answer and is the only way back to the day's own arrangement.
+  const bare = scenario({ modules: [fold()] });
+  const given = reassignSlot(bare, "fold", 0, 0, 3);
+  assert.deepEqual(of(given, "fold").slotPerson, { "0.0": 3 });
+  const back = reassignSlot(given, "fold", 0, 0, 0);
+  assert.deepEqual(of(back, "fold").slotPerson, { "0.0": 0 },
+    "giving a stretch back to whoever is free did not survive as its own answer");
+  assert.equal(peopleRows(computeScenario(back).on).length, 1,
+    "a stretch given back to whoever is free was not picked up by the day again");
+});
+
+test("a hand-over survives being read back, and is dropped when it means nothing (v161)", () => {
+  const sc = scenario({
+    modules: [module({ id: "mix", person: 2, repeats: 3 })],
+  });
+  const next = reassignSlot(sc, "mix", 1, 0, 7);
+  // The round trip every screen makes: what she saved is what the next phone reads.
+  const read = scenarioOf(next);
+  assert.deepEqual(read.modules[0].slotPerson, { "1.0": 7 }, "the hand-over did not survive a re-read");
+  assert.deepEqual(moduleOf(moduleOf(read.modules[0])).slotPerson, { "1.0": 7 },
+    "reading the module twice gives two answers about who holds a stretch");
+  // And a hand-edited import can put nothing but a batch and a stretch in it.
+  const junk = scenarioOf({ ...DEFAULT_SCENARIO, modules: [{ ...module({ id: "mix" }), slotPerson: {
+    "1.0": 4, "x": 4, "-1.0": 4, "1": 4, "0.0.0": 4, "2.1": "3",
+  } }] });
+  assert.deepEqual(junk.modules[0].slotPerson, { "1.0": 4, "2.1": 3 },
+    "a key that is not a batch and a stretch was kept");
+});
+
 
 test("the lines never reach the Production line's plan", () => {
   // The bridge to the Production line reads named facts, not the module objects —

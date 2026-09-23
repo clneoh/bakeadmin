@@ -1762,15 +1762,41 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   }
 });
 
-// ── Handing one job to somebody else (v160) ──────────────────────────────
+// ── Handing one stretch of somebody's day to somebody else (v160, v161) ──
 // Her ask: "can the personX marker be click to change it job to personY, by a drop
 // down person selector" — and then, asked which gesture she meant, "click on the
 // person's occupied time slot, a drop down list, list the other people available".
+//
+// And her correction of the day after, once v160 shipped the move at module level:
+// "The reassign job to next person is not whole day, it is that slot only" — then,
+// asked what one tap should take with it, "we dont change the batch. Say a labour
+// slot belongs to person1, clicking that slot, will offer to swap it to others,
+// this basically to balance work load". So what changes hands is the ONE stretch
+// under her finger. A fold loop that folds three times in a batch draws three
+// markers, and handing one over leaves the other two where they are.
 //
 // The stretch is found by the MINUTE under the finger and not by closest(".tl-bar"),
 // which is what the module rows do: a person's marker carries no dataset at all, so
 // a bar could not say which module it came off. Reading the minute also gives her
 // the row's whole height instead of the 11px sliver a bar is.
+
+// A fold loop on person 1 and a mix on person 2: two rows, and a batch of the fold
+// that draws three separate stretches of hands. Every fold is six minutes rather
+// than the one her own rest really takes, so the finger can land well inside a
+// stretch instead of beside it — a one-minute marker is 1.6 pixels wide.
+function foldDay() {
+  return [
+    { id: "fold", name: "The fold loop", on: true, person: 1, people: 1,
+      cycles: [
+        { name: "Rest, then fold one", min: 31, load: 0, unload: 6 },
+        { name: "Rest, then fold two", min: 31, load: 0, unload: 6 },
+        { name: "Rest, then fold three", min: 31, load: 0, unload: 6 },
+      ],
+      batch: 6, everyMin: 300, repeats: 2, startMin: 0 },
+    { id: "mix", name: "Mixing the dough", on: true, person: 2, people: 1,
+      cycleMin: 20, batch: 6, touchMin: 20, everyMin: 20, repeats: 1, startMin: 0 },
+  ];
+}
 
 // A tap on a person's track at the pixel `x` along the day. The view reads the
 // minute under the finger, so the test states a position and not a bar — and the
@@ -1804,61 +1830,90 @@ function rowsByTone(root) {
 }
 const titlesOf = (root, tone) => (rowsByTone(root).find((r) => r.tone === tone) || { titles: [] }).titles;
 
-test("a tap on a person's occupied stretch offers the other people, and the move lands (v160)", () => {
-  // One person with one module's work and one with the rest of the day: two rows,
-  // and a stretch wide enough that the middle of it is unambiguously that job.
-  const { root, state } = render({ modules: oneJobDay() });
+test("a tap on a person's occupied stretch hands that one stretch over, and nothing beside it (v161)", () => {
+  const { root, state } = render({ modules: foldDay() });
   const track = personTrack(root, "ptone-1");
   const bars = barsOf(track);
-  assert.ok(bars.length, "person 1 has nothing on their row to tap");
+  assert.equal(bars.length, 6, "the fold day does not draw three stretches for each of its two batches");
 
-  // The middle of the first stretch of their day, in the day's own pixels.
-  const bar = bars[0];
-  const job = String(bar.attrs.title || "");
-  assert.ok(job, "a person's marker does not name the job it carries");
+  // The SECOND fold of the first batch — the middle one of the three, so a hand-over
+  // that took the whole batch with it would show on both sides of this tap. The three
+  // are told apart by the clock they carry, which is what the marker says and what
+  // the card repeats; the module's name is on all three of them, as it should be.
+  const first = bars.slice(0, 3).map((b) => String(b.attrs.title || ""));
+  assert.equal(new Set(first).size, 3, `the three folds of one batch are not three markers: ${first.join(" | ")}`);
+  const bar = bars[1];
+  const job = first[1];
   const x = px(bar, "left") + px(bar, "width") / 2;
   assert.equal(tapSlot(track, x), true,
     "a tap on a stretch of the day was let through to the person's own card");
 
-  // The card names the job it is about, in the same words the marker's own title
-  // carries — so there is no doubt which stretch of the day she tapped.
-  assert.match(popupTitle(), /Move this job off Person 1/, `the tap opened "${popupTitle()}"`);
+  // The card names the one stretch it is about, in the same words the marker's own
+  // title carries — so there is no doubt which of the three she tapped.
+  assert.match(popupTitle(), /Move this slot off Person 1/, `the tap opened "${popupTitle()}"`);
   assert.ok(popupBody().includes(job), `the card is not about "${job}": ${popupBody().slice(0, 180)}`);
+  // And it says out loud, with the count, that the two folds beside this one stay
+  // put — rather than letting her find that out from the chart afterwards.
+  assert.match(popupBody(), /3 stretches on Person 1's row/,
+    `the card does not count the batch's other stretches: ${popupBody().slice(0, 260)}`);
 
-  // And what it offers is the OTHER people on this day: person 2 is here, person 1
-  // is the one giving the job away. A person with no row is not standing anywhere
-  // on the chart, so listing them would be offering an answer the day cannot give.
+  // What it offers is the other people on this day, plus the day's own arrangement.
+  // A person with no row is not standing anywhere on the chart, so listing them
+  // would be offering an answer the day cannot give — but "whoever is free" is not a
+  // person, it is what the day does when nobody is named, and it is the only way a
+  // stretch can be handed back to nobody in particular.
   const picker = walk(layers["popup-layer"]).find((n) => n.tagName === "SELECT");
-  assert.ok(picker, "the card offers no list of people to hand the job to");
+  assert.ok(picker, "the card offers no list of people to hand the stretch to");
   const options = walk(picker).filter((n) => n.tagName === "OPTION");
-  assert.deepEqual(options.map((o) => String(o.value)), ["2"],
+  assert.deepEqual(options.map((o) => String(o.value)), ["0", "2"],
     "the list is not the other people on this day");
-  assert.match(textOf(options[0]), /Person 2/, "an unnamed person is not named by their number");
+  assert.match(textOf(options[0]), /Whoever is free/, "the way back to the day's own arrangement is not offered");
+  assert.match(textOf(options[1]), /Person 2/, "an unnamed person is not named by their number");
   const press = popupButton(/Move it to/);
   assert.ok(press, "the card offers no press to make the move");
-  assert.match(textOf(press), /Person 2/, "the press does not say who it will hand the job to");
+  assert.match(textOf(press), /Person 2/, "the press does not say who it will hand the stretch to");
 
-  // The move. Her own day is what changes and nothing else, and the chart she is
-  // reading is redrawn with it — which is how she sees the two rows swap.
+  // The move. One stretch of her day changes hands and nothing else does.
   press.dispatchEvent({ type: "click" });
   assert.match(lastToast(), /handed to Person 2/, `the press said "${lastToast()}"`);
-  assert.ok(!titlesOf(root, "ptone-1").includes(job), "the job is still on person 1's row after the move");
-  assert.ok(titlesOf(root, "ptone-2").includes(job), "the job did not arrive on person 2's row");
-  // And the module's own person is what moved, which is what the editor's "Who is
-  // at this module" box reads — the model's answer, not the chart's.
-  const named = String(job).split(":")[0].replace(/, line \d+$/, "");
-  const moved = computeScenario(state.settings.scenario).modules.find((m) => m.name === named);
-  assert.ok(moved, `no module named ${named} after the move`);
-  assert.equal(moved.person, 2, "the module's own person did not follow the marker");
-  assert.equal(moved.person, moved.crew[0], "the module and its first line disagree about who is standing there");
+  const one = titlesOf(root, "ptone-1");
+  const two = titlesOf(root, "ptone-2");
+  assert.equal(one.length, 5, `person 1's row has ${one.length} stretches, not the five left behind`);
+  assert.equal(two.length, 2, `person 2's row has ${two.length} stretches, not its own job plus the one handed over`);
+  assert.ok(!one.includes(job), "the stretch she handed over is still on person 1's row");
+  assert.ok(two.includes(job), "the stretch she handed over did not arrive on person 2's row");
+  // And its two neighbours from the SAME batch did not follow it, which is the whole
+  // of what she corrected: the batch is unchanged and the one slot under her finger
+  // moved. The batch's other batch is up on person 1's row too, untouched, and is not
+  // the thing being checked here.
+  assert.ok(one.includes(first[0]), "the fold before it went with it");
+  assert.ok(one.includes(first[2]), "the fold after it went with it");
+  assert.ok(!two.includes(first[0]) && !two.includes(first[2]),
+    "a fold beside the one she tapped was handed over too");
 
-  // And the card goes with the job. Its heading names the person the job is being
+  // The model's own answer, which is what the editor's "Who is at this module" box
+  // and the next phone to sync both read. The module keeps its person and its crew;
+  // what is written is the one stretch, under the batch and stretch it belongs to.
+  const fold = state.settings.scenario.modules.find((m) => m.id === "fold");
+  assert.deepEqual(fold.slotPerson, { "0.1": 2 }, "the stretch she tapped is not the one that changed hands");
+  assert.equal(fold.person, 1, "the module's own person was changed by a hand-over of one stretch");
+  assert.equal(fold.person, fold.crew[0], "the module and its first line disagree about who is standing there");
+
+  // And the card goes with the stretch. Its heading names the person it is being
   // taken off, and once the day has redrawn that person no longer holds it — so a
   // card left standing would offer a press against a state that is gone. Measured
   // on the layer itself, since an empty card and a closed one differ only here.
   assert.equal(walk(layers["popup-layer"]).length, 0,
-    "the card is still on the screen after the move, describing a job that has left the row");
+    "the card is still on the screen after the move, describing a stretch that has left the row");
   assert.equal(layers["popup-layer"].hidden, true, "the card is empty but the layer is still showing");
+
+  // And the module's own card can no longer say the whole of it. Without the note,
+  // "Who is at this module" would read Person 1 while a marker of that module sat on
+  // person 2's row — the card and the chart disagreeing about the same day.
+  openModule(root, "The fold loop");
+  assert.match(popupBody(), /Stretches handed on/, "the module's card says nothing about the stretch handed on");
+  assert.match(popupBody(), /stretch of this module has been handed to somebody else: Person 2/,
+    `the note does not name who holds it: ${popupBody().slice(0, 400)}`);
 });
 
 test("a tap on a person's empty day still opens their own card (v160)", () => {
