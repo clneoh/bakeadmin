@@ -850,12 +850,10 @@ function timeline(r, sc, on, state, run) {
   // never be mistaken for the minute the day is actually at.
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
   const now = el("div", { class: "tl-now", hidden: !run.on }, nowLab);
-  // The clock, drawn twice: the header at the top of the panel and, since 23
-  // September, the one standing directly above the people's rows — see rulerRow
-  // for both. Held here rather than found again by class name, so the cursor is
-  // wired to the clocks the chart actually drew.
+  // The clock, drawn once, at the top of the panel. Held here rather than found
+  // again by class name, so the cursor is wired to the clock the chart actually
+  // drew.
   const headClock = rulerRow(r, trackW);
-  const footClock = rulerRow(r, trackW, true);
   // --hour-w is the hour line every track has always drawn. --tick-w is the grid
   // this release carries down under it, set from the same scale so the two stay in
   // step — see gridStepFor for why it is a coarser step than the ruler's at the two
@@ -878,10 +876,6 @@ function timeline(r, sc, on, state, run) {
       // at all, so the row stays where she can see it while they pass behind it.
       // See .tl-people for why it is opaque and what may draw over it.
       el("div", { class: "tl-people" },
-        // The clock again, at the foot — see rulerRow. It is inside this block
-        // rather than beside it so it rides the same pin as the rows it was asked
-        // for, and so it can never be left behind by the day scrolling.
-        footClock,
         ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
         totalRow(r, trackW)),
       // The day's own reading, drawn last so it runs over every bar rather than
@@ -896,11 +890,11 @@ function timeline(r, sc, on, state, run) {
   run.ruler = trackOf(headClock);
   run.pxPerMin = r.pxPerMin;
   if (run.on) placeNow(run);
-  wireTimeCursor(tl, r, cursor, lab, [headClock, footClock]);
+  wireTimeCursor(tl, r, cursor, lab, headClock);
   return tl;
 }
 
-// A clock row's own track. The row is its name cell and the track it names, in
+// The clock row's own track. The row is its name cell and the track it names, in
 // that order, because rulerRow builds it that way — and it is read here rather
 // than looked up by class afterwards so that what the cursor is wired to is what
 // the chart drew.
@@ -1090,19 +1084,13 @@ function chirp(run, who) {
 // finger never hovers, the cursor it places simply stays where she let go, which
 // is what a finger needs to read a time against two bars. Swipe the chart
 // afterwards and the line travels with the minute it names.
-function wireTimeCursor(tl, r, cursor, lab, clocks) {
-  // `clocks` are the clocks the chart actually drew, handed over rather than
-  // looked up by class afterwards — so what is wired is what is on the screen, and
-  // a test can see the wiring rather than only the promise of it.
-  //
-  // The first of them is the header, and it is also the ruler the cursor is DRAWN
-  // from: its own offset is what the hairline is placed against, so every reading
-  // is measured from it and from nowhere else. The clock at the foot — the second
-  // one, above the people's rows — is the same component at the same x, so a drag
-  // along either strip reads the same minute. Both take the drag; only the header
-  // measures.
-  const bands = (clocks || []).map(trackOf).filter(Boolean);
-  const ruler = bands[0];
+function wireTimeCursor(tl, r, cursor, lab, clock) {
+  // `clock` is the clock the chart actually drew, handed over rather than looked up
+  // by class afterwards — so what is wired is what is on the screen, and a test can
+  // see the wiring rather than only the promise of it. Its own offset is what the
+  // hairline is placed against, so every reading is measured from it and from
+  // nowhere else.
+  const ruler = trackOf(clock);
   if (!ruler) return;
   const frame = cursor.parentNode;
   let dragging = false;
@@ -1139,25 +1127,21 @@ function wireTimeCursor(tl, r, cursor, lab, clocks) {
     lab.classList.toggle("at-end", x > r.windowMin * r.pxPerMin - 60);
   };
 
-  // The clock strip — both of them, because a strip that wears the ruler's face
-  // and does not measure like it is a strip that lies about what it is showing.
-  // Capture means the drag keeps working once the finger wanders off the strip,
-  // so a time stays as easy to hit at the far left of the day as in the middle of
-  // it.
+  // The clock strip only. Capture means the drag keeps working once the finger
+  // wanders off the strip, so a time stays as easy to hit at the far left of the
+  // day as in the middle of it.
   const end = () => { dragging = false; };
-  for (const band of bands) {
-    band.addEventListener("pointerdown", (e) => {
-      dragging = true;
-      place(e.clientX, e.clientY);
-      // A pointer already gone by the time this runs cannot be captured, and it
-      // throws rather than saying so — but the reading is placed either way, so
-      // losing the capture must not lose the drag or the cursor with it.
-      try { band.setPointerCapture(e.pointerId); } catch { dragging = false; }
-    });
-    band.addEventListener("pointermove", (e) => { if (dragging) place(e.clientX, e.clientY); });
-    band.addEventListener("pointerup", end);
-    band.addEventListener("pointercancel", end);
-  }
+  ruler.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    place(e.clientX, e.clientY);
+    // A pointer already gone by the time this runs cannot be captured, and it
+    // throws rather than saying so — but the reading is placed either way, so
+    // losing the capture must not lose the drag or the cursor with it.
+    try { ruler.setPointerCapture(e.pointerId); } catch { dragging = false; }
+  });
+  ruler.addEventListener("pointermove", (e) => { if (dragging) place(e.clientX, e.clientY); });
+  ruler.addEventListener("pointerup", end);
+  ruler.addEventListener("pointercancel", end);
 
   // Everywhere else. A pen and a mouse read the chart without touching it, and
   // the line leaves when the pointer does; a touch is skipped because there is
@@ -1193,27 +1177,7 @@ function gridStepFor(pxPerMin) {
     || TICK_GRID_MIN[TICK_GRID_MIN.length - 1];
 }
 
-// The clock, and it is drawn where it can be read from.
-//
-// One row at the top of the chart, as it has always been — the panel's own
-// header, pinned there while the day scrolls under it. And, since 23 September, a
-// second one at the FOOT, standing directly above the people's rows inside the
-// block that is already pinned there. Her words: "draw the clock above the
-// people's rows". The people's rows are the far end of the chart from the header,
-// and on her own day the header sat 368 pixels above them — the whole height of
-// her eight module rows, and further with every module she added. A faint line
-// she can trace up is not the same thing as a time she can read: v160 answered
-// her first ask with the grid, and this answers the rest of it with the clock
-// itself, where the markers are.
-//
-// Both are built HERE, by this one function, so the two clocks cannot drift apart
-// and say different things about where a minute is. The foot one carries its own
-// class rather than `tl-ruler`, and that is load-bearing: `tl-ruler` is the
-// pinned header, and a sticky top:0 on a row inside the pinned foot block would
-// fling the clock up over the day it is supposed to be read against. The two
-// share their look through the stylesheet, which names both, so nothing about
-// being two clocks reaches this function beyond which class it wears.
-function rulerRow(r, trackW, foot) {
+function rulerRow(r, trackW) {
   const step = tickStepFor(r.pxPerMin || PX_PER_MIN_CHOICES[1]);
   const ticks = [];
   for (let t = 0; t <= r.windowMin; t += step) {
@@ -1234,7 +1198,7 @@ function rulerRow(r, trackW, foot) {
       ticks.push(el("div", { class: "tl-tick fine", style: `left:${x}px` }));
     }
   }
-  return el("div", { class: `tl-row ${foot ? "tl-ruler-foot" : "tl-ruler"}` },
+  return el("div", { class: "tl-row tl-ruler" },
     el("div", { class: "tl-name" }, el("div", { class: "tl-sub" }, "the clock")),
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...ticks));
 }

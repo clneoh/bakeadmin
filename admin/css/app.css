@@ -2850,25 +2850,14 @@ tr.po-covered td { color: var(--muted); }
    chart is a panel. It needs its own background to be something to scroll under,
    and a z-index above the rows for the same reason; the red now-line is drawn
    over it, because what is happening outranks what she is reading. */
-.tl-ruler, .tl-ruler-foot { background: var(--surface); }
-.tl-ruler { position: sticky; top: 0; z-index: 3; }
-/* And the clock drawn a second time at the FOOT, standing directly above the
-   people's rows — her ask of 23 September, "draw the clock above the people's
-   rows". It is inside .tl-people, which is already pinned to the foot, so it
-   needs no pin of its own; and it takes a class of its own instead of tl-ruler
-   for the reason that matters here: tl-ruler is the header, and the sticky
-   top:0 above would fling a row inside the foot block up over the day. Its face
-   is shared with the header's by every rule naming both, so the two clocks
-   cannot be given two different readings by the stylesheet drifting. */
-.tl-ruler-foot { position: static; }
+.tl-ruler { background: var(--surface); position: sticky; top: 0; z-index: 3; }
 /* The ruler keeps the hour line and nothing finer. Its own ticks already draw the
    finer lines as elements, over this background, so a grid layer here would put a
    second line between every two labelled ticks — and at the widest reading
    --tick-w is the same 30 minutes as its step, so the two would sit on top of each
    other saying one thing twice. The grid carried down the day starts below the
    ruler, which is where it is read. */
-.tl-ruler .tl-track,
-.tl-ruler-foot .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); }
+.tl-ruler .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); }
 /* The people rows, pinned to the FOOT of the panel — her own ask of 22 September:
    "I want to freeze the persons card, so that by scrolling thru modules i can see
    exactly where that slot of that person tie up to". The clock strip is already
@@ -2898,8 +2887,7 @@ tr.po-covered td { color: var(--muted); }
    An override and not a rewrite: the module rows still need the centring, and the
    rule above it is what a v157 test stands on. */
 .tl-people .tl-tip { top: auto; bottom: 0; transform: none; }
-.tl-ruler .tl-sub,
-.tl-ruler-foot .tl-sub { padding-top: 2px; }
+.tl-ruler .tl-sub { padding-top: 2px; }
 .tl-tick {
   position: absolute; top: 0; bottom: 0;
   border-left: 1px solid var(--line);
@@ -2951,14 +2939,8 @@ tr.po-covered td { color: var(--muted); }
 .tl-cursor-lab.at-end { transform: translateX(calc(-100% - 4px)); }
 /* The clock strip is the cursor's handle: it is the only band of the chart where
    a drag moves the cursor instead of scrolling the day. Everything below it
-   still pans, which the day card's own sentence says.
-   Both strips and not just the header: the second clock was asked for so a time
-   could be read at the people's rows, and a clock that looks like the ruler but
-   refuses to measure like it would be answering the ask with a picture of the
-   answer. See wireTimeCursor, which wires the drag on each and measures from the
-   header. */
-.tl-ruler .tl-track,
-.tl-ruler-foot .tl-track { touch-action: none; cursor: crosshair; }
+   still pans, which the day card's own sentence says. See wireTimeCursor. */
+.tl-ruler .tl-track { touch-action: none; cursor: crosshair; }
 
 /* The bars of a person's row and of the total: one solid colour, because the
    colour here is not a module — it is the pair of hands. */

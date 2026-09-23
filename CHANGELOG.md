@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v162)
+# Jienluv2bake — change history (v54 → v163)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v163 (no database step). The clock above your people's
+rows has been taken back out. The clock is drawn once again, at the top of the
+chart where it has always been, and the ruler's lines still run down through your
+people's rows exactly as they did.**
+
+**What you asked.** In your words: "i dont want the clock, i just want the ruler
+to draw into person row". That was said after v162 had put a second clock above
+your people's rows, so this release takes that second clock back out. Nothing
+else about the chart moves.
+
+**The ruler's lines were never the thing missing, and they are still there.** The
+lines that run down your people's rows came in v160 and they are untouched: every
+row of the day carries the faint grid, so a marker's edge still lands on a line
+you can follow up the chart to the top. That is the part you asked for, and it is
+the part that stays.
+
+**What comes back.** The chart window is about 35 pixels taller again, because the
+block pinned at the foot of the chart no longer carries a clock row inside it. On
+your own day at a phone's width the foot block goes back from 105 pixels to 70.
+
+**One rule is kept, and it is worth naming.** There is now a test whose whole job
+is that the clock is drawn once and that no clock is ever drawn above the people's
+rows again. It was written because the second clock came from a shared builder, so
+putting it back is one line - and a thing that can come back by accident should
+have something standing on it.
+
+**What has not moved.** Not one module, batch, start time, cycle or saved scenario
+of yours changed, and nothing here blocks a sale or reads an order. Your three
+saved days are the same three days, each on the target it had, their stored
+numbers byte for byte the same.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
+
+The operations guide (section 23) carries the same change, and the tests are 1188
+passing with none failing.
 
 **23 Sep 2026 — engine v162 (no database step). The times along the clock are
 written a second time, standing directly above your people's rows, so a marker at
