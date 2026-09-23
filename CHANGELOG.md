@@ -1,8 +1,163 @@
-# Jienluv2bake — change history (v54 → v177)
+# Jienluv2bake — change history (v54 → v179)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v179, WORKING HOURS AND THE DELTA T (no database step). Each
+person's line is now shaded across the hours they are actually working — drawn from their
+own jobs, from their first of the day to their last, with nothing for you to type. And the
+delta t is back across the whole chart: a press on batch 1 of a module that keeps its own
+time is a hold again, with its own way back. Your widest scale gives up the delta t before
+it gives up the batch number, on your own rule.**
+
+**1. What you asked, in your own words.** "can you shade their working hours in their
+line?" — and, asked which of two ways you meant it, you chose the one that needs nothing
+typed. And then, separately: "i ask for delta time, that function is not worker across the
+chart. And the ruturn to original button is missing?" Both were real, and neither was your
+phone.
+
+**2. The shade, drawn from the day itself.** Each person's row carries a wash from their
+own first job of the day to their own last, the gaps between jobs included — somebody who
+is back in an hour has not gone home. It is worked out from the day rather than typed, so
+it is drawn on every day you have ever built, including the days with no hours set on
+anybody. Where you HAVE typed the two hours on a person's card, those stay exactly as they
+were: the typed hours are the outer band and the working shape sits inside them.
+
+**3. Measured live, and one thing to expect on a row.** On your own day at 1.6 pixels a
+minute, Wei's shade was drawn at 0 and 149 pixels wide, which is 93 minutes of a 4:00 am
+day — 4:00 am to 5:33 am — against her five jobs. A job shorter than four pixels is still
+drawn four wide so you can see it and tap it with a thumb, so on a row whose last job is
+one minute the last bar reaches a couple of pixels past the shade. Measured live, Wei's
+last job is the fold, one minute, drawn at 147 for 4 pixels and ending at 151, where the
+shade — which reads the minutes themselves — ends at 149. The shade is the true length of
+the work and the bar is the true size of your thumb, and the difference is only ever that.
+
+**4. The delta t, and why it had gone.** A press on a batch used to be a hold measured
+from where the line puts that batch — a delta t. Since v154 that had been narrowed to
+batches below batch 1, and to batch 1 only of a module set to follow the one above. Every
+module of your own day is set to "Its own time", which is the one case the narrowing left
+out, so batch 1 of every module wrote an absolute start time instead: no hold was ever
+written, no delta t was drawn anywhere on your chart, and the card's own way back — which
+exists only while there is a hold to take off — disappeared with it.
+
+**5. It is back, and the way back is called "Back onto the line".** That is its name from
+v151, and it can be renamed in one line if you meant the other wording. Measured live on
+your own day at 1.6 pixels a minute, pressing + 5 min on batch 1 of Dimple and top: the
+card read Batch 1 and delta t = +5 min with 4:05 am to 4:11 am, the bar's own tag read
+B1 delta t=+5, the note read "Dimple and top held 5 minutes later than the time you gave
+it — every batch of it moved with that.", and the three modules below it did not move a
+minute. Pressing Back onto the line put the batch back to 4:00 am and said so: "Every batch
+of Dimple and top is back at the time you gave it." Going there and back left your stored
+data byte for byte identical at 13,888 characters, because the hold is kept in the delta
+itself and none of your stored start times was rewritten.
+
+**6. The badge now knows when to keep quiet.** Your own rule: "if the scale is too wide to
+show batch no. and delta t then forgo delta t". So the batch number — the thing that tells
+one batch from another — is never given up, and the delta t is printed only above the
+widest stop. Measured live at the widest reading, 72 pixels an hour: the tag read exactly
+B1 while the bar kept its own tint, which takes no room and still answers which of the
+batches is held, and the tip on that tag still named the hold in full.
+
+**7. Why the last module's batch 1 is different — the question you asked while this was
+being built.** It behaves differently on purpose, and it has since v152: tapping batch 1 at
+your LAST module does not open an ordinary batch card at all. That batch is the moment the
+whole day hangs from — it is where the day is worked backwards from — so its card is the
+day's own card, headed "the end of your first batch". Measured live, tapping batch 1 of
+Cutting and packing read "Cutting and packing — the end of your first batch", named the
+day's first batch ending at 4:12 am and the day finishing at 6:03 am, and listed all eight
+modules. On the FIRST module it is the other way round: batch 1 there has no module above
+it to be held back from, so a press is simply that module's own start time. Everything in
+between is the ordinary batch card with the delta t and its way back.
+
+**8. And where "Put my start times back" lives, since you looked for it.** It is on that
+day card and it is a one-shot undo: it appears only once you have pressed "Pull them back
+to their latest start", because there is nothing to take back until something has been
+pressed. Measured live on your own day, every one of the eight modules was already ticked
+as late as the line allows, so the card said so — "Every module of your line is already as
+late as it can go — there is nothing to pull back." — and offered neither press, which is
+why you could not find it there.
+
+**9. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+day. Measured live, after working through the batch card, both presses and the widest
+scale, your stored settings were put back from a copy taken beforehand and compared: byte
+for byte the same 13,888 characters, and your three saved days still read 24, 12 and 24
+pans.
+
+**10. Every rule that stands on it was proved load-bearing, not assumed.** Thirteen
+faults were put back in all, and each was watched failing by a test that names it, then
+restored byte-identically. The shade: with it drawn from the whole day instead of from
+that person's own jobs it fails reading whose work it covers; with the bars painted before
+the shade it fails reading that the bars no longer cover the wash; with the shade given a
+stacking order it fails reading that the hours climb over the module titles, which is the
+fault this screen already had once. The delta t: with the hold narrowed back to the v154
+rule it fails reading that a press on batch 1 wrote a start time instead of a hold; with
+the module's other batches left behind it fails reading that the hold did not take them
+with it; with the widest scale still printing the delta t it fails reading that the batch
+number was given up for it; and one fault in the tests' own stand-in screen was found and
+fixed on the way. The suite is 1294 passing with none failing.
+
+**11. No database step.** Not one stored field is added or changed, so there is nothing to
+run in Supabase. Both facts live inside the scenario, which already syncs whole, so they
+travel to your other phone with the rest of your plan.
+
+**23 Sep 2026 — engine v178, REASSIGNMENT (no database step). "Share them out" now really
+hands the whole day back. It used to clear every module and leave the stretches you had
+placed by hand exactly where they were — and a hand-placed stretch is read first, ahead of
+the module's own person, so the press said one thing and the chart drew another. Both
+full-day presses now take those stretches back, and they say how many they took back,
+because taking back a decision of yours is a change you are told about.**
+
+**What you asked, in your own words.** "how to rerun job assignment after we set the more
+details?" — and then, once that question had been measured and answered, "build v178, Name
+it as REASSIGNMENT". The answer to your question is the People box, and measuring it is what
+found the fault below.
+
+**1. The fault: the press promised a day it did not draw.** The People box holds three
+answers, and two of them redraw the whole day's hands at once. "Share them out" cleared
+every module — but a stretch you had placed by hand is kept on the module as its own entry
+(that is what makes a hand-over move one stretch and not a whole row), and it is read BEFORE
+the module's own person. So the day kept your hand-placed stretch standing while the press
+said it had handed everything back. Measured on your own day: after the press the toast said
+the day had been shared out, and the box's own closed words still read "Your own" — and your
+Dimple and top was still sitting on Wei, where you had put it.
+
+**2. What it does now.** Both full-day presses — "Share them out" and "One a module" — take
+every hand-placed stretch back along with everything else. The stretch is not deleted
+quietly either: the press names how many it took back, and a day with none adds nothing to
+the sentence, because a count of zero is not news.
+
+**3. Measured live on your own day,** starting at 4:00 am at 1.6 pixels a minute, with your
+one hand-placed stretch on Wei. Pressing "Share them out": the box went from "Your own" to
+"Sharing them out", your hand-placed entry was gone from the record, and the toast read
+"Sharing them out — every job reassigned to as few hands as can cover the day. 1 stretch you
+had placed by hand goes back on the day's own arrangement." Dimple and top moved off Wei's
+row onto the row the day picks for itself, and every other job on the day was untouched.
+Pressing "One a module" on the same day: six people, one to the six modules that hold hands,
+the box reading "One to a module", and the same sentence naming the one stretch it took back
+— and the stretch no longer overrides the person that press had just given that job.
+
+**4. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+scenario was changed by building this, and nothing here blocks a sale or reads an order. The
+only writes are the ones your own press makes. Measured live: after both presses and a full
+pass of opens and closes, your stored data was put back from a copy taken beforehand and
+compared — byte for byte the same, 13,888 characters — and your three saved days still read
+"No fridge, 1 person" 24 pans, "My sister proposal 21/9/2026" 12 pans and "One baker day" 24
+pans.
+
+**5. Every rule that stands on it was proved load-bearing, not assumed.** Eight faults were
+put back in all, and each was watched failing by a test that names it, then restored byte
+identically. With the stretch left standing, the test fails reading that the old arrangement
+is still on the chart; with the count left out of the sentence, it fails reading what the
+press said; with the count worked out after the day had already been cleared, it fails the
+same way; with "One a module" left holding the stretch, it fails reading that one job is
+short of the person the press gave it; with the empty entry written back as an empty map
+instead of no entry at all, it fails reading that nobody has one spelling; and with the count
+written always in the plural it fails on the first hand-back. The suite is 1287 passing with
+none failing.
+
+**6. No database step.** Not one stored field is added or changed, so there is nothing to run
+in Supabase. Everything here is inside the Scenario planner, under More.
 
 **23 Sep 2026 — engine v177 (no database step). Each person now has two facts of their own,
 and both are yours to state once: the hours they are here, drawn as a band along their row and
@@ -292,7 +447,7 @@ next frame, and the same right press on the card itself moved nothing.
 scenario changed, and nothing here blocks a sale or reads an order. Every tap still opens
 exactly what it opened before. Your stored data was put back from a copy taken before the
 measurements and compared: byte for byte the same, and your three saved days still read
-24, 12 and 24 pans.
+24, 4 and 24 pans.
 
 **6. And the rule that stands on it was proved rather than assumed.** Nine faults were put
 back in all and each was watched failing by name, then restored byte-identically: with the

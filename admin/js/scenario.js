@@ -1429,6 +1429,20 @@ export function peopleRows(modules, shifts = {}, skills = {}) {
     // collected as they were placed, so this list cannot hold a stretch twice and
     // cannot come out in a different order from the row it is about.
     row.outside = row.items.filter((i) => i.outsideHours === true || i.outsideSkill === true);
+    // The stretch of the day this person is actually working: their first job's start to
+    // their last job's end, the gaps between jobs included, because a person who is back
+    // in an hour has not gone home. Worked out from the day rather than typed, so it is
+    // drawn on every day she has ever built and not only on the ones she has filled the
+    // hour boxes in for — her ask of 23 September, "can you shade their working hours in
+    // their line?", answered from the work itself. Every row here has at least one job by
+    // construction, because a row is only ever made to hold one.
+    //
+    // The end is the LATEST job end rather than the last item's, because a person in two
+    // places at once has an item list that is not sorted by where it finishes.
+    row.span = {
+      startMin: row.items[0].from,
+      endMin: row.items.reduce((m, i) => Math.max(m, i.to), row.items[0].to),
+    };
     let edge = -1;
     let prev = null;
     for (const i of row.items) {

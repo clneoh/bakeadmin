@@ -1020,6 +1020,43 @@ test("the board and the planner draw the same day, bar for bar", () => {
   assert.deepEqual(shape(b.root), shape(p.root), "the two screens disagree about the same day");
 });
 
+test("the board shades each worker's own stretch of the day too, and says it in words (v179)", () => {
+  // The board is the same day drawn by the same code, so the shade arrives on it for
+  // free — and that is exactly what this asserts, because a second drawing is how the
+  // two screens would come to disagree. A worker reading their own row wants the clock
+  // their own day starts and finishes at.
+  const root = createEl("div");
+  const state = makeState();
+  const teardown = renderProduction(root, state);
+  document.body.append(root);
+  layers["popup-layer"].replaceChildren();
+  const shades = walk(root).filter((n) => hasClass(n, "tl-work"));
+  assert.ok(shades.length > 0, "the worker's board draws no working stretch at all");
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person")
+    && walk(n).some((x) => hasClass(x, "tl-bar")));
+  assert.ok(row, "the board drew no person row with work on it");
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  const shade = walk(track).find((n) => hasClass(n, "tl-work"));
+  const rowBars = walk(track).filter((n) => hasClass(n, "tl-bar"));
+  const ends = rowBars.map((b) => [px(b, "left"), px(b, "left") + px(b, "width")]);
+  assert.equal(px(shade, "left"), Math.min(...ends.map((e) => e[0])),
+    "the board's shade does not begin where that worker's first job begins");
+  assert.equal(px(shade, "left") + px(shade, "width"), Math.max(...ends.map((e) => e[1])),
+    "the board's shade does not run to the end of that worker's last job");
+
+  // And tapping their row opens the worker's own card, which names the same stretch —
+  // read off the one builder, so the two can never tell her two stories.
+  row.dispatchEvent({ type: "click" });
+  const card = textOf(layers["popup-layer"]);
+  assert.match(card, /Working \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "the worker's card does not say when their own work starts and finishes");
+  assert.ok(state.settings.scenario.shifts == null,
+    "opening a worker's card wrote hours onto her stored day");
+  // And the board's clock is let go of here, so a screen left open by this test cannot
+  // go on beating behind the one that follows it.
+  teardown();
+});
+
 test("the board widens the view and the tab bar, and puts both back on leaving", () => {
   const tabbar = createEl("div");
   tabbar.id = "tabbar";

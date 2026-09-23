@@ -1401,6 +1401,66 @@ test("a press on batch 1 of a module that follows moves the whole module, and th
   assert.match(lastToast(), /already as early as the line allows|nothing left to take off/, "a module with nothing left to take off did not say so");
 });
 
+// Her report of 23 September, in her own words: "i ask for delta time, that
+// function is not worker across the chart ... Before this the delta t was there,
+// why it disappeared. And the ruturn to original button is missing?" Both were
+// real, and both had one cause. v154 narrowed the batch card's move to a hold only
+// "below batch 1, or batch 1 of a module set to start as the one above finishes",
+// and every module of her own day is set to its own time — so batch 1 of every
+// module took the absolute path, no hold was ever written, no Δt was ever drawn
+// anywhere on her chart, and the card's own way back, which only exists while a
+// hold does, went with it. These two tests pin the v151 rule back on.
+test("batch 1 of a module that keeps its own time is a hold again, with its Δt and its way back (v179)", () => {
+  const { root, state } = render();
+  const oven = () => state.settings.scenario.modules.find((m) => m.id === "solo_oven");
+  const was = starts(state, "solo_oven").slice();
+
+  tapBar(root, "The oven swap and the bake", 0);
+  popupButton(/\+ 5 min/).dispatchEvent({ type: "click" });
+
+  // A HOLD, not a start time: this is the reading v154 took away, and it is what
+  // the chart's own Δt badge is written from.
+  assert.ok(Array.isArray(oven().startDelta),
+    "the move on batch 1 was written as a start time instead of a hold");
+  assert.equal(oven().startDelta[0], 5, "the move on batch 1 was not written as a hold");
+  assert.deepEqual(starts(state, "solo_oven"), was.map((x) => x + 5),
+    "the hold on batch 1 did not take the module's other batches with it");
+  assert.match(lastToast(), /held 5 minutes later than the time you gave it/,
+    "the press named a rule that is not in force on this module");
+  assert.match(popupBody(), /Δt = \+5 min/, "the card does not read the hold out");
+  assert.equal(textOf(tagsFor(root, "The oven swap and the bake")[0]).trim(), "B1 Δt=+5",
+    "the chart's own badge lost the Δt");
+
+  // And the door has a handle again, on the batch that moved.
+  const back = popupButton(/Back onto the line/);
+  assert.ok(back, "the batch card offers no way back after a move");
+  back.dispatchEvent({ type: "click" });
+  assert.equal(oven().startDelta[0], 0, "the way back left the batch held");
+  assert.deepEqual(starts(state, "solo_oven"), was, "the way back did not put the batch where it was");
+  assert.doesNotMatch(textOf(tagsFor(root, "The oven swap and the bake")[0]), /Δt/,
+    "the badge kept a hold that is off");
+});
+
+// Her rule for the badge when the row runs out of room, in her own words: "if the
+// scale is too wide to show batch no. and delta t then forgo delta t". So the
+// number — the thing that tells one batch from another — always stays, and the
+// hold is printed only above the widest stop.
+test("at the widest scale the batch number stays and the Δt is forgone (v179)", () => {
+  const held = () => ONE_BAKER_SCENARIO.modules.map((m) => (m.id === "solo_oven" ? { ...m, startDelta: [5, 0, 0, 0] } : { ...m }));
+  const tagAt = (px) => {
+    const { root } = render({ modules: held(), pxPerMin: px });
+    return tagsFor(root, "The oven swap and the bake")[0];
+  };
+
+  assert.equal(textOf(tagAt(1.2)).trim(), "B1", "the widest scale printed the hold it has no room for");
+  // The tint is not room: it still answers which of the batches is held.
+  assert.ok(hasClass(tagAt(1.2), "nudged"), "the held batch lost its tint at the widest scale");
+  // And the three nearer stops all keep the reading.
+  for (const px of [1.6, 2.4, 3.2]) {
+    assert.equal(textOf(tagAt(px)).trim(), "B1 Δt=+5", `the ${px} stop dropped a hold it has room for`);
+  }
+});
+
 test("the people are held below the modules, so a slot can be read against any module (v154, v167)", () => {
   const { root } = render();
   // Her ask: "I want to freeze the persons card, so that by scrolling thru modules
@@ -2943,6 +3003,127 @@ test("a day that has already settled does not claim its box is about to stop sha
     `the card claims a box that is not saying it: ${popupBody().slice(0, 300)}`);
 });
 
+// Presses one of the People box's three answers, as she would off the phone's wheel.
+function pressPeople(root, answer) {
+  const sel = walk(ctlGroup(root, "People")).find((n) => n.tagName === "SELECT");
+  assert.ok(sel, "the People group has no drop-down");
+  sel.value = answer;
+  sel.dispatchEvent({ type: "change" });
+}
+const closedPeople = (root) => textOf(walk(root).find((n) => hasClass(n, "tl-select")));
+const handPlacedOn = (state) => state.settings.scenario.modules
+  .flatMap((m) => Object.values(m.slotPerson || {}).filter((v) => Number(v) > 0));
+
+// The answer to her own question — "how to rerun job assignment after we set the more
+// details?" — is this box, and it answered only half way. A stretch placed by hand is
+// read AHEAD of the module's own person (touchWindows), so "Share them out" cleared
+// every module and left the hand-placed stretch standing: the toast said the day had
+// been handed back, and the chart — and the box's own closed words, "Your own" — said
+// it had not.
+test("Share them out takes back a stretch placed by hand, so the box and the day agree (v178)", () => {
+  const mods = sharedOutDay();
+  // Her own day's shape when this was measured: nobody at a module, one stretch placed
+  // by hand — solo_top's, on Wei.
+  mods[0].slotPerson = { "0.0": 2 };
+  const { root, state } = render({ modules: mods });
+  state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(root, state);
+
+  const closedBefore = closedPeople(root);
+  assert.match(closedBefore, /Your own/,
+    `the day with one hand-placed stretch reads "${closedBefore.slice(0, 60)}", so this is not the case being measured`);
+  const before = peopleOn(root);
+  // The stretch really is on Wei's row, and its own title is what has to leave it.
+  // Read off the row itself rather than off a number the row does not carry: a person
+  // row draws its own markers, so the stretch is the job whose title names the module
+  // she pinned.
+  const pinnedName = `${state.settings.scenario.modules[0].name}:`;
+  const placed = barsOf(personTrack(root, "ptone-2")).find((b) => String(b.attrs.title).startsWith(pinnedName));
+  assert.ok(placed, "the hand-placed stretch is not drawn on Wei's row, so nothing here can be read");
+  const placedTitle = String(placed.attrs.title);
+
+  pressPeople(root, "share");
+
+  // 1. Nothing is placed by hand any more — which is what makes the box's own words
+  // true rather than a claim about a day that is still arranged her way.
+  assert.deepEqual(handPlacedOn(state), [],
+    "a stretch placed by hand survived the press, so the old arrangement is still on the chart");
+  // And the key itself is gone rather than left empty: "not placed by hand" has one
+  // spelling in this app, and an empty map is a second one that would still travel to
+  // the cloud and still be read back as a day with something written on it.
+  for (const m of state.settings.scenario.modules) {
+    assert.ok(!("slotPerson" in m),
+      `${m.name} was left holding an empty slotPerson, which is a second way of saying nobody`);
+  }
+  // 2. And the box now says what the press did.
+  const closed = closedPeople(root);
+  assert.match(closed, /Sharing them out/,
+    `after sharing them out the box reads "${closed.slice(0, 60)}"`);
+  // 3. The chart moved with it: the stretch she had put on Wei is off her row.
+  assert.ok(!titlesOf(root, "ptone-2").includes(placedTitle),
+    `Wei still carries the stretch that was handed back: ${titlesOf(root, "ptone-2").join(" | ")}`);
+  // 4. And the day is exactly the day the app would have packed with no stretch ever
+  // placed — not a half-mixture of her numbers and its own.
+  const plain = render({ modules: sharedOutDay() });
+  plain.state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(plain.root, plain.state);
+  assert.deepEqual(peopleOn(root), peopleOn(plain.root),
+    "the day handed back is not the day the app would pack on its own");
+  assert.notDeepEqual(peopleOn(root), before,
+    "the chart is byte for byte the day it was, so nothing was handed back at all");
+});
+
+// Taking back a decision of hers is a change she is told about, and one with nothing to
+// tell is not told anything extra: a count of zero is not news.
+test("both full-day presses say how many hand-placed stretches they took back (v178)", () => {
+  const two = sharedOutDay();
+  two[0].slotPerson = { "0.0": 2 };
+  two[1].slotPerson = { "0.0": 3 };
+  const { root, state } = render({ modules: two });
+  state.settings.personNames = { 1: "Jien", 2: "Wei", 3: "Aina" };
+  renderScenario(root, state);
+  assert.equal(handPlacedOn(state).length, 2, "the two hand-placed stretches are not both on the day");
+
+  pressPeople(root, "share");
+  assert.match(lastToast(), /2 stretches you had placed by hand go back on the day's own arrangement/,
+    `the press said "${lastToast()}"`);
+
+  // The same press on a day with nothing of hers on it promises nothing it did not do.
+  const { root: clean } = render({ modules: sharedOutDay() });
+  pressPeople(clean, "share");
+  assert.doesNotMatch(lastToast(), /placed by hand/,
+    `a day with no hand-placed stretch said it took one back: "${lastToast()}"`);
+});
+
+// The other full-day press has the same trap and the same fix: a hand-placed stretch
+// would sit on its own row inside the one-to-a-module arrangement the press had just
+// given every job, so one job would have no person of its own while the toast claimed
+// otherwise.
+test("One a module takes a hand-placed stretch back too, so every job gets its own person (v178)", () => {
+  const mods = sharedOutDay();
+  mods[0].slotPerson = { "0.0": 2 };
+  const { root, state } = render({ modules: mods });
+  state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(root, state);
+
+  pressPeople(root, "one");
+
+  assert.deepEqual(handPlacedOn(state), [],
+    "a stretch placed by hand survived the press, so one job is short of the person the press gave it");
+  for (const m of state.settings.scenario.modules) {
+    assert.ok(!("slotPerson" in m),
+      `${m.name} was left holding an empty slotPerson, which is a second way of saying nobody`);
+  }
+  assert.match(lastToast(), /1 stretch you had placed by hand goes back/,
+    `the press said "${lastToast()}"`);
+  assert.match(lastToast(), /now move the modules closer together/,
+    `the press no longer says what it always said: "${lastToast()}"`);
+  // And the job really is on the person the press gave it: person 1's row carries the
+  // first module's first stretch, where the hand-placed stretch had it on Wei.
+  assert.ok(titlesOf(root, "ptone-1").length,
+    "the first person has nothing on their row after the press named one person per job");
+});
+
 test("a tap on a person's empty day still opens their own card (v160)", () => {
   // The other half of the gesture: the tap must only be swallowed where there is a
   // job under it. One person with one stretch of work leaves the rest of their row
@@ -4033,6 +4214,127 @@ test("a person's hours are drawn on their row, under everything the day draws (v
   const plain = render();
   assert.equal(walk(plain.root).filter((n) => hasClass(n, "tl-shift")).length, 0,
     "a day with no hours set draws a band anyway");
+});
+
+// The shaded stretch of one person's row — v179. Found by its class inside that
+// person's own track, never across the whole screen, so a test about one worker's
+// shade cannot be answered by another worker's.
+const shadeOf1 = (root, name) => {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes(name));
+  assert.ok(row, `no person row named ${name}`);
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  return { track, shade: walk(track).find((n) => hasClass(n, "tl-work")) };
+};
+// The outer ends of everything drawn on that person's row: where their work begins
+// and where it ends, read off the bars themselves rather than restated here.
+const workEnds = (track) => {
+  const bars = walk(track).filter((n) => hasClass(n, "tl-bar"));
+  const ends = bars.map((b) => [px(b, "left"), px(b, "left") + px(b, "width")]);
+  return [Math.min(...ends.map((e) => e[0])), Math.max(...ends.map((e) => e[1]))];
+};
+
+test("each person's line is shaded across the work they have been given (v179)", () => {
+  // Her ask of 23 September: "can you shade their working hours in their line?" The
+  // shape is worked out from the day rather than typed, so it is on every day she has
+  // built, not only on the ones she has filled the two hour boxes in for — which is
+  // the point, because her own day has no hours set on anybody and still has a day.
+  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const mine = rules.filter((b) => /(^|[\s>+~])\.tl-work$/.test(b.sel));
+  assert.equal(mine.length, 1, `expected one rule for the working shade, found ${mine.length}`);
+  assert.match(mine[0].body, /position:\s*absolute/,
+    "the shade is not positioned, so it cannot sit at its own minutes of the day");
+  // The v174 fault in its third coat, and the same assertion the hours band carries:
+  // the ladder test enumerates three named classes, so a z-index on a NEW class is
+  // invisible to it, and a positioned element given one creates a stacking context.
+  assert.doesNotMatch(mine[0].body, /z-index/,
+    "the shade carries a z-index, which creates a stacking context inside the track — the v174 fault, back again");
+  assert.match(mine[0].body, /pointer-events:\s*none/,
+    "the shade takes pointer events, so it can swallow a tap meant for the stretch over it");
+
+  const { root } = render();
+  const { track, shade } = shadeOf1(root, "Person 1");
+  assert.ok(shade, "a person with work on their row has no shade at all");
+  assert.equal(track.children.filter((c) => c.nodeType === 1)[0], shade,
+    "with no hours typed the shade is not the first thing in the track, so the bars would go under it instead of over it");
+  // The shade is drawn from the times and a bar is not: a job shorter than four
+  // pixels is still drawn four wide, so it can be seen and tapped with a thumb, and
+  // on a row whose last job is that short the bar pokes past the shade. Measured live
+  // on her own day: Wei's last job is one minute. Her shade reads 0 for 149 — which is
+  // exactly 93 minutes at her 1.6 pixels a minute — and the bar is drawn at 147 for
+  // the four-pixel floor, ending at 151. So the shade is pinned to the times here, and
+  // the floor to its own allowance below, rather than to an equality that only holds
+  // while no bar happens to be padded.
+  const span = computeScenario(ONE_BAKER_SCENARIO).rows.find((r) => r.person === 1).span;
+  const scale = ONE_BAKER_SCENARIO.pxPerMin;
+  const [first, last] = workEnds(track);
+  const left = px(shade, "left");
+  assert.equal(left, Math.round(span.startMin * scale),
+    "the shade does not begin where that person's own work begins");
+  assert.equal(px(shade, "width"), Math.round((span.endMin - span.startMin) * scale),
+    "the shade is not as long as that person's own work");
+  assert.equal(left, first, "the shade does not begin where that person's own first bar begins");
+  assert.ok(left + px(shade, "width") <= last,
+    "the shade runs past the work drawn on that person's row");
+  assert.ok(last - (left + px(shade, "width")) <= 4,
+    "a bar is padded more than the four-pixel floor, so the row reads wider than the minutes it stands for");
+  assert.ok(px(shade, "width") > 0, "the shade is drawn no wider than nothing");
+
+  // And it never hides anything with it standing over: no hours typed above it here,
+  // and the row's own bars still read over it where both are drawn.
+  const withHours = render({ shifts: { 1: { startMin: 60, endMin: 300 } } });
+  const inner = shadeOf1(withHours.root, "Person 1");
+  const kids = inner.track.children.filter((c) => c.nodeType === 1);
+  assert.ok(hasClass(kids[0], "tl-shift"), "the hours a person is here are no longer drawn first");
+  assert.equal(kids[1], inner.shade,
+    "the working shade is not drawn directly inside the hours band, so the two cannot read as one fact and its shadow");
+  assert.equal(walk(inner.track).filter((n) => hasClass(n, "tl-bar")).length > 0, true,
+    "the day's own bars left the row when both shades were drawn");
+});
+
+test("a job too short to see is still drawn four wide, and the shade still reads the minutes (v179)", () => {
+  // The case the fixture above never reaches, and the one her own day is full of: a
+  // one-minute job. Twelve folds of one minute each, so the whole row is jobs the
+  // four-pixel floor is holding open, and the shade — which reads the times and not
+  // the drawing — is shorter than the bars that stand on it.
+  const fold = ONE_BAKER_SCENARIO.modules.find((m) => m.id === "solo_fold");
+  const { root } = render({ modules: [{ ...fold, cycles: (fold.cycles || []).map((c) => ({ ...c })) }] });
+  const { track, shade } = shadeOf1(root, "Person 1");
+  const bars = walk(track).filter((n) => hasClass(n, "tl-bar"));
+  assert.equal(bars.length, 12, `the day drew ${bars.length} jobs where the fold runs twelve`);
+  for (const b of bars) {
+    assert.equal(px(b, "width"), 4, "a one-minute job was drawn narrower than the four-pixel floor");
+  }
+  const scale = ONE_BAKER_SCENARIO.pxPerMin;
+  const span = computeScenario({ ...ONE_BAKER_SCENARIO, modules: [fold] }).rows.find((r) => r.person === 1).span;
+  assert.equal(px(shade, "width"), Math.round((span.endMin - span.startMin) * scale),
+    "the shade was drawn from the bars instead of from the minutes, so it inherited the floor");
+  const lastBar = bars[bars.length - 1];
+  assert.equal(px(lastBar, "left") + px(lastBar, "width"), 602,
+    "the last one-minute job is not where its own minute and the floor put it");
+  assert.ok(px(shade, "left") + px(shade, "width") < 602,
+    "the shade covered the floor, so the row no longer says which of the two is the real length");
+});
+
+test("and the same stretch is said in words, from the one builder (v179)", () => {
+  const { root } = render();
+  openPerson(root, "Person 1");
+  assert.match(popupBody(), /Working \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "the person's card does not name the stretch of the day their own work takes up");
+  // The words and the shape come off the same two numbers, so they cannot disagree:
+  // read the card's own clock times back and find them on the shade.
+  const shown = /Working (\d{1,2}):(\d{2}) (am|pm) → (\d{1,2}):(\d{2}) (am|pm)/.exec(popupBody());
+  assert.ok(shown, "the card's working line is not readable as two clock times");
+  const minutes = (h, m, ap) => ((Number(h) % 12) + (ap === "pm" ? 12 : 0)) * 60 + Number(m);
+  const from = minutes(shown[1], shown[2], shown[3]);
+  const to = minutes(shown[4], shown[5], shown[6]);
+  const dayStart = ONE_BAKER_SCENARIO.dayStartMin;
+  const { shade } = shadeOf1(root, "Person 1");
+  const scale = ONE_BAKER_SCENARIO.pxPerMin;
+  assert.equal(px(shade, "left"), Math.round((from - dayStart) * scale),
+    "the card names one minute and the shade is drawn at another");
+  assert.equal(px(shade, "width"), Math.round((to - from) * scale),
+    "the card names one length and the shade is drawn at another");
 });
 
 test("the two hour boxes read as clock times and store minutes from her day's start (v177)", () => {

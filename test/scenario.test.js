@@ -217,6 +217,34 @@ test("a module she has given to a person goes there, collision and all", () => {
   assert.equal(concurrency([at("a", 0, 1), at("b", 5, 1)]).peak, 2);
 });
 
+test("a person's own working stretch runs from their first job to their last, gaps and all (v179)", () => {
+  // The shape drawn on their row, and it has to be the STRETCH rather than the minutes
+  // they work: a person back in half an hour has not gone home, so the shape covers the
+  // gap and the two jobs sit inside it. Her ask of 23 September, "can you shade their
+  // working hours in their line?" — and it is answered from the day, so it is on every
+  // day she has ever built rather than only on the ones she has typed hours into.
+  const at = (id, startMin, touchMin, person = 0) => moduleFacts({
+    id, icon: "•", name: id, on: true, person, cycleMin: touchMin, batch: 1,
+    touchMin, everyMin: touchMin, repeats: 1, startMin, people: 1,
+  });
+  const apart = peopleRows([at("a", 0, 4, 1), at("b", 30, 4, 1)]);
+  assert.equal(apart.length, 1, "two jobs on one person are one row");
+  assert.deepEqual(apart[0].span, { startMin: 0, endMin: 34 },
+    "the stretch is not the person's own first job to their own last");
+  assert.ok(apart[0].span.endMin - apart[0].span.startMin > apart[0].busy,
+    "the stretch came out as the busy minutes, so the gaps between their jobs are missing from it");
+
+  // And the end is the LATEST job end, not the end of the last item in the list: on a
+  // day where two jobs overlap, the item that starts second is not the item that
+  // finishes last, and reading the list's last entry would cut the shade short of work
+  // the person is still doing.
+  const over = peopleRows([at("a", 0, 30, 1), at("b", 10, 5, 1)]);
+  assert.deepEqual(over[0].items.map((i) => [i.from, i.to]), [[0, 30], [10, 15]],
+    "the row's items are in start order, as the row reads them");
+  assert.deepEqual(over[0].span, { startMin: 0, endMin: 30 },
+    "the stretch stopped at the last item's end rather than at the latest job end");
+});
+
 test("the total person row stacks whoever is working, named or not", () => {
   // The row she asked for: person 1, person 2, person 3 added up, so a doubled
   // stretch is a shape rather than a number. A named module and a shared-out one

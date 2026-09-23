@@ -3082,6 +3082,20 @@ tr.po-covered td { color: var(--muted); }
   border-right: 1px solid rgba(122, 96, 74, .35);
   pointer-events: none;
 }
+/* The stretch their work actually occupies — v179 — drawn second in the track, inside
+   the hours above it. It is the same wash turned up rather than a second colour, so the
+   two read as one fact and its shadow: what she said, and what the day made of it. The
+   hairline top and bottom is what keeps the inner band legible where it lies inside the
+   outer one, which is the ordinary case; where a job has been given outside those hours
+   the shape simply stands outside them, which is the row's own warning drawn.
+   NO z-index, for the reason spelled out above the rule this one sits under. */
+.tl-row.person .tl-work {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(122, 96, 74, .16);
+  border-top: 1px solid rgba(122, 96, 74, .3);
+  border-bottom: 1px solid rgba(122, 96, 74, .3);
+  pointer-events: none;
+}
 /* A person's tip and the tally's tip are blocks of reading rather than sets of
    one-liners: a job line is a module's name with a clock and a line number in
    front of it, and "4:21 am — The rests and the stretch and folds, line 1" is

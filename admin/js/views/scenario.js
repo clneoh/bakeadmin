@@ -83,6 +83,13 @@ const CYCLE_SHADES = 4;
 // the space above the bars.
 const TAG_BAND = 11;
 
+// Above which scale the hold is printed beside the batch number. It is the
+// widest stop and nothing else, chosen by her own rule rather than by a
+// measurement: "if the scale is too wide to show batch no. and delta t then
+// forgo delta t". So at the widest scale a tag reads `B2` and no more, and at
+// the three nearer stops it reads `B2 Δt=+5`. See batchTags.
+const DELTA_TAG_MIN_PX = 1.2;
+
 const DAY_MIN = 24 * 60;
 
 // The four stops of the scale, in the order of PX_PER_MIN_CHOICES: a whole day,
@@ -935,6 +942,36 @@ function peopleState(r, sc, perLine) {
 // line, and it still names the arrangement rather than hiding it, because a
 // control that does not say what it has done is a control she has to open to find
 // out.
+//
+// Both of the full-day presses also take back every stretch she placed by hand, and
+// that is not a detail of the writing. A hand-placed stretch is read FIRST, ahead of
+// the module's own person (touchWindows), so a stretch left behind would keep the old
+// arrangement on the chart while the box said the day had been handed back — the press
+// would promise one day and draw another. Measured on her own day: pressing "Share them
+// out" left solo_top's hand-placed stretch on Wei and the box still reading "Your own".
+//
+// And because taking a stretch back is a decision of HERS being overruled, the press
+// says how many it took back rather than doing it quietly. A day with none adds nothing
+// to the sentence: a count of zero is not news.
+function handPlacedCount(sc) {
+  return (sc.modules || []).reduce((n, m) => n
+    + Object.values(m.slotPerson || {}).filter((v) => Number(v) > 0).length, 0);
+}
+
+function handedBack(n) {
+  if (!n) return "";
+  return ` ${n} ${n === 1 ? "stretch you had placed by hand goes" : "stretches you had placed by hand go"} back on the day's own arrangement.`;
+}
+
+// A module with nobody on it, hand-placed or otherwise. `slotPerson` is deleted rather
+// than set to an empty object: "not placed by hand" has one spelling in this app, and it
+// is the key not being there at all.
+function unarranged(m) {
+  const out = { ...m, person: 0, crew: undefined };
+  delete out.slotPerson;
+  return out;
+}
+
 function peoplePicker(r, sc, on, state, perLine) {
   const sel = select([
     {
@@ -951,34 +988,41 @@ function peoplePicker(r, sc, on, state, perLine) {
     // menu is three presses, not a fourth setting standing beside them.
     sel.value = "";
     if (pick === "one") {
-      // Her starting point: one person standing at every job that needs hands.
+      // Her starting point: one person standing at every job that needs hands. And,
+      // like the press below, it takes back every stretch she had placed by hand —
+      // one left behind would sit on its own row inside the new arrangement, so the
+      // day would be one-to-a-module everywhere except the stretch nobody assigned.
       // A job is a LINE, so a module she has two of takes two people here and not
       // one — which is what she wants this for: each worker on one line, learning
       // one job rather than wearing every hat in the day. The clashes that appear
       // are exactly what she then slides the modules to remove, and it is the
       // honest first answer, because a person per line really does cover the day.
+      const dropped = handPlacedCount(sc);
       let n = 0;
       sc.modules = sc.modules.map((m) => {
         const needsHands = m.on !== false && Number(m.touchMin) > 0;
-        if (!needsHands) return { ...m, person: 0, crew: undefined };
+        if (!needsHands) return unarranged(m);
         const have = Math.max(1, linesInForce(m));
         const crew = [];
         for (let i = 0; i < have; i += 1) { n += 1; crew.push(n); }
-        return { ...m, crew, person: crew[0] };
+        const out = { ...m, crew, person: crew[0] };
+        delete out.slotPerson;
+        return out;
       });
       // Every job has just been given its own person, so any combination label
       // from before is describing a day that no longer exists.
       sc.merges = {};
       on.persist();
-      toast(`${n} ${n === 1 ? "person" : "people"}, one to ${perLine ? "a line" : "a module"} — now move the modules closer together`);
+      toast(`${n} ${n === 1 ? "person" : "people"}, one to ${perLine ? "a line" : "a module"} — now move the modules closer together.${handedBack(dropped)}`);
       on.refresh();
     } else if (pick === "share") {
-      sc.modules = sc.modules.map((m) => ({ ...m, person: 0, crew: undefined }));
+      const dropped = handPlacedCount(sc);
+      sc.modules = sc.modules.map(unarranged);
       // Nobody is named any more, so nothing is being covered by anybody — a
       // leftover combination label would be a lie about the day.
       sc.merges = {};
       on.persist();
-      toast("Sharing them out — as few hands as can cover the day");
+      toast(`Sharing them out — every job reassigned to as few hands as can cover the day.${handedBack(dropped)}`);
       on.refresh();
     } else if (pick === "combine") {
       combinePopup(r, sc, on, state);
@@ -1691,6 +1735,11 @@ function boardPersonCard(row, sc, state, r) {
     // modules they are trained for: that is a planning number, and the worker's own
     // "What they do" list is the bench answer and is a few lines below.
     ["Their hours", notes.shiftLine],
+    // The same stretch the row wears, in words: a worker reading their own card wants
+    // the clock their own day starts and finishes at, which is not the same fact as
+    // "here all day" above it — and on a board that is the first thing a worker looks
+    // for.
+    ["Working", notes.workLine],
     ["Their day", hoursAndMinutes(notes.busy) + (notes.places > 1 ? ` of work, in ${notes.places} places` : " of work")],
     ...(notes.clashes ? [["Watch out", notes.clash]] : []),
     ...(notes.outside.length
@@ -2127,6 +2176,14 @@ function batchTags(r, m, live, line = null, board = false) {
     // never half off the edge of the screen.
     const x = Math.max(0, Math.min(Math.round(p.at * r.pxPerMin), Math.max(0, trackW - 26)));
     const d = Math.max(0, Math.round(Number(deltas[k]) || 0));
+    // Her own rule for what the tag does when it runs out of room, 23 September:
+    // "if the scale is too wide to show batch no. and delta t then forgo delta t".
+    // So the hold is printed only above the widest scale, and at the widest scale
+    // the number wins — because the number is the thing that tells one batch from
+    // another, and the hold is the thing that can be read elsewhere. The tint
+    // stays either way: it takes no room, and it still answers "which of these
+    // batches is held" at a glance. The tip keeps the hold in full at every scale.
+    const showDelta = d > 0 && Number(r.pxPerMin) > DELTA_TAG_MIN_PX;
     // The tip on a board describes and never invites. "Tap to move it" is the
     // planner's own words and they are true there; a board's tap opens a read-only
     // card, so a tooltip promising a move would be advertising the one thing this
@@ -2139,7 +2196,7 @@ function batchTags(r, m, live, line = null, board = false) {
       "data-k": String(k),
       style: `left:${x}px`,
       title: said,
-    }, `B${k + 1}${d ? ` Δt=+${d}` : ""}`));
+    }, `B${k + 1}${showDelta ? ` Δt=+${d}` : ""}`));
   });
   return out;
 }
@@ -2389,6 +2446,9 @@ function personNotes(row, sc, state, dayStartMin) {
     shiftLine: shift
       ? `Here ${clockAt(dayStartMin, shift.startMin)} → ${clockAt(dayStartMin, shift.endMin)}`
       : "Here all day",
+    // The stretch their own jobs take up, worked out rather than typed: the same two
+    // numbers the row is shaded with, so the words and the shape cannot disagree.
+    workLine: `Working ${clockAt(dayStartMin, row.span.startMin)} → ${clockAt(dayStartMin, row.span.endMin)}`,
     outside: outside.slice(0, PERSON_OUTSIDE_CAP),
     outsideMore: Math.max(0, outside.length - PERSON_OUTSIDE_CAP),
     trained,
@@ -2460,6 +2520,7 @@ function personTip(notes) {
     el("div", { class: "tl-sub" },
       `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? ` · in ${notes.places} places` : "")),
     el("div", { class: "tl-sub" }, notes.shiftLine),
+    el("div", { class: "tl-sub" }, notes.workLine),
     notes.trainedLine ? el("div", { class: "tl-sub" }, notes.trainedLine) : null,
     notes.clash ? el("div", { class: "tl-sub bad" }, notes.clash) : null,
     ...notes.outside.map((o) => el("div", { class: "tl-sub bad" }, o.text)),
@@ -2718,8 +2779,14 @@ function batchPopup(m, live, sc, on, k, hold) {
           on.persist();
           on.refresh();
           refresh();
+          // Where it lands is named against the rule that actually put it there.
+          // Only batch 1 can be against the module above; below batch 1 the lot
+          // rides this module's own pace, so the sentence it has always had stands.
+          const own = mode === "own";
           toast(showsModuleOffset
-            ? `Every batch of ${live.name} back where the line puts it.`
+            ? (own
+              ? `Every batch of ${live.name} is back at the time you gave it.`
+              : `Every batch of ${live.name} back where the line puts it.`)
             : `Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
         }, "ghost"))
       : null;
@@ -3046,26 +3113,36 @@ function undoDayBack(r, sc, on, refresh, hold) {
 
 // One press of those buttons. On the first module the move IS the start time, and
 // the arithmetic is setBatchStart's. On any module after it the move is a DELTA
-// from where the chain puts the batch, so the batch follows the line instead of
-// being pinned to a clock — and a delta can only ever hold it back, because a
-// batch cannot start before the dough it is made of exists.
+// from where the chain puts the batch — a HOLD — and that is true of every batch
+// of every later module, batch 1 included, whatever that module is set to take
+// her start from.
+//
+// It was narrowed at v154 to "below batch 1, or batch 1 of a module set to start
+// as the one above finishes", on the argument that a module keeping its own time
+// has a start of its own to write. Her report of 23 September is what that
+// narrowing cost: "i ask for delta time, that function is not worker across the
+// chart ... Before this the delta t was there, why it disappeared." Every module
+// of her own day is set to "Its own time", so batch 1 of every one of her modules
+// took the absolute path — no hold was ever written, so no Δt was ever drawn
+// anywhere on her chart, and the card's own way back, which only exists while a
+// hold does, went with it. This is the v151 rule put back, one line, and the two
+// readings it restores come back with it.
+//
+// A hold is still only ever a HOLD and never a schedule: it is added after the
+// latest of the module's own time, the chain above and the module's own machine,
+// so it can push a batch later and can never put one in front of the dough it is
+// made of.
 //
 // What gets said about it is toastBatch's in the first case, so the timeline's tap
 // and the editor's old buttons stay one answer in one wording. A delta is a
 // different fact and says so in its own words.
 function moveBatch(run, live, sc, on, refresh, k, from, by) {
   const first = sc.modules.findIndex((x) => x.id === live.id) === 0;
-  const mode = startModeOf(live);
-  // A batch is written as a HOLD rather than as a start in two places: below batch
-  // 1, where the batch rides the module above and its move is a delay on top of
-  // that; and on batch 1 of a module set to start as the one above finishes, where
-  // this module has no start time of its own to write at all. That second one
-  // matters: where that module begins is the minute the module above ends, decided
-  // by the chain and not by a number stored here, so writing a start would be a
-  // press that changed nothing on the chart — the dead control this screen is built
-  // to keep out. Written as the module's own hold, the whole module comes with it,
-  // exactly as moving batch 1 moves a first module.
-  const held = !first && (k > 0 || mode === "after");
+  const held = !first;
+  // Whether the module follows the one above decides how each sentence below
+  // reads, because on a module that keeps its own time there is no "where the
+  // line puts it" to be held back from — only the time she gave it.
+  const follows = startModeOf(live) !== "own";
   if (!held) {
     const landed = setBatchStart(live, sc, on, k, from + by);
     toastBatch(live, k, from + by, landed, run.dayStartMin);
@@ -3090,7 +3167,9 @@ function moveBatch(run, live, sc, on, refresh, k, from, by) {
     on.refresh();
     if (after === before) {
       toast(k === 0
-        ? `${live.name} is already as early as the line allows — there is nothing left to take off.`
+        ? (follows
+          ? `${live.name} is already as early as the line allows — there is nothing left to take off.`
+          : `${live.name} is already at the time you gave it — there is nothing left to take off.`)
         : by < 0
           ? `Batch ${k + 1} is already on the line — there is nothing left to take off.`
           : `Batch ${k + 1} stays where it is.`);
@@ -3099,10 +3178,14 @@ function moveBatch(run, live, sc, on, refresh, k, from, by) {
       // minutes behind" is not a sentence about a hold coming off, it is a
       // sentence about nothing happening.
       toast(k === 0
-        ? `${live.name} is back on the line — every batch of it starts where the module above finishes.`
+        ? (follows
+          ? `${live.name} is back on the line — every batch of it starts where the module above finishes.`
+          : `${live.name} is back at the time you gave it — every batch of it moved with that.`)
         : `Batch ${k + 1} is back on the line, where the module above and this module's own minutes put it.`);
     } else if (k === 0) {
-      toast(`${live.name} held ${after} minute${after === 1 ? "" : "s"} behind where the module above finishes — every batch of it moved with that.`);
+      toast(follows
+        ? `${live.name} held ${after} minute${after === 1 ? "" : "s"} behind where the module above finishes — every batch of it moved with that.`
+        : `${live.name} held ${after} minute${after === 1 ? "" : "s"} later than the time you gave it — every batch of it moved with that.`);
     } else {
       toast(`Batch ${k + 1} held back ${after} minute${after === 1 ? "" : "s"} from where the line puts it — move the module above it and this batch comes with it.`);
     }
@@ -3204,6 +3287,19 @@ function personRow(r, row, trackW, sc, on, state, run) {
     title: notes.shiftLine,
   }) : null;
 
+  // The stretch of the day their work actually occupies, drawn INSIDE the hours they
+  // are here — second in the track, still before every bar, and still with no z-index of
+  // its own, for the reason the band above carries in full. Where they have been given a
+  // job outside the hours they typed, this shape shows it by standing outside theirs,
+  // which is the same fault the row already names in words; where the day has given them
+  // nothing, there is no shape at all.
+  const work = el("div", {
+    class: "tl-work",
+    style: `left:${Math.round(row.span.startMin * r.pxPerMin)}px;`
+      + `width:${Math.max(1, Math.round((row.span.endMin - row.span.startMin) * r.pxPerMin))}px`,
+    title: notes.workLine,
+  });
+
   const bars = row.items.map((w) => el("div", {
     // The PERSON'S own colour, not the module's. Tinted by module, one person's row
     // was a patchwork of eight colours that said nothing about the person standing
@@ -3242,7 +3338,7 @@ function personRow(r, row, trackW, sc, on, state, run) {
   // target is small twice over: the bar is 11 pixels in a 34-pixel row, and at the
   // widest reading a one-minute job is 1.2 pixels wide. Reading the minute gives
   // her the row's whole height, and nearestSlot gives her the sliver.
-  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, band, ...bars);
+  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, band, work, ...bars);
   track.addEventListener("click", (e) => {
     // A right press pans the day and opens nothing. See isPrimaryClick.
     if (!isPrimaryClick(e)) return;
@@ -3505,6 +3601,7 @@ function personPopup(row, sc, on, state, r) {
         `${hoursAndMinutes(n.busy)} of work` + (n.places > 1 ? `, in ${n.places} places` : "") +
         (n.clashes ? `, with ${n.clashes} collision${n.clashes === 1 ? "" : "s"} to sort out.` : ", and nothing collides."),
         n.shiftLine + ".",
+        n.workLine + ".",
         n.trainedLine,
         ...n.outside.map((o) => o.text),
         n.outsideMore > 0 ? `…and ${n.outsideMore} more like that.` : null,
