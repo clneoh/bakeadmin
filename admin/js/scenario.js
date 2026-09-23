@@ -1571,6 +1571,126 @@ export function reassignSlot(saved, moduleId, batch, slot, who) {
   return { ...s, modules };
 }
 
+// The day's own arrangement, written down and made hers — what has to happen before
+// one stretch can be placed by hand on a day that is SHARING THEM OUT.
+//
+// Her report of 23 September 2026, in her words: "i have 4 persons, 1st Jien, 2nd Wei,
+// 3rd and 4th. I saw Jien is heavy loaded, so i click one of Jien session, and select
+// to switch that session to Wei, where he is free. BUt what happen is Jien disapper,
+// and Jien name chage to Wei, and the originally Wei sessions disappeared." Reproduced
+// exactly, on a day of eight modules all on 0 with two names given.
+//
+// On a day that is sharing them out the rows are not hers and not the modules': they
+// are what peopleRows' packing invented, number by number — the first free window
+// lands on person 1, the next on 2, and a new number appears only when nobody is free.
+// Her names are kept by NUMBER and shared by every scenario (state.settings.personNames),
+// which is why naming those rows is enough for the chart to read as people.
+//
+// Naming ONE stretch then moves the packing's own origin. The named window is placed
+// first, so its row exists before the free windows are packed at all, the packing
+// prefers the lowest free row, and every invented number shifts up by one. The row
+// that was person 1 is person 2 and wears the name "Wei"; nobody is person 1 any more,
+// so the row called "Jien" is gone; and a fifth row appears at the top. Those are
+// exactly the three things she saw, and none of it was her doing.
+//
+// The fault is not in the write — reassignSlot puts the stretch on the person she
+// picked, and it survives the trip through the cloud — it is that a row the packing
+// invented has no number worth handing anything to. So before a stretch changes hands,
+// the arrangement already on the screen is written down: a person for a module whose
+// stretches all sit on one row, a person for a line of a module worked as lines, and a
+// slotPerson entry where one module's stretches really do sit on more than one row.
+// From that moment every row's number is a fact, and her names go on meaning what she
+// sees. The chart itself does not move by a pixel: it is the same picture with its own
+// numbers kept.
+//
+// Nothing is written for a stretch she has already answered for — a person on the
+// module, a person on its line, or her own entry for that one stretch. A stored 0 is an
+// answer too ("whoever is free"), and is read as one. So a day whose people were placed
+// at the modules is handed back untouched, and this only ever pins what the day was
+// quietly deciding for her.
+//
+// Returns the scenario with the arrangement written into it, and how many stretches
+// were written down — which is 0 for every day that needed nothing, and is what lets
+// the screen say out loud that the day has become hers to arrange.
+export function pinArrangement(saved, rows) {
+  const s = scenarioOf(saved);
+  // What the chart is showing: every stretch of the day, and the row it is drawn on.
+  // Read off the rows rather than re-derived, so what is written down is the picture
+  // on the screen and never a second opinion about it.
+  const chair = new Map();
+  for (const row of rows || []) {
+    const p = clampPerson(row && row.person);
+    if (p <= 0) continue;
+    for (const w of (row && row.items) || []) {
+      if (!chair.has(w.module)) chair.set(w.module, []);
+      chair.get(w.module).push({ w, p });
+    }
+  }
+
+  let written = 0;
+  const modules = s.modules.map((m) => {
+    const stored = m.slotPerson || {};
+    // Only the stretches the day decided for her. A stretch she has already answered
+    // for is hers and is left exactly as it is — including one given back to "whoever
+    // is free", which is a real answer and not the absence of one.
+    const mine = (chair.get(m.id) || []).filter(({ w }) => (
+      !Object.prototype.hasOwnProperty.call(stored, `${w.batch}.${w.slot}`)
+    ));
+    if (!mine.length) return m;
+    // One group per LINE: a module worked as two lines gives its odd lots to one
+    // worker and its even lots to the other, so what the module can say as itself is
+    // one answer per line, and anything finer has to be said stretch by stretch.
+    const groups = new Map();
+    for (const item of mine) {
+      const key = item.w.line;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    }
+    const out = { ...m, slotPerson: { ...stored } };
+    let touched = false;
+    for (const [line, list] of [...groups.entries()].sort((a, b) => a[0] - b[0])) {
+      // What the module says about this line now, by the same rule touchWindows reads
+      // it with: a module worked as lines answers by the line, any other by itself.
+      const own = line < 0 ? clampPerson(out.person) : clampPerson(out.crew[line]);
+      const people = [...new Set(list.map((x) => x.p))];
+      // Every stretch of this line is on one row and this line has nobody yet: the
+      // module can say it once, which is the shape its own card and the People box read.
+      if (people.length === 1 && own === 0) {
+        if (line < 0) {
+          // The crew too, never the person on its own: this module keeps a crew of
+          // its own, and `crew[0]` IS the module's person every time the day is read
+          // (see moduleOf), so a person written alone is thrown straight back to 0 on
+          // the next read and the whole write is lost. Both are written here, exactly
+          // as the module card's own person box writes them.
+          out.crew = [people[0], ...out.crew.slice(1)];
+          out.person = people[0];
+        } else {
+          out.crew = [...out.crew];
+          out.crew[line] = people[0];
+          // The app keeps the two in step everywhere else it writes a crew, so the
+          // first line's person IS the module's person.
+          if (line === 0) out.person = people[0];
+        }
+        written += list.length;
+        touched = true;
+        continue;
+      }
+      // Otherwise this line needs more than one person, or it already has a person and
+      // one of its stretches has been handed elsewhere. Named one stretch at a time,
+      // which is the finest thing the model can hold.
+      for (const { w, p } of list) {
+        if (p === own) continue;
+        out.slotPerson[`${w.batch}.${w.slot}`] = p;
+        written += 1;
+        touched = true;
+      }
+    }
+    return touched ? out : m;
+  });
+
+  return { scenario: { ...s, modules }, written };
+}
+
 // ── A module, handed to the capacity screen ─────────────────────────────────
 //
 // The two screens answer different questions about the same day, and she asked
@@ -1889,13 +2009,22 @@ function wantBatches(module, want) {
   return Math.max(1, Math.ceil(num(want) / batch));
 }
 
-// One line about a scenario, in the same words wherever it is listed — on the
-// scenario shelf and on the production line that can load it.
-export function scenarioSummary(saved) {
+// The two facts about a saved day, kept APART so a table can put each in its own
+// column. One source for both, so the number in the shelf's "Pans a day" column
+// and the number in the one-line summary below cannot drift — which is the whole
+// reason this is not two functions doing the same count twice.
+export function scenarioFacts(saved) {
   const mods = Array.isArray(saved && saved.modules) ? saved.modules : [];
   const on = mods.filter((m) => m.on !== false);
   const r = computeScenario(saved);
-  return `${r.pansPerDay} ${r.pansPerDay === 1 ? "pan" : "pans"} a day · ${on.length} ${on.length === 1 ? "module" : "modules"}`;
+  return { pansPerDay: r.pansPerDay, modules: on.length };
+}
+
+// One line about a scenario, in the same words wherever it is listed — on the
+// scenario shelf and on the production line that can load it.
+export function scenarioSummary(saved) {
+  const { pansPerDay, modules } = scenarioFacts(saved);
+  return `${pansPerDay} ${pansPerDay === 1 ? "pan" : "pans"} a day · ${modules} ${modules === 1 ? "module" : "modules"}`;
 }
 
 // Her rule for the batch counts, 2026-09-22: "follow the one before, and say when

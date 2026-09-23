@@ -888,8 +888,8 @@ option.tone-off { color: var(--muted); }
 .avail-line.warn { color: var(--red); }
 
 /* ---------- PO table ---------- */
-.po-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.po-table th {
+.po-table, .sc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.po-table th, .sc-table th {
   text-align: left;
   font-size: 12px;
   text-transform: uppercase;
@@ -898,10 +898,34 @@ option.tone-off { color: var(--muted); }
   padding: 6px 4px;
   border-bottom: 1px solid var(--line);
 }
-.po-table td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.po-table td.num, .po-table th.num { text-align: right; }
+.po-table td, .sc-table td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.po-table td.num, .po-table th.num, .sc-table td.num, .sc-table th.num { text-align: right; }
 .po-total { font-size: 17px; font-weight: 700; text-align: right; padding-top: 10px; }
 .po-breakdown { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* ---------- The scenario shelf ---------- */
+/* One rule shapes both tables, so the two cannot be tuned apart; the shelf adds
+   only what is genuinely its own. A row she taps must be at least 36px tall, and
+   the PO table's 8px padding lands exactly on that with nothing to spare, so the
+   shelf takes 11px and comes out at 42. The numbers keep a width of their own
+   (`width: 1%` is the way to say "as narrow as my content") while the name takes
+   all the slack — that is what puts the two figures in columns she can read down
+   instead of at four different x positions per row.
+   Every row is the same height whether or not it is the open one: a table whose
+   rows grow when you pick one makes the shelf jump under the finger that tapped
+   it, and `.now` is said with a fill rather than with weight. */
+.sc-table td { padding: 11px 4px; vertical-align: middle; }
+.sc-table td.num, .sc-table th.num { width: 1%; white-space: nowrap; padding-left: 10px; }
+.sc-table th.sc-edit, .sc-table td.sc-edit { width: 1%; white-space: nowrap; text-align: right; padding-left: 6px; }
+.sc-table .sc-row { cursor: pointer; }
+.sc-table .sc-row:active { background: var(--gray-bg); }
+/* The open day is the one the planner is plotting, so it has to be findable at a
+   glance — but not by indenting its name, which pushed that one name 17px right of
+   the other two and cost the row's own width. The fill says it, and a stripe on the
+   row's own left edge says it again to anyone who cannot pick the fill out of a
+   white card; neither takes a pixel from the name column. */
+.sc-table .sc-row.now { background: var(--brown-soft); }
+.sc-table .sc-row.now .sc-name { box-shadow: inset 3px 0 0 var(--brown); }
 
 /* The owner's product description on the Products list card — quieter than the
    title but legible, so she can read each blurb without opening the editor. */
@@ -949,7 +973,17 @@ option.tone-off { color: var(--muted); }
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 60;
+  /* Above every card, because a confirm is opened from INSIDE one. Two of the
+     app's questions — "Delete this module" and "Delete this scenario" — are
+     asked from the card they are about, and the card stays on the screen behind
+     the question. At 60, under the pop-up layer's 65, the question was painted
+     beneath the very card that asked it: measured 23 September 2026 at 375px,
+     every point of the confirm's own box belonged to the card — an input at the
+     Delete button's centre and a label at the card's centre — so the sentence
+     could not be read and neither button could be pressed, and the screen only
+     dimmed a second time with nothing appearing. Only the app-password lock,
+     which she must answer before any of this exists, outranks it. */
+  z-index: 72;
 }
 .confirm-layer[hidden] { display: none; }
 .confirm-card {
@@ -1027,12 +1061,25 @@ option.tone-off { color: var(--muted); }
 }
 .popup-title { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink); min-width: 0; }
 .popup-body { overflow-y: auto; padding: 8px 16px 16px; }
+/* The row of buttons at the foot of a card. The class was used in 26 places and
+   never had a rule of its own, so its buttons flowed as inline-blocks: flush
+   against each other, hard against the left edge, no air above them. Measured on
+   the module card 23 September 2026 at 375px, "Delete this module" and "Done"
+   were 0 pixels apart — a thumb reaching for Done was touching the button that
+   deletes the module — with 88 pixels of dead card to their right. Three cards
+   had patched the gap in by hand, each a little differently, and the label
+   printer's own sheet already carried the shape written out in full; that shape
+   is what is written here once, so the class cannot be tuned apart again.
+   `wrap` is not decoration: the module's three buttons need 437 pixels and have
+   303, and a row too wide for the card must go onto a second line rather than
+   off its edge. */
+.popup-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 
 /* ---------- App-password lock ---------- */
 .lock-layer {
   position: fixed;
   inset: 0;
-  z-index: 80; /* above toast(70), confirm(60), tabbar(30), topbar(20) */
+  z-index: 80; /* above confirm(72), toast(70), pop-up(65), tabbar(30), topbar(20) */
   display: flex;
   align-items: center;
   justify-content: center;

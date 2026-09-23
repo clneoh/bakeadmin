@@ -1,8 +1,253 @@
-# Jienluv2bake — change history (v54 → v171)
+# Jienluv2bake — change history (v54 → v172)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v172 (no database step). Four things: handing one stretch of
+work to somebody else no longer moves the people's rows, their names or their jobs;
+the "Minutes from one batch to the next" box reaches your batches again, and says so
+when your oven is what is holding them apart; the Your scenarios card is a table you
+can run your eye down; and the question a card asks before deleting something is drawn
+over the card that asked it instead of behind it, with the row of buttons at the foot
+of a card given the shape it never had. All inside More → Scenario planner.**
+
+**What you reported, in your own words.** First, and the largest thing in this
+version: "i have 4 persons, 1st Jien, 2nd Wei, 3rd and 4th. I saw Jien is heavy
+loaded, so i click one of Jien session, and select to switch that session to Wei,
+where he is free. BUt what happen is Jien disapper, and Jien name chage to Wei, and
+the originally Wei sessions disappeared". Then: "im now on my 36loaf scenario, pls check
+why im lowering the minutes frrom one batch to the next, cannot reflex even i reduce
+it to 13, look like something prevent it from loweriing below 25". And, separately:
+"can you make the Your Scenario, reorganised it to a better visual clarity, details
+in table, action button below?" And then, while that was being built: "please check
+the process of delete a module and the process of deleting a scenario, it dont look
+right".
+
+**1. Handing one stretch of work to somebody else moved everybody on the chart.**
+This was your report, and it was the largest thing in this version.
+
+All three of the things you saw were real, they were one fault, and none of it was
+your doing.
+
+A day that is sharing them out has nobody written on it. The rows you see are worked
+out fresh every time the chart is drawn: the first job nobody is on goes to person 1,
+the next to person 2, and a new row appears only when everybody is busy. That is why a
+shared-out day reads as perfectly sensible people — and it is also why its row numbers
+mean nothing at all. They are not yours and they are not on the modules.
+
+Your names, though, are kept by number, and every day you have shares them. So the
+moment one stretch was given to Wei, a row for Wei existed before the free jobs were
+handed out — the packing began at Wei's row instead of at the first row, every
+invented number moved up by one, and the row that had been person 1 became person 2.
+Jien was person 1, so Jien was gone; the row he had been on now wore Wei's name; and a
+fifth row appeared at the top with what was left over. Exactly the three things you
+saw.
+
+**2. What that press does now, and what it was measured doing.** Before a stretch
+changes hands, the arrangement already on the screen is written down: each job is given
+the person the chart is already showing at it — one name for a module whose batches all
+sit on one row, one name per line for a module worked as lines, and a note on the single
+stretch where a module's batches really are split between two people. A stretch you had
+already placed by hand, including one you had handed back to whoever is free, is left
+exactly as it is. From that moment the numbers on the rows are facts rather than the
+packing's invention, and your names go on meaning what you see.
+
+Measured live on your own day at a phone's width, going through your exact press. The
+card read "Move this slot off Jien" and its button read "Move it to Wei". Before the
+press the chart drew four rows — Jien with five jobs on him, Wei with one, and two more
+below them. After it, the same four rows were in the same order with the same names:
+Jien had lost the one stretch you moved and nothing else, Wei had gained that one
+stretch and nothing else, and the two rows below were untouched. The People box stopped
+saying the day was sharing them out and read "One to a module", which is what the card
+had told you it would do before you pressed it. And the chart held there: the page was
+read again from scratch and drew the same four rows, the same names and the same jobs —
+where before this fix that very re-read was what moved them.
+
+**3. And one sentence on that card was describing a day that was not in front of you.**
+Found by measuring the fix on your own day rather than on a made-up one. The card
+carried a note explaining that the press settles the whole day, and it said so in the
+words "This day is sharing them out" — on a day whose People box plainly read "Your
+own", because one stretch on it had been placed by hand. Two claims, about a day that
+was making neither. The note may now say only what is true of the day on the screen:
+the part that says the press settles the whole day is always said, and the part about
+the box stopping saying it is sharing them out is said only when the box is saying it.
+
+**4. The box that would not move, found and fixed.** Two different things were true
+at once, and only one of them was a fault.
+
+The fault: a saved day keeps, for each module, a list of the times its batches
+start. A list is read as the whole truth about where every batch sits, so a module
+that carries one ignores the box entirely — the box could be set to 13, or to 87, or
+to anything, and the batches would not move. Measured on the engine, not reasoned
+about: a module with the list 0, 25, 50, 75 and the box at 13 still ran 25 minutes
+apart; set to 87 it still ran 25 minutes apart; with no list at all, 13 ran 13.
+
+How the list got there: the press that moves one batch's time wrote the module's
+whole list back onto it, and so did the day card's "work the day backwards", which
+does it for every module in the day at once. So one press of one button used to
+freeze the pace box of the entire line — which is why it looked like something was
+preventing it, rather than like a box that had quietly stopped working.
+
+**5. What changed.** Three things, all small. A press that moves a single batch no
+longer writes a list onto a module that never had one — batch one of a module IS the
+module's start time, so writing that one number is the same answer the pace already
+gives, and leaving no list behind is what keeps the pace alive. A module that already
+carries a list has it re-spaced to the pace you type, with every batch keeping what
+you did to it by hand: each batch moves by the minutes the rhythm moved, so a batch
+you deliberately held off a collision is still held off by the same minutes after.
+And the box now carries a live note under it, so a pace the oven cannot reach says so
+where you typed it instead of doing nothing.
+
+**6. The other half of it, which is not a fault and now says so.** A module that
+takes one batch at a time cannot start two of them closer together than one batch
+lasts — that is your oven, not the app. Measured on your own "Mixing the dough in
+the tub": its cycle is 20 minutes, so typing 13 still runs the batches 20 minutes
+apart, and the note under the box says exactly that, names the 20 minutes, and names
+both ways to run closer: give the module a second production line under "How many
+production line you have", or switch on "Allow multiple production line" if those
+minutes are the dough's time and not the machine's. Measured live on your own frozen
+day: typing 13 turned that module's stored list from 1, 88, 175, 262 into 1, 14, 27,
+40, and the day then ran 1, 21, 41, 61 — 20 minutes apart, its own cycle. Typing 40
+ran the day 1, 41, 81, 121, and the note went back to being a plain explanation.
+
+**7. The Your scenarios card is now a table.** One row for each saved day: the day's
+name, the pans a day it turns out, and how many modules it has, with the pencil at
+the end of its own row and Save changes and Save a copy below the table rather than
+mixed into it. The day the planner is currently plotting is filled in and carries a
+line down its left edge, and every name starts at the same place so the days read as
+a column.
+
+**8. And one measurement that made the table worth having.** At a phone's width the
+card has 315 pixels to spend, and two headings were taking 170 of them — "PANS A DAY"
+on one line claimed 91 pixels to sit over a two-digit number and "MODULES" claimed 78
+to sit over a one-digit one — which left the name 92 pixels. Every name you have is
+wider than 92, so every row wrapped, each to a different number of lines, and the
+card read as three ragged paragraphs. The heading is written over two lines now
+instead, which hands its slack back to the name: measured at 375 by 812 the name goes
+from 92 pixels to 138, all three rows come back to the same 59-pixel height instead of
+59, 72 and 59, and every name starts at the same x. The mark that said which day was
+open used to be a dot typed in front of its name, which pushed that one name 17 pixels
+right of the other two; it is a line down the row's left edge now, which costs the row
+nothing.
+
+**9. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. Every tap
+still opens exactly what it opened before — a row opens that day, and the pencil
+beside it opens the rename card without opening the day as well. Your stored data was
+compared before and after: 13,888 characters, byte for byte the same. The one press in
+this version that does write to your day is the hand-over above, and it writes only what
+the chart was already showing — the same people, on the same rows, at the same jobs. Its
+own round trip was measured on your day, starting from your day as it stood and putting
+it back byte for byte afterwards: 13,888 characters before it and the same 13,888 after
+it. Your three saved
+days are untouched, and each still asks for the pans a day it always asked for — 24,
+12 and 24 — and still carries the same 9, 8 and 8 modules. One reading in the table is
+worth naming, because it is not the same number: "Pans a day" in the table is what
+each day's line turns out, which is exactly the number the app already puts in a
+day's own summary line. For two of your days that is the 24 you asked for; for "My
+sister proposal 21/9/2026" the one tub passes 4 against the 12 you asked it for, and
+the shelf says 4 for the same reason its summary line already does — so the two
+screens cannot disagree.
+
+**10. The delete button opened a question you could not see.** This was the fault you
+found, and it was not a wording problem or a small one: the question was being drawn
+underneath the card that asked it.
+
+Both of these deletes are asked from inside a card — Delete this module from the
+module card, Delete this scenario from the card the pencil opens — and the card stays
+on the screen behind the question, which is deliberate, so you can see which module
+you are about to lose. What was wrong is the order the two are drawn in: the layer the
+question goes on sat at 60 and the layer of a card sat at 65, so the card was painted
+over the question every time.
+
+Measured on your own day at a phone's width, not reasoned about. With the question
+open, the topmost thing at the question's own Delete button was an input belonging to
+the module card underneath, and the topmost thing at the question's own centre was a
+label from that same card. So the sentence could not be read, neither button could be
+pressed, and the only thing you saw was the screen dimming a second time with nothing
+appearing on it. Tapping anywhere did what the card underneath does instead, and the
+question sat there unanswered until something else happened to close the card, at
+which point it surfaced on its own — a delete box appearing when you had stopped
+asking for one. Both flows were the same fault, and both are measured fixed: at the
+question's Delete button the topmost thing is now the Delete button, at Cancel it is
+Cancel, and at the centre of the box it is the box.
+
+The question's layer now sits at 72, above every card and above a toast, and only the
+app-password lock outranks it. Nothing about the flow changed otherwise: Cancel leaves
+the module and leaves the card open where it was, and Delete takes the module out and
+closes the card with it — both driven and watched on a live day, a module going from
+eight on the line to seven with the day answering without it, and a saved scenario
+going from three to two with the shelf redrawn and no name left standing on the card.
+And the question now names the module in quotes, as every other delete in the app
+names what it is about. Unquoted, a module called "The proofer again" read as one
+sentence with the name lost inside it: "Delete The proofer again?".
+
+**11. And the row of buttons at the foot of a card had no shape at all.** The same
+report's other half, and a smaller thing, but the same kind of thing: a class used in
+26 places across 12 files that never had a rule of its own.
+
+Without one, its buttons flowed as plain inline blocks — flush against each other and
+hard against the left edge of the card. Measured on the module card at 375 by 812:
+"Delete this module" and "Done" were 0 pixels apart, so a thumb reaching for Done was
+touching the button that deletes the module, with 88 pixels of dead card to their
+right. The scenario card was the same shape the other way up — its Delete stacked
+directly above its Save at exactly the same left edge — and both read as two buttons
+run together rather than as a row of choices.
+
+The row is now one rule, written once: the card's own edge, 8 pixels between the
+buttons, and a line's worth of air above them. `wrap` is part of it rather than a
+detail, because the module's three buttons need 437 pixels and have 303 — a row too
+wide for its card has to go onto a second line, not off the card's edge. It is the
+shape the label printer's own sheet already carried in full and the shape three other
+cards had each patched in by hand, a little differently every time; those three
+patches are gone, because one answer in one place is what stops a fourth being added.
+Measured after, on the same card: Duplicate this module on a line of its own ending at
+the card's edge, then Delete this module from 94 to 264 and Done from 272 to 345 — 8
+pixels apart, Done sitting where a thumb expects it at the card's own right edge.
+
+**12. Every rule that stands on it was proved load-bearing, not assumed.** Nineteen
+faults were put back in all, and each was watched failing by its own name before being
+restored byte-identically.
+
+For the hand-over: with the arrangement left unwritten the test fails reading that the
+day has stopped being able to say what it is, which is the fault put back; with a person
+written onto a module without the crew that carries it, the same test fails with your
+own three symptoms — five rows where there were four, renumbered 2, 3, 4 and 5; with the
+People box allowed to read a crew of zeroes as an arrangement, the hand-back test fails
+reading that a day which has not moved no longer says it is sharing them out; and with
+the card's note gated off, it fails reading that the card does not say what the press
+settles.
+
+For the pace: with the re-spacing taken out the test fails reading "the stored list did
+not follow the pace she typed"; with the note about the oven taken out, "a pace the
+machine cannot reach is not explained"; with every batch pulled back onto the rhythm
+instead of keeping its own offset, "a batch held off by hand was pulled back onto the
+rhythm"; and with the press left writing a list again, "Mixing the dough in the tub
+came out of the press carrying a list of times, so its pace box is dead".
+
+For the question: with the layer put back under the card it fails reading "under the
+card that asked it"; with it put above the app-password lock, "drawn over the
+app-password lock"; with the module's name left unquoted, "does not name the module in
+quotes"; with the destructive button put first, "answered by the safe button and then
+the destructive one"; with Cancel made to run the delete, "Cancel deleted the module";
+and with the card left open behind the delete, "the card stayed open after the module
+went".
+
+For the foot row: with the rule declared a second time it fails reading "declared 2
+times"; with the buttons put back to inline blocks, "flow as inline blocks"; with the
+8-pixel gap taken away, "sits flush against"; with the row back at the left edge, "not
+laid out against the card's own edge"; with wrap taken away, "cannot wrap"; with one
+card patching its own row by hand again, "lays its own foot row out by hand"; and with
+the foot's buttons reordered, "does not carry its three buttons". The two faults found
+while measuring the note on your own day are put back the same way: with the note always
+claiming the day is sharing them out it fails reading that the card claims a box that is
+not saying it, and with the note taken off the card altogether it fails reading that the
+card does not say what the press settles. The test suite is 1215 passing with none
+failing.
+
+**13. No database step.** Not one stored field is added or changed, so there is nothing
+to run in Supabase.
 
 **23 Sep 2026 — engine v171 (no database step). Three things you asked for while
 looking at the day chart: a right press and hold moves a window's day about without

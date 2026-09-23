@@ -29,8 +29,8 @@ import {
   computeScenario, climbSteps, descentSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
-  PX_PER_MIN_CHOICES, scenarioSummary, moduleFacts, chainLine, latestStarts,
-  combinedScenario, reassignSlot, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
+  PX_PER_MIN_CHOICES, scenarioFacts, moduleFacts, chainLine, latestStarts,
+  combinedScenario, reassignSlot, pinArrangement, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
   startModeOf, setStartMode,
@@ -721,8 +721,20 @@ function controlsRow(r, sc, on, state, run) {
 function peopleState(r, sc, perLine) {
   const mods = sc.modules || [];
   if (Object.keys(sc.merges || {}).length) return "Combined";
-  if (mods.some((m) => (m.crew || []).length)) return perLine ? "One to a line" : "One to a module";
-  if (mods.some((m) => Number(m.person) > 0)) return "Your own";
+  // A crew counts as an arrangement only where it NAMES somebody. A day written back
+  // whole — which is what every hand-over does — carries a crew on every module, and
+  // a crew of zeroes is "whoever is free" said five times: reading it as one person
+  // per job would have the box naming an arrangement that is not on the screen, on a
+  // day that has not moved at all. A person anywhere in the crew still reads as the
+  // arrangement it is.
+  if (mods.some((m) => (m.crew || []).some((p) => Number(p) > 0))) return perLine ? "One to a line" : "One to a module";
+  // A stretch she has placed by hand counts as hers even where no module carries a
+  // person: a hand-over is written per stretch (slotPerson), and a day with one on it
+  // is not "sharing them out" any more — the box would be naming an arrangement that
+  // is no longer in force. Only a stretch given to a PERSON counts; a stored 0 is the
+  // way back to the day's own arrangement and leaves the day sharing them out.
+  if (mods.some((m) => Number(m.person) > 0
+    || Object.values(m.slotPerson || {}).some((v) => Number(v) > 0))) return "Your own";
   return "Sharing them out";
 }
 
@@ -2627,15 +2639,37 @@ function slotPopup(r, row, w, sc, on, state) {
       },
     );
 
+    // And it says when this press is about more than the one stretch: on a day that is
+    // sharing them out the rows have no numbers of their own, so naming one stretch is
+    // what settles every row on the chart — see pinArrangement. Told here rather than
+    // discovered afterwards, because the People box stops saying the day is sharing
+    // them out, and a change she can see is one she is told about rather than left to
+    // find.
+    // And the note only ever claims what the press really does. On a day sharing them
+    // out the rows have no numbers of her own to keep, so naming one stretch is what
+    // settles every row on the chart, and the box does stop saying the day is sharing
+    // them out. A day that already names its people is settled already: the press still
+    // writes the arrangement down, but the box was naming an arrangement before it too,
+    // so the note says only the part that is true of it.
+    //
+    // `perLine` is not passed to this card and is not needed for it: it can only choose
+    // between "one to a line" and "one to a module", never "sharing them out", so the
+    // box's own answer to the only question asked here is the same at either setting.
+    const wasSharing = peopleState(r, sc, false) === "Sharing them out";
+    const settled = to > 0 && pinArrangement(sc, r.rows).written > 0
+      ? " This press settles the whole day, not just this stretch: every job is given the person it already has, and the one stretch you are moving is the only change."
+        + (wasSharing ? " The People box stops saying it is sharing them out." : "")
+      : "";
+
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 10px" }, job),
       el("div", { class: "field" },
         el("label", {}, "Hand this stretch to"),
         picker,
         el("div", { class: "hint" },
-          beside > 1
+          (beside > 1
             ? `This batch has ${beside} stretches on ${personName(who, namesOf(state))}'s row, and only the one you tapped moves — the other ${beside - 1} stay where they are.`
-            : `Only this stretch moves: the rest of ${w.name} is untouched. The day is redrawn as soon as it goes, and anything that now collides is drawn red.`)),
+            : `Only this stretch moves: the rest of ${w.name} is untouched. The day is redrawn as soon as it goes, and anything that now collides is drawn red.`) + settled)),
       el("div", { class: "popup-actions" },
         // Named with who she picked, so the press says what it will do rather than
         // "confirm" — and it is the only press on the card, so nothing happens
@@ -2650,12 +2684,23 @@ function doReassignSlot(sc, r, w, to, on, state, close) {
   // tested without a screen. `batch` and `slot` are the two numbers touchWindows
   // writes on every window, which is what makes this the stretch she tapped and not
   // its neighbours.
-  const next = reassignSlot(sc, w.module, w.batch, w.slot, to);
+  //
+  // The day's own arrangement goes down first, and only when the stretch is going to
+  // a PERSON. On a day that is sharing them out, a row's number is what the packing
+  // invented, so naming one stretch lets the packing re-number every row under her —
+  // the fault she reported on 23 September, in her words "Jien disapper, and Jien name
+  // chage to Wei". Writing the picture down first keeps every row where it is. Handing
+  // a stretch back to "whoever is free" writes nothing down: that answer belongs to the
+  // day's own arrangement, and pinning the rest around it would freeze a day she has
+  // just handed back to the planner.
+  const pinned = to > 0 ? pinArrangement(sc, r.rows) : null;
+  const next = reassignSlot(pinned ? pinned.scenario : sc, w.module, w.batch, w.slot, to);
   sc.modules = next.modules;
   on.persist();
   on.refresh();
   const clock = `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`;
-  toast(`${w.name}, ${clock} — ${to > 0 ? `handed to ${personName(to, namesOf(state))}` : "back to whoever is free"}`);
+  const settled = pinned && pinned.written ? " — the rest of the day keeps the row it has" : "";
+  toast(`${w.name}, ${clock} — ${to > 0 ? `handed to ${personName(to, namesOf(state))}` : "back to whoever is free"}${settled}`);
   // The card goes with the move. Its heading says which person the stretch is being
   // taken off, and once the day has redrawn that is no longer true: the marker is
   // on somebody else's row, so leaving the card up would offer a press that names
@@ -2944,6 +2989,12 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
         on.refresh();
         return;
       }
+      // A pace she has typed has to REACH the batches, and on a module that carries
+      // a stored list it otherwise would not: a list answers for every batch, so the
+      // box would be a control that does nothing at all. Re-spaced here, before the
+      // new pace is written, so the module's own old pace is still there to measure
+      // each batch's deviation from.
+      if (opt && opt.repace) repaceBatches(live, n);
       live[key] = opt && opt.int ? Math.round(n) : n;
       on.persist();
       on.refresh();
@@ -2978,10 +3029,22 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
       // her finger threw the scroll and destroyed the box she was typing in.
       // A box whose answer changes the CARD's shape — one more line, one more
       // cycle row — says so, and then it rebuilds once, when she leaves the box.
-      input.addEventListener("input", () => write(input.value));
+      //
+      // The hint may be a FUNCTION, for the one field whose explanation depends on
+      // what she has just typed. It is repainted in place rather than by rebuilding
+      // the card, for the reason above — and because a box that quietly does nothing
+      // reads as a fault, while a line that says why is the whole answer.
+      const hintNode = hint ? el("div", { class: "hint" }) : null;
+      const paintHint = () => {
+        if (!hintNode) return;
+        const said = String(typeof hint === "function" ? (hint() || "") : hint);
+        hintNode.textContent = said;
+        hintNode.style.display = said ? "" : "none";
+      };
+      paintHint();
+      input.addEventListener("input", () => { write(input.value); paintHint(); });
       if (opt.rebuild) input.addEventListener("change", () => refresh());
-      return el("div", { class: "field" }, el("label", {}, label), input,
-        hint ? el("div", { class: "hint" }, hint) : null);
+      return el("div", { class: "field" }, el("label", {}, label), input, hintNode);
     };
 
     const t = (key, label, hint) => {
@@ -3247,8 +3310,8 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
       // sentence is the reason: a batch is not a process, a cycle is.
       cyclesField(live, on, refresh),
       f("everyMin", "Minutes from one batch to the next",
-        "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone. Left on Auto it is the length of the cycles you just set, which is one batch following the one before it end to end.",
-        { min: 1, auto: "everyAuto" }),
+        () => paceHint(live),
+        { min: 1, auto: "everyAuto", repace: true }),
       repeatsField(),
       // Her point one: the module that became the bottleneck, had twice over.
       f("count", "How many production line do you have",
@@ -3298,7 +3361,10 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
           close();
         }, "ghost"),
         isNew ? null : button("Delete this module", () => confirmDialog(
-          `Delete ${live.name}? The day will answer without it.`,
+          // Quoted, as every other delete in the app says it. Unquoted, a module
+          // whose name opens with a capital read as one sentence and lost the
+          // name inside it: "Delete The proofer again?".
+          `Delete the module "${live.name}"? The day will answer without it.`,
           () => {
             sc.modules = removeModule(sc.modules, live.id);
             on.persist();
@@ -3420,6 +3486,49 @@ function putCycles(live, on, next) {
 
 const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
+// What the pace box says, and the one case where it has to say something else.
+//
+// Almost always it is the explanation of what the pace IS. But a module that takes
+// its batches one at a time cannot run two of them closer together than one batch
+// lasts, and when the number she has typed is shorter than that the day will quietly
+// run them at the longer one. That quiet is the whole fault of this version — her
+// words, 23 September 2026: "cannot reflect even i reduce it to 13, look like
+// something prevent it from loweriing below 25" — so the two ways to make the pace
+// possible are named, and neither is a rule of the app's: how many production line
+// she has, and whether those minutes are the machine's or the dough's.
+const PACE_EXPLAINED =
+  "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone. Left on Auto it is the length of the cycles you just set, which is one batch following the one before it end to end.";
+
+function paceHint(live) {
+  const m = moduleOf(live);
+  // Only a module that really does take its batches in turn holds them apart: one
+  // production line with its overlap switch off. Two of them are two lines with a
+  // batch each, and a module whose minutes are the dough's own is free to overlap, so
+  // in both of those the pace is honoured as typed and there is nothing to say.
+  if (m.overlap || m.count > 1 || m.everyAuto === true) return PACE_EXPLAINED;
+  if (!(m.everyMin < m.cycleMin - 0.01)) return PACE_EXPLAINED;
+  return "One batch at a time, so two of them cannot start closer together than the " +
+    `${round(m.cycleMin)} minutes one takes — this pace will run at ${round(m.cycleMin)}. ` +
+    "Give the module a second production line under How many production line you have, " +
+    "or switch on Allow multiple production line if those minutes are the dough's time " +
+    "and not the machine's.";
+}
+
+// Spelling a stored start list out again at a new pace.
+//
+// `starts` is written out in full by the presses that move a batch, and a full list
+// answers for every batch — so without this the pace box is a control that does
+// nothing on any module that carries one. Every batch keeps what she has done to it:
+// each moves by the amount the rhythm moved, not to a place of its own, so a batch she
+// has held off a collision is still held off by the same minutes afterwards.
+function repaceBatches(live, pace) {
+  if (!Array.isArray(live.starts) || live.starts.length < 2) return;
+  const was = moduleOf(live).everyMin;
+  const base = live.starts[0];
+  live.starts = live.starts.map((t, k) => round(base + k * pace + (t - (base + k * was))));
+  live.startMin = live.starts[0];
+}
+
 // One batch's start time, written the way a typed time is written: into this
 // batch's own slot, with the module's start time following batch one so the two
 // can never disagree about where the module begins. Hands back where the batch
@@ -3450,6 +3559,20 @@ function writeBatchStart(live, k, want) {
   // read the model first.
   const m = moduleOf(live);
   const at = clampStart(want, m);
+  // A module that has never had a list of its own KEEPS it that way. Batch one IS
+  // the module's start time, so writing that one number here is the same answer
+  // `startsOf` already gives from the module's own pace — and NOT writing a list is
+  // what keeps that pace alive. A list is read as the whole truth about where every
+  // batch sits, and it is written out in full, so a press that sprayed one onto a
+  // module left its "Minutes from one batch to the next" box answering nothing at all
+  // — her report of 23 September, exactly: "cannot reflect even i reduce it to 13,
+  // look like something prevent it from loweriing below 25". The press that did it is
+  // the day card's own (moveDayBack pulls every module back through here), so one tap
+  // used to freeze the pace box of the whole line.
+  if (k === 0 && !Array.isArray(live.starts)) {
+    live.startMin = at;
+    return at;
+  }
   const from = (m.starts || []).slice();
   // Batch one IS the module's start time, so moving it moves the module: every
   // batch after it comes along at the spacing she already set. Any later batch is
@@ -3514,40 +3637,45 @@ function scenariosCard(sc, state, on) {
   const kids = [
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       "Save the scenario you have built under its own name, and open it again another day. Two saved side by side is how you compare the line you have with the line you are thinking of buying."),
-    el("div", { class: "tl-ctl" },
-      el("button", {
-        type: "button", class: "tl-chip on",
-        onclick: () => {
-          const entry = copyScenario(sc, sc.name, sc.id || `s${Date.now().toString(36)}`);
-          sc.id = entry.id;
-          const at = list.findIndex((x) => x.id === entry.id);
-          if (at >= 0) list[at] = entry; else list.push(entry);
-          on.persist();
-          on.refresh();
-          toast(`Saved as "${entry.name}"`);
-        },
-      }, here ? "Save changes" : "Save this scenario"),
-      el("button", {
-        type: "button", class: "tl-chip",
-        onclick: () => saveAsPopup(sc, state, on, list),
-      }, "Save a copy…")),
   ];
 
+  // The shelf is drawn as a TABLE, and the two facts about a day are columns of it.
+  //
+  // Her words, 23 September 2026: "reorganised it to a better visual clarity,
+  // details in table, action button below". Measured at a phone's width, 375: the
+  // old row was a name and a "24 pans a day · 9 modules" sentence sharing one line,
+  // and at that width BOTH wrapped — "No fridge, 1 person" broke over two lines and
+  // the sentence broke after its 9 — so the numbers came to rest at four different
+  // x positions down the card and comparing two days meant reading two sentences.
+  // In columns the numbers line up and are compared down the page, which is the one
+  // thing this card exists for.
   if (!list.length) {
     kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" }, "Nothing saved yet."));
   } else {
-    kids.push(el("div", { style: "margin-top:8px" },
-      ...list.map((s) => el("div", {
-        class: `info-row tappable${s.id === sc.id ? " now" : ""}`,
-        onclick: () => openScenario(s, state, on),
-      },
-        el("span", { class: "j-what" }, `${s.id === sc.id ? "● " : ""}${s.name || "Untitled"}`),
-        el("span", { class: "info-val" }, scenarioSummary(s)),
-        el("button", {
-          type: "button", class: "tl-chip",
-          onclick: (e) => { e.stopPropagation(); editSavedPopup(s, sc, state, on, list); },
-        }, "✏️")))));
+    kids.push(scenarioShelf(list, sc, state, on));
   }
+
+  // And the presses sit BELOW the table, as she asked. The table answers "which
+  // day"; these change the shelf rather than one row of it, so they belong under
+  // the whole thing rather than over it — where they also stop being the first
+  // thing her thumb meets on a card she came to read.
+  kids.push(el("div", { class: "tl-ctl", style: "margin-top:12px" },
+    el("button", {
+      type: "button", class: "tl-chip on",
+      onclick: () => {
+        const entry = copyScenario(sc, sc.name, sc.id || `s${Date.now().toString(36)}`);
+        sc.id = entry.id;
+        const at = list.findIndex((x) => x.id === entry.id);
+        if (at >= 0) list[at] = entry; else list.push(entry);
+        on.persist();
+        on.refresh();
+        toast(`Saved as "${entry.name}"`);
+      },
+    }, here ? "Save changes" : "Save this scenario"),
+    el("button", {
+      type: "button", class: "tl-chip",
+      onclick: () => saveAsPopup(sc, state, on, list),
+    }, "Save a copy…")));
 
   // The ready-made days are OFFERED, and the offer names none of them.
   //
@@ -3589,6 +3717,63 @@ function scenariosCard(sc, state, on) {
   }
 
   return el("div", {}, el("h2", { class: "section" }, "Your scenarios"), el("div", { class: "card" }, ...kids));
+}
+
+// The shelf itself: one row a day, the name taking the slack and each number in a
+// narrow column of its own so two days are compared down a column rather than read
+// as two sentences. Every row is the same height whether or not it is the one open,
+// because a table whose rows grow when you pick one makes the whole shelf jump
+// under the finger that just tapped it.
+function scenarioShelf(list, sc, state, on) {
+  const body = el("tbody");
+  for (const s of list) {
+    const open = s.id === sc.id;
+    const { pansPerDay, modules } = scenarioFacts(s);
+    body.appendChild(el("tr", {
+      class: `sc-row tappable${open ? " now" : ""}`,
+      onclick: () => openScenario(s, state, on),
+    },
+      // The open day is marked by `.now`, and by nothing in this text: it used to be
+      // prefixed with a bullet, which pushed that one name 17px right of the other
+      // two and — at 375px, where the name column is the scarce thing — made it the
+      // first row to wrap. A mark that costs the width it is marking with is not a
+      // mark, it is a second fault.
+      el("td", { class: "sc-name" }, s.name || "Untitled"),
+      el("td", { class: "num" }, String(pansPerDay)),
+      el("td", { class: "num" }, String(modules)),
+      // The pencil keeps a cell of its own, and it stops the press reaching the row:
+      // opening a day and renaming it are two different intentions, and a tap that
+      // did both is how a name gets lost by someone who only meant to look at a day.
+      el("td", { class: "sc-edit" },
+        el("button", {
+          type: "button", class: "tl-chip",
+          "aria-label": `Rename or delete ${s.name || "Untitled"}`,
+          onclick: (e) => { e.stopPropagation(); editSavedPopup(s, sc, state, on, list); },
+        }, "✏️"))));
+  }
+  return el("table", { class: "sc-table" },
+    el("thead", {}, el("tr", {},
+      el("th", {}, "Scenario"),
+      // The heading is written over two lines on purpose. At 375px the table has
+      // 315px to spend and a heading is the widest thing in its own column by far:
+      // "PANS A DAY" on one line claims 91 of those pixels to sit over a two-digit
+      // number, and "MODULES" claims 78 to sit over a one-digit one — 170 of the 315
+      // spent on two headings, which left the name 92px. Every name she has is wider
+      // than that ("No fridge, 1 person" needs 123, "My sister proposal 21/9/2026"
+      // 188), so every row wrapped, each to a different number of lines, and the shelf
+      // read as three ragged paragraphs rather than a column she can run her eye down.
+      // Put over two lines the heading gives its slack back to the name, which is the
+      // only column whose content is not one or two digits: measured at 375px the name
+      // goes from 92px to 138, both short names come back onto one line, and only the
+      // long one wraps — and to two lines rather than three.
+      // The space before "a day" is for the page's own text: a `<br>` leaves no
+      // character behind, so without it the heading reads "Pansa day" to anything
+      // that reads the markup rather than looks at it. A leading space sits at the
+      // start of its line and is not drawn, so the two lines are unchanged by it.
+      el("th", { class: "num" }, "Pans", el("br"), " a day"),
+      el("th", { class: "num" }, "Modules"),
+      el("th", { class: "sc-edit" }))),
+    body);
 }
 
 // The two days that ship with the app, with the one line each is described by. Her

@@ -12,7 +12,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -777,6 +777,17 @@ test("one press works the day backwards and leaves the day's own numbers alone (
     assert.ok(flat, `${m.name}: the press changed the spacing between its batches`);
   }
 
+  // And the press writes START TIMES and nothing else. It used to spell out a batch
+  // list for every module it touched, and a list is read as the whole truth about
+  // where every batch sits — so a single press of this one button left the "Minutes
+  // from one batch to the next" box of the entire day answering nothing. Her report,
+  // 23 September 2026: "cannot reflect even i reduce it to 13, look like something
+  // prevent it from loweriing below 25."
+  for (const m of state.settings.scenario.modules) {
+    assert.equal(m.starts, undefined,
+      `${m.name} came out of the press carrying a list of times, so its pace box is dead`);
+  }
+
   // And the press cannot walk the day into an impossible order: no module may end
   // a lot after the module below it has started the same lot. The day was in order
   // before, so this asks whether the press kept it — which is the whole reason the
@@ -828,6 +839,70 @@ test("the way back puts every start time exactly where it was, and then goes (v1
     assert.equal(m.starts, undefined, `${m.name} came back with a list of times it did not have`);
   }
   assert.equal(popupButton(/Put my start times back/), undefined, "the way back is still offered after it was used");
+});
+
+// Her report of 23 September 2026, in her own words: "im now on my 36loaf scenario,
+// pls check why im lowering the minutes frrom one batch to the next, cannot reflex
+// even i reduce it to 13, look like something prevent it from loweriing below 25".
+//
+// Two things were true at once and this test is both of them. A start list answers for
+// every batch, so on a module that carried one the pace box answered NOTHING — not 13,
+// not 87, nothing — which is the "cannot reflect". And a module that takes one batch at
+// a time cannot run two of them closer together than one batch lasts, which is the
+// "prevent it from loweriing below 25": true, and the card used to say nothing about it.
+test("the pace box reaches a module that carries a start list, and says when the machine is what holds it (v172)", () => {
+  const bake = {
+    id: "bake", icon: "🔥", name: "The bake", on: true, person: 0,
+    cycles: [{ name: "Bake", min: 25, load: 0, unload: 0 }],
+    batch: 6, repeats: 4, startMin: 0, people: 1, count: 1,
+    everyMin: 25, everyAuto: false,
+    // Stored the way a press used to leave it: a list of its own, five-and-twenty
+    // minutes apart — a list the pace box could not argue with.
+    starts: [0, 25, 50, 75],
+  };
+  const { root, state } = render({ modules: [bake] });
+  const stored = () => state.settings.scenario.modules[0];
+
+  openModule(root, "The bake");
+  const paceField = () => walk(layers["popup-layer"]).find((n) => hasClass(n, "field")
+    && walk(n).some((c) => c.tagName === "LABEL" && textOf(c).trim() === "Minutes from one batch to the next"));
+  assert.ok(paceField(), "the module card has no box for the minutes from one batch to the next");
+  const pace = walk(paceField()).find((n) => n.tagName === "INPUT");
+  const hint = () => textOf(walk(paceField()).find((n) => hasClass(n, "hint")) || createEl("div"));
+  // At the pace the module already runs, the box explains itself and nothing else:
+  // nothing is being held back, so there is nothing to warn about.
+  assert.match(hint(), /The pace the batches repeat at/, "the pace box does not explain itself");
+
+  // The number she typed reaches the batches. Without this the list went on answering
+  // for all four of them and the box was a control that did nothing at all.
+  pace.value = "13";
+  pace.dispatchEvent({ type: "input" });
+  assert.equal(stored().everyMin, 13, "the pace she typed was not stored");
+  assert.deepEqual(stored().starts, [0, 13, 26, 39], "the stored list did not follow the pace she typed");
+  assert.equal(stored().startMin, 0, "changing the pace moved where the module begins");
+  // The day runs them at 13 no lower than the machine allows, which is the second half
+  // of her report: one oven takes one batch at a time, so its own 25 minutes is the
+  // tightest two of them can run. That is a fact about her oven, not a rule of the
+  // app's — so the card has to say it, and name the two ways to run closer.
+  assert.deepEqual(starts(state, "bake"), [0, 25, 50, 75], "the day did not take the pace as far as the machine allows");
+  assert.match(hint(), /One batch at a time/, "a pace the machine cannot reach is not explained");
+  assert.match(hint(), /cannot start closer together than the 25 minutes/, "the card does not name the minutes holding it");
+  assert.match(hint(), /second production line/, "the card names no way to run the batches closer");
+  assert.match(hint(), /Allow multiple production line/, "the card names only one of the two ways out");
+
+  // A pace the machine CAN reach is honoured outright, and the warning goes.
+  pace.value = "40";
+  pace.dispatchEvent({ type: "input" });
+  assert.deepEqual(stored().starts, [0, 40, 80, 120], "raising the pace did not reach the batches");
+  assert.deepEqual(starts(state, "bake"), [0, 40, 80, 120], "the day did not run at the pace she typed");
+  assert.match(hint(), /The pace the batches repeat at/, "the warning stayed on a pace nothing is holding back");
+
+  // And a batch she has held off by hand keeps its hold across a pace change: it moves
+  // by the minutes the rhythm moved, rather than being pulled back onto it.
+  stored().starts = [0, 40, 80, 130];
+  pace.value = "20";
+  pace.dispatchEvent({ type: "input" });
+  assert.deepEqual(stored().starts, [0, 20, 40, 70], "a batch held off by hand was pulled back onto the rhythm");
 });
 
 test("the step pairs on the day card move the whole day and keep its shape (v152)", () => {
@@ -2401,6 +2476,199 @@ test("a tap on a person's occupied stretch hands that one stretch over, and noth
     `the note does not name who holds it: ${popupBody().slice(0, 400)}`);
 });
 
+// ── The day that is sharing them out (v172) ────────────────────────────────
+//
+// Her report of 23 September 2026, in her words: "i have 4 persons, 1st Jien, 2nd
+// Wei, 3rd and 4th. I saw Jien is heavy loaded, so i click one of Jien session, and
+// select to switch that session to Wei, where he is free. BUt what happen is Jien
+// disapper, and Jien name chage to Wei, and the originally Wei sessions disappeared".
+//
+// The day this happens on is the one with nobody placed at a module: every module on
+// 0 and the rows drawn by the packing. There a row's number is not hers and not the
+// module's — it is what peopleRows invented — while her names are kept BY NUMBER and
+// shared by every scenario, so naming one stretch moved the packing's origin and
+// re-numbered every row under her. Three things she saw, and this test pins all three.
+//
+// The v161 test above is the other half of the same gesture on a day that is NOT
+// sharing them out, where nothing needs settling and nothing may be written down.
+function sharedOutDay() {
+  return ONE_BAKER_SCENARIO.modules.map((m) => ({
+    ...m,
+    person: 0, crew: undefined, slotPerson: undefined,
+    starts: undefined, startDelta: undefined,
+    startMin: 0, repeats: 1, count: 1, overlap: true,
+  }));
+}
+
+// Every person row as its tone, the name on it and the jobs it carries — the three
+// things she names in her report, read off the chart she is looking at.
+function peopleOn(root) {
+  return personRows(root).map((n) => ({
+    tone: (String(n.className).match(/ptone-\d+/) || [""])[0],
+    who: textOf(walk(n).find((x) => hasClass(x, "tl-name-txt"))),
+    titles: barsOf(walk(n).find((x) => hasClass(x, "tl-track"))).map((b) => String(b.attrs.title)),
+  }));
+}
+
+test("a hand-over on a day that is sharing them out leaves every other row, and its name, where it was (v172)", () => {
+  const { root, state } = render({ modules: sharedOutDay() });
+  // Her four names, as the person card writes them: in the app's settings, by number,
+  // shared by every scenario she has.
+  state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(root, state);
+
+  const before = peopleOn(root);
+  assert.ok(before.length >= 3,
+    `the shared-out day draws ${before.length} row(s) of work, so there is no packed day here to re-number`);
+  assert.equal(before[0].tone, "ptone-1", "the first row of a shared-out day is not person 1");
+  assert.match(before[0].who, /Jien/, `the first row reads "${before[0].who}"`);
+  assert.match(before[1].who, /Wei/, `the second row reads "${before[1].who}"`);
+  assert.ok(before[0].titles.length >= 2,
+    `the overloaded row carries ${before[0].titles.length} job(s), which cannot tell a move from a shift`);
+  // The day really is sharing them out: not one module has anybody on it, so every
+  // row number on this chart is the packing's own invention.
+  assert.deepEqual(state.settings.scenario.modules.filter((m) => Number(m.person) > 0), [],
+    "the day is not sharing them out after all — a module already has a person");
+
+  // The one stretch she taps, in the row she says is overloaded.
+  const track = personTrack(root, "ptone-1");
+  const bar = barsOf(track)[1];
+  const job = String(bar.attrs.title);
+  assert.equal(tapSlot(track, px(bar, "left") + px(bar, "width") / 2), true,
+    "a tap on the overloaded person's stretch opened nothing");
+  assert.match(popupTitle(), /Move this slot off Jien/, `the tap opened "${popupTitle()}"`);
+  // And it says what this press settles before she takes it, because the People box
+  // changing to "Your own" is something she will see — and a change she can see is
+  // one she is told about rather than left to find.
+  assert.match(popupBody(), /settles the whole day/,
+    `the card does not say what this press settles: ${popupBody().slice(0, 300)}`);
+  assert.match(popupBody(), /stops saying it is sharing them out/,
+    `the card does not say the box's own words are about to change: ${popupBody().slice(0, 300)}`);
+
+  popupButton(/Move it to Wei/).dispatchEvent({ type: "click" });
+  assert.match(lastToast(), /keeps the row it has/, `the press said "${lastToast()}"`);
+
+  const after = peopleOn(root);
+  // 1. Every row is still on the chart, in the same place, under the same name.
+  // "Jien disapper" and "Jien name chage to Wei" were two thirds of her report.
+  assert.deepEqual(after.map((r) => r.tone), before.map((r) => r.tone),
+    "the rows on the chart are not the rows that were on it");
+  assert.deepEqual(after.map((r) => r.who), before.map((r) => r.who),
+    "a person's name has moved to another row");
+  // 2. And no work moved with it bar the one stretch she tapped. "the originally Wei
+  // sessions disappeared" was the third thing she saw.
+  for (let i = 0; i < before.length; i += 1) {
+    const lost = before[i].titles.filter((t) => !after[i].titles.includes(t));
+    const gained = after[i].titles.filter((t) => !before[i].titles.includes(t));
+    if (i === 0) {
+      assert.deepEqual(lost, [job], `the overloaded row lost ${lost.length} stretch(es): ${lost.join(" | ")}`);
+    } else {
+      assert.deepEqual(lost, [], `row ${i + 1} (${before[i].who}) lost ${lost.join(" | ")}`);
+    }
+    if (i === 1) {
+      assert.deepEqual(gained, [job], `Wei gained ${gained.join(" | ")}`);
+    } else {
+      assert.deepEqual(gained, [], `row ${i + 1} (${before[i].who}) gained ${gained.join(" | ")}`);
+    }
+  }
+
+  // 3. The arrangement she was looking at is on the record, which is what makes the
+  // numbers stop being the packing's. Every module that needs hands now says who is
+  // standing at it; the stretch she moved is the one exception, kept as a hand-over
+  // of its own, which is what the module's card reads the "Stretches handed on" note
+  // from.
+  const mods = state.settings.scenario.modules;
+  for (const m of mods) {
+    const needsHands = m.on !== false && Number(m.touchMin) > 0;
+    const slots = Object.values(m.slotPerson || {});
+    assert.ok(!needsHands || Number(m.person) > 0 || slots.length,
+      `${m.name} was left with nobody on it, so its row number is still the packing's to invent`);
+  }
+  const moved = mods.find((m) => Object.values(m.slotPerson || {}).includes(2));
+  assert.ok(moved, "the stretch she handed to Wei is not on the record as a hand-over");
+  assert.equal(moved.person, 1, "the row the moved stretch came off was not written down");
+  // And the day no longer describes itself as the arrangement this one press has
+  // replaced. Every job now names the person standing at it, so the box reads One
+  // to a module — and what matters here is the half it must NOT say any more: the
+  // day is not sharing them out. A settled day that still read "Sharing them out"
+  // would be inviting her to look for an arrangement that is no longer there.
+  const closed = textOf(walk(root).find((n) => hasClass(n, "tl-select")));
+  assert.doesNotMatch(closed, /Sharing them out/,
+    `the People box still says the day is sharing them out: ${closed.slice(0, 80)}`);
+  assert.match(closed, /One a module|One to a module/,
+    `the People box does not name the arrangement now in force: ${closed.slice(0, 80)}`);
+});
+
+// The other half of the same press. A stretch handed back to nobody in particular is
+// the day's own arrangement being asked for again, so nothing is settled and nobody
+// is written down — and the People box has to go on saying the day is sharing them
+// out. It is here because a hand-over writes the day back whole, and a day written
+// back whole carries a crew on every module: read as an arrangement, a crew of
+// zeroes would have the box claiming one person per job on a day that never moved.
+test("a stretch handed back to whoever is free leaves the day sharing them out (v172)", () => {
+  const { root, state } = render({ modules: sharedOutDay() });
+  state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(root, state);
+  const before = peopleOn(root);
+
+  const track = personTrack(root, "ptone-1");
+  const bar = barsOf(track)[1];
+  assert.equal(tapSlot(track, px(bar, "left") + px(bar, "width") / 2), true,
+    "a tap on the overloaded person's stretch opened nothing");
+  const picker = walk(layers["popup-layer"]).find((n) => n.tagName === "SELECT");
+  assert.ok(picker, "the card offers no list of people");
+  picker.value = "0";
+  picker.dispatchEvent({ type: "change" });
+  popupButton(/Move it to whoever is free/).dispatchEvent({ type: "click" });
+
+  // Nothing was pinned: not one module carries a person, so the rows on the chart are
+  // still the packing's to invent — exactly as they were before the press.
+  assert.deepEqual(state.settings.scenario.modules.filter((m) => Number(m.person) > 0), [],
+    "handing a stretch back to nobody in particular pinned a person onto a module");
+  assert.deepEqual(peopleOn(root).map((r) => r.tone), before.map((r) => r.tone),
+    "the day's rows moved when a stretch was handed back to nobody in particular");
+  const closed = textOf(walk(root).find((n) => hasClass(n, "tl-select")));
+  assert.match(closed, /Sharing them out/,
+    `a day that has not moved no longer says it is sharing them out: ${closed.slice(0, 80)}`);
+});
+
+// Found by measuring the fix on her own day rather than on a fixture: the card's note
+// was written for a day that IS sharing them out and was drawn on every day the press
+// would settle. Her day has one stretch already placed by hand, so its People box reads
+// "Your own" — and the card told her the day was sharing them out and that the box was
+// about to stop saying so, twice over about a day that said neither. The note is only
+// ever allowed to claim what is true of the day in front of her.
+test("a day that has already settled does not claim its box is about to stop sharing them out (v172)", () => {
+  const mods = sharedOutDay();
+  // One stretch placed by hand, on a day with nobody at a module — her own day's shape
+  // as it stood when the fault was measured.
+  mods[0].slotPerson = { "0.0": 2 };
+  const { root, state } = render({ modules: mods });
+  state.settings.personNames = { 1: "Jien", 2: "Wei" };
+  renderScenario(root, state);
+
+  const closedBefore = textOf(walk(root).find((n) => hasClass(n, "tl-select")));
+  assert.match(closedBefore, /Your own/,
+    `the day with one hand-placed stretch reads "${closedBefore.slice(0, 60)}", so this is not the case being measured`);
+
+  const before = peopleOn(root);
+  const heavy = before.reduce((a, b) => (b.titles.length > a.titles.length ? b : a), before[0]);
+  assert.ok(heavy.titles.length >= 2,
+    `no row carries more than ${heavy.titles.length} job(s), so the press being settled cannot be read`);
+  const track = personTrack(root, heavy.tone);
+  const bar = barsOf(track)[0];
+  assert.equal(tapSlot(track, px(bar, "left") + px(bar, "width") / 2), true,
+    "a tap on the heaviest person's stretch opened nothing");
+
+  // The press really is bigger than the one stretch, so the note belongs on this card.
+  assert.match(popupBody(), /settles the whole day/,
+    `the card is silent about settling the day: ${popupBody().slice(0, 300)}`);
+  // And it must not describe a day that is not in front of her. Both halves were wrong
+  // on her own day: it is not sharing them out, and its box says "Your own".
+  assert.doesNotMatch(popupBody(), /sharing them out/,
+    `the card claims a box that is not saying it: ${popupBody().slice(0, 300)}`);
+});
+
 test("a tap on a person's empty day still opens their own card (v160)", () => {
   // The other half of the gesture: the tap must only be swallowed where there is a
   // job under it. One person with one stretch of work leaves the rest of their row
@@ -3100,4 +3368,117 @@ test("the two windows' name columns are one rule, so their axes cannot drift (v1
   // chart's ONE hairline computation correct in either window.
   const scoped = nameRules.filter((r) => /\.tl-pane-/.test(r.slice(0, r.indexOf("{"))));
   assert.equal(scoped.length, 0, `a window overrides the name column: ${scoped.map((r) => r.slice(0, r.indexOf("{")).trim()).join(" / ")}`);
+});
+
+// ── v172: the question a card asks is drawn over the card that asked it ─────
+//
+// Her report of 23 September 2026: "please check the process of delete a module
+// and the process of deleting a scenario, it dont look right". It did not look
+// right because it could not be looked at. Both of those questions are asked FROM
+// the card they are about, and the card stays on the screen behind the question —
+// deliberately, so she can see which module she is about to lose. What was wrong
+// was the order the two were drawn in: the layer the question goes on sat under
+// the layer of the card. Measured on her own day at 375px, every point of the
+// confirm's own box belonged to the card — an input at the Delete button's centre,
+// a label at the card's own centre — so the sentence could not be read, neither
+// button could be pressed, and the only thing she saw was the screen dimming a
+// second time with nothing appearing. Both flows were the same fault.
+test("the question a card asks is drawn over the card that asked it (v172)", () => {
+  const css = read("admin/css/app.css");
+  const zOf = (cls) => {
+    const rule = new RegExp(`\\.${cls}\\s*\\{[^}]*\\}`).exec(css);
+    assert.ok(rule, `.${cls} has no rule of its own, so nothing places it`);
+    const m = /z-index:\s*(\d+)/.exec(rule[0]);
+    assert.ok(m, `.${cls} declares no z-index, so where it sits is its luck in the file`);
+    return Number(m[1]);
+  };
+  assert.ok(zOf("confirm-layer") > zOf("popup-layer"),
+    `the question is drawn at ${zOf("confirm-layer")}, under the card that asked it at ${zOf("popup-layer")}, so it can be neither read nor answered`);
+  // And only the app-password lock outranks it: that is the one thing she must
+  // answer before any card or question of this app exists at all.
+  assert.ok(zOf("confirm-layer") < zOf("lock-layer"),
+    "the question is drawn over the app-password lock");
+
+  // The question itself. It names the module in quotes, as every other delete in
+  // the app names what it is about; unquoted, a name opening on a capital read as
+  // one sentence with the name lost inside it — "Delete The proofer again?".
+  const { root, state } = render();
+  const ask = () => {
+    openModule(root, "Cutting and packing");
+    popupButton(/Delete this module/).dispatchEvent({ type: "click" });
+  };
+  const answers = () => walk(layers["confirm-layer"]).filter((n) => n.tagName === "BUTTON");
+  ask();
+  const asked = textOf(layers["confirm-layer"]);
+  assert.match(asked, /Delete the module "Cutting and packing"\?/,
+    `the question does not name the module in quotes: ${asked.trim()}`);
+  assert.deepEqual(answers().map((b) => textOf(b).trim()), ["Cancel", "Delete"],
+    "the question is not answered by the safe button and then the destructive one");
+
+  // Cancel means cancel, and the card she asked from stays where it was.
+  answers()[0].dispatchEvent({ type: "click" });
+  assert.equal(walk(layers["confirm-layer"]).length, 0, "Cancel left the question standing on the screen");
+  assert.ok(state.settings.scenario.modules.some((m) => m.name === "Cutting and packing"),
+    "Cancel deleted the module");
+  assert.ok(popupButton(/Delete this module/), "Cancel closed the card the question was asked from");
+
+  // And Delete does what it says, and takes the card with it.
+  ask();
+  answers()[1].dispatchEvent({ type: "click" });
+  assert.ok(!state.settings.scenario.modules.some((m) => m.name === "Cutting and packing"),
+    "Delete left the module on the day");
+  assert.equal(layers["popup-layer"].hidden, true, "the card stayed open after the module went");
+});
+
+// ── v172: every card's foot of buttons is one row, with air between them ────
+//
+// The same report, the other half of it. `.popup-actions` is used in 26 places and
+// never had a rule of its own, so its buttons flowed as inline-blocks: flush against
+// each other and hard against the left edge of the card. Measured on the module card
+// at 375px, "Delete this module" and "Done" were 0 pixels apart — a thumb reaching
+// for Done was touching the button that deletes the module — with 88 pixels of dead
+// card to their right, and the scenario card stacked its destructive button directly
+// above its safe one at the same left edge.
+test("every card's foot of buttons is one row, with air between them (v172)", () => {
+  const css = read("admin/css/app.css");
+  const rules = [...css.matchAll(/(^|\n)([^{}\n]*\.popup-actions[^{}\n]*)\{([^}]*)\}/g)]
+    .map((m) => ({ sel: m[2].trim(), body: m[3] }));
+  const bare = rules.filter((r) => r.sel === ".popup-actions");
+  assert.equal(bare.length, 1,
+    `the foot row is declared ${bare.length} times, so one card's row can be tuned apart from another's`);
+  const { body } = bare[0];
+  assert.match(body, /display:\s*flex/,
+    "the foot row's buttons flow as inline blocks, so nothing holds them apart");
+  assert.match(body, /gap:\s*8px/,
+    "the foot row has no gap, so a destructive button sits flush against the one beside it");
+  assert.match(body, /justify-content:\s*flex-end/,
+    "the foot row is not laid out against the card's own edge");
+  // wrap is not decoration. The module's three buttons need 437 pixels and have 303,
+  // and a row too wide for its card must go onto a second line rather than off it.
+  assert.match(body, /flex-wrap:\s*wrap/,
+    "a foot row too wide for its card cannot wrap, so its buttons run off the card's edge");
+
+  // One answer, in one place. Three cards had patched the spacing in by hand, each a
+  // little differently — two with their own display:flex and a gap, one with a margin
+  // of its own — which is a second and a third answer to a question this rule answers.
+  const jsFiles = [];
+  (function collect(dir) {
+    for (const entry of readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
+      const path = `${dir}${entry.name}`;
+      if (entry.isDirectory()) collect(`${path}/`);
+      else if (entry.name.endsWith(".js")) jsFiles.push(path);
+    }
+  })("admin/js/");
+  const patched = jsFiles.filter((f) => /class: "popup-actions",\s*style:/.test(read(f)));
+  assert.deepEqual(patched, [], `a card lays its own foot row out by hand: ${patched.join(", ")}`);
+
+  // And the module card's foot is that row, carrying its three buttons in order.
+  const { root } = render();
+  openModule(root, "Cutting and packing");
+  const foot = walk(layers["popup-layer"]).find((n) => hasClass(n, "popup-actions")
+    && walk(n).some((c) => c.tagName === "BUTTON" && /^Done$/.test(textOf(c).trim())));
+  assert.ok(foot, "the module card's foot of buttons is not the row the stylesheet shapes");
+  assert.deepEqual(walk(foot).filter((n) => n.tagName === "BUTTON").map((b) => textOf(b).trim()),
+    ["Duplicate this module", "Delete this module", "Done"],
+    "the module card's foot does not carry its three buttons");
 });

@@ -412,7 +412,7 @@ function occImportPicker(state) {
     showPopup("Load standard occasions", (refresh, close) => el("div", {},
       el("p", { class: "card-sub" },
         "Every date in the list is already on your calendar — nothing new to add."),
-      el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px;justify-content:flex-end" },
+      el("div", { class: "popup-actions" },
         button("Close", close, "primary"))));
     return;
   }
@@ -668,7 +668,7 @@ function occLabelPicker(state, from, to, occ = null) {
       el("p", { class: "occ-sublabel", style: "margin-top:12px" }, "Name it"),
       chips,
       nameInput,
-      el("div", { class: "popup-actions", style: "margin-top:12px;display:flex;gap:8px" },
+      el("div", { class: "popup-actions" },
         button("Cancel", cancel, "ghost"),
         button(editing ? "Save" : "Add", finish, "primary")));
     return body;
