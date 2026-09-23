@@ -3074,14 +3074,25 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
 // sums of these rows — so a second box saying the same thing twice could only
 // ever disagree with them.
 function cyclesField(live, on, refresh) {
+  // `list` builds the boxes; `now()` is the list to WRITE onto, read at the
+  // moment a box is used rather than copied when the card was built. The card is
+  // deliberately not repainted while she types (v142: a rebuild would throw the
+  // box out from under her finger), so a copy taken at build time goes stale the
+  // moment she touches the first box — and writing that stale copy back reverted
+  // EVERY other box in the card to what it was when the card opened. Measured on
+  // her own fold module: cycle 1's Minutes 31 → 40, then cycle 2's Unload, and
+  // cycle 1 was back to 31 while the box under her finger still read 40. Each box
+  // now changes only its own value on the list as it stands, so nothing else can
+  // be dragged back with it.
   const list = cyclesIn(live);
+  const now = () => cyclesIn(live);
   const rows = list.map((c, i) => {
     const name = el("input", {
       class: "input cyc-name", type: "text",
       value: String(c.name || ""), placeholder: `Cycle ${i + 1}`,
     });
     name.addEventListener("input", () => {
-      putCycles(live, on, list.map((x, j) => (j === i ? { ...x, name: name.value } : { ...x })));
+      putCycles(live, on, now().map((x, j) => (j === i ? { ...x, name: name.value } : x)));
     });
 
     const num = (key, label, min) => {
@@ -3093,7 +3104,7 @@ function cyclesField(live, on, refresh) {
       input.addEventListener("input", () => {
         const n = Number(input.value);
         if (!Number.isFinite(n) || n < min) return;
-        const next = list.map((x, j) => (j === i ? { ...x, [key]: n } : { ...x }));
+        const next = now().map((x, j) => (j === i ? { ...x, [key]: n } : x));
         // Written without rebuilding the card — a number here moves a bar on the
         // timeline behind the pop-up, and the box under her finger stays put.
         putCycles(live, on, next);
@@ -3107,7 +3118,7 @@ function cyclesField(live, on, refresh) {
         list.length > 1
           ? el("button", {
             type: "button", class: "cyc-del", "aria-label": `Remove cycle ${i + 1}`,
-            onclick: () => { putCycles(live, on, list.filter((_, j) => j !== i)); refresh(); },
+            onclick: () => { putCycles(live, on, now().filter((_, j) => j !== i)); refresh(); },
           }, "✕")
           : null),
       el("div", { class: "cyc-nums" },
@@ -3117,7 +3128,7 @@ function cyclesField(live, on, refresh) {
   });
 
   const add = button("＋ Add a cycle", () => {
-    putCycles(live, on, [...list, { name: "", min: 15, load: 0, unload: 0 }]);
+    putCycles(live, on, [...now(), { name: "", min: 15, load: 0, unload: 0 }]);
     refresh();
   });
 

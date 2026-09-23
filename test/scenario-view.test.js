@@ -2011,3 +2011,55 @@ test("a day with nobody else on it says so rather than offering an empty list (v
   assert.equal(walk(layers["popup-layer"]).filter((n) => n.tagName === "SELECT").length, 0,
     "a card with an empty list of people was opened");
 });
+
+// ── The cycles of one batch (v164) ──────────────────────────────────────────
+//
+// Every number in the cycles list is written by touching that one box, and the
+// card is deliberately NOT repainted while she types (v142: a rebuild would throw
+// the box out from under her finger). So each box has to write onto the list as
+// it stands, never onto a copy taken when the card was built — or the second box
+// she touches drags the first one back to what it was when the card opened.
+//
+// Measured on her own fold module before this: cycle 1's Minutes 31 → 40, then
+// cycle 2's Unload, and cycle 1 was back to 31 while its box still read 40. The
+// screen and the day disagreed, and the number looked as though it had changed by
+// itself.
+test("a number typed into one cycle box is not undone by the next box she touches (v164)", () => {
+  const { root, state } = render();
+  const fold = () => state.settings.scenario.modules.find((m) => m.id === "solo_fold");
+  assert.equal(fold().cycles.length, 4, "the fold module no longer has the four cycles this is measured on");
+
+  openModule(root, "The rests and the stretch and folds");
+  const box = (label, i) => walk(layers["popup-layer"])
+    .find((n) => n.tagName === "INPUT" && n.attrs["aria-label"] === `${label} in cycle ${i + 1}`);
+  const type = (label, i, v) => {
+    const input = box(label, i);
+    assert.ok(input, `the card has no ${label} box on cycle ${i + 1}`);
+    input.value = String(v);
+    input.dispatchEvent({ type: "input" });
+  };
+
+  // Cycle 1's Minutes, then cycle 2's Unload. The first number must survive the
+  // second box — this is the fault she saw.
+  type("Minutes", 0, 40);
+  assert.equal(fold().cycles[0].min, 40, "the first box she used did not reach the module");
+  type("Unload", 1, 2);
+  assert.equal(fold().cycles[1].unload, 2, "the second box she used did not reach the module");
+  assert.equal(fold().cycles[0].min, 40,
+    "the second box she touched put cycle 1's Minutes back to where it was when the card opened");
+
+  // Two boxes on ONE row are the same case: Load, then Minutes beside it.
+  type("Load", 0, 5);
+  type("Minutes", 0, 44);
+  assert.equal(fold().cycles[0].load, 5, "a box on the same row was undone by the box beside it");
+  assert.equal(fold().cycles[0].min, 44, "the Minutes box did not reach the module");
+
+  // A cycle's own name is a box like any other.
+  const nameBox = walk(layers["popup-layer"]).filter((n) => hasClass(n, "cyc-name"))[2];
+  assert.ok(nameBox, "the card has no name box for cycle 3");
+  nameBox.value = "Fold 3";
+  nameBox.dispatchEvent({ type: "input" });
+  assert.equal(fold().cycles[2].name, "Fold 3", "renaming a cycle did not reach the module");
+  assert.equal(fold().cycles[0].load, 5, "renaming a cycle undid a number she had typed");
+  assert.equal(fold().cycles[0].min, 44, "renaming a cycle undid a number she had typed");
+});

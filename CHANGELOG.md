@@ -1,8 +1,60 @@
-# Jienluv2bake — change history (v54 → v163)
+# Jienluv2bake — change history (v54 → v164)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v164 (no database step). A number you type into the
+cycles of a module now stays where you put it. Before this, typing into a second
+box put the first box back to what it was when the card opened, while the first
+box still showed the number you had typed.**
+
+**What you asked.** In your words: "why some parameter that i save can change by
+itself", and then, when I had guessed wrong about where: "it was on stretch and
+fold module, the cycle1,2 , loading, unloading. It is not like you explain". You
+were right and my first answer was not. I stopped explaining and went and did it
+on your own fold module until I could see the number move on its own.
+
+**What was really happening, and it is exactly where you said.** Inside a
+module's card there is a list of cycles, and each cycle has its own boxes: the
+name, Minutes, Load, Unload. The card does not redraw itself while you type, and
+that is on purpose — it was your own instruction at v142, because a redraw would
+throw the box out from under your finger. But the code was keeping a copy of the
+whole cycle list from the moment the card opened, and every box wrote that old
+copy back. So the first box you used was still carrying the numbers as they were
+when the card opened, and the moment you touched a second box, the first box was
+put back to those old numbers. The screen kept showing what you had typed, the
+day behind it kept the old value, and the two disagreed. That is what "changing
+by itself" was.
+
+**Measured on your own day, so it is not a theory.** Your fold module runs four
+cycles. Cycle 1's Minutes was 31; typing 40 into it stuck. Then touching cycle
+2's Unload put cycle 1's Minutes straight back to 31, while the box under your
+finger still read 40. The same thing happened on one row: Load 5 stuck, then
+typing 44 into the Minutes beside it put Load back to 0 while its box still read
+5. Renaming a cycle stuck only because nothing else was waiting to be undone.
+
+**The fix, and it is small.** A box now changes only its own value, on the list
+as it stands at the moment you touch it, instead of writing back the copy from
+when the card opened. Nothing else in the card can be dragged back with it. The
+comment beside the code names your words and the exact numbers above, so the next
+person to touch it cannot put the copy back.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. Your
+three saved days were read before and after and compared byte for byte: One baker
+day, No fridge 1 person and My sister proposal 21/9/2026 each still make what
+they made, their stored numbers untouched.
+
+**A test now stands on it.** It opens your fold module's card, types into cycle
+1's Minutes and then cycle 2's Unload, and asserts the first number survives the
+second box — the exact fault. It also covers two boxes on the same row, and a
+cycle renamed after a number was typed. Proved load-bearing: with the fix taken
+back out it fails, reading "the second box she touched put cycle 1's Minutes back
+to where it was when the card opened".
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
 
 **23 Sep 2026 — engine v163 (no database step). The clock above your people's
 rows has been taken back out. The clock is drawn once again, at the top of the
