@@ -218,7 +218,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { renderScenario } = await import("../admin/js/views/scenario.js");
+const { renderScenario, renderBoard } = await import("../admin/js/views/scenario.js");
 const { ONE_BAKER_SCENARIO, climbSteps, computeScenario, callWindows } = await import("../admin/js/scenario.js");
 
 // Every element under `root`, depth-first, in document order.
@@ -3963,4 +3963,209 @@ test("every card's foot of buttons is one row, with air between them (v172)", ()
   assert.deepEqual(walk(foot).filter((n) => n.tagName === "BUTTON").map((b) => textOf(b).trim()),
     ["Duplicate this module", "Delete this module", "Done"],
     "the module card's foot does not carry its three buttons");
+});
+
+// ── Each person's hours, and what each of them is trained for (v177) ─────────
+//
+// Her words, 23 September 2026: "I need each person to have the start work time and
+// end work time" and "which module they are dedicated for" — which she then resolved
+// herself into a statement about TRAINING rather than a rank: "a person we should be
+// able to specify their skill, by module, can be more then one, by module" and
+// "module should select the one that specialised".
+//
+// The model's own rules — who a free job is offered to, and what absence means — are
+// pinned in test/scenario.test.js. This block is about the SCREEN: what is drawn,
+// what a press writes, and the one that would be silent if it broke — that opening a
+// day never inherits the hours of the day she was on before.
+
+// The person row for `name`, opened the way she opens it: a tap on the row.
+function openPerson(root, name) {
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person")
+    && hasClass(n, "tappable") && textOf(n).includes(name));
+  assert.ok(row, `no person row named ${name}`);
+  row.dispatchEvent({ type: "click" });
+  return row;
+}
+// The two hour boxes on the card, in the order the card draws them.
+const hourBoxes = () => walk(layers["popup-layer"])
+  .filter((n) => n.tagName === "INPUT" && n.attrs.type === "time");
+// A ticked/unticked box inside the row whose text names `label`.
+const tickFor = (label) => {
+  const row = walk(layers["popup-layer"]).find((n) => hasClass(n, "row-check") && textOf(n).includes(label));
+  return row && walk(row).find((n) => n.tagName === "INPUT" && n.attrs.type === "checkbox");
+};
+
+test("a person's hours are drawn on their row, under everything the day draws (v177)", () => {
+  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const mine = rules.filter((b) => /(^|[\s>+~])\.tl-shift$/.test(b.sel));
+  assert.equal(mine.length, 1, `expected one rule for the hours band, found ${mine.length}`);
+  assert.match(mine[0].body, /position:\s*absolute/,
+    "the band is not positioned, so it cannot sit at its own minute of the day");
+  // The v174 fault in a new coat, and the reason this gets an assertion of its own:
+  // the chart's painting order is a three-rung ladder on the wrap and that test
+  // enumerates three named classes, so a z-index added to a NEW class is invisible to
+  // it. A positioned element given one creates a stacking context, which is exactly
+  // how the day's writing climbed over the pinned module titles.
+  assert.doesNotMatch(mine[0].body, /z-index/,
+    "the band carries a z-index, which creates a stacking context inside the track — the v174 fault, back again");
+  assert.match(mine[0].body, /pointer-events:\s*none/,
+    "the band takes pointer events, so it can swallow a tap meant for the stretch over it");
+
+  const { root } = render({ shifts: { 1: { startMin: 60, endMin: 300 } } });
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1"));
+  assert.ok(row, "there is no person row on the day");
+  const track = walk(row).find((n) => hasClass(n, "tl-track"));
+  const band = walk(track).find((n) => hasClass(n, "tl-shift"));
+  assert.ok(band, "somebody with hours set has no band on their row");
+  assert.equal(track.children.filter((c) => c.nodeType === 1)[0], band,
+    "the band is not drawn first inside the track, so the day's bars would go under it instead of over it");
+  // The bars' own arithmetic: a minute of the day is pxPerMin pixels from the start,
+  // and the band is nothing but the two ends of the shift drawn the same way.
+  const scale = ONE_BAKER_SCENARIO.pxPerMin;
+  assert.equal(px(band, "left"), Math.round(60 * scale),
+    "the band does not begin at the minute the person arrives");
+  assert.equal(px(band, "width"), Math.round(240 * scale),
+    "the band is not as wide as the hours it stands for");
+
+  // And no hours set is no band at all — the drawn screen of every day built before
+  // this existed, to the pixel.
+  const plain = render();
+  assert.equal(walk(plain.root).filter((n) => hasClass(n, "tl-shift")).length, 0,
+    "a day with no hours set draws a band anyway");
+});
+
+test("the two hour boxes read as clock times and store minutes from her day's start (v177)", () => {
+  const { root, state } = render({ dayStartMin: 240, shifts: { 1: { startMin: 60, endMin: 300 } } });
+  openPerson(root, "Person 1");
+  const boxes = hourBoxes();
+  assert.equal(boxes.length, 2, `the person card offers ${boxes.length} hour boxes, not two`);
+  // Her day starts at 4:00 am, so minute 60 IS 5:00 am and minute 300 IS 9:00 am.
+  assert.equal(boxes[0].value, "05:00", `the card shows "${boxes[0].value}" where the person arrives at 5:00 am`);
+  assert.equal(boxes[1].value, "09:00", `the card shows "${boxes[1].value}" where the person leaves at 9:00 am`);
+
+  boxes[1].value = "07:00";   // 7:00 am, which is minute 180 of her 4:00 am day
+  boxes[1].dispatchEvent({ type: "input" });
+  assert.deepEqual(state.settings.scenario.shifts["1"], { startMin: 60, endMin: 180 },
+    "the box was stored as a clock reading and not as minutes from the start of her day");
+  assert.equal(boxes[0].value, "05:00", "changing when they leave moved when they arrive");
+
+  // A pair the wrong way round is refused and SAID. A box that takes a number and
+  // quietly does something else with it is a box that reads as broken for weeks.
+  boxes[0].value = "10:00";
+  boxes[0].dispatchEvent({ type: "input" });
+  assert.deepEqual(state.settings.scenario.shifts["1"], { startMin: 60, endMin: 180 },
+    "a back-to-front pair was written to the day anyway");
+  assert.match(popupBody(), /wrong way round/, "a refused pair is refused silently");
+  assert.equal(boxes[0].value, "05:00", "the box kept a time the day is not using");
+
+  // And clearing both is a real answer: here all day, which the store spells as no
+  // entry at all — the same absence every day before this one already has.
+  for (const b of [boxes[0], boxes[1]]) {
+    b.value = "";
+    b.dispatchEvent({ type: "input" });
+  }
+  assert.deepEqual(state.settings.scenario.shifts, {},
+    "clearing both boxes left hours behind instead of putting the person back to here all day");
+});
+
+test("a tick says what somebody is trained for, and unticking everything is a real answer (v177)", () => {
+  const { root, state } = render();
+  openPerson(root, "Person 1");
+  // Only the modules that actually hold hands are offered. The proofer is on this day
+  // and takes none, so a tick against it would be a tap that does nothing.
+  assert.ok(!tickFor("Into the proofer"),
+    "the card offers training for a module that never takes hands, so the tick does nothing");
+  const mix = tickFor("Mixing the dough in the tub");
+  assert.ok(mix, "the card offers no way to say what somebody is trained for");
+
+  mix.checked = true;
+  mix.dispatchEvent({ type: "change" });
+  assert.deepEqual(state.settings.scenario.skills, { 1: ["solo_mix"] },
+    "ticking a module did not write the training the day works from");
+
+  const oven = tickFor("The oven swap and the bake");
+  oven.checked = true;
+  oven.dispatchEvent({ type: "change" });
+  assert.deepEqual(state.settings.scenario.skills, { 1: ["solo_mix", "solo_oven"] },
+    "a second tick replaced the first instead of being added to it");
+
+  // Untick everything: "can work anything", which is what every day before this one
+  // says — so the entry is DELETED and not left as an empty list, the same one
+  // spelling of unset the hours follow.
+  for (const b of [mix, oven]) {
+    b.checked = false;
+    b.dispatchEvent({ type: "change" });
+  }
+  assert.deepEqual(state.settings.scenario.skills, {},
+    "unticking everything left an empty list behind rather than the answer it means");
+});
+
+test("a job that cannot fit somebody's hours is said, never quietly moved (v177)", () => {
+  // Somebody here for the first five minutes of a day whose work starts later. The
+  // job still goes to them — a rule that refused it would be a rule that hides work,
+  // which is the one thing this app does not do — and the card says what is wrong.
+  const { root } = render({ shifts: { 1: { startMin: 0, endMin: 5 } } });
+  openPerson(root, "Person 1");
+  assert.match(popupBody(), /cannot fit inside those hours/,
+    "a job running past somebody's own hours is not said anywhere on their card");
+  assert.match(popupBody(), /Here 4:00 am → 4:05 am/,
+    "the card does not read back the hours the day is using");
+
+  // And the hours are on the card of a day with none, reading as what absence means.
+  const plain = render();
+  openPerson(plain.root, "Person 1");
+  assert.match(popupBody(), /Here all day/,
+    "a person with no hours set does not say that they are here all day");
+  assert.doesNotMatch(popupBody(), /cannot fit inside those hours/,
+    "a day with no hours set claims a job cannot fit somewhere");
+});
+
+test("opening a day never inherits the hours of the day she was on before (v177)", () => {
+  // The round-trip trap. `openScenario` assigns a copy onto the day already in
+  // memory, so a key the copy leaves out is not dropped — the day she opens silently
+  // keeps the hours of the day she left, with nothing on the screen saying so.
+  const saved = {
+    ...ONE_BAKER_SCENARIO, id: "s_plain", name: "A plain day",
+    modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })),
+    shifts: {}, skills: {},
+  };
+  const { root, state } = render({ shifts: { 1: { startMin: 60, endMin: 300 } } });
+  state.settings.scenarios = [saved];
+  renderScenario(root, state);
+  const row = walk(root).find((n) => hasClass(n, "sc-row") && textOf(n).includes("A plain day"));
+  assert.ok(row, "the saved day is not on her shelf");
+  row.dispatchEvent({ type: "click" });
+
+  assert.deepEqual(state.settings.scenario.shifts, {},
+    "the hours of the day she left are still on the day she opened");
+  assert.equal(walk(root).filter((n) => hasClass(n, "tl-shift")).length, 0,
+    "the opened day is drawn wearing hours it does not have");
+});
+
+test("a board tells a worker when they are here, and a tap on it writes nothing (v177)", () => {
+  const scen = { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })), shifts: { 1: { startMin: 60, endMin: 300 } } };
+  const state = {
+    settings: { currency: "RM", deliveryDays: [1, 3, 5], scenario: scen, scenarios: [] },
+    uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [],
+  };
+  const root = createEl("div");
+  renderBoard(root, state);
+
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1"));
+  assert.ok(row, "the board has no person rows");
+  const before = JSON.stringify(state.settings);
+  row.dispatchEvent({ type: "click" });
+  // "When am I here" is the first question of a working day, so a board that prints
+  // their jobs without it would be answering the second question first.
+  assert.match(popupBody(), /Here 5:00 am → 9:00 am/,
+    "the board does not tell a worker when they are here");
+  assert.equal(JSON.stringify(state.settings), before,
+    "a tap on the board wrote to her settings");
+
+  // The board is the same drawing, so it carries the same band — and it is the same
+  // card MINUS the switches: who is on what, and who is trained for what, are hers.
+  assert.equal(hourBoxes().length, 0, "the board's person card offers the planner's hour boxes");
+  assert.equal(walk(layers["popup-layer"]).filter((n) => hasClass(n, "row-check")).length, 0,
+    "the board's person card offers the planner's training ticks");
 });

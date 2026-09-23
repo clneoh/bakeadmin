@@ -134,6 +134,13 @@ export const DEFAULT_SCENARIO = {
   // with person 3 makes "person 1_3" — one pair of hands covering both jobs, and
   // the collisions that appear are the price of it. See cleanMerges.
   merges: {},
+  // When each person is here, in minutes from the start of HER day, and which
+  // modules each of them is trained for. Both are absent until she writes one,
+  // and both absences have one meaning each: no hours means here all day, and no
+  // skills means able to work anything — which is exactly how every day read
+  // before either existed. See cleanShifts, cleanSkills and peopleRows.
+  shifts: {},
+  skills: {},
   modules: [
     // `person` is who she has put on this module: 0 means "whoever is free", and
     // a number names a person so two modules can be given to the same one and the
@@ -411,6 +418,12 @@ export function scenarioOf(saved) {
     dayStartMin: wrapDay(num(s.dayStartMin, DEFAULT_DAY_START)),
     pxPerMin: clampScale(num(s.pxPerMin, PX_PER_MIN_DEFAULT)),
     merges: cleanMerges(s.merges),
+    // When each person is here, and what each of them is trained for. Read here
+    // rather than at the screen because this is the one funnel every answer below
+    // goes through: left out of this literal and the boxes would still write, still
+    // save and still sync, and only the day itself would go on ignoring them.
+    shifts: cleanShifts(s.shifts),
+    skills: cleanSkills(s.skills),
     modules: mods.map(moduleOf),
   };
 }
@@ -434,9 +447,120 @@ function cleanMerges(src) {
   return out;
 }
 
+// When one person is here, as two minutes counted from the start of HER day —
+// never as clock times. Her reading, 23 September: "the working hours is relative
+// to the chart, not exact hours, end also relative to the chart". So moving the
+// day's own start slides every shift with it and nothing is retyped, which is the
+// whole reason this is an offset and not two times of day.
+//
+// Returns null for anything that is not two real minutes in the right order, and
+// null is not "no hours" — it is HERE ALL DAY, the answer every day gave before
+// anybody had hours. One spelling of unset is the point: a shift from 4 to 4, or
+// one that ends before it starts, says exactly what an absent entry says, so it is
+// stored as the absent entry rather than as a second way of writing it.
+function cleanShift(v) {
+  if (!v || typeof v !== "object") return null;
+  const from = num(v.startMin, NaN);
+  const to = num(v.endMin, NaN);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  const startMin = Math.max(0, Math.min(DAY_MIN, Math.round(from)));
+  const endMin = Math.max(0, Math.min(DAY_MIN, Math.round(to)));
+  if (endMin <= startMin) return null;
+  if (startMin === 0 && endMin === DAY_MIN) return null;
+  return { startMin, endMin };
+}
+
+// The whole table, scrubbed — person numbers 1 to 8 and nothing else in it, the
+// same guard cleanMerges puts on the labels, and for the same reason: a
+// hand-edited import must not be able to put a shift on a person who cannot exist.
+function cleanShifts(src) {
+  const out = {};
+  if (!src || typeof src !== "object") return out;
+  for (const [k, v] of Object.entries(src)) {
+    const who = Math.round(num(k));
+    if (!(who >= 1 && who <= 8)) continue;
+    const sh = cleanShift(v);
+    if (sh) out[String(who)] = sh;
+  }
+  return out;
+}
+
+// What one MODULE each person is trained for. Her words, 23 September: "a person
+// we should be able to specify their skill, by module, can be more then one, by
+// module". Kept by the module's own id rather than its name — the name is hers to
+// change and a rename must not silently lose somebody's training.
+function cleanSkills(src) {
+  const out = {};
+  if (!src || typeof src !== "object") return out;
+  for (const [k, v] of Object.entries(src)) {
+    const who = Math.round(num(k));
+    if (!(who >= 1 && who <= 8) || !Array.isArray(v)) continue;
+    const ids = [...new Set(v
+      .map((x) => String(x == null ? "" : x).trim())
+      .filter((x) => x && x.length <= 40))];
+    if (ids.length) out[String(who)] = ids;
+  }
+  return out;
+}
+
+// One person's hours out of whatever the caller happens to hold — the scenario the
+// model has already scrubbed, or the raw one on a phone that has not caught up.
+// Exported because the person card's two boxes are built from the same reading, and
+// a second one would be a second answer to what "in at 4" means.
+export function shiftOf(shifts, who) {
+  const p = clampPerson(who);
+  if (p <= 0) return null;
+  return cleanShift((shifts || {})[String(p)]);
+}
+
+// Whether somebody's own hours hold a whole stretch of work. Half-open, which is
+// the rule the bars are already drawn by: a job that ends at the minute they leave
+// fits, and one that begins at the minute they arrive fits. NO hours at all holds
+// everything — the sentence that keeps every day built before hours existed
+// reading exactly as it did.
+export function coversWindow(shift, w) {
+  if (!shift) return true;
+  return w.from >= shift.startMin && w.to <= shift.endMin;
+}
+
+// The modules one person is trained for. An ABSENT or EMPTY list is not "no
+// skills" but "can work anything" — the answer every day gave before skills
+// existed, and the whole of canWork below.
+export function skillsOf(skills, who) {
+  const p = clampPerson(who);
+  if (p <= 0) return [];
+  const raw = skills && typeof skills === "object" ? skills[String(p)] : null;
+  return Array.isArray(raw) ? raw : [];
+}
+
+// Whether this person can be given this module. Nothing on the list is a yes to
+// every module, and so is a module with no id of its own: nothing can be trained
+// for a thing that has no name.
+export function canWork(skills, who, moduleId) {
+  const id = String(moduleId == null ? "" : moduleId);
+  if (!id) return true;
+  const list = skillsOf(skills, who);
+  if (!list.length) return true;
+  return list.includes(id);
+}
+
+// How SPECIALISED a person is: how many modules they are trained for, with the
+// ultimate generalist — somebody who has no list, and so can work anything —
+// ranking last of all.
+//
+// Her rule, in her own words, 23 September: "say one person have all skill, person2
+// have have the skill, person3 have only 1 skill, module should select the one that
+// specialised". So this is the tie-break that decides which of two qualified people
+// gets a job, and it is deliberately NOT the person number: a specialist left idle
+// while a generalist does their job is how a trained pair of hands stops being worth
+// training.
+export function skillRank(skills, who) {
+  const list = skillsOf(skills, who);
+  return list.length ? list.length : Infinity;
+}
+
 // A minute of the day, wrapped into one: 1440 is midnight again, -60 is 11 pm.
-function wrapDay(m) {
-  const d = 24 * 60;
+function wrapDay(m) {  const d = 24 * 60;
   const r = Math.round(num(m)) % d;
   return r < 0 ? r + d : r;
 }
@@ -1218,19 +1342,55 @@ export function touchWindows(modules) {
 // fewest hands that can cover the day, which is the number she is trying to get
 // down to. The clashes on a named row are the whole point of the exercise — they
 // are what she slides the modules along the day to remove.
-export function peopleRows(modules) {
+//
+// Her two per-person facts, added 23 September, narrow WHICH free person is
+// asked for and nothing else. `shifts` is when each person is here, in minutes
+// from the start of her day, and `skills` is which modules each of them is trained
+// for; both are absent until she writes one, and an absent one holds everything,
+// so a day that has never used either packs exactly as it always did. That is why
+// both are optional arguments rather than a rewritten signature: every older
+// caller — and every test — must keep reading the day it read before.
+//
+// Neither fact may ever change HOW MANY HANDS the day needs. That number is what
+// she is planning down, so a job nobody qualified is free for still goes to a free
+// pair of hands rather than inventing one, and a new person is still added only
+// when nobody at all is free. What the two facts do instead is ORDER the choice
+// among the people already free — and where the day had to reach past them, the row
+// SAYS SO rather than the job quietly moving.
+export function peopleRows(modules, shifts = {}, skills = {}) {
   const windows = touchWindows(modules);
   const rows = [];
   const rowFor = (p) => {
     let row = rows.find((x) => x.person === p);
     if (!row) {
-      row = { person: p, named: p > 0, items: [], busy: 0, clashes: [] };
+      row = {
+        person: p, named: p > 0, items: [], busy: 0, clashes: [],
+        // This person's own hours, read once per row and carried out with it, so the
+        // drawing, the tip and the card all read the same two numbers.
+        shift: shiftOf(shifts, p),
+        // The jobs on this row that this person cannot do, or cannot be here for.
+        // Collected rather than prevented: her rule for a plan that does not fit is
+        // that it is shown rather than quietly rearranged.
+        outside: [],
+      };
       rows.push(row);
     }
     return row;
   };
+  // What is wrong with putting this stretch on this person, recorded on the STRETCH
+  // so the bar can wear its own mark and the words can name which of the two it is.
+  const mark = (row, w) => {
+    if (!coversWindow(row.shift, w)) w.outsideHours = true;
+    if (!canWork(skills, row.person, w.module)) w.outsideSkill = true;
+  };
 
-  for (const w of windows) if (w.person > 0) rowFor(w.person).items.push(w);
+  for (const w of windows) {
+    if (w.person > 0) {
+      const row = rowFor(w.person);
+      row.items.push(w);
+      mark(row, w);
+    }
+  }
 
   const nextPerson = () => rows.reduce((m, x) => Math.max(m, x.person), 0) + 1;
   const freeAt = (row, w) => row.items.every((i) => i.to <= w.from || i.from >= w.to);
@@ -1238,13 +1398,37 @@ export function peopleRows(modules) {
     if (w.person > 0) continue;
     // A person free at the exact minute this one starts is free: finishing one
     // job and starting the next is one person, as it is in a real kitchen.
-    const free = rows.filter((row) => freeAt(row, w)).sort((a, b) => a.person - b.person)[0];
-    (free || rowFor(nextPerson())).items.push(w);
+    const free = rows.filter((row) => freeAt(row, w));
+    // Of the people already free, the ones who are trained for this module AND here
+    // when it runs. Between two of those the tie-break is how SPECIALISED they are,
+    // her own rule: "module should select the one that specialised". So a person who
+    // can work one module is asked before a person who can work five, and somebody
+    // who can work anything is asked last of all — which is what leaves the
+    // specialist on their own job and the generalist on what is left.
+    const fit = free.filter((row) => coversWindow(row.shift, w) && canWork(skills, row.person, w.module));
+    // Nobody free fits: fall back to the rule this screen has always used, the
+    // lowest-numbered free person, and the row will carry the reason. Deliberately
+    // NOT sorted by specialisation — with nobody trained for the job, how specialised
+    // anybody is has stopped meaning anything, and the day should read as it always
+    // did rather than making a choice she cannot see the sense of.
+    const pick = fit.length
+      ? fit.slice().sort((a, b) => (skillRank(skills, a.person) - skillRank(skills, b.person)) || (a.person - b.person))[0]
+      : free.slice().sort((a, b) => a.person - b.person)[0];
+    // Nobody free at all: a new pair of hands, exactly as before, and no mark —
+    // somebody the day has just invented has no hours and no training to be outside
+    // of, so there is nothing here to warn about.
+    if (!pick) { rowFor(nextPerson()).items.push(w); continue; }
+    pick.items.push(w);
+    mark(pick, w);
   }
 
   rows.sort((a, b) => a.person - b.person);
   for (const row of rows) {
     row.items.sort((a, b) => (a.from - b.from) || (a.to - b.to));
+    // The jobs that do not fit, read off the items AFTER the sort rather than
+    // collected as they were placed, so this list cannot hold a stretch twice and
+    // cannot come out in a different order from the row it is about.
+    row.outside = row.items.filter((i) => i.outsideHours === true || i.outsideSkill === true);
     let edge = -1;
     let prev = null;
     for (const i of row.items) {
@@ -1278,7 +1462,11 @@ export function peopleRows(modules) {
 export function callWindows(sc) {
   const mods = chainLine((sc && sc.modules) || []).map(moduleFacts);
   const out = [];
-  for (const row of peopleRows(mods)) {
+  // The same two facts the packing reads, so a call follows the same arrangement the
+  // chart draws. Deliberately NOT used to WITHHOLD a call: a job that landed on
+  // somebody outside their hours is a job they still have to be told about — a rule
+  // that silenced the call would be a rule that hides work.
+  for (const row of peopleRows(mods, (sc && sc.shifts) || {}, (sc && sc.skills) || {})) {
     for (const w of row.items) {
       out.push({ ...w, who: row.person, at: Math.max(0, w.from - 1) });
     }
@@ -1363,7 +1551,7 @@ export function computeScenario(saved) {
 
   const pansPerDay = wall.output;
   const pacePansPerHour = wall.rate;
-  const rows = peopleRows(on);
+  const rows = peopleRows(on, s.shifts, s.skills);
   const demand = concurrency(on);
   const target = Math.max(0, num(s.target));
 
@@ -1491,6 +1679,13 @@ export function copyScenario(sc, name, id) {
     // Copied member by member, so editing one scenario's labels can never
     // rewrite the other's.
     merges: Object.fromEntries(Object.entries(s.merges).map(([k, v]) => [k, [...v]])),
+    // The hours, one person at a time, and never by reference: a shift copied as the
+    // same object would let editing one day's hours rewrite the other day's silently.
+    shifts: Object.fromEntries(Object.entries(s.shifts).map(([k, v]) => [k, { ...v }])),
+    // And the training, copied as a LIST for the reason `crew` and `cycles` are:
+    // a plain spread would give both scenarios one array, so ticking a module on one
+    // day would train that person on the other.
+    skills: Object.fromEntries(Object.entries(s.skills).map(([k, v]) => [k, [...v]])),
     // `starts` is copied by hand because it is a LIST: a plain spread would give
     // both scenarios the same array, and moving one batch's start in one of them
     // would silently move the other. A module whose batches have never been moved

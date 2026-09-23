@@ -1518,6 +1518,9 @@ option.tone-off { color: var(--muted); }
 
 /* ---- customers: pick-to-message + history pop-up ---- */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* A label over its own box rather than beside it — the shape a pair of small boxes
+   needs, where a side-by-side label would leave the two inputs different widths. */
+.stack { display: flex; flex-direction: column; gap: 4px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .li-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .list-item .pick-mark { display: none; }
@@ -3064,6 +3067,21 @@ tr.po-covered td { color: var(--muted); }
 .tl-row.person { background: var(--surface); }
 .tl-row.person .tl-name { background: var(--surface); }
 .tl-row.person .tl-bar { top: 12px; height: 11px; }
+/* The hours a person is here, as a wash under everything the day draws on their own
+   row — v177. It is drawn FIRST inside the track and it carries NO z-index on
+   purpose: a positioned element given a z-index creates a stacking context, and
+   inside a track that is exactly how the v174 fault came back (the day's writing
+   climbing over the pinned module titles). With none, the band stays on the floor
+   and every bar, mark and name lands on top of it by simple document order. It is
+   a wash and not a block, so the day reads through it, and it takes no pointer
+   events at all, so it can never swallow a tap meant for the stretch over it. */
+.tl-row.person .tl-shift {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(122, 96, 74, .07);
+  border-left: 1px solid rgba(122, 96, 74, .35);
+  border-right: 1px solid rgba(122, 96, 74, .35);
+  pointer-events: none;
+}
 /* A person's tip and the tally's tip are blocks of reading rather than sets of
    one-liners: a job line is a module's name with a clock and a line number in
    front of it, and "4:21 am — The rests and the stretch and folds, line 1" is

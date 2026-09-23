@@ -16,6 +16,7 @@ import {
   climbSteps, descentSteps, combinedScenario, reassignSlot, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
+  shiftOf, coversWindow, skillsOf, canWork, skillRank,
   clampBatchStart, alignBatches, batchMismatches, callWindows, latestStarts,
   START_MODES, START_MODE_LABELS, startModeOf, setStartMode,
   LINE_JOBS, jobOf, scenarioPlanPatch, scenarioSummary, SISTER_SCENARIO,
@@ -2208,4 +2209,185 @@ test("her own days read the same times after the three modes (v154)", () => {
   assert.equal(sister.pansPerDay, 4, "her sister's line no longer makes four pans");
   assert.deepEqual(of(sister, "tubfold").starts, [30, 60, 90]);
   assert.deepEqual(of(sister, "oven").starts, [196]);
+});
+
+// ── v177 · each person's hours, and what each of them is trained for ──────────
+//
+// Her ask, 23 September: "I need each person to have the start work time and end
+// work time, 2. which module they. are dedicated for". And the two rules that
+// settled it: the hours are counted from the start of her day ("relative to the
+// chart, not exact hours"), and a module picks the person trained for it — "say
+// one person have all skill, person2 have have the skill, person3 have only 1
+// skill, module should select the one that specialised".
+//
+// Every test here is built so that the day WITHOUT hours and skills is the day
+// this app has always drawn: that equality is the whole back-compat promise, and
+// it is asserted first rather than assumed.
+
+// One stretch of hands, at a minute, optionally named for somebody.
+const job = (id, startMin, extra = {}) => moduleFacts({
+  id, icon: "•", name: id, on: true, person: 0, cycleMin: 10, batch: 1,
+  touchMin: 10, everyMin: 10, repeats: 1, startMin, people: 1, ...extra,
+});
+const shapeOf = (rows) => rows.map((r) => [r.person, r.items.map((w) => w.module)]);
+const rowOf = (rows, p) => rows.find((r) => r.person === p);
+
+test("no hours and no skills anywhere holds everything, and packs as it always did (v177)", () => {
+  // The back-compat promise in one assertion: reading nothing at all is the same
+  // day as reading two empty tables, because an absent shift is "here all day" and
+  // an absent skill list is "can work anything".
+  const mods = [job("a", 0), job("b", 5), job("c", 40), job("d", 5)];
+  assert.deepEqual(shapeOf(peopleRows(mods, {}, {})), shapeOf(peopleRows(mods)),
+    "no hours holds everything — a person with no entry is here all day");
+  assert.deepEqual(shapeOf(peopleRows(mods, { 2: { startMin: 0, endMin: 5 } }, { 9: ["a"] })), shapeOf(peopleRows(mods, {}, {})),
+    "a shift on a person who is not in the day, and a skill for a person who cannot exist, change nothing");
+});
+
+test("a free job goes to somebody trained for it, not to whoever is free (v177)", () => {
+  const mods = [job("setup1", 0, { person: 1 }), job("setup2", 0, { person: 2 }), job("wash", 100)];
+  // Person 1 is trained for something else, so person 2 is the only one who can
+  // take the wash — even though person 1 has the lower number.
+  const skills = { 1: ["oven"], 2: ["wash"] };
+  assert.deepEqual(rowOf(peopleRows(mods, {}, skills), 2).items.map((w) => w.module), ["setup2", "wash"],
+    "the job went to whoever was free, not to whoever can work it");
+  assert.deepEqual(rowOf(peopleRows(mods, {}, skills), 1).items.map((w) => w.module), ["setup1"],
+    "and the person who cannot work it was left alone");
+});
+
+test("between two people who can both work it, the more specialised one is asked first (v177)", () => {
+  // Her own picture: "say one person have all skill, person2 have have the skill,
+  // person3 have only 1 skill, module should select the one that specialised".
+  const mods = [job("setup1", 0, { person: 1 }), job("setup2", 0, { person: 3 }), job("oven", 100)];
+  const skills = { 1: ["oven", "wash", "fold", "mix"], 3: ["oven"] };
+  assert.deepEqual(rowOf(peopleRows(mods, {}, skills), 3).items.map((w) => w.module), ["setup2", "oven"],
+    "the specialist was left idle while the generalist did their job");
+  // And the same with the numbers the other way round, so the rule is specialisation
+  // and not the person number wearing a disguise.
+  const swapped = { 1: ["oven"], 3: ["oven", "wash", "fold", "mix"] };
+  assert.deepEqual(rowOf(peopleRows(mods, {}, swapped), 1).items.map((w) => w.module), ["setup1", "oven"],
+    "the tie-break is how specialised they are, not which number they are");
+});
+
+test("a free job prefers somebody who is here when it runs (v177)", () => {
+  const mods = [job("setup1", 0, { person: 1 }), job("setup2", 0, { person: 2 }), job("late", 100)];
+  const shifts = { 1: { startMin: 0, endMin: 50 } };
+  assert.deepEqual(rowOf(peopleRows(mods, shifts, {}), 2).items.map((w) => w.module), ["setup2", "late"],
+    "the job went to somebody who had gone home");
+});
+
+test("a job nobody free can take still goes to a free pair of hands, and is written down (v177)", () => {
+  const mods = [job("setup1", 0, { person: 1 }), job("late", 100)];
+  const rows = peopleRows(mods, { 1: { startMin: 0, endMin: 50 } }, {});
+  assert.equal(rows.length, 1, "the hours never invent a hand the day does not need");
+  const row = rowOf(rows, 1);
+  assert.deepEqual(row.items.map((w) => w.module), ["setup1", "late"], "the job is kept where the day put it");
+  assert.deepEqual(row.outside.map((w) => w.module), ["late"], "and the row knows it cannot fit");
+  assert.equal(row.items[1].outsideHours, true, "the stretch itself carries the mark");
+});
+
+test("when nobody is free the day still invents a pair of hands, exactly as before (v177)", () => {
+  const mods = [job("busy", 0, { person: 1 }), job("over", 5)];
+  const rows = peopleRows(mods, { 1: { startMin: 0, endMin: 1000 } }, { 1: ["busy"] });
+  assert.equal(rows.length, 2, "an hour that covers nobody must not stop the day needing a hand");
+  assert.deepEqual(rowOf(rows, 2).items.map((w) => w.module), ["over"]);
+  assert.equal(rowOf(rows, 2).outside.length, 0, "a person the day just invented has no hours to be outside of");
+});
+
+test("a job she placed by hand is never moved off that person, whatever their hours or training (v177)", () => {
+  const mods = [job("wash", 100, { person: 2 })];
+  const rows = peopleRows(mods, { 2: { startMin: 0, endMin: 50 } }, { 2: ["oven"] });
+  assert.equal(rows.length, 1, "her named person is her plan, hours or no hours");
+  assert.deepEqual(rowOf(rows, 2).items.map((w) => w.module), ["wash"], "and the job did not move");
+  assert.deepEqual(rowOf(rows, 2).outside.map((w) => w.module), ["wash"], "but the row says it does not fit");
+  assert.equal(rowOf(rows, 2).items[0].outsideHours, true);
+  assert.equal(rowOf(rows, 2).items[0].outsideSkill, true, "and that they are not trained for it either");
+});
+
+test("hours and skills are scrubbed on the way in, like the merge labels (v177)", () => {
+  const sc = scenarioOf({
+    ...DEFAULT_SCENARIO,
+    shifts: {
+      1: { startMin: 60, endMin: 0 },          // ends before it starts
+      9: { startMin: 1, endMin: 2 },           // not a person
+      bad: "x",                                // not a shift at all
+      2: { startMin: 0, endMin: 1440 },        // the whole day, which is no shift
+      3: { startMin: 60, endMin: 120 },
+    },
+    skills: { 1: ["oven", "oven", ""], 9: ["oven"], bad: ["oven"], 2: "oven", 3: [" wash "] },
+  });
+  assert.deepEqual(sc.shifts, { 3: { startMin: 60, endMin: 120 } },
+    "only one real shift survives, and a shift that says the whole day is stored as no shift at all");
+  assert.deepEqual(sc.skills, { 1: ["oven"], 3: ["wash"] },
+    "only real person numbers, each module named once, and nothing that is not a list");
+  assert.equal(shiftOf(sc.shifts, 3).startMin, 60);
+  assert.equal(shiftOf(sc.shifts, 5), null, "a person with no entry is here all day, not here for no time");
+  assert.equal(coversWindow(null, { from: 0, to: 9999 }), true, "and no hours at all holds everything");
+  assert.equal(canWork({}, 1, "oven"), true, "an empty skill list can work anything");
+  assert.equal(canWork({ 1: ["oven"] }, 1, "wash"), false, "a list that does not name it cannot do it");
+  assert.equal(canWork({ 1: ["oven"] }, 1, ""), true, "and a module with no id of its own cannot be trained for");
+  assert.equal(skillRank({}, 1), Infinity, "somebody who can work anything is the last resort");
+  assert.equal(skillRank({ 1: ["oven"] }, 1), 1);
+});
+
+test("a copy of a day carries its hours and its training (v177)", () => {
+  const sc = scenarioOf({
+    ...DEFAULT_SCENARIO,
+    shifts: { 2: { startMin: 60, endMin: 300 } },
+    skills: { 2: ["oven", "pack"] },
+  });
+  const copy = copyScenario(sc, "copy", "s2");
+  // What a copy must CARRY. These two are the round-trip trap: `copyScenario` returns
+  // a fixed literal and `openScenario` assigns it onto the day already in memory, so a
+  // key left out of the literal does not get dropped — it silently keeps the previous
+  // day's hours, with nothing on the screen saying so.
+  //
+  // There is no third assertion here about the members being fresh objects, and that is
+  // deliberate rather than an omission: `copyScenario` starts from `scenarioOf(sc)`,
+  // which already rebuilds every shift and every skill list, so a claim that the two
+  // days do not share a member is true whether or not the copy is done member by member
+  // — a test that cannot fail. The copy is still written member by member, for the same
+  // reason `merges` and `crew` are; the test for what she would actually notice lives
+  // where she would notice it, in the view: opening a day must not wear the last day's
+  // hours.
+  assert.deepEqual(copy.shifts, { 2: { startMin: 60, endMin: 300 } }, "the copy lost the hours");
+  assert.deepEqual(copy.skills, { 2: ["oven", "pack"] }, "the copy lost the training");
+});
+
+test("the two facts ride every spread, so a change of arrangement cannot lose them (v177)", () => {
+  const sc = scenario({ modules: [module({ id: "a", touchMin: 10, person: 2 })], shifts: { 2: { startMin: 60, endMin: 300 } }, skills: { 2: ["a"] } });
+  assert.deepEqual(combinedScenario(sc, 2, 5).shifts, { 2: { startMin: 60, endMin: 300 } },
+    "combining two people lost the hours");
+  assert.deepEqual(reassignSlot(sc, "a", 0, 0, 1).skills, { 2: ["a"] },
+    "handing one stretch to somebody else lost the training");
+});
+
+test("hours never silence a call — a job outside them is still called (v177)", () => {
+  const sc = scenario({
+    modules: [module({ id: "late", startMin: 100, touchMin: 10, person: 1 })],
+    shifts: { 1: { startMin: 0, endMin: 50 } },
+  });
+  const calls = callWindows(sc);
+  assert.ok(calls.some((w) => w.module === "late"),
+    "the day still calls the job, so a rule can never hide a sale");
+  assert.ok(computeScenario(sc).rows[0].outside.some((w) => w.module === "late"),
+    "even though the row is saying it cannot fit");
+});
+
+test("the calls follow the same arrangement the chart draws (v177)", () => {
+  // The caller and the chart both go through peopleRows, so the two can never
+  // disagree about who is where — and the job that only person 2 can work is
+  // called for person 2, not for the lower number the older packing would have
+  // reached for.
+  const sc = scenario({
+    modules: [
+      module({ id: "one", startMin: 0, touchMin: 10, person: 1 }),
+      module({ id: "two", startMin: 0, touchMin: 10, person: 2 }),
+      module({ id: "wash", startMin: 100, touchMin: 10 }),
+    ],
+    skills: { 1: ["one"], 2: ["two", "wash"] },
+  });
+  const wash = callWindows(sc).find((w) => w.module === "wash");
+  assert.equal(wash.who, 2, "the caller did not read the same skills the chart draws");
+  assert.equal(computeScenario(sc).rows.find((r) => r.items.some((w) => w.module === "wash")).person, 2,
+    "and the chart agrees with the caller");
 });

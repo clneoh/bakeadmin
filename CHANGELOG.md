@@ -1,8 +1,128 @@
-# Jienluv2bake — change history (v54 → v176)
+# Jienluv2bake — change history (v54 → v177)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v177 (no database step). Each person now has two facts of their own,
+and both are yours to state once: the hours they are here, drawn as a band along their row and
+a real bound on who the day may hand work to, and which modules they are trained for. A job
+nobody is named for goes to somebody who can work it, inside their hours, and between two of
+those the day asks the most specialised person first. Nothing is refused and nothing is hidden:
+a job that lands outside somebody's hours or training is shown and said in words.**
+
+**What you asked, in your own words.** "back to the scenario planning. 1. I need each person to
+have the start work time and end work time, 2. which module they. are dedicated for, and only
+taking over others job, as priority 1,2, or3." And then, while this was being built, the two
+sentences that settled the shape of it: "a person we should be able to specify their skill, by
+module, can be more then one, by module", and "module should select the one that specialised".
+Of the takeover order you said the thing that made it simple: "the person card supersed the
+module person assignment. maybe no priority rank is needed to be sinple". So there is no 1, 2, 3
+rank anywhere: the card says what each person can do, and the day picks by itself.
+
+**1. Their hours, counted from your day's start and not from the clock.** You asked for a start
+time and an end time, and told me how to read them: "the working hours is relative to the chart,
+not exact hours, end also relative to the chart". So the two boxes are clock times you can read
+at a glance, and what is stored is the minutes from the start of your own day — which means
+moving your day's start slides every person's hours with it and nothing is retyped. Measured
+live on your own day, which starts at 4:00 am: typing 05:00 and 09:00 stored 60 and 300, which
+is exactly five and nine o'clock less four.
+
+**2. An empty box is a real answer, and it is "here all day".** Leave both empty and that person
+is here all day, which is what every person on every day you have ever built already is. The
+hint under the boxes says so in one line, and it also says which clock the times are read
+against, because two empty boxes with no explanation would read as two boxes you had not filled
+in. Typing the whole day by hand — 4:00 am to midnight — is stored as no entry at all, so "here
+all day" has one spelling rather than two that mean the same thing and could ever drift apart.
+
+**3. And a pair that comes out back to front is refused and SAID.** An end earlier than the
+start is a mistake, and the app now puts both boxes back to the hours the day is actually using
+and says which way round they go. A box that took a number and quietly did something else with
+it is the kind of thing that reads as a fault for weeks, and this app does not do that.
+
+**4. What the hours are for.** Your own aim, in your own words: "the person that have the most
+consistant work is the person handling oven, colling and packing, he only help do others when
+he has free slot, by one person not doing too many functions, it is easier to train that person
+as will. Probably can employ part-timers." So the hours and the training are what the day reads
+when it hands out a job nobody is named for — and they are a PREFERENCE, never a refusal. A job
+nobody qualified is free for still goes to a free pair of hands, and the row says why.
+
+**5. Which modules each person can work, and the specialist is asked first.** The person card now
+carries a tick for every module that actually holds hands, so there is never a tick against a
+module switched off or against the proofer, which would be a tap that does nothing. Only six of
+your eight modules hold hands on your own day, and those six are exactly what the card offers.
+Tick nothing and that person can work anything, as they do today — the same absence rule this
+app already uses for automatic cycles and merged jobs. Tick one or more and the day only ever
+gives them those.
+
+**6. And between two people who can both do a job, the more specialised one is asked.** Your own
+rule, in your own words: "say one person have all skill, person2 have have the skill, person3
+have only 1 skill, module should select the one that specialised". Somebody trained for one
+module is asked before somebody trained for five, and somebody who can work anything is asked
+last of all — which is what leaves the specialist on their own job and the generalist on what is
+left over.
+
+**7. Measured live, on your own day.** With everybody untrained and no hours set, your day packs
+to four people and 58 minutes of hand work, and the three stretch-and-fold slots all sit on Wei.
+Ticking Person 4 for "The rests and the stretch and folds" and nothing else moved all three folds
+off Wei and onto Person 4, even though Wei is the lower number and was free at that minute — the
+specialist was asked first, exactly as you asked for. Wei's row fell from five jobs to two and
+the other rows were untouched. Unticking put the day back to where it was, to the job.
+
+**8. Their hours, drawn on their own row.** Each person's hours are painted as a wash along their
+own row, under everything the day draws on it, so you can see at a glance when somebody is here
+without reading a number. It carries no stacking order of its own on purpose: a band given one
+would climb over the pinned module names, which is the fault this screen already had once.
+Measured live at a phone's width on your own day: a shift of 05:00 to 09:00 was drawn at 96
+pixels along the row and 384 wide, which is 60 minutes and 240 minutes at your own 1.6 pixels a
+minute. It takes no taps at all, so it can never swallow one meant for a bar over it.
+
+**9. And when a job cannot fit somebody's hours, the card says so in words.** This is the part
+that matters most to the way you work, because it is the same rule this app has always kept: a
+plan that does not fit is shown, never quietly rearranged. Measured live: with Wei set to be here
+4:00 am to 4:05 am while the dimple runs to 4:06 am, the card read "Wei is set to be here 4:00 am
+to 4:05 am, but Dimple and top runs to 4:06 am — a job that cannot fit inside those hours." The
+same sentence appears on their row's tip and on the Production line board, all three printed from
+one funnel so they can never disagree.
+
+**10. And a job outside somebody's training is said in the same place.** Somebody given a job they
+are not trained for is told so in the same words and the same place: the job is named, the times
+are named, and the note says it is said here rather than the job being quietly moved. The card
+also reads back what they are trained for — "Trained for 1 module: The oven swap and the bake" —
+so the answer you typed is the answer you can see.
+
+**11. On the Production line, the worker's own hours.** The board a worker reads already says what
+they do next and how long they have; it now also says when they are here, and names any job that
+cannot fit inside those hours. Withholding that while printing their jobs would be perverse — when
+you are here is the first question of a working day. The board is still a READING and writes
+nothing: measured live, a tap on a person's row on the board left your stored settings character
+for character identical, and the board offers no hour boxes and no ticks.
+
+**12. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day was
+changed by this version. Measured live: after a full pass of presses on the planner — the two hour
+boxes typed into and cleared, ticks set and taken off, cards opened and shut — your stored data was
+put back from a copy taken beforehand and compared, byte for byte the same 13,888 characters, with
+the two new keys absent again because writing them is something only a press you make can do.
+Merely opening the screen adds nothing. Your shelf itself is untouched: No fridge, 1 person still
+reads 24 pans, My sister proposal 21/9/2026 still reads 4, and One baker day still reads 24. And the
+two chart windows kept their pan at 300 across two of those presses, so a card write no longer
+throws either window back to the start of the day.
+
+**13. Every rule that stands on it was proved load-bearing, not assumed.** Eighteen faults were put
+back in all, and each was watched failing by a test that names it, then restored byte-identically.
+Two of the eighteen were faults in earlier drafts that the fault sweep found, and both were
+unfalsifiable as first written — a test that could not fail — which is the same lesson this file
+has carried before about a stand-in being more forgiving than the real thing. Among the rest: with
+the band given a stacking order the test fails reading that the hours climb over the module titles;
+with the band drawn last it fails reading that the bars no longer cover the wash; with the boxes
+storing a clock reading instead of minutes from the day's start it fails reading where the band was
+drawn; with an untick leaving an empty list behind it fails reading that unticking is an answer and
+not a missing entry; with the copy of a day not carrying the two keys it fails reading that the
+hours of the day you left are still on the day you opened.
+
+**14. No database step.** Not one stored field is added or changed on the server, so there is
+nothing to run in Supabase. Both new facts live inside the scenario, which already syncs whole, so
+they travel to your other phone with the rest of your plan and need no new table and no new SQL.
 
 **23 Sep 2026 — engine v176 (no database step). The Production line is now a board a worker
 reads, not a form you fill in: the day chart from your plan, a clock line showing where the real

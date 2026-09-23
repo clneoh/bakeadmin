@@ -33,7 +33,7 @@ import {
   combinedScenario, reassignSlot, pinArrangement, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
-  startModeOf, setStartMode,
+  startModeOf, setStartMode, skillsOf,
 } from "../scenario.js";
 
 // A colour per PERSON, so a row reads as one worker's day rather than as a
@@ -374,6 +374,35 @@ function minutesOfTime(v) {
   if (!m) return null;
   const mins = Number(m[1]) * 60 + Number(m[2]);
   return Number.isFinite(mins) ? mins % DAY_MIN : null;
+}
+
+// ── A person's own hours ───────────────────────────────────────────────────
+//
+// Counted from the start of HER day, exactly as every other minute on this screen
+// is, so moving the day's start slides everybody's hours with it and nothing is
+// retyped. The boxes show clock times, which is what she reads; the store keeps
+// minutes from that start, which is what survives the move.
+//
+// EMPTY IS AN ANSWER, and it has one spelling: an empty "from" is the day's own
+// start (minute 0) and an empty "until" is the day's own end (minute 1440), so
+// empty in both boxes is the whole day — which the model already spells as "no
+// entry at all", the same absence every day read before this existed. That is why
+// neither box needs a value written for her, and why clearing both really does put
+// a person back to "here all day" rather than leaving a number behind.
+function shiftFieldValue(dayStartMin, min) {
+  if (min == null) return "";
+  return timeFieldValue(dayStartMin + Math.round(Number(min) || 0));
+}
+
+function shiftMinutesOf(dayStartMin, value) {
+  const m = minutesOfTime(value);
+  if (m == null) return null;
+  // Read forward from the day's start, the way the overnight retard is read: a
+  // clock that falls before the start belongs to the day after it, never to a
+  // negative minute. A pair that comes out back-to-front is refused at the card,
+  // not silently wrapped here.
+  const rel = m - (Math.round(Number(dayStartMin) || 0));
+  return ((rel % DAY_MIN) + DAY_MIN) % DAY_MIN;
 }
 
 // ── What she is asking for ─────────────────────────────────────────────────
@@ -1656,8 +1685,21 @@ function boardStretchCard(row, w, sc, state) {
 function boardPersonCard(row, sc, state, r) {
   const notes = personNotes(row, sc, state, r.dayStartMin);
   boardReadout(`👤 ${notes.who}`, [
+    // The hours come first, because "when am I here" is the first question of a
+    // worker's own day and a card printing their jobs without it would be answering
+    // the second question first. What is deliberately NOT on a board is how many
+    // modules they are trained for: that is a planning number, and the worker's own
+    // "What they do" list is the bench answer and is a few lines below.
+    ["Their hours", notes.shiftLine],
     ["Their day", hoursAndMinutes(notes.busy) + (notes.places > 1 ? ` of work, in ${notes.places} places` : " of work")],
     ...(notes.clashes ? [["Watch out", notes.clash]] : []),
+    ...(notes.outside.length
+      ? [["Cannot fit", el("div", { class: "bd-sub" },
+        ...notes.outside.map((o) => el("div", { class: "bd-sub" }, o.text)),
+        notes.outsideMore > 0
+          ? el("div", { class: "bd-sub" }, `…and ${notes.outsideMore} more like that.`)
+          : null)]]
+      : []),
     ["What they do", el("div", { class: "bd-sub" },
       ...(notes.jobs.length
         ? notes.jobs.map((j) => el("div", { class: "bd-sub" }, j))
@@ -2306,20 +2348,53 @@ function tipBody(notes) {
 // The cap on the list is here and not at either printing: two caps for one list is
 // the same drift in a different coat.
 const PERSON_JOB_CAP = 6;
+// And one cap for the jobs that do not fit their hours or their training, for the
+// same reason: the card and the tip must not print a different number of them.
+const PERSON_OUTSIDE_CAP = 3;
 
 function personNotes(row, sc, state, dayStartMin) {
   const places = placesOn(row);
+  const who = personLabel(row, sc, state);
   const all = (row.items || []).map((w) => `${clockAt(dayStartMin, w.from)} — ${jobName(w)}`);
   const jobs = all.slice(0, PERSON_JOB_CAP);
   const clashes = row.clashes.length;
+  const shift = row.shift || null;
+  // The jobs this person has been given that their own hours or their own training
+  // say they should not have. Built here, once, because three places print them —
+  // the tip, the row's own mark and the card — and a second builder is how the three
+  // end up telling her three stories about the same day.
+  const outside = (row.outside || []).map((w) => ({
+    name: jobName(w),
+    text: w.outsideHours === true
+      ? `${who} is set to be here ${clockAt(dayStartMin, shift ? shift.startMin : 0)} → ${clockAt(dayStartMin, shift ? shift.endMin : 0)}, but ${jobName(w)} runs to ${clockAt(dayStartMin, w.to)} — a job that cannot fit inside those hours.`
+      : `${who} is not trained for ${jobName(w)}, which runs ${clockAt(dayStartMin, w.from)} → ${clockAt(dayStartMin, w.to)} — they work it anyway, and it is said here rather than the job being quietly moved.`,
+  }));
+  // Which modules they are trained for, in the names she reads and not the ids the
+  // store keeps. Ticked nothing is every day built before this existed: trained for
+  // anything, and the line says so rather than reading as a blank.
+  const ids = skillsOf(sc && sc.skills, row.person);
+  const trained = ids.map((id) => {
+    const m = ((sc && sc.modules) || []).find((x) => String(x.id) === id);
+    return m ? `${m.icon || ""} ${m.name || id}`.trim() : id;
+  });
   return {
-    who: personLabel(row, sc, state),
+    who,
     busy: row.busy,
     places,
     clashes,
     clash: clashes ? (clashes === 1 ? "two jobs at once" : `${clashes} collisions`) : null,
     jobs,
     more: all.length - jobs.length,
+    shift,
+    shiftLine: shift
+      ? `Here ${clockAt(dayStartMin, shift.startMin)} → ${clockAt(dayStartMin, shift.endMin)}`
+      : "Here all day",
+    outside: outside.slice(0, PERSON_OUTSIDE_CAP),
+    outsideMore: Math.max(0, outside.length - PERSON_OUTSIDE_CAP),
+    trained,
+    trainedLine: trained.length
+      ? `Trained for ${trained.length} module${trained.length === 1 ? "" : "s"}: ${trained.join(", ")}.`
+      : null,
   };
 }
 
@@ -2384,7 +2459,13 @@ function personTip(notes) {
     el("div", { class: "tl-sub" }, `👤 ${notes.who}`),
     el("div", { class: "tl-sub" },
       `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? ` · in ${notes.places} places` : "")),
+    el("div", { class: "tl-sub" }, notes.shiftLine),
+    notes.trainedLine ? el("div", { class: "tl-sub" }, notes.trainedLine) : null,
     notes.clash ? el("div", { class: "tl-sub bad" }, notes.clash) : null,
+    ...notes.outside.map((o) => el("div", { class: "tl-sub bad" }, o.text)),
+    notes.outsideMore > 0
+      ? el("div", { class: "tl-sub bad" }, `…and ${notes.outsideMore} more like that.`)
+      : null,
     el("div", { class: "tl-sub" },
       el("div", { class: "tl-note-who" }, "What they do today"),
       ...(notes.jobs.length
@@ -3101,6 +3182,28 @@ function personRow(r, row, trackW, sc, on, state, run) {
   // she is studying one person — and not on a Wide day where every stretch is a
   // sliver.
   const nameFits = 46 / (r.pxPerMin || 1);
+
+  // How many different places this person has to be in — a line of a module counts
+  // as a place of its own, which is the rule the model owns (placesOn), so it is
+  // tested there rather than here. The whole of what the row used to print is in
+  // the notes now, built in one place with the card's.
+  const notes = personNotes(row, sc, state, r.dayStartMin);
+
+  // The hours they are here, as a wash on their own row. Drawn FIRST in the track and
+  // with no z-index of its own, so every bar and every mark the DAY draws lands on top
+  // of it — the band is the ground the day stands on, never a thing covering it. A
+  // positioned element carrying a z-index creates a stacking context, which is exactly
+  // how the v174 fault came back, so this one deliberately has none.
+  //
+  // Its geometry is the bars' own arithmetic one line below: both are offsets from the
+  // start of the day, so nothing here has to know what time that was.
+  const band = row.shift ? el("div", {
+    class: "tl-shift",
+    style: `left:${Math.round(row.shift.startMin * r.pxPerMin)}px;`
+      + `width:${Math.max(1, Math.round((row.shift.endMin - row.shift.startMin) * r.pxPerMin))}px`,
+    title: notes.shiftLine,
+  }) : null;
+
   const bars = row.items.map((w) => el("div", {
     // The PERSON'S own colour, not the module's. Tinted by module, one person's row
     // was a patchwork of eight colours that said nothing about the person standing
@@ -3112,12 +3215,6 @@ function personRow(r, row, trackW, sc, on, state, run) {
     // module reads as that person being on line 2 rather than on "the fold".
     title: `${w.name}${w.line >= 0 ? `, line ${w.line + 1}` : ""}: ${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)}`,
   }, w.to - w.from >= nameFits ? el("span", { class: "tl-pname" }, personName(who, namesOf(state))) : null));
-
-  // How many different places this person has to be in — a line of a module counts
-  // as a place of its own, which is the rule the model owns (placesOn), so it is
-  // tested there rather than here. The whole of what the row used to print is in
-  // the notes now, built in one place with the card's.
-  const notes = personNotes(row, sc, state, r.dayStartMin);
 
   // The row is tappable, and that is the fix for what she reported: "in the person
   // card, now person card is not accessible". There was no handler here at all, so
@@ -3145,7 +3242,7 @@ function personRow(r, row, trackW, sc, on, state, run) {
   // target is small twice over: the bar is 11 pixels in a 34-pixel row, and at the
   // widest reading a one-minute job is 1.2 pixels wide. Reading the minute gives
   // her the row's whole height, and nearestSlot gives her the sliver.
-  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars);
+  const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, band, ...bars);
   track.addEventListener("click", (e) => {
     // A right press pans the day and opens nothing. See isPrimaryClick.
     if (!isPrimaryClick(e)) return;
@@ -3180,7 +3277,7 @@ function personRow(r, row, trackW, sc, on, state, run) {
       // builder; a board's just has no switches on it, because who is called and who
       // is on what are hers to decide and not the worker's.
       if (run.board) return boardPersonCard(row, sc, state, r);
-      personPopup(row, sc, on, state);
+      personPopup(row, sc, on, state, r);
     },
   },
     nameCell,
@@ -3379,7 +3476,7 @@ function personLabel(row, sc, state) {
 // Both answers live in the app's settings rather than in the scenario, so a name
 // typed once is the name every scenario uses — and the card says so out loud,
 // because person numbers restart at 1 in each scenario and that is hers to know.
-function personPopup(row, sc, on, state) {
+function personPopup(row, sc, on, state, r) {
   const who = row.person;
   const settings = state.settings;
   const names = (settings.personNames ||= {});
@@ -3391,6 +3488,33 @@ function personPopup(row, sc, on, state) {
       class: "input", type: "text", value: names[who] || "", placeholder: `Person ${who}`,
     });
     const callLabel = el("label", {}, `Call ${personName(who, names)} a minute before their next job`);
+
+    // Where they are now, off the day being drawn rather than off the row she tapped
+    // with: setting an hour or a skill moves the day under an open card, and a card
+    // that went on describing the day before that press would be telling her about a
+    // day that is no longer on the screen.
+    const freshRow = () => (computeScenario(sc).rows || []).find((x) => x.person === who) || row;
+    const readout = el("div", { class: "card-sub", style: "margin:0 0 10px" });
+    const jobsBox = el("div", {}, el("div", { class: "tl-note-who" }, "What they do today"));
+    // Written straight into the two boxes rather than by rebuilding the card: a rebuilt
+    // body would take the cursor out of the box she is typing in, which is the same
+    // reason the name field below repaints the chart and not itself.
+    const paint = () => {
+      const n = personNotes(freshRow(), sc, state, sc.dayStartMin);
+      readout.replaceChildren(...[
+        `${hoursAndMinutes(n.busy)} of work` + (n.places > 1 ? `, in ${n.places} places` : "") +
+        (n.clashes ? `, with ${n.clashes} collision${n.clashes === 1 ? "" : "s"} to sort out.` : ", and nothing collides."),
+        n.shiftLine + ".",
+        n.trainedLine,
+        ...n.outside.map((o) => o.text),
+        n.outsideMore > 0 ? `…and ${n.outsideMore} more like that.` : null,
+      ].filter(Boolean).map((t) => document.createTextNode(t)));
+      const rows = (n.jobs.length ? n.jobs.map((j) => el("div", { class: "tl-note-job" }, j))
+        : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]);
+      if (n.more > 0) rows.push(el("div", { class: "tl-note-job" }, `…and ${n.more} more.`));
+      jobsBox.replaceChildren(el("div", { class: "tl-note-who" }, "What they do today"), ...rows);
+    };
+
     field.addEventListener("input", () => {
       const typed = field.value.trim();
       if (typed) names[who] = typed;
@@ -3410,6 +3534,82 @@ function personPopup(row, sc, on, state) {
         `Call ${personName(who, names)} a minute before their next job`));
     });
 
+    // ── The hours they are here ──────────────────────────────────────────────
+    //
+    // Counted from the start of her day and shown as clock times, because the day's own
+    // start is what the whole chart is measured from and she moves it. Empty is a real
+    // answer in both boxes: an empty "from" is the day's own start and an empty "until"
+    // is the day's own end, so clearing both puts the person straight back to "here all
+    // day" — which is the same absence every day read before these existed.
+    const stored = row.shift || null;
+    const from = el("input", {
+      class: "input", type: "time", step: "900",
+      value: stored ? timeFieldValue(sc.dayStartMin + stored.startMin) : "",
+    });
+    const until = el("input", {
+      class: "input", type: "time", step: "900",
+      value: stored ? timeFieldValue(sc.dayStartMin + stored.endMin) : "",
+    });
+    const shiftHint = el("div", { class: "hint" });
+    const shiftHintDefault = `Leave both empty and they are here all day. A time is read against your own day, which starts at ${clockAt(sc.dayStartMin, 0)}.`;
+    shiftHint.replaceChildren(document.createTextNode(shiftHintDefault));
+
+    const writeShift = () => {
+      const fromRaw = from.value.trim();
+      const untilRaw = until.value.trim();
+      const startMin = fromRaw ? shiftMinutesOf(sc.dayStartMin, from.value) : 0;
+      const endMin = untilRaw ? shiftMinutesOf(sc.dayStartMin, until.value) : DAY_MIN;
+      // A pair that comes out back-to-front is refused and SAID, never swallowed: a box
+      // that took a number and quietly did something else with it is the kind of thing
+      // that reads as a fault for weeks. Both boxes go back to what is stored, so the
+      // screen never wears a value the day is not using.
+      if (startMin == null || endMin == null || endMin <= startMin) {
+        from.value = stored ? timeFieldValue(sc.dayStartMin + stored.startMin) : "";
+        until.value = stored ? timeFieldValue(sc.dayStartMin + stored.endMin) : "";
+        shiftHint.replaceChildren(document.createTextNode(
+          "That is the wrong way round — the second time has to be later in the day than the first. Both boxes have been put back to the hours the day is actually using."));
+        return;
+      }
+      sc.shifts ||= {};
+      // The whole day is stored as NO entry rather than as a pair covering it, so
+      // "here all day" has one spelling and every day before this one already has it.
+      if (startMin === 0 && endMin === DAY_MIN) delete sc.shifts[String(who)];
+      else sc.shifts[String(who)] = { startMin, endMin };
+      on.persist();
+      on.refresh();
+      shiftHint.replaceChildren(document.createTextNode(shiftHintDefault));
+      paint();
+    };
+    from.addEventListener("input", writeShift);
+    until.addEventListener("input", writeShift);
+
+    // ── What they are trained for ────────────────────────────────────────────
+    //
+    // Her own words, 23 September: "a person we should be able to specify their skill,
+    // by module, can be more then one, by module", and "module should select the one
+    // that specialised". So this is a statement about TRAINING and not about placement:
+    // she never places anybody by hand, and the day can never quietly put a pair of hands
+    // on a job they were not hired for. Only the modules that actually hold hands are
+    // offered — a tick against a module switched off, or against the proofer, would be a
+    // tap that does nothing.
+    const places = ((r && r.on) || []).filter((f) => (Number(f.touchMin) || 0) > 0);
+    const tickBoxes = places.map((f) => {
+      const box = el("input", { type: "checkbox", checked: skillsOf(sc.skills, who).includes(f.id) });
+      box.addEventListener("change", () => {
+        const list = tickBoxes.filter((b) => b.box.checked).map((b) => b.id);
+        sc.skills ||= {};
+        // Unticking everything is a real answer — "they can work anything", which is what
+        // every day before this one says — so it DELETES the entry rather than leaving an
+        // empty list behind, the same one-spelling-of-unset rule the hours follow.
+        if (list.length) sc.skills[String(who)] = list;
+        else delete sc.skills[String(who)];
+        on.persist();
+        on.refresh();
+        paint();
+      });
+      return { id: f.id, box };
+    });
+
     const call = el("input", { type: "checkbox", checked: calls[who] !== false });
     call.addEventListener("change", () => {
       // Kept as a real false rather than deleted, so "off" is a choice she made
@@ -3418,15 +3618,10 @@ function personPopup(row, sc, on, state) {
       on.persist();
     });
 
-    // The list and the numbers come from the same builder the row's tip uses, so
-    // the two cannot drift: the cap, the order and the count are decided once.
-    const notes = personNotes(row, sc, state, sc.dayStartMin);
-    const jobs = notes.jobs.map((j) => el("div", { class: "tl-note-job" }, j));
+    paint();
 
     return el("div", {},
-      el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `${hoursAndMinutes(notes.busy)} of work` + (notes.places > 1 ? `, in ${notes.places} places` : "") +
-        (notes.clashes ? `, with ${notes.clashes} collision${notes.clashes === 1 ? "" : "s"} to sort out.` : ", and nothing collides.")),
+      readout,
 
       el("div", { class: "field" },
         el("label", {}, "What you call them"),
@@ -3440,6 +3635,23 @@ function personPopup(row, sc, on, state) {
           `Leave it empty and the day goes on saying Person ${who}.`)),
 
       el("div", { class: "field" },
+        el("label", {}, "When they are here"),
+        el("div", { class: "two-col" },
+          el("label", { class: "stack" }, el("span", { class: "hint" }, "Here from"), from),
+          el("label", { class: "stack" }, el("span", { class: "hint" }, "Here until"), until)),
+        shiftHint),
+
+      el("div", { class: "field" },
+        el("label", {}, "Which modules can they work?"),
+        ...(tickBoxes.length
+          ? tickBoxes.map((b) => el("label", { class: "row-check" }, b.box,
+            el("span", {}, ((places.find((f) => f.id === b.id) || {}).name) || b.id)))
+          : [el("div", { class: "hint", style: "margin:0" },
+            "No module on this day is set to take hands, so there is nothing to train for yet.")]),
+        el("div", { class: "hint" },
+          "Tick nothing and they can work anything, as they do today. Tick one or more and the day only ever gives them those, and asks the person trained for the fewest modules first. Nothing here is ever a refusal: a job nobody trained is free for still goes to somebody, and the row says so.")),
+
+      el("div", { class: "field" },
         callLabel,
         el("label", { class: "row-check" }, call,
           el("span", {}, "Tick to have the day call them")),
@@ -3447,12 +3659,7 @@ function personPopup(row, sc, on, state) {
           "One minute, not at the minute — a call is a call to go and stand somewhere, and a fold is a one-minute job, so telling them the moment they should already be folding is too late. Off, they still work the day; they are simply not called.")),
 
       el("div", { class: "tl-notes", style: "margin-top:12px" },
-        el("div", { class: "tl-note" },
-          el("div", { class: "tl-note-who" }, "What they do today"),
-          ...(jobs.length ? jobs : [el("div", { class: "tl-note-job" }, "Nothing on this person yet.")]),
-          notes.more > 0
-            ? el("div", { class: "tl-note-job" }, `…and ${notes.more} more.`)
-            : null)));
+        el("div", { class: "tl-note" }, jobsBox)));
 
   }, { onTitle: (node) => { titleEl = node; } });
 }
