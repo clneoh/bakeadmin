@@ -92,7 +92,21 @@ function createEl(tag) {
     // at all, which is precisely the fault a test here exists to catch.
     getBoundingClientRect() {
       const r = this._rect || { left: 0, top: 0, width: 600, height: 400 };
-      return { ...r, right: r.left + r.width, bottom: r.top + r.height };
+      // A rect is measured from the window, so scrolling a box the node is INSIDE
+      // moves the node's box and the node itself does not. A stick that returned
+      // `_rect` unscrolled would say a row's foot holds still while the list under it
+      // slides — and the one thing this app measures inside a scroller is the shelf of
+      // days, whose cap is taken from the fourth row's foot. A measurement taken while
+      // the shelf was scrolled would then read correct in a test and wrong on her
+      // phone. Every ancestor's own scroll is subtracted, this node's own left alone:
+      // a box does not move itself.
+      let left = r.left;
+      let top = r.top;
+      for (let n = this.parent || null; n; n = n.parent || null) {
+        left -= Number(n.scrollLeft) || 0;
+        top -= Number(n.scrollTop) || 0;
+      }
+      return { left, top, width: r.width, height: r.height, right: left + r.width, bottom: top + r.height };
     },
     focus() {}, click() {},
     // A real node detaches itself from its parent and this one has to as well:
@@ -105,6 +119,24 @@ function createEl(tag) {
       this.parent = null;
     },
     querySelector() { return null; },
+    // A real node can be asked for the nearest ancestor of a kind, and the view asks
+    // exactly that to tell a press on her own card from a press on the sheet behind it.
+    // A shim with no `closest` answers `undefined` to a question the browser answers,
+    // which is the same class of fault as the missing dataset above: a rule the stand-in
+    // cannot see is a rule nothing here can break. Walks from this node upward, matching
+    // the two selector shapes this app uses — a bare tag and a class.
+    closest(sel) {
+      const tests = String(sel || "").split(",").map((s) => s.trim()).filter(Boolean);
+      for (let n = this; n; n = n.parent || null) {
+        if (n.nodeType !== 1) continue;
+        for (const t of tests) {
+          if (t.startsWith(".")) {
+            if (String(n.className || "").split(/\s+/).filter(Boolean).includes(t.slice(1))) return n;
+          } else if (n.tagName === t.toUpperCase()) return n;
+        }
+      }
+      return null;
+    },
   };
   // A real classList is not a decoration: it IS the class attribute, and every add,
   // remove and toggle writes straight through to it. The stub that stood here was a set
@@ -1761,6 +1793,25 @@ function giveThemAWindow(root, scrollWidth = 2000, clientWidth = 600) {
   for (const p of panes) { p.scrollWidth = scrollWidth; p.clientWidth = clientWidth; }
   return panes;
 }
+// The shim hands every node the same box, which cannot tell the fourth row of a list
+// from the last — so a render that has to be MEASURED is built inside this, and each
+// node is given a box of its own, in the order it was built. Whether the shelf measured
+// the fourth row or the sixth is then a number rather than a hope.
+const boxes = (build) => {
+  const real = globalThis.document.createElement;
+  let n = 0;
+  globalThis.document.createElement = (tag) => {
+    const node = real(tag);
+    n += 1;
+    // Each node ten pixels higher up the page than the last one built, so the rows
+    // stack in the order they are drawn and the shelf — built last, once the whole
+    // table is inside it — starts above all of them, as the real box does.
+    node._rect = { left: 0, top: -(n * 10), width: 315, height: 10 };
+    return node;
+  };
+  try { return build(); } finally { globalThis.document.createElement = real; }
+};
+
 // A px value out of a node's own style object — `cursor.style.left`, which is how
 // the view places a hairline — as opposed to px(), which reads the style STRING a
 // builder was handed.
@@ -2459,9 +2510,12 @@ test("no writing from the day climbs over the module titles when the chart is pa
   const lab = walk(proc).find((n) => hasClass(n, "tl-cursor-lab"));
   // The day panned 25px: the titles still begin at the pane's own left edge, and the
   // track — which scrolls — now starts at 156 - 25 = 131, so its own edge no longer
-  // says where the titles end.
+  // says where the titles end. The track's own box is given at its unscrolled place
+  // now that the stand-in screen subtracts its ancestors' scroll the way the window
+  // does; before that this test had to write 131 in by hand, which is the same
+  // arithmetic done twice and only one of the two could be wrong.
   proc.scrollLeft = 25;
-  track._rect = { left: 131, top: 0, width: 2400, height: 20 };
+  track._rect = { left: 156, top: 0, width: 2400, height: 20 };
   const press = (clientX) => track.dispatchEvent({ type: "pointerdown", clientX, clientY: 8, pointerId: 71 });
 
   press(140);   // 140 of the titles' 156, though 9px past the track's own edge
@@ -3528,24 +3582,6 @@ test("the shelf shows four days and slides to the rest (v174)", () => {
 
   const six = ["A day", "B day", "C day", "D day", "E day", "F day"].map((name, i) => ({ id: `s${i}`, name }));
 
-  // The shim hands every node the same box, which cannot tell the fourth row from the
-  // last — so for these two renders each node is given a box of its own, in the order
-  // it was built. Whether the shelf measured the fourth row or the sixth is then a
-  // number rather than a hope.
-  const boxes = (build) => {
-    const real = globalThis.document.createElement;
-    let n = 0;
-    globalThis.document.createElement = (tag) => {
-      const node = real(tag);
-      n += 1;
-      // Each node ten pixels higher up the page than the last one built, so the rows
-      // stack in the order they are drawn and the shelf — built last, once the whole
-      // table is inside it — starts above all of them, as the real box does.
-      node._rect = { left: 0, top: -(n * 10), width: 315, height: 10 };
-      return node;
-    };
-    try { return build(); } finally { globalThis.document.createElement = real; }
-  };
   const cardFor = (list) => {
     const state = {
       settings: {
@@ -3591,6 +3627,150 @@ test("the shelf shows four days and slides to the rest (v174)", () => {
   assert.doesNotMatch(few.text, /first \d+ of your/,
     "a shelf that fits claims days of hers are hidden");
   assert.match(few.text, /D day/, "the fourth day is not on the card at all");
+});
+
+// ── A repaint keeps what she is looking at where she left it (v175) ─────────
+//
+// Her words, 23 September 2026: "Few problem of screen jump here and there. One
+// obvious one is the scenario windows, when i click, window reset." Every press that
+// changes the day draws the screen again from scratch, and a node drawn again is a NEW
+// node, which starts its own scroll at zero — so a press on a batch card threw both
+// windows of the day back to the far left and the top, and would have thrown the shelf
+// of days back to its first row with them.
+test("a press that redraws the day leaves every window where she left it (v175)", () => {
+  const six = ["A day", "B day", "C day", "D day", "E day", "F day"].map((name, i) => ({ id: `s${i}`, name }));
+  const state = {
+    settings: {
+      currency: "RM", deliveryDays: [1, 3, 5],
+      scenario: { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })) },
+      scenarios: six,
+    },
+    uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [],
+  };
+  const root = createEl("div");
+  renderScenario(root, state);
+  const [proc0, people0] = giveThemAWindow(root);
+  const shelf0 = walk(root).find((n) => hasClass(n, "sc-shelf"));
+  assert.ok(shelf0, "the shelf of days is not on the screen, so nothing here can be measured about it");
+
+  // Panned differently on purpose, so one number written to both windows cannot pass:
+  // the two windows are kept apart by their own positions.
+  proc0.scrollLeft = 300; proc0.scrollTop = 120;
+  people0.scrollLeft = 260; people0.scrollTop = 40;
+  shelf0.scrollTop = 90;
+
+  // The press that redraws everything: a button on a batch card.
+  tapBar(root, "Cutting and packing", 0);
+  popupButton(/\+ 5 min/).dispatchEvent({ type: "click" });
+
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  const shelf = walk(root).find((n) => hasClass(n, "sc-shelf"));
+  assert.notEqual(proc, proc0, "the press did not redraw the chart, so it proves nothing about a redraw");
+  assert.equal(proc.scrollLeft, 300, "the press threw the modules' window back to the start of the day");
+  assert.equal(proc.scrollTop, 120, "the press threw the modules' window back to the top");
+  assert.equal(people.scrollLeft, 260, "the press threw the people's window back to the start of the day");
+  assert.equal(people.scrollTop, 40, "the press threw the people's window back to the top");
+  assert.equal(shelf.scrollTop, 90, "the press threw the shelf of days back to its first row");
+
+  // And a window she never touched is left at its own start rather than given another
+  // window's number: the restore puts back what was there, it does not impose one
+  // position on both.
+  const fresh = render();
+  const [fp] = giveThemAWindow(fresh.root);
+  assert.equal(fp.scrollLeft, 0, "a window she never panned is not at the start of the day");
+});
+
+// And the shelf's own height has to be taken before it is put back where she left it.
+// Its cap is measured off the fourth row's foot, and a row's foot moves when the list
+// under it slides — so a cap measured with the list already slid down would come out
+// short by exactly the amount it was slid, and the fourth day would be cut in half.
+// The shelf is measured while it is still at its own top, which a box just drawn
+// always is, and only then is she put back where she was.
+test("a repaint leaves the shelf where she left it and still measures it at its own top (v175)", () => {
+  const six = ["A day", "B day", "C day", "D day", "E day", "F day"].map((name, i) => ({ id: `s${i}`, name }));
+  const state = {
+    settings: {
+      currency: "RM", deliveryDays: [1, 3, 5],
+      scenario: { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })) },
+      scenarios: six,
+    },
+    uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [],
+  };
+  const shelved = (scroll) => boxes(() => {
+    const root = createEl("div");
+    renderScenario(root, state);
+    const before = walk(root).find((n) => hasClass(n, "sc-shelf"));
+    if (scroll) before.scrollTop = scroll;
+    // The press that redraws the whole screen, and the shelf with it.
+    tapBar(root, "Cutting and packing", 0);
+    popupButton(/\+ 5 min/).dispatchEvent({ type: "click" });
+    const shelf = walk(root).find((n) => hasClass(n, "sc-shelf"));
+    return {
+      shelf,
+      rows: walk(shelf).filter((n) => hasClass(n, "sc-row")),
+      cap: stylePx(shelf, "maxHeight"),
+    };
+  });
+
+  const atTop = shelved(0);
+  const slid = shelved(90);
+  assert.notEqual(slid.shelf, atTop.shelf, "the press did not redraw the shelf, so it proves nothing about a redraw");
+  assert.equal(atTop.cap, Math.round(atTop.rows[3].getBoundingClientRect().bottom - atTop.shelf.getBoundingClientRect().top),
+    "the shelf is not capped at its fourth day's foot to begin with");
+  assert.equal(slid.shelf.scrollTop, 90, "the press threw the shelf of days back to its first row");
+  assert.equal(slid.cap, atTop.cap,
+    `the shelf was capped at ${slid.cap}px with the list slid down against ${atTop.cap}px at its top, so the height followed where the list happened to be and the fourth day is cut`);
+});
+
+test("a right press pans the day with a card open over it (v175)", () => {
+  const { root } = render();
+  const [proc, people] = giveThemAWindow(root);
+  // The two windows' own boxes, one above the other as they are drawn, so which window
+  // a press belongs to is decided by where her hand is. The shim's one constant box for
+  // every node cannot tell them apart.
+  proc._rect = { left: 0, top: 0, width: 375, height: 300 };
+  people._rect = { left: 0, top: 300, width: 375, height: 120 };
+  proc.scrollLeft = 200; people.scrollLeft = 200;
+
+  // A card open over the chart, which is her case: the day she is looking at is behind
+  // the card she opened on it.
+  tapBar(root, "Cutting and packing", 0);
+  assert.ok(popupBody(), "no card is open, so there is nothing over the chart to press through");
+  const layer = layers["popup-layer"];
+
+  layer.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 200, clientY: 100, pointerId: 11 });
+  layer.dispatchEvent({ type: "pointermove", button: 2, buttons: 2, clientX: 140, clientY: 80, pointerId: 11 });
+  assert.equal(proc.scrollLeft, 260, "a right press over an open card did not move the day behind it");
+  assert.equal(proc.scrollTop, 20, "a right press over an open card did not move the day behind it");
+  layer.dispatchEvent({ type: "pointerup", button: 2, clientX: 140, clientY: 80, pointerId: 11 });
+  assert.ok(!proc.classList.contains("tl-dragging"), "the window still says it is being dragged after she let go");
+
+  // The lower press belongs to the lower window, worked out from where her hand is.
+  layer.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 200, clientY: 350, pointerId: 12 });
+  layer.dispatchEvent({ type: "pointermove", button: 2, buttons: 2, clientX: 160, clientY: 350, pointerId: 12 });
+  assert.equal(people.scrollLeft, 240, "a right press below the modules' window did not move the people's window");
+  assert.equal(proc.scrollLeft, 260, "a press on the people's window moved the modules' one as well");
+  layer.dispatchEvent({ type: "pointerup", button: 2, clientX: 160, clientY: 350, pointerId: 12 });
+
+  // Her own card is not the pan. A right press on the card — or on anything inside it,
+  // which is where a real press lands — is left alone, or the day would slide about
+  // while she is reading the card that describes it.
+  const card = walk(layer).find((n) => hasClass(n, "popup-card"));
+  assert.ok(card, "the card is not marked as the card, so nothing can tell it from the sheet behind it");
+  layer.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 200, clientY: 100, pointerId: 13, target: card });
+  layer.dispatchEvent({ type: "pointermove", button: 2, buttons: 2, clientX: 150, clientY: 100, pointerId: 13, target: card });
+  assert.equal(proc.scrollLeft, 260, "a right press on her own card dragged the day behind it");
+
+  // And the LEFT button is still the press that opens and works cards, never the pan.
+  layer.dispatchEvent({ type: "pointerdown", button: 0, buttons: 1, clientX: 200, clientY: 100, pointerId: 14 });
+  layer.dispatchEvent({ type: "pointermove", button: 0, buttons: 1, clientX: 150, clientY: 100, pointerId: 14 });
+  assert.equal(proc.scrollLeft, 260, "a left press on the card's sheet panned the day");
+
+  // And the menu that a right press would otherwise raise over her card does not.
+  const ev = { type: "contextmenu", button: 2 };
+  layer.dispatchEvent(ev);
+  assert.ok(ev.defaultPrevented, "the browser's own menu still opens over the card");
 });
 
 test("both windows read the ruler from one pair of numbers, set once (v167)", () => {

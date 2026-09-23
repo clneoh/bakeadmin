@@ -1,8 +1,82 @@
-# Jienluv2bake — change history (v54 → v174)
+# Jienluv2bake — change history (v54 → v175)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v175 (no database step). Two things you reported: the scenario
+windows no longer jump back to the start when you press something, and the right-button
+drag now works while a card is open on the chart. Both inside More → Scenario planner.**
+
+**What you reported, in your own words.** "Few problem of screen jump here and there. One
+obvious one is the scenario windows, when i click, window reset. And right button drug
+dont work". Both were real, and neither was your phone.
+
+**1. Why a press threw the windows back to the start.** When you press something that
+changes the day — a batch card's + 5 min, the People box, the scale, opening a saved day
+— the screen is drawn again from scratch. That has always been how it works, and it is
+what keeps the whole panel agreeing with itself. But a box drawn again is a NEW box, and a
+new box starts its own scroll at nothing. So every one of those presses put both windows
+of the day chart back at the far left and the top, and would have put the list of saved
+days back at its first row with them. Measured live at a phone's width with the modules'
+window panned 300 pixels: one press of + 5 min left both windows reading 0.
+
+**2. What it does now, and where you were is put back only after the measuring is done.**
+Where each of the three sliding boxes was — the two windows and the list of days — is read
+before the screen is drawn again, and written back afterwards. The order is the whole of
+it: the list of days is measured to work out its height, and a row's foot moves when the
+list under it slides, so measuring a list that had already been slid back down would come
+out short by exactly the amount it moved and would cut your fourth day in half. Nothing is
+slid until the measuring is finished, and the measuring all happens before anything is
+drawn on the screen, so you never see the day sitting at its start either. Measured live
+on your own day: panned 300, one press of + 5 min, and the window reads 300 on the day
+drawn after it — and both windows are put back by their own numbers, never one number
+shared, because they pan together and a redraw is not the place to find out they had
+drifted.
+
+**3. Why the right-button drag did nothing with a card open.** A card is drawn on a
+full-screen sheet that sits over the whole chart, so with a card open your right press
+landed on the sheet, not on the day behind it — the day you were actually looking at could
+not be moved at all. Measured live at a phone's width with a batch card open: a right press
+200 pixels into the chart, dragged 60 to the left, left the window reading 200 exactly
+where it started. The sheet carried no gesture of its own, so nothing was being taken from
+anything else.
+
+**4. What it does now.** The sheet answers the same right press the two windows do, and
+which window moves is worked out from where your hand is — the upper window for a press on
+the upper half of the chart, the lower one for the lower. Your own card is left alone: a
+right press on the card, or on any of its buttons, moves nothing, so the day cannot slide
+about while you are reading the card that describes it. The left button is untouched and
+still opens and works cards. Measured live with a batch card open: a right press 60 pixels
+to the left moved the modules' window from 200 to 260, the same press on the people's
+window moved that one from 260 to 310, the two windows came back into step at 310 on the
+next frame, and the same right press on the card itself moved nothing.
+
+**5. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+scenario changed, and nothing here blocks a sale or reads an order. Every tap still opens
+exactly what it opened before. Your stored data was put back from a copy taken before the
+measurements and compared: byte for byte the same, and your three saved days still read
+24, 12 and 24 pans.
+
+**6. And the rule that stands on it was proved rather than assumed.** Nine faults were put
+back in all and each was watched failing by name, then restored byte-identically: with the
+putting-back left out entirely the test fails reading that the press threw the windows back
+to the start; with only the modules' window put back it fails the same way; with the two
+windows collapsed into one number it fails; with the putting-back done before the measuring
+it fails reading that the shelf was capped short of where the fourth day ends; with the
+class name matched dot and all it fails (this is the fault that was in the first draft of
+the fix, and the test caught it); with the sheet never wired it fails reading that a right
+press over an open card did not move the day; with the sheet always panning the upper
+window it fails on the lower press; with your own card not spared it fails reading that a
+right press on the card dragged the day behind it; and with the left button let through it
+fails the older drag test, which says the left press is the one that opens cards. One more
+thing was found and fixed on the way: the tests' own stand-in screen did not move a box
+when a box it sits inside was scrolled, which is the opposite of what a window does, and
+that gap had been hiding whether the measuring happened before or after the sliding. The
+suite is 1220 passing with none failing.
+
+**7. No database step.** Not one stored field is added or changed, so there is nothing to
+run in Supabase.
 
 **23 Sep 2026 — engine v174 (no database step). Two things you asked for: the
 modules' window no longer lets the day's writing come up between the module titles

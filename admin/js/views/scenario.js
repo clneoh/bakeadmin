@@ -156,16 +156,69 @@ export function renderScenario(root, state) {
   // another cannot run twice in the same pass.
   const pending = [];
 
+  // A repaint must never move what she is looking at.
+  //
+  // Her words, 23 September 2026: "Few problem of screen jump here and there. One
+  // obvious one is the scenario windows, when i click, window reset." Every press that
+  // changes the day repaints this screen wholesale — that is what refresh() is — and a
+  // replaced element is a NEW element, which starts its own scroll at zero. So pressing
+  // a button on a batch card threw both windows of the day chart back to the far left
+  // and the top, and opening a day from the shelf threw the shelf back to its first
+  // row. Measured at a phone's width with the modules' window panned 300 pixels: one
+  // press of + 5 min on a batch card left both windows reading 0.
+  //
+  // Where she was is read before the paint and written back after the queued jobs have
+  // run — and that order is the whole of it. A box can only hold a scroll once it has
+  // the overflow to hold it, and the shelf's own height comes from one of those jobs;
+  // and the measurement that job makes has to be taken while the box is still at its
+  // own top, which a box just drawn always is. So nothing is scrolled until the jobs
+  // have measured, and the jobs all run before the browser paints, so she never sees
+  // the day sitting at its start either. Both windows are kept apart rather than given
+  // one number: they pan together, and a repaint is not the place to discover that they
+  // had drifted.
+  const KEPT_SCROLL = [".tl-pane-proc", ".tl-pane-people", ".sc-shelf"];
+  const scrollKept = () => KEPT_SCROLL.map((sel) => {
+    const n = findIn(readout, sel);
+    return n ? [sel, Number(n.scrollLeft) || 0, Number(n.scrollTop) || 0] : null;
+  }).filter(Boolean);
+  const scrollBack = (kept) => {
+    for (const [sel, left, top] of kept) {
+      const n = findIn(readout, sel);
+      if (!n) continue;
+      if (left) n.scrollLeft = left;
+      if (top) n.scrollTop = top;
+    }
+  };
+
+  // The first node of this class under `root`, or null. A walk and not a query, because
+  // the repaint runs on every press and this has to be cheap and exact — and because a
+  // selector the browser answers but a test's stand-in screen does not is a rule the
+  // tests cannot see.
+  function findIn(root, cls) {
+    const want = String(cls).replace(/^\./, "");
+    for (const c of Array.from((root && root.children) || [])) {
+      if (c.nodeType === 1 && (` ${c.className} `).includes(` ${want} `)) return c;
+    }
+    for (const c of Array.from((root && root.children) || [])) {
+      if (c.nodeType !== 1) continue;
+      const hit = findIn(c, cls);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
   // Only the answers are repainted when something changes — never the fields —
   // so the box she is typing in keeps its place and its cursor.
   const on = {
     refresh: () => {
       if (dead) return;
+      const kept = scrollKept();
       pending.length = 0;
       readout.replaceChildren(...blocks(sc, state, on, run));
       const jobs = pending.slice();
       pending.length = 0;
       for (const fn of jobs) fn();
+      scrollBack(kept);
     },
     afterPaint: (fn) => { if (!dead) pending.push(fn); },
     // The one thing that does redraw the fields. Opening a saved scenario, or
@@ -194,6 +247,10 @@ export function renderScenario(root, state) {
 
   return () => {
     dead = true;
+    // The sheet outlives this screen, so it is told there is nothing left for it to
+    // pan. Without this a right press on another screen's card would be handed a
+    // chart that is no longer on the page.
+    dragPanes.length = 0;
     // Leaving the screen stops the day. A clock that went on ticking behind another
     // tab would be a call with nothing on screen saying where it came from.
     stopDay(run, on);
@@ -1365,54 +1422,100 @@ function isPrimaryClick(e) {
 //
 // A finger can never set button 2, so nothing here is reachable from her phone and the
 // touch behaviour is untouched: this is a computer's gesture.
+//
+// The gesture is wired on three surfaces and the day under the hand is what moves.
+// The two windows are the obvious two. The third is the sheet a card opens on, and it
+// is there because of her report of 23 September: "right button drug dont work". The
+// card is drawn on a full-screen sheet, so with a card open her right press landed on
+// the sheet and the day behind it — the thing she was actually looking at — could not
+// be moved at all. Measured at a phone's width with a batch card open: a right press
+// 200 pixels into the day, dragged 60 to the left, left the window reading 200 exactly
+// where it started. On the sheet the event's own target belongs to no window, so the
+// window is found by where her hand is instead. Her own card is left out of it (see
+// press below): this is a gesture for the day behind a card, not for the card.
+//
+// The two windows are rebuilt on every repaint, so they are bound afresh each time —
+// but the sheet is a single element belonging to the whole app, not to this screen
+// (ui.js owns it and hides it rather than throwing it away), so it is wired ONCE and
+// asks this list which windows are on the screen at the press. Wiring it every time
+// would stack one more copy of the same gesture on it for every visit to the screen.
+const dragPanes = [];
+
 function wirePaneDrag(a, b) {
-  for (const pane of [a, b]) {
-    if (!pane || !pane.addEventListener) continue;
-    // The gesture in progress: where the pointer went down, and where the day was at
-    // that moment. Held in a closure rather than on the node, so two panes cannot
-    // share one drag.
-    let held = null;
-    const press = (e) => {
-      if (!e || Number(e.button) !== 2) return;
-      held = {
-        id: e.pointerId,
-        x: Number(e.clientX) || 0,
-        y: Number(e.clientY) || 0,
-        left: Math.max(0, Number(pane.scrollLeft) || 0),
-        top: Math.max(0, Number(pane.scrollTop) || 0),
-      };
-      pane.classList.add("tl-dragging");
-      e.preventDefault();
-      // Keep the moves coming after the pointer leaves the pane, which it does within
-      // a few pixels of a drag — without this the day stops dead at the window's own
-      // edge with her finger still down. Capture can throw rather than say so when the
-      // pointer has already gone, and losing the capture must not lose the drag or the
-      // class that says it is happening.
-      try { if (pane.setPointerCapture && held.id != null) pane.setPointerCapture(held.id); } catch { /* the drag is the gesture; capture only widens it */ }
-    };
-    const move = (e) => {
-      if (!held || !e) return;
-      // A move with no right button held is not a drag — the press ended somewhere the
-      // release never reached. Drop it rather than leave the pane stuck to the pointer.
-      if (e.buttons != null && (Number(e.buttons) & 2) === 0) { release(); return; }
-      pane.scrollLeft = Math.max(0, held.left - ((Number(e.clientX) || 0) - held.x));
-      pane.scrollTop = Math.max(0, held.top - ((Number(e.clientY) || 0) - held.y));
-      e.preventDefault();
-    };
-    const release = () => {
-      if (!held) return;
-      held = null;
-      pane.classList.remove("tl-dragging");
-    };
-    pane.addEventListener("pointerdown", press);
-    pane.addEventListener("pointermove", move);
-    pane.addEventListener("pointerup", release);
-    pane.addEventListener("pointercancel", release);
-    // The browser's own menu is the one thing a right press would otherwise put on the
-    // screen, and it would land in the middle of the gesture that press is starting.
-    // Nothing of hers is behind it: the chart has no menu of its own.
-    pane.addEventListener("contextmenu", (e) => e.preventDefault());
+  dragPanes.length = 0;
+  for (const p of [a, b]) if (p && p.addEventListener) dragPanes.push(p);
+  for (const pane of dragPanes) bindDrag(pane, () => pane);
+  const layer = document.getElementById("popup-layer");
+  if (layer && layer.addEventListener && !layer.tlPanWired) {
+    layer.tlPanWired = true;
+    bindDrag(layer, (e) => paneAt(dragPanes, e));
   }
+}
+
+// Which window a press is over, by where the hand is. Only needed for a press that
+// arrives on the card's own sheet, whose target is the sheet.
+function paneAt(panes, e) {
+  const x = Number(e && e.clientX) || 0;
+  const y = Number(e && e.clientY) || 0;
+  return panes.find((p) => {
+    const r = p.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }) || null;
+}
+
+function bindDrag(surface, choose) {
+  // The gesture in progress: where the pointer went down, and where the day was at
+  // that moment. Held in a closure rather than on the node, so two surfaces cannot
+  // share one drag.
+  let held = null;
+  let pane = null;
+  const press = (e) => {
+    if (!e || Number(e.button) !== 2) return;
+    // Her card keeps its own presses. A right press on the card's body or its buttons
+    // is not a pan, or the day would slide about while she is reading the card that
+    // describes it.
+    if (e.target && e.target.closest && e.target.closest(".popup-card")) return;
+    pane = choose(e);
+    if (!pane) return;
+    held = {
+      id: e.pointerId,
+      x: Number(e.clientX) || 0,
+      y: Number(e.clientY) || 0,
+      left: Math.max(0, Number(pane.scrollLeft) || 0),
+      top: Math.max(0, Number(pane.scrollTop) || 0),
+    };
+    pane.classList.add("tl-dragging");
+    e.preventDefault();
+    // Keep the moves coming after the pointer leaves the pane, which it does within
+    // a few pixels of a drag — without this the day stops dead at the window's own
+    // edge with her finger still down. Capture can throw rather than say so when the
+    // pointer has already gone, and losing the capture must not lose the drag or the
+    // class that says it is happening.
+    try { if (surface.setPointerCapture && held.id != null) surface.setPointerCapture(held.id); } catch { /* the drag is the gesture; capture only widens it */ }
+  };
+  const move = (e) => {
+    if (!held || !e || !pane) return;
+    // A move with no right button held is not a drag — the press ended somewhere the
+    // release never reached. Drop it rather than leave the pane stuck to the pointer.
+    if (e.buttons != null && (Number(e.buttons) & 2) === 0) { release(); return; }
+    pane.scrollLeft = Math.max(0, held.left - ((Number(e.clientX) || 0) - held.x));
+    pane.scrollTop = Math.max(0, held.top - ((Number(e.clientY) || 0) - held.y));
+    e.preventDefault();
+  };
+  const release = () => {
+    if (!held) return;
+    if (pane) pane.classList.remove("tl-dragging");
+    held = null;
+    pane = null;
+  };
+  surface.addEventListener("pointerdown", press);
+  surface.addEventListener("pointermove", move);
+  surface.addEventListener("pointerup", release);
+  surface.addEventListener("pointercancel", release);
+  // The browser's own menu is the one thing a right press would otherwise put on the
+  // screen, and it would land in the middle of the gesture that press is starting.
+  // Nothing of hers is behind it: the chart has no menu of its own.
+  surface.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 // How many minutes the ruler steps by at the scale the day is drawn at. Nearest
