@@ -130,7 +130,7 @@ export function renderScenario(root, state) {
     startedMs: 0,       // the wall clock when she pressed Start
     nowMin: 0,          // where the now-line is, in minutes from the start of her day
     lastMin: -1,        // the last minute already called, so no call is made twice
-    line: null,         // the now-line element, kept across repaints
+    lines: [],          // the now-line elements, one per window, kept across repaints
     rulerLeft: 0,       // the ruler's own offset, measured once per repaint
     pxPerMin: 1,        // this scenario's scale, so the line can be placed
     dayStart: 0,        // the clock minute 0 of THIS run, so its label reads true
@@ -845,39 +845,33 @@ function timeline(r, sc, on, state, run) {
   // could never be lifted over the pinned clock strip. See .tl-cursor-lab.
   const cursor = el("div", { class: "tl-cursor", hidden: true });
   const lab = el("span", { class: "tl-cursor-lab", hidden: true });
+  // The same hairline again, in the people's window. It takes no pointer of its
+  // own — the reading is taken in the modules window and copied here — and that is
+  // the whole reason it exists: the two windows pan together and share the same
+  // 156px name column, so a line lands on the same minute in both, and a hairline
+  // that stopped at the seam between them would stop exactly where the question
+  // she asks of it begins. See wirePaneScroll for the panning and wireTimeCursor
+  // for the placement.
+  const cursor2 = el("div", { class: "tl-cursor", hidden: true });
   // The clock the day is being walked against. Its own line, its own label, and a
   // different colour from the hairlines she points with — a reading she takes must
-  // never be mistaken for the minute the day is actually at.
+  // never be mistaken for the minute the day is actually at. Drawn in both windows
+  // from one computation, for the same reason the hairline is.
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
   const now = el("div", { class: "tl-now", hidden: !run.on }, nowLab);
-  // The clock, drawn once, at the top of the panel. Held here rather than found
+  const nowLab2 = el("span", { class: "tl-now-lab" }, "now");
+  const now2 = el("div", { class: "tl-now", hidden: !run.on }, nowLab2);
+  // The clock, drawn at the top of the modules window. Held here rather than found
   // again by class name, so the cursor is wired to the clock the chart actually
   // drew.
   const headClock = rulerRow(r, trackW);
-  // --hour-w is the hour line every track has always drawn. --tick-w is the grid
-  // this release carries down under it, set from the same scale so the two stay in
-  // step — see gridStepFor for why it is a coarser step than the ruler's at the two
-  // closest stops.
-  const tl = el("div", {
-    class: "tl",
-    style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
-  },
+  // The modules window: the clock strip, then the day's modules. Its own scroll
+  // container, so the day's rows scroll under their own pinned clock without the
+  // people's window having to move with them.
+  const proc = el("div", { class: "tl tl-pane-proc" },
     el("div", { class: "tl-inner" },
       headClock,
       ...r.modules.map((m, i) => moduleRow(r, m, i, trackW, sc, on, state, run)),
-      // The people are the answer to her question, so they are drawn as what
-      // they are: a row each, carrying the modules that row attends — and under
-      // them the whole lot stacked, which is the manpower at each minute.
-      //
-      // The whole block is pinned to the foot of the panel, and that is her own
-      // ask of 22 September: "I want to freeze the persons card, so that by
-      // scrolling thru modules i can see exactly where that slot of that person
-      // tie up to". Reading a person's row is the point of scrolling the modules
-      // at all, so the row stays where she can see it while they pass behind it.
-      // See .tl-people for why it is opaque and what may draw over it.
-      el("div", { class: "tl-people" },
-        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
-        totalRow(r, trackW)),
       // The day's own reading, drawn last so it runs over every bar rather than
       // under one. See wireTimeCursor for what it does and who it answers to.
       cursor,
@@ -885,13 +879,50 @@ function timeline(r, sc, on, state, run) {
       // And the clock, drawn over everything, because it is the one thing on the
       // chart that is happening rather than planned.
       now));
-  // The header, kept so the now-line can be placed against it.
-  run.line = now;
+  // The people are the answer to her question, so they are drawn as what they are:
+  // a row each, carrying the modules that row attends — and under them the whole
+  // lot stacked, which is the manpower at each minute. See .tl-people for why the
+  // block is opaque.
+  const people = el("div", { class: "tl tl-pane-people" },
+    el("div", { class: "tl-inner" },
+      el("div", { class: "tl-people" },
+        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state)),
+        totalRow(r, trackW)),
+      cursor2,
+      now2));
+  // The one horizontal control, and it sits between the two windows rather than
+  // under either of them — her own ask: "can the 2 window share the horizontal
+  // slider, place between the 2 windows, make the 2 windows as close as possible".
+  // A range rather than a hand-made thumb: touch-native, keyboard-operable, and it
+  // needs no hit arithmetic on a phone. wirePaneScroll owns its max and its value.
+  const slider = el("input", {
+    type: "range", class: "tl-slider", min: "0", step: "1", value: "0",
+    "aria-label": "Scroll the day sideways",
+  });
+  // --hour-w is the hour line every track has always drawn. --tick-w is the grid
+  // v160 carries down under it, set from the same scale so the two stay in step —
+  // see gridStepFor for why it is a coarser step than the ruler's at the two
+  // closest stops.
+  //
+  // Both are set HERE, on the wrapper, and inherited by both windows. Two inline
+  // copies could drift apart and nothing on the screen would say so, and the whole
+  // point of the grid is that the lines and the ruler cannot disagree about where a
+  // minute is.
+  const wrap = el("div", {
+    class: "tl-wrap",
+    style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
+  }, proc, slider, people);
+  // The header, kept so the now-line can be placed against it. ONE origin: both
+  // windows put their ruler's track at the same offset, because the name column is
+  // 156px wide in both and box-sizing is border-box throughout, so the same left is
+  // correct in either — which is what lets one computation place both lines.
+  run.lines = [now, now2];
   run.ruler = trackOf(headClock);
   run.pxPerMin = r.pxPerMin;
   if (run.on) placeNow(run);
-  wireTimeCursor(tl, r, cursor, lab, headClock);
-  return tl;
+  wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
+  wirePaneScroll(proc, people, slider);
+  return wrap;
 }
 
 // The clock row's own track. The row is its name cell and the track it names, in
@@ -911,8 +942,8 @@ const trackOf = (clock) => Array.from((clock && clock.children) || [])
 // not change as the clock runs and repainting them every second would fight the
 // scroll she is reading.
 function placeNow(run) {
-  const line = run.line;
-  if (!line || !run.pxPerMin) return;
+  const lines = run.lines;
+  if (!lines || !lines.length || !run.pxPerMin) return;
   // The ruler's own offset is measured HERE and not when the chart was built,
   // and that is the whole point of the line being right: the chart is assembled
   // before it is on the page, and an element that is not on the page has no
@@ -922,9 +953,16 @@ function placeNow(run) {
   // offset again each time rather than cached.
   const ruler = run.ruler && run.ruler.isConnected ? run.ruler : null;
   const left = ruler ? ruler.offsetLeft : (run.rulerLeft || 0);
-  line.style.left = `${Math.round(left + run.nowMin * run.pxPerMin)}px`;
-  const lab = line.children && line.children[0];
-  if (lab) lab.textContent = clockOf(run.dayStart + run.nowMin);
+  const at = `${Math.round(left + run.nowMin * run.pxPerMin)}px`;
+  const label = clockOf(run.dayStart + run.nowMin);
+  // Both windows: one line is the day happening in the modules, the other is it
+  // happening to the people. One left serves both, for the reason run.ruler is one
+  // origin — the name column is 156px in both windows.
+  for (const line of lines) {
+    line.style.left = at;
+    const lab = line.children && line.children[0];
+    if (lab) lab.textContent = label;
+  }
 }
 
 // Walk the day for real.
@@ -981,7 +1019,7 @@ function stopDay(run, on) {
   run.on = false;
   run.nowMin = 0;
   run.lastMin = -1;
-  run.line = null;
+  run.lines = [];
   if (run.pending) { run.pending.remove(); run.pending = null; }
   try { if (run.audio) run.audio.close(); } catch { /* already gone */ }
   run.audio = null;
@@ -1084,7 +1122,7 @@ function chirp(run, who) {
 // finger never hovers, the cursor it places simply stays where she let go, which
 // is what a finger needs to read a time against two bars. Swipe the chart
 // afterwards and the line travels with the minute it names.
-function wireTimeCursor(tl, r, cursor, lab, clock) {
+function wireTimeCursor(tl, r, cursor, lab, clock, mirror) {
   // `clock` is the clock the chart actually drew, handed over rather than looked up
   // by class afterwards — so what is wired is what is on the screen, and a test can
   // see the wiring rather than only the promise of it. Its own offset is what the
@@ -1094,15 +1132,25 @@ function wireTimeCursor(tl, r, cursor, lab, clock) {
   if (!ruler) return;
   const frame = cursor.parentNode;
   let dragging = false;
+  // Both hairlines go together, always: a reading taken in one window and left
+  // standing in the other would be two different answers on one chart.
+  const hide = () => { cursor.hidden = true; lab.hidden = true; if (mirror) mirror.hidden = true; };
   const place = (clientX, clientY) => {
     const t = minuteAtPx(clientX - ruler.getBoundingClientRect().left, r.pxPerMin, r.windowMin);
-    if (t == null) { cursor.hidden = true; lab.hidden = true; return; }
+    if (t == null) { hide(); return; }
     cursor.hidden = false;
     lab.hidden = false;
     const x = t * r.pxPerMin;
     const left = Math.round(ruler.offsetLeft + x);
     cursor.style.left = `${left}px`;
     lab.style.left = `${left}px`;
+    // The same minute in the people's window, at the same pixel — the two name
+    // columns are the same width, so one left is right for both. The READING is
+    // not copied: its height comes from where the pointer is, which is a place the
+    // other window has nothing to do with, so a reading pinned there would name a
+    // minute at a height that means nothing. The line travels, the number stays
+    // where she is looking.
+    if (mirror) { mirror.hidden = false; mirror.style.left = `${left}px`; }
     // The reading follows the pointer down the day as well as across it. It used
     // to sit at the top of the chart, which is the right place only while the top
     // of the chart is on screen: with a mouse the pointer reads a bar four rows
@@ -1151,8 +1199,114 @@ function wireTimeCursor(tl, r, cursor, lab, clock) {
     place(e.clientX, e.clientY);
   });
   tl.addEventListener("pointerleave", (e) => {
-    if (e.pointerType !== "touch") { cursor.hidden = true; lab.hidden = true; }
+    if (e.pointerType !== "touch") hide();
   });
+}
+
+// The two windows pan as one. Her own ask: "can the 2 window share the horizontal
+// slider, place between the 2 windows". The slider is that shared control; the two
+// windows keep their own horizontal overflow, which is what pins their name columns
+// — give a pane no horizontal overflow and its names slide off the left edge with
+// the day — so the three have to be kept in step rather than being the same
+// scrollport.
+//
+// Two rules, and both are load-bearing:
+//
+// A DEADBAND, not a lock. Assigning scrollLeft does not fire a scroll event
+// synchronously in Chrome or WebKit; it is queued to the next rendering
+// opportunity. So a flag set before the write and cleared after it is already
+// clear by the time the echo arrives, the echo is not suppressed, and it writes
+// back to the window her finger is on — which is the documented way to kill
+// momentum scrolling on iOS, and the pan under her thumb stops dead. A tolerance
+// of one pixel drops the echo of our own write and can never oscillate on a
+// fractional scrollLeft. The writer is coalesced to one per frame for the same
+// reason: one forced layout a frame on a phone under momentum, not one per event.
+//
+// scrollLeft ONLY. The two windows' vertical positions are independent on purpose
+// (that is the whole point of splitting them, so growing people cannot squeeze the
+// processes), and a handler that mirrored both would still pass every horizontal
+// check anyone would think to write.
+function wirePaneScroll(a, b, slider) {
+  const panes = [a, b];
+  const after = (fn) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(fn) : setTimeout(fn, 0));
+  // How far the day can be panned. Both windows hold the same day, so the smaller
+  // of the two is the honest maximum — a stale or larger max would let the slider
+  // ask for a position one window cannot reach.
+  const scrollMax = () => {
+    let max = Infinity;
+    for (const p of panes) {
+      const w = Number(p.scrollWidth) || 0;
+      const c = Number(p.clientWidth) || 0;
+      max = Math.min(max, Math.max(0, w - c));
+    }
+    return Number.isFinite(max) ? Math.round(max) : 0;
+  };
+  // A pointer held on the slider: its own value is not written back while she is
+  // dragging it, or the write fights her thumb.
+  let held = false;
+  let queued = 0;
+  const drawSlider = () => {
+    const max = scrollMax();
+    slider.max = String(max);
+    // A day that fits its window has nothing to pan. It goes inert and says so,
+    // rather than sitting there draggable and doing nothing.
+    slider.disabled = max <= 0;
+    if (!held) slider.value = String(Math.min(max, Math.max(0, Number(a.scrollLeft) || 0)));
+  };
+  const follow = (from) => {
+    if (queued) return;
+    queued = after(() => {
+      queued = 0;
+      const max = scrollMax();
+      const x = Math.min(max, Math.max(0, Number(from.scrollLeft) || 0));
+      for (const other of panes) {
+        if (other !== from && Math.abs((Number(other.scrollLeft) || 0) - x) > 1) other.scrollLeft = x;
+      }
+      drawSlider();
+    });
+  };
+  for (const p of panes) p.addEventListener("scroll", () => follow(p));
+  slider.addEventListener("pointerdown", () => { held = true; });
+  const release = () => { held = false; drawSlider(); };
+  slider.addEventListener("pointerup", release);
+  slider.addEventListener("pointercancel", release);
+  // The slider drives both. The panes' own scroll events will follow and find
+  // nothing left to do, because both are already where it sent them.
+  slider.addEventListener("input", () => {
+    const max = scrollMax();
+    const x = Math.min(max, Math.max(0, Number(slider.value) || 0));
+    for (const p of panes) {
+      if (Math.abs((Number(p.scrollLeft) || 0) - x) > 1) p.scrollLeft = x;
+    }
+  });
+  // The day's width is set by the scale and the window's by the viewport, so both
+  // can change without the chart being rebuilt — a phone turned on its side, or the
+  // scale stepped. Observed rather than hooked to the window, so the observer dies
+  // with the chart instead of accumulating a listener per repaint, and skipped
+  // where it does not exist.
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => drawSlider());
+    ro.observe(a);
+    ro.observe(b);
+  }
+  // The slider is drawn twice, and both draws are load-bearing.
+  //
+  // The first, here, is so the control never exists in a state that is a lie: a
+  // slider built with no max is draggable and does nothing, which reads to her as a
+  // bug, so it is settled the moment it exists.
+  //
+  // The second is the one that measures anything. A chart is built DETACHED and
+  // appended by the caller after this function has returned, and a detached node has
+  // no scrollWidth at all — so the honest reading of the day cannot be taken yet. It
+  // is taken in a microtask rather than on a frame on purpose: a microtask runs as
+  // soon as the caller's own task ends, which is after the append, and it is
+  // delivered even in a tab that is not being drawn — where a frame never comes at
+  // all, and the ResizeObserver below stays silent with it. Measured live in such a
+  // tab: with the draw on a frame the slider sat at max 0 and disabled on a day whose
+  // own window was 321 pixels wide holding 2,507 pixels of day; on the microtask the
+  // same day reads its true 2,139 pixels of travel with no frame ever running.
+  drawSlider();
+  queueMicrotask(drawSlider);
 }
 
 // How many minutes the ruler steps by at the scale the day is drawn at. Nearest
@@ -1484,6 +1638,57 @@ function personNotes(row, sc, state, dayStartMin) {
 // one line and their height cannot move — a strip pinned to the foot of the panel
 // that grew a line whenever two of their jobs collided was the last thing on the
 // chart that moved while she scrolled it.
+// A person's card is taller than the window it lives in, so part of it can never be
+// read there. Measured at 1280x900 on her own day: the first person's card is 180
+// pixels tall and the people's window is 69 — two thirds of it fell below the window's
+// edge, and no amount of scrolling could show it, because a scroll of that window
+// shows 69 of those 180 pixels at a time. She reported the short window herself and
+// asked for two windows in its place; this is the part of that change that has to be
+// paid for, and it is paid here rather than by making the window tall again.
+//
+// So the card leaves the window and is pinned to the screen, beside the name she is
+// pointing at and level with that name's own row, clamped so it can never land off the
+// screen. The words are untouched and the reason she asked for them is untouched — v158,
+// "everything about a person goes into a tip on their own name". It is still a hover
+// card, so on a phone, which has no hover, nothing about this is drawn at all.
+function wirePersonTip(nameCell, tip) {
+  if (typeof window === "undefined" || !nameCell.addEventListener) return;
+  // The card's own size, which the clamping below needs. It is display:none until
+  // something hovers it, and a hidden element measures as nothing — so where it measures
+  // empty it is shown for the length of one read and handed straight back to the
+  // stylesheet. Nothing is painted in between: the write and the read are one task.
+  const size = () => {
+    const box = tip.getBoundingClientRect();
+    if (box.height) return box;
+    const was = tip.style.display;
+    tip.style.display = "block";
+    const shown = tip.getBoundingClientRect();
+    tip.style.display = was;
+    return shown;
+  };
+  const place = () => {
+    const name = nameCell.getBoundingClientRect();
+    const box = size();
+    const pad = 8;
+    const vw = Number(window.innerWidth) || 0;
+    const vh = Number(window.innerHeight) || 0;
+    // Beside the name column and level with the row — where the card has always opened.
+    // It moves only when leaving it there would put part of the card off the screen.
+    let left = name.right + 6;
+    let top = name.top;
+    if (vw) left = Math.min(left, vw - pad - box.width);
+    if (vh) top = Math.min(top, vh - pad - box.height);
+    tip.style.left = `${Math.round(Math.max(pad, left))}px`;
+    tip.style.top = `${Math.round(Math.max(pad, top))}px`;
+  };
+  // mouseenter places the card before the first paint of it. mousemove keeps it placed,
+  // and is not the same job: the card is now pinned to the screen, so a page scrolled
+  // under a pointer that has not moved would otherwise leave the card sitting beside a
+  // row it no longer belongs to, until the pointer left the name and came back.
+  nameCell.addEventListener("mouseenter", place);
+  nameCell.addEventListener("mousemove", place);
+}
+
 function personTip(notes) {
   return el("div", { class: "tl-tip tl-tip-person" },
     el("div", { class: "tl-sub" }, `👤 ${notes.who}`),
@@ -2249,11 +2454,14 @@ function personRow(r, row, trackW, sc, on, state) {
     e.stopPropagation();
     slotPopup(r, row, hit, sc, on, state);
   });
+  const tip = personTip(notes);
+  const nameCell = el("div", { class: "tl-name" },
+    el("div", { class: "tl-name-top" },
+      el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
+    tip);
+  wirePersonTip(nameCell, tip);
   return el("div", { class: `tl-row person tappable ${tone}`, onclick: () => personPopup(row, sc, on, state) },
-    el("div", { class: "tl-name" },
-      el("div", { class: "tl-name-top" },
-        el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
-      personTip(notes)),
+    nameCell,
     track);
 }
 
@@ -2589,19 +2797,27 @@ function totalRow(r, trackW) {
   // and this row has no tap handler, so on a phone these three facts are reachable
   // by no gesture at all. That is her own choice, made with the consequence in
   // front of her; giving the row a card is one line of code when she wants it.
+  // This row's card is placed by the same function a person's card is, so the two
+  // cannot behave differently: on the screen this row sits in the same scrolling
+  // window as the people above it, and a card left at its static position inside
+  // that window is cut by the window's own edge exactly as a person's was.
+  const tip = el("div", { class: "tl-tip tl-tip-person" },
+    el("div", { class: "tl-sub" },
+      r.people === 1 ? "one at a time" : `up to ${r.people} at once`),
+    busiest && r.people > 1
+      ? el("div", { class: "tl-sub" }, `busiest ${clockAt(r.dayStartMin, busiest.from)}–${clockAt(r.dayStartMin, busiest.to)}`)
+      : null,
+    r.demand.overlapMin > 0
+      ? el("div", { class: "tl-sub bad" }, `${hoursAndMinutes(r.demand.overlapMin)} with two at a time`)
+      : null);
+  const nameCell = el("div", { class: "tl-name" },
+    el("div", { class: "tl-name-top" },
+      el("span", { class: "tl-name-txt" }, "👥 People at once")),
+    tip);
+  wirePersonTip(nameCell, tip);
+
   return el("div", { class: "tl-row person total-row" },
-    el("div", { class: "tl-name" },
-      el("div", { class: "tl-name-top" },
-        el("span", { class: "tl-name-txt" }, "👥 People at once")),
-      el("div", { class: "tl-tip tl-tip-person" },
-        el("div", { class: "tl-sub" },
-          r.people === 1 ? "one at a time" : `up to ${r.people} at once`),
-        busiest && r.people > 1
-          ? el("div", { class: "tl-sub" }, `busiest ${clockAt(r.dayStartMin, busiest.from)}–${clockAt(r.dayStartMin, busiest.to)}`)
-          : null,
-        r.demand.overlapMin > 0
-          ? el("div", { class: "tl-sub bad" }, `${hoursAndMinutes(r.demand.overlapMin)} with two at a time`)
-          : null)),
+    nameCell,
     el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars));
 }
 
@@ -3294,41 +3510,76 @@ function scenariosCard(sc, state, on) {
         }, "✏️")))));
   }
 
-  // Her own day on one pair of hands, set for her — the eight modules of the
-  // Production line's chain, each carrying the latest start the card works out
-  // from the oven. Offered on the same terms as the line below it: never dropped
-  // in, and it stops being offered the moment she has it.
-  if (!list.some((s) => s.id === ONE_BAKER_SCENARIO.id)) {
+  // The ready-made days are OFFERED, and the offer names none of them.
+  //
+  // Her words, 23 September 2026, looking at this card: "why the deleted scenario
+  // stil listed?" She was right, and it was here. Each ready-made day used to be
+  // offered BY NAME whenever it was missing from her shelf — so deleting one put its
+  // name straight back on the card, in the position its saved row had just left and
+  // dressed exactly like the rows above it. Measured by deleting "My sister proposal
+  // 21/9/2026" from a copy of her own data: the list went
+  //
+  //   No fridge, 1 person · 24 pans a day · 9 modules
+  //   My sister proposal 21/9/2026 · 4 pans a day · 8 modules     <- the one she deleted
+  //   One baker day · 24 pans a day · 8 modules
+  //
+  // and came back as
+  //
+  //   No fridge, 1 person · 24 pans a day · 9 modules
+  //   One baker day · 24 pans a day · 8 modules
+  //   ＋ My sister proposal 21/9/2026 · Mix by hand, no chiller    <- her deleted day, still there
+  //
+  // The day itself was gone from storage both times. What stayed was its name, which
+  // on a screen is the same thing. A deleted name is not an offer, it is a leftover.
+  //
+  // So there is one offer row, it names nothing, and the names live inside what it
+  // opens — where they are plainly a menu of days she can add rather than scenarios
+  // she already has. Nothing is stored to remember the deletion: a stored "she said
+  // no" can be lost by a sync, and a day that has left her shelf simply stops being
+  // shouted about by name on that shelf.
+  const missingReadyMade = READY_MADE.filter(({ preset }) => !list.some((s) => s.id === preset.id));
+  if (missingReadyMade.length) {
     kids.push(el("div", {
       class: "info-row tappable", style: "margin-top:10px",
-      onclick: () => {
-        const entry = copyScenario(ONE_BAKER_SCENARIO, ONE_BAKER_SCENARIO.name, ONE_BAKER_SCENARIO.id);
-        list.push(entry);
-        openScenario(entry, state, on);
-      },
+      onclick: () => addReadyMadePopup(missingReadyMade, state, on, list),
     },
-      el("span", { class: "j-what" }, `＋ ${ONE_BAKER_SCENARIO.name}`),
-      el("span", { class: "info-val" }, "One pair of hands, set for you")));
-  }
-
-  // A second line, ready to open. Offered rather than dropped in on her: a
-  // scenario she deletes must never come back on its own, and a line she has to
-  // choose to add is one she knows she has. It disappears from here once it is
-  // on her shelf, because it is then just another of her saved scenarios.
-  if (!list.some((s) => s.id === SISTER_SCENARIO.id)) {
-    kids.push(el("div", {
-      class: "info-row tappable", style: "margin-top:10px",
-      onclick: () => {
-        const entry = copyScenario(SISTER_SCENARIO, SISTER_SCENARIO.name, SISTER_SCENARIO.id);
-        list.push(entry);
-        openScenario(entry, state, on);
-      },
-    },
-      el("span", { class: "j-what" }, `＋ ${SISTER_SCENARIO.name}`),
-      el("span", { class: "info-val" }, "Mix by hand, no chiller")));
+      el("span", { class: "j-what" }, "＋ Add a ready-made day"),
+      el("span", { class: "info-val" }, missingReadyMade.length === 1
+        ? "One day is set out and ready to open"
+        : `${missingReadyMade.length} days are set out and ready to open`)));
   }
 
   return el("div", {}, el("h2", { class: "section" }, "Your scenarios"), el("div", { class: "card" }, ...kids));
+}
+
+// The two days that ship with the app, with the one line each is described by. Her
+// own day on one pair of hands, the eight modules of the Production line's chain each
+// carrying the latest start the card works out from the oven; and the mix-by-hand day
+// with no chiller. Kept as a list rather than two blocks of code so the offer row and
+// the menu it opens cannot disagree about what can be added.
+const READY_MADE = [
+  { preset: ONE_BAKER_SCENARIO, blurb: "One pair of hands, set for you" },
+  { preset: SISTER_SCENARIO, blurb: "Mix by hand, no chiller" },
+];
+
+// What the offer row opens: the ready-made days she does not have, by name. This is
+// the only place their names are written down, and it is a menu rather than her shelf,
+// so a name here is a day she can add and never a day she has deleted.
+function addReadyMadePopup(missing, state, on, list) {
+  showPopup("Add a ready-made day", (refresh, close) => el("div", {},
+    el("p", { class: "card-sub", style: "margin:0 0 8px" },
+      "These come with the app, already worked out. Adding one puts it on your own list, where it is yours to change like any other."),
+    ...missing.map(({ preset, blurb }) => el("div", {
+      class: "info-row tappable",
+      onclick: () => {
+        const entry = copyScenario(preset, preset.name, preset.id);
+        list.push(entry);
+        close();
+        openScenario(entry, state, on);
+      },
+    },
+      el("span", { class: "j-what" }, `＋ ${preset.name}`),
+      el("span", { class: "info-val" }, blurb)))));
 }
 
 function saveAsPopup(sc, state, on, list) {

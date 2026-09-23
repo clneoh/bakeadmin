@@ -1,8 +1,92 @@
-# Jienluv2bake — change history (v54 → v166)
+# Jienluv2bake — change history (v54 → v167)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v167 (no database step). The day chart is now two windows
+sharing one horizontal slider — the process above, the people below, one ruler's
+lines down both — and the blank space under your people's rows is gone. This
+release also carries two smaller faults you reported while it was being built.**
+
+**What you asked for, in your own words.** First: "the window for person stay
+over size", which you confirmed means the empty space under the people's rows.
+Measured at a phone's width, 375 by 812: the chart was one window, fixed at 650
+pixels tall, the day's own content was 473, and your people's rows ended at 457 —
+so 177 pixels of empty window sat under them. Then your proposal, which was better
+than a tweak: "instead of consider then one window, why not create 2 windows, and
+let the ruler sync in the 2 windows. As the business grows, the persons will
+grows, processs might not, we need to have a better way to manage, what you say?"
+And on how the two should sit: "can the 2 window share the horizontal slider,
+place between the 2 windows, make the 2 windows as close as possible", with the
+slider going straight into the people's bars underneath it.
+
+**What is on the screen now.** Two windows, one above the other, with a single
+slider lying between them and touching both — measured gap of 0 pixels either
+side. The upper window holds the clock and every module, batch and cycle; it
+scrolls up and down on its own when you add more modules. The lower window holds
+your people's rows and nothing else, and it scrolls on its own too, so as your
+people grow the second window grows and the first one does not have to. The
+ruler's lines reach down both. The slider between them is the only horizontal
+control: drag it, and both windows move together; drag either window's own day
+sideways, and the other follows and the slider follows with it. Measured on your
+day at 375 by 812: the slider reads a travel of 2,139 pixels, a drag on one
+window moved the other to the same pixel, and the window under your finger
+received no write back at all — the echo is dropped rather than sent, which is
+what would make a phone stutter mid-drag. On a day short enough to fit, the
+slider dims and cannot be dragged, because a control you can grab that does
+nothing reads as a fault.
+
+**The blank space.** It is gone. The chart is no longer forced to a fixed 650
+pixels; it is now exactly what its two windows need. Measured on your day: upper
+window 403, slider 20, lower window 70, totalling 493, with your people's last row
+sitting exactly on the window's floor — 0 pixels of empty window under it, where
+there were 177. The height ceiling from v157 survives as a ceiling: the chart is
+never taller than it was, it is only allowed to be shorter when your day is
+shorter.
+
+**The first of the two smaller faults: a deleted saved day left its name on your
+card.** In your words: "why the deleted scenario stil listed?" You were right, and
+it was reproduced rather than explained. Deleting "My sister proposal 21/9/2026"
+left the card still offering "＋ My sister proposal 21/9/2026 · Mix by hand, no
+chiller", dressed exactly like a day still saved, while your storage held only
+two. The cause was that the card offered each ready-made day by name whenever that
+name was not in your list, so deleting one put the name straight back. Now the
+card offers one plain row, "＋ Add a ready-made day", which names nothing; opening
+it lists whichever ready-made days you do not already have, and one tap puts that
+day on your own list, where it is yours to change like any other. Proven live:
+after deleting that day the card named it nowhere, and the chooser handed back
+exactly that one day.
+
+**The second: on a computer, a person's name card was cut.** Hovering a person's
+name on the chart opens a card of what they do that day. In the new lower window
+that card was taller than the window it opened into — measured 180 pixels of card
+inside a 69-pixel window, 96 pixels of it below the window's own bottom, with no
+scroll position that could show it whole. It is now laid on the screen rather than
+inside the window, so it reads in full wherever the name is, and it is pulled back
+from the screen's edges rather than running off them. The "People at once" row's
+card, which sits in the same window, is placed by the very same function, so the
+two rows cannot behave differently. Measured on a computer at 1280 by 900: both
+cards fully on the screen, with 8 pixels to spare at the foot.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. No bar
+changed colour, and every tap still opens exactly what it opened before — a batch
+its Batch card, a cycle its own card, a person's stretch the hand-over card. Your
+stored data was compared before and after: 13,561 characters, byte for byte the
+same, and your three saved days still read 24, 12 and 24 pans.
+
+**Three rules now stand on it, each proved load-bearing rather than assumed.** One
+asserts the two windows are adjacent with the slider between them, and that a drag
+on either moves the other and the slider while the window under the finger takes
+no write back. One asserts that a ready-made day you have deleted leaves no name
+standing on your card, with the offer row itself excluded from the check. One
+asserts that both a person's card and the tally row's card are placed beside their
+name and pulled back from the screen's edges. Every one was proved by putting the
+fault back and watching it fail by name, then restored byte-identically.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
 
 **23 Sep 2026 — engine v166 (no database step). The ruler's lines are now drawn
 strongly enough to be seen on a phone — including across your batches, your cycles

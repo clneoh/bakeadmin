@@ -20,7 +20,14 @@ function createEl(tag) {
   return {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
-    scrollTop: 0, hidden: false, _listeners: {},
+    // scrollLeft is here with scrollTop, and for the same reason the disabled and
+    // data-* reflections are: the pane scroll-sync READS a scroll position back off
+    // a node, so a shim without one hands the writer undefined and every assertion
+    // about the two windows moving together is vacuous. The widths start at zero —
+    // a node with no box, as a detached one has — and a test that wants a day wider
+    // than its window says so.
+    scrollTop: 0, scrollLeft: 0, scrollWidth: 0, clientWidth: 0, scrollHeight: 0, clientHeight: 0,
+    hidden: false, _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
     append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
@@ -50,7 +57,20 @@ function createEl(tag) {
       if (m) this.dataset[m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = String(v);
     },
     getAttribute(k) { return this.attrs[k]; },
-    getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 400 }; },
+    // One box for every node is not enough for a card that is placed by its own
+    // measurements: a test that wants a name cell at one place and a card of another
+    // size says so with `_rect`, and everything that has not asked keeps the old
+    // constant it always had.
+    //
+    // A real getBoundingClientRect returns a DOMRect, which carries right and bottom
+    // as well, and a box without them is a stub more forgiving than the browser it
+    // stands in for: the view places a card beside the name by the name's right edge,
+    // and against this shim alone that came out as NaN — a card placed at no position
+    // at all, which is precisely the fault a test here exists to catch.
+    getBoundingClientRect() {
+      const r = this._rect || { left: 0, top: 0, width: 600, height: 400 };
+      return { ...r, right: r.left + r.width, bottom: r.top + r.height };
+    },
     focus() {}, click() {},
     // A real node detaches itself from its parent and this one has to as well:
     // a call card that could only be "removed" by the shim quietly doing nothing
@@ -76,6 +96,27 @@ globalThis.document = {
 };
 globalThis.setTimeout = (fn) => { fn(); return 1; };
 globalThis.clearTimeout = () => {};
+// The screen, for the one piece of the view that places something on it: a person's
+// card is pinned to the screen rather than to its row, so where it lands is decided
+// against these two numbers. A view that cannot see a screen must not place anything,
+// which is why this is a plain object rather than a bare global set to undefined.
+globalThis.window = { innerWidth: 1000, innerHeight: 800 };
+// The frame the pane scroll-sync coalesces its writes on. A browser hands these out
+// and runs the batch before the next paint; the shim keeps a queue a test flushes
+// by hand. It is NOT wired to the synchronous setTimeout above on purpose: a writer
+// that ran the instant the scroll fired would hide the single thing this code
+// exists to do — drop the echo of its own write instead of writing back to the pane
+// under her finger, which is how an iOS flick is killed.
+const frames = [];
+globalThis.requestAnimationFrame = (fn) => { frames.push(fn); return frames.length; };
+globalThis.cancelAnimationFrame = () => {};
+// Run the queued frame, and anything a callback queues in turn — bounded, so a
+// callback that reschedules itself cannot hang the suite.
+const flushFrames = () => {
+  for (let i = 0; i < 20 && frames.length; i += 1) {
+    for (const fn of frames.splice(0, frames.length)) fn();
+  }
+};
 // The live clock's tick. The run holds a real interval in a browser and a handle
 // here, so a test can drive the day a minute at a time instead of waiting for it.
 const ticks = [];
@@ -570,9 +611,12 @@ test("Stop takes the clock and any call away with it (v151)", () => {
   stop.dispatchEvent({ type: "click" });
   assert.equal(callsOnChart(root).length, 0, "a call survived Stop");
   // The now-line is gone too — it is hidden rather than removed, so the class is
-  // what to ask about.
-  const nowLine = walk(root).find((n) => hasClass(n, "tl-now"));
-  assert.ok(nowLine && nowLine.hidden, "the now-line is still drawn after Stop");
+  // what to ask about. Since v167 there is one per window, and both have to go: a
+  // run that stopped in the modules and went on walking down among the people is
+  // the one thing a chart of "now" may never show.
+  const nowLines = walk(root).filter((n) => hasClass(n, "tl-now"));
+  assert.equal(nowLines.length, 2, `${nowLines.length} now-lines are drawn, not one per window`);
+  assert.ok(nowLines.every((n) => n.hidden), "a now-line is still drawn after Stop");
   // And the walk is over, so a later tick cannot call anybody.
   minutesLater(NOW, calls[calls.length - 1].at); tick();
   assert.equal(callsOnChart(root).length, 0, "a stopped day went on calling");
@@ -1087,12 +1131,16 @@ test("a press on batch 1 of a module that follows moves the whole module, and th
   assert.match(lastToast(), /already as early as the line allows|nothing left to take off/, "a module with nothing left to take off did not say so");
 });
 
-test("the people are held below the modules, so a slot can be read against any module (v154)", () => {
+test("the people are held below the modules, so a slot can be read against any module (v154, v167)", () => {
   const { root } = render();
   // Her ask: "I want to freeze the persons card, so that by scrolling thru modules
   // i can see exactly where that slot of that person tie up to and searching for
   // opportunity to move some batch start time to reduce the number of person
   // needed." The modules scroll; the people do not.
+  //
+  // The guarantee is the same one at v167 and it is kept by a stronger mechanism:
+  // the people are not pinned inside the modules' panel any more, they are in a
+  // window of their own below it, so no module row can reach them at any height.
   const people = walk(root).find((n) => hasClass(n, "tl-people"));
   assert.ok(people, "the people rows are not held in a block of their own, so they scroll away with the modules");
 
@@ -1113,11 +1161,28 @@ test("the people are held below the modules, so a slot can be read against any m
   // Drawn once, not once per module.
   assert.equal(walk(root).filter((n) => hasClass(n, "tl-people")).length, 1, "the people block is drawn more than once");
 
-  // And it is pinned by its own rule rather than by hope: sticky at the foot of the
-  // panel, opaque, over the module rows but under the day's own now-line.
+  // And it is held by the shape of the chart rather than by hope: since v167 it sits
+  // in a scrolling window of its own below the modules' window, so the modules'
+  // scrolling cannot reach it at any height — which is what the sticky foot was
+  // reaching for, and what left 177px of blank window under the people when the day
+  // was shorter than the fixed panel.
+  const pane = walk(root).find((n) => hasClass(n, "tl-pane-people"));
+  assert.ok(pane, "the people have no window of their own, so they are inside the modules' panel again");
+  assert.ok(walk(pane).includes(people), "the people block is not inside the people's window");
+  const proc = walk(root).find((n) => hasClass(n, "tl-pane-proc"));
+  assert.ok(proc, "there is no window for the modules");
+  assert.ok(!walk(proc).includes(people),
+    "the people block is inside the modules' window, so scrolling the modules still moves it");
+  // Both windows scroll, or a row cannot be panned to at all — and the class that
+  // carries the scrolling is the one rule they share.
+  assert.ok(hasClass(pane, "tl") && hasClass(proc, "tl"),
+    "a window does not wear the scrolling class, so its rows cannot be panned");
+
+  // The block itself is opaque (the windows are drawn over each other's edges), and
+  // the people's window is capped, or it would grow into the modules' window.
   const css = read("admin/css/app.css");
-  assert.match(css, /\.tl-people\s*\{[^}]*position:\s*sticky;\s*bottom:\s*0/, "the people block is not pinned to the foot of the panel");
   assert.match(css, /\.tl-people\s*\{[^}]*background:/, "the people block is see-through, so the modules show through it");
+  assert.match(css, /\.tl-pane-people\s*\{[^}]*max-height/, "the people's window has no cap, so it can grow into the modules'");
 });
 
 // ── v155: the module row is the height of its bars ──────────────────────────
@@ -1391,25 +1456,29 @@ test("the line's own group has left the control row for the module card (v157)",
 
 // ── v157: a taller window ────────────────────────────────────────────────────
 
-test("the modules window is taller, and the paragraphs above it are gone (v157)", () => {
+test("the modules window is taller, and the paragraphs above it are gone (v157, v167)", () => {
   const { root } = render();
 
   // Her first ask, "i want to make the modules window taller", and her last,
   // "remove?" on the two paragraphs.
   //
   // v157 answered the height with a floor and a raised cap, and v159 replaced both
-  // with ONE height: the pair left the panel a rubber band that followed the day's
-  // rows, which is the fault she reported on 23 September. What v157 was for is
-  // kept — the window is still a window and still scrolls — so the assertions are
-  // the same two facts, read off the rule that carries them now.
+  // with ONE height — which v167 then split between two windows, because that one
+  // height was also a FLOOR and her report of 23 September was the blank space it
+  // left under the people. What v157 was for is kept: each window is still a window,
+  // still capped, and still scrolls. The cap moved from .tl onto the panes, because
+  // two windows of different sizes cannot share one number.
   const css = read("admin/css/app.css");
-  assert.match(css, /\.tl\s*\{[^}]*height:\s*min\(80vh, 760px\)/, "the modules window has no height of its own, so it is not a window");
-  assert.match(css, /\.tl\s*\{[^}]*overflow:\s*auto/, "the modules window no longer scrolls");
-  // And the rubber band is gone with it: one height, and no floor or cap left to
-  // hand the panel back to the day's rows. See v159 below for what that fixed.
+  const procRule = /\.tl-pane-proc\s*\{[^}]*\}/.exec(css);
+  assert.ok(procRule, "the modules have no window of their own");
+  assert.match(procRule[0], /max-height:\s*min\(/, "the modules window has no cap, so it is not a window");
+  assert.match(css, /\.tl\s*\{[^}]*overflow:\s*auto/, "the windows no longer scroll");
+  // And the rubber band is still gone. A cap says where growth STOPS; the fault of
+  // v159 was a FLOOR, which says where it starts whether the day wants it or not.
+  // The shared rule must carry neither, and no height at all.
   const tlRule = css.slice(css.indexOf(".tl {"), css.indexOf("}", css.indexOf(".tl {")));
-  assert.doesNotMatch(tlRule, /min-height/, "the modules window still has a floor, so its height is the day's again");
-  assert.doesNotMatch(tlRule, /max-height/, "the modules window still has a cap, so it stops growing only where the day stops");
+  assert.doesNotMatch(tlRule, /min-height/, "the windows still have a floor, so their height is the day's again");
+  assert.doesNotMatch(tlRule, /[^-]height\s*:/, "the windows carry a fixed height again, which is the blank space she reported");
 
   // The two paragraphs above the chart are gone from the day card, and so is the
   // signpost that named the day-backwards control: the button names itself.
@@ -1449,6 +1518,42 @@ function personRows(root) {
   return walk(root).filter((n) => hasClass(n, "tl-row") && hasClass(n, "person") && !hasClass(n, "total-row"));
 }
 const nameCell = (row) => walk(row).find((n) => hasClass(n, "tl-name"));
+// ── The two windows (v167) ──────────────────────────────────────────────────
+// Her ask: "instead of consider then one window, why not create 2 windows, and let
+// the ruler sync in the 2 windows", and then "can the 2 window share the horizontal
+// slider, place between the 2 windows".
+const paneOf = (root, which) => walk(root).find((n) => hasClass(n, `tl-pane-${which}`));
+const wrapOf = (root) => walk(root).find((n) => hasClass(n, "tl-wrap"));
+const sliderOf = (root) => walk(root).find((n) => n.tagName === "INPUT" && hasClass(n, "tl-slider"));
+// Give both windows the box a real browser would: a day wider than the window, so
+// there is something to pan. Written onto the nodes rather than into a render
+// option, because this is geometry rather than app state.
+function giveThemAWindow(root, scrollWidth = 2000, clientWidth = 600) {
+  const panes = [paneOf(root, "proc"), paneOf(root, "people")];
+  for (const p of panes) { p.scrollWidth = scrollWidth; p.clientWidth = clientWidth; }
+  return panes;
+}
+// A px value out of a node's own style object — `cursor.style.left`, which is how
+// the view places a hairline — as opposed to px(), which reads the style STRING a
+// builder was handed.
+function stylePx(node, key) {
+  const m = /(-?\d+(?:\.\d+)?)px/.exec(String(node.style[key] || ""));
+  return m ? Number(m[1]) : null;
+}
+// Count the writes the CODE makes to a window's scrollLeft, so "the sync does not
+// write back to the window her finger is on" is an assertion rather than a hope.
+// Install it AFTER setting up the position the pan starts from, so what is counted
+// is only what the code does with it.
+function watchWrites(node) {
+  let v = node.scrollLeft;
+  let writes = 0;
+  Object.defineProperty(node, "scrollLeft", {
+    get() { return v; },
+    set(x) { v = x; writes += 1; },
+    configurable: true,
+  });
+  return () => writes;
+}
 const tipOf = (row) => walk(row).find((n) => hasClass(n, "tl-tip"));
 // The direct children of an element, elements only.
 const kidElements = (n) => (n.children || []).filter((c) => c.nodeType === 1);
@@ -1578,27 +1683,102 @@ test("the tip is a sibling of the name and not inside it (v158)", () => {
   }
 });
 
-test("a tip inside the strip at the foot of the panel opens upward, and the module's still centres (v158)", () => {
+test("a person's card is pinned to the screen, and the module's still centres (v158, v167)", () => {
   const css = read("admin/css/app.css");
   // The module tip is unchanged, and a v157 test stands on this line: it is
   // centred on its row, which is what keeps a first or last module's box inside
-  // the panel. The tally sits ON the panel's bottom edge, where a centred box
-  // would be cut in half, so it gets an override rather than a rewrite.
+  // the window. Measured, all eight of them do fit.
   assert.match(css, /\.tl-tip\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/,
     "the module's tip stopped being centred on its row");
-  assert.match(css, /\.tl-people\s+\.tl-tip\s*\{[^}]*top:\s*auto[^}]*bottom:\s*0[^}]*transform:\s*none/,
-    "a tip in the strip at the foot is not opened upward, so it is cut in half by the panel's own edge");
+  // A person's card is not placed inside its window at all, because it does not fit
+  // there in any direction: measured at 1280x900, the first person's card is 180 pixels
+  // tall in a window of 69. So it is fixed to the screen and the view places it.
+  assert.match(css, /\.tl-people\s+\.tl-tip\s*\{[^}]*position:\s*fixed/,
+    "a person's card is still positioned inside a window too short to hold it");
+  assert.match(css, /\.tl-people\s+\.tl-tip\s*\{[^}]*transform:\s*none/,
+    "a person's card carries a transform, which would place it against its row again");
+  // The width it was allowed was reserved for a card sitting inside the panel beside
+  // the 156px name column. A card pinned to the screen is not beside anything, so that
+  // reserve is gone and the screen's own width is what it may use.
+  assert.doesNotMatch(css, /\.tl-people\s+\.tl-tip\s*\{[^}]*100vw\s*-\s*240px/,
+    "a screen-pinned card is still reserving room beside the name column it left");
   // And it folds instead of widening: a job line is a module's name with a clock
   // and a line number in front of it, and that is wider than the box is allowed.
   assert.match(css, /\.tl-tip-person\s*\{[^}]*white-space:\s*normal/,
     "a job line cannot fold, so the box runs past the width it is allowed");
-  // The strip itself may not clip what it holds.
+  // The block itself still may not clip what it holds: the card has to be able to
+  // leave its own row. The clip line is the window's, and it is four edges.
   assert.doesNotMatch(css, /\.tl-people\s*\{[^}]*overflow\s*:\s*(?!visible)/,
-    "the strip has an overflow of its own, which would clip the tips inside it");
+    "the people block has an overflow of its own, which would clip the tips inside it");
   // And the hover tint on a person's row is gone, her own v156 instruction applied
   // to the last rows that had not had it: only the title opens the note.
   assert.doesNotMatch(css, /\.tl-row\.person\.tappable:hover/,
     "a person's row still reacts when the pointer is not on their title");
+});
+
+// The card is pinned to the screen, so its place is not decided by the stylesheet and
+// has to be worked out where it belongs — beside the name being pointed at, and never
+// off the screen. Both halves are asserted: a card placed with no clamp would hang off
+// the bottom of the last person's row, which is the fault this release exists for on
+// the screen it can be seen on. The numbers are a screen of 1000 by 800 (above).
+test("a person's card is placed beside the name, and never off the screen (v167)", () => {
+  const { root } = render();
+  const rows = personRows(root);
+  assert.ok(rows.length, "no person rows to place a card for");
+
+  const room = (row, nameRect, tipRect) => {
+    const cell = nameCell(row);
+    cell._rect = nameRect;
+    tipOf(row)._rect = tipRect;
+    cell.dispatchEvent({ type: "mouseenter" });
+    return { cell, tip: tipOf(row) };
+  };
+
+  // A row with room under it: the card opens beside the name column, level with the
+  // row. 156px wide name at x=200, so the card starts 6px past its right edge.
+  const first = room(rows[0], { left: 200, top: 100, width: 156, height: 35 },
+    { left: 0, top: 0, width: 272, height: 180 });
+  assert.equal(stylePx(first.tip, "left"), 362, "the card did not open beside the name");
+  assert.equal(stylePx(first.tip, "top"), 100, "the card did not open level with the row");
+
+  // The last row of a short window: there is no room under it, and 8px of screen is
+  // kept under the card rather than half of it being lost off the bottom — the fault
+  // that started this release, one window up.
+  const last = room(rows[0], { left: 200, top: 700, width: 156, height: 35 },
+    { left: 0, top: 0, width: 272, height: 180 });
+  assert.equal(stylePx(last.tip, "top"), 612, "the card hangs off the bottom of the screen");
+  assert.equal(stylePx(last.tip, "top") + 180, 792, "the card is not kept clear of the screen's edge");
+
+  // And a name at the far right of a wide day: the card comes back onto the screen
+  // rather than running off its right edge, which on a day 2,000 pixels wide is the
+  // common case rather than the rare one.
+  const right = room(rows[0], { left: 900, top: 100, width: 156, height: 35 },
+    { left: 0, top: 0, width: 272, height: 180 });
+  assert.equal(stylePx(right.tip, "left"), 720, "the card runs off the right of the screen");
+  assert.equal(stylePx(right.tip, "left") + 272, 992, "the card is not kept clear of the screen's edge");
+
+  // The tally row sits in the same scrolling window as the people above it, so its
+  // card is placed by the same function. A card left at its static position inside
+  // that window is cut by the window's edge, exactly as a person's was — the two
+  // rows look alike on the screen and must behave alike. Its own card is one line
+  // tall, so it measures 26 and needs no pulling back; what is being asserted is
+  // that it is placed at all.
+  const total = walk(root).find((n) => hasClass(n, "total-row"));
+  assert.ok(total, "the day has no tally row to place a card for");
+  const tallyCell = nameCell(total);
+  const tallyTip = tipOf(total);
+  tallyCell._rect = { left: 200, top: 700, width: 156, height: 35 };
+  tallyTip._rect = { left: 0, top: 0, width: 86, height: 26 };
+  tallyCell.dispatchEvent({ type: "mouseenter" });
+  assert.equal(stylePx(tallyTip, "left"), 362, "the tally's card was not placed beside its name");
+  assert.equal(stylePx(tallyTip, "top"), 700, "the tally's card did not open level with its row");
+
+  // And the same pulling-back applies to it: a card tall enough to overrun the
+  // screen's bottom is brought back with 8px to spare, whichever row it belongs to.
+  tallyTip._rect = { left: 0, top: 0, width: 86, height: 200 };
+  tallyCell.dispatchEvent({ type: "mouseenter" });
+  assert.equal(stylePx(tallyTip, "top"), 592,
+    "the tally's card hangs off the bottom of the screen, where the window would cut it");
 });
 
 test("the tally's three facts are in its tip and off the row (v158)", () => {
@@ -1763,7 +1943,11 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
     { pxPerMin: 3.2, step: 1, gridMin: 5, tickW: 16, name: "Closest" },
   ]) {
     const { root } = render({ pxPerMin: c.pxPerMin });
-    const tl = walk(root).find((n) => hasClass(n, "tl"));
+    // Read off the WRAP since v167: the two windows share one ruling, so the two
+    // numbers are set once on the element both inherit from. Read from the element
+    // the chart itself wrote them to rather than recomputed, so the test cannot
+    // agree with a rule the screen does not use.
+    const tl = walk(root).find((n) => hasClass(n, "tl-wrap"));
     assert.ok(tl, `no chart at ${c.name}`);
     assert.equal(px(tl, "--hour-w"), Math.round(60 * c.pxPerMin), `at ${c.name} the hour line moved`);
     assert.equal(px(tl, "--tick-w"), c.tickW,
@@ -1924,6 +2108,25 @@ test("the clock is drawn once, at the top of the chart", () => {
   const at = lab.textContent;
   band.dispatchEvent({ type: "pointerup", clientX: 400, clientY: 100, pointerId: 1 });
   assert.ok(!cursor.hidden && at, "a drag along the clock reads nothing at all");
+
+  // And the hairline reaches the people's window from that one reading — her own
+  // ask, arriving at the same place from the other side: "instead of consider then
+  // one window, why not create 2 windows, and let the ruler sync in the 2
+  // windows". The LINE travels; the READING stays in the window the finger is in,
+  // because its height comes from where the pointer is, which is nothing to do with
+  // a window the pointer is not over.
+  const cursors = walk(root).filter((n) => hasClass(n, "tl-cursor"));
+  assert.equal(cursors.length, 2, `${cursors.length} hairlines are drawn, not one per window`);
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  assert.equal(walk(proc).filter((n) => hasClass(n, "tl-cursor")).length, 1, "the modules' window has no hairline");
+  assert.equal(walk(people).filter((n) => hasClass(n, "tl-cursor")).length, 1, "the people's window has no hairline of its own");
+  assert.ok(cursors.every((n) => !n.hidden), "a hairline is left hidden while the other reads a minute");
+  assert.equal(stylePx(cursors[0], "left"), stylePx(cursors[1], "left"),
+    "the two windows are reading different minutes off one drag");
+  assert.equal(walk(root).filter((n) => hasClass(n, "tl-cursor-lab")).length, 1,
+    "the reading is drawn in both windows, so it names a minute at a height that means nothing in one of them");
+  assert.ok(walk(proc).includes(lab), "the reading left the window it was taken in");
 });
 
 // ── Handing one stretch of somebody's day to somebody else (v160, v161) ──
@@ -2186,4 +2389,282 @@ test("a number typed into one cycle box is not undone by the next box she touche
   assert.equal(fold().cycles[2].name, "Fold 3", "renaming a cycle did not reach the module");
   assert.equal(fold().cycles[0].load, 5, "renaming a cycle undid a number she had typed");
   assert.equal(fold().cycles[0].min, 44, "renaming a cycle undid a number she had typed");
+});
+
+// ── Two windows, one slider (v167) ──────────────────────────────────────────
+//
+// Her report of 23 September: "the window for person stay over size", which she
+// confirmed was the blank space under the people's rows — 177px of it at 375x812,
+// because the panel was a FIXED 650px tall while her day's content came to 473 and
+// the people's rows ended at y=457. Her own proposal, and what was built: "instead
+// of consider then one window, why not create 2 windows, and let the ruler sync in
+// the 2 windows. As the business grows, the persons will grows, processs might not,
+// we need to have a better way to manage". Then, watching it go in: "can the 2
+// window share the horizontal slider, place between the 2 windows, make the 2
+// windows as close as possible" — and, asked what sits under the slider, "slider,
+// then straight into their bars".
+
+test("the chart is two windows with the one slider between them (v167)", () => {
+  const { root } = render();
+  const wrap = wrapOf(root);
+  assert.ok(wrap, "the chart is not drawn as two windows");
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  const slider = sliderOf(root);
+  assert.ok(proc && people, "the chart does not draw both windows");
+  assert.ok(slider, "the two windows share no control between them");
+
+  // Both are windows in the same sense: each wears the class that scrolls it and
+  // pins its name column, each holds its own inner, and each is watched for a pan.
+  for (const p of [proc, people]) {
+    assert.ok(hasClass(p, "tl"), `a window does not wear the class that scrolls it: ${p.className}`);
+    assert.equal(kidElements(p).filter((n) => hasClass(n, "tl-inner")).length, 1,
+      "a window does not hold exactly one day");
+    assert.ok((p._listeners.scroll || []).length, "a window is not watched for panning, so the two cannot stay in step");
+  }
+
+  // In that order, and with nothing between them — which is her second ask as much
+  // as the first: "make the 2 windows as close as possible". Asserted as adjacency
+  // rather than as a list that merely holds the right three things.
+  const strip = kidElements(wrap);
+  assert.deepEqual(strip.map((n) => (n === slider ? "slider" : n === proc ? "proc" : n === people ? "people" : "other")),
+    ["proc", "slider", "people"],
+    "the two windows and their slider are not stacked in that order");
+  assert.equal(strip.indexOf(proc) + 1, strip.indexOf(slider),
+    "something stands between the modules' window and the shared slider");
+  assert.equal(strip.indexOf(slider) + 1, strip.indexOf(people),
+    "something stands between the shared slider and the people's window");
+  // The windows still hold their horizontal overflow — that is what pins the names
+  // against the left edge as the day slides under them — so the shared slider is
+  // the only horizontal scrollbar she is meant to see, and the stylesheet hides
+  // theirs.
+  assert.match(read("admin/css/app.css"), /\.tl::-webkit-scrollbar:horizontal\s*\{\s*height:\s*0/,
+    "each window still draws its own horizontal scrollbar beside the shared slider");
+});
+
+test("the modules are in the top window and the people in the bottom one (v167)", () => {
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  const block = walk(people).find((n) => hasClass(n, "tl-people"));
+  assert.ok(block, "the people's window holds no people");
+  assert.equal(walk(proc).filter((n) => hasClass(n, "tl-people")).length, 0,
+    "the people's block is inside the modules' window as well, so it is drawn twice");
+
+  // Every module has a row in the top window and no row in the bottom one. Named
+  // rather than counted, so a row that moved between the windows cannot pass by
+  // arithmetic alone — and guarded on the class a MODULE row wears, because since
+  // v158 a person's tip names the modules that person attends.
+  for (const m of ONE_BAKER_SCENARIO.modules) {
+    assert.ok(walk(proc).some((n) => hasClass(n, "tl-row") && !hasClass(n, "person") && textOf(n).includes(m.name)),
+      `the row for "${m.name}" is not in the modules' window`);
+    assert.ok(!walk(people).some((n) => hasClass(n, "tl-row") && !hasClass(n, "person") && textOf(n).includes(m.name)),
+      `a module row for "${m.name}" is in the people's window`);
+  }
+  assert.ok(personRows(people).length, "the people's window holds no person rows");
+  assert.equal(personRows(proc).length, 0, "a person's row is inside the modules' window");
+
+  // And the clock is in the top window only. That is her own choice about what sits
+  // under the slider — "slider, then straight into their bars" — and it is also
+  // what keeps v163's rule, that no clock is drawn above the people's rows, true.
+  assert.equal(walk(people).filter((n) => hasClass(n, "tl-ruler")).length, 0,
+    "the people's window carries a clock row of its own");
+  assert.match(read("admin/css/app.css"), /\.tl-pane-people\s*\{[^}]*max-height/,
+    "the people's window has no cap, so it can grow into the modules'");
+});
+
+test("the slider pans both windows, and panning one pans the other (v167)", () => {
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  const slider = sliderOf(root);
+
+  // A day that fits its window has nothing to pan, so the control is spent and
+  // says so rather than sitting there draggable and doing nothing — her own rule,
+  // from the two rows that used to look alike and behave differently: "a tap that
+  // does nothing must explain itself or look inert".
+  assert.equal(slider.disabled, true, "a day with nothing to pan still offers a live slider");
+
+  // Now give both windows the box a browser would: a day wider than the window.
+  giveThemAWindow(root);
+  proc.scrollLeft = 300;
+  const wrote = [watchWrites(proc), watchWrites(people)];
+  proc.dispatchEvent({ type: "scroll" });
+  flushFrames();
+  assert.equal(people.scrollLeft, 300, "panning the modules' window did not move the people's");
+  assert.equal(slider.value, "300", "the slider did not follow the pan");
+  assert.equal(slider.disabled, false, "a day that can be panned still shows a spent slider");
+  assert.equal(slider.max, "1400", "the slider cannot reach the end of the day");
+  assert.equal(wrote[0](), 0, "the sync wrote back to the window the pan came from");
+  assert.equal(wrote[1](), 1, `the other window was written ${wrote[1]()} times, not once`);
+  // And then the ECHO, which is the whole reason the sync uses a one-pixel deadband
+  // rather than a lock. Assigning scrollLeft does not fire scroll synchronously in
+  // Chrome or WebKit: it is queued to the next rendering opportunity, so a lock set
+  // before our write and cleared after it is already clear when the echo arrives,
+  // the echo is not suppressed, and it writes back to the window under her finger —
+  // which is the documented way to stop a flick dead on iOS. A frame later, having
+  // moved the people's window, the browser fires scroll on it. That echo must find
+  // nothing left to do.
+  people.dispatchEvent({ type: "scroll" });
+  flushFrames();
+  assert.equal(wrote[0](), 0, "the echo of the sync's own write came back to the window her finger is on");
+  assert.equal(wrote[1](), 1, "the echo moved a window that was already in step");
+
+  // And the slider drives both, which is what it is for: inside a window's own pan
+  // it is the only control there is, and if it reached one window only the day
+  // would be read at two different minutes on one screen.
+  slider.value = "800";
+  slider.dispatchEvent({ type: "input" });
+  assert.equal(proc.scrollLeft, 800, "the slider did not move the modules' window");
+  assert.equal(people.scrollLeft, 800, "the slider did not move the people's window");
+
+  // A pointer held on the slider is not fought by the write-back of the pan it is
+  // causing: its own value is left alone until she lets go.
+  slider.dispatchEvent({ type: "pointerdown" });
+  people.scrollLeft = 1000;
+  people.dispatchEvent({ type: "scroll" });
+  flushFrames();
+  assert.equal(slider.value, "800", "the slider's value was written back under her own thumb");
+  assert.equal(proc.scrollLeft, 1000, "the other window did not follow while the slider was held");
+  slider.dispatchEvent({ type: "pointerup" });
+  assert.equal(slider.value, "1000", "letting go of the slider did not settle it where the day is");
+});
+
+// The fault this stands on was found on the real app, not here, and it is the same
+// shape as the one v162 named: every test was green while the shipped screen was
+// wrong. The draw that MEASURES the slider was on a frame, and a chart is built
+// detached — no scrollWidth at all — so the frame had to be the one that came after
+// the caller appended it. In a tab the browser is not drawing, a frame never comes,
+// so the measuring draw simply never ran: the live slider sat at max 0, disabled and
+// pinned left, on a day with 2,189 pixels of travel. The frame below is deliberately
+// never flushed.
+test("the slider is measured once the chart is on the page, without waiting for a frame (v167)", async () => {
+  const { root } = render();
+  const slider = sliderOf(root);
+  assert.equal(slider.disabled, true, "a slider existed in a draggable, do-nothing state");
+  const framesBefore = frames.length;
+
+  // The caller has appended it and the browser has given it a box. This is a
+  // microtask's work, so it is already done — no frame required, which is the point.
+  giveThemAWindow(root, 2510, 321);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(slider.max, "2189", "the slider was never measured against the day it pans");
+  assert.equal(slider.disabled, false, "a day wide enough to pan still shows a spent slider");
+  assert.equal(frames.length, framesBefore, "measuring the slider waited on a frame after all");
+});
+
+// Her words, 23 September 2026, looking at the Your scenarios card: "why the deleted
+// scenario stil listed?" Measured on a copy of her own data by deleting "My sister
+// proposal 21/9/2026": the day left storage, and its name came straight back onto the
+// card as "＋ My sister proposal 21/9/2026 · Mix by hand, no chiller" — in the place
+// her saved row had just left and dressed exactly like the rows above it. The name of
+// a day she has deleted may not stand where a saved day stands. That is the whole of
+// her report, and this is the card it happened on.
+test("a ready-made day she has deleted leaves no name standing on her card (v167)", () => {
+  const scen = { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })) };
+  const state = {
+    settings: {
+      currency: "RM", deliveryDays: [1, 3, 5], scenario: scen,
+      scenarios: [
+        { id: "s_mine", name: "No fridge, 1 person" },
+        { id: ONE_BAKER_SCENARIO.id, name: ONE_BAKER_SCENARIO.name },
+      ],
+    },
+    uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [],
+  };
+  const root = createEl("div");
+  renderScenario(root, state);
+
+  const card = walk(root).find((n) => hasClass(n, "section") && /Your scenarios/.test(textOf(n))).parent;
+  const text = textOf(card);
+  assert.match(text, /No fridge, 1 person/, "her own saved day is not on the card");
+  assert.match(text, /One baker day/, "her other saved day is not on the card");
+  assert.doesNotMatch(text, /My sister proposal/,
+    "a deleted day's name is still standing where her saved days stand");
+  // One offer row, and it is the only row on the card that wears a ＋ at all — the
+  // day she deleted must not be wearing one either.
+  const plusRows = walk(card).filter((n) => hasClass(n, "info-row") && /＋/.test(textOf(n)));
+  assert.equal(plusRows.length, 1,
+    `${plusRows.length} rows begin with a ＋: ${plusRows.map(textOf).join(" | ")}`);
+
+  // And nothing has been taken away from her: one row, naming none of them, which
+  // opens the days she can add. A name inside a menu is an offer; a name on the shelf
+  // is a listing, and that difference is the whole fix.
+  const offer = walk(card).find((n) => hasClass(n, "info-row") && /Add a ready-made day/.test(textOf(n)));
+  assert.ok(offer, "the ready-made days can no longer be added at all");
+
+  layers["popup-layer"].replaceChildren();
+  offer.dispatchEvent({ type: "click" });
+  assert.match(popupBody(), /My sister proposal 21\/9\/2026/,
+    "the menu does not offer the day she deleted, so it cannot be added back");
+  assert.doesNotMatch(popupBody(), /No fridge, 1 person/,
+    "the menu offers a day that is already on her shelf");
+});
+
+test("both windows read the ruler from one pair of numbers, set once (v167)", () => {
+  const { root } = render();
+  const wrap = wrapOf(root);
+  // The numbers the chart itself wrote, rather than recomputed — so the test cannot
+  // agree with a rule the screen does not use.
+  assert.equal(px(wrap, "--hour-w"), Math.round(60 * ONE_BAKER_SCENARIO.pxPerMin),
+    "the hour line is not set on the element both windows inherit from");
+  for (const p of [paneOf(root, "proc"), paneOf(root, "people")]) {
+    assert.equal(px(p, "--hour-w"), null, "a window sets its own hour width, so the two can drift apart");
+    assert.equal(px(p, "--tick-w"), null, "a window sets its own grid step, so its ruling can disagree with the ruler's");
+  }
+  // And the stylesheet never declares either: they are the screen's own numbers,
+  // and a declaration here would be a second answer to the same question — the
+  // whole point of the v160 grid being that the lines and the ruler cannot disagree
+  // about where a minute is.
+  const css = read("admin/css/app.css");
+  assert.doesNotMatch(css, /--hour-w\s*:/, "the stylesheet declares the hour width as well as the screen");
+  assert.doesNotMatch(css, /--tick-w\s*:/, "the stylesheet declares the grid step as well as the screen");
+});
+
+test("the two windows and their slider fit inside the height the one window had (v167)", () => {
+  const css = read("admin/css/app.css");
+  const caps = {};
+  for (const which of ["proc", "people"]) {
+    const rule = new RegExp(`\\.tl-pane-${which}\\s*\\{[^}]*\\}`).exec(css);
+    assert.ok(rule, `the ${which} window has no rule of its own`);
+    const m = /max-height:\s*min\(\s*(\d+(?:\.\d+)?)vh\s*,\s*(\d+(?:\.\d+)?)px\s*\)/.exec(rule[0]);
+    assert.ok(m, `the ${which} window's cap is not a vh/px pair, so its share of the budget cannot be read`);
+    caps[which] = { vh: Number(m[1]), px: Number(m[2]) };
+  }
+  const sliderRule = /\.tl-slider\s*\{[^}]*\}/.exec(css);
+  assert.ok(sliderRule, "the shared slider has no rule of its own");
+  const sh = /height:\s*(\d+(?:\.\d+)?)px/.exec(sliderRule[0]);
+  assert.ok(sh, "the shared slider has no height, so its share of the budget is unknown");
+  const sliderPx = Number(sh[1]);
+
+  // 80vh / 760px is the tallest this chart has ever been drawn — v159's single
+  // window — and the two windows plus the slider between them must add up to no
+  // more than it, or the chart grows taller than it has ever been on her phone. The
+  // assertion is written as the invariant rather than as the three numbers, because
+  // the numbers are exactly what a future edit may move, as long as the sum holds.
+  assert.ok(caps.proc.vh + caps.people.vh <= 80,
+    `the two windows ask for ${caps.proc.vh + caps.people.vh}vh, more than the 80vh the chart was allowed`);
+  assert.ok(caps.proc.px + caps.people.px + sliderPx <= 760,
+    `the two windows and the slider ask for ${caps.proc.px + caps.people.px + sliderPx}px, more than the 760px the chart was allowed`);
+});
+
+test("the two windows' name columns are one rule, so their axes cannot drift (v167)", () => {
+  const css = read("admin/css/app.css");
+  // Every rule that names the column, with its own selector — the column has
+  // contextual overrides (a person's row tints it), so it is the WIDTH that has to
+  // be declared once rather than the selector that has to appear once.
+  const nameRules = [...css.matchAll(/[^{}]*\.tl-name(?![\w-])[^{}]*\{[^}]*\}/g)].map((m) => m[0]);
+  assert.ok(nameRules.length >= 1, "the name column has no rule at all");
+  const sized = nameRules.filter((r) => /156px/.test(r));
+  assert.equal(sized.length, 1, `the name column's width is declared in ${sized.length} places, so the two windows can size it differently`);
+  // Both halves — a basis and a width — because a column that is one in the modules
+  // and the other among the people is exactly the drift this test is for.
+  assert.equal((sized[0].match(/156px/g) || []).length, 2,
+    "the name column's width is not declared as both a flex basis and a width, so it can size differently in the two windows");
+  // And no rule gives one window a name column of its own: the same pixel has to be
+  // the same minute on both sides of the slider, and that 156px is what makes the
+  // chart's ONE hairline computation correct in either window.
+  const scoped = nameRules.filter((r) => /\.tl-pane-/.test(r.slice(0, r.indexOf("{"))));
+  assert.equal(scoped.length, 0, `a window overrides the name column: ${scoped.map((r) => r.slice(0, r.indexOf("{")).trim()).join(" / ")}`);
 });

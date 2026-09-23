@@ -2629,27 +2629,96 @@ tr.po-covered td { color: var(--muted); }
 /* The timing diagram. A day wide and scrolling sideways; the name column stays
    put so a bar three screens to the right still says what it belongs to. */
 .tl-card { padding: 10px 12px; }
-/* The chart is a panel of its own: it pans sideways for the length of the day and
-   scrolls down through the day's rows, with the clock strip pinned inside it. A
-   day of eight modules with more than one line each is taller than a phone, and a
-   clock she has scrolled away from is a clock she cannot read the bar against.
-   ONE height, and it is her own ask of 23 September: "the chart window became
-   shorter and shorter as no. of people grows. the window height should be fix".
-   v157 gave this panel a floor and a cap, which left it a rubber band: its height
-   was whatever the day's rows added up to, held between the two. Measured at 375px
-   with one person it was 473px, with six it was 648, and past the cap it stopped
-   growing while the pinned people strip carried on — so at the same viewport eight
-   modules left eight rows visible on a one-person day and four on a six-person one.
-   A single height removes both halves of that: the panel is the same size whatever
-   she adds, and the strip can only ever eat into a window that was already as tall
-   as it is allowed to be. The number is the cap v157 settled on, because a day that
-   fitted before must not stop fitting: it is the tallest this panel has ever been
-   drawn, and it still leaves the top of her phone free for the day above it. */
+/* The chart is TWO windows, stacked, sharing one horizontal slider between them.
+   Her ask of 23 September, in three parts. First the fault: "the window for person
+   stay over size" — measured at 375x812 the single panel was a fixed 650px, the
+   day's content 473px, and the people's rows ended at y=457, which left 177px of
+   empty window under them. Because the content was shorter than the height, the
+   people block's own sticky bottom never activated and the rows sat in the middle of
+   a tall empty box. Second, her own proposal: "instead of consider then one window,
+   why not create 2 windows, and let the ruler sync in the 2 windows. As the business
+   grows, the persons will grows, processs might not, we need to have a better way to
+   manage". Third, watching it go in: "can the 2 window share the horizontal slider,
+   place between the 2 windows, make the 2 windows as close as possible" — and, asked
+   what sits directly under the slider, "slider, then straight into their bars", so
+   the people's window carries no clock row of its own and the two texts sit about
+   twenty pixels apart.
+
+   What that changes from v157. v157 fixed the height on purpose — "the window height
+   should be fix" was her own complaint then, because a panel that grew with the day
+   was a rubber band. That floor is exactly what produced the blank space she is now
+   reporting, so the rule becomes NEVER MORE THAN the number rather than ALWAYS
+   exactly it: the cap survives, the floor does not.
+
+   The budget is unchanged, and it is the invariant to keep: the two pane caps plus
+   the slider's own height must not add up to more than min(80vh, 760px) — the
+   tallest this chart has ever been drawn, and still short enough to leave the top of
+   her phone free for the day above it. Move one number and another has to move. */
+.tl-wrap {
+  display: flex; flex-direction: column;
+  /* The hour line and the grid step are set ONCE, here, and inherited by both panes
+     — see timeline(), which writes --hour-w and --tick-w onto this element. Two
+     inline copies could drift apart and nothing would catch it, and the whole point
+     of the v160 grid is that the lines and the ruler cannot disagree about where a
+     minute is. */
+  position: relative;
+}
 .tl {
   overflow: auto;
-  height: min(80vh, 760px);
   -webkit-overflow-scrolling: touch;
+  /* Each pane is content-sized and capped by its own rule below. flex: 0 0 auto and
+     NOT a shrinkable item, deliberately: a max-height on a flex container is not a
+     definite main size, so an item shrinking against one is the part of flexbox
+     browsers do not agree on — and the day that went wrong the panes would spill out
+     of the card on her phone and not on mine. */
+  flex: 0 0 auto;
 }
+/* The modules window: the clock strip and the day's modules. 50vh + 28vh, and
+   470px + 270px, are what the old single panel was allowed — 78vh and 740px of it,
+   leaving the slider's own 20px inside the same budget. */
+.tl-pane-proc { max-height: min(50vh, 470px); }
+.tl-pane-people {
+  max-height: min(28vh, 270px);
+  /* The seam between the two windows, and it belongs to the PANE rather than to the
+     .tl-people block inside it: a border or a shadow on the block would scroll away
+     under the pane's own top edge, which is the opposite of what a seam is for. */
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
+}
+/* The one horizontal control, between the two windows. A native range rather than
+   a home-made thumb: it is touch-native, it takes a keyboard for free, and it needs
+   no hit-target arithmetic on a phone. The panes' own horizontal scrollbars are
+   hidden below, so this is the only one on the screen. */
+.tl-slider {
+  flex: 0 0 auto;
+  display: block; width: 100%; height: 20px; margin: 0;
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  touch-action: none;
+}
+.tl-slider::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px; background: var(--line);
+}
+.tl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 34px; height: 20px; margin-top: -8px;
+  border-radius: 6px; border: 0;
+  background: var(--brown);
+}
+/* A day that fits its window has nothing to pan, so the slider is switched off
+   rather than left draggable and doing nothing — her own rule, from the two rows
+   that used to look alike and behave differently: "a tap that does nothing must
+   explain itself or look inert". It is spent, and it says so. */
+.tl-slider:disabled { opacity: .45; }
+.tl-slider:disabled::-webkit-slider-thumb { background: var(--muted); }
+/* The panes keep their horizontal overflow — that is what pins the name column —
+   but the shared slider is the only horizontal scrollbar she is meant to see, so
+   theirs are hidden. Only the horizontal one: the vertical scrollbar is how she
+   knows there are more modules below the fold. Firefox has no per-axis control
+   (scrollbar-width is both axes or neither), so it keeps both; every engine she
+   reads this app on — Safari, and Chrome on the desktop — honours these. */
+.tl::-webkit-scrollbar:horizontal { height: 0; }
+.tl::-webkit-scrollbar-corner { background: transparent; }
 /* Positioned, so the time cursor can be a hairline down the whole day rather
    than a line per row: one element inside the day, not one per track. */
 .tl-inner { display: inline-block; min-width: 100%; position: relative; }
@@ -2853,9 +2922,9 @@ tr.po-covered td { color: var(--muted); }
    already painted in, so the foot of the chart is the same paper as the rest of it.
    The name cell is set too, and not left to inherit: its base rule is --surface
    anyway, but the strip used to be asked for here and a rule that only half goes
-   away is a rule that comes back. What still marks the block is .tl-people's own
-   border-top and shadow, and the row-to-row hairlines, so the strip reads as the
-   pinned foot of the day exactly as it did. */
+   away is a rule that comes back. What marks it off now is the pane it sits in —
+   .tl-pane-people carries the border and the shadow — and the row-to-row hairlines,
+   so the people still read as their own block rather than as more of the day. */
 .tl-row.person { background: var(--surface); }
 .tl-row.person .tl-name { background: var(--surface); }
 .tl-row.person .tl-bar { top: 12px; height: 11px; }
@@ -2888,35 +2957,42 @@ tr.po-covered td { color: var(--muted); }
    other saying one thing twice. The grid carried down the day starts below the
    ruler, which is where it is read. */
 .tl-ruler .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); }
-/* The people rows, pinned to the FOOT of the panel — her own ask of 22 September:
-   "I want to freeze the persons card, so that by scrolling thru modules i can see
-   exactly where that slot of that person tie up to". The clock strip is already
-   pinned at the top and the names at the left, so this is the third edge of the
-   same idea, and it is the one that answers the question she scrolls for: whose
-   minute is this, and where does moving a batch free a person.
-   Opaque, because a row of bars sliding under a see-through panel is unreadable —
-   the person rows keep their own strip tint over this. z-index 2, level with the
-   name column, so the module rows pass BEHIND it. The day's own red now-line
-   (z-index 3) still runs over it, because that one is the day happening rather
-   than a reading; the grey pointer hairline stops at the panel's edge. */
+/* The people rows, in the second window and pinned to nothing. Her own ask of
+   22 September was "I want to freeze the persons card, so that by scrolling thru
+   modules i can see exactly where that slot of that person tie up to", and a window
+   of its own answers that better than a pinned strip did: the strip covered the
+   bottom of the module rows while they scrolled behind it, and it was stuck to the
+   foot of a panel whose height had nothing to do with how many people she has. Now
+   this block is simply what the people's window holds — the window is as tall as
+   its rows up to its own cap, and the module rows above are never covered by it.
+   Opaque, because the window scrolls: a bar sliding under a see-through block is
+   unreadable. The person rows keep their own strip tint over this. */
 .tl-people {
-  position: sticky; bottom: 0; z-index: 2;
   background: var(--surface);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
-  /* No overflow, and that is load-bearing: the rows in here carry hover tips, and
-     any overflow other than visible would clip them. Nothing in this block needs
-     to scroll — a row is the height of its own bars, so the strip's height is
-     whatever its rows add up to. */
 }
-/* A tip inside the strip at the foot of the panel opens UPWARD.
-   The module tip is centred on its row, which is what keeps a first or last
-   module's box inside the panel — but the tally sits ON the panel's bottom edge,
-   and a centred box there would be cut in half by it. So the box's foot is put on
-   the row's own foot and it grows up into the scrollport, where the room is.
-   An override and not a rewrite: the module rows still need the centring, and the
-   rule above it is what a v157 test stands on. */
-.tl-people .tl-tip { top: auto; bottom: 0; transform: none; }
+/* The people's window scrolls, and a scrolling window is a clip line on all four
+   sides. This block deliberately carried no overflow of any kind until the window was
+   split in two, so that a person's hover card could never be cut — and inside a window
+   no direction now works, because the card is TALLER THAN THE WINDOW. Measured at
+   1280x900 on her own day: the first person's card is 180 pixels tall in a window of
+   69, so growing down it lost two thirds of itself below the bottom edge, growing up
+   it lost the same two thirds above the top edge, and a scroll showed 69 of those 180
+   pixels at a time whichever way it was scrolled. A card that does not fit its window
+   cannot be placed in that window.
+   So it is taken out of the window: pinned to the screen instead of to the row, placed
+   beside the name by the view (wirePersonTip) and clamped so it can never leave the
+   screen. Nothing is lost and nothing is added — the same card, the same words, the
+   same hover, on a computer only. The width reserve the panel placement needed is gone
+   with it: a card that is pinned to the screen no longer has to fit beside a 156-pixel
+   name column inside the panel, so it may use the width of the screen instead.
+   The module rows above keep the centring they have always had, and keep fitting
+   inside their own window: measured, all eight of their cards sit within it. */
+.tl-people .tl-tip {
+  position: fixed;
+  left: auto; top: auto; bottom: auto;
+  transform: none;
+  max-width: min(340px, calc(100vw - 16px));
+}
 .tl-ruler .tl-sub { padding-top: 2px; }
 .tl-tick {
   position: absolute; top: 0; bottom: 0;
