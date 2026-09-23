@@ -1,8 +1,82 @@
-# Jienluv2bake — change history (v54 → v168)
+# Jienluv2bake — change history (v54 → v169)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v169 (no database step). Every batch bar and every person's
+time slot now wears a frame in its own colour, so a block of work reads as a block
+and not just as a patch of colour on the paper. And the clock's lines have gone to
+the back of the day while every bar became see-through, so the ruler reaches inside
+them the way you asked instead of sitting on top of them. All inside More →
+Scenario planner.**
+
+**What you asked, in your own words.** First: "Can the batch and person time slot
+having a more highligted frame?" Then, while that was being built: "its scale
+should be at backgrond, the marker should be ontop, with some degree of
+transparency". Those two together are this release, and the second one turns round
+the way the ruler was drawn at v165 and v166.
+
+**Every marker now wears a frame, and it is drawn in its own colour.** A batch bar
+and a person's time slot are the very same shape in the app — one rule frames both,
+so a batch and a slot cannot end up looking like two different things. The frame is
+the bar's own solid colour: the same colour the hands inside that bar already wear,
+and, for a person, the same colour as the stripe down the side of their card. That
+matters more than it sounds — a frame in a colour of its own would be one more thing
+to keep in step, and it would drift the first time a tone changed. Nothing about
+the bar's shape moved for this: a batch bar is still 16 pixels tall and a person's
+slot still 11, measured, and the frame is a line laid inside the bar's edge rather
+than a border added round it. A border was tried and thrown away — it would have
+squeezed the inside of the bar, which is where your hands and the cycle shades are
+placed, and an inner shadow was no better because those same shades are painted over
+it.
+
+**The ruler is at the back and the markers are over it, as you asked.** Since v165
+the lines were drawn as a layer of their own on top of everything. They are now the
+paper's own ruling again — the surface the bars are drawn on — and every bar is a
+wash over it rather than a solid block. The bar is 72 parts in 100 opaque, which is
+the "some degree of transparency" you asked for: enough that the clock reads through
+it, not so much that the day looks faded.
+
+**What that cost, honestly, and what was done about it.** A line seen through a bar
+loses about a quarter of its strength, because the same wash covers both the line
+and the paper beside it. Left alone, the ruler would have gone faint again — and
+faint is the fault you reported twice. So both lines were drawn heavier: the hour
+line at 60 parts in 100 of full strength where it was 34, and the finer grid at 45
+where it was 20. Measured through one of your batch bars, the hour line now differs
+from the bar beside it by 29 parts in 255 and the grid by 22, against the 20 that
+your own v166 rule demands. The honest other side of that: on the bare paper between
+the bars the ruling now reads about twice as strong as it did at v168. That is the
+price of drawing it behind the markers, and it was paid deliberately.
+
+**And no line crosses a label.** Your B-numbers and the name of the person on a
+stretch of their day are laid above the frame, so thickening the frame cannot put a
+line through a number you have to read.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+scenario changed, and nothing here blocks a sale or reads an order. Every tap still
+opens exactly what it opened before — a batch its Batch card, a cycle its own card, a
+person's stretch the hand-over card; the frame takes no taps at all. Your stored
+numbers were compared before and after: 13,561 characters, byte for byte the same,
+and your three saved days still read 24, 12 and 24 pans.
+
+**Three rules now stand on it, and every one was proved rather than assumed.** One
+says the ruling is the paper's own background and that no second copy is drawn over
+the markers — two grids, one in the gaps and one across a bar, is how a reader ends
+up seeing two different grids. It also pins the transparency to one number declared
+once, so the modules window and the people's window can never be tuned apart. One
+says every batch bar and every person's slot wears a frame in the tone its own hands
+or card already wear, and that no bar grew a border or a shadow of its own. One is
+the arithmetic above: measured, not trusted, that both lines still differ from a
+marker by at least 20 parts in 255. Each was proved by putting the fault back and
+watching it fail by name, then restored exactly as it was. Five faults were put back
+in all, and one of them is the point of the whole release: with the grid's ink back
+at v166's strength, the test fails reading "differs from the marker beside it by only
+9.8 parts in 255, which is invisible on a phone — the fault she reported twice at
+v165 and v166". The tests are 1,201 passing with none failing.
+
+**No database step.** Not one stored field is added or changed, so there is nothing
+to run in Supabase.
 
 **23 Sep 2026 — engine v168 (no database step). The extra slider between your two
 chart windows is gone, so each window's own sideways bar is the pan. The modules
@@ -207,6 +281,12 @@ so it is decided on its own rather than half-done here.
 **No database step.** Not one stored field is added or changed, so there is
 nothing to run in Supabase.
 
+__Changed at v169:__ the ruler's lines are no longer drawn over the bars, as
+described above. The ruling is the paper's own background again and every bar is a
+see-through wash over it, so the clock reads through a marker rather than across it.
+The goal is the same one named here — the clock must hold inside a slot you are
+working — reached the other way round. Read the v169 note at the top of this file.
+
 **23 Sep 2026 — engine v165 (no database step). The ruler's lines are now drawn
 over your batches, your cycles and your people's occupied slots. Before this the
 lines stopped dead at the edge of every bar, so inside a slot you were working
@@ -258,6 +338,13 @@ putting a second ruling back on the track made the other fail.
 
 **No database step.** Not one stored field is added or changed, so there is
 nothing to run in Supabase.
+
+__Changed at v169:__ the lines described above are no longer drawn over the bars as
+a layer of their own. The ruling is the paper's own background again and every bar
+is a see-through wash over it, so the clock reads through a marker rather than
+across it. What has not changed is why: the lines must reach into a slot you are
+working, and the ruler's own strip at the top still draws none of them over its
+ticks. Read the v169 note at the top of this file.
 
 **23 Sep 2026 — engine v164 (no database step). A number you type into the
 cycles of a module now stays where you put it. Before this, typing into a second

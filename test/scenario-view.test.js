@@ -1845,26 +1845,27 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   // module rows and every person row would be ten thousand nodes in the panel.
   const css = read("admin/css/app.css");
   const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
-  // Since v165 the ruling is a layer of its own, drawn over the bars — so it lives
-  // on the track's ::after rather than on the track's own background, which a bar
-  // covers. The layers themselves are unchanged.
-  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g);
-  const twoLayer = ruling.filter((r) => (r.match(/repeating-linear-gradient/g) || []).length === 2);
-  assert.equal(twoLayer.length, 1,
-    `the ruling does not carry the hour line with a grid under it: ${ruling.length} rule(s), ${twoLayer.length} with two layers`);
-  assert.match(twoLayer[0], /--tick-w/, "the grid layer is not drawn at --tick-w");
+  // Since v169 the ruling is the track's OWN background again — a marker is a wash
+  // (--marker) laid over it rather than a solid block, so the paper's ruling reads
+  // through the marker instead of being stopped by it. The layers themselves are
+  // unchanged.
+  const trackRules = rules(/^\.tl-track\s*\{[^}]*\}/gm);
+  assert.equal(trackRules.length, 1, `expected one rule for the track, found ${trackRules.length}`);
+  const ruling = trackRules.filter((r) => (r.match(/repeating-linear-gradient/g) || []).length === 2);
+  assert.equal(ruling.length, 1,
+    `the ruling does not carry the hour line with a grid under it: ${ruling.length} rule(s) with two layers`);
+  assert.match(ruling[0], /--tick-w/, "the grid layer is not drawn at --tick-w");
   // The hour line is written first because it is the one painted on top: where the
   // two fall on the same pixel it must be the line she reads the clock by.
-  assert.ok(twoLayer[0].indexOf("--hour-w") < twoLayer[0].indexOf("--tick-w"),
+  assert.ok(ruling[0].indexOf("--hour-w") < ruling[0].indexOf("--tick-w"),
     "the grid is painted over the hour line rather than under it");
 
-  // And there is only ONE ruling. The track's own background must stay empty, or
-  // the lines would be drawn twice — once under the bars and once over them — and
-  // the translucent grid would read darker in the gaps than across a bar.
-  const trackRules = rules(/^\.tl-track\s*\{[^}]*\}/gm);
-  assert.ok(trackRules.length, "there is no rule for the track at all");
-  assert.ok(trackRules.every((r) => !/background-image/.test(r)),
-    "the ruling is drawn twice: the track still paints it under the bars as well");
+  // And there is only ONE ruling. A layer of its own over the bars as well would
+  // draw it twice — once under the marker and once across it — and a grid that is
+  // drawn twice reads darker in the gaps than across a marker.
+  const overlays = rules(/\.tl-track::after\s*\{[^}]*\}/g);
+  assert.ok(overlays.every((r) => !/repeating-linear-gradient/.test(r)),
+    "the ruling is drawn twice: the track paints it and a layer over the bars paints it again");
 
   // The ruler's own track keeps the hour line alone. Its tick elements already draw
   // on top of it, so a finer layer under them would put lines between the ticks the
@@ -1873,12 +1874,11 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   assert.ok(rulerRules.length, "the ruler's own track is not told apart from the rows under it");
   assert.ok(rulerRules.every((r) => !/--tick-w/.test(r)),
     "the ruler's track carries the grid under its own ticks");
-  // …and it turns the ruling off rather than merely not asking for it, because the
-  // ruling is now inherited by every track in the chart.
-  const rulerRuling = rules(/\.tl-ruler \.tl-track::after\s*\{[^}]*\}/g);
-  assert.ok(rulerRuling.length, "the ruler's track does not turn the ruling off");
-  assert.ok(rulerRuling.every((r) => /content:\s*none/.test(r)),
-    "the ruling is drawn over the ruler's own ticks");
+  // …and it must OVERRIDE the day's ruling, not merely not ask for one. The ruling
+  // belongs to .tl-track now, so a ruler rule that named no background-image would
+  // leave the fine grid standing between her ticks.
+  assert.ok(rulerRules.some((r) => /background-image/.test(r)),
+    "the ruler's track no longer overrides the day's ruling, so a grid is drawn between the ticks she reads");
 
   // And a module switched off keeps both layers rather than dropping the only thing
   // its own dimmed bars are read against.
@@ -1917,69 +1917,161 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   }
 });
 
-// ── The ruler, drawn over the bars (v165) ───────────────────────────────────
+// ── The scale at the back, the marker over it (v169) ────────────────────
 //
-// Her words: "i requested a ruler to draw into person's line time slot", and then,
-// asked how the lines should reach it: "just like the ruler draw over the batches
-// and cycles".
+// The same reading she has asked for since v165 — the clock she reads must hold
+// INSIDE a marker, not only beside it — reached the other way round. v165 painted
+// the ruling as a layer of its own over the bars and v166 had to strengthen its
+// ink; at v169 she named the arrangement she wants instead: "its scale should be
+// at background, the marker should be ontop, with some degree of transparency".
 //
-// What she was seeing, measured on her own day: the ruling WAS on her person's row,
-// but a bar is opaque and sits ABOVE its track's background — so the ruling stopped
-// dead at the edge of every marker. Of one module row's grid lines, 5 fell inside
-// her batches; of the slots on one person's row, 14. Every one was covered, and
-// hit-testing a grid line inside a slot returned the slot itself as the topmost
-// thing on that pixel. So the ruling is a layer of its own now, drawn over the bars.
-test("the ruler's lines are drawn over the bars, not stopped by them (v165)", () => {
+// So the ruling is the track's own background again and every marker is a wash
+// (--marker) over it. The one thing that must NOT come back is the layer over the
+// bars: a grid drawn both under a marker and across it reads darker in the gaps
+// than across the marker, and the eye reads that as two different grids.
+test("the marker is a wash over the ruling, not a block that stops it (v169)", () => {
   const css = read("admin/css/app.css");
   const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
-  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g)
+
+  // One ruling, and it is the track's own background — the one the bars are drawn on.
+  const rulings = rules(/^\.tl-track\s*\{[^}]*\}/gm)
     .filter((r) => /repeating-linear-gradient/.test(r));
-  assert.equal(ruling.length, 1, `expected one ruling rule, found ${ruling.length}`);
-  const r = ruling[0];
+  assert.equal(rulings.length, 1, `expected the ruling on the track's own background, found ${rulings.length}`);
+  const overlays = rules(/\.tl-track::after\s*\{[^}]*\}/g)
+    .filter((r) => /repeating-linear-gradient/.test(r));
+  assert.equal(overlays.length, 0,
+    "the ruling is drawn over the markers as well, so it is drawn twice and reads darker in the gaps");
 
-  // Above the bars. A bar is position:absolute with no z-index of its own, so any
-  // positive z-index on the ruling paints it over the bar; without one the ruling
-  // would sit under the bars again, which is the fault this release is about.
-  const z = r.match(/z-index:\s*(-?\d+)/);
-  assert.ok(z, "the ruling has no z-index, so it cannot be known to be over the bars");
-  assert.ok(Number(z[1]) >= 1, `the ruling sits at z-index ${z[1]}, which does not put it over the bars`);
+  // The transparency is ONE number, on the element both windows inherit from, so
+  // "a bit more" or "a bit less" is one edit and the two windows cannot drift apart.
+  const wrap = rules(/^\.tl-wrap\s*\{[^}]*\}/gm);
+  assert.equal(wrap.length, 1, `expected one rule for the chart's wrap, found ${wrap.length}`);
+  const mk = wrap[0].match(/--marker:\s*([\d.]+)/);
+  assert.ok(mk, "the marker's transparency is not declared on the wrap, so nothing can be tuned in one place");
+  const marker = Number(mk[1]);
+  assert.ok(marker > 0.3 && marker < 1,
+    `--marker is ${marker}: a marker that faded to nothing is not a marker, and ${marker >= 1 ? "one at 1 is not transparent at all" : "one this faint hides the day"}`);
+  // Counted with the comments stripped: the stylesheet explains this number in
+  // prose in two places, and a mention is not a declaration.
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.equal((bare.match(/--marker:/g) || []).length, 1,
+    "the marker's transparency is declared in more than one place, so the two windows can disagree");
 
-  // And it lets every tap through, so a batch, a cycle and a person's own stretch
-  // are tapped exactly as they were before it existed.
-  assert.match(r, /pointer-events:\s*none/,
-    "the ruling would swallow the taps on the bars underneath it");
+  // Both families of marker go through it — the eight module tones (a batch bar)
+  // and the eight person tones (a person's time slot), because they are the SAME
+  // element and a change to one that misses the other is exactly how a batch and a
+  // slot stop looking alike.
+  const washes = [
+    ...rules(/\.tone-\d\s*\{[^}]*\}/g),
+    ...rules(/\.tl-row\.person \.tl-bar\.ptone-\d\s*\{[^}]*\}/g),
+  ];
+  assert.equal(washes.length, 16, `expected 16 marker tones, found ${washes.length}`);
+  for (const w of washes) {
+    const name = w.split("{")[0].trim();
+    assert.match(w, /background:\s*rgba\([^)]*var\(--marker/,
+      `${name} is not a wash at --marker, so the ruling cannot read through it`);
+    assert.ok(!/background:\s*#/.test(w), `${name} is still painted as an opaque block`);
+  }
 
-  // It covers the whole track, or the ruling would stop short of the bars' far edge.
-  assert.match(r, /inset:\s*0|top:\s*0/, "the ruling does not fill its track");
-
-  // One ruling per row, and every row of the day gets it: the module rows (the
-  // batches and cycles) and the people's rows (the slots she asked about) alike.
-  const { root } = render();
-  const tracks = walk(root).filter((n) => hasClass(n, "tl-track"));
-  assert.ok(tracks.length > 2, "the chart has no bars to rule over");
-  const bars = walk(root).filter((n) => hasClass(n, "tl-bar"));
-  assert.ok(bars.length, "the chart draws no bars at all");
-  // A bar carries no z-index of its own, which is what lets the ruling sit over it.
-  const barRule = rules(/\.tl-bar\s*\{[^}]*\}/g);
-  assert.ok(barRule.length, "there is no rule for a bar");
-  assert.ok(barRule.every((x) => !/z-index/.test(x)),
-    "a bar now has a z-index of its own, so the ruling may no longer be over it");
+  // And nothing the chart draws is left opaque in its place: a solid marker is what
+  // hid the ruling in the first place.
+  const barRules = rules(/\.tl-bar\s*\{[^}]*\}/g);
+  assert.ok(barRules.length, "there is no rule for a bar at all");
+  assert.ok(barRules.every((r) => !/background:\s*#/.test(r)),
+    "a bar is given an opaque background of its own, over the wash its tone sets");
 });
 
-// ── The ruling in a strength she can see (v166) ──────────────────────────
-// v165 drew the ruling over the bars and she came straight back with "you still
-// fail to reveal the ruler at person's time slot". She was right, and the fault
-// was the strength, not the mechanism: at 18% of --muted the tick line composites
-// to rgb(197,208,221) over a person's slot, which is rgb(207,224,245) — ten parts
-// in 255 on a one-pixel line. Drawn, and invisible, which reads as absent.
+// ── A frame on every marker (v169) ──────────────────────────────────────
 //
-// So this test measures each line against the BAR it crosses, not against the
-// cream paper it was designed on. It composites the ruling's own alpha over the
-// palest bar colour in the chart and asserts the line still stands out from it.
-test("the ruling is drawn strongly enough to be seen on a bar (v166)", () => {
+// Her ask: "can the batch and person time slot having a more highligted frame?".
+// A batch bar and a person's time slot are the same element, so one rule frames
+// both — and it is drawn as a layer rather than a border, because a border would
+// eat into the box the cycle shades and her hands are placed in, and an inset
+// shadow on the bar itself would be painted over by those shades. The frame is the
+// module's or the person's SOLID tone, the same colour her hands already wear.
+test("a batch bar and a person's time slot both wear a frame in their own tone (v169)", () => {
   const css = read("admin/css/app.css");
   const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
-  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g)
+
+  // One frame rule, and it frames the marker itself.
+  const frame = rules(/\.tl-bar::after\s*\{[^}]*\}/g);
+  assert.equal(frame.length, 1, `expected one frame rule, found ${frame.length}`);
+  assert.match(frame[0], /inset:\s*0/, "the frame does not follow the marker's own box");
+  assert.match(frame[0], /border-radius:\s*inherit/,
+    "the frame is square-cornered on a rounded marker");
+  assert.match(frame[0], /box-shadow:\s*inset[^;]*var\(--tone-ink/,
+    "the frame is not drawn in the marker's own tone");
+  assert.match(frame[0], /pointer-events:\s*none/,
+    "the frame would swallow the tap that opens the batch or the stretch");
+
+  // A border would shrink the padding box the cycles and her hands are placed in,
+  // and an inset shadow on the bar itself would be painted over by the cycle shades;
+  // the frame must be neither. Every rule that styles a marker's own box, of which
+  // there are three (a batch's, a person's, and the pointer the two share), is asked.
+  const barRules = rules(/\.tl-bar\s*\{[^}]*\}/g);
+  assert.ok(barRules.length >= 3, `expected the marker's own box rules, found ${barRules.length}`);
+  for (const r of barRules) {
+    assert.ok(!/border\s*:/.test(r), `a frame is drawn as a border, which moves the marker's insides: ${r.split("{")[0].trim()}`);
+    assert.ok(!/box-shadow/.test(r), `a frame is drawn as an inset shadow on the bar, which the cycle shades paint over: ${r.split("{")[0].trim()}`);
+    assert.ok(!/box-sizing/.test(r), `a marker's box was re-sized to make room for a frame: ${r.split("{")[0].trim()}`);
+  }
+  // And the two heights are untouched, so how much of the day fits is what it was.
+  assert.ok(barRules.some((r) => /height:\s*16px/.test(r)), "a batch bar is no longer 16px tall");
+  assert.ok(barRules.some((r) => /height:\s*11px/.test(r)), "a person's slot is no longer 11px tall");
+
+  // Every tone names its own ink, and the ink is the colour her hands already wear
+  // inside that bar — one colour declared twice per module would be two lists to
+  // keep in step, which is how a frame and its hands drift apart.
+  for (let i = 0; i < 8; i += 1) {
+    const tone = rules(new RegExp(`\\.tone-${i}\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(tone.length, 1, `expected one rule for .tone-${i}, found ${tone.length}`);
+    const ink = tone[0].match(/--tone-ink:\s*(#[0-9a-f]{6})/i);
+    assert.ok(ink, `.tone-${i} names no ink, so its marker has no frame`);
+    const touch = rules(new RegExp(`\\.tone-${i} \\.tl-touch\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(touch.length, 1, `expected one rule for .tone-${i}'s hands`);
+    assert.match(touch[0], new RegExp(`background:\\s*${ink[1]}`, "i"),
+      `.tone-${i}'s frame is ${ink[1]} and its hands are another colour`);
+  }
+  // A person's slot wears their own colour, and it is the one their card already
+  // carries — so the slot, its frame and the card are one person's colour.
+  for (let i = 1; i <= 8; i += 1) {
+    const slot = rules(new RegExp(`\\.tl-row\\.person \\.tl-bar\\.ptone-${i}\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(slot.length, 1, `expected one rule for .ptone-${i}, found ${slot.length}`);
+    const ink = slot[0].match(/--tone-ink:\s*(#[0-9a-f]{6})/i);
+    assert.ok(ink, `.ptone-${i} names no ink, so a person's slot has no frame`);
+    const card = rules(new RegExp(`\\.tl-call\\.ptone-${i}\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(card.length, 1, `expected one rule for .tl-call.ptone-${i}`);
+    assert.match(card[0], new RegExp(`border-left-color:\\s*${ink[1]}`, "i"),
+      `.ptone-${i}'s frame is ${ink[1]} and that person's card is another colour`);
+  }
+
+  // And both kinds of marker are actually drawn on her day, each wearing the class
+  // its ink comes from — a frame nobody is given is a frame nobody can see.
+  const { root } = render();
+  const bars = walk(root).filter((n) => hasClass(n, "tl-bar"));
+  assert.ok(bars.length, "the chart draws no markers at all");
+  const slots = personRows(root).flatMap((r) => walk(r).filter((n) => hasClass(n, "tl-bar")));
+  const slotSet = new Set(slots);
+  const batches = bars.filter((n) => !slotSet.has(n));
+  assert.ok(slots.length, "the chart draws no person's time slots");
+  assert.ok(batches.length, "the chart draws no batch bars");
+  for (const b of bars) {
+    assert.match(String(b.className), /tone-\d/,
+      "a marker is drawn without a tone, so it has no ink to frame it in");
+  }
+});
+
+// ── And the ruling is still strong enough to be read through a marker (v169) ──
+//
+// v166's lesson, kept and turned round: a line that is drawn and cannot be seen is
+// the same as no line, which is why she came back twice. Moving the ruling behind
+// the markers costs it (1 - --marker) of its strength, so the lines are drawn
+// heavier than they were to pay for it — and this test is the arithmetic that says
+// by how much, measured rather than trusted.
+test("the ruling is strong enough to be read through a marker (v169)", () => {
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  const ruling = rules(/^\.tl-track\s*\{[^}]*\}/gm)
     .filter((r) => /repeating-linear-gradient/.test(r));
   assert.equal(ruling.length, 1, `expected one ruling rule, found ${ruling.length}`);
 
@@ -1994,16 +2086,18 @@ test("the ruling is drawn strongly enough to be seen on a bar (v166)", () => {
   assert.ok(!/color-mix/.test(ruling[0]),
     "the ruling is written with color-mix, which an older phone browser can drop");
 
-  // The bar colours the ruling has to be read against. #cfe0f5 is the palest of
-  // the eight person tones and the one measured live; the module bars are darker.
-  const PALE_BAR = [207, 224, 245];
+  const marker = Number(rules(/^\.tl-wrap\s*\{[^}]*\}/gm)[0].match(/--marker:\s*([\d.]+)/)[1]);
+  const P = [255, 253, 249];   // --surface: the paper the day is ruled on
   const INK = [122, 96, 74];
-  const over = (bg, a) => INK.map((c, i) => a * c + (1 - a) * bg[i]);
-  const delta = (a, b) => Math.max(...a.map((c, i) => Math.abs(c - b[i])));
   for (const a of layers) {
-    const d = delta(over(PALE_BAR, a), PALE_BAR);
+    // Seen THROUGH a marker: the same wash over the line and over the bare paper,
+    // so the marker's own colour cancels out and what is left of the line is
+    // (1 - marker) of its own contrast against the paper. This is the whole cost of
+    // putting the ruling at the back, and the reason both alphas are higher than
+    // v166's .34 and .20.
+    const d = Math.max(...INK.map((c, i) => (1 - marker) * a * Math.abs(c - P[i])));
     assert.ok(d >= 20,
-      `a ruling line at alpha ${a} differs from a person's slot by only ${d.toFixed(1)} parts in 255, which is invisible on a phone — the v165 fault`);
+      `a ruling line at alpha ${a} under a marker at ${marker} differs from the marker beside it by only ${d.toFixed(1)} parts in 255, which is invisible on a phone — the fault she reported twice at v165 and v166`);
   }
 
   // The hour line still leads the grid: it is the line a marker is traced up to
@@ -2011,16 +2105,20 @@ test("the ruling is drawn strongly enough to be seen on a bar (v166)", () => {
   assert.ok(Math.max(...layers) > Math.min(...layers),
     "the hour line and the grid are the same strength, so neither leads the eye");
 
-  // And no line may cross a label. The badges and the person's own name are lifted
-  // above the ruling, because a bar has no z-index of its own — so a positive one
-  // here still resolves against the track and puts the label over the line.
-  for (const sel of [".tl-btag", ".tl-pname"]) {
-    const rule = rules(new RegExp(`\\${sel}\\s*\\{[^}]*\\}`, "g"));
-    assert.equal(rule.length, 1, `expected one rule for ${sel}, found ${rule.length}`);
+  // And no line may cross a label. Both labels are lifted above the one thing a
+  // marker draws across itself — its own frame — so thickening the frame cannot put
+  // a line through a B-number or a person's name.
+  const frame = rules(/\.tl-bar::after\s*\{[^}]*\}/g);
+  assert.equal(frame.length, 1, `expected one frame rule, found ${frame.length}`);
+  const fz = frame[0].match(/z-index:\s*(-?\d+)/);
+  assert.ok(fz, "the frame has no z-index, so it cannot be known to be under the labels");
+  for (const fsel of [".tl-btag", ".tl-pname"]) {
+    const rule = rules(new RegExp(`\\${fsel}\\s*\\{[^}]*\\}`, "g"));
+    assert.equal(rule.length, 1, `expected one rule for ${fsel}, found ${rule.length}`);
     const z = rule[0].match(/z-index:\s*(-?\d+)/);
-    assert.ok(z, `${sel} has no z-index, so a gridline is drawn through the label`);
-    assert.ok(Number(z[1]) >= 3,
-      `${sel} sits at z-index ${z[1]}, which does not put it over the ruling`);
+    assert.ok(z, `${fsel} has no z-index, so the marker's frame is drawn through the label`);
+    assert.ok(Number(z[1]) > Number(fz[1]),
+      `${fsel} sits at z-index ${z[1]} and the frame at ${fz[1]}, so the frame is drawn through the label`);
   }
 });
 

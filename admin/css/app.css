@@ -2666,6 +2666,15 @@ tr.po-covered td { color: var(--muted); }
      inline copies could drift apart and nothing would catch it, and the whole point
      of the v160 grid is that the lines and the ruler cannot disagree about where a
      minute is. */
+  /* How solid a marker is, set ONCE for both windows and every marker in them — her
+     ask of 23 September 2026: "its scale should be at background, the marker should
+     be ontop, with some degree of transparency". The ruling is the paper's now (see
+     .tl-track) and a marker is a wash laid over it, so the clock she reads is the
+     same sheet inside a batch as beside it. The number is NOT free to be lowered
+     without re-measuring: how strongly a line reads through a marker is
+     (1 - --marker) x the line's own ink, so this and the two alphas on .tl-track are
+     one decision in three numbers, and v169's test measures the three together. */
+  --marker: .72;
   position: relative;
 }
 .tl {
@@ -2782,6 +2791,15 @@ tr.po-covered td { color: var(--muted); }
 }
 .tl-track {
   position: relative; height: 34px; flex: 0 0 auto;
+  /* The ruling, back on the track's own background where it began. A bar is a wash
+     now rather than a solid block, so the paper's ruling is UNDER it and reads
+     through it — which is her v169 ask, "its scale should be at background, the
+     marker should be ontop, with some degree of transparency". The two alphas are
+     read through --marker: drew at .60 and .45, a line survives a marker at
+     (1 - .72) of its own strength, which is the ~22 parts in 255 a phone needs. */
+  background-image:
+    repeating-linear-gradient(to right, rgba(122, 96, 74, .60) 0 1px, transparent 1px var(--hour-w, 96px)),
+    repeating-linear-gradient(to right, rgba(122, 96, 74, .45) 0 1px, transparent 1px var(--tick-w, 96px));
 }
 /* The ruling: an hour gridline every 60 minutes, drawn rather than laid out so it
    costs nothing however wide the day gets. --hour-w is set by the screen from the
@@ -2799,39 +2817,49 @@ tr.po-covered td { color: var(--muted); }
    row at the closest stop would carry 1441 nodes of its own. Listed first, so the
    hour line is painted over the grid it belongs to.
 
-   Since v165 it is a layer of its OWN, drawn over the bars. It used to be the
-   track's own background, and a bar is opaque and sits above its track — so the
-   ruling stopped dead at the edge of every batch, every cycle and every marker she
-   works, and inside a person's occupied slot there was no ruler at all. Measured
-   before this: of one module row's grid lines, 5 fell inside her batches, and 14
-   fell inside the slots on one person's row, every one of them covered. Her words:
-   "i requested a ruler to draw into person's line time slot", and, asked how,
-   "just like the ruler draw over the batches and cycles". So there is now ONE
-   ruling and it is drawn over everything, and the whole day reads as one ruled
-   sheet. pointer-events: none keeps every tap on a bar exactly as it was.
+   The rule the ruling answers, and it is a reading and not a decoration: the clock
+   she reads must hold inside a marker, not only beside it. v165 answered it by
+   painting the ruling as a layer of its own OVER the bars, because a bar was a
+   solid block and the ruling underneath stopped dead at its edge — measured then,
+   5 of one module row's lines fell inside her batches and 14 fell inside the slots
+   on one person's row, every one covered. Her words: "i requested a ruler to draw
+   into person's line time slot", and, asked how, "just like the ruler draw over the
+   batches and cycles". Again at v166 she came back, "you still fail to reveal the
+   ruler at person's time slot" — the mechanism had worked and the ink was too
+   faint to see, so the lines were strengthened.
 
-   Since v166 the lines are drawn in a strength that survives a phone. v165 drew
-   them over the bars but far too faintly to be seen there: the tick line was
-   18% of --muted, which over a person's slot (#cfe0f5) composites to rgb(197,208,
-   221) against the slot's own rgb(207,224,245) — a 1-pixel line that differs by
-   ten parts in 255. Drawn, and invisible, which is the same as not there: she
-   read it back as "you still fail to reveal the ruler at person's time slot".
-   Both lines are now measured against the bar they cross rather than against the
-   cream paper, in one colour family at two weights — the hour line at .34, the
-   grid at .20 — so a line is legible on the paper and on a pastel bar alike. The
-   colour is written as a plain rgba and not color-mix, so no phone's browser
-   version can fail to parse the gradient and drop the whole ruling with it. */
-.tl-track::after {
-  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  background-image:
-    repeating-linear-gradient(to right, rgba(122, 96, 74, .34) 0 1px, transparent 1px var(--hour-w, 96px)),
-    repeating-linear-gradient(to right, rgba(122, 96, 74, .20) 0 1px, transparent 1px var(--tick-w, 96px));
-}
-/* The ruler's own track keeps the hour line alone. Its tick elements already draw
-   the reading she takes, and a second ruling over them would be a second opinion
-   about where a minute is. */
-.tl-ruler .tl-track::after { content: none; }
+   Since v169 the marker is the thing that changed. Her words: "its scale should be
+   at background, the marker should be ontop, with some degree of transparency".
+   So the ruling is the track's own background again, the marker is a wash laid
+   over it at --marker, and the clock reads through the marker instead of across
+   it — the same reading, reached the other way round. Two consequences worth
+   keeping: there is still exactly ONE ruling (drawing it under the bars and over
+   them both would make the grid read darker in the gaps than across a marker), and
+   the two alphas above are no longer free — what a line loses through a marker is
+   (1 - --marker) of its strength, so the alphas are raised to pay for it and a test
+   measures the three numbers together. The colour stays a plain rgba and not
+   color-mix, so no phone's browser version can fail to parse the gradient and drop
+   the whole ruling with it. */
+
 .tl-bar { position: absolute; top: 9px; height: 16px; border-radius: 5px; overflow: hidden; }
+/* The frame on every marker — her ask of 23 September 2026: "can the batch and
+   person time slot having a more highligted frame?". A batch bar and a person's
+   time slot are the same element, so one rule frames both, and the frame is drawn
+   in the module's OWN solid tone (--tone-ink, the colour her hands already wear
+   inside that bar) so a marker states which module it is twice over: the pale wash
+   in the middle, the solid edge around it.
+   It is an inset shadow on a pseudo-element and NOT a border, and that is the whole
+   of why it is safe: a border would eat into the padding box the cycles and her
+   hands are placed in, and an inset shadow on the bar itself would be painted over
+   by the cycle shades that fill it. As its own layer it crosses the shades, leaves
+   the bar's outer size, its tap target and the chart's scroll range untouched, and
+   keeps the red outline a collision wears (outer, offset 1px) reading on top of it.
+   pointer-events: none, like the ruling, so every tap still lands on the bar. */
+.tl-bar::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: inset 0 0 0 1.5px var(--tone-ink, rgba(122, 96, 74, .45));
+  pointer-events: none; z-index: 1;
+}
 /* Her hands, drawn where she really works them: at a cycle's load, at its unload,
    or at both ends of it — so the fold sits at the END of its rest and the oven
    swap sits AFTER the bake, because that is where they happen. Absolute, so more
@@ -2840,6 +2868,12 @@ tr.po-covered td { color: var(--muted); }
    without it the band and the seam are the same hard edge and her hands disappear
    into the shading. */
 .tl-touch { position: absolute; top: 0; bottom: 0; border-radius: 2px;
+  /* Above the bar's frame (--tone-ink, at z-index 1), because both are the same
+     solid tone and both can start at the same minute: a load at a batch's first
+     cycle sits at the bar's own left edge, and a hand a minute wide is barely
+     wider than the frame is thick — under it, her hand would be swallowed by a
+     line drawn to mark the bar it works in. */
+  z-index: 2;
   box-shadow: -1px 0 0 rgba(255, 255, 255, .8), 1px 0 0 rgba(255, 255, 255, .8); }
 /* A bar is a button now: it opens its batch's own clock. The cursor says so, and
    a tap is left to the browser so the track still scrolls under a finger. */
@@ -2938,6 +2972,12 @@ tr.po-covered td { color: var(--muted); }
    --tick-w is the same 30 minutes as its step, so the two would sit on top of each
    other saying one thing twice. The grid carried down the day starts below the
    ruler, which is where it is read. */
+/* The ruler's own track is the one row that does NOT carry the day's ruling: it
+   keeps the hour line alone. Its tick elements already draw the reading she takes,
+   and the fine grid under them would be a second opinion about where a minute is.
+   It overrides the two layers on .tl-track rather than asking for none, so the
+   override has to stay here in full — removing this rule does not leave the ruler
+   bare, it puts the grid back between her ticks. */
 .tl-ruler .tl-track { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)); overflow: hidden; }
 /* Why the ruler's own track clips, and only the ruler's. An hour tick is a 1px border
    on the LEFT edge of a box placed at that hour, so a tick standing exactly on the end
@@ -3053,11 +3093,10 @@ tr.po-covered td { color: var(--muted); }
    still pans, which the day card's own sentence says. See wireTimeCursor. */
 .tl-ruler .tl-track { touch-action: none; cursor: crosshair; }
 
-/* The bars of a person's row and of the total: one solid colour, because the
-   colour here is not a module — it is the pair of hands. */
-.tl-bar.total { background: #e3d3bd; }
-.tl-bar.total.many { background: var(--amber); opacity: .85; }
-.tl-bar.total .tl-lab { color: #4a3a28; opacity: 1; }
+/* A person's slot and a batch in a module wear the two-tone rule above (--tone-ink
+   for the frame, the pale tone for the wash). The rules that used to live here for
+   the total row went with it at v168 — that row was the only builder of a bar with
+   a "total" class, so nothing has worn these since. */
 /* Two modules given to one person that overlap in time. Outlined rather than
    re-coloured, so the module it belongs to is still readable underneath. */
 .tl-bar.clash { outline: 2px solid var(--red); outline-offset: 1px; }
@@ -3066,11 +3105,12 @@ tr.po-covered td { color: var(--muted); }
    because the bar is 16px tall and clips — a tag inside it would be cut in half.
    It carries the same data-k the bar does, so it is a handle as much as a label:
    tapping B3 opens batch 3's own clock. */
-/* Lifted above the ruling, like the person's name below. The ruling is drawn over
-   the bars she reads, and a label is the one thing on a bar that a line must never
-   cross: a B-number with a gridline through it is a number she has to guess at.
-   A bar has no z-index of its own, so a positive one here still resolves against
-   the track — above the ruling, and below nothing that matters. */
+/* Its own opaque band, so a gridline never crosses a B-number — a number she has to
+   guess at is worse than no number. Since v169 the ruling is the track's own
+   background rather than a layer over the bars, so the band already covers it and
+   the z-index no longer has to fight for that; it is kept as the standing rule that
+   a label outranks whatever the day draws around it, so a heavier ruling or a
+   heavier frame cannot put a line through one. */
 .tl-btag {
   position: absolute; top: 0; z-index: 3;
   height: 11px; line-height: 11px;
@@ -3089,16 +3129,24 @@ tr.po-covered td { color: var(--muted); }
 /* One person's own colour, so their row reads as one worker's day rather than as
    a patchwork of every module they passed through. The module's colour stays on
    the module's own bar above; this is the hands. */
-.tl-row.person .tl-bar.ptone-1 { background: #cfe0f5; }
-.tl-row.person .tl-bar.ptone-2 { background: #f7d9c4; }
-.tl-row.person .tl-bar.ptone-3 { background: #d9ecd2; }
-.tl-row.person .tl-bar.ptone-4 { background: #efdcf0; }
-.tl-row.person .tl-bar.ptone-5 { background: #f7ecd0; }
-.tl-row.person .tl-bar.ptone-6 { background: #d3e9e8; }
-.tl-row.person .tl-bar.ptone-7 { background: #f6d6dc; }
-.tl-row.person .tl-bar.ptone-8 { background: #e4dfd7; }
+/* The same two-tone rule for the people's slots: the pale tone is the wash and the
+   solid tone is the frame and the person's own name in the call card, so the slot,
+   its frame and their card are all one colour. --tone-ink is what the bar's frame
+   reads (see .tl-bar::after), which is why these are the one place the solid tone
+   has to be named on a person's bar. */
+.tl-row.person .tl-bar.ptone-1 { background: rgba(207, 224, 245, var(--marker, .72)); --tone-ink: #5b86c2; }
+.tl-row.person .tl-bar.ptone-2 { background: rgba(247, 217, 196, var(--marker, .72)); --tone-ink: #c9743a; }
+.tl-row.person .tl-bar.ptone-3 { background: rgba(217, 236, 210, var(--marker, .72)); --tone-ink: #4f9153; }
+.tl-row.person .tl-bar.ptone-4 { background: rgba(239, 220, 240, var(--marker, .72)); --tone-ink: #8a5aa8; }
+.tl-row.person .tl-bar.ptone-5 { background: rgba(247, 236, 208, var(--marker, .72)); --tone-ink: #b8912f; }
+.tl-row.person .tl-bar.ptone-6 { background: rgba(211, 233, 232, var(--marker, .72)); --tone-ink: #2f8b83; }
+.tl-row.person .tl-bar.ptone-7 { background: rgba(246, 214, 220, var(--marker, .72)); --tone-ink: #b8506f; }
+.tl-row.person .tl-bar.ptone-8 { background: rgba(228, 223, 215, var(--marker, .72)); --tone-ink: #7a6a5c; }
 /* The person's name, on their own stretch, where the stretch is wide enough to
-   hold it. A narrow one keeps its tooltip and stays clean. */
+   hold it. A narrow one keeps its tooltip and stays clean. Above the marker's own
+   frame (z-index 1) by the standing rule that a label is the one thing a marker
+   must never draw a line through: the frame is 1.5px and the name starts 4px in, so
+   they do not meet today — and thickening the frame cannot make them. */
 .tl-pname {
   position: absolute; z-index: 3; left: 4px; top: 50%; transform: translateY(-50%);
   font-size: 9.5px; font-weight: 600; color: #4a3a28;
@@ -3227,12 +3275,18 @@ tr.po-covered td { color: var(--muted); }
 .info-row.now { background: var(--brown-soft); border-radius: 8px; }
 
 /* One colour per module. The pale tone is the module running; the solid tone is
-   the minutes of a person inside it — so a bar says both things at once. */
-.tone-0 { background: #f6dcd0; } .tone-0 .tl-touch { background: #c4552f; }
-.tone-1 { background: #d6e6f2; } .tone-1 .tl-touch { background: #3f6f9e; }
-.tone-2 { background: #fbe9c8; } .tone-2 .tl-touch { background: #b26a16; }
-.tone-3 { background: #dcecd9; } .tone-3 .tl-touch { background: #3f7d4e; }
-.tone-4 { background: #e6dcf2; } .tone-4 .tl-touch { background: #6b4f9e; }
-.tone-5 { background: #d4eae6; } .tone-5 .tl-touch { background: #2f7d74; }
-.tone-6 { background: #f6d7e0; } .tone-6 .tl-touch { background: #a8436a; }
-.tone-7 { background: #e8e0d6; } .tone-7 .tl-touch { background: #7a6a5c; }
+   the minutes of a person inside it — so a bar says both things at once.
+   Since v169 the pale tone is a wash at --marker rather than a solid fill, and the
+   solid tone is named --tone-ink because the bar's frame wears it as well as her
+   hands: the marker's edge and the work inside it are the same colour by design,
+   which is what makes a batch and a person's slot read as one marker either way.
+   The alpha is written through a var so "more or less transparency" is one number
+   in one place (.tl-wrap), not sixteen. */
+.tone-0 { background: rgba(246, 220, 208, var(--marker, .72)); --tone-ink: #c4552f; } .tone-0 .tl-touch { background: #c4552f; }
+.tone-1 { background: rgba(214, 230, 242, var(--marker, .72)); --tone-ink: #3f6f9e; } .tone-1 .tl-touch { background: #3f6f9e; }
+.tone-2 { background: rgba(251, 233, 200, var(--marker, .72)); --tone-ink: #b26a16; } .tone-2 .tl-touch { background: #b26a16; }
+.tone-3 { background: rgba(220, 236, 217, var(--marker, .72)); --tone-ink: #3f7d4e; } .tone-3 .tl-touch { background: #3f7d4e; }
+.tone-4 { background: rgba(230, 220, 242, var(--marker, .72)); --tone-ink: #6b4f9e; } .tone-4 .tl-touch { background: #6b4f9e; }
+.tone-5 { background: rgba(212, 234, 230, var(--marker, .72)); --tone-ink: #2f7d74; } .tone-5 .tl-touch { background: #2f7d74; }
+.tone-6 { background: rgba(246, 215, 224, var(--marker, .72)); --tone-ink: #a8436a; } .tone-6 .tl-touch { background: #a8436a; }
+.tone-7 { background: rgba(232, 224, 214, var(--marker, .72)); --tone-ink: #7a6a5c; } .tone-7 .tl-touch { background: #7a6a5c; }
