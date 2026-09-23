@@ -147,12 +147,27 @@ export function renderScenario(root, state) {
     dayBefore: null,
   };
 
+  // Work a card asks for once it is actually on the screen. A block cannot measure
+  // itself while it is being built — the node it would measure is not attached yet,
+  // and a detached node answers every question with 0 — so it registers the job here
+  // and `refresh` runs it immediately after the subtree is in the document. The
+  // queue is emptied before the paint so a job can never run against a card that has
+  // been replaced, and jobs are taken off it in one go so a job that registers
+  // another cannot run twice in the same pass.
+  const pending = [];
+
   // Only the answers are repainted when something changes — never the fields —
   // so the box she is typing in keeps its place and its cursor.
   const on = {
     refresh: () => {
-      if (!dead) readout.replaceChildren(...blocks(sc, state, on, run));
+      if (dead) return;
+      pending.length = 0;
+      readout.replaceChildren(...blocks(sc, state, on, run));
+      const jobs = pending.slice();
+      pending.length = 0;
+      for (const fn of jobs) fn();
     },
+    afterPaint: (fn) => { if (!dead) pending.push(fn); },
     // The one thing that does redraw the fields. Opening a saved scenario, or
     // renaming the one she is in, replaces the name, the start time and the
     // target as well as the modules — and with only the answers repainted the
@@ -1159,7 +1174,18 @@ function wireTimeCursor(tl, r, cursor, lab, clock, mirror) {
   // standing in the other would be two different answers on one chart.
   const hide = () => { cursor.hidden = true; lab.hidden = true; if (mirror) mirror.hidden = true; };
   const place = (clientX, clientY) => {
-    const t = minuteAtPx(clientX - ruler.getBoundingClientRect().left, r.pxPerMin, r.windowMin);
+    const rr = ruler.getBoundingClientRect();
+    // The reading is only taken where the DAY is in front of her. The ruler's own
+    // track scrolls with the day, so once she pans right its left edge has travelled
+    // off behind the pinned titles and `clientX - rr.left` stays positive over the
+    // title column as well — enough to place a number and a hairline on top of the
+    // module names, which is the writing she reported seeing between the titles. The
+    // ruler's left edge plus what she has panned by is where the titles end and the
+    // day begins, measured rather than assumed from the name column's own width, and
+    // at rest this is exactly rr.left, so nothing about an unpanned day changes.
+    const dayLeft = rr.left + (tl.scrollLeft || 0);
+    if (clientX < dayLeft) { hide(); return; }
+    const t = minuteAtPx(clientX - rr.left, r.pxPerMin, r.windowMin);
     if (t == null) { hide(); return; }
     cursor.hidden = false;
     lab.hidden = false;
@@ -3713,6 +3739,14 @@ function scenariosCard(sc, state, on) {
     kids.push(el("p", { class: "card-sub", style: "margin:6px 0 0" }, "Nothing saved yet."));
   } else {
     kids.push(scenarioShelf(list, sc, state, on));
+    // A shelf that has stopped at four days has to say so, or the four days that are
+    // not on it look like four days that are gone. On her phone there is no scrollbar
+    // drawn at all until the list is already moving, so the count is the only thing
+    // that can tell her the list is longer than it looks.
+    if (list.length > SHELF_ROWS) {
+      kids.push(el("p", { class: "card-sub", style: "margin:8px 0 0" },
+        `Showing the first ${SHELF_ROWS} of your ${list.length} days. Slide the list itself up for the rest.`));
+    }
   }
 
   // And the presses sit BELOW the table, as she asked. The table answers "which
@@ -3779,11 +3813,28 @@ function scenariosCard(sc, state, on) {
   return el("div", {}, el("h2", { class: "section" }, "Your scenarios"), el("div", { class: "card" }, ...kids));
 }
 
+// How many days of the shelf are on the card at once. Her words, 23 September
+// 2026, on her eighth saved day: "now i had 8 scenario, we have to make the
+// secenario just shown 4, the rest shown by slider". With no ceiling the card grew
+// a row per day, and a shelf of eight days plus the buttons under it ran past the
+// bottom of her phone. The rest of the days are not lost and are not behind
+// anything: the list itself slides, which is what a slider is to her.
+const SHELF_ROWS = 4;
+
 // The shelf itself: one row a day, the name taking the slack and each number in a
 // narrow column of its own so two days are compared down a column rather than read
 // as two sentences. Every row is the same height whether or not it is the one open,
 // because a table whose rows grow when you pick one makes the whole shelf jump
 // under the finger that just tapped it.
+//
+// The shelf is capped at SHELF_ROWS rows, and the cap is MEASURED after the card is
+// on the screen rather than written down here. A day's name wraps to a second line
+// when it is long — "My sister proposal 21/9/2026" does at 375px — so the fourth
+// row's foot is not the first row's foot plus three, and a number picked here would
+// clip half a row off the day at the bottom or leave a sliver of the fifth. Only the
+// browser knows where the fourth row ended, so it is asked. The shelf is only
+// wrapped when there are more days than rows, so a card with four days or fewer
+// carries no scroller, no height and no note, exactly as it does today.
 function scenarioShelf(list, sc, state, on) {
   const body = el("tbody");
   for (const s of list) {
@@ -3811,7 +3862,7 @@ function scenarioShelf(list, sc, state, on) {
           onclick: (e) => { e.stopPropagation(); editSavedPopup(s, sc, state, on, list); },
         }, "✏️"))));
   }
-  return el("table", { class: "sc-table" },
+  const table = el("table", { class: "sc-table" },
     el("thead", {}, el("tr", {},
       el("th", {}, "Scenario"),
       // The heading is written over two lines on purpose. At 375px the table has
@@ -3834,6 +3885,24 @@ function scenarioShelf(list, sc, state, on) {
       el("th", { class: "num" }, "Modules"),
       el("th", { class: "sc-edit" }))),
     body);
+  const shelf = el("div", { class: "sc-shelf" }, table);
+  on.afterPaint(() => capShelf(shelf, body));
+  return shelf;
+}
+
+// Hold the shelf to its four rows. The height comes off where the fourth row really
+// ended, measured against the shelf's own top so the headings are counted in it —
+// they are part of what four rows cost. Nothing is written when the measurement is
+// no use (a card not yet laid out answers 0, and a shelf being measured before the
+// browser has given it a box must not be given a height of nothing), so the worst
+// case of this not running is the shelf she has today rather than a hidden one.
+function capShelf(shelf, body) {
+  const rows = (body && body.children) || [];
+  if (rows.length <= SHELF_ROWS) return;
+  const last = rows[SHELF_ROWS - 1];
+  const cap = Math.round(last.getBoundingClientRect().bottom - shelf.getBoundingClientRect().top);
+  if (!Number.isFinite(cap) || cap <= 0) return;
+  shelf.style.maxHeight = `${cap}px`;
 }
 
 // The two days that ship with the app, with the one line each is described by. Her

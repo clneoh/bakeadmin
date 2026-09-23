@@ -1,8 +1,94 @@
-# Jienluv2bake — change history (v54 → v173)
+# Jienluv2bake — change history (v54 → v174)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v174 (no database step). Two things you asked for: the
+modules' window no longer lets the day's writing come up between the module titles
+when you pan it right, and the Your scenarios card now shows four days at a time with
+the rest reached by sliding the list. Both inside More → Scenario planner.**
+
+**What you asked, in your own words.** "the windows when panning right, some of the
+chart writing shown in between module titles" — and "now i had 8 scenario, we have to
+make the secenario just shown 4, the rest shown by slider". You were right about both,
+and neither was your phone.
+
+**1. The writing between the titles, and why panning right brought it there.** The
+module titles on the left of each window are pinned: they stay put while the day
+slides under them, which is the whole reason you can read which row is which at any
+hour. What was wrong was the ORDER they were stacked in. Every B-number, every band of
+your hands and every line down the bars was drawn at or above the title's own level,
+and when two things sit at the same level the one drawn later wins — and the day is
+always drawn after the titles. So nothing had to go wrong for a number to appear over
+a name; the day simply took its turn on top of it. Measured live on your own day at a
+phone's width, with the chart panned 25 pixels: nine B-numbers and six bands of your
+hands were the topmost thing at their own position inside the 156-pixel title column.
+
+**2. What it does now.** The three things that can be stacked are written down once,
+on the chart itself, as three levels: the titles lowest, the clock strip above them,
+and the readings you take highest. The clock strip has to outrank the titles because
+the titles scroll under it, and a reading has to outrank the clock strip because the
+reading's own top line lands on the strip. Everything the DAY draws — its marks on
+your bars, the B-numbers and the names on them, and a module's own note — is
+deliberately under the titles, so no pan position can bring one of them up over a
+name. Measured live on your own day across six pan positions, 1,400 points sampled
+inside the title column: not one of them reads as the day, while the same eight
+B-numbers and five bands are still drawn exactly where they were, under the titles
+where they belong.
+
+**3. And the clock you take is refused where the day is not in front of you.** The
+same fault had a second half. Pressing the clock strip over the title column could
+still read a minute and draw the hairline and its number across the titles — because
+the strip's own ruler scrolls with the day, so once you have panned, the strip's left
+edge has travelled behind the titles and the arithmetic no longer knows where the
+titles end. It now measures where the day actually starts rather than trusting the
+strip's edge. Measured live with the day panned 25 pixels: pressing at 140 pixels
+across — inside the titles, which end at 183 — reads nothing and draws nothing, while
+the same press 17 pixels further on reads 4:26 am as it always did. On a day that is
+not panned nothing about this changes at all.
+
+**4. The shelf now shows four days and slides to the rest.** On your eighth saved day
+the card grew a row per day, and a shelf of eight days plus the buttons under it ran
+past the bottom of your phone. It is four days at a time now, with the list itself
+sliding up and down for the rest, and a line under it that says so: measured live with
+eight days, "Showing the first 4 of your 8 days. Slide the list itself up for the
+rest." The headings stay put as the list slides, so a row you have scrolled to is
+still under the heading that names it. A card with four days or fewer is exactly the
+card it was before — no scroller, no height, no note.
+
+The height is the part worth being careful about, and it is measured rather than
+assumed. A long day's name wraps to a second line at a phone's width, so the fourth
+row is not always as tall as the first three, and a shelf capped by arithmetic would
+have cut the bottom off the fourth day. Measured live on the eight days: three rows of
+59 pixels, then a fourth of 73 because its name took three lines, and the shelf stops
+at exactly 290 pixels — the fourth row's own foot. The fifth row begins at 290, so
+nothing of it shows. That is the reading this was built from: capped by arithmetic it
+would have been 236 pixels and the fourth day would have been cut in half.
+
+**5. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. Every tap
+still opens exactly what it opened before. Your stored data was compared before and
+after every measurement: 13,888 characters, byte for byte the same, and your three
+saved days still read 24, 12 and 24 pans. The eight-day card used for that measurement
+was put on a copy of your data and taken off again, with your own file restored byte
+for byte and nothing left behind.
+
+**6. Every rule that stands on it was proved load-bearing, not assumed.** Eight faults
+were put back in, one at a time, and each was watched failing by name, then restored
+byte-identically. The ladder: with a B-number put back above the titles the test fails
+reading that panning right puts the day's writing between the module titles; with the
+title cell taken off its own level it fails reading that the levels can no longer be
+moved in one place. The reading: with the guard taken out it fails reading that a
+reading was taken with the pointer over the module titles. The shelf, four ways: capping
+it off the last day instead of the fourth fails reading where the fourth day ends;
+writing no height at all fails the same way; measuring it as a multiple of one row
+instead of reading the fourth row's foot fails reading 40 pixels where the fourth day
+ends at 220; and taking the slide away fails reading that the days past the fourth are
+unreachable. The suite is 1217 passing with none failing.
+
+**7. No database step.** Not one stored field is added or changed, so there is nothing
+to run in Supabase.
 
 **23 Sep 2026 — engine v173 (no database step). Two faults in the "Minutes from
 one batch to the next" box, both on a day that runs more than one batch: on a module

@@ -927,6 +927,22 @@ option.tone-off { color: var(--muted); }
 .sc-table .sc-row.now { background: var(--brown-soft); }
 .sc-table .sc-row.now .sc-name { box-shadow: inset 3px 0 0 var(--brown); }
 
+/* Four days at a time, the rest reached by sliding the list itself. Asked for on
+   her eighth saved day — with no ceiling the card grew a row per day until it ran
+   down the phone's whole screen and the buttons under it were off the bottom.
+   The height is NOT written here: a day's name wraps to two lines when it is long,
+   so the fourth row's foot is not the first row's foot plus three and only the
+   browser knows where it landed. JS measures that foot after the card is painted
+   and writes `max-height` on this element (see capShelf in views/scenario.js); if it
+   cannot measure, it writes nothing, and a card whose days came to four or fewer is
+   never given a height at all — so a shelf short enough to fit is exactly the shelf
+   it was before this rule existed, with no scroller in it to catch her thumb. */
+.sc-shelf { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+/* The column headings stay put as the list slides, so a row scrolled to is still
+   under the heading that names it. Only its own background can hide the row passing
+   beneath it, so it has to be the card's own surface, and it outranks the rows. */
+.sc-shelf thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+
 /* The owner's product description on the Products list card — quieter than the
    title but legible, so she can read each blurb without opening the editor. */
 .product-desc {
@@ -2738,6 +2754,34 @@ tr.po-covered td { color: var(--muted); }
      windows cannot be tuned apart. Lower it towards 0 for a whisper, raise it
      towards 1 for the v169 line back again. */
   --frame: .55;
+  /* Where each layer of the chart stands, declared ONCE here for both windows and
+     read by every rule that has to know its place among them.
+
+     Her report of 23 September 2026, with the day panned sideways: "the windows
+     when panning right, some of the chart writing shown in between module titles".
+     She was right, and it was the chart's own numbers rather than its drawing. A
+     module's title is pinned to the left of its window and the day slides under it,
+     so anything drawn over the day that carries a z-index above the title cell's is
+     painted straight over her titles — and three of the things a bar draws carry one:
+     its B-number (3), a person's name on their stretch (3), and the solid bands of
+     her own hands (2, and it ties with the old 2 of the title cell, so it won on
+     coming later in the markup). Measured at a phone's width with the day panned 25px:
+     NINE B-numbers and SIX bands were the topmost thing over the title column, at
+     its own right edge, one per row, which is exactly the writing she saw between
+     the module names.
+
+     So the ladder is stated rather than left to the order the rules happen to be
+     written in. The titles are above everything a row draws in its own track; the
+     pinned clock strip is above the titles, because the titles scroll under it; and
+     the two readings that must be legible wherever she is looking — the clock's own
+     "now" line and the clock she takes with her finger — are above the strip, which
+     is where both of them were designed to sit (their labels are drawn on the strip's
+     own row). Nothing inside a bar may be given a number that climbs past --name-z:
+     that is the rule the test holds, and the reason these three are here rather than
+     scattered as literals through the rules that use them. */
+  --name-z: 4;
+  --ruler-z: 6;
+  --read-z: 8;
   position: relative;
 }
 .tl {
@@ -2779,7 +2823,11 @@ tr.po-covered td { color: var(--muted); }
 .tl-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
 .tl-row:last-child { border-bottom: 0; }
 .tl-name {
-  position: sticky; left: 0; z-index: 2;
+  /* A module's title, and the layer the whole day is read through: above everything
+     a row draws in its own track (the B-numbers, a person's name on their stretch,
+     the bands of her hands, the frame round a bar) and below the pinned clock strip.
+     See --name-z on .tl-wrap for why, and for the fault this answers. */
+  position: sticky; left: 0; z-index: var(--name-z, 4);
   /* A little wider than the 138px it was: with the badges off the name's line,
      these 18px are the difference between one of her module names reading whole
      and three of them doing so. The chart pans sideways for the rest of the day. */
@@ -2813,7 +2861,8 @@ tr.po-covered td { color: var(--muted); }
    pointer that can hover: a phone has no pointing at things, so it gets the tags and
    both notes, word for word, on the module's own card.
    The containing block is the name cell, which is already positioned (sticky) and
-   already wears z-index 2, so the tip is drawn over the bars for free.
+   already stands above the day's own drawing (--name-z), so the tip is drawn over
+   the bars for free.
    Three lines since v157 (the tags joined the two notes) and so taller than the row
    it belongs to. It is centred on its row, which is what keeps it inside the panel
    at either end: a first module has the clock strip's row above it and a last module
@@ -2941,7 +2990,9 @@ tr.po-covered td { color: var(--muted); }
      solid tone and both can start at the same minute: a load at a batch's first
      cycle sits at the bar's own left edge, and a hand a minute wide is barely
      wider than the frame is thick — under it, her hand would be swallowed by a
-     line drawn to mark the bar it works in. */
+     line drawn to mark the bar it works in.
+     Its place stops there: it is a mark ON a bar, so it is below the module titles
+     (--name-z) and a band of her hands can never be written over a module's name. */
   z-index: 2;
   box-shadow: -1px 0 0 rgba(255, 255, 255, .8), 1px 0 0 rgba(255, 255, 255, .8); }
 /* A bar is a button now: it opens its batch's own clock. The cursor says so, and
@@ -3034,7 +3085,7 @@ tr.po-covered td { color: var(--muted); }
    chart is a panel. It needs its own background to be something to scroll under,
    and a z-index above the rows for the same reason; the red now-line is drawn
    over it, because what is happening outranks what she is reading. */
-.tl-ruler { background: var(--surface); position: sticky; top: 0; z-index: 3; }
+.tl-ruler { background: var(--surface); position: sticky; top: 0; z-index: var(--ruler-z, 6); }
 /* The ruler keeps the hour line and nothing finer. Its own ticks already draw the
    finer lines as elements, over this background, so a grid layer here would put a
    second line between every two labelled ticks — and at the widest reading
@@ -3126,7 +3177,7 @@ tr.po-covered td { color: var(--muted); }
 
 /* The time cursor. A hairline down the whole day with the clock at the top of
    it, so the ruler's 8:00 becomes "8:47 is here" — the reading she needs when
-   she is lining two modules up. It is below the name column (z-index 2) on
+   she is lining two modules up. It is below the name column (see --name-z) on
    purpose: the name stays legible and the line starts where the day starts.
    It takes no pointer of its own, or it would swallow the drag of any bar it
    crosses. */
@@ -3144,9 +3195,13 @@ tr.po-covered td { color: var(--muted); }
    inside it could never be lifted over the pinned clock strip — and being read
    wherever she is looking is the whole point of the reading. Its own left and top
    are written by wireTimeCursor, both of them, so it travels across the day with
-   the minute and down it with her finger. */
+   the minute and down it with her finger.
+   Its place in the ladder is above the pinned clock strip (--read-z), because the
+   strip is where its top line lands and a reading she cannot read is not a reading.
+   What it may not do is answer a minute she cannot see: the pointer is only read
+   where the day is in front of her, which is wireTimeCursor's own guard. */
 .tl-cursor-lab {
-  position: absolute; top: 3px; left: 0; z-index: 5;
+  position: absolute; top: 3px; left: 0; z-index: var(--read-z, 8);
   transform: translateX(4px);
   padding: 1px 5px; border-radius: 4px;
   background: var(--brown); color: #fff;
@@ -3179,7 +3234,10 @@ tr.po-covered td { color: var(--muted); }
    background rather than a layer over the bars, so the band already covers it and
    the z-index no longer has to fight for that; it is kept as the standing rule that
    a label outranks whatever the day draws around it, so a heavier ruling or a
-   heavier frame cannot put a line through one. */
+   heavier frame cannot put a line through one.
+   That standing rule is about the day's own drawing and stops there: a B-number is
+   written on a bar she has panned to, so it is below the module titles (--name-z),
+   and panning right can never bring a number up over a title. */
 .tl-btag {
   position: absolute; top: 0; z-index: 3;
   height: 11px; line-height: 11px;
@@ -3227,11 +3285,14 @@ tr.po-covered td { color: var(--muted); }
 
 /* The clock the day is being walked against. Deliberately NOT the cursor's
    colour and not the cursor's shape: a reading she takes must never be mistaken
-   for the minute the day is actually at, and the other way round. */
+   for the minute the day is actually at, and the other way round.
+   It is the one thing on the chart that is happening rather than planned, so it
+   keeps its own place at the top of the ladder (--read-z) with the label it carries
+   to the clock strip: the line is read against the strip it is drawn on. */
 .tl-now {
   position: absolute; top: 0; bottom: 0;
   width: 2px; background: var(--red); opacity: .8;
-  pointer-events: none; z-index: 3;
+  pointer-events: none; z-index: var(--read-z, 8);
 }
 .tl-now-lab {
   position: absolute; top: 3px; left: 0; transform: translateX(4px);

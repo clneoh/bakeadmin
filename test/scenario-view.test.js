@@ -2381,6 +2381,100 @@ test("the ruling is strong enough to be read through a marker (v169)", () => {
   }
 });
 
+// ── Panning right may not put the day's writing over the module titles (v174) ──
+//
+// Her words, 23 September 2026: "the windows when panning right, some of the chart
+// writing shown in between module titles". Measured live on her own day at a phone's
+// width, with the day panned 25px: nine B-numbers and six bands of her hands were the
+// topmost thing at their own position INSIDE the 156px title column — because the
+// name cell was pinned at z-index 2 and every one of those was drawn at 2 or above it,
+// and a tie is decided by which came later in the document. The title cell is the one
+// thing on this chart that is not part of the day, so it has to outrank all of it, and
+// the ladder is declared once on the wrap so the two windows cannot be tuned apart.
+test("no writing from the day climbs over the module titles when the chart is panned (v174)", () => {
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // One rung each, declared once, on the element both windows inherit from.
+  for (const v of ["--name-z", "--ruler-z", "--read-z"]) {
+    assert.equal((bare.match(new RegExp(`${v}:`, "g")) || []).length, 1,
+      `${v} is declared in more than one place, so the two windows can disagree`);
+  }
+  const wrap = rules(/^\.tl-wrap\s*\{[^}]*\}/gm);
+  assert.equal(wrap.length, 1, `expected one rule for the chart's wrap, found ${wrap.length}`);
+  const rung = (v) => {
+    const m = wrap[0].match(new RegExp(`${v}:\\s*([\\d.]+)`));
+    assert.ok(m, `${v} is not declared on the wrap, so nothing can be tuned in one place`);
+    return Number(m[1]);
+  };
+  const nameZ = rung("--name-z");
+  const rulerZ = rung("--ruler-z");
+  const readZ = rung("--read-z");
+  assert.ok(nameZ < rulerZ, `the titles sit at ${nameZ} and the clock strip at ${rulerZ}, so the strip is scrolled under the titles`);
+  assert.ok(rulerZ < readZ, `the clock strip sits at ${rulerZ} and the readings at ${readZ}, so a reading lands on the strip and is buried by it`);
+
+  // The rules whose selector names one class and nothing else — `.tl-btag`, not
+  // `.tl-btag.nudged` and not `.tl-tip-person`, both of which are the same box in
+  // another state or another size rather than a second box with its own rung.
+  const bareBlocks = [...bare.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const own = (cls) => bareBlocks.filter((b) => new RegExp(`^\\.${cls}$`).test(b.sel) || new RegExp(`[\s>+~]\\.${cls}$`).test(b.sel));
+
+  // The three things that stand on a rung name it, rather than repeating the number.
+  for (const [cls, v] of [["tl-name", "--name-z"], ["tl-ruler", "--ruler-z"]]) {
+    const mine = own(cls).filter((b) => /z-index/.test(b.body));
+    assert.equal(mine.length, 1, `expected one rule carrying ${cls}'s z-index, found ${mine.length}`);
+    assert.match(mine[0].body, new RegExp(`z-index:\\s*var\\(${v}`),
+      `.${cls} does not stand on ${v}, so the rungs it belongs to cannot be moved in one place`);
+  }
+  for (const cls of ["tl-cursor-lab", "tl-now"]) {
+    const mine = own(cls).filter((b) => /z-index/.test(b.body));
+    assert.equal(mine.length, 1, `expected one rule carrying ${cls}'s z-index, found ${mine.length}`);
+    assert.match(mine[0].body, /z-index:\s*var\(--read-z/,
+      `.${cls} does not stand on --read-z, so a reading can be buried by the bar it is read against`);
+  }
+
+  // And everything the DAY draws — its marks on her bars, the numbers and names on
+  // them, and a module's own note — is strictly under the titles, so no pan position
+  // can bring one of them up over a title. A tie is not enough: at equal z-index the
+  // later element in the document wins, and every one of these is drawn after the
+  // name cell.
+  for (const sel of [".tl-tip", ".tl-bar::after", ".tl-touch", ".tl-btag", ".tl-pname"]) {
+    const mine = bareBlocks.filter((b) => b.sel === sel);
+    assert.equal(mine.length, 1, `expected one rule for ${sel}, found ${mine.length}`);
+    const z = mine[0].body.match(/z-index:\s*(-?\d+)/);
+    assert.ok(z, `${sel} has no z-index, so it is a tie with the titles and wins on document order`);
+    assert.ok(Number(z[1]) < nameZ,
+      `${sel} is drawn at z-index ${z[1]} and the titles at ${nameZ}, so panning right puts the day's writing between the module titles — her report of 23 September 2026`);
+  }
+
+  // And the reading itself is refused where the day is not in front of her. The ruler's
+  // own track scrolls with the day, so once she has panned, the day's left edge has
+  // travelled off behind the titles and `clientX - track.left` stays positive over the
+  // title column as well — enough to place a hairline and a number on top of a name.
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  const track = walk(walk(proc).find((n) => hasClass(n, "tl-ruler"))).find((n) => hasClass(n, "tl-track"));
+  const cursor = walk(proc).find((n) => hasClass(n, "tl-cursor"));
+  const lab = walk(proc).find((n) => hasClass(n, "tl-cursor-lab"));
+  // The day panned 25px: the titles still begin at the pane's own left edge, and the
+  // track — which scrolls — now starts at 156 - 25 = 131, so its own edge no longer
+  // says where the titles end.
+  proc.scrollLeft = 25;
+  track._rect = { left: 131, top: 0, width: 2400, height: 20 };
+  const press = (clientX) => track.dispatchEvent({ type: "pointerdown", clientX, clientY: 8, pointerId: 71 });
+
+  press(140);   // 140 of the titles' 156, though 9px past the track's own edge
+  assert.equal(cursor.hidden, true,
+    "a reading was taken with the pointer over the module titles, so the hairline is drawn across them");
+  assert.equal(lab.hidden, true,
+    "a clock was read out with the pointer over the module titles, so the number is written over a module's name");
+
+  press(200);   // past the titles, on the day itself
+  assert.equal(cursor.hidden, false, "a reading on the day itself was refused, so the cursor is gone from the chart");
+  assert.ok(lab.textContent, "the minute on the day itself was not read out");
+});
+
 // ── The clock, drawn once (v162 reverted) ────────────────────────────────
 // v162 drew the clock a second time directly above the people's rows, at her own
 // ask — "yes, draw the clock above the people's rows". Read on the screen, she did
@@ -3415,6 +3509,88 @@ test("a ready-made day she has deleted leaves no name standing on her card (v167
     "the menu does not offer the day she deleted, so it cannot be added back");
   assert.doesNotMatch(popupBody(), /No fridge, 1 person/,
     "the menu offers a day that is already on her shelf");
+});
+
+// ── Four days at a time on the shelf, the rest reached by sliding it (v174) ──
+//
+// Her words, 23 September 2026, on her eighth saved day: "now i had 8 scenario, we
+// have to make the secenario just shown 4, the rest shown by slider". With no ceiling
+// the card grew a row per day and the buttons under the shelf went off the bottom of
+// her phone. The height is measured off the fourth row after the card is painted
+// rather than multiplied out, because a long day's name wraps to a second line at
+// 375px and the fourth row's foot is then not the first row's foot plus three.
+test("the shelf shows four days and slides to the rest (v174)", () => {
+  const css = read("admin/css/app.css");
+  assert.match(css, /\.sc-shelf\s*\{[^}]*overflow-y:\s*auto/,
+    "the shelf cannot slide, so the days past the fourth are unreachable");
+  assert.match(css, /\.sc-shelf\s+thead\s+th\s*\{[^}]*position:\s*sticky/,
+    "the shelf's headings scroll away from the rows they name");
+
+  const six = ["A day", "B day", "C day", "D day", "E day", "F day"].map((name, i) => ({ id: `s${i}`, name }));
+
+  // The shim hands every node the same box, which cannot tell the fourth row from the
+  // last — so for these two renders each node is given a box of its own, in the order
+  // it was built. Whether the shelf measured the fourth row or the sixth is then a
+  // number rather than a hope.
+  const boxes = (build) => {
+    const real = globalThis.document.createElement;
+    let n = 0;
+    globalThis.document.createElement = (tag) => {
+      const node = real(tag);
+      n += 1;
+      // Each node ten pixels higher up the page than the last one built, so the rows
+      // stack in the order they are drawn and the shelf — built last, once the whole
+      // table is inside it — starts above all of them, as the real box does.
+      node._rect = { left: 0, top: -(n * 10), width: 315, height: 10 };
+      return node;
+    };
+    try { return build(); } finally { globalThis.document.createElement = real; }
+  };
+  const cardFor = (list) => {
+    const state = {
+      settings: {
+        currency: "RM", deliveryDays: [1, 3, 5],
+        scenario: { ...ONE_BAKER_SCENARIO, modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m })) },
+        scenarios: list,
+      },
+      uoms: [], ingredients: [], products: [], orders: [], deliveryDates: [],
+    };
+    const root = createEl("div");
+    renderScenario(root, state);
+    const card = walk(root).find((n) => hasClass(n, "section") && /Your scenarios/.test(textOf(n))).parent;
+    return { root, card, text: textOf(card) };
+  };
+
+  const many = boxes(() => cardFor(six));
+  const shelf = walk(many.card).find((n) => hasClass(n, "sc-shelf"));
+  assert.ok(shelf, "the shelf of days is not wrapped in anything that can be capped");
+  assert.ok(walk(shelf).some((n) => hasClass(n, "sc-table")),
+    "the shelf's own wrapper does not hold the table of days");
+
+  const rows = walk(shelf).filter((n) => hasClass(n, "sc-row"));
+  assert.equal(rows.length, 6, `the shelf drew ${rows.length} of her 6 days`);
+  const cap = stylePx(shelf, "maxHeight");
+  const foot = (r) => Math.round(r.getBoundingClientRect().bottom - shelf.getBoundingClientRect().top);
+  assert.equal(cap, foot(rows[3]),
+    `the shelf was capped at ${cap}px, which is not where the fourth day ends (${foot(rows[3])}px)`);
+  assert.notEqual(cap, foot(rows[5]),
+    "the shelf was capped off its last day rather than its fourth");
+
+  // And a shelf that has stopped has to say so: on a phone no scrollbar is drawn
+  // until the list is already moving, so the count is the only thing that can tell
+  // her the list is longer than it looks.
+  assert.match(many.text, /first 4 of your 6 days/,
+    "the shelf stopped at four days without saying that the rest are there");
+
+  // Four days or fewer: no height at all, no scroller under her thumb, no note.
+  const few = boxes(() => cardFor(six.slice(0, 4)));
+  const shelf4 = walk(few.card).find((n) => hasClass(n, "sc-shelf"));
+  assert.ok(shelf4, "the shelf of days is not wrapped in anything");
+  assert.equal(stylePx(shelf4, "maxHeight"), null,
+    "a shelf that fits is given a height anyway, so a list with nothing to slide still catches her thumb");
+  assert.doesNotMatch(few.text, /first \d+ of your/,
+    "a shelf that fits claims days of hers are hidden");
+  assert.match(few.text, /D day/, "the fourth day is not on the card at all");
 });
 
 test("both windows read the ruler from one pair of numbers, set once (v167)", () => {
