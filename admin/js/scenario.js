@@ -1443,6 +1443,16 @@ export function peopleRows(modules, shifts = {}, skills = {}) {
       startMin: row.items[0].from,
       endMin: row.items.reduce((m, i) => Math.max(m, i.to), row.items[0].to),
     };
+    // And it stands down the moment she has said the hours herself. Her rule of
+    // 23 September, on seeing the two drawn together: "dont shade if the person have
+    // indicated work time". A window she typed and a window worked out for her are two
+    // answers to one question, and the answer she gave is the one that stands — where
+    // both were drawn, one band sat inside the other and neither read as the truth. So
+    // row.shade is what the row is shaded with: the stretch above while nobody has said
+    // the hours, and NOTHING at all once somebody has. Note that this is the shade only.
+    // row.span above is still the work's own extent, and the row, the tip, the person's
+    // card and the worker's board all still name it in words.
+    row.shade = row.shift ? null : row.span;
     let edge = -1;
     let prev = null;
     for (const i of row.items) {

@@ -245,6 +245,36 @@ test("a person's own working stretch runs from their first job to their last, ga
     "the stretch stopped at the last item's end rather than at the latest job end");
 });
 
+test("the shade stands down where she has said the hours herself (v180)", () => {
+  // Her rule of 23 September, on seeing the two drawn together: "dont shade if the person
+  // have indicated work time". A window she typed and a window worked out for her are two
+  // answers to one question, so the computed one is not drawn — that person's shade is
+  // nothing at all. row.span itself is untouched by this, because that is the work's own
+  // extent and the words about it still stand on the row, in the tip and on the card.
+  const at = (id, startMin, touchMin, person = 0) => moduleFacts({
+    id, icon: "•", name: id, on: true, person, cycleMin: touchMin, batch: 1,
+    touchMin, everyMin: touchMin, repeats: 1, startMin, people: 1,
+  });
+  const on = [at("a", 30, 4, 1)];
+  const plain = peopleRows(on);
+  assert.deepEqual(plain[0].shade, { startMin: 30, endMin: 34 },
+    "a person with no hours typed has lost the shade, which is every day built before this");
+
+  const typed = peopleRows(on, { 1: { startMin: 0, endMin: 600 } });
+  assert.strictEqual(typed[0].shade, null,
+    "the shade is still drawn over hours she typed herself, so the row answers one question twice");
+  assert.deepEqual(typed[0].span, { startMin: 30, endMin: 34 },
+    "the working stretch itself was thrown away with the shade, so the words about it lost their numbers");
+
+  // Typing hours over only ONE person takes the shade off that row alone: a shade is a
+  // fact about a person, never about the day.
+  const two = peopleRows([at("a", 30, 4, 1), at("b", 0, 10, 2)], { 1: { startMin: 0, endMin: 600 } });
+  assert.strictEqual(two.find((r) => r.person === 1).shade, null,
+    "the person whose hours were typed still wears a shade");
+  assert.deepEqual(two.find((r) => r.person === 2).shade, { startMin: 0, endMin: 10 },
+    "the shade came off a person whose hours nobody had typed");
+});
+
 test("the total person row stacks whoever is working, named or not", () => {
   // The row she asked for: person 1, person 2, person 3 added up, so a doubled
   // stretch is a shape rather than a number. A named module and a shared-out one
@@ -2033,6 +2063,44 @@ test("pressing the backward pass never moves a module earlier, and never twice (
   for (const f of pressed) {
     assert.equal(twice.get(f.id), f.startMin, `${f.name} would move again on a second press`);
   }
+});
+
+// Her report of 23 September, on the last module's own bar: "the last module batch pop
+// up, still dont mark his delta?" That bar opened the day's card and nothing else, so
+// the batch could take no hold at all. It can now, and this pins what a hold there does
+// — because on THIS module a hold is not only that batch's own business.
+//
+// The press writes the shape below: every batch of the module, by the same amount, which
+// is what batch 1 of any module writes. What it buys is the other end of the backward
+// pass above — the anchor moves later, so the room between it and every module above
+// grows by exactly those minutes, and the day's own card is where that room is read and
+// taken. Hold the finish later, then work the day back into the room it made.
+test("a hold on the last module hands every module above it the same minutes of slack (v180)", () => {
+  const before = computeScenario(ONE_BAKER_SCENARIO);
+  const was = latestStarts(before.on);
+  const last = before.on[before.on.length - 1];
+  const wasStart = new Map(before.on.map((f) => [f.id, Number(f.startMin)]));
+
+  const sc = copyScenario(ONE_BAKER_SCENARIO);
+  sc.modules.find((m) => m.id === last.id).startDelta = last.passes.map(() => 5);
+  const after = computeScenario(sc);
+  const now = latestStarts(after.on);
+
+  // The anchor itself, five minutes later — and not one module above it moved.
+  assert.equal(after.on[after.on.length - 1].startMin - last.startMin, 5,
+    "the hold did not move the module the day hangs from");
+  for (const f of after.on) {
+    if (f.id === last.id) continue;
+    assert.equal(Number(f.startMin), wasStart.get(f.id), `${f.name} moved with a hold on the last module`);
+  }
+  // The room it made, module by module.
+  for (const f of after.on) {
+    assert.equal(now.get(f.id) - was.get(f.id), 5,
+      `${f.name} was not handed the minutes the hold made`);
+  }
+  // And nothing of the day's own figures came with it but the five minutes of clock.
+  assert.equal(after.pansPerDay, before.pansPerDay, "the hold changed how many pans the day makes");
+  assert.equal(after.endMin - before.endMin, 5, "the day's own finish did not move with the anchor");
 });
 
 

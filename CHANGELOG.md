@@ -1,8 +1,107 @@
-# Jienluv2bake — change history (v54 → v179)
+# Jienluv2bake — change history (v54 → v180)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v180, THE HOURS YOU TYPED TAKE THE SHADE OFF, AND THE LAST BAR OF THE
+DAY CAN BE HELD (no database step). On a person whose working hours you have filled in on
+their card, the shaded band the app worked out for you is no longer drawn. Your two clock
+boxes are the answer for that person, and a window you typed with a second, computed window
+drawn inside it was two answers to one question — which is what you saw and reported. Nothing
+else about the shade changes: on every person whose hours you have NOT filled in, it is drawn
+exactly as it was, and on every person it is still named in words — on their row, in the tip
+and on their card. The bar at the very end of your last module now carries the same readings
+and the same pair of presses as every other bar, so it can be held like any other; the card it
+opens is still the day's own card, with the whole day read off it underneath.**
+
+**1. What you reported, in your own words.** "dont shade if the person have indicated work
+time", and then, so there was no doubt which screen you meant, "and those person with work
+time specify, the shade is wrongly indicated". Both true, and neither was your phone.
+
+**2. What was wrong.** The shade added in v179 is the stretch of the day a person's own jobs
+actually occupy, worked out from the day. It was drawn on every person, including the ones you
+had already filled the two hour boxes in for. So on those rows two bands lay on top of each
+other: the hours you typed, and a second, computed band sitting inside it. Measured on a row
+with 5:00 am to 9:00 am typed in, at 1.6 pixels a minute: the typed band ran 96 pixels along
+the row and 384 wide, and the computed one was drawn on top of it, starting later and ending
+earlier wherever the work did not fill the hours. Two different lengths for one person's
+working day, and no way to tell which one the row meant.
+
+**3. What it does now, on your rule.** The moment you have said the hours for somebody, that
+person is not shaded at all. Your typed hours are the only band on their row, and they are read
+as the answer. Where you have NOT filled the boxes in — which is every person on every day you
+have ever built, including all of today's — nothing changes at all: the shade is drawn from
+their own first job to their own last exactly as it was in v179, because there is no typed
+answer for it to argue with. The rule is one line, held in the model rather than on the screen,
+so the row, the worker's board and the person's card cannot come to different conclusions.
+
+**4. And the words stay, deliberately.** Taking the drawing away must not take the fact away.
+The working stretch is still named in words everywhere it was: on the person's row ("Working
+4:00 am → 5:33 am"), in the tip, and on their card, where it sits beside the hours you typed so
+you can still read the two against each other. That is the half of this release you may not
+have asked for, and it is deliberate: you said do not SHADE it, not do not SAY it. If you would
+rather the words went too on a person whose hours you have typed, that is a one-line change —
+say the word.
+
+**5. And the other thing you reported, which I had explained away.** "the last module batch pop
+up, still dont mark his delta?" — the very last bar of your day. Tapping it opened the day's own
+card and nothing else: it carried no batch number, no delta t, no cycle reading and no way back,
+while every other bar on the chart carried all four. In v179 I answered that this was by design,
+because since v152 that bar is where the day is worked backwards from, so the card it opens is
+the day's own card. You reported it again, so I measured it rather than explaining it again — and
+it was real. A bar you can see and tap but cannot hold is missing the one thing every other bar
+on your chart has, and the day's own card does not need that to be true.
+
+**6. What that bar does now.** The card underneath is unchanged: it is still the day's own card,
+still headed the end of your first batch, still naming the day's first batch, the day's finish
+and every module on it. What is new sits on top of it — the four readings every other bar
+carries (which batch it is, the delta t, the cycle, the pans), the same pair of presses,
++ 5 minutes and − 5 minutes, and Back onto the line. A hold there is a hold on that whole module,
+exactly as a hold on batch 1 of any other module is. Measured on your own day at 4:00 am: five
+minutes on the last bar moved that module five minutes later. Its row read "starts 4:05 am", the
+tag on its bar read B1 delta t=+5, and its card read Batch 1, delta t = +5 min, 4:05 am to
+4:17 am, where it had been 4:00 am to 4:12 am. Not one module above it moved a minute. Nor was
+any of them given more room: every one of their latest starts still read 4:00 am, which is where
+they already were, and the day card's own line — that every module of your line is already as
+late as it can go — was as true after the hold as before it. The day's own finish did not move
+either: 6:03 am both times, because the day finishes with whichever module ends last, and on your
+day that is The rests and the stretch and folds, which the packing never delays. The pans a day
+did not change at all: 6 before and 6 after. Pressing Back onto the line put the batch back to
+4:00 am and the tag back to B1 with no delta t, and the round trip left your stored data byte for
+byte the same.
+
+**7. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day.
+Nothing here is stored at all: the shade is worked out from the day each time the screen is
+drawn, and the only thing that decides whether it is drawn is whether you have filled the hour
+boxes in. Measured live, after typing hours into a person's card, taking them out again, and
+opening and shutting the cards: every field of the day read exactly as it had before, with one
+trace left behind, and it is named here rather than glossed over. The first time an hour is
+typed, the day grows an empty shifts key, and taking the hours back out leaves the key standing
+at nothing. It is twelve characters, it reads as no hours at all — as does an absent key, which
+is the one thing it can never mean anything else — and it is the same shape your own stored data
+already carries for merges. So the day is not byte-identical to itself after a round trip; it is
+identical in every field, plus those twelve characters of nothing. The copy taken beforehand was
+then put back and compared: 13,888 characters, byte for byte, and your three saved days read
+24, 12 and 24 pans.
+
+**8. Every rule that stands on it was proved load-bearing, not assumed.** Ten faults were put
+back in all, and each was watched failing by a test that names it, then restored byte-identically.
+With the rule dropped so everybody is shaded again it fails reading that a person whose hours you
+typed is still wearing a shade; with the shade dropped everywhere it fails the other way, reading
+that a day with no hours typed anywhere lost its shade; with the rule inverted so only a typed
+person is shaded it fails both; with the row drawn from the work again, past the rule, it fails
+reading that the two bands are back; with the words silenced along with the drawing it fails
+reading that the fact left the row; and with the shade made to answer to the whole day rather than
+to the person it fails reading that one person's hours took the shade off somebody else's row.
+Of the last bar: with its card taken back to the day's card alone it fails reading that the card
+no longer says which batch it is; with the day's own reading dropped off it, the other way; and
+with the two pairs of presses stopped saying which one moves the whole day it fails reading that
+the card no longer names the pair. The suite is 1298 passing with none failing.
+
+**9. No database step.** Not one stored field is added or changed, so there is nothing to run
+in Supabase. You do not need to type your hours again on the other phone: the shading is decided
+by the hours you already had.
 
 **23 Sep 2026 — engine v179, WORKING HOURS AND THE DELTA T (no database step). Each
 person's line is now shaded across the hours they are actually working — drawn from their

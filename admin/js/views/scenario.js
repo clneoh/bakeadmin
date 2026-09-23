@@ -2724,8 +2724,6 @@ function batchPopup(m, live, sc, on, k, hold) {
     const at = p ? p.at : Number((cycleStarts(live))[k]) || 0;
     const end = p ? p.end : at + (here.cycleMin || 0);
 
-    if (isDay) return dayBackCard(r, live, sc, on, refresh, hold, end);
-
     // The first module has nothing above it to hold a batch back FROM, so a move
     // there is its own start time — which is what every move has always been.
     // Every later module writes a delta instead, so the batch rides the chain:
@@ -2802,7 +2800,7 @@ function batchPopup(m, live, sc, on, k, hold) {
     // terms is still on the press itself, as its accessible name, and every press
     // still answers in words when it lands — including when the module above or the
     // module's own minutes moved the batch somewhere other than where she aimed.
-    return el("div", {},
+    const readings = el("div", {},
       // One line for the four facts, in the order she reads them: which batch, how
       // it sits against the line, the two times, and what it costs her hands.
       el("div", { class: "cyc-line", style: "margin:0 0 10px" },
@@ -2828,6 +2826,29 @@ function batchPopup(m, live, sc, on, k, hold) {
         step(1, "One minute"),
         back),
     );
+
+    // The last module's first batch is where the whole day is hung from, so its card
+    // carries two cards' worth: the batch's own four readings and its own pair,
+    // exactly as every other bar on the chart has them, and the day's backward reading
+    // below it.
+    //
+    // Which is her report of 23 September, on tapping that bar: "the last module batch
+    // pop up, still dont mark his delta?" She is right, and it was the one bar on her
+    // chart whose card said nothing about the batch it belongs to and could take no
+    // hold at all, because dayEndOf routed the tap straight past the batch card and
+    // the readings and the pair were never built. Nothing about the day card was wrong
+    // — it is the card behind her own "how to make the calculate backward works?", and
+    // every word of it stands — but a bar that opens a different card from every other
+    // bar asking the same question is two taps that look alike behaving unlike, which
+    // is the fault the dead-control rule names.
+    //
+    // And the two belong on one card rather than behind another press, because they
+    // are two halves of one thought: holding this batch later hands every module above
+    // it exactly those minutes as slack, and the list below is where that slack is read
+    // and taken. Hold the finish later, then work the day back into the room it made.
+    return isDay
+      ? el("div", {}, readings, dayBackCard(r, live, sc, on, refresh, hold, end))
+      : readings;
   });
 }
 
@@ -2883,8 +2904,14 @@ function dayBackCard(r, live, sc, on, refresh, hold, anchor) {
   // The same two pairs she already knows from moving a batch, doing the one other
   // thing a time on this chart can do: moving the whole day. Five first, because
   // five is the amount the day is read in.
+  //
+  // The label names the scope outright and no longer says "at a time", because since
+  // v180 this card carries a second pair of the same two presses, an inch above it,
+  // moving this batch on its own. Two pairs whose buttons both read "+ 5 min" is the
+  // ambiguity the dead-control rule is about, so the scope is on the label where a
+  // person looks before the hint where they read.
   const step = (by) => el("div", { class: "field" },
-    el("label", {}, by === 5 ? "Five minutes at a time" : "One minute at a time"),
+    el("label", {}, by === 5 ? "Five minutes, the whole day" : "One minute, the whole day"),
     el("div", { class: "step-pair" },
       el("button", {
         type: "button",
@@ -2899,7 +2926,7 @@ function dayBackCard(r, live, sc, on, refresh, hold, anchor) {
     el("div", { class: "hint" },
       "This moves the WHOLE day, every module of it by the same amount, so the " +
       "shape of your day is kept exactly as it is and only the clock on it moves. " +
-      "To move one module instead, tap its own bar."));
+      "To move this batch on its own instead, use the pair at the top of this card."));
 
   return el("div", {},
     el("div", { class: "cyc-line", style: "margin:0 0 4px" },
@@ -3293,12 +3320,18 @@ function personRow(r, row, trackW, sc, on, state, run) {
   // job outside the hours they typed, this shape shows it by standing outside theirs,
   // which is the same fault the row already names in words; where the day has given them
   // nothing, there is no shape at all.
-  const work = el("div", {
+  //
+  // And where she has said the hours herself there is no shape at all either, because
+  // row.shade is nothing in that case. Her rule of 23 September, quoted in full where the
+  // model makes the decision: "dont shade if the person have indicated work time". The
+  // band above is then the only band on the row, and the working stretch is still named
+  // in the words the row, the tip and the card all carry.
+  const work = row.shade ? el("div", {
     class: "tl-work",
-    style: `left:${Math.round(row.span.startMin * r.pxPerMin)}px;`
-      + `width:${Math.max(1, Math.round((row.span.endMin - row.span.startMin) * r.pxPerMin))}px`,
+    style: `left:${Math.round(row.shade.startMin * r.pxPerMin)}px;`
+      + `width:${Math.max(1, Math.round((row.shade.endMin - row.shade.startMin) * r.pxPerMin))}px`,
     title: notes.workLine,
-  });
+  }) : null;
 
   const bars = row.items.map((w) => el("div", {
     // The PERSON'S own colour, not the module's. Tinted by module, one person's row

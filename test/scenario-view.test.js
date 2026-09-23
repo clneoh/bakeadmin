@@ -736,6 +736,24 @@ const popupBody = () => textOf(layers["popup-layer"]);
 const popupButton = (re) => walk(layers["popup-layer"]).find((n) => n.tagName === "BUTTON" && re.test(textOf(n)));
 const starts = (state, id) => computeScenario(state.settings.scenario).modules.find((m) => m.id === id).starts;
 
+// One ± pair on the card, found by the label that names what it moves, and not by the
+// buttons' own words. Since v180 the day's own card carries two pairs — this batch's,
+// and the whole day's — and both wear "+ 5 min" / "− 5 min". A helper that took the
+// first match would press whichever pair happened to be built first and call it the
+// one it meant, which is the mismatch this helper exists to make impossible.
+function popupPair(re) {
+  const field = walk(layers["popup-layer"]).find((n) => hasClass(n, "field")
+    && walk(n).some((x) => x.tagName === "LABEL" && re.test(textOf(x))));
+  assert.ok(field, `the card has no group labelled ${re}`);
+  const by = (way) => {
+    const b = walk(field).find((n) => n.tagName === "BUTTON"
+      && new RegExp(way).test(String(n.getAttribute("aria-label") || "")));
+    assert.ok(b, `the group labelled ${re} has no button that goes ${way}`);
+    return b;
+  };
+  return { later: by("later"), earlier: by("earlier") };
+}
+
 // The day-backwards group of the controls row. Until v157 it was found by its own
 // label; the label is gone — it re-stated the button's own name and wrapped to two
 // lines on her phone — so the group is found as the one holding the button, inside
@@ -1072,8 +1090,9 @@ test("the step pairs on the day card move the whole day and keep its shape (v152
   const gaps = (r) => r.on.slice(1).map((f, i) => Number(f.startMin) - Number(r.on[i].startMin));
 
   tapBar(root, "Cutting and packing", 0);
-  const later = popupButton(/\+ 5 min/);
-  assert.ok(later, "the day's own card carries no five-minute pair");
+  // Found by the label that names the scope, because since v180 this card carries a
+  // second pair wearing the same two buttons, moving this batch alone.
+  const later = popupPair(/the whole day/).later;
   later.dispatchEvent({ type: "click" });
 
   const after = computeScenario(state.settings.scenario);
@@ -1085,15 +1104,60 @@ test("the step pairs on the day card move the whole day and keep its shape (v152
 
   // A day moved by hand offers the same way back as a day pulled back, and it is
   // the day she began with rather than the step before the last one.
-  const earlier = popupButton(/− 5 min/);
-  assert.ok(earlier, "the day's own card carries no earlier button");
-  earlier.dispatchEvent({ type: "click" });
+  popupPair(/the whole day/).earlier.dispatchEvent({ type: "click" });
   const back = popupButton(/Put my start times back/);
   assert.ok(back, "moving the whole day offers no way back");
   back.dispatchEvent({ type: "click" });
   for (const f of computeScenario(state.settings.scenario).on) {
     assert.equal(Number(f.startMin), wasAt.get(f.id), `${f.name} was not put back to where the day began`);
   }
+});
+
+// ── The last module's first batch is a batch too (v180) ───────────────────
+// Her report at that bar: "the last module batch pop up, still dont mark his delta?"
+// It was the one bar on her chart whose card said nothing about the batch it belongs
+// to and could take no hold at all — dayEndOf routed the tap past the batch card
+// altogether. The day card stands, unchanged, and the batch's own half now stands on
+// top of it: the four readings, the pair, and the way back off a hold.
+
+test("the last module's first batch carries the readings and the pair every other bar carries (v180)", () => {
+  const { root, state } = render();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+  const wasAt = new Map(computeScenario(state.settings.scenario).on.map((f) => [f.id, Number(f.startMin)]));
+
+  tapBar(root, "Cutting and packing", 0);
+  assert.match(popupTitle(), /the end of your first batch/, "the day's own card stopped opening on that bar");
+  assert.match(popupBody(), /Batch 1/, "the last module's card does not say which batch it is");
+  assert.match(popupBody(), /→/, "the last module's card does not read out the batch's two times");
+  assert.match(popupBody(), /latest/, "the day's own reading left the card with the batch's half added");
+  assert.ok(popupButton(/Pull them back to their latest start/), "the day card lost its own press");
+
+  // The pair at the top of that card is the BATCH's, and it writes the hold every
+  // other module writes: this module later, every batch of it, and nothing above it
+  // moved a minute.
+  popupPair(/^\s*Five minutes\s*$/).later.dispatchEvent({ type: "click" });
+  // The whole list, not just batch 1: the press on a first batch is a hold on the module,
+  // and the model test beside this one is what pins what that buys the modules above it.
+  assert.deepEqual(pack().startDelta, [5, 5, 5, 5],
+    "the press on the last module's first batch did not hold every batch of it");
+  for (const f of computeScenario(state.settings.scenario).on) {
+    if (f.id === "solo_pack") continue;
+    assert.equal(Number(f.startMin), wasAt.get(f.id), `${f.name} moved with a hold on the last module`);
+  }
+  assert.match(popupBody(), /Δt = \+5 min/, "the card does not mark the hold it just took");
+  assert.match(lastToast(), /held 5 minutes later than the time you gave it/, "the press does not say what it did");
+
+  // And the bar is marked, in the same words and the same tint a held batch anywhere
+  // else on the chart carries.
+  const tag = tagsFor(root, "Cutting and packing")[0];
+  assert.match(textOf(tag), /Δt=\+5/, "the last module's own bar does not carry the hold it is on");
+  assert.ok(hasClass(tag, "nudged"), "the last module's bar is not tinted as a held batch is");
+
+  // The way back is the same one, in the same words, and it leaves the day where it
+  // began rather than one step back.
+  popupButton(/Back onto the line/).dispatchEvent({ type: "click" });
+  assert.equal(pack().startDelta[0], 0, "the way back left the hold standing");
+  assert.match(lastToast(), /back at the time you gave it/, "the way back does not say where it landed");
 });
 
 test("the day's own row works the day backwards on the spot (v153)", () => {
@@ -4225,6 +4289,18 @@ const shadeOf1 = (root, name) => {
   const track = walk(row).find((n) => hasClass(n, "tl-track"));
   return { track, shade: walk(track).find((n) => hasClass(n, "tl-work")) };
 };
+// How many shades are drawn on that person's row — a COUNT, never a node, and that is
+// not a style preference. A failing assertion hands both its sides to node's own
+// formatter, which prints them with `customInspect: false` and `showHidden: true`: a
+// node cannot answer it with an inspect of its own, and every own property of a shim
+// node is walked, `parent` included, so the walk goes back up the tree it has just come
+// down and prints each node once per path to it. Measured, not guessed — one shade node
+// handed to `assert.strictEqual` against `undefined` came out at 135,447,648 characters
+// and took longer than the run was allowed, so the test read as a hang instead of as a
+// failure. A test that can only hang is a test that cannot fail, which is the one thing
+// this file exists to refuse; a count fails just as loudly and prints on one line.
+const shadeCount = (root, name) =>
+  walk(shadeOf1(root, name).track).filter((n) => hasClass(n, "tl-work")).length;
 // The outer ends of everything drawn on that person's row: where their work begins
 // and where it ends, read off the bars themselves rather than restated here.
 const workEnds = (track) => {
@@ -4255,7 +4331,7 @@ test("each person's line is shaded across the work they have been given (v179)",
   const { root } = render();
   const { track, shade } = shadeOf1(root, "Person 1");
   assert.ok(shade, "a person with work on their row has no shade at all");
-  assert.equal(track.children.filter((c) => c.nodeType === 1)[0], shade,
+  assert.equal(track.children.filter((c) => c.nodeType === 1).indexOf(shade), 0,
     "with no hours typed the shade is not the first thing in the track, so the bars would go under it instead of over it");
   // The shade is drawn from the times and a bar is not: a job shorter than four
   // pixels is still drawn four wide, so it can be seen and tapped with a thumb, and
@@ -4280,16 +4356,52 @@ test("each person's line is shaded across the work they have been given (v179)",
     "a bar is padded more than the four-pixel floor, so the row reads wider than the minutes it stands for");
   assert.ok(px(shade, "width") > 0, "the shade is drawn no wider than nothing");
 
-  // And it never hides anything with it standing over: no hours typed above it here,
-  // and the row's own bars still read over it where both are drawn.
+  // And it stands down entirely the moment she has said the hours herself — her rule of
+  // 23 September, on seeing the two drawn together: "dont shade if the person have
+  // indicated work time". A window she typed and a window worked out for her are two
+  // answers to one question, and where both were drawn one band sat inside the other.
   const withHours = render({ shifts: { 1: { startMin: 60, endMin: 300 } } });
-  const inner = shadeOf1(withHours.root, "Person 1");
-  const kids = inner.track.children.filter((c) => c.nodeType === 1);
+  const typed = shadeOf1(withHours.root, "Person 1");
+  assert.equal(shadeCount(withHours.root, "Person 1"), 0,
+    "a computed shade is drawn beside the hours she typed, so the row carries two answers to one question");
+  const kids = typed.track.children.filter((c) => c.nodeType === 1);
   assert.ok(hasClass(kids[0], "tl-shift"), "the hours a person is here are no longer drawn first");
-  assert.equal(kids[1], inner.shade,
-    "the working shade is not drawn directly inside the hours band, so the two cannot read as one fact and its shadow");
-  assert.equal(walk(inner.track).filter((n) => hasClass(n, "tl-bar")).length > 0, true,
-    "the day's own bars left the row when both shades were drawn");
+  assert.ok(hasClass(kids[1], "tl-bar"),
+    "the row is still drawn as the hours band and then its jobs, with nothing computed between them");
+  assert.equal(walk(typed.track).filter((n) => hasClass(n, "tl-bar")).length > 0, true,
+    "the day's own bars left the row when the hours were typed in");
+});
+
+test("the hours she typed take the shade off the row and leave its words standing (v180)", () => {
+  // The other half of the rule above, pinned so neither half can be moved alone. The
+  // SHADE stands down where she has said the hours; the words about the working stretch
+  // do not, on the row, in the tip or on the person's card. The fact is never lost — what
+  // goes is its second drawing, which was the thing she objected to.
+  const typed = render({ shifts: { 1: { startMin: 60, endMin: 300 } } });
+  const row = walk(typed.root).find(
+    (n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1"));
+  assert.ok(row, "no person row named Person 1");
+  assert.equal(walk(row).filter((n) => hasClass(n, "tl-work")).length, 0,
+    "the shade was still drawn although the hours had been typed");
+  assert.match(textOf(row), /Working \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "the working stretch left the row with the shade, because the two were not separated");
+
+  openPerson(typed.root, "Person 1");
+  assert.match(popupBody(), /Working \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "the person's card lost the working stretch when the hours were typed");
+  assert.match(popupBody(), /Here \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "the hours she typed left the card, so the shade went and took her own answer with it");
+
+  // And the other way round, so this cannot pass by the words having been made
+  // unconditional: a day with nobody's hours typed still draws both the shade and the
+  // same words, so the two rules are independent of one another.
+  const plain = render();
+  const plainRow = walk(plain.root).find(
+    (n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1"));
+  assert.equal(walk(plainRow).filter((n) => hasClass(n, "tl-work")).length, 1,
+    "the shade is no longer drawn on a day with no hours typed anywhere");
+  assert.match(textOf(plainRow), /Working \d{1,2}:\d{2} (am|pm) → \d{1,2}:\d{2} (am|pm)/,
+    "a day with no hours typed anywhere has lost the words about the working stretch");
 });
 
 test("a job too short to see is still drawn four wide, and the shade still reads the minutes (v179)", () => {
