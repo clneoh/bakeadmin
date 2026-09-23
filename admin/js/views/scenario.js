@@ -913,6 +913,11 @@ function timeline(r, sc, on, state, run) {
   // it back out — "since the both windows have their own slider, additional slider is
   // redundent. Remove that" — and the half of that release she wanted, the two
   // windows staying in step, is what wirePaneScroll still does.
+  //
+  // v171 adds the third way to move a window: right-press and hold and the day comes
+  // with her hand, both ways at once. See wirePaneDrag — and isPrimaryClick, which is
+  // the other half of that release, the half that keeps a press for panning from
+  // opening a card.
   const wrap = el("div", {
     class: "tl-wrap",
     style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
@@ -927,6 +932,7 @@ function timeline(r, sc, on, state, run) {
   if (run.on) placeNow(run);
   wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
   wirePaneScroll(proc, people);
+  wirePaneDrag(proc, people);
   return wrap;
 }
 
@@ -1167,11 +1173,40 @@ function wireTimeCursor(tl, r, cursor, lab, clock, mirror) {
       const h = lab.offsetHeight || 18;
       const y = clientY - box.top;
       // Clear of the pointer rather than on it: a reading under her own finger is
-      // a reading that hides the bar she is holding it against. It sits above the
-      // touch, and drops below it only where the top of the chart leaves no room.
-      const above = y - h - 8;
-      const top = above >= 0 ? above : y + 14;
-      lab.style.top = `${Math.round(Math.min(Math.max(0, top), Math.max(0, box.height - h)))}px`;
+      // a reading that hides the bar she is holding it against. Her words of 23
+      // September: "put the clock balon 2 inches higher than. cursor" — so it is
+      // lifted well clear of the line rather than sitting a hair above the pointer,
+      // which is where a reading read as part of her hand.
+      //
+      // The lift is named in the unit she used. A CSS inch is 96 pixels by
+      // definition, so two of them is a number this can be held to rather than a
+      // feeling: raise or lower LIFT and the balloon follows, and it follows in
+      // one place only, because this one line places the one reading both windows
+      // share.
+      //
+      // It goes UP by preference, and the whole two inches of it or nothing: a
+      // balloon that came to rest at the window's top when it ran out of room would
+      // be lying on her hand exactly where she took hold of the clock strip, which
+      // is at the top of the modules' window and is the one place on this chart she
+      // presses with a finger. So when the two inches do not fit above her pointer
+      // the reading takes the same two inches BELOW it — the distance she asked for
+      // is kept, and only the side of it changes.
+      //
+      // And it is held to the WINDOW rather than to the day. The day can be taller
+      // than the window she is looking through, and a lift measured against the
+      // day would carry the balloon off the window and hide it exactly when there
+      // is a full day to read. Measured against the window, two inches of lift or
+      // the window's own top, whichever she reaches first — so the reading is
+      // always on the screen in front of her.
+      const LIFT = 2 * 96;
+      const win = frame.parentNode ? frame.parentNode.getBoundingClientRect() : box;
+      const visTop = win.top - box.top;
+      const visBottom = Math.max(visTop + h, Math.min(win.bottom - box.top, box.height));
+      const above = y - h - LIFT;
+      const below = y + LIFT;
+      const top = above >= visTop ? above
+        : (below + h <= visBottom ? below : visTop);
+      lab.style.top = `${Math.round(Math.min(Math.max(visTop, top), visBottom - h))}px`;
     }
     lab.textContent = clockAt(r.dayStartMin, t);
     // The reading hangs off the right of the line, so at the far end of the day
@@ -1185,6 +1220,10 @@ function wireTimeCursor(tl, r, cursor, lab, clock, mirror) {
   // day as in the middle of it.
   const end = () => { dragging = false; };
   ruler.addEventListener("pointerdown", (e) => {
+    // The reading is taken with the left button, or with a finger. The RIGHT button
+    // belongs to the pan (see wirePaneDrag), and a press that is moving the day must
+    // not drag a reading along with it: one press, one gesture.
+    if (!isPrimaryClick(e)) return;
     dragging = true;
     place(e.clientX, e.clientY);
     // A pointer already gone by the time this runs cannot be captured, and it
@@ -1252,6 +1291,90 @@ function wirePaneScroll(a, b) {
     });
   };
   for (const p of panes) p.addEventListener("scroll", () => follow(p));
+}
+
+// Is this an activation by the primary button — the left button, a finger, a pen?
+//
+// It is a question the chart has to ask because the RIGHT button is how she pans it
+// (see wirePaneDrag), and a press that pans the day must open nothing. Her words, 23
+// September: "can i drag the module window up/down, left/right by right click and
+// hold? Dont let this action open up the card." A browser fires no click at all for
+// the right button, so this guard is the belt to that pair of braces rather than the
+// whole of it — but it is the half the app owns, and it is the half a test can prove.
+//
+// It matters most on a bar, because a bar is where she will press: the bars cover
+// most of the day, and every one of them opens a card on a left press. An activation
+// with no button number at all is primary — that is what a keyboard's own click and a
+// test's synthetic event are, and neither is a right press.
+function isPrimaryClick(e) {
+  return !e || e.button == null || Number(e.button) === 0;
+}
+
+// Right-press and hold to drag a window's day about, up and down as well as sideways.
+//
+// Three things are in her sentence above and all three are here. One: the gesture is
+// the RIGHT button, so it can never be confused with the left press that opens a card.
+// Two: it moves both axes, because the day is wider than the window and, on a day of
+// six modules, taller too. Three: it is a PAN and not a nudge — the day travels with
+// her hand, which is why the scroll position moves the OPPOSITE way to the pointer,
+// exactly as if she had taken hold of the paper and pulled it.
+//
+// Both windows are wired in one statement, deliberately. They are the same kind of
+// pane, and a gesture that worked in the modules' window and did nothing in the
+// people's would read as a fault. Sideways, this needs no second write path: setting
+// scrollLeft fires the scroll event the sync above is already listening for, so a drag
+// on either window brings the other with it and the two cannot disagree about a minute.
+//
+// A finger can never set button 2, so nothing here is reachable from her phone and the
+// touch behaviour is untouched: this is a computer's gesture.
+function wirePaneDrag(a, b) {
+  for (const pane of [a, b]) {
+    if (!pane || !pane.addEventListener) continue;
+    // The gesture in progress: where the pointer went down, and where the day was at
+    // that moment. Held in a closure rather than on the node, so two panes cannot
+    // share one drag.
+    let held = null;
+    const press = (e) => {
+      if (!e || Number(e.button) !== 2) return;
+      held = {
+        id: e.pointerId,
+        x: Number(e.clientX) || 0,
+        y: Number(e.clientY) || 0,
+        left: Math.max(0, Number(pane.scrollLeft) || 0),
+        top: Math.max(0, Number(pane.scrollTop) || 0),
+      };
+      pane.classList.add("tl-dragging");
+      e.preventDefault();
+      // Keep the moves coming after the pointer leaves the pane, which it does within
+      // a few pixels of a drag — without this the day stops dead at the window's own
+      // edge with her finger still down. Capture can throw rather than say so when the
+      // pointer has already gone, and losing the capture must not lose the drag or the
+      // class that says it is happening.
+      try { if (pane.setPointerCapture && held.id != null) pane.setPointerCapture(held.id); } catch { /* the drag is the gesture; capture only widens it */ }
+    };
+    const move = (e) => {
+      if (!held || !e) return;
+      // A move with no right button held is not a drag — the press ended somewhere the
+      // release never reached. Drop it rather than leave the pane stuck to the pointer.
+      if (e.buttons != null && (Number(e.buttons) & 2) === 0) { release(); return; }
+      pane.scrollLeft = Math.max(0, held.left - ((Number(e.clientX) || 0) - held.x));
+      pane.scrollTop = Math.max(0, held.top - ((Number(e.clientY) || 0) - held.y));
+      e.preventDefault();
+    };
+    const release = () => {
+      if (!held) return;
+      held = null;
+      pane.classList.remove("tl-dragging");
+    };
+    pane.addEventListener("pointerdown", press);
+    pane.addEventListener("pointermove", move);
+    pane.addEventListener("pointerup", release);
+    pane.addEventListener("pointercancel", release);
+    // The browser's own menu is the one thing a right press would otherwise put on the
+    // screen, and it would land in the middle of the gesture that press is starting.
+    // Nothing of hers is behind it: the chart has no menu of its own.
+    pane.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
 }
 
 // How many minutes the ruler steps by at the scale the day is drawn at. Nearest
@@ -1778,13 +1901,15 @@ function timelineRow(r, m, live, sc, on, tone, trackW, line, state, run) {
   // a number she has just been handed as the way to tell one batch from another is
   // no use if it is not also a way to pick one.
   track.addEventListener("click", (e) => {
+    // A right press pans the day and opens nothing. See isPrimaryClick.
+    if (!isPrimaryClick(e)) return;
     const hit = e.target && e.target.closest ? e.target.closest(".tl-bar, .tl-btag") : null;
     if (!hit) return;
     e.stopPropagation();
     batchPopup(m, live, sc, on, Math.max(0, Math.round(Number(hit.dataset.k) || 0)), run);
   });
 
-  row.addEventListener("click", () => editModule(live, sc, on, false, r, state));
+  row.addEventListener("click", (e) => { if (isPrimaryClick(e)) editModule(live, sc, on, false, r, state); });
 
   return row;
 }
@@ -1877,6 +2002,11 @@ function batchPopup(m, live, sc, on, k, hold) {
     // there is something to undo. On batch 1 of a module that starts as the one
     // above finishes it takes the whole module back, because that is what the press
     // that put it there moved.
+    //
+    // It carries no sentence of its own, for the same reason the pairs lost theirs:
+    // the line above the button already reads out the hold it takes off, and the
+    // toast names the minute it lands on. A second paragraph saying the same thing
+    // is length, not information.
     const back = (delta && !first)
       ? el("div", { class: "field" },
         button("Back onto the line", () => {
@@ -1890,35 +2020,33 @@ function batchPopup(m, live, sc, on, k, hold) {
           toast(showsModuleOffset
             ? `Every batch of ${live.name} back where the line puts it.`
             : `Batch ${k + 1} back at ${clockAt(r.dayStartMin, at - delta)} — exactly where the line puts it.`);
-        }, "ghost"),
-        el("div", { class: "hint" },
-          showsModuleOffset
-            ? `This module is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose, so every batch of it sits that much later than the minute the module above finishes. This takes the hold off.`
-            : `This batch is being held back ${delta} minute${delta === 1 ? "" : "s"} on purpose. This takes the hold off, so it sits wherever the module above and this module's own minutes put it.`))
+        }, "ghost"))
       : null;
 
-    // What the two pairs do here, in this module's own terms. It used to be one
-    // sentence for everything, and it was the sentence that hid a real difference:
-    // above module 1 there is nothing to be held back from, so a move IS a time;
-    // below it, a move is a hold on top of whatever the line already says.
-    const fiveHint = first
-      ? "The amount the day is read in, and the amount the time line reads out."
-      : k === 0
-        ? `The amount the day is read in. Moving batch 1 moves this whole module with it, at the pace you set below — and because this module is set to ${START_MODE_LABELS[mode].toLowerCase()}, that move is a hold on top of where the line already puts it.`
-        : "The amount the day is read in, and the amount the time line reads out. This batch rides the module above it, so this is how far behind where the line puts it you want it held.";
-
+    // "the batch pop up, make it as brief as possible" — her words of 23 September.
+    // So the card says the four readings and offers the three presses, and nothing
+    // else. What left with her ask: the paragraph that used to sit under each pair
+    // explaining what a move means in this module's own terms, and the second line
+    // that repeated the two times the line above it already reads out.
+    //
+    // The hints were true and they stay true; they are simply not what she needs in
+    // front of her to move a batch five minutes. What the pair does in this module's
+    // terms is still on the press itself, as its accessible name, and every press
+    // still answers in words when it lands — including when the module above or the
+    // module's own minutes moved the batch somewhere other than where she aimed.
     return el("div", {},
-      el("div", { class: "cyc-line", style: "margin:0 0 8px" },
+      // One line for the four facts, in the order she reads them: which batch, how
+      // it sits against the line, the two times, and what it costs her hands.
+      el("div", { class: "cyc-line", style: "margin:0 0 10px" },
         el("span", { class: "cyc-lab" }, `Batch ${k + 1}`),
         el("span", { class: `cyc-at${delta ? " nudged" : ""}` },
           delta ? `Δt = +${delta} min`
             : first ? "its own start"
               : showsModuleOffset ? START_MODE_READINGS[mode] : "on the line"),
-        el("span", { class: "cyc-at" }, clockAt(r.dayStartMin, at))),
-
-      el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, end)}` +
-        ` · ${trim(here.cycleMin)} min, ${trim(here.touchMin)} of it your hands`),
+        el("span", { class: "cyc-at" },
+          `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, end)}`),
+        el("span", { class: "cyc-at" },
+          `${trim(here.cycleMin)} min · ${trim(here.touchMin)} by hand`)),
 
       // The two pairs, on EVERY batch now. They used to be refused on a module set
       // to wait, with a sentence telling her to go and change the module instead —
@@ -1928,9 +2056,8 @@ function batchPopup(m, live, sc, on, k, hold) {
       // back off the model, and when the module above or the module's own minutes
       // put the batch somewhere else the toast names which rule did it.
       el("div", {},
-        step(5, "Five minutes at a time", fiveHint),
-        step(1, "One minute at a time",
-          "For lifting a batch off a collision with another."),
+        step(5, "Five minutes"),
+        step(1, "One minute"),
         back),
     );
   });
@@ -2400,6 +2527,8 @@ function personRow(r, row, trackW, sc, on, state) {
   // her the row's whole height, and nearestSlot gives her the sliver.
   const track = el("div", { class: "tl-track", style: `width:${trackW}px` }, ...bars);
   track.addEventListener("click", (e) => {
+    // A right press pans the day and opens nothing. See isPrimaryClick.
+    if (!isPrimaryClick(e)) return;
     // An activation that never had a pointer — a test's synthetic event, or a
     // keyboard's. There is no coordinate to read, so there is nothing to decide:
     // leave the event alone and let the row open the person's card.
@@ -2419,7 +2548,11 @@ function personRow(r, row, trackW, sc, on, state) {
       el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
     tip);
   wirePersonTip(nameCell, tip);
-  return el("div", { class: `tl-row person tappable ${tone}`, onclick: () => personPopup(row, sc, on, state) },
+  return el("div", {
+    class: `tl-row person tappable ${tone}`,
+    // A right press pans the day and opens nothing. See isPrimaryClick.
+    onclick: (e) => { if (isPrimaryClick(e)) personPopup(row, sc, on, state); },
+  },
     nameCell,
     track);
 }

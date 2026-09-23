@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 function createEl(tag) {
-  return {
+  const node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
     // scrollLeft is here with scrollTop, and for the same reason the disabled and
@@ -28,7 +28,13 @@ function createEl(tag) {
     // than its window says so.
     scrollTop: 0, scrollLeft: 0, scrollWidth: 0, clientWidth: 0, scrollHeight: 0, clientHeight: 0,
     hidden: false, _listeners: {},
-    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    // Every real node has one, and the view walks UP through it: the clock balloon is
+    // placed against the box it is drawn in and the window that box is looked through,
+    // and it reads both off `parentNode`. A shim that kept only this file's own
+    // `parent` left that whole placement silently skipped — the balloon's height was
+    // never written at all, so nothing here could see where it sat. Wired to `parent`,
+    // which is what appendChild and remove already keep up to date.
+    get parentNode() { return this.parent || null; },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
     append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
     replaceChildren(...cs) {
@@ -37,7 +43,19 @@ function createEl(tag) {
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },
-    dispatchEvent(ev) { (this._listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
+    // A listener in a browser is handed an EVENT, not a bag of fields, and the two
+    // calls the chart now makes on one — preventDefault, for the right-press pan and
+    // for the browser's own menu — are on the event because the browser put them
+    // there. A shim without them forces the view to test for a method the browser
+    // always has, which is a view written for the stub; supplying them is the faithful
+    // half of the same rule that put scrollLeft on this node. defaultPrevented is the
+    // real event's own property, so a test can ask whether the menu was stopped.
+    dispatchEvent(ev) {
+      if (!ev.preventDefault) ev.preventDefault = () => { ev.defaultPrevented = true; };
+      if (!ev.stopPropagation) ev.stopPropagation = () => {};
+      (this._listeners[ev.type] || []).forEach((f) => f(ev));
+      return true;
+    },
     setAttribute(k, v) {
       this.attrs[k] = String(v);
       if (k === "hidden") this.hidden = true;
@@ -83,6 +101,25 @@ function createEl(tag) {
     },
     querySelector() { return null; },
   };
+  // A real classList is not a decoration: it IS the class attribute, and every add,
+  // remove and toggle writes straight through to it. The stub that stood here was a set
+  // of four no-ops, so a class the view put on a node at RUNTIME — the pan's own "the
+  // gesture has taken hold" class, ui.js's "dragging", the cursor's "at-end" — was
+  // invisible to every assertion in this file, and a rule nothing can see is a rule
+  // nothing can break. Backed by className, with the force argument a real toggle takes.
+  const list = () => String(node.className || "").split(/\s+/).filter(Boolean);
+  const put = (names) => { node.className = names.join(" "); };
+  node.classList = {
+    add(...names) { put([...new Set([...list(), ...names.filter(Boolean)])]); },
+    remove(...names) { put(list().filter((c) => !names.includes(c))); },
+    contains(c) { return list().includes(c); },
+    toggle(c, force) {
+      const on = force === undefined ? !list().includes(c) : Boolean(force);
+      if (on) node.classList.add(c); else node.classList.remove(c);
+      return on;
+    },
+  };
+  return node;
 }
 const layers = { "confirm-layer": createEl("div"), "popup-layer": createEl("div") };
 globalThis.document = {
@@ -2593,6 +2630,282 @@ test("panning one window pans the other, with no write back to the one under her
   people.dispatchEvent({ type: "scroll" });
   flushFrames();
   assert.equal(proc.scrollLeft, 900, "panning the people's window did not move the modules'");
+});
+
+// ── The right-press pan (v171) ──────────────────────────────────────────────
+// Her ask of 23 September: "can i drag the module window up/down, left/right by right
+// click and hold? Dont let this action open up the card." Three rules come out of that
+// sentence and each is proved below: the right button drags a window's day, both
+// windows answer to the same hand, and a right press — on a bar above all, because a
+// bar is where her hand will be — opens nothing.
+
+// A right press, held, and moved to the second point. `button: 2` is the right button
+// and `buttons: 2` is "it is still down", which is what a real pointermove carries
+// while she drags. A press with neither is what the shim would otherwise be given, and
+// it would exercise the guard on the button rather than the pan.
+function rightDrag(pane, from, to) {
+  pane.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: from[0], clientY: from[1], pointerId: 7 });
+  pane.dispatchEvent({ type: "pointermove", button: 2, buttons: 2, clientX: to[0], clientY: to[1], pointerId: 7 });
+}
+
+test("a right press and hold drags a window's day both ways (v171)", () => {
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  giveThemAWindow(root);
+  proc.scrollLeft = 300; proc.scrollTop = 120;
+  // The pointer goes LEFT and UP, so the day follows her hand: further right and
+  // further down the day. A pan that moved the same way as the pointer would be a
+  // joystick, not a hand on the paper.
+  rightDrag(proc, [400, 300], [340, 260]);
+  assert.equal(proc.scrollLeft, 360, "dragging left did not bring the day right");
+  assert.equal(proc.scrollTop, 160, "dragging up did not bring the day down");
+  // And the window says the gesture has taken hold, which is what turns the cursor into
+  // a hand closed on the paper and stops a drag from selecting the words underneath it.
+  assert.ok(proc.classList.contains("tl-dragging"), "a held right press did not mark the window as being dragged");
+
+  // Let go, and the day stays where she left it. A move after the release is not a
+  // drag, or a pointer that wandered on would carry the day with it.
+  proc.dispatchEvent({ type: "pointerup", button: 2, clientX: 340, clientY: 260 });
+  assert.ok(!proc.classList.contains("tl-dragging"), "the window still says it is being dragged after she let go");
+  proc.dispatchEvent({ type: "pointermove", buttons: 2, clientX: 200, clientY: 100 });
+  assert.equal(proc.scrollLeft, 360, "the day went on moving after she let go");
+  assert.equal(proc.scrollTop, 160, "the day went on moving after she let go");
+
+  // The second way a release arrives, and the one that leaves a window stuck to her
+  // pointer if it is not answered: she let go somewhere the release never reached, so
+  // the next move is the first thing that says the button is up. That move ends the
+  // drag instead of panning, and the moves after it pan nothing either.
+  proc.scrollLeft = 300; proc.scrollTop = 120;
+  proc.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 400, clientY: 300, pointerId: 7 });
+  proc.dispatchEvent({ type: "pointermove", buttons: 0, clientX: 380, clientY: 300, pointerId: 7 });
+  assert.equal(proc.scrollLeft, 300, "a move with the button already up dragged the day");
+  assert.ok(!proc.classList.contains("tl-dragging"), "the window kept its closed hand after a release it never saw");
+  proc.dispatchEvent({ type: "pointermove", buttons: 2, clientX: 340, clientY: 300, pointerId: 7 });
+  assert.equal(proc.scrollLeft, 300, "the window stayed stuck to her pointer after a release it never saw");
+
+  // And the LEFT button is not the pan. It is the press that opens cards, and one that
+  // opened a card while nudging the day would move the thing she is reading it against.
+  // It does not take hold of the window either: a left press that marked the window as
+  // being dragged would close the cursor on the paper for a press that opens a card.
+  proc.dispatchEvent({ type: "pointerdown", button: 0, buttons: 1, clientX: 400, clientY: 300, pointerId: 6 });
+  assert.ok(!proc.classList.contains("tl-dragging"), "a left press took hold of the window as if it were a pan");
+  proc.dispatchEvent({ type: "pointermove", button: 0, buttons: 1, clientX: 340, clientY: 260, pointerId: 6 });
+  assert.equal(proc.scrollLeft, 300, "a left press panned the day");
+  assert.equal(proc.scrollTop, 120, "a left press panned the day");
+
+  // And a window cannot be dragged past the day's own start, whichever way she pulls.
+  proc.scrollLeft = 0; proc.scrollTop = 0;
+  rightDrag(proc, [200, 200], [500, 400]);
+  assert.equal(proc.scrollLeft, 0, "dragging right scrolled the day back past its own start");
+  assert.equal(proc.scrollTop, 0, "dragging down scrolled the day back past its own start");
+});
+
+test("both windows are dragged by the same hand, and sideways brings the other with it (v171)", () => {
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  const people = paneOf(root, "people");
+  giveThemAWindow(root);
+  people.scrollLeft = 500;
+  // The people's window is the same kind of pane, so it answers to the same gesture.
+  // A gesture that worked in one window and did nothing in the other would read as a
+  // fault, and this is the test that says the two cannot be wired apart.
+  rightDrag(people, [600, 200], [480, 200]);
+  assert.equal(people.scrollLeft, 620, "the people's window did not answer a right-press drag");
+  // And sideways it needs no second write path: the drag sets scrollLeft, which is
+  // what the sync above is already listening for. A browser queues that scroll event
+  // to the next rendering opportunity; this shim has no queue of its own for it, so
+  // the test fires the event the browser would.
+  people.dispatchEvent({ type: "scroll" });
+  flushFrames();
+  assert.equal(proc.scrollLeft, 620, "a drag in one window left the other one behind");
+});
+
+test("a right press on a bar drags the day instead of opening its card (v171)", () => {
+  const { root } = render();
+  // The popup layer is shared across the whole file, so a card an earlier test opened
+  // is still standing in it. Emptied here, because "nothing was opened" is only worth
+  // asserting against a layer that was empty to begin with.
+  layers["popup-layer"].replaceChildren();
+  const proc = paneOf(root, "proc");
+  giveThemAWindow(root);
+  proc.scrollLeft = 400;
+  const name = "The rests and the stretch and folds";
+  const bar = rowFor(root, name)[0];
+  const track = trackFor(root, name);
+  // Her hand lands on a bar, because the bars cover most of the day and every one of
+  // them opens a card on a left press — that is the press this must not be. The
+  // gesture is a press on the WINDOW that happens to be over a bar, so it is aimed
+  // where her hand is rather than at the bar itself.
+  proc.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 700, clientY: 300, pointerId: 8 });
+  proc.dispatchEvent({ type: "pointermove", button: 2, buttons: 2, clientX: 660, clientY: 300, pointerId: 8 });
+  proc.dispatchEvent({ type: "pointerup", button: 2, clientX: 660, clientY: 300, pointerId: 8 });
+  assert.equal(proc.scrollLeft, 440, "a right press over a bar did not drag the day");
+  // A browser fires no click at all for the right button. This is the synthetic one it
+  // would fire if it did — the half the app owns, and the half a test can aim at a bar.
+  // It must open nothing.
+  track.dispatchEvent({ type: "click", button: 2, target: { closest: () => bar }, stopPropagation() {} });
+  assert.equal(popupBody(), "", "a right press on a bar opened its card");
+  // And the left press it is being told apart from is untouched: same bar, same card.
+  tapBar(root, name, 0);
+  assert.ok(popupBody(), "a left press on a bar no longer opens its card");
+});
+
+test("the browser's own menu never opens over the chart, and the right press is not a reading (v171)", () => {
+  const { root } = render();
+  // The menu is the one thing a right press would otherwise put on the screen, and it
+  // would land in the middle of the gesture that press is starting.
+  for (const which of ["proc", "people"]) {
+    const ev = { type: "contextmenu", button: 2 };
+    paneOf(root, which).dispatchEvent(ev);
+    assert.ok(ev.defaultPrevented, `the browser's own menu still opens over the ${which} window`);
+  }
+
+  // And one press is one gesture: the clock strip's reading is taken with the left
+  // button, so a right press that is panning the day does not drag a reading with it.
+  const proc = paneOf(root, "proc");
+  const band = walk(walk(proc).find((n) => hasClass(n, "tl-ruler"))).find((n) => hasClass(n, "tl-track"));
+  const cursor = walk(proc).find((n) => hasClass(n, "tl-cursor"));
+  const lab = walk(proc).find((n) => hasClass(n, "tl-cursor-lab"));
+  band.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 400, clientY: 100, pointerId: 9 });
+  assert.equal(cursor.hidden, true, "a right press on the clock strip dragged a reading with it");
+  band.dispatchEvent({ type: "pointerdown", clientX: 400, clientY: 100, pointerId: 9 });
+  band.dispatchEvent({ type: "pointerup", clientX: 400, clientY: 100, pointerId: 9 });
+  assert.ok(!cursor.hidden && lab.textContent, "a left press on the clock strip no longer takes a reading");
+});
+
+// Her words of 23 September: "put the clock balon 2 inches higher than. cursor". The
+// balloon that reads the clock used to sit eight pixels above her pointer, which put
+// it on her hand rather than above the line; it is lifted two inches clear now, and
+// this is what holds it there.
+//
+// The window here is deliberately shorter than the day, because that is the case the
+// lift can get wrong: a lift measured against the DAY would carry the balloon off the
+// window she is looking through, and hide it exactly when there is a full day to read.
+// Measured against the window, it stays inside it — above her pointer where the two
+// inches fit there, and below it where they do not. Below and not pinned to the
+// window's top, because the clock strip she presses with a finger is AT the top of the
+// modules' window, and a balloon resting on the window's top is a balloon on her hand.
+test("the clock balloon keeps two inches of clearance from the cursor, above it or below it (v171)", () => {
+  const { root } = render();
+  const proc = paneOf(root, "proc");
+  const band = walk(walk(proc).find((n) => hasClass(n, "tl-ruler"))).find((n) => hasClass(n, "tl-track"));
+  const cursor = walk(proc).find((n) => hasClass(n, "tl-cursor"));
+  const lab = walk(proc).find((n) => hasClass(n, "tl-cursor-lab"));
+  const frame = cursor.parentNode;
+  assert.ok(frame && hasClass(frame, "tl-inner"), "the hairline is not drawn into the day's own box");
+
+  // The day is 600 tall and the window is 300 of it, scrolled 200 down — so the top
+  // of the window is at 200 in the day's own coordinates. A reading placed in DAY
+  // coordinates and one placed in WINDOW coordinates are different numbers here, and
+  // that difference is the whole of this test.
+  frame._rect = { left: 0, top: -200, width: 600, height: 600 };
+  proc._rect = { left: 0, top: 0, width: 600, height: 300 };
+  const H = 18;               // the balloon's own height, which the view falls back to
+  const LIFT = 2 * 96;        // two CSS inches, the unit she named
+  // The balloon's top is written in the day's own coordinates, and so is the pointer
+  // once the day's own top is taken off it. Both are inside the same scrolled box, so
+  // the difference between them is also the distance on the screen — which is the
+  // distance she is asking about.
+  const inDay = (clientY) => clientY - frame.getBoundingClientRect().top;
+
+  // A pointer well down the window: the balloon sits the whole two inches above it.
+  band.dispatchEvent({ type: "pointerdown", clientX: 400, clientY: 250, pointerId: 31 });
+  const deep = stylePx(lab, "top");
+  assert.equal(inDay(250) - (deep + H), LIFT,
+    `the balloon sits ${inDay(250) - (deep + H)}px above her pointer, not the two inches she asked for`);
+
+  // A pointer NEAR THE TOP of the window — which is where the clock strip she presses
+  // with a finger is. There is not two inches of window above her, and there IS two
+  // inches below, so the balloon takes the same two inches BELOW rather than coming to
+  // rest on the window's top. Measured here: the window's top is 200 in the day's own
+  // coordinates and her pointer is at 250, a 50-pixel gap — which is exactly where a
+  // balloon pinned to the window's top would have landed, on her hand.
+  band.dispatchEvent({ type: "pointerdown", clientX: 400, clientY: 50, pointerId: 32 });
+  const nearTop = stylePx(lab, "top");
+  assert.equal(nearTop - inDay(50), LIFT,
+    `a balloon with no room above her pointer sits ${nearTop - inDay(50)}px below it, not the two inches she asked for`);
+  assert.ok(nearTop - 200 > 20,
+    "the balloon came to rest on the window's own top, which is where her finger is when she drags the clock strip");
+
+  // And a pointer in the middle of a window too short to hold two inches either side
+  // keeps the reading on the screen and on the far side of the line: with neither side
+  // able to hold the lift it comes to rest at the window's top, and that is still
+  // ABOVE her pointer, never on it and never off the window.
+  band.dispatchEvent({ type: "pointerdown", clientX: 400, clientY: 100, pointerId: 33 });
+  const boxed = stylePx(lab, "top");
+  assert.equal(boxed, 200, "a balloon with no room either side did not come to rest at the window's own top");
+  assert.ok(inDay(100) - boxed > 0, "the balloon dropped BELOW the pointer when neither side of it had room");
+  band.dispatchEvent({ type: "pointerup", clientX: 400, clientY: 100, pointerId: 33 });
+});
+
+// "the batch pop up, make it as brief as possible" — her words of 23 September.
+// The card says the four readings and offers the three presses, and nothing else: the
+// paragraph that used to sit under each pair, and the second line that repeated the
+// two times the line above already reads out, are gone. What is pinned here is that the
+// readings she needs to move a batch survived the cut — a brief card that lost a fact
+// would be a card that hid the thing it was opened for.
+test("the batch card is four readings and three presses, with no paragraph left on it (v171)", () => {
+  const { root } = render();
+  layers["popup-layer"].replaceChildren();
+  tapBar(root, "Cutting and packing", 1);
+  const body = popupBody();
+  assert.match(body, /Batch 2/, "the card no longer says which batch it is");
+  assert.match(body, /on the line/, "the card no longer says how the batch sits against the line");
+  assert.match(body, /→/, "the card no longer reads out the batch's two times");
+  assert.match(body, /min/, "the card no longer says how long the batch takes");
+  assert.ok(popupButton(/\+ 5 min/) && popupButton(/− 5 min/), "the five-minute pair left the card");
+  assert.ok(popupButton(/\+ 1 min/) && popupButton(/− 1 min/), "the one-minute pair left the card");
+
+  // And the prose is gone: no sentence of explanation stands on the card. A hint that
+  // is still needed belongs on the press as its own accessible name, which is where
+  // the view keeps it now.
+  const prose = walk(layers["popup-layer"]).filter((n) => hasClass(n, "hint") || hasClass(n, "card-sub"));
+  assert.equal(prose.length, 0,
+    `${prose.length} hint or sub line(s) are still standing on the batch card`);
+});
+
+test("the batch card's presses still carry what they do, now that the prose is off the card (v171)", () => {
+  const { root, state } = render();
+  layers["popup-layer"].replaceChildren();
+  const pack = () => state.settings.scenario.modules.find((m) => m.id === "solo_pack");
+  const was = starts(state, "solo_pack").slice();
+  tapBar(root, "Cutting and packing", 1);
+  // The buttons own the sentence now, so a press is still explained where she presses
+  // it — and the press itself is untouched: it is still written as a hold on that
+  // batch and nothing else came with it.
+  const plus = popupButton(/\+ 5 min/);
+  assert.match(String(plus.getAttribute("aria-label") || ""), /later/,
+    "the five-minute press no longer says which way it moves the batch");
+  assert.match(String(popupButton(/− 5 min/).getAttribute("aria-label") || ""), /earlier/,
+    "the five-minute press no longer has a way back");
+  plus.dispatchEvent({ type: "click" });
+  assert.equal(pack().startDelta[1], 5, "the press stopped writing the hold it always wrote");
+  assert.equal(pack().startDelta[0], 0, "the press moved a batch it should not have");
+  assert.match(lastToast(), /Batch 2 held back 5 minutes/, "the press stopped saying what it did");
+  assert.deepEqual(starts(state, "solo_pack").slice(0, 1), was.slice(0, 1), "batch 1 moved with it");
+});
+
+// A brief card is not a card with its own reading cut off at the edge, and that is
+// what the brief batch card did first: its readings went onto one line, and at a
+// phone's width the line ran off the card — "Batch 2  on the line  8:51 am → 8:5" was
+// all that fitted, with the end time, the clock she opened the card for, past the
+// edge. A reading is `flex: 0 0 auto` on purpose (a time must never be squeezed to
+// nothing), so a row one word too wide does not shrink to fit — it overflows. The
+// row WRAPS now, and this is what stands on it, because the same four readings on the
+// same phone are the documented reproduction.
+test("a card's readings wrap rather than running off the card (v171)", () => {
+  const css = read("admin/css/app.css");
+  const rule = css.match(/(^|\n)\.cyc-line\s*\{([^}]*)\}/);
+  assert.ok(rule, "the shared reading row is no longer in the stylesheet at all");
+  const body = rule[2];
+  assert.match(body, /flex-wrap:\s*wrap/,
+    "a card's readings are back on one line, so a row too wide for the card is clipped at its edge again");
+  assert.doesNotMatch(body, /flex-wrap:\s*nowrap/,
+    "the reading row is explicitly forbidden to wrap, so its readings are clipped again");
+  // And the readings still refuse to be squeezed, which is WHY the row has to wrap:
+  // two settings that have to agree, asserted together so neither can be changed alone.
+  assert.match(css, /\.cyc-at\s*\{[^}]*flex:\s*0\s+0\s+auto/,
+    "a reading is now able to shrink, so a time can be squeezed to nothing instead of the row wrapping");
 });
 
 // The two windows must be able to pan to the same place, or the same minute sits at

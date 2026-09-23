@@ -2569,8 +2569,15 @@ tr.po-covered td { color: var(--muted); }
 }
 /* A batch's row carries its start time AND the buttons that move it, so it is
    two lines rather than one: a label, a number and four buttons on a single line
-   would leave the number box too narrow to read on a phone. */
-.cyc-line { display: flex; align-items: center; gap: 9px; width: 100%; }
+   would leave the number box too narrow to read on a phone.
+   And it WRAPS rather than clipping. A reading is `flex: 0 0 auto` because a time
+   must not be squeezed to nothing, which means a row of readings that is one word
+   too wide for the card does not shrink — it runs off the edge, and the clock she
+   opened the card for is the thing that goes off it. Measured on a batch card at a
+   phone's width with "never before the module above" standing on it: the end time
+   was cut. Wrapping only ever acts where the row would otherwise be clipped, so a
+   row that fits today is untouched by it. */
+.cyc-line { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; width: 100%; }
 .cyc-batch { flex-direction: column; align-items: stretch; gap: 6px; }
 /* The four move buttons, in one row under the number: two minutes either side of
    it. The minus pair and the plus pair are drawn in their own order (−5 −1 +1 +5)
@@ -3305,3 +3312,25 @@ tr.po-covered td { color: var(--muted); }
 .tone-5 { background: rgba(212, 234, 230, var(--marker, .72)); --tone-ink: #2f7d74; } .tone-5 .tl-touch { background: #2f7d74; }
 .tone-6 { background: rgba(246, 215, 224, var(--marker, .72)); --tone-ink: #a8436a; } .tone-6 .tl-touch { background: #a8436a; }
 .tone-7 { background: rgba(232, 224, 214, var(--marker, .72)); --tone-ink: #7a6a5c; } .tone-7 .tl-touch { background: #7a6a5c; }
+
+/* The right-press pan, held (wirePaneDrag). Her ask of 23 September: "can i drag the
+   module window up/down, left/right by right click and hold? Dont let this action open
+   up the card."
+
+   The class is put on the window while the gesture is held, and it does two things.
+   The cursor becomes a hand closed on the paper she is moving — because a gesture with
+   no sign that it has taken hold is a gesture she cannot tell from one that did not
+   register. And nothing under it may be selected: a drag that painted a text selection
+   across the chart would hide the day it is moving.
+
+   The cursor is said again for the surfaces that carry one of their own — a bar, its
+   batch number, a name cell, a person's row — because those are exactly where her hand
+   will be, and a hand that changes everywhere except the thing under it reads as the
+   fault it is. Each line carries one class more than the rule it has to beat
+   (.tl-row .tl-bar, .tl-row.off .tl-name, .tl-row.person.tappable), so none of the
+   four can quietly win over it. */
+.tl.tl-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.tl.tl-dragging .tl-bar,
+.tl.tl-dragging .tl-btag,
+.tl.tl-dragging .tl-name,
+.tl.tl-dragging .tl-row.person { cursor: grabbing; }

@@ -1,8 +1,96 @@
-# Jienluv2bake — change history (v54 → v170)
+# Jienluv2bake — change history (v54 → v171)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v171 (no database step). Three things you asked for while
+looking at the day chart: a right press and hold moves a window's day about without
+opening anything, the clock balloon rides two inches clear of your pointer, and the
+batch card is brief. All inside More → Scenario planner.**
+
+**What you asked, in your own words.** First: "And can i drag the module window
+up/down, left/right by right click and hold? Dont let this action open up the card".
+Then, while that was being built: "put the clock balon 2 inches higher than. cursor".
+And: "the batch pop up, make it as brief as possible".
+
+**1. A right press and hold now takes hold of a window's day and moves it, both ways
+at once.** Press the right button anywhere on either chart window, keep it down and
+move: the day comes with your hand, sideways and up and down together, exactly as if
+you had taken hold of the paper and pulled it. The window under your hand moves and
+the other one comes with it sideways, so the two can never disagree about a minute —
+that part was already there and is untouched. Measured live at a phone's width
+(375 × 812): a right press on the modules' window and a 60-pixel drag moved its day
+from 0 to 60, and the people's window to the same 60. The window marks itself while
+your hand is down and unmarks the moment you let go.
+
+**And it opens nothing, which was the other half of your sentence.** The gesture is
+the RIGHT button, and a browser fires no ordinary click at all for a right press, so a
+press for panning can never be read as a press for opening. The ruler's own press,
+which drags the clock reading, now ignores the right button too — one press, one
+gesture. Proven live, not assumed: a right press on a bar dragged the day and left the
+card shut, and a left click on that very same bar opened it. Your own hand is on the
+safe side of it either way — a finger cannot set the right button at all, so nothing
+here is reachable from your phone and the way you touch the chart is exactly as it was.
+The browser's own menu, which a right press would otherwise put on the screen in the
+middle of the gesture, is stopped over the chart.
+
+**2. The clock balloon rides two inches clear of your pointer.** It used to sit 8
+pixels above your finger, which on a phone is under it. It is lifted two CSS inches now
+— 192 pixels, and named in the unit you used so the number is one this can be held to
+rather than a feeling. Above your pointer wherever the window has the room, and where
+it does not, the same two inches BELOW it — which is the side that matters, because the
+clock strip you press with a finger is at the top of the modules' window, and a balloon
+that came to rest at the window's top would be lying on your hand. Measured live at
+375 × 812: the full 192 pixels of clearance in both directions, and never nearer than
+175 pixels anywhere on the chart. It is still held inside the window you are looking
+through rather than to the day, so a tall day cannot carry it off the screen.
+
+**3. The batch card is brief, and its own reading is no longer cut off.** What left the
+card: the paragraph under each pair explaining what a move means in that module's own
+terms, and the second line that repeated the two times the line above it already reads
+out. What is on it now: one line of four readings — which batch, how it sits against
+the line, the two times, and what it costs your hands — then the two pairs, five
+minutes and one minute, and the way back where there is one. Measured at a phone's
+width, the card came down from 338–366 pixels tall to 265–288. The explanations are
+still true and are still there, on the press itself as its accessible name, and every
+press still answers in words when it lands.
+
+**And one fault found while measuring that card, fixed here.** Four readings on one
+line ran off the card's right edge — "Batch 2  on the line  8:51 am → 8:5" — with the
+end time, the clock you opened the card for, cut off. A reading is set never to be
+squeezed, on purpose, so a time can never be shrunk to nothing; a line one word too
+wide therefore overflows rather than shrinks. The card's readings now WRAP to a second
+line instead, which only ever happens where the line would otherwise be clipped. The
+same fault was possible on every card that shares that line, and it is fixed on all of
+them by the one change.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+scenario changed, and nothing here blocks a sale or reads an order. Every tap still
+opens exactly what it opened before. Your stored data was compared before and after:
+13,561 characters, byte for byte the same, and your three saved days still read 24, 12
+and 24 pans.
+
+**Three rules now stand on it, and every one was proved rather than assumed.** One
+says a right press and hold drags a window both ways and that a right press over a bar
+opens nothing, while a left press on the same bar still does. One measures the balloon
+against the palest bar and pins the two inches of clearance, above or below, with the
+reason the window's own top is not good enough written into the test. One pins that a
+card's readings wrap and that they still refuse to be squeezed — the two settings
+asserted together, so neither can be changed alone. Each was proved by putting the
+fault back and watching it fail by name, then restored byte for byte: no downward
+fallback for the balloon read "a balloon with no room above her pointer sits -50px
+below it, not the two inches she asked for"; no upward preference read "the balloon
+sits 232px above her pointer, not the two inches she asked for"; and removing the wrap
+read "a card's readings are back on one line, so a row too wide for the card is clipped
+at its edge again". The test suite is 1209 passing with none failing.
+
+**No database step.** Not one stored field is added or changed, so there is nothing to
+run in Supabase.
+
+CHANGELOG and the guide both carry all of this. Both PDFs rebuilt and read back with
+PyMuPDF, the app's own More screen reads Engine v171, and your phone is untouched by
+nothing here.
 
 **23 Sep 2026 — engine v170 (no database step). The frame around every bar is drawn
 quietly now, so a block of work still reads as a block without every bar being a box
@@ -1463,7 +1551,14 @@ the day as well as across it — it used to sit at the top of the chart, which i
 only while the top of the chart is on screen, so pointing at a bar four rows down meant reading a
 clock a screen away. It rides 8px clear of your finger rather than under it, because a reading
 under your own finger hides the bar you are holding it against — and near the top of the chart,
-where there is no room above, it drops below the pointer instead. The chart is a panel of its own
+where there is no room above, it drops below the pointer instead.
+
+__Lifted at v171:__ the 8 pixels above your finger described here are two CSS inches
+now, because 8 pixels is under a fingertip rather than clear of it. The rule itself is
+unchanged and this entry still describes it: above your pointer where the window has
+the room, and below it where it does not. Read the v171 entry above for the rest.
+
+The chart is a panel of its own
 now: the clock strip is pinned at the top of that panel and the rows scroll under it, so the hours
 stay beside the bars you have scrolled to. The panel is capped, so it never grows past what you can
 see at once.
