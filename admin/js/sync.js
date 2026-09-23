@@ -144,6 +144,58 @@ function recordPayload(kind, rec) {
   return rec;
 }
 
+// ── the settings row's key-wise memory ────────────────────────────────────
+//
+// Every phone shares ONE settings row, its `data` is replaced whole on push, and
+// `recordPayload` above leaves a key OUT when this phone has no opinion about it.
+// Those three facts together lost her saved days on 24 September 2026: a phone
+// that had never pulled stamped its own (empty) settings `now`, so the pull
+// skipped her real row, and the push that followed replaced it with a payload
+// that had no `scenarios` in it at all. Three rules now stand between a phone and
+// her content, and every one turns on the same sentence: **silence means this
+// phone has no opinion, and no opinion may never delete.**
+//
+//   1  A guarded key this phone HELD and has now emptied is SPOKEN, not silent.
+//   2  When local wins a merge, the cloud's value for every guarded key this
+//      phone is silent about is TAKEN — into the outgoing payload, so the push
+//      cannot delete it, and into this phone's own settings, so a phone that has
+//      never had her saved days receives them.
+//   3  When the cloud is silent about a guarded key this phone holds content
+//      for, one publish is queued to put it back.
+//
+// Rules 2 and 3 both lean on rule 1: they can treat absence as ignorance only
+// because a deletion she made is said out loud instead of going quiet.
+const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "developer"];
+
+// The guarded keys where an empty value is an answer she gave, and so must be
+// SPOKEN rather than left out. `tasks` and `wishList` need no listing — they are
+// carried whenever they are arrays, so an emptied list already goes out as one.
+const SPEAK_EMPTY = ["scenarios", "developer"];
+
+function has(obj, k) {
+  return Object.prototype.hasOwnProperty.call(obj, k);
+}
+
+// Rule 1. `prev` is the canonical shape this phone last recorded for the row:
+// when it held `scenarios` and today's payload has nothing to say about them,
+// they were DELETED here — and a deletion the other phone cannot tell apart from
+// ignorance is a deletion that comes back. So the empty answer is written into
+// the payload in full. On a phone that never held them, nothing is written.
+function speakEmptied(rec, prev, state) {
+  if (!prev) return;
+  const s = (state && state.settings) || {};
+  for (const k of SPEAK_EMPTY) {
+    if (!prev.includes(`"${k}":`)) continue; // this phone never held one
+    if (has(rec.data, k)) continue; // already speaking
+    if (k === "developer") {
+      if (devSet(s)) continue; // not empty — it is in the payload already
+      rec.data.developer = cleanDeveloperForSync(s.developer);
+    } else if (Array.isArray(s[k])) {
+      rec.data[k] = s[k]; // the empty list itself, and an answer she gave
+    }
+  }
+}
+
 export function computeRecords(state) {
   const out = [];
   for (const [kind, field] of Object.entries(LISTS)) {
@@ -208,6 +260,9 @@ export function markDirty(state, nowIso = new Date().toISOString()) {
   for (const rec of computeRecords(state)) {
     const key = `${rec.kind}:${rec.id}`;
     present.add(key);
+    // Rule 1: a guarded key this phone held and has now emptied is an answer she
+    // gave, so it is spoken rather than left out. See the note above.
+    if (rec.kind === "settings") speakEmptied(rec, b.snapshot[key] || "", state);
     const serial = canonical(rec.data);
     if (b.snapshot[key] !== serial) {
       b.pending[key] = { kind: rec.kind, id: rec.id, updated_at: nowIso, data: rec.data, _deleted: false };
@@ -236,7 +291,7 @@ export function markDirty(state, nowIso = new Date().toISOString()) {
 
 // ── mergeCloudRows: apply cloud rows newest-wins ──────────────────────────
 
-function mergeCloudRows(state, rows, b) {
+function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
   let changed = false;
 
   for (const row of rows || []) {
@@ -253,7 +308,34 @@ function mergeCloudRows(state, rows, b) {
       let payload;
       try { payload = JSON.parse(row.data); } catch { continue; }
       if (!payload || typeof payload !== "object") continue;
-      if (localNewerOrSame || cloudAt <= localAt) continue; // local wins
+
+      if (localNewerOrSame || cloudAt <= localAt) {
+        // Rule 2: local wins, so this phone's own answers stand — but the push
+        // that follows REPLACES the row wholesale, and a key this phone has no
+        // opinion about must not be deleted by a payload that simply omits it.
+        // Every guarded key this phone is SILENT about is therefore taken from the
+        // cloud: into the outgoing payload, so the push cannot delete it, and into
+        // this phone's own settings, so a phone that has never had her saved days
+        // receives them on this very pull. `snapshot` is deliberately left alone,
+        // so what this phone stores afterwards is its own state and not a
+        // re-queue that would put the keys back out again.
+        const phoneOwn = (pending && pending.data && typeof pending.data === "object")
+          ? pending.data
+          : recordPayload("settings", state.settings);
+        let next = null;
+        for (const k of GUARDED) {
+          if (has(phoneOwn, k) || !has(payload, k)) continue;
+          next = next || { ...state.settings };
+          next[k] = payload[k];
+          if (pending && pending.data && typeof pending.data === "object") pending.data[k] = payload[k];
+        }
+        if (next) {
+          state.settings = next;
+          changed = true;
+        }
+        continue; // local wins
+      }
+
       // The checklist must not be overwritten wholesale: another phone's ticks
       // union with this phone's so a same-week tick is never lost. Everything
       // else merges as before, keeping per-device config local.
@@ -267,10 +349,22 @@ function mergeCloudRows(state, rows, b) {
           cloudWc || {}),
       };
       state.settings = { ...state.settings, ...merged };
+      const own = recordPayload("settings", state.settings);
       b.meta[key] = cloudAt;
-      b.snapshot[key] = canonical(recordPayload("settings", state.settings));
+      b.snapshot[key] = canonical(own);
       delete b.pending[key];
       changed = true;
+
+      // Rule 3: the cloud row says nothing about a guarded key this phone holds
+      // content for, so the cloud is SHORT and this phone is the one that can put
+      // it back — one publish, no press of hers needed. It fires on its own the
+      // first time an older phone with her saved days meets a cloud row that lost
+      // them. A key she deleted is spoken by rule 1, so a key that is merely
+      // absent is a key this phone never saw, and putting it back cannot undo her.
+      if (GUARDED.some((k) => !has(payload, k) && has(own, k))) {
+        b.pending[key] = { kind: "settings", id: row.id, updated_at: nowIso, data: own, _deleted: false };
+        b.meta[key] = nowIso;
+      }
       continue;
     }
 

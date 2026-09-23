@@ -1059,3 +1059,240 @@ test("a product's auto-translated text + provenance survives a sync round trip",
       "machine-translation provenance survives");
   } finally { restore(); }
 });
+
+// ── the settings row's key-wise memory (the 24 Sep saved-days loss) ───────
+//
+// Every phone shares ONE settings row and a push REPLACES its `data` whole, so a
+// phone's SILENCE about a key used to be indistinguishable from a deletion. On
+// 24 September 2026 a phone that had never synced came up with no saved days and
+// then pushed its own settings over hers, deleting `scenarios` and `scenario`
+// from the cloud. These tests pin the three rules that stand in the way:
+//   1  a guarded key this phone HELD and has now emptied is SPOKEN, not silent;
+//   2  local wins, but the cloud's value for every guarded key this phone is
+//      silent about is taken — into the push, and into this phone's settings;
+//   3  a guarded key the cloud is silent about, that this phone holds content
+//      for, is put back by one queued publish.
+
+const SHELF = [
+  { id: "s1", name: "No fridge, 1 person", target: 24 },
+  { id: "s2", name: "One baker day", target: 24 },
+];
+const OTHER_SHELF = [{ id: "s9", name: "My sister proposal 21/9/2026", target: 12 }];
+
+function pushedSettings(bodies) {
+  const row = bodies.flat().find((r) => r.kind === "settings");
+  return row ? JSON.parse(row.data) : null;
+}
+
+function queuedSettings(store) {
+  return JSON.parse(store.get("bakeadmin.sync")).pending["settings:default"];
+}
+
+// A phone's journal as it stands after it has recorded its own settings row but
+// has nothing queued: the snapshot is real, the pending is empty.
+function seedQuiet(store, st, at) {
+  sync.markDirty(st, at);
+  const snap = JSON.parse(store.get("bakeadmin.sync")).snapshot;
+  seedJournal(store, { snapshot: snap, meta: { "settings:default": at } });
+}
+
+test("refresh: a phone that never had her saved days receives them, and its push carries them back", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    const bodies = [];
+    const restoreFetch = installFetch(async (url, opts) => {
+      if (url.includes("on_conflict")) {
+        bodies.push(JSON.parse(opts.body));
+        return { ok: true, text: async () => "" };
+      }
+      return {
+        ok: true,
+        json: async () => [cloudRow("settings", "default", { cutoff: "18:00", scenarios: SHELF },
+          "2026-09-20T00:00:00.000Z")],
+      };
+    });
+    try {
+      const r = await sync.refresh(st);
+      assert.equal(r.ok, true);
+      assert.deepEqual(st.settings.scenarios.map((s) => s.name),
+        ["No fridge, 1 person", "One baker day"],
+        "the phone that never had her saved days received them");
+      const pushed = pushedSettings(bodies);
+      assert.ok(pushed, "the phone pushed its settings row");
+      assert.deepEqual((pushed.scenarios || []).map((s) => s.name),
+        ["No fridge, 1 person", "One baker day"],
+        "the push carried her saved days back, so it cannot delete them");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("refresh: a phone that never built a day receives the one she built", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    const DAY = { modules: [{ id: "mixer", kind: "mixer", minutes: 20 }], dayStart: 240 };
+    const restoreFetch = installFetch(async (url) => {
+      if (url.includes("on_conflict")) return { ok: true, text: async () => "" };
+      return { ok: true, json: async () => [cloudRow("settings", "default", { scenario: DAY },
+        "2026-09-20T00:00:00.000Z")] };
+    });
+    try {
+      await sync.refresh(st);
+      assert.deepEqual(st.settings.scenario, DAY, "the built day came down to the phone that never built one");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("markDirty: emptying her shelf is said out loud, not left silent", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.scenarios = SHELF;
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.scenarios = []; // she deletes them on this phone
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the deletion is queued");
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "scenarios"), true,
+      "the empty shelf is SPOKEN, so the other phone cannot read it as ignorance");
+    assert.deepEqual(p.data.scenarios, []);
+  } finally { restore(); }
+});
+
+test("markDirty: clearing the developer line is said out loud too", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.developer = { name: "Jien", emails: ["me@x.com"], whatsapp: "+60169601268" };
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.developer = { name: "", emails: [], whatsapp: "" };
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the clearing is queued");
+    assert.deepEqual(p.data.developer, { name: "", emails: [], whatsapp: "" },
+      "the cleared developer line is spoken as an empty one, never omitted");
+  } finally { restore(); }
+});
+
+test("markDirty: a phone that never had a shelf stays silent instead of inventing an empty one", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z"); // this phone's own settings, no shelf ever
+    st.settings.cutoff = "19:00"; // a real edit, so there is a payload to read
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p);
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "scenarios"), false,
+      "a phone that never had a shelf says nothing about one, so no other phone is made to delete");
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "developer"), false,
+      "nor does it announce a developer line it never had");
+  } finally { restore(); }
+});
+
+test("markDirty: a saved-days field that has gone missing is not announced as an empty shelf", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.scenarios = SHELF;
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z"); // the shelf is recorded
+    delete st.settings.scenarios; // a hand-edited import, not a deletion she made
+    st.settings.cutoff = "19:00";
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p);
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "scenarios"), false,
+      "a field that went missing is silence, not a deletion — so the cloud's copy comes back to this phone");
+  } finally { restore(); }
+});
+
+test("mergeRows: a pending local edit does not delete a cloud shelf it never saw", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00";
+    seedJournal(store, {
+      pending: {
+        "settings:default": {
+          kind: "settings", id: "default", updated_at: "2026-09-24T12:00:00.000Z",
+          data: { cutoff: "19:00" }, _deleted: false,
+        },
+      },
+    });
+    const r = sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", scenarios: SHELF }, "2026-09-24T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    const p = queuedSettings(store);
+    assert.equal(p.data.cutoff, "19:00", "her own edit still goes out");
+    assert.deepEqual((p.data.scenarios || []).map((s) => s.id), ["s1", "s2"],
+      "the push carries the shelf this phone has no opinion about");
+    assert.deepEqual(st.settings.scenarios.map((s) => s.id), ["s1", "s2"],
+      "and the phone that never had them takes them");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone with its own saved days keeps them and does not take the cloud's", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.scenarios = OTHER_SHELF;
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z"); // her own days, on their way up
+    const r = sync.mergeRows(st,
+      [cloudRow("settings", "default", { scenarios: SHELF }, "2026-09-24T00:00:00.000Z")]);
+    assert.equal(r.changed, false, "nothing came down over her own days");
+    assert.deepEqual(st.settings.scenarios.map((s) => s.id), ["s9"], "her own days stand");
+    assert.deepEqual(queuedSettings(store).data.scenarios.map((s) => s.id), ["s9"],
+      "and the push carries hers, not the cloud's");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone that still has her saved days puts them back into a cloud row that lost them", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.scenarios = SHELF;
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    const r = sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00" }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(r.changed, true);
+    const p = queuedSettings(store);
+    assert.ok(p, "one publish is queued, with no press of hers needed");
+    assert.deepEqual(p.data.scenarios.map((s) => s.id), ["s1", "s2"],
+      "the publish carries the saved days the cloud row lost");
+    assert.deepEqual(st.settings.scenarios.map((s) => s.id), ["s1", "s2"],
+      "and the shelf is still on this phone");
+  } finally { restore(); }
+});
+
+test("mergeRows: a shelf she deliberately emptied is NOT put back by the other phone", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.scenarios = SHELF;
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { scenarios: [] }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(queuedSettings(store), undefined,
+      "an empty shelf the other phone SPOKE is an answer, so nothing is put back over it");
+    assert.deepEqual(st.settings.scenarios, [],
+      "and this phone takes her deletion");
+  } finally { restore(); }
+});
+
+test("mergeRows: a cloud row with nothing missing queues no publish", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { cutoff: "18:00" }, "2026-09-20T00:00:00.000Z")]);
+    assert.equal(Object.keys(JSON.parse(store.get("bakeadmin.sync")).pending).length, 0,
+      "a phone that holds nothing guarded is not made to publish");
+  } finally { restore(); }
+});

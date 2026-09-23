@@ -1,8 +1,94 @@
-# Jienluv2bake — change history (v54 → v180)
+# Jienluv2bake — change history (v54 → v181)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v181, A NEW PHONE NO LONGER EMPTIES THE OTHER ONE (no database step). You
+reported that signing in on a new phone showed none of your saved scenarios. It was real, and it
+was the app rather than the phone. The cause is one word: silence. When the new phone pulled from
+the cloud it had nothing to say about your saved days, and the app read that silence as a decision
+to delete them — so the next thing it wrote back to the cloud left them out, and the cloud lost
+them. Three rules now stand on one sentence: silence means this phone has no opinion, and silence
+must never delete. A newly set-up phone now receives your saved days and the day you built, and its
+first push carries them back up instead of dropping them; and a phone that still holds something
+the cloud has lost puts it back by itself, with no press from you. A deletion you actually made is
+spoken out loud, so it is honoured and never refilled.**
+
+**1. What you reported, in your own words.** "i try log in with the new phone, the save scenario is
+not loaded? why". The "why" is answered below. This version is the answer to it happening again.
+
+**2. Why it happened.** Everything you have set up in this app — your saved scenarios, the day you
+built, your to-do list, your wish list, the developer line — travels to your other phone in one
+single row called "settings". There is only ever one of those rows, on every phone, from the first
+day you install the app. A phone that has just signed in therefore already has a settings row of its
+own to publish, even though it has never seen the cloud copy, and the app decided which side to keep
+by the clock: whichever phone noticed last won. A new phone wins that comparison simply by being
+newer, and when it won, it wrote its own empty settings up to the cloud. The saved days were not
+emptied on purpose and were not refused — they were simply not there to write. A push replaces the
+whole row, so a key the payload leaves out is a key the cloud loses. That is the fault: silencing a
+thing is not the same as deleting it, and the app could not tell the two apart.
+
+**3. The three rules, and they are one sentence between them.** Silence means this phone has no
+opinion, and silence must never delete. First: if you empty a shelf on one phone, that deletion is
+now spoken out loud — the app says "the saved days are now an empty list" instead of saying nothing
+at all, so the other phone cannot mistake your decision for ignorance. Second: when a phone's own
+settings win, every one of those five keys it has no opinion about is taken from the cloud instead
+of being left out — taken into what it is about to publish, so its push cannot delete them, and
+taken into its own app, so a phone that has never had your days receives them on that same pull.
+Third: if the cloud has lost one of those keys and this phone still holds it, this phone queues one
+publish to put it back — no press from you, and never for a key you emptied on purpose.
+
+**4. What a newly set-up phone does now. Measured.** Against a stand-in cloud holding your own saved
+days, the new phone receives all three of them and the day you had built, and the settings it then
+sends up still carries those same days — so the push that used to empty the shelf now leaves it
+whole. Measured again from the other end: with the cloud's settings row missing your saved days and
+your own phone still holding them, one pull from that phone queues exactly one publish carrying
+them, and a second pull queues nothing, because there is nothing left missing. And a shelf you
+really did empty is not put back — the empty answer is spoken, read as an answer, and left alone.
+
+**5. What this version protects, and what it does not yet. Read this part.** This version protects
+your saved scenarios, the day you have built, your to-do list, your wish list and the developer
+line. It does not protect the numbers on More -> Production line. Those are a different kind of
+value, with no "empty" of their own — a brand-new phone's numbers can still replace what the cloud
+has, and that was measured, not guessed: the cloud's production plan was pushed over as a
+brand-new phone's defaults. It is the same family of fault one key over, it is not fixed here, and
+it is not dressed up as fixed. Until it is, check More -> Production line on both phones and set the
+numbers on the phone you trust; and if a number has already been replaced, the daily cloud backups
+are the way back, not a re-typing.
+
+**6. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day was
+changed by this version, and nothing here blocks a sale or reads an order. Measured live on your own
+phone: after unlocking the app, signing out of the cloud and opening the Scenario planner, your
+stored data was put back from a copy taken beforehand and compared — byte for byte the same 13,888
+characters. Your three saved days read 24, 4 and 24 pans. That last figure is worth one line,
+because two earlier notes in this history said "24, 12 and 24": 12 is what the third day is set to
+aim at, 4 is what that day as built actually makes, and 4 is what the app has always computed and
+still computes. The number in those two notes was the mistake, not the app, and the earlier entries
+are left standing rather than quietly tidied.
+
+**7. Every rule that stands on it was proved load-bearing, not assumed.** Eleven faults were put
+back in all, and each was watched failing by a test that names it, then restored byte-identically.
+Taking the shelf the phone is silent about out of what it publishes, so the push deletes it again,
+fails reading that a phone that never had her saved days receives them. Taking the same value out of
+her own app instead, so the phone stays empty, fails the same test from the other end. Letting the
+phone overwrite its own days with the cloud's, and refusing the cloud's empty answer when she has
+deleted a shelf on purpose, each fail the test that says a phone with its own days keeps them and a
+shelf she emptied stays emptied. Dropping the repair of a short cloud row fails reading that a phone
+that still has her days puts them back. Making that repair fire on every pull fails reading that a
+cloud row with nothing missing queues no publish. Dropping the built day from the guarded keys fails
+reading that a phone that never built a day receives the one she built. Removing the spoken deletion
+fails reading that emptying her shelf is said out loud, and making every phone speak — including one
+that never held the key — fails reading that a missing field is not announced as an empty shelf. Two
+of the eleven were faults in the first draft of the fix and were found by this sweep rather than by
+reasoning: one change was unfalsifiable as written, because the cloud's value was copied into her
+own app before the comparison the fault was supposed to break, and one guard turned out to be
+protecting a real case — a hand-edited or corrupted file — which had no test until the sweep asked
+for one. The suite is 1309 passing with none failing.
+
+**8. No database step.** Not one stored field is added or changed on the server, so there is nothing
+to run in Supabase. The three rules are read by the sync code your app already runs, and they act on
+the same five keys that already travel between your phones.
 
 **23 Sep 2026 — engine v180, THE HOURS YOU TYPED TAKE THE SHADE OFF, AND THE LAST BAR OF THE
 DAY CAN BE HELD (no database step). On a person whose working hours you have filled in on
