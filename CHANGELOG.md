@@ -1,8 +1,106 @@
-# Jienluv2bake — change history (v54 → v172)
+# Jienluv2bake — change history (v54 → v173)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v173 (no database step). Two faults in the "Minutes from
+one batch to the next" box, both on a day that runs more than one batch: on a module
+that runs only one, the box did nothing at all and said nothing about why; and on a
+module whose batch two had been nudged closer by hand, a smaller pace could send that
+batch in front of batch one, and the day then drew both on the same minute. All inside
+More → Scenario planner.**
+
+**What you reported, in your own words.** "similar problem happen. 1st module, time
+betwenn each batch, set to 21, but no effect, or the chart dont workout" — and then,
+when asked which of the two you were seeing, "both batch start the same time". You
+were reading a 12-pan day, and the first module of that day is "Mixing by hand in the
+tub (set the minutes)": one batch, and the same pace it has always had. Both halves of
+your report were real, and neither was your phone.
+
+**1. On a module that runs one batch, the box does nothing — and now says so.** A pace
+is the minutes between one batch and the next. A module that runs a single batch in
+the day has no second batch for a pace to sit between, so whatever you type there
+cannot move anything. That is what your first module is: measured on your 12-pan day,
+"Mixing by hand in the tub" runs one batch of four pans at a pace of 20 minutes, so a
+21 typed into it had nothing to act on and the chart was already telling the truth.
+The fault was that the box said nothing at all about that — it looked exactly like a
+box that was broken. It now explains itself in your own words: measured live on that
+very module, the line under the box reads "This module runs one batch in the day, so
+there is no second batch for a pace to sit between yet. How many batches it runs in
+the day is the box above that sets it — make that two and these are the minutes
+between them." Make it two and the line goes.
+
+**2. And on a module that does run more than one, a smaller pace could put batch two
+in front of batch one.** This is the "both batch start the same time" half, and it is
+the more serious of the two.
+
+A saved day remembers the exact minute each batch starts, one module at a time. A
+module that carries that list is re-spaced at the pace you type, so a batch you have
+nudged by hand keeps the minutes you nudged it by rather than being pulled back onto
+the rhythm. That is right for a batch you nudged LATER — and exactly wrong for one you
+nudged EARLIER, because its deviation from the rhythm is a negative number, and adding
+a negative to the smaller rhythm lands it in front of the batch above it.
+
+Measured on your own first module, in the shape that does it. A nudge of batch two by
+hand with the box still reading 87 leaves the module carrying the times 4:00 am and
+4:21 am — and that batch is then 66 minutes earlier than the rhythm, so its deviation
+is −66. Typing 21 sent it to minute −45: three quarters of an hour before your day
+begins. The day cannot draw a batch that starts before it does, so both batches were
+drawn on minute 0 — both at the same time, exactly your words. This is also where the
+"no effect" reading of the chart comes from on a two-batch module: the box reads 21,
+and the two bars sit on top of each other and will not come apart.
+
+**3. What it does now, and it is your own app's rule rather than a new one.** Two
+rules, and both were already the app's own. A hold is only ever a HOLD — every other
+press on this screen already obeys that, so a batch can be held back off the rhythm
+and can never be pulled in front of it. And no batch is left at or behind the batch
+above it: where a hold has become impossible in the smaller rhythm, the batch takes
+the rhythm rather than a minute that is not its own. Measured live on that same
+module, through the same card: typing 21 leaves the two batches at 4:00 am and 4:21 am,
+drawn 21 minutes apart with the box reading 21, and the second batch is no longer able
+to overtake the first.
+
+**4. And a third fault, found while proving the second: the Auto box did not save.**
+This one you had not reported and would have met eventually. "Minutes from one batch
+to the next" carries an empty box with the word Auto in it, meaning each batch starts
+the moment the one before it ends. Emptying the box moved the flag and nothing else.
+
+The zero that means Auto was being written through the same writer every other box on
+this screen uses; that writer refuses any number below the box's own minimum; and this
+box's minimum is 1 — so the refusal came back BEFORE the save and before the repaint.
+The choice was made in memory, nothing on the screen moved, and the next reload threw
+it away. Measured on your own mix with two batches: emptying the box left both batches
+30 minutes apart and the screen did not move at all; the card reopened with its empty
+Auto box drawn over the very same unchanged chart; and a reload forgot the choice
+altogether. The zero and the save are now written directly, so Auto is an answer the
+app keeps: measured live, emptying the box redrew the two batches 20 minutes apart —
+the module's own cycle, which is what Auto means — and a reload kept it.
+
+**5. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. Every tap
+still opens exactly what it opened before. Your stored data was compared before and
+after every measurement: 13,888 characters, byte for byte the same, and your three
+saved days still reading 24, 12 and 24 pans.
+
+**6. Every rule that stands on it was proved load-bearing, not assumed.** Six faults
+were put back in all and each was watched failing by name, then restored
+byte-identically. The hold rule: with the clamp taken out the test fails reading that a
+batch pulled closer than its line carried a hold it does not have. The forward sweep:
+with the sweep removed the test fails reading that a batch was left in front of the
+batch above it. The one-batch note: with it gated off the test fails reading that a
+pace box with nothing to space does not say so. The Auto half, three ways: with the 0
+written through the writer again the test fails reading that Auto did not write the 0
+that means Auto; with the save and the repaint left out it fails reading that the Auto
+press saved and repainted nothing; and with the list not deleted it fails reading that
+Auto left a list of times behind, so the cycles no longer decide. One fault in the
+tests' own stand-in screen was found and fixed on the way — it had no firstChild, so the
+"did the screen repaint" assertion was comparing nothing with nothing and could never
+fail — which is the same lesson that file already carries about a stand-in being more
+forgiving than the real browser. The suite is 1215 passing with none failing.
+
+**7. No database step.** Not one stored field is added or changed, so there is nothing
+to run in Supabase.
 
 **23 Sep 2026 — engine v172 (no database step). Four things: handing one stretch of
 work to somebody else no longer moves the people's rows, their names or their jobs;
@@ -96,6 +194,11 @@ gives, and leaving no list behind is what keeps the pace alive. A module that al
 carries a list has it re-spaced to the pace you type, with every batch keeping what
 you did to it by hand: each batch moves by the minutes the rhythm moved, so a batch
 you deliberately held off a collision is still held off by the same minutes after.
+(23 Sep 2026, added at v173: this re-spacing was unbounded in v172, and a batch that
+had been nudged EARLIER by hand carried a negative deviation that the smaller pace then
+added on, putting that batch in front of the one above it — the day drew both on the
+same minute. See the v173 entry above: a hold is now only ever a hold, and no batch is
+left at or behind the batch above it.)
 And the box now carries a live note under it, so a pace the oven cannot reach says so
 where you typed it instead of doing nothing.
 

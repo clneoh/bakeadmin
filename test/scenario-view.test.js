@@ -35,6 +35,11 @@ function createEl(tag) {
     // never written at all, so nothing here could see where it sat. Wired to `parent`,
     // which is what appendChild and remove already keep up to date.
     get parentNode() { return this.parent || null; },
+    // The other half of that walk, and the same lesson: a real node has firstChild and
+    // a test that asks whether a repaint rebuilt the screen asks it through this. A shim
+    // without one answers `undefined` both before and after the repaint, so the question
+    // "did anything redraw?" passes without being able to fail.
+    get firstChild() { return this.children[0] || null; },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
     append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
     replaceChildren(...cs) {
@@ -903,6 +908,119 @@ test("the pace box reaches a module that carries a start list, and says when the
   pace.value = "20";
   pace.dispatchEvent({ type: "input" });
   assert.deepEqual(stored().starts, [0, 20, 40, 70], "a batch held off by hand was pulled back onto the rhythm");
+
+  // ── and the same box's own two faults, found after v172 shipped ────────────
+  //
+  // Her report of the same day, arriving with v172 already on her phone: "1st
+  // module, time betwenn each batch, set to 21, but no effect, or the chart dont
+  // workout" — and, asked which of the two she saw, "both batch start the same
+  // time". Both were the box itself, and both are covered here on HER first module
+  // and her own numbers: the mix, 87 minutes a batch as stored, a batch pulled
+  // closer by hand, and 21 typed.
+  const her = render();
+  const mix = () => her.state.settings.scenario.modules.find((m) => m.id === "solo_mix");
+  const mixStarts = () => starts(her.state, "solo_mix");
+  const paceFieldIn = () => {
+    const field = walk(layers["popup-layer"]).find((n) => hasClass(n, "field")
+      && walk(n).some((c) => c.tagName === "LABEL" && textOf(c).trim() === "Minutes from one batch to the next"));
+    assert.ok(field, "the module card has no box for the minutes from one batch to the next");
+    return field;
+  };
+  const paceIn = () => walk(paceFieldIn()).find((n) => n.tagName === "INPUT");
+  const paceSays = () => textOf(walk(paceFieldIn()).find((n) => hasClass(n, "hint")) || createEl("div"));
+  const sameMinute = (list) => list.some((v, i) => i > 0 && Math.round(v) === Math.round(list[i - 1]));
+
+  // A batch she has pulled closer by hand than the pace the module is stored with.
+  // Re-spaced the old way this landed in front of the batch above it — [0, 21] at a
+  // stored pace of 87 came out as [0, −45], which the day reads as minute 0 — and
+  // both batches were drawn on the same minute, which is exactly what she saw.
+  Object.assign(mix(), { repeats: 2, startMin: 0, everyMin: 87, starts: [0, 21] });
+  openModule(her.root, "Mixing the dough in the tub");
+  let box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mix().starts, [0, 21], "a pace she typed threw away a batch she had pulled closer by hand");
+  assert.deepEqual(mixStarts(), [0, 21], "the day does not run the two batches 21 minutes apart");
+  assert.ok(!sameMinute(mixStarts()), "both batches are back on the same minute");
+
+  // Taken all the way onto the batch above it, the same press separates them again
+  // rather than leaving two batches sharing one minute.
+  Object.assign(mix(), { everyMin: 87, everyAuto: false, starts: [0, 0] });
+  box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mix().starts, [0, 21], "a batch sitting on the one above it was left there");
+  assert.ok(!sameMinute(mixStarts()), "two batches still share a minute");
+
+  // A hold that is still a hold is kept, exactly as v172 promised: 120 is 33 minutes
+  // past the 87 it was stored at, so it lands 33 minutes past the 21 she types.
+  Object.assign(mix(), { everyMin: 87, everyAuto: false, starts: [0, 120] });
+  box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mix().starts, [0, 54], "a hold that is still a hold was thrown away");
+
+  // Two holds, and the second falls BEHIND the first once the rhythm shortens — 120 is
+  // held 33 past the 87, and 130 is on the 87's own line, so at 21 the third batch would
+  // land on 42, nine minutes in front of the batch above it at 54. A batch may be held
+  // back off the rhythm; it may never be left in front of the batch above it.
+  Object.assign(mix(), { repeats: 3, everyMin: 87, everyAuto: false, starts: [0, 120, 130] });
+  box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mix().starts, [0, 54, 75], "a batch was left in front of the batch above it");
+  assert.ok(!sameMinute(mixStarts()), "two of the three batches share a minute");
+  mix().repeats = 2;
+
+  // A hold is counted as minutes PAST the module's own line and never as minutes before
+  // it: a batch she has pulled closer than its line has no hold left to carry, so it takes
+  // the line instead. Stored 90 and 100 against a rhythm of 87, the second batch is 3 past
+  // its line and the third 74 BEFORE its own — so at 21 they land on their lines, 24 and
+  // 42, rather than on a minute worked out from a shorter-than-the-rhythm number.
+  Object.assign(mix(), { repeats: 3, everyMin: 87, everyAuto: false, starts: [0, 90, 100] });
+  box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mix().starts, [0, 24, 42], "a batch pulled closer than its line carried a hold it does not have");
+  mix().repeats = 2;
+
+  // And the box emptied really does mean Auto. It used to keep a list with the old
+  // pace baked into it, and a list answers for every batch — so Auto changed nothing
+  // and a pace typed afterwards came out nowhere near the number: "no effect".
+  Object.assign(mix(), { everyMin: 87, everyAuto: false, starts: [0, 87] });
+  const readoutWas = her.root.children[1].firstChild;
+  box = paceIn();
+  box.value = "";
+  box.dispatchEvent({ type: "input" });
+  assert.equal(mix().everyAuto, true, "an emptied pace box did not go back to Auto");
+  assert.equal(mix().starts, undefined, "Auto left a list of times behind, so the cycles no longer decide");
+  // The press has to write the 0 that MEANS Auto and then save and repaint. Written
+  // through set() it was refused — this box's minimum is 1, and the refusal returned
+  // before either — so the flag moved and nothing else: the box went empty over a chart
+  // that had not moved, and a reload forgot the choice. Measured live on her own mix.
+  assert.equal(mix().everyMin, 0, "Auto did not write the 0 that means Auto, so the box's old pace stayed on the module");
+  assert.notEqual(her.root.children[1].firstChild, readoutWas,
+    "the Auto press saved and repainted nothing, so the day went on drawing the spacing it had");
+  assert.deepEqual(mixStarts(), [0, 20], "Auto does not follow the module's own cycle length");
+  box = paceIn();
+  box.value = "21";
+  box.dispatchEvent({ type: "input" });
+  assert.deepEqual(mixStarts(), [0, 21], "the pace she typed after Auto did not reach the batches");
+
+  // A module that runs ONE batch has no second batch for a pace to sit between, and
+  // a box that quietly does nothing is a fault of its own — her words open on it:
+  // "time betwenn each batch, set to 21, but no effect". So it says so, and it says
+  // it only when the day really does run one: a module following the one above it
+  // runs as many as that one does, so the count is the day's and not the stored one.
+  mix().repeats = 1;
+  mix().starts = undefined;
+  mix().everyAuto = false;
+  mix().everyMin = 87;
+  openModule(her.root, "Mixing the dough in the tub");
+  assert.match(paceSays(), /runs one batch in the day/, "a pace box with nothing to space does not say so");
+  mix().repeats = 2;
+  openModule(her.root, "Mixing the dough in the tub");
+  assert.doesNotMatch(paceSays(), /runs one batch in the day/, "a module running two batches is told it has nothing to space");
 });
 
 test("the step pairs on the day card move the whole day and keep its shape (v152)", () => {

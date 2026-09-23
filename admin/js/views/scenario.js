@@ -3020,7 +3020,28 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
         if (opt.auto) {
           const blank = String(raw).trim() === "";
           live[opt.auto] = blank;
-          if (blank) { set(key, 0, opt); return; }
+          if (blank) {
+            // Auto means the module's own cycles decide the spacing, so the list it
+            // may be carrying has to GO and not be re-spaced to 0. Re-spaced, it kept
+            // a list with the OLD pace baked into it, that list then went on answering
+            // for every batch, and Auto became a box that changed nothing — the second
+            // half of her report of 23 September 2026: "set to 21, but no effect".
+            // Batch one is the module's start time and stays exactly where it is; only
+            // the batches after it go back to following the cycles.
+            //
+            // The 0 and the save are written here rather than through set(), and that is
+            // not a detail: set() refuses any number under the box's own minimum, this
+            // box's minimum is 1, and the refusal returned BEFORE the save and the
+            // repaint — so Auto moved the flag and nothing else. Measured live on her own
+            // mix, two batches: emptying the box left both batches 30 minutes apart and
+            // the screen did not move, and the card reopened with its empty Auto box drawn
+            // over the same unchanged chart; a reload then forgot the choice altogether.
+            delete live.starts;
+            live[key] = 0;
+            on.persist();
+            on.refresh();
+            return;
+          }
         }
         set(key, raw, opt);
       };
@@ -3310,7 +3331,7 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
       // sentence is the reason: a batch is not a process, a cycle is.
       cyclesField(live, on, refresh),
       f("everyMin", "Minutes from one batch to the next",
-        () => paceHint(live),
+        () => paceHint(live, sc),
         { min: 1, auto: "everyAuto", repace: true }),
       repeatsField(),
       // Her point one: the module that became the bottleneck, had twice over.
@@ -3499,8 +3520,23 @@ const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const PACE_EXPLAINED =
   "The pace the batches repeat at. For your fold that is the whole rest with its fold inside it, so one batch restarts a rhythm after the last — not the 30 minutes of the gap alone. Left on Auto it is the length of the cycles you just set, which is one batch following the one before it end to end.";
 
-function paceHint(live) {
+function paceHint(live, sc) {
   const m = moduleOf(live);
+  // A module that runs ONE batch in the day has no second batch for a pace to sit
+  // between, so the box changes nothing at all — and a box that quietly does nothing
+  // reads as a fault. That is the first thing her report of 23 September 2026 says:
+  // "1st module, time betwenn each batch, set to 21, but no effect". The count is the
+  // DAY's and not the stored one: a module that follows the one above it runs as many
+  // batches as that one does, so the answer is read off the placed batches.
+  if (live.on !== false) {
+    const placed = sc && computeScenario(sc).modules.find((x) => x.id === live.id);
+    const runs = placed && placed.passes ? placed.passes.length : m.repeats;
+    if (runs <= 1) {
+      return "This module runs one batch in the day, so there is no second batch for a "
+        + "pace to sit between yet. How many batches it runs in the day is the box above "
+        + "that sets it — make that two and these are the minutes between them.";
+    }
+  }
   // Only a module that really does take its batches in turn holds them apart: one
   // production line with its overlap switch off. Two of them are two lines with a
   // batch each, and a module whose minutes are the dough's own is free to overlap, so
@@ -3521,11 +3557,35 @@ function paceHint(live) {
 // nothing on any module that carries one. Every batch keeps what she has done to it:
 // each moves by the amount the rhythm moved, not to a place of its own, so a batch she
 // has held off a collision is still held off by the same minutes afterwards.
+//
+// Her report of 23 September 2026, in her own words: "1st module, time betwenn each
+// batch, set to 21, but no effect, or the chart dont workout" — and, asked which of the
+// two she saw, "both batch start the same time". Both were this one press.
+//
+// A batch she has pulled CLOSER by hand than the pace the module is stored with carries
+// a NEGATIVE deviation, and re-spaced at the smaller pace that lands it in front of the
+// batch above it. Measured on her own first module: a list of [0, 21] stored at a pace of
+// 87, re-spaced at 21, came out as [0, −45] — and the day cannot read a batch starting
+// before it begins, so both batches were drawn on minute 0, exactly what she described.
+// Two rules therefore, and both are the app's own rules rather than new ones:
+//
+//   1. A hold is only ever a HOLD. Every other press in this screen already obeys it —
+//      moveBatch's written deltas and chainLine's own are `Math.max(0, …)` — so a batch
+//      can be held back off the rhythm and never pulled in front of it.
+//   2. No batch may be left at or behind the batch above it. Where her hold has become
+//      impossible in the new rhythm, the batch takes the rhythm rather than a minute
+//      that is not its own.
 function repaceBatches(live, pace) {
   if (!Array.isArray(live.starts) || live.starts.length < 2) return;
   const was = moduleOf(live).everyMin;
   const base = live.starts[0];
-  live.starts = live.starts.map((t, k) => round(base + k * pace + (t - (base + k * was))));
+  let above = null;
+  live.starts = live.starts.map((t, k) => {
+    let at = round(base + k * pace + Math.max(0, t - (base + k * was)));
+    if (above != null && at <= above) at = round(above + pace);
+    above = at;
+    return at;
+  });
   live.startMin = live.starts[0];
 }
 
