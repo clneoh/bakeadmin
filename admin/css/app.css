@@ -2731,25 +2731,43 @@ tr.po-covered td { color: var(--muted); }
 }
 .tl-track {
   position: relative; height: 34px; flex: 0 0 auto;
-  /* An hour gridline every 60 minutes, drawn rather than laid out so it costs
-     nothing however wide the day gets. --hour-w is set by the screen from the
-     scale she picked, so the grid follows the zoom — a hardcoded 96px here would
-     leave the lines and the bars disagreeing the moment she changed it.
+}
+/* The ruling: an hour gridline every 60 minutes, drawn rather than laid out so it
+   costs nothing however wide the day gets. --hour-w is set by the screen from the
+   scale she picked, so the grid follows the zoom — a hardcoded 96px here would
+   leave the lines and the bars disagreeing the moment she changed it.
 
-     The second layer is her own ask of 23 September: "can the ruler extend down to
-     peoples marker area?" The ruler is one row at the top of the chart and the
-     markers are rows away from it, so the ruler's lines are carried down every row
-     instead: a marker's edge then lands on a line she can trace up to the clock.
-     --tick-w is the ruler's own step where the ruler can be read at all and a
-     coarser step where it cannot (gridStepFor, in the screen) — at the closest stop
-     a minute is 3.2 pixels and a line every 3.2 pixels is a wash, not a grid. It is
-     a painted gradient for the same reason the hour line is: drawn as elements, one
-     row at the closest stop would carry 1441 nodes of its own. Listed first, so the
-     hour line is painted over the grid it belongs to. */
+   The second layer is her own ask of 23 September: "can the ruler extend down to
+   peoples marker area?" The ruler is one row at the top of the chart and the
+   markers are rows away from it, so the ruler's lines are carried down every row
+   instead: a marker's edge then lands on a line she can trace up to the clock.
+   --tick-w is the ruler's own step where the ruler can be read at all and a
+   coarser step where it cannot (gridStepFor, in the screen) — at the closest stop
+   a minute is 3.2 pixels and a line every 3.2 pixels is a wash, not a grid. It is
+   a painted gradient for the same reason the hour line is: drawn as elements, one
+   row at the closest stop would carry 1441 nodes of its own. Listed first, so the
+   hour line is painted over the grid it belongs to.
+
+   Since v165 it is a layer of its OWN, drawn over the bars. It used to be the
+   track's own background, and a bar is opaque and sits above its track — so the
+   ruling stopped dead at the edge of every batch, every cycle and every marker she
+   works, and inside a person's occupied slot there was no ruler at all. Measured
+   before this: of one module row's grid lines, 5 fell inside her batches, and 14
+   fell inside the slots on one person's row, every one of them covered. Her words:
+   "i requested a ruler to draw into person's line time slot", and, asked how,
+   "just like the ruler draw over the batches and cycles". So there is now ONE
+   ruling and it is drawn over everything, and the whole day reads as one ruled
+   sheet. pointer-events: none keeps every tap on a bar exactly as it was. */
+.tl-track::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background-image:
     repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--hour-w, 96px)),
     repeating-linear-gradient(to right, color-mix(in srgb, var(--muted) 18%, transparent) 0 1px, transparent 1px var(--tick-w, 96px));
 }
+/* The ruler's own track keeps the hour line alone. Its tick elements already draw
+   the reading she takes, and a second ruling over them would be a second opinion
+   about where a minute is. */
+.tl-ruler .tl-track::after { content: none; }
 .tl-bar { position: absolute; top: 9px; height: 16px; border-radius: 5px; overflow: hidden; }
 /* Her hands, drawn where she really works them: at a cycle's load, at its unload,
    or at both ends of it — so the fold sits at the END of its rest and the oven

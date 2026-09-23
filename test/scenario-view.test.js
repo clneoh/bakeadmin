@@ -1711,15 +1711,26 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   // module rows and every person row would be ten thousand nodes in the panel.
   const css = read("admin/css/app.css");
   const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
-  const trackRules = rules(/\.tl-track\s*\{[^}]*\}/g);
-  const twoLayer = trackRules.filter((r) => (r.match(/repeating-linear-gradient/g) || []).length === 2);
+  // Since v165 the ruling is a layer of its own, drawn over the bars — so it lives
+  // on the track's ::after rather than on the track's own background, which a bar
+  // covers. The layers themselves are unchanged.
+  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g);
+  const twoLayer = ruling.filter((r) => (r.match(/repeating-linear-gradient/g) || []).length === 2);
   assert.equal(twoLayer.length, 1,
-    `the track does not carry the hour line with a grid under it: ${trackRules.length} rule(s), ${twoLayer.length} with two layers`);
+    `the ruling does not carry the hour line with a grid under it: ${ruling.length} rule(s), ${twoLayer.length} with two layers`);
   assert.match(twoLayer[0], /--tick-w/, "the grid layer is not drawn at --tick-w");
   // The hour line is written first because it is the one painted on top: where the
   // two fall on the same pixel it must be the line she reads the clock by.
   assert.ok(twoLayer[0].indexOf("--hour-w") < twoLayer[0].indexOf("--tick-w"),
     "the grid is painted over the hour line rather than under it");
+
+  // And there is only ONE ruling. The track's own background must stay empty, or
+  // the lines would be drawn twice — once under the bars and once over them — and
+  // the translucent grid would read darker in the gaps than across a bar.
+  const trackRules = rules(/^\.tl-track\s*\{[^}]*\}/gm);
+  assert.ok(trackRules.length, "there is no rule for the track at all");
+  assert.ok(trackRules.every((r) => !/background-image/.test(r)),
+    "the ruling is drawn twice: the track still paints it under the bars as well");
 
   // The ruler's own track keeps the hour line alone. Its tick elements already draw
   // on top of it, so a finer layer under them would put lines between the ticks the
@@ -1728,6 +1739,12 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   assert.ok(rulerRules.length, "the ruler's own track is not told apart from the rows under it");
   assert.ok(rulerRules.every((r) => !/--tick-w/.test(r)),
     "the ruler's track carries the grid under its own ticks");
+  // …and it turns the ruling off rather than merely not asking for it, because the
+  // ruling is now inherited by every track in the chart.
+  const rulerRuling = rules(/\.tl-ruler \.tl-track::after\s*\{[^}]*\}/g);
+  assert.ok(rulerRuling.length, "the ruler's track does not turn the ruling off");
+  assert.ok(rulerRuling.every((r) => /content:\s*none/.test(r)),
+    "the ruling is drawn over the ruler's own ticks");
 
   // And a module switched off keeps both layers rather than dropping the only thing
   // its own dimmed bars are read against.
@@ -1760,6 +1777,55 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
     assert.equal(c.gridMin % c.step, 0,
       `at ${c.name} a grid line every ${c.gridMin} min is not on the ruler's ${c.step} min ticks`);
   }
+});
+
+// ── The ruler, drawn over the bars (v165) ───────────────────────────────────
+//
+// Her words: "i requested a ruler to draw into person's line time slot", and then,
+// asked how the lines should reach it: "just like the ruler draw over the batches
+// and cycles".
+//
+// What she was seeing, measured on her own day: the ruling WAS on her person's row,
+// but a bar is opaque and sits ABOVE its track's background — so the ruling stopped
+// dead at the edge of every marker. Of one module row's grid lines, 5 fell inside
+// her batches; of the slots on one person's row, 14. Every one was covered, and
+// hit-testing a grid line inside a slot returned the slot itself as the topmost
+// thing on that pixel. So the ruling is a layer of its own now, drawn over the bars.
+test("the ruler's lines are drawn over the bars, not stopped by them (v165)", () => {
+  const css = read("admin/css/app.css");
+  const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
+  const ruling = rules(/\.tl-track::after\s*\{[^}]*\}/g)
+    .filter((r) => /repeating-linear-gradient/.test(r));
+  assert.equal(ruling.length, 1, `expected one ruling rule, found ${ruling.length}`);
+  const r = ruling[0];
+
+  // Above the bars. A bar is position:absolute with no z-index of its own, so any
+  // positive z-index on the ruling paints it over the bar; without one the ruling
+  // would sit under the bars again, which is the fault this release is about.
+  const z = r.match(/z-index:\s*(-?\d+)/);
+  assert.ok(z, "the ruling has no z-index, so it cannot be known to be over the bars");
+  assert.ok(Number(z[1]) >= 1, `the ruling sits at z-index ${z[1]}, which does not put it over the bars`);
+
+  // And it lets every tap through, so a batch, a cycle and a person's own stretch
+  // are tapped exactly as they were before it existed.
+  assert.match(r, /pointer-events:\s*none/,
+    "the ruling would swallow the taps on the bars underneath it");
+
+  // It covers the whole track, or the ruling would stop short of the bars' far edge.
+  assert.match(r, /inset:\s*0|top:\s*0/, "the ruling does not fill its track");
+
+  // One ruling per row, and every row of the day gets it: the module rows (the
+  // batches and cycles) and the people's rows (the slots she asked about) alike.
+  const { root } = render();
+  const tracks = walk(root).filter((n) => hasClass(n, "tl-track"));
+  assert.ok(tracks.length > 2, "the chart has no bars to rule over");
+  const bars = walk(root).filter((n) => hasClass(n, "tl-bar"));
+  assert.ok(bars.length, "the chart draws no bars at all");
+  // A bar carries no z-index of its own, which is what lets the ruling sit over it.
+  const barRule = rules(/\.tl-bar\s*\{[^}]*\}/g);
+  assert.ok(barRule.length, "there is no rule for a bar");
+  assert.ok(barRule.every((x) => !/z-index/.test(x)),
+    "a bar now has a z-index of its own, so the ruling may no longer be over it");
 });
 
 // ── The clock, drawn once (v162 reverted) ────────────────────────────────

@@ -1,8 +1,60 @@
-# Jienluv2bake — change history (v54 → v164)
+# Jienluv2bake — change history (v54 → v165)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v165 (no database step). The ruler's lines are now drawn
+over your batches, your cycles and your people's occupied slots. Before this the
+lines stopped dead at the edge of every bar, so inside a slot you were working
+there was no ruler at all.**
+
+**What you asked.** In your words: "i requested a ruler to draw into person's line
+time slot, maybe you cant visual my complaint". Asked how the lines should reach
+that slot, you said: "Just like the ruler draw over the batches and cycles". You
+were right that I had not pictured it, so I went and measured instead of answering.
+
+**What was actually happening, and it was worse than "the lines are only on some
+rows".** Your person's row did carry the ruler's lines — it has since v160. But
+every marker, batch and cycle is a solid coloured bar, and a solid bar sits ON TOP
+of the lines behind it. So the ruler vanished wherever a bar was. Measured on your
+own day: of one module row's ruler lines, 5 fell inside your batches; of the slots
+on one person's row, 14 fell inside them. Every one of the 14 was covered. Pointing
+at a ruler line inside one of your slots, the topmost thing on that pixel was the
+slot itself. That is why the ruler looked present on an empty stretch of the day
+and absent wherever you were actually working.
+
+**And it was the same on the module rows.** So the lines were not reaching over
+your batches and cycles either — what you were seeing was them showing in the gaps
+between bars, with your eye joining them up. This release makes that true for real
+rather than only in the gaps.
+
+**What changed, and it is one thing.** The ruler is now a layer of its own, drawn
+OVER the bars — over the batches, over the cycles and over your people's occupied
+slots alike. The lines themselves are the same lines as before: the same hour line,
+the same step for the scale you are on, at the same positions. Nothing about the
+ruling moved; it is only no longer hidden. The whole day now reads as one ruled
+sheet, and a slot is ruled exactly like the empty day beside it.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or
+saved scenario changed, and nothing here blocks a sale or reads an order. No bar
+changed colour, and every tap on a bar is untouched — a batch, a cycle and a
+person's own stretch are still tapped and still open the same cards. Your three
+saved days were read before and after: One baker day, No fridge 1 person and My
+sister proposal 21/9/2026 each still on the target they had, stored numbers
+untouched.
+
+**Two rules were proved load-bearing rather than assumed.** One test now stands on
+that there is exactly one ruling — if the lines were ever drawn both under the bars
+and over them, the translucent grid would read darker in the gaps than across a
+bar. Another stands on that the ruling is drawn at a height above the bars, that it
+lets every tap through, and that the ruler's own strip at the top turns it off so
+it cannot put lines between the ticks you read the clock off. Each was proved by
+putting the fault back: removing the ruling's height made the first fail, and
+putting a second ruling back on the track made the other fail.
+
+**No database step.** Not one stored field is added or changed, so there is
+nothing to run in Supabase.
 
 **23 Sep 2026 — engine v164 (no database step). A number you type into the
 cycles of a module now stays where you put it. Before this, typing into a second
