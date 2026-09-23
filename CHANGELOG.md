@@ -1,8 +1,60 @@
-# Jienluv2bake — change history (v54 → v169)
+# Jienluv2bake — change history (v54 → v170)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Sep 2026 — engine v170 (no database step). The frame around every bar is drawn
+quietly now, so a block of work still reads as a block without every bar being a box
+drawn round it. Nothing else moved. All inside More → Scenario planner.**
+
+**What you reported, in your own words.** "the border look like over emphasized".
+You were right, and it was my own v169 line being too loud. Nothing about the day, the
+bars or your data was wrong — the frame was simply drawn heavier than it needed to be.
+
+**What was too much.** The frame went in at a line one and a half pixels wide, drawn
+at full strength in the bar's own solid colour. Round a pale bar that is not an edge,
+it is a box drawn on: every bar on the chart was outlined that way, so the day read as
+a page of boxes rather than as a day with edges on it.
+
+**What changed, and it is only the frame's own two numbers.** The line is one pixel
+wide rather than one and a half, and the whole frame is laid down at 55 parts in 100
+rather than at full strength. The colour is untouched and is still the bar's own tone —
+the colour your hands already wear inside that bar, and, for a person, the colour of
+their card's stripe — so the frame still says at a glance which module a bar belongs
+to. Measured live on your own day at a phone's width: the frame reads the bar's own
+colour, a 1-pixel line with the layer at 0.55, on a batch bar, on a lane bar that
+shares its row, and on a person's time slot alike.
+
+**Your B-numbers and your people's names are untouched**, and no line crosses a label,
+exactly as at v169: the frame is still drawn below them.
+
+**One number softens every frame together.** The strength is declared once, on the
+chart's own wrapper beside the marker's transparency, so the modules' window and the
+people's window and all sixteen tones are all softened by the one edit and cannot be
+tuned apart. Lower it towards 0 for a whisper, raise it towards 1 for v169's line back
+again — it is one number either way, so say the word if this is still not the weight
+you want.
+
+**Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved
+scenario changed, and nothing here blocks a sale or reads an order. Every tap still
+opens exactly what it opened before, and the frame still takes no taps at all. Your
+stored numbers were compared before and after: 13,561 characters, byte for byte the
+same, and your three saved days still read 24, 12 and 24 pans.
+
+**And the rule that stands on it was extended rather than left standing on the old
+numbers.** The frame test now carries your report in its own name, pins the 1-pixel
+line, pins the layer's strength and refuses a strength of 0 or 1 — so a later edit
+cannot quietly put the shout back — and refuses a second declaration of it. Each was
+proved by putting the fault back and watching it fail by name: the 1.5-pixel line back
+made it read "the frame is no longer a 1px line"; full strength back made it read
+"--frame is 1: one at 1 is v169's shout back again"; and the strength declared twice
+made it read "the frame's strength is declared in more than one place, so the two
+windows can disagree". Each was restored exactly as it was afterwards. The tests are
+1,201 passing with none failing.
+
+**No database step.** Not one stored field is added or changed, so there is nothing to
+run in Supabase.
 
 **23 Sep 2026 — engine v169 (no database step). Every batch bar and every person's
 time slot now wears a frame in its own colour, so a block of work reads as a block
@@ -77,6 +129,11 @@ v165 and v166". The tests are 1,201 passing with none failing.
 
 **No database step.** Not one stored field is added or changed, so there is nothing
 to run in Supabase.
+
+__Softened at v170:__ the frame described above went in at a line one and a half
+pixels wide and at full strength, and you reported it as "the border look like over
+emphasized". It is now a one-pixel line laid down at 55 parts in 100, in the same
+colour as before. Read the v170 entry above for the rest.
 
 **23 Sep 2026 — engine v168 (no database step). The extra slider between your two
 chart windows is gone, so each window's own sideways bar is the pan. The modules

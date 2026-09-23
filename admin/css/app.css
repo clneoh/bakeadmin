@@ -2675,6 +2675,15 @@ tr.po-covered td { color: var(--muted); }
      (1 - --marker) x the line's own ink, so this and the two alphas on .tl-track are
      one decision in three numbers, and v169's test measures the three together. */
   --marker: .72;
+  /* How loud a marker's frame is, set ONCE here for every frame in both windows —
+     her report of 23 September 2026: "the border look like over emphasized". The
+     frame went in at full strength in a 1.5px line and read as a shouted box: a
+     solid, fully saturated outline round every pale bar. It is drawn in the same
+     tone as before (--tone-ink) but the whole layer is now laid down at --frame, so
+     one number here softens every batch and every person's slot together and the two
+     windows cannot be tuned apart. Lower it towards 0 for a whisper, raise it
+     towards 1 for the v169 line back again. */
+  --frame: .55;
   position: relative;
 }
 .tl {
@@ -2854,10 +2863,16 @@ tr.po-covered td { color: var(--muted); }
    by the cycle shades that fill it. As its own layer it crosses the shades, leaves
    the bar's outer size, its tap target and the chart's scroll range untouched, and
    keeps the red outline a collision wears (outer, offset 1px) reading on top of it.
-   pointer-events: none, like the ruling, so every tap still lands on the bar. */
+   pointer-events: none, like the ruling, so every tap still lands on the bar.
+   Her report of 23 September 2026, after living with it: "the border look like over
+   emphasized". So the line is 1px rather than 1.5px, and the whole layer is laid
+   down at --frame rather than at full strength — the ink is still the tone's own, so
+   the provenance the test pins (frame equals the hands' colour, and a person's equals
+   their card's) is untouched, and ONE number softens every frame together. */
 .tl-bar::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit;
-  box-shadow: inset 0 0 0 1.5px var(--tone-ink, rgba(122, 96, 74, .45));
+  box-shadow: inset 0 0 0 1px var(--tone-ink, rgba(122, 96, 74, .45));
+  opacity: var(--frame, .55);
   pointer-events: none; z-index: 1;
 }
 /* Her hands, drawn where she really works them: at a cycle's load, at its unload,

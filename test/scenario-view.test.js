@@ -1981,7 +1981,7 @@ test("the marker is a wash over the ruling, not a block that stops it (v169)", (
     "a bar is given an opaque background of its own, over the wash its tone sets");
 });
 
-// ── A frame on every marker (v169) ──────────────────────────────────────
+// ── A frame on every marker (v169), drawn quietly (v170) ────────────────
 //
 // Her ask: "can the batch and person time slot having a more highligted frame?".
 // A batch bar and a person's time slot are the same element, so one rule frames
@@ -1989,7 +1989,13 @@ test("the marker is a wash over the ruling, not a block that stops it (v169)", (
 // eat into the box the cycle shades and her hands are placed in, and an inset
 // shadow on the bar itself would be painted over by those shades. The frame is the
 // module's or the person's SOLID tone, the same colour her hands already wear.
-test("a batch bar and a person's time slot both wear a frame in their own tone (v169)", () => {
+//
+// Then, after living with it, her report: "the border look like over emphasized".
+// v169 drew a 1.5px line at full strength — a box round every pale bar. It is 1px
+// now, and the layer is laid down at --frame, so the frame still states which module
+// a bar belongs to without shouting it. Her words are pinned in both the stylesheet
+// and here, and v170's probe puts the shout back to watch this test name it.
+test("a batch bar and a person's time slot both wear a frame in their own tone (v169, softened v170)", () => {
   const css = read("admin/css/app.css");
   const rules = (re) => [...css.matchAll(re)].map((m) => m[0]);
 
@@ -2003,6 +2009,29 @@ test("a batch bar and a person's time slot both wear a frame in their own tone (
     "the frame is not drawn in the marker's own tone");
   assert.match(frame[0], /pointer-events:\s*none/,
     "the frame would swallow the tap that opens the batch or the stretch");
+
+  // And it is a quiet edge rather than a shouted box — her report of 23 September
+  // 2026, after living with v169 for a day: "the border look like over emphasized".
+  // Both numbers are pinned, so a later edit cannot quietly put the shout back.
+  assert.match(frame[0], /box-shadow:\s*inset[^;]*0 0 0 1px\b/,
+    "the frame is no longer a 1px line");
+  assert.ok(!/1\.5px/.test(frame[0]),
+    "the frame is back to v169's 1.5px line, which she reported as over emphasized");
+  assert.match(frame[0], /opacity:\s*var\(--frame/,
+    "the frame is laid down at full strength, so its softness cannot be tuned in one place");
+
+  // One number softens every frame in both windows, declared on the element they
+  // both inherit from — beside --marker, for the same reason.
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.equal((bare.match(/--frame:/g) || []).length, 1,
+    "the frame's strength is declared in more than one place, so the two windows can disagree");
+  const wrap = rules(/^\.tl-wrap\s*\{[^}]*\}/gm);
+  assert.equal(wrap.length, 1, `expected one rule for the chart's wrap, found ${wrap.length}`);
+  const fv = wrap[0].match(/--frame:\s*([\d.]+)/);
+  assert.ok(fv, "the frame's strength is not declared on the wrap, so nothing can be tuned in one place");
+  const frameStrength = Number(fv[1]);
+  assert.ok(frameStrength > 0 && frameStrength < 1,
+    `--frame is ${frameStrength}: ${frameStrength <= 0 ? "a frame faded to nothing is not a frame" : "one at 1 is v169's shout back again"}`);
 
   // A border would shrink the padding box the cycles and her hands are placed in,
   // and an inset shadow on the bar itself would be painted over by the cycle shades;
