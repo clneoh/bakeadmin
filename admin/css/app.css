@@ -3357,12 +3357,19 @@ tr.po-covered td { color: var(--muted); }
   box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
 }
 
-/* One person's line, 56 pixels tall — her "a taller Person's line" — with the row
-   below it told apart by a rail in that person's own colour and a 2px rule. That is
-   her requirement 4, "Each title of the line show their name, make each line
-   distinctively seperated." */
+/* One person's line, 72 pixels tall, with the row below it told apart by a rail in
+   that person's own colour and a 2px rule. That is her requirement 4, "Each title of
+   the line show their name, make each line distinctively seperated."
+
+   v184 drew it at 56 and that was her "a taller Person's line" against the planner's
+   35. v186 takes it to 72 on her clause 8, "The person's window be taller, so that
+   coach size better fit wordings" — the same 72 the coach below is scaled against, so
+   the face gains a whole type size rather than a few pixels of air. The rows stay
+   flush against one another ("parallel, close to each other"): the separator is the
+   rule and the rail, never a gap, because a gap between two lines of one train would
+   read as two separate strips. */
 .tl-row.train {
-  min-height: 56px;
+  min-height: 72px;
   background: var(--surface);
   border-bottom: 2px solid var(--line);
 }
@@ -3399,6 +3406,36 @@ tr.po-covered td { color: var(--muted); }
 }
 .tl-next.due { color: var(--red); font-weight: 600; }
 
+/* The walk's own controls — her clause 5, "I need walk the day, Button 'START THE DAY
+   NOW', 'STOP', 'The N Called', these button are for the person's windows", and her
+   clause 11's two simulation presses: "left buttton make the clock back to current,
+   Right button, when clicked, dropdown a choice list, slow, Mid, fast."
+
+   They sit at the head of the workers' window, ABOVE the lines they work, because that
+   is the window they belong to. Two rows rather than one: five controls on a 375-pixel
+   phone in a single row is five targets under 70 pixels each, and three of them carry
+   words. Every press is drawn at every state and goes inert rather than absent — this
+   app's own rule, and the reason Start and Stop are a pair with one of them disabled
+   instead of a single press whose label changes. */
+.tr-ctl {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 8px 7px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.tr-ctl-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+/* The three walk presses share the first row and take an equal share of it, so Start
+   and Stop are the same size whatever their words are — two presses that behave as a
+   pair must look like a pair. */
+.tr-ctl-row:first-child .tl-chip { flex: 1 1 0; min-width: 0; }
+.tr-ctl-speed { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.tr-ctl-lab { font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* The drop-down names its own unit beside every option — "Slow 1×", "Mid 10×", "Fast
+   60×" — which is the app's own rule for a number field carried into a list: a list
+   that offered "Slow", "Mid" and "Fast" would be three words and no measurements. */
+.tr-ctl-speed select { min-width: 118px; }
+
+
 /* The track the train is drawn in. It carries no ruling: the base track's two
    gradients are an hour grid, and an hour grid over a strip that has no minute axis
    would be a quiet claim that the coaches sit at the times they are named. It also
@@ -3414,14 +3451,21 @@ tr.po-covered td { color: var(--muted); }
    inside it may carry a z-index. Its own width is its contents' — flex: 0 0 auto — so
    translating it never fights a layout rule. */
 .tl-pane-people.train .tl-train { display: flex; align-items: center; flex: 0 0 auto; }
-.tl-stub { flex: 0 0 auto; width: var(--stub-w, 6px); height: 40px; }
+.tl-stub { flex: 0 0 auto; width: var(--stub-w, 6px); height: 52px; }
 
 /* A coach: one job. All one width — her "All the same width" — because a twelve-minute
    job drawn smaller than a forty-minute one would make this a length chart, and it is
-   not one; the clock on the face is what says how long a job is. */
+   not one; the clock on the face is what says how long a job is.
+
+   52 pixels in a 72-pixel row, against v184's 40 in 56, and the twelve are her clause 8
+   spent where she asked for them: on the wordings. The face is a column — icon, name,
+   clock, batch — and at 40 pixels those four lines were being squeezed into a box whose
+   own text needed 38 of them, which is why the small-width step-down had to exist at
+   all. Measured on the stock day at her phone's 375 pixels, a coach is 50 wide and 52
+   tall. */
 .tl-coach {
   flex: 0 0 auto;
-  width: var(--coach-w, 34px); height: 40px;
+  width: var(--coach-w, 34px); height: 52px;
   border-radius: 7px;
   background: var(--tone-wash, var(--strip));
   box-shadow: inset 0 0 0 1px var(--tone-ink, var(--line));
@@ -3445,10 +3489,10 @@ tr.po-covered td { color: var(--muted); }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; gap: 0; padding: 0 3px; overflow: hidden;
 }
-.tl-cicon { font-size: 13px; line-height: 1.15; }
+.tl-cicon { font-size: 15px; line-height: 1.15; }
 .tl-cname {
   display: block; max-width: 100%;
-  font-size: 10px; font-weight: 600; line-height: 1.15;
+  font-size: 11px; font-weight: 600; line-height: 1.2;
   color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -3462,18 +3506,19 @@ tr.po-covered td { color: var(--muted); }
 
    The face is a COLUMN, so the name takes its own line and the whole width of the box
    rather than sharing it with the icon; the sacrifice at this size is the type, which
-   steps 10px → 9px, and the side padding, 3px → 2px. Measured on the stock day's own
-   modules at a 37-pixel coach: mixer 25, fold 18, Wash 28, Load 22, Dimple 32, Unload
-   32 against 33 pixels of room — every one of them whole. The ellipsis on .tl-cname
-   stands as the last resort for a word longer than the box, and it is a last resort
-   and not the plan: a name long enough to reach it wants a shorter short name, which
-   is one line in `shortName`. */
+   steps 11px → 9px, and the side padding, 3px → 2px. v186 raised both steps with the
+   box: a coach is 50 pixels wide on her own day at her phone's width, so this fallback
+   is now reached only by a coach narrower than any her day draws — it is a floor for a
+   phone held in a smaller window, and never the width her own line is read at. The
+   ellipsis on .tl-cname stands as the last resort for a word longer than the box, and
+   it is a last resort and not the plan: a name long enough to reach it wants a shorter
+   short name, which is one line in `shortName`. */
 @container (max-width: 43px) {
   .tl-cface { padding: 0 2px; }
   .tl-cname { font-size: 9px; }
 }
-.tl-cwhen { font-size: 10px; line-height: 1.15; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tl-cbatch { font-size: 9px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl-cwhen { font-size: 11px; line-height: 1.15; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl-cbatch { font-size: 10px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* The link between two coaches, and the countdown to the next one on it — her "showing
    next work in minutes on top, something like next station coundown for subway". The
@@ -3481,7 +3526,7 @@ tr.po-covered td { color: var(--muted); }
    changes length cannot reflow its neighbours and the trains never jitter. */
 .tl-link {
   flex: 0 0 auto; position: relative;
-  width: var(--link-w, 18px); height: 40px;
+  width: var(--link-w, 18px); height: 52px;
   display: flex; align-items: center; justify-content: center;
 }
 .tl-count {
@@ -3512,50 +3557,75 @@ tr.po-covered td { color: var(--muted); }
 .tl-tip-coach { white-space: normal; width: max-content; }
 @media (hover: hover) and (pointer: fine) { .tl-tip-coach.on { display: block; } }
 
-/* The workers' clock — her "the current time at the center sharing with all person".
-   One line for the whole window, spanning every row, standing at the centre of the
-   line a coach may stand on.
+/* The station. Her clause 3, "the 2nd person and subsequent person have the centered
+   red ruler", and her clause 9, "Each of the person line has a clock line at centre of
+   line". So there is one of these PER ROW, drawn inside that row's own track, and every
+   one of them stands at the same pixel — the middle of the line, which is what makes
+   "the current time at the center sharing with all person" true of four lines at once.
 
    It declares NO z-index, and that is the point rather than an omission. A translated
    train is painted as though it were positioned with no z-index, so a line that is
-   drawn after every one of them is painted over them by tree order alone — the v174
-   rule ("nothing on this chart climbs over her pinned names") kept in its flat form by
-   not needing to climb at all. What covers the clock is exactly what should: a name
+   drawn after the strip is painted over the coaches by tree order alone — the v174 rule
+   ("nothing on this chart climbs over her pinned names") kept in its flat form by not
+   needing to climb at all. What covers the station is exactly what should: a name
    column at --name-z, and a coach's own tip at its own z-index 3, because a card being
    read is not a thing to draw a line through.
 
-   It takes no pointer of its own either, so a tap aimed at the coach the line crosses
-   lands on the coach — a two-pixel line that swallowed one tap in fifty would be a
-   board whose work randomly cannot be acknowledged. */
+   It takes no pointer of its own either, so a drag or a tap aimed at the coach the line
+   crosses lands on the coach — a two-pixel line that swallowed one gesture in fifty
+   would be a board whose work randomly cannot be acknowledged.
+
+   It carries NO LABEL. One reading of the time on the window is the whole of her
+   clause 3 ("the 2nd and other don have to show the clock face"), so the face is drawn
+   once, in .tl-clock-head above the rows, and these are the lines it belongs to. A
+   label on each of four rulers would be four answers to one question, and — because a
+   ruler near its track's left edge would be half cut by that track's own clip — four
+   answers of which one and a half could be read.
+
+   It is red at all times, and v185's `.reading` brown is GONE with the thing it was
+   for. That rule existed because a drag in v185 moved the line on its own and left it
+   standing at a minute the day was not at. Here the trains move WITH the station (see
+   wireTrainClock), so a dragged ruler is still standing on the minute the morning is
+   actually at and red is still the truth about it. A class that can only ever fire
+   wrongly is worse than no class: it would paint a claim about NOW in a colour that
+   means "this is not now". */
 .tl-clock {
   position: absolute; top: 0; bottom: 0;
   width: 2px; background: var(--red);
   pointer-events: none;
 }
-/* A READING is not the clock. She takes one by dragging along the line (see
-   wireTrainClock), it stands at a minute the day is not at, and the whole reason the
-   day's own line is red is that red must never mean anything but "this is now". So a
-   reading changes colour to the brand's own brown, and the line she dragged is never
-   mistaken for the minute the morning is actually at. */
-.tl-clock.reading { background: var(--brown); }
 
-/* The time it reads. Sticky, and for a reason that is about this window and not the
-   planner's: the workers' rows are 56 pixels each and the window scrolls, so a label
-   pinned to the top of the strip would scroll away and leave a line with no reading on
-   it — which is the one thing this line exists to say. It rides the pane's own top edge
-   instead, so the clock can always be read whichever row the window is showing.
-   The minutes are tabular so the label cannot change width as it counts and shuffle the
-   line it belongs to. */
+/* The face — ONE for the window, at the top, on paper of its own.
+
+   Her clause 3 asks for the rulers on the second and later lines with no face on them,
+   which leaves the face somewhere; it goes at the head of the window, above the first
+   line, where it is a property of the WINDOW and not of any one person. That is also
+   the only place it cannot be clipped: a ruler is drawn inside its own track and every
+   track is a clip line on both sides, so a label riding the first line's ruler would be
+   cut in half exactly when the line is walked to its left edge — which is where the
+   start of the day puts it. */
+.tl-clock-head {
+  position: relative;
+  height: 22px;
+}
+
+/* The time it reads. ABSOLUTE, and positioned by the view from `left`: the head is the
+   pane's own width with no padding, so a `left` counted from the pane's edge lands on
+   the same pixel the station is standing at in every row below it. The `left` is
+   written from one expression per beat, so the label and the four rulers it names
+   cannot come to disagree about the minute — see placeClock.
+
+   The minutes are tabular so the label cannot change width as it counts and shuffle
+   the line it belongs to. */
 .tl-clock-lab {
-  position: sticky; top: 3px;
-  display: block; margin-left: 50%; transform: translateX(-50%);
-  width: max-content;
+  position: absolute; top: 50%;
+  transform: translate(-50%, -50%);
+  display: block; width: max-content;
   padding: 1px 5px; border-radius: 4px;
   background: var(--red); color: #fff;
   font-size: 10.5px; font-weight: 600; line-height: 1.5;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.tl-clock.reading .tl-clock-lab { background: var(--brown); }
 
 /* The clock the day is being walked against. Deliberately NOT the cursor's
    colour and not the cursor's shape: a reading she takes must never be mistaken
@@ -3732,6 +3802,13 @@ tr.po-covered td { color: var(--muted); }
    the same colour as that person's row on the chart under it. */
 .bd-top { display: flex; flex-direction: column; gap: 10px; }
 .bd-note { font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+/* The strip's own title, under the day's name. Two labels on two jobs: the name above
+   the card (her clause 7) says WHICH morning this board is walking, and this one says
+   that the lines under it are what is coming. It is quieter than the name and louder
+   than the lines, which is the order she reads them in. */
+.bd-head { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted); }
 
 /* One person, and the two things they need to know: what they are on and how long,
    then what follows. Separated by a dashed rule rather than a gap, because on a

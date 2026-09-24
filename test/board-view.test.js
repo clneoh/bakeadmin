@@ -73,6 +73,26 @@ function createEl(tag) {
     // a test writes, because the one thing it is here for is being a number the
     // assertion can hold `placeNow` to.
     offsetLeft: 0, offsetTop: 0,
+    // A real node, asked to describe itself — which is exactly what Node does to the
+    // `actual` of an assertion that fails — answers with its tag and its class and nothing
+    // else: a handful of characters. A shim without this is described by the default
+    // inspector, which walks it, and walking one node walks the whole document through the
+    // `parent` each child keeps: a failing assertion handed a shim node has been measured
+    // here at a 135,447,648-character dump and a killed run. This is not a convenience, it
+    // is the same fidelity rule the rest of this stand-in is built on — the browser prints
+    // no more than this either, and a failure message nobody can read is no evidence.
+    //
+    // The assertion library does not ask for this — it inspects the value it was handed
+    // with `customInspect: false`, deliberately, so a value cannot lie about itself in a
+    // failure message. What makes the message short is the property below it: a real node
+    // does not offer its PARENT as one of its own fields for anybody to walk up, and this
+    // one no longer does either. Keep both: this is what a person reads when the assertion
+    // is printed by hand, and the un-walkable parent is what keeps the library's own
+    // inspector from climbing the whole document out of one failed comparison.
+    [Symbol.for("nodejs.util.inspect.custom")]() {
+      const id = this.attrs && (this.attrs.id || this.attrs["data-id"]);
+      return `<${this.tagName.toLowerCase()}${this.className ? ` class="${this.className}"` : ""}${id ? ` id="${id}"` : ""}>`;
+    },
     // Every real node has one, and the view walks UP through it: the clock balloon is
     // placed against the box it is drawn in and the window that box is looked through,
     // and it reads both off `parentNode`.
@@ -152,14 +172,26 @@ function createEl(tag) {
     // A real node can be asked for the nearest ancestor of a kind, and the view asks
     // exactly that to tell a press on a bar from a press on the row it sits in. A shim
     // with no `closest` answers `undefined` to a question the browser answers.
+    //
+    // And it takes a SELECTOR, of which the ordinary spelling here is a compound one:
+    // `.tl-row.train` asks for the element carrying BOTH classes, because the board's
+    // two people-shaped windows both draw `.tl-row` and only one of them is the train.
+    // A stand-in that compared the whole string against one class name answered that
+    // question with nothing — so on a board the drag was wired to a row no gesture could
+    // begin on, and "when we drag to the right, the train move to right" could not be
+    // tested at all. A stub LESS capable than the browser hides a rule as surely as one
+    // that is more forgiving.
     closest(sel) {
-      const tests = String(sel || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const tests = String(sel || "").split(",").map((s) => s.trim()).filter(Boolean).map((s) => ({
+        tag: (/^[A-Za-z][\w-]*/.exec(s) || [""])[0].toUpperCase(),
+        cls: (s.match(/\.[\w-]+/g) || []).map((c) => c.slice(1)),
+      }));
       for (let n = this; n; n = n.parent || null) {
         if (n.nodeType !== 1) continue;
+        const own = String(n.className || "").split(/\s+/).filter(Boolean);
         for (const t of tests) {
-          if (t.startsWith(".")) {
-            if (String(n.className || "").split(/\s+/).filter(Boolean).includes(t.slice(1))) return n;
-          } else if (n.tagName === t.toUpperCase()) return n;
+          if (t.tag && n.tagName !== t.tag) continue;
+          if (t.cls.every((c) => own.includes(c))) return n;
         }
       }
       return null;
@@ -227,6 +259,33 @@ function createEl(tag) {
       return on;
     },
   };
+  // A real node does not offer its PARENT or its CHILDREN as fields of its own for anybody
+  // to walk. This one did, and that made a single node unprintable: the assertion library
+  // inspects the value it was handed with `customInspect: false` — deliberately, so a value
+  // cannot lie about itself in a failure message — and a walk that starts at one node and
+  // follows `parent` up into the document, or `children` down into it, was measured here at
+  // a 135,447,648-character dump and a killed run: a test reporting nothing at all, which
+  // is worse than one that fails. Held in WeakMaps behind non-enumerable accessors instead,
+  // so a node prints as its own fields and stops — 132 characters measured for the same
+  // 200-deep chain — which is what a real element prints too.
+  //
+  // It answers exactly what it answered before. `n.parent`, `n.parentNode` and `n.children`
+  // are read and written all over this file and the view, through these same accessors.
+  const PARENT = new WeakMap();
+  const KIDS = new WeakMap();
+  Object.defineProperty(node, "parent", {
+    get() { return PARENT.get(node) || null; },
+    set(v) { PARENT.set(node, v); },
+    enumerable: false, configurable: true,
+  });
+  Object.defineProperty(node, "children", {
+    get() {
+      if (!KIDS.has(node)) KIDS.set(node, []);
+      return KIDS.get(node);
+    },
+    set(v) { KIDS.set(node, v); },
+    enumerable: false, configurable: true,
+  });
   return node;
 }
 const layers = { "confirm-layer": createEl("div"), "popup-layer": createEl("div") };
@@ -236,7 +295,21 @@ globalThis.document = {
   getElementById: (id) => layers[id] || null,
   querySelector: () => null,
   querySelectorAll: () => [],
-  addEventListener() {}, removeEventListener() {},
+  // A real document keeps its listeners, and this one has to as well. The board's
+  // clause 10 — "when i click outside the person window, the clock back to center" — is
+  // a press that no handler INSIDE the window can ever see, so it is listened for on the
+  // document in the capture phase. The two no-ops that stood here swallowed it: the rule
+  // could not be reached from a test at all, and a rule no test can reach is a rule that
+  // ships unproven.
+  _listeners: {},
+  addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+  removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },
+  dispatchEvent(ev) {
+    if (!ev.preventDefault) ev.preventDefault = () => { ev.defaultPrevented = true; };
+    if (!ev.stopPropagation) ev.stopPropagation = () => {};
+    (this._listeners[ev.type] || []).forEach((f) => f(ev));
+    return true;
+  },
   body: createEl("body"),
 };
 globalThis.setTimeout = (fn) => { fn(); return 1; };
@@ -369,13 +442,23 @@ function makeState(overrides = {}, plan = {}) {
 // running: without that, a test about the clock would be driving another test's timer.
 function render(which, state) {
   beats.clear();
+  // The screen that was here is taken down before the next one is built, which is what
+  // the app itself does when she opens another page — and on a board it is the only
+  // thing that puts the document's own listener away. A stand-in page that kept every
+  // board's listener would have let a press fire into a screen that is gone, and the
+  // teardown could not be tested at all.
+  if (screen && screen.teardown) screen.teardown();
+  document._listeners = {};
   document.body.replaceChildren();
   const root = createEl("div");
-  which(root, state);
+  const teardown = which(root, state);
   document.body.append(root);
   layers["popup-layer"].replaceChildren();
-  return { root, state };
+  screen = { root, state, teardown: typeof teardown === "function" ? teardown : null };
+  return screen;
 }
+// The screen currently on the stand-in page, so the next one can take it down.
+let screen = null;
 const board = (state = makeState()) => render(renderBoard, state);
 const line = (state = makeState()) => render(renderProduction, state);
 
@@ -468,12 +551,24 @@ test("her own scenario comes back byte-identical after a full pass of taps", () 
 
 // ── 2. A board is the planner's chart, with the differences pinned ─────────
 
-test("the board draws the day chart and the next-up strip", () => {
+test("the board draws the day chart and the next-up strip, under the day's own name (v186)", () => {
   const { root } = board();
   const all = walk(root);
   assert.ok(all.some((n) => hasClass(n, "tl-row")), "no chart");
   assert.ok(all.some((n) => hasClass(n, "tl-pane-proc")), "no modules window");
   assert.ok(all.some((n) => hasClass(n, "bd-top")), "no next-up strip");
+  // Her clause 1 — "Keep the Next Up" — as words on the screen, not merely as a card
+  // that happens to be drawn: the plan's three jobs are here and they are NAMED.
+  const head = all.find((n) => hasClass(n, "bd-head"));
+  assert.ok(head, "the next-up strip has lost its title");
+  assert.equal(textOf(head), "Next up", `the strip is titled "${textOf(head)}"`);
+  // Her clause 7 — "Name of the scenario should be on Top of page" — and the name is the
+  // SCENARIO's own, not a label true of every day on earth. Read off the heading node:
+  // the words also appear in the person card's own text, so a flat search proves nothing.
+  const title = all.find((n) => hasClass(n, "bd-title"));
+  assert.ok(title, "the day has no name at the top of the page");
+  const sc = makeState().settings.scenario;
+  assert.equal(textOf(title), String(sc.name || "").trim(), "the top of the page names something other than her day");
   assert.match(textOf(root), /Next up/);
 });
 
@@ -500,8 +595,14 @@ test("and it draws none of the cards that change the day", () => {
   assert.doesNotMatch(text, /Your scenarios/, "the shelf of saved days is on a board");
   assert.doesNotMatch(text, /What it makes/, "the answer card is on a board");
   assert.doesNotMatch(text, /The climb|The way down/, "the ladder is on a board");
-  assert.doesNotMatch(text, /Start the day now/, "a board is not walking anything");
   assert.doesNotMatch(text, /Not in this scenario/, "the unmapped card is on a board");
+  // "Start the day now" WAS in this list and is not any more: v186's clause 5 puts the
+  // three walk controls on the board on purpose — "Button 'START THE DAY NOW', 'STOP',
+  // 'The N Called'". What the board still refuses is the PLANNER's day-changing cards,
+  // and the four above are those. So the last line is not a blank check but its own
+  // claim: the shelf's own press, which would load another day under a running shift,
+  // is still nowhere on this screen.
+  assert.doesNotMatch(text, /Open this day|Load this day/, "the shelf's own press is on a board");
 });
 
 test("it has exactly two controls, and the Clear press is quiet until there is something to clear (v184)", () => {
@@ -1298,6 +1399,23 @@ const cssBody = (sel) => {
   assert.ok(m, `${sel} has no rule of its own`);
   return m[1];
 };
+// The body of the ONE rule whose selector is exactly this, and nothing else.
+//
+// `cssBody` above answers with the first rule its pattern reaches, and a pattern for a
+// class also matches that class as the LAST part of somebody else's selector — so
+// `cssBody("\\.tl-cname")` came back with `.tl-coach.due .tl-cicon, .tl-coach.due
+// .tl-cwhen, .tl-coach.due .tl-cname { color: var(--red) }`, the shared tone rule three
+// lines above the one being asked about. A test that read the wrong rule is worse than
+// one with no rule at all: it fails pointing at a fault that does not exist, and it would
+// pass just as happily on a value nobody wrote. Comments go first, because a comment
+// sitting between a rule and the one before it is part of neither.
+function cssRule(sel) {
+  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    if (m[1].split(",").some((s) => s.trim() === sel)) return m[2];
+  }
+  assert.fail(`no rule in the stylesheet has ${sel} as its own selector`);
+}
 // The board's own strip of work: the element every coach is a child of, and the thing
 // that is translated to hold the clock at its centre.
 const stripOf = (row) => partOf(row, "tl-train");
@@ -1318,8 +1436,31 @@ const segsOf = (row) => {
     px(track, "--coach-w"), px(track, "--link-w"), px(track, "--stub-w"));
 };
 // The clock the workers read the line against, and the label it carries.
+// The workers' rulers — one per person's line — and the ONE face the window carries at
+// its head. Her clause 3 asks for the rulers on the second and later lines with no face
+// on them, so the two are deliberately different things and the readers keep them apart.
 const theClock = (root) => walk(root).filter((n) => hasClass(n, "tl-clock"));
+const theClockHead = (root) => walk(root).find((n) => hasClass(n, "tl-clock-head"));
 const clockLabOf = (clock) => walk(clock).find((n) => hasClass(n, "tl-clock-lab"));
+// Where a ruler stands, in its own track's pixels, as the drawing says it — the
+// left it was written. The rulers are drawn INSIDE their tracks (see .tl-clock), so
+// these are counted from each track's own left edge and every track is one width.
+function rulerPx(ruler) {
+  const v = Number.parseFloat(ruler.style.left);
+  assert.ok(Number.isFinite(v), `a ruler was never placed: "${ruler.style.left}"`);
+  return v;
+}
+// A press anywhere on the page. It is fired at the DOCUMENT because that is where the
+// board listens for it — in the capture phase, so that a press which is not on the
+// workers' line is answered before the thing it landed on opens a card over that line.
+// `target` is what the press landed on, which is the whole of what the listener asks.
+function pressAnywhere(target, type = "pointerdown", x = 10, y = 10) {
+  globalThis.document.dispatchEvent({
+    type, button: 0, clientX: x, clientY: y, target,
+    preventDefault() {}, stopPropagation() {},
+  });
+}
+const docPresses = () => (globalThis.document._listeners.pointerdown || []).length;
 // The name column's own width, read out of the stylesheet: the one declared number on
 // this strip, and the width the tests hold the measured column and the width budget to.
 const trainNameW = () => Number(/width:\s*(\d+)px/.exec(cssBody("\\.tl-row\\.train\\s*>\\s*\\.tl-name"))[1]);
@@ -1689,6 +1830,27 @@ test("the row says who is on it and what is next (v184)", () => {
       `the row counts ${m[1]} minutes to its next job and its own strip puts that job ${ahead[0] - nowMin} minutes away`);
   }
   assert.ok(counted > 0, "no row was counting down at all, so this proves nothing about the countdown");
+
+  // And a BEAT alone walks that countdown down — the half a worker standing at a bench
+  // actually reads, with nobody touching the screen. The count is read on the same board
+  // and the same node, because that is the claim: the number comes down without the line
+  // being rebuilt around it, which is the app's own rule (a beat repaints nothing, so a
+  // scroll is never thrown away). A countdown that only moved on a tap would sit frozen
+  // all morning, and the line would be answering with the minute it was drawn at.
+  setNow("2026-09-22T04:31:00");
+  const ticking = board();
+  const countedRow = peopleRows(ticking.root).find((r) => /^Next ([3-9]|\d\d)m$/.test(
+    textOf(walk(r).find((n) => hasClass(n, "tl-next")))));
+  assert.ok(countedRow, "no row is counting down three minutes or more, so a beat has nothing to bring down");
+  const cell = walk(countedRow).find((n) => hasClass(n, "tl-next"));
+  const ahead0 = Number(/^Next (\d+)m$/.exec(textOf(cell))[1]);
+  const repaints = replaceCount;
+  setNow("2026-09-22T04:32:00");
+  flushTicks();
+  assert.equal(Number(/^Next (\d+)m$/.exec(textOf(cell))[1]) || textOf(cell), ahead0 - 1,
+    `a minute of the clock moved the row's own countdown from ${ahead0} minutes to "${textOf(cell)}"`);
+  assert.equal(replaceCount, repaints,
+    "the minute's beat rebuilt the screen to bring a countdown down, which throws away a worker's place");
 });
 
 test("a coach turns red at its own job and STAYS red once the clock has gone past it (v184)", () => {
@@ -1722,7 +1884,12 @@ test("a coach turns red at its own job and STAYS red once the clock has gone pas
     "a coach the clock has passed goes quiet, so the job nobody has taken can no longer be seen");
 });
 
-test("the clock is one line at the centre, and each row is placed against its own strip (v184)", () => {
+test("every person's line carries its own red ruler at the centre, and the window carries ONE face (v186)", () => {
+  // Her clauses 3 and 9, in her own words: "the 2nd person and subsequent person have the
+  // centered red ruler, but the 2nd and other don have to show the clock face", and "Each
+  // of the person line has a clock line at centre of line". The two halves are one rule
+  // and this test holds both: a RULER on every line, a FACE on none of them — the window
+  // carries one face, at its head, beside the controls.
   setNow("2026-09-22T04:30:00");
   const nowMin = 30; // 4:30 am against her 4:00 am start, which is the subtraction boardNow makes
   const b = board(makeState(TWO_HANDS));
@@ -1730,132 +1897,191 @@ test("the clock is one line at the centre, and each row is placed against its ow
   pane.clientWidth = 375;
   flushTicks();
 
-  // ONE line for the whole window and not one per row: the minutes on this strip are the
-  // workers' own, and two rows carrying two clocks could disagree about how long is left.
-  const clocks = theClock(b.root);
-  assert.equal(clocks.length, 1, "the workers' window draws more than one clock, so two rows can point at two different minutes");
-  const clock = clocks[0];
-  assert.equal(clock.parent, partOf(pane, "tl-inner"), "the clock is not the pane's own line, so it cannot span every row");
-  // It is the LAST thing drawn in the window, and that is what puts it over the coaches:
-  // a translated strip is painted as though it were positioned with no z-index, so tree
-  // order is the whole of the rule — and the v174 lesson is that nothing here climbs.
-  const inPane = kidEls(partOf(pane, "tl-inner"));
-  assert.equal(inPane[inPane.length - 1], clock, "the clock is not drawn last in the window, so the coaches are painted over it");
-  assert.ok(!/z-index/.test(clockCss()),
-    "the clock declares a rung of its own, which is the v174 fault: an element that climbs here covers her pinned names");
+  const rows = peopleRows(b.root);
+  assert.ok(rows.length >= 2, "the board drew one row, so this proves nothing about the second person");
 
-  // At the centre of the LINE A COACH STANDS ON — what is left of the pane after the
-  // names, halved — and not at the centre of the pane, because the names are not part of
-  // the line.
+  // One ruler per line, and each one inside its OWN line's track — which is what makes it
+  // that person's line and not the window's. It also lives inside the clip line, which is
+  // the only reason a translated train cannot run under the name column while the ruler
+  // stays where it was put.
+  const rulers = theClock(b.root);
+  assert.equal(rulers.length, rows.length,
+    `the board drew ${rulers.length} rulers for ${rows.length} people's lines`);
+  for (const row of rows) {
+    const track = partOf(row, "tl-track");
+    assert.equal(rulers.filter((z) => z.parent === track).length, 1,
+      "a person's line does not carry exactly one red ruler of its own");
+  }
+  // And NOT ONE of them has a face on it. A column of four identical time labels down one
+  // window is four answers to one question, and her clause 3 asks for the second and later
+  // lines to be drawn WITHOUT one.
+  for (const z of rulers) {
+    assert.equal(clockLabOf(z), undefined,
+      "a person's line carries its own clock face, so the same minute is printed once per person");
+  }
+  // The one face, at the head of the window, holding exactly one reading.
+  const head = theClockHead(b.root);
+  assert.ok(head, "the window carries no clock face at all");
+  assert.equal(head.parent, partOf(pane, "tl-people"), "the face is not at the head of the window, over the lines it names");
+  const labs = walk(b.root).filter((n) => hasClass(n, "tl-clock-lab"));
+  assert.equal(labs.length, 1, `the window carries ${labs.length} faces, not one`);
+  assert.equal(labs[0].parent, head, "the face is not the window's own head, so it belongs to a line rather than to all of them");
+
+  // Where they stand: the middle of the LINE — what is left of the window after the name
+  // column, halved — and never the middle of the window, because the names are not part
+  // of the line. One number, two coordinate spaces: a ruler is drawn inside its track and
+  // is told a pixel counted from the track's left edge; the face is drawn in the window
+  // and is told the same pixel counted from the window's. The distance between the two is
+  // the name column and nothing else.
   const inner = pane.clientWidth;
   const nameW = trainNameW();
-  const centre = Math.round(nameW + (inner - nameW) / 2);
-  assert.equal(px(clock, "left"), centre,
-    `the clock stands at ${px(clock, "left")}px, not at the centre of the line (${centre}px of a ${inner}px pane)`);
-  assert.equal(clock.hidden, false, "the board's own clock is hidden on the board");
+  const trackW = inner - nameW;
+  const centre = Math.round(nameW + trackW / 2);
+  assert.equal(px(labs[0], "left"), centre,
+    `the face stands at ${px(labs[0], "left")}px, not at the centre of the line (${centre}px of a ${inner}px window)`);
+  for (const z of rulers) {
+    assert.equal(rulerPx(z), Math.round(trackW / 2),
+      `a ruler stands at ${rulerPx(z)}px along its own line, not at the station (${Math.round(trackW / 2)}px of ${trackW}px)`);
+  }
 
-  // Its reading is the CLOCK TIME and never the word "now": the modules above still draw
-  // the day's own now-line, and two lines on one screen both saying "now" would be two
-  // answers to one question.
-  const lab = clockLabOf(clock);
-  assert.ok(lab, "the clock carries no reading");
-  assert.match(textOf(lab), /^\d{1,2}:\d{2} [ap]m$/, `the clock reads "${textOf(lab)}"`);
-  assert.ok(!/now/i.test(textOf(lab)), "the workers' clock claims to be now, which the day's own line above already says");
-  assert.equal(textOf(lab), clockAtMinute(nowMin), "the clock does not read the minute the day is actually at");
-  // Sticky, because these rows are 56 pixels each and the window scrolls: a label pinned
-  // to the strip's top would scroll away and leave a line with no reading on it.
-  assert.match(cssBody("\\.tl-clock-lab"), /position:\s*sticky/,
-    "the clock's reading would scroll away with the rows it belongs to");
-  assert.match(cssBody("\\.tl-clock-lab"), /font-variant-numeric:\s*tabular-nums/,
-    "the clock's digits are not tabular, so the label shuffles as it counts");
-  // And it reads the same colour the day's own line does at rest, because at rest it IS
-  // the live minute; only a reading takes the other colour. See the next test.
-  assert.match(clockCss(), /background:\s*var\(--red\)/, "the clock at rest is not the colour of the minute the day is at");
-
-  // Every row is placed against its OWN strip: its own segments, its own widths. The
-  // claims are worked out here from what each row says it holds — its tips' spans and its
-  // track's widths — and never read back out of the view's own arithmetic.
-  const rows = peopleRows(b.root);
-  assert.ok(rows.length >= 2, "the board drew one row, so this proves nothing about two strips");
+  // Every row is placed against its OWN map: its own jobs, its own widths. The claims are
+  // worked out here from what each row says it holds — its tips' spans and its track's
+  // widths — and never read back out of the view's own arithmetic.
   for (const row of rows) {
     const x = xOfMinute(segsOf(row), nowMin);
     const left = placedLeft(row);
-    assert.equal(left, Math.round(centre - nameW - x),
-      `a row's strip stands at ${left}px, where this row's own map puts the day's minute at ${Math.round(centre - nameW - x)}px`);
-    // The strip is translated inside a track that BEGINS at the name column, so the minute
-    // it puts at the centre lands at `nameW + left + x` in the pane's own pixels — the same
-    // 242 the clock stands at, and the arithmetic that proves the two agree.
+    assert.equal(left, Math.round(trackW / 2 - x),
+      `a row's train stands at ${left}px, where this row's own map puts the day's minute at ${Math.round(trackW / 2 - x)}px`);
+    // The train is translated inside a track that BEGINS at the name column, so the minute
+    // it puts at the station lands at `nameW + left + x` in the window's own pixels — the
+    // same 242 the face stands at, and the arithmetic that proves the two agree.
     assert.ok(Math.abs(nameW + left + x - centre) <= 1,
-      `the minute the day is at does not stand on the centre of the line for this row (${Math.round(nameW + left + x)}px of ${centre}px)`);
+      `the minute the day is at does not stand on the station for this row (${Math.round(nameW + left + x)}px of ${centre}px)`);
   }
-  // The same minute, the same centre, on both rows — her "the current time at the center
-  // sharing with all person". The strips do NOT stand at the same pixel and must not be
+  // The same minute, the same station, on both rows — her "the current time at the center
+  // sharing with all person". The trains do NOT stand at the same pixel and must not be
   // asked to: each is placed from its own map, and a row holding two jobs and a row holding
-  // six put the same minute at different distances along their own strips. What is claimed
-  // is that each puts the SAME MINUTE on the centre, to within the pixel its own rounding
-  // costs — so the claim is a distance from the centre, never an equality of positions.
+  // six put the same minute at different distances along their own lines. What is claimed
+  // is that each puts the SAME MINUTE on the station, to within the pixel its own rounding
+  // costs — so the claim is a distance from the station, never an equality of positions.
   const off = rows.map((row) => nameW + placedLeft(row) + xOfMinute(segsOf(row), nowMin) - centre);
   assert.ok(off.every((d) => Math.abs(d) <= 1),
-    `the rows put the minute the day is at at ${off.map((d) => Math.round(d)).join(" and ")}px from the centre, so the clock is not shared`);
+    `the rows put the minute the day is at at ${off.map((d) => Math.round(d)).join(" and ")}px from the station, so the clock is not shared`);
+
+  // The face reads the CLOCK TIME and never the word "now": the modules window above still
+  // draws the day's own now-line with its own label, and two lines on one screen both
+  // saying "now" would be two answers to one question.
+  assert.match(textOf(labs[0]), /^\d{1,2}:\d{2} [ap]m$/, `the face reads "${textOf(labs[0])}"`);
+  assert.ok(!/now/i.test(textOf(labs[0])), "the workers' clock claims to be now, which the day's own line above already says");
+  assert.equal(textOf(labs[0]), clockAtMinute(nowMin), "the face does not read the minute the day is actually at");
+  // Absolute, and no longer sticky: at v184 the label rode the ruler at the top of the
+  // window; it now belongs to the head, which is a band of its own above the lines.
+  assert.match(cssBody("\\.tl-clock-lab"), /position:\s*absolute/,
+    "the window's face is not placed against its own head");
+  assert.match(cssBody("\\.tl-clock-lab"), /font-variant-numeric:\s*tabular-nums/,
+    "the clock's digits are not tabular, so the label shuffles as it counts");
+  // A ruler is RED at all times, and there is no second colour for it to take. v185 gave
+  // the line a brown "reading" state because a drag in that build moved the line alone and
+  // left it reading a minute the day was not at; here the trains move WITH the line, so the
+  // ruler is always standing on the minute the morning is actually at. Keeping the colour
+  // would leave a rule that can only ever fire wrongly.
+  assert.match(clockCss(), /background:\s*var\(--red\)/, "a person's ruler is not the colour of the line");
+  assert.ok(!/^\.tl-clock\.reading/m.test(read("admin/css/app.css")),
+    "the dead brown reading state is back in the stylesheet, so a ruler can be told it is reading a minute the day is not at");
+  assert.ok(!/z-index/.test(clockCss()),
+    "a ruler declares a rung of its own, which is the v174 fault: an element that climbs here covers her pinned names");
+  assert.ok(!/z-index/.test(cssBody("\\.tl-clock-head")),
+    "the clock's head declares a rung of its own, which is the v174 fault again");
 
   // And nothing on the screen says a word of nothing once it is placed.
   assert.equal(boardStrays(b.root), null, "a beat put a broken number on the board");
 });
 
-test("dragging reads the day without moving the trains, and letting go re-centres (v184)", () => {
-  // Her words: "lock the clock relative to the train, when drag, clock line move, when
-  // click outside, the clock centred on the line." A reading is a question about the day
-  // and not a change to it, so the thing that moves is the LINE.
+test("a drag moves the lines, the rulers and the face together, and a press off the window puts them back (v186)", () => {
+  // Her clause 9, in her own words: "when we drag to the right, the train move to right and
+  // the clock and red ruler move relatively." So the whole picture moves by ONE number —
+  // the trains, every ruler and the face — and the ruler therefore goes on naming the
+  // minute the morning is at. Her clause 10 then says how it comes home: "When i click
+  // outside the person window, the clock back to center."
   setNow("2026-09-22T04:30:00");
   const b = board(makeState(TWO_HANDS));
   const pane = peoplePaneOf(b.root);
   pane.clientWidth = 375;
   flushTicks();
-  const clock = theClock(b.root)[0];
-  const lab = clockLabOf(clock);
-  const row = peopleRows(b.root)[0];
-  const strip = stripOf(row);
-  const centre = px(clock, "left");
+  const rows = peopleRows(b.root);
+  const rulers = theClock(b.root);
+  const lab = walk(b.root).find((n) => hasClass(n, "tl-clock-lab"));
+  const restFace = px(lab, "left");
+  const restRuler = rulerPx(rulers[0]);
+  const restTrains = rows.map((row) => placedLeft(row));
   const live = textOf(lab);
-  const before = strip.style.transform;
-  const coach = coachesOf(row)[0];
+  const inner = pane.clientWidth;
+  const trackW = inner - trainNameW();
+  const coach = coachesOf(rows[0])[0];
 
   for (const f of pane._listeners.pointerdown || []) {
     const ev = { type: "pointerdown", button: 0, clientX: 60, clientY: 20, target: coach, preventDefault() {}, stopPropagation() {} };
     f(ev);
   }
-  // A four-pixel slop, so a tap is never read as a reading — and the finger must go
+  // A four-pixel slop, so a tap on a coach is never read as a drag — and the finger must go
   // further sideways than up or down, so a finger scrolling the page is not one either.
   gesture(pane, "pointermove", 62, 21, coach);
-  assert.equal(px(clock, "left"), centre, "a two-pixel twitch moved the clock, so a tap on a coach can flicker the line");
-  assert.equal(strip.style.transform, before, "a twitch moved the trains");
+  assert.equal(px(lab, "left"), restFace, "a two-pixel twitch moved the clock, so a tap on a coach can flicker it");
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a twitch moved the trains");
 
   gesture(pane, "pointermove", 120, 22, coach);
-  assert.equal(px(clock, "left"), 120, "the clock line did not follow her hand");
-  assert.equal(strip.style.transform, before,
-    "a reading moved the trains, so a worker reading the line has had it moved under them");
-  assert.equal(clock.classList.contains("reading"), true, "a line she is reading looks exactly like the minute the day is at");
-  // The minute it reads is read off the ROW HER HAND IS ON, by the same map the strips
-  // are placed by, run backwards — checked here by running it backwards in the test.
-  const x = 120 - trainNameW() - placedLeft(row);
-  assert.equal(textOf(lab), clockAtMinute(Math.max(0, Math.round(minuteAtTrainX(segsOf(row), x)))),
-    `the clock reads "${textOf(lab)}" where this row puts the minute at ${Math.round(minuteAtTrainX(segsOf(row), x))}`);
-  assert.notEqual(textOf(lab), live, "the reading says the same thing as the clock at the centre, so the drag can be seen to do nothing");
+  const dx = 60; // 120 is where the finger has got to, 60 where it went down
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains.map((v) => v + dx),
+    "a drag along the line did not carry the trains with it, so the clock and the train have come apart");
+  for (const z of rulers) {
+    assert.equal(rulerPx(z), restRuler + dx, "a drag moved the trains but left this person's ruler behind");
+  }
+  assert.equal(px(lab, "left"), restFace + dx, "a drag moved the line but not the face that names it");
+  // And the reading on the face is UNCHANGED, because the ruler is still standing on the
+  // minute the morning is at — the drag moved where that minute stands on the line and
+  // nothing else. That is the whole difference from v184, where the label moved with the
+  // line and had to change to stay honest.
+  assert.equal(textOf(lab), live, "a drag changed what the clock says, so the line has been left reading a minute the day is not at");
 
-  // Letting go puts it back: a line left standing at a minute nobody is at is a board
-  // quietly telling a worker something that is not true.
+  // Letting go LEAVES it where she put it — her own finger is over the part of the line she
+  // is trying to see, so a drag that snapped back on release would show her nothing.
   gesture(pane, "pointerup", 120, 22, coach);
-  assert.equal(px(clock, "left"), centre, "letting go does not put the clock back at the centre");
-  assert.equal(clock.classList.contains("reading"), false, "the line still looks like a reading after she has let go");
-  assert.equal(textOf(lab), live, "the reading did not go back to the live clock");
-  assert.equal(strip.style.transform, before, "the trains moved while she was reading");
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains.map((v) => v + dx),
+    "letting go snapped the trains back, so the end of the line she was looking at is gone again");
+  assert.equal(px(lab, "left"), restFace + dx, "letting go put the face back while the trains stayed where she left them");
 
-  // And a press that begins where there is no row re-centres it — her "when click
-  // outside, the clock centred on the line" — rather than starting a reading.
-  const nameCell = kidEls(row)[0];
-  gesture(pane, "pointerdown", 300, 20, nameCell);
-  gesture(pane, "pointermove", 340, 21, nameCell);
-  assert.equal(px(clock, "left"), centre, "a drag that began on the name column moved the clock out of the centre");
+  // And a press anywhere off the workers' line — her clause 10 — is what puts it home. Off
+  // the LINE and not merely off the row: the whole train window is the thing a drag moves.
+  const elsewhere = createEl("div");
+  pressAnywhere(elsewhere);
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a press off the window left the trains where the drag put them");
+  for (const z of rulers) {
+    assert.equal(rulerPx(z), restRuler, "a press off the window left a person's ruler out on the line");
+  }
+  assert.equal(px(lab, "left"), restFace, "a press off the window did not bring the clock back to the centre");
+  assert.equal(textOf(lab), live, "the clock came home reading a minute that is not now");
+
+  // A press ON the line is NOT that gesture: it is where a drag begins, so the line stays
+  // exactly where it is until she moves it.
+  gesture(pane, "pointerdown", 60, 20, coach);
+  gesture(pane, "pointermove", 120, 21, coach);
+  gesture(pane, "pointerup", 120, 21, coach);
+  pressAnywhere(coach);
+  assert.equal(px(lab, "left"), restFace + dx,
+    "a press on a coach was answered as a press off the window, so a drag cannot be started at all");
+
+  // And the travel is bounded by the line itself: she may carry the station from one edge
+  // of it to the other and not one pixel further, so the minute she is reading is always a
+  // minute the line can show. `panRange` is what says so, and this is it measured.
+  const reach = Math.round(trackW / 2);
+  for (const far of [9999, -9999]) {
+    gesture(pane, "pointerdown", 0, 20, coach);
+    gesture(pane, "pointermove", far, 21, coach);
+    gesture(pane, "pointerup", far, 21, coach);
+    assert.equal(rulerPx(rulers[0]) - restRuler, far > 0 ? reach : -reach,
+      `a drag of ${far}px carried the ruler ${rulerPx(rulers[0]) - restRuler}px, past the end of the line it stands on`);
+    pressAnywhere(createEl("div"));
+  }
 });
 
 test("a tap on a coach marks the job as taken, turns it green, and names the job (v184)", () => {
@@ -2060,46 +2286,49 @@ test("Clear the board asks first, clears everything, and writes the empty rather
     "a coach is still green after the board was cleared");
 });
 
-test("a reading never claims to be now, and the day's own line is not on this window (v184)", () => {
+test("the face names the clock and never the word now, and the day's own line is not on the train (v186)", () => {
   setNow("2026-09-22T04:30:00");
   const b = board(makeState(TWO_HANDS));
   const pane = peoplePaneOf(b.root);
   pane.clientWidth = 375;
   flushTicks();
-  const clock = theClock(b.root)[0];
-  const lab = clockLabOf(clock);
+  const lab = walk(b.root).find((n) => hasClass(n, "tl-clock-lab"));
+  assert.ok(lab, "the window carries no clock face");
   const row = peopleRows(b.root)[0];
   const coach = coachesOf(row)[0];
   const live = textOf(lab);
 
+  // The face reads the CLOCK TIME, in words, and NOT a sentence about where the day is.
+  // A board parked before her day or after it has a `nowNote` of its own ("day starts…"),
+  // and that sentence belongs to the modules' window above; a face that borrowed it would
+  // be saying the day has not begun while the line is standing in the middle of it.
+  assert.match(textOf(lab), /^\d{1,2}:\d{2} [ap]m$/, `the face says "${textOf(lab)}", which is not a clock time`);
+  assert.ok(!/now|day (starts|ended)/i.test(textOf(lab)), `the face borrows the day's own sentence: "${textOf(lab)}"`);
+  // And a drag does not make it say anything else — the reading is `live` at every point of
+  // the gesture, because the trains move WITH the ruler and the minute it names never
+  // changes. See the drag test, which holds that from the other side.
   gesture(pane, "pointerdown", 150, 20, coach);
   gesture(pane, "pointermove", 200, 21, coach);
-  assert.equal(clock.classList.contains("reading"), true, "the line she is reading is not marked as a reading");
-  assert.notEqual(textOf(lab), live, "the reading says the live clock, so nothing about it can be read");
-  // The reading is the clock time, in words, and NOT a sentence about where the day is.
-  // A board parked before her day or after it has a `nowNote` of its own ("day starts…"),
-  // and that sentence belongs to the line above; a reading that borrowed it would be a
-  // reading saying the day has not begun while it is standing in the middle of it.
-  assert.match(textOf(lab), /^\d{1,2}:\d{2} [ap]m$/, `the reading says "${textOf(lab)}", which is not a clock time`);
-  assert.ok(!/now|day (starts|ended)/i.test(textOf(lab)), `the reading borrows the day's own sentence: "${textOf(lab)}"`);
-  // A reading is NOT the colour of the day's own line: red on this chart means the
-  // minute the morning is at, and it must never mean anything else.
-  assert.match(cssBody("\\.tl-clock\\.reading"), /background:\s*var\(--brown\)/,
-    "a reading is drawn in the colour of the minute the day is actually at");
+  assert.equal(textOf(lab), live, "a drag put a different minute on the face, so the line is reading a minute the day is not at");
+  assert.equal(lab.classList.contains("reading"), false,
+    "the face still takes a state of its own while she drags, which is the v185 rule that went with the line that moved alone");
+  assert.ok(!/^\.tl-clock\.reading/m.test(read("admin/css/app.css")),
+    "the dead brown reading state is back in the stylesheet");
+  assert.ok(!/var\(--brown\)/.test(clockCss()),
+    "a person's ruler can still be painted the colour of a reading, which red on this chart must never mean");
 
-  // The board's own now-line is not drawn down the TRAIN at all: the axis under that
-  // strip is WORK and not time, so a line placed at a minute would point at nothing.
-  // It is not hidden inside the train either — it is simply not there, because the
-  // train carries the workers' clock and nothing else.
+  // The board's own now-line is not drawn down the TRAIN at all: the axis under that strip
+  // is WORK and not time, so a line placed at a minute would point at nothing. It is not
+  // hidden inside the train either — it is simply not there. What the train carries is a
+  // RULER on every line and one face at its head, and nothing that says "now".
   assert.equal(walk(pane).filter((n) => hasClass(n, "tl-now")).length, 0,
     "the day's own line is drawn down the train, which has no minute axis to stand it on");
-  assert.equal(walk(pane).filter((n) => hasClass(n, "tl-clock")).length, 1,
-    "the train does not carry the workers' clock, so the one thing it exists for is missing");
-  // The day's line lives in the planner's own people's window, which a board now draws
-  // BELOW the train and unchanged — her "we keep it original". On a board that window
-  // carries the line the same way the planner's does: present in the DOM, and shown
-  // exactly when the day is being walked, so nothing has to remember which screen it is
-  // on. (The modules' window carries the board's live clock either way — see placeNow.)
+  assert.equal(walk(pane).filter((n) => hasClass(n, "tl-clock")).length, peopleRows(b.root).length,
+    "the train does not carry a ruler on every person's line");
+  // The day's line lives in the planner's own people's window, which a board draws BELOW
+  // the train and unchanged — her "we keep it original". On a board that window carries the
+  // line the same way the planner's does: present in the DOM, and shown exactly when the
+  // day is being walked, so nothing has to remember which screen it is on.
   const win = peopleWinOf(b.root);
   assert.ok(win, "the board no longer draws the planner's people's window");
   assert.ok(walk(win).find((n) => hasClass(n, "tl-now")), "the planner's window on the board lost the day's own line");
@@ -2152,15 +2381,17 @@ test("the board puts the person's train first, and the planner's two windows und
     "the modules' window has no seam above it on the board, so the train and the day's map run together");
 });
 
-test("the train never pans, while the planner's own two windows still pan together — on both screens (v185)", () => {
+test("the train's strip never SCROLLS sideways, while the planner's own two windows still pan together — on both screens (v186)", () => {
   // The train is placed by translating it against a centre, so a pane that could also be
-  // panned sideways would have two ways to move the line — and the centre would leave the
-  // middle the moment a worker panned. This is also what makes the drag unambiguous.
+  // SCROLLED sideways would have two ways to move the line — and the centre would leave
+  // the middle the moment a worker scrolled. That is the rule here, and it is what keeps
+  // the drag of her clause 9 unambiguous: a finger on the line moves the line by the pan
+  // and by nothing else.
   //
   // v184 took the pan off the board's people's window too, because the train had replaced
   // it. She has put that window back — "we keep it original" — and it is the planner's
-  // window, on the planner's minute axis, so it pans with the modules' window on BOTH
-  // screens now. What stays off is the train, and only the train.
+  // window, on the planner's minute axis, so it scrolls with the modules' window on BOTH
+  // screens now. What stays off is the train's own scroll, and only that.
   const b = board();
   const p = render(renderScenario, makeState());
   // The class is on the PANE and not on the row, because it is the window that scrolls —
@@ -2219,7 +2450,7 @@ test("the train never pans, while the planner's own two windows still pan togeth
     "a hairline is drawn down the train, which has no minutes under it");
 });
 
-test("no beat puts a word of nothing on the board, whichever minute it is standing at (v184)", () => {
+test("no beat puts a word of nothing on the board, whichever minute it is standing at (v186)", () => {
   // A board's beat runs once a second all morning, and the two ways it can go wrong are
   // both silent: a strip placed at `translateX(NaNpx)` is a train that has vanished, and a
   // countdown that reads "undefinedm" is a number nobody can act on. Driven here at a
@@ -2235,10 +2466,18 @@ test("no beat puts a word of nothing on the board, whichever minute it is standi
     "2026-09-22T06:03:00", "2026-09-22T14:00:00", "2026-09-22T23:30:00"]) {
     at(iso);
     assert.equal(boardStrays(b.root), null, `the board put a broken number on itself at ${iso}`);
-    // And every strip is placed by a real number at every one of them — a transform that
+    // And every train is placed by a real number at every one of them — a transform that
     // is missing is as blank a screen as one that says NaN, and reads as "never placed".
     for (const row of peopleRows(b.root)) placedLeft(row);
-    assert.match(textOf(clockLabOf(theClock(b.root)[0])), /^\d{1,2}:\d{2} [ap]m$/,
+    // Every ruler too, and they all stand at the same place on their own lines: the number
+    // is written by the same pass, so a ruler left unplaced is a line with no clock on it.
+    const rulers = theClock(b.root);
+    assert.equal(rulers.length, peopleRows(b.root).length, `the board lost a ruler at ${iso}`);
+    for (const z of rulers) rulerPx(z);
+    assert.equal(new Set(rulers.map(rulerPx)).size, 1,
+      `the rulers stand at different places on the same line at ${iso}, so they are not one station`);
+    // And the one face is there and reads a clock.
+    assert.match(textOf(walk(b.root).find((n) => hasClass(n, "tl-clock-lab"))), /^\d{1,2}:\d{2} [ap]m$/,
       `the clock reads nothing a worker can use at ${iso}`);
   }
 });
@@ -2260,4 +2499,262 @@ test("the train's map answers with a number, whatever it is asked (v184)", () =>
     minuteAtTrainX(TRAIN_SEG, 0), minuteAtTrainX(TRAIN_SEG, 4000)]) {
     assert.ok(Number.isFinite(v), `the map answered ${v}`);
   }
+});
+
+test("the day can be walked from the workers' own window: Start, Stop, the bell, Back to now and the speed (v186)", () => {
+  // Her clause 5, in her words: "I need walk the day, Button 'START THE DAY NOW',
+  // 'STOP' , 'The N Called', these button are for the person's windows" — and her
+  // clause 11 for the two simulation presses: "left buttton make the clock back to
+  // current, Right button, when clicked, dropdown a choice list, slow, Mid, fast. This
+  // button is to make the chart move faster for simulation purpose."
+  //
+  // So this test is about the five controls being WHERE she asked and each one being
+  // what it says it is. The one claim that needs a clock is the walk itself: Start has
+  // to move the day's own start to the minute she pressed it, which is the only way the
+  // day can be read from now — and that is proved by walking six seconds at 10x and
+  // reading a minute the real clock has not reached.
+  setNow("2026-09-22T04:30:00");
+  const state = makeState(TWO_HANDS);
+  const b = board(state);
+  const pane = peoplePaneOf(b.root);
+  pane.clientWidth = 375;
+  flushTicks();
+
+  const btn = (label) => walk(b.root).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === label);
+  const face = () => textOf(walk(b.root).find((n) => hasClass(n, "tl-clock-lab")));
+  const ctlOf = () => walk(b.root).find((n) => hasClass(n, "tr-ctl"));
+  // Read afresh at every step rather than held: a press on this screen repaints it, and
+  // every node a repaint replaces is a new one. Holding the old row would have this test
+  // looking for the speed in a row that is no longer on the page.
+  const rowa = () => kidEls(ctlOf()).filter((n) => hasClass(n, "tr-ctl-row"));
+
+  // The row of presses is inside the WORKERS' window, standing next to the lines it
+  // works, and not up in the day chart.
+  const ctl = ctlOf();
+  assert.ok(ctl, "the walk's controls are not on the board at all");
+  assert.ok(walk(pane).includes(ctl), "the walk's controls are not in the workers' window, which is the window they work");
+  assert.equal(walk(partOf(b.root, "tl-pane-proc")).filter((n) => hasClass(n, "tr-ctl")).length, 0,
+    "the walk's controls were drawn in the day chart, which is not where she asked for them");
+  const rows = rowa();
+  assert.equal(rows.length, 2, `the walk's controls are drawn as ${rows.length} rows and not two`);
+
+  // Start and Stop, drawn as a PAIR with exactly one of them live — which is also what
+  // tells her at a glance which of the two the day is doing. A day standing still has
+  // Start live; a button that vanished on being pressed would leave her wondering
+  // whether the press had been taken.
+  const start = btn("▶ Start the day now");
+  const stop = btn("■ Stop");
+  assert.ok(start && stop, "Start and Stop are not both drawn, so one of them comes and goes");
+  assert.ok(kidEls(rows[0]).includes(start) && kidEls(rows[0]).includes(stop),
+    "Start and Stop are not side by side in the walk's own row");
+  assert.equal(start.disabled, false, "Start is inert while the day is standing still");
+  assert.equal(stop.disabled, true, "Stop is live while the day is standing still");
+
+  // Her "The N Called": the bell is in that row too, it names how many people it would
+  // ring for, and it says which way it is thrown.
+  const bell = kidEls(rows[0]).find((n) => hasClass(n, "tl-chip") && /🔔/.test(textOf(n)));
+  assert.ok(bell, "the bell that names how many people would be called is not in the walk's row");
+  assert.match(textOf(bell), /^🔔 (\d+ called|Nobody to call)$/,
+    `the bell reads "${textOf(bell)}", which names neither a count nor nobody`);
+  assert.equal(hasClass(bell, "on"), false, "the bell is drawn throwing a call the board is not making");
+  const wouldCall = Number(/^🔔 (\d+) called$/.exec(textOf(bell))?.[1] || 0);
+  if (wouldCall) {
+    for (const f of bell._listeners.click || []) f({ type: "click", target: bell });
+    const on = walk(b.root).find((n) => hasClass(n, "tl-chip") && /🔔/.test(textOf(n)));
+    assert.equal(textOf(on), `🔔 Calling ${wouldCall}`, "the bell was thrown and its label still names the state it is not in");
+    assert.equal(hasClass(on, "on"), true, "the bell is calling and is not drawn as calling");
+    for (const f of on._listeners.click || []) f({ type: "click", target: on });
+    const off = walk(b.root).find((n) => hasClass(n, "tl-chip") && /🔔/.test(textOf(n)));
+    assert.equal(textOf(off), `🔔 ${wouldCall} called`, "the bell was thrown back and its label did not come back with it");
+  }
+
+  // Her right button: the speed. A drop-down of three, the value the day is actually
+  // walking at marked as the chosen one — and changing it repaints NOTHING, because
+  // nothing on the screen says the speed yet.
+  const speedBox = walk(b.root).find((n) => hasClass(n, "tr-ctl-speed"));
+  assert.ok(speedBox, "the walk's speed is not drawn");
+  assert.ok(kidEls(rowa()[1]).includes(speedBox), "the speed is not in the walk's second row, beside Back to now");
+  assert.match(textOf(partOf(speedBox, "tr-ctl-lab")), /walk speed/i, "the speed drop-down does not name what it sets");
+  const sel = kidEls(speedBox).find((n) => n.tagName === "SELECT");
+  assert.ok(sel, "the walk's speed is not a drop-down");
+  const options = kidEls(sel).filter((n) => n.tagName === "OPTION");
+  assert.deepEqual(options.map((o) => textOf(o)), ["Slow 1×", "Mid 10×", "Fast 60×"],
+    `the speed drop-down offers ${options.map((o) => textOf(o)).join(", ")}, which are not her three speeds`);
+  // Exactly one option is marked chosen, and it is Slow — her own morning's pace. Read
+  // off `selected` rather than off the node's `value`, because `selected` is what a
+  // browser both writes and honours for a menu nobody has opened yet.
+  const chosen = options.filter((o) => o.selected);
+  assert.deepEqual(chosen.map((o) => o.value), ["1"], "the walk does not begin at her own morning's pace");
+  const before = replaceCount;
+  sel.value = "10";
+  for (const f of sel._listeners.change || []) f({ type: "change", target: sel });
+  assert.match(lastToast(), /Mid 10×/, `the speed she picked is not the one the board says it will walk at: ${lastToast()}`);
+  assert.equal(replaceCount, before, "changing the speed repainted the screen, which moves the scroll she is reading for nothing");
+
+  // Start. It moves the day's own start to the minute she pressed it, so the whole day
+  // is read from now — and it walks from nought, so the ruler comes in from the left.
+  for (const f of start._listeners.click || []) f({ type: "click", target: start });
+  assert.match(lastToast(), /Walking the day from 4:30 am, Mid 10×/,
+    `Start did not say what it was doing: ${lastToast()}`);
+  assert.equal(btn("▶ Start the day now").disabled, true, "Start is still live after the day was started");
+  assert.equal(btn("■ Stop").disabled, false, "Stop is inert after the day was started");
+
+  // Six seconds of the wall clock at 10x is ONE MINUTE of her day, and that minute is
+  // the proof the day is being walked rather than read: at 04:30:06 the real clock is
+  // six seconds into 4:30 am, so a board reading the wall clock would still say 4:30 —
+  // while a walked one says 4:31, because the day's own start moved to the press.
+  setNow("2026-09-22T04:30:06");
+  flushTicks();
+  assert.equal(face(), clockAtMinute(1, 270), `the walked day reads ${face()} at 04:30:06, so the day's start did not move to the minute she pressed Start`);
+
+  // Stop puts the line back on the real clock, the day's own labels with it — and it does
+  // so on the REPAINT ITSELF, with no beat allowed to repair it afterwards. That is the
+  // claim the press makes: the screen it draws is already the real clock, rather than a
+  // second of the walk's own minute standing there until the next beat comes round. So
+  // nothing is flushed between the press and the reading. A last press, tap or Clear on
+  // this screen repaints it, and a repaint that leaves the trains at the left edge and the
+  // face blank for a second is the same fault from the other side — see the walk of the
+  // strip below, which is read on a fresh screen with no beat run either.
+  for (const f of btn("■ Stop")._listeners.click || []) f({ type: "click", target: btn("■ Stop") });
+  assert.match(lastToast(), /Stopped — the line is back on the real clock/,
+    `Stop did not say what it had done: ${lastToast()}`);
+  assert.equal(face(), clockAtMinute(30.1, 240),
+    `the repaint after Stop reads ${face()} at 04:30:06, so the day is still being labelled from the minute the walk began`);
+  assert.equal(btn("■ Stop").disabled, true, "Stop is still live after the walk was stopped");
+  assert.equal(btn("▶ Start the day now").disabled, false, "Start is inert after the walk was stopped");
+
+  // And a minute later it is still the real clock: the walk is genuinely over and not
+  // merely out-labelled by the beat. At 10x the day would have gained five minutes of
+  // itself in those thirty seconds; on the wall clock it gains thirty seconds.
+  setNow("2026-09-22T04:31:00");
+  flushTicks();
+  assert.equal(face(), clockAtMinute(31, 240),
+    `the day is still being walked after Stop: ${face()} at 04:31:00`);
+
+  // Her left button, and her clause 10 as a press. With nothing to put back it SAYS so
+  // rather than sitting there doing nothing quietly — a press that answers with silence
+  // reads as a press that did not work.
+  const back = btn("⟲ Back to now");
+  assert.ok(back, "the left button that puts the clock back to the current time is not drawn");
+  assert.ok(kidEls(rowa()[1]).includes(back), "Back to now is not in the walk's second row");
+  for (const f of back._listeners.click || []) f({ type: "click", target: back });
+  assert.match(lastToast(), /already at the current time/, `Back said nothing when there was nothing to put back: ${lastToast()}`);
+
+  // And with the line away from the current time it brings the trains AND the rulers
+  // home, both by the same gesture's worth — her "when we drag to the right, the train
+  // move to right and the clock and red ruler move relatively".
+  const pane2 = peoplePaneOf(b.root);
+  pane2.clientWidth = 375;
+  flushTicks();
+  const row = peopleRows(b.root)[0];
+  const restTrain = placedLeft(row);
+  const restRuler = rulerPx(theClock(b.root)[0]);
+  gesture(pane2, "pointerdown", 150, 20, coachesOf(row)[0]);
+  gesture(pane2, "pointermove", 210, 21, coachesOf(row)[0]);
+  assert.equal(placedLeft(row) - restTrain, 60, "the drag did not move the line, so there is nothing for Back to put back");
+  for (const f of back._listeners.click || []) f({ type: "click", target: back });
+  assert.equal(placedLeft(peopleRows(b.root)[0]), restTrain, "Back to now left the trains where the drag put them");
+  assert.equal(rulerPx(theClock(b.root)[0]), restRuler, "Back to now put the trains back and left the rulers away from the current time");
+
+  // And the last of the two, on a screen of its own because it tears the one above down:
+  // a repaint places the line. Every strip carries a transform and every ruler a position
+  // the moment the screen is drawn, without waiting for the beat — which is the standing
+  // rule here: a repaint must never move what she is looking at, and a strip left unplaced
+  // is the whole train sitting at the left edge of its line with the face saying no minute
+  // at all, until the next second comes round to put it right.
+  //
+  // The beat is taken away BEFORE the repaint, so nothing but the repaint itself can have
+  // placed anything: a repaint rebuilds every one of these nodes, so a fresh strip has no
+  // transform and a fresh ruler no left, and with the beat gone there is no later second to
+  // paper over the omission. Read as a PLACEMENT and not as a number, deliberately: the
+  // stand-in screen has no layout, so a pane it rebuilds measures nought, and a number read
+  // off it here would be the stand-in's own arithmetic rather than the board's. The numbers
+  // are pinned where they mean something — the beat's own reads above, and the pure geometry
+  // tests — while what only a repaint can get wrong is whether the line is placed at all.
+  // `placedLeft` and `rulerPx` both refuse an unplaced node by name, so a measure-only job
+  // stops this test on "a row's strip was never placed" rather than on a wrong number.
+  const drawn = board(makeState(TWO_HANDS));
+  const fresh = peoplePaneOf(drawn.root);
+  fresh.clientWidth = 375;
+  flushTicks();
+  const restingStrip = peopleRows(drawn.root).map((z) => placedLeft(z));
+  assert.ok(theClock(drawn.root).length, "no ruler is drawn on the person's own lines at all");
+  assert.ok(restingStrip.some((v) => v !== 0),
+    "every strip is parked at nought even after a beat, so nothing here is measuring a placement worth keeping");
+  beats.clear();
+
+  const lastCoach = coachesOf(peopleRows(drawn.root)[0])[0];
+  assert.ok(lastCoach, "the first person's line carries no coach to tap, so nothing here can repaint the board");
+  tapCoach(lastCoach);
+  assert.equal(boardStrays(drawn.root), null, "the repaint after a tick put a broken number on the board");
+  for (const z of peopleRows(drawn.root)) placedLeft(z);
+  for (const z of theClock(drawn.root)) rulerPx(z);
+  assert.equal(face(), clockAtMinute(31, 240),
+    `the repaint after a tick left the clock face saying "${face()}", which is not the minute it was naming`);
+});
+
+test("the person's window is taller, and the coach has the room to hold its words (v186)", () => {
+  // Her clause 8: "The person's window be taller, so that coach size better fit
+  // wordings". A height is not something the stand-in screen can measure — every node
+  // in it answers with the same box — so the evidence for this is the stylesheet's own
+  // declared numbers, read as the file writes them, plus one measurement off the DRAWN
+  // board: the width a coach actually gets, which is what decides whether the narrow-box
+  // step-down ever fires on her own day.
+  const rowRule = cssBody("\\.tl-row\\.train(?![\\w-])");
+  assert.match(rowRule, /min-height:\s*72px/,
+    `the person's row is not the taller line she asked for: ${rowRule}`);
+  const coachRule = cssBody("\\.tl-coach(?![\\w-])");
+  assert.match(coachRule, /height:\s*52px/,
+    `the coach is not the taller box the words need: ${coachRule}`);
+  // The coach's own height is the whole band's: the stub at each end and the link
+  // between two coaches are the same 52, so nothing joining a coach to its neighbours
+  // is a different size from the coach itself.
+  assert.match(cssBody("\\.tl-stub"), /height:\s*52px/, "the stub is not the height of the coaches it joins");
+  assert.match(cssBody("\\.tl-link"), /height:\s*52px/, "the link is not the height of the coaches it joins");
+  // And the four lines of the face, each with its own size — the room is only worth
+  // having if the type is what uses it.
+  assert.match(cssRule(".tl-cicon"), /font-size:\s*15px/, "the coach's icon did not take the taller box");
+  assert.match(cssRule(".tl-cname"), /font-size:\s*11px/, "the coach's word did not take the taller box");
+  assert.match(cssRule(".tl-cwhen"), /font-size:\s*11px/, "the coach's clock did not take the taller box");
+  assert.match(cssRule(".tl-cbatch"), /font-size:\s*10px/, "the coach's batch number did not take the taller box");
+
+  // The step-down at a narrow box gives up TYPE and PADDING and never the word. That is
+  // her refinement of v184 answered the way she chose it, and it is the fault this app
+  // shipped once already: the rule that hid the name outright is gone, and this refuses
+  // to let it come back through any rule that names the word.
+  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const at = css.indexOf("@container (max-width: 43px)");
+  assert.ok(at >= 0, "the face no longer steps down at all at a narrow box");
+  // The whole block, counted brace for brace. A container query HOLDS rules, so the
+  // first `}` after it opens is the end of the first rule inside it and not of the query
+  // — a body read that way would stop before the word it is here to check.
+  let depth = 0;
+  let end = -1;
+  for (let i = css.indexOf("{", at); i < css.length; i += 1) {
+    if (css[i] === "{") depth += 1;
+    if (css[i] === "}") { depth -= 1; if (!depth) { end = i; break; } }
+  }
+  assert.ok(end > 0, "the narrow-box step-down has no body");
+  const small = css.slice(css.indexOf("{", at) + 1, end);
+  assert.match(small, /\.tl-cname\s*\{\s*font-size:\s*9px/, "the narrow-box step-down does not give up type, which is what it is for");
+  assert.match(small, /\.tl-cface\s*\{\s*padding:\s*0 2px/, "the narrow-box step-down does not give up its side padding");
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    if (/\.tl-cname/.test(m[1])) {
+      assert.doesNotMatch(m[2], /display:\s*none/,
+        `a rule hides the coach's word at a narrow box, which is the refinement she refused: ${m[1].trim()}`);
+    }
+  }
+
+  // And on her own day, at her phone's width, that step-down is never reached: the coach
+  // the board actually draws is wider than the 43 pixels that would trigger it. Counted
+  // from the drawn board rather than from the arithmetic, because the arithmetic is the
+  // thing that could be wrong.
+  const b = board(makeState(TWO_HANDS));
+  const pane = peoplePaneOf(b.root);
+  pane.clientWidth = 375;
+  flushTicks();
+  const drawn = px(walk(pane).find((n) => hasClass(n, "tl-track")), "--coach-w");
+  assert.ok(Number.isFinite(drawn) && drawn > 0, `the board drew a coach of "${drawn}" pixels`);
+  assert.ok(drawn > 43,
+    `a coach on her own day is ${drawn}px wide, so the narrow-box step-down is the size her own line is read at`);
 });

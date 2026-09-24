@@ -1,8 +1,128 @@
-# Jienluv2bake — change history (v54 → v185)
+# Jienluv2bake — change history (v54 → v186)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v186, THE MORNING CAN BE WALKED FROM THE WORKERS' OWN WINDOW (no database
+step). Eleven things you asked for on the Production page, built as one: the lines drag left and
+right and everything on them moves together, Start the day now / Stop / the bell / Back to now sit
+where the workers read them, and the walk's own pace is a drop-down of Slow, Mid and Fast. Not one
+module, batch, start time, cycle or saved day of yours was rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "let me tell your what i want for production page. 1. Keep
+the Next Up. 2. Create windows for each person, the detail able to be drag left or right. 3. Put the
+person windows parallel, close to each other, the 2nd person and subsequent person have the centered
+red ruler, but the 2nd and other don have to show the clock face. 4. Replicated for person 2, 3,
+etc. 5. I need walk the day, Button 'START THE DAY NOW', 'STOP' , 'The N Called', these button are
+for the person's windows. 6. The scenario dual window dont join to the person's window. 7. Name of
+the scenario should be on Top of page. 8. The person's window be taller, so that coach size better
+fit wordings. 9. Each of the person line has a clock line at centre of line, when we drag to the
+right, the train move to right and the clock and red ruler move relatively. 10. When i click outside
+the person window, the clock back to center. 11. For simulation, i want some button to do this, left
+buttton make the clock back to current, Right button, when clicked, dropdown a choice list, slow,
+Mid, fast. This button is to make the chart move faster for simulation purpose."
+
+**2. The Next Up stays.** Your point 1, and nothing about it moved. The card that says what is next
+is still there, still first, still telling you the job and its clock.
+
+**3. The scenario's name, on top of the page.** Your point 7: the heading card now carries the name
+of the day you are looking at, so a page of numbers cannot be mistaken for another day's.
+
+**4. A taller person's line, so the words fit.** Your point 8. Each of the workers' lines is now
+__72 pixels__ tall, against the 56 it was and the planner's own 35 — measured at both 375 pixels wide
+and 1280, and every coach measures 52 of those 72. Nothing on a coach face is clipped at either
+width: the face reads its whole derived word — at 375 pixels the words on your own day read __mixer,
+fold, Wash, Load, Unload, Dimple, oven, Cool__ — and not one word is cut off.
+
+**5. The two windows stay your borrowed pair, and they do not join the lines.** Your point 6. The
+modules window and the planner's people window are drawn below the lines by the very code that draws
+them in Scenario planning, and they are **not** tied to the train: the trains do not scroll sideways
+at all, so no drag on a worker's line can move the two windows above it. What v185 put back — the two
+borrowed windows panning together on both screens — is still true and still theirs; it is the train
+that stands apart, and that is your point 6 said as a rule.
+
+**6. A red ruler on every line, but only one clock face.** Your points 3 and 4. Every person's line
+carries its own red ruler standing at the middle of that line — at 375 pixels wide the ruler sits at
+107 and at 1280 the line's own centre is 694 — and the face is drawn **once**, on the first line,
+reading the clock at the line's own centre in the pane. The second person and every person after
+carry the ruler and no face, exactly as you asked. Measured at 375 pixels: the face stands at 215 in
+the pane and each row's ruler at 107 in its own track, and the two differ by exactly the 108-pixel
+name column between them — so they are one line, drawn in two coordinate systems.
+
+**7. The drag, and everything on the line moves together.** Your point 9, in your own words: "when we
+drag to the right, the train move to right and the clock and red ruler move relatively." A sideways
+drag on a person's line moves the strip, that line's red ruler and the clock face by the same number
+of pixels — measured live at 375 pixels wide, an 80-pixel drag took the strip from -437 to -357, the
+ruler from 107 to 187 and the face from 215 to 295, __all three by exactly 80__. Nothing about it is
+saved, so it dies with the screen.
+
+**8. Letting go of the line, or pressing off it, puts the clock back at the centre.** Your point 10,
+and your point 11's left button. A press anywhere off the line re-centres it, and the __Back to now__
+press above the lines does the same thing on purpose — both put the ruler, the face and the trains
+back where the day puts them. It is never saved, so it cannot move a module, a batch or a start time.
+
+**9. Walking the day, without touching the day.** Your point 5, in your own words: "I need walk the
+day, Button 'START THE DAY NOW', 'STOP' , 'The N Called', these button are for the person's windows."
+So the presses sit above the lines, inside the workers' own window:
+
+- **Start the day now** begins the walk at today's own clock time and takes the screen to the day's
+  first minute.
+- **Stop** ends the walk and puts the lines straight back on the real clock.
+- **The bell** tells you how many jobs would be called and throws the calling on and off.
+- **Back to now** re-centres the line whether or not a walk is running.
+
+Measured live on a 375-pixel screen with the walk started: the line went to the day's first minute
+and the row read __Now: mixer__, the link's count was 30m, and __12 coaches stood red__, falling
+away as the clock ate into them. Nothing about the walk is written down anywhere, so a day you saved
+is exactly the day you saved no matter how long the walk runs.
+
+**10. The walk's own pace, and it is only the walk's.** Your point 11, in your own words: "Right
+button, when clicked, dropdown a choice list, slow, Mid, fast. This button is to make the chart move
+faster for simulation purpose." The drop-down carries __Slow 1x, Mid 10x and Fast 60x__. Measured
+live at Fast: three seconds of walking took the clock face from 10:58 pm to 11:01 pm and brought a
+link's countdown down from 30m to 27m with it. Choosing a speed changes nothing in your plan — it is
+the walk's speed and it lives nowhere but the walk. **Stop** then put the face and the line straight
+back to 10:58 pm, turned the press off and brought Start back, saying "Stopped — the line is back on
+the real clock."
+
+**11. The countdown comes down by itself.** Nothing has to be tapped for a worker to watch their
+next job get nearer: measured on the board, one minute of the clock brought a row's own count from
+__Next 20m to Next 19m__ with nobody touching the screen. And that minute rebuilt nothing — the app's
+own rule stands, because a repaint throws away a worker's scroll, so a beat writes the numbers on the
+line and never rebuilds the line around them.
+
+**12. One more thing was mended underneath.** A tap on a coach had to be proved to reach your other
+phone and the store, not just the screen. Reading the tests showed that the tick's write — and the
+Clear press's write — were being read off the screen's own copy of the day rather than off the saved
+day, so a tap that moved the picture and skipped its save would have looked exactly like a working
+one. Both are read off the saved day now, and both fail by name if the write ever goes missing again.
+This is the app's own standing rule: a stand-in must be as unforgiving as the real thing, because a
+forgiving one hides a bug instead of catching it.
+
+**13. Where a tick lives, and why there.** A tick is written in a key of its own beside your plan,
+never inside it — so **clearing the board can never touch a saved day, and deleting a day can never
+wipe the board.** __Clear the board__ asks first, in the app's own words, before it takes a single
+green coach back.
+
+**14. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day.
+Measured live, across a whole pass of this page — the board drawn, the day started and stopped, the
+speed changed three times, the line dragged and put back, a coach ticked and then the board cleared —
+the one and only thing that changed in the app's stored data was that new key of the tick's own,
+sitting beside the plan: an empty board written as a spoken empty so your other phone cannot read a
+clear as ignorance, and the plan itself untouched. The app's own version reads __Engine v186__.
+
+**15. Every rule that stands on it was proved load-bearing.** Eleven faults were put back in all,
+each watched failing a test that names it, and each restored byte-identically. One of them escaped on
+the first pass and is named rather than glossed: with the beat no longer repainting a row's next-job
+line, nothing failed — because no test had ever watched a countdown come down on a beat alone, with
+nobody touching the screen, which is the half a worker at a bench actually reads. A test was written
+for it, and the fault then fails by name, reading that a minute of the clock moved a row's own
+countdown from 20 minutes to "Next 20m". The suite is __1343 passing__ with none failing.
+
+**16. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. The tick is written under a settings key the app already guards, the walk's speed is a
+number in the walk and nowhere else, and nothing new is written anywhere.
 
 **24 Sep 2026 — engine v185, THE COACH KEEPS ITS WORD, AND THE BOARD'S PAGE IS PUT IN YOUR ORDER (no
 database step). Two things: every coach on the Production line's train now carries a word at every
