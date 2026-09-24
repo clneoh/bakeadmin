@@ -3342,8 +3342,19 @@ tr.po-covered td { color: var(--muted); }
 /* The pane. It takes no sideways scroll at all, and that is not tidiness: the whole
    strip is placed by translating it against a centre, so a pane that could also be
    panned sideways would have two ways to move the line and the centre would leave
-   the middle. It is also what makes the drag unambiguous (see wireTrainClock). */
-.tl-pane-people.train { overflow-x: hidden; }
+   the middle. It is also what makes the drag unambiguous (see wireTrainClock).
+
+   AND it is as tall as its people, with no ceiling of its own. The base rule caps a
+   people's window at min(20vh, 190px) — a ceiling written for the planner's five
+   35-pixel rows, where 190 IS five rows. These rows are 72. So that same ceiling
+   held 162 pixels of a 406-pixel window on her phone and hid persons 2, 3 and 4
+   inside a box that scrolled: her clause 2, "Create windows for each person",
+   answered with one window on screen and three behind a scrollbar nobody could see,
+   and her clause 8, "The person's window be taller", answered by making the ROW
+   taller while the window stayed the same height. A ceiling is exactly what a taller
+   window cannot have. So the board's pane is content-sized and the cap stays where it
+   was written — on the planner's own window, which still needs it. */
+.tl-pane-people.train { overflow-x: hidden; max-height: none; }
 /* And its rows are the pane's own width rather than a day's. There is no day on this
    axis — the line is as wide as the window and no wider — and the base rule's
    inline-block shrink-to-fit would otherwise measure the strip against itself. */

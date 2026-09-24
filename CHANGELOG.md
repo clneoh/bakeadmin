@@ -1,8 +1,66 @@
-# Jienluv2bake — change history (v54 → v186)
+# Jienluv2bake — change history (v54 → v187)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v187, EVERY PERSON'S WINDOW IS THE HEIGHT OF ITS OWN PEOPLE (no database
+step). One fault, found by measuring the drawn board against your own eleven points and then fixed: the
+workers' windows on the Production page carried a ceiling, so on a phone only the first person stood on
+screen and the other three sat inside a box that scrolled. Not one module, batch, start time, cycle or
+saved day of yours was rewritten, and there is no database step.**
+
+**1. What you asked.** You told me the Production page deferred from your instruction, and then: "fix it".
+So this release is your eleven points read back against the board that was actually drawn, not against the
+board that was intended, and it carries the one place they did not agree.
+
+**2. The fault, in one sentence.** Your point 8 says "The person's window be taller" — the __window__, not
+the row. v186 made the row taller and left the window's own ceiling exactly where it was.
+
+**3. Why a ceiling was there at all, and why it was wrong here.** The window a person's rows sit in had a
+ceiling of min(20vh, 190px) — 190 pixels on your phone. That number was written for the Scenario planner's
+own people window, where the rows are 35 pixels tall and five of them is 190. The Production page's rows
+are 72 pixels, because a taller row is what you asked for. Four of them need 406. The ceiling did not know
+the rows had grown.
+
+**4. What that looked like on your phone, measured.** At 375 by 812 the window was 162 pixels tall while
+holding 406 pixels of people: one person on screen, and persons 2, 3 and 4 behind a scrollbar that was not
+visible and that you had no reason to look for. Read off the drawn board: 0 of 4 rows fully visible. Your
+point 2, "Create windows for each person", was answered with one window and three hidden behind it.
+
+**5. The fix.** One line of the stylesheet. The board's own person window is now as tall as its people and
+carries no ceiling of its own; the ceiling stays exactly where it was written, on the planner's window,
+which still has the five 35-pixel rows it was written for. Nothing else about either window changed, and
+nothing inside either of them was restyled.
+
+**6. Measured after, at the same two widths.** At 375 by 812: the window 407 pixels tall, its inside 406
+and its content 406 — equal, so nothing scrolls — all 4 of 4 rows fully visible, the coaches still 37
+pixels wide with four filling the line, four red rulers still standing at 107 and the one clock face still
+at 215 reading 11:27 pm. At 1280 by 900: the window 401 pixels, no scroll, 4 of 4 visible, the coaches 155
+and the line 738. The modules' window above and the planner's borrowed window below are the heights they
+were.
+
+**7. Nothing of yours is rewritten.** The whole of this release is one stylesheet line and one test, and
+neither of them writes anything: a ceiling is a drawing rule, and no module, batch, start time, cycle or
+saved day is read by it, let alone changed. Measured live on a four-person day built for the purpose, the
+app's own stored data was put back from a copy taken beforehand and compared byte for byte the same, with
+no backup key left behind.
+
+**8. And the rule has a test now, which it never did.** This is the part worth reading, because the reason
+the fault shipped is not the fault itself. No test could ever have caught a window that was too short. The
+stand-in screen the tests draw on answers every box with the same measurement — nothing high and nothing
+of content — so a window with three persons hidden inside it looks exactly like one that fits. A stand-in
+that says every box is zero high cannot see a box that is too short, and a guard that measured that screen
+would have passed just as happily with the bug in place. So the guard reads the stylesheet's own declared
+numbers instead, and it holds both halves of the rule at once: the board's window declares no ceiling, and
+the planner's still declares its own. Two faults were put back and each was watched failing that test by
+name — the ceiling returned to the board's window, and the ceiling taken away from the planner's — so the
+test cannot be passed by deleting the cap everywhere and leaving the screen these windows were borrowed
+from unbounded. Each was restored byte-identically. The suite is 1343 passing with none failing.
+
+**9. No database step.** Not one stored field is added or changed, so there is nothing to run in Supabase.
+A ceiling lives in the stylesheet and in the test, and your plan, your days and your own settings are
+exactly as they were.
 
 **24 Sep 2026 — engine v186, THE MORNING CAN BE WALKED FROM THE WORKERS' OWN WINDOW (no database
 step). Eleven things you asked for on the Production page, built as one: the lines drag left and

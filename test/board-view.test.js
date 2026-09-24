@@ -2711,6 +2711,31 @@ test("the person's window is taller, and the coach has the room to hold its word
   // is a different size from the coach itself.
   assert.match(cssBody("\\.tl-stub"), /height:\s*52px/, "the stub is not the height of the coaches it joins");
   assert.match(cssBody("\\.tl-link"), /height:\s*52px/, "the link is not the height of the coaches it joins");
+
+  // And the WINDOW is taller too, which is what her clause 8 asks for in its own words:
+  // "The person's window be taller". A taller ROW is not a taller WINDOW, and v186 first
+  // shipped exactly that mistake. The base rule caps a people's window at
+  // min(20vh, 190px) — a ceiling written for the planner's five 35-pixel rows, where 190
+  // IS five rows. The board's own rows are 72, so on a 375-pixel phone those four rows
+  // need 406 pixels and were given 162: persons 2, 3 and 4 sat inside a box that scrolled,
+  // with no sign on screen that there was anything to scroll to. Her clause 2, "Create
+  // windows for each person", was answered by one window on screen and three behind a
+  // scrollbar nobody could see. A ceiling is the one thing a taller window cannot have.
+  //
+  // Read as the FILE writes it, because the stand-in screen cannot see this: it answers
+  // every node with the same box — clientHeight 0 and scrollHeight 0 alike — so a window
+  // that is too short is indistinguishable in it from one that fits, and no measurement a
+  // test could take off that screen would ever have caught this. Only the declared numbers
+  // can, and only if a test asks for them by name.
+  assert.match(cssRule(".tl-pane-people.train"), /max-height:\s*none/,
+    "the board's person window still carries a ceiling, so the persons below the first are inside a box that scrolls");
+  // And the planner's own window keeps its ceiling — the second half of the rule, so this
+  // cannot be satisfied by deleting the cap everywhere and leaving the screen these windows
+  // were borrowed from unbounded. The planner still has five 35-pixel rows and still needs
+  // the cap that was written for them.
+  assert.match(cssRule(".tl-pane-people"), /max-height:\s*min\(20vh,\s*190px\)/,
+    "the planner's people's window has lost the ceiling that was written for its own five rows");
+
   // And the four lines of the face, each with its own size — the room is only worth
   // having if the type is what uses it.
   assert.match(cssRule(".tl-cicon"), /font-size:\s*15px/, "the coach's icon did not take the taller box");
