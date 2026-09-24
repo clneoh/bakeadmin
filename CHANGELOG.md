@@ -1,8 +1,136 @@
-# Jienluv2bake — change history (v54 → v187)
+# Jienluv2bake — change history (v54 → v188)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v188, A DELIVERY PRICE BEFORE YOU PROMISE ONE (no database step). The first
+step of the courier work you asked for: on an order you are delivering, one press asks Lalamove what the
+trip would cost on every vehicle it runs, shows the prices side by side with the distance and the
+quotation's own five-minute life counting down, and the one you choose fills the charge box that was
+already there. Nothing is booked, nothing customer-facing changes, and not one module, batch, start time,
+cycle or saved day of yours was rewritten. There is no database step.**
+
+**1. What you asked, in your own words.** "i want to do Lalamove, API to manage courier, make it ready
+for other courier as well. Focus now for laalamove. And check our backoffice readiness. From my
+understanding lalamove support last day deliver consolidation to save on cost." Those are three separate
+things, and this release is the first of them. The other two are answered below and built on top of this.
+
+**2. Your consolidation belief is correct, and here is the mechanism.** Lalamove does not consolidate by
+holding parcels back for a later trip; it consolidates by letting ONE trip carry several drop-offs, two
+to sixteen of them, priced as one base fare plus a fee for each extra stop. Outside the Klang Valley,
+which is Penang, that fee is RM 1 on a motorcycle, RM 2 on a car, RM 5 on a four-by-four or van and
+RM 10 on a lorry, so eight cakes to eight houses on one motorcycle is one base fare plus RM 7 against
+eight base fares. Three things go with it and all three are said rather than hidden. The vehicle has to
+physically hold the load, so one motorcycle is not eight focaccia and the run screen will say so. There
+is no bulk pricing call, so a run of eight drops is still eight price requests, which costs you waiting
+time and not money. And route optimisation is described two different ways in Lalamove's own documents,
+so the stop order is yours to arrange and the screen will never claim it found you an optimum. Building
+that screen is the last stage of this work and the only one that changes what your shop promises, so you
+will be asked before it is built.
+
+**3. The seam, which is what "ready for other courier as well" had to mean - and a hole in it that the
+audit found.** A claim in a comment is not readiness, so readiness here is a file that holds the one
+interface every courier must answer, a file that is the only place any courier's own name and rules
+live, and one channel that both use and that never throws at you. Behind it all is a **fake courier
+written for the tests, which quotes without the name Lalamove anywhere near it** - and that fake is the
+proof that a second courier is a new file and a line in the registry rather than a rewrite.
+
+And the audit you asked for, walked against the built thing rather than against the code meant to
+satisfy it, found the claim was not yet true. It found the same defect twice, once on each side of the
+seam. On the app's side, two screens and the one shared file named the courier in their own words: the
+Settings card printed "Courier (Lalamove)" and sent the literal word to the server itself, and the
+shared channel defaulted the courier to Lalamove when nobody said otherwise. A default is that file
+quietly choosing a courier, which is the one thing the seam exists to prevent - the day a second
+courier arrives, a default left behind would send its calls to the first one and nothing on screen
+would say so. On the server's side, the dispatcher wrote the courier's name into a refusal you would
+read: "Lalamove did not name any vehicles for this market". That is the identical fault, and it is the
+one that matters more, because a refusal is exactly the sentence a second courier would have to have
+found and edited by hand. Both are fixed with no visible change: the card asks the registry for the
+name, the channel refuses to name one, and the refusal now comes from the provider's own label. The
+words on your screen are character for character what they were. And the rule has a test it never had,
+which is the real lesson here and the same one v187 taught. It now covers both halves: inside the app
+the word is allowed in two files only, the provider and the registry that imports it, and the walk
+refuses any third file that names it; on the server the walk does the same, and the dispatcher gets a
+tighter rule of its own because its environment variables ARE named after the courier and it therefore
+had to be on the allowed list - it may name the courier only in those variables and in the provider's
+own file path, and in nothing that could be shown to you.
+
+**4. Your three decisions, and where each one landed.** You chose "Locate it, let me fix it" for
+addresses, so a courier is never handed words on a card: it is handed a point. The address already on
+the order is looked up once, the answer is kept against that customer so a second order from the same
+number costs no lookup at all, and where the lookup misses a map opens and you tap the exact door. The
+bakery's own door is pinned once, from the same place you asked for it. You chose "All four stages", so
+this is the first of four and the other three follow as v189, v190 and v191. You chose "Build now, keys
+later", and that is exactly where this stands - see paragraph 9.
+
+**5. What the screen does, on your own order, measured live at two widths.** The price panel opens
+inside the card that already holds the charge box, folded away until you ask for it, and that is
+deliberate: this app has one pop-up layer, so a second card would destroy the charge box, the note you
+were part-way through and the Save button, and the fee would land in a box nothing could save. Measured
+at 375 by 812 with the test courier answering, the panel drew three price rows - Motorcycle RM 8.50
+counting its own life down, Car RM 14.00, Van RM 0.00 - then the line that says which vehicle could not
+be priced and why, then "3 prices from Lalamove, just now, for collection 2026-09-30 at 10:00. Each one
+dies on its own clock." The four presses at the foot of the rows measure 99 by 36 pixels, which is this
+app's own tap-target floor, and the line naming the two ends of the trip reads "From Jienluv2bake,
+George Town to 12 Jalan Bunga, George Town". At 1280 by 900 the same card drew all three rows, the
+failure line and the live status line with nothing clipped.
+
+**6. Taking a price is one press, and it goes through the money path that already worked.** Pressing
+Use this fee on the RM 14.00 car put 14 in the charge box and said so, and the panel folded itself away
+so the number it had just written is what you are looking at with the payer question under it. Setting
+the payer to "The customer paid it" then read back "The customer owes RM 58.00 - items total RM 44.00 +
+courier charge RM 14.00". Nothing new was invented for the money: the fee lands through the same model
+that has carried the courier charge since it was built, so the amount, who paid it and COD all keep
+running the way they already ran.
+
+**7. Three places where the honest answer is not the convenient one.** First, a quotation DIES -
+Lalamove's last five minutes - so every price carries its own clock, a dead price greys itself out and
+says "ask again" rather than sitting there looking live. Second, a courier can reply with a total of
+zero, and a zero is not a charge: measured live on the RM 0.00 van, the press left the charge box
+exactly as it was and said "Lalamove priced this trip at RM 0.00 - that is not a charge, so nothing was
+put in the box. Ask again, or type the amount," and the panel stayed open with all three rows still
+there. A toast claiming a number had landed in a box the box had refused is the screen lying to you,
+and this is the one place in the app where a lie about money is easiest to ship by accident. Third, a
+price that arrives after you have closed the card is not written into it: measured live with a
+deliberately slow reply, closing the card the moment after asking left the pop-up closed, no charge box
+and your stored data unchanged, character for character the same length before and after.
+
+**8. Where the secret lives, and where it does not.** The signing of every request happens on Supabase,
+in a function only your own signed-in app can call, and the key and secret are Supabase secrets that you
+set yourself and that never enter this repository, this app's screen or this conversation. The browser
+half is built to the same shape as the mail function that already works: it never throws, and every
+refusal arrives as a sentence you can act on rather than a code. Two you will meet: a missing pin reads
+as a pin to be placed rather than a failure, and an address Lalamove cannot find reads as an address to
+put on the map. Until you open the partner account and set those secrets the app carries the courier and
+no keys, and it says so in plain words instead of failing in a way that looks like a bug.
+
+**9. What is measured and what is not, said plainly.** The panel, the two ends of the trip, the five
+minute clock, the money, the refusal and the closed-card case were all measured live, in a real browser,
+on the drawn screen, at 375 by 812 and at 1280 by 900 - against a stand-in courier that returns
+Lalamove's own documented replies. What is NOT measured is Lalamove itself, because there is no account
+yet: the signing and the reading of its real replies are tested against its published sample answers in
+the suite, and three details are flagged at the head of the provider file where the first real call will
+show them - whether a stop's point is sent under one field name or another, the exact language tag this
+market expects, and whether the distance comes back with a unit or as a bare number. Each is one line in
+one file, and each will be settled in the first minute of the sandbox, not guessed at now.
+
+**10. Nothing of yours is rewritten, and every rule that stands on this was proved load-bearing.**
+Measured live: your stored data was backed up before the single press that writes anything, put back
+afterwards and compared, and your phone's own storage holds exactly the two keys it held before, with no
+backup key left behind. Eleven faults were put back in all, each watched failing a test that names it
+and then restored byte-identically - among them the zero being accepted as a charge, the closed card
+being written into anyway, the panel's clock failing to clear itself when the card it belonged to was
+gone, and all four seam leaks named in paragraph 3. Two of the eleven are worth naming because a test
+could not have caught them, and both are said rather than glossed. The clock one: the panel stops its
+own clock when a fee is accepted and folds away, so only the case where the fee is REFUSED and the
+panel stays open exercises the rule at all, and the test that catches it is the one written for the
+refused zero. And the server's own hand-written refusal: when that fault was put back, the first
+version of the new rule did NOT catch it, because the rule read only ordinary quoted text and the
+sentence was written as a template literal - so a real leak sat in a blind spot of the very guard
+written to catch it. The rule was widened to read those too, and the fault then fails by name. The
+suite is 1460 passing with none failing. **No database step** - a price is transient and an accepted
+one lands in fields that already exist, so there is nothing to run in Supabase.
 
 **24 Sep 2026 — engine v187, EVERY PERSON'S WINDOW IS THE HEIGHT OF ITS OWN PEOPLE (no database
 step). One fault, found by measuring the drawn board against your own eleven points and then fixed: the

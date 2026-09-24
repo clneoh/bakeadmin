@@ -11,6 +11,10 @@ import * as sync from "../sync.js";
 import { refreshShareWarn } from "../sharewarn.js";
 import { translateTo, translateAllowed } from "../translate.js";
 import { openSnapshotView } from "./snapshot.js";
+import { openPlacePicker } from "../place_map.js";
+import * as place from "../courier_place.js";
+import { callCourier } from "../couriers/api.js";
+import { activeCourier, courierLabel } from "../couriers.js";
 import { CONFIG } from "../../../store/config.js";
 
 export function renderSettings(root, state) {
@@ -338,6 +342,74 @@ export function renderSettings(root, state) {
     el("p", { class: "card-sub", style: "margin:6px 0 0" },
       "A Mailing label prints FROM = this address, TO = the customer's name, phone and delivery address, and ORDER = the code, date and items. Type it on each phone you print labels from."));
 
+  // ── Courier ─────────────────────────────────────────────────────────────
+  // Two facts and no settings. A courier is not given a street address, it is given a
+  // POINT, so this card's whole job is to hold the one point every trip starts from —
+  // the bakery's own door — and to say which courier it is talking to. There is no
+  // API key, no secret and no account login on this card, and there never will be:
+  // those live in the function on the server, because anything shipped to this page
+  // can be read by anyone who opens the page.
+  //
+  // THIS CARD DOES NOT KNOW ITS COURIER'S NAME. It asks the registry, and every word
+  // it says about the courier comes back from the provider's own `label`. That is what
+  // "ready for another courier" means at this end of the app: the day a second courier
+  // is added, this card names it correctly without one character changing here.
+  const who = courierLabel();
+  const courierKey = (activeCourier() || {}).key || "";
+  const pickupLine = el("p", { class: "card-sub", style: "margin:8px 0 0" },
+    "Not pinned yet — every price needs a door to collect from.");
+  const envLine = el("p", { class: "card-sub", style: "margin:10px 0 0" },
+    `Checking which ${who || "courier"} this phone can reach…`);
+
+  function paintPickup() {
+    const p = place.validPlace(cur.pickupPlace);
+    pickupLine.textContent = p
+      ? `Pickup pin: ${place.fmtPlace(p)}  ·  ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
+      : "Not pinned yet — every price needs a door to collect from.";
+  }
+  paintPickup();
+
+  const pinBtn = button("Put the pickup pin on the map", () => {
+    openPlacePicker({
+      state,
+      title: "The bakery's pickup pin",
+      hint: "This is the door the driver collects from. Pin it once — it is kept with your settings and travels to your other phone.",
+      address: String(cur.mailingAddress || "").trim(),
+      start: cur.pickupPlace,
+      onPick: (spot) => {
+        place.setPickupPlace(state, spot);
+        paintPickup();
+        toast("Pickup pin saved");
+      },
+    });
+  }, "primary");
+
+  // Which environment is live is a SECRET on the server, not a build — sandbox and
+  // production are separate hosts with separate keys and separate wallets — so the
+  // honest thing this card can do is ask the server and say the answer. It never sees
+  // the key, and neither does this page.
+  (async () => {
+    const out = await callCourier(state, { action: "account", provider: courierKey });
+    if (dead) return;
+    if (!out.ok) {
+      envLine.textContent = `${who || "The courier"} could not be asked: ${out.reason}`;
+      return;
+    }
+    envLine.textContent = out.env === "production"
+      ? `${who}: LIVE account (production). Bookings here are real and cost real money.`
+      : `${who}: sandbox. Test bookings only — no real driver is sent and no money is spent.`;
+  })();
+
+  const courierCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, who ? `Courier (${who})` : "Courier"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `Prices and bookings come from ${who || "your courier"} through your own account. This card holds the one thing a courier cannot work without: the pickup point, which is the bakery's exact door rather than its address — a driver is routed to a point, and an address he cannot find is a trip nobody can book.`),
+    pickupLine,
+    el("div", { class: "btn-row", style: "margin-top:12px" }, pinBtn),
+    el("p", { class: "card-sub", style: "margin:10px 0 0" },
+      "The API key and secret are kept on the server and are never typed here, never on this page, and never in a message. Each customer's own door gets a pin the first time you quote or book for them, and it is remembered against their number."),
+    envLine);
+
   const fileInput = el("input", { class: "input", type: "file", accept: "application/json,.json", style: "display:none",
     onchange: (e) => doImport(e) });
 
@@ -525,7 +597,7 @@ export function renderSettings(root, state) {
   // The sample-data card is optional — replaceChildren is not el(), and would
   // print a literal "null" at the foot of Settings for every owner who has any
   // product or ingredient, so it is spread only when it exists (19 Sep 2026).
-  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard,
+  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, referralsCard, mailingCard, courierCard, supabaseCard, sharedCard, backupCard, dangerCard,
     ...(sampleCard ? [sampleCard] : []));
 
   function doImport(e) {

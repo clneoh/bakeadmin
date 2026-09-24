@@ -1091,6 +1091,52 @@ option.tone-off { color: var(--muted); }
    off its edge. */
 .popup-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 
+/* ---------- The map that puts a pin on a door ----------
+   The box Leaflet draws into. It must have a height of its own BEFORE the map is
+   built: a container Leaflet measures as zero draws a corner of one tile and never
+   recovers, because it has no reason to measure again. 260px holds about a
+   neighbourhood on a phone, which is the zoom a pin is placed at. `touch-action` is
+   left to Leaflet — it sets `none` on the container itself while dragging, and
+   overriding it here would make a finger scroll the pop-up instead of the map. */
+.place-map {
+  height: 260px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eceae4; /* the tile layer's own ground colour, so an empty blue box is never shown */
+}
+.place-map .leaflet-control-attribution { font-size: 10px; }
+.leaflet-container { font: inherit; }
+
+/* ---------- What the courier would charge ----------
+   One row per vehicle: what it is called on the left, how far and how long the price
+   lasts under it, the price itself on the right, and the button that takes it. The
+   price is tabular-numeric and never wraps, so a column of prices reads as a column —
+   a list of numbers that jitters between rows is a list she has to read twice.
+
+   The row wraps because a phone holds about 300 pixels of it and the vehicle name, the
+   distance and a button do not fit on one line at that width; the button then lands on
+   a line of its own rather than off the card. */
+.quote-box { margin-top: 10px; }
+.quote-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.quote-row:first-child { border-top: none; }
+.quote-what { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.quote-name { font-weight: 600; }
+.quote-sub { font-size: 11px; color: var(--muted); }
+.quote-price { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A price that has died is shown struck through rather than removed: the number she
+   may have written down is still readable and is still the number it was, and a row
+   that vanished would leave her wondering which vehicle she had looked at. */
+.quote-dead .quote-price, .quote-dead .quote-name { color: var(--muted); text-decoration: line-through; }
+
 /* ---------- App-password lock ---------- */
 .lock-layer {
   position: fixed;

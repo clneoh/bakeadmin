@@ -19,6 +19,9 @@
 import { login as loginSupabase, cachedToken } from "./supabase.js";
 import { save, STOCK_PRODUCTION } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
+// The one answer to "is this a place" — see placeForSync below for why the courier
+// module's own rule is asked rather than a copy of it written here.
+import { validPlace } from "./courier_place.js";
 
 const SYNC_KEY = "bakeadmin.sync";
 
@@ -119,8 +122,37 @@ function cleanDeveloperForSync(dev) {
   };
 }
 
+// The bakery's courier pickup pin, in the shape the cloud carries — or null when
+// there is no pin to carry. That single return value answers both questions at once
+// ("does this phone have an opinion" and "what goes in the payload"), so there is
+// no way for the two to disagree.
+//
+// The test for a place is the courier module's own validPlace rather than one
+// written here, because there must be exactly ONE answer in the app to "is this a
+// place". Two answers would drift, and the way they would drift is the expensive
+// one: a phone believing a spot is pinned that sync refuses to hand over, so the
+// other phone asks her to walk the map again for a door she already marked. It is
+// also the stricter of the two — `Number(null)` is 0, so a hand-written check would
+// have carried a place whose latitude was null as a real point on the Equator.
+function placeForSync(rec) {
+  const src = validPlace(rec && rec.pickupPlace);
+  if (!src) return null;
+  return {
+    lat: src.lat,
+    lng: src.lng,
+    label: src.label,
+    // Carried so the two phones agree about WHEN as well as where — the pin's own
+    // screen says when it was placed, and a phone that received `lat`/`lng` without
+    // `at` would show the pin it did not make as one it had.
+    at: String((rec.pickupPlace && rec.pickupPlace.at) || "").trim(),
+  };
+}
+
 function recordPayload(kind, rec) {
   if (kind === "settings") {
+    // Asked of both phones in the same place, so "do I have a pin" and "what is the
+    // pin" cannot come out differently. Null on a phone that has never pinned one.
+    const courierPin = placeForSync(rec);
     return {
       defaultCapacity: rec.defaultCapacity,
       deliveryDays: rec.deliveryDays,
@@ -155,6 +187,18 @@ function recordPayload(kind, rec) {
       // is typed — a phone that never set it must not push an empty one over
       // the other phone's (last-write-wins would clobber it).
       ...(devSet(rec) ? { developer: cleanDeveloperForSync(rec.developer) } : {}),
+      // Where the courier collects from (25 Sep 2026), only once the bakery's pin
+      // is on the map — the same guard as the developer above and for the same
+      // reason: a phone that has never pinned it must not push a null over the pin
+      // the other phone made. Guarded rather than merely conditional so rule 2
+      // hands her pin DOWN to a newly set up phone instead of that phone asking her
+      // to walk the map a second time.
+      //
+      // It is deliberately NOT in SPEAK_EMPTY: there is no Unpin. A pin, once
+      // placed, is replaced by re-pinning, never cleared — so it never has an empty
+      // to speak, and a future Unpin would have to be given its own rule here
+      // rather than quietly going silent and coming back from the cloud.
+      ...(courierPin ? { pickupPlace: courierPin } : {}),
     };
   }
   return rec;
@@ -190,7 +234,16 @@ function recordPayload(kind, rec) {
 // That test is hasOpinion below, and it is asked about the cloud as well as the
 // phone, which is what stops a newly set up phone's stock plan from replacing
 // hers in either direction.
-const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer"];
+//
+// v188 adds `pickupPlace` — the bakery's courier pickup pin (25 Sep 2026). It is
+// guarded in the ORDINARY way, which is the whole of what it needs: it is absent
+// from a payload until she pins it, so all three rules already do the right thing
+// without a line of new logic. It rides the generic branch of hasOpinion below,
+// unlike `production` beside it — which means the acceptance test for it is not a
+// new rule but a walk through the three that stand: rule 2 must hand her pin down
+// to a phone that has never walked the map, and rule 3 must put it back up when a
+// phone that never pinned one happens to have stamped the row newest.
+const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer", "pickupPlace"];
 
 // `production` — the numbers on More → Production line — is guarded by the same
 // three rules but cannot be judged the same way, and it was the one key left

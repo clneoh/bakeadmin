@@ -115,6 +115,23 @@ export function defaultState() {
       // line with one — can sit side by side. Empty means she has saved none.
       scenarios: [],
       developer: { name: "", emails: [], whatsapp: "" }, // site credit + wish-list recipient; shown only once set
+      // Where the courier collects from (25 Sep 2026): the bakery's own point on
+      // the map, pinned once on more → Couriers. It is a SETTING rather than part of
+      // the storefront because the storefront is what customers read and this is a
+      // routing fact — but both carry the same address, and the screen says so.
+      // null means "not pinned yet", which every courier screen states in words
+      // rather than sending a blank point to an API.
+      pickupPlace: null,
+      // How the courier is asked for (25 Sep 2026). `dispatch` is the time of day a
+      // delivery is normally called for — the quote screen prefills it and she can
+      // change it per quote, which is why it is a convenience rather than a fact.
+      // Device-local, like lock and weekCheck above, and deliberately NOT synced:
+      // it is the one setting here whose whole job is to prefill a box on the phone
+      // in her hand, and a key that only ever holds a prefilled default is not worth
+      // a branch in sync.js's guarded-key rules. There is no `provider` key yet on
+      // purpose either: there is one courier, and a setting with one choice is a
+      // control that does nothing (see js/couriers.js).
+      courier: { dispatch: "10:00" },
       // The two lists the books are built from (16 Sep 2026). Empty means "the
       // built-in ones" — see js/accounts.js — so a phone that never edits them
       // behaves exactly as before, and both lists are shared between phones.

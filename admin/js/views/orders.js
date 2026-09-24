@@ -20,6 +20,8 @@ import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
+import { strictNumber } from "../courier_place.js";
+import { courierQuoteSection } from "./courier_quote.js";
 import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOrder } from "../profiles.js";
 
 let orderStatusFilter = "";
@@ -1549,6 +1551,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("label", {}, "Courier tracking number (optional)"),
       tracking),
     charge.el,
+    // Same price section as the Note / tracking box carries, for the same reason that
+    // box carries the charge: the fee is part of what this order IS, so both doors to
+    // the charge open on the same way of filling it in (25 Sep 2026).
+    courierQuoteSection({ state, orders: [first], onUseFee: (q) => charge.set(q.amount) }),
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "Items"),
       el("p", { class: "card-sub", style: "margin:0 0 6px" },
@@ -1856,11 +1862,12 @@ function courierControls(state, first, onChange = () => {}) {
   let paidWith = spent ? spent.method : "";
   const methods = methodsOf(state);
 
+  const amountInput = el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
+    placeholder: "e.g. 8.00", value: feeRaw, "aria-label": "Courier charge",
+    oninput: function () { feeRaw = this.value; onChange(); } });
   const amountField = el("div", { class: "field" },
     el("label", {}, "Courier charge (optional)"),
-    el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
-      placeholder: "e.g. 8.00", value: feeRaw, "aria-label": "Courier charge",
-      oninput: function () { feeRaw = this.value; onChange(); } }));
+    amountInput);
   const payerSel = select([
     { value: "", label: "Not recorded" },
     { value: "me", label: "I paid it" },
@@ -1897,6 +1904,28 @@ function courierControls(state, first, onChange = () => {}) {
 
   return {
     el: wrap,
+    // Put an amount into this box from OUTSIDE it — the courier quote's own [Use this
+    // fee]. It writes the same field and fires the same repaint as her typing does, so
+    // a quoted price and a typed one are the same kind of answer: the payer and the COD
+    // questions below it behave identically either way, and there is no second charge
+    // editor for the two to disagree through. A junk reading is refused rather than
+    // written, because `Number("")` is 0 and a box showing RM0.00 is a charge she would
+    // have to notice and clear.
+    //
+    // It ANSWERS whether it wrote, and the answer is not decoration: the caller is a
+    // button that has to say what it did. A courier can quote a total of zero — a real
+    // reply, priced at nothing — and a [Use this fee] that toasted "put in the charge
+    // box" over a box it left empty is the exact fault this app keeps finding: a tap
+    // that moves the picture and skips the write.
+    set: (amount) => {
+      const n = strictNumber(amount);
+      if (n === null || n <= 0) return false;
+      feeRaw = String(n);
+      amountInput.value = feeRaw;
+      paint();
+      onChange();
+      return true;
+    },
     read: () => {
       const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
       // A charge is the amount AND who bore it, so no payer means no charge and the
@@ -1967,6 +1996,13 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         el("div", { class: "field" },
           el("label", {}, "Courier tracking number (optional)"), tracking),
         charge.el,
+        // The price, folded away until she asks for it (25 Sep 2026). It lives INSIDE
+        // this card rather than in a pop-up of its own, because the app has one pop-up
+        // layer: a second card would replace this one and take the charge box, the note
+        // she is part-way through and the Save button with it, so an accepted fee would
+        // land in a box nothing could ever save. Its [Use this fee] writes through this
+        // card's own charge box, so there is still one charge editor in the app.
+        courierQuoteSection({ state, orders: [first], onUseFee: (q) => charge.set(q.amount) }),
         custTotal,
         el("div", { class: "field" }, el("label", {}, "Paid by the customer"), paidSel),
         el("p", { class: "card-sub", style: "margin:0 0 10px" },
