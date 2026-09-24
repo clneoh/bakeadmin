@@ -3764,7 +3764,19 @@ function personPopup(row, sc, on, state, r) {
           "One minute, not at the minute — a call is a call to go and stand somewhere, and a fold is a one-minute job, so telling them the moment they should already be folding is too late. Off, they still work the day; they are simply not called.")),
 
       el("div", { class: "tl-notes", style: "margin-top:12px" },
-        el("div", { class: "tl-note" }, jobsBox)));
+        el("div", { class: "tl-note" }, jobsBox,
+          // Her words, 24 Sep 2026, when she went looking for a reassign button on
+          // this card: "if you know that reassignment is automatic, then forget about
+          // my request for reassignment button, just need to mention work
+          // reassignment is automatic with worker card detail change". So there is no
+          // button here, and the card says why there is nothing to press. The reason
+          // is the model's: the day gives out its own work from the hours and the
+          // ticks on this very card (peopleRows), so changing either re-picks hands
+          // on the spot — while a person she put on a module herself, or a stretch
+          // she moved off somebody's row, is hers and is read first, so this card
+          // moving it would be the app overruling her.
+          el("div", { class: "hint" },
+            "Nothing here needs a reassign button: the day gives out this work by itself, so changing the hours above or the ticks changes these lines on the spot, and a job that no longer fits is handed to somebody else. What you placed by hand stays yours — a person you put on a module yourself, or a stretch you moved off somebody's row, is not moved by this card."))));
 
   }, { onTitle: (node) => { titleEl = node; } });
 }

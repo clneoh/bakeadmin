@@ -1,8 +1,78 @@
-# Jienluv2bake — change history (v54 → v182)
+# Jienluv2bake — change history (v54 → v183)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v183, REASSIGNMENT HAPPENS BY ITSELF, AND THE PERSON'S CARD SAYS SO (no
+database step). One sentence on one card, and nothing else in the app changed. You went looking for
+a reassign button on a person's card and there was not one, so the card now says why there is nothing
+to press: the day hands out its own work, so changing that person's hours or their ticks changes
+their job list on the spot, and a job that no longer fits them is given to somebody else. Your own
+words that settled it: "if you know that reassignment is automatic, then forget about my request for
+reassignment button, just need to mention work reassignment is automatic with worker card detail
+change." Nothing of yours is rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "where is the reassign button?" — and then, having
+answered it yourself: "you can put the reassign work button inside person's card", and then the
+correction that ended it: "if you know that reassignment is automatic, then forget about my request
+for reassignment button, just need to mention work reassignment is automatic with worker card detail
+change".
+
+**2. Why there was nothing to find.** Reassignment has been automatic since v177, and it is automatic
+on that very card. The day gives out every job nobody has been named for, and the only two things it
+reads about a person are the two facts you type on their card: the hours they are here, and the
+modules they are ticked for. Change either and the day re-picks hands immediately — which is why the
+card never needed a button, and why a button there would have been a second way to say the same
+thing.
+
+**3. What the card says now.** One sentence, in place of a control: the day gives out this work by
+itself, so changing the hours above or the ticks changes these lines on the spot, and a job that no
+longer fits is handed to somebody else. And what you placed by hand stays yours — a person you put on
+a module yourself, or a stretch you moved off somebody's row, is not moved by this card. That last
+half matters as much as the first: the card only ever moves the work the day was already choosing
+between.
+
+**4. The rule itself, written down the way you stated it.** "in a module finding his person, module
+will look at person's with the least skill and fit its module. if fit then assign him first." So a
+module asks the person who FITS it — trained for that module, and inside the hours they are here —
+and between two people who both fit it asks the one trained for the fewest modules first, with the
+person who can work anything at all asked last of all, exactly as you confirmed it. Ties go to the
+lower person number. It is a preference and never a refusal: a job nobody trained is free for still
+goes to somebody, and the row says why.
+
+**5. Measured, on your own day, at 375 x 812, signed out of the cloud.** Your card for Wei opened
+reading "11 min of work, in 3 places, and nothing collides", "Here all day", and her five jobs: 4:00
+am Dimple and top, 4:13 am The oven swap and the bake, and the three stretch and folds at 4:30, 5:01
+and 5:32. The new sentence was on that card, and the card carried no press about the work at all —
+the only button on it was its own close. Then one tick, "Mixing the dough in the tub", and four of
+Wei's five jobs left her on the spot: her list fell from five lines to one, and Person 3's rose from
+one to five. The day still stood at the same four people, so nothing invented a hand and nothing was
+lost — the work was handed on, which is the whole claim. Taking the tick off put all five lines back
+exactly as they were.
+
+**6. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day, and no
+word of your plan. Measured live: after working the card, ticking a module and taking the tick off,
+your stored data was put back from a copy taken beforehand and compared — byte for byte the same
+13,888 characters, with your three saved days still reading 24, 4 and 24 pans, and only the app's own
+two keys left in the phone's storage. One trace is named rather than glossed, because the same shape
+was named in v180: taking the last tick off leaves twelve characters — an empty skills entry — where
+there was nothing before, exactly as your stored data already carries for merges. It reads as no
+training at all, it changes nothing about the day, and a tick you never press never writes it.
+
+**7. The sentence was proved true, not just printed.** A card that said reassignment was automatic
+and did not do it would be worse than saying nothing, so the test reads the job list off the card
+itself after one tick. Three faults were put back and each was watched failing a test that names it:
+with the sentence deleted, the test fails reading that the card says nothing about the reassign
+button; with the training made unable to keep a job off anybody, it fails at the day's own end,
+reading that the day went on giving the free job to somebody trained for something else; and with the
+card no longer re-reading itself on a tick, it fails at the card's end, reading that the card went on
+drawing the day it was built from. The claim can break at either end and the two are told apart on
+purpose. The suite is 1313 passing with none failing.
+
+**8. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. The card's sentence reads the same two facts v177 already stores in the scenario, and
+nothing new is written anywhere.
 
 **24 Sep 2026 — engine v182, THE SHADE IS ONLY WHAT YOU SET, ONE PRESS MOVES ONE BATCH, AND THE
 PRODUCTION-LINE NUMBERS ARE PROTECTED (no database step). Three things in one version, all of them

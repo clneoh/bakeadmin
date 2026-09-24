@@ -4387,6 +4387,92 @@ test("the only band on a person's row is the hours she typed, worked out from no
     "the card still carries the computed line beside her own hours");
 });
 
+// ── Reassignment is automatic, and the card says so (v183) ───────────────────
+//
+// Her words, 24 September 2026, having gone looking for a reassign button on this
+// card: "if you know that reassignment is automatic, then forget about my request for
+// reassignment button, just need to mention work reassignment is automatic with worker
+// card detail change". So there is no button, and the card carries the sentence
+// instead. A card that SAID that and did not do it would be worse than saying
+// nothing, so both halves are pinned: the words, and the movement they promise —
+// measured on a two-hand day, where one tick on this card takes a job off this
+// person's own list and puts it on somebody else's, with nothing pressed but the tick.
+
+test("the person's card says reassignment is automatic, and shows it happening (v183)", () => {
+  const { root } = render();
+  openPerson(root, "Person 1");
+  assert.match(popupBody(), /reassign button/,
+    "the card says nothing about the reassign button she went looking for");
+  assert.match(popupBody(), /the day gives out this work by itself/,
+    "the card does not say that the day hands its own work out");
+  assert.match(popupBody(), /What you placed by hand stays yours/,
+    "the card does not say which placements it will not move");
+  // And the sentence must not be doing the work of a control: no press on this card
+  // moves a job. What moves one is her hand — on this card, a tick; on somebody's own
+  // row, that stretch itself. The close ✕ and Done are the only buttons a card carries.
+  const named = walk(layers["popup-layer"]).filter((n) => n.tagName === "BUTTON")
+    .map((b) => textOf(b).trim()).filter((t) => /reassign|move|hand|share|assign/i.test(t));
+  assert.deepEqual(named, [],
+    "the card has grown a press about the work after all, which is the button she withdrew");
+
+  // The promise, measured. Two modules, two pairs of hands: one module names its
+  // people, the other is given out by the day. With nobody trained the free job falls
+  // to person 1 — the lower number, and both of them able to work anything, so equal.
+  // Train person 1 for the NAMED module and nothing else, and that free job is no
+  // longer theirs to have.
+  const two = render({
+    modules: [
+      { id: "named_mod", name: "The named one", on: true, batch: 1, people: 1,
+        count: 2, crew: [1, 2], repeats: 2, everyMin: 20, cycleMin: 5, touchMin: 5, startMin: 0 },
+      { id: "free_mod", name: "The free one", on: true, batch: 1, people: 1,
+        repeats: 1, everyMin: 0, cycleMin: 5, touchMin: 5, startMin: 60 },
+    ],
+  });
+  // Read off the job lines the card itself draws, never off the model, so a card that
+  // promised a move and drew the old list would fail here rather than pass. Each line
+  // reads "4:00 am — The free one" and, where a module runs more than one, names its
+  // line too — this test is about WHICH module is on the list, so the name is read out
+  // of that line rather than the line compared whole.
+  const jobLines = () => walk(layers["popup-layer"])
+    .filter((n) => hasClass(n, "tl-note-job"))
+    .map((n) => textOf(n).trim().replace(/^\d{1,2}:\d{2} (am|pm) — /, "").replace(/, line \d+$/, "").trim());
+  openPerson(two.root, "Person 1");
+  assert.deepEqual(jobLines(), ["The named one", "The free one"],
+    "the day did not hand the free job to person 1 to begin with, so this card has nothing to show moving");
+  const tick = tickFor("The named one");
+  assert.ok(tick, "the card offers no way to train person 1 for the named module");
+  tick.checked = true;
+  tick.dispatchEvent({ type: "change" });
+  assert.deepEqual(two.state.settings.scenario.skills, { 1: ["named_mod"] },
+    "ticking the module did not write the training the day works from");
+  // The day's own answer first, and the card's after it, because this claim can break
+  // at either end and the two are worth telling apart: a day that ignored the tick is
+  // the rule itself giving way, where a card that went on drawing the day it was built
+  // from is only a stale card. Asked in this order, each fault fails the assertion that
+  // names it rather than both landing on the card's.
+  const dayAt = (who) => (computeScenario(two.state.settings.scenario).rows.find((r) => r.person === who) || {}).items.map((i) => i.module);
+  assert.deepEqual(dayAt(1), ["named_mod"],
+    "the day itself went on giving the free job to somebody trained for something else");
+  assert.deepEqual(dayAt(2), ["named_mod", "free_mod"],
+    "the day took the free job off person 1 and gave it to nobody");
+  assert.deepEqual(jobLines(), ["The named one"],
+    "the card went on drawing the day it was built from — the promise of automatic reassignment is a sentence and nothing more");
+  // And it went somewhere rather than nowhere: the other person's own card now wears it.
+  openPerson(two.root, "Person 2");
+  assert.deepEqual(jobLines(), ["The named one", "The free one"],
+    "the job left person 1 and arrived on nobody, so the day lost a job rather than reassigning it");
+
+  // Untick, and the day puts it back to the job — the same card, the same way.
+  openPerson(two.root, "Person 1");
+  const back = tickFor("The named one");
+  back.checked = false;
+  back.dispatchEvent({ type: "change" });
+  assert.deepEqual(two.state.settings.scenario.skills, {},
+    "unticking everything left an entry behind where the day reads here-all-day-can-work-anything");
+  assert.deepEqual(jobLines(), ["The named one", "The free one"],
+    "the free job did not come back to person 1 when the training was taken off");
+});
+
 test("a job too short to see is still drawn four wide (v182)", () => {
   // The thumb rule this app keeps, pinned here so that removing the band could not
   // quietly take the four-pixel floor with it: a one-minute job is drawn four wide, so
