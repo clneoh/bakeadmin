@@ -246,36 +246,41 @@ function plannerInto(root, state, board) {
   // the day sitting at its start either. Both windows are kept apart rather than given
   // one number: they pan together, and a repaint is not the place to discover that they
   // had drifted.
+  // Every node of a class, in document order, and not just the first. One class can be
+  // on more than one window: a board draws the train AND the planner's people's window,
+  // and both carry `.tl-pane-people`. Keeping only the first would quietly lose the
+  // second one's pan on the next repaint — the exact fault this exists to prevent, one
+  // window along. Each node is remembered by its POSITION in that class's matches,
+  // because a repaint replaces every node and identity does not survive it.
+  //
+  // A hand walk and not a query, for the reason this file already carries: the repaint
+  // runs on every press and this has to be cheap and exact, and a selector the browser
+  // answers but a test's stand-in screen does not is a rule the tests cannot see.
   const KEPT_SCROLL = [".tl-pane-proc", ".tl-pane-people", ".sc-shelf"];
-  const scrollKept = () => KEPT_SCROLL.map((sel) => {
-    const n = findIn(readout, sel);
-    return n ? [sel, Number(n.scrollLeft) || 0, Number(n.scrollTop) || 0] : null;
-  }).filter(Boolean);
+  const findAllIn = (root, cls) => {
+    const out = [];
+    const want = ` ${String(cls).replace(/^\./, "")} `;
+    const walk = (n) => {
+      for (const c of Array.from((n && n.children) || [])) {
+        if (c.nodeType !== 1) continue;
+        if (` ${c.className} `.includes(want)) out.push(c);
+        walk(c);
+      }
+    };
+    walk(root);
+    return out;
+  };
+  const scrollKept = () => KEPT_SCROLL.flatMap((sel) => findAllIn(readout, sel)
+    .map((n, i) => [sel, i, Number(n.scrollLeft) || 0, Number(n.scrollTop) || 0]))
+    .filter(([, , left, top]) => left || top);
   const scrollBack = (kept) => {
-    for (const [sel, left, top] of kept) {
-      const n = findIn(readout, sel);
+    for (const [sel, at, left, top] of kept) {
+      const n = findAllIn(readout, sel)[at];
       if (!n) continue;
       if (left) n.scrollLeft = left;
       if (top) n.scrollTop = top;
     }
   };
-
-  // The first node of this class under `root`, or null. A walk and not a query, because
-  // the repaint runs on every press and this has to be cheap and exact — and because a
-  // selector the browser answers but a test's stand-in screen does not is a rule the
-  // tests cannot see.
-  function findIn(root, cls) {
-    const want = String(cls).replace(/^\./, "");
-    for (const c of Array.from((root && root.children) || [])) {
-      if (c.nodeType === 1 && (` ${c.className} `).includes(` ${want} `)) return c;
-    }
-    for (const c of Array.from((root && root.children) || [])) {
-      if (c.nodeType !== 1) continue;
-      const hit = findIn(c, cls);
-      if (hit) return hit;
-    }
-    return null;
-  }
 
   // Only the answers are repainted when something changes — never the fields —
   // so the box she is typing in keeps its place and its cursor.
@@ -1141,14 +1146,13 @@ function timeline(r, sc, on, state, run) {
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
   const now = el("div", { class: "tl-now", hidden: !(run.on || run.board) }, nowLab);
   const nowLab2 = el("span", { class: "tl-now-lab" }, "now");
-  // On a board the people's line is a strip of WORK and no longer a strip of time, so
-  // the clock that used to be drawn down it would be pointing at a minute that is not
-  // on that axis any more. It stays in the DOM and it stays in run.lines — one clock is
-  // placed in both windows from one computation, and a board's window is the modules'
-  // one (see placeNow) — it is simply not shown here. Hidden rather than dropped, so
-  // the two windows keep one placement and nothing has to remember which of them got
-  // a line.
-  const now2 = el("div", { class: "tl-now", hidden: run.board ? true : !run.on }, nowLab2);
+  // The day's clock stands in the people's window on both screens, because the people's
+  // window is the planner's own on both screens. v184 hid it on a board — the train had
+  // taken that window over and its strip carries no minute axis for a clock to stand on
+  // — but she put the window back (see the note at the train, below), so the line comes
+  // back with it. One clock, placed in both windows from one computation, as it always
+  // was.
+  const now2 = el("div", { class: "tl-now", hidden: !run.on }, nowLab2);
   // The clock, drawn at the top of the modules window. Held here rather than found
   // again by class name, so the cursor is wired to the clock the chart actually
   // drew.
@@ -1204,21 +1208,40 @@ function timeline(r, sc, on, state, run) {
   // through.
   const clockLab = el("span", { class: "tl-clock-lab" });
   const clock = el("div", { class: "tl-clock", hidden: !run.board }, clockLab);
-  const people = el("div", { class: `tl tl-pane-people${run.board ? " train" : ""}` },
+  // The people's window, on BOTH screens and unchanged: a row each, carrying the modules
+  // that row attends, on the day's own minute axis. v184 replaced this window with the
+  // train on a board; she has put it back — "the production page start with the person's
+  // window the train inside, after the N person, we have the 2windows that we bring in
+  // from scenario planning, we keep it original" — so a board now carries the train
+  // ABOVE the planner's two windows and leaves the two windows below it exactly as the
+  // planner draws them, both hairline and day's clock included.
+  const people = el("div", { class: "tl tl-pane-people" },
     el("div", { class: "tl-inner" },
       el("div", { class: "tl-people" },
-        ...r.rows.map((row) => (run.board
-          ? trainRow(r, row, sc, on, state, run)
-          : personRow(r, row, trackW, sc, on, state, run)))),
+        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state, run))),
       cursor2,
-      now2,
-      clock));
+      now2));
+  // The train: a board's own window, built only there so the planner's tree keeps its
+  // two children exactly as they were. It sits FIRST on the page, above the planner's
+  // two windows, because the line a worker reads is the thing that answers "what is
+  // next and has anybody picked it up" — and the chart underneath is what answers "why
+  // is it then".
+  //
+  // It keeps the class `.tl-pane-people.train` rather than a class of its own, so the
+  // whole train block in the stylesheet goes on hanging off one selector, and it is
+  // still the FIRST `.tl-pane-people` on the page — which is what the board's own
+  // readers (run.peoplePane, and the tests) mean by the people's window on a board.
+  const train = run.board ? el("div", { class: "tl tl-pane-people train" },
+    el("div", { class: "tl-inner" },
+      el("div", { class: "tl-people" },
+        ...r.rows.map((row) => trainRow(r, row, sc, on, state, run))),
+      clock)) : null;
   // Who the people's window IS, kept on the run rather than looked up by class
   // afterwards. The train's measures are taken from this element's own width, and a
   // walk of the tree would find the window the chart drew a moment ago; this is the
   // one that is on the page. Replaced by every draw, which is exactly right — the
   // measurement is always of the strip that is standing.
-  run.peoplePane = people;
+  run.peoplePane = train || people;
   run.clock = clock;
   run.clockLab = clockLab;
   // --hour-w is the hour line every track has always drawn. --tick-w is the grid
@@ -1241,10 +1264,14 @@ function timeline(r, sc, on, state, run) {
   // with her hand, both ways at once. See wirePaneDrag — and isPrimaryClick, which is
   // the other half of that release, the half that keeps a press for panning from
   // opening a card.
+  // The children, in the order she asked for them: on a board the train stands first and
+  // the planner's two windows follow it; on the planner itself the two windows are all
+  // there is, exactly as they always were. One list, built once, so the board and the
+  // planner cannot come to disagree about what the chart is made of.
   const wrap = el("div", {
     class: "tl-wrap",
     style: `--hour-w:${Math.round(60 * r.pxPerMin)}px;--tick-w:${Math.round(gridStepFor(r.pxPerMin) * r.pxPerMin)}px`,
-  }, proc, people);
+  }, ...(run.board ? [train, proc, people] : [proc, people]));
   // The header, kept so the now-line can be placed against it. ONE origin: both
   // windows put their ruler's track at the same offset, because the name column is
   // 156px wide in both and box-sizing is border-box throughout, so the same left is
@@ -1264,19 +1291,22 @@ function timeline(r, sc, on, state, run) {
   if (run.board) on.afterPaint(() => trainGeometry(run));
   // The two windows are tied together by their SHARED MINUTE AXIS: a scroll in one
   // puts the other at the same pixel, and a reading taken in one is drawn in the
-  // other. A board's workers' window has no minute axis — its coaches are the same
-  // width whatever they are worth, and the strip never scrolls — so all three tie-ups
-  // are the planner's alone. Left in place on a board they would be three quiet lies:
-  // a scroll the strip cannot make, a drag that would scroll it if it could, and a
-  // hairline standing on a strip with no minutes under it. Her architecture, 24
-  // September: "The train is its own strip."
-  wireTimeCursor(proc, r, cursor, lab, headClock, run.board ? null : cursor2);
-  if (!run.board) wirePaneScroll(proc, people);
-  wirePaneDrag(proc, run.board ? null : people);
+  // other. That is now true on BOTH screens, because the planner's people's window is
+  // on both — she put it back on the board, so the guard v184 put here is gone with it.
+  //
+  // The train is the odd one out and it is deliberately left out of all three tie-ups.
+  // It has no minute axis at all — a coach is the same width whatever the job is worth,
+  // and the strip never scrolls sideways — so a scroll it cannot make, a drag that would
+  // scroll it if it could, and a hairline standing on a strip with no minutes under it
+  // would be three quiet lies. Her architecture, 24 September: "The train is its own
+  // strip." Only the people's window takes those wires now, and the train takes none.
+  wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
+  wirePaneScroll(proc, people);
+  wirePaneDrag(proc, people);
   // The workers' clock is read by hand and only there: the planner points at a day it
   // is walking, and a drag in the workers' window on a board is somebody asking "how
   // long have I got" rather than moving the day. See wireTrainClock.
-  wireTrainClock(people, run);
+  wireTrainClock(train, run);
   return wrap;
 }
 
@@ -1646,13 +1676,23 @@ const SHORT_STOP = new Set([
 // word, and only when every word is a stop word does it fall back to the longest.
 // So "Into the proofer" reads proofer, "Dimple and top" reads Dimple, "Cutting and
 // packing" reads Cutting, "The oven swap and the bake" reads oven.
+//
+// The punctuation goes with the words it is not part of. Found by reading the drawn
+// board rather than by reasoning: the stock module "Wash, oil and fill" named its
+// coach "Wash," — a trailing comma on the face, which is a broken label in exactly the
+// way her refinement refuses ("just show meaningful"): the box was not too small, the
+// word was simply cut wrong. The stop-word test already strips punctuation to READ a
+// word; this strips it from the word that is handed back, at both ends, so "Wash, oil
+// and fill" reads Wash and "(overnight) retard" reads overnight.
 function shortName(name) {
   const whole = String(name == null ? "" : name).trim();
   if (!whole) return "";
   const words = whole.split(/\s+/).filter(Boolean);
-  const keep = words.filter((w) => !SHORT_STOP.has(w.toLowerCase().replace(/[^a-z0-9]/g, "")));
-  if (keep.length) return keep[0];
-  return words.slice().sort((a, b) => b.length - a.length)[0] || whole;
+  const bare = (w) => String(w).replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
+  const keep = words.filter((w) => !SHORT_STOP.has(bare(w).toLowerCase()));
+  if (keep.length) return bare(keep[0]) || keep[0];
+  const longest = words.slice().sort((a, b) => b.length - a.length)[0] || whole;
+  return bare(longest) || longest;
 }
 
 // The line a coach may stand on: the pane's own width less the name column the board

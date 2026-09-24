@@ -1,8 +1,75 @@
-# Jienluv2bake — change history (v54 → v184)
+# Jienluv2bake — change history (v54 → v185)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v185, THE COACH KEEPS ITS WORD, AND THE BOARD'S PAGE IS PUT IN YOUR ORDER (no
+database step). Two things: every coach on the Production line's train now carries a word at every
+width, and the board's page reads top to bottom the way you asked — the person's train first, then
+the two windows borrowed from the Scenario planner, kept original. Nothing of yours is rewritten,
+and there is no database step.**
+
+**1. What you asked, in your own words.** On the coach face: "Phone coach" reads as "Two lines:
+icon + name, then time", and on the broken label, "Yes, fix it." Then, on the page itself:
+"let me emphasise, the production page start with the person's windows the tarin inside, after the N
+person, we have the 2windows that we bring in from scenario planning, we keep it original." Asked
+what should sit below the train rows, you chose both planner windows — the module window AND the
+people window exactly as Scenario planning draws them.
+
+**2. The coach keeps its word.** v184's refinement — "if the coach box is too smalll to house the
+full words, then just show meaningful, hoover mouse on show tooltip, with more details" — had been
+built as __drop the name and keep the icon__, and reading the drawn board on a phone showed what
+that cost: at 375 pixels every coach was nameless. So a narrow coach now gives up its type size and
+its side padding instead — 10 pixels to 9, and 3 to 2 — and never the word. The stylesheet rule that
+hid the name outright is gone, and a test now refuses to let it come back.
+
+**3. And the word keeps its punctuation off.** The word on a coach is derived from the module's own
+name, and it was keeping whatever punctuation sat against it: "Wash, oil and fill" was showing as
+__Wash,__ with the comma welded on. It reads __Wash__ now. That one was found by reading the drawn
+board rather than by reasoning — the same way the last one was found — and it is exactly the kind of
+broken label your refinement refuses.
+
+**4. The board's page, in your order.** The Production page now reads top to bottom: the person's
+train rows first, then the modules window and the people window, drawn by the same code that draws
+them in Scenario planning. They are borrowed, not re-drawn — a second renderer of one day is the
+thing this app refuses — so the bars, the rows and the counts in both windows are the planner's own.
+
+**5. What that order costs, said plainly rather than hidden.** Two things follow, and neither is
+dressed up. The people now appear twice on that one page: once as train rows at the top, and once
+inside the planner's own people window below. And because that borrowed people window sits on the
+planner's minute axis, it pans together with the modules window again on both screens, while only
+the train stays fixed — v184 had taken the pan off it because the train had replaced it, and you
+have put it back. The train itself still never scrolls sideways, which is what keeps its centre the
+centre.
+
+**6. A seam, so the train is not mistaken for the map.** A hairline rule now runs above the modules
+window on the board, so a worker can see where the coaches end and the day's own map begins. It is a
+seam on the wrapper only — nothing inside either borrowed window is restyled, which is what "keep it
+original" means.
+
+**7. One more thing had to be mended underneath.** The app remembers where you had scrolled in each
+window and puts it back after it redraws — your standing rule that a redraw must not move what you
+are looking at. It was finding the FIRST window of each kind; with one page now holding two
+people-shaped windows, the second one was being left behind. It keeps every one of them now, each by
+its own numbers.
+
+**8. Measured, on the drawn board at 375 x 812, signed out of the cloud.** The three windows are in
+your order on the page — the train 57 pixels tall at the top, the modules window 493 under it, the
+planner's people window 35 at the foot — with 31 coaches 37 pixels wide, all four to the visible
+line, the clock standing at the line's own centre, and every coach face reading a whole word:
+__mixer, fold, Wash, Load, Unload, Dimple, oven, Cool__. Not one clipped word and not one nameless
+coach anywhere on the board.
+
+**9. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day. Your
+three saved days still read 24, 4 and 24 pans, and there is nothing to run in Supabase — not one
+stored field is added or changed.
+
+**10. Every rule that stands on it was proved load-bearing.** The coach's word, the punctuation it
+keeps off, and the seam above the modules window were each put back as a fault, each watched failing
+a test that names it, and each restored byte-identically. Two of the three were caught by name; the
+seam was caught by the page-order test, which now refuses a board whose train and day's map run
+together. The suite is 1341 passing with none failing.
 
 **24 Sep 2026 — engine v184, THE TRAIN ON THE PRODUCTION LINE, AND TWO CLOSER STOPS ON THE DIAL (no
 database step). The board's workers' window is no longer a strip of time — it is a train of work.

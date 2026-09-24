@@ -1262,7 +1262,18 @@ test("two jobs that run back to back get no strip between them (v184)", () => {
 // while the screen still draws something that looks like a train, which is why each
 // claim is counted from the drawing rather than trusted to it.
 
+// The first `.tl-pane-people` on the page. On a board that is the TRAIN — it is built
+// first, above the planner's own two windows (v185) — and on the planner it is the
+// people's window, there being only one. So every reader that means "the train on a
+// board, the people's window on the planner" keeps working unchanged.
 const peoplePaneOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-people"));
+// The planner's own people's window, on EITHER screen. On a board it is the second
+// `.tl-pane-people`, underneath the train; on the planner it is the only one, and the
+// two readers agree there. Kept apart from the train because the two windows have
+// opposite rules about scrolling and about the day's own line.
+const peopleWinOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-people") && !hasClass(n, "train"));
+const trainPaneOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-people") && hasClass(n, "train"));
+const procPaneOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-proc"));
 const peopleRows = (root) => walk(peoplePaneOf(root)).filter((n) => hasClass(n, "tl-row"));
 const kidEls = (n) => (n.children || []).filter((c) => c.nodeType === 1);
 const coachesOf = (row) => walk(row).filter((n) => hasClass(n, "tl-coach"));
@@ -1482,13 +1493,19 @@ test("one coach a job, all one width, and the countdown on the links (v184)", ()
 test("the coach face shows meaning, never a clipped word, and the tip carries the rest (v184)", () => {
   const rows = peopleRows(board().root);
   assert.ok(rows.length > 0, "the board drew nobody");
-  // The word goes rather than being cut: at 43 pixels and under, the face is the icon,
-  // the clock and the batch. This is the half of her refinement a stylesheet can hold —
-  // "if the coach box is too small to house the full words, then just show meaningful" —
-  // and without it a narrow coach would ellipsise a word instead of dropping it.
+  // The word stays. Her refinement — "if the coach box is too smalll to house the full
+  // words, then just show meaningful" — was first read here as "drop the name and keep
+  // the icon", and that is what this used to assert. Reading the drawn board is what
+  // showed the cost: on her own phone every coach was nameless, so the one thing clause 5
+  // asks for was answered by the row's next-job line and by nothing on the coach at all.
+  // Asked, she chose the name kept. So the first assertion is now the reverse of the one
+  // it replaces, and the second pins what a narrow coach actually sacrifices — the type
+  // and the padding, never the word.
+  assert.doesNotMatch(read("admin/css/app.css"), /\.tl-cname\s*\{[^}]*display:\s*none/,
+    "a coach's word is hidden at some width, so a phone shows an icon and a clock and nothing that says what the job is");
   assert.match(read("admin/css/app.css"),
-    /@container\s*\(max-width:\s*43px\)\s*\{\s*\.tl-cname\s*\{\s*display:\s*none/,
-    "a coach too narrow for its word has nowhere to put it, so the face clips the word instead");
+    /@container\s*\(max-width:\s*43px\)\s*\{\s*\.tl-cface\s*\{[^}]*padding:\s*0\s*2px/,
+    "a coach too narrow for its word has no narrower face to fall back on, so the word has nowhere to go");
   assert.match(cssBody("\\.tl-tip-coach"), /white-space:\s*normal/,
     "the coach's tip is held to one line, so the full name it carries is clipped in its turn");
   assert.match(read("admin/css/app.css"),
@@ -1553,6 +1570,44 @@ test("the coach face shows meaning, never a clipped word, and the tip carries th
     '"Cutting and packing" is not shown as the word that means it');
   assert.equal(faceFor("The rests and the stretch and folds"), "rests",
     '"The rests and the stretch and folds" is not shown as the word that means it');
+});
+
+test("a coach's word goes with the punctuation that is not part of it (v184)", () => {
+  // Found by reading the drawn board rather than by reasoning. The stock module "Wash,
+  // oil and fill" named its coach "Wash," — a comma on the face. Her refinement refuses
+  // a clipped word, and a word with the sentence's punctuation still welded to it is cut
+  // wrong in exactly that way: the box was not too small, the word was simply cut wrong.
+  // The stop-word test already strips punctuation to READ a word; the word handed back
+  // now gets the same treatment at both ends. Tested through a drawn board whose day
+  // carries those names, because the punctuation is the app's own reader's, not this
+  // file's.
+  const day = makeState({
+    modules: [
+      { id: "m_wash", icon: "🥘", name: "Wash, oil and fill", on: true, person: 0,
+        cycles: [{ name: "Wash", min: 6, load: 6, unload: 0 }],
+        batch: 6, everyMin: 87, repeats: 1, startMin: 0, people: 1 },
+      { id: "m_retard", icon: "❄️", name: "(overnight) retard", on: true, person: 0,
+        cycles: [{ name: "Retard", min: 30, load: 2, unload: 0 }],
+        batch: 6, everyMin: 87, repeats: 1, startMin: 30, people: 1 },
+    ],
+  });
+  const drawn = board(day);
+  const words = [];
+  for (const row of peopleRows(drawn.root)) {
+    for (const c of coachesOf(row)) {
+      const name = partOf(c, "tl-cname");
+      if (name) words.push(textOf(name));
+    }
+  }
+  assert.ok(words.length, "the day drew no coach face to read");
+  for (const w of words) {
+    assert.match(w, /^[A-Za-z0-9]+$/,
+      `a coach's face carries punctuation that belongs to the sentence rather than to the word: "${w}"`);
+  }
+  assert.ok(words.includes("Wash"),
+    `"Wash, oil and fill" did not read Wash: ${JSON.stringify(words)}`);
+  assert.ok(words.includes("overnight"),
+    `"(overnight) retard" did not read overnight: ${JSON.stringify(words)}`);
 });
 
 test("the row says who is on it and what is next (v184)", () => {
@@ -2032,68 +2087,136 @@ test("a reading never claims to be now, and the day's own line is not on this wi
   assert.match(cssBody("\\.tl-clock\\.reading"), /background:\s*var\(--brown\)/,
     "a reading is drawn in the colour of the minute the day is actually at");
 
-  // And the board's own now-line is not drawn down this window at all: the axis under
-  // this strip is WORK and not time, so a line placed at a minute would be pointing at
-  // nothing. It stays in the DOM — one clock is placed in both windows from one
-  // computation — and it is hidden here.
-  const now2 = walk(pane).find((n) => hasClass(n, "tl-now"));
-  assert.ok(now2, "the workers' window lost the day's own line altogether");
-  assert.equal(now2.hidden, true, "the day's own line is drawn down a strip that has no minute axis");
+  // The board's own now-line is not drawn down the TRAIN at all: the axis under that
+  // strip is WORK and not time, so a line placed at a minute would point at nothing.
+  // It is not hidden inside the train either — it is simply not there, because the
+  // train carries the workers' clock and nothing else.
+  assert.equal(walk(pane).filter((n) => hasClass(n, "tl-now")).length, 0,
+    "the day's own line is drawn down the train, which has no minute axis to stand it on");
+  assert.equal(walk(pane).filter((n) => hasClass(n, "tl-clock")).length, 1,
+    "the train does not carry the workers' clock, so the one thing it exists for is missing");
+  // The day's line lives in the planner's own people's window, which a board now draws
+  // BELOW the train and unchanged — her "we keep it original". On a board that window
+  // carries the line the same way the planner's does: present in the DOM, and shown
+  // exactly when the day is being walked, so nothing has to remember which screen it is
+  // on. (The modules' window carries the board's live clock either way — see placeNow.)
+  const win = peopleWinOf(b.root);
+  assert.ok(win, "the board no longer draws the planner's people's window");
+  assert.ok(walk(win).find((n) => hasClass(n, "tl-now")), "the planner's window on the board lost the day's own line");
 });
 
-test("the board's strip can never scroll sideways, and the planner's window still can (v184)", () => {
-  // The strip is placed by translating it against a centre, so a pane that could also be
+test("the board puts the person's train first, and the planner's two windows under it unchanged (v185)", () => {
+  // Her layout, 24 September: "the production page start with the person's window the
+  // train inside, after the N person, we have the 2windows that we bring in from scenario
+  // planning, we keep it original." So the page reads top to bottom: the train, then the
+  // modules' window, then the people's window — and the last two are the planner's own
+  // drawings, borrowed rather than re-drawn.
+  const b = board();
+  const p = render(renderScenario, makeState());
+  const wrapOf = (root) => walk(root).find((n) => hasClass(n, "tl-wrap"));
+  const order = (root) => kidEls(wrapOf(root)).map((n) => ((hasClass(n, "tl-pane-people") && hasClass(n, "train")) ? "train"
+    : hasClass(n, "tl-pane-proc") ? "modules"
+      : hasClass(n, "tl-pane-people") ? "people" : `other:${n.className}`));
+  assert.deepEqual(order(b.root), ["train", "modules", "people"],
+    "the board's windows are not the person's train, then the planner's two, in that order");
+  assert.deepEqual(order(p.root), ["modules", "people"],
+    "the planner's own page changed, so the windows the board borrows are not the ones she kept");
+
+  // And the two borrowed windows ARE the planner's: the same bars, from the same rows,
+  // drawn by the same code. A board that re-drew them would be a second renderer of one
+  // day, which is the thing this file exists to refuse.
+  const barsOf = (pane) => walk(pane).filter((n) => hasClass(n, "tl-bar"));
+  assert.equal(barsOf(peopleWinOf(b.root)).length, barsOf(peopleWinOf(p.root)).length,
+    "the people's window on the board draws a different number of bars from the planner's, so it is not the same window");
+  assert.equal(barsOf(procPaneOf(b.root)).length, barsOf(procPaneOf(p.root)).length,
+    "the modules' window on the board draws a different number of bars from the planner's");
+  assert.equal(walk(peopleWinOf(b.root)).filter((n) => hasClass(n, "tl-coach")).length, 0,
+    "the planner's people's window on the board is drawing coaches, so it was not kept original");
+  assert.equal(walk(peopleWinOf(b.root)).filter((n) => hasClass(n, "tl-row")).length,
+    walk(peopleWinOf(p.root)).filter((n) => hasClass(n, "tl-row")).length,
+    "the planner's people's window on the board has a different number of rows from the planner's");
+  // The train's rows are its own: coaches and no bars, so the two people-shaped windows on
+  // one page can never be mistaken for each other.
+  assert.equal(walk(trainPaneOf(b.root)).filter((n) => hasClass(n, "tl-bar")).length, 0,
+    "the train is drawing the day's bars as well as its coaches");
+  assert.ok(walk(trainPaneOf(b.root)).filter((n) => hasClass(n, "tl-coach")).length,
+    "the train drew no coaches");
+
+  // And a worker can see where the train ends. The modules' window opens the planner's
+  // page and so has no top edge of its own; under the train it needs one, or the board
+  // reads as one continuous block of rows and the borrowed windows are indistinguishable
+  // from the coaches above them. The rule is a seam on the wrapper ONLY — nothing inside
+  // either borrowed window is re-styled, which is what "keep it original" means.
+  assert.match(read("admin/css/app.css"),
+    /\.tl-pane-people\.train\s*\+\s*\.tl-pane-proc\s*\{[^}]*border-top:\s*1px solid var\(--line\)/,
+    "the modules' window has no seam above it on the board, so the train and the day's map run together");
+});
+
+test("the train never pans, while the planner's own two windows still pan together — on both screens (v185)", () => {
+  // The train is placed by translating it against a centre, so a pane that could also be
   // panned sideways would have two ways to move the line — and the centre would leave the
   // middle the moment a worker panned. This is also what makes the drag unambiguous.
+  //
+  // v184 took the pan off the board's people's window too, because the train had replaced
+  // it. She has put that window back — "we keep it original" — and it is the planner's
+  // window, on the planner's minute axis, so it pans with the modules' window on BOTH
+  // screens now. What stays off is the train, and only the train.
   const b = board();
   const p = render(renderScenario, makeState());
   // The class is on the PANE and not on the row, because it is the window that scrolls —
   // and because `.tl-pane-people.train` is the one selector the whole train block hangs
   // off, so a screen without it is a screen drawing the planner's rows.
-  assert.ok(hasClass(peoplePaneOf(b.root), "train"), "the board's workers' window does not say it is a train");
-  assert.equal(hasClass(peoplePaneOf(p.root), "train"), false,
-    "the planner's workers' window is a train, so the two screens' people rows are one drawing again");
+  assert.ok(hasClass(trainPaneOf(b.root), "train"), "the board's train does not say it is a train");
+  assert.equal(trainPaneOf(p.root), undefined, "the planner is drawing a train, so its rows are no longer the day's own axis");
   assert.match(cssBody("\\.tl-pane-people\\.train"), /overflow-x:\s*hidden/,
-    "the board's strip may be panned sideways, so the centre the clock stands at is not the centre of the line");
-  // And the planner's window keeps its own pan untouched: the pan is the rule every
-  // window shares, and a guard that took it off a board by taking it off every window
-  // would be a board fixed by breaking the screen it was copied from.
+    "the train's strip may be panned sideways, so the centre the clock stands at is not the centre of the line");
+  // And the planner's window keeps its own pan untouched, on both screens: the pan is the
+  // rule every window shares, and a guard that took it off a board by taking it off every
+  // window would be a board fixed by breaking the screen it was copied from.
   assert.match(cssBody("\\.tl(?![\\w-])"), /overflow:\s*auto/,
     "the pan every window shares has gone, so the planner can no longer move its day");
   assert.ok(!/overflow-x:\s*hidden/.test(cssBody("\\.tl-pane-people(?![\\w.-])")),
-    "the planner's window has lost its sideways pan along with the board's");
+    "the planner's window has lost its sideways pan along with the train's");
   // The trains are drawn nowhere but the board: a row on the planner is a strip of time.
   assert.equal(walk(p.root).filter((n) => hasClass(n, "tl-train")).length, 0,
     "the planner is drawing trains, so its rows are no longer the day's own axis");
 
-  // And the tie is off in the WIRING, not only in the stylesheet — the stylesheet cannot
-  // stop a write the panes' own code makes. On the planner the two windows share one
-  // position: whichever one carries the hand brings the other. On a board the workers'
-  // strip is nobody's follower, and no right press on it starts a pan.
+  // And the tie is in the WIRING, not only in the stylesheet — the stylesheet cannot stop
+  // a write the panes' own code makes. The two TIME windows share one position on both
+  // screens: whichever one carries the hand brings the other. The train is nobody's
+  // follower and nobody's leader, and no right press on it starts a pan.
   const procOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-proc"));
   const scrolls = (from, to) => { from.scrollLeft = 300; from.dispatchEvent({ type: "scroll" }); flushFrames(); return to.scrollLeft; };
   const rightPress = (pane) => { pane.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 40, clientY: 20, pointerId: 7, target: pane }); return pane.classList.contains("tl-dragging"); };
-  for (const win of [peoplePaneOf(b.root), peoplePaneOf(p.root), procOf(b.root)]) win.clientWidth = 375;
-  assert.equal(scrolls(peoplePaneOf(p.root), procOf(p.root)), 300,
+  for (const win of [trainPaneOf(b.root), peopleWinOf(b.root), peopleWinOf(p.root), procOf(b.root), procOf(p.root)]) win.clientWidth = 375;
+  assert.equal(scrolls(peopleWinOf(p.root), procOf(p.root)), 300,
     "the planner's two windows no longer move together, so the guard took the pan off the screen it was copied from");
-  assert.equal(scrolls(peoplePaneOf(b.root), procOf(b.root)), 0,
-    "a scroll on the board's workers' window moved the modules' window with it");
-  assert.equal(rightPress(peoplePaneOf(p.root)), true,
-    "the planner's people window no longer takes a right-press pan");
-  assert.equal(rightPress(peoplePaneOf(b.root)), false,
-    "a right press on the board's strip started a pan it cannot make");
+  const bProc = procOf(b.root);
+  assert.equal(scrolls(peopleWinOf(b.root), bProc), 300,
+    "the board's planner window no longer moves with the modules' window, though they share one minute axis");
+  // Reset first: the line above has just left 300 on this very node, and reading it back
+  // after the train's scroll would report that 300 as though the train had written it.
+  bProc.scrollLeft = 0;
+  assert.equal(scrolls(trainPaneOf(b.root), bProc), 0,
+    "a scroll on the train moved the modules' window, which shares no axis with it");
+  assert.equal(rightPress(peopleWinOf(b.root)), true,
+    "the board's planner window no longer takes a right-press pan");
+  assert.equal(rightPress(trainPaneOf(b.root)), false,
+    "a right press on the train started a pan it cannot make");
   // The third tie-up, and the one a stylesheet cannot make either — the reading drawn in
   // both windows at once. A pointer moved along the modules' window puts a hairline in
-  // the people's too; a board's strip has no minutes under it for a hairline to stand on,
-  // so it stays hidden there.
-  const hairline = (root) => walk(peoplePaneOf(root)).find((n) => hasClass(n, "tl-cursor"));
+  // the people's too, on both screens now; the train has no hairline at all, because it
+  // has no minutes for one to stand on.
+  const hairline = (root) => walk(peopleWinOf(root)).find((n) => hasClass(n, "tl-cursor"));
   const readOver = (root) => {
     const proc = procOf(root);
     proc.dispatchEvent({ type: "pointermove", clientX: 200, clientY: 20, target: proc });
     return hairline(root).hidden;
   };
   assert.equal(readOver(p.root), false, "the planner's reading is no longer drawn in both windows at once");
-  assert.equal(readOver(b.root), true, "a hairline is drawn down the board's strip, which has no minutes under it");
+  assert.equal(readOver(b.root), false, "the board's planner window is no longer drawn a reading, though it shares the axis");
+  assert.equal(walk(trainPaneOf(b.root)).filter((n) => hasClass(n, "tl-cursor")).length, 0,
+    "a hairline is drawn down the train, which has no minutes under it");
 });
 
 test("no beat puts a word of nothing on the board, whichever minute it is standing at (v184)", () => {

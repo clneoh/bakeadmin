@@ -3348,6 +3348,14 @@ tr.po-covered td { color: var(--muted); }
    axis — the line is as wide as the window and no wider — and the base rule's
    inline-block shrink-to-fit would otherwise measure the strip against itself. */
 .tl-pane-people.train .tl-inner { display: block; width: 100%; }
+/* Where the train ends and the day's map begins. On the planner the modules window
+   opens the page and needs no seam of its own; on the board it sits under the train,
+   and the two borrowed windows below must read as borrowed — a window with a top
+   edge, not a continuation of the coaches. Nothing inside either window changes. */
+.tl-pane-people.train + .tl-pane-proc {
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .45);
+}
 
 /* One person's line, 56 pixels tall — her "a taller Person's line" — with the row
    below it told apart by a rail in that person's own colour and a 2px rule. That is
@@ -3444,11 +3452,26 @@ tr.po-covered td { color: var(--muted); }
   color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* The word goes before the box gets too narrow to hold it whole. At 43 pixels and
-   under, the face is the icon, the clock and the batch, and the name is on the tip —
-   which is her own refinement, "just show meaningful", read at the only moment it
-   applies. */
-@container (max-width: 43px) { .tl-cname { display: none; } }
+/* The word never goes. Her refinement ("if the coach box is too smalll to house the
+   full words, then just show meaningful") was first read here as "drop the name and
+   keep the icon", and that is what this rule did: at 43 pixels and under the face was
+   the icon and the clock alone. Reading the drawn board is what showed the cost — on
+   her own phone every coach was nameless, so the one thing clause 5 asks for ("tell
+   person, what they have done, and what is coming") was answered by the row's next-job
+   line and by nothing on the coach at all. Asked, she chose the name kept.
+
+   The face is a COLUMN, so the name takes its own line and the whole width of the box
+   rather than sharing it with the icon; the sacrifice at this size is the type, which
+   steps 10px → 9px, and the side padding, 3px → 2px. Measured on the stock day's own
+   modules at a 37-pixel coach: mixer 25, fold 18, Wash 28, Load 22, Dimple 32, Unload
+   32 against 33 pixels of room — every one of them whole. The ellipsis on .tl-cname
+   stands as the last resort for a word longer than the box, and it is a last resort
+   and not the plan: a name long enough to reach it wants a shorter short name, which
+   is one line in `shortName`. */
+@container (max-width: 43px) {
+  .tl-cface { padding: 0 2px; }
+  .tl-cname { font-size: 9px; }
+}
 .tl-cwhen { font-size: 10px; line-height: 1.15; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tl-cbatch { font-size: 9px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; }
 

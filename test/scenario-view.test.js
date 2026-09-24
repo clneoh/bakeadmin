@@ -4692,14 +4692,24 @@ test("a board tells a worker when they are here, and a tap on it writes nothing 
   assert.equal(JSON.stringify(state.settings), before,
     "a tap on the board wrote to her settings");
 
-  // What v184 changed, and only this: the BAND leaves the board's rows. The band is
-  // drawn at `round(startMin * pxPerMin)` — arithmetic on the day's minute axis — and
-  // a train is a strip of work with no minute axis to draw it on, so the same band
-  // across an arbitrary coach would be a quiet lie. The HOURS are not lost: they are
-  // said in the row's own tip, and on the card this tap just opened. Nothing about her
-  // stored hours moves.
-  assert.equal(walk(root).filter((n) => hasClass(n, "tl-shift")).length, 0,
+  // What v184 changed, and only this: the BAND leaves the TRAIN's rows. The band is
+  // drawn at `round(startMin * pxPerMin)` — arithmetic on the day's minute axis — and a
+  // train is a strip of work with no minute axis to draw it on, so the same band across
+  // an arbitrary coach would be a quiet lie. The HOURS are not lost: they are said in the
+  // row's own tip, and on the card this tap just opened. Nothing about her stored hours
+  // moves.
+  //
+  // It is the train's rows only. Since v185 a board draws the planner's own people's
+  // window underneath the train — her "we keep it original" — and that window is on the
+  // day's minute axis, so it goes on wearing the band it always wore, on the board as
+  // much as on the planner. Asserting zero bands across the whole board would have been
+  // asserting that the planner's window had been altered after all.
+  const trainRows = walk(root).filter((n) => hasClass(n, "tl-row") && hasClass(n, "train"));
+  assert.ok(trainRows.length, "the board drew no train rows to test");
+  assert.equal(trainRows.filter((n) => walk(n).some((x) => hasClass(x, "tl-shift"))).length, 0,
     "the board's train rows still wear a band drawn off a minute axis they no longer have");
+  assert.ok(walk(root).filter((n) => hasClass(n, "tl-row") && !hasClass(n, "train") && walk(n).some((x) => hasClass(x, "tl-shift"))).length,
+    "the planner's window on the board lost the band it draws on the planner, so it was altered rather than kept");
   assert.match(textOf(tipOf(row)), /Here 5:00 am → 9:00 am/,
     "the board's row tip no longer says when the worker is here");
   assert.deepEqual(scen.shifts, { 1: { startMin: 60, endMin: 300 } },
