@@ -31,7 +31,7 @@ import {
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, scenarioFacts, moduleFacts, chainLine, latestStarts,
   combinedScenario, reassignSlot, pinArrangement, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
-  alignBatches, batchMismatches, personName, callWindows,
+  alignBatches, batchMismatches, personName, callWindows, jobKey,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
   startModeOf, setStartMode, skillsOf,
 } from "../scenario.js";
@@ -87,15 +87,17 @@ const TAG_BAND = 11;
 // widest stop and nothing else, chosen by her own rule rather than by a
 // measurement: "if the scale is too wide to show batch no. and delta t then
 // forgo delta t". So at the widest scale a tag reads `B2` and no more, and at
-// the three nearer stops it reads `B2 Δt=+5`. See batchTags.
+// the five nearer stops it reads `B2 Δt=+5`. See batchTags.
 const DELTA_TAG_MIN_PX = 1.2;
 
 const DAY_MIN = 24 * 60;
 
-// The four stops of the scale, in the order of PX_PER_MIN_CHOICES: a whole day,
-// the standard reading, close, and closest. Since v157 the control is a step of
-// two buttons and one of these words stands between them as the stop in force.
-const SCALE_NAMES = ["Wide", "Standard", "Close", "Closest"];
+// The six stops of the scale, in the order of PX_PER_MIN_CHOICES: a whole day,
+// the standard reading, close, closer, closest, and detail. Since v157 the control
+// is a step of two buttons and one of these words stands between them as the stop
+// in force. Closer, Closest and Detail all draw a one-minute ruler, so the word is
+// what tells them apart and it must be worth reading on a 62px chip.
+const SCALE_NAMES = ["Wide", "Standard", "Close", "Closer", "Closest", "Detail"];
 
 // How fine the clock ruler is drawn, one entry per stop of PX_PER_MIN_CHOICES.
 //
@@ -104,12 +106,16 @@ const SCALE_NAMES = ["Wide", "Standard", "Close", "Closest"];
 // wide stops a minute is 1.2px and 1.6px — a solid band of them is a grey smear,
 // not a ruler. So the step follows the scale, which is her own answer ("a minute
 // where it can be drawn"): half hours across a whole day, quarter hours at the
-// standard reading, five minutes at Close, and a minute at Closest, where she is
-// lining two bars up and the minute is the thing she is looking at.
+// standard reading, five minutes at Close, and a minute at the three closest stops,
+// where she is lining two bars up and the minute is the thing she is looking at. A
+// minute is also the floor — the day has nothing finer for a ruler to step by.
 //
 // A table and not a formula, because which step is worth drawing at which scale is
-// a reading decision, and it should be possible to read it here.
-const TICK_MIN = [30, 15, 5, 1];
+// a reading decision, and it should be possible to read it here. One entry per stop
+// of PX_PER_MIN_CHOICES, read by index: a short table leaves tickStepFor with
+// nothing to return, and an undefined step is not a coarse ruler, it is an infinite
+// loop in rulerRow.
+const TICK_MIN = [30, 15, 5, 1, 1, 1];
 
 // The step of the grid carried down every row under the ruler. A second ladder,
 // and not the ruler's own step, because a ruler may step by a minute where a grid
@@ -181,6 +187,33 @@ function plannerInto(root, state, board) {
     boardR: null,     // the computed day the board's own clock is placed against
     callsOn: false,   // whether a board is calling people (needs her press, for sound)
     nowNote: "",      // what the now-line says when the real clock is outside her day
+    // The board's trains, one entry per person's row, and the calls they are measured
+    // against. Both are what the screen is DOING and neither is ever saved: the trains
+    // are emptied and rebuilt by every draw (see timeline) and the calls are the model's
+    // own windows, keyed so a coach can be told when it is due without a second
+    // spelling of "one minute before it starts".
+    trains: [],
+    calls: null,
+    peoplePane: null, // the people's window itself, which the train is measured off
+    // The workers' clock: ONE line at the centre of the workers' window, shared by
+    // every person's row, and the element that carries its label. Held here for the
+    // same reason the trains are — this is what the screen is DOING, and a repaint
+    // must be able to reach the line and the strips it is read against without
+    // walking the tree for them.
+    clock: null,
+    clockLab: null,
+    // A reading being taken by hand: the minute her finger is standing on and the
+    // pixel it is standing at, within the row the gesture began on. Transient in
+    // exactly the way everything else here is — it is dropped when she lets go and it
+    // is never written anywhere — because the alternative is a board that remembers a
+    // reading nobody took.
+    scrub: null,
+    // And whether the gesture that just ended was a DRAG rather than a tap. A drag
+    // that let go over a coach must not also count as a tap on it, which is the same
+    // rule the right-press pan has for cards (see isPrimaryClick) arrived at from the
+    // other side: one gesture, one meaning.
+    scrubbed: false,
+    trainGeo: null,   // the widths the strips were last measured at
   };
   run.board = board;
 
@@ -811,11 +844,12 @@ function controlsRow(r, sc, on, state, run) {
   const lineJobs = jobs.reduce((t, m) => t + Math.max(1, m.lines || 0), 0);
   const perLine = lineJobs > jobs.length;
 
-  // The scale as a step rather than as four chips. Four chips were four stops of
-  // one dial said as four buttons, and she uses two of them: the step she makes is
-  // narrower or closer, so those are the two buttons and the stop she is standing
-  // on is the word between them. Nothing about the scale itself changed — the same
-  // four stops, the same pixels per minute, and the same stop she left it on.
+  // The scale as a step rather than as six chips. Chips were the stops of one dial
+  // said as buttons, and she uses two of them: the step she makes is wider or
+  // closer, so those are the two buttons and the stop she is standing on is the
+  // word between them. Nothing about the scale itself changed by adding two stops —
+  // the same pixels per minute, the same stop she left it on, and `at` and the two
+  // ends of the dial are read off the list's own length rather than off a count.
   const at = PX_PER_MIN_CHOICES.findIndex((px) => Math.abs(r.pxPerMin - px) < 0.01);
   const step = (by) => {
     const to = Math.max(0, Math.min(PX_PER_MIN_CHOICES.length - 1, at + by));
@@ -1107,7 +1141,14 @@ function timeline(r, sc, on, state, run) {
   const nowLab = el("span", { class: "tl-now-lab" }, "now");
   const now = el("div", { class: "tl-now", hidden: !(run.on || run.board) }, nowLab);
   const nowLab2 = el("span", { class: "tl-now-lab" }, "now");
-  const now2 = el("div", { class: "tl-now", hidden: !(run.on || run.board) }, nowLab2);
+  // On a board the people's line is a strip of WORK and no longer a strip of time, so
+  // the clock that used to be drawn down it would be pointing at a minute that is not
+  // on that axis any more. It stays in the DOM and it stays in run.lines — one clock is
+  // placed in both windows from one computation, and a board's window is the modules'
+  // one (see placeNow) — it is simply not shown here. Hidden rather than dropped, so
+  // the two windows keep one placement and nothing has to remember which of them got
+  // a line.
+  const now2 = el("div", { class: "tl-now", hidden: run.board ? true : !run.on }, nowLab2);
   // The clock, drawn at the top of the modules window. Held here rather than found
   // again by class name, so the cursor is wired to the clock the chart actually
   // drew.
@@ -1139,12 +1180,47 @@ function timeline(r, sc, on, state, run) {
   // diagram by clashNotes. It was a second copy of one person's own row until she
   // hires, and it comes back in one line when there is a second pair of hands to
   // weigh up. Nothing stored changed, and no collision is hidden by its going.
-  const people = el("div", { class: "tl tl-pane-people" },
+  //
+  // On a board this window is the TRAIN — one coach per job, joined in the order they
+  // happen — and the class on the pane is what says so to the stylesheet. `trains` is
+  // emptied first so a redraw leaves no entry behind from the screen that was there
+  // before; `calls` is the model's own windows keyed by job, which is how a coach knows
+  // when it is due without the view inventing a second rule for it.
+  run.calls = run.board ? new Map(callWindows(sc).map((w) => [jobKey(w), w])) : null;
+  run.trains = [];
+  // The workers' clock — her "the current time at the center sharing with all person" —
+  // and it is one line for the whole window rather than one per row: the minutes on
+  // this strip are the workers' own, so a line drawn in each row could disagree with
+  // the line beside it, and the one thing the strip has to be is one answer to "how
+  // long have I got".
+  //
+  // Its label is the CLOCK TIME and never the word "now". The modules above still draw
+  // the day's own now-line with its own label, and two lines on one screen both saying
+  // "now" would be two answers to one question. Drawn last in the window, so it runs
+  // over the coaches the way the day's own line runs over the bars — and it declares NO
+  // z-index of its own, which is the v174 rule and the reason it is placed by tree order
+  // instead (see the note on .tl-clock in the stylesheet). A coach's open tip still
+  // covers it, which is right: a card being read is not something to draw a line
+  // through.
+  const clockLab = el("span", { class: "tl-clock-lab" });
+  const clock = el("div", { class: "tl-clock", hidden: !run.board }, clockLab);
+  const people = el("div", { class: `tl tl-pane-people${run.board ? " train" : ""}` },
     el("div", { class: "tl-inner" },
       el("div", { class: "tl-people" },
-        ...r.rows.map((row) => personRow(r, row, trackW, sc, on, state, run))),
+        ...r.rows.map((row) => (run.board
+          ? trainRow(r, row, sc, on, state, run)
+          : personRow(r, row, trackW, sc, on, state, run)))),
       cursor2,
-      now2));
+      now2,
+      clock));
+  // Who the people's window IS, kept on the run rather than looked up by class
+  // afterwards. The train's measures are taken from this element's own width, and a
+  // walk of the tree would find the window the chart drew a moment ago; this is the
+  // one that is on the page. Replaced by every draw, which is exactly right — the
+  // measurement is always of the strip that is standing.
+  run.peoplePane = people;
+  run.clock = clock;
+  run.clockLab = clockLab;
   // --hour-w is the hour line every track has always drawn. --tick-w is the grid
   // v160 carries down under it, set from the same scale so the two stay in step —
   // see gridStepFor for why it is a coarser step than the ruler's at the two
@@ -1182,9 +1258,25 @@ function timeline(r, sc, on, state, run) {
   // naming a minute the chart no longer has.
   if (run.board) run.boardR = r;
   if (run.on) placeNow(run);
-  wireTimeCursor(proc, r, cursor, lab, headClock, cursor2);
-  wirePaneScroll(proc, people);
-  wirePaneDrag(proc, people);
+  // The trains are measured once the subtree is on the page, because that is the first
+  // moment the pane has a width at all. Registered here and run by `refresh`, which is
+  // the same door the shelf's own measurement goes through — see trainGeometry.
+  if (run.board) on.afterPaint(() => trainGeometry(run));
+  // The two windows are tied together by their SHARED MINUTE AXIS: a scroll in one
+  // puts the other at the same pixel, and a reading taken in one is drawn in the
+  // other. A board's workers' window has no minute axis — its coaches are the same
+  // width whatever they are worth, and the strip never scrolls — so all three tie-ups
+  // are the planner's alone. Left in place on a board they would be three quiet lies:
+  // a scroll the strip cannot make, a drag that would scroll it if it could, and a
+  // hairline standing on a strip with no minutes under it. Her architecture, 24
+  // September: "The train is its own strip."
+  wireTimeCursor(proc, r, cursor, lab, headClock, run.board ? null : cursor2);
+  if (!run.board) wirePaneScroll(proc, people);
+  wirePaneDrag(proc, run.board ? null : people);
+  // The workers' clock is read by hand and only there: the planner points at a day it
+  // is walking, and a drag in the workers' window on a board is somebody asking "how
+  // long have I got" rather than moving the day. See wireTrainClock.
+  wireTrainClock(people, run);
   return wrap;
 }
 
@@ -1421,6 +1513,740 @@ function boardNow(sc, r) {
   return { min: t, note: "" };
 }
 
+// ── the train's own geometry (v184) ───────────────────────────────────────
+//
+// The workers' window on a board is a TRAIN rather than a time-true strip: one
+// coach per job, joined in the order the jobs happen, with the clock pinned to the
+// centre of the line. Her ask, 24 September 2026: "for each of person line, make
+// his series of work join up like a train, coaches represent work, the current time
+// at the center sharing with all person, showing next work in minutes on top,
+// something like next station countdown for subway. Person should click on their
+// work to turn it green indicating acknowledgement."
+//
+// She chose the consequence herself — "The train is its own strip" — so a coach does
+// NOT sit under the minute it happens at and the train does not line up with the
+// module lanes above it. What replaces the minute axis is the pair of maps below: a
+// piecewise-linear journey from a minute of her day to a pixel along the row, in
+// which each job's minutes cross its own coach and each wait crosses its own link.
+// Coaches are all one width, because a twelve-minute job and a forty-minute job
+// being different sizes would make the line a length chart, and it is not one — the
+// clock printed on the coach is what says how long a job is.
+//
+// These are pure, exported, and unit-tested with no DOM at all, because this is the
+// one part of the screen where being wrong is SILENT: `translateX(NaNpx)` is a train
+// that has vanished rather than an error anybody sees, and a minute that maps into
+// the wrong coach sends a worker to the wrong bench.
+
+// A finite number, or the fallback. The clock reaches these maps from a real clock
+// and from pointer coordinates, so a value that is not a number must never be able to
+// travel any further than here.
+function trainNum(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// The row's segments, left to right: a stub, then each job as a coach with the wait
+// before the next one as a link, then a closing stub. The stubs are pure space and
+// belong to no minute — they are what keeps the first and last coach off the very
+// edge of the line, the same job the padding at each end of the modules window does.
+//
+// A segment whose span is EMPTY gets no width at all, and that is not tidiness. Two
+// jobs that run back to back have no wait between them; a link drawn at full width
+// for nought minutes of waiting would put a slab of the row under no minute at all —
+// a stretch a worker could tap that belongs to no job, and the one thing that would
+// stop this map from being exactly reversible. Both directions are pinned at that
+// seam by a test, because that is where the fault is invisible and the whole screen
+// would still look right.
+export function trainSegments(items, coach, link, stub) {
+  const list = (Array.isArray(items) ? items : []).filter(Boolean);
+  if (!list.length) return [];
+  const cap = Math.max(0, trainNum(stub, 0));
+  const cw = Math.max(0, trainNum(coach, 0));
+  const lw = Math.max(0, trainNum(link, 0));
+  const segs = [];
+  let x = 0;
+  segs.push({ kind: "stub", start: x, w: cap });
+  x += cap;
+  list.forEach((it, i) => {
+    const from = trainNum(it.from, 0);
+    const to = Math.max(from, trainNum(it.to, from));
+    segs.push({ kind: "coach", k: i, from, to, start: x, w: to > from ? cw : 0, item: it });
+    x += to > from ? cw : 0;
+    const next = list[i + 1];
+    if (!next) return;
+    const nf = Math.max(to, trainNum(next.from, to));
+    segs.push({ kind: "link", k: i, from: to, to: nf, start: x, w: nf > to ? lw : 0 });
+    x += nf > to ? lw : 0;
+  });
+  segs.push({ kind: "stub", start: x, w: cap });
+  return segs;
+}
+
+// The segments that own real minutes and real width, in order. Everything below walks
+// this and never the raw list, so the stubs and the collapsed segments are excluded in
+// one place instead of four.
+function trainSpans(segs) {
+  return (Array.isArray(segs) ? segs : [])
+    .filter((s) => s && (s.kind === "coach" || s.kind === "link") && s.to > s.from && s.w > 0);
+}
+
+// A minute of her day → a pixel along the row. Clamped at both ends, so a board opened
+// before her day or after its end parks the train at its own edge instead of throwing
+// it off the line, and so the answer is never anything but a finite number.
+export function xOfMinute(segs, m) {
+  const spans = trainSpans(segs);
+  if (!spans.length) return 0;
+  const first = spans[0];
+  const last = spans[spans.length - 1];
+  const raw = Number(m);
+  if (!Number.isFinite(raw)) return first.start;
+  const mm = Math.min(Math.max(raw, first.from), last.to);
+  for (const s of spans) {
+    if (mm < s.from || mm > s.to) continue;
+    return s.start + ((mm - s.from) / (s.to - s.from)) * s.w;
+  }
+  return last.start + last.w;
+}
+
+// The exact inverse, and the one the drag reads the day with: a pixel along the row →
+// the minute it stands for. The two agree across every whole minute of the row, which
+// is what the round-trip tests measure in both directions.
+export function minuteAtTrainX(segs, x) {
+  const spans = trainSpans(segs);
+  if (!spans.length) return 0;
+  const first = spans[0];
+  const last = spans[spans.length - 1];
+  const right = last.start + last.w;
+  const raw = Number(x);
+  if (!Number.isFinite(raw)) return first.from;
+  const xx = Math.min(Math.max(raw, first.start), right);
+  for (const s of spans) {
+    if (xx < s.start || xx > s.start + s.w) continue;
+    return s.from + ((xx - s.start) / s.w) * (s.to - s.from);
+  }
+  return last.to;
+}
+
+// ── what a coach is made of (v184) ────────────────────────────────────────
+
+// The words a short name is not. A module called "Into the proofer" is not about
+// "Into", and a coach that says "Into" has told her nothing she did not already see.
+const SHORT_STOP = new Set([
+  "the", "of", "in", "into", "and", "a", "an", "before", "again",
+  "by", "out", "at", "to", "on", "for", "with", "from",
+]);
+
+// A module's name cut down to the one word that names it, for a coach about fifty
+// pixels wide. DERIVED and not truncated, because her refinement was "if the coach
+// box is too smalll to house the full words, then just show meaningful" — and
+// "Cutting and packin…" is not a shorter name, it is a broken one.
+//
+// It is a guess at her own vocabulary, and it is on the screen where she can see it
+// and say otherwise: a leading "The" goes, then the first word that is not a stop
+// word, and only when every word is a stop word does it fall back to the longest.
+// So "Into the proofer" reads proofer, "Dimple and top" reads Dimple, "Cutting and
+// packing" reads Cutting, "The oven swap and the bake" reads oven.
+function shortName(name) {
+  const whole = String(name == null ? "" : name).trim();
+  if (!whole) return "";
+  const words = whole.split(/\s+/).filter(Boolean);
+  const keep = words.filter((w) => !SHORT_STOP.has(w.toLowerCase().replace(/[^a-z0-9]/g, "")));
+  if (keep.length) return keep[0];
+  return words.slice().sort((a, b) => b.length - a.length)[0] || whole;
+}
+
+// The line a coach may stand on: the pane's own width less the name column the board
+// draws its people in. Narrower than the planner's 156px on purpose — these 48 pixels
+// are what let a phone's line still carry four coaches, which is the one figure she
+// gave for the strip: "in a full shown line should be able to visualize 4 coach".
+const TRAIN_NAME_W = 108;
+// The coach floor is a tap target first and a look second: 34 by 56 is about the
+// smallest box a thumb can be asked to hit, and it is the width at which the face
+// gives up its name and keeps its icon and its clock (see .tl-cname).
+const TRAIN_COACH_MIN = 34;
+const TRAIN_LINK_MIN = 18;
+const TRAIN_LINK_MAX = 30;
+const TRAIN_STUB_MIN = 4;
+const TRAIN_STUB_MAX = 14;
+
+// The widths of one train, from the width it has to be drawn in. Pure, exported, and
+// tested with no DOM, because it is a promise about the screen and a promise is worth
+// pinning: four coaches fill the visible line.
+//
+// The four coaches are the BUDGET and not a remainder. Three links and two stubs come
+// out of the line first and what is left is divided four ways, so at every width from
+// a 320-pixel phone up four coaches fill it exactly. The 34-pixel floor is the one
+// case where the line is too narrow to keep that, and then `fits` says so rather than
+// the strip quietly drawing three coaches and a sliver.
+export function trainMetrics(visW) {
+  const w = Math.max(0, Math.round(trainNum(visW, 0)));
+  const link = Math.min(TRAIN_LINK_MAX, Math.max(TRAIN_LINK_MIN, Math.round(w * 0.045)));
+  const stub = Math.min(TRAIN_STUB_MAX, Math.max(TRAIN_STUB_MIN, Math.round(w * 0.02)));
+  const coach = Math.max(TRAIN_COACH_MIN, Math.floor((w - 3 * link - 2 * stub) / 4));
+  const fits = coach + link > 0 ? Math.floor((w - 2 * stub + link) / (coach + link)) : 0;
+  return { coach, link, stub, fits };
+}
+
+// The clock on a coach. The am/pm is dropped because it will not fit — "4:13" is what
+// a fifty-pixel coach holds and what somebody reading an oven clock needs; the whole
+// "4:13 am → 4:25 am" is on the coach's own tip.
+function trainClock(dayStartMin, min) {
+  return clockAt(dayStartMin, min).replace(/\s*[ap]m$/i, "");
+}
+
+// How many batches the module behind this job runs today — read exactly the way the
+// batch card reads it, so a coach saying B2 and a card saying "batch 2 of 4" cannot
+// come to disagree.
+function batchesOf(r, id) {
+  const m = ((r && r.modules) || []).find((x) => String(x.id) === String(id));
+  if (!m) return 1;
+  return Math.max(1, Number(m.repeatsHeld || (m.passes || []).length || m.repeats) || 1);
+}
+
+// One job's key with the person the row IS put onto it. The model keys a job by its
+// person deliberately — a green coach claims that person has seen that job, so a job
+// that changes hands is not the same job — but `row.items` carry the module, the
+// batch, the slot and the cycle and no person, because the person is the row. One
+// helper, so the tick, the lookup and the drawing cannot key one job three ways.
+const keyOf = (w, who) => jobKey({ ...w, who });
+
+// Whether a coach has been taken, read off what this phone holds. Read as
+// absent-versus-stored, so a board nobody has touched answers exactly as one that is
+// silent about this job — and read with `||` and never `||=`, because opening a board
+// must not write the key (see board-view.test.js, "opening the board writes nothing").
+function ackOn(state, key) {
+  const a = (state && state.settings && state.settings.boardAcks) || null;
+  return Boolean(a && a[key]);
+}
+
+// How many jobs on this board are marked as taken. Asked for one reason only: the Clear
+// press is drawn at every width of the day, and this is what tells it whether there is
+// anything for it to clear — see clearBoard.
+function ackCount(state) {
+  const a = (state && state.settings && state.settings.boardAcks) || null;
+  return a ? Object.keys(a).length : 0;
+}
+
+// One tap on a coach, which is the whole of what a worker does on this screen. Her
+// words, 24 September 2026: "Person should click on their work to turn it green
+// indicating acknowledgement", and "Anyone, on any line" may do it.
+//
+// It is written STRAIGHT into her settings and saved there, because the sentence this
+// screen exists to answer is "has anybody picked this up": a tick that lived in the
+// drawing would be gone at the next beat and would never reach her other phone. The key
+// names the person (see keyOf), so a job handed to somebody else starts unanswered —
+// which is the safe reading at a bench, and is said out loud in the CHANGELOG rather
+// than left to be discovered.
+//
+// The same tap takes it back, because a finger that slips must not need a second button
+// to undo it. Unticking DELETES the key rather than leaving an empty map behind: an
+// empty object in her stored settings is a thing to explain, and there is nothing to
+// explain about a job nobody has taken. (The Clear press writes the empty instead —
+// see clearBoard for why that one is the opposite.)
+//
+// What is said back is the JOB and the CLOCK TIME it is at, because a module that runs
+// two batches gives two coaches and the clock time is the only thing that tells them
+// apart.
+function toggleAck(state, run, j, on) {
+  const settings = (state.settings ||= {});
+  const acks = settings.boardAcks || (settings.boardAcks = {});
+  const was = Boolean(acks[j.key]);
+  if (was) {
+    delete acks[j.key];
+    if (!ackCount(state)) delete settings.boardAcks;
+  } else {
+    acks[j.key] = 1;
+  }
+  if (on && on.persist) on.persist();
+  const when = clockAt(run.dayStart, j.from);
+  toast(was
+    ? `${jobName(j.w)} at ${when} is not marked as taken any more.`
+    : `✓ ${jobName(j.w)} at ${when} — marked as taken.`);
+  // Say it again rather than reach into the coach: the tick changes the coach, the link
+  // beside it, the tip's own sentence and the Clear press's own state, and a screen
+  // repainted from the settings is the one way all four cannot disagree.
+  if (on && on.refresh) on.refresh();
+}
+
+// Clear the board: every job back to unanswered, in one press.
+//
+// It is the one control here that throws information away, so it asks first — through
+// the app's own confirm card, dressed as a danger, exactly as every other control that
+// discards does. It is drawn at every width and every state of the day, because a
+// button that comes and goes reads as a fault; while nothing is ticked it is drawn
+// disabled, which is the app's own inert look (.btn[disabled]).
+//
+// It writes the EMPTY MAP and never deletes the key. That difference is the whole
+// reason this comment exists: the sync engine tells a phone that has no opinion about a
+// key from a phone that has decided to empty it by whether the key is SPOKEN in what it
+// publishes (see SPEAK_EMPTY and the v181 rules in sync.js). Deleting here would make
+// the clear silent, the other phone would read that silence as ignorance, and rule 3
+// would put every cleared tick straight back.
+function clearBoard(run, state, on) {
+  const ticks = ackCount(state);
+  if (!ticks) return;
+  confirmDialog(
+    ticks === 1
+      ? "Clear the board? One job is marked as taken. Every coach goes back to unanswered on both phones — your day itself is not changed."
+      : `Clear the board? ${ticks} jobs are marked as taken. Every coach goes back to unanswered on both phones — your day itself is not changed.`,
+    () => {
+      (state.settings ||= {}).boardAcks = {};
+      if (on && on.persist) on.persist();
+      toast("The board is clear — every job is unanswered again.");
+      if (on && on.refresh) on.refresh();
+    },
+    { danger: true, yesLabel: "Clear the board" });
+}
+
+// The minute this job is called at, in the one spelling the app has for it: the
+// model's own `at`, one minute before the job starts. Looked up in the board's call
+// list by key rather than worked out again, so a coach turns red at the same minute
+// the bell rings and there is no second story about when that is.
+function callAtOf(run, key, from) {
+  const call = run.calls && run.calls.get(key);
+  if (call) return call.at;
+  return Math.max(0, (Number(from) || 0) - 1);
+}
+
+// The coach the clock is standing in right now. A job of no length can never be the
+// one running, because there is no minute inside it to be at.
+function isHere(run, j) {
+  return j.to > j.from && run.nowMin >= j.from && run.nowMin < j.to;
+}
+
+// Red, green or the person's own colour — and it STAYS red once the clock has gone
+// past, which is her clause 3: "The coach can pass the current timeline, but stay
+// red, click it turn green." So there is no upper bound on the due test.
+function coachState(state, run, j) {
+  if (ackOn(state, j.key)) return "ack";
+  return run.nowMin >= j.at ? "due" : "coming";
+}
+
+function coachWords(state, run, j) {
+  const s = coachState(state, run, j);
+  const here = isHere(run, j);
+  if (s === "ack") return here ? "On it now, and taken" : "Taken — somebody is on it";
+  if (s === "due") return here ? "Due now and running — nobody has taken it" : "Due now — nobody has taken it yet";
+  return here ? "Running now" : "Coming up";
+}
+
+// The second line of a person's cell: what they are on, or how long until the next
+// thing starts. It is on the row and not only in a tip for the reason the call card
+// exists at all — a phone has no hover, and the person standing at the bench is the
+// one reader who cannot ask the screen a question.
+//
+// The last branch is the one that has to be careful. When nothing is left in front of
+// this person there are two different facts and they must not be said with one word:
+// the day has nothing more for them, and every job of theirs has been taken. "All done"
+// is only true of the second. Measured live at 4:30 am on her own day: Person 3's one
+// job ran 4:00 to 4:12, so the row read "All done" beside a coach that was standing
+// RED and untaken — the board telling a worker they had finished something nobody had
+// touched, and talking them out of the very tap her clause 3 asks for ("the coach can
+// pass the current timeline, but stay red, click it turn green"). So a row with work
+// still untaken counts it instead, in the board's own words for it ("nobody has taken
+// it", see coachWords), and gives up the count the moment the last coach goes green.
+function trainNextLine(state, run, jobs) {
+  const now = run.nowMin;
+  const here = jobs.find((j) => isHere(run, j));
+  if (here) return { text: `Now: ${shortName(here.w.name)}`, due: true };
+  const next = jobs.find((j) => j.from > now);
+  if (next) {
+    if (next.at <= now) return { text: `Due: ${shortName(next.w.name)}`, due: true };
+    const mins = Math.max(1, Math.round(next.from - now));
+    return { text: `Next ${mins}m`, due: mins <= 1 };
+  }
+  if (!jobs.length) return { text: "Nothing on", due: false };
+  const left = jobs.filter((j) => coachState(state, run, j) !== "ack").length;
+  return left ? { text: `${left} not taken`, due: true } : { text: "All done", due: false };
+}
+
+// A coach's tip is opened by the pointer over the coach, and it is opened by hand
+// rather than by a `:hover` rule, because the tip is not inside the coach (see the
+// note where it is built) and so no selector can reach it from there. The media query
+// in the stylesheet is what keeps a phone from ever showing it: a tap that fires a
+// synthetic hover would otherwise open a box nobody asked for and would put a second
+// meaning on the one tap that means "I'm on it".
+function wireCoachTip(coach, tip) {
+  if (!coach || !coach.addEventListener) return;
+  coach.addEventListener("mouseenter", () => tip.classList.add("on"));
+  coach.addEventListener("mouseleave", () => tip.classList.remove("on"));
+  wirePersonTip(coach, tip);
+}
+
+// One person's line on a board, as a TRAIN: a coach for every job they have, joined
+// in the order the jobs happen, with the clock pinned to the centre of the line.
+//
+// It replaces personRow on a board and nowhere else. The planner's row is a strip of
+// time and has to be, because that is where she lays the day out; this one is a strip
+// of WORK, because that is what somebody at a bench has to read. The two consequences
+// — a coach does not sit under the minute it happens at, and this window no longer
+// pans with the modules above it — she chose herself, in the words "The train is its
+// own strip."
+function trainRow(r, row, sc, on, state, run) {
+  const who = row.person;
+  const tone = personTone(who);
+  const notes = personNotes(row, sc, state, r.dayStartMin);
+  const jobs = (row.items || []).filter(Boolean).map((w) => {
+    const key = keyOf(w, who);
+    return { w, from: w.from, to: w.to, key, at: callAtOf(run, key, w.from) };
+  });
+
+  const strip = el("div", { class: "tl-train" });
+  const tips = [];
+  const coaches = [];
+  const counts = [];
+  // Each coach's tip keeps its own copy of the state sentence, so the beat can keep the
+  // opened tip honest as the clock runs (see restate). The tip is the one place a coach's
+  // state is written in WORDS, and a card still saying "Coming up" about a job that has
+  // been due for ten minutes would be the very second story this screen refuses.
+  const states = [];
+
+  strip.append(el("div", { class: "tl-stub" }));
+  jobs.forEach((j, i) => {
+    const w = j.w;
+    const batches = batchesOf(r, w.module);
+    const owner = ((r.modules || []).find((x) => String(x.id) === String(w.module)) || {});
+    const cyc = w.cycle >= 0 ? (owner.cycles || [])[w.cycle] : null;
+    const cycName = cyc ? String(cyc.name || "").trim() : "";
+
+    const coach = el("div", { class: `tl-coach ${tone} ${coachState(state, run, j)}${isHere(run, j) ? " here" : ""}` },
+      el("div", { class: "tl-cface" },
+        el("span", { class: "tl-cicon" }, w.icon || "•"),
+        el("span", { class: "tl-cname" }, shortName(w.name)),
+        el("span", { class: "tl-cwhen" }, trainClock(r.dayStartMin, w.from)),
+        batches > 1 ? el("span", { class: "tl-cbatch" }, `B${w.batch + 1}`) : null));
+
+    // The tip is a SIBLING of the strip and never a child of the coach, and that is
+    // forced rather than chosen: the strip is translated to hold the clock at its
+    // centre, and a transform is both a stacking context and a containing block for
+    // anything fixed inside it, so a tip drawn in there would be measured against the
+    // train instead of the screen — and the track that holds the train is a clip line
+    // on both sides. It is the lesson the people's tip was taken out of its own window
+    // for at v167, arrived at from the other end.
+    const stateEl = el("div", { class: "tl-sub tl-cstate" }, coachWords(state, run, j));
+    const tip = el("div", { class: "tl-tip tl-tip-coach" },
+      el("div", { class: "tl-sub" }, `${w.icon ? `${w.icon} ` : ""}${jobName(w)}`),
+      el("div", { class: "tl-sub" }, `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)} · ${trim(w.to - w.from)} min`),
+      batches > 1 ? el("div", { class: "tl-sub" }, `Batch ${w.batch + 1} of ${batches}`) : null,
+      cycName ? el("div", { class: "tl-sub" }, cycName) : null,
+      el("div", { class: "tl-sub" }, `👤 ${notes.who}`),
+      stateEl);
+    tips.push(tip);
+    states.push({ el: stateEl, j });
+    wireCoachTip(coach, tip);
+
+    // The tap, and the tap only. A right press pans the day, a drag along the line is a
+    // reading (see wireTrainClock), and the name column is where the person's card is
+    // opened — so the one thing left for a finger on a coach to mean is "I'm on it".
+    //
+    // `stopPropagation` matters twice: without it the row's own handler opens the
+    // person's card underneath the tick, and a click that is really the END OF A
+    // READING must be swallowed here rather than reaching that card as a tap.
+    coach.addEventListener("click", (e) => {
+      if (!isPrimaryClick(e)) return;
+      e.stopPropagation();
+      // A click that follows a reading is the end of that reading and not a tap on the
+      // work. The flag is put back by the NEXT press on the pane, so a reading can lose
+      // at most the one click it caused.
+      if (run.scrubbed) return;
+      toggleAck(state, run, j, on);
+    });
+
+    coaches.push(coach);
+    strip.append(coach);
+
+    // The link, and only where there is a wait to count: two jobs that run back to
+    // back get no strip between them at all, which is the same rule trainSegments
+    // applies to the width, said here so no element is built for a pixel nobody sees.
+    const next = jobs[i + 1];
+    if (next && next.from > j.to) {
+      const count = el("span", { class: "tl-count" }, trainCount(state, run, next));
+      counts.push({ el: count, next });
+      strip.append(el("div", { class: "tl-link" }, count));
+    }
+  });
+  strip.append(el("div", { class: "tl-stub" }));
+
+  const nextLine = el("div", { class: "tl-next" });
+  paintNextLine(nextLine, trainNextLine(state, run, jobs));
+
+  const tip = personTip(notes);
+  const nameCell = el("div", { class: "tl-name" },
+    el("div", { class: "tl-name-top" },
+      el("span", { class: "tl-name-txt" }, `👤 ${notes.who}`)),
+    nextLine,
+    tip);
+  wirePersonTip(nameCell, tip);
+
+  const track = el("div", { class: "tl-track train-track" }, strip);
+  // The ROW ITSELF is kept on the record and not only the model row it was built from:
+  // a gesture arrives as an event whose target is a node, and the reading has to find
+  // which person's strip her hand is on from that node and nothing else.
+  const box = el("div", {
+    // `train` and NOT `person`, and that is a statement rather than an omission: every
+    // rule the stylesheet writes for `.tl-row.person` — the bar's own top and height,
+    // the white it is painted, the band — is a rule about a strip of TIME, and this row
+    // is not drawn on that axis. The row keeps the person's own tone class, which is
+    // what colours it, and the planner's row keeps `person`, which is what colours that.
+    class: `tl-row train tappable ${tone}`,
+    // A right press pans the day and opens nothing. See isPrimaryClick.
+    onclick: (e) => {
+      if (!isPrimaryClick(e)) return;
+      boardPersonCard(row, sc, state, r);
+    },
+  },
+    nameCell,
+    track,
+    ...tips);
+  run.trains.push({ row, box, who, track, strip, jobs, coaches, counts, nextLine, states });
+  return box;
+}
+
+// What a link between two coaches counts: how long until the next job starts, "due"
+// once it is within its own minute, and a tick once somebody has taken it — at which
+// point the wait is no longer the thing to watch.
+function trainCount(state, run, next) {
+  if (ackOn(state, next.key)) return "✓";
+  if (run.nowMin >= next.at) return "due";
+  const mins = Math.max(1, Math.round(next.from - run.nowMin));
+  return Number.isFinite(mins) ? `${mins}m` : "";
+}
+
+function paintNextLine(node, line) {
+  if (node.textContent !== line.text) node.textContent = line.text;
+  node.classList.toggle("due", Boolean(line.due));
+}
+
+// The train's own measures, taken from the line the pane has actually got.
+//
+// Asked on the first paint AND on every beat, and never cached — for the reason the
+// chart's own --hour-w is never cached. The strip is assembled before it is on the
+// page, and an element that is not on the page answers every measurement with nought,
+// so a width read once at build time would be zero in a test and stale in a browser
+// whose window was resized with the board open. `visW` is what is LEFT of the name
+// column, because that is the line a coach may stand on.
+//
+// It also writes each row's segment map, which is the row's own arithmetic and cannot
+// be done before the widths are known. `restate` places the strips from it.
+function trainGeometry(run) {
+  const axis = trainAxis(run);
+  const g = trainMetrics(Math.max(0, axis.inner - TRAIN_NAME_W));
+  for (const t of run.trains) {
+    // Through `setProperty`, which is the only door a CUSTOM property has: assigning
+    // `style["--coach-w"]` writes nothing at all in a browser — it leaves an expando on
+    // the style object and the declarations untouched — so every coach would fall
+    // through to the stylesheet's own fallback width and the line would be drawn at a
+    // size nothing measured. Measured live at 375px: 34px coaches with six of them
+    // filling the visible line, where this asks for 36 and four.
+    t.track.style.setProperty("--coach-w", `${g.coach}px`);
+    t.track.style.setProperty("--link-w", `${g.link}px`);
+    t.track.style.setProperty("--stub-w", `${g.stub}px`);
+    t.segs = trainSegments(t.jobs, g.coach, g.link, g.stub);
+    t.geo = g;
+  }
+  run.trainGeo = g;
+  return g;
+}
+
+// The line a coach may stand on, in the pane's own pixels: where it begins, how wide
+// the pane is, and where the clock therefore stands.
+//
+// The origin is MEASURED off the track itself — it is the board's name column — and the
+// declared 108 is only the floor for a track that is not on the page, because a detached
+// element answers every measurement with nought and a clock drawn at nought would sit
+// under the names. It is measured rather than taken from TRAIN_NAME_W so that the clock
+// and the strips cannot come to disagree about where the line starts: the clock is
+// placed from the axis and every strip is placed from the same axis, and the one
+// declared number left is the width BUDGET, which the suite keeps in step with the
+// stylesheet by reading the column's width out of it.
+//
+// The centre is what is left of the pane after the names, halved — the middle of the
+// line the coaches actually stand on, and not the middle of the pane, because the names
+// are not part of the line. Nothing here is cached: this is asked afresh by every beat
+// and by every drag, which is what lets a board survive a rotation.
+function trainAxis(run) {
+  const pane = run.peoplePane;
+  const inner = Math.max(0, trainNum(pane && pane.clientWidth, 0));
+  const first = run.trains.find((x) => x.track);
+  const own = first ? trainNum(first.track.offsetLeft, 0) : 0;
+  const origin = own > 0 ? Math.round(own) : TRAIN_NAME_W;
+  return { origin, inner, centre: Math.round(origin + Math.max(0, inner - origin) / 2) };
+}
+
+// Where the clock stands, and what it says. The minute it stands on is not the label's
+// business: a line is drawn at a pixel and the label names the minute that pixel stands
+// for, and those two are only the same thing while she is not reading.
+//
+// A reading moves the LINE and nothing else. The strips are placed from the day's own
+// minute whether or not a finger is on the glass, because a reading is a question about
+// the day and not a change to it — and the label says the clock time in both cases, so
+// the one thing it may never do is claim to be "now" (see the note where the clock is
+// built).
+function placeClock(run, axis) {
+  if (!run.clock) return;
+  const { inner, centre } = axis || trainAxis(run);
+  const reading = run.scrub;
+  const at = Math.round(Math.min(Math.max(reading ? reading.x : centre, 0), inner));
+  const left = `${at}px`;
+  if (run.clock.style.left !== left) run.clock.style.left = left;
+  run.clock.classList.toggle("reading", Boolean(reading));
+  const said = clockOf(run.dayStart + (reading ? reading.min : run.nowMin));
+  if (run.clockLab && run.clockLab.textContent !== said) run.clockLab.textContent = said;
+}
+
+// One write-only pass over a board's trains: where each strip stands, what each coach
+// is, what each link counts, and where the clock is. Called by every beat and by every
+// reading — and it writes nothing but text and style strings, which is the whole reason
+// a worker's view of the line survives the clock moving. It touches nothing above the
+// workers' window, so the rule tickBoard is built on still holds: the chart is the plan,
+// and a plan does not change as the clock runs.
+//
+// Each write is guarded by its own inequality, so a beat that has nothing to say writes
+// nothing at all: an unguarded write is a DOM mutation per row per second, and on a
+// board left open all morning that is a great many mutations to say the same number.
+function restate(run, state) {
+  const r = run.boardR;
+  if (!run.board || !r) return;
+  const axis = trainAxis(run);
+  for (const t of run.trains) {
+    // The strip is placed so the minute the day is at stands on the centre. The minute
+    // is the day's, never a reading's — see placeClock.
+    const left = Math.round(axis.centre - axis.origin - xOfMinute(t.segs || [], run.nowMin));
+    t.left = left;
+    const at = `translateX(${left}px)`;
+    if (t.strip.style.transform !== at) t.strip.style.transform = at;
+    // The words, then the colours. "Due" is a claim about now, and a finger on the
+    // glass does not change who is late, so both are answered from run.nowMin.
+    paintNextLine(t.nextLine, trainNextLine(state, run, t.jobs));
+    for (let i = 0; i < t.coaches.length; i += 1) {
+      const j = t.jobs[i];
+      const c = t.coaches[i];
+      const st = coachState(state, run, j);
+      c.classList.toggle("due", st === "due");
+      c.classList.toggle("ack", st === "ack");
+      c.classList.toggle("here", isHere(run, j));
+    }
+    for (const c of t.counts) {
+      const said = trainCount(state, run, c.next);
+      if (c.el.textContent !== said) c.el.textContent = said;
+    }
+    // The tip's own sentence, kept true between taps. Only the text is written, so an
+    // open tip stays open and stays where it was put.
+    for (const s of t.states || []) {
+      const said = coachWords(state, run, s.j);
+      if (s.el.textContent !== said) s.el.textContent = said;
+    }
+  }
+  placeClock(run, axis);
+}
+
+// A pointer's x in the pane's own coordinates. A reading is taken along a line the pane
+// draws, and an event's own coordinate is measured from the window, so the two have to
+// be brought together in one place and one place only — with the pane's own scroll added
+// back, because a box that has been scrolled left hands back a box that has moved and
+// not a coordinate that has.
+function paneX(pane, e) {
+  const box = pane && pane.getBoundingClientRect ? pane.getBoundingClientRect() : null;
+  return trainNum(e && e.clientX, 0) - (box ? trainNum(box.left, 0) : 0) + trainNum(pane && pane.scrollLeft, 0);
+}
+
+// The reading, by hand: a sideways drag on the workers' window moves the clock line and
+// leaves the trains where they are.
+//
+// Her words, 24 September 2026: "lock the clock relative to the train, when drag, clock
+// line move, when click outside, the clock centred on the line." So the line is what
+// moves, the minute it stands on is read off the row her hand is on (see minuteAtTrainX
+// — the same map the strips are placed by, run backwards), and letting go puts it back
+// at the centre. It re-centres on release rather than staying where it was dragged,
+// because a line left standing at a minute nobody is at is a board quietly telling a
+// worker something that is not true.
+//
+// The gesture is tracked on the pane itself and no pointer capture is asked for, which
+// is a choice rather than an omission: a reading is taken by sliding along the line, the
+// line is the whole of the pane, and a finger that leaves the pane has stopped reading
+// it — which is why leaving ends the gesture. Nothing here is listened for on the
+// document, which is also what keeps it testable.
+//
+// A tap and a drag are told apart by their own geometry and not by a clock: 4 pixels of
+// sideways movement with the finger going further sideways than up or down. The vertical
+// half of that test is what keeps a finger scrolling the page from being read as a
+// reading of the day.
+function wireTrainClock(pane, run) {
+  // A board's gesture and no other screen's: the planner's workers' window is a strip
+  // of time that pans, and a drag in it is already the pan.
+  if (!run.board || !pane || !pane.addEventListener) return;
+  const SLOP = 4;
+  let from = null;   // the row the gesture began on
+  let x0 = 0;
+  let y0 = 0;
+  let live = false;  // whether this gesture has become a drag at all
+
+  const stop = () => {
+    from = null;
+    live = false;
+    if (run.scrub) {
+      run.scrub = null;
+      placeClock(run);
+    }
+  };
+
+  pane.addEventListener("pointerdown", (e) => {
+    if (!isPrimaryClick(e)) return;
+    // Every press puts the spent flag back, before anything else can return: the click
+    // that follows a reading is told apart from a tap by this flag, and a flag left
+    // standing would eat the next real tap on the work.
+    run.scrubbed = false;
+    // A gesture that starts where there is no row is not a reading; it puts the clock
+    // back where it belongs, which is her "when click outside, the clock centred on the
+    // line" — a press anywhere off a row re-centres it.
+    //
+    // The name column is off the line, and that is the whole reason this asks: the names
+    // are where the person's card is opened, and a reading is taken against the coaches,
+    // so a finger that lands on a name and slides is not reading the day — and a finger
+    // that twitches on a name must not be able to move the clock it is not standing on.
+    const target = e && e.target;
+    if (target && target.closest && target.closest(".tl-name")) { stop(); return; }
+    const row = target && target.closest ? target.closest(".tl-row") : null;
+    const train = row ? run.trains.find((t) => t.box === row) : null;
+    if (!train) { stop(); return; }
+    from = train;
+    x0 = paneX(pane, e);
+    y0 = trainNum(e && e.clientY, 0);
+    live = false;
+  });
+
+  pane.addEventListener("pointermove", (e) => {
+    if (!from) return;
+    const x = paneX(pane, e);
+    const y = trainNum(e && e.clientY, 0);
+    const dx = x - x0;
+    if (!live) {
+      if (Math.abs(dx) < SLOP || Math.abs(dx) <= Math.abs(y - y0)) return;
+      live = true;
+      // The click that follows this gesture, if it lands on a coach, is the end of a
+      // drag and not a tap on the work. See where the board's taps read this.
+      run.scrubbed = true;
+    }
+    // The pixel she is at, in the strip's own coordinates: the pane's x, less where the
+    // line begins, less where this row's strip has been placed. That last term is why
+    // the strips may not be moved by a reading — the reading is read against the strip
+    // she is looking at.
+    //
+    // The origin is asked for here rather than kept on the run, so a reading and the
+    // placement it reads against cannot come to hold two different ideas of where the
+    // line begins: `restate` places every strip from `trainAxis`, and this walks the same
+    // map backwards from the same axis.
+    const stripX = x - trainAxis(run).origin - trainNum(from.left, 0);
+    const min = Math.round(minuteAtTrainX(from.segs || [], stripX));
+    run.scrub = { min: Math.max(0, min), x };
+    placeClock(run);
+  });
+
+  pane.addEventListener("pointerup", stop);
+  pane.addEventListener("pointercancel", stop);
+  pane.addEventListener("pointerleave", stop);
+}
+
 // One second of a board's clock: the line, and the one call that came due in the
 // minute just gone. It repaints nothing, which is the planner's own rule at
 // tickDay — the chart is the plan, the plan does not change as the clock runs, and
@@ -1440,6 +2266,14 @@ function tickBoard(run, sc, state, on) {
   run.nowMin = at.min;
   run.nowNote = at.note;
   placeNow(run);
+  // And the train's own measures, taken again every second. A window that changed size
+  // while the board is open changes how many coaches the line holds, and a strip drawn
+  // to the old width would carry a coach off the edge it was measured against.
+  trainGeometry(run);
+  // Then the strips are re-placed and every number on them re-said — in place, which is
+  // the whole design of this beat: a worker's reading of the line is never thrown away
+  // and rebuilt, so nothing they are looking at moves under them.
+  restate(run, state);
   // The strip is the one thing on a board that is not the plan: "what is next" is a
   // question about the clock, so it is answered again whenever the clock has changed
   // the answer — and left alone the rest of the time. The chart is not redrawn here,
@@ -1583,19 +2417,36 @@ function boardTopBody(r, sc, state, run, on) {
   // switching calls on now would ring for nobody — the offer is withdrawn rather than
   // left to promise a sound it cannot make. Stop stays, because calls turned on
   // earlier must always be switchable off.
-  const foot = over && !run.callsOn ? [] : [el("div", { class: "bd-foot" },
+  //
+  // The Clear press is a control of a different kind and is NOT withdrawn with it: the
+  // offer to make sound is about this minute, and clearing the board is about the whole
+  // morning — a finished day can still be carrying ticks nothing will ever answer. So
+  // the actions row is always drawn and Clear is always in it, going quiet rather than
+  // disappearing while there is nothing to clear (see clearBoard).
+  const ticks = ackCount(state);
+  const clear = button("Clear the board", () => clearBoard(run, state, on), ticks ? "danger" : "ghost");
+  clear.disabled = !ticks;
+
+  const foot = [el("div", { class: "bd-foot" },
     // How many of them would be called, said before the button rather than behind it
     // — the same count the planner's own bell chip gives her.
-    el("div", { class: "bd-note" }, run.callsOn
+    over && !run.callsOn ? null : el("div", { class: "bd-note" }, run.callsOn
       ? (over
         ? "Calling is on, but this day is finished — there is nothing left to call."
         : `Calling ${called} ${called === 1 ? "person" : "people"} — one minute before each job, in that person's own colour.`)
       : (called
         ? `${called} ${called === 1 ? "person" : "people"} would be called. Sound needs a press, so start it here.`
         : "Nobody is set to be called on this day.")),
-    el("div", { class: "bd-actions" }, run.callsOn
-      ? button("Stop calling", () => boardCallsOff(run, on), "ghost")
-      : button("Start calling", () => boardCallsStart(run, on), "primary")))];
+    // What the Clear press is about to throw away, said before it is pressed rather
+    // than behind the question it opens — the same shape as the count above it.
+    el("div", { class: "bd-note" }, ticks
+      ? `${ticks} ${ticks === 1 ? "job is" : "jobs are"} marked as taken${over ? " on this finished day" : ""}.`
+      : "Nothing is marked as taken, so there is nothing to clear yet."),
+    el("div", { class: "bd-actions" },
+      over && !run.callsOn ? null : (run.callsOn
+        ? button("Stop calling", () => boardCallsOff(run, on), "ghost")
+        : button("Start calling", () => boardCallsStart(run, on), "primary")),
+      clear))];
 
   return [...parked, ...next, ...foot];
 }
@@ -1708,18 +2559,6 @@ function boardModuleCard(r, m, live, sc, state) {
     ["When", notes.when],
     ["One batch", notes.cost],
     ...(batches.length > 1 ? [["", "Every batch in this module"], ...batches] : []),
-  ]);
-}
-
-// One stretch of somebody's day, as a worker reads it: whose it is, what the job is,
-// the two clock times and how long it is. It is deliberately NOT the planner's
-// card — that one exists to hand the stretch to somebody else, and a board has
-// nothing to hand over.
-function boardStretchCard(row, w, sc, state) {
-  boardReadout(jobName(w), [
-    ["Who", personName(row.person, namesOf(state))],
-    ["When", `${clockAt(sc.dayStartMin, w.from)} → ${clockAt(sc.dayStartMin, w.to)}`],
-    ["How long", `${trim(w.to - w.from)} min`],
   ]);
 }
 
@@ -2068,19 +2907,22 @@ function bindDrag(surface, choose) {
 
 // How many minutes the ruler steps by at the scale the day is drawn at. Nearest
 // stop, the same match the scale's own step uses — a hand-typed pixels-per-minute
-// is normalised to one of the four, so this only ever has to land on the stop she
-// is actually reading at.
+// is normalised to one of the six, so this only ever has to land on the stop she
+// is actually reading at. The fallback is not decoration: a short TICK_MIN would
+// hand rulerRow an undefined step, and its `for (m = 0; m < end; m += step)` would
+// never advance — a hang, not a message.
 function tickStepFor(pxPerMin) {
   const at = PX_PER_MIN_CHOICES.reduce(
     (best, c, i) => (Math.abs(c - pxPerMin) < Math.abs(PX_PER_MIN_CHOICES[best] - pxPerMin) ? i : best), 0);
-  return TICK_MIN[at];
+  return TICK_MIN[at] || TICK_MIN[TICK_MIN.length - 1];
 }
 
 // How far apart the grid drawn under the ruler is, in minutes. See TICK_GRID_MIN
 // for why it is not simply the ruler's step: 30 minutes at the widest reading, the
-// quarter hour at the standard one, and five minutes at both of the close
-// readings — 36, 24, 12 and 16 pixels apart, so no stop is ever asked to draw a
-// line it cannot separate from its neighbour.
+// quarter hour at the standard one, and five minutes at all four of the close
+// readings — 36, 24, 12, 16, 24 and 36 pixels apart, so no stop is ever asked to
+// draw a line it cannot separate from its neighbour. It is a search over the table
+// and not a fourth index, so the two new stops need no entry of their own.
 function gridStepFor(pxPerMin) {
   const scale = Number(pxPerMin) > 0 ? Number(pxPerMin) : PX_PER_MIN_CHOICES[1];
   const ruler = tickStepFor(scale);
@@ -3359,9 +4201,10 @@ function personRow(r, row, trackW, sc, on, state, run) {
     // Nothing within reach: say nothing, and let the tap through to the row.
     if (!hit) return;
     e.stopPropagation();
-    // A board has nothing to hand over, so its tap on a stretch reads it out: whose
-    // job it is, when, and how long. The planner's card is the one that moves it.
-    if (run.board) return boardStretchCard(row, hit, sc, state);
+    // This row is the PLANNER's, and on a board it is not built at all: a board's rows are
+    // trains, and a tap on one of their coaches is the worker's own "I'm on it" (see
+    // trainRow). The read-out card a board used to open here was retired with it, and the
+    // board's person card is reached by the name column, as it always was.
     slotPopup(r, row, hit, sc, on, state);
   });
   const tip = personTip(notes);

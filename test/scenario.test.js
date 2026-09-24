@@ -282,7 +282,7 @@ test("combining two people is a label, and it stops claiming them when undone", 
   assert.deepEqual(sc.merges["1"], [3]);
 });
 
-test("the day starts when she says it does, and the scale is one of the four", () => {
+test("the day starts when she says it does, and the scale is one of the six", () => {
   // "i cannot change the time scale, say i want a start at 8am" — so the start is
   // a field, and every time on screen is counted from it.
   const r = computeScenario({ ...DEFAULT_SCENARIO, dayStartMin: 8 * 60 });
@@ -294,8 +294,17 @@ test("the day starts when she says it does, and the scale is one of the four", (
   assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, dayStartMin: -60 }).dayStartMin, 1380);
   assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, dayStartMin: 25 * 60 }).dayStartMin, 60);
   assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: 1.65 }).pxPerMin, 1.6);
-  assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: 999 }).pxPerMin, 3.2);
-  assert.ok(PX_PER_MIN_CHOICES.includes(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: 0 }).pxPerMin));
+  // The nearest stop of SIX, not of four: 999 is 7.2 where it used to be 3.2. That
+  // is a real change on her phone and not only a number in a test — a stored
+  // pxPerMin anywhere in (3.2, 7.2] opens one stop closer from v184 on.
+  assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: 999 }).pxPerMin, 7.2);
+  assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: 0 }).pxPerMin, 1.2);
+  // Every stop she can pick survives the round trip, so no stop of the dial is one
+  // the day cannot be left standing on.
+  for (const px of PX_PER_MIN_CHOICES) {
+    assert.equal(scenarioOf({ ...DEFAULT_SCENARIO, pxPerMin: px }).pxPerMin, px,
+      `${px} is not a stop the day can be left on`);
+  }
   assert.equal(DEFAULT_SCENARIO.dayStartMin, DEFAULT_DAY_START);
 });
 

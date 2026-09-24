@@ -72,6 +72,16 @@ function createEl(tag) {
     setAttribute(k, v) {
       this.attrs[k] = String(v);
       if (k === "hidden") this.hidden = true;
+      // The style ATTRIBUTE and the style object are one thing, so a view that writes
+      // `el(tag, { style: "--hour-w:96px" })` — which is how the whole chart writes its
+      // ruler, its grid and the day's own width — is readable through the style object
+      // afterwards, exactly as it is in a browser.
+      if (k === "style") {
+        for (const part of String(v).split(";")) {
+          const i = part.indexOf(":");
+          if (i > 0) declared[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+        }
+      }
       // A real DOM reflects its boolean attributes onto the properties a view
       // reads back, so `setAttribute("disabled", true)` makes `node.disabled`
       // true. A shim that kept only the attribute made a switched-off press read
@@ -152,6 +162,34 @@ function createEl(tag) {
   // gesture has taken hold" class, ui.js's "dragging", the cursor's "at-end" — was
   // invisible to every assertion in this file, and a rule nothing can see is a rule
   // nothing can break. Backed by className, with the force argument a real toggle takes.
+  // A real element's `style` and its style ATTRIBUTE are one thing seen twice — the
+  // board's shim has said so since it was written and this one kept the two adrift, with
+  // a plain object beside the attribute and only `el`'s own style string reaching the
+  // attribute. That gap let a real fault through on 24 September: the board asked for its
+  // coach widths with `track.style["--coach-w"] = "36px"`, which in a browser writes
+  // NOTHING — a custom property is only reachable through `setProperty`, and an
+  // assignment leaves an expando on the style object with the declarations untouched —
+  // so every coach fell through to the stylesheet's 34px fallback and six of them filled
+  // a line the plan says four fill. The two views are one here for the same reason they
+  // are one there, and a custom property asked for through the wrong door reads back
+  // empty rather than reading back a value no browser would have drawn.
+  const declared = {};
+  const syncStyle = () => { node.attrs.style = Object.keys(declared).map((k) => `${k}:${declared[k]}`).join("; "); };
+  const loose = {};
+  const isCustom = (k) => typeof k === "string" && k.startsWith("--");
+  const methods = {
+    getPropertyValue(k) { return k in declared ? declared[k] : ""; },
+    setProperty(k, v) { declared[k] = String(v); syncStyle(); },
+    removeProperty(k) { delete declared[k]; syncStyle(); },
+  };
+  node.style = new Proxy(methods, {
+    get(t, k) { return k in t ? t[k] : (k in declared ? declared[k] : loose[k]); },
+    set(t, k, v) {
+      if (isCustom(k)) { loose[k] = String(v); return true; }
+      declared[k] = String(v); syncStyle(); return true;
+    },
+    has(t, k) { return k in t || k in declared || k in loose; },
+  });
   const list = () => String(node.className || "").split(/\s+/).filter(Boolean);
   const put = (names) => { node.className = names.join(" "); };
   node.classList = {
@@ -1785,14 +1823,21 @@ test("the scale is two presses around the name of the stop it is on (v157)", () 
   assert.match(steps[0].attrs["aria-label"] || "", /wider/i, "the minus does not say it widens the view");
   assert.match(steps[1].attrs["aria-label"] || "", /closer/i, "the plus does not say it closes in");
 
-  // Between them, the name of the stop the view is on — the four names v154 put in
-  // four chips, kept as a read-out rather than as four taps.
-  const named = walk(group).find((n) => hasClass(n, "tl-step-name"));
-  assert.ok(named, "the scale no longer names the stop it is on");
-  assert.match(textOf(named), /Wide|Standard|Close|Closest/, `the scale reads "${textOf(named).trim()}"`);
+  // Between them, the name of the stop the view is on — the names v154 put in chips,
+  // kept as a read-out rather than as taps. Walked one stop at a time and compared
+  // as a whole list rather than pattern-matched: /Close/ is a substring of "Closer"
+  // and of "Closest", so a regex would happily agree with a names array that had
+  // lost an entry — and a lost entry prints an empty chip, which is the fault this
+  // is here to catch.
+  const names = [1.2, 1.6, 2.4, 3.2, 4.8, 7.2].map((pxPerMin) => {
+    const named = walk(render({ pxPerMin }).root).find((n) => hasClass(n, "tl-step-name"));
+    return named ? textOf(named).trim() : "(nothing)";
+  });
+  assert.deepEqual(names, ["Wide", "Standard", "Close", "Closer", "Closest", "Detail"],
+    `the dial does not name every stop it can be turned to: ${names.join(" / ")}`);
 
-  // The four chips are gone — a shorter row was the whole point of the change.
-  assert.equal(walk(group).filter((n) => hasClass(n, "tl-chip")).length, 0, "the four scale chips are still in the row");
+  // The chips are gone — a shorter row was the whole point of the change.
+  assert.equal(walk(group).filter((n) => hasClass(n, "tl-chip")).length, 0, "the scale chips are still in the row");
 
   // And the presses do move the view, one stop at a time: on + the day is drawn
   // closer, and at the closest stop the + is itself switched off rather than
@@ -1808,6 +1853,27 @@ test("the scale is two presses around the name of the stop it is on (v157)", () 
   const start = render({ pxPerMin: 0.1 });
   assert.equal(walk(start.root).filter((n) => hasClass(n, "tl-step"))[0].disabled, true,
     "the wider press is still live at the widest stop");
+});
+
+test("every stop of the dial has a name and a ruler step (v184)", () => {
+  // Three tables read by index off one list: PX_PER_MIN_CHOICES in the model, and
+  // SCALE_NAMES and TICK_MIN in the view. A stop with no name prints an empty chip,
+  // which the walk above catches. A stop with no RULER step is worse than that, and
+  // is what this is really for: rulerRow steps by that number in a `for` loop, so an
+  // undefined step is not a coarse ruler, it is a loop that never advances. Both
+  // tables are private to the view, so they are counted where they are written.
+  const list = (src, name) => {
+    const m = src.match(new RegExp(`const ${name} = \\[([^\\]]*)\\]`));
+    assert.ok(m, `${name} is not a table of its own any more`);
+    return m[1].split(",").map((s) => s.trim()).filter(Boolean);
+  };
+  const stops = list(read("admin/js/scenario.js"), "PX_PER_MIN_CHOICES").length;
+  const view = read("admin/js/views/scenario.js");
+
+  assert.equal(list(view, "SCALE_NAMES").length, stops,
+    "the dial has a stop it cannot name, so she would be standing on a chip that reads as nothing");
+  assert.equal(list(view, "TICK_MIN").length, stops,
+    "the ruler has no step for the closest stop, so the ruler cannot be drawn at all");
 });
 
 test("the people are one drop-down, and its closed text is the arrangement in force (v157)", () => {
@@ -2203,12 +2269,13 @@ test("the PEOPLE heading is gone (v158)", () => {
     "the PEOPLE heading's rule is still in the stylesheet with nothing on the screen wearing it");
 });
 
-test("the ruler's step follows the scale, and reaches the minute at Closest (v158)", () => {
+test("the ruler's step follows the scale, and reaches the minute at the closest stops (v158, v184)", () => {
   // Her ask: "make the ruler resolution to 1min" — and, asked where a minute could
   // be drawn at all, "a minute where it can be drawn". A minute is 1.2px at the
-  // wide stop and 3.2px at the closest, so the step follows the scale: half hours
-  // across a whole day, quarter hours at the standard reading, five minutes at
-  // Close, and a minute at Closest.
+  // wide stop, so the step follows the scale: half hours across a whole day, quarter
+  // hours at the standard reading, five minutes at Close, and a minute at all three
+  // of the closest stops — where she is lining two bars up and the minute is the
+  // thing she is looking at.
   const windowMin = computeScenario(ONE_BAKER_SCENARIO).windowMin;
   const hourCount = Math.floor(windowMin / 60) + 1;
   const minorCount = Math.max(0, Math.floor((windowMin - 30) / 60) + 1);
@@ -2217,7 +2284,9 @@ test("the ruler's step follows the scale, and reaches the minute at Closest (v15
     { pxPerMin: 1.2, step: 30, name: "Wide" },
     { pxPerMin: 1.6, step: 15, name: "Standard" },
     { pxPerMin: 2.4, step: 5, name: "Close" },
-    { pxPerMin: 3.2, step: 1, name: "Closest" },
+    { pxPerMin: 3.2, step: 1, name: "Closer" },
+    { pxPerMin: 4.8, step: 1, name: "Closest" },
+    { pxPerMin: 7.2, step: 1, name: "Detail" },
   ]) {
     const { root } = render({ pxPerMin: c.pxPerMin });
     const ruler = walk(root).find((n) => hasClass(n, "tl-ruler"));
@@ -2323,14 +2392,16 @@ test("the ruler's lines are carried down every row, at a step that is still a gr
   assert.ok(offRules.every((r) => !/background-image/.test(r)),
     "a switched-off module paints its own background and so drops the grid");
 
-  // The step at each of the four stops, as the chart itself sets it — read off the
+  // The step at each of the six stops, as the chart itself sets it — read off the
   // .tl element's own style rather than recomputed, so the test cannot agree with a
   // rule the screen does not use.
   for (const c of [
     { pxPerMin: 1.2, step: 30, gridMin: 30, tickW: 36, name: "Wide" },
     { pxPerMin: 1.6, step: 15, gridMin: 15, tickW: 24, name: "Standard" },
     { pxPerMin: 2.4, step: 5, gridMin: 5, tickW: 12, name: "Close" },
-    { pxPerMin: 3.2, step: 1, gridMin: 5, tickW: 16, name: "Closest" },
+    { pxPerMin: 3.2, step: 1, gridMin: 5, tickW: 16, name: "Closer" },
+    { pxPerMin: 4.8, step: 1, gridMin: 5, tickW: 24, name: "Closest" },
+    { pxPerMin: 7.2, step: 1, gridMin: 5, tickW: 36, name: "Detail" },
   ]) {
     const { root } = render({ pxPerMin: c.pxPerMin });
     // Read off the WRAP since v167: the two windows share one ruling, so the two
@@ -4610,7 +4681,7 @@ test("a board tells a worker when they are here, and a tap on it writes nothing 
   const root = createEl("div");
   renderBoard(root, state);
 
-  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "person") && textOf(n).includes("Person 1"));
+  const row = walk(root).find((n) => hasClass(n, "tl-row") && hasClass(n, "train") && textOf(n).includes("Person 1"));
   assert.ok(row, "the board has no person rows");
   const before = JSON.stringify(state.settings);
   row.dispatchEvent({ type: "click" });
@@ -4621,8 +4692,21 @@ test("a board tells a worker when they are here, and a tap on it writes nothing 
   assert.equal(JSON.stringify(state.settings), before,
     "a tap on the board wrote to her settings");
 
-  // The board is the same drawing, so it carries the same band — and it is the same
-  // card MINUS the switches: who is on what, and who is trained for what, are hers.
+  // What v184 changed, and only this: the BAND leaves the board's rows. The band is
+  // drawn at `round(startMin * pxPerMin)` — arithmetic on the day's minute axis — and
+  // a train is a strip of work with no minute axis to draw it on, so the same band
+  // across an arbitrary coach would be a quiet lie. The HOURS are not lost: they are
+  // said in the row's own tip, and on the card this tap just opened. Nothing about her
+  // stored hours moves.
+  assert.equal(walk(root).filter((n) => hasClass(n, "tl-shift")).length, 0,
+    "the board's train rows still wear a band drawn off a minute axis they no longer have");
+  assert.match(textOf(tipOf(row)), /Here 5:00 am → 9:00 am/,
+    "the board's row tip no longer says when the worker is here");
+  assert.deepEqual(scen.shifts, { 1: { startMin: 60, endMin: 300 } },
+    "opening the board rewrote the hours she typed");
+
+  // And it is the same card MINUS the switches: who is on what, and who is trained
+  // for what, are hers.
   assert.equal(hourBoxes().length, 0, "the board's person card offers the planner's hour boxes");
   assert.equal(walk(layers["popup-layer"]).filter((n) => hasClass(n, "row-check")).length, 0,
     "the board's person card offers the planner's training ticks");

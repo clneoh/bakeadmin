@@ -97,6 +97,17 @@ function devSet(rec) {
     || (Array.isArray(d.emails) && d.emails.some((e) => String(e).trim()))
     || Boolean(String(d.whatsapp || "").trim());
 }
+// The board's acknowledgement ticks — the green coaches on /production — are the
+// one guarded key that is an OBJECT rather than a list, so it needs a helper of
+// its own to say whether this phone has anything to say about it. It carries the
+// ticks only once somebody has ticked one: a phone that has never opened the
+// board must not push an empty map over the other phone's ticks. An emptied map
+// is a different thing from an absent one, and it is the SPEAK_EMPTY rule below
+// that says so — "Clear the board" writes `{}` and it has to travel as `{}`.
+function acksSet(rec) {
+  const a = (rec.boardAcks && typeof rec.boardAcks === "object") ? rec.boardAcks : {};
+  return Object.keys(a).length > 0;
+}
 function cleanDeveloperForSync(dev) {
   const src = (dev && typeof dev === "object") ? dev : {};
   return {
@@ -135,6 +146,11 @@ function recordPayload(kind, rec) {
       // The software wish list, only once she customises it — same guard: a
       // phone that never opened it must not push an empty list over hers.
       ...(Array.isArray(rec.wishList) ? { wishList: rec.wishList } : {}),
+      // The board's ticked coaches, only once one has been ticked — the same
+      // guard as the four above, and for the same reason: a phone that has never
+      // opened the board must not push an empty map over the ticks the other
+      // phone is carrying.
+      ...(acksSet(rec) ? { boardAcks: rec.boardAcks } : {}),
       // The developer credit / wish-list recipient, only once a name or email
       // is typed — a phone that never set it must not push an empty one over
       // the other phone's (last-write-wins would clobber it).
@@ -174,7 +190,7 @@ function recordPayload(kind, rec) {
 // That test is hasOpinion below, and it is asked about the cloud as well as the
 // phone, which is what stops a newly set up phone's stock plan from replacing
 // hers in either direction.
-const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "developer"];
+const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer"];
 
 // `production` — the numbers on More → Production line — is guarded by the same
 // three rules but cannot be judged the same way, and it was the one key left
@@ -192,7 +208,13 @@ const GUARDED_ALL = [...GUARDED, "production"];
 // carried whenever they are arrays, so an emptied list already goes out as one.
 // `production` needs none either: it has no empty to speak, and a plan she has
 // cleared back to the stock numbers reads as no opinion rather than a deletion.
-const SPEAK_EMPTY = ["scenarios", "developer"];
+//
+// `boardAcks` is here for the sharpest version of the same reason. Its own guard
+// above carries it only when it has ticks, so "Clear the board" — which writes
+// `{}` — would otherwise go out as though this phone had never opened the board.
+// The other phone would read that silence as ignorance, take the clear for
+// nothing, and rule 3 would put every cleared tick straight back.
+const SPEAK_EMPTY = ["scenarios", "boardAcks", "developer"];
 
 function has(obj, k) {
   return Object.prototype.hasOwnProperty.call(obj, k);
@@ -239,6 +261,19 @@ function hasOpinion(k, src) {
   return has(src, k);
 }
 
+// An empty plain object is an ANSWER, not content — it is what a phone writes
+// when it has emptied an object-valued guarded key, and rule 1 now speaks it for
+// exactly the same reason. So it can be present in a payload and still be nothing
+// to take: rule 2 must not copy `{}` into a phone that was silent about the key,
+// because that would spell "unset" two ways and leave the other phone unable to
+// tell an emptied board from one that was never opened. Arrays are excluded
+// deliberately: an empty LIST already goes out on its own guard, and taking it is
+// the correct answer for a shelf she emptied on the other phone.
+function emptiedObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v)
+    && Object.keys(v).length === 0;
+}
+
 // Rule 1. `prev` is the canonical shape this phone last recorded for the row:
 // when it held `scenarios` and today's payload has nothing to say about them,
 // they were DELETED here — and a deletion the other phone cannot tell apart from
@@ -253,8 +288,13 @@ function speakEmptied(rec, prev, state) {
     if (k === "developer") {
       if (devSet(s)) continue; // not empty — it is in the payload already
       rec.data.developer = cleanDeveloperForSync(s.developer);
-    } else if (Array.isArray(s[k])) {
-      rec.data[k] = s[k]; // the empty list itself, and an answer she gave
+    } else if (s[k] != null && typeof s[k] === "object") {
+      // The empty value itself, and an answer she gave. Widened from
+      // `Array.isArray` in v184 for `boardAcks`, whose empty is `{}` rather than
+      // `[]`: an object-valued key could not be spoken at all, so clearing the
+      // board went out as silence. `null`/`undefined` are still skipped, which is
+      // what keeps a phone that never held one quiet.
+      rec.data[k] = s[k];
     }
   }
 }
@@ -391,6 +431,7 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
         let next = null;
         for (const k of GUARDED_ALL) {
           if (hasOpinion(k, phoneOwn) || !hasOpinion(k, payload)) continue;
+          if (emptiedObject(payload[k])) continue; // an emptied board is an answer, not content
           next = next || { ...state.settings };
           next[k] = payload[k];
           if (pending && pending.data && typeof pending.data === "object") pending.data[k] = payload[k];

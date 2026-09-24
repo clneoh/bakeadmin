@@ -1,8 +1,130 @@
-# Jienluv2bake — change history (v54 → v183)
+# Jienluv2bake — change history (v54 → v184)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Sep 2026 — engine v184, THE TRAIN ON THE PRODUCTION LINE, AND TWO CLOSER STOPS ON THE DIAL (no
+database step). The board's workers' window is no longer a strip of time — it is a train of work.
+One coach is one job, joined in the order they happen, with the clock standing at the centre of the
+line, a countdown on every link between two coaches, and one tap on a coach turning it green. Your
+own words for it: "For the production, the effectiveness need to be improve, for each of person line,
+make his series of work join up like a train, coaches represent work, the current time at the center
+sharing with all person, showing next work in minutes on top, something like next station coundown
+for subway. Person should click on their work to turn it green indicating acknowledgement." Nothing
+of yours is rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** Six points, and then one refinement while it was being
+built: (1) "i want to have 2 step more closer scale"; (2) the Production line should join each
+person's work up "like a train, coaches represent work, the current time at the center sharing with
+all person, showing next work in minutes on top, something like next station coundown for subway",
+and "Person should click on their work to turn it green indicating acknowledgement"; (3) "The coach
+can pass the current timeline, but stay red, click it turn green"; (4) "Each title of the line show
+their name, make each line distinctively seperated"; (5) its purpose — "to tell person, what they
+have done, and what is coming dynamiccally, on the work that have not done, every person can see it,
+and can land. helping hand if their process can tolerate an interuption"; and (6) "Ask me question
+if not sure" — which is what settled the six design answers below. The refinement:
+"if the coach box is too smalll to house the full words, then just show meaningful, hoover mouse on
+show tooltip, with more details."
+
+**2. Two closer stops on the dial.** The Scenario planner's Scale control went from four stops to
+six. The two that were there stay where they were and only one name changed: the old Closest is now
+called Closer, and the new top stop is Detail. Three lists have to be the same length or the ruler
+loses its step and the chart breaks, so a test now says so out loud rather than trusting it.
+
+**3. The answers you gave, which the build follows.** Asked five rounds of questions, you chose:
+the clock is "Pinned to the centre"; one coach is "One job they do"; "Anyone, on any line" may tick;
+clearing is "A Clear the board button only"; green means "I'm on it (seen)"; a coach goes red "When
+the job is due"; coaches are "All the same width" with numbers "Only on the links"; ticks "Travels to
+your other phone"; the two windows are kept with the person's line taller; and the architecture is
+"The train is its own strip". And on the clock itself: "lock the clock relative to the train, when
+drag, clock line move, when click outside, the clock centred on the line, make the coach not too big,
+in a full shown line should be able to visualize 4 coach, we can also show the coming time countdown
+on the coach link."
+
+**4. What the person's line is now.** A taller 56-pixel row per person, separated from the next by a
+rule and a rail in that person's own colour — your point 4, "make each line distinctively seperated".
+The name cell carries who it is and what is next ("Next 26m", "Now: rests"). Alongside it, one coach
+for every job that person has, all the same width, in the order the jobs happen. Each coach carries
+its icon, a word that means it, and the clock time. That word is DERIVED and never cut: "Into the
+proofer" shows as "proofer", "Dimple and top" as "Dimple", "The oven swap and the bake" as "oven" —
+because a face showing the word "The" would be showing a word and saying nothing. The full module
+name, the two clocks, the length, the batch and the state in words are all on the coach's tooltip,
+which is your refinement read at the only moment it applies.
+
+**5. The clock, the countdown, and the colours.** The clock is one line at the centre of the line,
+shared by every person, and its label is the clock time — never the word "now", so it can never be
+mistaken for the planner's own now-line. Every wait between two jobs carries its countdown in
+minutes on the link, "like next station countdown for subway", and it counts down live. A coach turns
+red the moment its job is due and STAYS red after the clock has gone past it — your point 3 exactly.
+One tap turns it green and names the job back to you; the same tap takes it off again. A green coach
+travels to your other phone, and a Clear the board press appears beside the calling switch, asks
+first, and clears every coach at once.
+
+**6. Dragging reads the day without moving it.** A sideways drag on the workers' window moves the
+clock line only and leaves every train exactly where it was, because a drag is somebody asking "how
+long have I got" and not a change to the day. The label then reads the minute the line is standing
+on and the line is drawn in the reading colour. Letting go, or pressing anywhere off a row, puts it
+back at the centre. It is never saved, so it dies with the screen.
+
+**7. One wording fault found by measuring, and fixed.** Live at 4:30 am on your own day, Person 3's
+one job had run 4:00 to 4:12, so their row read "All done" — beside a coach that was standing RED and
+untaken. That is the board telling a worker they have finished something nobody has touched, and
+talking them out of the very tap your point 3 asks for. A row with work still untaken now counts it
+instead ("1 not taken"), and gives the count up the moment the last coach goes green.
+
+**8. One real bug, found only by measuring in the browser.** The widths of a train's coaches were
+being assigned to the strip in a way that looks right and writes nothing at all, so every coach fell
+through to the stylesheet's own fallback size. Measured at 375 pixels wide: 34-pixel coaches with SIX
+of them filling the visible line, where the plan promises four. It is fixed, and the test that
+watches it was made stricter FIRST so the fault was caught by a named failing assertion before the
+fix landed — the same lesson as every earlier version where a forgiving stand-in let a real fault
+through.
+
+**9. Measured on your own day, at 375 x 812 and at 1280 x 900, signed out of the cloud.** At 375:
+the line the coaches stand on is 213 pixels, and a coach is 37, a link 18, a side stub 4 — four
+coaches and three links and two stubs come to 210, so exactly four coaches fill the line, which is
+the figure you gave. The clock stands at 215 pixels, the centre of the line. At 1280 x 900: a
+723-pixel line, 151-pixel coaches, 30-pixel links, and again exactly four to the line, with the clock
+at the centre at 470. Wei's row read "Now: rests" with her five coaches at 4:00, 4:13, 4:30, 5:01 and
+5:32, the first three red and the one at 4:30 ringed as the job running now; the links counted 31m
+and 62m, and five minutes later the same links read 26m and 57m with the clock label moving to
+4:35 am. One tap on Person 4's coach turned it from red to green, said "Oil the pans and weigh the
+dough out at 4:00 am — marked as taken.", wrote the tick, and turned that row's line from
+"1 not taken" to "All done". A drag from the centre to 150 pixels read 4:13 am in the reading colour
+with every train's position unchanged to the pixel; letting go put the clock back at 215 and the
+label back to 4:30 am. The Clear press asked first, wrote the empty map rather than deleting it,
+turned every coach back to red, and made itself quiet again.
+
+**10. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day. After
+all of the above — the taps, the clear, the drag, the clock moving, the window resized — your stored
+data was put back from a copy taken beforehand and compared: byte for byte the same 13,888
+characters, your three saved days still reading 24, 4 and 24 pans, and only the app's own two keys
+left in the phone's storage.
+
+**11. Every rule that stands on it was proved load-bearing, not assumed.** Sixteen faults were put
+back in all, each watched failing a test that names it, then restored byte-identically. Among them:
+with a coach sized as a plain quarter of the line instead of out of the budget it fails reading that
+four coaches no longer fill the visible line; with a wait between two jobs given no width it fails
+the round trip that reads every minute of a row back off its own strip; with the due test given an
+upper bound it fails reading that a coach which has passed the clock is no longer red; with the tap
+no longer deleting the key it fails reading that the last tick off left something behind; with the
+centre fixed instead of measured it fails the placement of every row; with the pan guard removed it
+fails the test that says the board's window cannot pan while the planner's still can; and — the two
+worth naming, because they escaped the first sweep — with the tap's save or the clear's save skipped,
+nothing failed at all until the tests read the STORE and not just the object the app holds in memory.
+A tick that moved on screen and never reached the phone's saved file looks perfect until the phone is
+opened again, and no test could see it. Both now fail by name. The suite is 1339 passing with none
+failing.
+
+**12. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. The ticks live in the settings row your phones already sync, beside the calling switch, and
+that row learned one thing in this version: an emptied board is now SPOKEN rather than passed over in
+silence, so the other phone takes your clear instead of reading it as ignorance and putting every
+tick back.
+
+CHANGELOG and the guide both carry all of this, both PDFs rebuilt and read back with PyMuPDF, and the
+app's own More screen reads Engine v184.
 
 **24 Sep 2026 — engine v183, REASSIGNMENT HAPPENS BY ITSELF, AND THE PERSON'S CARD SAYS SO (no
 database step). One sentence on one card, and nothing else in the app changed. You went looking for

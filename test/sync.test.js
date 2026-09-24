@@ -1414,3 +1414,120 @@ test("mergeRows: a cloud row with nothing missing queues no publish", () => {
       "a phone that holds nothing guarded is not made to publish");
   } finally { restore(); }
 });
+
+// ── the board's ticked coaches (v184) ─────────────────────────────────────
+//
+// `boardAcks` is the fifth guarded key and the first that is an OBJECT rather than
+// a list. It rides the same three rules, and its empty is `{}` rather than `[]` —
+// which is the whole reason `speakEmptied` was widened this release: with the old
+// `Array.isArray` branch an object-valued key could not be spoken at all, so
+// "Clear the board" went out as silence, the other phone read that silence as
+// ignorance, and rule 3 put every cleared tick straight back.
+
+const TICKS = { "Wei|Dimple and top|0|0|1": 1 };
+
+test("markDirty: clearing the board is said out loud, so the other phone takes the clear", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.boardAcks = TICKS;
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.boardAcks = {}; // Clear the board
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the clear is queued");
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "boardAcks"), true,
+      "the empty board is spoken, so the other phone cannot read the clear as ignorance");
+    assert.deepEqual(p.data.boardAcks, {});
+  } finally { restore(); }
+});
+
+test("markDirty: a phone that never ticked a coach stays silent instead of inventing an empty board", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z"); // this phone's own settings, board never opened
+    st.settings.cutoff = "19:00"; // a real edit, so there is a payload to read
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p);
+    assert.equal(Object.prototype.hasOwnProperty.call(p.data, "boardAcks"), false,
+      "a phone that never ticked says nothing about the board, so no other phone is made to drop its ticks");
+  } finally { restore(); }
+});
+
+test("markDirty: a phone that holds ticks sends them, so the board agrees on both phones", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.boardAcks = TICKS;
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p);
+    assert.deepEqual(p.data.boardAcks, TICKS,
+      "the ticks were left out of the payload, so the other phone never sees them");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone that has never ticked receives the coaches ticked on the other phone", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00"; // a real edit, so this phone is the one pushing
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", boardAcks: TICKS }, "2026-09-24T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.boardAcks, TICKS,
+      "the ticks did not reach the phone that had never ticked one");
+    assert.deepEqual(queuedSettings(store).data.boardAcks, TICKS,
+      "the push about to go out left them behind, so it would delete them");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone still holding the ticks puts them back into a cloud row that lost them", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.boardAcks = TICKS;
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { cutoff: "18:00" }, "2026-09-20T00:00:00.000Z")]);
+    const p = queuedSettings(store);
+    assert.ok(p, "one publish is queued, with no press of hers needed");
+    assert.deepEqual(p.data.boardAcks, TICKS,
+      "the publish did not carry the ticks the cloud row had lost");
+    assert.deepEqual(st.settings.boardAcks, TICKS, "and the ticks are still on this phone");
+  } finally { restore(); }
+});
+
+test("mergeRows: a board the other phone cleared takes this phone's ticks away", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.boardAcks = TICKS;
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", boardAcks: {} }, "2026-09-20T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.boardAcks, {},
+      "the clear she pressed on the other phone was not taken here");
+    assert.equal(queuedSettings(store), undefined,
+      "and the ticks were queued straight back over the clear");
+  } finally { restore(); }
+});
+
+test("mergeRows: the other phone's clear is not written onto a phone that never had a board", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00"; // a real edit, so this phone is the one pushing
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    sync.mergeRows(st,
+      [cloudRow("settings", "default", { cutoff: "18:00", boardAcks: {} }, "2026-09-24T00:00:00.000Z")]);
+    assert.equal(Object.prototype.hasOwnProperty.call(st.settings, "boardAcks"), false,
+      "an empty board is an answer, not content — so a phone that was silent about one was given it anyway");
+    assert.equal(Object.prototype.hasOwnProperty.call(queuedSettings(store).data, "boardAcks"), false,
+      "nor did the phone start speaking an empty board it never had");
+  } finally { restore(); }
+});

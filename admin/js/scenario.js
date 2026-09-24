@@ -62,9 +62,15 @@ export const DEFAULT_DAY_START = 15 * 60;
 
 // How wide a minute is drawn. She asked to be able to change the time scale:
 // Coarse fits the whole day on a phone, Fine separates a fifteen-minute bake
-// from the one before it.
+// from the one before it. The last two are her ask of 24 September — "i want to
+// have 2 step more closer scale" — and they are where two bars a few minutes
+// apart finally come apart under the finger.
+//
+// Six, and SCALE_NAMES and TICK_MIN in the screen carry one entry each: the three
+// are read by index, so a stop without a name or without a ruler step is a stop
+// the ruler cannot be drawn at.
 export const PX_PER_MIN_DEFAULT = 1.6;
-export const PX_PER_MIN_CHOICES = [1.2, 1.6, 2.4, 3.2];
+export const PX_PER_MIN_CHOICES = [1.2, 1.6, 2.4, 3.2, 4.8, 7.2];
 
 // How a module takes its start from the module above it — ONE choice per module,
 // hers to make, and the only place this rule lives. Her own words, 2026-09-22:
@@ -565,7 +571,7 @@ function wrapDay(m) {  const d = 24 * 60;
   return r < 0 ? r + d : r;
 }
 
-// The drawing scale, kept to the four she can pick so a hand-typed number cannot
+// The drawing scale, kept to the six she can pick so a hand-typed number cannot
 // make a day a hair's width or a hundred screens wide.
 function clampScale(px) {
   const choice = PX_PER_MIN_CHOICES.reduce(
@@ -1483,6 +1489,24 @@ export function callWindows(sc) {
   }
   out.sort((a, b) => (a.at - b.at) || (a.to - b.to));
   return out;
+}
+
+// One call window's identity, as one string — the name the board writes a coach's
+// acknowledgement under, and the name it looks that acknowledgement up by again.
+//
+// It has to hold every fact that makes the window a DIFFERENT job, and it has to be
+// stable across a redraw: the same job on the same person at the same slot must key
+// the same on every beat of the day. `who` is one of them deliberately — a coach is
+// green because SOMEBODY has taken it, and moving a job to another person moves the
+// claim with it, so the new person's coach starts red again. That is the honest
+// reading at a bench, and it is the trade she is told about: a time shift keeps the
+// tick, a change of hands loses it.
+//
+// Exported and built here, in the model, so the board, the toggle and the tests
+// share one spelling of it. A second spelling would be a board that draws a green
+// coach the tap cannot find again.
+export function jobKey(w) {
+  return `${w.who}|${w.module}|${w.batch}|${w.slot}|${w.cycle}`;
 }
 
 // How many different PLACES one person has to be in the day. It is the number she
