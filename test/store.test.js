@@ -666,6 +666,63 @@ test("a posted order shows the courier's tracking number", async () => {
   }
 });
 
+// ── v189: the tracking slot can now hold the courier's own share link ────────
+//
+// v189 puts a booked trip's share link into this same slot, so the branch that
+// decides "link or number" is now customer-facing on every courier order — and until
+// this test it had none. The NUMBER half was covered above; the LINK half was not,
+// which is the half a booking newly exercises.
+test("a courier's share link in the tracking slot is a link a customer can tap", async () => {
+  const box = document.getElementById("track-result");
+  const link = "https://www.lalamove.com/en-my/track/order/LM-PG-771204";
+  const posted = {
+    status: "shipped", delivery: "30 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×2",
+    total: "RM58.00", customer: "Mei Ling", tracking_no: link,
+  };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
+  try {
+    await trackOrder("A3F9C2");
+    const no = byExactClass(box, "track-no");
+    assert.ok(no, "the card carries the tracking slot on its own line");
+    assert.equal(no.children[0].text, "Track your delivery: ",
+      "a link is labelled for what it is, rather than called a tracking NUMBER");
+    const a = no.children[1];
+    assert.equal(a.tagName, "A", "and it is tappable rather than words to read out");
+    assert.equal(a.attrs.href, link, "pointing at the courier's own page");
+    assert.equal(a.attrs.rel, "noopener noreferrer", "opened without handing it this page's window");
+    assert.equal(a.children[0].text, link, "and the customer can see where it goes before tapping");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
+});
+
+test("only http and https become a link — a delivery is never a page to run", async () => {
+  const box = document.getElementById("track-result");
+  // This value arrives from a courier's reply and is rendered as a tappable href.
+  // Only the two schemes that mean "a web address" may become one: a `javascript:`
+  // or `data:` href is a page, not a parcel, and a number read as a link sends the
+  // customer to nothing. `www.` with no scheme is words, and so is a string with a
+  // space in it — a half-match must not become a half-link.
+  const words = ["javascript:alert(1)", "data:text/html,<b>x</b>", "JT123456789", "www.lalamove.com", "https://x.com/a b"];
+  for (const value of words) {
+    const posted = {
+      status: "shipped", delivery: "30 Sep · Courier · 12 Jalan Bunga", items: "Focaccia ×2",
+      total: "RM58.00", customer: "Mei Ling", tracking_no: value,
+    };
+    globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
+    try {
+      await trackOrder("A3F9C2");
+      const no = byExactClass(box, "track-no");
+      assert.ok(no, `the slot still draws for ${value}`);
+      assert.equal(no.children.length, 1, `${value} must not become a link`);
+      assert.equal(no.children[0].tagName, undefined, `${value} is words, and draws as words`);
+      assert.match(no.children[0].text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    } finally {
+      globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+    }
+  }
+});
+
 // ── v124: the courier's charge on the customer's own card ────────────────────
 test("a courier charge the customer bears is named on the card, and the lookup asks for it", async () => {
   const box = document.getElementById("track-result");

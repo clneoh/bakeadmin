@@ -7,23 +7,22 @@
 // the secret exist, which is the point: they are read from the function's
 // environment and never leave the server.
 //
-// ── BEFORE THE FIRST REAL CALL, CONFIRM THESE THREE AGAINST THE SANDBOX ─────
+// ── BEFORE THE FIRST REAL CALL, CONFIRM THESE TWO AGAINST THE SANDBOX ──────
 //
-// The booking flow is documented publicly, but three details are not stated
+// The booking flow is documented publicly, but two details are not stated
 // unambiguously in the developer pages, and each is a one-line change once the
 // sandbox answers. They are named here rather than discovered one at a time:
 //
 //   1. STOP GEOMETRY. v3 is documented with `stops[].coordinates: { lat, lng }`,
 //      with the numbers as STRINGS. If the sandbox answers ERR_INVALID_STOPS or
 //      ignores the point, the older spelling is `location`.
-//   2. THE LANGUAGE TAG. `en_MY` is used here; some accounts expect `en_SG`-style
-//      tags per market.
-//   3. WHETHER `distance` COMES BACK AS A VALUE WITH A UNIT (the client reads both
+//   2. WHETHER `distance` COMES BACK AS A VALUE WITH A UNIT (the client reads both
 //      shapes, so this one is cosmetic).
 //
-// Sender and recipient phone formats are the fourth, and they only matter at booking
-// time — a quotation is priced from the two points alone, so Phase 1 never sends a
-// phone number.
+// Two more used to be on this list and are settled. THE ENVELOPE is real and is not
+// a style choice — see `envelope()` below, which v188 shipped without and v189 put
+// right. And THE PHONE FORMAT is E.164 with a leading `+`, which booking now sends;
+// the app's own numbers are stored without one, so the plus is added at the door.
 
 import { signRequest } from "../sign.mjs";
 
@@ -51,6 +50,36 @@ export function hostFor(env: unknown): string {
 
 export type LlmConfig = { key: string; secret: string; market: string; host: string };
 
+// ── the envelope, which is not a style choice ──────────────────────────────
+//
+// Lalamove wraps EVERYTHING in a top-level `data`: the body it is given and the
+// body it answers with. It says so itself, in the error it returns when the wrapper
+// is missing — ERR_INSUFFICIENT_STOPS reads "Number of stops are less than 2 OR the
+// request body structure is incorrect. I.e: {data: {...}}". An unwrapped body is not
+// quietly accepted, it is refused as malformed.
+//
+// v188 shipped with the quotation unwrapped on BOTH halves and nothing could have
+// caught it: the app had no key, so no price was ever really asked for, and a test
+// can only assert the shape its author already believed. It was found in v189 by
+// reading Lalamove's reference against the call as built. So both halves are fixed
+// here, once, rather than read around elsewhere: the request is wrapped by
+// `envelope()` and every reply is unwrapped by `unwrap()` below, which means
+// everything above this file reads ONE shape and the client's normalisers stay as
+// they were written.
+export function envelope(body: unknown): Record<string, unknown> {
+  return { data: body };
+}
+
+// The inside of Lalamove's envelope. A reply that carries no `data` key is passed
+// through untouched rather than turned into `undefined`: an answer that is not
+// wrapped is a shape this file does not recognise, and handing the reader `undefined`
+// for it would read downstream as "the courier said nothing" instead of "this is not
+// the reply that was expected".
+export function unwrap(data: unknown): unknown {
+  const body = (data && typeof data === "object") ? data as Record<string, unknown> : null;
+  return body && "data" in body ? body.data : data;
+}
+
 // The errors worth their own sentence, because the API's own words for them are
 // codes. Anything not on this list is passed through in the API's own wording
 // underneath a plain first line, so an unanticipated failure is still readable.
@@ -67,6 +96,12 @@ const PLAIN_ERRORS: Record<string, string> = {
   ERR_INVALID_STOPS: "Lalamove would not accept one of the stops on this trip.",
   ERR_TOO_MANY_STOPS: "Lalamove will not carry this many drops on one trip.",
   ERR_INVALID_SCHEDULE_TIME: "Lalamove would not accept that pickup time — it must be at least two hours from now, and no more than thirty days ahead.",
+  ERR_INVALID_QUOTATION_ID: "That price is no longer on Lalamove's side — ask for a fresh one. A price is only good for five minutes, and booking uses the price it was quoted at.",
+  // This one arriving means the app built the request wrongly, not that her trip is
+  // wrong — it is the error Lalamove returns when the `data` wrapper is missing. Said
+  // plainly rather than blamed on her order, because there is nothing she could do
+  // about it and the next person reading it needs to know where to look.
+  ERR_INSUFFICIENT_STOPS: "Lalamove would not accept the shape of this trip. That is a fault in the app rather than in your order — nothing was booked.",
 };
 
 // The API answers a failure as { message, errors: [{ id, code, message }] } with a
@@ -118,7 +153,11 @@ export async function llmRequest(
         "Request-ID": crypto.randomUUID(),
         "Content-Type": "application/json",
       },
-      body: method.toUpperCase() === "GET" ? undefined : raw,
+      // A bodyless call sends NO body — not an empty string. GET and DELETE both
+      // take none, and an empty string with a JSON content-type is a third thing
+      // that a strict server may or may not read as "no body". The signature over
+      // an empty body is the same either way, because sign.mjs is given `raw`.
+      body: body == null ? undefined : raw,
     });
   } catch (err) {
     return { ok: false, status: 0, data: null, reason: `Could not reach Lalamove — ${(err as Error)?.message || "the request failed"}` };
@@ -174,7 +213,7 @@ export async function quotation(
   cfg: LlmConfig,
   { serviceType, points, scheduleAt = "" }: { serviceType: string; points: Stop[]; scheduleAt?: string },
 ) {
-  const body: Record<string, unknown> = {
+  const inner: Record<string, unknown> = {
     serviceType,
     language: "en_MY",
     stops: stopsPayload(points),
@@ -182,6 +221,72 @@ export async function quotation(
   // Omitted entirely when there is no time: an empty string is not "now" to this
   // API, it is a malformed schedule.
   const when = String(scheduleAt || "").trim();
-  if (when) body.scheduleAt = when;
-  return await llmRequest(cfg, { method: "POST", path: "/v3/quotations", body });
+  if (when) inner.scheduleAt = when;
+  const out = await llmRequest(cfg, { method: "POST", path: "/v3/quotations", body: envelope(inner) });
+  return out.ok ? { ...out, data: unwrap(out.data) } : out;
+}
+
+// ── booking, reading and cancelling a real trip ────────────────────────────
+//
+// One person with one door: the sender is the bakery, a recipient is a customer.
+// `stopId` is the courier's own handle for a doorstep and it comes from the
+// QUOTATION's reply, not from here — that is what makes a booking the price that
+// was quoted rather than a new price for the same words. See the client half
+// (admin/js/couriers/lalamove.js) for how each id is matched back to a door.
+type Party = { stopId: string; name: string; phone: string };
+
+function partyPayload(p: Party): Record<string, unknown> {
+  return {
+    stopId: String((p && p.stopId) || "").trim(),
+    name: String((p && p.name) || "").trim(),
+    phone: String((p && p.phone) || "").trim(),
+  };
+}
+
+// The order body. Note what is NOT in it: no serviceType, no scheduleAt, no stops
+// and no language. Those belong to the quotation and are deliberately not repeated —
+// the booking names the quotation, and the quotation already holds the vehicle and
+// the time. Sending them again would be a second, quieter way to choose a vehicle.
+export function orderPayload(
+  { quotationId, sender, recipients }: { quotationId: string; sender: Party; recipients: Party[] },
+): Record<string, unknown> {
+  return envelope({
+    quotationId: String(quotationId || "").trim(),
+    sender: partyPayload(sender),
+    recipients: (Array.isArray(recipients) ? recipients : []).map(partyPayload),
+  });
+}
+
+export async function placeOrder(
+  cfg: LlmConfig,
+  args: { quotationId: string; sender: Party; recipients: Party[] },
+) {
+  const out = await llmRequest(cfg, { method: "POST", path: "/v3/orders", body: orderPayload(args) });
+  return out.ok ? { ...out, data: unwrap(out.data) } : out;
+}
+
+// One trip's current state, read fresh. This is the ONLY way her own screen learns
+// anything after booking: Lalamove cannot write to her phone, so her order row
+// catches up when she asks it to (see the webhook half in the plan — that one is for
+// the customer's page, which does not need her session).
+//
+// The driver is deliberately NOT fetched here. `GET .../orders/{id}` carries only a
+// `driverId`, which is an empty string until a driver is matched, and the driver's
+// own endpoint refuses everything until an hour before the pickup — so a booking
+// press has no driver to show, and a screen that showed one would be inventing it.
+export async function orderDetail(cfg: LlmConfig, orderId: string) {
+  const out = await llmRequest(cfg, { method: "GET", path: `/v3/orders/${encodeURIComponent(String(orderId || "").trim())}` });
+  return out.ok ? { ...out, data: unwrap(out.data) } : out;
+}
+
+// Cancel a trip. DELETE with no body, which is what Lalamove documents — NOT the
+// `PUT .../cancel` with a reason that some third-party libraries use, and that its
+// own reference does not contain.
+//
+// A refusal is expected and ordinary rather than exceptional: this is allowed only
+// while a driver is still being found, or within five minutes of one being matched.
+// After that the 409 arrives with ERR_CANCELLATION_FORBIDDEN, which PLAIN_ERRORS
+// already turns into a sentence she can act on.
+export async function cancelOrder(cfg: LlmConfig, orderId: string) {
+  return await llmRequest(cfg, { method: "DELETE", path: `/v3/orders/${encodeURIComponent(String(orderId || "").trim())}` });
 }

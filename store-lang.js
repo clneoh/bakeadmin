@@ -119,6 +119,9 @@ const en = {
   trkReady: "Packed",
   trkFinal: "Collected / Shipped",
   trackingNo: "Tracking number: %1",
+  // The same slot when a booked courier trip handed back a share link rather than a
+  // number. The value is the link itself and is rendered tappable, so there is no %1.
+  trackDelivery: "Track your delivery:",
   courierCharge: "Courier charge: %1",
   // The same charge when the courier collects it at the door: COD is the word
   // Malaysians know for a parcel the receiver pays for, so it is kept, with what to
@@ -223,6 +226,7 @@ const zh = {
   trkReady: "已打包",
   trkFinal: "已取货 / 已寄出",
   trackingNo: "快递单号：%1",
+  trackDelivery: "查看配送进度：",
   courierCharge: "快递费：%1",
   courierCod: "快递费：%1 - 货到付款，收货时付给快递员",
   nextBlockedBasket: "你的购物袋是 %1 的。想订另一天，请在上面的日历选择。",
@@ -324,6 +328,7 @@ const ms = {
   trkReady: "Dibungkus",
   trkFinal: "Telah diambil / Telah dihantar",
   trackingNo: "Nombor penjejakan: %1",
+  trackDelivery: "Jejak penghantaran anda:",
   courierCharge: "Caj kurier: %1",
   courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
   nextBlockedBasket: "Bakul anda untuk %1. Untuk hari lain, pilih pada kalendar di atas.",

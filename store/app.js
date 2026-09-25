@@ -1297,6 +1297,21 @@ function journeyEl(row) {
 // `row`. Null until the customer looks something up.
 let lastTrack = null;
 
+// The one line for whatever is in the tracking slot: a courier's page, or a
+// number to read out. Kept beside paintTrack because it exists only for that
+// card, and it is a function rather than two inline branches so the label and the
+// value cannot drift apart — the failure that matters is a NUMBER rendered as a
+// link, which sends a customer to nothing. Only http and https are links, so a
+// `javascript:` or `data:` value is words, not a destination.
+function trackingEl(value) {
+  const said = String(value || "").trim();
+  const isLink = /^https?:\/\/[^\s]+$/i.test(said);
+  if (!isLink) return el("p", { class: "track-no" }, sub(t("trackingNo"), said));
+  return el("p", { class: "track-no" },
+    `${t("trackDelivery")} `,
+    el("a", { href: said, target: "_blank", rel: "noopener noreferrer" }, said));
+}
+
 // Draw the track card from `lastTrack`. Every string comes from t(), so calling
 // this again after a language change repaints the card — including the journey
 // step labels — with no network.
@@ -1338,10 +1353,18 @@ function paintTrack() {
     codeLine,
     journey,
     details,
-    // The courier's tracking number, when the order was posted and the baker typed
-    // one. Its own line, in the number face, so it is easy to read back to a
-    // courier or paste into their site.
-    row.tracking_no ? el("p", { class: "track-no" }, sub(t("trackingNo"), row.tracking_no)) : null,
+    // What the baker put in the tracking slot, when the order was posted. It is ONE
+    // slot and it holds one of TWO kinds of thing, and they must not be worded the
+    // same (v189): a number she typed is something the customer reads out to a
+    // courier, and a link a booked trip handed back is a page they open. A link
+    // rendered as plain text is a dead end on a phone — it cannot be tapped, and a
+    // customer staring at a URL has nothing to do with it.
+    //
+    // The check is written out here rather than imported, because this page imports
+    // nothing from the backoffice's own modules; the same rule lives in
+    // admin/js/courier_job.js's isLink, which is what the shipped WhatsApp message
+    // reads, so the card and the message word a link identically.
+    row.tracking_no ? trackingEl(row.tracking_no) : null,
     row.customer ? el("p", { class: "track-note" }, sub(t("forCustomer"), row.customer)) : null,
   ];
   box.replaceChildren(...kids.filter(Boolean));

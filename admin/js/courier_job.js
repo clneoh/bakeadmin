@@ -16,6 +16,14 @@
 //   • scheduleAtUTC — the bakery's clock turned into the UTC instant the API
 //                   demands. See the trap named on it below; it is the single most
 //                   likely line in this feature to be quietly wrong.
+//   • isLink      — whether what a courier handed back is a link or a number, which
+//                   decides whether the customer is told "Track your delivery" or
+//                   given something to read out. See it below for why the scheme is
+//                   checked rather than assumed.
+//   • jobOf / liveJobOf — the trip an order is ON, read back off the order. A booking
+//                   is stored on the order row rather than in a table of its own,
+//                   which is what makes booking need no database step at all, and
+//                   this is the one place that reading is written down.
 //
 // Everything returns plain data. Nothing here fetches, signs, draws or saves.
 
@@ -209,4 +217,131 @@ export function fmtDistanceKm(km) {
   if (n === 0) return "0 km";
   if (n < 1) return `${Math.round(n * 1000)} m`;
   return `${n.toFixed(1)} km`;
+}
+
+// ── what the courier hands back about a booked delivery ────────────────────
+//
+// A courier gives one of two things in return for a booking, and the app prints
+// whichever it is in ONE slot on the order (`o.trackingNo`, which already reaches
+// the customer's card and the shipped WhatsApp). The two are not the same kind of
+// thing and must not be worded the same: a NUMBER is something a person reads out
+// over the phone, a LINK is something a phone opens. Lalamove returns a share link
+// and no AWB, which is why this question exists at all.
+
+// Is this value a link? Only http and https.
+//
+// The scheme is checked rather than the presence of a colon, because `javascript:`
+// and `data:` are also "a colon with something after it", and this value came from
+// a courier's reply and is rendered as a tappable href for a customer. A `data:`
+// href is a page, not a delivery. So the two schemes that mean "a web address" are
+// named, and everything else is treated as words to read — which is the safe way
+// round, since a link mis-read as a number is only less convenient, and a number
+// mis-read as a link is a customer sent to nothing.
+export function isLink(v) {
+  return /^https?:\/\/[^\s]+$/i.test(String(v || "").trim());
+}
+
+// One line for a customer's message, or "" when there is nothing to say. The label
+// follows the value; the value is never touched.
+//
+// Kept here, beside isLink, because the two answer the same question and a label
+// that disagrees with its own value is how a customer ends up told to "Track your
+// delivery" over a number, or handed a bare number labelled as a link. A typed
+// number still reads exactly as it always has — "Tracking number: LLM12345" is
+// character for character what this printed before there was a link to print.
+export function trackingLine(value, numberLabel = "Tracking number") {
+  const said = String(value || "").trim();
+  if (!said) return "";
+  return isLink(said) ? `Track your delivery: ${said}` : `${numberLabel}: ${said}`;
+}
+
+// ── the trip an order is on ────────────────────────────────────────────────
+//
+// A booked trip is kept ON THE ORDER ROW (`o.courierJob`), and that is the whole
+// reason booking needs no database step: an order row syncs whole, so a trip booked
+// on her phone is on her other phone the next time it syncs, with no column, no
+// migration and nothing to run in Supabase. What it costs is that the app itself
+// must be able to tell a real stored trip from a stray object — hence these two,
+// rather than a dozen screens each reading `o.courierJob` and each deciding for
+// themselves what a half-written one means.
+
+// The trip stored on this order, or null. A job with no `jobId` is null rather than
+// a job: a booking the app cannot name is one it cannot check, chase or cancel, so a
+// half-written record is read as no record instead of as a trip.
+export function jobOf(order) {
+  const j = (order && order.courierJob) || null;
+  if (!j || typeof j !== "object") return null;
+  return String(j.jobId || "").trim() ? j : null;
+}
+
+// The trip STILL RUNNING on this order, or null — which is the question that matters
+// before booking a second one. A finished trip is deliberately KEPT on the order: it
+// is the record of what was delivered and what it cost, and deleting it would throw
+// away the only thing tying a charge on her books to a real journey. So "is there a
+// trip" and "is there a trip running" are two different questions, and this is the
+// second one.
+//
+// A record written before this field existed has no `done` key, and that reads as
+// LIVE rather than as finished: the cost of the two mistakes is not symmetric, since
+// a trip wrongly thought finished is a second van at the same door, and a trip
+// wrongly thought running is one she has to cancel by hand.
+export function liveJobOf(order) {
+  const j = jobOf(order);
+  if (!j) return null;
+  return j.done ? null : j;
+}
+
+// Why a new trip cannot be booked on these orders, in words, or "" when it can. Asked
+// of the ORDERS rather than of the courier, because a running trip is a fact about the
+// order and not about whoever happens to be holding it today.
+export function liveJobProblem(orders) {
+  const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
+  const live = list.map(liveJobOf).filter(Boolean);
+  if (!live.length) return "";
+  if (live.length === 1) {
+    return "This order is already on a trip. Check it below, or cancel it first — booking again would send a second vehicle to the same door.";
+  }
+  return `${live.length} of these orders are already on a trip. Check them below, or cancel them first — booking again would send a second vehicle to the same door.`;
+}
+
+// ── when something happened, said plainly ─────────────────────────────────
+
+// A moment, in the bakery's own reading: "2:14 pm", or "25 Sep, 2:14 pm" once it is
+// not today. Used for when a trip was booked and when its status was last read, both
+// of which are ISO instants written by the app itself rather than by the courier —
+// so this is a clock, not a parse of somebody else's format.
+//
+// `today` is passed rather than read from the device so the caller can hold one day
+// for a whole screen: two lines on one card disagreeing about whether it is today
+// would be the app's own arithmetic being visibly wrong.
+export function fmtStamp(iso, today = "") {
+  const at = Date.parse(String(iso || ""));
+  if (!Number.isFinite(at)) return "";
+  const d = new Date(at);
+  const hh = d.getHours();
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  const clock = `${h12}:${String(d.getMinutes()).padStart(2, "0")} ${hh < 12 ? "am" : "pm"}`;
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (today && day === String(today).trim()) return clock;
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${clock}`;
+}
+
+// How long ago a moment was, in the words a person would use. Anything under a
+// minute is "just now" rather than "0 minutes ago", and a moment in the future — a
+// phone whose clock was wrong when the trip was booked — reads as "just now" rather
+// than as a negative age, because a screen that says "in -3 minutes" is a screen
+// arguing with itself.
+export function fmtAgo(iso, now = Date.now()) {
+  const at = Date.parse(String(iso || ""));
+  if (!Number.isFinite(at)) return "";
+  const s = Math.floor((now - at) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? "yesterday" : `${d} days ago`;
 }

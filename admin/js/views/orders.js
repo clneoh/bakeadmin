@@ -1553,8 +1553,22 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     charge.el,
     // Same price section as the Note / tracking box carries, for the same reason that
     // box carries the charge: the fee is part of what this order IS, so both doors to
-    // the charge open on the same way of filling it in (25 Sep 2026).
-    courierQuoteSection({ state, orders: [first], onUseFee: (q) => charge.set(q.amount) }),
+    // the charge open on the same way of filling it in (25 Sep 2026). Booking a trip
+    // (v189) writes the share link onto the order here, so `onCommit` refreshes THIS
+    // card's own copy of it — the draft is what `Object.assign` writes back over the
+    // order on Save, and a booking the card never heard about would be undone by the
+    // next Save. A booked trip is saved the moment it is booked rather than on Save:
+    // a real vehicle on a real road must not be discardable by closing a form.
+    courierQuoteSection({
+      state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+      onCommit: (o) => {
+        draft.trackingNo = String((o && o.trackingNo) || "");
+        tracking.value = draft.trackingNo;
+        save(state);
+        maybeSync(state);
+        maybePublishTracking(state, group);
+      },
+    }),
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "Items"),
       el("p", { class: "card-sub", style: "margin:0 0 6px" },
@@ -2002,7 +2016,20 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // she is part-way through and the Save button with it, so an accepted fee would
         // land in a box nothing could ever save. Its [Use this fee] writes through this
         // card's own charge box, so there is still one charge editor in the app.
-        courierQuoteSection({ state, orders: [first], onUseFee: (q) => charge.set(q.amount) }),
+        //
+        // Booking a trip (v189) writes the share link onto the order, and this box
+        // captured the tracking number when it opened — so `onCommit` puts the new value
+        // back into the box she is looking at. Without it, the Save below would write
+        // its own stale number over the link the customer was about to be sent.
+        courierQuoteSection({
+          state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+          onCommit: (o) => {
+            tracking.value = String((o && o.trackingNo) || "");
+            save(state);
+            maybeSync(state);
+            maybePublishTracking(state, group);
+          },
+        }),
         custTotal,
         el("div", { class: "field" }, el("label", {}, "Paid by the customer"), paidSel),
         el("p", { class: "card-sub", style: "margin:0 0 10px" },

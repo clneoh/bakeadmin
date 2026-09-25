@@ -1,8 +1,107 @@
-# Jienluv2bake — change history (v54 → v188)
+# Jienluv2bake — change history (v54 → v189)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v189, BOOKING THE TRIP (no database step). The second step of the courier
+work you asked for: the price you chose becomes a real van. One press books the trip with Lalamove, the
+share link it sends back goes into the tracking box your orders already have, and one press checks where
+the driver has got to or calls the trip off. Two real defects were found by reading the drawn screen
+rather than the code — the job card had been printing the courier's own word ASSIGNING_DRIVER instead of
+"Finding a driver", and the price panel was printing the word "null" under its last row — and both are
+fixed, guarded and proved. The customer-facing half had no test at all and has three now. Not one module,
+batch, start time, cycle or saved day of yours was rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "i want to do Lalamove, API to manage courier, make it ready
+for other courier as well. Focus now for laalamove. And check our backoffice readiness. From my
+understanding lalamove support last day deliver consolidation to save on cost." Three separate things.
+v188 built the quote, which was the first. This is the second: booking. The seam and your consolidation
+belief were both answered in v188 and nothing about them changed here.
+
+**2. What a booking does, and what it deliberately does not.** The trip comes back with its own share
+link, and that link is written into the tracking box this app has carried since v97 — the box that is
+already printed on the customer's card and in the shipped WhatsApp message. That reuse is why a booking
+needs no database step at all: an order row syncs whole, so a trip booked on one phone reaches your other
+phone with no migration and no new column. A share link IS the courier's reference for this delivery, so
+putting it where a tracking number used to go is honest rather than a shortcut. One copy touch goes with
+it: when that box holds a web address the message says "Track your delivery" instead of "Tracking
+number", because it is a page the customer opens rather than digits they read out.
+
+**3. The driver's name and number plate cannot be shown at booking — and the plan promised one.** This
+is the one place this release does not deliver what was planned, and it is said here rather than glided
+over. Lalamove has no tracking number and no driver at the moment a trip is booked; the driver is
+assigned afterwards and Lalamove does not release the name and plate until about an hour before pickup.
+So booking shows the price, the vehicle and the share link, and the driver arrives later, if you want
+that screen. There is nothing to fix; the promise was simply wrong when it was written.
+
+**4. The two defects, both found by reading the drawn screen rather than the code.** The first: the job
+card printed "ASSIGNING_DRIVER" where the app has a translation table with a test on it. The table was
+correct and tested; what was missing was the wire from the card to it, because the card asks the courier
+"what is this status in words" and the courier object did not answer that question. The fallback printed
+the courier's own enum instead of complaining, which is what a quiet fallback does. It reads "Finding a
+driver" now, and the whole interface has a guard so a second courier cannot ship without the answer. The
+second: the price panel printed the word "null" under its last price row, because two optional lines were
+handed to a browser function that turns a null into the word. It was invisible to every test the app had,
+because the ordinary stand-in screen quietly drops nulls — only the strict one keeps them, and it now
+draws this panel too.
+
+**5. Your three decisions, carried forward and unchanged.** "Locate it, let me fix it" for addresses, so
+a courier is handed a point and never words on a card. "All four stages", so this is the second of four
+and the remaining two follow as v190 and v191. "Build now, keys later" — the app still carries no key and
+no secret, and says so in plain words rather than failing in a way that looks like a bug.
+
+**6. Measured live on the drawn screen, at 375 by 812 and at 1280 by 900.** The job card reads
+"Lalamove is on this order", then "Car · RM 14.00", then "Booked 1:51 am", then the two presses, then
+"Status: Finding a driver — read just now", then the customer's own link. Pressing Check the trip against
+a reply of PICKED_UP put up "Trip status: Collected" and the card then read "Status: Collected — read just
+now". Pressing Cancel trip opened the app's own confirmation, which names the consequence and the money:
+"Call off this Lalamove trip? The driver stops being sent, and the customer's tracking box keeps the link
+but nothing will update it. This cannot be undone from here — you would have to book again, at a fresh
+price." Confirming it put up "Trip called off" and the card then read "Status: Called off from here
+9:28 am". The presses measure 115 by 36, 99 by 36 and 110 by 36, this app's own tap-target floor, and the
+confirmation's two presses 87 by 46 and 100 by 46.
+
+**7. Where the honest answer is not the convenient one.** Calling a trip off sends the courier a request
+that answers with nothing at all — so the card does NOT claim the courier said "Cancelled". It records
+that YOU called it off, with the moment, in the app's own words: "Called off from here". The same reason
+runs the other way on a finished trip: the heading changes from "Lalamove is on this order" to "A Lalamove
+trip on this order", the Cancel press is withdrawn rather than offered and then refused, and the Book
+presses come back to life so you can rebook a trip you cancelled. And a checked status is merged into the
+trip's record rather than replacing it, so looking at a trip never forgets the price it was booked at.
+
+**8. The money guard, measured.** A trip that is still running blocks a second one. Measured live with a
+live trip on the order: all three Book presses drawn disabled, and the panel's own sentence under them —
+"This order is already on a trip." That is the guard that stops you paying for a second van to the same
+door.
+
+**9. The customer-facing half had no test, and that gap was found by writing the faults rather than by
+reading the code.** v189 puts a trip's share link into the tracking box, which makes the "is this a link
+or a number" branch customer-facing on every courier order. The number half was covered; the link half,
+which is exactly what a booking newly produces, was not — on either side. Three tests were written: the
+storefront now proves a link is drawn tappable and a `javascript:` value is not; and the shipped message
+now proves it routes the value through the one label-maker rather than labelling a URL a tracking number.
+
+**10. Nothing of yours is rewritten.** No module, batch, start time, cycle or saved day. Nothing was
+written to Supabase, and no real network call left the browser for the whole measurement: the courier was
+answered by a stand-in. The pane's own stored data was compared field by field afterwards and put back —
+the only fields the measurement had changed were the trip's own state and the app's two customer
+edit-stamps, and the fake trip, the fake share link and the fake session token are all removed. The pane
+holds exactly the three storage keys it held before, with no backup key left behind.
+
+**11. Every rule that stands on it was proved load-bearing.** Twenty-four faults were put back in all,
+each watched failing a test that NAMES it and then restored byte-identically. Among them: the request
+envelope the API needs; a reply not being unwrapped; the stop ceiling checked AFTER the doors; a doorstep
+matched by position instead of by where it is; a finished trip still counting as live; a phone number
+losing its plus; a trip number dropped into a URL unescaped; the vehicle and time being re-sent on a
+booking, which would be a second and quieter way to choose a vehicle; a GET carrying an empty body; and
+a cancel sending one. Four of them are named rather than counted, because a test could not have caught
+them and one was found only by a fault: the printed "null" and the printed enum, both read off the drawn
+panel; the storefront's link branch; and the missing "done" flag on a job written before that flag
+existed, which every test passed until a fault exposed it. The suite is 1519 passing with none failing.
+
+**12. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. A booked trip is kept on the order row, which syncs whole.
 
 **25 Sep 2026 — engine v188, A DELIVERY PRICE BEFORE YOU PROMISE ONE (no database step). The first
 step of the courier work you asked for: on an order you are delivering, one press asks Lalamove what the

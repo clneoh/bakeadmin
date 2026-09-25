@@ -1137,6 +1137,26 @@ option.tone-off { color: var(--muted); }
    that vanished would leave her wondering which vehicle she had looked at. */
 .quote-dead .quote-price, .quote-dead .quote-name { color: var(--muted); text-decoration: line-through; }
 
+/* ---------- The trip this order is on ---------- */
+/* A real trip with real money behind it, so it is drawn as a card of its own above the
+   prices rather than as one more line in a list. Wraps for the same reason .quote-row
+   does: a phone holds about 300 pixels, and a vehicle, a price and two presses do not
+   fit on one line at that width. */
+.job-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--strip);
+}
+.job-head { margin: 0 0 8px; font-weight: 600; }
+.job-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.job-what { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.job-name { font-weight: 600; }
+.job-sub, .job-status, .job-link { font-size: 12px; color: var(--muted); }
+.job-status, .job-link { margin: 8px 0 0; overflow-wrap: anywhere; }
+.job-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ---------- App-password lock ---------- */
 .lock-layer {
   position: fixed;

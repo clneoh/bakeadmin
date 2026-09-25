@@ -13,6 +13,13 @@
 // is invisible to them. This shim deliberately does what the browser does:
 // non-node arguments become text. The rendering, the shim, and the "null" shim
 // regression (flip one call site back to passing null and this file fails).
+//
+// AND THE THIRD SCREEN (v189, 25 Sep 2026). The courier price panel wrote its two
+// optional lines as bare `?: null`, and the drawn panel printed the word "null"
+// under the last price row — found by reading the panel on screen at 375 pixels,
+// on the first booking this app ever made, which is the worst place for a stray
+// word to stand. It was invisible here for the same reason as the others: this
+// file simply did not render that screen yet. It does now.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,12 +30,24 @@ function createEl(tag) {
     className: "", style: {}, value: "", checked: false, disabled: false, hidden: false,
     scrollTop: 0, _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    appendChild(c) { if (c != null) this.children.push(c); return c; },
-    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+    appendChild(c) { this._adopt(c); if (c != null) this.children.push(c); return c; },
+    append(...cs) { for (const c of cs) { if (c == null) continue; this._adopt(c); this.children.push(c); } },
     // The real DOM: a node is used as-is, anything else is stringified into a
     // text node — so null arrives on the page as "null".
     replaceChildren(...cs) {
       this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) }));
+      for (const c of this.children) this._adopt(c);
+    },
+    // The real DOM keeps a child's parent, and `isConnected` walks it. The courier
+    // price panel asks `wrap.isConnected` before it does anything (and re-asks it
+    // after every await, because the card can be closed mid-flight), so a shim with
+    // no parent links would make the panel's whole path unreachable and every
+    // assertion about it would pass over an empty screen. Added here for the same
+    // stated reason test/board-view.test.js added it.
+    _adopt(c) { if (c && c.nodeType === 1) c.parentNode = this; },
+    get isConnected() {
+      for (let n = this; n; n = n.parentNode) if (n === doc.body) return true;
+      return false;
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
@@ -75,6 +94,7 @@ globalThis.Date = MockDate;
 
 const { renderOrders } = await import("../admin/js/views/orders.js");
 const { renderSettings } = await import("../admin/js/views/settings.js");
+const { courierQuoteSection } = await import("../admin/js/views/courier_quote.js");
 
 const all = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); all(c, out); }
@@ -159,4 +179,92 @@ test("the Settings screen offers the sample card, and still prints no 'null', wh
   assert.deepEqual(strayNulls(root), [], "the other side of the same branch");
   assert.ok(buttonByText(root, "Load sample data"),
     "the sample card is offered to a brand-new owner");
+});
+
+// ── the courier price panel (v189) ────────────────────────────────────────
+//
+// The screen where the stray word was actually found: read off the drawn panel at
+// 375 pixels, under the last price row of the first booking this app ever made. The
+// two optional lines it writes — "why no row can be booked" and the note about the
+// fee not going into the charge box — were bare `?: null`.
+
+const COURIER_ORDER = {
+  id: "o1", deliveryDateId: "d10", productId: "p1", qty: 2, price: 22,
+  customerName: "Mei Ling", whatsapp: "60123456789", fulfillment: "courier",
+  address: "12 Jalan Bunga, 10450 Penang", orderDate: "2026-09-25",
+};
+
+function courierState() {
+  return {
+    deliveryDates: [{ id: "d10", date: "2026-09-30" }],
+    products: [], orders: [COURIER_ORDER], ingredients: [], occasions: [], customers: [],
+    settings: {
+      cutoff: "18:00", defaultCapacity: 12, currency: "RM", deliveryDays: [4],
+      supabase: { url: "https://demo.supabase.co" },
+      storefront: { name: "Jienluv2bake", whatsapp: "016 960 1268" },
+      pickupPlace: { lat: 5.4141, lng: 100.3288, label: "8 Lebuh Pantai" },
+    },
+  };
+}
+
+// The channel, stood in for the way courier-booking.test.js stands in for it: the
+// ONE thing stubbed is the network, never a function under test. Two prices come
+// back so the panel really draws its rows — an assertion of "no stray null" over a
+// panel that never rendered anything would pass without testing anything.
+function stubChannel() {
+  const real = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    const said = JSON.parse(opts.body || "{}");
+    asked.push(said.action);
+    const body = said.action === "geocode"
+      ? { ok: true, place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga" } }
+      : said.action === "vehicles"
+        ? { ok: true, services: [{ key: "MOTORCYCLE" }, { key: "CAR" }] }
+        : {
+          ok: true,
+          quotes: [{ quotationId: "q-car", serviceType: "CAR", priceBreakdown: { total: 14, currency: "MYR" },
+            stops: [{ stopId: "s-bakery", coordinates: { lat: 5.4141, lng: 100.3288 } },
+              { stopId: "s-mei", coordinates: { lat: 5.42, lng: 100.33 } }] }],
+          failed: [],
+        };
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  return { asked, restore() { globalThis.fetch = real; } };
+}
+
+test("the courier price panel prints no 'null' under its last price row", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  let wrap = null;
+  let stray = null;
+  try {
+    wrap = courierQuoteSection({ state: courierState(), orders: [COURIER_ORDER] });
+    // On the page, because that is where the panel lives and what it asks about
+    // itself: nothing is priced until the wrap is connected, so a test that held it
+    // in mid-air would assert "no stray null" over a screen that never drew.
+    doc.body.append(wrap);
+    buttonByText(wrap, "Get a delivery price")._listeners.click[0]();
+
+    // The prices arrive a few microtasks later — exactly the state the panel was in
+    // on screen when the word was read off it.
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.deepEqual(s.asked, ["geocode", "vehicles", "quote"],
+      "the panel asked what it should have asked — so the picture below is not of an empty screen");
+    assert.match(wrap.textContent, /RM 14\.00/, "the price row really drew");
+    assert.match(wrap.textContent, /Book this trip/, "with its booking press on it");
+    stray = strayNulls(wrap);
+  } finally {
+    // Closing the panel is what she does AND what stops its own clock — and it has to
+    // happen even when an assertion above throws, or a failed run would sit until the
+    // test timeout with the interval still ticking. A test that hangs instead of
+    // failing fast is its own small trap.
+    const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+    if (hide) hide._listeners.click[0]();
+    if (wrap) wrap.parentNode = null;
+    s.restore();
+  }
+  assert.deepEqual(stray, [], "no 'null' under the last price row");
 });

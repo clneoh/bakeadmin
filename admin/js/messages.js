@@ -9,6 +9,7 @@
 import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, courierAddUp } from "./courier.js";
+import { trackingLine } from "./courier_job.js";
 
 function basics(state, group, trackUrl) {
   const orders = (group && group.orders) || [];
@@ -80,7 +81,11 @@ export function buildShippedMessage(state, group, trackUrl) {
   msg += `Order #${orderCode(b.first)}\n`;
   msg += `Delivery: ${b.date} - Courier delivery\n`;
   msg += `Items: ${b.items}\n`;
-  if (b.trackingNo) msg += `Tracking number: ${b.trackingNo}\n`;
+  // One slot, two kinds of thing. A number she typed reads "Tracking number"; the
+  // share link a booked trip came back with reads "Track your delivery", because it
+  // is a page the customer opens rather than digits they read out (v189).
+  const track = trackingLine(b.trackingNo);
+  if (track) msg += `${track}\n`;
   // The courier's charge, when the customer bears it — the same lines the track card
   // shows them, so the two never disagree (19 Sep 2026). The total follows it, because
   // a message that names a charge and then never says what the order now comes to

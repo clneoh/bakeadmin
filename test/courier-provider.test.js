@@ -50,7 +50,7 @@ const { validPoint } = await import("../supabase/functions/courier/place.ts");
 const { placeFromResults } = await import("../supabase/functions/courier/geocode.ts");
 const {
   lalamove, QUOTE_VALID_MS, serviceLabel, sortServices, normaliseVehicles,
-  normaliseQuote, normaliseQuotes, distanceKmOf,
+  normaliseQuote, normaliseQuotes, distanceKmOf, statusLabel,
 } = await import("../admin/js/couriers/lalamove.js");
 const { activeCourier, courierByKey, couriers, courierLabel } = await import("../admin/js/couriers.js");
 
@@ -216,11 +216,19 @@ test("a stop with no address still carries the point it was given", () => {
   assert.deepEqual(stopsPayload([{ lat: 5.4, lng: 100.3 }]), [{ coordinates: { lat: "5.4", lng: "100.3" }, address: "" }]);
 });
 
-test("the quotation body carries the service, the language and the stops", async () => {
+test("the quotation body is wrapped in `data`, and carries the service, the language and the stops", async () => {
+  // THE WRAPPER IS ASSERTED FIRST, and on its own, because it is the one part of this
+  // request that v188 got wrong in a way no test could have seen. Lalamove refuses an
+  // unwrapped body as malformed — its own words for ERR_INSUFFICIENT_STOPS say
+  // "the request body structure is incorrect. I.e: {data: {...}}" — and with no key in
+  // the app, no request was ever really made, so nothing failed and nothing was caught.
+  // A test can only assert the shape its author already believed.
   const s = stubFetch(jsonReply({ data: { quotationId: "q1" } }));
   try {
     await quotation(cfg(), { serviceType: "MOTORCYCLE", points: [{ lat: 5.4, lng: 100.3, address: "A" }] });
-    const body = JSON.parse(s.sent[0].body);
+    const sent = JSON.parse(s.sent[0].body);
+    assert.deepEqual(Object.keys(sent), ["data"], "the body IS the envelope and nothing sits beside it");
+    const body = sent.data;
     assert.equal(body.serviceType, "MOTORCYCLE");
     assert.equal(body.language, "en_MY");
     assert.equal(body.stops.length, 1);
@@ -228,17 +236,31 @@ test("the quotation body carries the service, the language and the stops", async
   } finally { s.restore(); }
 });
 
+test("the quotation's reply is unwrapped once, so everything above reads one shape", async () => {
+  // The other half of the same defect: the quotation id sits inside Lalamove's `data`,
+  // and a client that read the outer body would find no quotation at all and report
+  // "no price" for a price that came back fine.
+  const s = stubFetch(jsonReply({ data: { quotationId: "q1", priceBreakdown: { total: "8.50" } } }));
+  try {
+    const out = await quotation(cfg(), { serviceType: "CAR", points: [{ lat: 5.4, lng: 100.3 }] });
+    assert.equal(out.ok, true);
+    assert.equal(out.data.quotationId, "q1", "the id is read from inside the envelope");
+    assert.equal(out.data.priceBreakdown.total, "8.50");
+  } finally { s.restore(); }
+});
+
 test("no time means no scheduleAt — an empty string is malformed to this API, not now", async () => {
   // Sending "" would be read as a schedule rather than as an absence, and the
   // quotation would be refused for a trip she is asking about right now.
   const s = stubFetch(jsonReply({ data: {} }));
+  const inner = (i) => JSON.parse(s.sent[i].body).data;
   try {
     await quotation(cfg(), { serviceType: "CAR", points: [{ lat: 5.4, lng: 100.3 }] });
-    assert.equal("scheduleAt" in JSON.parse(s.sent[0].body), false);
+    assert.equal("scheduleAt" in inner(0), false);
     await quotation(cfg(), { serviceType: "CAR", points: [{ lat: 5.4, lng: 100.3 }], scheduleAt: "2026-09-25T02:00:00.000Z" });
-    assert.equal(JSON.parse(s.sent[1].body).scheduleAt, "2026-09-25T02:00:00.000Z");
+    assert.equal(inner(1).scheduleAt, "2026-09-25T02:00:00.000Z");
     await quotation(cfg(), { serviceType: "CAR", points: [{ lat: 5.4, lng: 100.3 }], scheduleAt: "   " });
-    assert.equal("scheduleAt" in JSON.parse(s.sent[2].body), false, "whitespace is not a time either");
+    assert.equal("scheduleAt" in inner(2), false, "whitespace is not a time either");
   } finally { s.restore(); }
 });
 
@@ -634,6 +656,39 @@ test("the courier a quote is asked of is the registry's, and the registry is one
   assert.equal(typeof lalamove.quote, "function");
   assert.equal(typeof lalamove.vehicles, "function");
   assert.equal(typeof lalamove.forget, "function");
+});
+
+test("every courier answers the whole interface a screen asks it for", () => {
+  // THE LIST BELOW IS THE SCREENS' LIST, NOT THE PROVIDER'S. It exists because one of
+  // these members was missing and nothing said so. The job card holds a job, the job
+  // names the courier that holds it, and the card asks THAT courier to say the status
+  // in words — `holder.statusLabel ? holder.statusLabel(job.status) : job.status`. That
+  // expression fails OPEN: with the member absent it prints the courier's own enum
+  // instead of complaining, so the drawn card read "Status: ASSIGNING_DRIVER — read
+  // just now" while the translation table ("Finding a driver") sat beside it with
+  // tests of its own on it. Found by reading the drawn card at 375 pixels (v189), not
+  // by reasoning — the same way the stray word on the same card was found. A test on
+  // the pure function cannot see this, because the pure function was never wrong; the
+  // WIRE to it was missing.
+  const asked = { label: "string", statusLabel: "function", vehicles: "function",
+    quote: "function", book: "function", job: "function", cancel: "function" };
+  for (const c of couriers()) {
+    for (const [member, kind] of Object.entries(asked)) {
+      assert.equal(typeof c[member], kind,
+        `the courier "${c.key}" does not answer ${member} — a screen reaches for it`);
+    }
+  }
+
+  // And it answers in HER words, reached the way the card reaches them: through the
+  // courier that holds the trip, not through the module.
+  const holder = courierByKey(LALAMOVE_KEY);
+  assert.equal(holder.statusLabel("ASSIGNING_DRIVER"), "Finding a driver");
+  assert.equal(holder.statusLabel("PICKED_UP"), "Collected");
+  assert.equal(holder.statusLabel("assigning_driver"), "Finding a driver",
+    "the API's own casing is not depended on");
+  assert.equal(holder.statusLabel("A_WORD_IT_DOES_NOT_KNOW"), "A_WORD_IT_DOES_NOT_KNOW",
+    "a status it has not seen is shown AS SENT rather than swallowed");
+  assert.equal(holder.statusLabel(null), "", "and nothing in is nothing out");
 });
 
 test("no engine file names the courier except the registry and the provider itself", async () => {

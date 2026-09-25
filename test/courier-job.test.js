@@ -28,6 +28,7 @@ const {
   MY_UTC_OFFSET_HOURS, scheduleAtUTC, senderOf, stopOf, tripOf, tripReady,
   stopsUnplaced, tripProblem, fmtDistanceKm,
   orderDay, fmtQuote, fmtQuoteLeft, quoteExpired,
+  isLink, trackingLine, jobOf, liveJobOf, liveJobProblem, fmtStamp, fmtAgo,
 } = await import("../admin/js/courier_job.js");
 const { setPickupPlace, setDropPlace } = await import("../admin/js/courier_place.js");
 
@@ -296,4 +297,134 @@ test("a quotation's clock counts down, and a dead one reads as dead", () => {
     assert.equal(fmtQuoteLeft(bad, t0), "expired");
     assert.equal(quoteExpired(bad, t0), true);
   }
+});
+
+// ── the trip an order is on (v189, 25 Sep 2026) ───────────────────────────
+//
+// A booking is stored ON THE ORDER (`o.courierJob`), and that is what makes booking
+// need no database step: an order row syncs whole, so the trip reaches her other phone
+// with nothing to run in Supabase. What that costs is that the app must be able to
+// tell a real stored trip from a stray object, and to tell a trip still RUNNING from
+// one that is over — because a second booking on a live trip is a second van at the
+// same door, which is real money.
+
+function orderWith(job) {
+  return { id: "o1", customerName: "Mei", whatsapp: "60123456789", courierJob: job };
+}
+const JOB = {
+  provider: "lalamove", jobId: "ord_1", quoteId: "q1", service: "CAR", name: "Car",
+  amount: 14, currency: "MYR", link: "https://share.lalamove.com/abc", status: "ASSIGNING_DRIVER",
+  statusAt: "2026-09-25T02:00:00.000Z", bookedAt: "2026-09-25T02:00:00.000Z", scheduleAt: "",
+};
+
+test("a job with no trip number is not a trip — it is nothing", () => {
+  // A booking the app cannot NAME is one it cannot check, chase or cancel, and a
+  // half-written record would otherwise read as a trip that exists and does nothing.
+  assert.equal(jobOf(orderWith(null)), null);
+  assert.equal(jobOf(orderWith({})), null);
+  assert.equal(jobOf(orderWith({ jobId: "   " })), null);
+  assert.equal(jobOf(orderWith("a string, from a sync that went odd")), null);
+  assert.equal(jobOf({}), null);
+  assert.equal(jobOf(null), null);
+  assert.equal(jobOf(orderWith(null)), null);
+});
+
+test("a stored trip comes back whole, and one with a number is a trip", () => {
+  assert.equal(jobOf(orderWith(JOB)), JOB);
+});
+
+test("a trip still running blocks a second booking, and a finished one does not", () => {
+  // The money rule. ASSIGNING_DRIVER is live; COMPLETED is over. The finished trip is
+  // KEPT on the order rather than deleted — it is the record of what was delivered and
+  // what it cost, and the only thing tying a charge on her books to a real journey.
+  const over = { ...JOB, done: true };
+  assert.equal(liveJobOf(orderWith(JOB)), JOB);
+  assert.equal(liveJobOf(orderWith(over)), null);
+  assert.equal(jobOf(orderWith(over)) && jobOf(orderWith(over)).jobId, "ord_1", "finished is not the same as gone");
+  assert.equal(liveJobOf(orderWith(null)), null);
+});
+
+test("a record written before the done flag existed reads as LIVE, not as finished", () => {
+  // This is the safe direction and it is chosen on purpose. A trip wrongly thought
+  // finished is a second van at the same door; a trip wrongly thought running is one
+  // she has to cancel by hand. Only one of those costs money she did not agree to.
+  const { done, ...noFlag } = JOB;
+  assert.equal(liveJobOf(orderWith(noFlag)), noFlag);
+});
+
+test("the reason a booking is blocked is said once for one order and counted for several", () => {
+  assert.equal(liveJobProblem([{ courierJob: null }]), "");
+  assert.match(liveJobProblem([orderWith(JOB)]), /already on a trip/);
+  assert.match(liveJobProblem([orderWith(JOB)]), /second vehicle/);
+  const two = liveJobProblem([orderWith(JOB), orderWith({ ...JOB, jobId: "ord_2" }), { courierJob: null }]);
+  assert.match(two, /^2 of these orders/);
+  // A finished trip on one order and a live one on another counts only the live one.
+  assert.match(liveJobProblem([orderWith({ ...JOB, done: true }), orderWith(JOB)]), /^This order/);
+});
+
+test("only http and https are links — a page is not a delivery", () => {
+  assert.equal(isLink("https://share.lalamove.com/abc"), true);
+  assert.equal(isLink("http://x.y/z"), true);
+  assert.equal(isLink("  HTTPS://SHARE.LALAMOVE.COM/ABC  "), true);
+  // The two that would be read as a link by a check that only looked for a colon, and
+  // both of them are rendered as a tappable href on a customer's own page.
+  assert.equal(isLink("javascript:alert(1)"), false);
+  assert.equal(isLink("data:text/html,<script>alert(1)</script>"), false);
+  assert.equal(isLink("LLM12345"), false);
+  assert.equal(isLink("LLM-123 45"), false);
+  assert.equal(isLink("https://"), false, "a scheme with nothing after it is not an address");
+  assert.equal(isLink("see https://x.y"), false, "a link inside a sentence is not a link");
+  assert.equal(isLink(""), false);
+  assert.equal(isLink(null), false);
+});
+
+test("the tracking slot words a link and a number differently, and a typed number is untouched", () => {
+  assert.equal(trackingLine("https://share.lalamove.com/abc"), "Track your delivery: https://share.lalamove.com/abc");
+  // Character for character what this printed before there was a link to print.
+  assert.equal(trackingLine("LLM12345"), "Tracking number: LLM12345");
+  assert.equal(trackingLine("LLM-123 45"), "Tracking number: LLM-123 45");
+  assert.equal(trackingLine(""), "");
+  assert.equal(trackingLine(null), "");
+  // The label is the caller's to choose, which is how a courier's own word for it can
+  // be used without this module learning any courier's vocabulary.
+  assert.equal(trackingLine("LLM1", "Consignment"), "Consignment: LLM1");
+  assert.equal(trackingLine("https://x.y/z", "Consignment"), "Track your delivery: https://x.y/z");
+});
+
+test("a moment reads as a clock today and as a dated clock once it is not today", () => {
+  // These moments are BUILT IN LOCAL TIME on purpose, and it is the same choice the
+  // function makes: a stamp is what a person reads on their own phone ("Called off
+  // from here 2:14 pm"), so it is the phone's own clock, exactly as the dashboard and
+  // the settings cards already show theirs. The instant that travels TO the courier is
+  // the one that must never touch the device clock, and that conversion is pinned
+  // above, under its own name. Built this way the test says the same thing on any
+  // machine the suite is ever run from.
+  const at = (h, m) => new Date(2026, 8, 25, h, m).toISOString();
+  assert.equal(fmtStamp(at(14, 14), "2026-09-25"), "2:14 pm");
+  assert.equal(fmtStamp(at(14, 14), "2026-09-26"), "25 Sep, 2:14 pm");
+  assert.equal(fmtStamp(at(14, 14), ""), "25 Sep, 2:14 pm", "with no day given it is always dated");
+  assert.equal(fmtStamp(at(9, 5), "2026-09-25"), "9:05 am", "a single-digit hour and a minute under ten both keep their shape");
+  // Midnight and noon are the two a 12-hour clock gets wrong if it is written
+  // carelessly — 0 o'clock and 12 o'clock are not times anybody says.
+  assert.equal(fmtStamp(at(0, 0), "2026-09-25"), "12:00 am");
+  assert.equal(fmtStamp(at(12, 0), "2026-09-25"), "12:00 pm");
+  assert.equal(fmtStamp("", "2026-09-25"), "");
+  assert.equal(fmtStamp("not a moment", "2026-09-25"), "");
+});
+
+test("how long ago is said the way a person says it, and a future moment is not negative", () => {
+  const t0 = Date.parse("2026-09-25T02:00:00.000Z");
+  const ago = (secs) => fmtAgo(new Date(t0 - secs * 1000).toISOString(), t0);
+  assert.equal(ago(0), "just now");
+  assert.equal(ago(59), "just now");
+  assert.equal(ago(60), "1 min ago");
+  assert.equal(ago(59 * 60), "59 min ago");
+  assert.equal(ago(60 * 60), "1 hr ago");
+  assert.equal(ago(25 * 60 * 60), "yesterday");
+  assert.equal(ago(3 * 24 * 60 * 60), "3 days ago");
+  // A phone whose clock was wrong when the trip was booked must not produce a screen
+  // arguing with itself — "read in -3 minutes" is not a thing that can be read.
+  assert.equal(fmtAgo(new Date(t0 + 5000).toISOString(), t0), "just now");
+  assert.equal(fmtAgo("", t0), "");
+  assert.equal(fmtAgo("whenever", t0), "");
 });

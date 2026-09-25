@@ -32,9 +32,10 @@
 // documents.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, type LlmConfig } from "./providers/lalamove.ts";
+import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, cancelOrder, type LlmConfig } from "./providers/lalamove.ts";
 import { geocodeAddress } from "./geocode.ts";
 import { validPoint } from "./place.ts";
+import { orderArgs } from "./booking.ts";
 
 // The app calls from jienluv2bake.com.my, a different origin than supabase.co, so
 // the browser sends a preflight first and checks every response for these headers.
@@ -154,6 +155,44 @@ Deno.serve(async (req) => {
     // Both are returned raw and unread: the app normalises them, so the reading of a
     // reply stays in the Node-tested half rather than being done twice, differently.
     return json({ ok: true, quotes, failed });
+  }
+
+  // ── booking a trip, checking it, and calling it off ──────────────────────
+  //
+  // The replies are returned raw and unread, exactly as the quotations above are:
+  // Lalamove's own words are read by the app's provider file, which is the half the
+  // Node suite can test. This function's job is the key, the signature and the wall.
+  if (action === "book") {
+    const req = orderArgs(args, courierName(provider));
+    if (req.error) return json({ ok: false, reason: req.error });
+    const out = await placeOrder(cfg, req.value);
+    if (!out.ok) {
+      console.error("[courier] booking refused:", out.reason);
+      return json({ ok: false, reason: out.reason });
+    }
+    return json({ ok: true, order: out.data });
+  }
+
+  if (action === "job") {
+    const id = String(args.orderId || "").trim();
+    if (!id) return json({ ok: false, reason: "There is no booked trip to check." });
+    const out = await orderDetail(cfg, id);
+    if (!out.ok) return json({ ok: false, reason: out.reason });
+    return json({ ok: true, order: out.data });
+  }
+
+  if (action === "cancel") {
+    const id = String(args.orderId || "").trim();
+    if (!id) return json({ ok: false, reason: "There is no booked trip to cancel." });
+    const out = await cancelOrder(cfg, id);
+    if (!out.ok) {
+      // A refusal here is ORDINARY, not a fault: Lalamove only allows a cancellation
+      // while a driver is still being found, or within five minutes of one being
+      // matched. Logged rather than treated as a failure of the function.
+      console.error("[courier] cancellation refused:", out.reason);
+      return json({ ok: false, reason: out.reason });
+    }
+    return json({ ok: true });
   }
 
   return json({ ok: false, reason: `This function does not know the action "${action}".` });

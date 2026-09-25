@@ -1,18 +1,27 @@
-// views/courier_quote.js — what the courier would charge, before she promises it
+// views/courier_quote.js — what the courier would charge, and booking the trip
 // (25 Sep 2026).
 //
-// Phase one of the courier work, and deliberately the only phase with no booking in
-// it. A price is what she has to know before she answers a customer, and a price is
-// also the only thing a courier's API will tell her for nothing. So nothing here
-// books, cancels, stores a trip or writes to her books. The one write it can make is
-// into the charge box she was going to fill in by hand — and even that goes through
-// courier.js's own model, so the amount, the payer and the COD keep running down the
-// money path that already works.
+// Two phases of the courier work live in this one section, and they are the two halves
+// of the same decision: what this delivery COSTS, and then really booking it.
+//
+// THE PRICE. A price is what she has to know before she answers a customer, and a price
+// is also the only thing a courier's API will tell her for nothing. An accepted price
+// writes into the charge box she was going to fill in by hand — and even that goes
+// through courier.js's own model, so the amount, the payer and the COD keep running down
+// the money path that already works.
+//
+// THE BOOKING (v189). [Book this trip] spends real money and puts a real vehicle on the
+// road, so the press is behind a confirmation that restates the vehicle and the price,
+// and it can only be undone through the courier itself while the courier still allows
+// it. What comes back is stored ON THE ORDER (`o.courierJob`), which is why booking
+// needs no database step: an order row syncs whole, so the trip travels to her other
+// phone with nothing to run in Supabase. The customer's share link goes into the slot
+// the tracking number already used, because a share link IS this delivery's reference.
 //
 // WHY THIS IS A SECTION AND NOT A POP-UP OF ITS OWN. The app has ONE pop-up layer, so
 // opening a second card replaces the first — the charge box, the note she was part-way
 // through and the Save button would all be destroyed by the act of asking for a price,
-// and the fee would land in a box nothing could ever save. So the price opens IN the
+// and the fee would land in a box nothing could ever save. So all of this opens IN the
 // card that holds the charge box, folded away until she asks for it. There is then
 // nothing to come back to, because nothing was left.
 //
@@ -21,7 +30,9 @@
 // offers to ask again rather than leaving a dead number sitting there looking like a
 // live price. A price under a fee is the one thing here that must never be wrong, and
 // the two ways of being wrong are not symmetric — asking again costs one tap, quoting
-// a dead price costs her money.
+// a dead price costs her money. Booking inherits that rule and adds one more: the trip
+// is booked against the QUOTATION IT WAS PRICED AT, so the vehicle and the hour that
+// arrive are the ones the price was given for, even if she has moved the time box since.
 //
 // THE TWO ENDS OF THE TRIP. A courier is not given an address, it is given a point
 // (see courier_place.js), so before anything can be priced both doors have to be
@@ -34,15 +45,17 @@
 // for the active one and uses that courier's own words — its `label`, the names it
 // puts on its vehicles. No courier's name, service keys or error codes appear below.
 
-import { button, el, toast } from "../ui.js";
+import { button, confirmDialog, el, toast } from "../ui.js";
+import { todayISO } from "../dates.js";
 import {
-  fmtDistanceKm, fmtQuote, fmtQuoteLeft, orderDay, quoteExpired, scheduleAtUTC, tripOf, tripProblem,
+  fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
+  liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
   dropAddress, dropPlaceOf, fmtPlace, pickupAddress, pickupPlace, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
-import { activeCourier } from "../couriers.js";
+import { activeCourier, courierByKey } from "../couriers.js";
 import { openPlacePicker } from "../place_map.js";
 
 // The price section for a trip, as a node to drop into a card.
@@ -52,8 +65,19 @@ import { openPlacePicker } from "../place_map.js";
 //
 // `onUseFee(quote)` is what an accepted price does. The note/tracking card passes its
 // own charge box's `set`, so a quoted fee and a typed one are the same kind of answer
-// and there is no second charge editor for the two to disagree through.
-export function courierQuoteSection({ state, orders, onUseFee = null }) {
+// and there is no second charge editor for the two to disagree through. It does NOTHING
+// for a booking: a booked trip is not a charge — the courier's fee is still hers to
+// decide and still goes in the charge box by hand, on purpose, because booking a trip
+// and agreeing to pay for it are two decisions and the second one has a payer to choose.
+//
+// `onCommit(order)` is called after this section has written to an order — a booked
+// trip, a refreshed status, a cancellation — and it is the HOST's job, because the host
+// is what owns persistence for the card it built: it refreshes its own stale copy of the
+// tracking number (both call sites capture that value when the card opens, so a booking
+// the card did not hear about would be overwritten by the next Save), saves, syncs and
+// publishes the customer's card. A booking is therefore saved the moment it happens and
+// is NOT discardable by closing the card without pressing Save.
+export function courierQuoteSection({ state, orders, onUseFee = null, onCommit = null }) {
   const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
   const first = list[0] || null;
   const cur = state.settings.currency;
@@ -78,10 +102,25 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
   // silently re-ask: a re-ask is eight requests, so it stays her tap, and this is what
   // tells her the numbers under her thumb belong to a time she has left behind.
   let pricedFor = "";
+  // The TRIP those prices were asked for, kept whole rather than rebuilt at booking
+  // time. Two reasons, and both of them are money: a booking is made of the quotation's
+  // own stop ids, which are matched back to the doors by POSITION in the list that was
+  // priced — so booking a list that has changed since would name a door with the handle
+  // of a different one. And the quotation already carries the vehicle and the hour, so
+  // booking it books the price she is looking at even if the time box has moved.
+  let pricedTrip = null;
   // Each price's own clock, so a second passing rewrites one line of one row instead
   // of rebuilding the list. One of those rows holds the button this section exists
-  // for, and a tap lost to a repaint is a tap she has to make twice.
+  // for, and a tap lost to a repaint is a tap she has to make twice. The booked trip's
+  // status line keeps a clock of its own in `jobClocks`, because "read just now" that
+  // was still saying "just now" a quarter of an hour later would be the one line on
+  // that card quietly going stale — and because one list would mean a repaint of either
+  // half throwing the other half's clock away.
   let clocks = [];
+  let jobClocks = [];
+  // A booking or a cancellation in flight. One at a time, because both spend money and
+  // a second press while the first is unanswered is a second vehicle.
+  let jobBusy = false;
 
   const bodyWrap = el("div", { style: "margin-top:10px" });
   bodyWrap.hidden = true;
@@ -98,7 +137,7 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
   function paintFold() {
     toggleBtn.textContent = open ? "Hide the delivery price" : "Get a delivery price";
     bodyWrap.hidden = !open;
-    if (open && quotes.length) startClock();
+    if (open) startClock();
     if (!open) stopClock();
   }
 
@@ -107,17 +146,18 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
     timer = null;
   }
 
-  // A second passing rewrites the two short lines that changed and nothing else. The
+  // A second passing rewrites the short lines that changed and nothing else. The
   // interval also clears ITSELF once the card is gone: closing the pop-up empties the
   // layer, so the node this is written into stops being on the page — and an interval
   // left running against a detached node would keep eight quotes' worth of clocks
   // alive for the rest of the session.
   function startClock() {
     stopClock();
-    if (!clocks.length) return;
+    const ticks = [...clocks, ...jobClocks];
+    if (!ticks.length) return;
     timer = setInterval(() => {
       if (!wrap.isConnected) { stopClock(); return; }
-      for (const c of clocks) c(Date.now());
+      for (const c of ticks) c(Date.now());
     }, 1000);
   }
 
@@ -171,6 +211,212 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
       // away and leaving her no way back to the map.
       dropBtn.textContent = drop ? "Change this doorstep" : "Put this doorstep on the map";
       endsRow.replaceChildren(...[up ? null : pickupBtn, dropBtn].filter(Boolean));
+    }
+
+    // ── the trip this order is on ────────────────────────────────────────
+    //
+    // Drawn above everything else, because a live trip is the state of this order and
+    // not a footnote to a price. Two faces, decided by what is on the orders:
+    //
+    //   • no trip running — nothing here, and the prices below carry [Book this trip]
+    //   • a trip running   — the vehicle, the price, when it was booked, where it has
+    //                        got to and the customer's link, with [Check the trip] and
+    //                        [Cancel trip]; the price rows stay askable but their book
+    //                        buttons go inert WITH the reason on screen, because a
+    //                        second booking is a second van at the same door
+    //
+    // A finished trip stays on the card rather than disappearing. It is the record of
+    // what was delivered and what it cost, and the only thing tying a charge on her
+    // books to a real journey — a card that quietly emptied itself would leave her
+    // wondering whether she had imagined booking it.
+    const jobBox = el("div", {});
+
+    function paintJob() {
+      jobClocks = [];
+      const jobs = list.map(jobOf).filter(Boolean);
+      if (!jobs.length) { jobBox.replaceChildren(); return; }
+      const job = jobs[0];
+      const done = !liveJobOf(first);
+      const holder = courierByKey(job.provider) || courier;
+      const today = todayISO();
+
+      const what = el("div", { class: "job-what" },
+        el("span", { class: "job-name" }, `${String(job.name || "").trim() || "Trip"} · ${fmtQuote(job.amount, job.currency, cur)}`),
+        el("span", { class: "job-sub" }, [
+          job.bookedAt ? `Booked ${fmtStamp(job.bookedAt, today)}` : "",
+        ].filter(Boolean).join(" · ")));
+
+      // WHERE IT HAS GOT TO. The moment is when this was READ off the courier, and it
+      // says so, because the courier's own reply carries no timestamp for a status — a
+      // screen that showed a status without saying when it was read would be presenting
+      // a snapshot as if it were live. When she called the trip off from here the app
+      // knows that first-hand and says that instead, rather than inventing the word the
+      // courier would have used.
+      const statusLine = el("p", { class: "job-status" });
+      const paintStatus = (now) => {
+        const said = job.cancelledAt
+          ? `Called off from here ${fmtStamp(job.cancelledAt, today)}`
+          : [holder.statusLabel ? holder.statusLabel(job.status) : job.status,
+             job.statusAt ? `read ${fmtAgo(job.statusAt, now)}` : ""].filter(Boolean).join(" — ");
+        statusLine.textContent = said ? `Status: ${said}` : "";
+      };
+      paintStatus(Date.now());
+      // A live status ages while she reads it, and "read just now" sitting there after
+      // ten minutes would be the one line on this card that is quietly wrong. Reusing
+      // the same one-second tick as the prices, so there is one timer in this section.
+      if (!job.cancelledAt && job.statusAt) jobClocks.push((now) => paintStatus(now));
+
+      const linkLine = el("p", { class: "job-link" });
+      if (isLink(job.link)) {
+        linkLine.append("The customer's link: ", el("a", { href: job.link, target: "_blank", rel: "noopener" }, job.link));
+      } else if (job.link) {
+        linkLine.textContent = `The courier's reference: ${job.link}`;
+      } else {
+        linkLine.textContent = "The courier sent back no link for this trip, so there is nothing on the customer's card but this record.";
+      }
+
+      const checkBtn = button("Check the trip", () => check(), "ghost small");
+      const cancelBtn = done ? null : button("Cancel trip", () => cancel(job), "danger small");
+      const row = el("div", { class: "job-row" },
+        what,
+        el("div", { class: "job-actions" }, checkBtn, cancelBtn));
+
+      jobBox.replaceChildren(
+        el("div", { class: "job-card" },
+          el("p", { class: "job-head" }, done
+            ? `A ${holder.label} trip on this order`
+            : `${holder.label} is on this order`),
+          row,
+          statusLine,
+          linkLine),
+      );
+      if (jobBusy) { checkBtn.disabled = true; if (cancelBtn) cancelBtn.disabled = true; }
+    }
+
+    // Everything this section ever needs to ask of the courier's own reading of a
+    // trip, asked of the courier that HOLDS the trip rather than of whichever is
+    // selected today: a trip booked with one courier has to be checked and cancelled
+    // through that one.
+    function holderOf(job) {
+      return courierByKey(job && job.provider) || courier;
+    }
+
+    // Write a trip onto the orders this section was handed, and hand them to the host
+    // to save. The link goes into the tracking slot ONLY when the courier really sent
+    // one — an empty link must never blank a tracking number she typed by hand, which
+    // would be this screen deleting a customer's reference on the strength of an
+    // absence in somebody else's reply.
+    function commit(job) {
+      for (const o of list) {
+        o.courierJob = job;
+        if (job && job.link) o.trackingNo = job.link;
+      }
+      if (onCommit) onCommit(first);
+    }
+
+    // ── booking ──────────────────────────────────────────────────────────
+    function book(q) {
+      if (jobBusy || !wrap.isConnected) return;
+      const trip = pricedTrip;
+      if (!trip) { toast("Ask for a price first — a trip is booked at the price it was quoted at."); return; }
+      const money = fmtQuote(q.amount, q.currency, cur);
+      // Restating the vehicle and the price is the whole point of this box: the two
+      // facts she is about to commit money to, and the one thing a booking changes
+      // that she would not expect — the tracking box. Then the honest warning about
+      // undoing it, because that window is short and it is the courier's to close.
+      confirmDialog(
+        `Book the ${String(q.name || "vehicle").trim() || "vehicle"} with ${courier.label} for ${money}? ` +
+        `A driver will be sent to the bakery. ` +
+        `The customer's tracking box will be replaced with this trip's share link, so the card and the shipped message send them there instead. ` +
+        `This books a real trip and spends real money, and ${courier.label} only lets it be called off while a driver is still being found.`,
+        async () => {
+          if (jobBusy || !wrap.isConnected) return;
+          jobBusy = true;
+          statusLine.textContent = `Booking the ${String(q.name || "trip").trim() || "trip"} with ${courier.label}…`;
+          paintQuotes();
+          paintJob();
+          const holder = courierByKey(courier.key) || courier;
+          const out = await holder.book(state, trip, q);
+          if (!wrap.isConnected) return;
+          jobBusy = false;
+          if (!out.ok) {
+            statusLine.textContent = out.reason;
+            paintQuotes();
+            paintJob();
+            return;
+          }
+          commit(out.job);
+          statusLine.textContent = "";
+          paintQuotes();
+          paintJob();
+          toast(out.job.link
+            ? `Trip booked with ${holder.label} — the customer's tracking box now holds the share link`
+            : `Trip booked with ${holder.label} — the courier sent back no share link`);
+        },
+        { danger: true, yesLabel: "Book this trip" },
+      );
+    }
+
+    // ── checking a booked trip ───────────────────────────────────────────
+    async function check() {
+      if (jobBusy || !wrap.isConnected) return;
+      const job = jobOf(first);
+      if (!job) return;
+      const holder = holderOf(job);
+      jobBusy = true;
+      paintJob();
+      const out = await holder.job(state, job.jobId);
+      if (!wrap.isConnected) return;
+      jobBusy = false;
+      if (!out.ok) {
+        toast(out.reason);
+        paintJob();
+        return;
+      }
+      // Merged rather than replaced: the courier's answer names the status and the
+      // link, and everything else on the record — what was booked, when, and what it
+      // was quoted at — is the order's own memory of the trip, not the courier's. A
+      // check that overwrote the record with the reply would forget the price it was
+      // booked at the first time she looked at it.
+      const next = { ...job, status: out.detail.status, statusAt: out.detail.statusAt, done: out.detail.done };
+      if (out.detail.link) next.link = out.detail.link;
+      if (out.detail.done) delete next.cancelledAt;
+      commit(next);
+      paintJob();
+      toast(`Trip status: ${holder.statusLabel ? holder.statusLabel(out.detail.status) : out.detail.status}`);
+    }
+
+    // ── calling a trip off ───────────────────────────────────────────────
+    function cancel(job) {
+      if (jobBusy || !wrap.isConnected) return;
+      const holder = holderOf(job);
+      confirmDialog(
+        `Call off this ${holder.label} trip? The driver stops being sent, and the customer's tracking box keeps the link but nothing will update it. ` +
+        `This cannot be undone from here — you would have to book again, at a fresh price.`,
+        async () => {
+          if (jobBusy || !wrap.isConnected) return;
+          jobBusy = true;
+          paintJob();
+          const out = await holder.cancel(state, job.jobId);
+          if (!wrap.isConnected) return;
+          jobBusy = false;
+          if (!out.ok) {
+            // An ordinary answer rather than a fault: the courier decides how long a
+            // trip may still be called off, and it says so in its own words.
+            toast(out.reason);
+            paintJob();
+            return;
+          }
+          // The app records that SHE called it off, with the moment, rather than a
+          // status word the courier never gave: a DELETE answers with nothing at all,
+          // so a card claiming "Cancelled" in the courier's own voice would be this
+          // screen putting words in its mouth.
+          commit({ ...job, done: true, cancelledAt: new Date().toISOString() });
+          paintJob();
+          toast("Trip called off");
+        },
+        { danger: true, yesLabel: "Call it off" },
+      );
     }
 
     // ── when the driver collects ─────────────────────────────────────────
@@ -230,21 +476,35 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
     // One price, as a row: the vehicle, what it costs, how far it is, and how long the
     // number is good for. Everything the row cannot hold is nowhere, because a phone
     // has no hover — so nothing that matters is left out.
+    //
+    // Two presses per row and they are deliberately different kinds of thing: [Use this
+    // fee] fills the charge box and costs nothing, and [Book this trip] spends real
+    // money on a real vehicle. They go through `.quote-row`'s own wrap, so a phone that
+    // cannot hold both on one line puts the second on a line of its own rather than off
+    // the card.
     function quoteRow(q) {
       const dist = fmtDistanceKm(q.distanceKm);
       const durable = q.expiryFrom !== "policy";
       const sub = el("span", { class: "quote-sub" });
       const useBtn = onUseFee ? button("Use this fee", () => useFee(q), "primary small") : null;
+      // A live trip blocks a booking HERE as well as refusing it inside the courier, so
+      // the two can never disagree. Drawn inert with the reason on screen rather than
+      // hidden: a price row with no way to book it and no word about why is a screen
+      // with a hole in it, and the reason is the useful part — she has to call the
+      // running trip off first.
+      const bookBlocked = liveJobProblem(list);
+      const bookBtn = button("Book this trip", () => book(q), "soft small");
       const row = el("div", { class: "quote-row" },
         el("div", { class: "quote-what" },
           el("span", { class: "quote-name" }, String(q.name || "").trim() || "Vehicle"),
           sub),
         el("span", { class: "quote-price" }, fmtQuote(q.amount, q.currency, cur)),
-        useBtn);
+        useBtn, bookBtn);
 
       clocks.push((now) => {
         const left = fmtQuoteLeft(q, now);
         const dead = left === "expired";
+        const unbookable = dead || quoteExpired(q) || !q.id || !Array.isArray(q.stopIds) || q.stopIds.length < 2;
         sub.replaceChildren(...[
           dist,
           dist ? " · " : "",
@@ -256,6 +516,8 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
         } else if (dead) {
           row.classList.add("quote-dead");
         }
+        bookBtn.disabled = unbookable || !!bookBlocked || jobBusy;
+        if (dead) bookBtn.textContent = "Expired";
       });
       return row;
     }
@@ -265,7 +527,22 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
       const rows = quotes.map(quoteRow);
       const missed = failed.map((f) => el("p", { class: "card-sub", style: "margin:6px 0 0" },
         `${String(f.name || f.service || "A vehicle").trim()}: ${f.reason}`));
-      quoteBox.replaceChildren(...rows, ...missed);
+      // Why no row can be booked, when that is the case.
+      const blocked = quotes.length ? liveJobProblem(list) : "";
+      // `.filter(Boolean)` and NOT a bare `?: null`. replaceChildren is a DOM method, so
+      // it converts each argument with String() — a null handed to it becomes a TEXT node
+      // reading "null", printed on her screen. el() skips nulls; this does not. v189 wrote
+      // the two optional lines below as bare `?: null`, and the drawn panel printed the
+      // word under the last price row. It was found by reading the drawn panel, because
+      // the ordinary view shim drops null arguments and cannot see it; no-null-text.js's
+      // shim does not drop them on purpose, and now renders this panel too.
+      quoteBox.replaceChildren(...[
+        ...rows,
+        ...missed,
+        blocked ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, blocked) : null,
+        quotes.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
+          "Booking a trip does not put its fee in the charge box — the courier's charge, who pays it and whether it is collected at the door are still yours to set above, and it is the Save button that writes them.") : null,
+      ].filter(Boolean));
       for (const c of clocks) c(Date.now());
     }
 
@@ -278,8 +555,10 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
       quotes = [];
       failed = [];
       pricedFor = "";
+      pricedTrip = null;
       paintQuotes();
       paintEnds();
+      paintJob();
 
       // 1. THE BAKERY'S DOOR.
       if (!pickupPlace(state)) {
@@ -350,6 +629,8 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
       quotes = out.quotes || [];
       failed = out.failed || [];
       pricedFor = whenLabel();
+      // Kept with the prices, because a booking is made of it: see `pricedTrip`.
+      pricedTrip = trip;
       paintQuotes();
       paintWhen();
       statusLine.textContent = quotes.length
@@ -364,10 +645,12 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
     paintEnds();
     paintWhen();
     paintQuotes();
+    paintJob();
 
     bodyWrap.replaceChildren(
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `A price for this delivery, from ${courier.label}'s own account. Nothing is booked and nothing is saved — a price you take fills the charge box, where you still choose who paid the courier, and it is the Save button that writes anything at all.`),
+        `Prices for this delivery come from ${courier.label}'s own account. Taking a price fills the charge box, where you still choose who paid the courier — booking the trip is a separate press, and it is the Save button that writes the charge.`),
+      jobBox,
       endsLine,
       endsRow,
       el("div", { class: "field", style: "margin-top:12px" },
@@ -378,7 +661,7 @@ export function courierQuoteSection({ state, orders, onUseFee = null }) {
       statusLine,
       quoteBox,
       el("p", { class: "card-sub", style: "margin:14px 0 0" },
-        "Booking, the driver's name and the share link the customer follows are the next step, and they are not in this screen yet. This one only answers what it would cost."));
+        `Booking books the trip this price was quoted at, so the vehicle and the hour that arrive are the ones priced here — moving the time box after a price does not move a booking. The customer's tracking box takes the trip's share link, which is what the card and the shipped message send them to. ${courier.label} shows the driver's name and plate only shortly before pickup, so this screen cannot show them and does not pretend to.`));
 
     ask();
   }
