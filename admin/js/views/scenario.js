@@ -1259,6 +1259,18 @@ function timeline(r, sc, on, state, run) {
   // when it is due without the view inventing a second rule for it.
   run.calls = run.board ? new Map(callWindows(sc).map((w) => [jobKey(w), w])) : null;
   run.trains = [];
+  // The train's two numbers, decided BEFORE a single row is built, because a coach's own
+  // `left` and `width` are computed as it is built (see trainRow and coachGeom). A row
+  // drawn before its scale was known would carry `left:NaNpx` in its style — a coach that
+  // has vanished rather than an error anybody sees, which is the one kind of fault this
+  // part of the screen is written to refuse.
+  //
+  // They are the day's OWN scale and the day's own length, so the train is measured in the
+  // same units as the modules' window above it (whose track is the same two numbers) and
+  // the two windows can never come to disagree about where a minute is. `run.pxPerMin` is
+  // set below from the same `r` for the same reason.
+  run.scale = trainScale({ pxPerMin: r.pxPerMin });
+  run.lineW = Math.round(lineWidth(r.windowMin, run.scale));
   // The workers' CLOCK FACE — her "the current time at the center sharing with all
   // person" — and ONE face for the whole window.
   //
@@ -1266,7 +1278,7 @@ function timeline(r, sc, on, state, run) {
   // changed the arithmetic of it, 24 September 2026: "Each of the person line has a clock
   // line at centre of line", and then, on the label, "the 2nd person and subsequent person
   // have the centered red ruler, but the 2nd and other don have to show the clock face."
-  // So every person's window now carries its own ruler — see trainRow, and placeClock for
+  // So every person's window now carries its own ruler — see trainRow, and placeTrain for
   // the one number that stands all of them — and the face is drawn ONCE, here, at the top
   // of the window, at exactly the pixel every one of those rulers stands on.
   //
@@ -1629,29 +1641,40 @@ function boardNow(sc, r) {
   return { min: t, note: "" };
 }
 
-// ── the train's own geometry (v184) ───────────────────────────────────────
+// ── the train's own geometry (v193) ───────────────────────────────────────
 //
-// The workers' window on a board is a TRAIN rather than a time-true strip: one
-// coach per job, joined in the order the jobs happen, with the clock pinned to the
-// centre of the line. Her ask, 24 September 2026: "for each of person line, make
-// his series of work join up like a train, coaches represent work, the current time
-// at the center sharing with all person, showing next work in minutes on top,
+// The workers' window on a board is a TRAIN: one coach per job, with the clock
+// sweeping across the line. Her ask, 24 September 2026: "for each of person line,
+// make his series of work join up like a train, coaches represent work, the current
+// time at the center sharing with all person, showing next work in minutes on top,
 // something like next station countdown for subway. Person should click on their
 // work to turn it green indicating acknowledgement."
 //
-// She chose the consequence herself — "The train is its own strip" — so a coach does
-// NOT sit under the minute it happens at and the train does not line up with the
-// module lanes above it. What replaces the minute axis is the pair of maps below: a
-// piecewise-linear journey from a minute of her day to a pixel along the row, in
-// which each job's minutes cross its own coach and each wait crosses its own link.
-// Coaches are all one width, because a twelve-minute job and a forty-minute job
-// being different sizes would make the line a length chart, and it is not one — the
-// clock printed on the coach is what says how long a job is.
+// v184 answered that with a strip of WORK: all coaches one width, joined in job
+// order, and a piecewise-linear map from a minute of her day to a pixel along each
+// row. One consequence of that she has now named as a fault, 25 September 2026:
 //
-// These are pure, exported, and unit-tested with no DOM at all, because this is the
-// one part of the screen where being wrong is SILENT: `translateX(NaNpx)` is a train
-// that has vanished rather than an error anybody sees, and a minute that maps into
-// the wrong coach sends a worker to the wrong bench.
+//   "Make the coach width relative to its duration, and others batch duration,
+//   their labour requirement mark by hand needed, not batch arrival"
+//
+//   "So the 3 person's train head, should be timed and position relatively to each
+//   other, when time start, 3 train started together"
+//
+// The two sentences are one change. With a per-row map, the same clock minute lands
+// at a different pixel in every person's row, so the three trains cannot be compared
+// at all. With ONE scale — the day's own, in pixels per minute, the same figure the
+// modules' window above is drawn from — every row is a piece of the same clock and a
+// coach is exactly as long as the stretch her hand is needed on it.
+//
+// This deliberately reverses v184's own comment, which refused proportionality in as
+// many words ("a twelve-minute job drawn smaller than a forty-minute one would make
+// this a length chart, and it is not one"). She has asked for the length chart. What
+// says how long a job takes is now the length of the coach, and the clock is printed
+// on its face as well.
+//
+// These are pure, exported, and unit-tested with no DOM at all, for the reason v184
+// wrote its own: this is the one part of the screen where being wrong is SILENT.
+// `translateX(NaNpx)` is a train that has vanished rather than an error anybody sees.
 
 // A finite number, or the fallback. The clock reaches these maps from a real clock
 // and from pointer coordinates, so a value that is not a number must never be able to
@@ -1661,86 +1684,103 @@ function trainNum(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// The row's segments, left to right: a stub, then each job as a coach with the wait
-// before the next one as a link, then a closing stub. The stubs are pure space and
-// belong to no minute — they are what keeps the first and last coach off the very
-// edge of the line, the same job the padding at each end of the modules window does.
+// The day's own scale: pixels per minute. ONE number for one day, so no two people's
+// rows can be drawn at different sizes, and so the train cannot come to disagree with
+// the modules' window above it — which is drawn from the same figure. Read off the
+// scenario, which is where her own Scale presses write it, and never cached.
+export function trainScale(sc) {
+  const k = trainNum(sc && sc.pxPerMin, 0);
+  return k > 0 ? k : PX_PER_MIN_CHOICES[0];
+}
+
+// Where a coach stands and how wide it is: its own minutes, times that scale.
 //
-// A segment whose span is EMPTY gets no width at all, and that is not tidiness. Two
-// jobs that run back to back have no wait between them; a link drawn at full width
-// for nought minutes of waiting would put a slab of the row under no minute at all —
-// a stretch a worker could tap that belongs to no job, and the one thing that would
-// stop this map from being exactly reversible. Both directions are pinned at that
-// seam by a test, because that is where the fault is invisible and the whole screen
-// would still look right.
-export function trainSegments(items, coach, link, stub) {
-  const list = (Array.isArray(items) ? items : []).filter(Boolean);
-  if (!list.length) return [];
-  const cap = Math.max(0, trainNum(stub, 0));
-  const cw = Math.max(0, trainNum(coach, 0));
-  const lw = Math.max(0, trainNum(link, 0));
-  const segs = [];
-  let x = 0;
-  segs.push({ kind: "stub", start: x, w: cap });
-  x += cap;
-  list.forEach((it, i) => {
-    const from = trainNum(it.from, 0);
-    const to = Math.max(from, trainNum(it.to, from));
-    segs.push({ kind: "coach", k: i, from, to, start: x, w: to > from ? cw : 0, item: it });
-    x += to > from ? cw : 0;
-    const next = list[i + 1];
-    if (!next) return;
-    const nf = Math.max(to, trainNum(next.from, to));
-    segs.push({ kind: "link", k: i, from: to, to: nf, start: x, w: nf > to ? lw : 0 });
-    x += nf > to ? lw : 0;
-  });
-  segs.push({ kind: "stub", start: x, w: cap });
-  return segs;
+// Her words, 25 September 2026: "Make the coach width relative to its duration". The
+// `from` and `to` are the model's own hands window (see touchWindows) — the stretch
+// her hand is actually needed for — so the width is her "labour requirement mark by
+// hand needed, not batch arrival" drawn rather than described.
+//
+// EXACTLY proportional, with no floor. Asked what a one-minute fold should look like
+// she answered "and if it is not show as no space big enough, just dont show, as we
+// have another place shown it under person's name" — so a hairline coach is drawn as a
+// hairline with no face on it, and the row's own next line carries the words. The one
+// exception is a job of nought minutes, which is given a single pixel rather than
+// none: a coach that is not drawn at all is a job nobody can see, and the row would be
+// quietly short of a coach.
+export function coachGeom(job, k) {
+  const scale = Math.max(0, trainNum(k, 0));
+  const from = trainNum(job && job.from, 0);
+  const to = Math.max(from, trainNum(job && job.to, from));
+  return { left: from * scale, width: Math.max(1, (to - from) * scale) };
 }
 
-// The segments that own real minutes and real width, in order. Everything below walks
-// this and never the raw list, so the stubs and the collapsed segments are excluded in
-// one place instead of four.
-function trainSpans(segs) {
-  return (Array.isArray(segs) ? segs : [])
-    .filter((s) => s && (s.kind === "coach" || s.kind === "link") && s.to > s.from && s.w > 0);
+// The whole line, in pixels: the day's own end, times that scale. Taken from the DAY
+// and not from the last job on it, so the line reaches the end of the morning she
+// planned even on a row whose person finished hours before it.
+export function lineWidth(endMin, k) {
+  return Math.max(0, trainNum(endMin, 0)) * Math.max(0, trainNum(k, 0));
 }
 
-// A minute of her day → a pixel along the row. Clamped at both ends, so a board opened
-// before her day or after its end parks the train at its own edge instead of throwing
-// it off the line, and so the answer is never anything but a finite number.
-export function xOfMinute(segs, m) {
-  const spans = trainSpans(segs);
-  if (!spans.length) return 0;
-  const first = spans[0];
-  const last = spans[spans.length - 1];
-  const raw = Number(m);
-  if (!Number.isFinite(raw)) return first.start;
-  const mm = Math.min(Math.max(raw, first.from), last.to);
-  for (const s of spans) {
-    if (mm < s.from || mm > s.to) continue;
-    return s.start + ((mm - s.from) / (s.to - s.from)) * s.w;
-  }
-  return last.start + last.w;
+// Where the window is standing on the line, and where the ruler therefore stands in
+// the window. Her own design, in her own words, 25 September 2026: "the ruler sweeps,
+// untill reach center, it stop, then the train move. The advantage of this is we see
+// more coaches queues yet to come without having to drug the line, as when getting
+// started, person only see one train head, the rest might shill hiden until you drag
+// it to the left. Start left is convenient in this way."
+//
+//   xNow = nowMin * k              the minute the morning is at, along the line
+//   if xNow <= visW / 2  s = 0     the day's OWN START is glued to the LEFT edge
+//   else s = xNow - visW / 2       the ruler has reached the middle and stops; the LINE moves
+//   s += pan                       her own hand, clamped to the travel the line has
+//   ruler = xNow - s               swept in from the left edge, then pinned at the centre
+//
+// `s` is bounded twice over, and both bounds are worth stating. The window may not
+// slide past either end of the line's own paper, which is the `[0, span - win]` half.
+// And the minute she is reading may not leave the window, which is the `[xNow - win,
+// xNow]` half: without it a drag far enough to the left would carry the ruler off the
+// right edge and leave her looking at a line with no clock on it at all.
+export function trainPlacement(nowMin, k, visW, pan, lineW) {
+  const scale = Math.max(0, trainNum(k, 0));
+  const win = Math.max(0, trainNum(visW, 0));
+  const span = Math.max(0, trainNum(lineW, 0));
+  const raw = Math.max(0, trainNum(nowMin, 0)) * scale;
+  // Clamped to the line: a day being WALKED keeps counting past its own end, and a
+  // ruler that ran off the paper after it would be a clock standing on a minute the
+  // day does not have. It parks at the line's own end instead.
+  const xNow = span > 0 ? Math.min(raw, span) : raw;
+  const half = win / 2;
+  const follow = xNow <= half ? 0 : xNow - half;
+  const lo = Math.max(0, xNow - win);
+  const hi = Math.max(lo, Math.min(Math.max(0, span - win), xNow));
+  const s = Math.min(hi, Math.max(lo, follow + trainNum(pan, 0)));
+  return { s, ruler: xNow - s, lo, hi, follow, xNow, win, span };
 }
 
-// The exact inverse, and the one the drag reads the day with: a pixel along the row →
-// the minute it stands for. The two agree across every whole minute of the row, which
-// is what the round-trip tests measure in both directions.
-export function minuteAtTrainX(segs, x) {
-  const spans = trainSpans(segs);
-  if (!spans.length) return 0;
-  const first = spans[0];
-  const last = spans[spans.length - 1];
-  const right = last.start + last.w;
-  const raw = Number(x);
-  if (!Number.isFinite(raw)) return first.from;
-  const xx = Math.min(Math.max(raw, first.start), right);
-  for (const s of spans) {
-    if (xx < s.start || xx > s.start + s.w) continue;
-    return s.from + ((xx - s.start) / s.w) * (s.to - s.from);
-  }
-  return last.to;
+// How far her own hand may carry the line, at the minute the day is standing on.
+//
+// It is the two bounds above expressed as a range for `pan`, and it always contains
+// nought — which is what makes the resting placement reachable, and therefore what
+// makes "Back to now" and a press off the line ways home rather than wishes.
+export function panRange(nowMin, k, visW, lineW) {
+  const p = trainPlacement(nowMin, k, visW, 0, lineW);
+  return {
+    lo: Math.min(0, Math.round(p.lo - p.follow)),
+    hi: Math.max(0, Math.round(p.hi - p.follow)),
+  };
+}
+
+// A span of time, in the words somebody standing at a bench reads it in.
+//
+// Her ask, 25 September 2026: "can the time show under their names, accurate to 5m
+// 55s?" So the countdown under a person's name is to the second and not rounded to the
+// minute — a countdown rounded to the minute is wrong by up to fifty-nine seconds at
+// exactly the moment the answer matters, which is the minute before her hand is
+// needed. Under a minute it says the seconds alone.
+export function minsWords(v) {
+  const whole = Math.max(0, Math.round(trainNum(v, 0) * 60));
+  const m = Math.floor(whole / 60);
+  const s = whole % 60;
+  return m ? `${m}m ${s}s` : `${s}s`;
 }
 
 // ── what a coach is made of (v184) ────────────────────────────────────────
@@ -1783,34 +1823,63 @@ function shortName(name) {
 
 // The line a coach may stand on: the pane's own width less the name column the board
 // draws its people in. Narrower than the planner's 156px on purpose — these 48 pixels
-// are what let a phone's line still carry four coaches, which is the one figure she
-// gave for the strip: "in a full shown line should be able to visualize 4 coach".
-const TRAIN_NAME_W = 108;
-// The coach floor is a tap target first and a look second: 34 by 56 is about the
-// smallest box a thumb can be asked to hit, and it is the width at which the face
-// gives up its name and keeps its icon and its clock (see .tl-cname).
-const TRAIN_COACH_MIN = 34;
-const TRAIN_LINK_MIN = 18;
-const TRAIN_LINK_MAX = 30;
-const TRAIN_STUB_MIN = 4;
-const TRAIN_STUB_MAX = 14;
-
-// The widths of one train, from the width it has to be drawn in. Pure, exported, and
-// tested with no DOM, because it is a promise about the screen and a promise is worth
-// pinning: four coaches fill the visible line.
+// are what let a phone's line still carry several coaches at once.
 //
-// The four coaches are the BUDGET and not a remainder. Three links and two stubs come
-// out of the line first and what is left is divided four ways, so at every width from
-// a 320-pixel phone up four coaches fill it exactly. The 34-pixel floor is the one
-// case where the line is too narrow to keep that, and then `fits` says so rather than
-// the strip quietly drawing three coaches and a sliver.
-export function trainMetrics(visW) {
-  const w = Math.max(0, Math.round(trainNum(visW, 0)));
-  const link = Math.min(TRAIN_LINK_MAX, Math.max(TRAIN_LINK_MIN, Math.round(w * 0.045)));
-  const stub = Math.min(TRAIN_STUB_MAX, Math.max(TRAIN_STUB_MIN, Math.round(w * 0.02)));
-  const coach = Math.max(TRAIN_COACH_MIN, Math.floor((w - 3 * link - 2 * stub) / 4));
-  const fits = coach + link > 0 ? Math.floor((w - 2 * stub + link) / (coach + link)) : 0;
-  return { coach, link, stub, fits };
+// Since v193 this column is the ONLY thing between the pane's edge and minute nought of
+// every row, which is what lets her point 3 stand: with one scale and one left edge, a
+// coach's x IS its minute, so the three trains begin together and stay comparable.
+const TRAIN_NAME_W = 108;
+
+// The narrowest a coach can be and still hold a face. It is not a floor on the coach
+// itself — the coach is exactly as wide as its minutes (see coachGeom) — it is the
+// width below which the face is not drawn at all. Her words: "if it is not show as no
+// space big enough, just dont show, as we have another place shown it under person's
+// name". A coach of a whole minute at the widest scale is 7.2 pixels, so the face is
+// absent on every genuinely short job and the row's own next line is what names it.
+const TRAIN_FACE_MIN = 43;
+
+// The least a coach may be drawn for the finger to reach it. Purely a hit area and never
+// a width: the coach is drawn hairline-true and this is an invisible widening laid over
+// it (see .tl-coach::before), so a one-minute fold is still a press and still a
+// hairline. This app's own tap target floor, and the one place the train still honours
+// it now that the drawn width may be two pixels.
+const TRAIN_TAP_MIN = 36;
+
+// The gap between two coaches, drawn as its own element (`.tl-link`) so the countdown
+// can sit inside a stretch of the line that belongs to no job.
+//
+// It is a MINIMUM and not a width. v184 sized the links from the pane's width and put
+// them between fixed-width coaches; with everything now measured in minutes a gap that
+// was widened to hold a number would move every coach after it off its own minute, so
+// the gap is drawn as the minutes really are and the number is drawn only where those
+// minutes left room (see trainRow). A gap too narrow for its countdown shows none, and
+// the person's own next line still says it.
+const GAP_MIN_W = 22;
+
+// One job as the drawing needs it: the model's own hands window, the words for it, and
+// the minute it is called at.
+//
+// Built once per row, so the coach, its face, its tip, its countdown and the row's own
+// next line are all reading ONE object. Before v193 the row worked these out in four
+// places as it built each element, which is how a second story about the same job gets
+// into a screen. `at` is looked up rather than recomputed (see callAtOf), so a coach
+// turns red at the same minute the bell rings.
+function trainJob(r, run, state, w, who) {
+  const key = keyOf(w, who);
+  const from = trainNum(w && w.from, 0);
+  const name = String((w && w.name) || "").trim() || "Work";
+  return {
+    w,
+    key,
+    from,
+    to: Math.max(from, trainNum(w && w.to, from)),
+    at: callAtOf(run, key, from),
+    icon: (w && w.icon) || "•",
+    name,
+    short: shortName(name) || name,
+    when: `${trainClock(r.dayStartMin, from)} → ${trainClock(r.dayStartMin, trainNum(w && w.to, from))}`,
+    ack: ackOn(state, key),
+  };
 }
 
 // The clock on a coach. The am/pm is dropped because it will not fit — "4:13" is what
@@ -1940,11 +2009,23 @@ function isHere(run, j) {
   return j.to > j.from && run.nowMin >= j.from && run.nowMin < j.to;
 }
 
-// Red, green or the person's own colour — and it STAYS red once the clock has gone
-// past, which is her clause 3: "The coach can pass the current timeline, but stay
-// red, click it turn green." So there is no upper bound on the due test.
+// Red, green — TWO colours, since v193, and no third.
+//
+// Her words, 25 September 2026: "The coach should have 2 color only. Green and light
+// red, the coach change to red only when their hand needed time is up."
+//
+// So the person's own tone is off the coach (it stays on the row's rail), green means
+// nothing is outstanding, and red means exactly one thing: the minute her hand is
+// needed has arrived and nobody has taken it. It STAYS red once the clock has gone
+// past, which is her older clause: "The coach can pass the current timeline, but stay
+// red, click it turn green." There is deliberately no upper bound on the due test.
+//
+// A taken coach goes back to GREEN rather than getting a colour of its own, and that is
+// what keeps the count at two: a taken job is a job with nothing outstanding on it,
+// which is precisely what green already means. What says it was taken is the tick on
+// its face (see .tl-cack), not a third shade.
 function coachState(state, run, j) {
-  if (ackOn(state, j.key)) return "ack";
+  if (j.ack || ackOn(state, j.key)) return "ack";
   return run.nowMin >= j.at ? "due" : "coming";
 }
 
@@ -1974,12 +2055,18 @@ function coachWords(state, run, j) {
 function trainNextLine(state, run, jobs) {
   const now = run.nowMin;
   const here = jobs.find((j) => isHere(run, j));
-  if (here) return { text: `Now: ${shortName(here.w.name)}`, due: true };
+  if (here) return { text: `Now: ${here.short}`, due: true };
   const next = jobs.find((j) => j.from > now);
   if (next) {
-    if (next.at <= now) return { text: `Due: ${shortName(next.w.name)}`, due: true };
-    const mins = Math.max(1, Math.round(next.from - now));
-    return { text: `Next ${mins}m`, due: mins <= 1 };
+    if (next.at <= now) return { text: `Due: ${next.short}`, due: true };
+    // To the SECOND, which is her ask of 25 September 2026: "can the time show under
+    // their names, accurate to 5m 55s?" A countdown rounded to the whole minute is
+    // wrong by up to fifty-nine seconds, and it is wrong at exactly the moment the
+    // answer is being read — the minute before her hand is needed. `minsWords` is the
+    // same formatter the countdown between two coaches uses, so the row's own line and
+    // the link on the line can never state one instant at two precisions.
+    const left = next.from - now;
+    return { text: `Next ${minsWords(left)}`, due: left <= 1 };
   }
   if (!jobs.length) return { text: "Nothing on", due: false };
   const left = jobs.filter((j) => coachState(state, run, j) !== "ack").length;
@@ -1999,48 +2086,84 @@ function wireCoachTip(coach, tip) {
   wirePersonTip(coach, tip);
 }
 
-// One person's line on a board, as a TRAIN: a coach for every job they have, joined
-// in the order the jobs happen, with the clock pinned to the centre of the line.
+// One person's line on a board, as a TRAIN: a coach for every job they have, each one
+// standing at its own minute and exactly as long as her hand is needed on it, with the
+// clock sweeping along the line.
 //
-// It replaces personRow on a board and nowhere else. The planner's row is a strip of
-// time and has to be, because that is where she lays the day out; this one is a strip
-// of WORK, because that is what somebody at a bench has to read. The two consequences
-// — a coach does not sit under the minute it happens at, and this window no longer
-// pans with the modules above it — she chose herself, in the words "The train is its
-// own strip."
+// v184 built this as a strip of WORK — all coaches one width, joined in job order, on a
+// private piecewise-linear map. Her instruction of 25 September 2026 replaces that with
+// a strip of TIME, and the two sentences that do it belong next to the code:
+//
+//   "Make the coach width relative to its duration, and others batch duration, their
+//   labour requirement mark by hand needed, not batch arrival"
+//
+//   "So the 3 person's train head, should be timed and position relatively to each
+//   other, when time start, 3 train started together"
+//
+// Which is why nothing here computes a position of its own any more. A coach's `left` is
+// its own minute times the day's scale and its `width` is its own minutes times the same
+// scale (coachGeom), and the strip is as wide as the whole day (run.lineW) — so the same
+// clock minute is the same pixel in every person's row. That is the property her third
+// point asks for, and the one the private map could never give: a per-row map puts one
+// clock minute at a different pixel in every row, which makes the three trains
+// incomparable exactly when she wants to compare them.
+//
+// `run.scale` and `run.lineW` are read off the RUN rather than worked out again here, so
+// that the geometry a test pins and the geometry a row draws are the same two numbers.
+// Both are set by trainGeometry from the day's own Scale — the same figure the modules'
+// window above is drawn from, so the train and the chart cannot come to disagree.
 function trainRow(r, row, sc, on, state, run) {
   const who = row.person;
   const tone = personTone(who);
   const notes = personNotes(row, sc, state, r.dayStartMin);
-  const jobs = (row.items || []).filter(Boolean).map((w) => {
-    const key = keyOf(w, who);
-    return { w, from: w.from, to: w.to, key, at: callAtOf(run, key, w.from) };
-  });
+  const k = run.scale;
+  const jobs = (row.items || []).filter(Boolean).map((w) => trainJob(r, run, state, w, who));
 
-  const strip = el("div", { class: "tl-train" });
+  // The strip is the whole day's paper, not the coaches' own width: absolutely placed
+  // children need a box that reaches to the end of the line, or the last coaches would
+  // fall off the end of their own container.
+  const strip = el("div", { class: "tl-train", style: `width:${run.lineW}px` });
   const tips = [];
   const coaches = [];
   const counts = [];
+  const links = [];
   // Each coach's tip keeps its own copy of the state sentence, so the beat can keep the
   // opened tip honest as the clock runs (see restate). The tip is the one place a coach's
   // state is written in WORDS, and a card still saying "Coming up" about a job that has
   // been due for ten minutes would be the very second story this screen refuses.
   const states = [];
 
-  strip.append(el("div", { class: "tl-stub" }));
   jobs.forEach((j, i) => {
-    const w = j.w;
-    const batches = batchesOf(r, w.module);
-    const owner = ((r.modules || []).find((x) => String(x.id) === String(w.module)) || {});
-    const cyc = w.cycle >= 0 ? (owner.cycles || [])[w.cycle] : null;
+    const batches = batchesOf(r, j.w.module);
+    const owner = ((r.modules || []).find((x) => String(x.id) === String(j.w.module)) || {});
+    const cyc = j.w.cycle >= 0 ? (owner.cycles || [])[j.w.cycle] : null;
     const cycName = cyc ? String(cyc.name || "").trim() : "";
+    const g = coachGeom(j, k);
+    const here = isHere(run, j);
+    const st = coachState(state, run, j);
 
-    const coach = el("div", { class: `tl-coach ${tone} ${coachState(state, run, j)}${isHere(run, j) ? " here" : ""}` },
+    // The face, and the tick, and NOT the person's tone. Her "2 color only" settles the
+    // second thing v184's coach carried: the eight person tones are gone from here — they
+    // stay on the row's rail, where they still say whose line it is — so that green and
+    // light red are the only two answers a coach can give. A taken coach is GREEN with a
+    // tick on it, because "taken" is a kind of "nothing outstanding", which is what green
+    // already means (see coachState).
+    const coach = el("div", {
+      class: `tl-coach ${st}${here ? " here" : ""}`,
+      // `left` and `width` in real pixels, and in the inline style, so the two numbers the
+      // drawing is made of are the two numbers a reader can measure. The width is exactly
+      // the job's own minutes and is never widened for looks or for the finger: v184's
+      // 34-pixel floor is gone with the uniform budget, so a one-minute fold is drawn as a
+      // hairline. What keeps that hairline pressable is the invisible `.tl-coach::before`
+      // hit area in the stylesheet, which moves nothing and widens nothing.
+      style: `left:${g.left}px;width:${g.width}px`,
+    },
       el("div", { class: "tl-cface" },
-        el("span", { class: "tl-cicon" }, w.icon || "•"),
-        el("span", { class: "tl-cname" }, shortName(w.name)),
-        el("span", { class: "tl-cwhen" }, trainClock(r.dayStartMin, w.from)),
-        batches > 1 ? el("span", { class: "tl-cbatch" }, `B${w.batch + 1}`) : null));
+        el("span", { class: "tl-cicon" }, j.icon),
+        el("span", { class: "tl-cname" }, j.short),
+        el("span", { class: "tl-cwhen" }, trainClock(r.dayStartMin, j.from)),
+        batches > 1 ? el("span", { class: "tl-cbatch" }, `B${j.w.batch + 1}`) : null),
+      st === "ack" ? el("span", { class: "tl-cack" }, "✓") : null);
 
     // The tip is a SIBLING of the strip and never a child of the coach, and that is
     // forced rather than chosen: the strip is translated to hold the clock at its
@@ -2051,9 +2174,9 @@ function trainRow(r, row, sc, on, state, run) {
     // for at v167, arrived at from the other end.
     const stateEl = el("div", { class: "tl-sub tl-cstate" }, coachWords(state, run, j));
     const tip = el("div", { class: "tl-tip tl-tip-coach" },
-      el("div", { class: "tl-sub" }, `${w.icon ? `${w.icon} ` : ""}${jobName(w)}`),
-      el("div", { class: "tl-sub" }, `${clockAt(r.dayStartMin, w.from)} → ${clockAt(r.dayStartMin, w.to)} · ${trim(w.to - w.from)} min`),
-      batches > 1 ? el("div", { class: "tl-sub" }, `Batch ${w.batch + 1} of ${batches}`) : null,
+      el("div", { class: "tl-sub" }, `${j.icon ? `${j.icon} ` : ""}${jobName(j.w)}`),
+      el("div", { class: "tl-sub" }, `${clockAt(r.dayStartMin, j.from)} → ${clockAt(r.dayStartMin, j.to)} · ${trim(j.to - j.from)} min`),
+      batches > 1 ? el("div", { class: "tl-sub" }, `Batch ${j.w.batch + 1} of ${batches}`) : null,
       cycName ? el("div", { class: "tl-sub" }, cycName) : null,
       el("div", { class: "tl-sub" }, `👤 ${notes.who}`),
       stateEl);
@@ -2081,17 +2204,29 @@ function trainRow(r, row, sc, on, state, run) {
     coaches.push(coach);
     strip.append(coach);
 
-    // The link, and only where there is a wait to count: two jobs that run back to
-    // back get no strip between them at all, which is the same rule trainSegments
-    // applies to the width, said here so no element is built for a pixel nobody sees.
+    // The wait between this job and the next, drawn as its own minutes and nothing else.
+    //
+    // v184 widened this gap to hold its countdown, which was harmless while the coaches
+    // were a fixed width and is not harmless now: a gap drawn wider than the minutes it
+    // stands for would push every coach after it off the minute it belongs to, and a
+    // coach's position meaning something is the whole point of this release. So the gap
+    // is drawn TRUE, and the countdown is drawn inside it only where those minutes left
+    // the room to read one (GAP_MIN_W) — otherwise there is a gap with nothing written
+    // on it, and the person's own next line, under their name, says how long it is. Two
+    // jobs that run back to back get no element at all.
     const next = jobs[i + 1];
     if (next && next.from > j.to) {
-      const count = el("span", { class: "tl-count" }, trainCount(state, run, next));
-      counts.push({ el: count, next });
-      strip.append(el("div", { class: "tl-link" }, count));
+      const wpx = (next.from - j.to) * k;
+      const link = el("div", { class: "tl-link", style: `left:${j.to * k}px;width:${wpx}px` });
+      if (wpx >= GAP_MIN_W) {
+        const count = el("span", { class: "tl-count" }, trainCount(state, run, next));
+        counts.push({ el: count, next });
+        link.append(count);
+      }
+      links.push(link);
+      strip.append(link);
     }
   });
-  strip.append(el("div", { class: "tl-stub" }));
 
   const nextLine = el("div", { class: "tl-next" });
   paintNextLine(nextLine, trainNextLine(state, run, jobs));
@@ -2113,7 +2248,7 @@ function trainRow(r, row, sc, on, state, run) {
   //
   // It is inside the TRACK and not in the pane, which is what makes it the person's own
   // line: the track is the clip line that stops a translated train running under the name
-  // column, and every track is the same width, so one number from placeClock stands all of
+  // column, and every track is the same width, so one number from placeTrain stands all of
   // them at the same pixel.
   const clock = el("div", { class: "tl-clock" });
   const track = el("div", { class: "tl-track train-track" }, strip, clock);
@@ -2136,18 +2271,21 @@ function trainRow(r, row, sc, on, state, run) {
     nameCell,
     track,
     ...tips);
-  run.trains.push({ row, box, who, track, strip, clock, jobs, coaches, counts, nextLine, states });
+  run.trains.push({ row, box, who, track, strip, clock, jobs, coaches, counts, links, nextLine, states });
   return box;
 }
 
-// What a link between two coaches counts: how long until the next job starts, "due"
+// What a wait between two coaches counts: how long until the next job starts, "due"
 // once it is within its own minute, and a tick once somebody has taken it — at which
 // point the wait is no longer the thing to watch.
+//
+// The same `minsWords` the row's own next line uses, so the two places on this screen
+// that count down to one moment can never state it at two precisions — her "accurate to
+// 5m 55s", 25 September 2026.
 function trainCount(state, run, next) {
-  if (ackOn(state, next.key)) return "✓";
+  if (next.ack || ackOn(state, next.key)) return "✓";
   if (run.nowMin >= next.at) return "due";
-  const mins = Math.max(1, Math.round(next.from - run.nowMin));
-  return Number.isFinite(mins) ? `${mins}m` : "";
+  return minsWords(next.from - run.nowMin);
 }
 
 function paintNextLine(node, line) {
@@ -2158,17 +2296,21 @@ function paintNextLine(node, line) {
 // The train's own measures, taken from the line the pane has actually got.
 //
 // Asked on the first paint AND on every beat, and never cached — for the reason the
-// chart's own --hour-w is never cached. The strip is assembled before it is on the
-// page, and an element that is not on the page answers every measurement with nought,
-// so a width read once at build time would be zero in a test and stale in a browser
-// whose window was resized with the board open. `visW` is what is LEFT of the name
-// column, because that is the line a coach may stand on.
+// chart's own --hour-w is never cached. The pane is measured before it is on the page
+// during the first paint, and an element that is not on the page answers every
+// measurement with nought, so a width read once at build time would be zero in a test
+// and stale in a browser whose window was resized with the board open.
 //
-// It also writes each row's segment map, which is the row's own arithmetic and cannot
-// be done before the widths are known. `restate` places the strips from it.
+// What it writes now is ONE custom property — the line's full width — and it exists for
+// a reason that is about measurement rather than looks: `.tl-train` is the paper the
+// absolutely placed coaches stand on, and its width has to reach the end of the day even
+// when a row's own last coach finishes at half past five. The scale and that width are
+// NOT decided here (they are set before the rows are built, see the assembly), because a
+// coach's `left` is computed as it is built: a row built before its scale was known would
+// carry `left:NaNpx` in its own style, which is a coach that has vanished rather than an
+// error anybody sees.
 function trainGeometry(run) {
   const axis = trainAxis(run);
-  const g = trainMetrics(Math.max(0, axis.inner - TRAIN_NAME_W));
   for (const t of run.trains) {
     // Through `setProperty`, which is the only door a CUSTOM property has: assigning
     // `style["--coach-w"]` writes nothing at all in a browser — it leaves an expando on
@@ -2176,32 +2318,29 @@ function trainGeometry(run) {
     // through to the stylesheet's own fallback width and the line would be drawn at a
     // size nothing measured. Measured live at 375px: 34px coaches with six of them
     // filling the visible line, where this asks for 36 and four.
-    t.track.style.setProperty("--coach-w", `${g.coach}px`);
-    t.track.style.setProperty("--link-w", `${g.link}px`);
-    t.track.style.setProperty("--stub-w", `${g.stub}px`);
-    t.segs = trainSegments(t.jobs, g.coach, g.link, g.stub);
-    t.geo = g;
+    t.track.style.setProperty("--line-w", `${run.lineW}px`);
   }
-  run.trainGeo = g;
-  return g;
+  return { scale: run.scale, lineW: run.lineW, visW: Math.max(0, axis.inner - TRAIN_NAME_W) };
 }
 
 // The line a coach may stand on, in the pane's own pixels: where it begins, how wide
-// the pane is, and where the clock therefore stands.
+// the pane is, and where the middle of the line therefore is.
 //
 // The origin is MEASURED off the track itself — it is the board's name column — and the
 // declared 108 is only the floor for a track that is not on the page, because a detached
 // element answers every measurement with nought and a clock drawn at nought would sit
 // under the names. It is measured rather than taken from TRAIN_NAME_W so that the clock
-// and the strips cannot come to disagree about where the line starts: the clock is
-// placed from the axis and every strip is placed from the same axis, and the one
-// declared number left is the width BUDGET, which the suite keeps in step with the
-// stylesheet by reading the column's width out of it.
+// and the strips cannot come to disagree about where the line starts: the face and every
+// ruler are placed from the one placement (see placeTrain), which is computed against
+// this same origin.
 //
 // The centre is what is left of the pane after the names, halved — the middle of the
 // line the coaches actually stand on, and not the middle of the pane, because the names
-// are not part of the line. Nothing here is cached: this is asked afresh by every beat
-// and by every drag, which is what lets a board survive a rotation.
+// are not part of the line. It is the pixel the clock stops at once the morning has
+// reached it, which is her own third design (see trainPlacement).
+//
+// Nothing here is cached: this is asked afresh by every beat and by every drag, which is
+// what lets a board survive a rotation.
 function trainAxis(run) {
   const pane = run.peoplePane;
   const inner = Math.max(0, trainNum(pane && pane.clientWidth, 0));
@@ -2212,100 +2351,67 @@ function trainAxis(run) {
   return { origin, inner, trackW, centre: Math.round(origin + trackW / 2) };
 }
 
-// Where one strip stands in its track, from the day's own minute and nothing else.
+// Where the whole line stands, and what the single face on the window says — ONE
+// computation for the strips, the rulers and the face.
 //
-// THE STATION — the minute is at the middle of the line, always, and the train slides
-// through. Her words, 24 September 2026, twice over: "Each of the person line has a clock
-// line at centre of line", and — the one that settles it — "When i click outside the person
-// window, the clock back to center." A clock that stood wherever the day's minute happened
-// to be could not be sent "back to center", because the centre is not where it would have
-// been; so the centre is not a place the ruler sometimes reaches, it is the place the ruler
-// always is, and the trains are what move.
+// They are one function because they are one number. v184 placed the strips and then
+// placed the rulers from a second expression that happened to agree; here there is a
+// single `trainPlacement` answer and every drawn thing is read off it, so a finger can
+// never make a line and its ruler come to disagree about the minute either is standing on.
+// That is the whole of her "when we drag to the right, the train move to right and the
+// clock and red ruler move relatively".
 //
-// That is the whole subway reading of her v184 ask: one station, every line stopping at it,
-// and each train slid so that the job running NOW is the coach at the platform. A row whose
-// person has not started yet shows its first coach at the station and empty line behind it;
-// a row whose person has finished shows its last coach there. Both are true statements
-// about that person, which is what the row is for.
+// THE ANCHOR, which is her own third design of 25 September 2026 and the first time this
+// window has started on the left at all: "the ruler sweeps, untill reach center, it stop,
+// then the train move. The advantage of this is we see more coaches queues yet to come
+// without having to drug the line, as when getting started, person only see one train head,
+// the rest might shill hiden until you drag it to the left. Start left is convenient in
+// this way." See trainPlacement for the arithmetic and the two clamps.
 //
-// The trains do NOT all move by the same amount, and that is not a fault: every person's
-// line is their own sequence of jobs, so the minute lands at a different pixel along each
-// one. What the rows share is the station, and answering "how long have I got" from a fixed
-// place on the line is the only thing that makes four of them readable at a glance.
-function lineAt(t, axis, nowMin) {
-  return axis.trackW / 2 - xOfMinute(t.segs || [], nowMin);
-}
-
-// Where every strip stands, from one number.
+// So at the start of the morning the ruler is at the line's own left edge and the whole
+// queue of coaches ahead is visible at once; it sweeps rightwards until it reaches the
+// middle of the line, and from then on it is pinned there and the line slides under it.
+// Every row is drawn from the same minute and the same scale, so the trains stand in the
+// same place relative to one another — her point 3, "when time start, 3 train started
+// together" — which is the property a per-row map could never give.
 //
-// `run.pan` is the one hand's drag, shared by every person's window, and both the
-// strips and the rulers move by it — see placeClock for the rulers' half. That is the
-// whole of her "when we drag to the right, the train move to right and the clock and red
-// ruler move relatively": they move WITH the train, rigidly, so a finger can never make a
-// line and its ruler come to disagree about the minute either one is standing on.
-function placeLine(run, axis) {
-  for (const t of run.trains) {
-    t.left = Math.round(lineAt(t, axis, run.nowMin) + run.pan);
-    const at = `translateX(${t.left}px)`;
-    if (t.strip.style.transform !== at) t.strip.style.transform = at;
-  }
-}
-
-// How far the station itself may be walked, either way.
-//
-// The bound is the station's own: the rulers start in the middle of the line and she may
-// carry them from one edge of it to the other, and not one pixel further. Past that the
-// clock she is reading would be standing on paper neither side of the line has — a line
-// at the track's far edge is a line over the name column or off the window, and neither is
-// a minute she can be told.
-//
-// A half-line either way is also what makes the drag useful: with the whole travel
-// available she can bring any coach of any train to the station and read it, which is the
-// one thing the drag is for. The range always contains nought, so the rest state is always
-// reachable — that is what makes "Back to now", and a press off the window, ways home
-// rather than wishes.
-function panRange(run, axis) {
-  const reach = Math.round(axis.trackW / 2);
-  return { lo: -reach, hi: reach };
-}
-
-// Where each ruler stands, and what the single face on the window says.
-//
-// Every ruler is at the STATION — the middle of its own line — and that is what "the 2nd
-// person and subsequent person have the centered red ruler" means: not one line crossing
-// four windows, but four lines standing at the same place on four lines that are the same
-// width, which is her "the current time at the center sharing with all person".
-//
-// `alongLine` and `screen` are one number in two coordinate spaces, and they are computed
-// from one expression so they cannot come to disagree: a ruler is drawn INSIDE its track,
-// so it is told a pixel counted from the track's own left edge, while the face is drawn in
-// the window, so it is told the same pixel counted from the pane's edge. The distance
-// between the two is the name column, and nothing else.
+// `alongLine` and `screen` are one number in two coordinate spaces, and both come from the
+// one placement so they cannot come to disagree: a ruler is drawn INSIDE its track, so it
+// is told a pixel counted from the track's own left edge, while the face is drawn in the
+// window, so it is told the same pixel counted from the pane's edge. The distance between
+// the two is the name column, and nothing else.
 //
 // A ruler is NEVER brown, and v185's `.reading` is gone with the thing it was for. It
 // existed because a drag in that build moved the clock line on its own, leaving the line
-// reading a minute the day was not at; here the trains move WITH the clock, so a dragged
+// reading a minute the day was not at; here the line moves WITH the clock, so a panned
 // ruler is still standing on the minute the morning is actually at and red is still the
-// truth about it. Keeping the colour would have been a rule that could only ever fire
-// wrongly, and a claim about now painted in the wrong colour is worse than no colour at
-// all. What the pan changes is WHERE on the line that minute stands, and nothing else.
+// truth about it. What the pan changes is WHERE on the line that minute stands, and
+// nothing else.
 //
 // The face names the CLOCK TIME and never the word "now" — the module window above still
 // draws the day's own now-line with its own label, and two lines on one screen both saying
 // "now" would be two answers to one question.
-function placeClock(run, axis) {
-  const said = clockOf(run.dayStart + run.nowMin);
-  const screen = Math.round(axis.origin + axis.trackW / 2 + run.pan);
-  const alongLine = `${Math.round(axis.trackW / 2 + run.pan)}px`;
+function placeTrain(run, axis) {
+  const p = trainPlacement(run.nowMin, run.scale, axis.trackW, run.pan, run.lineW);
+  // The line slides LEFT as the window moves right along it. The strip is the whole day's
+  // paper, so this is what brings the minute being read into the window.
+  const slide = `translateX(${Math.round(-p.s)}px)`;
+  const alongLine = `${Math.round(p.ruler)}px`;
   for (const t of run.trains) {
+    if (t.strip && t.strip.style.transform !== slide) t.strip.style.transform = slide;
     if (!t.clock) continue;
     if (t.clock.style.left !== alongLine) t.clock.style.left = alongLine;
   }
   if (run.clockLab) {
-    const at = `${screen}px`;
+    const at = `${Math.round(axis.origin + p.ruler)}px`;
     if (run.clockLab.style.left !== at) run.clockLab.style.left = at;
+    const said = clockOf(run.dayStart + run.nowMin);
     if (run.clockLab.textContent !== said) run.clockLab.textContent = said;
   }
+  // Kept on the run, so a drag's own clamp and the drawn screen answer from one piece of
+  // arithmetic instead of two copies of it.
+  run.placed = p;
+  return p;
 }
 
 // One write-only pass over a board's trains: where each strip stands, what each coach
@@ -2322,10 +2428,10 @@ function restate(run, state) {
   const r = run.boardR;
   if (!run.board || !r) return;
   const axis = trainAxis(run);
-  // The pixels first — every strip, then every ruler, both from the one pan. Then the
-  // words and the colours. "Due" is a claim about now, and a finger on the glass does
-  // not change who is late, so both are answered from run.nowMin.
-  placeLine(run, axis);
+  // The pixels first — every strip, every ruler and the face, all from the one placement.
+  // Then the words and the colours. "Due" is a claim about now, and a finger on the glass
+  // does not change who is late, so both are answered from run.nowMin.
+  placeTrain(run, axis);
   for (const t of run.trains) {
     paintNextLine(t.nextLine, trainNextLine(state, run, t.jobs));
     for (let i = 0; i < t.coaches.length; i += 1) {
@@ -2347,7 +2453,6 @@ function restate(run, state) {
       if (s.el.textContent !== said) s.el.textContent = said;
     }
   }
-  placeClock(run, axis);
 }
 
 // A pointer's x in the pane's own coordinates. A reading is taken along a line the pane
@@ -2360,57 +2465,113 @@ function paneX(pane, e) {
   return trainNum(e && e.clientX, 0) - (box ? trainNum(box.left, 0) : 0) + trainNum(pane && pane.scrollLeft, 0);
 }
 
-// The drag: one hand moves the whole line sideways, every window at once.
+// The drag: one hand moves the whole line sideways.
 //
 // Her words, 24 September 2026: "Create windows for each person, the detail able to be
 // drag left or right", then "when we drag to the right, the train move to right and
 // the clock and red ruler move relatively", and then "when i click outside the person
-// window, the clock back to center."
+// window, the clock back to center." And her correction of 25 September 2026, which is
+// the only thing this release changes about it: "and the drag, should be by right mouse
+// button hold down" — with, for the phone, "handphone can accept double finger gesture".
 //
-// So a drag PANS. The trains move, and every ruler moves with them by the same single
-// number (see placeLine and placeClock), so the ruler goes on naming the minute the
-// morning is actually at: what the drag changes is where on the line that minute stands.
-// Her pointing at one end of it brings the work before that minute into view; the other
-// end brings the work after it. If the ruler alone moved, the line would be left standing
-// at a minute the day is not at, which is a board quietly telling a worker something that
-// is not true.
+// So a drag PANS, and it is now a RIGHT-button hold on a computer and TWO FINGERS on a
+// phone. One finger and one left press are left free to mean exactly one thing on this
+// window: the tap on a coach that says somebody has picked the work up, and the tap on a
+// name that opens that person's card. Before this, a left press began a drag as well, so
+// the gesture that means "I'm on it" and the gesture that moves the day started the same
+// way — which is the fault her correction names.
 //
-// Letting go LEAVES the line where she put it, and that is the point of the gesture on
-// a phone: her own finger is over the part of the line she is trying to see, so a drag
+// The line moves, and every ruler moves with it by the same single number (see placeTrain,
+// where all of it is one computation), so the ruler goes on naming the minute the morning
+// is actually at: what the drag changes is where on the line that minute stands. Her
+// pointing at one end of it brings the work before that minute into view; the other end
+// brings the work after it. If the ruler alone moved, the line would be left standing at a
+// minute the day is not at, which is a board quietly telling a worker something untrue.
+//
+// Letting go LEAVES the line where she put it, and that is the point of the gesture on a
+// phone: her own fingers are over the part of the line she is trying to see, so a drag
 // that snapped back on release would show her nothing at all. The two ways back are her
-// own clause 10 — a press anywhere off a person's window — and the ⟲ Back to now
-// button, which is the same thing on a button.
+// own clause 10 — a press anywhere off the person's window — and the ⟲ Back to now button,
+// which is the same thing on a button.
 //
 // Nothing about what is DUE is answered from the pan. Red, green and the countdowns are
-// claims about the minute the morning is at, and looking further along the line does
-// not change who is late — so this writes pixels and nothing else, and `restate` is not
-// called from here at all.
+// claims about the minute the morning is at, and looking further along the line does not
+// change who is late — so this writes pixels and nothing else, and `restate` is not called
+// from here at all.
 //
-// The gesture is tracked on the pane and no pointer capture is asked for: a finger that
-// leaves the pane has stopped dragging it, which is why leaving ends the gesture. The
-// one thing listened for on the document is the press that puts the line back, which no
-// handler on the pane could ever see — see plannerInto, where it is registered once for
-// the screen and taken off again with it.
+// The gesture is tracked on the pane and no pointer capture is asked for: a hand that
+// leaves the pane has stopped dragging it, which is why leaving ends the gesture. The one
+// thing listened for on the document is the press that puts the line back, which no handler
+// on the pane could ever see — see plannerInto, where it is registered once for the screen
+// and taken off again with it.
 function wireTrainClock(pane, run) {
   if (!run.board || !pane || !pane.addEventListener) return;
   const SLOP = 4;
-  let from = null;   // the row the gesture began on
+  // The buttons this gesture answers to. Her correction of 25 September 2026: "and the
+  // drag, should be by right mouse button hold down". Before it, a left press dragged
+  // the line — and a left press is also the tap on a coach, which meant the one gesture
+  // that says "I'm on it" and the one that moves the day began the same way.
+  const isRight = (e) => !e || Number(e && e.button) === 2;
+  const isTouch = (e) => String((e && e.pointerType) || "") === "touch";
+
+  let from = null;   // the row the mouse's gesture began on
   let x0 = 0;
   let y0 = 0;
   let pan0 = 0;      // where the line stood when the gesture began
   let live = false;  // whether this gesture has become a drag at all
+  // The fingers down on the pane, by pointer id. Only used for touch, where the gesture
+  // is TWO fingers and not one — her answer of 25 September 2026: "handphone can accept
+  // double finger gesture". One finger therefore stays what it always was on this screen:
+  // a tap on a coach, or on the person's name.
+  const fingers = new Map();
 
   const stop = () => { from = null; live = false; };
 
+  // Everything the pan itself writes, once, for both gestures: the clamp, the position,
+  // and then the screen. `pan0 - dx` and not `pan0 + dx`, because `pan` is where the
+  // WINDOW stands along the line and not where the finger has got to: the paper has to
+  // follow the hand — her clause 9, "when we drag to the right, the train move to right"
+  // — and advancing the window would carry it the other way. It is the same sign the
+  // planner's own panes already use (`scrollLeft = held.left - (clientX - held.x)`, see
+  // wirePaneDrag), so a hand learns one direction for the whole app. `pan0` and not
+  // nought, so a second drag that begins on a line already carried on from where it
+  // stands rather than jumping back to the day's own placement.
+  const carry = (dx, moved) => {
+    const axis = trainAxis(run);
+    const range = panRange(run.nowMin, run.scale, axis.trackW, run.lineW);
+    run.pan = Math.round(Math.min(range.hi, Math.max(range.lo, pan0 - dx)));
+    if (moved) {
+      // The click that follows this gesture, if it lands on a coach, is the end of a
+      // drag and not a tap on the work. See where the board's taps read this.
+      run.scrubbed = true;
+      live = true;
+    }
+    placeTrain(run, axis);
+  };
+
   pane.addEventListener("pointerdown", (e) => {
-    if (!isPrimaryClick(e)) return;
     // Every press puts the spent flag back, before anything else can return: the click
     // that follows a drag is told apart from a tap by this flag, and a flag left
     // standing would eat the next real tap on the work.
     run.scrubbed = false;
+    if (isTouch(e)) {
+      fingers.set((e && e.pointerId) ?? 1, { x: paneX(pane, e), y: trainNum(e && e.clientY, 0) });
+      if (fingers.size !== 2) return;
+      // Two fingers are down: this is the phone's pan, and it may begin anywhere on the
+      // window rather than only over a row, because two fingertips landing on one row is
+      // not a thing a hand can be asked to manage.
+      const pts = Array.from(fingers.values());
+      x0 = (pts[0].x + pts[1].x) / 2;
+      y0 = (pts[0].y + pts[1].y) / 2;
+      pan0 = trainNum(run.pan, 0);
+      live = false;
+      from = { touch: true };
+      return;
+    }
+    if (!isRight(e)) return;
     // A press that lands inside a person's window is where a drag may begin. The name
     // column is inside the window but off the line, and it is where the person's card
-    // is opened — a finger that lands there is asking about the person, so it starts no
+    // is opened — a press that lands there is asking about the person, so it starts no
     // drag and the line stays exactly where she left it.
     const target = e && e.target;
     if (target && target.closest && target.closest(".tl-name")) { stop(); return; }
@@ -2426,32 +2587,52 @@ function wireTrainClock(pane, run) {
 
   pane.addEventListener("pointermove", (e) => {
     if (!from) return;
+    if (from.touch) {
+      const id = (e && e.pointerId) ?? 1;
+      if (!fingers.has(id)) return;
+      fingers.set(id, { x: paneX(pane, e), y: trainNum(e && e.clientY, 0) });
+      if (fingers.size < 2) return;
+      const pts = Array.from(fingers.values());
+      const dx = (pts[0].x + pts[1].x) / 2 - x0;
+      const dy = (pts[0].y + pts[1].y) / 2 - y0;
+      if (!live && (Math.abs(dx) < SLOP || Math.abs(dx) <= Math.abs(dy))) return;
+      carry(dx, true);
+      return;
+    }
     const x = paneX(pane, e);
     const y = trainNum(e && e.clientY, 0);
     const dx = x - x0;
     if (!live) {
-      // Four pixels of sideways travel with the finger going further sideways than up
-      // or down. The vertical half of that test is what keeps a finger scrolling the
+      // Four pixels of sideways travel with the hand going further sideways than up or
+      // down. The vertical half of that test is what keeps a press that is scrolling the
       // page from being read as a drag along the line.
       if (Math.abs(dx) < SLOP || Math.abs(dx) <= Math.abs(y - y0)) return;
-      live = true;
-      // The click that follows this gesture, if it lands on a coach, is the end of a
-      // drag and not a tap on the work. See where the board's taps read this.
-      run.scrubbed = true;
+      carry(dx, true);
+      return;
     }
-    // Clamped by what is actually drawn — see panRange. `pan0 + dx` and not `dx`, so a
-    // second drag that begins on a line already panned carries on from where it stands
-    // rather than jumping back to the day's own placement.
-    const axis = trainAxis(run);
-    const range = panRange(run, axis);
-    run.pan = Math.round(Math.min(range.hi, Math.max(range.lo, pan0 + dx)));
-    placeLine(run, axis);
-    placeClock(run, axis);
+    carry(dx, false);
   });
 
-  pane.addEventListener("pointerup", stop);
-  pane.addEventListener("pointercancel", stop);
-  pane.addEventListener("pointerleave", stop);
+  const lift = (e) => {
+    if (e && isTouch(e)) {
+      fingers.delete((e && e.pointerId) ?? 1);
+      if (fingers.size < 2) { fingers.clear(); stop(); }
+      return;
+    }
+    stop();
+  };
+  pane.addEventListener("pointerup", lift);
+  pane.addEventListener("pointercancel", lift);
+  pane.addEventListener("pointerleave", lift);
+
+  // A right press is the gesture now, so the browser's own menu would open on every one
+  // of them — and it opens on RELEASE, after the flag has been set. Suppressed for a drag
+  // and for nothing else: a right press that landed off the line still belongs to
+  // whatever is under it.
+  pane.addEventListener("contextmenu", (e) => {
+    if (!run.scrubbed) return;
+    if (e && e.preventDefault) e.preventDefault();
+  });
 }
 
 // Back to the current time: the line is placed where the day puts it again.
@@ -2490,9 +2671,7 @@ const docOf = (n) => (n && n.ownerDocument) || (typeof document === "undefined" 
 function panBack(run) {
   if (!run.board || !run.pan) return false;
   run.pan = 0;
-  const axis = trainAxis(run);
-  placeLine(run, axis);
-  placeClock(run, axis);
+  placeTrain(run, trainAxis(run));
   return true;
 }
 
@@ -2692,6 +2871,31 @@ function boardControls(r, sc, state, on, run) {
     pick,
   );
 
+  // The Scale, on the board's own row. Asked for directly on 25 September 2026 — "Yes, add
+  // Scale to the board" — and it had to be asked for, because the train did not obey the
+  // Scale at all before this release and there was nothing here to change.
+  //
+  // It writes `sc.pxPerMin`, which is the one setting the planner's own Scale step already
+  // saves, and it can: since v193 the train is drawn in the day's own units, so the two
+  // screens' Scales are the same number rather than two numbers that happen to look alike.
+  // Moving it here therefore moves the train AND the planner's windows below it, which is
+  // honest — they are one day at one scale — and there is no new stored key and no SQL.
+  //
+  // The hand's own offset is dropped on a Scale press, deliberately. `run.pan` is measured
+  // in the OLD pixels, so keeping it would leave her looking at a stretch of the day she
+  // never chose; and the honest answer to "draw this bigger" is to draw the same moment,
+  // which is what the day's own placement does. Nothing else about her scroll is touched.
+  const at = PX_PER_MIN_CHOICES.findIndex((px) => Math.abs(r.pxPerMin - px) < 0.01);
+  const step = (by) => {
+    const to = Math.max(0, Math.min(PX_PER_MIN_CHOICES.length - 1, at + by));
+    if (to === at) return;
+    sc.pxPerMin = PX_PER_MIN_CHOICES[to];
+    run.pan = 0;
+    on.persist();
+    on.refresh();
+  };
+  const scaleName = at < 0 ? `${r.pxPerMin}x` : SCALE_NAMES[at];
+
   return el("div", { class: "tr-ctl" },
     el("div", { class: "tr-ctl-row" },
       el("button", {
@@ -2730,7 +2934,26 @@ function boardControls(r, sc, state, on, run) {
       // her the scroll she is reading.
       el("div", { class: "tr-ctl-speed" },
         el("span", { class: "tr-ctl-lab" }, "Walk speed"),
-        box)));
+        box)),
+    // The Scale, drawn exactly as the planner draws its own step — same classes, same
+    // order, same disabled ends — so the two screens' Scales look and behave alike. Its
+    // ends are DISABLED rather than absent, which is this app's rule for a control that
+    // cannot act: a press at the end of the six stops does nothing and says so by looking
+    // inert instead of by quietly refusing.
+    el("div", { class: "tr-ctl-row" },
+      el("div", { class: "tl-ctl-group" },
+        el("span", { class: "tl-ctl-lab" }, "Scale"),
+        el("button", {
+          type: "button", class: "tl-step",
+          disabled: at <= 0,
+          onclick: () => step(-1),
+        }, "−"),
+        el("span", { class: "tl-step-name" }, scaleName),
+        el("button", {
+          type: "button", class: "tl-step",
+          disabled: at >= PX_PER_MIN_CHOICES.length - 1,
+          onclick: () => step(1),
+        }, "+"))));
 }
 
 // Calls, switched on by a finger.

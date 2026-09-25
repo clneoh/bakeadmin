@@ -3530,93 +3530,136 @@ tr.po-covered td { color: var(--muted); }
   flex: 1 1 auto; min-width: 0; width: auto; height: auto;
   overflow: hidden;
   background-image: none;
-  display: flex; align-items: center;
+  /* The paper the absolutely placed coaches stand on. v193 makes this the coaches'
+     containing block, so a coach's own `left` is counted from the track's left edge —
+     which IS minute nought of the day, the same pixel in every person's row. Her point 1
+     ("should start left hand side") and her point 3 ("when time start, 3 train started
+     together") are the same fact about this one edge. */
+  position: relative;
+  min-height: 52px;
 }
-/* The strip itself. The one transformed element on the board, and the reason nothing
-   inside it may carry a z-index. Its own width is its contents' — flex: 0 0 auto — so
-   translating it never fights a layout rule. */
-.tl-pane-people.train .tl-train { display: flex; align-items: center; flex: 0 0 auto; }
-.tl-stub { flex: 0 0 auto; width: var(--stub-w, 6px); height: 52px; }
+/* The strip: the whole day's paper, transformed to bring the minute being read into the
+   window. Its width comes from the view (--line-w), and it is the ONE transformed element
+   on the board — which is why nothing inside it may carry a z-index. */
+.tl-pane-people.train .tl-train {
+  position: absolute; left: 0; top: 0;
+  height: 100%; width: var(--line-w, 0px);
+}
 
-/* A coach: one job. All one width — her "All the same width" — because a twelve-minute
-   job drawn smaller than a forty-minute one would make this a length chart, and it is
-   not one; the clock on the face is what says how long a job is.
+/* A coach: one job, standing at its own minute and exactly as long as her hand is needed
+   on it.
 
-   52 pixels in a 72-pixel row, against v184's 40 in 56, and the twelve are her clause 8
-   spent where she asked for them: on the wordings. The face is a column — icon, name,
-   clock, batch — and at 40 pixels those four lines were being squeezed into a box whose
-   own text needed 38 of them, which is why the small-width step-down had to exist at
-   all. Measured on the stock day at her phone's 375 pixels, a coach is 50 wide and 52
-   tall. */
+   Her instruction of 25 September 2026, which reverses v184's uniform-width rule in as
+   many words: "Make the coach width relative to its duration, and others batch duration,
+   their labour requirement mark by hand needed, not batch arrival". So `left` and `width`
+   both come from the view as real pixels (see coachGeom) and there is no width here at
+   all — not even a fallback, because a fallback is a second answer to a question the view
+   has already answered.
+
+   TWO COLOURS, her point 5: "The coach should have 2 color only. Green and light red, the
+   coach change to red only when their hand needed time is up, the change of color should
+   be fade in and out, not sudden so that the user dont feel the screen is jumping here
+   and there." So the eight person tones are OFF the coach — they stay on the row's rail,
+   where they still say whose line it is — green is the default ("nothing outstanding"),
+   light red is `.due` (the minute her hand is needed has arrived and nobody has taken
+   it), and a taken coach is green with a tick on it rather than a third shade.
+
+   The transition is the fade she asked for, both ways, and it is on the coach and on its
+   words together so a colour change cannot leave the text a beat behind the box. 0.45s
+   is slow enough to read as a change and fast enough that the screen is never behind the
+   clock by a noticeable amount. */
 .tl-coach {
-  flex: 0 0 auto;
-  width: var(--coach-w, 34px); height: 52px;
+  position: absolute; top: 50%;
+  height: 52px;
+  transform: translateY(-50%);
   border-radius: 7px;
-  background: var(--tone-wash, var(--strip));
-  box-shadow: inset 0 0 0 1px var(--tone-ink, var(--line));
-  /* The face steps down as the box narrows; a container query is the one mechanism
-     that answers "does this box have room for this word" without measuring every coach
-     on every beat. Default is shown, so a browser without container queries loses only
-     the guard and never the name. */
+  background: var(--green-bg);
+  box-shadow: inset 0 0 0 1px var(--green);
+  transition: background-color .45s ease, box-shadow .45s ease;
+  /* The face goes as the box narrows; a container query is the one mechanism that
+     answers "does this box have room for these words" without measuring every coach on
+     every beat. Default is shown, so a browser without container queries loses only the
+     guard and never the face. */
   container-type: inline-size;
   cursor: pointer;
 }
 .tl-coach.due { background: var(--red-bg); box-shadow: inset 0 0 0 1px var(--red); }
-.tl-coach.due .tl-cicon, .tl-coach.due .tl-cwhen, .tl-coach.due .tl-cname { color: var(--red); }
-.tl-coach.ack { background: var(--green-bg); box-shadow: inset 0 0 0 1px var(--green); }
-.tl-coach.ack .tl-cicon, .tl-coach.ack .tl-cwhen, .tl-coach.ack .tl-cname { color: var(--green); }
-/* The ring on the coach the clock is standing in — her "even clearer info in
-   highlight". An outline and not a shadow, so it is independent of the frame and
-   survives a coach being due or taken. */
+/* The ring on the coach the clock is standing in — her "even clearer info in highlight".
+   An outline and not a shadow, so it is independent of the frame and survives a coach
+   being due or taken. */
 .tl-coach.here { outline: 2px solid rgba(122, 96, 74, .45); outline-offset: 1px; }
 
+/* The finger's own target, which is NOT the coach.
+
+   A coach is now exactly as wide as its minutes, so a one-minute fold at the closest
+   scale is seven pixels — far under this app's own 36-pixel floor, and a hairline nobody
+   could hit. Her instruction was to keep the width true and say so in the words ("and if
+   it is not show as no space big enough, just dont show, as we have another place shown
+   it under person's name"), so the coach is not widened. This widens the PRESS instead:
+   an invisible box, centred on the coach and at least 36 pixels across, that carries the
+   same click handler because it is the same element. It moves nothing and paints nothing,
+   so a hairline still LOOKS like a hairline. */
+.tl-coach::before {
+  content: ""; position: absolute; top: 0; bottom: 0;
+  left: 50%; transform: translateX(-50%);
+  width: max(100%, 36px);
+}
+
 .tl-cface {
+  position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; gap: 0; padding: 0 3px; overflow: hidden;
+  transition: color .45s ease;
 }
-.tl-cicon { font-size: 15px; line-height: 1.15; }
+.tl-cicon { font-size: 15px; line-height: 1.15; color: var(--green); transition: color .45s ease; }
 .tl-cname {
   display: block; max-width: 100%;
   font-size: 11px; font-weight: 600; line-height: 1.2;
-  color: var(--ink);
+  color: var(--green);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color .45s ease;
 }
-/* The word never goes. Her refinement ("if the coach box is too smalll to house the
-   full words, then just show meaningful") was first read here as "drop the name and
-   keep the icon", and that is what this rule did: at 43 pixels and under the face was
-   the icon and the clock alone. Reading the drawn board is what showed the cost — on
-   her own phone every coach was nameless, so the one thing clause 5 asks for ("tell
-   person, what they have done, and what is coming") was answered by the row's next-job
-   line and by nothing on the coach at all. Asked, she chose the name kept.
+/* Too narrow for its face, so the face is not drawn at all.
 
-   The face is a COLUMN, so the name takes its own line and the whole width of the box
-   rather than sharing it with the icon; the sacrifice at this size is the type, which
-   steps 11px → 9px, and the side padding, 3px → 2px. v186 raised both steps with the
-   box: a coach is 50 pixels wide on her own day at her phone's width, so this fallback
-   is now reached only by a coach narrower than any her day draws — it is a floor for a
-   phone held in a smaller window, and never the width her own line is read at. The
-   ellipsis on .tl-cname stands as the last resort for a word longer than the box, and
-   it is a last resort and not the plan: a name long enough to reach it wants a shorter
-   short name, which is one line in `shortName`. */
+   This is the rule her answer asks for, in her own words: "and if it is not show as no
+   space big enough, just dont show, as we have another place shown it under person's
+   name". It replaces v186's type step-down (11px → 9px) — that rule was about a coach
+   whose width the screen had chosen, and this screen no longer chooses a coach's width,
+   the job's own minutes do. 43 pixels is the width at which the four-line column stops
+   being readable, and past it the row's own next line under the person's name is what
+   says what is coming.
+
+   The TICK goes with it, because a tick drawn wider than the coach it marks would be a
+   mark on its neighbours. A coach narrow enough to lose its face is a coach whose
+   acknowledgement is read on the tip and on the person's card instead. */
 @container (max-width: 43px) {
-  .tl-cface { padding: 0 2px; }
-  .tl-cname { font-size: 9px; }
+  .tl-cface, .tl-cack { display: none; }
 }
-.tl-cwhen { font-size: 11px; line-height: 1.15; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tl-cbatch { font-size: 10px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl-cwhen { font-size: 11px; line-height: 1.15; color: var(--muted); font-variant-numeric: tabular-nums; transition: color .45s ease; }
+.tl-cbatch { font-size: 10px; line-height: 1.1; color: var(--muted); font-variant-numeric: tabular-nums; transition: color .45s ease; }
+.tl-coach.due .tl-cicon, .tl-coach.due .tl-cname { color: var(--red); }
+.tl-coach.due .tl-cwhen, .tl-coach.due .tl-cbatch { color: var(--red); }
+/* The tick that says somebody has taken this work. Green and not a third colour: a taken
+   job is a job with nothing outstanding on it, which is what green already means. */
+.tl-cack {
+  position: absolute; right: 2px; bottom: 1px;
+  font-size: 11px; font-weight: 700; color: var(--green);
+  transition: color .45s ease;
+}
 
-/* The link between two coaches, and the countdown to the next one on it — her "showing
-   next work in minutes on top, something like next station coundown for subway". The
-   count is a fixed two-and-a-bit em wide and centred on the link, so a number that
-   changes length cannot reflow its neighbours and the trains never jitter. */
+/* The wait between two coaches, drawn as its own minutes and nothing else — v193 keeps
+   its left and width true (see the view), so a gap drawn wider to hold a number would
+   push every coach after it off the minute it belongs to. It holds the countdown only
+   where those minutes left the room, which is the view's decision and not this rule's.
+
+   Her "showing next work in minutes on top, something like next station countdown for
+   subway", now to the second. */
 .tl-link {
-  flex: 0 0 auto; position: relative;
-  width: var(--link-w, 18px); height: 52px;
+  position: absolute; top: 0; height: 100%;
   display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
 }
 .tl-count {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  width: 2.4em; text-align: center;
   font-size: 9px; font-weight: 700; color: var(--muted);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }

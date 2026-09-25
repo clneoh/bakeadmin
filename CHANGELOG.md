@@ -1,8 +1,130 @@
-# Jienluv2bake — change history (v54 → v192)
+# Jienluv2bake — change history (v54 → v193)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v193, THE WORKERS' LINE BECOMES A TRUE TIMELINE (no database step). The
+seven changes you asked for to the person's window on the Production line, and one question you
+asked about its countdown. A coach is now as long as the minutes your hand is needed on it, the
+three people's lines share one clock so they can be read against each other, the line starts at the
+left and the clock sweeps in to the middle before the line itself moves, a coach turns from green to
+light red when its moment has passed and eases rather than snapping, and the line is dragged with
+the right mouse button or with two fingers on a phone. Not one module, batch, start time, cycle or
+saved day of yours was rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "1. The should start left hand side, not centred, this
+request I did in previous chat, but never implemented. 2. Make the coach width relative to its
+duration, and others batch duration, their labour requirement mark by hand needed, not batch
+arrival. 3. So the 3 person's train head, should be timed and position relatively to each other,
+when time start, 3 train started together. 4. The wait time a person interested is not the batch
+arriving, but their hand needed. 5. The coach should have 2 color only. Green and light red, the
+coach change to red only when their hand needed time is up, the change of color should be fade in
+and out, not sudden so that the user dont feel the screen is jumping here and there." And then:
+"and the drag, should be by right mouse button hold down". One more, asked after the first pass:
+"can the time show under their names, accurate to 5m 55s?"
+
+**2. A coach is as long as your hand is needed, and nothing else.** Until this release every coach
+was the same width, and each person's line had its own private map from minutes to pixels, so a
+twelve-minute job and a forty-minute one looked identical. The width is now the minutes your hand is
+needed, multiplied by the day's own scale - the same figure the modules' window above it is already
+drawn from. Measured live at the Detail scale: a hand-needed stretch of 6 minutes drew 43.2 pixels,
+one of 2 minutes drew 14.4 pixels, one of 18 minutes drew 129.6, and every gap between them was an
+exact multiple of the same figure. A one-minute fold is therefore a hairline, which is your own
+answer for it.
+
+**3. Three people, one clock.** Because every line is now drawn from that one scale, a minute of the
+morning is the same point on all three, and the three trains start together. Measured live through
+one whole walk: all three people's rulers stood at the identical pixel at every moment - 0 at the
+start of the day, then 121 pixels, then 452 - and all three strips had slid by the identical amount.
+Before this release each line carried its own map, so the three could not be compared at all, which
+is the fault you named.
+
+**4. The line starts at the left, and the clock sweeps to the middle.** This is your point 1, the
+one you had asked for in an earlier conversation and which had never been built. At the start of the
+day the day's own left edge is glued to the left edge of the window and the clock stands at the
+left, so the whole queue ahead of you can be seen without dragging anything. Measured live on a
+walk: with the clock 0.7 minutes in, the ruler stood at 5 pixels and the line had not moved at all.
+Once the clock reaches the middle it stops there and the line begins to move instead. Measured live
+at the same scale: the ruler pinned at 121 pixels - the middle of the 241-pixel window - while the
+line slid on to 181 pixels. Your own words for the reason were that at the start a person would
+otherwise see only one train head, with the rest hidden until the line was dragged.
+
+**5. Two colours, and they ease rather than snap.** Green means nothing is outstanding: the moment
+has not come yet, or you have already taken it. Light red means the moment your hand is needed has
+passed and nobody has taken it - the same minute the bell rings on. There are exactly two, read off
+the drawn coaches: green as rgb(231, 242, 232) and light red as rgb(251, 233, 228). The coach
+carries a 0.45-second fade on its colour, so it eases from one to the other instead of jumping,
+which was your worry about the screen moving under you. A tap on a coach takes it and fades it back
+to green, and where a coach is wide enough to hold its face it also carries a tick.
+
+**6. The coach is the hand-needed section, labelled.** Your points 2 and 4 are one thing seen twice,
+and it was already true in the model underneath: the section a coach is drawn from IS the stretch
+your hand is needed, taken from the same hands-window the day's own plan is built on, and never from
+the moment a batch arrives. What this release changes is that you can now see it, because the length
+of the coach is that stretch.
+
+**7. A coach too small for its words shows no words, not smaller words.** Your answer was that if
+there is no room it should simply not be shown, because the same job is already named under the
+person's name. Measured live: coaches of 14.4 and 28.8 pixels showed no face at all, while one of
+43.2 pixels showed its icon, its name, its clock and its batch. The line under each person's name
+still names what is coming, so nothing is lost. And a hairline coach is still a 36-pixel tap target,
+so even a very short job can be taken by hand.
+
+**8. The drag is the right mouse button, or two fingers on a phone.** Your correction, taken
+literally. On a computer the line is dragged by holding the right mouse button, and a left press no
+longer drags at all - which is the point of it, because a left press is also the tap that says "I am
+on it". On a phone the gesture is two fingers, as you asked. Measured live on the drawn board: a
+left press with a hundred-pixel sideways move left the line exactly where it was, to the pixel; the
+same move with the right button carried it a hundred pixels; two fingers carried it forty. A drag
+also leaves behind a click, and that click is not read as a tap on the work - measured live, the
+press that ended a two-finger drag took nothing, while a still press on the same coach took it.
+
+**9. Scale, on the board's own row.** You asked for it and there it is: the control row is three
+groups now, with the Scale step as the third, laid out like the planner's own so that the two
+screens behave alike. It moves through the app's six scales and stops at both ends rather than
+running past them. Measured live: stepping from the Standard scale to the Close one drew every coach
+half again as wide and the line from 2304 pixels to 3456, and pressing on at the top of the range
+left the button looking switched off and changed nothing at all.
+
+**10. The countdown reads to the second.** Your question. The line under each person's name now
+gives seconds as well as minutes - measured live as "Next 22m 7s", "Next 160m 7s" and "Next 918m
+7s" - and because the same instant is also printed on the link beside each coach, both are written
+by one shared piece of arithmetic, so the screen cannot state one moment two ways.
+
+**11. Both windows are kept.** You chose to keep the train AND the planner's own people's row
+underneath it, and both are on the screen. Measured live, the three windows stand in the order
+train, modules, people, with all three present at the phone width and at the desk width.
+
+**12. What is measured live, and at what widths.** Everything above was read off the drawn screen at
+375 by 812 and at 1280 by 900, including the whole sweep of a walk: the ruler's own pixel, the
+line's own slide, a coach's drawn width against its minutes, the three rulers standing at the same
+pixel, the two colours and the fade read off the drawn element, the tap target of a hairline, and
+the Scale step's ends. The desk width was reached by widening the window with no reload at all, and
+the board re-measured itself within its own second - which is how it will behave on your own desk.
+
+**13. Nothing of yours is rewritten, and one honest note about that claim.** Your stored data was
+read before anything was measured, and every write the measurement made was captured and never
+allowed to land - seven of them across the whole pass - so your phone's storage holds exactly the
+three keys it held before and not one byte of it changed. The note: the first copy I made of your
+data to compare against carried a typo that I typed, a single letter in the name of a stored list,
+so the file-by-file comparison could not honestly be made from that first copy. The copy was taken
+again from the screen itself and verified, and it does match your stored data byte for byte. But
+this is stated plainly rather than overclaimed: the strongest form of the claim here rests on the
+reading taken before the measurement began and on every write having been intercepted.
+
+**14. Every rule that stands on it was proved load-bearing.** Seven faults were put back into the
+real files, one at a time; each was watched failing a test that names it, and every file was put
+back byte-identically afterwards. Among them: the moment the ruler is meant to stop at the middle,
+the one scale that every line must share, the minute at which a coach is allowed to turn red, and
+the left press being allowed to drag again. The suite is 1602 passing with none failing.
+
+**15. No database step.** Not one stored field is added or changed. The train is drawn from the
+day's own plan and the day's own scale, both of which the app already saves, so there is nothing to
+run in Supabase.
+
+CHANGELOG and the guide both carry all of this, both PDFs rebuilt and read back with PyMuPDF, and
+the app's own More screen reads Engine v193.
 
 **25 Sep 2026 — engine v192, THE SAVING STAYS WITH YOU, AND A CUSTOMER IS CHARGED THE ORIGINAL
 PRICE (no database step). A correction to v191, in your own words and taken as the rule. When a

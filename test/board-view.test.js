@@ -352,10 +352,11 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { renderScenario, renderBoard, trainSegments, xOfMinute, minuteAtTrainX } =
+const { renderScenario, renderBoard, trainScale, coachGeom, lineWidth, trainPlacement, panRange, minsWords } =
   await import("../admin/js/views/scenario.js");
 const { renderProduction } = await import("../admin/js/views/production.js");
-const { ONE_BAKER_SCENARIO, computeScenario, scenarioPlanPatch, jobKey } = await import("../admin/js/scenario.js");
+const { ONE_BAKER_SCENARIO, computeScenario, scenarioPlanPatch, jobKey, PX_PER_MIN_CHOICES } =
+  await import("../admin/js/scenario.js");
 const { computeLine, planOf } = await import("../admin/js/production.js");
 const { defaultState } = await import("../admin/js/state.js");
 
@@ -1294,65 +1295,149 @@ test("leaving the board stops its clock", () => {
   assert.equal(lit(), parked, "the line moved behind a screen she had left");
 });
 
-// ── the train's geometry (v184) ───────────────────────────────────────────
+// ── the train's geometry (v193) ───────────────────────────────────────────
 //
-// The board's workers' window is a train: one coach a job, joined in order, with the
-// clock pinned to the centre. The minute axis is gone, so the strip is placed by the
-// pair of maps measured here — a minute of her day to a pixel along the row, and back
-// again. Nothing else on this screen fails quietly the way these can: a map that has
-// stopped being reversible still draws a train, it just draws the wrong one.
+// v184 gave every person their own piecewise map — a coach was one fixed width whatever
+// its minutes, and the clock was pinned to the middle of the window. The consequence was
+// that one minute of her morning landed at a DIFFERENT pixel in each person's row, so
+// the three trains could not be read against each other. She named that as the fault:
+//
+//   "So the 3 person's train head, should be timed and position relatively to each
+//    other, when time start, 3 train started together."   (25 September 2026)
+//
+// v193 replaces all of it with ONE linear axis for the whole day — a minute is that
+// minute times the day's own scale, in every row, so two people's rulers agreeing is
+// arithmetic rather than coincidence. Nothing else on this screen fails as quietly: a
+// scale that has drifted still draws a train, it just draws the wrong one.
 
-// Three jobs in one morning: a 12-minute dimple, a 6-minute fold and a 2-minute pack,
-// with waits of 3 and 5 minutes between them. Coaches 100px, links 20px, 10px of space
-// at each end, so every number below is a round one and a drift is a drift.
-const TRAIN_JOBS = [
-  { from: 0, to: 12 },
-  { from: 15, to: 21 },
-  { from: 26, to: 28 },
-];
-const TRAIN_SEG = trainSegments(TRAIN_JOBS, 100, 20, 10);
 const near = (a, b) => Math.abs(a - b) < 1e-9;
+// A scale from the app's own six stops, so the numbers below are numbers she can pick.
+const K = 2.4;
 
-test("a job's minutes cross its own coach and the wait before the next crosses the link (v184)", () => {
-  assert.equal(xOfMinute(TRAIN_SEG, 0), 10, "the day's first minute is not at the first coach's own edge");
-  assert.equal(xOfMinute(TRAIN_SEG, 6), 60, "half past the first job is not halfway across its coach");
-  assert.equal(xOfMinute(TRAIN_SEG, 12), 110, "the first job's last minute is not at its coach's far edge");
-  assert.equal(xOfMinute(TRAIN_SEG, 15), 130, "the second job's minutes did not start after the wait");
-  assert.equal(xOfMinute(TRAIN_SEG, 21), 230);
-  assert.equal(xOfMinute(TRAIN_SEG, 28), 350, "the day's last minute is not at the last coach's far edge");
-  // The wait itself, which is the half of this map the countdowns are drawn on: three
-  // minutes of waiting spread across the 20px link between coaches one and two.
-  assert.ok(near(xOfMinute(TRAIN_SEG, 13.5), 120), "a minute of waiting did not cross the link");
-  assert.ok(near(xOfMinute(TRAIN_SEG, 23.5), 240), "nor did the second wait");
+test("one scale for the day: a coach stands at its own minute times that scale (v193)", () => {
+  // Her second sentence: "Make the coach width relative to its duration".
+  const g = coachGeom({ from: 30, to: 42 }, K);
+  assert.ok(near(g.left, 30 * K), `a coach stood at ${g.left}, not at its own minute`);
+  assert.ok(near(g.width, 12 * K), `a twelve-minute job was drawn ${g.width}px wide`);
+  // Where a coach STANDS depends on the minute it starts at and on the scale, and on
+  // nothing else — not on how long it lasts. That is what lets two people's rows be read
+  // against each other, which is her third sentence.
+  assert.ok(near(g.left, coachGeom({ from: 30, to: 90 }, K).left), "a coach's place moved with its length");
+  // A job of nought minutes — a fold that takes no time at all to name — is drawn one
+  // pixel rather than not at all: a coach that is not drawn is a job she cannot see.
+  assert.equal(coachGeom({ from: 30, to: 30 }, K).width, 1, "a job of no minutes vanished");
 });
 
-test("every minute of a row reads back off its own strip, and every pixel back to a minute (v184)", () => {
-  for (let m = 0; m <= 28; m++) {
-    const back = minuteAtTrainX(TRAIN_SEG, xOfMinute(TRAIN_SEG, m));
-    assert.ok(near(back, m), `minute ${m} of the row read back as ${back}`);
+test("a coach is exactly as wide as its own minutes: a one-minute fold is a hairline (v193)", () => {
+  // Her answer, asked what a short job should look like: "and if it is not show as no
+  // space big enough, just dont show, as we have another place shown it under person's
+  // name". So no floor: at the closest scale a one-minute fold is 7.2 pixels and looks
+  // like it.
+  assert.equal(coachGeom({ from: 10, to: 11 }, 7.2).width, 7.2, "a short job was inflated to something readable");
+  assert.equal(coachGeom({ from: 10, to: 40 }, 1.2).width, 36);
+  // Longer is wider, always and in proportion — twice the minutes is twice the coach.
+  const one = coachGeom({ from: 0, to: 20 }, K).width;
+  const two = coachGeom({ from: 0, to: 40 }, K).width;
+  assert.ok(near(two, one * 2), "twice the minutes was not twice the coach");
+});
+
+test("every coach sits on the one line, so a coach's far edge is the next minute's pixel (v193)", () => {
+  const jobs = [{ from: 0, to: 12 }, { from: 15, to: 21 }, { from: 26, to: 28 }];
+  const g = jobs.map((j) => coachGeom(j, K));
+  assert.equal(g[0].left, 0, "the day's first job did not start at the line's own left edge");
+  // The wait before a job is drawn as the LINE showing through, not as a link of its own:
+  // the second coach begins at minute 15 x k, which is where minute 15 is.
+  assert.ok(near(g[1].left, 15 * K), "a coach did not stand at its own minute");
+  assert.ok(near(g[2].left, 26 * K));
+  // And the line runs to the day's own end, not to the last job's.
+  assert.equal(lineWidth(240, K), 240 * K);
+  assert.ok(lineWidth(240, K) > g[2].left + g[2].width, "the line stopped at the last coach instead of the day's end");
+});
+
+test("the ruler sweeps in from the left and stops at the middle, and then the line moves (v193)", () => {
+  // Her own third design, in her own words: "the ruler sweeps, untill reach center, it
+  // stop, then the train move. The advantage of this is we see more coaches queues yet
+  // to come... Start left is convenient in this way."
+  const win = 300;
+  const span = lineWidth(240, K); // 576
+  // The day's start: the day's OWN LEFT EDGE is the window's left edge, and the ruler is
+  // standing on it. This is the "start left hand side, not centred" she asked for first.
+  const atStart = trainPlacement(0, K, win, 0, span);
+  assert.equal(atStart.s, 0, "the day's start was not glued to the window's left edge");
+  assert.equal(atStart.ruler, 0, "the ruler did not start at the day's first minute");
+  // Still sweeping: nothing has moved but the ruler.
+  const sweeping = trainPlacement(30, K, win, 0, span);
+  assert.equal(sweeping.s, 0, "the line moved before the ruler reached the middle");
+  assert.equal(sweeping.ruler, 30 * K);
+  // Reaching the middle: from here the ruler stops and the line slides under it.
+  const arrived = trainPlacement(75, K, win, 0, span); // 180px, past the 150px middle
+  assert.equal(arrived.ruler, win / 2, "the ruler did not stop at the middle of the window");
+  assert.equal(arrived.s, 180 - win / 2, "the line did not take up the sweep");
+  // An hour later: the ruler is still at the middle and the line has slid further.
+  const later = trainPlacement(135, K, win, 0, span); // 324px
+  assert.equal(later.ruler, win / 2, "the ruler left the middle as the day went on");
+  assert.ok(later.s > arrived.s, "the line did not keep moving after the ruler stopped");
+});
+
+test("the day's end parks the ruler at the window's edge rather than off the paper (v193)", () => {
+  // The window cannot slide past the end of the line's own paper, so near the day's end
+  // the ruler has to leave the centre and make for the right edge. A clock standing on a
+  // minute the day does not have would be worse than a ruler that is not centred.
+  const win = 300;
+  const span = lineWidth(240, K);
+  const end = trainPlacement(240, K, win, 0, span);
+  assert.equal(end.s, span - win, "the window slid past the end of the line");
+  assert.equal(end.ruler, win, "the day's last minute was not at the window's right edge");
+  // And a day being WALKED past its own end does not run off it either: the ruler parks.
+  const walked = trainPlacement(400, K, win, 0, span);
+  assert.equal(walked.xNow, span, "a walked day carried the ruler past the line's own end");
+  assert.equal(walked.ruler, win);
+});
+
+test("a drag can reach every part of the line, and nought is always one of the places it can be (v193)", () => {
+  // `panRange` is what her own hand is clamped to, and it ALWAYS contains nought —
+  // which is the whole reason "Back to now" and a press off the window are ways home
+  // rather than wishes.
+  const win = 300;
+  const span = lineWidth(240, K);
+  for (const nowMin of [0, 20, 75, 150, 240, 400]) {
+    const range = panRange(nowMin, K, win, span);
+    assert.ok(range.lo <= 0 && range.hi >= 0, `no way home at minute ${nowMin}: [${range.lo}, ${range.hi}]`);
+    assert.ok(range.lo <= range.hi, `an empty range at minute ${nowMin}`);
   }
-  for (let x = 10; x <= 350; x++) {
-    const back = xOfMinute(TRAIN_SEG, minuteAtTrainX(TRAIN_SEG, x));
-    assert.ok(near(back, x), `pixel ${x} of the row read back as ${back}`);
+  // And no drag, however hard, can carry the minute she is reading off the window: a
+  // ruler pushed off the edge would leave her looking at a line with no clock on it.
+  for (const pan of [-9999, -400, -12, 0, 12, 400, 9999]) {
+    const p = trainPlacement(150, K, win, pan, span);
+    assert.ok(p.ruler >= 0 && p.ruler <= win, `a drag of ${pan} put the ruler at ${p.ruler}`);
   }
 });
 
-test("two jobs that run back to back get no strip between them (v184)", () => {
-  // A job that ends at the minute the next one starts has no wait to draw, and a link
-  // given the full 20px for nought minutes of waiting would be a slab of the row under
-  // no minute at all — the one thing that stops the map above from being reversible.
-  const tight = trainSegments([{ from: 0, to: 12 }, { from: 12, to: 18 }], 100, 20, 10);
-  for (const s of tight) {
-    if (s.kind === "stub") continue;
-    assert.ok(s.to > s.from || s.w === 0, `a ${s.kind} owns ${s.w}px and no minutes at all`);
-  }
-  assert.equal(tight[2].start, 110, "the second coach did not start where the first one ended");
-  for (let m = 0; m <= 18; m++) {
-    assert.ok(near(minuteAtTrainX(tight, xOfMinute(tight, m)), m), `minute ${m}`);
-  }
-  for (let x = 10; x <= 210; x++) {
-    assert.ok(near(xOfMinute(tight, minuteAtTrainX(tight, x)), x), `pixel ${x}`);
-  }
+test("a countdown under a person's name is to the second, not rounded to the minute (v193)", () => {
+  // Her ask: "can the time show under their names, accurate to 5m 55s?" A countdown
+  // rounded to the minute is wrong by up to fifty-nine seconds at exactly the minute the
+  // answer matters. The link's own countdown reads through this same function, so the
+  // screen can never state one instant two ways.
+  assert.equal(minsWords(5 + 55 / 60), "5m 55s");
+  assert.equal(minsWords(6), "6m 0s");
+  assert.equal(minsWords(55 / 60), "55s", "under a minute did not read as seconds");
+  assert.equal(minsWords(0), "0s");
+  // A minute that is not a number, or is in the past, is nought rather than "NaNm".
+  assert.equal(minsWords(-3), "0s");
+  assert.equal(minsWords(NaN), "0s");
+  assert.equal(minsWords(undefined), "0s");
+});
+
+test("a scale that is missing or nonsense falls back to the app's own widest stop (v193)", () => {
+  // The scale is read off her scenario, and a scenario being read is not always a
+  // scenario that has one — a day saved before this release has whatever `pxPerMin` the
+  // planner wrote, and a fresh one has none until she presses Scale.
+  assert.equal(trainScale({ pxPerMin: 3.2 }), 3.2);
+  assert.equal(trainScale({}), PX_PER_MIN_CHOICES[0]);
+  assert.equal(trainScale(null), PX_PER_MIN_CHOICES[0]);
+  assert.equal(trainScale({ pxPerMin: 0 }), PX_PER_MIN_CHOICES[0], "a scale of nought was accepted");
+  assert.equal(trainScale({ pxPerMin: -4 }), PX_PER_MIN_CHOICES[0]);
+  assert.equal(trainScale({ pxPerMin: "wide" }), PX_PER_MIN_CHOICES[0]);
 });
 
 // ── the board's train (v184) ──────────────────────────────────────────────
@@ -1427,14 +1512,6 @@ function placedLeft(row) {
   assert.ok(m, `a row's strip was never placed: "${stripOf(row).style.transform}"`);
   return Number(m[1]);
 }
-// The row's own segment map, rebuilt here from what the ROW says it holds — one coach per
-// tip, each tip's own span, and the widths written onto its track — so the arithmetic the
-// view used can be checked rather than assumed.
-const segsOf = (row) => {
-  const track = partOf(row, "tl-track");
-  return trainSegments(coachTipsOf(row).map(tipSpan),
-    px(track, "--coach-w"), px(track, "--link-w"), px(track, "--stub-w"));
-};
 // The clock the workers read the line against, and the label it carries.
 // The workers' rulers — one per person's line — and the ONE face the window carries at
 // its head. Her clause 3 asks for the rulers on the second and later lines with no face
@@ -1490,9 +1567,15 @@ function coachFor(root, needle) {
 }
 // A gesture, fired at the pane as a browser fires it: the event carries its own target,
 // and every listener the pane has for that type runs, in the order it was added.
-function gesture(pane, type, x, y, target) {
+//
+// `more` carries the fields a particular gesture is made of — button 2 for the right press
+// that reads the line, `pointerType: "touch"` and a `pointerId` for the two-finger one.
+// Kept as an extra bag rather than a wider signature so that every gesture already written
+// against this reader still fires exactly the event it fired before.
+function gesture(pane, type, x, y, target, more) {
   const ev = {
     type, button: 0, clientX: x, clientY: y, target,
+    ...more,
     preventDefault() {}, stopPropagation() {},
   };
   for (const f of pane._listeners[type] || []) f(ev);
@@ -1550,10 +1633,10 @@ function boardStrays(root) {
 // whole morning on one person's row.
 const TWO_HANDS = { modules: ONE_BAKER_SCENARIO.modules.map((m, i) => ({ ...m, person: i < 4 ? 1 : 2 })) };
 
-test("one coach a job, all one width, and the countdown on the links (v184)", () => {
+test("one coach a job, and every coach drawn to its own minutes at one scale (v193)", () => {
   // The planner's screen is drawn FIRST and the board's second, because a render wipes
-  // the beats the one before it started — and this test has to be able to drive the
-  // board's own beat to re-measure the strip at a width this file chooses.
+  // the beats the one before it started — and this test drives the board's own beat to
+  // re-measure the trains at the width of her own phone.
   const p = render(renderScenario, makeState(TWO_HANDS));
   const b = board(makeState(TWO_HANDS));
   const countIn = (rows, cls) => rows.reduce((n, r) => n + walk(r).filter((x) => hasClass(x, cls)).length, 0);
@@ -1565,69 +1648,115 @@ test("one coach a job, all one width, and the countdown on the links (v184)", ()
   assert.equal(countIn(peopleRows(b.root), "tl-coach"), jobs,
     "a coach is not a job: the board and the planner disagree about how many jobs the day holds");
 
-  // All one width, and the width is the room left after the name column — one measured
-  // number written onto every row's track rather than a width each coach works out of
-  // its own words. Measured at her phone's 375px, where she asked for four coaches on a
-  // visible line.
-  const pane = peoplePaneOf(b.root);
+  // The day's own scale, read OFF THE DRAWING rather than assumed. `--hour-w` is the one
+  // number the chart declares about its own axis, and the train must be drawn from that
+  // same number or the two windows above and below each other disagree about the morning.
+  const k = px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  assert.ok(k > 0, "the chart declares no hour width, so its own scale cannot be read");
+  assert.ok(PX_PER_MIN_CHOICES.some((c) => Math.abs(c - k) < 0.01),
+    `the day's scale reads ${k}px a minute, which is not one of the app's six stops`);
+
+  const pane = trainPaneOf(b.root);
   pane.clientWidth = 375;
   flushTicks();
-  const tracks = walk(pane).filter((n) => hasClass(n, "tl-track"));
-  assert.ok(tracks.length >= 2, "the board drew no trains to size");
-  const ws = tracks.map((t) => px(t, "--coach-w"));
-  assert.ok(ws.every((w) => Number.isFinite(w) && w > 0), `a row was given no coach width: ${ws.join(", ")}`);
-  // Read through the door CSS reads a custom property through, and not only off the
-  // attribute. `style["--coach-w"] = "36px"` is not a write: a browser leaves an expando
-  // on the style object and the declarations untouched, so every coach falls through to
-  // the stylesheet's own fallback width and the line is drawn at a size nobody measured.
-  // This test passed while that was true — the stub kept the attribute the browser never
-  // writes — so the number is asked for the way CSS asks for it, on every row.
-  for (const t of tracks) {
-    assert.match(t.style.getPropertyValue("--coach-w"), /^\d+px$/,
-      `a row's coach width is not in the declarations ("${t.style.getPropertyValue("--coach-w")}"), so the stylesheet's fallback is what is drawn`);
-    assert.match(t.style.getPropertyValue("--link-w"), /^\d+px$/,
-      "a row's link width is not in the declarations, so the wait between two jobs is the stylesheet's fallback");
-    assert.match(t.style.getPropertyValue("--stub-w"), /^\d+px$/,
-      "a row's stub width is not in the declarations, so the end of the line is the stylesheet's fallback");
-  }
-  assert.equal(new Set(ws).size, 1, "two rows were given two different coach widths, so the coaches are not all one size");
-  const [coach, link, stub] = [ws[0], px(tracks[0], "--link-w"), px(tracks[0], "--stub-w")];
-  assert.ok(Number.isFinite(link) && link > 0 && Number.isFinite(stub) && stub > 0,
-    `the link or the stub was given no width: link ${link}, stub ${stub}`);
-  const nameRule = cssBody("\\.tl-row\\.train\\s*>\\s*\\.tl-name");
-  const nameW = Number(/width:\s*(\d+)px/.exec(nameRule)[1]);
-  assert.match(nameRule, new RegExp(`flex:\\s*0\\s+0\\s+${nameW}px`),
-    "the name column is not held at one width by both its basis and its width, so it can size differently");
-  const visW = 375 - nameW;
-  assert.equal(coach, Math.max(34, Math.floor((visW - 3 * link - 2 * stub) / 4)),
-    "the coach width is not the room left after the name column the stylesheet declares, so the column and the strip disagree about how much of the pane is theirs");
-  const four = (coach * 4) + (link * 3) + (stub * 2);
-  assert.ok(four <= visW, `four coaches do not fit her phone's line: ${four}px of ${visW}px`);
-  assert.ok(four + coach + link > visW, `five coaches fit her phone's line, so four is not what fills it (${four + coach + link}px of ${visW}px)`);
 
-  // And the countdown is on the LINK, never on a coach — her "numbers ... Only on the
-  // links" — and there is exactly one per link, at a fixed width so a number that
-  // changes length cannot shuffle its neighbours.
-  const links = walk(pane).filter((n) => hasClass(n, "tl-link"));
-  const counts = walk(pane).filter((n) => hasClass(n, "tl-count"));
-  assert.ok(links.length > 0, "the board drew no link, so a countdown has nowhere to be");
-  assert.equal(counts.length, links.length, "a link carries no countdown, or a countdown was drawn loose on the strip");
-  for (const c of counts) {
-    assert.ok(hasClass(c.parent, "tl-link"), "a countdown was drawn somewhere other than on a link");
-    assert.match(textOf(c), /^(✓|due|\d+m)$/, `the countdown on a link reads "${textOf(c)}", which is not a countdown`);
+  const rows = peopleRows(b.root);
+  assert.ok(rows.length >= 2, "the board drew fewer than two people, so nothing here can be compared");
+  let coaches = 0;
+  for (const row of rows) {
+    const cs = coachesOf(row);
+    const ts = coachTipsOf(row);
+    assert.equal(ts.length, cs.length, "a coach has no tip, or a tip was drawn for a coach that is not on the strip");
+    for (let i = 0; i < cs.length; i++) {
+      // The minutes come off the coach's OWN tip — the one place a job's span is written
+      // in full — and the pixels off the drawn element, so the arithmetic is measured
+      // rather than trusted.
+      const span = tipSpan(ts[i]);
+      const mins = span.to - span.from;
+      const w = px(cs[i], "width");
+      const left = px(cs[i], "left");
+      assert.ok(Number.isFinite(w) && w > 0, `a coach was drawn with no width ("${cs[i].attrs.style}")`);
+      // Her second sentence, on the element: "Make the coach width relative to its
+      // duration". No floor and no ceiling — a one-minute job is a hairline and is meant
+      // to look like one, which is the width v184 refused her in as many words.
+      assert.ok(near(w, Math.max(1, mins * k)),
+        `a ${mins}-minute job was drawn ${w}px wide, and ${mins} minutes of this day is ${mins * k}px`);
+      // And where it stands is its own first minute, times the SAME scale — no per-row
+      // map anywhere. This is her third sentence as arithmetic: "the 3 person's train
+      // head, should be timed and position relatively to each other". It is also what
+      // makes the trains comparable at all, and what a per-row map could never give.
+      assert.ok(near(left, span.from * k),
+        `a coach whose first minute is ${span.from} stood at ${left}px, and that minute is ${span.from * k}px along the line`);
+      // One of two colours and no more: her "The coach should have 2 color only."
+      assert.doesNotMatch(String(cs[i].className || ""), /ptone-\d/,
+        `a coach wears one of the eight person tones ("${cs[i].className}") — the tones belong on the row's rail`);
+      for (const bad of String(cs[i].className || "").split(/\s+/)) {
+        if (!bad) continue;
+        assert.ok(["tl-coach", "coming", "due", "ack", "here"].includes(bad),
+          `a coach carries the class "${bad}", which is not one of this screen's own states`);
+      }
+      // A taken coach is green with a tick and not a third shade.
+      if (hasClass(cs[i], "ack")) {
+        assert.ok(partOf(cs[i], "tl-cack"), "a coach sitting in its taken state carries no tick");
+      }
+      coaches += 1;
+    }
   }
+  assert.ok(coaches > 3, "too few coaches were drawn for the widths above to mean anything");
+
+  // The wait between two jobs is drawn TRUE to its own minutes — a gap widened to hold a
+  // number would push every coach after it off the minute it belongs to — and the
+  // countdown is written on it only where those minutes left the room to read one.
+  const GAP_MIN = 22; // the view's own GAP_MIN_W, mirrored here as the spec number
+  let gaps = 0;
+  for (const row of rows) {
+    const ts = coachTipsOf(row).map(tipSpan);
+    const links = walk(partOf(row, "tl-track")).filter((n) => hasClass(n, "tl-link"));
+    for (let i = 0; i + 1 < ts.length; i++) {
+      const gap = ts[i + 1].from - ts[i].to;
+      const link = links.find((l) => near(px(l, "left"), ts[i].to * k));
+      if (gap <= 0) {
+        assert.ok(!link, "a gap was drawn between two jobs that run back to back");
+        continue;
+      }
+      gaps += 1;
+      assert.ok(link, `the ${gap} minutes of waiting before a job were not drawn at all`);
+      assert.ok(near(px(link, "width"), gap * k),
+        `a ${gap}-minute wait was drawn ${px(link, "width")}px wide, which is not ${gap} minutes of this day`);
+      const count = partOf(link, "tl-count");
+      if (px(link, "width") < GAP_MIN) {
+        assert.ok(!count, `a ${px(link, "width")}px gap carries a countdown, and the words would not fit`);
+      } else {
+        assert.ok(count, "a gap wide enough for its countdown carries none");
+        assert.match(textOf(count), /^(✓|due|\d+m \d+s|\d+s)$/,
+          `the countdown on a gap reads "${textOf(count)}", which is not a countdown`);
+      }
+    }
+  }
+  assert.ok(gaps > 0, "the board drew no wait at all, so nothing above was tested");
+  // The countdown is never on a coach — her "numbers ... Only on the links".
   assert.equal(walk(pane).filter((n) => hasClass(n, "tl-coach") && walk(n).some((x) => hasClass(x, "tl-count"))).length, 0,
     "a countdown was drawn on a coach, and a coach is a job rather than the wait before one");
 
-  assert.match(cssBody("\\.tl-coach"), /width:\s*var\(--coach-w/,
-    "the coach does not take its width from the one measured number, so a coach is as wide as its own words");
-  assert.match(cssBody("\\.tl-coach"), /flex:\s*0\s+0/,
-    "the coach grows or shrinks with the line, so the coaches are not all one width");
-  assert.match(cssBody("\\.tl-link"), /width:\s*var\(--link-w/, "the link does not take its width from the measured number");
-  assert.match(cssBody("\\.tl-stub"), /width:\s*var\(--stub-w/, "the stub does not take its width from the measured number");
-  assert.match(cssBody("\\.tl-count"), /width:\s*2\.4em[^}]*text-align:\s*center/,
-    "the countdown is not a fixed-width centred pill, so a number changing length reflows the strip");
-  assert.match(cssBody("\\.tl-count"), /font-variant-numeric:\s*tabular-nums/,
+  // The stylesheet: a coach is placed, not sized, and there is no width rule here to
+  // become a second answer to a question the view has already answered.
+  const coachCss = cssRule(".tl-coach");
+  assert.match(coachCss, /position:\s*absolute/, "a coach is not absolutely placed, so a minute of the day is not a pixel of the line");
+  assert.doesNotMatch(coachCss, /(^|[;{\s])width\s*:/, "the stylesheet gives a coach a width of its own, so its length is not its minutes");
+  assert.doesNotMatch(coachCss, /--tone-(ink|wash)/, "a coach is painted from the person's tone, and her rule is two colours only");
+  assert.match(cssRule(".tl-coach.due"), /background:\s*var\(--red-bg\)/, "a coach whose hand is needed is not the light red");
+  assert.doesNotMatch(cssRule(".tl-coach.due"), /transition/,
+    "the fade is declared on the state rather than on the coach, so the way OUT of red is instant — her 'not sudden' is both ways");
+  for (const sel of [".tl-coach", ".tl-cface", ".tl-cname"]) {
+    assert.match(cssRule(sel), /transition:[^;]*(background-color|color)[^;]*\.45s/,
+      `${sel} declares no fade, so the colour change is the jump she asked not to feel`);
+  }
+  // The hairline is still a hairline and still pressable: the width stays true and the
+  // PRESS is widened, which is the one way both of her answers can hold at once.
+  assert.match(cssRule(".tl-coach::before"), /width:\s*max\(100%,\s*36px\)/,
+    "a coach's press area is not at least the app's own 36px, so a one-minute fold cannot be tapped");
+  assert.match(cssRule(".tl-link"), /position:\s*absolute/, "a wait is not placed by its own minutes");
+  assert.match(cssRule(".tl-count"), /font-variant-numeric:\s*tabular-nums/,
     "the countdown's digits are not tabular, so it jitters as it counts");
 });
 
@@ -1637,16 +1766,16 @@ test("the coach face shows meaning, never a clipped word, and the tip carries th
   // The word stays. Her refinement — "if the coach box is too smalll to house the full
   // words, then just show meaningful" — was first read here as "drop the name and keep
   // the icon", and that is what this used to assert. Reading the drawn board is what
-  // showed the cost: on her own phone every coach was nameless, so the one thing clause 5
-  // asks for was answered by the row's next-job line and by nothing on the coach at all.
-  // Asked, she chose the name kept. So the first assertion is now the reverse of the one
-  // it replaces, and the second pins what a narrow coach actually sacrifices — the type
-  // and the padding, never the word.
+  // showed the cost. What v193 pins instead is where a coach that really has no room
+  // gives up: the WHOLE FACE stands aside at once, never the word alone, and never by
+  // shrinking the type until it cannot be read.
   assert.doesNotMatch(read("admin/css/app.css"), /\.tl-cname\s*\{[^}]*display:\s*none/,
-    "a coach's word is hidden at some width, so a phone shows an icon and a clock and nothing that says what the job is");
-  assert.match(read("admin/css/app.css"),
-    /@container\s*\(max-width:\s*43px\)\s*\{\s*\.tl-cface\s*\{[^}]*padding:\s*0\s*2px/,
-    "a coach too narrow for its word has no narrower face to fall back on, so the word has nowhere to go");
+    "a coach's word is hidden on its own, so a phone shows an icon and a clock and nothing that says what the job is");
+  assert.match(cssRule(".tl-coach"), /container-type:\s*inline-size/,
+    "a coach does not ask how wide it is, so a face with no room has no way to stand aside");
+  assert.match(read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, ""),
+    /@container\s*\(max-width:\s*43px\)\s*\{\s*\.tl-cface,\s*\.tl-cack\s*\{\s*display:\s*none/,
+    "a coach too narrow for its face still draws one, so its words are clipped in a box that has no room for them");
   assert.match(cssBody("\\.tl-tip-coach"), /white-space:\s*normal/,
     "the coach's tip is held to one line, so the full name it carries is clipped in its turn");
   assert.match(read("admin/css/app.css"),
@@ -1770,7 +1899,7 @@ test("the row says who is on it and what is next (v184)", () => {
     assert.ok(next, "the row does not say what is next");
     assert.equal(next.parent, cell, "what is next is not part of the person's own cell, so a phone cannot read it without a tap");
     const said = textOf(next);
-    assert.match(said, /^(All done|Nothing on|\d+ not taken|Now: .+|Due: .+|Next \d+m)$/, `the row's next line reads "${said}"`);
+    assert.match(said, /^(All done|Nothing on|\d+ not taken|Now: .+|Due: .+|Next (?:\d+m )?\d+s)$/, `the row's next line reads "${said}"`);
     const n = coachesOf(row).length;
     if (!n) {
       assert.equal(said, "Nothing on", "a row with no work on it no longer says so");
@@ -1815,19 +1944,29 @@ test("the row says who is on it and what is next (v184)", () => {
 
   // And mid-morning, where there IS a next thing: the countdown the row shows is the gap
   // to that row's OWN next job, read back off the same strip the coaches are drawn on.
-  setNow("2026-09-22T04:30:00");
+  //
+  // And it is read to the SECOND — her ask of 25 September 2026, "can the time show under
+  // their names, accurate to 5m 55s?" The clock is therefore set with seconds on it, so a
+  // countdown rounded back to the whole minute cannot pass this: at 4:30:55 a job five
+  // minutes and five seconds away reads "Next 5m 5s", and a formatter that dropped the 5
+  // would answer "Next 5m" and be fifty-five seconds into the past.
+  const countdownSec = (said) => {
+    const m = /^Next (?:(\d+)m )?(\d+)s$/.exec(said);
+    return m ? Number(m[1] || 0) * 60 + Number(m[2]) : null;
+  };
+  const nowMin = 30 + 55 / 60; // 4:30:55 against her 4:00 am start, the subtraction boardNow makes
+  setNow("2026-09-22T04:30:55");
   const mid = board();
-  const nowMin = 30; // 4:30 am against her 4:00 am start, which is the subtraction boardNow makes
   let counted = 0;
   for (const row of peopleRows(mid.root)) {
     const said = textOf(walk(row).find((n) => hasClass(n, "tl-next")));
-    const m = /^Next (\d+)m$/.exec(said);
-    if (!m) continue;
+    const secs = countdownSec(said);
+    if (secs === null) continue;
     counted += 1;
     const ahead = coachTipsOf(row).map(coachStartMin).filter((v) => v > nowMin).sort((a, b) => a - b);
-    assert.ok(ahead.length, `the row says a job is ${m[1]} minutes away and its own strip has none after the clock`);
-    assert.equal(Number(m[1]), ahead[0] - nowMin,
-      `the row counts ${m[1]} minutes to its next job and its own strip puts that job ${ahead[0] - nowMin} minutes away`);
+    assert.ok(ahead.length, `the row says a job is ${secs} seconds away and its own strip has none after the clock`);
+    assert.ok(Math.abs(secs - (ahead[0] - nowMin) * 60) <= 1,
+      `the row counts ${said} to its next job and its own strip puts that job ${((ahead[0] - nowMin) * 60).toFixed(1)} seconds away`);
   }
   assert.ok(counted > 0, "no row was counting down at all, so this proves nothing about the countdown");
 
@@ -1839,16 +1978,18 @@ test("the row says who is on it and what is next (v184)", () => {
   // all morning, and the line would be answering with the minute it was drawn at.
   setNow("2026-09-22T04:31:00");
   const ticking = board();
-  const countedRow = peopleRows(ticking.root).find((r) => /^Next ([3-9]|\d\d)m$/.test(
-    textOf(walk(r).find((n) => hasClass(n, "tl-next")))));
+  const countedRow = peopleRows(ticking.root).find((r) => {
+    const secs = countdownSec(textOf(walk(r).find((n) => hasClass(n, "tl-next"))));
+    return secs !== null && secs >= 180;
+  });
   assert.ok(countedRow, "no row is counting down three minutes or more, so a beat has nothing to bring down");
   const cell = walk(countedRow).find((n) => hasClass(n, "tl-next"));
-  const ahead0 = Number(/^Next (\d+)m$/.exec(textOf(cell))[1]);
+  const before = countdownSec(textOf(cell));
   const repaints = replaceCount;
   setNow("2026-09-22T04:32:00");
   flushTicks();
-  assert.equal(Number(/^Next (\d+)m$/.exec(textOf(cell))[1]) || textOf(cell), ahead0 - 1,
-    `a minute of the clock moved the row's own countdown from ${ahead0} minutes to "${textOf(cell)}"`);
+  assert.equal(countdownSec(textOf(cell)), before - 60,
+    `a minute of the clock moved the row's own countdown from ${before} seconds to "${textOf(cell)}"`);
   assert.equal(replaceCount, repaints,
     "the minute's beat rebuilt the screen to bring a countdown down, which throws away a worker's place");
 });
@@ -1927,46 +2068,58 @@ test("every person's line carries its own red ruler at the centre, and the windo
   assert.equal(labs.length, 1, `the window carries ${labs.length} faces, not one`);
   assert.equal(labs[0].parent, head, "the face is not the window's own head, so it belongs to a line rather than to all of them");
 
-  // Where they stand: the middle of the LINE — what is left of the window after the name
-  // column, halved — and never the middle of the window, because the names are not part
-  // of the line. One number, two coordinate spaces: a ruler is drawn inside its track and
-  // is told a pixel counted from the track's left edge; the face is drawn in the window
-  // and is told the same pixel counted from the window's. The distance between the two is
-  // the name column and nothing else.
+  // Where they stand — and this is the claim v193 strengthens rather than the test's
+  // subject changing. Under v184 each row had a map of its own and the ruler was pinned to
+  // the middle of the window, so one minute of the day stood at a DIFFERENT pixel in every
+  // row and the most this could say was that each row put the same minute on the station.
+  // There is now one axis for the whole day, so the claim is the stronger one: the rulers
+  // stand at ONE pixel, and that pixel is where the minute the morning is at actually is.
+  //
+  // At 4:30 against her 4:00 start the morning has not yet reached the middle of the line,
+  // so the ruler is SWEEPING: 30 minutes along the line, and the line not moved at all.
+  // That is her own third design — "the ruler sweeps, untill reach center, it stop, then the
+  // train move" — measured on the drawn board rather than asserted from the code.
   const inner = pane.clientWidth;
   const nameW = trainNameW();
   const trackW = inner - nameW;
-  const centre = Math.round(nameW + trackW / 2);
-  assert.equal(px(labs[0], "left"), centre,
-    `the face stands at ${px(labs[0], "left")}px, not at the centre of the line (${centre}px of a ${inner}px window)`);
-  for (const z of rulers) {
-    assert.equal(rulerPx(z), Math.round(trackW / 2),
-      `a ruler stands at ${rulerPx(z)}px along its own line, not at the station (${Math.round(trackW / 2)}px of ${trackW}px)`);
-  }
+  const k = px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  const lineW = px(stripOf(rows[0]), "width");
+  const at = trainPlacement(nowMin, k, trackW, 0, lineW);
+  assert.ok(at.xNow <= trackW / 2, "this minute was meant to be inside the sweep, and it is past the middle");
+  assert.equal(at.s, 0, "the line moved before the ruler had reached the middle of the window");
+  assert.equal(at.ruler, nowMin * k, "the ruler is not standing on the minute the morning is actually at");
 
-  // Every row is placed against its OWN map: its own jobs, its own widths. The claims are
-  // worked out here from what each row says it holds — its tips' spans and its track's
-  // widths — and never read back out of the view's own arithmetic.
-  for (const row of rows) {
-    const x = xOfMinute(segsOf(row), nowMin);
-    const left = placedLeft(row);
-    assert.equal(left, Math.round(trackW / 2 - x),
-      `a row's train stands at ${left}px, where this row's own map puts the day's minute at ${Math.round(trackW / 2 - x)}px`);
-    // The train is translated inside a track that BEGINS at the name column, so the minute
-    // it puts at the station lands at `nameW + left + x` in the window's own pixels — the
-    // same 242 the face stands at, and the arithmetic that proves the two agree.
-    assert.ok(Math.abs(nameW + left + x - centre) <= 1,
-      `the minute the day is at does not stand on the station for this row (${Math.round(nameW + left + x)}px of ${centre}px)`);
+  // One number, two coordinate spaces: a ruler is drawn INSIDE its track and is told a
+  // pixel counted from the track's left edge; the face is drawn in the window and is told
+  // the same pixel counted from the window's. The distance between the two is the name
+  // column and nothing else.
+  assert.equal(px(labs[0], "left"), Math.round(nameW + at.ruler),
+    `the face stands at ${px(labs[0], "left")}px, not over the minute the morning is at (${Math.round(nameW + at.ruler)}px of a ${inner}px window)`);
+  const places = new Set();
+  for (const z of rulers) {
+    places.add(rulerPx(z));
+    assert.equal(rulerPx(z), Math.round(at.ruler),
+      `a ruler stands at ${rulerPx(z)}px along its own line, not at the minute the day is at (${Math.round(at.ruler)}px)`);
   }
-  // The same minute, the same station, on both rows — her "the current time at the center
-  // sharing with all person". The trains do NOT stand at the same pixel and must not be
-  // asked to: each is placed from its own map, and a row holding two jobs and a row holding
-  // six put the same minute at different distances along their own lines. What is claimed
-  // is that each puts the SAME MINUTE on the station, to within the pixel its own rounding
-  // costs — so the claim is a distance from the station, never an equality of positions.
-  const off = rows.map((row) => nameW + placedLeft(row) + xOfMinute(segsOf(row), nowMin) - centre);
-  assert.ok(off.every((d) => Math.abs(d) <= 1),
-    `the rows put the minute the day is at at ${off.map((d) => Math.round(d)).join(" and ")}px from the station, so the clock is not shared`);
+  // Two people, one pixel — her third sentence, "the 3 person's train head, should be timed
+  // and position relatively to each other". This is the ONE thing a per-row map could not
+  // give, and the reason every ruler above is compared to one number rather than to a
+  // station of its own.
+  assert.equal(places.size, 1, `the rows put their rulers at ${[...places].join("px and ")}px, so the clock is not shared`);
+
+  // And every train is placed from that ONE placement, so the minute the morning is at
+  // lands under the face on every row: the line begins at the name column, the minute is
+  // `nowMin` times the scale along it, and the strip has been slid back by `s`.
+  // `|| 0` on both sides for one reason and it is not a convenience: a line that has not
+  // moved is written `translateX(0px)` while `-at.s` is a SIGNED nought, and the two are
+  // the same pixel. An assertion about the screen should not turn on which nought it is.
+  for (const row of rows) {
+    assert.equal(placedLeft(row) || 0, Math.round(-at.s) || 0,
+      `a row's train stands at ${placedLeft(row)}px, where the one placement puts it at ${Math.round(-at.s)}px`);
+    const onScreen = nameW + placedLeft(row) + (nowMin * k);
+    assert.ok(Math.abs(onScreen - px(labs[0], "left")) <= 1,
+      `the minute the day is at lands at ${Math.round(onScreen)}px and the face says ${px(labs[0], "left")}px`);
+  }
 
   // The face reads the CLOCK TIME and never the word "now": the modules window above still
   // draws the day's own now-line with its own label, and two lines on one screen both
@@ -1997,13 +2150,20 @@ test("every person's line carries its own red ruler at the centre, and the windo
   assert.equal(boardStrays(b.root), null, "a beat put a broken number on the board");
 });
 
-test("a drag moves the lines, the rulers and the face together, and a press off the window puts them back (v186)", () => {
+test("a right press carries the whole picture, and a press off the window puts it back (v193)", () => {
   // Her clause 9, in her own words: "when we drag to the right, the train move to right and
   // the clock and red ruler move relatively." So the whole picture moves by ONE number —
-  // the trains, every ruler and the face — and the ruler therefore goes on naming the
-  // minute the morning is at. Her clause 10 then says how it comes home: "When i click
-  // outside the person window, the clock back to center."
+  // every train, every ruler and the face — and the ruler therefore goes on naming the
+  // minute the morning is at. Her clause 10 says how it comes home: "When i click outside
+  // the person window, the clock back to center."
+  //
+  // WHAT BEGINS IT changed at v193, on her instruction of 25 September 2026: "and the drag,
+  // should be by right mouse button hold down". A plain left press no longer reads the line
+  // at all, because on this screen a left press is the tap on the coach under her finger
+  // ("I'm on it") and the tap on a person's name. On a phone the same reading is TWO
+  // fingers, her other answer: "handphone can accept double finger gesture".
   setNow("2026-09-22T04:30:00");
+  const nowMin = 30; // 4:30 am against her 4:00 am start, which is the subtraction boardNow makes
   const b = board(makeState(TWO_HANDS));
   const pane = peoplePaneOf(b.root);
   pane.clientWidth = 375;
@@ -2015,72 +2175,115 @@ test("a drag moves the lines, the rulers and the face together, and a press off 
   const restRuler = rulerPx(rulers[0]);
   const restTrains = rows.map((row) => placedLeft(row));
   const live = textOf(lab);
-  const inner = pane.clientWidth;
-  const trackW = inner - trainNameW();
+  const trackW = pane.clientWidth - trainNameW();
   const coach = coachesOf(rows[0])[0];
+  // The travel her hand has, from the day's OWN numbers rather than from a number chosen
+  // in this file: the scale off the chart's own hour width, the line off the strip the
+  // view drew, and then `panRange` — which is the same answer the view clamps her to.
+  const k = px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  const lineW = px(stripOf(rows[0]), "width");
+  const range = panRange(nowMin, k, trackW, lineW);
+  assert.ok(range.lo < 0 || range.hi > 0, "there is nowhere at all for this hand to carry the line");
 
-  for (const f of pane._listeners.pointerdown || []) {
-    const ev = { type: "pointerdown", button: 0, clientX: 60, clientY: 20, target: coach, preventDefault() {}, stopPropagation() {} };
-    f(ev);
-  }
-  // A four-pixel slop, so a tap on a coach is never read as a drag — and the finger must go
-  // further sideways than up or down, so a finger scrolling the page is not one either.
-  gesture(pane, "pointermove", 62, 21, coach);
-  assert.equal(px(lab, "left"), restFace, "a two-pixel twitch moved the clock, so a tap on a coach can flicker it");
+  // Both gestures, written once each so that every claim below is about the real event.
+  const RIGHT = { button: 2, buttons: 2, pointerId: 7 };
+  const right = (type, x, y, target = coach) => gesture(pane, type, x, y, target, RIGHT);
+  const TOUCH = { button: 0, buttons: 1, pointerType: "touch" };
+  const twoFinger = (type, x, y) => {
+    for (const id of [1, 2]) gesture(pane, type, x + (id === 2 ? 80 : 0), y, coach, { ...TOUCH, pointerId: id });
+  };
+
+  // A LEFT press carries nothing. It is the tap on the work, and the same gesture must not
+  // also be a reading of the line — one finger, one meaning.
+  gesture(pane, "pointerdown", 120, 20, coach);
+  gesture(pane, "pointermove", 60, 21, coach);
+  gesture(pane, "pointerup", 60, 21, coach);
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains,
+    "a left press carried the trains, and a left press on a coach is how a job is acknowledged");
+  // And one finger on a phone carries nothing either, for the same reason.
+  gesture(pane, "pointerdown", 140, 20, coach, { ...TOUCH, pointerId: 1 });
+  gesture(pane, "pointermove", 80, 20, coach, { ...TOUCH, pointerId: 1 });
+  gesture(pane, "pointerup", 80, 20, coach, { ...TOUCH, pointerId: 1 });
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains,
+    "one finger on the line carried the train, and on a phone one finger is a tap on the work");
+
+  // The right press, held. A four-pixel slop first, so a twitch is never read as a reading
+  // — and the hand must go further sideways than up or down, so a page-scrolling finger is
+  // not one either.
+  right("pointerdown", 120, 20);
+  right("pointermove", 118, 21);
+  assert.equal(px(lab, "left"), restFace, "a two-pixel twitch moved the clock");
   assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a twitch moved the trains");
 
-  gesture(pane, "pointermove", 120, 22, coach);
-  const dx = 60; // 120 is where the finger has got to, 60 where it went down
+  // TWENTY PIXELS TO THE LEFT, which is the direction that reads further into the morning
+  // — the whole reason she wanted this gesture ("we see more coaches queues yet to come").
+  // Small enough to be inside the travel measured above, so nothing here is a clamp.
+  const dx = -20;
+  right("pointermove", 120 + dx, 22);
   assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains.map((v) => v + dx),
-    "a drag along the line did not carry the trains with it, so the clock and the train have come apart");
+    "a right press along the line did not carry the trains with it, so the clock and the train have come apart");
   for (const z of rulers) {
-    assert.equal(rulerPx(z), restRuler + dx, "a drag moved the trains but left this person's ruler behind");
+    assert.equal(rulerPx(z), restRuler + dx, "a right press moved the trains but left this person's ruler behind");
   }
-  assert.equal(px(lab, "left"), restFace + dx, "a drag moved the line but not the face that names it");
+  assert.equal(px(lab, "left"), restFace + dx, "a right press moved the line but not the face that names it");
+  // The paper follows the hand — her clause 9, "when we drag to the right, the train move to
+  // right" — so the picture moves by exactly what the hand moved by, and not against it.
+  assert.equal(placedLeft(rows[0]) - restTrains[0], dx,
+    "the paper did not move by what the hand moved by, so the line goes the way the hand does not");
   // And the reading on the face is UNCHANGED, because the ruler is still standing on the
-  // minute the morning is at — the drag moved where that minute stands on the line and
-  // nothing else. That is the whole difference from v184, where the label moved with the
-  // line and had to change to stay honest.
-  assert.equal(textOf(lab), live, "a drag changed what the clock says, so the line has been left reading a minute the day is not at");
-
-  // Letting go LEAVES it where she put it — her own finger is over the part of the line she
-  // is trying to see, so a drag that snapped back on release would show her nothing.
-  gesture(pane, "pointerup", 120, 22, coach);
+  // minute the morning is at — the press moved where that minute stands on the line and
+  // nothing else. That is the difference from v184, where the label moved with the line and
+  // had to change to stay honest.
+  assert.equal(textOf(lab), live, "a press changed what the clock says, so the line has been left reading a minute the day is not at");
+  // Letting go LEAVES it where she put it — her own hand is over the part of the line she is
+  // trying to see, so a reading that snapped back on release would show her nothing.
+  right("pointerup", 120 + dx, 22);
   assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains.map((v) => v + dx),
-    "letting go snapped the trains back, so the end of the line she was looking at is gone again");
-  assert.equal(px(lab, "left"), restFace + dx, "letting go put the face back while the trains stayed where she left them");
+    "letting go snapped the trains back, so the end of the line she was reading is gone again");
 
-  // And a press anywhere off the workers' line — her clause 10 — is what puts it home. Off
-  // the LINE and not merely off the row: the whole train window is the thing a drag moves.
-  const elsewhere = createEl("div");
-  pressAnywhere(elsewhere);
-  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a press off the window left the trains where the drag put them");
+  // A press anywhere off the workers' line — her clause 10 — is what puts it home.
+  pressAnywhere(createEl("div"));
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a press off the window left the trains where the press put them");
   for (const z of rulers) {
     assert.equal(rulerPx(z), restRuler, "a press off the window left a person's ruler out on the line");
   }
-  assert.equal(px(lab, "left"), restFace, "a press off the window did not bring the clock back to the centre");
+  assert.equal(px(lab, "left"), restFace, "a press off the window did not bring the clock home");
   assert.equal(textOf(lab), live, "the clock came home reading a minute that is not now");
 
-  // A press ON the line is NOT that gesture: it is where a drag begins, so the line stays
+  // A press ON the line is NOT that gesture: it is where a reading begins, so the line stays
   // exactly where it is until she moves it.
-  gesture(pane, "pointerdown", 60, 20, coach);
-  gesture(pane, "pointermove", 120, 21, coach);
-  gesture(pane, "pointerup", 120, 21, coach);
+  right("pointerdown", 120, 20);
+  right("pointermove", 120 + dx, 21);
+  right("pointerup", 120 + dx, 21);
   pressAnywhere(coach);
   assert.equal(px(lab, "left"), restFace + dx,
-    "a press on a coach was answered as a press off the window, so a drag cannot be started at all");
+    "a press on a coach was answered as a press off the window, so a reading cannot be started at all");
+  pressAnywhere(createEl("div"));
 
-  // And the travel is bounded by the line itself: she may carry the station from one edge
-  // of it to the other and not one pixel further, so the minute she is reading is always a
-  // minute the line can show. `panRange` is what says so, and this is it measured.
-  const reach = Math.round(trackW / 2);
-  for (const far of [9999, -9999]) {
-    gesture(pane, "pointerdown", 0, 20, coach);
-    gesture(pane, "pointermove", far, 21, coach);
-    gesture(pane, "pointerup", far, 21, coach);
-    assert.equal(rulerPx(rulers[0]) - restRuler, far > 0 ? reach : -reach,
-      `a drag of ${far}px carried the ruler ${rulerPx(rulers[0]) - restRuler}px, past the end of the line it stands on`);
+  // The two-finger reading, on a phone: the same picture moving by the same number.
+  twoFinger("pointerdown", 120, 20);
+  twoFinger("pointermove", 120 + dx, 20);
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains.map((v) => v + dx),
+    "two fingers did not carry the trains, so a phone has no way to read the line");
+  assert.equal(px(lab, "left"), restFace + dx, "a two-finger reading moved the trains but not the face");
+  twoFinger("pointerup", 120 + dx, 20);
+  pressAnywhere(createEl("div"));
+  assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a press off the window left a two-finger reading in place");
+
+  // And the travel is bounded by the line AND by the minute she is reading: she may carry
+  // the window as far as the paper allows and not one pixel further, so the minute the
+  // clock is on is always a minute the line can show. `panRange` is what says so, and this
+  // is it measured — the clamp at both ends, from the day's own numbers.
+  for (const [far, end] of [[9999, range.lo], [-9999, range.hi]]) {
+    right("pointerdown", 120, 20);
+    right("pointermove", 120 + far, 21);
+    right("pointerup", 120 + far, 21);
+    assert.equal(placedLeft(rows[0]) || 0, -Math.round(end) || 0,
+      `a press of ${far}px carried the line to ${placedLeft(rows[0])}px, past the travel it has (${-Math.round(end)}px)`);
+    assert.ok(rulerPx(rulers[0]) >= 0 && rulerPx(rulers[0]) <= trackW,
+      `a press of ${far}px carried the ruler off the window, to ${rulerPx(rulers[0])}px of ${trackW}px`);
     pressAnywhere(createEl("div"));
+    assert.deepEqual(rows.map((row) => placedLeft(row)), restTrains, "a press off the window did not put an over-carried line back");
   }
 });
 
@@ -2114,8 +2317,15 @@ test("a tap on a coach marks the job as taken, turns it green, and names the job
   const after = coachFor(b.root, "Cutting and packing");
   assert.ok(hasClass(after.coach, "ack"), "a tap on a coach did not mark the job as taken");
   assert.ok(!hasClass(after.coach, "due"), "a coach is drawn both taken and due at once");
-  assert.match(cssBody("\\.tl-coach\\.ack"), /--green-bg/, "a taken coach is not the green her clause three asks for");
-  assert.match(cssBody("\\.tl-coach\\.ack"), /--green\b/, "the taken coach's own words are not green");
+  // Under v193 a taken coach is deliberately NOT a third colour: her point 5 is two colours
+  // only, and green already means "nothing outstanding", which is exactly what a taken job
+  // is. So the tick is the whole of the difference and there must be no `.tl-coach.ack` rule
+  // for it to hide in — a third shade would arrive without anybody deciding to add one.
+  assert.match(cssRule(".tl-coach"), /--green-bg/, "the coach's own colour is not the green her clause three asks for");
+  assert.ok(!/\.tl-coach\.ack[^{]*\{/.test(read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "")),
+    "a taken coach has a colour of its own, so the two colours she asked for are three");
+  assert.ok(walk(after.coach).some((n) => hasClass(n, "tl-cack")),
+    "a taken coach carries no tick, so nothing on the line says the work was taken");
   // Two: written down, in her settings, under exactly one key.
   const acks = state.settings.boardAcks;
   assert.ok(acks, "the tap was drawn and never written, so nothing about it reaches her other phone");
@@ -2191,10 +2401,17 @@ test("a tick is kept by the screen being drawn again, on the person it was made 
   assert.equal(Object.keys(state.settings.boardAcks).length, 1, "drawing the board again changed what was ticked");
 });
 
-test("the click that ends a reading is not a tap on the work (v184)", () => {
-  // A drag along the line ends with a click on whatever the finger was over, which on
-  // this screen is usually a coach. That click is the end of a reading and not a worker
+test("the click that ends a reading is not a tap on the work (v193)", () => {
+  // A reading along the line can end with a click on whatever the finger was over, which
+  // on this screen is usually a coach. That click is the end of a reading and not a worker
   // saying "I'm on it" — see run.scrubbed — so it must leave the job exactly as it was.
+  //
+  // WHICH GESTURE, restated at v193. The reading is no longer a left press: on a computer
+  // it is a right-button hold and on a phone it is two fingers ("handphone can accept
+  // double finger gesture"), because a plain left press and one finger are now the tap on
+  // the work — see the right-press test above, which measures that they carry nothing. So
+  // the gesture driven here is the phone's, which is the one a browser can still follow
+  // with a synthesized click.
   setNow("2026-09-22T04:30:00");
   const state = makeState(TWO_HANDS);
   const b = board(state);
@@ -2203,15 +2420,24 @@ test("the click that ends a reading is not a tap on the work (v184)", () => {
   flushTicks();
   const row = peopleRows(b.root)[0];
   const coach = coachesOf(row)[0];
+  const TOUCH = { button: 0, buttons: 1, pointerType: "touch" };
+  // Two fingertips, eighty pixels apart, moved together — the mean of the two is what the
+  // gesture reads, so this is a sixty-pixel reading to the left.
+  const twoFinger = (type, x, y) => {
+    for (const id of [1, 2]) {
+      gesture(pane, type, x + (id === 2 ? 80 : 0), y, coach, { ...TOUCH, pointerId: id });
+    }
+  };
 
-  gesture(pane, "pointerdown", 120, 20, coach);
-  gesture(pane, "pointermove", 190, 21, coach);
+  twoFinger("pointerdown", 120, 20);
+  twoFinger("pointermove", 60, 20);
   tapCoach(coach);
   assert.equal("boardAcks" in state.settings, false,
     "the click that ended a reading was taken as a tap on the work");
 
   // The next real press clears the flag and ticks as it always did, so a reading can cost
-  // at most its own one click.
+  // at most its own one click. A plain left press, because that is the tap on the work.
+  twoFinger("pointerup", 60, 20);
   gesture(pane, "pointerdown", 120, 20, coach);
   gesture(pane, "pointerup", 120, 20, coach);
   tapCoach(coach);
@@ -2415,7 +2641,8 @@ test("the train's strip never SCROLLS sideways, while the planner's own two wind
   // And the tie is in the WIRING, not only in the stylesheet — the stylesheet cannot stop
   // a write the panes' own code makes. The two TIME windows share one position on both
   // screens: whichever one carries the hand brings the other. The train is nobody's
-  // follower and nobody's leader, and no right press on it starts a pan.
+  // follower and nobody's leader — v193 gave it a hand of its own (a right press on a row,
+  // see the drag test above) and that hand reaches the train and nothing else.
   const procOf = (root) => walk(root).find((n) => hasClass(n, "tl-pane-proc"));
   const scrolls = (from, to) => { from.scrollLeft = 300; from.dispatchEvent({ type: "scroll" }); flushFrames(); return to.scrollLeft; };
   const rightPress = (pane) => { pane.dispatchEvent({ type: "pointerdown", button: 2, buttons: 2, clientX: 40, clientY: 20, pointerId: 7, target: pane }); return pane.classList.contains("tl-dragging"); };
@@ -2432,8 +2659,12 @@ test("the train's strip never SCROLLS sideways, while the planner's own two wind
     "a scroll on the train moved the modules' window, which shares no axis with it");
   assert.equal(rightPress(peopleWinOf(b.root)), true,
     "the board's planner window no longer takes a right-press pan");
+  // A right press that lands on the train's WINDOW but on no row starts nothing: the
+  // gesture is claimed by a row, so a press in the gap between two people — or above the
+  // first one — cannot quietly move every train on the board. (That a right press ON a row
+  // does carry the line is the drag test's own claim.)
   assert.equal(rightPress(trainPaneOf(b.root)), false,
-    "a right press on the train started a pan it cannot make");
+    "a right press on the train that landed on no row started something anyway");
   // The third tie-up, and the one a stylesheet cannot make either — the reading drawn in
   // both windows at once. A pointer moved along the modules' window puts a hairline in
   // the people's too, on both screens now; the train has no hairline at all, because it
@@ -2482,23 +2713,53 @@ test("no beat puts a word of nothing on the board, whichever minute it is standi
   }
 });
 
-test("the train's map answers with a number, whatever it is asked (v184)", () => {
-  // This is the guard that matters most on a live screen: a `translateX(NaNpx)` is a
-  // train that has vanished, not an error anybody is shown. So the two maps are asked
-  // for a row with no jobs, for a minute that is not a number, and for a minute
-  // outside her day altogether.
-  assert.equal(xOfMinute([], 5), 0, "a row with no jobs gave back something that is not a number");
-  assert.equal(minuteAtTrainX([], 5), 0);
-  assert.equal(xOfMinute(TRAIN_SEG, NaN), 10, "a minute that is not a number was not parked at the day's own edge");
-  assert.equal(minuteAtTrainX(TRAIN_SEG, undefined), 0);
-  assert.equal(xOfMinute(TRAIN_SEG, -30), 10, "an hour before her day did not park the train at its edge");
-  assert.equal(xOfMinute(TRAIN_SEG, 900), 350, "the middle of the night threw the train off the end of the line");
-  assert.equal(minuteAtTrainX(TRAIN_SEG, -40), 0);
-  assert.equal(minuteAtTrainX(TRAIN_SEG, 4000), 28);
-  for (const v of [xOfMinute(TRAIN_SEG, 0), xOfMinute(TRAIN_SEG, 28),
-    minuteAtTrainX(TRAIN_SEG, 0), minuteAtTrainX(TRAIN_SEG, 4000)]) {
-    assert.ok(Number.isFinite(v), `the map answered ${v}`);
+test("every number the board draws a train from answers with a number, whatever it is asked (v193)", () => {
+  // This is the guard that matters most on a live screen: a `translateX(NaNpx)` is a train
+  // that has vanished, not an error anybody is shown. v184 asked its two maps; v193 has no
+  // maps but a scale, a coach, a line, a placement and a travel, and the whole of a train's
+  // geometry is arithmetic on THOSE — any one of which can arrive as nothing at all on the
+  // first beat of a window that has not been measured yet. So each is asked for a minute
+  // that is not a number, a scale that is not a scale, a pane with no width, and a value
+  // past the end of everything, and every one of them must come back a finite number.
+  const nonsense = [undefined, null, NaN, Infinity, -Infinity, "", "abc", {}, [], -30, 1e9];
+  const asks = [
+    ["trainScale", (v) => trainScale(v)],
+    ["trainScale/scenario", (v) => trainScale({ pxPerMin: v })],
+    ["lineWidth", (v) => lineWidth(v, K)],
+    ["lineWidth/scale", (v) => lineWidth(240, v)],
+    ["coachGeom", (v) => coachGeom({ from: v, to: v }, K)],
+    ["coachGeom/scale", (v) => coachGeom({ from: 30, to: 42 }, v)],
+    ["coachGeom/no job", (v) => coachGeom(v, K)],
+    ["trainPlacement", (v) => trainPlacement(v, K, 300, 0, 600)],
+    ["trainPlacement/scale", (v) => trainPlacement(60, v, 300, 0, 600)],
+    ["trainPlacement/window", (v) => trainPlacement(60, K, v, 0, 600)],
+    ["trainPlacement/pan", (v) => trainPlacement(60, K, 300, v, 600)],
+    ["trainPlacement/line", (v) => trainPlacement(60, K, 300, 0, v)],
+    ["panRange", (v) => panRange(v, K, 300, 600)],
+    ["panRange/window", (v) => panRange(60, K, v, 600)],
+    ["panRange/line", (v) => panRange(60, K, 300, v)],
+  ];
+  for (const v of nonsense) {
+    for (const [name, ask] of asks) {
+      const got = ask(v);
+      const nums = typeof got === "number" ? [got] : Object.values(got || {});
+      assert.ok(nums.length, `${name} answered nothing at all for ${String(v)}`);
+      for (const n of nums) {
+        assert.ok(Number.isFinite(n), `${name} answered ${JSON.stringify(got)} for ${String(v)}`);
+      }
+    }
+    // And the words a countdown is written in are always words, never "undefinedm".
+    assert.match(minsWords(v), /^(?:\d+m \d+s|\d+s)$/, `minsWords answered "${minsWords(v)}" for ${String(v)}`);
   }
+  // The one case with a right answer beyond "not NaN": a clock standing before her day or
+  // long after it is parked at an edge of the window rather than off the paper. A ruler at
+  // a negative pixel is a clock the worker cannot see, on the one screen that exists to be
+  // read at a glance.
+  const before = trainPlacement(-30, K, 300, 0, 600);
+  assert.equal(before.ruler, 0, "an hour before her day did not park the ruler at the line's own start");
+  const after = trainPlacement(900, K, 300, 0, 600);
+  assert.equal(after.ruler, after.win,
+    `the middle of the night put the ruler at ${after.ruler}px of a ${after.win}px window`);
 });
 
 test("the day can be walked from the workers' own window: Start, Stop, the bell, Back to now and the speed (v186)", () => {
@@ -2536,7 +2797,11 @@ test("the day can be walked from the workers' own window: Start, Stop, the bell,
   assert.equal(walk(partOf(b.root, "tl-pane-proc")).filter((n) => hasClass(n, "tr-ctl")).length, 0,
     "the walk's controls were drawn in the day chart, which is not where she asked for them");
   const rows = rowa();
-  assert.equal(rows.length, 2, `the walk's controls are drawn as ${rows.length} rows and not two`);
+  assert.equal(rows.length, 3, `the walk's controls are drawn as ${rows.length} rows and not three`);
+  // The three groups, in her order: the day's own two presses with the bell; the two
+  // simulation presses; and the Scale, which v193 added because the train now obeys it.
+  const labelsa = rows.map((z) => kidEls(z).map((n) => textOf(n)).join(" "));
+  assert.match(labelsa[2], /Scale/, `the walk's third row is not the Scale: "${labelsa[2]}"`);
 
   // Start and Stop, drawn as a PAIR with exactly one of them live — which is also what
   // tells her at a glance which of the two the day is doing. A day standing still has
@@ -2642,16 +2907,25 @@ test("the day can be walked from the workers' own window: Start, Stop, the bell,
 
   // And with the line away from the current time it brings the trains AND the rulers
   // home, both by the same gesture's worth — her "when we drag to the right, the train
-  // move to right and the clock and red ruler move relatively".
+  // move to right and the clock and red ruler move relatively". The reading is the right
+  // button's, per her correction of 25 September 2026 ("and the drag, should be by right
+  // mouse button hold down"), so the line is carried with a right press.
   const pane2 = peoplePaneOf(b.root);
   pane2.clientWidth = 375;
   flushTicks();
   const row = peopleRows(b.root)[0];
   const restTrain = placedLeft(row);
   const restRuler = rulerPx(theClock(b.root)[0]);
-  gesture(pane2, "pointerdown", 150, 20, coachesOf(row)[0]);
-  gesture(pane2, "pointermove", 210, 21, coachesOf(row)[0]);
-  assert.equal(placedLeft(row) - restTrain, 60, "the drag did not move the line, so there is nothing for Back to put back");
+  // How far this hand may travel, off the day's own numbers — the same figure the drag
+  // test above measures — so the carry below is a real carry and not a clamp read back.
+  const k69 = px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  const travel = panRange(31, k69, pane2.clientWidth - trainNameW(), px(stripOf(row), "width"));
+  const far = Math.min(20, travel.hi);
+  assert.ok(far > 0, `there is nowhere at all for this hand to carry the line: ${JSON.stringify(travel)}`);
+  const READING = { button: 2, buttons: 2, pointerId: 7 };
+  gesture(pane2, "pointerdown", 210, 20, coachesOf(row)[0], READING);
+  gesture(pane2, "pointermove", 210 - far, 21, coachesOf(row)[0], READING);
+  assert.equal(restTrain - placedLeft(row), far, "the drag did not carry the line, so there is nothing for Back to put back");
   for (const f of back._listeners.click || []) f({ type: "click", target: back });
   assert.equal(placedLeft(peopleRows(b.root)[0]), restTrain, "Back to now left the trains where the drag put them");
   assert.equal(rulerPx(theClock(b.root)[0]), restRuler, "Back to now put the trains back and left the rulers away from the current time");
@@ -2677,10 +2951,19 @@ test("the day can be walked from the workers' own window: Start, Stop, the bell,
   const fresh = peoplePaneOf(drawn.root);
   fresh.clientWidth = 375;
   flushTicks();
+  // Every strip is read as a PLACEMENT here (`placedLeft` refuses an unplaced one by name),
+  // and the number worth keeping is the ruler's. Under v193 a strip at nought is not an
+  // unplaced strip: at 4:31 the morning has not yet reached the middle of the window, so
+  // her own third design glues the day's start to the left edge and `s` really is nought —
+  // "the ruler sweeps, untill reach center, it stop, then the train move". The RULER is the
+  // one a repaint could leave unwritten, so it is the one this guard is about.
   const restingStrip = peopleRows(drawn.root).map((z) => placedLeft(z));
-  assert.ok(theClock(drawn.root).length, "no ruler is drawn on the person's own lines at all");
-  assert.ok(restingStrip.some((v) => v !== 0),
-    "every strip is parked at nought even after a beat, so nothing here is measuring a placement worth keeping");
+  assert.ok(restingStrip.length, "no person's line is drawn at all");
+  const restingRuler = theClock(drawn.root).map(rulerPx);
+  assert.ok(restingRuler.length, "no ruler is drawn on the person's own lines at all");
+  assert.equal(new Set(restingRuler).size, 1, "the rulers do not all stand at one station before the repaint");
+  assert.ok(restingRuler[0] > 0,
+    "every ruler is parked at the line's own start even after a beat, so nothing here is measuring a placement worth keeping");
   beats.clear();
 
   const lastCoach = coachesOf(peopleRows(drawn.root)[0])[0];
@@ -2693,26 +2976,94 @@ test("the day can be walked from the workers' own window: Start, Stop, the bell,
     `the repaint after a tick left the clock face saying "${face()}", which is not the minute it was naming`);
 });
 
-test("the person's window is taller, and the coach has the room to hold its words (v186)", () => {
+test("the person's window is taller, and a coach too narrow for its words gives them up rather than shrinking them (v193)", () => {
   // Her clause 8: "The person's window be taller, so that coach size better fit
   // wordings". A height is not something the stand-in screen can measure — every node
   // in it answers with the same box — so the evidence for this is the stylesheet's own
   // declared numbers, read as the file writes them, plus one measurement off the DRAWN
-  // board: the width a coach actually gets, which is what decides whether the narrow-box
-  // step-down ever fires on her own day.
-  const rowRule = cssBody("\\.tl-row\\.train(?![\\w-])");
+  // board: the width a coach actually gets.
+  //
+  // What v193 changes here is the answer to "and when the box is still too narrow?".
+  // v186 stepped the TYPE down (11px to 9px) and gave up the side padding; she chose
+  // otherwise, in her own words: "and if it is not show as no space big enough, just dont
+  // show, as we have another place shown it under person's name". The face and the tick
+  // are therefore not DRAWN below the width at which the column stops being readable, and
+  // there is no type step-down left anywhere.
+  const rowRule = cssRule(".tl-row.train");
   assert.match(rowRule, /min-height:\s*72px/,
     `the person's row is not the taller line she asked for: ${rowRule}`);
-  const coachRule = cssBody("\\.tl-coach(?![\\w-])");
+  const coachRule = cssRule(".tl-coach");
   assert.match(coachRule, /height:\s*52px/,
     `the coach is not the taller box the words need: ${coachRule}`);
-  // The coach's own height is the whole band's: the stub at each end and the link
-  // between two coaches are the same 52, so nothing joining a coach to its neighbours
-  // is a different size from the coach itself.
-  assert.match(cssBody("\\.tl-stub"), /height:\s*52px/, "the stub is not the height of the coaches it joins");
-  assert.match(cssBody("\\.tl-link"), /height:\s*52px/, "the link is not the height of the coaches it joins");
+  // The band is ONE height. The link between two coaches takes the track's own height
+  // rather than a number of its own, so nothing joining a coach to its neighbours can be
+  // a different size from the coach itself — and the STUB at each end of a row is gone
+  // with the uniform-width budget it existed to pad. A coach now stands at its own minute,
+  // so there is nothing left over at either end of the line for a stub to fill.
+  assert.match(cssRule(".tl-link"), /height:\s*100%/,
+    "the link between two coaches is not the height of the band it joins");
+  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.ok(!/\.tl-stub[^{]*\{/.test(css),
+    "the stylesheet still carries a stub for the uniform width budget the board no longer keeps");
+  // The rule her answer asks for, and the whole of it: the face and the tick are given up
+  // together, as one box's worth of words rather than one word at a time.
+  const at = css.indexOf("@container (max-width: 43px)");
+  assert.ok(at >= 0, "the face is no longer given up at all at a narrow box");
+  // The whole block, counted brace for brace. A container query HOLDS rules, so the first
+  // `}` after it opens is the end of the first rule inside it and not of the query — a
+  // body read that way would stop before the rule it is here to check.
+  let depth = 0;
+  let end = -1;
+  for (let i = css.indexOf("{", at); i < css.length; i += 1) {
+    if (css[i] === "{") depth += 1;
+    if (css[i] === "}") { depth -= 1; if (!depth) { end = i; break; } }
+  }
+  assert.ok(end > 0, "the narrow-box rule has no body");
+  const small = css.slice(css.indexOf("{", at) + 1, end);
+  assert.match(small, /\.tl-cface\s*,\s*\.tl-cack\s*\{\s*display:\s*none/,
+    `the narrow-box rule does not give the face up whole: ${small.trim()}`);
+  assert.doesNotMatch(small, /font-size/,
+    "the narrow-box rule still steps the TYPE down, which is the answer she refused");
+  // And no rule anywhere else hides a part of a coach's face: the tick is the only thing
+  // named beside the face, so a rule that hides the name alone cannot have got in here.
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (!/\.tl-c/.test(sel) || !/display:\s*none/.test(m[2])) continue;
+    assert.match(sel, /\.tl-cack/,
+      `a rule hides part of a coach's face rather than giving the face up whole: ${sel}`);
+  }
+
+  // And the rule is LOAD-BEARING on her own day rather than a precaution — which is the one
+  // thing v186 could assert the other way about. Her shortest job is a one-minute fold, and
+  // at her own Scale that draws a coach narrower than the 43 pixels: measured off the board
+  // she would actually be shown, and read as its own minutes against the day's own scale,
+  // so a width that happened to be small cannot pass.
+  const b = board(makeState(TWO_HANDS));
+  const pane = peoplePaneOf(b.root);
+  pane.clientWidth = 375;
+  flushTicks();
+  const k = px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  let narrow = 0;
+  let total = 0;
+  for (const row of peopleRows(b.root)) {
+    const cs = coachesOf(row);
+    const tips = coachTipsOf(row);
+    assert.equal(cs.length, tips.length, "a row's coaches and the tips that describe them are no longer one for one");
+    cs.forEach((c, i) => {
+      total += 1;
+      const w = px(c, "width");
+      const span = tipSpan(tips[i]);
+      assert.ok(near(w, Math.max(1, (span.to - span.from) * k)),
+        `a coach stands ${w}px wide for ${span.to - span.from} minutes at ${k} pixels a minute`);
+      if (w <= 43) narrow += 1;
+    });
+  }
+  assert.ok(total > 0, "the board drew no coaches at all");
+  assert.ok(narrow > 0,
+    `none of the ${total} coaches on her own day is narrow enough to give its face up, so her answer is never reached on the screen she reads`);
 
   // And the WINDOW is taller too, which is what her clause 8 asks for in its own words:
+  //
   // "The person's window be taller". A taller ROW is not a taller WINDOW, and v186 first
   // shipped exactly that mistake. The base rule caps a people's window at
   // min(20vh, 190px) — a ceiling written for the planner's five 35-pixel rows, where 190
@@ -2742,44 +3093,112 @@ test("the person's window is taller, and the coach has the room to hold its word
   assert.match(cssRule(".tl-cname"), /font-size:\s*11px/, "the coach's word did not take the taller box");
   assert.match(cssRule(".tl-cwhen"), /font-size:\s*11px/, "the coach's clock did not take the taller box");
   assert.match(cssRule(".tl-cbatch"), /font-size:\s*10px/, "the coach's batch number did not take the taller box");
+});
 
-  // The step-down at a narrow box gives up TYPE and PADDING and never the word. That is
-  // her refinement of v184 answered the way she chose it, and it is the fault this app
-  // shipped once already: the rule that hid the name outright is gone, and this refuses
-  // to let it come back through any rule that names the word.
-  const css = read("admin/css/app.css").replace(/\/\*[\s\S]*?\*\//g, "");
-  const at = css.indexOf("@container (max-width: 43px)");
-  assert.ok(at >= 0, "the face no longer steps down at all at a narrow box");
-  // The whole block, counted brace for brace. A container query HOLDS rules, so the
-  // first `}` after it opens is the end of the first rule inside it and not of the query
-  // — a body read that way would stop before the word it is here to check.
-  let depth = 0;
-  let end = -1;
-  for (let i = css.indexOf("{", at); i < css.length; i += 1) {
-    if (css[i] === "{") depth += 1;
-    if (css[i] === "}") { depth -= 1; if (!depth) { end = i; break; } }
-  }
-  assert.ok(end > 0, "the narrow-box step-down has no body");
-  const small = css.slice(css.indexOf("{", at) + 1, end);
-  assert.match(small, /\.tl-cname\s*\{\s*font-size:\s*9px/, "the narrow-box step-down does not give up type, which is what it is for");
-  assert.match(small, /\.tl-cface\s*\{\s*padding:\s*0 2px/, "the narrow-box step-down does not give up its side padding");
-  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
-    if (/\.tl-cname/.test(m[1])) {
-      assert.doesNotMatch(m[2], /display:\s*none/,
-        `a rule hides the coach's word at a narrow box, which is the refinement she refused: ${m[1].trim()}`);
-    }
-  }
-
-  // And on her own day, at her phone's width, that step-down is never reached: the coach
-  // the board actually draws is wider than the 43 pixels that would trigger it. Counted
-  // from the drawn board rather than from the arithmetic, because the arithmetic is the
-  // thing that could be wrong.
-  const b = board(makeState(TWO_HANDS));
+test("the board's own Scale step redraws the coaches to the new size and stops at its six ends (v193)", () => {
+  // Her answer of 25 September 2026, asked because the board had no way to change it:
+  // "Yes, add Scale to the board." It had to be asked for — before this release the train
+  // did not obey the Scale at all, so there was nothing on this screen for a Scale to
+  // move. Now it does, so the step writes the one setting the planner's own Scale step
+  // already saves (`sc.pxPerMin`), which is why there is no new stored key and no SQL.
+  //
+  // The claim that matters is not that a number changed but that the DRAWING changed with
+  // it: a Scale that moved the setting and left the coaches where they were would be the
+  // screen lying about the size it is showing. So every width drawn is compared with the
+  // SAME job's width before the press, by the ratio the day's own scale moved by.
+  setNow("2026-09-22T04:30:00");
+  const state = makeState(TWO_HANDS);
+  const b = board(state);
   const pane = peoplePaneOf(b.root);
   pane.clientWidth = 375;
   flushTicks();
-  const drawn = px(walk(pane).find((n) => hasClass(n, "tl-track")), "--coach-w");
-  assert.ok(Number.isFinite(drawn) && drawn > 0, `the board drew a coach of "${drawn}" pixels`);
-  assert.ok(drawn > 43,
-    `a coach on her own day is ${drawn}px wide, so the narrow-box step-down is the size her own line is read at`);
+
+  // Read afresh at every step rather than held: a Scale press repaints this screen, and
+  // every node a repaint replaces is a new one.
+  const scaleRow = () => kidEls(walk(b.root).find((n) => hasClass(n, "tr-ctl")))
+    .filter((n) => hasClass(n, "tr-ctl-row"))[2];
+  const group = () => partOf(scaleRow(), "tl-ctl-group");
+  const stepName = () => textOf(partOf(group(), "tl-step-name"));
+  const stepBtns = () => kidEls(group()).filter((n) => hasClass(n, "tl-step"));
+  const press = (n) => { for (const f of n._listeners.click || []) f({ type: "click", target: n }); };
+  const kNow = () => px(partOf(b.root, "tl-wrap"), "--hour-w") / 60;
+  // Every coach on the board, in drawing order, as its own drawn width.
+  const widths = () => peopleRows(b.root).flatMap((row) => coachesOf(row).map((c) => px(c, "width")));
+
+  // The row is the THIRD of the walk's three, and it wears the same shape as the planner's
+  // own step — one label, a minus, the name of the stop it is standing on, and a plus — so
+  // the two screens' Scales are the same control in the same order.
+  assert.ok(scaleRow(), "the board draws no third control row, so it has no Scale at all");
+  assert.equal(textOf(partOf(group(), "tl-ctl-lab")), "Scale", "the board's Scale row does not name what it sets");
+  assert.deepEqual(stepBtns().map((n) => textOf(n)), ["−", "+"],
+    `the board's Scale step is drawn as ${stepBtns().map((n) => textOf(n)).join(", ")}, which is not a minus and a plus`);
+
+  const k0 = kNow();
+  const name0 = stepName();
+  const w0 = widths();
+  const lineW0 = px(stripOf(peopleRows(b.root)[0]), "width");
+  assert.ok(w0.length, "the board drew no coaches, so nothing here can be resized");
+  assert.ok(k0 > 0, `the day is drawn at ${k0} pixels a minute`);
+  // The name is the day's OWN stop and not a number invented here: the drawing's own scale
+  // has to be one of the app's six, so a step that wrote some other figure would be caught
+  // before any press is made.
+  assert.ok(PX_PER_MIN_CHOICES.some((v) => Math.abs(v - k0) < 1e-9),
+    `the day is drawn at ${k0} pixels a minute, which is not one of the app's own six stops`);
+
+  // A press of + draws the day bigger, and the SCREEN is redrawn to do it — which is the
+  // opposite of the speed box, where a repaint would cost her the scroll for nothing.
+  const before = replaceCount;
+  const plus = stepBtns()[1];
+  assert.equal(plus.disabled, false, "the board's Scale cannot be stepped up at all");
+  press(plus);
+  assert.ok(replaceCount > before, "stepping the Scale did not redraw the board, so the coaches cannot have changed size");
+  const k1 = kNow();
+  const w1 = widths();
+  assert.ok(k1 > k0, `stepping the Scale up moved the day from ${k0} to ${k1} pixels a minute`);
+  assert.notEqual(stepName(), name0, "the Scale moved and its own label still names the stop it has left");
+  assert.equal(w1.length, w0.length, "stepping the Scale changed how many coaches are drawn");
+  // Every coach, not the first one: the ratio is the same for all of them because the day
+  // has ONE scale, and a coach that did not move would be a job the Scale left behind.
+  w1.forEach((w, i) => {
+    assert.ok(near(w, w0[i] * (k1 / k0)),
+      `a coach drawn ${w0[i]}px stands at ${w}px after the day moved from ${k0} to ${k1} pixels a minute`);
+  });
+  // And the line itself is drawn from the same figure, so a Scale press cannot leave the
+  // coaches at one size on paper of another — the whole point of one day having one scale.
+  assert.ok(near(px(stripOf(peopleRows(b.root)[0]), "width"), Math.round(lineW0 * (k1 / k0))),
+    "the line grew by a different figure from the coaches, so the paper and the work are at two scales");
+  // The setting her planner already saves is the one that moved, so the two screens cannot
+  // come to hold two different Scales for one day.
+  assert.equal(state.settings.scenario.pxPerMin, k1,
+    "stepping the board's Scale did not write the setting the planner's own Scale writes");
+
+  // The STEP UP stops at the top of the six rather than running past them. Read twice: the
+  // button is drawn inert at the end, and a press that got through anyway changes nothing —
+  // because this app's rule for a control that cannot act is that it must look inert rather
+  // than quietly refuse, and a press is what proves it is refusing on purpose.
+  let guard = 0;
+  while (!stepBtns()[1].disabled && guard < PX_PER_MIN_CHOICES.length + 2) { press(stepBtns()[1]); guard += 1; }
+  const kTop = kNow();
+  const nameTop = stepName();
+  assert.equal(stepBtns()[1].disabled, true, "the board's Scale can be stepped up past the app's widest stop");
+  assert.equal(kTop, PX_PER_MIN_CHOICES[PX_PER_MIN_CHOICES.length - 1],
+    `the board's Scale topped out at ${kTop} pixels a minute rather than at the app's widest stop`);
+  press(stepBtns()[1]);
+  assert.equal(kNow(), kTop, "a press past the top of the Scale moved the board anyway");
+  assert.equal(stepName(), nameTop, "a press past the top of the Scale renamed the stop anyway");
+
+  // And the STEP DOWN stops at the bottom, which is the end that must NOT be where a day
+  // began: the ends are disabled rather than absent, and the widest stop is a real stop she
+  // can reach rather than a wall she discovers by pressing.
+  guard = 0;
+  while (!stepBtns()[0].disabled && guard < PX_PER_MIN_CHOICES.length + 2) { press(stepBtns()[0]); guard += 1; }
+  const kBottom = kNow();
+  assert.equal(stepBtns()[0].disabled, true, "the board's Scale can be stepped down past the app's widest stop");
+  assert.equal(kBottom, PX_PER_MIN_CHOICES[0],
+    `the board's Scale bottomed out at ${kBottom} pixels a minute rather than at the app's widest stop`);
+  press(stepBtns()[0]);
+  assert.equal(kNow(), kBottom, "a press past the bottom of the Scale moved the board anyway");
+  // And down there the day is smaller than it began, not larger — the direction of the two
+  // presses is the other thing a step can get backwards.
+  assert.ok(kBottom < k0, `stepping the Scale down drew the day bigger: ${k0} to ${kBottom} pixels a minute`);
 });
