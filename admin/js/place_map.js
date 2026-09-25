@@ -22,7 +22,7 @@
 // obeys about what a place IS lives in courier_place.js, which is pure and tested.
 
 import { el, button, showPopup, toast } from "./ui.js";
-import { validPlace, parseCoords } from "./courier_place.js";
+import { validPlace, parseCoords, splitLabel } from "./courier_place.js";
 import { geocodeAddress } from "./couriers/api.js";
 
 const LEAFLET_VERSION = "1.9.4";
@@ -114,6 +114,11 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       chosen = p;
       useBtn.disabled = false;
       coordsLine.textContent = `Pinned at ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+      // The pin has moved, so which row is ticked has changed — by whatever route moved
+      // it, whether that was a row, a tap on the map, a drag or pasted numbers. Repainted
+      // from here rather than at each call site so that no route can forget, and only
+      // when the list is actually on screen.
+      if (!suggPanel.hidden) paintSuggestions();
       if (!map || !mineStill()) return;
       if (marker) marker.setLatLng([p.lat, p.lng]);
       else marker = window.L.marker([p.lat, p.lng], { draggable: true }).addTo(map).on("dragend", onDrag);
@@ -134,9 +139,88 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       placeholder: "12 Jalan Bunga, 10450 Penang" });
     const findStatus = say("");
     findStatus.hidden = true;
+
+    // ── the other matches, when the lookup found more than one ───────────
+    // The lookup used to keep whichever candidate the service happened to put first,
+    // and she had to notice the pin was wrong and drag it to the right street. The
+    // other candidates were arriving all along — the courier function read four of them
+    // on every lookup and threw them away — so they are offered now.
+    //
+    // THIS IS NOT A GATE AND NOT AN EXTRA STEP. The first match still lands on the map
+    // by itself, exactly as it always did, and this list is only how she says "not that
+    // one". Her words for it: the best match lands, the list is there to change it.
+    //
+    // Styled by the app's own .sugg-panel / .sugg-row — the same rows the customer
+    // suggester draws in views/orders.js — and in the normal flow rather than a floating
+    // layer, for the same reason that one is: this body scrolls, and a floating panel
+    // would be clipped at its edge.
+    const suggPanel = el("div", { class: "sugg-panel", hidden: true });
+    let found = [];
+
+    // Which row the pin is on, worked out from the pin rather than remembered when a row
+    // was tapped. A stored index would go on claiming a row after she dragged the pin off
+    // it, or pasted coordinates, or tapped the map — the list would tick a street the pin
+    // is not on, which is the same class of lie as a shade that outlives its hours. Asked
+    // this way it cannot drift: the tick is a fact about `chosen`, not a note about a tap.
+    function rowOnPin() {
+      if (!chosen) return -1;
+      return found.findIndex((f) => Math.abs(f.lat - chosen.lat) < 1e-9 && Math.abs(f.lng - chosen.lng) < 1e-9);
+    }
+
+    function hideSuggestions() { suggPanel.hidden = true; suggPanel.replaceChildren(); }
+
+    // Repaints the panel and nothing else. Deliberately NOT the pop-up's refresh(): that
+    // rebuilds the whole body, and the body's own builder tears Leaflet down and builds
+    // it again — so tapping a row would throw the map away and re-fetch its tiles to say
+    // something the list can say by itself.
+    function paintSuggestions() {
+      // ONE candidate is not a choice, and the line under the button above already names
+      // it. This is also what keeps the app behaving exactly as it does today for as long
+      // as the courier function has not been redeployed: an older server replies with a
+      // single place, and a single place draws this.
+      if (found.length < 2) { hideSuggestions(); return; }
+      const onPin = rowOnPin();
+      const rows = found.map((p, i) => {
+        const { title, sub } = splitLabel(p.label || "");
+        // The mark is a CHARACTER, not a tint. A row shown only by a slightly different
+        // shade says nothing to a screen reader and can be nothing at all on a phone in
+        // daylight, which is where this app is used.
+        const mark = i === onPin ? "✓ " : "";
+        return el("button", {
+          class: "list-item sugg-row", type: "button", onclick: () => chooseMatch(i),
+        },
+          el("div", { class: "li-main" },
+            el("div", { class: "li-title" }, el("span", {}, `${mark}${title || "This spot"}`)),
+            sub ? el("div", { class: "li-sub" }, sub) : null));
+      });
+      // SPREAD, NEVER THE ARRAY. replaceChildren is variadic: handed one array it finds
+      // neither a node nor a string, converts it with String(), and draws
+      // "[object HTMLButtonElement],[object HTMLButtonElement]" with nothing left to
+      // press. That exact fault shipped on this card at v195, and this is the second
+      // place on the same card that could repeat it.
+      suggPanel.replaceChildren(...rows);
+      suggPanel.hidden = false;
+    }
+
+    function chooseMatch(i) {
+      const p = found[i];
+      if (!p) return;
+      label = p.label || addrInput.value.trim();
+      findStatus.textContent = `Found: ${label}`;
+      // put() is the one route that moves the pin, so the marker, the centre, the
+      // coordinates line and the enabled "Use this spot" all move together by
+      // construction — and it repaints this list, which re-derives the tick.
+      put(p, 17);
+    }
+
     const findBtn = button("Look it up", async () => {
       const text = addrInput.value.trim();
-      if (!text) { findStatus.hidden = false; findStatus.textContent = "Type the address first, or put the pin on the map by hand."; return; }
+      if (!text) { hideSuggestions(); findStatus.hidden = false; findStatus.textContent = "Type the address first, or put the pin on the map by hand."; return; }
+      // Cleared before the ask rather than after it: the previous lookup's rows must
+      // never be left sitting under a new lookup's answer. The pin itself stays where it
+      // is until a new match arrives, so nothing jumps while she waits.
+      hideSuggestions();
+      found = [];
       findBtn.disabled = true;
       findStatus.hidden = false;
       findStatus.textContent = "Looking this address up…";
@@ -149,9 +233,16 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
         findStatus.textContent = out.reason;
         return;
       }
+      found = out.places || [out.place];
       label = out.place.label || text;
-      findStatus.textContent = `Found: ${label}`;
+      // The line and the tick have to agree, so when there is a list the line says so —
+      // otherwise four rows appear under a sentence that mentions one, and the only way
+      // to find out they exist is to notice them.
+      findStatus.textContent = found.length > 1
+        ? `Found: ${label} — and ${found.length - 1} more below`
+        : `Found: ${label}`;
       put(out.place, 17);
+      paintSuggestions();
     });
 
     // ── the spot she settles on ──────────────────────────────────────────
@@ -218,6 +309,7 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
         el("label", {}, "The address you have"),
         addrInput,
         el("div", { class: "btn-row", style: "margin-top:10px" }, findBtn),
+        suggPanel,
         findStatus),
       mapBox,
       mapNote,

@@ -1,8 +1,71 @@
-# Jienluv2bake — change history (v54 → v197)
+# Jienluv2bake — change history (v54 → v198)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v198, THE ADDRESS LOOKUP OFFERS ITS OTHER MATCHES (no database step; the
+courier function must be redeployed). When you press "Look it up" on the pin card, the card now
+lists the other places the lookup found, underneath the button, so the right door is a press rather
+than a drag. The first match still lands on the map by itself and nothing else about the flow
+changes — the list is there for one thing only, saying "not that one".**
+
+**Every answer but the first was being thrown away, on every lookup.** The address services answer
+with a handful of places, nearest-sounding first, and the app used to keep only the first one and
+drop the rest on the floor. So when the top answer was the wrong end of the street, the pin landed
+there, and the only way to fix it was to notice and drag it. The other answers were arriving all
+along.
+
+**What you do now, and it is one press more than nothing.** Type or paste the address, press "Look
+it up", and the pin lands on the best match exactly as it always did. If the lookup found more than
+one place, the line under the button says so — "Found: 12 Jalan Bunga — and 3 more below" — and the
+other places are listed under it, each showing the street on one line and the town and postcode
+underneath. Press the one you want and the pin goes there.
+
+**The row the pin is on wears a tick, and the tick follows the pin rather than your press.** It is
+not a note that you tapped a row; it is read back from where the pin actually is. So if you tap a
+row and then drag the pin, or paste a pair of coordinates, the tick moves with it and stops claiming
+a street the pin is not on. The list stays open after you press a row, so you can try one, watch the
+map move, and try another before you settle.
+
+**One match draws no list.** A single answer is not a choice, and the line under the button already
+names it, so nothing is drawn under it. This is also what keeps the card behaving exactly as it does
+today until the courier function is redeployed.
+
+**A new lookup clears the old rows first, and a lookup that finds nothing takes them away with it.**
+The previous answer is never left sitting under a new question.
+
+**Why the same free map service, and not Google.** You asked about Google's address service, and I
+read its terms before building anything. It requires the results to be shown on a Google map and it
+forbids keeping them — and this app keeps your customers' doors for good, which is exactly what the
+pin card is for. The two cannot be made to agree by any amount of code, so the answer was to ask the
+service already in use for all five of its answers instead of one. It is built from the same open
+map data, it covers Malaysia, and it needs no account, no key and no card.
+
+**The suggestions arrive when you press, and not while you type, and that is deliberate.** This is
+not the typing-ahead suggestion box you see on shop websites. A suggestion per keystroke would put
+several requests per word onto a free service that asks to be used lightly, and its own terms say
+heavy use may be throttled or refused. One press is one request — the same number of requests the
+app made before this change.
+
+**A quiet detail, put where a test can see it.** Long addresses are split into the two lines of a
+row, and how to split them is decided in the app's own rules file rather than inside the card, so
+the split that cannot be got wrong is the one that gets tested. The honest limit: an address from
+the second service can read as a bare house number on the top line, with the street underneath. The
+coordinates are unaffected, and the list is a correction rather than the thing that places the pin.
+
+**Ten faults put back, all ten caught.** The faults included pressing a row and the pin landing on
+the first match anyway, a single match drawing a list of one, and the old rows being left behind
+under a new lookup. Every file was restored byte-identically and proved by sha256 rather than by
+counting lines, because a one-letter difference has hidden behind a matching length here before. The
+suite is 1658 passing with none failing.
+
+**This one needs the courier function redeployed.** The list is assembled on your server, so pushing
+the app's files is not enough by itself — the deploy step is what puts it live, and until then the
+card behaves exactly as it does today. One redeploy settles this and the v196 lookup fix together.
+After that, close and reopen the app on your phone.
+
+**No database step.** Nothing stored is added, changed or moved.
 
 **25 Sep 2026 — engine v197, THE CUSTOMER CAN PIN THEIR OWN DOOR (no database step). Your customer,
 on the shop page, can now drop a pin on the door the courier should stop at, and you are offered it

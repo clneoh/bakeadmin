@@ -47,7 +47,7 @@ const {
   cities, llmRequest,
 } = await import("../supabase/functions/courier/providers/lalamove.ts");
 const { validPoint } = await import("../supabase/functions/courier/place.ts");
-const { placeFromResults, placeFromPhoton, geocodeAddress } = await import("../supabase/functions/courier/geocode.ts");
+const { placesFromResults, placesFromPhoton, geocodeAddress } = await import("../supabase/functions/courier/geocode.ts");
 const {
   lalamove, QUOTE_VALID_MS, serviceLabel, sortServices, normaliseVehicles,
   normaliseQuote, normaliseQuotes, distanceKmOf, statusLabel,
@@ -418,26 +418,88 @@ test("a network that does not answer is said plainly, and never thrown at the po
 // ── the geocoder's reply, read once, in one place ─────────────────────────
 
 test("Nominatim's lon is read into the app's lng", () => {
-  const place = placeFromResults([{ lat: "5.4141", lon: "100.3288", display_name: "12, Jalan Bunga, Penang" }]);
-  assert.deepEqual(place, { lat: 5.4141, lng: 100.3288, label: "12, Jalan Bunga, Penang" });
+  const places = placesFromResults([{ lat: "5.4141", lon: "100.3288", display_name: "12, Jalan Bunga, Penang" }]);
+  assert.deepEqual(places, [{ lat: 5.4141, lng: 100.3288, label: "12, Jalan Bunga, Penang" }]);
 });
 
 test("a geocode reply with no point in it is a miss, not an equator", () => {
   // The same trap, at the boundary where a miss is a normal answer: a result row whose
   // coordinates came back null must NOT become 0,0 — a real point in the Gulf of
   // Guinea, a hundred degrees from Penang, and a driver sent there.
-  assert.equal(placeFromResults([]), null);
-  assert.equal(placeFromResults(null), null);
-  assert.equal(placeFromResults([{}]), null);
-  assert.equal(placeFromResults([{ lat: null, lon: null, display_name: "Nowhere" }]), null);
-  assert.equal(placeFromResults([{ lat: "5.4" }]), null, "half a point is not a point");
-  assert.equal(placeFromResults([{ lon: "100.3" }]), null);
-  assert.equal(placeFromResults([{ lat: "north", lon: "east" }]), null);
+  assert.deepEqual(placesFromResults([]), []);
+  assert.deepEqual(placesFromResults(null), []);
+  assert.deepEqual(placesFromResults([{}]), []);
+  assert.deepEqual(placesFromResults([{ lat: null, lon: null, display_name: "Nowhere" }]), []);
+  assert.deepEqual(placesFromResults([{ lat: "5.4" }]), [], "half a point is not a point");
+  assert.deepEqual(placesFromResults([{ lon: "100.3" }]), []);
+  assert.deepEqual(placesFromResults([{ lat: "north", lon: "east" }]), []);
 });
 
-test("the first result is the one that is kept, and a missing label is an empty string", () => {
-  const place = placeFromResults([{ lat: "5.4", lon: "100.3" }, { lat: "1", lon: "1", display_name: "Second" }]);
-  assert.deepEqual(place, { lat: 5.4, lng: 100.3, label: "" });
+test("every candidate is kept, in the service's own order (v198)", () => {
+  // What this test replaced: "the first result is the one that is kept". That WAS the
+  // behaviour, and it was the whole problem — the candidates behind the first were read
+  // correctly and then thrown away, so a pin on the wrong street was hers to notice and
+  // drag. The order still matters, which is why it is asserted: index 0 is what the quote
+  // card and the delivery run act on, so it has to stay the service's own first choice.
+  const places = placesFromResults([
+    { lat: "5.4", lon: "100.3" },
+    { lat: "1", lon: "1", display_name: "Second" },
+    { lat: "2", lon: "2", display_name: "Third" },
+  ]);
+  assert.deepEqual(places, [
+    { lat: 5.4, lng: 100.3, label: "" },
+    { lat: 1, lng: 1, label: "Second" },
+    { lat: 2, lng: 2, label: "Third" },
+  ], "a missing label is still an empty string, not the string 'null'");
+  // A row that points nowhere no longer ends the read. The row under it may be her door,
+  // and stopping at a broken one would throw the right answer away for nothing.
+  assert.deepEqual(
+    placesFromResults([{ lat: null, lon: null }, { lat: "5.4", lon: "100.3", display_name: "The real one" }]),
+    [{ lat: 5.4, lng: 100.3, label: "The real one" }]);
+});
+
+test("the list stops at five, however many the service sends (v198)", () => {
+  // Five is the promise the app makes her about how long a list she has to read, and it
+  // is enforced here rather than trusted to the query string. The cap is applied to the
+  // candidates that SURVIVE the readers, so a reply of fifty rows of which two are
+  // Malaysian is a list of two.
+  const many = Array.from({ length: 9 }, (_, i) => ({ lat: String(5 + i / 100), lon: "100.3", display_name: `Row ${i}` }));
+  const kept = placesFromResults(many);
+  assert.equal(kept.length, 5);
+  assert.equal(kept[4].label, "Row 4", "the first five in order, not five from anywhere in the list");
+
+  const features = Array.from({ length: 9 }, (_, i) => ({
+    properties: { countrycode: "MY", name: `Row ${i}` }, geometry: { coordinates: [100.3, 5.4 + i / 100] },
+  }));
+  assert.equal(placesFromPhoton({ features }).length, 5);
+
+  // Nine replies, one of them Malaysian, is a list of one — the cap never invents rows.
+  const mostlyForeign = Array.from({ length: 8 }, () => ({
+    properties: { countrycode: "SG", name: "Not ours" }, geometry: { coordinates: [103.8, 1.28] },
+  })).concat([{ properties: { countrycode: "MY", name: "Ours" }, geometry: { coordinates: [100.3, 5.4] } }]);
+  assert.deepEqual(placesFromPhoton({ features: mostlyForeign }), [{ lat: 5.4, lng: 100.3, label: "Ours" }]);
+});
+
+test("the same door offered twice is offered once (v198)", async () => {
+  // Photon really does this: one house written with and without its street name is two
+  // rows to the service and one door to her, and a list she has to read should not spend
+  // two of its five rows on one answer. Only the LABELS are compared, and an empty one is
+  // never collapsed — every candidate with nothing to say has the same nothing, which is
+  // no evidence at all that they are the same place.
+  const s = stubFetch(jsonReply({ features: [
+    { properties: { countrycode: "MY", name: "Chulia Street", city: "George Town" }, geometry: { coordinates: [100.3, 5.4] } },
+    { properties: { countrycode: "MY", name: "Chulia Street", city: "George Town" }, geometry: { coordinates: [100.31, 5.41] } },
+    { properties: { countrycode: "MY", name: "CHULIA STREET", city: "George Town" }, geometry: { coordinates: [100.32, 5.42] } },
+    { properties: { countrycode: "MY" }, geometry: { coordinates: [100.4, 5.5] } },
+    { properties: { countrycode: "MY" }, geometry: { coordinates: [100.5, 5.6] } },
+  ] }));
+  try {
+    const out = await geocodeAddress("Chulia Street, George Town");
+    assert.equal(out.ok, true);
+    assert.deepEqual(out.places.map((p) => p.label), ["Chulia Street, George Town", "", ""],
+      "case is not a different door, and two blank labels are not one door");
+    assert.deepEqual(out.place, out.places[0], "the single answer is the first of the list, always");
+  } finally { s.restore(); }
 });
 
 // ── the second service, and the order the two are asked in (v196) ─────────
@@ -461,9 +523,9 @@ test("Photon's point is read longitude-first, into the app's lat and lng the rig
       geometry: { type: "Point", coordinates: [100.3352289, 5.4188221] },
     }],
   };
-  assert.deepEqual(placeFromPhoton(reply), {
+  assert.deepEqual(placesFromPhoton(reply), [{
     lat: 5.4188221, lng: 100.3352289, label: "Chulia Street, George Town, 10200",
-  });
+  }]);
 });
 
 test("a result from another country is skipped, and the Malaysian one behind it is taken (v196)", () => {
@@ -476,30 +538,41 @@ test("a result from another country is skipped, and the Malaysian one behind it 
       { properties: { countrycode: "MY", name: "Lebuh Chulia" }, geometry: { coordinates: [100.3352, 5.4188] } },
     ],
   };
-  assert.equal(placeFromPhoton(reply).label, "Lebuh Chulia");
-  assert.equal(placeFromPhoton(reply).lat, 5.4188);
+  assert.deepEqual(placesFromPhoton(reply), [{ lat: 5.4188, lng: 100.3352, label: "Lebuh Chulia" }]);
   // A country said in lower case is the same country.
   const lower = { features: [{ properties: { countrycode: "my", name: "X" }, geometry: { coordinates: [100.3, 5.4] } }] };
-  assert.equal(placeFromPhoton(lower).label, "X");
+  assert.deepEqual(placesFromPhoton(lower), [{ lat: 5.4, lng: 100.3, label: "X" }]);
+  // And the filter is per FEATURE, not a rule about which one comes first: a foreign
+  // result in the middle of the list is dropped without taking its neighbours with it.
+  const mixed = { features: [
+    { properties: { countrycode: "MY", name: "First" }, geometry: { coordinates: [100.3, 5.4] } },
+    { properties: { countrycode: "SG", name: "Not ours" }, geometry: { coordinates: [103.8, 1.28] } },
+    { properties: { countrycode: "MY", name: "Third" }, geometry: { coordinates: [100.4, 5.5] } },
+  ] };
+  assert.deepEqual(placesFromPhoton(mixed).map((p) => p.label), ["First", "Third"]);
 });
 
 test("a Photon reply that points nowhere is a miss, not an equator (v196)", () => {
   const MY = (coords) => ({ properties: { countrycode: "MY", name: "X" }, geometry: { coordinates: coords } });
-  assert.equal(placeFromPhoton(null), null);
-  assert.equal(placeFromPhoton({}), null);
-  assert.equal(placeFromPhoton({ features: [] }), null);
-  assert.equal(placeFromPhoton({ features: [{ properties: { countrycode: "MY" } }] }), null, "a feature with no geometry at all");
-  assert.equal(placeFromPhoton({ features: [MY([])] }), null);
-  assert.equal(placeFromPhoton({ features: [MY([100.3])] }), null, "half a point is not a point");
-  assert.equal(placeFromPhoton({ features: [MY([100.3, null])] }), null);
-  assert.equal(placeFromPhoton({ features: [MY(["east", "north"])] }), null);
-  assert.equal(placeFromPhoton({ features: [{ properties: {}, geometry: { coordinates: [100.3, 5.4] } }] }), null,
+  assert.deepEqual(placesFromPhoton(null), []);
+  assert.deepEqual(placesFromPhoton({}), []);
+  assert.deepEqual(placesFromPhoton({ features: [] }), []);
+  assert.deepEqual(placesFromPhoton({ features: [{ properties: { countrycode: "MY" } }] }), [], "a feature with no geometry at all");
+  assert.deepEqual(placesFromPhoton({ features: [MY([])] }), []);
+  assert.deepEqual(placesFromPhoton({ features: [MY([100.3])] }), [], "half a point is not a point");
+  assert.deepEqual(placesFromPhoton({ features: [MY([100.3, null])] }), []);
+  assert.deepEqual(placesFromPhoton({ features: [MY(["east", "north"])] }), []);
+  assert.deepEqual(placesFromPhoton({ features: [{ properties: {}, geometry: { coordinates: [100.3, 5.4] } }] }), [],
     "no country is not a Malaysian answer");
-  assert.equal(placeFromPhoton({ features: [{ properties: { countrycode: "TH" }, geometry: { coordinates: [100.3, 5.4] } }] }), null);
+  assert.deepEqual(placesFromPhoton({ features: [{ properties: { countrycode: "TH" }, geometry: { coordinates: [100.3, 5.4] } }] }), []);
+  // A feature that points nowhere no longer ends the read, for the same reason a foreign
+  // one does not: the next feature down may be the right door.
+  assert.deepEqual(placesFromPhoton({ features: [MY(["north", "east"]), MY([100.3, 5.4])] }),
+    [{ lat: 5.4, lng: 100.3, label: "X" }]);
 });
 
 test("the pin wears the parts of a Photon answer that are there, and no empty commas (v196)", () => {
-  const label = (p) => placeFromPhoton({ features: [{ properties: p, geometry: { coordinates: [100.3, 5.4] } }] }).label;
+  const label = (p) => placesFromPhoton({ features: [{ properties: p, geometry: { coordinates: [100.3, 5.4] } }] })[0].label;
   assert.equal(label({ countrycode: "MY", name: "Only A Name" }), "Only A Name");
   assert.equal(label({ countrycode: "MY", name: "Road", postcode: "10200" }), "Road, 10200", "a missing town leaves no gap");
   assert.equal(label({ countrycode: "MY", district: "Timur Laut", name: "Road" }), "Road, Timur Laut", "district stands in for a missing city");

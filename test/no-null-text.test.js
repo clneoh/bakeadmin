@@ -436,3 +436,166 @@ test("the pickup-pin card draws its controls even when no map can load (v195)", 
   assert.deepEqual(strayObjects(body), [], "no element printed as '[object …]'");
   close();
 });
+
+// ── the matches the lookup used to throw away (v198) ──────────────────────
+//
+// The geocoder sends several candidates and this card used to be handed one of them —
+// the first — so a pin on the wrong street was hers to notice and drag. The rows below
+// are the other candidates, offered. Two things are load-bearing and both are asserted
+// on the DRAWN page rather than on the code: that a row press moves the pin to THAT
+// candidate and not to the first, and that the rows are real elements rather than the
+// stringified array v195 shipped on this same card.
+
+// The lookup's own reply, and the shape of it is the point: `place` is the first of
+// `places`, because the quote card and the delivery run still take one answer and have
+// no list to choose from.
+const THREE_MATCHES = {
+  ok: true,
+  place: { lat: 5.4, lng: 100.3, label: "Jalan Bunga, George Town, 10450" },
+  places: [
+    { lat: 5.4, lng: 100.3, label: "Jalan Bunga, George Town, 10450" },
+    { lat: 5.41, lng: 100.31, label: "Jalan Bunga, Butterworth, 12000" },
+    { lat: 5.42, lng: 100.32, label: "Jalan Bunga Raya, Bayan Lepas, 11900" },
+  ],
+};
+
+function stubGeocode(reply) {
+  const real = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    asked.push(JSON.parse(opts.body || "{}").action);
+    const body = reply;
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  return { asked, restore() { globalThis.fetch = real; } };
+}
+
+const signIn = () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+};
+
+// The rows off the drawn card. Re-read after every press, because the panel repaints
+// itself and the nodes it was showing are then orphans — asserting against the first
+// read would be asserting against a tree nobody is looking at.
+const matchRows = (body) => all(body).filter((n) => String(n.className).includes("sugg-row"));
+const rowLine = (row, i) => {
+  const main = row.children[0];
+  const line = main && main.children[i];
+  return line ? line.textContent : "";
+};
+
+test("the lookup's other matches are offered, and pressing one moves the pin to THAT one (v198)", async () => {
+  signIn();
+  const s = stubGeocode(THREE_MATCHES);
+  let close = null;
+  let stray = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: "12 Jalan Bunga", onPick: () => {} });
+    // The map loader's failure lands on a microtask — see the head shim above. This card
+    // is the offline one on purpose: the chooser must work with no map at all.
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.deepEqual(s.asked, ["geocode"], "one press is one lookup");
+    assert.equal(matchRows(body).length, 3, "three matches, three rows");
+    assert.deepEqual(matchRows(body).map((r) => rowLine(r, 0)), ["✓ Jalan Bunga", "Jalan Bunga", "Jalan Bunga Raya"],
+      "each row leads with what the place is — and the pin is on the first match, so the first row is the ticked one");
+    assert.deepEqual(matchRows(body).map((r) => rowLine(r, 1)),
+      ["George Town, 10450", "Butterworth, 12000", "Bayan Lepas, 11900"],
+      "with where it is on the second line, cut from the geocoder's own label");
+    assert.match(body.textContent, /and 2 more below/,
+      "the line under the button says the list is there, so it cannot be missed");
+
+    // THE ASSERTION THIS TEST EXISTS FOR. The third row, so an app that quietly kept the
+    // first match — which is what this card did before v198 — cannot pass by accident.
+    matchRows(body)[2]._listeners.click[0]();
+    assert.match(body.textContent, /Pinned at 5\.42000, 100\.32000/, "the pin is on the third match");
+    assert.doesNotMatch(body.textContent, /Pinned at 5\.40000, 100\.30000/, "and NOT still on the first one");
+    assert.match(body.textContent, /Found: Jalan Bunga Raya, Bayan Lepas, 11900/, "the line agrees with the pin");
+
+    // The tick follows the pin, and it is re-derived rather than remembered: the rows
+    // below are fresh nodes, made by the repaint the pin's own move triggered.
+    assert.deepEqual(matchRows(body).map((r) => rowLine(r, 0)), ["Jalan Bunga", "Jalan Bunga", "✓ Jalan Bunga Raya"],
+      "the tick moved with the pin and left the row above it");
+    assert.equal(matchRows(body).length, 3, "the list kept its rows, so she can try another without asking again");
+    stray = strayObjects(body);
+  } finally {
+    if (close) close();
+    s.restore();
+  }
+  assert.deepEqual(stray, [], "no element printed as '[object …]' — the fault v195 shipped on this very card");
+});
+
+test("a lookup with one match draws no list, and still lands that match (v198)", async () => {
+  // The old server's reply, and the shape of the app on the day it is pushed but the
+  // courier function has not been redeployed — `place` and nothing else. A single
+  // candidate is not a choice: the line above it already names it, and a one-row list
+  // would be a control with nothing to choose between.
+  signIn();
+  const s = stubGeocode({ ok: true, place: { lat: 5.4, lng: 100.3, label: "12 Jalan Bunga" } });
+  let close = null;
+  let stray = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: "12 Jalan Bunga", onPick: () => {} });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.equal(matchRows(body).length, 0, "one match is not a list");
+    assert.match(body.textContent, /Found: 12 Jalan Bunga/, "and it is still named");
+    assert.match(body.textContent, /Pinned at 5\.40000, 100\.30000/, "and still lands on the map, exactly as before");
+    stray = strayObjects(body);
+  } finally {
+    if (close) close();
+    s.restore();
+  }
+  assert.deepEqual(stray, []);
+});
+
+test("a second lookup that finds nothing takes the first one's matches off the card with it (v198)", async () => {
+  // The failure path is the one that proves the panel is emptied BEFORE the ask rather
+  // than after it. A lookup that succeeds repaints the list anyway, so it would hide a
+  // missing clear; a lookup that MISSES paints nothing at all, and returns early. Without
+  // the clear, "That address was not found" would be drawn with three cheerful matches
+  // sitting under it — the card contradicting itself, which is worse than either sentence
+  // alone. One press too many to remember to guard is why the clear is at the top.
+  signIn();
+  let call = 0;
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => {
+    call++;
+    const body = call === 1
+      ? THREE_MATCHES
+      : { ok: false, reason: "That address was not found. Put the pin on the map instead." };
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  let close = null;
+  let stray = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: "12 Jalan Bunga", onPick: () => {} });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    const find = () => buttonByText(body, "Look it up")._listeners.click[0]();
+    find();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.equal(matchRows(body).length, 3, "three the first time");
+
+    find();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.match(body.textContent, /was not found/, "the miss is said");
+    assert.equal(matchRows(body).length, 0, "and the first lookup's matches went with it");
+    assert.doesNotMatch(body.textContent, /and 2 more below/, "the old count went too, rather than counting rows that are gone");
+    stray = strayObjects(body);
+  } finally {
+    if (close) close();
+    globalThis.fetch = real;
+  }
+  assert.deepEqual(stray, []);
+});

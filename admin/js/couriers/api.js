@@ -98,21 +98,45 @@ export async function callCourier(state, { action, provider = "", payload = {}, 
 }
 
 // Turn a typed address into a point, on the server. Returns
-// { ok: true, place: { lat, lng, label } } or { ok: false, reason }.
+// { ok: true, place: {lat,lng,label}, places: [{lat,lng,label}, ...] } or
+// { ok: false, reason }.
 //
 // A miss is a normal answer, not an error: a one-line address in a Malaysian
 // housing estate may simply not be in OpenStreetMap, and the caller's job then is to
 // offer the map rather than to apologise.
+//
+// AND THE SERVER MAY OFFER SEVERAL MATCHES (v198). It used to send one and this
+// function used to keep it; both ends carried a list past each other now. The list is
+// the pin card's chooser — see place_map.js — and `place` stays exactly what it always
+// was, the first of them, because the quote card and the delivery run want one answer
+// and not a choice.
 export async function geocodeAddress(state, address, { timeoutMs = 15000 } = {}) {
   const text = String(address || "").trim();
   if (!text) return { ok: false, reason: "There is no address to look up." };
   const out = await callCourier(state, { action: "geocode", payload: { address: text }, timeoutMs });
   if (!out.ok) return out;
-  const place = validPlace(out.place);
-  if (!place) {
-    return { ok: false, reason: "That address could not be found — put the pin on the map instead." };
-  }
+
   // The words she typed stand in for the geocoder's own label when it did not send
-  // one: an address she recognises beats a set of numbers on a screen.
-  return { ok: true, place: { lat: place.lat, lng: place.lng, label: place.label || text } };
+  // one: an address she recognises beats a set of numbers on a screen. Every candidate
+  // is named this way, or one row of the list would read as a pair of numbers while the
+  // rest read as addresses. Junk is dropped here rather than drawn — a candidate that
+  // is not a place must never become a row she can press.
+  const named = (p) => {
+    const v = validPlace(p);
+    return v ? { lat: v.lat, lng: v.lng, label: v.label || text } : null;
+  };
+  const list = (Array.isArray(out.places) ? out.places : []).map(named).filter(Boolean);
+
+  // THE OLD SERVER'S REPLY, AND THIS IS DELIBERATE. The app reaches her phone the day
+  // she pushes it, and the function only changes when she redeploys — so for as long as
+  // that gap lasts the reply carries `place` and nothing else. Carrying that one answer
+  // in as a list of one draws no chooser (a single candidate is not worth a list), which
+  // is today's behaviour exactly, rather than an empty panel and a screen that reads as
+  // broken the first time she tries it.
+  if (!list.length) {
+    const only = named(out.place);
+    if (!only) return { ok: false, reason: "That address could not be found — put the pin on the map instead." };
+    list.push(only);
+  }
+  return { ok: true, place: list[0], places: list };
 }

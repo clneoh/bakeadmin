@@ -32,6 +32,12 @@
 // already in the queue. The first service that answers with a place wins, so in
 // normal use only ONE of them ever sees an address.
 //
+// AND AN ANSWER IS A LIST, NOT A POINT (v198). Both services reply with several
+// candidates and this file used to keep only the first, so four good matches died in
+// here on every lookup and she had to notice the pin was wrong and drag it. They are
+// all carried back now and the app offers them to her — MAX_PLACES below is how many,
+// and admin/js/place_map.js is the list she actually reads.
+//
 // A MISS IS A NORMAL ANSWER. A house in a new Penang estate may simply not be in
 // OpenStreetMap, and when it is not, the honest reply is "put the pin on the map
 // instead" — which is exactly what she chose. It is never an error she has to
@@ -52,19 +58,37 @@ const USER_AGENT = "Jienluv2bake-Courier/1.0 (+https://jienluv2bake.com.my)";
 // query, and Photon's replies are filtered on the way in (see below).
 const COUNTRY = "MY";
 
-// Read Nominatim's reply into one place, or null. Exported so the parsing is Node-tested
-// without a network: a reply read wrongly here is a pin in the wrong state shown to
-// her as a fact.
-export function placeFromResults(data: unknown): { lat: number; lng: number; label: string } | null {
+// How many candidates are carried back for her to choose between. It is asked of the
+// services in their URLs and enforced again here, because it is a promise the app makes
+// about how long a list she has to read, not a property of any one service's reply.
+const MAX_PLACES = 5;
+
+// One candidate door. The same three fields a saved door has, so a candidate can be
+// handed to the app's own validPlace and then to setDropPlace with nothing in between
+// knowing it came from a geocoder.
+type Place = { lat: number; lng: number; label: string };
+
+// Read Nominatim's reply into every place it offers, in the order it offered them.
+// Exported so the parsing is Node-tested without a network: a reply read wrongly here
+// is a pin in the wrong state shown to her as a fact.
+export function placesFromResults(data: unknown): Place[] {
   const list = Array.isArray(data) ? data : [];
-  const first = list.find((r) => r && typeof r === "object") as Record<string, unknown> | undefined;
-  if (!first) return null;
-  // Nominatim spells longitude `lon`; the app spells it `lng`. Both are read, and
-  // whichever is there goes through the same rule as everywhere else — see place.ts
-  // for why `Number(first.lat)` on its own is not good enough.
-  const spot = validPoint({ lat: first.lat, lng: first.lon != null ? first.lon : first.lng });
-  if (!spot) return null;
-  return { lat: spot.lat, lng: spot.lng, label: String(first.display_name || "").trim() };
+  const out: Place[] = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    // Nominatim spells longitude `lon`; the app spells it `lng`. Both are read, and
+    // whichever is there goes through the same rule as everywhere else — see place.ts
+    // for why `Number(r.lat)` on its own is not good enough.
+    const spot = validPoint({ lat: r.lat, lng: r.lon != null ? r.lon : r.lng });
+    // A row with no usable point is skipped rather than ending the read, which is what
+    // Photon's reader has always done: the next row down the list may be the right
+    // house, and stopping at a broken one would throw it away for nothing.
+    if (!spot) continue;
+    out.push({ lat: spot.lat, lng: spot.lng, label: String(r.display_name || "").trim() });
+    if (out.length >= MAX_PLACES) break;
+  }
+  return out;
 }
 
 // The words a Photon result wears on the pin. It sends no ready-made label the way
@@ -77,16 +101,17 @@ function photonLabel(p: Record<string, unknown>): string {
     .join(", ");
 }
 
-// Read Photon's reply into one place, or null. Exported for the same reason as the
-// reader above, and it needs the tests more: Photon answers with GeoJSON, whose
-// coordinates are LONGITUDE FIRST — the opposite order to every other point in this
-// app. A reader that took them in the order they are written would put her customer
-// in the Indian Ocean and show the numbers as a fact, so the swap happens here, once,
-// where a test can see it.
-export function placeFromPhoton(data: unknown): { lat: number; lng: number; label: string } | null {
+// Read Photon's reply into every place it offers, in the order it offered them.
+// Exported for the same reason as the reader above, and it needs the tests more:
+// Photon answers with GeoJSON, whose coordinates are LONGITUDE FIRST — the opposite
+// order to every other point in this app. A reader that took them in the order they
+// are written would put her customer in the Indian Ocean and show the numbers as a
+// fact, so the swap happens here, once, where a test can see it.
+export function placesFromPhoton(data: unknown): Place[] {
   const features = (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).features))
     ? (data as Record<string, unknown>).features as unknown[]
     : [];
+  const out: Place[] = [];
   for (const raw of features) {
     if (!raw || typeof raw !== "object") continue;
     const f = raw as Record<string, unknown>;
@@ -101,9 +126,10 @@ export function placeFromPhoton(data: unknown): { lat: number; lng: number; labe
     const coords = Array.isArray(geom.coordinates) ? geom.coordinates : [];
     const spot = validPoint({ lat: coords[1], lng: coords[0] });
     if (!spot) continue;
-    return { lat: spot.lat, lng: spot.lng, label: photonLabel(p) };
+    out.push({ lat: spot.lat, lng: spot.lng, label: photonLabel(p) });
+    if (out.length >= MAX_PLACES) break;
   }
-  return null;
+  return out;
 }
 
 // One ask, and what came back. Three outcomes are told apart because the words she
@@ -114,12 +140,12 @@ type AskOutcome = {
   replied?: boolean;
   status?: number;
   aborted?: boolean;
-  place?: { lat: number; lng: number; label: string } | null;
+  places?: Place[];
 };
 
 async function ask(
   service: { name: string; url: (q: string) => string; headers: Record<string, string>;
-             read: (data: unknown) => { lat: number; lng: number; label: string } | null },
+             read: (data: unknown) => Place[] },
   q: string,
   timeoutMs: number,
 ): Promise<AskOutcome> {
@@ -132,12 +158,15 @@ async function ask(
       return { status: res.status };
     }
     const data = await res.json().catch(() => null);
-    const place = service.read(data);
-    // Which service did the work, said out loud. One line per lookup, and it is the
-    // only way to tell from the log whether the first ask or the second one is the
-    // one earning its place.
-    if (place) console.log(`[courier] ${service.name} found the address`);
-    return { replied: true, place };
+    const places = service.read(data);
+    // Which service did the work, and how much of it there was, said out loud. One
+    // line per lookup, and it is the only way to tell from the log whether the first
+    // ask or the second one is the one earning its place — and whether either of them
+    // is handing back a list too short to be worth choosing from.
+    if (places.length) {
+      console.log(`[courier] ${service.name} found ${places.length} candidate${places.length === 1 ? "" : "s"}`);
+    }
+    return { replied: true, places };
   } catch (err) {
     console.error(`[courier] ${service.name} failed:`, (err as Error)?.message || err);
     return { aborted: (err as Error)?.name === "AbortError" };
@@ -149,22 +178,51 @@ async function ask(
 const SERVICES = [
   {
     name: "photon",
-    url: (q: string) => `${PHOTON}?q=${encodeURIComponent(q)}&limit=5&lang=en`,
+    url: (q: string) => `${PHOTON}?q=${encodeURIComponent(q)}&limit=${MAX_PLACES}&lang=en`,
     headers: { "Accept-Language": "en" },
-    read: placeFromPhoton,
+    read: placesFromPhoton,
   },
   {
     name: "nominatim",
-    url: (q: string) => `${NOMINATIM}?format=jsonv2&limit=1&countrycodes=my&addressdetails=0&q=${encodeURIComponent(q)}`,
+    // Asked for as many as Photon is. The request count is identical either way — one
+    // press, one ask — so this costs nothing and means the second service, which only
+    // runs when the first one is down, still offers her a choice rather than a single
+    // take-it-or-leave-it point. This is not the autocomplete Nominatim's policy turns
+    // away: nothing is sent until she presses the button, and it carries a full address.
+    url: (q: string) => `${NOMINATIM}?format=jsonv2&limit=${MAX_PLACES}&countrycodes=my&addressdetails=0&q=${encodeURIComponent(q)}`,
     headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" },
-    read: placeFromResults,
+    read: placesFromResults,
   },
 ];
+
+// The same door offered twice, collapsed to once. A list she has to read should not
+// spend two of its five rows on one answer, and it happens for a real reason: a house
+// written with and without its street name is two rows to the service and one door to
+// her. The label is the ONLY thing compared, and an empty one is never collapsed —
+// every candidate with no label has the same words, which says nothing about whether
+// they are the same place. Two genuinely different doors wearing identical words are a
+// problem no comparison can solve, and the map is one tap away.
+//
+// This can only SHORTEN a list, never lengthen one: MAX_PLACES is enforced by the two
+// readers as they collect, so a cap here would be a guard that can never fire.
+function dedupe(places: Place[]): Place[] {
+  const seen = new Set<string>();
+  const out: Place[] = [];
+  for (const p of places) {
+    const key = String(p.label || "").trim().toLowerCase();
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(p);
+  }
+  return out;
+}
 
 export async function geocodeAddress(
   address: string,
   { timeoutMs = 5000 } = {},
-): Promise<{ ok: boolean; place?: { lat: number; lng: number; label: string }; reason?: string }> {
+): Promise<{ ok: boolean; place?: Place; places?: Place[]; reason?: string }> {
   const q = String(address || "").trim();
   if (!q) return { ok: false, reason: "There is no address to look up." };
 
@@ -180,7 +238,12 @@ export async function geocodeAddress(
 
   for (const service of SERVICES) {
     const out = await ask(service, q, timeoutMs);
-    if (out.place) return { ok: true, place: out.place };
+    const places = dedupe(out.places || []);
+    // `place` is kept beside the list because two of the three callers want one answer
+    // and not a choice: the quote card is asking what a trip costs, and the delivery
+    // run is placing every unplaced customer in a loop that cannot ask a question per
+    // address. It is always the first of the list, so the two can never disagree.
+    if (places.length) return { ok: true, place: places[0], places };
     if (out.replied) missed = true;
     else if (out.status != null) refused = true;
     else if (out.aborted) timedOut = true;

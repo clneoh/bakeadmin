@@ -201,6 +201,29 @@ export function fmtPlace(place, fallback = "not pinned yet") {
   return p.label || `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
 }
 
+// A geocoder's label cut into the two lines a row of the chooser wears: what the place
+// IS on the first line, and where it is on the second.
+//
+// The cut is at the FIRST comma, and that is the whole rule. It is exact for Photon,
+// which composes its labels here (see photonLabel in the courier function) as
+// name, town, postcode — so "Chulia Street" and then "George Town, 10200". It is only
+// passable for Nominatim, whose display_name puts whatever is most specific first,
+// which for a street address is often the house number: "12" and then "Jalan Bunga,
+// Taman Foo, 10450 George Town, Penang, Malaysia". That reads poorly and it is left
+// that way on purpose. Nominatim only answers when Photon is down, and the fix would be
+// to stop storing its display_name — which is the label already saved on customers she
+// has pinned, so the cure would rewrite her own records to tidy a fallback.
+//
+// A label with no comma is ALL title and no sub, and a row with no sub is a row with one
+// line. That is not a failure case: it is a village, a landmark, a condominium block —
+// and inventing a second line for it would be inventing words the geocoder never said.
+export function splitLabel(label) {
+  const text = String(label == null ? "" : label).trim();
+  const at = text.indexOf(",");
+  if (at < 0) return { title: text, sub: "" };
+  return { title: text.slice(0, at).trim(), sub: text.slice(at + 1).trim() };
+}
+
 // Numbers she pasted, from anywhere she copied them. Four shapes, in the order that
 // matters — the two Google Maps URL forms are tried before the bare pair, because a
 // URL can contain a bare pair and the other way round is a wrong answer rather than

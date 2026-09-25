@@ -27,7 +27,7 @@ import assert from "node:assert/strict";
 
 const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
-  setDropPlace, setPickupPlace, latLngText, fmtPlace, parseCoords, placeProblem,
+  setDropPlace, setPickupPlace, latLngText, fmtPlace, splitLabel, parseCoords, placeProblem,
   customerPlaceOf, customerPinOffer,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
@@ -343,4 +343,44 @@ test("a pin nudged a few metres is the same door, and stops being offered", () =
   // A different house down the road is not the same door.
   setDropPlace(s, pinned, { lat: 5.4202, lng: 100.33 });
   assert.ok(customerPinOffer(s, pinned));
+});
+
+// ── the two lines a match wears in the chooser (v198) ─────────────────────
+//
+// The lookup offers several matches now, so each one is a row with a name on its first
+// line and a place on its second. The cut is the first comma and nothing cleverer, which
+// is exact for Photon — whose labels are composed "name, town, postcode" by the courier
+// function — and only passable for Nominatim, whose labels lead with whatever is most
+// specific, often a house number. That is left alone on purpose; see splitLabel.
+
+test("a label is cut at its first comma, into what the place is and where it is", () => {
+  assert.deepEqual(splitLabel("Chulia Street, George Town, 10200"),
+    { title: "Chulia Street", sub: "George Town, 10200" });
+  assert.deepEqual(splitLabel("Road, 10200"), { title: "Road", sub: "10200" });
+  assert.deepEqual(splitLabel("Chulia Street"), { title: "Chulia Street", sub: "" });
+});
+
+test("a Nominatim label reads poorly and is still cut in one piece, never in two halves", () => {
+  // The honest shape of the fallback: Nominatim's display_name puts the house number
+  // first, so the title of this row is "12". Ugly, and correct — the alternative is to
+  // stop storing display_name, which is the label already saved on customers she has
+  // pinned, so tidying a fallback would rewrite her own records.
+  assert.deepEqual(splitLabel("12, Jalan Bunga, Taman Foo, 10450 George Town, Penang, Malaysia"),
+    { title: "12", sub: "Jalan Bunga, Taman Foo, 10450 George Town, Penang, Malaysia" });
+});
+
+test("a label with nothing in it is two empty lines, not the word null and not NaN", () => {
+  // The chooser draws what this returns, and this app has shipped a printed "null" to
+  // her screen before. An absent label must come back as absence.
+  assert.deepEqual(splitLabel(""), { title: "", sub: "" });
+  assert.deepEqual(splitLabel("   "), { title: "", sub: "" });
+  assert.deepEqual(splitLabel(null), { title: "", sub: "" });
+  assert.deepEqual(splitLabel(undefined), { title: "", sub: "" });
+  assert.deepEqual(splitLabel(0), { title: "0", sub: "" }, "a number is a name she can read, not a blank row");
+});
+
+test("stray spaces around the cut are trimmed, so no row starts with a gap", () => {
+  assert.deepEqual(splitLabel("  Road ,  Town  "), { title: "Road", sub: "Town" });
+  assert.deepEqual(splitLabel("Road,"), { title: "Road", sub: "" }, "a trailing comma leaves no empty second line");
+  assert.deepEqual(splitLabel(", Town"), { title: "", sub: "Town" }, "and a leading one leaves the title empty rather than throwing it away");
 });
