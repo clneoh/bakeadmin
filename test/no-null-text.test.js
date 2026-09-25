@@ -20,6 +20,16 @@
 // on the first booking this app ever made, which is the worst place for a stray
 // word to stand. It was invisible here for the same reason as the others: this
 // file simply did not render that screen yet. It does now.
+//
+// AND THE FOURTH (v195, 25 Sep 2026), which is the same fault at full size. The
+// pickup-pin card's body hands showPopup a LIST of seven elements; `replaceChildren`
+// is variadic, so the array was stringified and the card printed
+// "[object HTMLParagraphElement],[object HTMLDivElement],…" — with no button, no field
+// and no map on it, because every one of them had been thrown away. She found it on her
+// own phone the first time she tried to pin her bakery's door. It got that far for the
+// bluntest reason available: place_map.js had no test of any kind, in this file or any
+// other. Both halves are asserted below, at the primitive every card goes through and at
+// the screen she was looking at.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -66,6 +76,15 @@ function createEl(tag) {
     querySelectorAll: () => [],
     contains: () => false,
     focus() {}, click() {},
+    // The map loader tears its own node out when a third party's script will not load
+    // (`mapBox.remove()` in place_map.js), and a shim without this throws inside that
+    // catch — turning the very branch the pickup-pin test exists to reach into a crash.
+    remove() {
+      if (this.parentNode && Array.isArray(this.parentNode.children)) {
+        this.parentNode.children = this.parentNode.children.filter((x) => x !== this);
+      }
+      this.parentNode = null;
+    },
   };
   Object.defineProperty(node, "textContent", {
     get() { return this.children.map((c) => (c.nodeType === 3 ? c.text : c.textContent)).join(""); },
@@ -74,6 +93,20 @@ function createEl(tag) {
   return node;
 }
 const layers = {};
+// This suite is offline (the fetch stub below rejects), so a third party's script can
+// never load — and the pickup-pin card has to survive that. Firing the `error` a real
+// <script> fires when it cannot be fetched makes that branch reachable at once, instead
+// of after the loader's own nine-second give-up.
+const head = createEl("head");
+head.append = (...cs) => {
+  for (const c of cs) {
+    if (c == null) continue;
+    head.children.push(c);
+    if (String(c.tagName) === "SCRIPT") {
+      queueMicrotask(() => (c._listeners.error || []).forEach((f) => f({})));
+    }
+  }
+};
 const doc = {
   createElement: createEl,
   createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
@@ -83,9 +116,11 @@ const doc = {
   scrollingElement: createEl("html"),
   body: createEl("body"),
   documentElement: createEl("html"),
+  head,
 };
 globalThis.document = doc;
-globalThis.window = { open() {}, addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }) };
+globalThis.window = { open() {}, addEventListener() {}, removeEventListener() {},
+  matchMedia: () => ({ matches: false, addEventListener() {} }) };
 globalThis.history = { replaceState() {} };
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 // globalThis.navigator is getter-only in Node, so it has to be redefined.
@@ -104,6 +139,11 @@ globalThis.Date = MockDate;
 const { renderOrders } = await import("../admin/js/views/orders.js");
 const { renderSettings } = await import("../admin/js/views/settings.js");
 const { courierQuoteSection } = await import("../admin/js/views/courier_quote.js");
+// The pop-up primitive itself, and the screen that found this fault on a real phone: the
+// pickup-pin card, whose body is the one place in the app that hands showPopup a LIST of
+// nodes rather than a single one.
+const { showPopup } = await import("../admin/js/ui.js");
+const { openPlacePicker } = await import("../admin/js/place_map.js");
 
 const all = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); all(c, out); }
@@ -112,10 +152,21 @@ const all = (node, out = []) => {
 const byClass = (root, name) => all(root).find((n) => String(n.className).includes(name));
 const buttonByText = (root, text) =>
   all(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes(text));
+// The ONE card showPopup builds, as the DOM holds it: layer > card > [head, body]. Every
+// assertion below reads the card the app really drew rather than a node held in mid-air.
+const popupBody = () => layers["popup-layer"].children[0].children[1];
 
 // Every text node that would print as the word null/undefined on the screen.
 const strayNulls = (root) => all(root)
   .filter((n) => n.nodeType === 3 && (n.text === "null" || n.text === "undefined"))
+  .map((n) => n.text);
+
+// The SAME fault one step along (v195): a thing that is neither a node nor a string is
+// converted with String(), so an ARRAY handed to the variadic replaceChildren prints as
+// "[object HTMLParagraphElement],[object HTMLDivElement],…". A null is the smallest
+// version of this; a list of seven elements is the version that reached her phone.
+const strayObjects = (root) => all(root)
+  .filter((n) => n.nodeType === 3 && /\[object \w+\]/.test(n.text))
   .map((n) => n.text);
 
 // Focaccia sells every day; the Saturday loaf is marked Saturdays only, and the
@@ -276,4 +327,55 @@ test("the courier price panel prints no 'null' under its last price row", async 
     s.restore();
   }
   assert.deepEqual(stray, [], "no 'null' under the last price row");
+});
+
+// ── the pop-up primitive, and the pickup-pin card (v195) ───────────────────
+//
+// The fault at the level it was at: `body.replaceChildren(makeBody(...))` handed a
+// non-node to a variadic DOM method. Every card in the app goes through this one line,
+// so it is asserted here as well as on the screen that found it.
+
+test("a card body handed back as a LIST is drawn, not printed (v195)", () => {
+  showPopup("A card", () => [createEl("p"), createEl("div"), createEl("p")]);
+
+  const body = popupBody();
+  assert.equal(body.children.length, 3, "three elements drawn, not one stringified array");
+  assert.deepEqual(body.children.map((c) => c.tagName), ["P", "DIV", "P"], "the elements themselves");
+  assert.deepEqual(strayObjects(body), [], "and nothing printed as '[object …]'");
+});
+
+test("a card body handed back as ONE node is still drawn exactly as before (v195)", () => {
+  // The other side of the same line, so this cannot have been fixed by making the 37
+  // cards that return a single node worse than they were.
+  showPopup("A card", () => createEl("div"));
+
+  const body = popupBody();
+  assert.equal(body.children.length, 1, "one node, one child");
+  assert.equal(body.children[0].tagName, "DIV", "and it is the node the body built");
+  assert.deepEqual(strayObjects(body), [], "with nothing printed as '[object …]'");
+});
+
+test("the pickup-pin card draws its controls even when no map can load (v195)", async () => {
+  // The screen her pin was going on, and it had no test of any kind before this — which
+  // is the whole reason a card with nothing on it reached her phone. The map cannot load
+  // in an offline suite, and that is the branch worth asserting: a picker that dead-ends
+  // because a third party is unreachable would be worse than no map at all. Every control
+  // below lives in the body, so all three are lost to the array, not just the map.
+  const close = openPlacePicker({
+    state: courierState(),
+    title: "The bakery's pickup pin",
+    address: "12 Jalan Bunga, 10450 Penang",
+    onPick: () => {},
+  });
+  // The loader's own failure lands on a microtask — see the head shim above.
+  await new Promise((r) => setTimeout(r, 0));
+
+  const body = popupBody();
+  assert.ok(buttonByText(body, "Look it up"), "the address lookup is on the card");
+  assert.ok(buttonByText(body, "Use these numbers"), "and the coordinates fallback");
+  assert.ok(buttonByText(body, "Use this spot"), "and the press that keeps the pin");
+  assert.match(body.textContent, /The map is not available right now/,
+    "the map's failure is said in words rather than left as a blank card");
+  assert.deepEqual(strayObjects(body), [], "no element printed as '[object …]'");
+  close();
 });

@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v194)
+# Jienluv2bake — change history (v54 → v195)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v195, THE PIN CARD DRAWS ITSELF (no database step). The screen that puts
+your bakery's door on the map was not drawing a card. It was printing the words "[object
+HTMLParagraphElement],[object HTMLDivElement],[object HTMLDivElement]..." — which is what you saw
+on your phone, and it is what the card had become. Every field, button and map it was supposed to
+hold had been built and then thrown away, so there was nothing on it to press and no way to save
+the pin. It draws now. Nothing about your day, your chart, your orders or your saved data was
+touched, and this was the same day the courier card above it began reading "Lalamove: sandbox",
+which is that connection working.**
+
+**What you saw, and what it was.** You opened Settings, pressed "Put the pickup pin on the map",
+and instead of a card you got a line of bracketed text. Those brackets are how JavaScript says
+"here is an object" when something asks it to write an object out as words. Each one was one part
+of the card that never reached the screen: a line of explanation, the box for your address, the map
+itself, the note under the map, the box for coordinates, the line reading where the pin sits, and
+the row with the press that keeps it. Seven parts, all of them lost to one line of code.
+
+**Why it happened, in one sentence.** The app builds a pop-up's contents as a list, and then hands
+that list to a browser call that only accepts bare items, not a list — so the browser turned the
+whole list into a single piece of text instead of drawing the seven things inside it. This is a
+subtle trap rather than carelessness: the helper used everywhere else in the app happily takes a
+list, so the two look as though they should behave the same, and only one of them does.
+
+**This was the only card of the thirty-eight that did it.** Every other pop-up in the app — the
+order edit, the product editor, the money journals, the day's availability — hands over one piece
+at a time, which is why none of them has ever shown you this. The pin card is the one that hands
+over a list, and it is the one that broke.
+
+**And it got that far because that screen had no test of any kind.** Not a weak test, not an
+outdated test — none. It is the newest screen in the app and it was the only one nothing checked.
+The file that keeps this class of mistake from ever reaching a screen already existed, and it
+already covered three other screens that had printed stray words at you; it simply did not know
+about this one. It does now.
+
+**Where the fix sits, and it is deliberately not the pin card.** The pin card could have been
+rewritten to hand its parts over one at a time, which would have cured the symptom and left the
+trap in place for the next card. Instead the pop-up helper itself was taught to accept a list as
+well as a single piece, so the two builders in the app now behave the same way — and a test asserts
+both halves: that a card handing over a list gets the list drawn, and that the thirty-seven cards
+handing over one piece each still draw exactly as they did.
+
+**Three faults put back, all three caught, every file restored byte-identically.** The original
+fault was reinstated, and the test that names it failed; the list-check was removed, and cards
+across the app failed, proving that guard is what keeps the other thirty-seven working; and the
+map's own failure message was silenced, and the pin card's test failed. Restoration was proved by
+sha256 of each file, not by counting lines, because a one-letter difference has hidden behind a
+matching length before. The suite is 1607 passing with none failing.
+
+**No database step.** Nothing stored is added or changed, and there is nothing to run in Supabase.
+This is a screen-drawing fault, so it is cured by the app itself being updated — push it, then
+close and reopen the app on your phone before you try the pin again.
 
 **25 Sep 2026 — engine v194, THE COURIER STOPS BLAMING THE BUILD (no database step; the courier
 function was redeployed). The sentence that appears on the Settings card when the courier cannot be

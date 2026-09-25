@@ -233,9 +233,20 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null } = {}
   // card but not for one tall enough to scroll: emptying the body drops its scroll
   // to the top, so a repaint while she is working down a long card throws her back
   // to the top of it. Keep where she was reading.
+  //
+  // AND A CARD MAY HAND BACK A LIST (v195). `replaceChildren` is VARIADIC: a single
+  // array argument is neither a node nor a string, so the DOM converts it with
+  // String() and the card draws the words "[object HTMLParagraphElement],[object
+  // HTMLDivElement],…" — every element it was handed thrown away, and no control left
+  // to press. The pickup-pin card shipped exactly that way: `openPlacePicker` returns
+  // its seven elements as a list, its card drew nothing but the text, and there was no
+  // test on that screen to catch it. `el()` next door already flattens a list of
+  // children, so the two builders agree now and the list is spread here rather than at
+  // every call site.
   const refresh = () => {
     const keepTop = body.scrollTop;
-    body.replaceChildren(makeBody(refresh, close));
+    const made = makeBody(refresh, close);
+    body.replaceChildren(...(Array.isArray(made) ? made : [made]));
     body.scrollTop = keepTop;
   };
   const titleEl = el("div", { class: "popup-title" }, title);
