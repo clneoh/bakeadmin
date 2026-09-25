@@ -24,13 +24,18 @@
 //                   is stored on the order row rather than in a table of its own,
 //                   which is what makes booking need no database step at all, and
 //                   this is the one place that reading is written down.
+//   • the RUN       — one trip carrying several doorsteps, which is the only thing
+//                   about a courier that actually saves her money. The load, the
+//                   one-trip-against-separate arithmetic, and the delivery WINDOW —
+//                   the promise a consolidated trip can honestly make, because one
+//                   vehicle arrives when it arrives and not when each customer asked.
 //
 // Everything returns plain data. Nothing here fetches, signs, draws or saves.
 
 import {
   pickupPlace, dropPlaceOf, dropAddress, validPlace, strictNumber,
 } from "./courier_place.js";
-import { waNumber } from "./state.js";
+import { waNumber, orderLineName } from "./state.js";
 
 // Malaysia has no daylight saving — one offset, all year, since 1982 — so the
 // bakery's clock is a FIXED eight hours ahead of UTC. That is why the conversion
@@ -320,6 +325,220 @@ export function liveJobProblem(orders) {
     return "This order is already on a trip. Check it below, or cancel it first — booking again would send a second vehicle to the same door.";
   }
   return `${live.length} of these orders are already on a trip. Check them below, or cancel them first — booking again would send a second vehicle to the same door.`;
+}
+
+// ── the run: one trip, several doorsteps ───────────────────────────────────
+//
+// A run is a trip with more than one stop, and the whole reason it exists is money:
+// the courier charges one base fare plus a fee for each extra stop, so eight cakes to
+// eight houses on one motorcycle is one fare plus seven stop fees against eight
+// separate fares. Her belief about consolidation was right, and this is the half of it
+// that decides what she promises, so it is pure and Node-tested.
+//
+// Two things it deliberately does NOT do, both of them named in the courier's own
+// documents rather than invented here:
+//
+//   • It does not choose the stop order. Lalamove's API accepts `isRouteOptimized` and
+//     splits `totalBeforeOptimization` from `total`, and Lalamove Malaysia's own
+//     business page says route optimisation "is yet to be available". Two documents
+//     that disagree are not a feature, so the order stays HERS and nothing here may
+//     ever claim to have found her an optimum.
+//   • It does not say what fits. There is no capacity figure in any price reply — a
+//     vehicle is priced, not measured — so the load is counted and shown beside the
+//     vehicle she picked and the judgement is hers (25 Sep 2026).
+
+// A time box, read once. The app's own pickup box already speaks "14:00", so a window
+// does too, and the reading is shared by everything below rather than written four
+// times — which is how "2:00" ends up meaning pm in one place and am in another.
+const pad2 = (n) => String(n).padStart(2, "0");
+
+function clockOf(time) {
+  const t = String(time || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!t) return null;
+  const hh = Number(t[1]);
+  const mm = Number(t[2]);
+  if (hh > 23 || mm > 59) return null;
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return {
+    am: hh < 12,
+    mins: hh * 60 + mm,
+    // Two spellings of the same time, and both are needed: `said` is what she reads
+    // ("2-5 pm", with the ":00" dropped so it stays short) and `packed` is what is
+    // STORED ("14:00"), zero-padded so the stored value is unambiguous and sorts.
+    said: `${h12}${mm ? `:${pad2(mm)}` : ""}`,
+    packed: `${pad2(hh)}:${pad2(mm)}`,
+  };
+}
+
+// The two boxes packed into the one value the order carries: "14:00" + "17:00" ->
+// "14:00-17:00". Empty when either half is not a time the app can read.
+//
+// ONE packed string rather than two keys or a `{from, to}` object, because a window
+// with a start and no end is not half a promise, it is a promise with a hole in it —
+// and a single value cannot half-exist. It is also what makes the window travel to her
+// other phone for free: an order row syncs whole, and a string needs no explaining.
+export function windowAt(from, to) {
+  const a = clockOf(from);
+  const b = clockOf(to);
+  if (!a || !b) return "";
+  return `${a.packed}-${b.packed}`;
+}
+
+// That value taken apart again, for the two boxes on the run screen when she comes back
+// to a day she already set a window on. Null rather than a half-filled pair when it is
+// not a window, so a box can never be seeded with a time that was never set.
+export function windowParts(w) {
+  const m = String(w || "").trim().match(/^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/);
+  if (!m) return null;
+  const a = clockOf(m[1]);
+  const b = clockOf(m[2]);
+  if (!a || !b) return null;
+  return { from: a.packed, to: b.packed };
+}
+
+// Is this a window at all? Both ends readable, and the end after the start. An EMPTY
+// window is not valid — it is the day's promise, which is what the shop already makes,
+// and the caller says which of the two it is holding.
+export function validWindow(w) {
+  const parts = windowParts(w);
+  if (!parts) return false;
+  const a = clockOf(parts.from);
+  const b = clockOf(parts.to);
+  return !!a && !!b && b.mins > a.mins;
+}
+
+// What is wrong with the two boxes, in words, or "" when nothing is — including when
+// both are empty, because "no window" is a legitimate answer and not a mistake. This is
+// the form's question, so it asks about the two boxes rather than about the packed
+// value they have not been packed into yet.
+export function windowProblem(from, to) {
+  const said = String(from || "").trim();
+  const till = String(to || "").trim();
+  if (!said && !till) return "";
+  const a = clockOf(said);
+  const b = clockOf(till);
+  if (!a || !b) {
+    return "A delivery window needs both ends — the earliest the van could arrive, and the latest.";
+  }
+  if (b.mins <= a.mins) {
+    return "That window ends before it starts, so a customer would be told to expect the van before it left the bakery.";
+  }
+  return "";
+}
+
+// The window as she would say it: "2-5 pm". The repeated meridiem is dropped when both
+// ends share it and kept when they do not ("11 am-2 pm"), because "11-2 pm" reads as
+// eleven at night and a delivery promise is not a place to be terse.
+export function fmtWindow(w) {
+  const parts = windowParts(w);
+  if (!parts) return "";
+  const a = clockOf(parts.from);
+  const b = clockOf(parts.to);
+  if (!a || !b) return "";
+  const end = b.am ? "am" : "pm";
+  return a.am === b.am ? `${a.said}-${b.said} ${end}` : `${a.said} ${a.am ? "am" : "pm"}-${b.said} ${end}`;
+}
+
+// ", 2-5 pm" — what a window adds to the end of a day's own words, or "" when there is
+// no window to add. The comma is IN the string so no caller has to remember it, because
+// the same suffix goes into a published card, three WhatsApp messages and the order's
+// own line, and four hands formatting one promise is four chances to disagree.
+//
+// This is the PUBLISHING path, so it asks validWindow and not merely "can it be read".
+// A window she is halfway through typing is allowed to read "5-2 pm" in the box she is
+// looking at; it is not allowed to reach a customer as ", 5-2 pm" telling them to expect
+// the van before it left. Found by this file's own test at v191.
+export function windowSuffix(order) {
+  const w = order && order.deliveryWindow;
+  if (!validWindow(w)) return "";
+  return `, ${fmtWindow(w)}`;
+}
+
+// What the run actually carries: how many doorsteps, how many items, and which items.
+//
+// The count is per GROUP and not per order row, because a customer who ordered three
+// things in one order is ONE stop — handing the courier one stop per line would send
+// the same van to the same door three times and charge three stop fees for it.
+// `stops` is therefore the number of customers on the run.
+//
+// The items are counted over every line of every group, and named with the app's own
+// product naming so the load line reads in the same words as the order card above it.
+export function loadOf(state, groups) {
+  const list = (Array.isArray(groups) ? groups : [groups]).filter(Boolean);
+  const tally = new Map();
+  let items = 0;
+  for (const g of list) {
+    for (const o of ((g && g.orders) || [])) {
+      const qty = strictNumber(o && o.qty);
+      const n = qty === null ? 0 : qty;
+      items += n;
+      // The gone-product name is folded to "item", the same reading the customer's own
+      // card makes of it (supabase.js), so a deleted product does not grow a third way
+      // of being named.
+      const raw = String(orderLineName(state, o) || "").trim();
+      const name = raw === "(deleted product)" ? "item" : raw;
+      if (name) tally.set(name, (tally.get(name) || 0) + n);
+    }
+  }
+  const all = [...tally.entries()].map(([name, qty]) => `${name} ×${qty}`);
+  const shown = all.slice(0, 4);
+  const rest = all.length - shown.length;
+  return {
+    stops: list.length,
+    items,
+    summary: rest > 0 ? `${shown.join("  ·  ")}  ·  and ${rest} more` : shown.join("  ·  "),
+  };
+}
+
+// The one trip against the same stops priced one at a time — the saving, as a number
+// she can see rather than a claim anybody makes.
+//
+// Null when either side is incomplete: a saving worked out from a missing price is a
+// number invented from an absence, and this number is the whole argument for
+// consolidating. A NEGATIVE saving is returned as it stands rather than floored at
+// zero, because a run that costs more than separate trips is a thing that can really
+// happen (a small run on a big vehicle) and the screen must be able to say so.
+export function savingOf(one, separate) {
+  const single = strictNumber(one);
+  const list = Array.isArray(separate) ? separate : [];
+  if (single === null || !list.length) return null;
+  const parts = list.map(strictNumber);
+  if (parts.some((p) => p === null)) return null;
+  const cents = (n) => Math.round(n * 100);
+  const sum = parts.reduce((a, b) => a + cents(b), 0);
+  return { one: single, sum: sum / 100, saving: (sum - cents(single)) / 100 };
+}
+
+// Lalamove's own documents disagree about the largest trip: the API documents 2 to 16
+// stops, the consumer app advertises 20. The lower number is the one that could refuse
+// her, so it is the one said out loud — as a WARNING rather than a refusal, because the
+// courier has the last word and a screen that blocks a booking the courier would have
+// taken is the app inventing a rule. Her standing instruction: guide, never a gate.
+export function runLimitProblem(stops) {
+  const n = strictNumber(stops);
+  if (n === null || n <= 16) return "";
+  return `This run has ${n} stops and the courier's documents put a trip at 16. It may be refused — nothing here will stop you trying, and the courier has the last word.`;
+}
+
+// Write a trip onto the orders it carries, so every customer on a run is on the same
+// journey: the same job record and the same share link.
+//
+// Extracted from the quote panel's own commit (v191) because a run stamps MANY groups
+// where a single booking stamps one, and the rule hiding in the second line is worth
+// having in exactly one place: the link is written ONLY when the courier really sent
+// one. An empty link must never blank a tracking number she typed by hand — that would
+// be this app deleting a customer's reference on the strength of an absence in somebody
+// else's reply.
+export function stampTrip(orders, job, label = "") {
+  const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
+  const named = job
+    ? { ...job, courierName: String(label || "").trim() || job.courierName || "" }
+    : job;
+  for (const o of list) {
+    o.courierJob = named;
+    if (named && named.link) o.trackingNo = named.link;
+  }
+  return named;
 }
 
 // ── when something happened, said plainly ─────────────────────────────────

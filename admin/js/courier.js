@@ -151,6 +151,59 @@ export function applyCourierCharge(state, group, fee, paidBy, method) {
   return kept ? "updated" : "created";
 }
 
+// Put a charge onto the orders that carry it AND onto her books, in one call.
+//
+// The amount, the payer and COD settle TOGETHER. The payer is what decides what a charge
+// does — to her books and to the customer — so an amount with no payer is not half a
+// charge, it is a charge nobody has assigned, and leaving the amount behind is how a row
+// ends up tagged "Courier RM8.00 · customer" with nothing able to remove the tag. That
+// was her report on 19 Sep 2026. All three keys therefore go together, as a set.
+//
+// Extracted at v191 from the two doors that already wrote it by hand — the Note /
+// tracking box and the full Edit form, whose own comments name this exact risk. The
+// Delivery run is the third, and three hands writing one charge on one order is three
+// chances for the order and her books to end up disagreeing about it.
+//
+// `rows` is passed rather than taken from the group, because the Edit form writes the
+// charge onto the rows rebuilt for the destination day, which are not the group's own
+// rows until the move happens.
+export function writeCourierCharge(state, rows, group, answers) {
+  const a = answers || {};
+  const fee = Number(a.fee) || 0;
+  const who = String(a.who || "");
+  const collect = !!a.collect;
+  for (const o of (Array.isArray(rows) ? rows : []).filter(Boolean)) {
+    if (fee > 0) o.courierFee = fee;
+    else delete o.courierFee;
+    if (who) o.courierPaidBy = who;
+    else delete o.courierPaidBy;
+    if (collect) o.courierCod = true;
+    else delete o.courierCod;
+  }
+  return applyCourierCharge(state, group, fee, who, a.method);
+}
+
+// One fee, split evenly over the customers on a run — worked out in CENTS, with the odd
+// cents on the LAST order (v191).
+//
+// Cents, because the parts have to sum EXACTLY to the fee. RM 14.00 over three orders is
+// 4.66 + 4.66 + 4.68; rounding each part on its own gives 4.67 three times, which is
+// 14.01 — a cent that appears in the bakery's books and in no customer's charge box. The
+// last order takes the remainder, so the parts add up to the whole by construction rather
+// than by hope.
+//
+// A count of zero is an empty list rather than an error: nothing to split over is not a
+// failure, it is nothing to do.
+export function splitEven(total, count) {
+  const n = Math.floor(Number(count) || 0);
+  if (!(n > 0)) return [];
+  const cents = Math.round((Number(total) || 0) * 100);
+  const each = Math.trunc(cents / n);
+  const out = new Array(n).fill(each);
+  out[n - 1] = cents - each * (n - 1);
+  return out.map((c) => c / 100);
+}
+
 // Take a charge off the order it belongs to, found by its order code — the way back
 // from the Money screen, where the expense row is all she can see of a charge she paid
 // herself (19 Sep 2026).

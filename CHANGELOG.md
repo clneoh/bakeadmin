@@ -1,8 +1,150 @@
-# Jienluv2bake — change history (v54 → v190)
+# Jienluv2bake — change history (v54 → v191)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v191, ONE TRIP, SEVERAL DOORSTEPS, AND WHAT IT SAVES (no database step).
+The fourth and last step of the courier work you asked for, and the one that saves you money. The
+app now groups a day's courier orders into ONE trip, prices it against the same doorsteps sent one
+at a time, and shows you the difference as two numbers rather than as a claim. Booking it spends one
+vehicle on one journey and gives every customer on it the same share link. What your shop promises
+those customers becomes a WINDOW that you type, and only when you type one. Not one module, batch,
+start time, cycle or saved day of yours was rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "i want to do Lalamove, API to manage courier, make it
+ready for other courier as well. Focus now for laalamove. And check our backoffice readiness. From my
+understanding lalamove support last day deliver consolidation to save on cost." v188 was the price,
+v189 was the booking, v190 was the customer watching the trip. This is the fourth and last, and it
+is the one your own hunch was about. Your consolidation belief was confirmed in v188: one trip
+carries two to sixteen drop-offs, charged as one base fare plus a fee for every stop after the first,
+which outside the Klang Valley is RM 1 on a motorcycle, RM 2 on a car, RM 5 on a van or four-by-four
+and RM 10 on a lorry. This release is that mechanism with a screen around it.
+
+**2. One trip, and the arithmetic you can read rather than take on trust.** The run screen prices the
+whole run twice. Once as the one multi-stop trip it is about to become, and once as the same
+doorsteps sent one at a time, and then it writes the difference out as a sentence. Measured live on a
+two-customer run on a car: "One trip RM 22.00 - one at a time RM 44.00 - this one trip saves RM 22.00
+against sending them one at a time. Each of those was asked now, for the same collection time, so
+they are this journey split up rather than a guess at it." That last sentence matters more than it
+looks: the comparison prices are REAL quotations asked at the same moment for the same collection
+time, not an estimate the app did on its own. The saving is therefore a number you can act on rather
+than a claim off a leaflet. It also costs you waiting time rather than money - there is no bulk
+pricing call, so a run of eight drops is still eight price requests - and the screen says so rather
+than making the second pass look free.
+
+**3. Your four decisions, and where each one landed.** You were asked four things before any of this
+was built, because a single trip cannot let each customer choose their own hour, and the answers are
+built rather than described. **The window** - "A window I type when I book the run" - so the run
+screen has two boxes, opening and closing, that you fill in yourself, and nothing is promised to any
+customer until you do. **The fee** - "Split evenly into each order's box" - so the trip's one fee is
+divided across the customers on it and each order's own charge box carries its share, which is what
+lets the existing charge model, the books and the customer's own total keep running exactly as they
+run. **What fits** - "Show me the load and let me judge" - so the screen counts the doorsteps, counts
+the items and names them, and leaves the judgement to you rather than refusing the run on your
+behalf. **The trip link** - "The same trip link for everyone" - because there is one vehicle on one
+journey, so every customer on it gets the one share link and there is nothing to keep apart.
+
+**4. A customer's own doorstep, and the rule that makes consolidation honest.** One customer who
+ordered three things is ONE doorstep, not three. The screen counts stops per customer, and so does
+the price it asks for: measured live, a two-line order for one customer was priced as one drop, and
+a two-customer run was priced as two. Without that rule a customer ordering twice would have been
+charged as two deliveries to the same house, which is exactly the overcharge consolidation exists to
+remove. The row for each customer says what is being sent and where it is going, and a customer whose
+doorstep has never been pinned carries a press to put it on the map instead of a price it could not
+honestly be given.
+
+**5. What your shop promises now, and only when you have said it.** A delivery window you type
+reaches the customer through the slots that were already there rather than through anything new: it
+is folded into the delivery line on their track card, and into the shipped WhatsApp message and the
+reminder. Measured live: the card read "Sat, 26 Sep - Courier - 1 Jalan A, 2-5 pm", and both
+messages read "Delivery: Sat, 26 Sep, 2-5 pm - Courier delivery" with "Track your delivery:" above
+the share link. Leave the two boxes empty and every customer keeps the promise they already had -
+the day, and no hour - so a run booked in a hurry is not a run that promises something nobody chose.
+And the window is checked before it is priced: a window whose end is before its start is refused in
+words on the spot rather than being priced and then written onto customers' cards, which it would
+otherwise have been, because the formatter that draws a window renders an end-before-start one
+perfectly happily. That is a fault this release's own test sweep found and the test now holds.
+
+**6. Nothing is booked until you press the press that books it.** The run screen prices freely and
+books once, and the two are separate presses with a question between them. Measured live: the
+question read "Book the Car with Lalamove for RM 22.00? It carries ONE trip with 2 doorsteps and 6
+items. Customers will be told 2-5 pm... (RM 11.00 - RM 11.00), marked paid by you." - so the number
+being spent, the vehicle being spent on, the load it has to carry, the promise about to be made and
+what each customer is about to be charged are all on the screen before anything is sent. Behind it
+there is exactly ONE booking call for the whole run, and the toast afterwards read "Run booked with
+Lalamove - 2 customers now share one trip and one link."
+
+**7. The money, and why a share and not a fee.** One trip is one fee, so charging each customer the
+whole fee would take the cost of one van several times over. The trip's fee is divided across the
+customers on the run and the remainder lands on the last order rather than being lost, so the shares
+add up to the fee exactly. Measured live on a RM 13.50 motorcycle price for two customers, the split
+line read "Split evenly over the 2 orders ticked above, in that order: RM 6.75 - RM 6.75" - and on
+the booked car run the two orders were stamped RM 11.00 each against the RM 22.00 fee, with two RM
+11.00 "Delivery & fuel" expenses on your books, one per order, paid by you. An odd cent is not
+invented and not dropped: on three customers the same RM 22.00 fee lands RM 7.33, RM 7.33 and RM
+7.34, and there is a test that fails if the parts ever stop adding up to the whole. Answering the
+charge questions is optional and stays optional: a run booked with nothing said about the money
+records no charge at all rather than a charge of nothing, which is the difference between a customer
+who owes you nothing and a customer whose box says they owe you zero.
+
+**8. Three places where the honest answer is not the convenient one.** A price describes one list of
+customers on one journey, so anything that moves either throws it away rather than leaving a stale
+number standing beside a new question: untick a customer after pricing and every Book press on the
+screen goes inert with the sentence "The list of customers has changed since this price was asked, so
+it describes a run you are no longer taking. Price the run again for the list above." Change the
+collection day and the prices go entirely. And a live trip on any order in the run stops the whole
+run being booked, with one sentence saying which order is already out - the same one-trip-at-a-time
+guard the single order card carries, at the level of the run.
+
+**9. Two faults found by reading the drawn screen rather than by reasoning.** The first: a customer's
+tick row was drawn as a whole pressable line, but the live area was only the words inside it - the
+top and bottom nine pixels of a 49-pixel line landed on the row rather than the tick and ticked
+nobody, which is the exact opposite of what that row's own comment promises. Measured with probes
+before and after, and fixed by moving the padding from the row onto the label so the whole line is
+the tick's. The second: ticking ONE customer left the head line reading "Who is on the run - 2 of 2"
+over a list with one customer on it, while the tick-everyone press corrected it. Two controls that
+look alike behaving differently, and the count she reads is the one that went stale. The cause was
+that the single row's handler repainted the load, the prices and the charge boxes but not the list
+the head lives in, and only the bulk press rebuilt it. Fixed so a single tick corrects the count and
+the bulk press WITHOUT rebuilding the rows - measured, the row she pressed is still the same node
+afterwards and the list does not move under her finger. Both are named rather than glossed because
+no assertion had ever watched either one.
+
+**10. Nothing of yours is rewritten.** Not one module, batch, start time, cycle or saved day. Your
+stored data was copied before the presses that write, put back afterwards and compared
+byte-identically, with no backup key left behind. The one thing this release adds to an order is the
+window you typed and the trip and share of the fee you booked - the same fields the single-order
+booking already writes - and an order with no run on it is drawn exactly as it was.
+
+**11. Every rule that stands on it was proved load-bearing.** Thirteen faults were put back in the
+real source, each watched failing a test that NAMES it, and each restored byte-identically. Among
+them: pricing one drop per order LINE rather than per customer, charging each customer the whole fee
+instead of a share, writing the window onto only the first line of a customer's group, stamping the
+trip on only the first line, a stale price still booking, an end-before-start window slipping past
+its refusal, the odd cent dropped so the shares no longer add up, a zero fee recorded as a charge,
+and the stale head from section 9. Two of the thirteen are worth singling out because the sweep is
+what found the holes rather than what confirmed them: the publishing gate that decides whether a
+window reaches a customer was asking "can this be read" rather than "is this a window at all", so an
+end-before-start window published happily - the test now compares the customer's card against the
+card of an order with no window, which is the only comparison that catches it. And the zero fee was
+initially written as a literal zero rather than left absent, and nothing failed, because no test had
+ever booked a run with the money questions left unanswered. A test was written for it and the fault
+fails by name. The suite is 1587 passing with none failing.
+
+**12. No database step.** Not one stored field is added or changed, so there is nothing to run in
+Supabase. A run's window is folded into the delivery line the customer's card already carried, the
+trip and the share of the fee land in fields the single-order booking already writes, and an order
+record syncs whole - so all of it reaches your other phone with no sync change and no migration.
+
+**13. Still to come, and only if you want it.** The public callback is the one piece left unbuilt
+from the courier work. It would let a customer's page update by itself within seconds of a parcel
+being picked up, without anybody pressing anything. It is also the one part of this work that would
+be reachable by anybody on the internet rather than only by your own signed-in app, so it stays your
+decision and nothing about it is promised here.
+
+CHANGELOG and the guide both carry all of this, both PDFs rebuilt and read back with PyMuPDF, and
+the app's own More screen reads Engine v191.
 
 **25 Sep 2026 — engine v190, THE DELIVERY'S PROGRESS AND ITS DRIVER REACH THE CUSTOMER, AND AN
 ORDER MOVES ITSELF (one database step). The third step of the courier work you asked for. A booked

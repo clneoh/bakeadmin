@@ -9,7 +9,7 @@
 import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, courierAddUp } from "./courier.js";
-import { trackingLine } from "./courier_job.js";
+import { trackingLine, windowSuffix } from "./courier_job.js";
 
 function basics(state, group, trackUrl) {
   const orders = (group && group.orders) || [];
@@ -29,7 +29,13 @@ function basics(state, group, trackUrl) {
   const parts = customerTotal(state, group);
   const total = fmtRM(parts.total, state.settings.currency);
   const del = byId(state.deliveryDates, first.deliveryDateId);
-  const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
+  // The day, and the window the van will come in when the order is on a consolidated run
+  // (v191). Every message below quotes THIS one string, so the window appears in the
+  // payment reminder, the shipped message and the pickup message at once and none of them
+  // can word the promise differently from the others. windowSuffix is the publishing gate
+  // and answers "" for a window that could not be typed, so a half-filled promise cannot
+  // be sent to a customer.
+  const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}${windowSuffix(first)}`;
   const courier = first.fulfillment === "courier";
   const fulfillment = courier ? "Courier delivery" : "Self collect";
   const sf = (state.settings && state.settings.storefront) || {};

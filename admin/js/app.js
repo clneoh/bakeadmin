@@ -23,6 +23,7 @@ import { renderMore } from "./views/more.js";
 import { renderMoney } from "./views/money.js";
 import { renderProfit } from "./views/profit.js";
 import { renderProduction } from "./views/production.js";
+import { renderDeliveryRun } from "./views/delivery_run.js";
 import { renderScenario } from "./views/scenario.js";
 import { renderLogin } from "./views/login.js";
 import { renderLock } from "./views/lock.js";
@@ -46,6 +47,7 @@ const routes = {
   "/history":   { title: "PO History", tab: "more",     render: renderHistory },
   "/customers": { title: "Customers", tab: "customers", render: renderCustomers },
   "/deliveries":{ title: "Delivery Dates", tab: "more", render: renderDeliveries },
+  "/run":       { title: "Delivery run", tab: "more", render: renderDeliveryRun },
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },
   "/profit":    { title: "Profit",     tab: "more",      render: renderProfit },
   "/production":{ title: "Production line", tab: "more", render: renderProduction },

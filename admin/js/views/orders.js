@@ -15,7 +15,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
-import { applyCourierCharge, courierFeeOf, courierPayerOf, courierCodOf } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -1664,18 +1664,12 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
     // leaves no key behind and cannot outlive the amount. `courier` is null only for a
     // caller that does not ask for the charge, which then leaves it exactly as it was.
     if (courier) {
-      for (const o of keptRows) {
-        if (courier.fee > 0) o.courierFee = courier.fee;
-        else delete o.courierFee;
-        if (courier.who) o.courierPaidBy = courier.who;
-        else delete o.courierPaidBy;
-        if (courier.collect) o.courierCod = true;
-        else delete o.courierCod;
-      }
-      // Her own charge is a Delivery & fuel expense as well as an order row; the
-      // customer's touches her books not at all. Same call the box makes, so saving the
-      // charge from either door leaves the order and the expense in step.
-      applyCourierCharge(state, group, courier.fee, courier.who, courier.method);
+      // The three keys and the Delivery & fuel row, written by the one function every
+      // door now uses, so a charge saved from here, from the Note / tracking box or from
+      // a Delivery run cannot end up meaning three slightly different things. The rows
+      // are the ones rebuilt for the destination day, which are not the group's own rows
+      // until the move below.
+      writeCourierCharge(state, keptRows, group, courier);
     }
     // Every kept row now sits on the destination day, with deliveryDateId and
     // the deliveryDate snapshot written together (self-heals a split group).
@@ -1853,21 +1847,25 @@ function orderList(state, dateId, root) {
   return listEl;
 }
 
-// The courier charge's questions — the amount, who bore it, how SHE paid it, and
-// whether the courier collects it at the door — built in ONE place, because two pop-ups
-// ask them now: the small Note / tracking box and the full Edit form (19 Sep 2026). A
-// second copy of this block is exactly how the two doors would start disagreeing about
-// one charge, and a charge she can reach from either door has to behave the same in both.
+// The three courier-charge questions that are NOT the amount: who bore it, how SHE paid
+// it, and whether the courier collects it at the door.
+//
+// They are their own block because a DELIVERY RUN asks exactly these three and nothing
+// else — the amount on a run is not hers to type, it is the trip's fee split evenly over
+// the customers on it (v191). A second copy of these three selects is precisely how two
+// doors would start disagreeing about one charge, which is the same reason this block
+// itself exists.
 //
 // Held in a closure rather than read back off the nodes, and repainted HERE rather than
-// by the pop-up holding it: the third box comes and goes with the payer, and asking the
-// whole form to rebuild for that would throw away everything else she had typed in it.
+// by the form holding it: the question under the payer comes and goes with the answer,
+// and asking the whole form to rebuild for that would throw away everything else she had
+// typed in it.
 //
 // `onChange` fires whenever an answer moves, so each caller repaints what it shows about
-// the charge. read() gives the answers in the terms applyCourierCharge and the three
-// order keys want: an amount of 0 with no payer is no charge at all.
-function courierControls(state, first, onChange = () => {}) {
-  let feeRaw = courierFeeOf(first) ? String(courierFeeOf(first)) : "";
+// the charge. read(amount) takes the amount from the caller — the box knows it from what
+// she typed, a run knows it from the split — and gives back the answers in the terms
+// applyCourierCharge and the three order keys want.
+export function courierPayQuestions(state, first, onChange = () => {}) {
   let payer = courierPayerOf(first); // "" | "me" | "customer"
   let codWanted = courierCodOf(first);
   // How SHE paid the courier is not a field on the order: the expense row IS the record,
@@ -1878,12 +1876,6 @@ function courierControls(state, first, onChange = () => {}) {
   let paidWith = spent ? spent.method : "";
   const methods = methodsOf(state);
 
-  const amountInput = el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
-    placeholder: "e.g. 8.00", value: feeRaw, "aria-label": "Courier charge",
-    oninput: function () { feeRaw = this.value; onChange(); } });
-  const amountField = el("div", { class: "field" },
-    el("label", {}, "Courier charge (optional)"),
-    amountInput);
   const payerSel = select([
     { value: "", label: "Not recorded" },
     { value: "me", label: "I paid it" },
@@ -1908,11 +1900,11 @@ function courierControls(state, first, onChange = () => {}) {
   const codField = el("div", { class: "field", style: "margin:8px 0 0" },
     el("label", {}, "How they pay it"), codSel);
 
-  const wrap = el("div", {}, amountField, payerField);
-  // The amount and the payer stay where they are; only the third box comes and goes, so
-  // the box she is typing in is never rebuilt underneath her.
+  const wrap = el("div", {}, payerField);
+  // The payer stays where it is; only the question under it comes and goes, so the box
+  // she is choosing in is never rebuilt underneath her.
   function paint() {
-    wrap.replaceChildren(...[amountField, payerField,
+    wrap.replaceChildren(...[payerField,
       payer === "me" ? methodField : null,
       payer === "customer" ? codField : null].filter(Boolean));
   }
@@ -1920,6 +1912,39 @@ function courierControls(state, first, onChange = () => {}) {
 
   return {
     el: wrap,
+    read: (amount = 0) => {
+      const n = Number(amount) || 0;
+      // A charge is the amount AND who bore it, so no payer means no charge and the
+      // amount goes with it — the v127 lesson, read the same way here.
+      const who = n > 0 ? payer : "";
+      return { amount: n, who, fee: who ? n : 0,
+        collect: who === "customer" && codWanted, method: methodSel.value };
+    },
+  };
+}
+
+// The whole courier charge's questions — the amount, then the three above — built in ONE
+// place, because two pop-ups ask them now: the small Note / tracking box and the full
+// Edit form (19 Sep 2026). A second copy of this block is exactly how the two doors would
+// start disagreeing about one charge, and a charge she can reach from either door has to
+// behave the same in both.
+//
+// The amount box is what this adds to courierPayQuestions, which is the half a run does
+// NOT want: a run's charge per customer is a share of the trip's fee, not a figure she
+// types.
+function courierControls(state, first, onChange = () => {}) {
+  let feeRaw = courierFeeOf(first) ? String(courierFeeOf(first)) : "";
+
+  const amountInput = el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
+    placeholder: "e.g. 8.00", value: feeRaw, "aria-label": "Courier charge",
+    oninput: function () { feeRaw = this.value; onChange(); } });
+  const amountField = el("div", { class: "field" },
+    el("label", {}, "Courier charge (optional)"),
+    amountInput);
+  const pay = courierPayQuestions(state, first, onChange);
+
+  return {
+    el: el("div", {}, amountField, pay.el),
     // Put an amount into this box from OUTSIDE it — the courier quote's own [Use this
     // fee]. It writes the same field and fires the same repaint as her typing does, so
     // a quoted price and a typed one are the same kind of answer: the payer and the COD
@@ -1938,18 +1963,10 @@ function courierControls(state, first, onChange = () => {}) {
       if (n === null || n <= 0) return false;
       feeRaw = String(n);
       amountInput.value = feeRaw;
-      paint();
       onChange();
       return true;
     },
-    read: () => {
-      const amount = Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
-      // A charge is the amount AND who bore it, so no payer means no charge and the
-      // amount goes with it — the v127 lesson, read the same way here.
-      const who = amount > 0 ? payer : "";
-      return { amount, who, fee: who ? amount : 0,
-        collect: who === "customer" && codWanted, method: methodSel.value };
-    },
+    read: () => pay.read(Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0),
   };
 }
 
@@ -2054,23 +2071,19 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // nothing for anyone to collect at the door, so the key goes with the other
             // two rather than lingering as a flag on no charge. All of that reading is the
             // shared block's, so this box and the Edit form settle it identically.
-            const { fee, who, collect, method: courierMethod } = charge.read();
+            const answers = charge.read();
             for (const o of group.orders) {
               o.note = note.value.trim();
               o.trackingNo = number;
               if (method) o.paidMethod = method;
               else delete o.paidMethod; // "Not recorded" is the absent key, as everywhere
-              if (fee > 0) o.courierFee = fee;
-              else delete o.courierFee;
-              if (who) o.courierPaidBy = who;
-              else delete o.courierPaidBy;
-              if (collect) o.courierCod = true;
-              else delete o.courierCod;
             }
-            // The books follow the payer: her own charge becomes an expense row, the
-            // customer's leaves them alone entirely. Written here rather than at the
-            // Money screen so one save keeps the order and the expense in step.
-            applyCourierCharge(state, group, fee, who, courierMethod);
+            // The charge's own three keys and the books follow the payer: her own charge
+            // becomes a Delivery & fuel expense row, the customer's leaves her books
+            // alone entirely. Written here rather than at the Money screen so one save
+            // keeps the order and the expense in step — and written by the one shared
+            // function, so this box and the Edit form cannot drift apart.
+            writeCourierCharge(state, group.orders, group, answers);
             save(state);
             maybeSync(state);
             // The card carries the tracking number and, when the customer bears it, the

@@ -8,7 +8,7 @@ import { navigate } from "../app.js";
 import { dayListLabel, dayName, deliveryStatus, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { effectiveCapacity, totalUnitsOnDate } from "../bom.js";
 import { el, button, confirmDialog, showPopup, toast } from "../ui.js";
-import { newId, save } from "../state.js";
+import { groupOrders, newId, save } from "../state.js";
 import { maybeSync, maybeSyncStorefront } from "../supabase.js";
 import {
   DOW, OCC_COLOURS, addMonth, monthLabel, monthWeeks,
@@ -805,5 +805,25 @@ function dateCard(state, date) {
     el("div", { class: "card-row" },
       col,
       el("div", { class: "li-right" },
+        // The signpost to the run, and only where there is a run to make: a press that
+        // lands on "Nothing to run yet" is a dead control, which this app treats as a bug.
+        // The button is a sibling of the pressable column, never inside it, so pressing it
+        // books a run rather than opening the day's orders.
+        courierOn(state, date.id)
+          ? button(`Run (${courierOn(state, date.id)})`, () => navigate(`#/run?date=${date.id}`), "soft small")
+          : null,
         button("Del", () => deleteDate(state, date), "ghost small"))));
+}
+
+// How many customers on this day are being delivered by courier — one per ORDER GROUP, the
+// same grouping the run screen counts stops with, so the number on this button is the
+// number of doorsteps it will find and never the number of order lines behind them.
+function courierOn(state, dateId) {
+  const want = String(dateId || "");
+  let n = 0;
+  for (const g of groupOrders(state.orders || [])) {
+    const first = g.orders[0];
+    if (first && first.fulfillment === "courier" && String(first.deliveryDateId || "") === want) n++;
+  }
+  return n;
 }

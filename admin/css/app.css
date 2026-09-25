@@ -3934,3 +3934,39 @@ tr.po-covered td { color: var(--muted); }
 
 /* A line inside a reading: one job of a person's day, one batch of a module's. */
 .bd-sub { font-size: 13px; line-height: 1.5; }
+
+/* ---------- The delivery run (v191) ---------- */
+
+/* The list of who is on the run. Each row is a whole pressable line — the tick and the
+   customer's name sit inside one <label> — so a thumb can land anywhere on it, and the
+   "Put it on the map" press is a sibling OUTSIDE that label so tapping it pins a door
+   rather than ticking a customer. */
+.run-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.run-head-title { font-weight: 600; font-size: 14px; }
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+}
+/* The padding lives on the LABEL and not on the row, so the whole line is the tick's hit
+   area. On the row it drew a 49-pixel line whose live 32 pixels were the label: a thumb
+   landing in the 9-pixel band at either end hit the row and ticked nobody, which is the
+   one thing the comment above promises cannot happen. Measured at 375 pixels wide. */
+.run-who { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; padding: 8px 0; cursor: pointer; }
+.run-tick { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--brown); }
+.run-words { display: flex; flex-direction: column; min-width: 0; }
+.run-name { font-weight: 600; }
+.run-sub { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+
+/* The load: what the run carries, beside the vehicle that would carry it. Never a verdict —
+   no price reply says what fits — so it is drawn as a reading and not as a warning bar. */
+.run-load { font-size: 13px; margin: 10px 0 0; overflow-wrap: anywhere; }
+.run-warn { color: var(--amber); font-weight: 600; }
+
+/* One vehicle's own row on the run screen: the presses sit on a line of their own, and the
+   comparison and the split open BELOW the whole row rather than beside the price, because a
+   phone holds about 300 pixels and neither of them fits in that. */
+.run-price .run-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.run-compare { flex: 1 1 100%; margin-top: 4px; }
+.run-compare .card-sub { margin: 0; }

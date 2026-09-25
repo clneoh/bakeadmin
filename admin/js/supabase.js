@@ -18,7 +18,7 @@ import { customerTotal } from "./courier.js";
 // registry here would close a loop between the two. Everything published about a trip
 // is therefore already ON the record — its courier's name, its phase and its driver are
 // written there when the trip is booked or checked, and this only carries them across.
-import { jobOf } from "./courier_job.js";
+import { jobOf, windowSuffix } from "./courier_job.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
 
@@ -544,7 +544,16 @@ export function trackingSnapshot(state, group) {
     courier_driver: (driver && String(driver.name || "").trim()) || null,
     courier_plate: (driver && String(driver.plate || "").trim()) || null,
     courier_phone: (driver && String(driver.phone || "").trim()) || null,
-    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}`,
+    // The day, and — on a consolidated run — the window the van will come in. The window
+    // rides INSIDE this string rather than in a column of its own (v191): this column is
+    // already published, already read by the storefront's `select` and already printed on
+    // the customer's card, so a window that lives in it needs no migration, no storefront
+    // change and cannot be the thing that breaks publishing for every other order.
+    //
+    // windowSuffix is the PUBLISHING gate, not a formatter: it answers "" for a window
+    // that could not be typed (an end before its start), so a half-typed promise in a box
+    // she is still looking at can never reach a customer.
+    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}${windowSuffix(first)}`,
     items,
     total,
     customer: String(first.customerName || ""),
