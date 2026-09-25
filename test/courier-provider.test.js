@@ -43,7 +43,7 @@ globalThis.localStorage.setItem(
 );
 
 const {
-  LALAMOVE_KEY, hostFor, plainReason, servicesIn, stopsPayload, quotation,
+  LALAMOVE_KEY, hostFor, plainReason, notSetUpReason, servicesIn, stopsPayload, quotation,
   cities, llmRequest,
 } = await import("../supabase/functions/courier/providers/lalamove.ts");
 const { validPoint } = await import("../supabase/functions/courier/place.ts");
@@ -159,6 +159,56 @@ test("a refused key is its own sentence, and it names both keys and both environ
     assert.match(out, /sandbox pair or the live pair/);
   }
   assert.match(plainReason(null, 401), /refused the key/, "even with no body to read");
+});
+
+test("a key that was never added is its own sentence, and not the 'no such courier' one (v194)", () => {
+  // THE SENTENCE THE APP GOT WRONG UNTIL v194, and it was found by reading the drawn
+  // Settings card rather than by reasoning. A secret that was never put on the server and
+  // a courier the build does not carry are different problems, and both used to answer
+  // with "This build has no courier called lalamove" - a claim about the APP, and false,
+  // because the app was fine and one secret was missing. Nothing in this suite asserted
+  // what that card says when the key is simply absent, which is the state every new
+  // account starts in; the state she was actually in on 25 Sep 2026, having deployed the
+  // function before any Lalamove account existed.
+  const out = notSetUpReason();
+  assert.match(out, /api key and secret have not been added/);
+  assert.ok(
+    out.includes(courierLabel()),
+    `the sentence must name the courier the way the registry names it, got: ${out}`,
+  );
+  assert.equal(
+    /no courier called/.test(out),
+    false,
+    "and it must never claim the build is missing the courier",
+  );
+});
+
+test("the dispatcher sends a missing secret and an unknown courier to two different sentences (v194)", async () => {
+  // THE GUARD ON THE FIX ITSELF. index.ts is the one file this suite cannot load - it
+  // starts with a `jsr:` specifier and calls Deno.serve - so the two branches collapsing
+  // back into one would leave every test here green. It reads both branches instead and
+  // requires each to own its words, which is also what makes the fix breakable on
+  // purpose: put the old single sentence back in either branch and this goes red.
+  const { readFile } = await import("node:fs/promises");
+  const path = await import("node:path");
+  const here = path.dirname(new URL(import.meta.url).pathname);
+  const src = await readFile(
+    path.join(here, "..", "supabase", "functions", "courier", "index.ts"),
+    "utf8",
+  );
+
+  const missing = src.match(/if \(!apiKey \|\| !secret\) \{[\s\S]*?\n  \}/);
+  assert.ok(missing, "the missing-secret branch must still exist");
+  assert.match(missing[0], /notSetUpReason\(\)/, "a missing key speaks with the provider's own sentence");
+  assert.equal(
+    /no courier called/.test(missing[0]),
+    false,
+    "and never with the 'no such courier' one",
+  );
+
+  const unknown = src.match(/if \(key !== LALAMOVE_KEY\) \{[\s\S]*?\n  \}/);
+  assert.ok(unknown, "the unknown-courier branch must still exist");
+  assert.match(unknown[0], /This build has no courier called/, "an unknown courier keeps its own claim");
 });
 
 test("a code nobody wrote a sentence for is still readable", () => {

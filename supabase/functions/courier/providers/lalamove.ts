@@ -125,6 +125,21 @@ export function plainReason(data: unknown, status: number): string {
     : `Lalamove answered with an error (HTTP ${status}).`;
 }
 
+// The other sentence this courier can be refused by, and the one that was WRONG until
+// v194. Until then, a key that had never been put on the server and a courier the build
+// does not carry were answered with the same words - "this build has no courier called
+// lalamove" - because both made configFor() return nothing. That sentence is a claim
+// about the app, and it was false: the app was fine and one secret was missing. Measured
+// live: she read it on the Settings card, having just deployed the function, and the
+// honest cause was that no key existed yet because no Lalamove account existed yet.
+//
+// The dispatcher cannot write this line itself, because a sentence naming the courier
+// has to come from the courier (see the note above courierName in index.ts), so it is
+// built here beside plainReason() - both are "what went wrong, in her words".
+export function notSetUpReason(): string {
+  return `${LALAMOVE_LABEL}'s api key and secret have not been added to the server yet.`;
+}
+
 // One signed call. `query` is sent in the URL but deliberately NOT signed — the
 // signature covers the path alone, which is what Lalamove verifies.
 export async function llmRequest(

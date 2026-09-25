@@ -1,8 +1,61 @@
-# Jienluv2bake — change history (v54 → v193)
+# Jienluv2bake — change history (v54 → v194)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v194, THE COURIER STOPS BLAMING THE BUILD (no database step; the courier
+function was redeployed). The sentence that appears on the Settings card when the courier cannot be
+asked was false, and it pointed you at the wrong place. It said the build has no courier called
+Lalamove, when the truth was that no Lalamove key had been added to the server yet. Those are two
+different problems that until now shared one sentence, and they no longer do. Nothing about your
+day, your chart, your orders or your saved data was touched.**
+
+**What you read, and why it was wrong.** Having just deployed the courier function, you opened
+More → Settings and read this: "Lalamove could not be asked: This build has no courier called
+lalamove." Read plainly, that says the app is missing the courier - so the hunt begins in the
+build, in the deploy, in the code. There is no fault in any of them, and there never was. The
+server knew the real reason and had already written it to its own log, and then handed you a
+sentence that hid it.
+
+**Where the sentence came from.** One small function answers for the courier, and it builds its
+configuration through a single door. Two different things could shut that door: a request naming a
+courier this build does not carry, which is genuinely a fault in the app - and a Lalamove key that
+has not been put on the server, which is one secret's worth of setup. Both produced the same
+nothing, and one sentence was written for both. It was the sentence for the fault, so a missing key
+was reported to you as a broken build.
+
+**What it says now, and it is the exact line you will read.** "Lalamove could not be asked:
+Lalamove's api key and secret have not been added to the server yet." The courier's name is still
+there, the thing that is missing is named, and the word build is gone from it, because the build is
+not the problem.
+
+**Two problems, two sentences, and a test that keeps them apart.** The sentence about the key comes
+from the courier's own file, beside the other two sentences that courier can be refused by, so a
+second courier one day brings its own words rather than inheriting Lalamove's. And because the
+function that chooses between them cannot be loaded by the test suite at all - it begins with a
+line only Deno understands - a test now reads those two branches out of the file and requires each
+to keep its own words. Put the old single sentence back into either one and the suite goes red.
+
+**A guard of your own caught this change while it was being made.** The first attempt wrote the
+missing key's name into a log line inside the dispatcher, and the app's existing rule - only the
+registry and the courier's own file may name the courier in live code - refused it. The guard was
+right and the line was changed to suit it, rather than the guard being widened to suit the line.
+That guard exists because a courier's name written by hand into a screen is the defect that stops a
+second courier ever being added cleanly.
+
+**One more thing corrected in the same file, and it cost real time today.** The setup note at the
+top of the courier function told us to run `supabase secrets set LALAMOVE_KEY <key>`. That command
+is refused: the tool requires the equals sign, `LALAMOVE_KEY=<key>`, and answers "Invalid secret
+pair ... Must be NAME=VALUE." The note also now says to name the project when deploying, because
+the tool otherwise offers a list in which a wrong project can be chosen by a stray keystroke, and
+it records that the sandbox switch lives in the top right corner of Lalamove's own page.
+
+**No database step.** Nothing stored is added or changed, and there is nothing to run in Supabase.
+The courier function itself was redeployed, which is the only thing that had to change for this to
+take effect. Suite is 1604 passing with none failing, and five faults were put back in one at a
+time - the collapse of the two sentences among them - each watched failing a test that names it and
+then restored byte-identically.
 
 **25 Sep 2026 — engine v193, THE WORKERS' LINE BECOMES A TRUE TIMELINE (no database step). The
 seven changes you asked for to the person's window on the Production line, and one question you

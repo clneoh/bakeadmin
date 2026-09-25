@@ -19,12 +19,21 @@
 //
 // ONE-TIME SETUP (her side, ~10 min, in the Lalamove Partner Portal and Supabase —
 // never in chat, and never in a file that ships):
-//   1. Partner Portal → open a sandbox account → copy the sandbox api key and secret
-//      (they start pk_test_ / sk_test_).
-//   2. supabase secrets set LALAMOVE_KEY <key>
-//      supabase secrets set LALAMOVE_SECRET <secret>
-//      supabase secrets set LALAMOVE_ENV sandbox      # or "production" when live
-//   3. supabase functions deploy courier
+//   1. Partner Portal (https://partnerportal.lalamove.com) → sign up for a Developer
+//      Key. The Sandbox/Production switch is in the TOP RIGHT CORNER of the page and
+//      must say Sandbox, or no test pair is shown at all. The key and secret are on the
+//      Developers tab and start pk_test_ / sk_test_. Sandbox needs no approval and no
+//      wallet top-up; live keys do require topping up the Lalamove wallet.
+//   2. supabase functions deploy courier --project-ref hzpyblqygnntixkijeem
+//      The --project-ref is not optional in practice: without it the CLI asks "Select a
+//      project" and this repo's project list also carries a second, unrelated project,
+//      so a stray Enter can aim the deploy at the wrong one.
+//   3. supabase secrets set LALAMOVE_KEY=<key>
+//      supabase secrets set LALAMOVE_SECRET=<secret>
+//      supabase secrets set LALAMOVE_ENV=sandbox      # or "production" when live
+//      THE "=" IS REQUIRED. `secrets set LALAMOVE_KEY <key>` is refused with "Invalid
+//      secret pair: LALAMOVE_KEY. Must be NAME=VALUE." — which is what this comment
+//      said until v194, and it cost a round trip to work out.
 //
 // To try it before her account exists, nothing here has to change: the app's own
 // screens work against the same contract with no key at all (they say so in words),
@@ -32,7 +41,7 @@
 // documents.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, orderWithDriver, cancelOrder, type LlmConfig } from "./providers/lalamove.ts";
+import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, orderWithDriver, cancelOrder, notSetUpReason, type LlmConfig } from "./providers/lalamove.ts";
 import { geocodeAddress } from "./geocode.ts";
 import { validPoint } from "./place.ts";
 import { orderArgs } from "./booking.ts";
@@ -98,10 +107,9 @@ Deno.serve(async (req) => {
     return json(out);
   }
 
-  const cfg = configFor(provider);
-  if (!cfg) {
-    return json({ ok: false, reason: `This build has no courier called "${provider}".` });
-  }
+  const found = configFor(provider);
+  if (!found.ok) return json({ ok: false, reason: found.reason });
+  const cfg = found.cfg;
 
   if (action === "account") {
     // What the Settings card shows: which environment is live and which country's
@@ -210,22 +218,33 @@ function envName(): string {
   return said === "production" ? "production" : "sandbox";
 }
 
-// The provider's configuration, or null when this build has no such courier. The
-// key and secret are read here and go nowhere else: they are not returned, not
-// logged, and not put in an error message.
-function configFor(key: string): LlmConfig | null {
-  if (key !== LALAMOVE_KEY) return null;
+// The provider's configuration, or the reason there is none. The key and secret are
+// read here and go nowhere else: they are not returned, not logged, and not put in an
+// error message.
+//
+// TWO PROBLEMS COME THROUGH THIS DOOR AND THEY MUST NOT SHARE A SENTENCE (v194).
+// "This build does not carry that courier" is a claim about the app; "the key was never
+// added" is one secret's worth of setup. Until v194 both collapsed into the first one,
+// which sent her hunting the build for a fault that was never there. So the reason is
+// returned rather than swallowed, and each branch owns its own words.
+function configFor(key: string): { ok: true; cfg: LlmConfig } | { ok: false; reason: string } {
+  if (key !== LALAMOVE_KEY) {
+    return { ok: false, reason: `This build has no courier called "${key}".` };
+  }
   const apiKey = String(Deno.env.get("LALAMOVE_KEY") || "").trim();
   const secret = String(Deno.env.get("LALAMOVE_SECRET") || "").trim();
   if (!apiKey || !secret) {
-    console.error("[courier] the api key and secret are not visible to the function");
-    return null;
+    console.error("[courier] the api key and secret are not set on this function");
+    return { ok: false, reason: notSetUpReason() };
   }
   return {
-    key: apiKey,
-    secret,
-    market: (String(Deno.env.get("LALAMOVE_MARKET") || "").trim() || "MY").toUpperCase(),
-    host: hostFor(envName()),
+    ok: true,
+    cfg: {
+      key: apiKey,
+      secret,
+      market: (String(Deno.env.get("LALAMOVE_MARKET") || "").trim() || "MY").toUpperCase(),
+      host: hostFor(envName()),
+    },
   };
 }
 
