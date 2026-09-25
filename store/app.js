@@ -1353,6 +1353,60 @@ const TRIP_WORDS = {
 // `tel:` link only when it contains digits at all — a number that cannot be dialled is
 // left as words rather than made into a button that rings nothing, the same rule the
 // tracking slot follows.
+// Read a money figure the baker's app publishes as a DISPLAY string — the only one it
+// sends that way is the total — back into a number and the symbol it was written with.
+// Returns null rather than a guess when there is no number in there, so the card can fall
+// back to what it has always shown instead of printing a figure it made up.
+function readMoney(value) {
+  const text = String(value == null ? "" : value);
+  const found = text.match(/-?\d[\d,]*(?:\.\d+)?/);
+  if (!found) return null;
+  const n = Number(found[0].replace(/,/g, ""));
+  // The symbol comes off the string itself, so the card cannot count in a different
+  // currency from the one the app published in.
+  return Number.isFinite(n) ? { sym: text.slice(0, found.index), n } : null;
+}
+
+// Write it back the way fmtRM does on the baker's side — two decimals, symbol then a
+// space — so the same figure reads identically in the message and on the card.
+function moneyText(sym, n) {
+  return `${sym}${(Math.round((Number(n) || 0) * 100) / 100).toFixed(2)}`;
+}
+
+// The money, as the same lines the customer's WhatsApp message carries (v199, 25 Sep
+// 2026): what they ordered, its subtotal, the courier's charge when there is one, and the
+// total — so the card and the message cannot be read side by side and disagree.
+//
+// The subtotal has to be worked out here rather than read, because only the total is
+// published as a figure the card can print: a charge the CUSTOMER bears is inside that
+// total UNLESS the courier collects it at the door, so the goods are the total less that
+// part. `courier_fee` is the whole charge either way, which is why the COD flag decides
+// whether it comes off.
+//
+// A total that cannot be read as a number falls back to the single line this card has
+// always drawn.
+function moneyEls(row) {
+  const read = readMoney(row && row.total);
+  const items = String((row && row.items) || "");
+  if (!read) return [el("p", {}, `${items} — ${String((row && row.total) || "")}`)];
+  const fee = Number(row && row.courier_fee) || 0;
+  const inside = fee > 0 && !(row && row.courier_cod) ? fee : 0;
+  return [
+    // The goods themselves, under the label the message uses, so the list above a stack
+    // of figures is unmistakably what those figures are about.
+    el("p", {}, sub(t("trkItems"), items)),
+    // The workings are muted and the total is not: the same reading order the message
+    // gives with a blank line and bold, done here the way a page does it.
+    el("p", { class: "track-note" }, sub(t("itemsTotal"), moneyText(read.sym, read.n - inside))),
+    fee > 0
+      ? el("p", { class: "track-note track-fee" }, sub(
+          t(row.courier_cod ? "courierCod" : "courierCharge"),
+          moneyText(read.sym, fee)))
+      : null,
+    el("p", { class: "track-total" }, sub(t("trkTotal"), moneyText(read.sym, read.n))),
+  ].filter(Boolean);
+}
+
 function tripEls(row) {
   const out = [];
   const phase = String((row && row.courier_phase) || "").trim();
@@ -1398,19 +1452,12 @@ function paintTrack() {
   const journey = journeyEl(row);
   const details = el("div", { class: "track-details" }, [
     el("p", {}, row.delivery),
-    // The courier's charge, named above the total — so the figure the customer owes
-    // explains itself instead of looking wrong (19 Sep 2026). Absent when the baker
-    // bore the charge or there was none.
-    //
-    // A COD charge is named the same way but said to be collected at the door, and it
-    // is deliberately NOT inside the total below: the courier is about to ask for it,
-    // and a total that included it too would read as being charged twice (19 Sep 2026).
-    row.courier_fee
-      ? el("p", { class: "track-note track-fee" }, sub(
-          t(row.courier_cod ? "courierCod" : "courierCharge"),
-          `RM${Number(row.courier_fee).toFixed(2)}`))
-      : null,
-    el("p", {}, `${row.items} — ${row.total}`),
+    // What they ordered and how its price adds up — the same figures the message carries,
+    // in the same order (v199, 25 Sep 2026). The courier's charge sits between the
+    // subtotal and the total, and a COD one is deliberately NOT inside that total: the
+    // courier is about to ask for it, and a total that included it too would read as
+    // being charged twice (19 Sep 2026).
+    ...moneyEls(row),
   ]);
   const kids = [
     codeLine,

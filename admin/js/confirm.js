@@ -8,12 +8,14 @@
 // customer to reply in THIS SAME CHAT with the receipt. Deliberately no
 // tap-through "send receipt" deep link: opening one inside the chat makes
 // WhatsApp jump away and the original message look truncated. Plain ASCII text
-// only - emoji have come back as broken "empty boxes" on some phones. The QR
+// only - emoji have come back as broken "empty boxes" on some phones. (The single
+// asterisks around the Total are ASCII and deliberate: WhatsApp renders the pair as
+// bold, and an unmatched one can only ever show as a literal asterisk.) The QR
 // is skipped when the baker hasn't set one.
 
-import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
+import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
-import { customerTotal, courierAddUp } from "./courier.js";
+import { customerTotal, moneyLines } from "./courier.js";
 
 // Returns { recipient, message }, or null when the group has no orders.
 // `trackUrl` is the storefront track link (with ?track=CODE) for the message.
@@ -38,8 +40,6 @@ export function buildConfirmation(state, group, trackUrl) {
   // A COD charge is NOT in this total: the courier collects it at the door, so putting
   // it here would ask for the same RM8 twice (19 Sep 2026).
   const parts = customerTotal(state, group);
-  const cur = state.settings.currency;
-  const total = fmtRM(parts.total, cur);
 
   const del = byId(state.deliveryDates, first.deliveryDateId);
   const date = del ? shortDate(del.date) : String(first.deliveryDate || "");
@@ -56,12 +56,12 @@ export function buildConfirmation(state, group, trackUrl) {
   msg += `Order #${orderCode(first)}\n`;
   msg += `Delivery: ${date} - ${fulfillment}${address}\n`;
   msg += `Items: ${items}\n`;
-  // With a charge on top, the sum is shown as its parts as well as the total, so the
+  // The sum and its parts, on every order: with a charge the parts are named so the
   // customer can add RM72 up themselves rather than take it on trust — "the message need
-  // to show the add up for rm72" (19 Sep 2026). No charge, and this message is unchanged.
-  const addUp = courierAddUp(state, parts);
-  if (addUp.length) msg += `${addUp.join("\n")}\n`;
-  msg += `Total: ${total}\n`;
+  // to show the add up for rm72" (19 Sep 2026) — and with none the subtotal still stands
+  // above the total, which is set off and bold, so the figure never arrives from nowhere
+  // (v199, 25 Sep 2026).
+  msg += `${moneyLines(state, parts).join("\n")}\n`;
   msg += `\nPay by TNG using the QR below:\n`;
   // A bare image URL on its own line is what makes WhatsApp render the QR as a
   // single scannable picture, and it must stay the FIRST link in the message

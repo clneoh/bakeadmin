@@ -155,6 +155,17 @@ test("a charge she bears comes off the money she has out, under its own name", (
 });
 
 // ── the customer's messages ────────────────────────────────────────────────
+// The whole money block, exactly as it must reach the customer (v199, 25 Sep 2026): the
+// subtotal, the charge when there is one, a BLANK LINE, then the total inside the single
+// asterisks WhatsApp renders as bold.
+//
+// Written out and matched WHOLE, not line by line, and that is the point of it. A message
+// carrying "*Total: RM 38.00*" still contains "Total: RM 38.00", so a loose assertion goes
+// on passing after the bold and the blank line have both been quietly dropped — it would
+// only have proved the figures were somewhere in there. This proves the shape.
+const money = (items, total, charge) =>
+  `Items total: RM ${items}\n${charge ? `Courier charge: RM ${charge}\n` : ""}\n*Total: RM ${total}*\n`;
+
 test("the customer's total carries their courier charge, and says so", () => {
   const st = state();
   st.orders[0].courierFee = 8;
@@ -165,16 +176,14 @@ test("the customer's total carries their courier charge, and says so", () => {
 
   const reminder = buildPaymentReminder(st, g, "https://x/track");
   assert.match(reminder.message, /Items: Focaccia x2/);
-  assert.match(reminder.message, /Courier charge: RM 8\.00/,
-    "named above the total, not left to be discovered inside it");
-  assert.match(reminder.message, /Total: RM 38\.00/, "RM30 of bread plus the RM8 charge");
+  assert.ok(reminder.message.includes(money("30.00", "38.00", "8.00")),
+    `the reminder adds the RM8 up to the RM38 it asks for: ${JSON.stringify(reminder.message)}`);
   assert.ok(reminder.message.indexOf("Courier charge") < reminder.message.indexOf("Total:"),
     "the charge is read before the total it is part of");
 
   const shipped = buildShippedMessage(st, g, "https://x/track");
-  assert.match(shipped.message, /Courier charge: RM 8\.00/, "and the shipped message carries it too");
-  assert.match(shipped.message, /Total: RM 38\.00/,
-    "and ends on the same total the reminder quoted, so the two can never disagree");
+  assert.ok(shipped.message.includes(money("30.00", "38.00", "8.00")),
+    "and the shipped message ends on the same total the reminder quoted, so the two can never disagree");
 });
 
 // The confirmation is the message that FIRST asks for money, so a charge missing from
@@ -189,8 +198,8 @@ test("the confirmation carries their charge, because it is the message that asks
   const g = groupOf(st);
 
   const msg = buildConfirmation(st, g, "https://x/track").message;
-  assert.match(msg, /Courier charge: RM 8\.00/, "named, not folded silently into the total");
-  assert.match(msg, /Total: RM 38\.00/, "RM30 of bread plus the RM8 charge");
+  assert.ok(msg.includes(money("30.00", "38.00", "8.00")),
+    `the charge is named, not folded silently into the total: ${JSON.stringify(msg)}`);
   assert.ok(msg.indexOf("Courier charge") < msg.indexOf("Total:"),
     "read before the total it is part of");
 });
@@ -239,19 +248,22 @@ test("a charge SHE bore never reaches the confirmation either", () => {
   const g = groupOf(st);
 
   const msg = buildConfirmation(st, g, "https://x/track").message;
-  assert.match(msg, /Total: RM 30\.00/, "what they owe is the bread, and only the bread");
+  assert.ok(msg.includes(money("30.00", "30.00")),
+    `what they owe is the bread, and only the bread: ${JSON.stringify(msg)}`);
   assert.doesNotMatch(msg, /Courier charge/,
     "asking them for a charge she is absorbing would be taking money she is not owed");
 });
 
-test("an order with no charge confirms exactly as it did before this existed", () => {
+test("an order with no charge confirms with the same money block as any other", () => {
   const st = state();
   st.orders[0].whatsapp = "60123456789";
   const g = groupOf(st);
   const plain = buildConfirmation(state({ orders: orders({ whatsapp: "60123456789" }) }),
     g, "https://x/track").message;
   assert.equal(buildConfirmation(st, g, "https://x/track").message, plain,
-    "byte for byte — nothing about an order without a charge moved");
+    "byte for byte — an order with no charge is the same order whatever else was recorded");
+  assert.ok(plain.includes(money("30.00", "30.00")),
+    `and its total stands under a subtotal rather than alone (v199): ${JSON.stringify(plain)}`);
   assert.doesNotMatch(plain, /Courier charge/);
 });
 
@@ -264,20 +276,26 @@ test("a charge SHE bore is absent from the customer's total, and from what they 
   const g = groupOf(st);
 
   const reminder = buildPaymentReminder(st, g, "https://x/track");
-  assert.match(reminder.message, /Total: RM 30\.00/, "what they owe is the bread, and only the bread");
+  assert.ok(reminder.message.includes(money("30.00", "30.00")),
+    `what they owe is the bread, and only the bread: ${JSON.stringify(reminder.message)}`);
   assert.doesNotMatch(reminder.message, /Courier charge/,
     "she is absorbing it — telling the customer about it would ask them for money they do not owe");
-  assert.doesNotMatch(buildShippedMessage(st, g, "https://x/track").message, /Courier charge/);
-  assert.doesNotMatch(buildShippedMessage(st, g, "https://x/track").message, /Total:/,
-    "and with no charge to explain, the shipped message is left exactly as it was");
+  const shipped = buildShippedMessage(st, g, "https://x/track").message;
+  assert.doesNotMatch(shipped, /Courier charge/);
+  // Reversed at v199 (25 Sep 2026): the shipped message used to leave the total out
+  // entirely when there was no charge to explain, so a courier order the customer paid
+  // nothing extra for carried no total at all while the reminder for the same order
+  // carried one. Every message that names money now names the sum the same way.
+  assert.ok(shipped.includes(money("30.00", "30.00")),
+    `and it quotes the same total the reminder did: ${JSON.stringify(shipped)}`);
 });
 
-test("no charge at all leaves every message exactly as it was", () => {
+test("no charge at all leaves the figures untouched, and gives the total a subtotal", () => {
   const st = state();
   st.orders[0].whatsapp = "60123456789";
   const g = groupOf(st);
   const reminder = buildPaymentReminder(st, g, "https://x/track").message;
-  assert.match(reminder, /Total: RM 30\.00/);
+  assert.ok(reminder.includes(money("30.00", "30.00")));
   assert.doesNotMatch(reminder, /Courier charge/);
   assert.equal(reminder, buildPaymentReminder(state({ orders: orders({ whatsapp: "60123456789" }) }),
     g, "https://x/track").message, "byte for byte the same as an order this feature never touched");
@@ -381,20 +399,26 @@ test("the COD charge is still shown in full, so the customer can add up what the
   assert.equal(items + cod, 38, "what changes hands altogether is still bread + charge, whoever is paid");
 });
 
-test("an advance charge and a no-charge order are byte-identical to what v127 produced", () => {
+test("an advance charge and a no-charge order both read their figures in one order", () => {
   const advance = state();
   advance.orders[0].courierFee = 8;
   advance.orders[0].courierPaidBy = "customer";
   advance.orders[0].whatsapp = "60123456789";
   advance.orders[0].fulfillment = "courier";
   const msg = buildPaymentReminder(advance, groupOf(advance), "https://x/track").message;
-  assert.match(msg, /Items total: RM 30\.00\nCourier charge: RM 8\.00\nTotal: RM 38\.00\n/,
-    "the v126 lines, in the v126 order, with the v126 figures — the split added no line and moved none");
+  assert.ok(msg.includes(money("30.00", "38.00", "8.00")),
+    `the v126 lines, in the v126 order, with the v126 figures: ${JSON.stringify(msg)}`);
 
+  // Reversed at v199 (25 Sep 2026). The subtotal used to be drawn only for an order that
+  // carried a charge, so a plain order went from the items straight to the total and the
+  // figure had nothing above it to be checked against. Her report, in her words: the
+  // message has to show how the total adds up.
   const none = state();
   none.orders[0].whatsapp = "60123456789";
-  assert.doesNotMatch(buildPaymentReminder(none, groupOf(none), "https://x/track").message, /Items total/,
-    "and an order with no charge is not given an add-up it has nothing to add");
+  const plain = buildPaymentReminder(none, groupOf(none), "https://x/track").message;
+  assert.ok(plain.includes(money("30.00", "30.00")),
+    `an order with no charge still shows the subtotal its total comes from: ${JSON.stringify(plain)}`);
+  assert.doesNotMatch(plain, /Courier charge/, "and is given no charge to explain");
 });
 
 test("neither mode moves her takings — a COD charge is pass-through like any other", () => {

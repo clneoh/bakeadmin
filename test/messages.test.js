@@ -26,11 +26,20 @@ function group(overrides = {}) {
   }] };
 }
 
+// The money block as the customer receives it (v199, 25 Sep 2026): the subtotal, a blank
+// line, then the total inside the single asterisks WhatsApp renders as bold. Two bread at
+// RM15, self collect, so there is no charge to name.
+//
+// Matched WHOLE rather than searched for, and that matters here: "*Total: RM 30.00*" still
+// contains "Total: RM 30.00", so a plain `includes("Total: RM 30.00")` would go on passing
+// with both the blank line and the bold quietly gone.
+const MONEY = "Items total: RM 30.00\n\n*Total: RM 30.00*\n";
+
 test("payment reminder leads with the order code and re-sends the QR", () => {
   const built = buildPaymentReminder(state(), group(), "https://bake.app/store/?track=445566");
   assert.equal(built.recipient, "60123456789");
   assert.ok(built.message.includes("Order #445566"), "order code in the reminder");
-  assert.ok(built.message.includes("Total: RM 30.00"), "total");
+  assert.ok(built.message.includes(MONEY), "the total stands under the subtotal it comes from");
   assert.ok(built.message.includes("Delivery: Mon, 7 Sep - Self collect"), "date + fulfillment");
   assert.ok(built.message.includes("\nhttps://img/tng.png\n"), "QR image URL on its own line");
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"));
@@ -75,9 +84,23 @@ test("shipped message says the order is on its way and carries the tracking numb
   assert.ok(built.message.includes("Delivery: Mon, 7 Sep - Courier delivery"), "date + how it left");
   assert.ok(built.message.includes("Items: Focaccia x2"), "what was sent");
   assert.ok(built.message.includes("Tracking number: JT123456789"), "the number she typed");
+  assert.ok(built.message.includes(MONEY),
+    "and it still says what the order came to, not only where it is");
   assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"));
   const nonAscii = [...built.message].filter((ch) => ch.codePointAt(0) > 0x7f);
   assert.deepEqual(nonAscii, [], "message is plain ASCII");
+});
+
+// Reversed at v199 (25 Sep 2026). This message used to leave the total out whenever the
+// order carried no courier charge — the one message of the three that could arrive with no
+// figure on it at all, while the payment reminder for the same order always quoted one.
+// Her report was that the message has to show how the total adds up.
+test("a courier order with no charge is still told what it came to", () => {
+  const built = buildShippedMessage(state(), group({ fulfillment: "courier" }), "https://x");
+  assert.ok(built.message.includes("is on its way"), "the message itself is unchanged otherwise");
+  assert.ok(built.message.includes(MONEY),
+    `the subtotal and the total, the same as every other message: ${JSON.stringify(built.message)}`);
+  assert.ok(!built.message.includes("Courier charge"), "with no charge invented to explain");
 });
 
 test("with no tracking number the line is left out, not printed empty", () => {

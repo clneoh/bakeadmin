@@ -1,8 +1,74 @@
-# Jienluv2bake — change history (v54 → v198)
+# Jienluv2bake — change history (v54 → v199)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v199, THE TOTAL NOW SHOWS ITS WORKING (no database step, no redeploy — one
+push). On the WhatsApp message at every stage of an order, and on the Track page your customer
+opens, the money is set out as a small addition rather than one figure on its own: what they ordered
+comes to this, plus the courier's charge if there is one, and it all reaches the total — with the
+total set apart by a blank line and shown bold, so the eye lands on the number that matters. Every
+message that names money now names it the same way, and every track card says the same figures in
+the same order as the message.**
+
+**There were two different things wrong, and only one of them was the emphasis you asked about.**
+On a message, the total was simply the next line down from the working, in the same weight as
+everything else, so it read as one more line of the paragraph rather than the answer. And on an
+order that carried no courier charge at all there was no working to read in the first place: the
+"Items:" line is followed by what the customer ordered — two loaves, one sandwich — and not by what
+it costs. So a customer with a plain self-collect order had a total arrive from nowhere and nothing
+to check it against. That is the one you spotted, and it was the more serious of the two.
+
+**What every message now reads, from the confirmation onwards.** The goods, then what they come to,
+then the courier's charge if the customer is bearing one, then the total. The charge keeps the two
+wordings it has always had — the plain charge, and the charge the courier collects at the door, which
+says so and stays out of the total because the customer hands it over in person. A self-collect
+order with no charge skips straight from what the goods come to down to the total, so the two figures
+sit one above the other and agree.
+
+**One of the three messages was different from the other two, and it is now the same. The message
+you send when a courier order is on its way used to leave the total out completely unless the order
+carried a charge** — so the one message a customer gets when their order is in a van was the one
+message that never said what they had paid, while the payment reminder for the same order always
+quoted it. It now carries the same lines as the rest. Nothing about where the order is, or the
+tracking number, has changed.
+
+**The Track page draws the same three lines, in the same order.** Before, it named the courier's
+charge and then ran the goods and the total together onto one line joined by a dash, so the charge
+appeared with no clue how it related to the figure after it. It now lists what they ordered, what
+that comes to, the charge if there is one, and the total underneath — the same reading order as the
+message, so the two cannot be read as two different sums. It also used to write the charge as
+"RM8.00" with no space, unlike every other figure on the site; it now matches.
+
+**Bold is done the way each place can do it.** WhatsApp has no bold setting in a typed message, so
+the total is wrapped in a pair of asterisks, which is the one way to make a line stand out there.
+The Track page is a web page, so it simply styles the line instead — you will never see an asterisk
+on the shop side, because that would be the WhatsApp message leaking onto the page. Both were worth
+saying, because they are the same intention carried out two different ways.
+
+**The figures are worked out from what the app already knows, so no new column was needed.** The
+total is the one figure the app publishes to the customer's page; the courier's charge is published
+beside it, and it is inside that total unless the courier is collecting it at the door. So the Track
+page takes the charge back off to show what the goods came to — which is why a doorstep charge does
+not move that figure at all, since it was never added to it. The page also reads the currency off
+the published total rather than assuming ringgit, so a price written in another currency cannot end
+up with its working-out written in RM.
+
+**Sixteen faults put back, all sixteen caught.** The faults included the total quietly losing its
+asterisks, the blank line going missing above it, the working disappearing altogether so the old
+"total from nowhere" came back, and — the one most worth having — the Track page taking the courier's
+charge off an order the courier is collecting at the door, which would have shown a customer a
+subtotal of RM22 on an order they are being asked RM30 for. Also among them: the shipped message
+going back to naming a total only when there was a charge, and one of the translations losing the
+placeholder that carries its figure, which would print "Items total:" with no amount beside it.
+Every file was restored byte-identically and proved by sha256 rather than by counting lines. The
+suite is 1670 passing with none failing.
+
+**No database step, and no redeploy.** This one is all in the app itself, so the push is the whole
+of it — nothing to run in Supabase, and the courier function is not touched. The v196 and v198
+lookup changes still need the redeploy they were waiting for; this one does not add to that. After
+pushing, close and reopen the app on your phone.
 
 **25 Sep 2026 — engine v198, THE ADDRESS LOOKUP OFFERS ITS OTHER MATCHES (no database step; the
 courier function must be redeployed). When you press "Look it up" on the pin card, the card now

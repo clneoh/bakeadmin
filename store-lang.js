@@ -139,6 +139,14 @@ const en = {
   // The same slot when a booked courier trip handed back a share link rather than a
   // number. The value is the link itself and is rendered tappable, so there is no %1.
   trackDelivery: "Track your delivery:",
+  // What they ordered, and then how its price adds up (v199, 25 Sep 2026). The subtotal
+  // and the total are drawn on EVERY order, not only one carrying a courier charge, so
+  // the total never stands on its own with nothing above it. The same three lines, in
+  // the same order, are in the customer's WhatsApp message — see moneyLines in
+  // admin/js/courier.js, which owns the English wording there.
+  trkItems: "Items: %1",
+  itemsTotal: "Items total: %1",
+  trkTotal: "Total: %1",
   courierCharge: "Courier charge: %1",
   // The same charge when the courier collects it at the door: COD is the word
   // Malaysians know for a parcel the receiver pays for, so it is kept, with what to
@@ -276,6 +284,9 @@ const zh = {
   trkFinal: "已取货 / 已寄出",
   trackingNo: "快递单号：%1",
   trackDelivery: "查看配送进度：",
+  trkItems: "商品：%1",
+  itemsTotal: "商品小计：%1",
+  trkTotal: "总计：%1",
   courierCharge: "快递费：%1",
   courierCod: "快递费：%1 - 货到付款，收货时付给快递员",
   tripStatus: "配送：%1",
@@ -403,6 +414,9 @@ const ms = {
   trkFinal: "Telah diambil / Telah dihantar",
   trackingNo: "Nombor penjejakan: %1",
   trackDelivery: "Jejak penghantaran anda:",
+  trkItems: "Barang: %1",
+  itemsTotal: "Jumlah barang: %1",
+  trkTotal: "Jumlah keseluruhan: %1",
   courierCharge: "Caj kurier: %1",
   courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
   tripStatus: "Penghantaran: %1",

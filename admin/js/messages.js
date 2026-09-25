@@ -6,9 +6,9 @@
 // with the order code so the customer can always match it back to their order, and
 // stays plain ASCII - emoji have come back as broken boxes on some phones.
 
-import { byId, fmtRM, orderCode, orderLineName, waNumber } from "./state.js";
+import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
-import { customerTotal, courierAddUp } from "./courier.js";
+import { customerTotal, moneyLines } from "./courier.js";
 import { trackingLine, windowSuffix } from "./courier_job.js";
 
 function basics(state, group, trackUrl) {
@@ -27,7 +27,6 @@ function basics(state, group, trackUrl) {
   // cannot quote different figures (19 Sep 2026). A COD charge is deliberately NOT in
   // the total — the courier takes it at the door (19 Sep 2026).
   const parts = customerTotal(state, group);
-  const total = fmtRM(parts.total, state.settings.currency);
   const del = byId(state.deliveryDates, first.deliveryDateId);
   // The day, and the window the van will come in when the order is on a consolidated run
   // (v191). Every message below quotes THIS one string, so the window appears in the
@@ -44,10 +43,11 @@ function basics(state, group, trackUrl) {
   // The courier's tracking number she typed on the order. Kept as typed (a
   // pasted number may carry spaces or dashes) — it goes to the customer verbatim.
   const trackingNo = String(first.trackingNo || "").trim();
-  // The charge lines, built by the one helper the confirmation uses too, so the two
-  // messages word the charge identically. Empty when there is no charge at all.
-  const addUp = courierAddUp(state, parts);
-  return { first, recipient, items, total, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, addUp };
+  // The money block — the subtotal, the charge when there is one, and the bold total —
+  // built by the one helper the confirmation uses too, so the messages word it
+  // identically. Never empty: the subtotal and the total are on every order (v199).
+  const money = moneyLines(state, parts);
+  return { first, recipient, items, date, courier, fulfillment, bakery, qr, trackUrl, trackingNo, money };
 }
 
 export function buildPaymentReminder(state, group, trackUrl) {
@@ -62,8 +62,7 @@ export function buildPaymentReminder(state, group, trackUrl) {
   // Shown as its parts as well as the sum: the customer is being asked for money, and a
   // figure that is RM8 more than the items they chose has to say so — and show them the
   // RM8 (19 Sep 2026). A COD charge is named here too, but outside the total below.
-  if (b.addUp.length) msg += `${b.addUp.join("\n")}\n`;
-  msg += `Total: ${b.total}\n`;
+  msg += `${b.money.join("\n")}\n`;
   if (b.qr) {
     msg += `\nPay by TNG using the QR below:\n\n${b.qr}\n`;
     msg += `\nWhen you pay, put your phone number (${b.recipient}) in the payment description.\n`;
@@ -96,10 +95,12 @@ export function buildShippedMessage(state, group, trackUrl) {
   // shows them, so the two never disagree (19 Sep 2026). The total follows it, because
   // a message that names a charge and then never says what the order now comes to
   // leaves the customer to do the arithmetic (19 Sep 2026).
-  if (b.addUp.length) {
-    msg += `${b.addUp.join("\n")}\n`;
-    msg += `Total: ${b.total}\n`;
-  }
+  //
+  // This used to be skipped entirely on an order with no charge, so a courier order the
+  // customer paid nothing extra for carried no total at all while the payment reminder
+  // carried one (v199, 25 Sep 2026). Every message that names money now names the sum
+  // the same way.
+  msg += `${b.money.join("\n")}\n`;
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }

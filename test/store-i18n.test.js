@@ -92,6 +92,14 @@ test("the closed-product reason and the basket notes are keyed in all three lang
     // they owe the baker money the courier is about to ask them for.
     courierCharge: ["%1"],
     courierCod: ["%1"],
+    // The card's own add-up (v199, 25 Sep 2026): the goods, their subtotal, and the total.
+    // All three are built in JS off the published row and each one IS its figure, so a
+    // translation that dropped its %1 would draw "Items total:" with no amount beside it —
+    // the card would say the sum adds up and then not show what to — and nothing but this
+    // would notice.
+    trkItems: ["%1"],
+    itemsTotal: ["%1"],
+    trkTotal: ["%1"],
   };
   for (const [key, phs] of Object.entries(holders)) {
     for (const l of LANGS) {

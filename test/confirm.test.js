@@ -14,6 +14,15 @@ function state(overrides = {}) {
   };
 }
 
+// The money block as the customer receives it (v199, 25 Sep 2026): the subtotal, a blank
+// line, then the total inside the single asterisks WhatsApp renders as bold. Two bread at
+// RM15, self collect, so there is no charge to name.
+//
+// Matched WHOLE rather than searched for, and that matters here: "*Total: RM 30.00*" still
+// contains "Total: RM 30.00", so a plain `includes("Total: RM 30.00")` would go on passing
+// with both the blank line and the bold quietly gone.
+const MONEY = "Items total: RM 30.00\n\n*Total: RM 30.00*\n";
+
 test("buildConfirmation shows the TNG QR and asks for the receipt in the same chat", () => {
   const group = { orders: [{
     id: "ord_ab12cd34ef56", groupId: "ordg_112233445566",
@@ -26,7 +35,7 @@ test("buildConfirmation shows the TNG QR and asks for the receipt in the same ch
   assert.ok(built.message.includes("Order #445566"), "order code");
   assert.ok(built.message.includes("Delivery: Mon, 7 Sep - Self collect"), "date + fulfillment");
   assert.ok(built.message.includes("Items: Focaccia x2"), "items, plain ASCII x");
-  assert.ok(built.message.includes("Total: RM 30.00"), "total on its own line");
+  assert.ok(built.message.includes(MONEY), "the total stands under the subtotal it comes from");
   assert.ok(built.message.includes("Pay by TNG using the QR below:"),
     "asks for payment by TNG QR");
   assert.ok(built.message.includes("\nhttps://img/tng.png\n"),
@@ -41,9 +50,26 @@ test("buildConfirmation shows the TNG QR and asks for the receipt in the same ch
     "asks the customer to attach the receipt in this same chat");
   assert.ok(built.message.includes("Track your order: https://bake.app/store/?track=445566"),
     "the track link stays in the message, after the QR");
-  // Plain ASCII end to end — nothing that can corrupt into a broken glyph.
+  // Plain ASCII end to end — nothing that can corrupt into a broken glyph. The asterisks
+  // around the total are covered by this too, and that is the point of testing it here:
+  // the bold pair is chosen BECAUSE it is ordinary ASCII, so unlike an emoji it cannot
+  // come back on some phones as an empty box.
   const nonAscii = [...built.message].filter((ch) => ch.codePointAt(0) > 0x7f);
   assert.deepEqual(nonAscii, [], "message contains only ASCII characters");
+});
+
+test("the total is set off and bold even when there is no charge to explain", () => {
+  const group = { orders: [{
+    id: "ord_ab12cd34ef56", deliveryDateId: "d1", fulfillment: "collect",
+    whatsapp: "60123456789", customerName: "Bee", productId: "p1", qty: 2,
+  }] };
+  const msg = buildConfirmation(state(), group, "https://bake.app/store/?track=34ef56").message;
+  assert.ok(msg.includes(MONEY),
+    `the subtotal, a blank line, then the bold total: ${JSON.stringify(msg)}`);
+  assert.ok(!msg.includes("Courier charge"),
+    "and nothing is invented to sit between them on an order that has no charge");
+  assert.ok(msg.indexOf("Items total") < msg.indexOf("*Total:"),
+    "the workings are read before the figure they reach");
 });
 
 test("the description reminder has no dangling number when the order has none", () => {

@@ -96,21 +96,37 @@ export function customerTotal(state, group) {
   return { items, courier, cod, total: items + courier };
 }
 
-// The lines that name the charge and the sum it reaches, in ONE place so the
-// confirmation, the payment reminder and the shipped message cannot word it
-// differently — "And it should be the same for APP" (19 Sep 2026). The caller prints
-// each line on its own row; nothing here is tied to a screen.
+// The money part of every message, in ONE place so the confirmation, the payment
+// reminder and the shipped message cannot word the sum differently — "And it should be
+// the same for APP" (19 Sep 2026). The caller prints each line on its own row; nothing
+// here is tied to a screen. The customer's track card carries the same lines, worded in
+// the storefront's own three languages, so the two can be read side by side.
+//
+// The subtotal is shown on EVERY order (v199, 25 Sep 2026), not only one that carries a
+// charge. Her report was that a plain order went from the items straight to the Total, so
+// the figure arrived from nowhere and there was nothing for the customer to add up. An
+// order with no charge now reads Items total / Total — two lines that agree — rather than
+// one figure standing on its own.
+//
+// The total is set off by a blank line and wrapped in SINGLE asterisks, which WhatsApp
+// renders as bold (v199). Ordinary ASCII, so it cannot come back as the broken "empty
+// boxes" emoji did on some phones, and the same characters are plain text in any client
+// that does not render them.
 //
 // A COD charge says who is paid and when, in full words, because COD on its own
 // usually means paying for the GOODS at the door — here the goods are already paid
 // and only the charge is collected.
-export function courierAddUp(state, parts) {
+export function moneyLines(state, parts) {
   const cur = state.settings.currency;
-  if (!parts.courier && !parts.cod) return [];
-  const charge = parts.cod
-    ? `Courier charge: ${fmtRM(parts.cod, cur)} - COD, pay the courier when your order reaches you`
-    : `Courier charge: ${fmtRM(parts.courier, cur)}`;
-  return [`Items total: ${fmtRM(parts.items, cur)}`, charge];
+  const out = [`Items total: ${fmtRM(parts.items, cur)}`];
+  if (parts.courier || parts.cod) {
+    out.push(parts.cod
+      ? `Courier charge: ${fmtRM(parts.cod, cur)} - COD, pay the courier when your order reaches you`
+      : `Courier charge: ${fmtRM(parts.courier, cur)}`);
+  }
+  out.push("");
+  out.push(`*Total: ${fmtRM(parts.total, cur)}*`);
+  return out;
 }
 
 // Record the charge on the books. Called on save from the Note / tracking pop-up,

@@ -115,7 +115,9 @@ test("the WhatsApp confirmation quotes the price the order was sold at", () => {
   const group = { orders: [o] };
   const { message } = buildConfirmation(state, group, "https://jienluv2bake.com.my/store/?track=ABC");
   assert.match(message, /Items: Rosemary Focaccia x2/);
-  assert.match(message, /Total: RM 30.00/);
+  // The bold pair is asserted with the figure so a lost emphasis cannot pass this
+  // on the strength of the digits alone (v199).
+  assert.ok(message.includes("*Total: RM 30.00*"), "the sold price, in the emphasised total");
 });
 
 test("the payment reminder quotes the sold price too", () => {
@@ -123,7 +125,9 @@ test("the payment reminder quotes the sold price too", () => {
   const o = soldOrder();
   stampOrderLine(o, FOCACCIA);
   const { message } = buildPaymentReminder(state, { orders: [o] }, "https://x");
-  assert.match(message, /Total: RM 30.00/);
+  // The bold pair is asserted with the figure so a lost emphasis cannot pass this
+  // on the strength of the digits alone (v199).
+  assert.ok(message.includes("*Total: RM 30.00*"), "the sold price, in the emphasised total");
 });
 
 test("the customer's tracking page shows what they bought, at the price they paid", () => {
