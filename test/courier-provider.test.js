@@ -47,7 +47,7 @@ const {
   cities, llmRequest,
 } = await import("../supabase/functions/courier/providers/lalamove.ts");
 const { validPoint } = await import("../supabase/functions/courier/place.ts");
-const { placeFromResults } = await import("../supabase/functions/courier/geocode.ts");
+const { placeFromResults, placeFromPhoton, geocodeAddress } = await import("../supabase/functions/courier/geocode.ts");
 const {
   lalamove, QUOTE_VALID_MS, serviceLabel, sortServices, normaliseVehicles,
   normaliseQuote, normaliseQuotes, distanceKmOf, statusLabel,
@@ -438,6 +438,171 @@ test("a geocode reply with no point in it is a miss, not an equator", () => {
 test("the first result is the one that is kept, and a missing label is an empty string", () => {
   const place = placeFromResults([{ lat: "5.4", lon: "100.3" }, { lat: "1", lon: "1", display_name: "Second" }]);
   assert.deepEqual(place, { lat: 5.4, lng: 100.3, label: "" });
+});
+
+// ── the second service, and the order the two are asked in (v196) ─────────
+//
+// Her bug, on her phone: "The address lookup service did not answer. Put the pin on
+// the map instead." — twice, on an ordinary Penang address. That sentence is the
+// refusal branch, so the service had answered, and refused. The tests below are what
+// a single-service geocoder could not have had: the fallback itself, and the four
+// different things that can go wrong now being told apart rather than lumped into one
+// sentence she cannot act on.
+
+test("Photon's point is read longitude-first, into the app's lat and lng the right way round (v196)", () => {
+  // The real shape of a real reply, trimmed to what is read. Photon is GeoJSON, and
+  // GeoJSON writes coordinates LONGITUDE FIRST — the opposite order to every other
+  // point in this app. Read in the order written, a Penang street becomes latitude
+  // 100.33, which the range check refuses, so the failure would be a pin that quietly
+  // never appears rather than a wrong one — bad either way, and silent.
+  const reply = {
+    features: [{
+      properties: { countrycode: "MY", name: "Chulia Street", city: "George Town", postcode: "10200" },
+      geometry: { type: "Point", coordinates: [100.3352289, 5.4188221] },
+    }],
+  };
+  assert.deepEqual(placeFromPhoton(reply), {
+    lat: 5.4188221, lng: 100.3352289, label: "Chulia Street, George Town, 10200",
+  });
+});
+
+test("a result from another country is skipped, and the Malaysian one behind it is taken (v196)", () => {
+  // Both services are asked for Malaysian answers only, so a same-named street abroad
+  // can never be handed back as her customer's door. Skipped rather than refused: the
+  // right answer may be the next result in the list.
+  const reply = {
+    features: [
+      { properties: { countrycode: "SG", name: "Chulia Street" }, geometry: { coordinates: [103.8, 1.28] } },
+      { properties: { countrycode: "MY", name: "Lebuh Chulia" }, geometry: { coordinates: [100.3352, 5.4188] } },
+    ],
+  };
+  assert.equal(placeFromPhoton(reply).label, "Lebuh Chulia");
+  assert.equal(placeFromPhoton(reply).lat, 5.4188);
+  // A country said in lower case is the same country.
+  const lower = { features: [{ properties: { countrycode: "my", name: "X" }, geometry: { coordinates: [100.3, 5.4] } }] };
+  assert.equal(placeFromPhoton(lower).label, "X");
+});
+
+test("a Photon reply that points nowhere is a miss, not an equator (v196)", () => {
+  const MY = (coords) => ({ properties: { countrycode: "MY", name: "X" }, geometry: { coordinates: coords } });
+  assert.equal(placeFromPhoton(null), null);
+  assert.equal(placeFromPhoton({}), null);
+  assert.equal(placeFromPhoton({ features: [] }), null);
+  assert.equal(placeFromPhoton({ features: [{ properties: { countrycode: "MY" } }] }), null, "a feature with no geometry at all");
+  assert.equal(placeFromPhoton({ features: [MY([])] }), null);
+  assert.equal(placeFromPhoton({ features: [MY([100.3])] }), null, "half a point is not a point");
+  assert.equal(placeFromPhoton({ features: [MY([100.3, null])] }), null);
+  assert.equal(placeFromPhoton({ features: [MY(["east", "north"])] }), null);
+  assert.equal(placeFromPhoton({ features: [{ properties: {}, geometry: { coordinates: [100.3, 5.4] } }] }), null,
+    "no country is not a Malaysian answer");
+  assert.equal(placeFromPhoton({ features: [{ properties: { countrycode: "TH" }, geometry: { coordinates: [100.3, 5.4] } }] }), null);
+});
+
+test("the pin wears the parts of a Photon answer that are there, and no empty commas (v196)", () => {
+  const label = (p) => placeFromPhoton({ features: [{ properties: p, geometry: { coordinates: [100.3, 5.4] } }] }).label;
+  assert.equal(label({ countrycode: "MY", name: "Only A Name" }), "Only A Name");
+  assert.equal(label({ countrycode: "MY", name: "Road", postcode: "10200" }), "Road, 10200", "a missing town leaves no gap");
+  assert.equal(label({ countrycode: "MY", district: "Timur Laut", name: "Road" }), "Road, Timur Laut", "district stands in for a missing city");
+  assert.equal(label({ countrycode: "MY", locality: "Little India", name: "Road" }), "Road, Little India");
+  assert.equal(label({ countrycode: "MY" }), "", "nothing to say is said as nothing");
+});
+
+test("no address typed is not a lookup, and no service is asked (v196)", async () => {
+  const s = stubFetch(jsonReply({ features: [] }));
+  try {
+    const out = await geocodeAddress("   ");
+    assert.equal(out.ok, false);
+    assert.equal(out.reason, "There is no address to look up.");
+    assert.equal(s.sent.length, 0, "nothing to look up must not be a request to anyone");
+  } finally { s.restore(); }
+});
+
+test("the first service that answers with a place wins, and the second is never asked (v196)", async () => {
+  const s = stubFetch(jsonReply({
+    features: [{ properties: { countrycode: "MY", name: "Chulia Street", city: "George Town" }, geometry: { coordinates: [100.3352289, 5.4188221] } }],
+  }));
+  try {
+    const out = await geocodeAddress("Lebuh Chulia, George Town, Penang");
+    assert.equal(out.ok, true);
+    assert.deepEqual(out.place, { lat: 5.4188221, lng: 100.3352289, label: "Chulia Street, George Town" });
+    assert.equal(s.sent.length, 1, "one ask, because it answered");
+    assert.match(s.sent[0].url, /^https:\/\/photon\.komoot\.io\/api\//);
+    assert.match(s.sent[0].url, /limit=5/, "several results, so a foreign one can be skipped for a Malaysian one");
+    assert.match(s.sent[0].url, /q=Lebuh%20Chulia/, "her words travel percent-encoded");
+  } finally { s.restore(); }
+});
+
+test("a refusal from the first service is not the end of the lookup — the second one is asked (v196)", async () => {
+  // THIS IS HER BUG. Nominatim refused this function twice in a row on 25 Sep 2026,
+  // and because it was the only service asked, the whole lookup was refused with it.
+  // A refusal is one service's answer, not the end of the question.
+  const s = stubFetch((url) => (String(url).includes("photon.komoot.io")
+    ? jsonReply({ error: "forbidden" }, 403)
+    : jsonReply([{ lat: "5.4188", lon: "100.3352", display_name: "Lebuh Chulia, George Town, Penang" }])));
+  try {
+    const out = await geocodeAddress("Lebuh Chulia, George Town, Penang");
+    assert.equal(out.ok, true, "the second service's answer is the lookup's answer");
+    assert.deepEqual(out.place, { lat: 5.4188, lng: 100.3352, label: "Lebuh Chulia, George Town, Penang" });
+    assert.equal(s.sent.length, 2, "the refusal did not stop the second ask");
+    assert.match(s.sent[1].url, /^https:\/\/nominatim\.openstreetmap\.org\/search/);
+    assert.match(s.sent[1].url, /countrycodes=my/, "the second ask is filtered to Malaysia the same way");
+    assert.match(String(s.sent[1].headers["User-Agent"]), /^Jienluv2bake-Courier\//,
+      "Nominatim's policy asks who is calling, and the ask still says so");
+  } finally { s.restore(); }
+});
+
+test("when both services refuse, she is told the lookup did not answer, and pointed at the pin (v196)", async () => {
+  const s = stubFetch(jsonReply({}, 403));
+  try {
+    const out = await geocodeAddress("Lebuh Chulia, George Town, Penang");
+    assert.equal(out.ok, false);
+    assert.match(out.reason, /did not answer/);
+    assert.match(out.reason, /Put the pin on the map instead/);
+    assert.equal(s.sent.length, 2, "both were asked before she was told");
+  } finally { s.restore(); }
+});
+
+test("when both services answer but neither knows the address, that is a miss and not a fault (v196)", async () => {
+  // A house in a new estate is simply not in OpenStreetMap. That is not an error to
+  // report, and the words must not blame the service for it.
+  const s = stubFetch((url) => (String(url).includes("photon.komoot.io")
+    ? jsonReply({ features: [] })
+    : jsonReply([])));
+  try {
+    const out = await geocodeAddress("12, Jalan Baru, Penang");
+    assert.equal(out.ok, false);
+    assert.match(out.reason, /was not found/);
+    assert.doesNotMatch(out.reason, /did not answer|could not be reached/);
+  } finally { s.restore(); }
+});
+
+test("a lookup nobody answers in time says so, and is not left hanging (v196)", async () => {
+  // The stub honours the signal the way a real fetch does — it rejects with an
+  // AbortError when the caller's own timer fires. A stub that ignored the signal would
+  // leave this test hanging for ever instead of failing, which is the same class of
+  // kindness that hid three other faults in this repo.
+  const s = stubFetch((url, opts) => new Promise((_, reject) => {
+    opts.signal.addEventListener("abort", () => {
+      const err = new Error("The operation was aborted.");
+      err.name = "AbortError";
+      reject(err);
+    });
+  }));
+  try {
+    const out = await geocodeAddress("Lebuh Chulia, George Town, Penang", { timeoutMs: 10 });
+    assert.equal(out.ok, false);
+    assert.match(out.reason, /did not answer in time/);
+  } finally { s.restore(); }
+});
+
+test("a lookup whose network cannot be reached says so, and says which problem it was (v196)", async () => {
+  const s = stubFetch(async () => { throw new TypeError("fetch failed"); });
+  try {
+    const out = await geocodeAddress("Lebuh Chulia, George Town, Penang");
+    assert.equal(out.ok, false);
+    assert.match(out.reason, /could not be reached/);
+    assert.doesNotMatch(out.reason, /did not answer in time/, "a dead network is not a slow one");
+  } finally { s.restore(); }
 });
 
 // ── the client half: which vehicles she is offered ────────────────────────

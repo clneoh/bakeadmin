@@ -1,8 +1,69 @@
-# Jienluv2bake — change history (v54 → v195)
+# Jienluv2bake — change history (v54 → v196)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v196, THE ADDRESS LOOKUP ASKS A SECOND SERVICE (no database step; the courier
+function must be redeployed). You pressed "Look it up" on the pickup-pin card and read "The address
+lookup service did not answer. Put the pin on the map instead." — and then read it again, a second
+time. The lookup now asks a second address service first, and that one answers: typing an address
+fills the pin in again. Nothing about your day, your chart, your orders or your saved data was
+touched, and putting the pin on the map by hand still works exactly as it did — it is still the thing
+the pin is really for.**
+
+**What you read, and what it proved.** That sentence is written in one place, and it appears only
+when the address service has answered and refused. So the news was not that your phone could not
+reach it, and not that the service was down: it was that the service looked at the question and
+turned it away. Three other sentences cover the unreachable, the too-slow and the not-found cases,
+and you would have read one of those instead of this one.
+
+**The service itself is healthy, and I checked rather than assumed.** Asked for the same kind of
+request your app makes, it answered with a correct Penang result — the right street, the right town,
+the right postcode, first time. So the address was not the trouble, and neither was the question or
+the way the question is written.
+
+**Why it turned the app away.** That service asks every caller to say who it is, and it turns away
+callers it cannot account for. The app does say who it is, and says it the way that service asks —
+but the request leaves through a shared machine, and whether the name survives the trip is not
+something the app can see. What settled it was not the wording but the repetition: an ordinary
+address, refused identically twice, while the same service happily answers for a different caller
+(me). That is a house rule being applied rather than a fault to retry, so the answer was not to ask
+harder but to ask somebody else as well.
+
+**The fix: a second service is asked first.** The new one is built from the same open map data,
+covers Malaysia, needs no account and no key, and asks nothing of the caller beyond the question
+itself. The original service is kept and is now the second ask rather than the only one. Whichever
+answers first wins, so in ordinary use only one service ever sees a customer's address — and an
+address still never leaves your own server for the browser, which is how this was built and how it
+stays.
+
+**The old service was kept rather than thrown out.** It is the better-resourced index of the two,
+and keeping it costs nothing: if whatever turned it away is ever lifted, it is already in the queue.
+Losing its first place is the only thing it lost.
+
+**The four ways a lookup can fail are now told apart.** Not found, refused, too slow, and
+unreachable each get their own words, so the sentence you read describes the problem you actually
+have — a house in a new estate that the map simply does not carry is not the same news as a service
+that refused, and neither should wear the other's words.
+
+**A quiet trap in the new service, caught by a test rather than by you.** The new service writes a
+point's two numbers in the opposite order to every other point in this app. Read in the order it
+writes them, a Penang street becomes a latitude of 100 degrees, which is not a place at all — and a
+pin that silently never appears is a fault nobody notices until a driver is sent somewhere wrong. A
+test now names that order explicitly.
+
+**Eleven new tests, six faults put back, all six caught.** The faults included the original fault
+itself — a refusal from the first service ending the whole lookup — and every one of them failed a
+test that named it. Every file was restored byte-identically and proved by sha256 rather than by
+counting lines, because a one-letter difference has hidden behind a matching length here before. The
+suite is 1618 passing with none failing.
+
+**This one needs the courier function redeployed.** Unlike the app's own screens, this fix lives on
+your server, so pushing the files is not enough by itself — the deploy step is what puts it live.
+After that, close and reopen the app on your phone before trying the address again.
+
+**No database step.** Nothing stored is added, changed or moved.
 
 **25 Sep 2026 — engine v195, THE PIN CARD DRAWS ITSELF (no database step). The screen that puts
 your bakery's door on the map was not drawing a card. It was printing the words "[object
