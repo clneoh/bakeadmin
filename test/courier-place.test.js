@@ -28,6 +28,7 @@ import assert from "node:assert/strict";
 const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
   setDropPlace, setPickupPlace, latLngText, fmtPlace, parseCoords, placeProblem,
+  customerPlaceOf, customerPinOffer,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
 
@@ -264,4 +265,82 @@ test("a customer with no doorstep is named second, and told which way to fix it"
   const noAddress = placeProblem(s, order({ address: "" }));
   assert.equal(noAddress.need, "drop");
   assert.match(noAddress.say, /no delivery address/);
+});
+
+// ── the customer's own pin, which is a SUGGESTION (v197) ──────────────────
+//
+// The whole feature turns on one word, so these tests are about that word: what the
+// customer dropped on the shop page is read, offered, and — until she presses —
+// never the door anything uses. `dropPlaceOf` is what every quote, booking and
+// charge asks, and the pin the customer dropped must not appear there on its own.
+
+test("the customer's own pin is read off the order, and is not a doorstep", () => {
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33, label: "their door", at: "2026-09-25T10:00:00Z" } });
+  assert.deepEqual(customerPlaceOf(pinned), { lat: 5.42, lng: 100.33, label: "their door" });
+  // THE line that makes it a suggestion: the door the app drives to is still unknown
+  // until she accepts it.
+  assert.equal(dropPlaceOf(s, pinned), null);
+});
+
+test("an order nobody pinned has no suggestion at all", () => {
+  assert.equal(customerPlaceOf(order()), null);
+  assert.equal(customerPlaceOf(order({ customerPlace: null })), null);
+  assert.equal(customerPlaceOf(null), null);
+});
+
+test("a pin that is not a pin is not a suggestion either", () => {
+  // This is the one field on the order that a CUSTOMER wrote, so it arrives as
+  // untrusted as anything the shop posts. Half-written, off the planet and
+  // non-numeric all read as "they pinned nothing", which is the same answer as a
+  // courier customer who just typed their address.
+  assert.equal(customerPlaceOf(order({ customerPlace: { lat: 5.42 } })), null);
+  assert.equal(customerPlaceOf(order({ customerPlace: { lat: null, lng: 100 } })), null);
+  assert.equal(customerPlaceOf(order({ customerPlace: { lat: 999, lng: 100 } })), null);
+  assert.equal(customerPlaceOf(order({ customerPlace: "5.42,100.33" })), null);
+});
+
+test("with no doorstep kept for them, their pin is offered", () => {
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  const offer = customerPinOffer(s, pinned);
+  assert.equal(offer.replacing, null, "nothing is being replaced — she has no door for them yet");
+  assert.deepEqual(offer.place, { lat: 5.42, lng: 100.33, label: "" });
+});
+
+test("she is offered their pin EVEN when she keeps a door for them", () => {
+  // Her answer, 25 Sep 2026, and it reverses what I would have built: a kept door
+  // does not silence the offer, it only changes the words. So the offer carries the
+  // door being replaced, and the screen says whose it is.
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(s, pinned, { lat: 5.4, lng: 100.3, label: "the door she checked" });
+  const offer = customerPinOffer(s, pinned);
+  assert.ok(offer, "a kept door must not hide the customer's own pin");
+  assert.deepEqual(offer.place, { lat: 5.42, lng: 100.33, label: "" });
+  assert.equal(offer.replacing.label, "the door she checked");
+  // …and the door she keeps is still the one everything uses.
+  assert.equal(dropPlaceOf(s, pinned).label, "the door she checked");
+});
+
+test("accepting it ends the offer — that is what makes the offer honest", () => {
+  // No "dismissed" flag is stored anywhere: the offer is drawn while the kept door
+  // differs from what the customer dropped, so taking it is the thing that removes it.
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(s, pinned, customerPlaceOf(pinned));
+  assert.equal(customerPinOffer(s, pinned), null);
+});
+
+test("a pin nudged a few metres is the same door, and stops being offered", () => {
+  // Leaflet hands back a slightly different number every time a pin is re-dropped in
+  // the same spot. Offering the same door again because it moved 8 metres would be a
+  // press that does nothing, forever.
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(s, pinned, { lat: 5.42005, lng: 100.33005 });
+  assert.equal(customerPinOffer(s, pinned), null);
+  // A different house down the road is not the same door.
+  setDropPlace(s, pinned, { lat: 5.4202, lng: 100.33 });
+  assert.ok(customerPinOffer(s, pinned));
 });

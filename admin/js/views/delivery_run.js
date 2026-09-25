@@ -58,7 +58,7 @@ import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { geocodeAddress } from "../couriers/api.js";
 import {
-  dropAddress, dropPlaceOf, fmtPlace, pickupPlace, setDropPlace,
+  customerPinOffer, customerPlaceOf, dropAddress, dropPlaceOf, fmtPlace, pickupPlace, setDropPlace,
 } from "../courier_place.js";
 import { openPlacePicker } from "../place_map.js";
 import { courierPayQuestions } from "./orders.js";
@@ -253,7 +253,7 @@ export function renderDeliveryRun(root, state, params) {
   function paintList() {
     const day = dayRowNow();
     if (!day) { listBox.replaceChildren(); return; }
-    const rows = day.groups.map((g) => {
+    const rows = day.groups.flatMap((g) => {
       const first = g.orders[0];
       const key = groupKey(g);
       const place = dropPlaceOf(state, first);
@@ -277,13 +277,30 @@ export function renderDeliveryRun(root, state, params) {
         : dropAddress(first)
           ? `${dropAddress(first)} — doorstep not pinned`
           : "no delivery address on this order yet";
-      return el("div", { class: "run-row" },
+      const row = el("div", { class: "run-row" },
         el("label", { class: "run-who" },
           tick,
           el("span", { class: "run-words" },
             el("span", { class: "run-name" }, nameOf(first)),
             el("span", { class: "run-sub" }, [where, what].filter(Boolean).join(" · ")))),
         place ? null : button("Put it on the map", () => pinDoorstep(first), "ghost small"));
+      // The customer's own pin, dropped on the shop page when they ordered (v197),
+      // offered under its own row. It is a SUGGESTION and drawn as one — and it is a
+      // block of its own rather than a line inside the row because everything in that
+      // row sits inside one <label>: a press in there would tick the customer instead
+      // of pinning their door. Offered every time it differs from the doorstep she
+      // keeps for them, which is what makes accepting it the thing that ends it.
+      const offer = customerPinOffer(state, first);
+      return offer
+        ? [row, el("div", { class: "pin-offer" },
+            el("p", { class: "card-sub" },
+              offer.replacing
+                ? `${nameOf(first)} pinned a different spot this time. The doorstep you keep for them is untouched until you take this one.`
+                : `${nameOf(first)} pinned their door on the shop page when they ordered.`),
+            el("div", { class: "btn-row" },
+              button(offer.replacing ? "Use the customer's pin instead" : "Use the customer's pin",
+                () => keepPin(first, offer.place), "ghost small")))]
+        : [row];
     });
 
     listBox.replaceChildren(
@@ -293,19 +310,28 @@ export function renderDeliveryRun(root, state, params) {
     paintHead();
   }
 
+  // Keep a doorstep against a customer. THE one path, whether the pin was dragged on
+  // the map or taken from what the customer pinned themselves — so a pin she accepted
+  // and a pin she placed by hand are the same record, saved and synced the same way.
+  function keepPin(order, place) {
+    setDropPlace(state, order, place);
+    save(state);
+    maybeSync(state);
+    paintList();
+  }
+
   function pinDoorstep(order) {
+    const kept = dropPlaceOf(state, order);
+    const suggested = customerPlaceOf(order);
     openPlacePicker({
       state,
       title: `${nameOf(order)}'s doorstep`,
-      hint: "Look the address up, then drag the pin to the exact door. It is remembered for this customer, so a second order from them costs no lookup at all.",
+      hint: !kept && suggested
+        ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door — nothing uses it until you keep it."
+        : "Look the address up, then drag the pin to the exact door. It is remembered for this customer, so a second order from them costs no lookup at all.",
       address: dropAddress(order),
-      start: dropPlaceOf(state, order),
-      onPick: (spot) => {
-        setDropPlace(state, order, spot);
-        save(state);
-        maybeSync(state);
-        paintList();
-      },
+      start: kept || suggested,
+      onPick: (spot) => keepPin(order, spot),
     });
   }
 

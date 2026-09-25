@@ -104,6 +104,39 @@ export function dropAddress(order) {
   return String((order && order.address) || "").trim();
 }
 
+// The doorstep the CUSTOMER dropped on the shop page, or null (v197). A
+// suggestion and nothing more, and the whole feature turns on that word: it is
+// OFFERED where a doorstep is shown, and only her press writes it into the
+// customer's profile through setDropPlace above. Nothing prices a trip, books a
+// driver or fills a charge box from this — every one of those still asks
+// dropPlaceOf, which is the door she has accepted.
+export function customerPlaceOf(order) {
+  return validPlace(order && order.customerPlace);
+}
+
+// Two pins this close together are the same door: 0.0001 degrees is about 11
+// metres, which is finer than anyone re-pinning a doorstep can aim, and coarse
+// enough that a pin nudged a few metres on the map does not read as a new place.
+const SAME_DOOR_DEG = 0.0001;
+
+// Whether the customer's own pin is still worth offering her, and whether it is
+// offered as a correction to a door she already keeps.
+//
+// It stops being offered the moment the door she keeps IS that pin, which is what
+// makes the offer honest without a "dismissed" flag to store: an accepted
+// suggestion is no longer a suggestion. Her answer (25 Sep 2026) was to be offered
+// theirs EVEN when she already has one for that customer — so a kept door does not
+// silence it, it only changes the words.
+export function customerPinOffer(state, order) {
+  const suggested = customerPlaceOf(order);
+  if (!suggested) return null;
+  const kept = dropPlaceOf(state, order);
+  if (kept
+    && Math.abs(kept.lat - suggested.lat) < SAME_DOOR_DEG
+    && Math.abs(kept.lng - suggested.lng) < SAME_DOOR_DEG) return null;
+  return { place: suggested, replacing: kept || null };
+}
+
 // Remember a doorstep against the person this order belongs to. Creates the profile
 // row if this customer has none yet, shaped exactly as profiles.js's own
 // upsertProfile shapes one (the "cus" id prefix, the key, the contact the orders

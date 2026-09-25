@@ -725,6 +725,97 @@ test("pullIncoming copies fulfillment, address and whatsapp from the order", asy
   }
 });
 
+// ── the customer's own pin (v197) ─────────────────────────────────────────
+//
+// THE trap this pair of tests exists for: importIncoming builds each order by
+// NAMING FIELDS ONE AT A TIME, so a field nobody names is dropped in silence —
+// no error, no missing key, nothing on any screen. That is the same shape as the
+// planner's moduleOf, and it is how this whole feature would fail without a single
+// test turning red. So the first test is the regression, and the second is about
+// what arrives when the payload is not what the shop sends.
+
+test("pullIncoming carries the pin the customer dropped on the shop page", async () => {
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-pin",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04",
+      lines: [{ name: "Focaccia", qty: 1, price: 15 }],
+      whatsapp: "60123456789", fulfillment: "courier", address: "Block C, Sri Bunga Condo",
+      place: { lat: 5.4199, lng: 100.3311, label: "the guard house", at: "2026-09-25T09:00:00Z" },
+    }),
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.ok(r.ok);
+    const p = state.orders[0].customerPlace;
+    assert.ok(p, "a field nobody names is dropped in silence — this is that field being named");
+    assert.equal(p.lat, 5.4199);
+    assert.equal(p.lng, 100.3311);
+    assert.equal(p.label, "the guard house");
+    assert.ok(p.at, "the moment it was pinned, so she can tell a fresh pin from an old one");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("a pin the app cannot read leaves NO key at all, and never a null", async () => {
+  // Whatever arrives is written by a customer's own browser, so it is untrusted
+  // input: only the three fields this app knows are copied out, and a payload that
+  // does not hold a point leaves no customerPlace key. A null would be a value every
+  // screen showing this order would have to remember to skip — and this app prints
+  // what it is given (see test/no-null-text.test.js).
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const long = "x".repeat(300);
+  const rows = [
+    { id: "r1", data: JSON.stringify({ customer: "Ain", date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1 }], place: { lat: null, lng: 100 } }) },
+    { id: "r2", data: JSON.stringify({ customer: "Bee", date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1 }], place: { lat: 999, lng: 100 } }) },
+    { id: "r3", data: JSON.stringify({ customer: "Chan", date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1 }], place: "5.4,100.3" }) },
+    // A real point with extra keys and a label longer than any place name: the label
+    // lands on her screen, so it is capped, and the extra keys are left behind.
+    { id: "r4", data: JSON.stringify({ customer: "Dee", date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1 }], place: { lat: 5.42, lng: 100.33, label: long, evil: "<script>", at: "whatever" } }) },
+  ];
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => rows };
+    // The claim names the row it is claiming, so the stub answers with that row —
+    // the same "matched 0 rows means another phone got it" contract the real table has.
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) {
+      const m = /id=eq\.([^&]+)/.exec(url);
+      const id = m ? decodeURIComponent(m[1]) : "";
+      return { ok: true, json: async () => rows.filter((r) => r.id === id) };
+    }
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    await pullIncoming(state);
+    const by = (name) => state.orders.find((o) => o.customerName === name);
+    for (const name of ["Ain", "Bee", "Chan"]) {
+      assert.equal(by(name).customerPlace, undefined, `${name}'s unreadable pin must leave no key`);
+      assert.equal(Object.prototype.hasOwnProperty.call(by(name), "customerPlace"), false);
+    }
+    const dee = by("Dee").customerPlace;
+    assert.equal(dee.label.length, 120);
+    assert.deepEqual(Object.keys(dee).sort(), ["at", "label", "lat", "lng"]);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
 test("pullIncoming skips a row another phone already claimed (no double import)", async () => {
   storageShim(new Map());
   const state = makeState();

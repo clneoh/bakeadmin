@@ -794,6 +794,22 @@ option.tone-off { color: var(--muted); }
 .profile-name { font-weight: 600; font-size: 14px; }
 .profile-edit { flex: none; }
 
+/* ---------- The customer's own pin, offered ---------- */
+/* A suggestion, and it has to LOOK like one: it sits under the doorstep sentence it
+   would change, tinted so it reads as somebody else's answer rather than another
+   fact about this order. The tint is the only thing telling the two apart — green is
+   what this app already uses for something that has been accepted. */
+.pin-offer {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--brown-soft);
+  border-left: 3px solid var(--brown);
+  border-radius: 10px;
+}
+.pin-offer .card-sub { margin: 0; color: var(--ink); }
+.pin-offer .btn-row { gap: 6px; margin-top: 8px; }
+.pin-offer .btn-row .btn { flex: 0 1 auto; }
+
 /* ---------- Bring-a-friend ---------- */
 .ref-block {
   flex: 1 1 100%;

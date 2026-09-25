@@ -1,8 +1,65 @@
-# Jienluv2bake — change history (v54 → v196)
+# Jienluv2bake — change history (v54 → v197)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v197, THE CUSTOMER CAN PIN THEIR OWN DOOR (no database step). Your customer,
+on the shop page, can now drop a pin on the door the courier should stop at, and you are offered it
+where you already look at a doorstep: on the order's delivery-price section, and on the delivery run
+under that customer's row. Their pin is a SUGGESTION and never a fact — nothing is priced, booked or
+sent to a driver from a pin you have not taken up yourself. An order from a customer who pins nothing
+is posted exactly as it always was, byte for byte.**
+
+**The two ways a customer pins, because one is not enough.** A customer standing at their own door
+presses "Use my location" and the phone hands the pin over. A customer ordering from somewhere
+else — the office, the bus, their mother's house — presses "Pin on the map" and drags a pin to their
+door, which is how everybody already drops a pin in a ride app. Where they order from has nothing to
+do with where the focaccia goes, which is the whole reason both exist.
+
+**Your three answers are the feature.** Offered every time, even when you already keep a door for
+that customer: the offer is not silenced by your own door, only the words change — "pinned a
+different spot this time, the doorstep you keep for them is untouched until you take this one", and
+the press says "Use the customer's pin instead". A courier customer who pins nothing sends as it
+always has. And it appears in both places, the order card and the delivery run, drawn the same way in
+both so the same press means the same thing.
+
+**Taking it up is the only thing that makes it a door.** Pressing "Use the customer's pin" writes it
+with the same single writer your own map pin already uses, so a pin you accepted and a pin you placed
+by hand are the same record on the same customer. That is also what makes it stop being offered — no
+"dismissed" flag is stored anywhere, because accepting is what ends it. And because a delivery run's
+row is one big label you tap to tick a customer, the offer sits beside the row rather than inside it:
+a press in there would have ticked the customer off the run instead of pinning their door.
+
+**Where to pin, for a block or a condo.** The shop now says it in words, in all three languages:
+drop the pin where the courier can stop — the guard house or your block's entrance — and put the
+block and unit number in the address box above. A pin is two numbers and cannot hold a unit number,
+and a pin dropped inside a tower is exactly where a phone's own position goes vague. Lalamove's own
+Malaysian guidance says the same thing: pin the lobby, the main entrance or a landmark a driver can
+actually stop at, and sort a wrong pin out by talking to the driver. That is also why the typed
+address still travels with every order, with or without a pin.
+
+**A vague position is kept and said, never refused.** If a phone reports a position that is only
+accurate to more than about 150 metres, the customer is told the number and pointed at the map to
+move it — rather than being blocked from ordering. Your own rule, applied here: the shop never stands
+between you and a sale, and you reconfirm every pin anyway.
+
+**Every way the location press can fail has its own sentence** — a browser with no location at all, a
+permission refused, a position unavailable, a wait that timed out, and a map that could not load. None
+of them blocks the order.
+
+**The map is only fetched when somebody presses for it.** A customer standing at their own front door
+never loads it and never pays for it, and the location press works with no map at all.
+
+**The suite is 1649 passing with none failing, and nothing of yours was written.** The new coverage
+drives the real customer controls: a stubbed phone position, a press, and the posted order read back.
+One finding worth naming was caught by these tests rather than by you — a half-written pin would
+otherwise have become a real point on the equator, because a missing latitude reads as zero to the
+computer. No database step and no redeploy: the pin rides inside the order the shop already posts.
+
+**One honest limit.** Your phone's own permission sheet is something only a real phone can show, so
+"Use my location" is proved by tests rather than by me driving it. Please try it once on your own
+phone — stand somewhere you know, press it, and check the words that come back.
 
 **25 Sep 2026 — engine v196, THE ADDRESS LOOKUP ASKS A SECOND SERVICE (no database step; the courier
 function must be redeployed). You pressed "Look it up" on the pickup-pin card and read "The address

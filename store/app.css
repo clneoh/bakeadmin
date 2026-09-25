@@ -551,6 +551,58 @@ button.prod-next.off::after { content: ""; }
   box-shadow: 0 1px 4px rgba(80, 50, 30, .15);
 }
 
+/* ---------- The door pin (optional) ---------- */
+/* Two controls side by side, because the two customers are different people: one is
+   standing at the door the bread is going to, the other is ordering from somewhere
+   else entirely and needs to point at it. */
+.pin-hint { margin: 6px 0 0; }
+.pin-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pin-btn {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--brown-dark);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 8px;
+  min-height: 44px; /* a thumb target, not a mouse target */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pin-btn:active { background: #f5ecdf; }
+.pin-btn:disabled { opacity: .55; cursor: default; }
+.pin-status {
+  margin: 8px 0 0;
+  color: var(--brown-dark);
+}
+.pin-box {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbf7f1;
+}
+.pin-note { margin: 2px 0 8px; }
+.pin-canvas {
+  /* Leaflet fills whatever box it is given, so the box has to have a height. */
+  height: 240px;
+  border-radius: 10px;
+  background: #e8e0d5; /* the map's own colour before the tiles arrive */
+}
+.pin-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pin-actions .track-btn { flex: 1; }
+
 /* ---------- Track your order ---------- */
 .track-row {
   display: flex;

@@ -52,7 +52,8 @@ import {
   liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
-  dropAddress, dropPlaceOf, fmtPlace, pickupAddress, pickupPlace, setDropPlace, setPickupPlace,
+  customerPinOffer, customerPlaceOf, dropAddress, dropPlaceOf, fmtPlace, pickupAddress, pickupPlace,
+  setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
@@ -190,12 +191,21 @@ export function courierQuoteSection({
     }, "ghost small");
 
     const dropBtn = button("Put this doorstep on the map", () => {
+      const kept = dropPlaceOf(state, first);
+      const suggested = customerPlaceOf(first);
       openPlacePicker({
         state,
         title: `${String(first.customerName || "The customer").trim()}'s doorstep`,
-        hint: "Look the address up, then drag the pin to the exact door. It is remembered for this customer.",
+        // With no doorstep of her own yet, the map OPENS ON the customer's pin rather
+        // than on the typed address — the customer was standing at the door when they
+        // dropped it, so it is the best answer anyone has. When she already keeps a
+        // door, the map opens on HERS: the offer line is where the customer's pin is
+        // taken up, and this map is not the place to change her mind quietly.
+        hint: !kept && suggested
+          ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door, and it is kept against them when you keep it."
+          : "Look the address up, then drag the pin to the exact door. It is remembered for this customer.",
         address: dropAddress(first),
-        start: dropPlaceOf(state, first),
+        start: kept || suggested,
         onPick: (spot) => {
           setDropPlace(state, first, spot);
           paintEnds();
@@ -203,6 +213,47 @@ export function courierQuoteSection({
         },
       });
     }, "ghost small");
+
+    // The customer's own pin, when they dropped one on the shop page (v197). It is a
+    // SUGGESTION and it is drawn as one — one line and one press, sitting directly
+    // under the doorstep sentence it would change, tinted so it cannot be mistaken for
+    // another fact about this order.
+    //
+    // It is offered every time the pin they dropped is not the doorstep already kept
+    // for them (her answer, 25 Sep 2026: offer theirs even when she has her own). That
+    // is what makes accepting it the thing that stops it appearing, without a
+    // "dismissed" flag for anything to store, and it is why a kept door does not
+    // silence the offer — it only changes the words.
+    //
+    // Nothing below this line reacts to it. Every quote, every booking and every
+    // charge still comes from the door she has ACCEPTED, which is the whole promise of
+    // the feature: the customer's pin is never in front of a driver until she says so.
+    const offerBox = el("div", { class: "pin-offer", hidden: true });
+
+    function paintOffer() {
+      const offer = customerPinOffer(state, first);
+      if (!offer) {
+        offerBox.hidden = true;
+        offerBox.replaceChildren();
+        return;
+      }
+      const who = String(first.customerName || "the customer").trim() || "the customer";
+      offerBox.hidden = false;
+      offerBox.replaceChildren(
+        el("p", { class: "card-sub" },
+          offer.replacing
+            ? `${who} pinned a different spot this time. The doorstep you keep for them is untouched until you take this one.`
+            : `${who} pinned their door on the shop page when they ordered.`),
+        el("div", { class: "btn-row" },
+          button(offer.replacing ? "Use the customer's pin instead" : "Use the customer's pin", () => {
+            // The identical path the map's own picker takes, so a pin taken up here
+            // and a pin placed by hand land as the same record.
+            setDropPlace(state, first, offer.place);
+            paintEnds();
+            ask();
+          }, "ghost small")),
+      );
+    }
 
     function paintEnds() {
       const up = pickupPlace(state);
@@ -219,6 +270,7 @@ export function courierQuoteSection({
       // away and leaving her no way back to the map.
       dropBtn.textContent = drop ? "Change this doorstep" : "Put this doorstep on the map";
       endsRow.replaceChildren(...[up ? null : pickupBtn, dropBtn].filter(Boolean));
+      paintOffer();
     }
 
     // ── the trip this order is on ────────────────────────────────────────
@@ -708,6 +760,7 @@ export function courierQuoteSection({
         `Prices for this delivery come from ${courier.label}'s own account. Taking a price fills the charge box, where you still choose who paid the courier — booking the trip is a separate press, and it is the Save button that writes the charge.`),
       jobBox,
       endsLine,
+      offerBox,
       endsRow,
       el("div", { class: "field", style: "margin-top:12px" },
         el("label", {}, "The day the driver collects"), dayInput),

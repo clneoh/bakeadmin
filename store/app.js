@@ -9,6 +9,8 @@ import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occS
 import { normRules } from "../availability.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
+import { askGeo, fixVerdict, placeForOrder } from "./geo.js";
+import { showPinMap } from "./pin_map.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -1114,6 +1116,14 @@ export function render() {
       note: document.getElementById("note-input").value.trim(),
       createdAt: new Date().toISOString(),
     };
+    // The door pin the customer dropped, when they dropped one and this order is
+    // being delivered. `placeForOrder` answers null for anything else — a
+    // self-collect order, or a courier order with no pin — and a null answer writes
+    // NOTHING, so an order without a pin posts byte for byte the payload the shop
+    // has always posted. The bakery treats what arrives as untrusted input and keeps
+    // only the point out of it; the door it actually drives to is the one she accepts.
+    const place = placeForOrder(doorPin, order.fulfillment);
+    if (place) order.place = place;
     // A referral link's ?via= stamp: which customer's personal link this order
     // came through. The bakery decides (new vs repeat) and applies the discount.
     const via = currentVia();
@@ -1163,6 +1173,7 @@ export function render() {
       }
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
+      resetPin(); // the next customer does not inherit this one's front door
       renderBar();
       // order-btn label was reset by renderBar — the cart is now empty.
       // The strictest change/cancel window across what was just ordered — the
@@ -1219,6 +1230,11 @@ export function render() {
     rerender();
     renderBar();
     paintTrack();
+    // The pin's own line, said again in the language just chosen — including a
+    // refusal or a vague-fix warning, which is exactly the sentence a customer who
+    // cannot read the first language most needs to read.
+    const note = pinNote;
+    paintPin(note && note.key, note && note.m);
   };
 }
 
@@ -1482,6 +1498,125 @@ function wireFulfillment() {
   apply("collect"); // reflect the static HTML's default active button
 }
 
+// ── The customer's own door pin (v197) ─────────────────────────────────────
+// A SUGGESTION the customer can hand over, and nothing more: it rides on the order
+// so the baker can accept it with one press in her own app. Nothing here prices a
+// trip or books a driver — a trip is only ever quoted or booked from a door she has
+// accepted (her condition, in her words: "as security, app side will reconfirm").
+//
+// Two controls, because the two customers are different people. One is standing at
+// the door they want the bread delivered to and can just say so; the other is at
+// work ordering for home, and for them the pin is the thing they already know how
+// to drag from a ride-hailing app.
+let doorPin = null;   // { lat, lng } — the customer's own pin, or null for none
+let pinWasAt = null;  // what it was when the map opened, so Cancel can put it back
+let pinMap = null;    // the live map while its box is open, or null
+let pinNote = null;   // { key, m } — the last thing the status line said, kept so a
+                      // language switch can say it again in the language just chosen
+
+// The status line, and the one button whose meaning depends on it. `key` names a
+// dictionary entry for something that needs saying (a vague fix, a refusal); with
+// no key, the line reports the pin itself, or goes quiet when there is none — which
+// is where a first-time visitor starts, and where the address box stands alone.
+function paintPin(key = null, m = null) {
+  pinNote = key ? { key, m } : null;
+  const status = document.getElementById("pin-status");
+  if (status) {
+    const say = key ? (m == null ? t(key) : sub(t(key), m)) : (doorPin ? t("pinSet") : "");
+    status.textContent = say;
+    status.hidden = !say;
+  }
+  const keep = document.getElementById("pin-keep");
+  if (keep) keep.disabled = !doorPin;
+}
+
+// Close the map box. `keep` is the customer's answer to the two buttons: Keep this
+// spot leaves the pin where they put it, Cancel (and a map that could not be drawn)
+// puts back whatever there was before the box opened.
+function closePinBox(keep) {
+  if (pinMap) { pinMap.stop(); pinMap = null; }
+  const box = document.getElementById("pin-box");
+  if (box) box.hidden = true;
+  if (!keep) doorPin = pinWasAt;
+  const note = pinNote;
+  paintPin(note && note.key, note && note.m);
+}
+
+function openPinBox() {
+  const box = document.getElementById("pin-box");
+  const hold = document.getElementById("pin-hold");
+  if (!box || !hold) return;
+  pinWasAt = doorPin;
+  box.hidden = false;
+  const loadingNote = document.getElementById("pin-loading");
+  const tapNote = document.getElementById("pin-tap");
+  if (loadingNote) loadingNote.hidden = false;
+  if (tapNote) tapNote.hidden = true;
+  if (pinMap) { pinMap.stop(); pinMap = null; }
+  pinMap = showPinMap(hold, {
+    start: doorPin,
+    onMove: (spot) => {
+      if (!pinMap) return; // the box has been closed since this was wired
+      if (loadingNote) loadingNote.hidden = true;
+      if (tapNote) tapNote.hidden = false;
+      if (!spot) {
+        // The map could not be shown at all. Say so plainly and point at the typed
+        // address directly above, which is filled in already and works regardless.
+        closePinBox(false);
+        paintPin("pinMapFailed");
+        return;
+      }
+      doorPin = { lat: spot.lat, lng: spot.lng };
+      paintPin();
+    },
+  });
+}
+
+// "Use my location" — the customer standing at their own door. Every way this can
+// end has its own sentence, because "nothing happened" is the one answer a customer
+// cannot act on. The vague-fix case is NOT a refusal: it keeps the pin (she confirms
+// every pin anyway) and says how far off it might be, so the customer can fix it.
+async function useMyLocation() {
+  const btn = document.getElementById("pin-here");
+  if (btn) btn.disabled = true;
+  paintPin("pinLocating");
+  const geo = (typeof navigator !== "undefined" && navigator.geolocation) || null;
+  const out = await askGeo(geo);
+  if (btn) btn.disabled = false;
+  if (!out.ok) {
+    paintPin(out.why === "denied" ? "pinDenied"
+      : out.why === "timeout" ? "pinTimeout"
+        : out.why === "unsupported" ? "pinNoGeo"
+          : "pinUnavailable");
+    return;
+  }
+  doorPin = { lat: out.lat, lng: out.lng };
+  const vague = fixVerdict(out.accuracyM);
+  paintPin(vague ? "pinVague" : null, vague ? vague.accuracyM : null);
+  if (pinMap) pinMap.goTo(doorPin); // the map is open — bring it to where they are
+}
+
+function wirePin() {
+  const here = document.getElementById("pin-here");
+  const mapBtn = document.getElementById("pin-map");
+  const keep = document.getElementById("pin-keep");
+  const cancel = document.getElementById("pin-cancel");
+  if (here) here.addEventListener("click", useMyLocation);
+  if (mapBtn) mapBtn.addEventListener("click", openPinBox);
+  if (keep) keep.addEventListener("click", () => closePinBox(true));
+  if (cancel) cancel.addEventListener("click", () => closePinBox(false));
+  paintPin();
+}
+
+// Forget the pin between customers: a phone can be handed across a counter, and the
+// next order must not inherit a stranger's front door.
+function resetPin() {
+  doorPin = null;
+  pinWasAt = null;
+  closePinBox(true);
+  paintPin();
+}
+
 // What ends the track card's glow: the customer getting to it. The same rule the
 // backoffice uses when it jumps to an order (admin/js/views/orders.js), so the two
 // sides of one WhatsApp message behave alike.
@@ -1544,6 +1679,7 @@ function wireTrack() {
 render();
 renderReferralBanner();
 wireFulfillment();
+wirePin();
 wireTrack();
 
 // ── Site language (EN / 中文 / BM) ────────────────────────────────────────

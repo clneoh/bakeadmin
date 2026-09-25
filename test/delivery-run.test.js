@@ -920,3 +920,51 @@ test("the run names no courier of its own", async () => {
   assert.equal(/MOTORCYCLE|7FT_VAN/.test(src), false, "and none of its service keys either");
   assert.match(src, /activeCourier\(\)/, "it asks the registry which courier it is talking to");
 });
+
+// ── the customer's own pin, under their row (v197) ────────────────────────
+//
+// The second of the two places her answer puts the offer ("Both places"), and the one
+// where the placement is load-bearing: everything in a run row sits inside one <label>,
+// so a press drawn inside that row would tick the customer instead of pinning their door.
+// Hence a block of its own beside the row — and the walk up the parent chain below is
+// what really asserts it, because that trap would not show up in a shim that does not
+// model a label's behaviour.
+
+test("a customer's own pin is offered under their row, and taking it becomes the door kept for them (v197)", () => {
+  const st = world();
+  stubCourier();
+  // Ain already has a doorstep of her own, and the pin she dropped on the shop page is a
+  // different spot — the branch her answer is about: the offer arrives anyway, and only
+  // the words say that a door is already kept.
+  st.orders[0].customerPlace = { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house", at: "2026-09-25T10:00:00.000Z" };
+  const { root } = openRun(st);
+
+  const offers = all(root).filter((n) => String(n.className).includes("pin-offer"));
+  assert.equal(offers.length, 1, "one offer, under the one customer who pinned");
+  assert.match(offers[0].textContent, /Ain pinned a different spot this time/);
+  assert.match(offers[0].textContent, /The doorstep you keep for them is untouched until you take this one/);
+  for (let n = offers[0].parentNode; n; n = n.parentNode) {
+    assert.notEqual(n.tagName, "LABEL",
+      "the offer is not inside the row's label — a press in there would tick the customer");
+  }
+
+  const take = buttonByText(offers[0], "Use the customer's pin instead");
+  assert.ok(take, "with one press to take it");
+  press(take);
+
+  const row = st.customers.find((c) => c.key === keyOf(st.orders[0]));
+  assert.equal(row.place.lat, 5.4299, "the pin is now the door kept for Ain");
+  assert.equal(row.place.lat, st.orders[0].customerPlace.lat, "and it is the same point she dropped");
+  assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
+    "taking it ends the offer — there is nothing to dismiss");
+});
+
+test("a courier customer who pinned nothing gets no offer at all (v197)", () => {
+  // Her second answer: "Send as it is today" — an order with no pin is the order this shop
+  // has always taken, and nothing about it changes.
+  const st = world();
+  stubCourier();
+  const { root } = openRun(st);
+  assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
+    "no pin, no offer, no new line on the run");
+});

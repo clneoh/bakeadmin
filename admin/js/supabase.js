@@ -19,6 +19,11 @@ import { customerTotal } from "./courier.js";
 // is therefore already ON the record — its courier's name, its phase and its driver are
 // written there when the trip is booked or checked, and this only carries them across.
 import { jobOf, windowSuffix } from "./courier_job.js";
+// The shop's own payload is untrusted input, so the one rule about what a place
+// IS is asked rather than a second copy of it written here — the same reason
+// sync.js asks it. See customerPlaceOf in courier_place.js for what the answer is
+// allowed to do afterwards (nothing, until she presses).
+import { validPlace } from "./courier_place.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
 
@@ -760,6 +765,23 @@ function importIncoming(state, row) {
       groupId,
       createdAt: now,
     };
+    // The pin the CUSTOMER dropped on the shop page (v197), if they dropped one.
+    // Named here or it is dropped in silence: this object is built field by field,
+    // so a field nobody names never reaches the app at all (the planner's moduleOf
+    // lesson, same shape). It is copied out of an untrusted payload one field at a
+    // time, and only when it is a real point — a half-written or out-of-range one
+    // leaves NO key at all, rather than a null that a screen would print.
+    const dropped = validPlace(data.place);
+    if (dropped) {
+      order.customerPlace = {
+        lat: dropped.lat,
+        lng: dropped.lng,
+        // Whatever the customer's own map called the spot, capped: their browser
+        // wrote it and it lands on her screen.
+        label: dropped.label.slice(0, 120),
+        at: now,
+      };
+    }
     // Freeze what the shop sold it as, at the price the shop charged. The
     // storefront sends its own name/price with the line; fall back to the
     // product only when the line didn't carry one.

@@ -329,6 +329,63 @@ test("the courier price panel prints no 'null' under its last price row", async 
   assert.deepEqual(stray, [], "no 'null' under the last price row");
 });
 
+// ── the customer's own pin, offered (v197) ────────────────────────────────
+//
+// The offer line is drawn by `paintEnds()`, which every change to the doorstep repaints,
+// and this is one of the two screens a shop-page pin can be taken up on. Read off the
+// drawn card rather than off the function, for the same reason as the panel above: what
+// is checked is what she sees.
+//
+// The second half is the rule that replaces a "dismissed" flag — the offer is shown only
+// while the pin the customer dropped differs from the door already kept for them, so
+// ACCEPTING is the thing that ends it, and nothing has to be stored about a refusal.
+
+test("the customer's own pin is offered with no stray 'null', and stops being offered once it is taken (v197)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  const st = courierState();
+  const order = {
+    ...COURIER_ORDER,
+    customerPlace: { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house", at: "2026-09-25T10:00:00.000Z" },
+  };
+  let wrap = null;
+  let offered = null;
+  try {
+    wrap = courierQuoteSection({ state: st, orders: [order] });
+    doc.body.append(wrap);
+    buttonByText(wrap, "Get a delivery price")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    offered = byClass(wrap, "pin-offer");
+    assert.ok(offered, "the offer block is drawn on the order card");
+    assert.equal(offered.hidden, false, "and it is shown");
+    // "Instead", because the panel looked the typed address up on its way to a price and
+    // kept that answer against this customer — so there IS a door of hers for the pin to
+    // differ from. That is the branch her own answer is about: the offer arrives even
+    // when she already has a door, and it is the WORDS that change, not whether it shows.
+    assert.match(offered.textContent, /Mei Ling pinned a different spot this time/);
+    assert.match(offered.textContent, /The doorstep you keep for them is untouched until you take this one/);
+    assert.equal((st.customers[0] || {}).place.lat, 5.42,
+      "the door looked up from the typed address is what she keeps, until the pin is taken");
+    const press = buttonByText(offered, "Use the customer's pin instead");
+    assert.ok(press, "with one press to take it");
+    assert.deepEqual(strayNulls(wrap), [], "and nothing on the card prints 'null'");
+
+    press._listeners.click[0]();
+    assert.equal(offered.hidden, true, "taking it ends the offer — there is nothing to dismiss");
+    assert.equal(offered.children.length, 0, "and it is emptied, not left holding the last customer's words");
+    const kept = (st.customers || [])[0] || {};
+    assert.equal((kept.place || {}).lat, 5.4299, "the pin is what is now kept against that customer");
+    assert.deepEqual(strayNulls(wrap), [], "still no 'null' on the card once it is taken");
+  } finally {
+    const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+    if (hide) hide._listeners.click[0]();
+    if (wrap) wrap.parentNode = null;
+    s.restore();
+  }
+});
+
 // ── the pop-up primitive, and the pickup-pin card (v195) ───────────────────
 //
 // The fault at the level it was at: `body.replaceChildren(makeBody(...))` handed a
