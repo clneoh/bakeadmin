@@ -165,6 +165,49 @@ test("only the first answer counts, and the asking has a clock on it", () => {
   });
 });
 
+test("the first answer is the only one that settles it — resolve is called exactly once (O08)", async () => {
+  // WHAT THIS TEST IS, AND WHAT IT IS NOT. A phone can report twice (a cached fix, then a
+  // real one), and `finish` in store/geo.js guards that with `if (!settled)`. An overnight
+  // sweep removed the guard and nothing went red — correctly, because a Promise ALREADY
+  // ignores a second resolve: the answer is byte for byte the same either way, which was
+  // checked directly before writing this. So no assertion about what the customer or the
+  // baker SEES can ever notice the guard, and a test that claimed to would be a fake.
+  //
+  // What the guard actually buys is that the code states the rule and settles exactly once,
+  // which is what stops a later edit that moves work AFTER the resolve — a second paint, a
+  // message sent twice — from doing it twice. That is the invariant pinned here, by counting
+  // the resolve calls on the promise askGeo itself returns.
+  const Real = globalThis.Promise;
+  const counts = [];
+  globalThis.Promise = class extends Real {
+    // The species is pinned to the real Promise deliberately: awaiting a patched promise
+    // builds a DERIVED promise through the species constructor, and counting that one would
+    // count one extra resolve for every single await.
+    static get [Symbol.species]() { return Real; }
+    constructor(exec) {
+      const rec = { n: 0 };
+      super((res, rej) => exec((v) => { rec.n += 1; res(v); }, rej));
+      counts.push(rec);
+    }
+  };
+  let p;
+  try {
+    p = askGeo({
+      getCurrentPosition: (ok, err) => {
+        ok({ coords: { latitude: 5.4141, longitude: 100.3288, accuracy: 9 } });
+        err({ code: 1 }); // arrives second, and must not settle it a second time
+      },
+    });
+  } finally {
+    globalThis.Promise = Real;
+  }
+  const answer = await p;
+  assert.deepEqual(answer, { ok: true, lat: 5.4141, lng: 100.3288, accuracyM: 9 },
+    "the first answer is the one that travelled");
+  assert.equal(counts.length, 1, "askGeo built exactly one promise");
+  assert.equal(counts[0].n, 1, "and settled it exactly once, not twice");
+});
+
 // ── the shop has its own map, and the two copies must agree ───────────────
 //
 // The shop deliberately does NOT import admin/js/place_map.js: that file is a pop-up

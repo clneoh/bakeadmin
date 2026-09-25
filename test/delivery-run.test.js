@@ -294,8 +294,14 @@ function stubCourier({ failAloneAfter = Infinity, standalone } = {}) {
   const stubFetch = async (url, opts = {}) => {
     const body = JSON.parse(String(opts.body || "{}"));
     // When each request arrived, to the millisecond, so the spacing the courier's rate limit
-    // requires can be read off the clock rather than assumed.
-    sent.push({ ...body, at: Date.now() });
+    // requires can be read off a clock rather than assumed.
+    //
+    // A MONOTONIC reading, deliberately not Date.now(). The gap under test is produced by
+    // setTimeout, which the wall clock does not drive — so reading it off Date meant a frozen
+    // Date reported every gap as 0ms and failed a throttle that was working perfectly. (That
+    // is exactly what the overnight sweep saw.) performance.now() cannot be frozen, cannot
+    // jump backwards, and is the right instrument for a duration.
+    sent.push({ ...body, at: performance.now() });
     const p = body.payload || {};
     const drops = body.action === "quote" && Array.isArray(p.drops) ? p.drops.length : 2;
     const reply = body.action === "quote" && drops < 2 && ++alone > failAloneAfter
@@ -968,3 +974,30 @@ test("a courier customer who pinned nothing gets no offer at all (v197)", () => 
   assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
     "no pin, no offer, no new line on the run");
 });
+
+test("a customer who pinned with no door kept for them yet is offered it in the plain words (O14)", () => {
+  // The other half of the same offer, and the one an overnight sweep found unguarded: when
+  // there is no doorstep for this customer yet, nothing is being corrected, so the sentence
+  // and the press are the plain ones. The test above reaches the `replacing` branch only.
+  //
+  // The press is asserted by its EXACT words on purpose. "Use the customer's pin" and "Use
+  // the pin" are different offers — the second does not say whose door it is, and on a
+  // screen where she is deciding which of two doors to keep, whose it is IS the offer.
+  const st = world();
+  stubCourier();
+  st.customers = st.customers.filter((c) => c.name !== "Bala"); // nothing kept for them yet
+  st.orders[2].customerPlace = { lat: 5.4399, lng: 100.3499, label: "Bala's front gate", at: "2026-09-25T10:00:00.000Z" };
+  const { root } = openRun(st);
+
+  const offers = all(root).filter((n) => String(n.className).includes("pin-offer"));
+  assert.equal(offers.length, 1, "one offer, under the one customer who pinned");
+  assert.match(offers[0].textContent, /Bala pinned their door on the shop page when they ordered/);
+  assert.doesNotMatch(offers[0].textContent, /different spot this time/,
+    "nothing is being replaced, so nothing may say it is");
+
+  const btn = all(offers[0]).find((n) => n.tagName === "BUTTON");
+  assert.ok(btn, "with one press to take it");
+  assert.equal(btn.textContent, "Use the customer's pin",
+    "and the press says whose pin it is — it is their door, not a pin");
+});
+

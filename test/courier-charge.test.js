@@ -147,7 +147,11 @@ test("a charge she bears comes off the money she has out, under its own name", (
   st.orders[0].courierPaidBy = "me";
   applyCourierCharge(st, groupOf(st), 8, "me", "Cash");
 
-  const j = journalFor(st, "Cash", "2026-09-01", "2026-09-30");
+  // The row is stamped with the day the money left, which is TODAY — so the stretch is read
+  // back off the same clock rather than written down. A hard-coded month (2026-09-01…30)
+  // went stale on 1 Oct 2026 and then read as the app having lost the expense.
+  const day = todayISO();
+  const j = journalFor(st, "Cash", day, day);
   const line = j.rows.find((r) => r.dir === "out" && r.amount === 8);
   assert.ok(line, "the charge shows as money out of the Cash book");
   assert.equal(line.what, `Courier (order #${code})`,
