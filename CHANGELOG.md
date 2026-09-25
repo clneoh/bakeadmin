@@ -1,8 +1,178 @@
-# Jienluv2bake — change history (v54 → v189)
+# Jienluv2bake — change history (v54 → v190)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v190, THE DELIVERY'S PROGRESS AND ITS DRIVER REACH THE CUSTOMER, AND AN
+ORDER MOVES ITSELF (one database step). The third step of the courier work you asked for. A booked
+trip's own progress now shows on the customer's track card in the customer's own language, with the
+driver's name, the number plate and a press to ring them. And when the courier says the parcel is on
+the vehicle, the order moves itself to Collected / Shipped — a note appears on the row naming who
+moved it and when, and one press puts it back. Your order row is the first thing in this app that has
+ever changed itself, so it is built to be SEEN and UNDONE rather than to be trusted. There is one
+database step, and it must be run BEFORE this build is deployed or every customer's tracking page
+stops updating silently. Not one module, batch, start time, cycle or saved day of yours was
+rewritten.**
+
+**1. What you asked, in your own words.** "i want to do Lalamove, API to manage courier, make it
+ready for other courier as well. Focus now for laalamove. And check our backoffice readiness. From my
+understanding lalamove support last day deliver consolidation to save on cost." v188 was the price,
+v189 was the booking, and this is the third of the four stages you chose. The seam and your
+consolidation belief are unchanged, and the fourth stage - the delivery run that saves you money -
+is still to come.
+
+**2. What the customer sees, and it is three lines rather than a tracking number.** A customer who
+opens their track page on a courier order now reads where the parcel has got to ("Delivery: The
+driver is on the way"), who is bringing it ("Driver: Ah Meng · PMM 1234"), and a press that rings
+them ("Call the driver"). Each line draws only when there is something to put on it: an order with no
+trip on it is drawn exactly as it was before any of this existed, and a trip booked a moment ago
+carries no driver yet because the courier has not matched one - so the card has two lines and not a
+line reading "Driver: -". That is deliberate. A card that named an empty driver would be telling your
+customer to wait for somebody who does not exist yet.
+
+**3. The customer's page is never taught a courier's vocabulary.** This is the seam, said as a rule a
+customer can be caught by. What the backoffice publishes about a trip is one of a handful of NEUTRAL
+words - finding, on_the_way, collected, delivered, stopped, nodriver - and the customer's own words
+for those live in the shop's own language file, in all three languages. The courier's status string
+(ASSIGNING_DRIVER, PICKED_UP) never leaves the backoffice. A phase the shop's page has not been
+taught draws NOTHING rather than the raw word, so a second courier arriving with a status list nobody
+has heard of cannot make your customers' page read wrongly. Six new words were added to all three
+languages, and a test holds every one of them and refuses a label that has lost its placeholder - the
+broken-label class this shop has been caught by before.
+
+**4. The driver is a SECOND call, and for most of the day it refuses - which is not an error.** The
+trip record itself carries only a driver id, and the driver's own record - the name, the plate, the
+number - sits behind its own endpoint. That endpoint answers nothing until about an hour before the
+pickup, so a check you make in the morning comes back with the trip and no driver at all. That
+refusal says nothing about the trip, which is perfectly healthy, so it is folded in as an absence and
+never reaches your screen as a fault. Failing a working check over a name that is not available yet
+would be breaking a feature over a detail you had not asked for. The same rule runs in the other
+direction: a check that learns nothing this time keeps the driver it already had, because treating an
+empty answer as an erasure would take the driver's name and number off the customer's card at the
+exact moment they became useful. The card in the backoffice says all of this under the booking
+button, in words.
+
+**5. The order moves itself, and the row says so where you will actually see it.** When a check
+reads the trip as collected, the order moves to Collected / Shipped and a note appears on the row in
+your own list: "Lalamove says it collected at 10:35 am - this row moved itself. Put it back if that
+is not right." Written on the row rather than said in a message, because a message is gone in
+seconds and this is a change to an order's own money that you may not look at until the evening. The
+note names WHO moved it and WHEN, so the row can never read as something you did and cannot
+remember doing. The message at the moment it happens carries both facts in one line - what the
+courier said and what this app did about it - because two messages would let you read the first and
+miss the second, and the second is the one that changed an order.
+
+**6. A check made at the end of the day still moves it.** A parcel cannot have arrived without being
+collected first, so a trip that already reads delivered moves the order exactly as a trip reading
+collected does. Without that, an order whose collection you were never told about would sit on Baked
+for ever and the app would look like it had missed the trip entirely - and the check you actually
+make is often the evening one, after the run.
+
+**7. The Undo, and the two things it deliberately does not do.** The row gains an Undo beside its
+other presses. It puts the stage back and it puts the money flag back, and it is careful about both.
+An order that had no payment flag at all goes back to having none, rather than to a "false" this
+Undo invented - because a flag that was never there and a flag saying she has not been paid are two
+different things on this app's own rules. And the stock rule is deliberately NOT run on the way back.
+That is not an oversight: the stock rule reads a row's current stage, which at that moment is the last
+one, so it cannot tell "put this back" from "step this out of Baked" - and stepping OUT of Baked puts
+ingredients back on your shelf. Charging one order's ingredients twice because an API spoke is
+exactly the kind of thing this release must not do. The move itself changed no stock (only stepping
+into or out of Baked does), so there is nothing to undo. This was measured, not reasoned: the whole
+shelf count was read before and after.
+
+**8. An Undo has to survive you looking again.** The guard that stops the rule moving a row twice is
+the stamp it writes when it moves it - NOT the trip's phase. That difference is the whole thing. If
+the guard were the phase, then looking at the trip again would move the row straight back, and an
+Undo that a look undoes has not undone anything. So after an Undo the row is once again a row the
+rule has not moved, and the trip being collected does not move it a second time. Measured live: after
+an Undo, a fresh check left the row exactly where she had put it back.
+
+**9. A row you have already marked Collected / Shipped is left alone.** There is nothing to move, so
+nothing moves. A trip booked on an order you had already marked as gone needs no help from anybody,
+and the row stays yours.
+
+**10. The callback you chose to leave until after this release, and what that costs.** The plan for
+this stage included a public callback - a small function the courier could call the moment a parcel
+is picked up, so the customer's card would update by itself within seconds. You chose to leave that
+until after this release, and the reason is on the record: Lalamove's webhook specification could not
+be read from here, and a public endpoint built against a guessed shape is exactly how a security hole
+gets shipped - it is the one part of this work that is reachable by anybody on the internet rather
+than only by your own signed-in app. So the honest description of where things stand is this: the
+customer's page is as fresh as the last time a phone asked the courier, and pressing Check is what
+asks. Her own order row catches up the same way. Nothing is lost, and nothing is claimed that is not
+true - the callback needs no database change and can be added whenever you want it.
+
+**11. One database step, and the order it must be run in.** supabase/courier_job.sql adds five
+columns to the order_tracking table: the courier's name, the neutral phase, the driver's name, the
+plate and the number. It is safe to re-run and each column is added only if missing. RUN IT BEFORE
+THIS BUILD IS DEPLOYED. The backoffice publishes the whole tracking row in one call and PostgREST
+rejects the entire call if it names a column that is not there - and the publish is deliberately
+silent about its own failures, so it would not look like a failure: every customer's tracking page
+would simply stop updating, for every order, with nothing on any screen saying why. This is the same
+trap the courier charge migration documented, and the SQL file carries the warning in its first
+paragraph.
+
+**12. The shop's own page had to learn five new columns, and forgetting one fails silently.** The
+customer's card asks PostgREST for a named list of columns, and it returns ONLY what is named there.
+A column the backoffice publishes and this list forgets is a line the card can never draw - and it
+fails with no error anywhere: the row arrives complete, the card is simply missing a section, and
+nothing says why. So the five names were added to the request, and a test now reads the request the
+page actually sends rather than trusting that it was edited.
+
+**13. A fault found by measuring the drawn card, which no test in this repository could have seen.**
+The two things on the customer's card that matter most at the door - ringing the driver and opening
+the courier's own tracking page - were built from padding alone and came out 30 pixels tall, while
+every other thing a customer taps on that page (the delivery day, the collect / courier pair, Track,
+Place order) is 37 to 48. The two smallest targets on the page were the two the customer most needs
+at the door. Found by measuring the drawn card at 375 pixels, not by reading the rule. They now take
+the page's own floor and centre their word in it, re-measured at 38 pixels. And the reason no
+assertion caught it is worth the sentence: every stand-in screen in this repository answers a box
+with the number it was handed, so a link 30 pixels tall and a link 48 pixels tall measure exactly the
+same. The guard therefore reads the stylesheet's own declared numbers instead, and it holds both
+halves at once - the floor and the box that makes the floor mean anything.
+
+**14. Every rule that stands on this was proved load-bearing.** Sixteen faults were put back in all,
+each watched failing a test that NAMES it and then restored byte-identically. Among them: a check
+that moves an order every time it looks; an Undo that restores an invented "false" where there was no
+flag at all; a stage change that forgets to tell the customer's own card; an order already marked
+paid being un-paid by a move past it; a late check that skips the collection it was never told
+about; a courier's raw status word published to the customer; a plate labelled as a driver; a number
+that cannot be dialled turned into a button anyway; a driver read as a bare string; and the
+customer's card dropping one of the five columns from its request. Two of the sixteen are worth
+naming because a test could not have caught them before a person read the screen: the dispatcher's
+own import list, where a name called but not imported is a 500 that only appears when that action is
+used, and the two links on the customer's card being 30 pixels tall, which is section 13. One guard
+turned out to be unreachable by pressing anything at all - the transition rule in the courier panel
+and a second guard inside the order rule both answer a repeated check, so the inner one can never be
+reached from the screen. Rather than leave a guard nothing can prove, the rule was exported and a
+test written for the one state that isolates it: the state where YOU have moved the stage back by
+hand after the rule moved it, which is a state you really can reach. The suite is 1545 passing with
+none failing.
+
+**15. Where the secret lives, and where it does not.** Unchanged and worth restating, because this
+release adds a second call that spends nothing but reaches the courier's own records: the signing of
+every request happens on Supabase, in a function only your own signed-in app can call. The key and
+the secret are Supabase secrets you set yourself; they never enter this repository, this app's
+screen, or any message. The driver's number is the one thing this release publishes on purpose, and
+it does so because you asked for it and because the person at the door is a stranger your customer
+has to meet - but it is published only for a trip that has one, and only as a number that can
+actually be dialled.
+
+**16. Nothing of yours is rewritten.** Measured on the running app, on a phone-sized screen, with the
+whole state read out of storage before the pass and read out again afterwards and compared field by
+field. The pass was the full one: a trip checked, the order moving itself, the Undo pressed, and then
+a SECOND check made afterwards. The result, in full. After the Undo, the order's stage and its payment
+flag were byte-for-byte what they had been - the Undo really does put the row back and not merely draw
+it back. The only fields that changed at all, across the entire pass, were the trip's own: what the
+courier last said, when it said it, and the driver it named. Nothing else in the whole stored state
+moved - not one ingredient, not one order's items, not one setting. The three saved days still read 24,
+4 and 24 pans, exactly as they did before. And the phone's storage holds exactly the same three keys it
+held before the pass, with no backup key and no scratch key left behind.
+
+**17. What is still to come.** The delivery run - one trip carrying several drop-offs at once, which
+is the stage that saves you the money your own hunch was about. It is v191, and it opens with a
+question to you rather than with code.
 
 **25 Sep 2026 — engine v189, BOOKING THE TRIP (no database step). The second step of the courier
 work you asked for: the price you chose becomes a real van. One press books the trip with Lalamove, the

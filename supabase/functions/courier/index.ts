@@ -32,7 +32,7 @@
 // documents.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, cancelOrder, type LlmConfig } from "./providers/lalamove.ts";
+import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, orderWithDriver, cancelOrder, type LlmConfig } from "./providers/lalamove.ts";
 import { geocodeAddress } from "./geocode.ts";
 import { validPoint } from "./place.ts";
 import { orderArgs } from "./booking.ts";
@@ -178,7 +178,12 @@ Deno.serve(async (req) => {
     if (!id) return json({ ok: false, reason: "There is no booked trip to check." });
     const out = await orderDetail(cfg, id);
     if (!out.ok) return json({ ok: false, reason: out.reason });
-    return json({ ok: true, order: out.data });
+    // The driver rides along when there is one to read (v190): the customer's card shows
+    // who is bringing the parcel, and this is the only moment the app can find out. It is
+    // a SECOND call, and a refusal from it is expected rather than a fault — the driver's
+    // endpoint says nothing until an hour before the pickup — so the driver is attached
+    // as an extra and its absence leaves the check itself untouched.
+    return json({ ok: true, order: await orderWithDriver(cfg, out.data) });
   }
 
   if (action === "cancel") {

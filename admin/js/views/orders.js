@@ -21,6 +21,7 @@ import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referre
 import { adjustForStatus } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
+import { fmtStamp } from "../courier_job.js";
 import { courierQuoteSection } from "./courier_quote.js";
 import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOrder } from "../profiles.js";
 
@@ -1401,10 +1402,10 @@ function openEditPopup(state, group, dateId, root) {
   const title = el("div", { class: "popup-title-row" },
     "Edit order",
     orderCodeTag(first));
-  showPopup(title, (refresh, close) => popupEditBody(state, date, group, first, lines, draft, refresh, close, root));
+  showPopup(title, (refresh, close) => popupEditBody(state, date, group, first, lines, draft, refresh, close, root, dateId));
 }
 
-function popupEditBody(state, date, group, first, lines, draft, refresh, close, root) {
+function popupEditBody(state, date, group, first, lines, draft, refresh, close, root, dateId) {
   const curId = draft.deliveryDateId || (date && date.id) || "";
   const products = productOptions(state, curId);
   // Filling in from a suggestion writes the draft and both boxes. Unlike the
@@ -1561,6 +1562,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // a real vehicle on a real road must not be discardable by closing a form.
     courierQuoteSection({
       state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+      onCollected: onCollectedMove(state, group, root, dateId),
       onCommit: (o) => {
         draft.trackingNo = String((o && o.trackingNo) || "");
         tracking.value = draft.trackingNo;
@@ -2023,6 +2025,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // its own stale number over the link the customer was about to be sent.
         courierQuoteSection({
           state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+          onCollected: onCollectedMove(state, group, root, dateId),
           onCommit: (o) => {
             tracking.value = String((o && o.trackingNo) || "");
             save(state);
@@ -2181,6 +2184,131 @@ function openLabelPrint(state, group) {
   }, { wide: true });
 }
 
+// The courier section's `onCollected`: it tells US the trip has been collected, and the
+// ORDER is what decides what that means for its stage. Written once because the two doors
+// to that section — the Edit card and the Note / tracking card — must move a row
+// identically, and because the sentence about it has to reach the section's own toast.
+function onCollectedMove(state, group, root, dateId) {
+  return (o) => (autoCollect(state, group, o, { root, dateId })
+    ? "The order moved itself to Collected / Shipped — the Undo is on the row."
+    : "");
+}
+
+// ---- moving an order to another stage ------------------------------------
+//
+// ONE place where a stage change is finished off, because there is now more than one door
+// to an order's stage — the drop-down she works and, since v190, the courier telling the
+// app the parcel has been picked up. Everything that has to happen once the new stage has
+// been written lives here: where the row stays pinned, the save, the sync, the badge, and
+// the customer's own card. The publish is the one that matters — a door that forgot it
+// would leave the customer reading the stage the order used to be on, silently.
+function stageWritten(state, group, { root = null, dateId = "", quiet = false, message = "Status saved" } = {}) {
+  const first = ((group && group.orders) || [])[0];
+  if (first) anchorRowId = first.id; // keep this row pinned where the baker tapped it
+  save(state);
+  maybeSync(state);
+  updateOrderBadge(state);
+  maybePublishTracking(state, group); // the customer's track card follows the status
+  if (!quiet) toast(message);
+  if (root) renderAll(root, state, new URLSearchParams({ date: dateId }));
+}
+
+// Move a group of orders onto another stage, with everything a stage carries: the stock
+// it takes or gives back, and the flags that say what the stage means about the money.
+function setStage(state, group, nextStatus, opts = {}) {
+  const rows = ((group && group.orders) || []).filter(Boolean);
+  if (!rows.length) return;
+  // Baked takes the orders' ingredients off your stock; stepping back to before
+  // Baked (an undo) puts them back. Forward moves leave stock be.
+  adjustForStatus(state, rows, nextStatus, STATUSES.map(([id]) => id));
+  for (const o of rows) {
+    o.status = nextStatus;
+    // Stepping into Confirmed / Paid means the stage is being worked, not
+    // finished: it only turns green when Send confirmation / the Paid
+    // button is pressed. Orders saved before these fields existed have no
+    // flag, which reads as already done.
+    if (nextStatus === "confirmed") o.confirmedSent = false;
+    // Stepping PAST Paid without the money recorded says so on the order: a regular who
+    // pays at the counter goes Confirmed -> Baked, and that order owes money. Without
+    // this the flag would stay absent, which reads as "already paid" (the rule that keeps
+    // her older orders from lighting up as unhandled), and the row would claim a payment
+    // that never happened (17 Sep 2026). Only ever set when it is not already true, so
+    // an order she did mark paid is never un-paid by moving it on.
+    else if (STAGES_AT_OR_PAST_PAID.includes(nextStatus) && o.paidReceived !== true) {
+      o.paidReceived = false;
+    }
+  }
+  stageWritten(state, group, opts);
+}
+
+// The stage a collected delivery lands on — the last one, which this app has always
+// labelled once for both of its endings.
+const AUTO_STAGE = "delivered";
+
+// The courier saying a trip has been picked up, and the order moving itself (v190).
+//
+// This is the first time anything in this app changes an order's stage with nobody's hand
+// on it, so it is built to be SEEN and UNDONE rather than to be trusted. What the courier
+// reports is a fact about a parcel; what a stage means is hers. Nothing moves quietly: the
+// row gains a note naming who moved it and when, and one press puts it back.
+//
+// Two guards, and both are about her rather than about the courier. A row this rule has
+// ALREADY moved is never moved again — a second check must not re-stamp the moment or
+// overwrite the memory of what the row was before. And a row already sitting on the last
+// stage is left alone, because there is nothing to move: a trip booked on an order she had
+// already marked Collected / Shipped needs no help from anybody.
+//
+// Returns true when it moved the row, so the caller can say so in its own words.
+//
+// Exported so the rule above can be tested where it is stated. Through the screen the
+// transition guard in the courier panel is reached first — it only asks for a move on the
+// check that first SEES the trip collected — so a second call cannot be produced by
+// pressing anything, and a guard nothing can reach is a guard nothing can prove.
+export function autoCollect(state, group, order, { root = null, dateId = "" } = {}) {
+  const o = order;
+  if (!o || !o.courierJob) return false;
+  if (o.courierJob.autoAt) return false;
+  if ((o.status || "new") === AUTO_STAGE) return false;
+  const at = new Date().toISOString();
+  o.courierJob.autoAt = at;
+  o.courierJob.collectedAt = String(o.courierJob.statusAt || "").trim() || at;
+  // What the row was before, so the Undo can put it back. The payment flag is captured
+  // WITH the stage and not instead of it: moving an order past Paid without the money
+  // recorded is this app's own way of saying the order is owed, and that is the right rule
+  // on a delivery that has gone out — but it is a claim about HER money, raised on a
+  // courier's word, so the Undo has to be able to take it back. An Undo that restored the
+  // stage and left the row saying it owes RM44 would be worse than no Undo at all.
+  o.courierJob.autoFrom = { status: o.status || "new", paidReceived: o.paidReceived };
+  setStage(state, group, AUTO_STAGE, { root, dateId, quiet: true });
+  return true;
+}
+
+// Put a row back the way the courier found it. The three things the rule above wrote are
+// cleared and nothing else is touched, so the Undo leaves no trace for a later check to
+// trip over: with `autoAt` gone this is once again a row the rule has not moved, and the
+// trip being collected does not move it a second time. That is the whole reason the guard
+// is `autoAt` and not the trip's phase — an Undo has to survive her looking again.
+function undoAutoCollect(state, group, order, { root = null, dateId = "" } = {}) {
+  const o = order;
+  const from = (o && o.courierJob && o.courierJob.autoFrom) || null;
+  if (!from) return;
+  delete o.courierJob.autoAt;
+  delete o.courierJob.collectedAt;
+  delete o.courierJob.autoFrom;
+  // The stage goes back to the one this row was already on, and the STOCK rule is
+  // deliberately not run on the way back. It is not an oversight: `adjustForStatus` reads
+  // the row's current stage, which is now the last one, so it cannot tell "put this back"
+  // from "step this out of Baked" — and stepping OUT of Baked puts the ingredients back
+  // on her shelf. Charging one order's ingredients twice because a courier's API spoke is
+  // exactly the kind of thing this release must not do. The auto-move itself changed no
+  // stock (only stepping into or out of Baked does), so nothing needs undoing.
+  o.status = from.status || "new";
+  // Put back as it was, key and all: an order that had no payment flag at all goes back to
+  // having none, rather than to a `false` this Undo invented.
+  if (from.paidReceived === undefined) delete o.paidReceived;
+  else o.paidReceived = from.paidReceived;
+  stageWritten(state, group, { root, dateId, message: "Put back where it was" });
+}
 function orderGroupRow(state, group, root, dateId) {
   const orders = group.orders;
   const first = orders[0];
@@ -2201,38 +2329,20 @@ function orderGroupRow(state, group, root, dateId) {
         return;
       }
       if (stSel.value === (first.status || "new")) return;
-      // Baked takes the orders' ingredients off your stock; stepping back to
-      // before Baked (an undo) puts them back. Forward moves leave stock be.
-      adjustForStatus(state, orders, stSel.value, STATUSES.map(([id]) => id));
-      for (const o of orders) {
-        o.status = stSel.value;
-        // Stepping into Confirmed / Paid means the stage is being worked, not
-        // finished: it only turns green when Send confirmation / the Paid
-        // button is pressed. Orders saved before these fields existed have no
-        // flag, which reads as already done.
-        if (stSel.value === "confirmed") o.confirmedSent = false;
-        // Stepping PAST Paid without the money recorded says so on the order: a regular who
-        // pays at the counter goes Confirmed -> Baked, and that order owes money. Without
-        // this the flag would stay absent, which reads as "already paid" (the rule that keeps
-        // her older orders from lighting up as unhandled), and the row would claim a payment
-        // that never happened (17 Sep 2026). Only ever set when it is not already true, so
-        // an order she did mark paid is never un-paid by moving it on.
-        else if (STAGES_AT_OR_PAST_PAID.includes(stSel.value) && o.paidReceived !== true) {
-          o.paidReceived = false;
-        }
-      }
-      anchorRowId = first.id; // keep this row pinned where the baker tapped it
-      save(state);
-      maybeSync(state);
-      updateOrderBadge(state);
-      publishTracking(state, group); // the customer's track card follows the status
-      toast("Status saved");
-      renderAll(root, state, new URLSearchParams({ date: dateId }));
+      // Everything a stage change carries — the stock, the money flags, the save, the
+      // customer's card — is in one place, so this door and the courier's own cannot
+      // drift apart (v190).
+      setStage(state, group, stSel.value, { root, dateId });
     });
   stSel.className = "sel-small";
 
   const status = first.status || "new";
   const courier = first.fulfillment === "courier";
+  // The courier moved this row and has not been put back (v190). Read here rather than
+  // lower down, because the Undo press belongs in the row's own button line beside the
+  // other things she can do to this order — and because the note under the row and the
+  // press beside it have to agree about what happened, which one variable guarantees.
+  const auto = first.courierJob && first.courierJob.autoFrom ? first.courierJob : null;
   const actions = [];
   // Edit is available on every order — single items and multi-item groups alike —
   // and opens a pop-up over the screen (the New-order card stays put).
@@ -2293,6 +2403,11 @@ function orderGroupRow(state, group, root, dateId) {
       button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
       button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
   }
+  // The Undo sits with the other things she can do to this order, and before the ✕ so
+  // the box that deletes the row stays the last press on the line where it has always
+  // been. It is not a "dismiss the note" press: it puts the stage and the payment flag
+  // back where they were.
+  if (auto) actions.push(button("Undo", () => undoAutoCollect(state, group, first, { root, dateId }), "ghost small"));
   actions.push(button("✕", () => removeOrder(state, group, root, dateId), "ghost small"));
   const placedLine = el("div", { class: "li-sub" },
     `Placed ${fmtPlaced(first.createdAt, first.orderDate)}`,
@@ -2301,6 +2416,18 @@ function orderGroupRow(state, group, root, dateId) {
   const noWaHint = !first.whatsapp
     && (["confirmed", "paid", "ready"].includes(status) || (status === "delivered" && courier))
     ? el("div", { class: "li-sub muted" }, "Add the customer's WhatsApp (tap Edit) to send this order's messages.")
+    : null;
+
+  // The courier moved this row and the row says so (v190). Written on the row rather than
+  // said in a toast at the moment it happened: a toast is gone in seconds, and this is a
+  // change to an order's own money that she may not look at until the evening. The note
+  // names WHO and WHEN, so the row can never read as something she did and cannot
+  // remember doing.
+  const autoNote = auto
+    ? el("div", { class: "li-sub muted" },
+        `${String(auto.courierName || "").trim() || "The courier"} says it collected`
+        + (auto.collectedAt ? ` at ${fmtStamp(auto.collectedAt, todayISO())}` : "")
+        + " — this row moved itself. Put it back if that is not right.")
     : null;
 
   // The row is tagged with its first item's id; the group id rides along so the
@@ -2316,7 +2443,8 @@ function orderGroupRow(state, group, root, dateId) {
       multi ? el("div", { class: "li-sub" }, items.map((i) => `${i.name} ×${i.qty}`).join("  ·  ")) : null,
       placedLine,
       sub ? el("div", { class: "li-sub" }, sub) : null,
-      noWaHint),
+      noWaHint,
+      autoNote),
     el("div", { class: "li-right" },
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
       first.paidMethod

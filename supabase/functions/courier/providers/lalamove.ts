@@ -270,13 +270,47 @@ export async function placeOrder(
 // catches up when she asks it to (see the webhook half in the plan — that one is for
 // the customer's page, which does not need her session).
 //
-// The driver is deliberately NOT fetched here. `GET .../orders/{id}` carries only a
-// `driverId`, which is an empty string until a driver is matched, and the driver's
-// own endpoint refuses everything until an hour before the pickup — so a booking
-// press has no driver to show, and a screen that showed one would be inventing it.
+// This call does not fetch the driver, and cannot: the trip carries only a `driverId`,
+// which is an empty string until a driver is matched. The driver's own record is a second
+// call — see `orderWithDriver` below, which is what a caller should use — and it is
+// deliberately kept OUT of this function so that reading a trip stays one request. A
+// booking press has no driver to show, and a screen that showed one would be inventing it.
 export async function orderDetail(cfg: LlmConfig, orderId: string) {
   const out = await llmRequest(cfg, { method: "GET", path: `/v3/orders/${encodeURIComponent(String(orderId || "").trim())}` });
   return out.ok ? { ...out, data: unwrap(out.data) } : out;
+}
+
+// The driver on a trip. `GET .../orders/{id}` carries only a `driverId` — the name, the
+// plate and the number the customer would ring are a record of their own, behind their
+// own endpoint. So a check is two calls when a driver has been matched, and one when one
+// has not.
+export async function driverDetail(cfg: LlmConfig, driverId: string) {
+  const id = String(driverId || "").trim();
+  if (!id) return { ok: false, status: 0, data: null, reason: "No driver is on this trip yet." };
+  const out = await llmRequest(cfg, { method: "GET", path: `/v3/drivers/${encodeURIComponent(id)}` });
+  return out.ok ? { ...out, data: unwrap(out.data) } : out;
+}
+
+// The trip, with its driver attached when there is one to fetch.
+//
+// THE FAILURE THAT MATTERS: the driver's endpoint answers NOTHING until an hour before
+// the pickup, so on a check made earlier in the day it refuses every time. That refusal
+// says nothing about the trip, which is perfectly healthy, and it must therefore never
+// reach her as an error: the refusal is folded in as an absence, the order comes back
+// exactly as it was, and her screen goes on showing the status it does have. Failing the
+// whole check because a name is not available yet would break a working feature over a
+// detail she has not asked for.
+export async function orderWithDriver(cfg: LlmConfig, order: unknown) {
+  const o = (order && typeof order === "object") ? order as Record<string, unknown> : null;
+  if (!o) return order;
+  const driverId = String(o.driverId || "").trim();
+  if (!driverId) return order;
+  const got = await driverDetail(cfg, driverId);
+  if (!got.ok) {
+    console.error("[courier] the driver is not readable yet:", got.reason);
+    return order;
+  }
+  return { ...o, driver: got.data };
 }
 
 // Cancel a trip. DELETE with no body, which is what Lalamove documents — NOT the

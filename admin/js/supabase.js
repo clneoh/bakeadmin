@@ -12,6 +12,13 @@ import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, total
 import { byId, fmtRM, newId, orderCode, orderLineName, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
+// The trip on the order, read through the one helper that decides what a half-written
+// record means. NOT the courier registry: this module is imported by the channel that
+// talks to a courier (couriers/api.js reads its session token), so reaching for the
+// registry here would close a loop between the two. Everything published about a trip
+// is therefore already ON the record — its courier's name, its phase and its driver are
+// written there when the trip is booked or checked, and this only carries them across.
+import { jobOf } from "./courier_job.js";
 
 const TOKEN_KEY = "bakeadmin.supabase";
 
@@ -493,6 +500,21 @@ export function trackingSnapshot(state, group) {
   // ask them for the charge at the door (19 Sep 2026).
   const { courier: courierFee, cod: courierCod, total: totalNum } = customerTotal(state, group);
   const total = fmtRM(totalNum, state.settings.currency);
+  // The booked trip, as the order itself remembers it. Every one of these is null on an
+  // order with no trip, and the customer's card leaves its line out rather than printing
+  // an empty label — the same rule the tracking number and the charge already follow.
+  //
+  // `courier_phase` is one of a handful of NEUTRAL words, never the courier's own status:
+  // the customer's page carries its own words for those phases in all three languages, so
+  // it stays ignorant of which company is carrying the box and of that company's
+  // vocabulary. `courier_name` is the courier's own name for itself, taken from the
+  // registry when the trip was booked rather than decided here.
+  //
+  // NOTE: all five need supabase/courier_job.sql run once, before this build is deployed
+  // (see that file). A missing column kills publishing for EVERY order silently, because
+  // pushTracking swallows its errors — the same trap courier_fee.sql documents.
+  const trip = jobOf(first);
+  const driver = (trip && trip.driver) || null;
   return {
     code: orderCode(first),
     status: first.status || "new",
@@ -515,6 +537,13 @@ export function trackingSnapshot(state, group) {
     // deployed (see that file). A missing column kills publishing for EVERY order
     // silently, because publishTracking swallows its errors.
     courier_cod: courierCod > 0 ? true : null,
+    // Who is carrying it, where it has got to, and who is driving — each null when the
+    // order has no trip or the trip has not told us that yet.
+    courier_name: (trip && String(trip.courierName || "").trim()) || null,
+    courier_phase: (trip && String(trip.phase || "").trim()) || null,
+    courier_driver: (driver && String(driver.name || "").trim()) || null,
+    courier_plate: (driver && String(driver.plate || "").trim()) || null,
+    courier_phone: (driver && String(driver.phone || "").trim()) || null,
     delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}`,
     items,
     total,

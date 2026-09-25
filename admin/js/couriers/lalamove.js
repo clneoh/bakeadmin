@@ -302,6 +302,52 @@ export function statusDone(key) {
   return STATUS_DONE.includes(String(key || "").trim().toUpperCase());
 }
 
+// The same journey, in the ONE vocabulary the customer's page is allowed to know.
+//
+// `STATUS_WORDS` above are HER words and they travel no further than her own screen.
+// What is published to the customer's card is one of a handful of NEUTRAL phases, and
+// the customer's own six words for them live in the storefront's language file — so the
+// storefront never carries a table of this courier's statuses, and a second courier
+// cannot make the customer's page wrong by using words nobody has heard of.
+//
+// A status this build does not know publishes NOTHING (`""`) rather than a guess, and
+// the check that reads it keeps the phase already on the order. That is the opposite of
+// the rule on her own screen, where an unknown status is shown AS SENT because a word
+// she does not know is more use to her than a blank; a customer cannot act on either,
+// so the honest thing there is to keep the last thing that was true.
+const TRIP_PHASES = {
+  ASSIGNING_DRIVER: "finding",
+  ON_GOING: "on_the_way",
+  PICKED_UP: "collected",
+  COMPLETED: "delivered",
+  CANCELED: "stopped",
+  REJECTED: "nodriver",
+  EXPIRED: "nodriver",
+};
+
+export function phaseOf(key) {
+  const said = String(key || "").trim().toUpperCase();
+  return TRIP_PHASES[said] || "";
+}
+
+// The driver the courier has put on this trip, or null. Read defensively and field by
+// field: this build was written without a network to re-read the courier's own reference
+// against, and every field here is optional — a driver matched but not yet named gives a
+// plate and no name, and a plate is still worth showing at the door. Anything absent is
+// left out rather than filled with a placeholder, and NO name at all means no driver
+// line: a card that said "Driver: —" would be claiming there is one to wait for.
+export function driverOf(raw) {
+  const d = (raw && typeof raw.driver === "object" && raw.driver) || null;
+  if (!d) return null;
+  const name = String(d.name || "").trim();
+  const plate = String(d.plateNumber || d.plate || "").trim();
+  // The number is normalised the way the courier's own dialling needs it, but it is NOT
+  // required: a driver with no number still gets a line, with no button to ring it.
+  const phone = String(d.phone || "").trim();
+  if (!name && !plate && !phone) return null;
+  return { name, plate, phone };
+}
+
 // One booked trip, read into the record the order keeps. Returns null when the reply
 // carries no trip number at all — a booking the app cannot name is a booking it
 // cannot check, chase or cancel, so it is refused rather than stored as half a fact.
@@ -339,6 +385,13 @@ export function normaliseJob(raw, { quote = null, trip = null, now = Date.now() 
     currency: String(bd.currency || raw.currency || (quote && quote.currency) || "MYR"),
     link: String(raw.shareLink || "").trim(),
     status,
+    // The neutral phase the customer's card is allowed to know, and the driver, when the
+    // courier's reply carried one. Both are stored on the record rather than looked up at
+    // publish time: the card must be publishable from what the order already knows, or a
+    // later edit would publish the trip WITHOUT them and the customer's page would forget
+    // a driver it had already been shown.
+    phase: phaseOf(status),
+    driver: driverOf(raw),
     statusAt: when,
     bookedAt: when,
     scheduleAt: String((trip && trip.scheduleAt) || raw.scheduleAt || "").trim(),
@@ -355,6 +408,12 @@ export function normaliseDetail(raw, now = Date.now()) {
     status,
     statusAt: new Date(now).toISOString(),
     link: String(raw.shareLink || "").trim(),
+    // Both may be empty, and empty means "learned nothing this time" rather than "none":
+    // the check that reads this keeps whatever the order already had. A status this build
+    // does not know has no phase, and a trip with no driver matched yet has no driver —
+    // and neither may overwrite something a previous check did learn.
+    phase: phaseOf(status),
+    driver: driverOf(raw),
     done: statusDone(status),
   };
 }

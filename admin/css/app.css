@@ -1153,8 +1153,16 @@ option.tone-off { color: var(--muted); }
 .job-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .job-what { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .job-name { font-weight: 600; }
-.job-sub, .job-status, .job-link { font-size: 12px; color: var(--muted); }
-.job-status, .job-link { margin: 8px 0 0; overflow-wrap: anywhere; }
+.job-sub, .job-status, .job-link, .job-driver { font-size: 12px; color: var(--muted); }
+.job-status, .job-link, .job-driver { margin: 8px 0 0; overflow-wrap: anywhere; }
+/* The driver on a booked trip (v190), and the two things on this card she taps: the
+   number to ring and the link to the courier's own tracking page. The name carries the
+   card's own ink rather than the muted grey of the readings around it — she reads it
+   out or rings it — and both links wear the app's own link treatment instead of the
+   browser's default blue, which is the one colour here the bakery never chose. */
+.job-driver { color: var(--ink); }
+.job-driver a, .job-link a { color: var(--brown); font-weight: 700; text-decoration: none; }
+.job-driver a:active, .job-link a:active { opacity: .7; }
 .job-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ---------- App-password lock ---------- */

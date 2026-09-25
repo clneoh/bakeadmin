@@ -35,6 +35,15 @@ function createEl(tag) {
     // The real DOM: a node is used as-is, anything else is stringified into a
     // text node — so null arrives on the page as "null".
     replaceChildren(...cs) {
+      // And the children it drops are ORPHANED, not merely forgotten — a real DOM
+      // detaches them, so their parent is null and `isConnected` below answers no. A node
+      // left pointing at the parent it was taken out of would go on answering "yes, still
+      // here" for the rest of the run, which is enough to keep the courier panel's own
+      // one-second clock alive in a box that was thrown away. test/orders-day-sum.test.js
+      // and test/orders-autocollect.test.js carry the same fix for the same reason.
+      for (const old of this.children) {
+        if (old && old.nodeType === 1 && old.parentNode === this) old.parentNode = null;
+      }
       this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) }));
       for (const c of this.children) this._adopt(c);
     },

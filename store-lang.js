@@ -127,6 +127,23 @@ const en = {
   // Malaysians know for a parcel the receiver pays for, so it is kept, with what to
   // do about it spelled out beside it (19 Sep 2026).
   courierCod: "Courier charge: %1 - COD, pay the courier on delivery",
+  // The booked trip, as the courier's own reply last said. %1 is one of a handful of
+  // NEUTRAL phase words below rather than the courier's own vocabulary — the backoffice
+  // publishes the phase, this page owns the words, so no company's status list is
+  // written into this file (v190). A phase this page has not been taught draws nothing.
+  tripStatus: "Delivery: %1",
+  tripFinding: "Finding a driver",
+  tripOnTheWay: "The driver is on the way",
+  tripCollected: "Collected",
+  tripDelivered: "Delivered",
+  tripStopped: "Called off",
+  tripNoDriver: "No driver took it",
+  // Who is bringing it, once the courier has matched one — which it does only shortly
+  // before the pickup, so this line is absent for most of the wait. The plate is shown
+  // with the name when there is one, and on its own when there is not.
+  driverLine: "Driver: %1",
+  vehicleLine: "Vehicle: %1",
+  callDriver: "Call the driver",
   nextBlockedBasket: "Your basket is for %1. To order for another day, choose it on the calendar above.",
 
   devBy: "Website by",
@@ -229,6 +246,16 @@ const zh = {
   trackDelivery: "查看配送进度：",
   courierCharge: "快递费：%1",
   courierCod: "快递费：%1 - 货到付款，收货时付给快递员",
+  tripStatus: "配送：%1",
+  tripFinding: "正在寻找司机",
+  tripOnTheWay: "司机在路上",
+  tripCollected: "已取货",
+  tripDelivered: "已送达",
+  tripStopped: "已取消",
+  tripNoDriver: "无司机接单",
+  driverLine: "司机：%1",
+  vehicleLine: "车辆：%1",
+  callDriver: "致电司机",
   nextBlockedBasket: "你的购物袋是 %1 的。想订另一天，请在上面的日历选择。",
 
   devBy: "网站制作：",
@@ -331,6 +358,16 @@ const ms = {
   trackDelivery: "Jejak penghantaran anda:",
   courierCharge: "Caj kurier: %1",
   courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
+  tripStatus: "Penghantaran: %1",
+  tripFinding: "Sedang mencari pemandu",
+  tripOnTheWay: "Pemandu dalam perjalanan",
+  tripCollected: "Telah diambil",
+  tripDelivered: "Telah dihantar",
+  tripStopped: "Dibatalkan",
+  tripNoDriver: "Tiada pemandu yang mengambil",
+  driverLine: "Pemandu: %1",
+  vehicleLine: "Kenderaan: %1",
+  callDriver: "Hubungi pemandu",
   nextBlockedBasket: "Bakul anda untuk %1. Untuk hari lain, pilih pada kalendar di atas.",
 
   devBy: "Laman web oleh",

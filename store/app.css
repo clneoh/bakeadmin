@@ -666,6 +666,38 @@ button.prod-next.off::after { content: ""; }
   letter-spacing: .3px;
   font-variant-numeric: tabular-nums;
 }
+/* ---------- The delivery itself, on the customer's card (v190) ---------- */
+/* Where the parcel has got to. This is the question the customer opened this page to
+   ask, so it wears the card's own ink instead of the muted grey the notes around it
+   use — the only line on the card that is news rather than detail. */
+.track-trip { color: var(--ink); font-weight: 600; }
+/* Who is bringing it, and the plate to look for at the gate. */
+.track-driver { color: var(--ink); font-weight: 500; }
+/* Every link on this card is one a customer taps on a phone — the driver's number and
+   the courier's own tracking page — so none of them is left in the browser's default
+   blue, the one colour on this page the bakery never chose.
+   AND THE HEIGHT IS THE PAGE'S OWN. Measured on the drawn card at 375 pixels, a pill
+   built from padding alone came out 30 pixels tall while every other thing a customer
+   taps on this page — the delivery day, the collect / courier pair, Track, Place order —
+   is 37 to 48. The two controls that matter most at the door were the two smallest
+   targets on the page, found by measuring rather than by reading the rule. So the pill
+   takes the page's own floor and centres its word in it, instead of growing with the
+   text. */
+.track-result a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--brown-soft);
+  color: var(--brown-dark);
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: normal;
+  text-decoration: none;
+}
+.track-result a:active { opacity: .75; }
 /* The customer arrived by tapping "Track your order" in their WhatsApp message:
    the card is lit so it cannot be missed on a page they may not know, and the
    glow only goes when their pointer reaches it (revealTrack, store/app.js) — the

@@ -1312,6 +1312,53 @@ function trackingEl(value) {
     el("a", { href: said, target: "_blank", rel: "noopener noreferrer" }, said));
 }
 
+// The phases the backoffice publishes about a booked trip, and this page's own words
+// for them. The backoffice sends a NEUTRAL phase — finding, on_the_way, collected — and
+// never the courier's own status string, so this page needs no table of any company's
+// vocabulary and a second courier cannot make it wrong. A phase that is not in this list
+// draws nothing at all: a customer cannot act on an unfamiliar word, so the honest thing
+// is to leave the line off rather than print something nobody can read.
+const TRIP_WORDS = {
+  finding: "tripFinding",
+  on_the_way: "tripOnTheWay",
+  collected: "tripCollected",
+  delivered: "tripDelivered",
+  stopped: "tripStopped",
+  nodriver: "tripNoDriver",
+};
+
+// The lines about the booked trip itself: where the courier says it has got to, who is
+// bringing it, and a way to reach them. Returns an array so the card's own filter can
+// drop whichever of them this order does not have.
+//
+// The driver's number is published by the baker's own app because she asked for it to
+// be: on a courier order the person at the door is a stranger the customer has to meet,
+// and one who cannot find the gate has no other way to be reached. It is turned into a
+// `tel:` link only when it contains digits at all — a number that cannot be dialled is
+// left as words rather than made into a button that rings nothing, the same rule the
+// tracking slot follows.
+function tripEls(row) {
+  const out = [];
+  const phase = String((row && row.courier_phase) || "").trim();
+  const word = TRIP_WORDS[phase];
+  if (word) out.push(el("p", { class: "track-note track-trip" }, sub(t("tripStatus"), t(word))));
+
+  const name = String((row && row.courier_driver) || "").trim();
+  const plate = String((row && row.courier_plate) || "").trim();
+  const phone = String((row && row.courier_phone) || "").trim();
+  if (name || plate) {
+    const who = name && plate ? `${name} · ${plate}` : (name || plate);
+    out.push(el("p", { class: "track-note track-driver" },
+      sub(t(name ? "driverLine" : "vehicleLine"), who)));
+  }
+  const dial = phone.replace(/[^\d+]/g, "");
+  if (dial) {
+    out.push(el("p", { class: "track-note" },
+      el("a", { href: `tel:${dial}` }, t("callDriver"))));
+  }
+  return out;
+}
+
 // Draw the track card from `lastTrack`. Every string comes from t(), so calling
 // this again after a language change repaints the card — including the journey
 // step labels — with no network.
@@ -1353,6 +1400,12 @@ function paintTrack() {
     codeLine,
     journey,
     details,
+    // The delivery's own progress and the person bringing it (v190), directly under
+    // the details and above the tracking slot: a customer who has just read what they
+    // ordered and what it cost is next asking when it comes and who is at the door.
+    // Empty for every order with no courier trip on it, so nothing changes shape on
+    // an order that posted itself.
+    ...tripEls(row),
     // What the baker put in the tracking slot, when the order was posted. It is ONE
     // slot and it holds one of TWO kinds of thing, and they must not be worded the
     // same (v189): a number she typed is something the customer reads out to a
@@ -1395,8 +1448,13 @@ export async function trackOrder(code) {
     // so tracking_no, customer, courier_fee and courier_cod all have to be asked for
     // here or the customer's half of v97/v98 and of the courier charge is dead: the
     // row carries the column, the card just never receives it (19 Sep 2026).
+    //
+    // The five courier_* trip columns are on the same footing (v190): a column the
+    // backoffice publishes and this list does not name is a line the customer's card
+    // can never draw, and it fails silently — the row would arrive complete and the
+    // card would simply be missing a section, with nothing anywhere saying why.
     const res = await fetch(
-      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,courier_fee,courier_cod,customer,updated_at&code=eq.${clean}&limit=1`,
+      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,courier_fee,courier_cod,customer,updated_at,courier_name,courier_phase,courier_driver,courier_plate,courier_phone&code=eq.${clean}&limit=1`,
       { headers: { apikey: sb.anonKey }, cache: "no-store" });
     const rows = res.ok ? await res.json() : null;
     const row = Array.isArray(rows) && rows[0];

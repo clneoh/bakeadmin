@@ -52,10 +52,11 @@ globalThis.localStorage.setItem(
 const { orderArgs, partyOf, MAX_DROPS } = await import("../supabase/functions/courier/booking.ts");
 const {
   envelope, unwrap, orderPayload, placeOrder, orderDetail, cancelOrder, hostFor,
+  driverDetail, orderWithDriver,
 } = await import("../supabase/functions/courier/providers/lalamove.ts");
 const {
   lalamove, phoneE164, statusLabel, statusDone, normaliseJob, normaliseDetail,
-  stopIdsFor, quoteBookable, QUOTE_VALID_MS,
+  stopIdsFor, quoteBookable, QUOTE_VALID_MS, phaseOf, driverOf,
 } = await import("../admin/js/couriers/lalamove.js");
 
 const KEY = "pk_test_0123456789abcdef";
@@ -568,7 +569,10 @@ test("a trip has stopped moving, or it has not — and the list is exhaustive on
 
 test("a check reads where the trip has got to, and never blanks a link already on the order", () => {
   const detail = normaliseDetail({ status: "PICKED_UP", shareLink: "https://x.y/z" }, Date.parse("2026-09-25T02:00:00.000Z"));
-  assert.deepEqual(detail, { status: "PICKED_UP", statusAt: "2026-09-25T02:00:00.000Z", link: "https://x.y/z", done: false });
+  assert.deepEqual(detail, {
+    status: "PICKED_UP", statusAt: "2026-09-25T02:00:00.000Z", link: "https://x.y/z",
+    phase: "collected", driver: null, done: false,
+  });
   // An empty link from a check means "this reply carried none", NOT "there is none" —
   // the caller merges only a non-empty one, and this is the shape it merges from.
   assert.equal(normaliseDetail({ status: "ON_GOING" }, 0).link, "");
@@ -577,6 +581,117 @@ test("a check reads where the trip has got to, and never blanks a link already o
   // pretending it said "nothing has happened" is the misleading half of that.
   assert.equal(normaliseDetail({ shareLink: "https://x.y/z" }, 0), null);
   assert.equal(normaliseDetail(null, 0), null);
+});
+
+// ── the phase, and the driver (v190) ──────────────────────────────────────
+//
+// The customer's page carries its own words for where a delivery has got to, in all
+// three languages, and it must never be taught a courier's vocabulary — that is the
+// whole point of a seam. So a courier's own status string is turned into one of a
+// handful of NEUTRAL phases HERE, in its own file, and the storefront reads only those.
+// A second courier's file therefore cannot make the customer's page wrong.
+test("a courier's own status becomes one neutral phase, and an unknown one says nothing rather than guessing", () => {
+  assert.equal(phaseOf("ASSIGNING_DRIVER"), "finding");
+  assert.equal(phaseOf("ON_GOING"), "on_the_way");
+  assert.equal(phaseOf("PICKED_UP"), "collected");
+  assert.equal(phaseOf("COMPLETED"), "delivered");
+  assert.equal(phaseOf("CANCELED"), "stopped");
+  assert.equal(phaseOf("REJECTED"), "nodriver");
+  assert.equal(phaseOf("EXPIRED"), "nodriver");
+  assert.equal(phaseOf("assigning_driver"), "finding", "the API's own case is not depended on");
+  // An unknown word publishes NOTHING, and that is the opposite of what her own screen
+  // does with it. Her screen shows the raw word, because a word she does not know is
+  // still more use than a blank line and she can go and look it up. The customer cannot:
+  // an unfamiliar word on their card is a line they can do nothing with, so the honest
+  // answer is to leave the line off — and the caller keeps whatever phase it already had.
+  assert.equal(phaseOf("SOMETHING_NEW"), "");
+  assert.equal(phaseOf(""), "");
+  assert.equal(phaseOf(null), "");
+});
+
+test("the driver is read field by field, and an empty one is no driver at all", () => {
+  assert.deepEqual(
+    driverOf({ driver: { name: "Ah Meng", plateNumber: "PMM 1234", phone: "0123456789" } }),
+    { name: "Ah Meng", plate: "PMM 1234", phone: "0123456789" });
+  // The older spelling of the plate, and a missing name — either alone is still worth a
+  // line on the customer's card, so neither field is required.
+  assert.deepEqual(driverOf({ driver: { plate: "PMM 1234" } }), { name: "", plate: "PMM 1234", phone: "" });
+  assert.deepEqual(driverOf({ driver: { name: "  Ah Meng  " } }), { name: "Ah Meng", plate: "", phone: "" });
+  // Nothing at all is null rather than an object of empty strings: the storefront and the
+  // app's own card both decide whether to draw a driver line on there being one, so an
+  // object of empties would put a blank line on the customer's card.
+  assert.equal(driverOf({}), null);
+  assert.equal(driverOf(null), null);
+  assert.equal(driverOf({ driver: {} }), null);
+  assert.equal(driverOf({ driver: "Ah Meng" }), null, "a string where a record belongs is not a driver");
+});
+
+test("a booking's own reply carries a phase too, so the record says where the trip is from the start", () => {
+  const job = normaliseJob({ orderId: "o1", status: "ASSIGNING_DRIVER" }, { quote: readyQuote() });
+  assert.equal(job.phase, "finding");
+  assert.equal(job.driver, null);
+  assert.equal(normaliseJob({ orderId: "o1", status: "PICKED_UP" }, { quote: readyQuote() }).phase, "collected");
+});
+
+test("the driver is a SECOND call, and its refusal never fails the check", async () => {
+  // A trip with a driver matched: the order reply carries only a `driverId`, so the name,
+  // the plate and the number come from the driver's own endpoint.
+  const asked = [];
+  const s1 = stubFetch((url) => {
+    asked.push(String(url));
+    if (String(url).includes("/v3/drivers/")) {
+      return jsonReply({ data: { driverId: "d1", name: "Ah Meng", plateNumber: "PMM 1234", phone: "0123456789" } });
+    }
+    return jsonReply({ data: { orderId: "o1", status: "ON_GOING", driverId: "d1" } });
+  });
+  try {
+    const out = await orderDetail(cfg(), "o1");
+    assert.equal(out.ok, true);
+    const withDriver = await orderWithDriver(cfg(), out.data);
+    assert.deepEqual(withDriver.driver, { driverId: "d1", name: "Ah Meng", plateNumber: "PMM 1234", phone: "0123456789" });
+    assert.equal(asked.filter((u) => u.includes("/v3/drivers/")).length, 1, "one driver call, and only one");
+  } finally { s1.restore(); }
+
+  // No driver matched yet: no second call is made at all, because there is no id to ask
+  // about. This is the ordinary state of a trip in its first hour.
+  const none = [];
+  const s2 = stubFetch((url) => {
+    none.push(String(url));
+    return jsonReply({ data: { orderId: "o1", status: "ASSIGNING_DRIVER", driverId: "" } });
+  });
+  try {
+    const out = await orderDetail(cfg(), "o1");
+    const same = await orderWithDriver(cfg(), out.data);
+    assert.deepEqual(same, out.data, "the order comes back exactly as it was");
+    assert.equal(none.filter((u) => u.includes("/v3/drivers/")).length, 0, "nothing was asked of the driver endpoint");
+  } finally { s2.restore(); }
+
+  // AND THE ONE THAT MATTERS. The driver's endpoint answers nothing until an hour before
+  // the pickup, so on a check made earlier in the day it refuses EVERY time. That refusal
+  // says nothing about the trip, which is perfectly healthy — so it must not reach her as
+  // an error, and the order must come back whole.
+  const s3 = stubFetch((url) => {
+    if (String(url).includes("/v3/drivers/")) {
+      return jsonReply({ message: "driver not found", errors: [{ code: "ERR_DRIVER_NOT_FOUND" }] }, 404);
+    }
+    return jsonReply({ data: { orderId: "o1", status: "ON_GOING", driverId: "d1" } });
+  });
+  try {
+    const out = await orderDetail(cfg(), "o1");
+    const still = await orderWithDriver(cfg(), out.data);
+    assert.equal(still.orderId, "o1");
+    assert.equal(still.status, "ON_GOING", "the trip's own reading is untouched by a driver that cannot be read");
+    assert.equal("driver" in still, false, "and no driver key is invented for it");
+  } finally { s3.restore(); }
+
+  // An id that is not there is refused locally, before anything is asked of the network —
+  // a request with an empty id in the path would be a 404 dressed up as a real answer.
+  const s4 = stubFetch(() => jsonReply({ data: {} }));
+  try {
+    const refused = await driverDetail(cfg(), "   ");
+    assert.equal(refused.ok, false);
+    assert.equal(s4.sent.length, 0, "nothing was sent");
+  } finally { s4.restore(); }
 });
 
 // ── the client's half: the presses, through the real channel ──────────────

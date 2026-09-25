@@ -49,7 +49,7 @@ import { button, confirmDialog, el, toast } from "../ui.js";
 import { todayISO } from "../dates.js";
 import {
   fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
-  liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripOf, tripProblem,
+  liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
   dropAddress, dropPlaceOf, fmtPlace, pickupAddress, pickupPlace, setDropPlace, setPickupPlace,
@@ -77,7 +77,15 @@ import { openPlacePicker } from "../place_map.js";
 // the card did not hear about would be overwritten by the next Save), saves, syncs and
 // publishes the customer's card. A booking is therefore saved the moment it happens and
 // is NOT discardable by closing the card without pressing Save.
-export function courierQuoteSection({ state, orders, onUseFee = null, onCommit = null }) {
+//
+// `onCollected(order)` is called on the ONE check that first reads the trip as collected,
+// BEFORE `onCommit` runs — so the status the host moves and the trip it stamps leave in
+// the same save and the same publish. This section does not move the status itself: what
+// an order's status means is the order's own business, and this file's job is to tell the
+// host the fact and let it decide. It is a TRANSITION and not a state (see `commit`).
+export function courierQuoteSection({
+  state, orders, onUseFee = null, onCommit = null, onCollected = null,
+}) {
   const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
   const first = list[0] || null;
   const cur = state.settings.currency;
@@ -266,6 +274,20 @@ export function courierQuoteSection({ state, orders, onUseFee = null, onCommit =
       // the same one-second tick as the prices, so there is one timer in this section.
       if (!job.cancelledAt && job.statusAt) jobClocks.push((now) => paintStatus(now));
 
+      // The driver, when a check has found one (v190). Not known at booking time and
+      // never invented: this courier hands the name, the plate and a number over only
+      // shortly before the pickup, so the line is drawn when there is something to put on
+      // it and is simply absent before that. Built as one node and handed to `el`, so an
+      // absent line is absent rather than the word "null" printed on her card.
+      const drv = job.driver || null;
+      const who = drv ? [String(drv.name || "").trim(), String(drv.plate || "").trim()].filter(Boolean).join(" · ") : "";
+      const dial = drv ? String(drv.phone || "").replace(/[^\d+]/g, "") : "";
+      const driverLine = (who || dial)
+        ? el("p", { class: "job-driver" },
+            who ? `Driver: ${who}` : "",
+            dial ? el("a", { href: `tel:${dial}` }, `${who ? " · " : ""}Call the driver`) : null)
+        : null;
+
       const linkLine = el("p", { class: "job-link" });
       if (isLink(job.link)) {
         linkLine.append("The customer's link: ", el("a", { href: job.link, target: "_blank", rel: "noopener" }, job.link));
@@ -288,6 +310,7 @@ export function courierQuoteSection({ state, orders, onUseFee = null, onCommit =
             : `${holder.label} is on this order`),
           row,
           statusLine,
+          driverLine,
           linkLine),
       );
       if (jobBusy) { checkBtn.disabled = true; if (cancelBtn) cancelBtn.disabled = true; }
@@ -306,12 +329,33 @@ export function courierQuoteSection({ state, orders, onUseFee = null, onCommit =
     // one — an empty link must never blank a tracking number she typed by hand, which
     // would be this screen deleting a customer's reference on the strength of an
     // absence in somebody else's reply.
-    function commit(job) {
+    //
+    // The courier's own NAME is stamped on the record here and travels with the trip.
+    // The customer's card has to say who is bringing the parcel, and it must not be
+    // taught a provider key — `lalamove` is a word this app keeps inside one file, and a
+    // card that switched on it would have to be edited for a second courier. So the key
+    // is turned into the courier's own label ONCE, at the moment the trip is written,
+    // and what the customer reads is a word plain enough to need no lookup.
+    //
+    // `justCollected` is true on the ONE commit where a check has first SEEN the trip
+    // collected. It is a transition and not the state, and the difference matters: the
+    // host moves an order's status, and a state would move it again on every later
+    // check — including the check she makes right after undoing the move, which would
+    // put it straight back. An Undo that a look undoes has not undone anything.
+    function commit(job, justCollected = false) {
+      const named = job
+        ? { ...job, courierName: (holderOf(job) || {}).label || job.courierName || "" }
+        : job;
       for (const o of list) {
-        o.courierJob = job;
-        if (job && job.link) o.trackingNo = job.link;
+        o.courierJob = named;
+        if (named && named.link) o.trackingNo = named.link;
       }
+      // Whatever the host has to say about the order moving comes back here, so the check
+      // can fold it into the ONE toast it already raises rather than stacking a second
+      // message on top of it.
+      const said = justCollected && onCollected ? (onCollected(first) || "") : "";
       if (onCommit) onCommit(first);
+      return said;
     }
 
     // ── booking ──────────────────────────────────────────────────────────
@@ -378,12 +422,24 @@ export function courierQuoteSection({ state, orders, onUseFee = null, onCommit =
       // was quoted at — is the order's own memory of the trip, not the courier's. A
       // check that overwrote the record with the reply would forget the price it was
       // booked at the first time she looked at it.
+      const wasCollected = tripCollected(job);
       const next = { ...job, status: out.detail.status, statusAt: out.detail.statusAt, done: out.detail.done };
       if (out.detail.link) next.link = out.detail.link;
+      // The phase and the driver are carried the same way, and for the same reason the
+      // link is: empty means the courier TOLD US NOTHING this time, not that there is
+      // nobody driving. A check made before a driver is matched answers with neither, so
+      // treating an empty answer as an erasure would take the driver's name and number
+      // off the customer's card at the exact moment they became useful.
+      if (out.detail.phase) next.phase = out.detail.phase;
+      if (out.detail.driver) next.driver = out.detail.driver;
       if (out.detail.done) delete next.cancelledAt;
-      commit(next);
+      const said = commit(next, !wasCollected && tripCollected(next));
       paintJob();
-      toast(`Trip status: ${holder.statusLabel ? holder.statusLabel(out.detail.status) : out.detail.status}`);
+      const read = holder.statusLabel ? holder.statusLabel(out.detail.status) : out.detail.status;
+      // One toast carrying both facts, because they are one event: what the courier says,
+      // and what this app did about it. Two messages would let her read the first and miss
+      // the second, and the second is the one that changed an order.
+      toast(said ? `Trip status: ${read}. ${said}` : `Trip status: ${read}`);
     }
 
     // ── calling a trip off ───────────────────────────────────────────────
@@ -661,7 +717,7 @@ export function courierQuoteSection({ state, orders, onUseFee = null, onCommit =
       statusLine,
       quoteBox,
       el("p", { class: "card-sub", style: "margin:14px 0 0" },
-        `Booking books the trip this price was quoted at, so the vehicle and the hour that arrive are the ones priced here — moving the time box after a price does not move a booking. The customer's tracking box takes the trip's share link, which is what the card and the shipped message send them to. ${courier.label} shows the driver's name and plate only shortly before pickup, so this screen cannot show them and does not pretend to.`));
+        `Booking books the trip this price was quoted at, so the vehicle and the hour that arrive are the ones priced here — moving the time box after a price does not move a booking. The customer's tracking box takes the trip's share link, which is what the card and the shipped message send them to, and the customer's card also carries the trip's own progress, the driver's name, the plate and a button to ring them. ${courier.label} hands the driver over only shortly before the pickup, so a check made before then comes back with the trip and no driver at all — there is no driver line until there is one to have.`));
 
     ask();
   }

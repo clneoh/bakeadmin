@@ -291,6 +291,24 @@ export function liveJobOf(order) {
   return j.done ? null : j;
 }
 
+// Whether this trip is in the courier's hands — the one fact about a trip that moves
+// the ORDER itself, and the reason this is a named function rather than an equality
+// written at the call site (v190).
+//
+// `collected` is the courier saying the parcel is on the vehicle. `delivered` says it
+// has arrived, which cannot have happened without a collection before it — so a check
+// made late, in the evening after the run, still moves the order rather than skipping
+// the collection it was never asked about. The two stopped phases say the opposite
+// about the parcel and never move anything.
+//
+// It reads the NEUTRAL phase and never the courier's own status word, which is what
+// lets this file stay free of any courier's vocabulary.
+export function tripCollected(job) {
+  const j = job && typeof job === "object" ? job : null;
+  if (!j) return false;
+  return j.phase === "collected" || j.phase === "delivered";
+}
+
 // Why a new trip cannot be booked on these orders, in words, or "" when it can. Asked
 // of the ORDERS rather than of the courier, because a running trip is a fact about the
 // order and not about whoever happens to be holding it today.
