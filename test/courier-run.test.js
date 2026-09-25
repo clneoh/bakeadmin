@@ -31,7 +31,7 @@ const {
   windowAt, windowParts, validWindow, windowProblem, fmtWindow, windowSuffix,
   loadOf, savingOf, runLimitProblem, stampTrip,
 } = await import("../admin/js/courier_job.js");
-const { splitEven } = await import("../admin/js/courier.js");
+const { splitEven, runChargeAmounts } = await import("../admin/js/courier.js");
 
 // A state with a product list, so a line that carries no frozen name still resolves.
 function stateWith(products = []) {
@@ -238,6 +238,52 @@ test("splitting over nothing is nothing to do, not an error", () => {
 
 test("one order on a run bears the whole fee", () => {
   assert.deepEqual(splitEven(14, 1), [14]);
+});
+
+// ── which amounts each order carries, decided by who bears it ─────────────
+//
+// Her rule, in her words: "the benefit of consolidated charges, should go to merchant, not
+// the customer. And if the courier charges were reveal to them, it will shown as the
+// original cost." A customer-borne charge is therefore each customer's OWN doorstep cost,
+// taken verbatim from what the courier quoted for that doorstep alone — never the one-trip
+// fee and never a share of it. The one-trip fee is apportioned only when SHE bears it, and
+// then it is a number about her own books.
+
+test("a customer bears their own doorstep's cost, taken exactly as the courier quoted it", () => {
+  const originals = [13.5, 9.25, 7];
+  assert.deepEqual(runChargeAmounts("customer", 22, originals, 3), originals,
+    "the originals verbatim — not the 22 one trip costs her, and not 22 over three");
+});
+
+test("the originals are judged on the CUSTOMER's behalf, so a wrong length is no charge", () => {
+  // Half a list of prices is not a smaller truth, it is a guess: a customer charged a figure
+  // nobody asked the courier for is worse than a customer charged nothing at all. So a list
+  // that does not match the run is refused as a whole rather than padded, truncated or
+  // filled in from the fee — and `[]` is what writeCourierCharge reads as "no charge".
+  assert.deepEqual(runChargeAmounts("customer", 22, [13.5, 9.25], 3), [], "one short");
+  assert.deepEqual(runChargeAmounts("customer", 22, [13.5, 9.25, 7, 4], 3), [], "one too many");
+  assert.deepEqual(runChargeAmounts("customer", 22, [], 2), [], "nothing asked for at all");
+  assert.deepEqual(runChargeAmounts("customer", 22, null, 2), [], "and no list is the same as none");
+});
+
+test("a charge SHE bears is the trip's fee apportioned, and it sums to the fee", () => {
+  assert.deepEqual(runChargeAmounts("me", 22, [], 2), [11, 11]);
+  const three = runChargeAmounts("me", 22, [], 3);
+  assert.deepEqual(three, [7.33, 7.33, 7.34], "worked in cents, the odd cent last");
+  assert.equal(Math.round(three.reduce((a, b) => a + b, 0) * 100) / 100, 22,
+    "the parts are the whole, which is what makes the books reconcile");
+  // The originals are irrelevant here — when she bears it there is nothing of the
+  // customers' own costs to use, and a stale list must not leak into the arithmetic.
+  assert.deepEqual(runChargeAmounts("me", 22, [13.5, 13.5], 2), [11, 11]);
+});
+
+test("no payer means no charge, and no orders means nothing to do", () => {
+  // An unanswered payer is an unassigned charge, and the v127 rule is that the three keys
+  // travel together — so nothing is chosen here for anyone to write.
+  assert.deepEqual(runChargeAmounts("", 22, [13.5, 13.5], 2), []);
+  assert.deepEqual(runChargeAmounts(null, 22, [13.5, 13.5], 2), []);
+  assert.deepEqual(runChargeAmounts("customer", 22, [13.5], 0), [], "a run with nobody on it");
+  assert.deepEqual(runChargeAmounts("me", 22, [], 0), []);
 });
 
 // ── the trip stamped onto every customer ──────────────────────────────────

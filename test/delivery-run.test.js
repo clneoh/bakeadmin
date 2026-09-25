@@ -1,9 +1,9 @@
 // test/delivery-run.test.js — the delivery run, on the drawn screen and on the wire
-// (v191, 25 Sep 2026).
+// (v192, 25 Sep 2026).
 //
 // test/courier-run.test.js holds the pure arithmetic — the window's packing, the load,
 // the split, the one-trip-against-separate saving. This file holds the SCREEN, and the
-// things only the screen can get wrong. Four of them, each one a way of being quietly
+// things only the screen can get wrong. Five of them, each one a way of being quietly
 // wrong with real money behind it:
 //
 //   1. ONE DOORSTEP PER CUSTOMER, ON THE WIRE. A customer who bought three lines is one
@@ -21,9 +21,18 @@
 //      order the run carries — and stamped on all of them, or the ones left behind have no
 //      way to be tracked at all.
 //
-//   4. THE CHARGE IS ONE FEE SPLIT, NOT ONE FEE EACH. Each order's box takes its share,
-//      and the shares add up to what she was charged. A run that wrote the FULL fee onto
-//      every order would have her asking three customers for the price of one trip.
+//   4. THE SAVING STAYS WITH HER. A customer who bears the charge pays what their OWN
+//      doorstep would have cost sent on its own — the original, un-consolidated price —
+//      and never a share of the one-trip fee. Two ways of being wrong sit either side of
+//      that: the FULL fee on every order asks three customers for the price of one trip,
+//      and an EVEN SPLIT hands them the consolidation discount she is entitled to keep.
+//      Only when SHE bears it is the fee apportioned, because then the customer is charged
+//      nothing at all and the shares are about her books.
+//
+//   5. THE ORIGINAL COSTS ARE ASKED FOR, IN THE OPEN. Those per-doorstep prices are one
+//      request each, and they are never taken quietly on the way past — the comparison press
+//      shows them early, and a booking without that press asks for them and says it is
+//      waiting. A trip is never built on a charge nobody quoted.
 //
 // The screen sits behind the sign-in, so it is built for real on a stand-in DOM, and the
 // courier function is answered by a stubbed `fetch`. Nothing about the app's own code is
@@ -177,6 +186,10 @@ const { renderDeliveryRun } = await import("../admin/js/views/delivery_run.js");
 const { trackingSnapshot } = await import("../admin/js/supabase.js");
 const { buildShippedMessage, buildPaymentReminder } = await import("../admin/js/messages.js");
 const { keyOf } = await import("../admin/js/customers.js");
+// What the CUSTOMER is told they owe — the number that reaches their track card and their
+// messages. Read through the app's own function rather than off the raw key, because the
+// point of every money assertion below is what a customer sees, not what is stored.
+const { customerCourierFee } = await import("../admin/js/courier.js");
 
 // ── the world ─────────────────────────────────────────────────────────────
 
@@ -252,13 +265,42 @@ function withThirdCustomer(st) {
 const MOTORCYCLE_FEE = 18.5;
 const CAR_FEE = 22;
 
-function stubCourier() {
+// What each doorstep costs sent on its own — more than a stop on a shared run, which is the
+// whole reason consolidation saves, and deliberately neither the run's fee nor its half.
+//
+// The two houses are priced DIFFERENTLY, and that is load-bearing: a fixture that charged
+// both the same would let a fault that wrote the first customer's cost onto every order pass
+// every test in this file. A wrong edit that put the trip's own fee on each customer reads
+// 22.00 and one that split it reads 11.00; both are visibly not the 13.50 and 16.25 the
+// honest answer is.
+const ALONE_BY_ADDRESS = { "1 Jalan A": 13.5, "9 Jalan B": 16.25 };
+const CAR_ALONE = 13.5;
+const BALA_ALONE = 16.25;
+const MOTORCYCLE_ALONE = 11.25;
+function priceOf(key, { alone = false, address = "", override = null } = {}) {
+  if (!alone) return key === "CAR" ? CAR_FEE : MOTORCYCLE_FEE;
+  if (override != null) return override;
+  if (key !== "CAR") return MOTORCYCLE_ALONE;
+  return ALONE_BY_ADDRESS[address] ?? CAR_ALONE;
+}
+
+function stubCourier({ failAloneAfter = Infinity, standalone } = {}) {
   const real = globalThis.fetch;
   const sent = [];
+  // How many single-doorstep requests have been answered, so a test can make the courier
+  // refuse the Nth of them. It is the one case that has to stop a booking dead: a charge
+  // the courier never quoted is a figure the screen invented.
+  let alone = 0;
   const stubFetch = async (url, opts = {}) => {
     const body = JSON.parse(String(opts.body || "{}"));
-    sent.push(body);
-    const reply = answerFor(body);
+    // When each request arrived, to the millisecond, so the spacing the courier's rate limit
+    // requires can be read off the clock rather than assumed.
+    sent.push({ ...body, at: Date.now() });
+    const p = body.payload || {};
+    const drops = body.action === "quote" && Array.isArray(p.drops) ? p.drops.length : 2;
+    const reply = body.action === "quote" && drops < 2 && ++alone > failAloneAfter
+      ? { ok: false, reason: "Lalamove could not price that doorstep on its own." }
+      : answerFor(body, { standalone });
     return { ok: true, status: 200, json: async () => reply, text: async () => JSON.stringify(reply) };
   };
   globalThis.fetch = stubFetch;
@@ -270,22 +312,25 @@ function stubCourier() {
   return stub;
 }
 
-function answerFor(body) {
+function answerFor(body, opts = {}) {
   const p = body.payload || {};
   if (body.action === "vehicles") {
     return { ok: true, services: [{ key: "MOTORCYCLE" }, { key: "CAR" }] };
   }
   if (body.action === "quote") {
     // One price per vehicle asked for, and one price for the journey it was asked about:
-    // the bakery plus one point per drop. A separate-trip request carries two points, a
-    // run of two customers carries three.
-    const points = 1 + (Array.isArray(p.drops) ? p.drops.length : 1);
+    // the bakery plus one point per drop. A request for ONE doorstep carries two points, so
+    // it is the doorstep on its own; a run of two or more carries three or more.
+    const drops = Array.isArray(p.drops) ? p.drops.length : 1;
+    const points = 1 + drops;
+    const alone = drops < 2;
+    const address = drops === 1 && p.drops[0] ? String(p.drops[0].address || "") : "";
     return {
       ok: true,
       quotes: (p.services || []).map((key) => ({
         quotationId: `Q-${key}-${points}`,
         serviceType: key,
-        priceBreakdown: { total: key === "CAR" ? CAR_FEE : MOTORCYCLE_FEE, currency: "MYR" },
+        priceBreakdown: { total: priceOf(key, { alone, address, override: opts.standalone }), currency: "MYR" },
         distance: { value: 12.5, unit: "km" },
         // No geometry at all, which is the documented reply: the reader then takes the
         // stop handles in order, and a test can assert on the count without inventing
@@ -357,6 +402,17 @@ function answerCharge(root, { payer = "", method = "" } = {}) {
   }
 }
 
+// How many doorsteps the day holds, which is how many separate requests a customer-borne
+// charge costs — one per stop. The two halves of Ain's order are ONE doorstep.
+const doorstepCount = (st) => new Set(st.orders.map((o) => o.groupId || o.id)).size;
+
+// The run's own per-doorstep requests are spaced by a REAL gap, because the courier takes
+// only two requests a second — and settle() flushes timers with a zero-delay setTimeout,
+// which does not advance a 600ms wait. So a test that books a customer-borne run has to let
+// that time genuinely pass, or the confirmation it is waiting for has not been drawn yet.
+const letTheCourierAnswer = (st) =>
+  new Promise((r) => setTimeout(r, doorstepCount(st) * 650 + 150));
+
 // The whole trip, as she makes it: price the run, answer the charge questions, press Book
 // on ONE vehicle's row, and say yes to the app's own red confirmation.
 async function book(st, { window: win = "", payer = "", method = "", vehicle = "Car" } = {}) {
@@ -371,6 +427,10 @@ async function book(st, { window: win = "", payer = "", method = "", vehicle = "
   assert.ok(priceRow(root, vehicle), `the ${vehicle} came back priced`);
   answerCharge(root, { payer, method });
   press(buttonByText(priceRow(root, vehicle), "Book this run"));
+  // A customer-borne charge has to be asked for one doorstep at a time before the question
+  // is put at all, so the confirmation is not on screen yet.
+  if (payer === "The customer paid it") await letTheCourierAnswer(st);
+  await settle();
   const confirm = layers["confirm-layer"];
   const yes = buttonByText(confirm, "Book this run");
   assert.ok(yes, "the app asked before spending money");
@@ -476,21 +536,39 @@ test("a trip is stamped on every LINE of a group, not only its first", async () 
   assert.equal(st.orders[1].trackingNo, "https://lalamove.com/t/run-abc");
 });
 
-test("the money each customer is asked for is a SHARE of one fee, and the shares are the fee", async () => {
-  // The fault this pins: the whole fee written onto every order. Two customers on a RM22
-  // trip would then be asked for RM44 — the courier paid once and billed twice.
+test("a customer bears their OWN doorstep's cost, and the saving stays with her", async () => {
+  // Her rule, in her words: "the benefit of consolidated charges, should go to merchant,
+  // not the customer. And if the courier charges were reveal to them, it will shown as the
+  // original cost."
+  //
+  // So the RM22 one-trip fee is NEVER divided between the customers. Each of them is charged
+  // the 13.50 their own doorstep costs sent on its own — the original, un-consolidated
+  // price. Two faults are pinned here and they are the two ways to get this wrong, both of
+  // which read differently from the honest answer: the WHOLE fee on every order (22.00, the
+  // courier paid once and billed twice) and an EVEN SHARE of it (11.00, the consolidation
+  // discount quietly handed to the customers).
   const st = world();
   await book(st, { payer: "The customer paid it" });
-  assert.equal(st.orders[0].courierFee, 11, "half of RM22");
-  assert.equal(st.orders[1].courierFee, 11, "the second line of the SAME order is the same order");
-  assert.equal(st.orders[2].courierFee, 11);
+  assert.equal(st.orders[0].courierFee, CAR_ALONE, "Ain's own doorstep's cost, not half of RM22");
+  assert.equal(st.orders[1].courierFee, CAR_ALONE, "the second line of the SAME order is the same order");
+  assert.equal(st.orders[2].courierFee, BALA_ALONE,
+    "and Bala's own, which is a DIFFERENT number — each order carries its own doorstep's cost");
   assert.equal(st.orders[0].courierPaidBy, "customer");
   assert.equal(st.orders[2].courierPaidBy, "customer");
   assert.deepEqual(st.expenses, [],
     "a charge the customer bears never becomes a cost on her own books");
+  // And it is what the customer is TOLD, through the app's own reader of the charge — the
+  // figure their track card and their messages quote.
+  const asked = [st.orders[0], st.orders[2]].map((o) => customerCourierFee(o));
+  assert.deepEqual(asked, [CAR_ALONE, BALA_ALONE]);
+  // The two of them between them are asked for more than the trip costs her. That gap IS
+  // the saving, and the test says whose it is by asserting it exists at all.
+  const sum = Math.round(asked.reduce((a, b) => a + b, 0) * 100) / 100;
+  assert.equal(sum, 29.75, "13.50 and 16.25, added up");
+  assert.ok(sum > CAR_FEE, `going together saved her — the two are asked for ${sum} against a ${CAR_FEE} trip`);
 });
 
-test("a charge SHE bears lands on her books once per order, at the share and not the fee", async () => {
+test("a charge SHE bears is the run's fee apportioned, and the customer is asked for none of it", async () => {
   const st = world();
   await book(st, { payer: "I paid it", method: "Cash" });
   // Two groups on the run, so two shares of the fee, and each one is its own row — the
@@ -502,18 +580,24 @@ test("a charge SHE bears lands on her books once per order, at the share and not
     assert.equal(e.method, "Cash");
   }
   assert.equal(st.orders[0].courierPaidBy, "me");
+  // The other half of her rule: a cost SHE bore is her own cost, and not one sen of it
+  // reaches a customer's total. The apportionment is about her books and nowhere else.
+  assert.deepEqual([st.orders[0], st.orders[2]].map((o) => customerCourierFee(o)), [0, 0],
+    "a charge she paid is never a charge they are told about");
 });
 
-test("the odd cents are on the last order, so the shares add up to the fee exactly", async () => {
-  // RM22 over two orders divides evenly, so the interesting case is a fee that does not.
-  // THREE customers is what makes it: the screen divides by the ticked count and works in
-  // cents (see splitEven), and the sum has to be the fee she was charged.
+test("the odd cents are on the last order, so her own shares add up to the fee exactly", async () => {
+  // The fee is apportioned only when SHE bears it — a customer-borne charge is each
+  // customer's own original cost and is never divided at all. RM22 over two orders divides
+  // evenly, so the case worth pinning is one that does not: THREE customers, worked in cents
+  // (see splitEven), with the sum landing on the fee she was charged.
   const st = withThirdCustomer(world());
-  await book(st, { payer: "The customer paid it" });
+  await book(st, { payer: "I paid it", method: "Cash" });
 
   const shares = st.orders.map((o) => o.courierFee);
   assert.equal(shares.length, 4, "three customers, one of them with two lines");
   assert.deepEqual(shares, [7.33, 7.33, 7.33, 7.34], "RM22 over three orders, and the odd cent is last");
+  assert.deepEqual(st.expenses.map((e) => e.amount), [7.33, 7.33, 7.34], "and her books get the same parts");
   // What she was charged is the sum of the RUN's charges, which is one per CUSTOMER. The
   // charge is written onto every line of a group (a customer's own card reads their first
   // line), so adding all four rows would count Ain's order twice — and the whole point of
@@ -524,6 +608,154 @@ test("the odd cents are on the last order, so the shares add up to the fee exact
   assert.equal(Math.round(perCustomer.reduce((a, b) => a + b, 0) * 100) / 100, 22,
     "and the parts are the whole by construction, not by rounding luck");
 });
+
+// ── 2b. the customers' own costs, asked for in the open ───────────────────
+
+test("their own costs are asked for one doorstep at a time, and the booking waits for every one", async () => {
+  // A customer-borne charge is one request per doorstep, and the courier allows two requests
+  // a second — so the booking press pays for them, and the question she has to answer is not
+  // put on screen until every one of them is here. Asking for a vehicle she is not booking
+  // would be spending requests on a row she is not pressing.
+  const st = world();
+  const wire = stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  answerCharge(root, { payer: "The customer paid it" });
+  const before = wire.sent.filter((b) => b.action === "quote").length;
+
+  press(buttonByText(priceRow(root, "Car"), "Book this run"));
+  await settle();
+  assert.equal(buttonByText(layers["confirm-layer"], "Book this run"), undefined,
+    "nothing is put to her while a doorstep is still unpriced");
+
+  await letTheCourierAnswer(st);
+  await settle();
+
+  const asks = wire.sent.filter((b) => b.action === "quote").slice(before);
+  assert.equal(asks.length, doorstepCount(st), "one request per doorstep, and not one fewer");
+  for (const body of asks) {
+    assert.equal(body.payload.drops.length, 1, "each one is a single doorstep sent on its own");
+    assert.deepEqual(body.payload.services, ["CAR"],
+      "and only the vehicle she is booking, not the whole fleet again");
+  }
+  // And they are SPACED. The courier takes two requests a second, so a loop that fired them
+  // all at once would look exactly like this one on a two-stop day and be rate-limited into
+  // failures on the day she has a run of ten. Read off the clock, not off the code.
+  for (let i = 1; i < asks.length; i++) {
+    const gap = asks[i].at - asks[i - 1].at;
+    assert.ok(gap >= 550, `request ${i + 1} waited its turn — ${gap}ms apart`);
+  }
+});
+
+test("a comparison she has already asked for is reused for the charges, not paid for twice", async () => {
+  // The comparison and the customers' charges are the SAME requests — the separate prices ARE
+  // the original costs. So a run she has already compared must not be priced a second time
+  // when she books it: that is her money spent on waiting for an answer she already has.
+  const st = world();
+  const wire = stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  answerCharge(root, { payer: "The customer paid it" });
+  press(buttonByText(priceRow(root, "Car"), "Compare with sending them separately"));
+  await letTheCourierAnswer(st);
+  await settle();
+  const before = wire.sent.filter((b) => b.action === "quote").length;
+
+  press(buttonByText(priceRow(root, "Car"), "Book this run"));
+  await settle();
+
+  const yes = buttonByText(layers["confirm-layer"], "Book this run");
+  assert.ok(yes, "the question comes straight away, because the numbers are already here");
+  assert.equal(wire.sent.filter((b) => b.action === "quote").length, before,
+    "and not one more request was made for them");
+  press(yes);
+  await settle();
+  assert.equal(st.orders[0].courierFee, CAR_ALONE,
+    "and the charge is still their own doorstep's cost, not the comparison's total");
+});
+
+test("a doorstep that cannot be priced on its own books nothing and charges nobody", async () => {
+  // The one outcome that must never happen: a trip booked on a charge the courier never
+  // quoted. Half a list of prices is not a smaller truth, it is a guess — so the booking
+  // stops, in words, before anything is spent and before any customer is given a figure.
+  const st = world();
+  const wire = stubCourier({ failAloneAfter: 1 });
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  answerCharge(root, { payer: "The customer paid it" });
+  press(buttonByText(priceRow(root, "Car"), "Book this run"));
+  await letTheCourierAnswer(st);
+  await settle();
+
+  assert.equal(wire.sent.filter((b) => b.action === "book").length, 0, "the courier was never asked to book");
+  assert.equal(buttonByText(layers["confirm-layer"], "Book this run"), undefined,
+    "and she is never asked to confirm a trip nobody priced");
+  for (const o of st.orders) {
+    assert.equal(o.courierJob, undefined, `${o.id} is on no trip`);
+    assert.equal("courierFee" in o, false, `${o.id} was given no charge`);
+  }
+  assert.deepEqual(st.expenses, [], "and nothing was invented on her books");
+  const said = all(root).map((n) => n.textContent).join(" ");
+  assert.ok(/could not price that doorstep on its own/.test(said),
+    `and the screen says why, in words — read "${said.slice(0, 400)}"`);
+  assert.ok(/Nothing was booked/.test(said), "and that nothing happened");
+});
+
+test("the question puts each customer's own cost against the trip's fee, and says whose the difference is", async () => {
+  // "if the courier charges were reveal to them, it will shown as the original cost" — and
+  // the screen has to be honest with HER about what that means: the customers between them
+  // are asked for MORE than the trip costs her, and that gap is hers. It is stated as the
+  // arithmetic it is, so the saving is a number she reads rather than a claim she trusts.
+  const st = world();
+  await upToTheQuestion(st);
+  const said = all(layers["confirm-layer"]).map((n) => n.textContent).join(" ");
+  assert.ok(said.includes("RM 13.50"), `Ain's own doorstep's cost is named — read "${said.slice(0, 400)}"`);
+  assert.ok(said.includes("RM 16.25"), "and Bala's, which is its own number and not a copy of hers");
+  assert.ok(/RM 29\.75 in all/.test(said), "and so is the total the two of them come to");
+  assert.ok(/RM 7\.75 more than the RM 22\.00 the trip costs you/.test(said),
+    "read against the trip's own fee, so the saving is a number, not a promise");
+  assert.ok(/that difference stays with you/.test(said), "and it says whose it is, in her own terms");
+});
+
+test("a run that saves her nothing says so, rather than polishing the same numbers into a saving", async () => {
+  // A small run on a big vehicle really can cost more than the same doorsteps sent one at a
+  // time — the base fare plus a stop fee is not always beaten by the sum of separate base
+  // fares, and the two doorsteps here are close together and few. Her rule does not bend to
+  // the arithmetic: the customers are still charged their own originals, so the shortfall is
+  // hers. What must not happen is a screen that adds up the same two numbers and calls it a
+  // saving, because a saving she cannot see is a saving she will plan around and not get.
+  const st = world();
+  stubCourier({ standalone: 6 });
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  answerCharge(root, { payer: "The customer paid it" });
+  press(buttonByText(priceRow(root, "Car"), "Book this run"));
+  await letTheCourierAnswer(st);
+  await settle();
+  const said = all(layers["confirm-layer"]).map((n) => n.textContent).join(" ");
+  assert.ok(/RM 12\.00 in all/.test(said), `the two originals, added up — read "${said.slice(0, 400)}"`);
+  assert.ok(/RM 10\.00 SHORT of the RM 22\.00/.test(said), "and the shortfall stated as a shortfall");
+  assert.ok(/loses you money/.test(said), "in her own terms, not softened into a smaller number");
+});
+
+// The same six presses as book(), stopping at the question rather than answering it — the
+// confirmation's own words are what the test above is reading.
+async function upToTheQuestion(st) {
+  stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  answerCharge(root, { payer: "The customer paid it" });
+  press(buttonByText(priceRow(root, "Car"), "Book this run"));
+  await letTheCourierAnswer(st);
+  await settle();
+  assert.ok(buttonByText(layers["confirm-layer"], "Book this run"), "the app asked before spending money");
+  return root;
+}
 
 test("a run booked with the charge questions unanswered records no charge at all", async () => {
   // She is allowed to book a trip before she has decided who pays for it — the vehicle is

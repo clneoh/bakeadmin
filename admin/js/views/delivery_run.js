@@ -26,14 +26,21 @@
 //     whether route optimisation is available, so the order stays hers to arrange and
 //     nothing here may claim to have found her an optimum.
 //
-//   • THE COMPARISON IS ASKED FOR. Pricing the run on every vehicle is one set of
-//     requests; pricing the same stops separately is another request per stop, and the
-//     courier allows two requests a second. So the separate prices are a press of their
-//     own, spaced below, and never something this screen does quietly on the way past.
+//   • THE COMPARISON IS ASKED FOR, AND IT IS ALSO WHAT EACH CUSTOMER PAYS. Pricing the run
+//     on every vehicle is one set of requests; pricing the same stops separately is another
+//     request per stop, and the courier allows two requests a second. Those separate prices
+//     ARE the original costs the customers are charged, so they are never taken quietly: the
+//     press that shows the saving asks for them early, and if she has not pressed it they are
+//     asked when she books, with the waiting said on screen.
 //
-//   • THE FEE IS SPLIT IN CENTS. What each customer's charge box will say is shown beside
-//     the vehicle before she books, and the shares add up to the fee exactly — see
-//     splitEven. RM 14.00 over three orders is 4.66 + 4.66 + 4.68, never 4.67 three times.
+//   • THE SAVING STAYS WITH HER. A customer who bears the charge is charged what their own
+//     doorstep would have cost sent on its own — the ORIGINAL, un-consolidated price — and
+//     never a share of the one-trip fee. Her rule, in her words: "the benefit of consolidated
+//     charges, should go to merchant, not the customer. And if the courier charges were
+//     reveal to them, it will shown as the original cost." So the difference between what the
+//     customers pay and what the trip costs is hers. The fee is apportioned across the orders
+//     only when SHE bears it — see splitEven and runChargeAmounts — because then the customer
+//     is charged nothing at all and the number is about her books, not about them.
 //
 // WHY IT IS A PAGE AND NOT A CARD. It holds a day's customers, a vehicle per row, a
 // window and a set of charge questions. The app has one pop-up layer, so a card is one
@@ -47,7 +54,7 @@ import { button, confirmDialog, el, emptyState, select, toast } from "../ui.js";
 import { shortDate } from "../dates.js";
 import { groupOrders, save } from "../state.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
-import { splitEven, writeCourierCharge } from "../courier.js";
+import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { geocodeAddress } from "../couriers/api.js";
 import {
@@ -69,6 +76,10 @@ import {
 const SEPARATE_GAP_MS = 600;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Money read back off a sum of quotations, so a tenth of a sen from floating point cannot
+// turn "exactly what the trip costs you" into "one sen short of it".
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 export function renderDeliveryRun(root, state, params) {
   const courier = activeCourier();
@@ -135,10 +146,13 @@ export function renderDeliveryRun(root, state, params) {
   const askBtn = button(`Price this run with ${courier.label}`, () => ask(), "primary");
 
   // The charge questions, asked of the first ticked customer so the form opens on what
-  // that order already says. The AMOUNT is not asked here: on a run each customer's charge
-  // is a share of the trip's fee, worked out by splitEven, not a figure she types. This is
-  // the same block the order card and the full Edit form use, so a charge means the same
-  // thing wherever it is written — and its own comment forbids a second copy in the app.
+  // that order already says. The AMOUNT is not asked here: on a run it is worked out, not
+  // typed — each customer's own doorstep cost when they bear it, the run's fee apportioned
+  // when she does (runChargeAmounts). This is the same block the order card and the full
+  // Edit form use, so a charge means the same thing wherever it is written — and its own
+  // comment forbids a second copy in the app. It is answered ONCE for the whole run, which
+  // is why changing it has to redraw the prices: the line under each vehicle says what each
+  // customer's box will hold, and that depends on this answer.
   let pay = null;
   const payBox = el("div", {});
 
@@ -206,8 +220,10 @@ export function renderDeliveryRun(root, state, params) {
     priceAgain();
     paintList();
     paintLoad();
-    paintPrices();
+    // The payer is answered before the prices, because the line under each vehicle says
+    // what each customer's box will hold and that depends on the payer (chargeLine).
     paintPay();
+    paintPrices();
     paintWindow();
   }
 
@@ -223,8 +239,8 @@ export function renderDeliveryRun(root, state, params) {
     compare = {};
     paintList();
     paintLoad();
-    paintPrices();
     paintPay();
+    paintPrices();
   }, "ghost small");
 
   function paintHead() {
@@ -252,8 +268,8 @@ export function renderDeliveryRun(root, state, params) {
         compare = {};
         paintHead();
         paintLoad();
-        paintPrices();
         paintPay();
+        paintPrices();
       });
       const what = g.orders.map((o) => `${String(o.productName || "item").trim()} ×${Number(o.qty) || 0}`).join("  ·  ");
       const where = place
@@ -330,15 +346,52 @@ export function renderDeliveryRun(root, state, params) {
 
   // ── the money ─────────────────────────────────────────────────────────
 
-  // What each order's charge box will say if she books THIS vehicle. Worked out in cents
-  // and stated in the ticked order, which is the order the rows appear in above, so she can
-  // read one against the other. The odd cents are on the last order by construction.
-  function splitSentence(amount, currency) {
+  // What each order's charge box will hold if she books THIS vehicle, in the payer's own
+  // terms. A customer's figure is their own doorstep's cost, which is a request per stop and
+  // is therefore asked when she books rather than on the way past — so before the booking
+  // this line states the RULE, and the confirmation shows the numbers.
+  //
+  // The payer decides which of the two it is, so this is redrawn when she changes that
+  // answer (see paintPay). Leaving it saying "split evenly" while she had chosen the
+  // customer, or quoting a split that is nobody's cost, would be this screen telling her
+  // one thing and doing another.
+  function chargeLine(q) {
     const groups = tickedGroups();
     if (!groups.length) return "";
+    const n = groups.length;
     const cur = state.settings.currency;
-    const shares = splitEven(amount, groups.length).map((s) => fmtQuote(s, currency, cur));
-    return `Split evenly over the ${groups.length} order${groups.length === 1 ? "" : "s"} ticked above, in that order: ${shares.join(" · ")}.`;
+    const who = pay ? pay.payer() : "";
+    if (who === "customer") {
+      return `Each customer is charged what their own doorstep costs on its own, never a share of the one-trip fee — so the saving from going together stays with you. Those ${n === 1 ? "cost comes" : `${n} costs come`} from ${courier.label} when you book, and the confirmation shows ${n === 1 ? "it" : "each of them"} before anything is asked for.`;
+    }
+    if (who === "me") {
+      const shares = splitEven(q.amount, n).map((s) => fmtQuote(s, q.currency, cur));
+      return `You are bearing it, so the run's own fee is your cost and the customer is charged none of it: ${fmtQuote(q.amount, q.currency, cur)} over ${n} order${n === 1 ? "" : "s"} — ${shares.join(" · ")}.`;
+    }
+    return "Choose who paid the courier below, and this line will say what each customer's charge box will hold.";
+  }
+
+  // What the confirmation says each order's charge box will hold — the numbers, where the
+  // line above states the rule. The customer's figure is their own doorstep's cost, so the
+  // total it comes to is read against the trip's own fee: when going together has saved her
+  // nothing — a small run on a big vehicle, which really happens — that shows here as the
+  // shortfall it is rather than as a saving this screen talked her into.
+  function chargeSentence(amounts, q, cur, answers) {
+    if (!amounts.length || !answers || !answers.who) {
+      return " No charge will be written, because no payer was chosen below.";
+    }
+    const each = amounts.map((a) => fmtQuote(a, q.currency, cur));
+    if (answers.who === "customer") {
+      const total = round2(amounts.reduce((a, b) => a + b, 0));
+      const diff = round2(total - q.amount);
+      const against = diff > 0
+        ? `${fmtQuote(total, q.currency, cur)} in all, which is ${fmtQuote(diff, q.currency, cur)} more than the ${fmtQuote(q.amount, q.currency, cur)} the trip costs you — that difference stays with you`
+        : diff < 0
+          ? `${fmtQuote(total, q.currency, cur)} in all, which is ${fmtQuote(-diff, q.currency, cur)} SHORT of the ${fmtQuote(q.amount, q.currency, cur)} the trip costs you, so this run loses you money`
+          : `${fmtQuote(total, q.currency, cur)} in all, which is exactly what the trip costs you`;
+      return ` Each customer is charged what their own doorstep costs on its own, never a share of the trip: ${each.join(" · ")} — ${against}.`;
+    }
+    return ` The run's fee goes on your books as one cost of ${fmtQuote(q.amount, q.currency, cur)}, over ${amounts.length} order${amounts.length === 1 ? "" : "s"} — ${each.join(" · ")} — and the customer is charged none of it.`;
   }
 
   // ── asking for a price ────────────────────────────────────────────────
@@ -429,8 +482,8 @@ export function renderDeliveryRun(root, state, params) {
       codes: codesNow(),
       stops: groups.length,
     };
-    paintPrices();
     paintPay();
+    paintPrices();
     statusLine.textContent = priced.quotes.length
       ? `${priced.quotes.length} price${priced.quotes.length === 1 ? "" : "s"} from ${courier.label} for this run as one trip. Each one dies on its own clock.`
       : "No vehicle could be priced for this run.";
@@ -463,7 +516,7 @@ export function renderDeliveryRun(root, state, params) {
         : null,
       quotes.length ? el("p", { class: "card-sub", style: "margin:12px 0 0" },
         `Booking books the whole run as ONE ${courier.label} trip: one vehicle, ${tickedGroups().length} doorstep${tickedGroups().length === 1 ? "" : "s"}, and one share link that goes on every customer's own track card and message. ` +
-        "Booking writes each order's share of the fee into its charge box, with the payer, the method and the COD answer you set below, and saves it there and then — a real vehicle is on a real road the moment the press returns, so there is nothing to discard by walking away.") : null,
+        "Booking writes each order's charge into its box — their own doorstep's cost when the customer bears it, your apportioned part of the run's fee when you do — with the payer, the method and the COD answer you set below, and saves it there and then. A real vehicle is on a real road the moment the press returns, so there is nothing to discard by walking away.") : null,
     ].filter(Boolean));
   }
 
@@ -477,7 +530,7 @@ export function renderDeliveryRun(root, state, params) {
     // The written-down words of the promise for THIS vehicle, so the number and what each
     // customer will be asked for are read together rather than on two screens.
     const splitLine = el("p", { class: "card-sub", style: "margin:6px 0 0" });
-    splitLine.textContent = splitSentence(q.amount, q.currency);
+    splitLine.textContent = chargeLine(q);
 
     const paintCmp = () => {
       const c = compare[q.service];
@@ -536,24 +589,30 @@ export function renderDeliveryRun(root, state, params) {
     return row;
   }
 
-  // One vehicle, priced on every doorstep on its own — the other half of the comparison.
-  // N requests, spaced, and only ever asked for because she pressed.
-  async function compareTrips(service) {
-    if (busy || stale() || !priced || !root.isConnected) return;
-    compare[service] = { state: "busy", done: 0, total: tickedGroups().length };
-    paintPrices();
+  // One vehicle, priced on every doorstep on its own — the other half of the comparison, AND
+  // the origin of what each customer is charged when they bear it (v192).
+  //
+  // N requests, spaced, never fired together: the courier allows two a second and a burst is
+  // refused, which would read to her as "that vehicle cannot be priced" when the truth is
+  // that we asked too fast. Asked only because she pressed — the comparison press, or the
+  // Book press, which needs the very same numbers and reuses them when they are already here.
+  //
+  // Every doorstep or nothing: a sum missing one trip is smaller than the truth, so a saving
+  // worked out from it — or a customer's charge — would be this screen making a number up.
+  async function priceSeparately(service, onProgress) {
     const groups = tickedGroups();
     const scheduleAt = priced.trip.scheduleAt;
     const amounts = [];
     let reason = "";
+    if (onProgress) onProgress(0, groups.length);
     for (let i = 0; i < groups.length; i++) {
       if (i) await wait(SEPARATE_GAP_MS);
-      if (!root.isConnected) return;
+      if (!root.isConnected) return { ok: false, reason: "" };
       // ONE ROW PER GROUP again — the same correction as the run's own trip, and the same
       // pinned doors it was priced from.
       const one = tripOf(state, [groups[i].orders[0]], { scheduleAt });
       const out = await courier.quote(state, one, { services: [service], scheduleAt });
-      if (!root.isConnected) return;
+      if (!root.isConnected) return { ok: false, reason: "" };
       if (!out.ok) { reason = out.reason; break; }
       const hit = (out.quotes || []).find((x) => x.service === service);
       if (!hit) {
@@ -562,34 +621,92 @@ export function renderDeliveryRun(root, state, params) {
         break;
       }
       amounts.push(hit.amount);
-      compare[service] = { state: "busy", done: i + 1, total: groups.length };
-      paintPrices();
+      if (onProgress) onProgress(amounts.length, groups.length);
     }
+    if (reason || amounts.length !== groups.length) {
+      return { ok: false, reason: reason || "One of these doorsteps could not be priced on its own." };
+    }
+    return { ok: true, amounts };
+  }
+
+  async function compareTrips(service) {
+    if (busy || stale() || !priced || !root.isConnected) return;
+    compare[service] = { state: "busy", done: 0, total: tickedGroups().length };
+    paintPrices();
+    const out = await priceSeparately(service, (done, total) => {
+      compare[service] = { state: "busy", done, total };
+      paintPrices();
+    });
+    if (!root.isConnected) return;
     // Not a comparison at all unless EVERY doorstep was priced: a sum missing one trip is
     // smaller than the truth, and a saving worked out from it would be this screen
     // overstating its own case.
-    compare[service] = reason
-      ? { state: "failed", reason: `${reason} The comparison needs every doorstep priced, so it is not shown at all rather than shown short.` }
-      : { state: "done", amounts };
+    compare[service] = out.ok
+      ? { state: "done", amounts: out.amounts }
+      : { state: "failed", reason: `${out.reason} The comparison needs every doorstep priced, so it is not shown at all rather than shown short.` };
     paintPrices();
+  }
+
+  // The customers' own costs, for the charges. This is the same request the comparison makes
+  // and the same answer, so one she has already asked for is REUSED rather than asked again
+  // and paid for twice — and that is why the two sharing a function matters, not just tidier.
+  async function customerCosts(service) {
+    const groups = tickedGroups();
+    const c = compare[service];
+    if (c && c.state === "done" && (c.amounts || []).length === groups.length) {
+      return { ok: true, amounts: c.amounts };
+    }
+    return priceSeparately(service, (done, total) => {
+      statusLine.textContent = `Asking ${courier.label} what each doorstep costs on its own — ${done} of ${total}, one request at a time.`;
+    });
   }
 
   // ── booking the run ───────────────────────────────────────────────────
 
-  function bookRun(q) {
+  async function bookRun(q) {
     if (busy || !root.isConnected || !priced || stale()) return;
-    const groups = tickedGroups();
     const blocked = liveJobProblem(tickedOrders());
     if (blocked) { toast(blocked); return; }
-    const cur = state.settings.currency;
+
+    // WHO BEARS IT is read before the amounts, because it decides WHICH amounts they are:
+    // the customers' own doorstep costs when they bear it, the run's fee apportioned when
+    // she does. Asked of the box on its own (payer) rather than through read(), which wants
+    // an amount this screen has not worked out yet.
+    const who = pay ? pay.payer() : "";
+
+    // Their own costs are one request per doorstep, so the booking press is what pays for
+    // them and the waiting is said on screen. Nothing is booked, and nobody is given a
+    // charge, until every one of them is here.
+    let originals = [];
+    if (who === "customer") {
+      busy = true;
+      askBtn.disabled = true;
+      paintPrices();
+      const costs = await customerCosts(q.service);
+      busy = false;
+      askBtn.disabled = false;
+      if (!root.isConnected) return;
+      paintPrices();
+      if (stale()) {
+        statusLine.textContent = "The list of customers changed while the courier was being asked, so nothing was booked. Price the run again for the list above.";
+        return;
+      }
+      if (!costs.ok) {
+        statusLine.textContent = `${costs.reason} Nothing was booked, and no customer was given a charge.`;
+        return;
+      }
+      originals = costs.amounts;
+      statusLine.textContent = "";
+    }
+
+    const groups = tickedGroups();
     const load = loadOf(state, groups);
-    const shares = splitEven(q.amount, groups.length);
-    const answers = pay ? pay.read(shares[0]) : null;
+    const cur = state.settings.currency;
+    const amounts = runChargeAmounts(who, q.amount, originals, groups.length);
+    const answers = pay && amounts.length ? pay.read(amounts[0]) : null;
     const w = windowNow();
     const when = w ? ` Customers will be told ${fmtWindow(w)}.` : "";
-    const charge = answers && answers.who
-      ? ` Each order's charge box gets an even share of that fee (${shares.map((s) => fmtQuote(s, q.currency, cur)).join(" · ")}), marked ${answers.who === "me" ? "paid by you" : "paid by the customer"}${answers.collect ? " and collected at the door" : ""}.`
-      : " No charge will be written, because no payer was chosen below.";
+    const charge = chargeSentence(amounts, q, cur, answers);
     confirmDialog(
       `Book the ${String(q.name || "vehicle").trim() || "vehicle"} with ${courier.label} for ${fmtQuote(q.amount, q.currency, cur)}? ` +
       `It carries ONE trip with ${load.stops} doorstep${load.stops === 1 ? "" : "s"} and ${load.items} item${load.items === 1 ? "" : "s"}.${when} ` +
@@ -619,10 +736,11 @@ export function renderDeliveryRun(root, state, params) {
           if (w) for (const o of g.orders) o.deliveryWindow = w;
           stampTrip(g.orders, out.job, holder.label);
         }
-        // The charge, per order, through the one writer every door uses: her own share of
-        // the fee becomes a Delivery & fuel row on her books, the customer's leaves her
-        // books alone entirely.
-        if (pay) groups.forEach((g, i) => writeCourierCharge(state, g.orders, g, pay.read(shares[i])));
+        // The charge, per order, through the one writer every door uses. Each order's amount
+        // is the one runChargeAmounts chose: the customer's OWN doorstep cost when they bear
+        // it, so the saving from going together stays with her, or their apportioned part of
+        // the run's fee when she bears it — which sums to exactly what she was charged.
+        if (pay) groups.forEach((g, i) => writeCourierCharge(state, g.orders, g, pay.read(amounts[i])));
         busy = false;
         save(state);
         maybeSync(state);
@@ -649,7 +767,7 @@ export function renderDeliveryRun(root, state, params) {
         "Tick a customer and the charge questions appear here."));
       return;
     }
-    pay = courierPayQuestions(state, first, () => {});
+    pay = courierPayQuestions(state, first, () => paintPrices());
     payBox.replaceChildren(pay.el);
   }
 
@@ -678,7 +796,7 @@ export function renderDeliveryRun(root, state, params) {
       priceBox,
       el("h3", { style: "margin:18px 0 0" }, "Who pays the courier"),
       el("p", { class: "card-sub" },
-        "Asked once for the whole run. Each customer's own charge box takes an even share of the fee, and this is who bore it and how it is settled."),
+        "Asked once for the whole run. If the customer bears it, each of their charge boxes holds what their own doorstep would have cost sent on its own — never a share of the one-trip fee, so the saving from going together stays with you. If you bear it, the run's fee is your own cost on your books and the customer is charged none of it."),
       payBox,
     ),
   );

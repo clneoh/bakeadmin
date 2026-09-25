@@ -1912,6 +1912,9 @@ export function courierPayQuestions(state, first, onChange = () => {}) {
 
   return {
     el: wrap,
+    // Who she said bore the charge, asked on its own — the delivery run needs the payer
+    // BEFORE it can know which amounts each order is to carry (v192).
+    payer: () => payer,
     read: (amount = 0) => {
       const n = Number(amount) || 0;
       // A charge is the amount AND who bore it, so no payer means no charge and the

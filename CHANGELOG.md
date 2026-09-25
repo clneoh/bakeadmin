@@ -1,8 +1,120 @@
-# Jienluv2bake — change history (v54 → v191)
+# Jienluv2bake — change history (v54 → v192)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**25 Sep 2026 — engine v192, THE SAVING STAYS WITH YOU, AND A CUSTOMER IS CHARGED THE ORIGINAL
+PRICE (no database step). A correction to v191, in your own words and taken as the rule. When a
+customer bears the courier charge, they are charged what their own doorstep costs on its own - never
+a share of the one-trip fee - so the money that consolidating saves stays with you rather than
+quietly becoming their discount. When you bear it, the run's real fee is your own cost and is
+apportioned across the orders as before. Not one module, batch, start time, cycle or saved day of
+yours was rewritten, and there is no database step.**
+
+**1. What you asked, in your own words.** "the benefit of consolidated charges, should go to
+merchant, not the customer. And if the courier charges were reveal to them, it will shown as the
+original cost." Two sentences and one rule. v191 split the run's one fee evenly across the orders,
+which was right for your own books and wrong for a customer's: a customer who was quoted RM 16.25 to
+their own house was being asked for RM 11.00 - the saving from the shared vehicle had been handed to
+them without you deciding to. The rule now: a customer who pays carries their own doorstep's
+standalone price; the difference between that and the trip's real fee is yours. Nothing else about
+v191 changed.
+
+**2. Where the money lands, and which half of the screen changed.** One function decides the amounts,
+and it now has three answers rather than two. If the customer bears the charge, each order carries
+its OWN doorstep's standalone cost, exactly as Lalamove quoted it - and if the number of costs does
+not match the number of doorsteps, the answer is no charge at all rather than a guess, because a
+mismatched list means the list is about a different run. If YOU bear it, the trip's one fee is
+apportioned across the orders as v191 did, and the customer is charged none of it - the amount then
+lands on your books as a "Delivery & fuel" cost and never reaches a customer's total. If nobody has
+answered who paid, the answer is no charge, which is the rule the charge model has carried since
+v127.
+
+**3. Where those standalone costs come from, and what they cost you.** They are real quotations
+from Lalamove, one per doorstep, asked when you press Book. There is no bulk pricing call, so two
+doorsteps is two requests - and Lalamove allows two requests a second, so the app spaces them and
+waits for every one before anything is booked. Measured live on the wire: the requests went out 602
+milliseconds apart, and the confirmation appeared 633 milliseconds after the press - so the question
+genuinely waits rather than showing you numbers it does not have yet. If you have ALREADY pressed
+Compare with sending them separately, those costs are reused rather than asked for and paid for a
+second time; that is the same set of prices, so it is the same answer, and the screen says where they
+came from.
+
+**4. What the screen now says, measured on the drawn page rather than reasoned about.** The line
+under the price list no longer talks about an even split. With the customer bearing it, it reads:
+"Each customer is charged what their own doorstep costs on its own, never a share of the one-trip
+fee - so the saving from going together stays with you. Those 2 costs come from Lalamove when you
+book, and the confirmation shows each of them before anything is asked for." The confirmation then
+does the arithmetic in front of you: "Each customer is charged what their own doorstep costs on its
+own, never a share of the trip: RM 13.50 - RM 16.25 - RM 29.75 in all, which is RM 7.75 more than the
+RM 22.00 the trip costs you - that difference stays with you." The RM 7.75 is the consolidation
+saving, said as a number and said as whose it is. When the same run LOSES you money - which happens
+when the doorsteps are close together and the trip fee is high - the sentence says so in those words
+rather than polishing the arithmetic into a saving that is not there: on a run built for the purpose
+whose standalone costs came to RM 12.00 against a RM 22.00 trip, it read "RM 12.00 in all ... RM
+10.00 SHORT of the RM 22.00 ... loses you money".
+
+**5. Your own half of it, unchanged in the arithmetic and clearer in the words.** With "I paid it"
+chosen, the line under the prices reads: "You are bearing it, so the run's own fee is your cost and
+the customer is charged none of it: RM 22.00 over 2 orders - RM 11.00 - RM 11.00." The confirmation
+says the same thing as a fact about your books: "The run's fee goes on your books as one cost of
+RM 22.00, over 2 orders - RM 11.00 - RM 11.00 - and the customer is charged none of it." Measured
+live after confirming that run: two "Delivery & fuel" rows of RM 11.00 each, the orders carrying
+RM 11.00 each and paid-by-you, and the customers' own track cards carrying no courier charge at all -
+their totals read RM 45.00, which is their items and nothing else. That is the half where the even
+split is correct, and it is the only half where it is.
+
+**6. The odd cents, and why the last order carries them.** When a fee does not divide evenly, the
+apportioning puts the remainder on the LAST order rather than spreading a fraction of a cent. Measured
+on a fee of RM 22.00 across three orders: RM 7.33, RM 7.33 and RM 7.34, which add up to the RM 22.00
+you actually paid. This matters only on your own books - it is the arithmetic that stops the three
+rows summing to RM 21.99 or RM 22.02 - and it is unchanged from how the charge model has always
+rounded.
+
+**7. What is measured live, and at what widths.** Every number in sections 4 and 5 was read off the
+drawn screen at 375 by 812, with the world built for the purpose and taken back out afterwards. The
+Book press measures 110 by 36 pixels, the row 315 wide with no sideways scrolling, and the line under
+the price list 90 pixels tall, which fits without clipping at that width. At 1280 by 900 the two
+presses measure 110 by 36 and 270 by 36.
+
+**8. Nothing of yours is rewritten.** The only press this release changes is the one that decides
+what each order's charge box is to hold, and it writes the same three fields it has written since
+v188 - the amount, who paid it, and whether it is collected on delivery. Measured across a whole
+pass - a price asked, a run priced separately, a run booked with the customer bearing it, and the
+same run booked again with you bearing it - the only fields that moved were the charge on those three
+orders and the trip itself. Your saved days and your settings were not touched.
+
+One limit stated plainly rather than glossed: the copy of the app's stored data taken before the
+measurement was lost when the browser reloaded partway through, so the usual byte-for-byte comparison
+could not be made this time. The bakery the measurement ran in was an empty one built for the
+purpose and it is empty again, with nothing of yours in it at any point - but the comparison itself
+was not performed, and that is a weaker claim than the one every other release in this history makes.
+
+**9. One thing this release deliberately did NOT change, and you should know it.** If you book a run
+with the payer question left unanswered, the orders on it lose any charge you had set on them by
+hand. That is not new - it is how v191 behaved, because the charge is written as a set of three keys
+and an unanswered payer is an empty answer. It is left exactly as it was rather than quietly changed
+under this release's heading, and it is named here so you can decide whether you want it to behave
+differently.
+
+**10. Every rule that stands on it was proved load-bearing.** Ten faults were put back in the real
+source, each watched failing a test that NAMES it and then restored byte-identically. Among them: a
+wrong-length list of costs accepted as a charge; a customer given the even split instead of their own
+doorstep; your own share repeated whole on every order instead of apportioned; the first customer's
+cost written onto every order; the costs re-asked for even when a comparison was already on screen;
+and the losing run's shortfall smoothed into a saving. One of the ten is worth singling out because
+only ONE test catches it: taking the spacing between the two standalone requests away fails the
+timing assertion and nothing else, so the rate limit is guarded by the only thing that can see it.
+Two tests were added to the pure charge function for the answers that had no test - a list of the
+wrong length, and the no-payer case. The suite is 1596 passing with none failing.
+
+**11. No database step.** Not one stored field is added or changed. The charge lands in the fields
+the order already carried, the trip in the fields v189 already writes, and an order record syncs
+whole - so all of it reaches your other phone with no sync change and no migration.
+
+CHANGELOG and the guide both carry all of this, both PDFs rebuilt and read back with PyMuPDF, and
+the app's own More screen reads Engine v192.
 
 **25 Sep 2026 — engine v191, ONE TRIP, SEVERAL DOORSTEPS, AND WHAT IT SAVES (no database step).
 The fourth and last step of the courier work you asked for, and the one that saves you money. The

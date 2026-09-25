@@ -204,6 +204,37 @@ export function splitEven(total, count) {
   return out.map((c) => c / 100);
 }
 
+// What each order on a run is charged, decided by WHO bears it (v192, 25 Sep 2026).
+//
+// Her rule, in her own words: "the benefit of consolidated charges, should go to merchant,
+// not the customer. And if the courier charges were reveal to them, it will shown as the
+// original cost." So the one-trip fee is NEVER split between the customers. A customer who
+// bears the charge pays what their own doorstep would have cost sent ALONE — the original,
+// un-consolidated price — and the difference between that and the one trip is hers. The
+// delivery run asks the courier for those separate prices; choosing WHICH set of amounts
+// each order carries is this function's job, and it is pure so it can be proved.
+//
+//   "customer" — the customers' own costs, one each. A list of the wrong length is NO
+//     CHARGE rather than a guess: half a list of originals cannot be completed, and a
+//     customer charged a figure nobody asked the courier for is worse than one charged
+//     nothing at all.
+//   "me" — the run's fee is HER cost, so it reaches her books apportioned across the
+//     orders by splitEven, summing to the fee exactly. The customer is charged nothing
+//     either way (customerCourierFee returns 0 for "me"), so this number is about her books
+//     and never about what they are told.
+//   anything else — no charge at all: no payer means no charge, the v127 rule.
+export function runChargeAmounts(who, fee, originals, count) {
+  const n = Math.floor(Number(count) || 0);
+  if (!(n > 0)) return [];
+  if (who === "customer") {
+    const list = Array.isArray(originals) ? originals : [];
+    if (list.length !== n) return [];
+    return list.map((x) => Number(x) || 0);
+  }
+  if (who === "me") return splitEven(fee, n);
+  return [];
+}
+
 // Take a charge off the order it belongs to, found by its order code — the way back
 // from the Money screen, where the expense row is all she can see of a charge she paid
 // herself (19 Sep 2026).
