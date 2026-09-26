@@ -1,8 +1,61 @@
-# Jienluv2bake — change history (v54 → v203)
+# Jienluv2bake — change history (v54 → v204)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v204, THE PIN AND THE ADDRESS CAN NO LONGER DISAGREE (no database step, no
+redeploy — one push). A customer's dropped pin used to arrive as two bare numbers with nothing
+tying it to the address written beside it, so the two could say different places and your screen
+had no way to show you. That is fixed, and the one sequence that actually produced it — taking a
+door from the suggestion list and then editing the address — now takes the pin back with the
+address instead of leaving it behind.**
+
+**What you were seeing.** "When the pin arrive at backoffice, it did not tally": the order carried
+an address that said one place and a pin that sat somewhere else entirely. Both were shown, and
+they contradicted each other.
+
+**Two things were wrong, and only one of them was visible.**
+
+The first: **the words the customer tapped were being thrown away.** When they tap one of the
+address suggestions, the row they tapped says which door it is — "Taman Sri Nibong, George Town"
+— and that wording was dropped one line before the order was sent. What reached your app was
+"5.33250, 100.30204" and nothing else. A pin of two numbers cannot be checked against an address
+by eye, so the app had no way to tell you the pin and the address were in different places. A pin
+taken from the list now travels with the words it was found for, so the two can be read side by
+side.
+
+The second, and this is the one that produced the order you saw: **the pin was never told that the
+address had changed.** A customer types "Taman Sri Nibong, Penang", taps the suggestion, and then
+edits the box to "Bayan Lepas, Penang". Measured on the live page, that gave an order with Bayan
+Lepas written on it and a pin **5.8 km away** at Taman Sri Nibong. Two answers to one question,
+written at two different moments, with nothing joining them. Nothing on your screen could show it,
+because the pin had no words to compare.
+
+**What now happens.**
+
+- **Changing the address takes back a pin that came from the suggestion list**, and says so in a
+  line above the list in the customer's own language: the words they tapped no longer go with what
+  is in the box, so tap a suggestion above or set the pin again. The list they were reading stays
+  where it is until its replacement arrives — it is not yanked out from under their thumb.
+- **A pin they placed with their own hand is left alone.** Dragged on the map, or taken from "Use
+  my location": that is a door they chose themselves and not an answer to what they typed, and no
+  edit to the address box touches it.
+- **A suggestion row tapped a moment too late is refused out loud.** The list is deliberately left
+  up while they keep typing, so for the length of the lookup's own pause a row drawn for the old
+  address is still tappable. That tap is now refused with its own sentence, and the rows it came
+  from are taken away with it. A tap that does nothing at all is the dead-control fault this shop
+  has a standing rule about, so it always says why.
+
+**One more thing, on the customer's confirmation card.** When no product has a change/cancel
+window, the card has one line fewer — and that missing line was printing as the word **null**
+between two sentences. It prints as nothing now. This was reachable on your live storefront: none
+of your products sets a window, so it was on every order's receipt. Your cancellation wording in
+More → Settings is a different thing and is untouched.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command: the change is in
+the shop page and the app itself, and it arrives with the push. The engine on your app's More
+screen will read 204 once the phone has the new build.
 
 **26 Sep 2026 — engine v203, AN ADDRESS WITH A UNIT NUMBER IS NOW FOUND (no database step, no
 redeploy — one push). Some shop addresses the lookup used to give up on now bring the map to the

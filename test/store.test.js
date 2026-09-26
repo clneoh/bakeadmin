@@ -2,6 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 // Minimal DOM shim so store/app.js can render at import time.
+//
+// replaceChildren IS THE BROWSER'S, NOT A KINDER VERSION OF IT. Most shims in this suite
+// drop a null argument (`if (c != null) push(c)`), which is the one thing the real DOM
+// never does: it is variadic and converts every argument with String(), so a null arrives
+// on the page as a text node reading "null". That difference has shipped three defects in
+// this repo and it shipped a fourth in the shop — the order receipt printed the word
+// "null" between two sentence lines, because the cancellation note is optional and was
+// handed over as a null. The assertion at the foot of the order test below is what holds
+// it; a forgiving shim here could not see it at all.
 function createEl(tag) {
   return {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
@@ -10,13 +19,23 @@ function createEl(tag) {
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(c) { if (c != null) this.children.push(c); return c; },
     append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
-    replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+    replaceChildren(...cs) { this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) })); },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
     focus() {}, click() {},
   };
+}
+
+// Every text node under `node` that would print as the word null or undefined — the whole
+// of what this file's faithful replaceChildren exists to make visible.
+function strayNulls(node, out = []) {
+  for (const c of node.children || []) {
+    if (c.nodeType === 3) { if (c.text === "null" || c.text === "undefined") out.push(c.text); }
+    else strayNulls(c, out);
+  }
+  return out;
 }
 const registry = {};
 globalThis.document = {
@@ -34,6 +53,7 @@ globalThis.window = { open() {} };
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
 const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, trackOrder, isOpen, waNumber, parseVia } = await import("../store/app.js");
+const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 
 // The receipt's own lines, as plain strings, from the confirm box.
@@ -180,6 +200,20 @@ test("order click sends one order and shows the success card (regression: no thr
     assert.equal(payload.address, "12 Jalan Bunga");
     const title = registry["confirm-msg"].children[0].children[0]; // .text, not textContent, in the shim
     assert.equal(title.text, "🎉 Order received!");
+    // THE WORD THAT WAS PRINTED ON HER RECEIPT. The cancellation note is only added when
+    // a product on the order states a window, and the shop's own products state none — so
+    // an order placed against her live storefront carried a null in that card, and the DOM
+    // wrote "null" between the order line and "Your order is in with the bakery…". Nothing
+    // in this suite could see it while this file's shim skipped null arguments, which is
+    // why the shim now keeps them. The two lines this pins down are both real: the receipt
+    // really drew (the title above), and there is really no window to state.
+    assert.equal(strictestCancelDays(CONFIG.products), null,
+      "no product on the shop states a change/cancel window, so the optional line is absent");
+    assert.deepEqual(strayNulls(registry["confirm-msg"]), [],
+      "and its absence prints as nothing at all — not as the word 'null'");
+    assert.match(registry["confirm-msg"].children.map((n) => (n.children[0] || {}).text || "").join(" "),
+      /Your order is in with the bakery/,
+      "the line under the missing one is still there, so the check above is not over a blank card");
   } finally {
     globalThis.fetch = realFetch;
   }

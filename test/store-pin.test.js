@@ -67,6 +67,45 @@ test("a pin is tidied to six decimals, about 11 cm", () => {
   assert.deepEqual(validPin({ lat: "5.4141", lng: "100.3288" }), { lat: 5.4141, lng: 100.3288 });
 });
 
+// ── the words travel with the point (v204) ────────────────────────────────
+//
+// Her report: "when the pin arrive at backoffice, it did not tally". A pin that reaches
+// the bakery as bare numbers CANNOT be tallied against anything — the address beside it
+// is a different answer to the same question, and the two can disagree by kilometres with
+// nobody able to see it. The suggestion row the customer tapped says the words; they ride
+// out with the point now, which is the same shape the bakery's own reader already takes
+// (validPlace in admin/js/courier_place.js).
+
+test("the words a pin was found for travel out with it, so the two can be read together", () => {
+  assert.deepEqual(
+    placeForOrder({ lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" }, "courier"),
+    { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" });
+});
+
+test("a pin the customer placed by hand carries NO label key at all", () => {
+  // Not an empty string: a drag on the map and a fix from "Use my location" have no words
+  // to carry, and this must stay byte for byte the `{lat, lng}` the shop has always posted.
+  const out = validPin({ lat: 5.4141, lng: 100.3288 });
+  assert.deepEqual(out, { lat: 5.4141, lng: 100.3288 });
+  assert.equal("label" in out, false, "the key is absent, not empty");
+  assert.equal("label" in validPin({ lat: 5.4141, lng: 100.3288, label: "   " }), false,
+    "and a label of nothing but space is not words");
+});
+
+test("a label is tidied, and cut rather than allowed to run away", () => {
+  // The label is a geocoder's string printed on her screen, so it is one line with no
+  // runs of space, and it stops somewhere: a screen has a width and a row has one line.
+  assert.equal(validPin({ lat: 5, lng: 100, label: "  12,  Jalan\n Bunga ,  Penang  " }).label,
+    "12, Jalan Bunga , Penang");
+  assert.equal(validPin({ lat: 5, lng: 100, label: "x".repeat(400) }).label.length, 120);
+  // A missing label, or one that is literally nothing, is not words — and this is the
+  // guard against the string "null" or "undefined" reaching her screen, which this suite
+  // has shipped before.
+  assert.equal("label" in validPin({ lat: 5, lng: 100, label: null }), false);
+  assert.equal("label" in validPin({ lat: 5, lng: 100, label: undefined }), false);
+  assert.equal("label" in validPin({ lat: 5, lng: 100 }), false);
+});
+
 // ── the accuracy rule ─────────────────────────────────────────────────────
 
 test("a good fix says nothing at all", () => {

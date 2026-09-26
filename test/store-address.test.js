@@ -28,7 +28,12 @@ function createEl(tag) {
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(c) { if (c != null) this.children.push(c); return c; },
     append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
-    replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+    // What the browser does: variadic, and every argument that is not already a node is
+    // converted with String() — so a null becomes a text node reading "null". Nothing in
+    // THIS file depends on that (test/store.test.js holds the receipt's own assertion for
+    // it), but a shim that drops nulls is the shape that hid three defects in this repo,
+    // so it is not reintroduced here.
+    replaceChildren(...cs) { this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) })); },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
     setAttribute(k, v) { this.attrs[k] = String(v); },
@@ -117,8 +122,8 @@ function begin(t) {
   reply = { ok: true, places: [] };
   asks = [];
   rec.maps.length = 0; rec.views.length = 0; rec.tiles.length = 0; rec.markers.length = 0;
-  t.mock.timers.enable({ apis: ["setTimeout"] });
   resetPin();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
 }
 
 const el = (id) => registry[id];
@@ -367,4 +372,210 @@ test("an answer still in the air cannot land on the NEXT customer's empty box", 
   assert.equal(el("addr-list").hidden, true, "the last customer's door never reappeared");
   assert.equal(el("addr-list").children.length, 0);
   assert.equal(el("pin-status").hidden, true);
+});
+
+// ── the pin and the address must be the same place (v204, 27 Sep 2026) ─────
+//
+// Her report, in her own words: "when the pin arrive at backoffice, it did not tally",
+// and her clarification of it: the address on the order is one place and the pin sits
+// somewhere else, both shown, contradicting each other. It was reached by typing an
+// address, tapping a suggestion, and then editing the address — the pin stayed where the
+// old words had put it, and the order went out carrying the new address beside it.
+//
+// A suggestion row is an ANSWER to the words that were in the box when it was drawn. The
+// three tests below are the three ways that can go wrong, and the fourth is the order
+// itself: what actually leaves the phone.
+
+test("editing the address takes back the pin a suggestion gave, and says why (v204)", async (t) => {
+  begin(t);
+  reply = { ok: true, places: [{ ...HIT }] };
+  type("12 Jalan Bunga, Penang");
+  t.mock.timers.tick(700);
+  await flush();
+  fire(el("addr-list").children[1], "click");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet, "the door is pinned to start with");
+
+  type("14 Jalan Bunga, Penang");
+  await flush();
+
+  assert.equal(el("pin-status").textContent, STORE.en.pinAddrChanged,
+    "the pin goes, and the customer is told rather than left holding a door that contradicts the box");
+  assert.equal(el("pin-status").hidden, false, "and the line is on screen to be read");
+  assert.equal(el("pin-keep").disabled, true, "there is nothing left to keep");
+  // The list they were reading stays put until its replacement arrives: clearing it on
+  // the keystroke is the flicker store/lookup.js exists to avoid, and it is not what
+  // makes the pin wrong — the pin is already gone by the time they look. The instruction
+  // above the row is already retired (they had chosen a door), so the row is alone.
+  assert.equal(el("addr-list").hidden, false, "the rows their thumb was on do not vanish under it");
+  assert.equal(el("addr-list").children.length, 1, "still the row they tapped");
+  assert.equal(el("addr-list").children[0].textContent, HIT.label, "and it is the same row");
+});
+
+test("a pin the customer placed on the map is theirs, and an edit does not take it (v204)", async (t) => {
+  // The other side of the same rule, and the reason the pin records WHERE IT CAME FROM
+  // instead of an edit simply clearing the pin: a customer who tapped their own door on
+  // the map, or stood at it pressing "Use my location", has answered the question by hand.
+  // Nothing they type afterwards makes that answer wrong.
+  begin(t);
+  fire(el("pin-map"), "click");
+  await flush();
+  assert.equal(rec.maps.length, 1, "the map is open");
+  rec.maps[0].handlers.click({ latlng: { lat: 5.5, lng: 100.4 } });   // a thumb on the map
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet, "a tap on the map is a pin");
+
+  type("12 Jalan Bunga, Penang");
+  await flush();
+
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet,
+    "editing the address does not throw away a door they marked themselves");
+  assert.equal(el("pin-keep").disabled, false, "and it can still be kept");
+});
+
+test("a suggestion the customer has already typed past cannot be taken (v204)", async (t) => {
+  // The window the list is deliberately left open for. Rows drawn for the old wording are
+  // still on screen for the length of the lookup's own pause, and a tap in that moment is
+  // a tap on an answer to a question the box no longer asks. It is refused OUT LOUD — a
+  // tap that does nothing is the dead-control fault this shop has a standing rule about.
+  begin(t);
+  reply = { ok: true, places: [{ lat: 5.41, lng: 100.33, label: "Old Street, Penang" }] };
+  type("12 Jalan Bunga, Penang");
+  t.mock.timers.tick(700);
+  await flush();
+  const list = el("addr-list");
+  console.log("DBG asks", asks.length, "children", list.children.length, "hidden", list.hidden,
+    "inputs", (el("address-input")._listeners.input || []).length,
+    "pin-status", el("pin-status").textContent,
+    "texts", list.children.map((c) => c.textContent).join(" | "));
+  assert.equal(list.children.length, 2, "rows for the address they typed");
+
+  type("14 Jalan Bunga, Penang");
+  await flush();
+  assert.equal(list.children.length, 2, "the rows for the old wording are still up while the new ask is out");
+  fire(list.children[1], "click");
+  await flush();
+
+  assert.equal(el("pin-status").textContent, STORE.en.addrStale, "the tap is refused, and said");
+  assert.equal(el("pin-keep").disabled, true, "no pin was set by it");
+  assert.equal(list.hidden, true, "and the rows it came from are taken away with it");
+
+  // And the recovery is ordinary: the answer to the new wording arrives and its rows work.
+  t.mock.timers.tick(700);
+  await flush();
+  assert.equal(el("addr-list").children.length, 2, "the fresh list for the new address is up");
+  fire(el("addr-list").children[1], "click");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet,
+    "and a row for the words the box really holds still lands");
+});
+
+test("a language switch does not loosen the claim on the rows (v204)", async (t) => {
+  // The list is repainted on a language switch from the key it was drawn with, and the row's
+  // claim on a wording has to be repainted with it. Dropping it there would leave the one
+  // screen where a row can be tapped while it is out of date more permissive than any other,
+  // and it would be invisible in English — the customer reads a sentence either way.
+  begin(t);
+  reply = { ok: true, places: [{ ...HIT }] };
+  type("12 Jalan Bunga, Penang");
+  t.mock.timers.tick(700);
+  await flush();
+  fire(el("addr-list").children[1], "click");
+  await flush();
+
+  setLang("zh");
+  await flush();
+  type("14 Jalan Bunga, Penang");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.zh.pinAddrChanged, "the pin goes, in 中文");
+
+  fire(el("addr-list").children[0], "click");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.zh.addrStale,
+    "and the row left on screen is still refused, in 中文");
+  assert.equal(el("pin-keep").disabled, true, "nothing was set by it");
+  setLang("en");
+});
+
+test("the pin and the address the order carries agree — or the pin does not travel (v204)", async (t) => {
+  // What actually leaves the phone, which is the whole of her report. Read off the POSTed
+  // payload, not off the screen: the two halves of the same question, at the one moment
+  // they are written down together.
+  begin(t);
+  reply = { ok: true, places: [{ lat: 5.3325, lng: 100.3020, label: "Taman Sri Nibong, George Town" }] };
+  const realFetch = globalThis.fetch;
+  let posted = null;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes("/functions/v1/shop-geocode")) {
+      asks.push({ url: u, body: opts.body });
+      return { ok: true, status: 200, json: async () => reply };
+    }
+    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+    return { ok: true, status: 200, json: async () => [] };
+  };
+  try {
+    // The shop's own menu, driven the way test/store.test.js drives it.
+    registry["menu"].children[0]
+      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("whatsapp-input").value = "60123456789";
+    document.getElementById("fulfillment")._value = "courier";
+
+    type("Taman Sri Nibong, Penang");
+    t.mock.timers.tick(700);
+    await flush();
+    fire(el("addr-list").children[1], "click");
+    await flush();
+    assert.equal(el("pin-status").textContent, STORE.en.pinSet, "a door is pinned from the list");
+
+    // The customer edits the address to somewhere else entirely. This is the edit that
+    // produced her report.
+    type("Bayan Lepas, Penang");
+    await flush();
+
+    await registry["order-btn"].onclick();
+    assert.ok(posted, "the order reached the backoffice");
+    assert.equal(posted.address, "Bayan Lepas, Penang", "carrying the address the customer typed last");
+    assert.equal(posted.place, undefined,
+      "and NO pin — a pin found for Taman Sri Nibong, five kilometres away, has no business on it");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("a pin taken from the list does travel, and carries the words it was found for (v204)", async (t) => {
+  // The positive control for the test above, and the other half of her report. The pin the
+  // bakery was receiving was bare numbers, so the address and the pin could disagree with
+  // nobody able to see it: her screen could only print "5.33250, 100.30204" beside an
+  // address that said something else. The words ride with the point now.
+  begin(t);
+  reply = { ok: true, places: [{ lat: 5.3325, lng: 100.3020, label: "Taman Sri Nibong, George Town" }] };
+  const realFetch = globalThis.fetch;
+  let posted = null;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes("/functions/v1/shop-geocode")) return { ok: true, status: 200, json: async () => reply };
+    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+    return { ok: true, status: 200, json: async () => [] };
+  };
+  try {
+    registry["menu"].children[0]
+      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("whatsapp-input").value = "60123456789";
+    document.getElementById("fulfillment")._value = "courier";
+
+    type("Taman Sri Nibong, Penang");
+    t.mock.timers.tick(700);
+    await flush();
+    fire(el("addr-list").children[1], "click");
+    await flush();
+
+    await registry["order-btn"].onclick();
+    assert.ok(posted, "the order reached the backoffice");
+    assert.equal(posted.address, "Taman Sri Nibong, Penang");
+    assert.deepEqual(posted.place, { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" },
+      "the point travels with the words it was found for, so the bakery can read the two side by side");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

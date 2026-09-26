@@ -49,7 +49,9 @@ function jsonReply(obj, status = 200) {
 // dictionary key or null.
 function recorder() {
   const said = [];
-  return { said, onState: (s) => said.push({ key: s.key, hits: s.hits }) };
+  // `q` is kept, not dropped: the page pairs a row with the wording it answers, so the
+  // wording is part of what the lookup says and is asserted on below (v204).
+  return { said, onState: (s) => said.push({ key: s.key, hits: s.hits, q: s.q }) };
 }
 
 // ── what is worth asking (store/geo.js) ────────────────────────────────────
@@ -384,7 +386,7 @@ test("nothing leaves the phone while somebody is still typing", async () => {
     lk.typed("12 Jala");
     await sleep(80);
     assert.deepEqual(wire.sent, [], "part-way through a word, nothing was asked");
-    assert.deepEqual(rec.said, [{ key: null, hits: [] }], "and the list said nothing at all");
+    assert.deepEqual(rec.said, [{ key: null, hits: [], q: null }], "and the list said nothing at all");
   } finally { wire.restore(); }
 });
 
@@ -496,6 +498,55 @@ test("the same question is never asked twice — the answer is already here", as
     lk.typed("88 Lorong Baru, Penang");
     await sleep(30);
     assert.equal(wire.sent.length, 2);
+  } finally { wire.restore(); }
+});
+
+// ── which question a row answers (v204) ───────────────────────────────────
+//
+// The list is deliberately left up while the customer keeps typing — store/app.js's own
+// note calls the alternative a list that flickers under somebody's thumb — so for the
+// length of this lookup's pause a row drawn for the old wording is still tappable. The
+// page can only refuse a tap on one if every answer says WHICH question it came from, so
+// the wording rides out with the key and the rows. These are the two ways it could be
+// missing: never sent, or dropped on the replay.
+
+test("every answer says which wording it answers", async () => {
+  const wire = stubFetch(jsonReply({ ok: true, places: [{ lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga" }] }));
+  try {
+    const rec = recorder();
+    const lk = createLookup({ onState: rec.onState, waitMs: 1 });
+    lk.typed("12 Jalan Bunga, Penang");
+    await sleep(30);
+    const last = rec.said[rec.said.length - 1];
+    assert.equal(last.key, "addrPick");
+    assert.equal(last.q, "12 Jalan Bunga, Penang",
+      "the wording the customer put in the box, tidied — the page compares the box against it");
+  } finally { wire.restore(); }
+});
+
+test("a replay carries the wording too — a replayed row with no claim could be taken stale", async () => {
+  // Found by reading the memo rather than by watching the screen, and it is the one branch
+  // of this file that answers without asking. A wording put back into the box while its
+  // answer is still the memo — one letter deleted and retyped, a trailing space added and
+  // removed — is shown again from the answer already here. That replay has to carry the
+  // wording with the rows: a row the page is handed with no `q` reads as "this came from
+  // nowhere in particular, take it", which is the one thing the page must never be told
+  // while a list from an older wording may still be on screen (store/app.js, takeHit).
+  const wire = stubFetch(jsonReply({ ok: true, places: [{ lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga" }] }));
+  try {
+    const rec = recorder();
+    const lk = createLookup({ onState: rec.onState, waitMs: 1 });
+    lk.typed("12 Jalan Bunga, Penang");
+    await sleep(30);
+    assert.equal(rec.said[rec.said.length - 1].q, "12 Jalan Bunga, Penang");
+
+    lk.typed("12 Jalan Bunga, Penang ");   // the same question, and the memo answers it
+    await sleep(30);
+    const last = rec.said[rec.said.length - 1];
+    assert.equal(wire.sent.length, 1, "which cost no second lookup");
+    assert.equal(last.key, "addrPick");
+    assert.equal(last.q, "12 Jalan Bunga, Penang",
+      "and it still says which wording the rows it just put back are for");
   } finally { wire.restore(); }
 });
 
@@ -612,5 +663,7 @@ test("clearing the box forgets everything, and the next customer starts clean", 
   const rec = recorder();
   const lk = createLookup({ onState: rec.onState, waitMs: 1 });
   lk.clear();
-  assert.deepEqual(rec.said, [{ key: null, hits: [] }], "the list goes away and nothing is said");
+  assert.deepEqual(rec.said, [{ key: null, hits: [], q: null }],
+    "the list goes away and nothing is said — and with no rows there is no wording for the "
+    + "page to mistake for a question the box is still asking (v204)");
 });

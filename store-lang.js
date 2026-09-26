@@ -44,6 +44,16 @@ const en = {
   pinKeep: "Keep this spot",
   pinCancel: "Cancel",
   pinMapFailed: "The map didn't load. Type your address above and we'll find you.",
+  // The address box was edited after a suggestion was taken, so the pin that answered
+  // the old wording is gone (store/app.js, dropListPin). It has to say so: a pin that
+  // quietly disappears is the dead control this shop has a standing rule against, and
+  // the sentence names both ways to put one back.
+  pinAddrChanged: "You changed the address, so the pin you picked no longer goes with it. Tap a suggestion above, or set the pin again.",
+  // A row from the PREVIOUS wording was tapped, in the moment between the typist and the
+  // new list arriving (store/app.js, takeHit). A different sentence from the one above
+  // because it is a different fact: there may have been no pin at all, and what is wrong
+  // here is the row rather than the pin.
+  addrStale: "That suggestion was for the address you had before. Pick one for the new address, or set the pin again.",
   // Looking the typed address up (v202). The two failures are worded to send the
   // customer to the map, because the map is the one thing that still works when the
   // lookup does not — and neither of them is ever a reason an order cannot be placed.
@@ -217,6 +227,8 @@ const zh = {
   pinKeep: "确定这个位置",
   pinCancel: "取消",
   pinMapFailed: "地图无法载入。请在上面填写地址，我们会找到你。",
+  pinAddrChanged: "你更改了地址，所以之前选的标记已经不对应了。请点选上面的建议地址，或重新标记位置。",
+  addrStale: "这个建议对应的是你之前的地址。请点选新地址的建议，或重新标记位置。",
   addrLooking: "正在查询你的地址…",
   addrPick: "点选最接近你地址的一项。",
   addrNone: "找不到这个地址。请直接在地图上把标记放到你家门口。",
@@ -351,6 +363,8 @@ const ms = {
   pinKeep: "Simpan tempat ini",
   pinCancel: "Batal",
   pinMapFailed: "Peta tidak dapat dimuatkan. Taip alamat anda di atas, kami akan cari.",
+  pinAddrChanged: "Anda menukar alamat, jadi tanda yang dipilih tadi tidak lagi sepadan. Ketik cadangan di atas, atau tandakan semula.",
+  addrStale: "Cadangan itu untuk alamat anda yang sebelum ini. Pilih satu untuk alamat baharu, atau tandakan semula.",
   addrLooking: "Sedang mencari alamat anda…",
   addrPick: "Ketik yang paling hampir dengan alamat anda.",
   addrNone: "Alamat itu tidak ditemui. Ketik peta dan letakkan tanda pada pintu anda.",

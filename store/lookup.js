@@ -77,7 +77,12 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
   let live = null;       // the abort controller of the ask in the air, or null
   let answered = null;   // { q, key, hits } — the last question and what came back
 
-  const say = (key, hits) => onState({ key, hits: hits || [] });
+  // `q` rides along because the page has to know which QUESTION a row belongs to. A row
+  // stays on screen for a moment after the customer has typed past it — the list is
+  // deliberately not cleared on every keystroke, so it settles instead of flickering —
+  // and a pin taken from a row answered for an older wording is a pin for the address
+  // they no longer have (store/app.js, dropStalePin).
+  const say = (key, hits, q = null) => onState({ key, hits: hits || [], q });
 
   function cancel() {
     gen += 1;
@@ -105,9 +110,12 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
       say(null);
       return;
     }
-    // Asked and answered already: show it again without spending another lookup.
+    // Asked and answered already: show it again without spending another lookup. `q`
+    // goes back out with it — the page pairs a row with the wording it answers, and a
+    // replay that dropped the wording would leave the page unable to tell a row that
+    // belongs to the box now from one left over from an address since edited away.
     if (answered && answered.q === q) {
-      say(answered.key, answered.hits);
+      say(answered.key, answered.hits, answered.q);
       return;
     }
     const mine = gen;
@@ -116,7 +124,7 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
 
   function settle(q, key, hits) {
     answered = { q, key, hits };
-    say(key, hits);
+    say(key, hits, q);
   }
 
   // ONE QUESTION, ONE ANSWER. `reply` is the function's own object, or null when nothing

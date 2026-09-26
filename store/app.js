@@ -9,7 +9,7 @@ import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occS
 import { normRules } from "../availability.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
-import { askGeo, fixVerdict, placeForOrder, validPin } from "./geo.js";
+import { askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
 import { showPinMap } from "./pin_map.js";
 import { createLookup } from "./lookup.js";
 
@@ -402,11 +402,21 @@ export async function placeOrder(order) {
 // Show the order confirmation. Accepts a string (plain) or an array of nodes
 // (a titled card). Scrolls it into view so the customer sees a response right
 // away instead of tapping the button again.
+//
+// NOTHING ABSENT IS PASSED ON. The array form is built by callers out of optional
+// lines — the cancellation note is left out entirely when no product on the order has
+// one — and `replaceChildren` is variadic: a `null` in that array is not a child that
+// is skipped, it is a DOMString, so the DOM writes the word "null" onto the customer's
+// receipt. That is the same defect class as the pickup-pin card at v195 (a single ARRAY
+// argument, String()ed for the same reason) and the same one test/no-null-text.test.js
+// exists for; filtering here rather than at each call site is what stops the next
+// optional line from being the one that ships it.
 function showConfirm(content, kind = "ok") {
   const box = document.getElementById("confirm-msg");
   if (!box) return;
   box.className = `confirm-msg ${kind}`;
-  box.replaceChildren(...(Array.isArray(content) ? content : [document.createTextNode(String(content))]));
+  const parts = Array.isArray(content) ? content : [document.createTextNode(String(content))];
+  box.replaceChildren(...parts.filter((c) => c != null));
   box.hidden = false;
   if (typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "center", behavior: "smooth" });
 }
@@ -1239,7 +1249,7 @@ export function render() {
     // And the address list, which is showing a sentence — "Couldn't find that
     // address", "Tap the one that matches" — in the language the customer just left.
     const hits = hitNote;
-    paintHits(hits && { key: hits.key, hits: hits.hits });
+    paintHits(hits && { key: hits.key, hits: hits.hits, q: hits.q });
   };
 }
 
@@ -1563,8 +1573,18 @@ function wireFulfillment() {
 // her own words asked for it — types the address and lets the map come to it, "just
 // like Grab app". The third does not replace either of the other two: it opens the
 // same map on the address it found, and the customer still finishes by hand.
-let doorPin = null;   // { lat, lng } — the customer's own pin, or null for none
+let doorPin = null;   // { lat, lng[, label] } — the customer's own pin, or null for none
 let pinWasAt = null;  // what it was when the map opened, so Cancel can put it back
+// WHERE THE PIN CAME FROM, when it came from the list rather than from the customer.
+// A row in that list is an answer to the words already in the box, so a pin taken from
+// one belongs to that wording and to no other. Hold the wording here and the moment the
+// customer types a different address the pin is no longer an answer to what they are
+// saying — see dropListPin, and the order-time consequence it exists to prevent. Null
+// means the customer put the pin there themselves (a drag on the map, or Use my
+// location), which is their own mark about a door they were standing at and is NOT tied
+// to the words in the box.
+let pinOrigin = null; // { q } — the wording this pin answers, or null
+let pinWasOrigin = null; // the same, for the pin Cancel puts back
 let pinMap = null;    // the live map while its box is open, or null
 let pinNote = null;   // { key, m } — the last thing the status line said, kept so a
                       // language switch can say it again in the language just chosen
@@ -1593,6 +1613,14 @@ function paintPin(key = null, m = null) {
   if (keep) keep.disabled = !doorPin;
 }
 
+// Whether two points are the same spot, by their numbers. The map hands back full float
+// precision and the pin has been tidied to six decimals (store/geo.js, validPin), so
+// this compares the numbers rather than trusting the two to be the same object — the
+// question being asked is "did the customer move it", not "is this the same box".
+function sameSpot(a, b) {
+  return !!a && !!b && a.lat === b.lat && a.lng === b.lng;
+}
+
 // Close the map box. `keep` is the customer's answer to the two buttons: Keep this
 // spot leaves the pin where they put it, Cancel (and a map that could not be drawn)
 // puts back whatever there was before the box opened.
@@ -1600,7 +1628,7 @@ function closePinBox(keep) {
   if (pinMap) { pinMap.stop(); pinMap = null; }
   const box = document.getElementById("pin-box");
   if (box) box.hidden = true;
-  if (!keep) doorPin = pinWasAt;
+  if (!keep) { doorPin = pinWasAt; pinOrigin = pinWasOrigin; }
   const note = pinNote;
   paintPin(note && note.key, note && note.m);
 }
@@ -1610,6 +1638,7 @@ function openPinBox() {
   const hold = document.getElementById("pin-hold");
   if (!box || !hold) return;
   pinWasAt = doorPin;
+  pinWasOrigin = pinOrigin;
   box.hidden = false;
   const loadingNote = document.getElementById("pin-loading");
   const tapNote = document.getElementById("pin-tap");
@@ -1629,6 +1658,17 @@ function openPinBox() {
         paintPin("pinMapFailed");
         return;
       }
+      // The map is handed the pin as its start and calls back with that very point
+      // while it draws, so a callback that has not MOVED is the map agreeing with the
+      // customer rather than the customer placing anything. It is not a new pin, and the
+      // pin is left EXACTLY as it was — the same object, wording and all. A pin taken
+      // from the list carries the words it was found for (store/geo.js, validPin), and
+      // rebuilding it from the map's bare lat/lng here would strip them off the instant
+      // its own map opened, which is the whole of what the bakery needs to read the pin
+      // against the address. Anything else is their own hand, a drag or a tap, and from
+      // that moment the pin is a place they chose themselves: no words, no origin.
+      if (sameSpot(spot, doorPin)) { paintPin(); return; }
+      pinOrigin = null;
       doorPin = { lat: spot.lat, lng: spot.lng };
       paintPin();
     },
@@ -1654,6 +1694,10 @@ async function useMyLocation() {
     return;
   }
   doorPin = { lat: out.lat, lng: out.lng };
+  // A fix from the phone is a door the customer is standing at, not an answer to
+  // anything typed, so it is theirs and no edit to the address box can call it into
+  // question (dropListPin only ever acts on a pin a suggestion row put there).
+  pinOrigin = null;
   const vague = fixVerdict(out.accuracyM);
   paintPin(vague ? "pinVague" : null, vague ? vague.accuracyM : null);
   if (pinMap) pinMap.goTo(doorPin); // the map is open — bring it to where they are
@@ -1690,7 +1734,9 @@ function wirePin() {
 // rather than retyping the street. `hitTaken` is the whole of that state, and it is
 // cleared on every fresh answer below, because a new answer is a new question.
 function paintHits(state) {
-  hitNote = state && state.key ? { key: state.key, hits: state.hits || [] } : null;
+  hitNote = state && state.key
+    ? { key: state.key, hits: state.hits || [], q: state.q || null }
+    : null;
   const box = document.getElementById("addr-list");
   if (!box) return;
   box.replaceChildren();
@@ -1732,10 +1778,31 @@ function paintHits(state) {
 // address and then pressing Cancel would throw the address away and restore the pin
 // they had before they started typing — a customer undoing a decision they did not make.
 function takeHit(hit) {
+  const input = document.getElementById("address-input");
+  const now = lookupQuery(input ? input.value : "");
+  // A row is an ANSWER to the words that were in the box when it was drawn, and the list
+  // is deliberately left up while the customer keeps typing — a list that blinks away on
+  // every keystroke is harder to use than one that settles. That leaves a moment, the
+  // length of the lookup's own pause, in which a row drawn for the old wording is still
+  // on screen. Taking it there would set a pin for an address the customer has already
+  // edited away from, which is the disagreement this version exists to remove, so the
+  // tap is refused — out loud, because a tap that does nothing is its own fault — and the
+  // rows it came from go with it. The lookup is already re-asking; its answer is next.
+  if (hitNote && hitNote.q && hitNote.q !== now) {
+    hitNote = null;
+    paintHits(null);
+    paintPin("addrStale");
+    return;
+  }
   const p = validPin(hit);
   if (!p) return;
   doorPin = p;
   pinWasAt = p;
+  // The wording this pin answers. Nothing the customer does to the map or the address
+  // box after this keeps the pin tied to it: a drag on the map drops the claim (above),
+  // and an edit to the words drops the pin (dropListPin).
+  pinOrigin = { q: now };
+  pinWasOrigin = pinOrigin;
   if (pinMap) pinMap.goTo(p);
   else openPinBox();
   paintPin();
@@ -1746,6 +1813,49 @@ function takeHit(hit) {
   paintHits(hitNote);
 }
 
+// The customer's words have changed, so a pin that was an answer to the OLD words has to
+// go with them.
+//
+// WHAT THIS IS FOR, in her own words: "when the pin arrive at backoffice, it did not
+// tally". A pin taken from a suggestion row is a point for the address that row was
+// found for, and the address on the order is whatever is in the box when they press
+// send — two answers to one question, written at two different moments, with nothing
+// tying them together. Edit the box from Taman Sri Nibong to Bayan Lepas and, until
+// this existed, the order went out carrying Bayan Lepas as the address and a pin five
+// kilometres away at Taman Sri Nibong, with the bakery given no way to see it.
+//
+// ONLY A ROW'S PIN IS AFFECTED. A pin the customer dragged on the map, or took from
+// "Use my location", is a door they chose with their own hand and is not an answer to
+// the typed words — it survives every edit, which is the whole reason the pin records
+// where it came from rather than this being a blanket "clear the pin on every keystroke".
+//
+// THE ROWS STAY, and that is deliberate rather than unfinished. They are the list the
+// customer was reading a moment ago and the lookup is about to replace them anyway;
+// taking them out from under the thumb as well would be two corrections for one mistake,
+// and a list that blinks away on every keystroke is the flicker store/lookup.js is built
+// to avoid. A row tapped while they are out of date is refused AT THE TAP instead
+// (takeHit), which is the one moment the row can be judged against the box.
+//
+// `q` is the wording the box now holds, already put through lookupQuery — so a box that
+// has been emptied counts as a change, which is right: a pin for an address that is no
+// longer written down is exactly the disagreement being removed. Returns whether it acted.
+function dropListPin(q) {
+  if (!doorPin || !pinOrigin || pinOrigin.q === q) return false;
+  doorPin = null;
+  pinOrigin = null;
+  pinWasAt = null;
+  pinWasOrigin = null;
+  // A map left open would be showing a pin that no longer goes with the address
+  // directly above it — the very contradiction, on one screen. `true` because the pin
+  // is already gone: there is nothing for it to put back.
+  if (pinMap) closePinBox(true);
+  // Said out loud rather than done behind the customer's back: they had a pin, they
+  // edited the address, and it is gone. The sentence points at the two things that put
+  // it back, which are the suggestion list above and the map button below.
+  paintPin("pinAddrChanged");
+  return true;
+}
+
 function wireLookup() {
   const input = document.getElementById("address-input");
   if (!input) return;
@@ -1753,7 +1863,13 @@ function wireLookup() {
   // including the answer that says nothing was found. Wrapped rather than passed
   // straight in, so `hitTaken` cannot survive a new list.
   lookup = createLookup({ onState: (state) => { hitTaken = false; paintHits(state); } });
-  input.addEventListener("input", () => lookup.typed(input.value));
+  input.addEventListener("input", () => {
+    // One keystroke, two consequences: a pin that only answered the words as they were
+    // goes, and the new words are put to the lookup. In that order, so the sentence about
+    // the pin is on screen before anything the lookup has to say about the address.
+    dropListPin(lookupQuery(input.value));
+    lookup.typed(input.value);
+  });
   paintHits(null);
 }
 
@@ -1765,6 +1881,8 @@ function wireLookup() {
 export function resetPin() {
   doorPin = null;
   pinWasAt = null;
+  pinOrigin = null;
+  pinWasOrigin = null;
   closePinBox(true);
   paintPin();
   // An address the customer typed, and the list it produced, belong to the order that

@@ -51,17 +51,43 @@ function strict(v) {
   return null;
 }
 
+// How much of a point's own words are kept. They land on the baker's screen, and the
+// bakery caps the same field at the same width when it reads one back off an order
+// (admin/js/supabase.js) — a number rather than "as long as it happens to be", so the
+// two ends cannot disagree about what fits.
+const LABEL_MAX = 120;
+
+// The words a point came with, or "". Never null and never a non-string, because this
+// is read straight onto a screen.
+function labelOf(v) {
+  return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, LABEL_MAX);
+}
+
 // A point, or null. The shop's own copy of the rule the bakery applies to the same
 // numbers on arrival (validPlace in admin/js/courier_place.js): both numbers, both
 // finite, both on the planet. It is checked here so nothing obviously wrong is ever
 // posted, and again there because a posted payload is untrusted input.
+//
+// THE WORDS TRAVEL WITH THE POINT, and that is not decoration. A pin is the only thing
+// on the order that says *where*, and the address beside it is a different answer to
+// the same question — so a pin that reaches the bakery as bare numbers cannot be
+// checked against the address at all, and the two can disagree by kilometres with
+// nobody able to see it. Keeping the label is what lets her screen say "their own pin
+// from the shop page: Taman Sri Nibong, George Town" and be read at a glance. It also
+// makes this the same shape as validPlace, which has carried a label all along.
+//
+// Absent rather than "" when there are no words: a pin the customer dragged on the map
+// has none, and it must stay exactly the `{lat, lng}` it has always been.
 export function validPin(p) {
   if (!p || typeof p !== "object") return null;
   const lat = strict(p.lat);
   const lng = strict(p.lng);
   if (lat === null || lng === null) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat: tidy(lat), lng: tidy(lng) };
+  const out = { lat: tidy(lat), lng: tidy(lng) };
+  const label = labelOf(p.label);
+  if (label) out.label = label;
+  return out;
 }
 
 // What the order carries. A pin travels ONLY with a courier order that has one:
