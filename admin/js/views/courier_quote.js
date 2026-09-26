@@ -301,7 +301,9 @@ export function courierQuoteSection({
         : "This order has no delivery address yet, and no point pinned. The picker below can pin a point on its own.")
       : kept
         ? `${addr ? `${addr} — ` : ""}the door you keep for ${who}: ${fmtPlace(spot)}.`
-        : `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page: ${fmtPlace(spot)}. Not yet the door the driver is sent to.`;
+        : `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page${
+          spot.label && spot.label !== addr ? `: ${fmtPlace(spot)}` : ""
+        }. Not yet the door the driver is sent to.`;
 
     if (doorBtn) {
       doorBtn.textContent = !spot

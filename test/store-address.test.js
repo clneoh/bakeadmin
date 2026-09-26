@@ -444,10 +444,6 @@ test("a suggestion the customer has already typed past cannot be taken (v204)", 
   t.mock.timers.tick(700);
   await flush();
   const list = el("addr-list");
-  console.log("DBG asks", asks.length, "children", list.children.length, "hidden", list.hidden,
-    "inputs", (el("address-input")._listeners.input || []).length,
-    "pin-status", el("pin-status").textContent,
-    "texts", list.children.map((c) => c.textContent).join(" | "));
   assert.equal(list.children.length, 2, "rows for the address they typed");
 
   type("14 Jalan Bunga, Penang");
@@ -543,11 +539,14 @@ test("the pin and the address the order carries agree — or the pin does not tr
   }
 });
 
-test("a pin taken from the list does travel, and carries the words it was found for (v204)", async (t) => {
+test("a pin taken from the list travels named with the customer's own words, not the row's (v205)", async (t) => {
   // The positive control for the test above, and the other half of her report. The pin the
-  // bakery was receiving was bare numbers, so the address and the pin could disagree with
-  // nobody able to see it: her screen could only print "5.33250, 100.30204" beside an
-  // address that said something else. The words ride with the point now.
+  // bakery was receiving while the list was open was bare numbers, so her screen could print
+  // "5.33250, 100.30204" beside an address that said something else. v204 gave the pin words,
+  // but the WRONG words — the row's name for the place, which is a fragment of an address —
+  // and that is the half she corrected: "the customer know their address well, when i tap the
+  // address the address is not a complete one, if it is plaste into the address line, it will
+  // contaminate the customer keyin address". So the row's name is used for NOTHING but the row.
   begin(t);
   reply = { ok: true, places: [{ lat: 5.3325, lng: 100.3020, label: "Taman Sri Nibong, George Town" }] };
   const realFetch = globalThis.fetch;
@@ -570,11 +569,18 @@ test("a pin taken from the list does travel, and carries the words it was found 
     fire(el("addr-list").children[1], "click");
     await flush();
 
+    assert.equal(el("address-input").value, "Taman Sri Nibong, Penang",
+      "the tap moved the pin and did NOT write the row's fragment into their address box");
+
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order reached the backoffice");
     assert.equal(posted.address, "Taman Sri Nibong, Penang");
-    assert.deepEqual(posted.place, { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" },
-      "the point travels with the words it was found for, so the bakery can read the two side by side");
+    assert.deepEqual(posted.place, { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, Penang" },
+      "the point travels named with THEIR words — one address, one point, nothing else named");
+    assert.equal(posted.place.label, posted.address,
+      "the address and the pin's name are one string, so her screen cannot show two places disagree");
+    assert.doesNotMatch(String(posted.place.label), /George Town/,
+      "the geocoder's name for that spot is a fragment and is not allowed on the order at all");
   } finally {
     globalThis.fetch = realFetch;
   }

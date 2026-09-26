@@ -847,6 +847,51 @@ test("a collect order gets no door block, and a courier order with no point gets
   }
 });
 
+test("a pin named with the customer's own address is not printed twice on her card (v205)", async () => {
+  // Since v205 the shop's pin carries the customer's OWN typed address as its words —
+  // "One address, one point. Nothing else named." So on her screen the two are one string,
+  // and the card saying it once as the address and once as the pin's name would be the
+  // "it did not tally" report read backwards. The address is printed, and the pin adds
+  // nothing that is already above it.
+  globalThis.window.L = null;
+  const ADDR = "12 Jalan Bunga, 10450 Penang";
+  const lying = { ...COURIER_ORDER, address: ADDR, customerPlace: { lat: 5.4299, lng: 100.3399, label: ADDR, at: "2026-09-27T10:00:00.000Z" } };
+  let mounted = null;
+  try {
+    mounted = mountDoor(courierState(), lying);
+    await settle(4);
+    const said = mounted.doorSlot.textContent;
+    assert.equal(said.split(ADDR).length - 1, 1,
+      "the address is on her card exactly once — it is the name of the pin, not two facts");
+    assert.match(said, /Mei Ling's own pin from the shop page/,
+      "and the pin is still said to be theirs and still not yet the driver's door");
+    assert.match(said, /Not yet the door the driver is sent to/);
+    assert.doesNotMatch(said, new RegExp(`${ADDR}[^]*?${ADDR}`),
+      "never the address above the pin and the same words as the pin's own name");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
+test("a pin named with words that are NOT the address still says which spot it is (v205)", async () => {
+  // The other half, and it must not be lost to the fix above: an older order's pin (or one
+  // from a phone that has not reloaded) can still carry a name of its own, and a card that
+  // dropped it would leave her unable to tell where the point was meant to be at all.
+  globalThis.window.L = null;
+  let mounted = null;
+  try {
+    mounted = mountDoor(courierState(), withDoor());
+    await settle(4);
+    const said = mounted.doorSlot.textContent;
+    assert.match(said, /12 Jalan Bunga, 10450 Penang — Mei Ling's own pin from the shop page: Sri Bunga guard house/,
+      "the address, then the pin, then what the pin calls itself — three facts, none repeated");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
 test("a phone that cannot load the map still shows the door, and says why the map is missing (v201)", async () => {
   // This file's default condition: the fetch stub rejects and the head shim fires every
   // script's `error` on a microtask, so Leaflet can never arrive. That is a one-bar phone,

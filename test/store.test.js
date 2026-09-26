@@ -256,14 +256,19 @@ test("the pin the customer marks rides on a courier order, and never on a self-c
     assert.match(registry["pin-status"].textContent, /Pin set/, "the customer is told the pin is on");
     assert.equal(registry["pin-status"].hidden, false);
 
-    // COURIER: the pin travels with the order, tidied to six decimals, and nothing
-    // else the phone reported travels with it.
+    // COURIER: the pin travels with the order, tidied to six decimals, named with the
+    // customer's OWN typed address (v205 — never the geocoder's name for that spot,
+    // which is a fragment), and nothing else the phone reported travels with it.
     document.getElementById("fulfillment")._value = "courier";
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order went through");
-    assert.deepEqual(posted.place, { lat: 5.419912, lng: 100.331168 });
-    assert.deepEqual(Object.keys(posted.place).sort(), ["lat", "lng"],
-      "no accuracy, no timestamp, no label — the bakery is told where, and nothing more");
+    assert.deepEqual(posted.place, {
+      lat: 5.419912, lng: 100.331168, label: "Block C, Sri Bunga Condo",
+    });
+    assert.equal(posted.place.label, posted.address,
+      "the pin's words are the customer's own address, so her screen cannot name one place twice");
+    assert.deepEqual(Object.keys(posted.place).sort(), ["label", "lat", "lng"],
+      "no accuracy, no timestamp — the bakery is told where, named the customer's way, and nothing more");
 
     // SELF COLLECT: the same customer pins again and then chooses to come and get it.
     // Nothing is being delivered, so no door is posted. (A placed order empties the

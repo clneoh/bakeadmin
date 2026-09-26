@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v204)
+# Jienluv2bake — change history (v54 → v205)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v205, THE PIN IS NAMED WITH THE CUSTOMER'S OWN ADDRESS (no database step, no
+redeploy — one push). Version 204 gave a dropped pin the wording of the suggestion row the customer
+tapped. That was the wrong half: those rows are pieces of an address, not addresses. From now the
+pin is named with the address the customer __typed themselves__, and the row's wording is used for
+nothing except the row on their own screen.**
+
+**What you said, and it settled it.** "the customer know their address well, when i tap the address
+the address is not a complete one, if it is plaste into the address line, it will contaminate the
+customer keyin address." You are right, and it is worth saying exactly why: a suggestion row reads
+like "Taman Sri Nibong, George Town" — __a street and a town, and no house number__. It is a good
+enough answer to "roughly where is this" and a hopeless answer to "which door". Putting it on the
+order was giving a fragment the standing of a complete address.
+
+**What now happens.**
+
+- **The pin travels named with the customer's own typed address**, word for word as they wrote it.
+  So the address on the order and the name of the pin are the same string, and there is nothing
+  left that can say a different place.
+- **The suggestion row's wording never leaves the shop page.** It is printed in the list they tap
+  and nowhere else — not in the pin, not on the order, not on your screen.
+- **A tap on a suggestion still never writes into their address box.** Their words stay exactly as
+  they typed them. A suggestion moves the pin; it does not edit anybody's address.
+- **On your card the address is printed once, not twice.** Because the pin now carries the same
+  words as the address, the card's line about their own pin adds nothing when the two match — and
+  it still says the thing that matters, that this is __their__ pin and not yet the door the driver
+  is sent to. A pin from an older order, which does carry a name of its own, still shows that name,
+  so you never lose the ability to see where a point was meant to be.
+- **A pin with no address to name it goes as the bare point it is.** A customer who pins without
+  writing anything has nothing to name the spot with, and the order stays exactly what it has
+  always been.
+
+**One consequence worth knowing.** The pin's words are the customer's, taken at the moment they
+ordered, so they do not follow a later edit you make to that order's address. The pin stays where
+they drew it and keeps saying what they called it, which is the honest thing for it to do.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command: the change is in the
+shop page and the app itself, and it arrives with the push. The engine on your app's More screen
+will read 205 once the phone has the new build.
 
 **27 Sep 2026 — engine v204, THE PIN AND THE ADDRESS CAN NO LONGER DISAGREE (no database step, no
 redeploy — one push). A customer's dropped pin used to arrive as two bare numbers with nothing

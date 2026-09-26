@@ -51,13 +51,13 @@ function strict(v) {
   return null;
 }
 
-// How much of a point's own words are kept. They land on the baker's screen, and the
-// bakery caps the same field at the same width when it reads one back off an order
-// (admin/js/supabase.js) — a number rather than "as long as it happens to be", so the
-// two ends cannot disagree about what fits.
+// How much of the customer's address is kept when it names a pin. It lands on the baker's
+// screen, and the bakery caps the same field at the same width when it reads one back off
+// an order (admin/js/supabase.js) — a number rather than "as long as it happens to be", so
+// the two ends cannot disagree about what fits.
 const LABEL_MAX = 120;
 
-// The words a point came with, or "". Never null and never a non-string, because this
+// The words an address is worth, or "". Never null and never a non-string, because this
 // is read straight onto a screen.
 function labelOf(v) {
   return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, LABEL_MAX);
@@ -68,26 +68,21 @@ function labelOf(v) {
 // finite, both on the planet. It is checked here so nothing obviously wrong is ever
 // posted, and again there because a posted payload is untrusted input.
 //
-// THE WORDS TRAVEL WITH THE POINT, and that is not decoration. A pin is the only thing
-// on the order that says *where*, and the address beside it is a different answer to
-// the same question — so a pin that reaches the bakery as bare numbers cannot be
-// checked against the address at all, and the two can disagree by kilometres with
-// nobody able to see it. Keeping the label is what lets her screen say "their own pin
-// from the shop page: Taman Sri Nibong, George Town" and be read at a glance. It also
-// makes this the same shape as validPlace, which has carried a label all along.
-//
-// Absent rather than "" when there are no words: a pin the customer dragged on the map
-// has none, and it must stay exactly the `{lat, lng}` it has always been.
+// A PIN IS ONLY EVER A POINT — it carries no words at all (v205). For two versions the
+// shop's copy of this held a `label`, because a tapped suggestion row's name rode out on
+// the pin; that is the half she corrected. A row is a FRAGMENT of an address — a street
+// and a town, no house number — and the moment it is treated as an address it contaminates
+// the one the customer typed. So no pin can name itself: the only words an order ever
+// carries come from the address box, and they are added in exactly ONE place, the
+// `placeForOrder` below. Two answers to "where" cannot be born different if there is only
+// one place that can write the second one.
 export function validPin(p) {
   if (!p || typeof p !== "object") return null;
   const lat = strict(p.lat);
   const lng = strict(p.lng);
   if (lat === null || lng === null) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  const out = { lat: tidy(lat), lng: tidy(lng) };
-  const label = labelOf(p.label);
-  if (label) out.label = label;
-  return out;
+  return { lat: tidy(lat), lng: tidy(lng) };
 }
 
 // What the order carries. A pin travels ONLY with a courier order that has one:
@@ -95,9 +90,30 @@ export function validPin(p) {
 // byte for byte the payload the shop has always posted. Returns null to mean "send
 // nothing", which is the caller's cue to leave the field out entirely rather than
 // write a null into the order.
-export function placeForOrder(pin, fulfillment) {
+//
+// WHOSE WORDS RIDE WITH THE PIN (v205). Not the geocoder's, and that is her decision
+// after seeing the first attempt: "the customer know their address well, when i tap the
+// address the address is not a complete one, if it is plaste into the address line, it
+// will contaminate the customer keyin address". A suggestion row is a FRAGMENT — a street
+// and a town, no house number — and it is only ever good enough to move a pin near the
+// right road. The customer's own typed address is the complete one, and it is the only
+// name for that place that belongs on the order. So the pin carries THEIR words.
+//
+// What this buys is the whole of her original report: "when the pin arrive at backoffice,
+// it did not tally". The order's address and the pin's name are now one string, so her
+// screen cannot show two place names and have them disagree — and v204's fix, which
+// stopped the pin surviving an edit to the words, still stands underneath it.
+//
+// `address` is the box as typed. No address means no words: a customer who pinned without
+// writing anything has nothing to name the spot with, and the pin goes as the bare point
+// it is rather than being given a name nobody wrote.
+export function placeForOrder(pin, fulfillment, address = "") {
   if (fulfillment !== "courier") return null;
-  return validPin(pin);
+  const p = validPin(pin);
+  if (!p) return null;
+  const words = labelOf(address);
+  if (!words) return { lat: p.lat, lng: p.lng };
+  return { lat: p.lat, lng: p.lng, label: words };
 }
 
 // Past this the fix is not a door. Phones report their own accuracy in metres, and

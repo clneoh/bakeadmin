@@ -67,43 +67,59 @@ test("a pin is tidied to six decimals, about 11 cm", () => {
   assert.deepEqual(validPin({ lat: "5.4141", lng: "100.3288" }), { lat: 5.4141, lng: 100.3288 });
 });
 
-// ── the words travel with the point (v204) ────────────────────────────────
+// ── whose words ride with the point (v205) ────────────────────────────────
 //
-// Her report: "when the pin arrive at backoffice, it did not tally". A pin that reaches
-// the bakery as bare numbers CANNOT be tallied against anything — the address beside it
-// is a different answer to the same question, and the two can disagree by kilometres with
-// nobody able to see it. The suggestion row the customer tapped says the words; they ride
-// out with the point now, which is the same shape the bakery's own reader already takes
-// (validPlace in admin/js/courier_place.js).
+// Her report: "when the pin arrive at backoffice, it did not tally". v204 answered it by
+// letting the tapped suggestion row's NAME ride out with the pin — and she corrected that
+// the same day: "the customer know their address well, when i tap the address the address
+// is not a complete one, if it is plaste into the address line, it will contaminate the
+// customer keyin address". A row is a fragment — a street and a town, no house number. The
+// customer's typed address is the whole of it, and it is the only name for that spot that
+// belongs on the order.
+//
+// So a pin carries no words of its own, and `placeForOrder` is the ONE place words are
+// added: the address box, tidied and capped like any other string that reaches a screen.
 
-test("the words a pin was found for travel out with it, so the two can be read together", () => {
-  assert.deepEqual(
-    placeForOrder({ lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" }, "courier"),
-    { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" });
+test("an order's pin is named with the customer's own address, never the point's own name", () => {
+  // The point arrives from a suggestion row, which names that spot "Taman Sri Nibong,
+  // George Town" — a fragment, not an address. The order must carry their words instead.
+  const row = { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, George Town" };
+  const out = placeForOrder(row, "courier", "Taman Sri Nibong, Penang");
+  assert.deepEqual(out, { lat: 5.3325, lng: 100.302, label: "Taman Sri Nibong, Penang" },
+    "one address, one point — and the row's name is nowhere on the order");
+  assert.equal(out.label, "Taman Sri Nibong, Penang");
 });
 
-test("a pin the customer placed by hand carries NO label key at all", () => {
-  // Not an empty string: a drag on the map and a fix from "Use my location" have no words
-  // to carry, and this must stay byte for byte the `{lat, lng}` the shop has always posted.
-  const out = validPin({ lat: 5.4141, lng: 100.3288 });
-  assert.deepEqual(out, { lat: 5.4141, lng: 100.3288 });
+test("a pin is a point, and nothing on it can name itself", () => {
+  assert.deepEqual(validPin({ lat: 5.4141, lng: 100.3288 }), { lat: 5.4141, lng: 100.3288 });
+  const out = validPin({ lat: 5.4141, lng: 100.3288, label: "Taman Sri Nibong, George Town" });
+  assert.deepEqual(out, { lat: 5.4141, lng: 100.3288 },
+    "a label handed to a pin is dropped — there is no way for a point to name itself");
   assert.equal("label" in out, false, "the key is absent, not empty");
-  assert.equal("label" in validPin({ lat: 5.4141, lng: 100.3288, label: "   " }), false,
-    "and a label of nothing but space is not words");
+  assert.equal("label" in validPin({ lat: 5.4141, lng: 100.3288, label: "   " }), false);
 });
 
-test("a label is tidied, and cut rather than allowed to run away", () => {
-  // The label is a geocoder's string printed on her screen, so it is one line with no
-  // runs of space, and it stops somewhere: a screen has a width and a row has one line.
-  assert.equal(validPin({ lat: 5, lng: 100, label: "  12,  Jalan\n Bunga ,  Penang  " }).label,
+test("a pin with no address to name it goes as the bare point it is", () => {
+  // A customer who pinned without writing anything has nothing to name the spot with, and
+  // a pin given a name nobody wrote would be worse than an unnamed one. This must stay
+  // byte for byte the `{lat, lng}` the shop has always posted.
+  assert.deepEqual(placeForOrder(PENANG, "courier"), { lat: 5.4141, lng: 100.3288 });
+  assert.deepEqual(placeForOrder(PENANG, "courier", "   "), { lat: 5.4141, lng: 100.3288 });
+  assert.deepEqual(placeForOrder(PENANG, "courier", null), { lat: 5.4141, lng: 100.3288 });
+  assert.equal("label" in placeForOrder(PENANG, "courier", ""), false, "the key is absent, not empty");
+});
+
+test("the address that names a pin is tidied, and cut rather than allowed to run away", () => {
+  // The words are the customer's own box, printed on her screen, so they come down to one
+  // line with no runs of space, and they stop somewhere: a screen has a width and a row has
+  // one line. The bakery caps the same field at the same width when it reads one back.
+  assert.equal(placeForOrder({ lat: 5, lng: 100 }, "courier", "  12,  Jalan\n Bunga ,  Penang  ").label,
     "12, Jalan Bunga , Penang");
-  assert.equal(validPin({ lat: 5, lng: 100, label: "x".repeat(400) }).label.length, 120);
-  // A missing label, or one that is literally nothing, is not words — and this is the
-  // guard against the string "null" or "undefined" reaching her screen, which this suite
-  // has shipped before.
-  assert.equal("label" in validPin({ lat: 5, lng: 100, label: null }), false);
-  assert.equal("label" in validPin({ lat: 5, lng: 100, label: undefined }), false);
-  assert.equal("label" in validPin({ lat: 5, lng: 100 }), false);
+  assert.equal(placeForOrder({ lat: 5, lng: 100 }, "courier", "x".repeat(400)).label.length, 120);
+  // And the guard against the string "null" or "undefined" reaching her screen, which this
+  // suite has shipped before: anything that is not words names nothing.
+  assert.equal("label" in placeForOrder({ lat: 5, lng: 100 }, "courier", null), false);
+  assert.equal("label" in placeForOrder({ lat: 5, lng: 100 }, "courier", undefined), false);
 });
 
 // ── the accuracy rule ─────────────────────────────────────────────────────

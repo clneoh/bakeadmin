@@ -1131,9 +1131,12 @@ export function render() {
     // being delivered. `placeForOrder` answers null for anything else — a
     // self-collect order, or a courier order with no pin — and a null answer writes
     // NOTHING, so an order without a pin posts byte for byte the payload the shop
-    // has always posted. The bakery treats what arrives as untrusted input and keeps
-    // only the point out of it; the door it actually drives to is the one she accepts.
-    const place = placeForOrder(doorPin, order.fulfillment);
+    // has always posted. The pin carries the customer's OWN address as its words and
+    // never the suggestion list's name for the place it matched (v205, and see
+    // placeForOrder for why); the bakery treats what arrives as untrusted input and
+    // keeps the point and those words, capped; the door it actually drives to is the
+    // one she accepts.
+    const place = placeForOrder(doorPin, order.fulfillment, order.address);
     if (place) order.place = place;
     // A referral link's ?via= stamp: which customer's personal link this order
     // came through. The bakery decides (new vs repeat) and applies the discount.
