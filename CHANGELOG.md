@@ -59,6 +59,16 @@ that list also holds an unrelated one. There is nothing to configure and no key 
 function holds no secrets and can reach nothing but the two public map services. Run the line once
 and the list works from then on.
 
+**One thing was wrong in this version, and it is fixed. No second deploy.** The first build of this
+feature still said "the address lookup isn't available right now" after the function was deployed and
+working. The reason was small and entirely in the shop's own page: the lookup was sending its key
+twice, and one of those two ways is a header the function was not allowed to accept. A browser
+refuses that before the request ever leaves, which is why the screen said the service was down when
+it was in fact answering perfectly. The fix is one line in the shop's page and nothing on the server,
+so the deploy above is still the only command — if you have already run it, you are done, and the
+lookup now works. It was found by asking the function directly, not by reading the code: the same
+call with the extra header failed and without it returned four real Penang streets.
+
 **26 Sep 2026 — engine v201, THE COURIER BOX NOW SHOWS THE DOOR (no database step, no redeploy —
 one push). Open an order's Note / tracking box and, for an order that goes by courier, the top of it
 now tells you which door the driver would be sent to: the customer, the address, and a small map

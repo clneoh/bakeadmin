@@ -121,10 +121,18 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
     let key = "addrFailed";
     let hits = [];
     try {
+      // NO `apikey` HEADER HERE, and this is load-bearing rather than tidiness. An
+      // Edge Function's CORS policy lists the request headers it will accept, and
+      // shop-geocode's lists "Authorization, Content-Type" — the same two the admin's
+      // own two callers send (admin/js/couriers/api.js, devmail.js). Adding a header the
+      // list omits makes the browser's PREFLIGHT fail, which arrives as a bare
+      // "TypeError: Failed to fetch" and reads to the customer as the lookup being down.
+      // The anon key is carried in Authorization, which is a valid JWT and satisfies the
+      // gateway on its own, so `apikey` bought nothing and cost the whole feature.
+      // test/store-lookup.test.js holds this against the function's own header list.
       const res = await send(`${base}${PATH}`, {
         method: "POST",
         headers: {
-          apikey: sb.anonKey,
           Authorization: `Bearer ${sb.anonKey}`,
           "Content-Type": "application/json",
         },

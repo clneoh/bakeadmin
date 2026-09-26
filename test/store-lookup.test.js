@@ -222,11 +222,54 @@ test("the ask carries the address and the bakery's own key — nothing else", as
     assert.match(one.url, /\/functions\/v1\/shop-geocode$/);
     assert.equal(one.url.startsWith(String(CONFIG.supabase.url).replace(/\/+$/, "")), true,
       "it goes to the bakery's own Supabase, which is the whole of her decision");
-    assert.equal(one.headers.apikey, CONFIG.supabase.anonKey);
     assert.equal(one.headers.Authorization, `Bearer ${CONFIG.supabase.anonKey}`,
       "the anon key is sent as a bearer token, which is what the edge gateway checks");
     assert.deepEqual(JSON.parse(one.body), { address: "12 Jalan Bunga, Penang" },
       "a JOURNEY — the address — and not one of this shop's stored fields");
+  } finally { wire.restore(); }
+});
+
+test("every header the shop sends is one the function's CORS policy allows", async (t) => {
+  // THIS TEST EXISTS BECAUSE ITS ABSENCE SHIPPED A BROKEN FEATURE, and the story is the
+  // whole reason it is written this way. v202 first sent `apikey` alongside Authorization,
+  // following the shop's OTHER Supabase calls — the REST ones, where `apikey` is required.
+  // An Edge Function is not a REST call: it answers a CORS preflight listing the request
+  // headers it will accept, and shop-geocode's list is "Authorization, Content-Type". An
+  // unlisted header makes the PREFLIGHT fail, and the browser reports that as a bare
+  // "TypeError: Failed to fetch" — indistinguishable, to the customer, from the service
+  // being down. Deployed and correct, the function still answered "the address lookup
+  // isn't available right now" to every customer.
+  //
+  // The test that stood here asserted `one.headers.apikey === anonKey`. It did not miss
+  // the bug; it PINNED it, and would have gone red on the fix. Asserting that a header is
+  // present says nothing about whether the server will accept it.
+  //
+  // So this reads the policy out of the function's own source rather than restating it,
+  // and holds the two together: the shop may send anything the function lists. Add a
+  // header on one side without the other and this goes red, which is the only thing that
+  // could have caught it before she did.
+  const src = readFileSync(
+    new URL("../supabase/functions/shop-geocode/index.ts", import.meta.url), "utf8");
+  const m = src.match(/["']Access-Control-Allow-Headers["']\s*:\s*["']([^"']+)["']/);
+  assert.ok(m, "the function declares its allowed headers, or this guard cannot work");
+  const allowed = m[1].split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+  assert.ok(allowed.includes("authorization"),
+    "the bearer token must be allowed, since it is how the gateway is satisfied");
+
+  const wire = stubFetch(jsonReply({ ok: true, places: [] }));
+  try {
+    const rec = recorder();
+    const lk = createLookup({ onState: rec.onState, waitMs: 1 });
+    lk.typed("12 Jalan Bunga, Penang");
+    await sleep(30);
+
+    assert.equal(wire.sent.length, 1);
+    const sent = Object.keys(wire.sent[0].headers).map((h) => h.toLowerCase());
+    assert.deepEqual(
+      sent.filter((h) => !allowed.includes(h)), [],
+      `the shop sends only headers the function will accept — it sent ${JSON.stringify(sent)} `
+      + `against a policy of ${JSON.stringify(allowed)}. An unlisted header fails the CORS `
+      + "preflight and the customer is told the lookup is down.");
   } finally { wire.restore(); }
 });
 
