@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v202)
+# Jienluv2bake — change history (v54 → v203)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**26 Sep 2026 — engine v203, AN ADDRESS WITH A UNIT NUMBER IS NOW FOUND (no database step, no
+redeploy — one push). Some shop addresses the lookup used to give up on now bring the map to the
+door. There is nothing for you to run and nothing to set up: this is a change to the shop's own
+page, and it is live the moment you push.**
+
+**What was going wrong, exactly.** The lookup matches the words a customer typed against the words
+the map service holds, and a Malaysian address carries two kinds of word that service does not have.
+
+The first is the part that says WHICH door: "No 5", "Blk A", "Lot 1234", "Tkt 3", "Mukim 12" — unit
+numbers, block letters, lot numbers, floors and sub-districts. The map service holds STREETS and
+BUILDINGS, and those are neither. Worse than being no help, they crowd out the street that IS in the
+map, so a perfectly good address came back empty. This was measured on real Penang addresses rather
+than reasoned about, and every one of these four pairs repeated every single time:
+
+    Taman Sri Nibong, 11900 Bayan Lepas, Penang         found 1 door
+    12-3-4 Blk A, Taman Sri Nibong, 11900 Bayan Lepas   found nothing
+
+    Pangsapuri Sri Indah, Penang                        found 5 doors
+    Blk 12-3-4, Pangsapuri Sri Indah, Penang            found nothing
+
+    Lorong Seri Nibong 3, 11900 Bayan Lepas             found 4 doors
+    No 5 Lorong Seri Nibong 3, 11900 Bayan Lepas        found nothing
+
+    Jalan Teluk Kumbar, Penang                          found 2 doors
+    Lot 1234, Mukim 12, Jalan Teluk Kumbar, Penang      found nothing
+
+The second is shorthand. "Rd" for Road, "Jln" for Jalan, "Tmn" for Taman. The map service holds one
+spelling and not the other, so the same street written the short way came back empty too.
+
+**What now happens.** When the lookup finds nothing, it asks once more — with the unit number and the
+block letter taken out and the shorthand spelled out — and only when it found nothing. Checked
+against the live map services, those four addresses now come back with one, five, four and two doors
+instead of an empty list.
+
+**The customer's own words are always asked first, and this is the part that matters.** The exact
+address a customer types is the first thing the page sends, every time. So an address that already
+worked is not slowed by so much as a moment and cannot come back with a different door. The forgiving
+wording is only ever spent on a question that has already come back with nothing, which is also why
+taking a word out can never do harm: it is only ever tried where the full address has already failed.
+
+**What it costs.** A lookup that finds nothing now takes about a second longer before it settles,
+because it is asking a second question. An address that works is not affected at all. It also means a
+customer who types an address the map truly does not hold waits a moment longer to be told so — which
+is the honest price of the four addresses above now working.
+
+**No deploy and no database step.** Unlike v202, nothing here lives on your Supabase. The change is
+entirely in the shop's page, so if you pushed v202 and ran its deploy command, you are already done
+and this simply arrives with the push.
 
 **26 Sep 2026 — engine v202, THE SHOP NOW COMES TO THE ADDRESS THE CUSTOMER TYPES (no database
 step — but ONE deploy command, and the feature does nothing until you run it — see the bottom of

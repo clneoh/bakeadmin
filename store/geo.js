@@ -215,3 +215,112 @@ const WHY_KEYS = {
 export function lookupWhy(why) {
   return WHY_KEYS[String(why == null ? "" : why)] || "addrFailed";
 }
+
+// ── Asking a second time, more forgivingly (v203) ──────────────────────────
+//
+// WHY THIS EXISTS, and it was found by measuring rather than by reasoning. A geocoder
+// matches the WORDS somebody typed against the words in its index, and a Malaysian
+// address carries two kinds of word that index does not hold:
+//
+//   • THE PART THAT SAYS WHICH DOOR. "No 5", "Blk A", "Lot 1234", "Tkt 3", "Mukim 12" —
+//     unit numbers, block letters, lot numbers, floors, sub-districts. OSM maps STREETS
+//     and BUILDINGS; none of these are either, and an unmatched token does not merely
+//     fail to help, it dilutes the match until the street that IS in the index stops
+//     coming back. Four controlled pairs, every one 100% reproducible:
+//       "Taman Sri Nibong, 11900 Bayan Lepas, Penang"           → 1     with "12-3-4 Blk A, " in front → 0
+//       "Pangsapuri Sri Indah, Penang"                          → 5     with "Blk 12-3-4, "     in front → 0
+//       "Lorong Seri Nibong 3, 11900 Bayan Lepas"               → 4     with "No 5 "            in front → 0
+//       "Jalan Teluk Kumbar, Penang"                            → 2     with "Lot 1234, Mukim 12, "     → 0
+//   • THE SHORTHAND. "Rd" for Road, "Jln" for Jalan, "Tmn" for Taman. The same street
+//     spelled the short way is a different string to an index that holds the long way:
+//     "Riam Road" answers with four doors and "Riam Rd" with none.
+//
+// So a question the services ANSWERED with nothing is asked once more, in the most
+// forgiving form this file can build. It is a SECOND ask and never a first: the address
+// exactly as typed always goes first, so an address that works today is not slowed by a
+// millisecond and cannot come back as a different door. That ordering is also what makes
+// over-eager stripping safe — a broadened wording is only ever spent on a question the
+// exact wording has already failed.
+//
+// It lives HERE rather than in the function for two reasons. The function's geocode.ts is
+// a deliberate copy of the bakery's own, and test/shop-geocode.test.js holds the two
+// byte-for-byte the same; teaching only the shop's copy a ladder would make that guard
+// describe a difference that is no longer the whole truth. And a wording the phone can
+// choose is a wording the phone can fix — no redeploy.
+
+// At most this many questions for one typed address. Two: what they typed, and the most
+// forgiving form of it. Every rung is a round trip and a unit of the per-IP cap.
+export const LADDER_MAX = 2;
+
+// The words that say WHICH DOOR and belong to no map: the word, and the number or letter
+// that follows it. `\b` keeps "No" out of "Northeast" and "Lot" out of "Lorong".
+const UNIT_LEAD = /^(?:no|lot|blk|block|unit|apt|tkt|tingkat|floor|level|mukim)\b\.?[ \t]*([A-Za-z0-9][A-Za-z0-9\-\/]*)?[ \t,]*/i;
+
+// A number standing on its own where a unit word would be: "12-3-4 Blk A, Taman …". It
+// is only stripped when it CONTAINS A DIGIT, so a street name is never eaten — "Riam
+// Road" and "Jalan Bunga" are left exactly as they are.
+const BARE_LEAD = /^([A-Za-z0-9][A-Za-z0-9\-\/]*)[ \t,]+/;
+
+// One leading unit phrase removed, or NULL when there is nothing of that kind to remove.
+// Null and the empty string are different answers and the loop below depends on it: ""
+// means the phrase was the WHOLE address, null means there was no phrase to remove. A
+// falsy test on the result would confuse the two and hand back an address it had already
+// half-eaten.
+function stripLeadUnit(s) {
+  const t = s.replace(/^[\s,]+/, "");
+  const word = UNIT_LEAD.exec(t);
+  if (word && word[0].trim()) return t.slice(word[0].length);
+  const bare = BARE_LEAD.exec(t);
+  if (bare && /\d/.test(bare[1])) return t.slice(bare[0].length);
+  return null;
+}
+
+// The shorthand Malaysian addresses are written in, and the word each stands for. Kept
+// short and unambiguous on purpose: "St" is left alone because it is as likely to be
+// Saint as Street, and a wrong expansion costs a lookup for nothing.
+const SHORT_WORDS = [
+  [/\bjln\b\.?/gi, "Jalan"],
+  [/\blor\b\.?/gi, "Lorong"],
+  [/\brd\b\.?/gi, "Road"],
+  [/\btmn\b\.?/gi, "Taman"],
+  [/\bblk\b\.?/gi, "Block"],
+  [/\bkg\b\.?/gi, "Kampung"],
+  [/\bsg\b\.?/gi, "Sungai"],
+  [/\bapt\b\.?/gi, "Apartment"],
+  [/\btkt\b\.?/gi, "Tingkat"],
+];
+
+// The most forgiving form of an address: every leading unit phrase removed (there can be
+// several — "Lot 1234, Mukim 12, Jalan Teluk Kumbar" carries two before the street), and
+// then the shorthand spelled out. Empty when nothing is left to ask about.
+export function broaden(text) {
+  let s = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  for (let i = 0; i < 4; i++) {
+    const next = stripLeadUnit(s);
+    if (next === null) break;
+    s = next.replace(/^[\s,]+/, "").trim();
+    if (!s) return "";
+  }
+  for (const [re, full] of SHORT_WORDS) s = s.replace(re, full);
+  return s.replace(/\s+/g, " ").trim();
+}
+
+// The questions worth asking for one typed address, in the order to ask them: exactly
+// what they typed, then — only if that is a different, still-askable question — the
+// forgiving form. One entry means one ask, which is what every address that works today
+// gets and what a miss with nothing left to try gets.
+export function lookupLadder(text) {
+  const first = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  const wide = broaden(first);
+  if (!wide || wide === first || wide.length < LOOKUP_MIN) return [first];
+  return [first, wide].slice(0, LADDER_MAX);
+}
+
+// Whether a reply is worth asking a second, differently-worded question. Only ONE of the
+// function's codes means "the map services answered, and they hold no such door":
+// notfound. Every other code says the lookup itself is in trouble — a service that
+// refused, timed out or could not be reached — and the same two services asked again
+// under other words would give exactly the same silence.
+export function askAgain(reply) {
+  return !!(reply && typeof reply === "object" && reply.ok === false && reply.why === "notfound");
+}

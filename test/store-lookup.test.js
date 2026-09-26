@@ -19,7 +19,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { LOOKUP_MIN, LOOKUP_MAX, MAX_HITS, lookupQuery, readPlaces, lookupWhy } from "../store/geo.js";
+import { LOOKUP_MIN, LOOKUP_MAX, MAX_HITS, lookupQuery, readPlaces, lookupWhy,
+  broaden, lookupLadder, askAgain, LADDER_MAX } from "../store/geo.js";
 import { createLookup } from "../store/lookup.js";
 import { CONFIG } from "../store/config.js";
 import { STORE } from "../store-lang.js";
@@ -179,6 +180,185 @@ test("the function's own list of codes is covered — a new one cannot ship with
   }
 });
 
+// ── asking again in a more forgiving wording (v203) ────────────────────────
+//
+// EVERY CASE BELOW WAS MEASURED AGAINST THE LIVE SERVICES BEFORE IT WAS WRITTEN, not
+// imagined. Each of the four stripping pairs is a real Malaysian address the exact
+// wording returns nothing for and the forgiving wording finds; each count is what the
+// services actually answered on 2026-09-26.
+
+test("the part of an address that says WHICH DOOR is dropped, and the street is not", () => {
+  // A unit number, a block, a lot, a floor and a sub-district are all words no map holds:
+  // OSM maps STREETS and BUILDINGS, and an unmatched token dilutes the match until the
+  // street that IS in the index stops coming back.
+  assert.equal(broaden("12-3-4 Blk A, Taman Sri Nibong, 11900 Bayan Lepas, Penang"),
+    "Taman Sri Nibong, 11900 Bayan Lepas, Penang", "the bare unit number, then the block, both go");
+  assert.equal(broaden("Blk 12-3-4, Pangsapuri Sri Indah, Penang"),
+    "Pangsapuri Sri Indah, Penang", "the building the customer means is kept — only the door is dropped");
+  assert.equal(broaden("No 5 Lorong Seri Nibong 3, 11900 Bayan Lepas"),
+    "Lorong Seri Nibong 3, 11900 Bayan Lepas", "the house number goes and the road stays");
+  assert.equal(broaden("Lot 1234, Mukim 12, Jalan Teluk Kumbar, Penang"),
+    "Jalan Teluk Kumbar, Penang", "there can be several of them in a row before the street");
+
+  // The house number alone, which is the same shape as the first case and by far the
+  // commonest thing a customer types.
+  assert.equal(broaden("12 Jalan Bunga, Penang"), "Jalan Bunga, Penang");
+});
+
+test("a street name that merely LOOKS like a unit phrase is left exactly as it is", () => {
+  // The guard is that a bare leading token is only dropped when it CARRIES A DIGIT, so a
+  // name is never eaten. This matters less for correctness than it looks: the forgiving
+  // wording is only ever spent on a question the exact wording has already failed, so an
+  // over-eager strip costs nothing but a lookup. It is still worth being right.
+  assert.equal(broaden("Riam Road"), "Riam Road");
+  assert.equal(broaden("Jalan Bukit Bintang"), "Jalan Bukit Bintang");
+  assert.equal(broaden("Taman Sri Nibong"), "Taman Sri Nibong");
+  // The shorthand, though, IS the point: "Rd" and "Road" are different strings to an
+  // index that only holds one of them. Measured: "Riam Road" answers with four doors,
+  // "Riam Rd" with none.
+  assert.equal(broaden("Riam Rd"), "Riam Road");
+  assert.equal(broaden("Jln Riam, Miri"), "Jalan Riam, Miri");
+  assert.equal(broaden("Tmn Sri Nibong"), "Taman Sri Nibong");
+  // An ambiguous shorthand is deliberately NOT expanded — "St" is as likely to be Saint
+  // as Street, and a wrong expansion spends a lookup on a wording nobody wrote.
+  assert.equal(broaden("St John Road"), "St John Road");
+  // Nothing left to ask about is an empty question, never a question about nothing.
+  assert.equal(broaden("Blk A, "), "");
+  assert.equal(broaden(""), "");
+  assert.equal(broaden(null), "");
+});
+
+test("the ladder is the customer's own words first, and at most one wording after it", () => {
+  // The order is the whole safety argument: the exact address is always the FIRST ask, so
+  // an address that works today is not slowed by a millisecond and cannot come back as a
+  // different door.
+  assert.deepEqual(lookupLadder("Blk 12-3-4, Pangsapuri Sri Indah, Penang"),
+    ["Blk 12-3-4, Pangsapuri Sri Indah, Penang", "Pangsapuri Sri Indah, Penang"]);
+  assert.deepEqual(lookupLadder("12 Jalan Bunga, Penang"), ["12 Jalan Bunga, Penang", "Jalan Bunga, Penang"]);
+
+  // ONE ask where there is no second wording to try, which is every address that works.
+  assert.deepEqual(lookupLadder("Jalan Bukit Bintang"), ["Jalan Bukit Bintang"],
+    "nothing to strip and nothing to spell out — one question, exactly as before v203");
+  assert.equal(LADDER_MAX, 2, "and no address is ever asked more than this many times");
+
+  // A wording that is not worth asking is not a rung. Below LOOKUP_MIN nobody has typed
+  // an address yet — which is also why "Riam Rd", the one variant that failed when this
+  // was being measured, is refused by lookupQuery before the ladder is ever reached.
+  assert.deepEqual(lookupLadder("Blk A, x"), ["Blk A, x"], "the forgiving form is too short to ask");
+  assert.equal(lookupQuery("Riam Rd"), null, "seven characters never reaches the ladder at all");
+  assert.equal(lookupQuery("Riam Road"), "Riam Road", "and the same street spelled out does");
+});
+
+test("only a question the services ANSWERED with nothing is worth asking again", () => {
+  // A refusal, a timeout and an unreachable service are the same problem for every
+  // wording, and asking again would spend the customer's patience on it.
+  assert.equal(askAgain({ ok: false, why: "notfound" }), true);
+  assert.equal(askAgain({ ok: false, why: "refused" }), false);
+  assert.equal(askAgain({ ok: false, why: "timeout" }), false);
+  assert.equal(askAgain({ ok: false, why: "unreachable" }), false);
+  assert.equal(askAgain({ ok: false, why: "empty" }), false);
+  assert.equal(askAgain({ ok: true, places: [] }), false, "a reply that claims success is not a miss");
+  assert.equal(askAgain(null), false, "nothing came back at all — there is nothing to reword");
+  assert.equal(askAgain("notfound"), false, "a code is not a reply");
+});
+
+test("a question the services answered with nothing is asked once more, in a forgiving wording", async () => {
+  const wire = stubFetch((url, opts) => {
+    const q = JSON.parse(opts.body).address;
+    if (q === "Blk 12-3-4, Pangsapuri Sri Indah, Penang") return jsonReply({ ok: false, why: "notfound" });
+    return jsonReply({ ok: true, places: [{ lat: 5.4141, lng: 100.3288, label: "Pangsapuri Sri Indah" }] });
+  });
+  try {
+    const rec = recorder();
+    const lk = createLookup({ onState: rec.onState, waitMs: 1 });
+    lk.typed("Blk 12-3-4, Pangsapuri Sri Indah, Penang");
+    await sleep(40);
+
+    assert.deepEqual(wire.sent.map((s) => JSON.parse(s.body).address),
+      ["Blk 12-3-4, Pangsapuri Sri Indah, Penang", "Pangsapuri Sri Indah, Penang"],
+      "the customer's own words first, and only then the forgiving form of them");
+    assert.equal(rec.said[rec.said.length - 1].key, "addrPick");
+    assert.equal(rec.said[rec.said.length - 1].hits[0].label, "Pangsapuri Sri Indah");
+    assert.equal(rec.said.filter((s) => s.key === "addrLooking").length, 1,
+      "the second ask does not send the screen back to its waiting message");
+  } finally { wire.restore(); }
+});
+
+test("both wordings finding nothing is ONE sentence and two asks, not two failures", async () => {
+  const wire = stubFetch(jsonReply({ ok: false, why: "notfound" }));
+  try {
+    const rec = recorder();
+    createLookup({ onState: rec.onState, waitMs: 1 }).typed("Blk 12-3-4, Pangsapuri Sri Indah, Penang");
+    await sleep(40);
+
+    assert.equal(wire.sent.length, 2, "the forgiving wording was tried");
+    assert.equal(rec.said[rec.said.length - 1].key, "addrNone",
+      "and the customer reads the sentence about their address, once");
+    assert.deepEqual(rec.said.map((s) => s.key), ["addrLooking", "addrNone"]);
+  } finally { wire.restore(); }
+});
+
+test("a lookup in TROUBLE is not asked a second way — no wording fixes a dead service", async () => {
+  // The distinction the customer can act on, kept at the ladder: a service that refused,
+  // timed out or could not be reached ends the walk on the first rung. Asking the same
+  // two services again under other words is the same silence, twice.
+  for (const why of ["refused", "timeout", "unreachable"]) {
+    const wire = stubFetch(jsonReply({ ok: false, why }));
+    try {
+      const rec = recorder();
+      createLookup({ onState: rec.onState, waitMs: 1 }).typed("Blk 12-3-4, Pangsapuri Sri Indah, Penang");
+      await sleep(40);
+      assert.equal(wire.sent.length, 1, `"${why}" was asked exactly once`);
+      assert.equal(rec.said[rec.said.length - 1].key, "addrFailed");
+    } finally { wire.restore(); }
+  }
+});
+
+test("a second wording is not begun when the budget has already run out", async () => {
+  // A rung started with no time left would be cut off mid-question by CALL_MS and report
+  // a failure that was still coming — worse than the honest answer the first rung gave.
+  const wire = stubFetch(() => new Promise((r) => {
+    setTimeout(() => r(jsonReply({ ok: false, why: "notfound" })), 20);
+  }));
+  try {
+    const rec = recorder();
+    createLookup({ onState: rec.onState, waitMs: 1, callMs: 30, retryMs: 40 })
+      .typed("Blk 12-3-4, Pangsapuri Sri Indah, Penang");
+    await sleep(80);
+    assert.equal(wire.sent.length, 1, "there was no time left to hear a second answer");
+    assert.equal(rec.said[rec.said.length - 1].key, "addrNone",
+      "and the customer reads what the first rung actually said");
+  } finally { wire.restore(); }
+});
+
+test("a second wording cut off by the clock does not turn a miss into a broken lookup", async () => {
+  // The first rung said, honestly, "the map services answered and they hold no such
+  // door". A second rung that is cut off before it answers says nothing at all about the
+  // address, and must not overwrite that with "the lookup is down" — which would be a
+  // lie about a service that had answered only moments before.
+  let n = 0;
+  const wire = stubFetch((url, opts) => {
+    n += 1;
+    if (n === 1) return jsonReply({ ok: false, why: "notfound" });
+    return new Promise((_r, reject) => {
+      opts.signal.addEventListener("abort", () => {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        reject(err);
+      });
+    });
+  });
+  try {
+    const rec = recorder();
+    createLookup({ onState: rec.onState, waitMs: 1, callMs: 400, retryMs: 10 })
+      .typed("Blk 12-3-4, Pangsapuri Sri Indah, Penang");
+    await sleep(500);
+    assert.equal(wire.sent.length, 2, "the forgiving wording was tried and never answered");
+    assert.equal(rec.said[rec.said.length - 1].key, "addrNone",
+      "and the customer still reads what the first rung actually said");
+  } finally { wire.restore(); }
+});
+
 test("the words the customer reads exist in all three languages", () => {
   // These four are built in JS rather than tagged on store/index.html, so nothing in
   // test/store-i18n.test.js would notice one going missing or half-translated.
@@ -275,7 +455,9 @@ test("every header the shop sends is one the function's CORS policy allows", asy
 
 test("the list is drawn while the lookup is out, so the wait is not a dead control", async () => {
   let release;
-  const wire = stubFetch(() => new Promise((r) => { release = () => r(jsonReply({ ok: false, why: "notfound" })); }));
+  const wire = stubFetch(() => new Promise((r) => {
+    release = () => r(jsonReply({ ok: true, places: [{ lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga, Penang" }] }));
+  }));
   try {
     const rec = recorder();
     const lk = createLookup({ onState: rec.onState, waitMs: 1 });
@@ -286,7 +468,8 @@ test("the list is drawn while the lookup is out, so the wait is not a dead contr
       "something is said the moment the ask leaves, rather than leaving the box blank");
     release();
     await sleep(20);
-    assert.equal(rec.said[rec.said.length - 1].key, "addrNone", "and then the answer replaces it");
+    assert.equal(rec.said[rec.said.length - 1].key, "addrPick", "and then the answer replaces it");
+    assert.equal(rec.said[rec.said.length - 1].hits.length, 1);
   } finally { wire.restore(); }
 });
 

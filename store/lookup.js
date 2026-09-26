@@ -26,18 +26,32 @@
 //     box that has since been cleared is worse than no list at all. So every ask carries
 //     the number of the generation it belongs to, and only the newest one is allowed to
 //     speak.
+//   • A QUESTION THE MAP SERVICES ANSWERED WITH NOTHING IS ASKED ONCE MORE, in the most
+//     forgiving wording store/geo.js can build from it (v203). "No 5", "Blk A" and "Lot
+//     1234" are words no map holds, and "Rd" is a different string to an index that says
+//     "Road" — all measured, all reproducible. The address exactly as typed is ALWAYS
+//     the first ask, so nothing that works today is slowed or answered differently; the
+//     forgiving wording is only ever spent on a question the exact one has already
+//     failed, which is also what makes over-eager stripping cost nothing.
 
 import { CONFIG } from "./config.js";
-import { lookupQuery, readPlaces, lookupWhy } from "./geo.js";
+import { lookupQuery, readPlaces, lookupWhy, lookupLadder, askAgain } from "./geo.js";
 
 // How long the customer has to stop typing before anything is sent. Long enough that a
 // word is finished, short enough that the list feels like it is keeping up.
 const WAIT_MS = 700;
 
-// How long the shop waits for an answer before giving up on it. The function allows
-// itself two asks of five seconds each, so this is that plus room for the round trip —
-// a patience shorter than the work would report a failure that was still coming.
+// How long the shop waits for the WHOLE lookup — every rung of the ladder together —
+// before giving up on it. The function allows itself two asks of five seconds each, so
+// this is that plus room for the round trip; a patience shorter than the work would
+// report a failure that was still coming. The ladder shares this one budget rather than
+// taking it afresh, so a second wording can never make the customer wait twice as long.
 const CALL_MS = 12000;
+
+// How much of that budget must be left before another rung is worth starting. A rung
+// begun with less than this would be cut off mid-question and report a failure that was
+// still coming — which is worse than the honest answer the last rung already gave.
+const RETRY_MS = 3500;
 
 // The path on her Supabase. The function is called with the same anon key the shop uses
 // for everything else — it is public by design, and this function holds no secret that
@@ -50,8 +64,10 @@ const PATH = "/functions/v1/shop-geocode";
 // switched language while the list was on screen.
 //
 // `fetchFn` is an argument so the whole thing is driven under Node; it defaults to the
-// page's own fetch, read at the moment of the call rather than captured here.
-export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_MS, onState = () => {} } = {}) {
+// page's own fetch, read at the moment of the call rather than captured here. The three
+// timings are arguments for the same reason — a test that cannot make a budget run out
+// cannot test what happens when it does.
+export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_MS, retryMs = RETRY_MS, onState = () => {} } = {}) {
   const send = fetchFn || ((...args) => globalThis.fetch(...args));
 
   // The generation counter. It is bumped by anything that discards what is in the air,
@@ -103,23 +119,13 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
     say(key, hits);
   }
 
-  async function run(q, mine) {
-    // Everything between here and the settle below is allowed to be overtaken.
-    if (mine !== gen) return;
-
-    const sb = CONFIG.supabase || {};
-    const base = sb.url ? String(sb.url).replace(/\/+$/, "") : "";
-    // Nowhere to ask, or no way to ask. Not an error anybody can act on, and the same
-    // sentence the customer would read if the service were down.
-    if (!base || !sb.anonKey) { settle(q, "addrFailed", []); return; }
-
-    say("addrLooking");
+  // ONE QUESTION, ONE ANSWER. `reply` is the function's own object, or null when nothing
+  // readable came back, and it is handed back rather than interpreted: only its shape can
+  // say whether a second, differently-worded question is worth asking (geo.js, askAgain).
+  async function ask(base, q, ms) {
     const ctl = new AbortController();
     live = ctl;
-    const kill = setTimeout(() => ctl.abort(), callMs);
-
-    let key = "addrFailed";
-    let hits = [];
+    const kill = setTimeout(() => ctl.abort(), ms);
     try {
       // NO `apikey` HEADER HERE, and this is load-bearing rather than tidiness. An
       // Edge Function's CORS policy lists the request headers it will accept, and
@@ -133,7 +139,7 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
       const res = await send(`${base}${PATH}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${sb.anonKey}`,
+          Authorization: `Bearer ${CONFIG.supabase.anonKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ address: q }),
@@ -143,19 +149,61 @@ export function createLookup({ fetchFn = null, waitMs = WAIT_MS, callMs = CALL_M
       // rather than a miss — the customer is told the lookup is unavailable, not that
       // their house does not exist.
       const data = res && res.ok ? await res.json().catch(() => null) : null;
-      hits = readPlaces(data);
-      key = hits.length ? "addrPick"
+      const hits = readPlaces(data);
+      const key = hits.length ? "addrPick"
         : (data && data.ok === false ? lookupWhy(data.why) : "addrFailed");
+      return { key, hits, reply: data };
     } catch {
       // Offline, aborted, or an answer that was not JSON. All the same to the customer.
-      key = "addrFailed";
-      hits = [];
+      return { key: "addrFailed", hits: [], reply: null };
     } finally {
       clearTimeout(kill);
     }
+  }
 
-    if (mine !== gen) return;   // overtaken while this was in the air — say nothing
-    live = null;
+  async function run(q, mine) {
+    // Everything between here and the settle below is allowed to be overtaken.
+    if (mine !== gen) return;
+
+    const sb = CONFIG.supabase || {};
+    const base = sb.url ? String(sb.url).replace(/\/+$/, "") : "";
+    // Nowhere to ask, or no way to ask. Not an error anybody can act on, and the same
+    // sentence the customer would read if the service were down.
+    if (!base || !sb.anonKey) { settle(q, "addrFailed", []); return; }
+
+    say("addrLooking");
+
+    // THE LADDER, walked. The first rung is the address exactly as typed; the second is
+    // the same address in its most forgiving form, and it is only reached when the first
+    // came back with the one code that means "the map services answered and they hold no
+    // such door". A refusal, a timeout or an unreachable service ends the walk on the
+    // first rung, because different words would buy the same silence.
+    const ladder = lookupLadder(q);
+    const deadline = Date.now() + callMs;
+    let key = "addrFailed";
+    let hits = [];
+
+    for (let i = 0; i < ladder.length; i++) {
+      if (mine !== gen) return;
+      const left = deadline - Date.now();
+      // The FIRST rung gets the whole patience — it is the customer's own address and it
+      // deserves its fair chance. A later rung runs only if enough of that patience is
+      // left to hear its answer.
+      if (i > 0 && left < retryMs) break;
+
+      const got = await ask(base, ladder[i], Math.max(left, 1));
+      if (mine !== gen) return;   // overtaken while this was in the air — say nothing
+      live = null;
+
+      if (got.hits.length) { key = got.key; hits = got.hits; break; }
+      // The honest answer to the customer's OWN words, kept if a later rung comes back
+      // with nothing useful: a second rung cut off by the budget must not turn "your
+      // address is not in the map" into "the lookup is down".
+      if (i === 0) key = got.key;
+      if (!askAgain(got.reply)) break;
+    }
+
+    if (mine !== gen) return;
     settle(q, key, hits);
   }
 
