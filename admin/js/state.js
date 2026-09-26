@@ -76,7 +76,7 @@ export function defaultState() {
         enabled: false,
       },
       lock: { enabled: false, pinHash: "" }, // device-local app password (never synced)
-      weekCheck: { week: "", done: {} }, // device-local weekly to-do on Home (never synced; fresh each Monday)
+      weekCheck: { week: "", done: {} }, // weekly to-do on Home: synced, union-merged so a tick on either phone survives, and keyed by week so it starts fresh each Monday
       savedOccNames: [], // device-local occasion names she can reuse (never synced)
       storefront: { // what the customer page shows; published to Supabase
         whatsapp: "",
@@ -324,6 +324,15 @@ export function groupOrders(orders) {
   return groups;
 }
 
+// A plain object used as a map (person number → name / → to-call flag). Anything
+// else — a list, a string, a number — becomes an empty map rather than being
+// carried through: the planner writes into these with `names[who] = typed`, and
+// a module is strict mode, so assigning a property on a primitive throws and
+// would take the whole people card down with it.
+function plainMap(v) {
+  return (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+}
+
 // Defensive normalization for hand-edited or older imports: guarantees the
 // shape the rest of the app relies on, dropping unknown fields.
 function normalize(s) {
@@ -346,6 +355,14 @@ function normalize(s) {
       categories: Array.isArray(((s.settings || {}).categories)) ? s.settings.categories : [],
       payMethods: Array.isArray(((s.settings || {}).payMethods)) ? s.settings.payMethods : [],
       developer: cleanDeveloper(((s.settings || {}).developer)),
+      // v200: the bakery's own address on the mailing labels, and the planner's
+      // two people maps. All three ride the settings row now, so they arrive
+      // through a cloud merge as readily as through an import and need the same
+      // guarantee those paths already give `categories` above.
+      mailingAddress: typeof (s.settings || {}).mailingAddress === "string"
+        ? s.settings.mailingAddress : "",
+      personNames: plainMap(((s.settings || {}).personNames)),
+      personCalls: plainMap(((s.settings || {}).personCalls)),
     },
     ingredients: Array.isArray(s.ingredients) ? s.ingredients : [],
     suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],

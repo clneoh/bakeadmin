@@ -1531,3 +1531,276 @@ test("mergeRows: the other phone's clear is not written onto a phone that never 
       "nor did the phone start speaking an empty board it never had");
   } finally { restore(); }
 });
+
+// ── v200: the five settings that were device-local by OMISSION ─────────────
+//
+// `categories`, `payMethods`, `mailingAddress`, `personNames` and `personCalls`
+// were all editable on a phone, all saved to its localStorage, and none of them
+// named in recordPayload — so nothing ever carried them and the other phone kept
+// the built-in chart, an empty address and nobody on the chart. Each is guarded
+// the lazy way the four lists above are; the difference between them is only what
+// an EMPTY one means.
+
+const HER_CHART = [
+  { label: "Packaging", cls: "expense" },
+  { label: "Market stall", cls: "expense" },
+];
+const CLOUD_CHART = [
+  { label: "Utilities", cls: "expense" },
+  { label: "Delivery run", cls: "expense" },
+];
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+test("computeRecords: settings payload omits her chart and her ways to pay until she changes them", () => {
+  const st = baseState();
+  const bare = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal(hasOwn(bare.data, "categories"), false,
+    "a phone still on the built-in chart pushes no chart of its own");
+  assert.equal(hasOwn(bare.data, "payMethods"), false,
+    "nor a list of ways to pay it never chose");
+
+  st.settings.categories = HER_CHART;
+  st.settings.payMethods = ["Cash", "TNG", "DuitNow"];
+  const withThem = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(withThem.data.categories, HER_CHART,
+    "her own chart rides the settings row, so the other phone stops showing the built-in names");
+  assert.deepEqual(withThem.data.payMethods, ["Cash", "TNG", "DuitNow"],
+    "and so do the ways she actually gets paid");
+});
+
+test("mergeRows: a cloud row without a chart never deletes the local one", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.categories = HER_CHART;
+    st.settings.payMethods = ["Cash", "DuitNow"];
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 9, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.categories, HER_CHART, "an absent cloud chart is not a delete");
+    assert.deepEqual(st.settings.payMethods, ["Cash", "DuitNow"], "nor is an absent methods list");
+  } finally { restore(); }
+});
+
+test("mergeRows: a newer cloud chart replaces the local one wholesale", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.categories = HER_CHART;
+    seedQuiet(store, st, "2026-01-01T00:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { categories: CLOUD_CHART },
+      "2026-02-01T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.categories, CLOUD_CHART,
+      "the newer chart wins whole, exactly like the rest of settings");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone that has never changed its chart receives hers, and carries it back", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00"; // a real edit, so this phone is the one pushing
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { cutoff: "18:00", categories: HER_CHART },
+      "2026-09-24T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.categories, HER_CHART,
+      "the chart did not reach the phone that was still showing the built-in names");
+    assert.deepEqual(queuedSettings(store).data.categories, HER_CHART,
+      "the push about to go out left the chart behind, so it would delete it");
+  } finally { restore(); }
+});
+
+test("markDirty: putting her chart back to the built-in names is said out loud", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.categories = HER_CHART;
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.categories = []; // back to the built-in chart
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the emptying is queued");
+    assert.equal(hasOwn(p.data, "categories"), true,
+      "an empty chart is SPOKEN, or the other phone reads it as ignorance and rule 2 hands hers back");
+    assert.deepEqual(p.data.categories, []);
+  } finally { restore(); }
+});
+
+// ── the mailing address (settings.mailingAddress) ─────────────────────────
+// The FROM block on a mailing label, and the words the courier lookup falls back
+// on when there is no pickup pin. A plain string, so it is the first key in
+// SPEAK_EMPTY that is not an object — which is why speakEmptied grew a branch.
+
+test("computeRecords: the mailing address is omitted until she types one, then it is carried", () => {
+  const st = baseState();
+  const bare = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal(hasOwn(bare.data, "mailingAddress"), false,
+    "a phone with no address pushes no address field");
+
+  st.settings.mailingAddress = "  Jienluv2bake, 12 Jalan Bunga Raya, 11600 Penang  ";
+  const withAddr = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal(withAddr.data.mailingAddress, "  Jienluv2bake, 12 Jalan Bunga Raya, 11600 Penang  ",
+    "her address rides the settings row so the labels print the same FROM on both phones");
+});
+
+test("mergeRows: a cloud row without an address never blanks the local one", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.mailingAddress = "12 Jalan Bunga Raya, 11600 Penang";
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 9, cutoff: "18:00" }, "2026-02-01T00:00:00.000Z")]);
+    assert.equal(st.settings.mailingAddress, "12 Jalan Bunga Raya, 11600 Penang",
+      "an absent cloud address is not a delete — the blank FROM would print a reminder instead");
+  } finally { restore(); }
+});
+
+test("markDirty: clearing the mailing address is said out loud as an empty one", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.mailingAddress = "12 Jalan Bunga Raya, 11600 Penang";
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.mailingAddress = "";
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the clearing is queued");
+    assert.equal(hasOwn(p.data, "mailingAddress"), true,
+      "a cleared address has to travel as an empty string, never as silence");
+    assert.equal(p.data.mailingAddress, "");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone that has never typed an address receives hers", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00";
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { cutoff: "18:00", mailingAddress: "12 Jalan Bunga Raya, 11600 Penang" },
+      "2026-09-24T00:00:00.000Z")]);
+    assert.equal(st.settings.mailingAddress, "12 Jalan Bunga Raya, 11600 Penang",
+      "the address did not reach the phone that never typed one");
+  } finally { restore(); }
+});
+
+test("mergeRows: an address the cloud row has lost is put back by one publish", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.mailingAddress = "12 Jalan Bunga Raya, 11600 Penang";
+    seedQuiet(store, st, "2026-09-01T00:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default", { cutoff: "18:00" }, "2026-09-20T00:00:00.000Z")]);
+    const p = queuedSettings(store);
+    assert.ok(p, "one publish is queued, with no press of hers needed");
+    assert.equal(p.data.mailingAddress, "12 Jalan Bunga Raya, 11600 Penang",
+      "the publish did not carry the address the cloud row had lost");
+  } finally { restore(); }
+});
+
+// ── the planner's people (settings.personNames / settings.personCalls) ─────
+// Kept by person NUMBER and shared by every scenario, so the names she types on
+// one phone are the names the chart reads as people on the other.
+
+test("computeRecords: the planner's people are omitted until there is something to say", () => {
+  const st = baseState();
+  const bare = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.equal(hasOwn(bare.data, "personNames"), false, "a phone with nobody named pushes no names");
+  assert.equal(hasOwn(bare.data, "personCalls"), false, "nor a call list it has never ticked");
+
+  st.settings.personNames = { 1: "Jien", 2: "Wei" };
+  st.settings.personCalls = { 2: false };
+  const withPeople = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(withPeople.data.personNames, { 1: "Jien", 2: "Wei" },
+    "the names she typed ride the settings row, so the rows read as people on both phones");
+  assert.deepEqual(withPeople.data.personCalls, { 2: false },
+    "and so does who the day calls");
+});
+
+test("computeRecords: personCalls carries a person ticked back ON, not only one ticked off", () => {
+  const st = baseState();
+  // `calls[who] = call.checked` keeps true as well as false, so an object holding
+  // only `true` is still a real answer and must not be mistaken for an empty.
+  st.settings.personCalls = { 1: true, 2: false };
+  const p = sync.computeRecords(st).find((r) => r.kind === "settings");
+  assert.deepEqual(p.data.personCalls, { 1: true, 2: false },
+    "a tick that was put back on is an answer too, and rides the row with the rest");
+});
+
+test("mergeRows: a cloud row with no people never deletes the local names", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.settings.personNames = { 1: "Jien", 2: "Wei" };
+    st.settings.personCalls = { 2: false };
+    seedJournal(store, { meta: { "settings:default": "2026-01-01T00:00:00.000Z" } });
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { defaultCapacity: 9, cutoff: "18:00" }, "2026-02-01T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.personNames, { 1: "Jien", 2: "Wei" },
+      "an absent cloud name list is not a delete");
+    assert.deepEqual(st.settings.personCalls, { 2: false }, "nor is an absent call list");
+  } finally { restore(); }
+});
+
+test("mergeRows: a phone that has never named anybody receives her names", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.cutoff = "19:00";
+    sync.markDirty(st, "2026-09-24T12:00:00.000Z");
+    sync.mergeRows(st, [cloudRow("settings", "default",
+      { cutoff: "18:00", personNames: { 1: "Jien", 2: "Wei" } }, "2026-09-24T00:00:00.000Z")]);
+    assert.deepEqual(st.settings.personNames, { 1: "Jien", 2: "Wei" },
+      "the names did not reach the phone whose chart was still showing bare numbers");
+  } finally { restore(); }
+});
+
+test("markDirty: clearing her last worker name is said out loud", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.personNames = { 1: "Jien" };
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    st.settings.personNames = {}; // `delete names[who]` cleared the last one
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p, "the clearing is queued");
+    assert.equal(hasOwn(p.data, "personNames"), true,
+      "the emptied map is SPOKEN, so the other phone cannot read it as ignorance");
+    assert.deepEqual(p.data.personNames, {});
+  } finally { restore(); }
+});
+
+test("markDirty: a phone that has never ticked a call stays silent instead of inventing one", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z"); // this phone's own settings, nobody ticked
+    st.settings.cutoff = "19:00"; // a real edit, so there is a payload to read
+    sync.markDirty(st, "2026-09-24T01:00:00.000Z");
+    const p = queuedSettings(store);
+    assert.ok(p);
+    assert.equal(hasOwn(p.data, "personCalls"), false,
+      "an empty call list is the default every phone already reads, so it says nothing about one");
+    assert.equal(hasOwn(p.data, "personNames"), false, "nor does it announce names it never had");
+  } finally { restore(); }
+});
+
+test("markDirty: a phone holding ticks still sends them, so who is called agrees on both phones", () => {
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store);
+    const st = baseState();
+    st.settings.personCalls = { 3: false };
+    sync.markDirty(st, "2026-09-24T00:00:00.000Z");
+    assert.deepEqual(queuedSettings(store).data.personCalls, { 3: false },
+      "a phone that has ticked somebody sends the tick");
+  } finally { restore(); }
+});

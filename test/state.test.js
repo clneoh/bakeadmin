@@ -506,3 +506,45 @@ test("a proofer count she had already typed wins over the retired trays", () => 
   assert.equal(herPlan({ trays: 18, prooferPans: 24 }).prooferPans, 24,
     "but a proofer count she has set herself is never overwritten by the old one");
 });
+
+// ── v200: the settings that ride the cloud now have a shape at load ─────────
+//
+// `categories`, `payMethods` and `mailingAddress` are the fields she edits on the
+// Money screen; `personNames`/`personCalls` are the planner's people. All five now
+// travel in the settings row, so a value that arrived from the other phone — or
+// from a half-written row — has to be the same SHAPE the readers expect before
+// anything draws with it.
+
+test("normalize gives the chart and the ways to pay an array, never a stray object", () => {
+  const out = normalize({ version: 1, settings: { categories: { a: 1 }, payMethods: "Cash" } });
+  assert.deepEqual(out.settings.categories, [],
+    "a chart that is not a list is dropped, so `categoriesOf` falls back to the built-in names");
+  assert.deepEqual(out.settings.payMethods, [],
+    "and so is a methods list that is not one");
+});
+
+test("normalize gives the mailing address a string, and a cleared one stays cleared", () => {
+  assert.equal(normalize({ version: 1, settings: {} }).settings.mailingAddress, "",
+    "a phone that has never typed an address holds an empty one, not undefined");
+  assert.equal(normalize({ version: 1, settings: { mailingAddress: "  12 Jalan Bunga Raya  " } })
+    .settings.mailingAddress, "  12 Jalan Bunga Raya  ",
+    "what she typed is kept exactly, spaces and all");
+  assert.equal(normalize({ version: 1, settings: { mailingAddress: 42 } }).settings.mailingAddress, "",
+    "a number where an address belongs becomes an empty one rather than printing as 42");
+});
+
+test("normalize gives the planner's people a plain object, never something that would crash a write", () => {
+  const out = normalize({ version: 1, settings: { personNames: "Jien", personCalls: [true] } });
+  assert.deepEqual(out.settings.personNames, {},
+    "a names map that is not an object is dropped — `names[who] = typed` on a string throws");
+  assert.deepEqual(out.settings.personCalls, {},
+    "and so is a call list that is not one; an array is not a map of people");
+});
+
+test("normalize keeps the planner's people exactly as they arrived", () => {
+  const out = normalize({ version: 1, settings: { personNames: { 1: "Jien", 2: "" }, personCalls: { 2: false, 3: true } } });
+  assert.deepEqual(out.settings.personNames, { 1: "Jien", 2: "" },
+    "the names she typed survive a reload, including a name she has emptied but not deleted");
+  assert.deepEqual(out.settings.personCalls, { 2: false, 3: true },
+    "and a tick that is OFF is kept as an answer, not thrown away as falsy");
+});

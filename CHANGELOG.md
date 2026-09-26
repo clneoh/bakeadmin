@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v199)
+# Jienluv2bake — change history (v54 → v200)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**26 Sep 2026 — engine v200, THE SETTINGS THAT STAYED BEHIND NOW TRAVEL (no database step, no
+redeploy — one push). Five things you set on one phone never reached the other: the two lists on
+Money — what an expense was for, and the ways you get paid — your mailing address, and the
+planner's people, meaning the names you give the workers and which of them the day calls. Set them
+on your phone, open the app on the other, and the built-in names were back, the address box was
+empty, and your workers were numbers again. Nothing you set was ever lost; it saved properly on the
+phone that set it and had no way across. All five now travel, so whichever phone you pick up has
+them.**
+
+**Here is what was actually wrong, and it is not what it looks like.** Your settings go up to the
+cloud as one block, and the app only puts a thing into that block if it knows to look for it. Five
+of them were never on that list. So they were saved on the phone, left out of everything sent up,
+and the other phone — never told — kept whatever it already had. It was never a failed upload and
+never anything you did; the app simply was not carrying them.
+
+**Set any of the five on either phone and the other phone has it the next time it opens.** The two
+Money lists travel as the whole list, not blended together — editing them replaces them, exactly the
+way the rest of Settings behaves, so the two phones cannot end up with a half-and-half version of
+your chart. Your mailing address reaches the other phone as the FROM block on your labels. The
+planner's names are the same names on every plan you make, because the app keeps them by the worker,
+not by the plan — name somebody once and every plan reads as people.
+
+**Emptying one is an answer and now travels as one.** If you clear your chart back to nothing, that
+means "back to the built-in names", and that meaning now reaches the other phone instead of the old
+list coming straight back at you. The same goes for an address you clear, and for a worker's name
+you delete. Before, a list you had cleared and a list you had never touched looked identical on the
+way up, so the phone that still had your old list would have handed it back — the app could not tell
+"she cleared this" from "she has no opinion here". It can now.
+
+**And it is safe to open the app on a phone you have not set up.** A phone that has never touched
+one of these can never delete it from the other phone: staying quiet about a setting is not an
+instruction to remove it. If the phone that has never seen your chart opens first, it receives
+yours rather than pushing its own built-in one over you. This is the same rule that stopped a newly
+set-up phone from emptying your saved days, and it now covers these five as well.
+
+**Still on the phone it is on, on purpose, and worth knowing.** Your sign-in details and your app
+lock never travel — those belong to the phone in your hand. The short list of occasion names Home
+remembers stays put too, since it is a convenience for the phone you name them on; if you would
+rather it followed you as well, say so and it is a small change.
+
+**Twenty-one new tests, and ten faults put back to prove they work.** The faults included each list
+being left out of what goes up, each one being made deletable by a phone that never set it, a
+cleared address going out as silence instead of as an empty one, and a name list arriving as
+something that would have stopped the planner drawing. All ten were caught by the tests that name
+them; a test that stays green while the thing it tests is broken is worth nothing, so each one was
+injected, seen to fail, and removed. The whole suite is 1704 tests.
 
 **25 Sep 2026 — engine v199, THE TOTAL NOW SHOWS ITS WORKING (no database step, no redeploy — one
 push). On the WhatsApp message at every stage of an order, and on the Track page your customer

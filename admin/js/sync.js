@@ -89,6 +89,17 @@ export function sharingState(state, signedIn) {
 // should share — connection config (`supabase`, `cloud`) stays per-device, and
 // so does the app-password `lock`. The weekly checklist `weekCheck` DOES sync
 // (so Home's to-do agrees on both phones) and is union-merged on pull (below).
+//
+// v200 is the sweep that came after this note and found it had been read too
+// generously: `categories`, `payMethods`, `mailingAddress`, `personNames` and
+// `personCalls` were edited on a phone and never named in this function, so they
+// were silently device-local by OMISSION rather than by decision. They are
+// carried now. What is still deliberately per-device, and should stay so: the
+// three above, plus `savedOccNames` (usable only on a phone she named it on),
+// `runDay` (which run she is looking at, not content) and the `migratedVNN`
+// markers, which must be per-phone because each phone runs its own migrations.
+// `storefront` is absent too, but not by oversight: it reaches the customer page
+// through its own publish path, not through this row.
 // Developer contact helpers for the settings record: whether it has been set at
 // all, and the trimmed {name, emails} shape the cloud should carry.
 function devOf(rec) {
@@ -110,6 +121,14 @@ function devSet(rec) {
 function acksSet(rec) {
   const a = (rec.boardAcks && typeof rec.boardAcks === "object") ? rec.boardAcks : {};
   return Object.keys(a).length > 0;
+}
+// The planner's people (`personNames` / `personCalls`) and the two empty-able
+// value keys below need the same question asked of them: has this phone actually
+// put anything in it? An ARRAY is excluded even though `typeof` calls it an
+// object — `categories` and `payMethods` are compared with Array.isArray, so a
+// list accidentally stored in one of these slots must not read as content.
+function plainKeys(v) {
+  return !!v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0;
 }
 function cleanDeveloperForSync(dev) {
   const src = (dev && typeof dev === "object") ? dev : {};
@@ -199,6 +218,27 @@ function recordPayload(kind, rec) {
       // to speak, and a future Unpin would have to be given its own rule here
       // rather than quietly going silent and coming back from the cloud.
       ...(courierPin ? { pickupPlace: courierPin } : {}),
+      // Her own category chart and her ways to pay (v200), her mailing address,
+      // and the planner's people. Each is carried only once she has actually put
+      // something in it, for the reason the four lists above are: a phone that has
+      // never touched them must not push an empty value over hers. All five are
+      // the same class of miss — they were edited on a phone, saved to that
+      // phone's localStorage, and simply never named here, so nothing carried
+      // them and the other phone kept the built-in chart and an empty address.
+      //
+      // `personCalls` is stored by `calls[who] = call.checked`, so it keeps true
+      // as well as false and any key at all is a real answer she gave. An empty
+      // one is what a phone that has never ticked anything holds, and that is
+      // exactly the default the app reads anyway — so, unlike `personNames`, it
+      // is never spoken as an empty (see SPEAK_EMPTY).
+      ...(Array.isArray(rec.categories) && rec.categories.length
+        ? { categories: rec.categories } : {}),
+      ...(Array.isArray(rec.payMethods) && rec.payMethods.length
+        ? { payMethods: rec.payMethods } : {}),
+      ...(String(rec.mailingAddress || "").trim()
+        ? { mailingAddress: String(rec.mailingAddress) } : {}),
+      ...(plainKeys(rec.personNames) ? { personNames: rec.personNames } : {}),
+      ...(plainKeys(rec.personCalls) ? { personCalls: rec.personCalls } : {}),
     };
   }
   return rec;
@@ -243,7 +283,18 @@ function recordPayload(kind, rec) {
 // new rule but a walk through the three that stand: rule 2 must hand her pin down
 // to a phone that has never walked the map, and rule 3 must put it back up when a
 // phone that never pinned one happens to have stamped the row newest.
-const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer", "pickupPlace"];
+// v200 adds the five keys that had never been named here at all: `categories`,
+// `payMethods`, `mailingAddress`, `personNames` and `personCalls`. They are
+// guarded in the ORDINARY way — absent from a payload until this phone has
+// something to say about them — so all three rules already do the right thing for
+// them without a line of new logic, exactly as `pickupPlace` did in v188. The
+// acceptance walk for them is therefore not a new rule but the three standing
+// ones: rule 2 must hand her chart and her address down to a phone that has never
+// had them, rule 3 must put them back up when a phone that never had them
+// happened to stamp the row newest, and rule 1 must let her EMPTY the four that
+// can be emptied without that reading as ignorance.
+const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer", "pickupPlace",
+  "categories", "payMethods", "mailingAddress", "personNames", "personCalls"];
 
 // `production` — the numbers on More → Production line — is guarded by the same
 // three rules but cannot be judged the same way, and it was the one key left
@@ -267,7 +318,18 @@ const GUARDED_ALL = [...GUARDED, "production"];
 // `{}` — would otherwise go out as though this phone had never opened the board.
 // The other phone would read that silence as ignorance, take the clear for
 // nothing, and rule 3 would put every cleared tick straight back.
-const SPEAK_EMPTY = ["scenarios", "boardAcks", "developer"];
+// v200 puts four more here, and each one on the same test as the board: can she
+// empty it and expect the other phone to follow? `categories` and `payMethods`
+// can — an empty chart is not an absent one to `categoriesOf`/`methodsOf`, which
+// both fall back to the built-in list, so an empty one IS the answer "back to the
+// built-in names". `personNames` can — clearing a name runs `delete names[who]`,
+// so a phone whose last name she cleared holds `{}`. And `mailingAddress` is the
+// first plain STRING in this list, which is why speakEmptied below grew a branch
+// for one: an address she cleared has to travel as `""` rather than go silent and
+// be handed straight back by rule 2. `personCalls` is deliberately NOT here — its
+// empty is the default the app already reads, so it has nothing to say.
+const SPEAK_EMPTY = ["scenarios", "boardAcks", "developer",
+  "categories", "payMethods", "mailingAddress", "personNames"];
 
 function has(obj, k) {
   return Object.prototype.hasOwnProperty.call(obj, k);
@@ -341,6 +403,13 @@ function speakEmptied(rec, prev, state) {
     if (k === "developer") {
       if (devSet(s)) continue; // not empty — it is in the payload already
       rec.data.developer = cleanDeveloperForSync(s.developer);
+    } else if (typeof s[k] === "string") {
+      // A plain string key's empty — `""` — is an answer too: v200's
+      // `mailingAddress`. Widened for the same reason this was widened in v184
+      // for `boardAcks`: a value that is not an object could not be spoken at
+      // all, so an address she cleared went out as silence, rule 2 read that
+      // silence as ignorance, and the old address came straight back.
+      rec.data[k] = s[k];
     } else if (s[k] != null && typeof s[k] === "object") {
       // The empty value itself, and an answer she gave. Widened from
       // `Array.isArray` in v184 for `boardAcks`, whose empty is `{}` rather than
