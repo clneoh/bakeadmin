@@ -323,6 +323,19 @@ function answerFor(body, opts = {}) {
   if (body.action === "vehicles") {
     return { ok: true, services: [{ key: "MOTORCYCLE" }, { key: "CAR" }] };
   }
+  // The address lookup, for the one case a run still needs it: a doorstep nobody has
+  // answered. The label is a FRAGMENT on purpose — "Jalan A, George Town" is what a
+  // geocoder really calls a Malaysian street, and it is deliberately NOT the address on
+  // the order, so a test can tell a door named with the order's address from one named
+  // with the geocoder's row (v207).
+  if (body.action === "geocode") {
+    const found = {
+      "1 Jalan A": { lat: 5.45, lng: 100.35, label: "Jalan A, George Town" },
+      "9 Jalan B": { lat: 5.46, lng: 100.36, label: "Jalan B, Butterworth" },
+    }[String(p.address || "")];
+    if (!found) return { ok: false, reason: "That address could not be found — put the pin on the map instead." };
+    return { ok: true, place: found, places: [found] };
+  }
   if (body.action === "quote") {
     // One price per vehicle asked for, and one price for the journey it was asked about:
     // the bakery plus one point per drop. A request for ONE doorstep carries two points, so
@@ -963,6 +976,44 @@ test("a customer's own pin is offered under their row, and taking it becomes the
   assert.equal(row.place.lat, st.orders[0].customerPlace.lat, "and it is the same point she dropped");
   assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
     "taking it ends the offer — there is nothing to dismiss");
+});
+
+// ── where each door on a run comes from (v208) ────────────────────────────
+//
+// The run screen's own copy of the bug her app was reported for four times over: it looked
+// up EVERY unpinned doorstep and kept the geocoder's answer, even for a customer who had
+// dropped a pin of their own — which moves the door off their own point and onto the
+// street, because that is all a geocoder can answer for a Malaysian house number. One test
+// covers both halves on one run: the customer with a pin is not looked up, and the customer
+// without one is.
+
+test("a customer's own pin is the run's door for them, and only the other doors are looked up (v208)", async () => {
+  const st = world();
+  const wire = stubCourier();
+  // Nothing kept for either customer yet, so every door has to be found — and Ain has
+  // dropped a pin of her own, which is her door. That leaves one lookup, and it is Bala's.
+  st.customers = [];
+  st.orders[0].customerPlace = { lat: 5.4299, lng: 100.3399, label: "1 Jalan A", at: "2026-09-25T10:00:00.000Z" };
+  const { root } = openRun(st);
+
+  press(buttonByText(root, "Price this run"));
+  await settle();
+
+  const looked = wire.sent.filter((r) => r.action === "geocode");
+  assert.equal(looked.length, 1,
+    "one lookup for the one doorstep nobody has answered — the customer's own pin is never looked up");
+  assert.equal(looked[0].payload.address, "9 Jalan B", "and it is the unpinned customer's address that is asked");
+
+  const ain = st.customers.find((c) => c.key === keyOf(st.orders[0]));
+  assert.equal(ain.place.lat, 5.4299, "Ain's door is the pin she dropped herself, not a geocoder's guess");
+  assert.equal(ain.place.lng, 100.3399, "both numbers of it, so it is her point and not a neighbour");
+  assert.equal(ain.place.label, "1 Jalan A", "named with the address on the order (v207)");
+
+  const bala = st.customers.find((c) => c.key === keyOf(st.orders[2]));
+  assert.equal(bala.place.lat, 5.46, "Bala's door is the point the lookup found, because they left no pin");
+  assert.equal(bala.place.lng, 100.36, "both numbers of it");
+  assert.equal(bala.place.label, "9 Jalan B",
+    "and it is named with the address on the order, NOT with the geocoder's row (v207)");
 });
 
 test("a courier customer who pinned nothing gets no offer at all (v197)", () => {

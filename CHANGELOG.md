@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v207)
+# Jienluv2bake — change history (v54 → v208)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v208, THE DOT NO LONGER SLIDES OFF THE CUSTOMER'S OWN DOOR WHEN YOU ASK
+FOR A PRICE (no database step, no redeploy — one push). The pin on the courier card.**
+
+Your report, the fourth time: the pin still wrong. When you told me where, it was **the order in
+your app**, and what was wrong was **the dot is in the wrong place** — not its name. This is that.
+
+The courier card opens with the dot on the customer's __own__ pin — the spot they tapped on the map
+when they placed the order. Pressing **Get a delivery price** then looked the written address up and
+moved the dot onto whatever the map's lookup found for it. But a lookup, for a Malaysian house
+number, can only ever answer down to the street — it has no house numbers. So the dot slid off the
+customer's own door and out onto the road, and the price that came back was a price for the road.
+
+__A customer who pinned their own door has already answered where the door is.__ Their pin is now the
+door, and asking for a price prices the door on screen and spends no lookup at all. Only a customer
+who left no pin of their own has their address looked up — and then, as at v207, the point is the
+map's and the words are the address on the order.
+
+**The same is fixed on the delivery run.** Pressing **Price this run with ...** no longer looks up
+every customer in the list: each customer who left a pin of their own is priced at their own pin, and
+only the others are looked up. On that screen too, a looked-up door is now named with the order's
+address instead of the map's row — a fix v207 had missed on this one screen.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. The engine on your
+**More** screen reads **Engine v208** once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v207, THE DOOR IS NOW CALLED BY ITS ADDRESS, NOT BY HALF AN ADDRESS
 FROM THE MAP (no database step, no redeploy — one push). The pin on the courier card.**

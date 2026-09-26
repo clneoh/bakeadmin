@@ -865,33 +865,51 @@ export function courierQuoteSection({
 
       // 2. THE CUSTOMER'S DOOR, looked up ONCE and then kept against the person, so a
       //    second order from the same number costs no lookup at all.
+      //
+      //    AND WHEN THE CUSTOMER LEFT A PIN OF THEIR OWN, THAT PIN IS THE DOOR — no
+      //    lookup is asked for and none is spent (v208). This is the bug she reported
+      //    four times as "the pin still wrong" and then, pointed at, as "the dot is in
+      //    the wrong place": the card opens with the dot ON the customer's own pin
+      //    (`doorSpot` falls back to it), and this block used to look the typed address
+      //    up and keep the geocoder's answer instead — moving the dot to the STREET,
+      //    because that is all a geocoder can answer for a Malaysian house number. The
+      //    price is for the door on screen, so the point is theirs. Their own pin beats
+      //    any geocoder here for the reason store/geo.js gives at the top of its own
+      //    header: they were at their door when they dropped it.
       if (!dropPlaceOf(state, first)) {
         const words = dropAddress(first);
-        if (!words) {
-          busy = false;
-          askBtn.disabled = false;
-          statusLine.textContent = "This order has no delivery address to look up. Put the pin on the map, or add the address under Edit.";
-          return;
+        const theirs = customerPlaceOf(first);
+        if (theirs) {
+          // The POINT is theirs and the WORDS are the address on the order (v207) —
+          // the same split as the branch below, with a better point to make it from.
+          setDropPlace(state, first, { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label });
+          paintEnds();
+        } else {
+          if (!words) {
+            busy = false;
+            askBtn.disabled = false;
+            statusLine.textContent = "This order has no delivery address to look up. Put the pin on the map, or add the address under Edit.";
+            return;
+          }
+          statusLine.textContent = `Looking up ${words}…`;
+          const found = await geocodeAddress(state, words);
+          if (!wrap.isConnected) return;
+          if (!found.ok) {
+            busy = false;
+            askBtn.disabled = false;
+            statusLine.textContent = `${found.reason} Nothing has been priced.`;
+            return;
+          }
+          // THE DOOR IS KEPT NAMED WITH THE ADDRESS IT WAS LOOKED UP FOR (v207), and
+          // this is the line that matters most because it fires BY ITSELF — she presses
+          // "Get a delivery price" and the door is found, kept and named without her
+          // choosing anything. It used to keep `found.place` whole, which meant the name
+          // it kept was whatever the geocoder called the place: a row, a fragment, no
+          // house number. So the POINT is the geocoder's and the WORDS are hers, which
+          // is exactly the split store/geo.js's placeForOrder makes on the shop side.
+          setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
+          paintEnds();
         }
-        statusLine.textContent = `Looking up ${words}…`;
-        const found = await geocodeAddress(state, words);
-        if (!wrap.isConnected) return;
-        if (!found.ok) {
-          busy = false;
-          askBtn.disabled = false;
-          statusLine.textContent = `${found.reason} Nothing has been priced.`;
-          return;
-        }
-        // THE DOOR IS KEPT NAMED WITH THE ADDRESS IT WAS LOOKED UP FOR (v207), and this
-        // is the line that matters most because it fires BY ITSELF — she presses "Get a
-        // delivery price" and the door is found, kept and named without her choosing
-        // anything. It used to keep `found.place` whole, which meant the name it kept was
-        // whatever the geocoder called the place: a row, a fragment, no house number. Every
-        // door this app has ever pinned for her on the way to a price carries one. So the
-        // POINT is the geocoder's and the WORDS are hers, which is exactly the split
-        // store/geo.js's placeForOrder makes on the shop side.
-        setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
-        paintEnds();
       }
 
       // 3. THE FLEET, from the courier's own list rather than one written down here, so

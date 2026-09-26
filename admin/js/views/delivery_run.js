@@ -444,10 +444,23 @@ export function renderDeliveryRun(root, state, params) {
 
     // 2. EVERY CUSTOMER'S DOOR, looked up once and then kept against the person, so a
     //    second run down the same street costs no lookup for anybody on it.
+    //
+    //    AND A CUSTOMER WHO LEFT A PIN OF THEIR OWN IS NOT LOOKED UP AT ALL (v208) —
+    //    their point IS the door, exactly as on the single-order card. Same reason, and
+    //    it is the same bug: a lookup moves the dot off their door and onto the street.
     const unplaced = groups.filter((g) => !dropPlaceOf(state, g.orders[0]));
     for (let i = 0; i < unplaced.length; i++) {
       const first = unplaced[i].orders[0];
       const words = dropAddress(first);
+      const theirs = customerPlaceOf(first);
+      // The POINT is theirs where they gave one, and the WORDS are the address on the
+      // order (v207) — the door she keeps is named with the address, and never with the
+      // geocoder's row, which is a fragment with no house number in it.
+      if (theirs) {
+        setDropPlace(state, first, { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label });
+        paintList();
+        continue;
+      }
       if (!words) {
         busy = false;
         askBtn.disabled = false;
@@ -464,7 +477,7 @@ export function renderDeliveryRun(root, state, params) {
         statusLine.textContent = `${nameOf(first)}: ${found.reason} Nothing has been priced.`;
         return;
       }
-      setDropPlace(state, first, found.place);
+      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
       paintList();
     }
 

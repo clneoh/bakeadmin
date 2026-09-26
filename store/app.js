@@ -1664,12 +1664,13 @@ function openPinBox() {
       // The map is handed the pin as its start and calls back with that very point
       // while it draws, so a callback that has not MOVED is the map agreeing with the
       // customer rather than the customer placing anything. It is not a new pin, and the
-      // pin is left EXACTLY as it was — the same object, wording and all. A pin taken
-      // from the list carries the words it was found for (store/geo.js, validPin), and
-      // rebuilding it from the map's bare lat/lng here would strip them off the instant
-      // its own map opened, which is the whole of what the bakery needs to read the pin
-      // against the address. Anything else is their own hand, a drag or a tap, and from
-      // that moment the pin is a place they chose themselves: no words, no origin.
+      // pin is left EXACTLY as it was — the same object, and still the same claim. Fall
+      // through here and the line below would drop `pinOrigin`, quietly turning a pin
+      // taken from a suggestion row into one the customer placed by hand the instant its
+      // own map opened — which would then survive the very address edit that row's pin
+      // is supposed to go with (dropListPin below). Anything else is their own hand, a
+      // drag or a tap, and from that moment the pin is a place they chose themselves: no
+      // origin.
       if (sameSpot(spot, doorPin)) { paintPin(); return; }
       pinOrigin = null;
       doorPin = { lat: spot.lat, lng: spot.lng };
