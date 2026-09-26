@@ -328,8 +328,10 @@ export function renderSettings(root, state) {
         "The developer link (homepage, order page, About) opens WhatsApp with a ready “Hi!”. The email link stays underneath — the wish-list email still uses it.")));
 
   // ── Mailing labels (courier) ────────────────────────────────────────────
-  // The FROM block on the Mailing packing label. Kept in the phone's settings,
-  // not published with the storefront — fill it on each phone that prints labels.
+  // The FROM block on the Mailing packing label. Held in settings and NOT
+  // published with the storefront — but it is no longer per-phone: v200 put
+  // `mailingAddress` in sync.js's carried list, so it travels to her other
+  // phones like every other setting and is typed once.
   const mailAddr = cur.mailingAddress ??= "";
   const mailBox = el("textarea", { class: "input", rows: 5, value: mailAddr,
     placeholder: "Jienluv2bake\n12, Jalan Bunga Raya\n11600 Pulau Pinang\n016 960 1268",
@@ -340,7 +342,7 @@ export function renderSettings(root, state) {
       "Printed as the FROM block on the Mailing label (shown on courier orders). One line per row — first line your bakery name, then the address, your phone last."),
     mailBox,
     el("p", { class: "card-sub", style: "margin:6px 0 0" },
-      "A Mailing label prints FROM = this address, TO = the customer's name, phone and delivery address, and ORDER = the code, date and items. Type it on each phone you print labels from."));
+      "A Mailing label prints FROM = this address, TO = the customer's name, phone and delivery address, and ORDER = the code, date and items. Saved with your settings, so it travels to your other phones — type it once."));
 
   // ── Courier ─────────────────────────────────────────────────────────────
   // Two facts and no settings. A courier is not given a street address, it is given a

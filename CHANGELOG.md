@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v205)
+# Jienluv2bake — change history (v54 → v206)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v206, THE MAILING ADDRESS NO LONGER ASKS TO BE TYPED ON EVERY PHONE (no
+database step, no redeploy — one push). One sentence on More > Settings was telling you something
+that stopped being true at v200.**
+
+The card under **Mailing labels (courier)** used to end with "Type it on each phone you print
+labels from." Since v200 the mailing address is one of the settings that travel, so it is typed
+once and your other phones have it the next time they open — which is what the manual has said all
+along. The card now says so: __Saved with your settings, so it travels to your other phones — type
+it once.__
+
+Nothing else changed, and nothing you have typed is touched. This is a sentence, not a behaviour:
+the address has been travelling since v200 and still does.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. The engine on your
+app's More screen will read 206 once the phone has the new build.
 
 **27 Sep 2026 — engine v205, THE PIN IS NAMED WITH THE CUSTOMER'S OWN ADDRESS (no database step, no
 redeploy — one push). Version 204 gave a dropped pin the wording of the suggestion row the customer
