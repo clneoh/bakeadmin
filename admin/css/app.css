@@ -1111,9 +1111,14 @@ option.tone-off { color: var(--muted); }
    The box Leaflet draws into. It must have a height of its own BEFORE the map is
    built: a container Leaflet measures as zero draws a corner of one tile and never
    recovers, because it has no reason to measure again. 260px holds about a
-   neighbourhood on a phone, which is the zoom a pin is placed at. `touch-action` is
-   left to Leaflet — it sets `none` on the container itself while dragging, and
-   overriding it here would make a finger scroll the pop-up instead of the map. */
+   neighbourhood on a phone, which is the zoom a pin is placed at.
+
+   `touch-action` is left to Leaflet on the PICKER's map — it sets `none` on the
+   container itself while dragging, and overriding it here would make a finger scroll
+   the pop-up instead of the map. The READ-ONLY map in the note/tracking box is the
+   other case, and it is settled where it is built rather than here: a map that cannot
+   be dragged must not take a finger hostage, so mountPinMap gives it `pan-y` until she
+   unlocks it (v201, 26 Sep 2026). */
 .place-map {
   height: 260px;
   margin-top: 12px;
@@ -1124,6 +1129,13 @@ option.tone-off { color: var(--muted); }
 }
 .place-map .leaflet-control-attribution { font-size: 10px; }
 .leaflet-container { font: inherit; }
+
+/* The map inside the Note / tracking box (v201). Shorter than the picker's, and the
+   reason is the card it sits in: this one is drawn above the note, the tracking number,
+   the charge, the customer's total and the Save button, and at 260px it pushed Save off
+   the bottom of a small phone. A door being CHECKED does not need the picker's working
+   height — the pin is already on it, and she is looking at where it landed. */
+.place-map.door-map { height: 200px; margin-top: 10px; }
 
 /* ---------- What the courier would charge ----------
    One row per vehicle: what it is called on the left, how far and how long the price

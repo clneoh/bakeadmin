@@ -1534,6 +1534,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     }, close, root);
   };
 
+  // Where the price section draws the door block (v201). Under the address row rather than
+  // at the very top of this card: the first thing the block says is the delivery address,
+  // and a map three fields away from the box that holds it reads as belonging to nothing.
+  const doorSlot = el("div", {});
+
   // Same order as the New-order card: which day, then who, then what.
   return el("div", {},
     el("div", { class: "field", style: "margin-bottom:10px" },
@@ -1547,6 +1552,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
       el("div", {}, el("label", {}, "Delivery address (if courier)"), address)),
+    doorSlot,
     el("div", { class: "field" }, note),
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
@@ -1561,7 +1567,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // next Save. A booked trip is saved the moment it is booked rather than on Save:
     // a real vehicle on a real road must not be discardable by closing a form.
     courierQuoteSection({
-      state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+      state, orders: [first], onUseFee: (q) => charge.set(q.amount), doorSlot,
       onCollected: onCollectedMove(state, group, root, dateId),
       onCommit: (o) => {
         draft.trackingNo = String((o && o.trackingNo) || "");
@@ -2027,7 +2033,15 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         { value: "tng", label: "TNG transfer" },
       ], first.paidMethod || "", () => {});
       paintCustTotal();
+      // Where the price section draws the door block (v201): the TOP of this card, above the
+      // note. Her report was that this box gives her no way to see the address or the pin
+      // the driver is being sent to — and this is the box where a trip gets priced and
+      // booked, so the door belongs above everything she does here rather than folded in
+      // with the prices. Handed to the section as a node rather than built here, because
+      // the section owns every rule about a door and the card only owns its layout.
+      const doorSlot = el("div", {});
       return el("div", {},
+        doorSlot,
         el("div", { class: "field" }, el("label", {}, "Note (optional)"), note),
         el("div", { class: "field" },
           el("label", {}, "Courier tracking number (optional)"), tracking),
@@ -2044,7 +2058,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // back into the box she is looking at. Without it, the Save below would write
         // its own stale number over the link the customer was about to be sent.
         courierQuoteSection({
-          state, orders: [first], onUseFee: (q) => charge.set(q.amount),
+          state, orders: [first], onUseFee: (q) => charge.set(q.amount), doorSlot,
           onCollected: onCollectedMove(state, group, root, dateId),
           onCommit: (o) => {
             tracking.value = String((o && o.trackingNo) || "");

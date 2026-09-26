@@ -333,3 +333,182 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     closePopup();
   };
 }
+
+// A map that only LOOKS, until she unlocks it (v201, 26 Sep 2026).
+//
+// The same Leaflet, the same tiles and the same box as openPlacePicker above, and
+// deliberately NOT built on top of it. That card is a pop-up — a showPopup, so opening it
+// REPLACES whatever card asked for it — and it carries an address lookup, a suggestion
+// list and a coordinate fallback around the map. A section that wants to show a pin on a
+// card it is already inside wants none of that and cannot afford the replacement. What it
+// wants is the one thing the picker has that is not a form.
+//
+//   mountPinMap(box, { place, onMove, onFail })
+//
+//     box     the container, already carrying .place-map so it has a height of its own
+//     place   the point to draw, or null for none
+//     onMove  called with { lat, lng } when a drag or a tap settles a new spot — only
+//             ever while unlocked
+//     onFail  called with the reason when Leaflet cannot be had. The box is LEFT IN PLACE
+//             and left empty: the words she should read around it are the caller's, and a
+//             node the caller built is not this file's to remove.
+//
+// Returns { setPlace(p), setDraggable(on), destroy() }. Every method is safe after
+// destroy() and safe while the map has not arrived — the caller repaints a screen that may
+// have moved on while the tiles were still coming.
+//
+// READ-ONLY UNTIL SHE SAYS OTHERWISE is the whole reason this exists as well as the
+// picker. Her answer, in so many words: "Look, and a Move button." So it opens with no map
+// drag, no zoom gesture and no tap-to-place, and setDraggable(true) turns them on — the
+// same map and the same pin, with no second card opened and nothing typed beside it thrown
+// away, which is exactly what the pin button cost her.
+export function mountPinMap(box, { place = null, onMove = () => {}, onFail = () => {} } = {}) {
+  let map = null;
+  let marker = null;
+  let live = true;
+  // Whether the map takes a touch of its own. Held out here rather than read off Leaflet,
+  // because it has to be known before the map exists: the options it is built with are
+  // what it opens as.
+  let sharp = false;
+  let at = validPlace(place);
+  // The point the pin is currently sitting on. `setPlace` compares against it so that a redraw
+  // of the card does not drag the view back to a place it is already showing. Two things go
+  // wrong without it, and both are the same fault wearing different clothes: a pan she made
+  // with her own thumb is thrown away by the next repaint, and a pin she has just dropped
+  // jumps back to the middle of the box from under her finger. Only a door the map has never
+  // shown — the one the address lookup resolves — is worth moving the view for.
+  let shown = null;
+  // The card this box sits in can be closed while the tiles are still loading, and nothing
+  // tells this file when that happens — the app's one pop-up layer empties itself with no
+  // word to what it held. So the listener checks that its own box is still on the page
+  // before it does anything, exactly as the price panel checks `wrap.isConnected`, and lets
+  // go of the map the first time it is not. A map left running behind a card nobody is
+  // looking at is a leak that also answers resize calls for the rest of the session.
+  const onResize = () => {
+    if (!live) return;
+    if (box.isConnected === false) { destroy(); return; }
+    if (map) map.invalidateSize();
+  };
+
+  // The marker, placed or moved — the one call that puts the pin at a point, so a drag, a
+  // tap and the caller's own setPlace cannot end up disagreeing about where it is. It is also
+  // where `shown` is kept, for the same reason: one place that knows where the pin is.
+  function drop(p) {
+    if (!map || !live) return;
+    shown = { lat: p.lat, lng: p.lng };
+    if (marker) marker.setLatLng([p.lat, p.lng]);
+    else marker = window.L.marker([p.lat, p.lng], { draggable: sharp }).addTo(map).on("dragend", onDrag);
+  }
+
+  function onDrag(e) {
+    if (!sharp) return;
+    const spot = e.target.getLatLng();
+    at = { lat: spot.lat, lng: spot.lng };
+    drop(at);
+    onMove({ lat: at.lat, lng: at.lng });
+  }
+
+  // A tap is not a way to place a pin on a map she is only looking at. It becomes one the
+  // moment she unlocks it — and on a phone it is the way that matters, because dragging a
+  // 24-pixel marker with one thumb is fiddly.
+  function onTap(e) {
+    if (!sharp) return;
+    at = { lat: e.latlng.lat, lng: e.latlng.lng };
+    drop(at);
+    onMove({ lat: at.lat, lng: at.lng });
+  }
+
+  // A LOCKED MAP IS A PICTURE, and a picture must not take a finger hostage. Leaflet sets
+  // `touch-action: none` on its own container, which on a phone makes a finger on the box
+  // do NOTHING — it neither moves the map nor scrolls the card the box sits in, so a 200px
+  // strip of the card goes dead and the Save button under it can feel unreachable. While it
+  // is locked the box lets the card's own vertical scroll through; that is the only gesture
+  // it gives up, and it has no drag of its own to protect. Unlocked, it behaves exactly
+  // like the picker's map. (See the note in app.css — this is the case that note names.)
+  function paintTouch() {
+    const c = map && map.getContainer && map.getContainer();
+    if (c && c.style) c.style.touchAction = sharp ? "none" : "pan-y";
+  }
+
+  // Leaflet has no option for this after the fact — dragging, touchZoom, doubleClickZoom
+  // and boxZoom are handler objects that have to be switched on and off themselves.
+  function flip(handler) {
+    if (handler) handler[sharp ? "enable" : "disable"]();
+  }
+
+  function setDraggable(on) {
+    sharp = !!on;
+    if (!map || !live) return;
+    flip(map.dragging);
+    flip(map.touchZoom);
+    flip(map.doubleClickZoom);
+    flip(map.boxZoom);
+    flip(marker && marker.dragging);
+    if (sharp) map.on("click", onTap);
+    else map.off("click", onTap);
+    paintTouch();
+  }
+
+  function destroy() {
+    live = false;
+    sharp = false;
+    if (map) { map.off(); map.remove(); map = null; }
+    marker = null;
+    shown = null;
+    // Guarded: a test shim's `window` need not carry this, and a teardown that throws would
+    // take the whole screen down with it.
+    if (window.removeEventListener) window.removeEventListener("resize", onResize);
+  }
+
+  loadLeaflet().then((L) => {
+    // The script arrives late, and by then the card may be closed, or the box may never
+    // have reached the page at all. A map built into a box that is not there measures zero
+    // and draws a corner of one tile — the fault app.css warns about — and nothing tells
+    // this file when a pop-up layer empties itself, so the check is here. Asked as
+    // `=== false` on purpose: a container that cannot answer must not read as "gone".
+    if (!live || box.isConnected === false) { destroy(); return; }
+    map = L.map(box, {
+      // A wheel over a 200px box inside a card she is scrolling would zoom the map instead
+      // of scrolling past it, which is the wrong thing for a finger that was only passing
+      // through.
+      scrollWheelZoom: false,
+      // The picker's map carries zoom controls because she is working on it. This one is
+      // CHECKING a door, and the plus and minus would sit on the card's own space saying
+      // something she did not ask. Pinch and double-tap zoom it when she unlocks it.
+      zoomControl: false,
+      dragging: sharp, touchZoom: sharp, doubleClickZoom: sharp, boxZoom: sharp,
+    }).setView(at ? [at.lat, at.lng] : [HOME.lat, HOME.lng], at ? 16 : HOME.zoom);
+    L.tileLayer(TILES, { maxZoom: 19, attribution: ATTRIB }).addTo(map);
+    map.on("dragend", onResize);
+    if (sharp) map.on("click", onTap);
+    if (at) drop(at);
+    // The box is measured once the card has settled. A map built while the card is still
+    // being laid out measures zero and never recovers, because it has no reason to measure
+    // again — the same rAF the picker uses, for the same reason.
+    requestAnimationFrame(() => { if (live && map) map.invalidateSize(); });
+    window.addEventListener("resize", onResize);
+    paintTouch();
+  }).catch((err) => {
+    if (!live) return;
+    live = false;
+    // The caller is told and the box is left where it is. The door is still checkable
+    // without a map: the coordinates are the same fact a map would have drawn, and the
+    // picker's own number field is one tap away.
+    onFail(String((err && err.message) || "it could not be loaded"));
+  });
+
+  return {
+    setPlace(p) {
+      const q = validPlace(p);
+      if (!q) return;
+      at = q;
+      if (!map || !live) return;
+      // Asked BEFORE the drop, because the drop is what moves the pin and answers this.
+      const fresh = !(shown && shown.lat === q.lat && shown.lng === q.lng);
+      drop(q);
+      if (fresh) map.setView([q.lat, q.lng], (map.getZoom && map.getZoom()) || 16);
+    },
+    setDraggable,
+    destroy,
+  };
+}

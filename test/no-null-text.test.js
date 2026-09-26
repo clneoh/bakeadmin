@@ -128,6 +128,11 @@ Object.defineProperty(globalThis, "navigator", {
   value: { language: "en-US", clipboard: null }, configurable: true, writable: true,
 });
 globalThis.fetch = () => Promise.reject(new Error("offline in tests"));
+// A map measures its own box once the card has settled, in a rAF — the v201 door block is
+// the first thing in this file to build one. The tests below reach it through a recording
+// Leaflet stub (`window.L`), and the stub's map is only built inside this callback's run, so
+// without it the whole path would be unreachable here.
+globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 
 const RealDate = globalThis.Date;
 class MockDate extends RealDate {
@@ -598,4 +603,365 @@ test("a second lookup that finds nothing takes the first one's matches off the c
     globalThis.fetch = real;
   }
   assert.deepEqual(stray, []);
+});
+
+// ── the door the driver is sent to (v201, 26 Sep 2026) ────────────────────
+//
+// Her report: "there is no customer enter address in the form, so there is no way we can
+// check what customer pin is right, when in that window." The box she means is the Note /
+// tracking one, and the reason a wrong pin costs her there is that a courier is given a
+// POINT, not an address — and that box is where the trip is priced and booked.
+//
+// The block is asserted rather than merely read, for the reason this whole file exists: the
+// last card on this section written without a test reached her phone with nothing on it at
+// all (v195). And it is asserted THROUGH A RECORDING LEAFLET, because the two things that
+// matter most about it — that the map is read-only until she presses the button, and that a
+// moved pin is a WRITE — are invisible from the outside otherwise.
+
+// A handler object, the way Leaflet really models these: `dragging`, `touchZoom`,
+// `doubleClickZoom` and `boxZoom` are things that get switched on and off, not options.
+const toggle = (name) => ({
+  name, on: false, enable() { this.on = true; }, disable() { this.on = false; },
+});
+
+// Records what the map was ASKED FOR. Not an approximation of Leaflet — every assertion
+// below reads one of these recordings, so a call the block stops making is a test that goes
+// red rather than a test that keeps passing over a map that is no longer locked.
+function makeLeaflet() {
+  const rec = { maps: [], views: [], tiles: [], markers: [] };
+  const L = {
+    map(container, opts) {
+      const m = {
+        container, opts, removed: false, sized: 0, handlers: {}, zoom: 16,
+        dragging: toggle("map drag"), touchZoom: toggle("pinch"),
+        doubleClickZoom: toggle("double tap"), boxZoom: toggle("box"),
+        setView(center, zoom) { m.center = center; m.zoom = zoom; rec.views.push({ center, zoom }); return m; },
+        on(evt, cb) { m.handlers[evt] = cb; return m; },
+        // Faithful about the difference that matters here: off() with no arguments lets go
+        // of every handler, off("click", fn) lets go of that one. A stub that ignored the
+        // arguments would leave a tap handler recorded on a map that had been locked again.
+        off(evt, cb) {
+          if (evt === undefined) m.handlers = {};
+          else if (cb ? m.handlers[evt] === cb : true) delete m.handlers[evt];
+          return m;
+        },
+        remove() { m.removed = true; },
+        invalidateSize() { m.sized += 1; },
+        getZoom() { return m.zoom; },
+        getContainer() { return container; },
+      };
+      rec.maps.push(m);
+      return m;
+    },
+    tileLayer(url, opts) {
+      const t = { url, opts, addTo(map) { map.tile = t; return t; } };
+      rec.tiles.push(t);
+      return t;
+    },
+    marker(latlng, opts) {
+      const mk = {
+        // `draggable` is the creation option; `dragging` is the handler that gets switched
+        // on and off afterwards. Both are real Leaflet's own names, and getting them the
+        // wrong way round here is the sort of stub fault that hides a screen doing nothing.
+        latlng: { lat: latlng[0], lng: latlng[1] }, opts, handlers: {},
+        dragging: toggle("marker drag"),
+        addTo(map) { mk.addedTo = map; map.marker = mk; return mk; },
+        on(evt, cb) { mk.handlers[evt] = cb; return mk; },
+        getLatLng() { return { lat: mk.latlng.lat, lng: mk.latlng.lng }; },
+        setLatLng(ll) { mk.latlng = { lat: ll[0], lng: ll[1] }; },
+      };
+      rec.markers.push(mk);
+      return mk;
+    },
+  };
+  return { L, rec };
+}
+
+// Long enough for the loader's microtask, the map's own build and the rAF that measures the
+// box — in that order, which is the order the real phone does them in.
+const settle = async (rounds = 24) => {
+  for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 1));
+};
+
+// A door already known for the customer, as the pin they dropped on the shop page. This is
+// the SUGGESTION path, which is the state a first order from somebody is really in — and it
+// is the one v197 promised never reaches a driver unaccepted.
+const DOOR = { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house", at: "2026-09-25T10:00:00.000Z" };
+const withDoor = () => ({ ...COURIER_ORDER, customerPlace: DOOR });
+
+// The section, with a host-supplied slot OUTSIDE its own node — exactly as both call sites in
+// orders.js build it, and deliberately so: whether the block lands in the slot or gets built
+// inside the section's own folded node is the first thing the first test below checks.
+function mountDoor(state, order) {
+  const doorSlot = createEl("div");
+  const wrap = courierQuoteSection({ state, orders: [order], doorSlot });
+  doc.body.append(doorSlot);
+  doc.body.append(wrap);
+  return { doorSlot, wrap };
+}
+
+function closeDoor({ wrap, doorSlot } = {}) {
+  const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+  if (hide) hide._listeners.click[0]();
+  if (wrap) wrap.parentNode = null;
+  if (doorSlot) doorSlot.parentNode = null;
+}
+
+test("the door block is drawn into the host's slot when the box opens, and not inside the price fold (v201)", async () => {
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let mounted = null;
+  try {
+    mounted = mountDoor(courierState(), withDoor());
+    await settle(4);
+
+    assert.match(mounted.doorSlot.textContent, /The door the driver is sent to/,
+      "the block is on the card before anything is pressed — her answer was 'Always, courier orders'");
+    assert.match(mounted.doorSlot.textContent, /12 Jalan Bunga, 10450 Penang/,
+      "and it names the address the order already carries");
+    assert.match(mounted.doorSlot.textContent, /Sri Bunga guard house/,
+      "and the pin, in the customer's own words for it");
+    assert.match(mounted.doorSlot.textContent, /from the shop page/,
+      "said as the customer's own suggestion, because v197 keeps their pin out of a driver's hands");
+    assert.equal(leaf.rec.maps.length, 1, "the map itself was built, once");
+    assert.equal(leaf.rec.markers[0].latlng.lat, 5.4299, "with its pin on the customer's door");
+
+    // The card's TOP is the host's slot; the section's own node is the folded price panel.
+    // A block built inside the fold would be invisible until she asked for a price — which
+    // is precisely the state her report was about.
+    assert.doesNotMatch(mounted.wrap.textContent, /The door the driver is sent to/,
+      "and the block is NOT inside the section's own node, which is the fold she has to open");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
+test("a pin dragged on the map is written against the customer, and the prices quoted for the old door are cleared (v201)", async () => {
+  signIn();
+  const s = stubChannel();
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    assert.match(mounted.wrap.textContent, /RM 14\.00/, "a price is on the panel to begin with");
+
+    const map = leaf.rec.maps[0];
+    const mk = leaf.rec.markers[0];
+    assert.ok(map && mk, "the map and its pin are up");
+
+    // LOCKED FIRST, and this is the load-bearing half of "Look, and a Move button": the
+    // marker's drag handler is wired at build time, so the guard inside it is the only thing
+    // standing between a stray touch and a customer's kept door moving under her.
+    const before = { ...st.customers[0].place };
+    mk.latlng = { lat: 5.6, lng: 100.5 };
+    mk.handlers.dragend({ target: mk });
+    assert.equal(st.customers[0].place.lat, before.lat, "a drag on the locked map moves nothing");
+    assert.equal(map.handlers.click, undefined, "and a tap on the locked map places nothing");
+    assert.doesNotMatch(mounted.wrap.textContent, /The door moved/, "and nothing is said about a move that did not happen");
+
+    buttonByText(mounted.doorSlot, "Move this pin")._listeners.click[0]();
+    assert.ok(buttonByText(mounted.doorSlot, "Done moving"), "the press now says how to put the card back");
+
+    mk.latlng = { lat: 5.6, lng: 100.5 };
+    mk.handlers.dragend({ target: mk });
+    assert.equal(st.customers[0].place.lat, 5.6, "now the drop is written against the customer");
+    assert.equal(st.customers[0].place.lng, 100.5, "both numbers of it");
+    assert.equal(st.customers[0].place.label, "12 Jalan Bunga",
+      "and the door keeps the words it had — a bare lat/lng would print as two numbers on the ends line and the track card");
+    assert.match(mounted.doorSlot.textContent, /12 Jalan Bunga/, "the caption follows the write");
+
+    assert.doesNotMatch(mounted.wrap.textContent, /RM 14\.00/,
+      "the price quoted for the OLD door is gone — leaving it would price the wrong address");
+    assert.match(mounted.wrap.textContent, /ask again for a price for this spot/,
+      "with a line that says so, rather than silently spending eight requests on a re-ask");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("the door the panel looks up on its way to a price moves the map's pin (v201)", async () => {
+  signIn();
+  const s = stubChannel();
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+    const mk = leaf.rec.markers[0];
+    assert.equal(mk.latlng.lat, 5.4299, "the pin starts on the customer's own suggestion");
+
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+
+    assert.equal(st.customers[0].place.lat, 5.42,
+      "asking for a price looks the address up and KEEPS the point against the customer");
+    assert.equal(mk.latlng.lat, 5.42, "so the pin on the card has to follow it");
+    assert.equal(mk.latlng.lng, 100.33, "both numbers of it");
+    assert.equal(leaf.rec.maps.length, 1,
+      "on the map that was already there — a second one would refetch every tile to say the same thing");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a collect order gets no door block, and a courier order with no point gets no map (v201)", async () => {
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let collected = null;
+  let pinless = null;
+  try {
+    // A collect order is not delivered anywhere, so there is no door to check. The slot is
+    // handed over all the same — the host does not know which kind it is holding.
+    collected = mountDoor(courierState(), { ...COURIER_ORDER, fulfillment: "collect" });
+    await settle(4);
+    assert.equal(collected.doorSlot.children.length, 0, "a collect order gets no door block at all");
+    assert.equal(leaf.rec.maps.length, 0, "and no map is built for it");
+
+    // A courier order with an address and nothing pinned: the words are the door, and a map
+    // with no pin on it is a picture of nothing spending 200 pixels of the card.
+    pinless = mountDoor(courierState(), { ...COURIER_ORDER });
+    await settle(4);
+    assert.match(pinless.doorSlot.textContent, /no point pinned yet/,
+      "the address is shown, and said to be the door the driver is sent to");
+    assert.ok(buttonByText(pinless.doorSlot, "Put this doorstep on the map"),
+      "with the one press that CAN answer it — the address still has to be looked up");
+    assert.equal(leaf.rec.maps.length, 0, "and still no map");
+    assert.equal(byClass(pinless.doorSlot, "door-map").hidden, true,
+      "the empty box is taken out of the way rather than left as a 200px hole");
+  } finally {
+    closeDoor(collected);
+    closeDoor(pinless);
+    delete globalThis.window.L;
+  }
+});
+
+test("a phone that cannot load the map still shows the door, and says why the map is missing (v201)", async () => {
+  // This file's default condition: the fetch stub rejects and the head shim fires every
+  // script's `error` on a microtask, so Leaflet can never arrive. That is a one-bar phone,
+  // and the block still has to be a way to check a door.
+  globalThis.window.L = null;
+  const st = courierState();
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+
+    assert.match(mounted.doorSlot.textContent, /The door the driver is sent to/,
+      "the block is still there");
+    assert.match(mounted.doorSlot.textContent, /Sri Bunga guard house/,
+      "and still names the door — the words are the same fact the map would have drawn");
+    assert.match(mounted.doorSlot.textContent, /The map is not available right now/,
+      "with the missing map said out loud, rather than a blank space she cannot explain");
+    assert.equal(byClass(mounted.doorSlot, "door-map").hidden, true, "and the empty box out of the way");
+    assert.ok(buttonByText(mounted.doorSlot, "Move this pin"),
+      "the press is still offered — the picker reads coordinates as well as addresses");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
+test("the map is read-only until she presses Move this pin (v201)", async () => {
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let mounted = null;
+  try {
+    mounted = mountDoor(courierState(), withDoor());
+    await settle(4);
+    const map = leaf.rec.maps[0];
+    const mk = leaf.rec.markers[0];
+    const box = byClass(mounted.doorSlot, "door-map");
+
+    assert.equal(map.opts.dragging, false, "the map itself does not drag");
+    assert.equal(map.opts.touchZoom, false, "nor pinch");
+    assert.equal(map.opts.doubleClickZoom, false, "nor double-tap");
+    assert.equal(map.opts.boxZoom, false, "nor box");
+    assert.equal(map.opts.zoomControl, false, "and it carries no zoom buttons on a card that is only looking");
+    assert.equal(map.opts.scrollWheelZoom, false, "a wheel passing over it scrolls the card, not the map");
+    assert.equal(mk.opts.draggable, false, "the pin does not drag either");
+    assert.equal(map.handlers.click, undefined, "and a tap on the map places nothing");
+    // Measured once the card settled. A map built while the card is still being laid out
+    // measures zero, draws a corner of one tile and never recovers — see the note on
+    // `.place-map` in app.css. This is the rAF that prevents it.
+    assert.equal(map.sized, 1, "and the box was measured once the card settled, not left at zero");
+    // The dead zone. Leaflet sets `touch-action: none` on its own container, so a locked map
+    // inside a scrolling card would make 200px of that card swallow her finger and leave the
+    // Save button under it feeling unreachable.
+    assert.equal(box.style.touchAction, "pan-y", "a locked map lets the card's own scroll through it");
+
+    buttonByText(mounted.doorSlot, "Move this pin")._listeners.click[0]();
+    assert.equal(map.dragging.on, true, "pressing it turns the map's drag on");
+    assert.equal(map.touchZoom.on, true, "and pinch");
+    assert.equal(map.doubleClickZoom.on, true, "and double-tap");
+    assert.equal(map.boxZoom.on, true, "and box");
+    assert.equal(mk.dragging.on, true, "and the pin's own drag");
+    assert.equal(typeof map.handlers.click, "function", "and a tap becomes a way to place the pin");
+    assert.equal(box.style.touchAction, "none", "the unlocked map takes the gesture for itself, like the picker's");
+
+    buttonByText(mounted.doorSlot, "Done moving")._listeners.click[0]();
+    assert.equal(map.dragging.on, false, "pressing it again locks the map");
+    assert.equal(mk.dragging.on, false, "and the pin");
+    assert.equal(map.handlers.click, undefined, "and takes the tap-to-place away with it");
+    assert.equal(box.style.touchAction, "pan-y", "giving the card its scroll back");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
+test("a redraw of the card leaves the map where she left it (v201)", async () => {
+  signIn();
+  const s = stubChannel();
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+    const mk = leaf.rec.markers[0];
+    assert.equal(leaf.rec.views.length, 1, "the map is aimed at the door once, when it is built");
+
+    // Every one of these is a repaint of an OPEN card, and `paintDoor` hands the current
+    // point back to a map that is already showing it. The fault this catches is subtle
+    // enough to have shipped: `setPlace` re-centred unconditionally, so a repaint threw away
+    // a pan she had made with her own thumb, and a pin she had just dropped jumped back to
+    // the middle of the box from under her finger. Both were found on a real render, not
+    // here — which is the reason this test now exists to hold the fix.
+    buttonByText(mounted.doorSlot, "Move this pin")._listeners.click[0]();
+    assert.equal(leaf.rec.views.length, 1, "unlocking the pin does not re-aim the map at its own pin");
+
+    buttonByText(mounted.doorSlot, "Done moving")._listeners.click[0]();
+    assert.equal(leaf.rec.views.length, 1, "nor does locking it again");
+
+    mk.latlng = { lat: 5.6, lng: 100.5 };
+    mk.handlers.dragend({ target: mk });
+    assert.equal(leaf.rec.views.length, 1,
+      "and the drop she just made does not slide the map out from under her hand");
+
+    // The other half, and it is not the same half: a door the map has never shown IS worth
+    // moving the view for, or the address lookup would resolve a new door and leave her
+    // looking at the old one.
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    assert.equal(leaf.rec.views.length, 2, "the door the lookup finds is the one the map moves to");
+    assert.deepEqual(leaf.rec.views[1].center, [5.42, 100.33], "and it is aimed at the new point");
+    assert.equal(mk.latlng.lat, 5.42, "with the pin on it");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
 });

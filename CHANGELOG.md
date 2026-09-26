@@ -1,8 +1,79 @@
-# Jienluv2bake — change history (v54 → v200)
+# Jienluv2bake — change history (v54 → v201)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**26 Sep 2026 — engine v201, THE COURIER BOX NOW SHOWS THE DOOR (no database step, no redeploy —
+one push). Open an order's Note / tracking box and, for an order that goes by courier, the top of it
+now tells you which door the driver would be sent to: the customer, the address, and a small map
+with the pin on it. You can look at it without pressing anything, and you can move it if it is not
+the door. That is the whole of it — and it is the box you asked about, the one that used to send you
+to Edit for the address, which meant the one place you book a trip was the one place you could not
+check where the van was going.**
+
+**Why this was worth doing, in one line.** A courier is not given an address, it is given a point.
+The pin is the stop the van drives to. A pin that landed on the wrong estate is a delivery you pay
+for and then chase, and until now the only place you could see it was a map screen that threw away
+whatever you had half-typed in this box. So the door moved to the top of the box you were already
+in.
+
+**It is a picture until you say otherwise.** The map opens read-only, which is what you asked for:
+a drag does nothing, a tap does nothing, and pinching does nothing. Press **Move this pin** and that
+same map wakes up — drag the pin, and the moment you let go it is saved against that customer, with
+nothing you had typed beside it thrown away. A second press (**Done moving**) puts it back to a map
+you cannot nudge by accident while reaching past it. If you do not want to drag a small pin with a
+thumb, a tap anywhere on the unlocked map drops it there instead.
+
+**If the customer pinned their own door on the shop page, that is what you see, and the box says
+so.** It reads as their own pin, not as the door the driver is sent to — because it is not one
+until you make it one. Press Move and it becomes the door you keep for them, exactly as it always
+worked, and from then on the line reads as the door you keep for them rather than as their
+suggestion. Nothing they dropped reaches a driver unaccepted.
+
+**Moving the pin clears the prices that were on the screen, and tells you why.** A price belongs to
+the door it was asked for, so a price quoted for the old one would have been a lie in the box you
+book from. The box says, in the line where prices appear, that the door moved and to ask again for
+this spot. It does not quietly re-ask on its own — asking is eight requests, and that has always
+stayed your tap.
+
+**And it still works when the map does not.** On a phone with one bar of signal, or a day when the
+map service itself is having trouble, you get the words instead of the picture: the door named as
+before, the pin's own coordinates so you can still check them, and a line saying the map is not
+available right now. There is always a way to put a doorstep on the map even then, because the pin
+screen can take coordinates as well as an address.
+
+**An order with nothing pinned shows its address and offers to pin one.** No map, because a map
+with no pin on it is a picture of nothing, and it would spend a fifth of the box saying so. And an
+order that is collected rather than delivered gets no door block at all — there is no door to check.
+
+**One thing to know about the Edit form.** It gains the same block, so the customer end has one
+kind of control rather than two. There it sits directly under the address row rather than at the
+very top, because the address on that screen is a draft you are part-way through typing and is not
+the address the driver is sent to — so the check you can trust sits beside the real one rather than
+floating above a box you have not saved yet.
+
+**Nothing here can stop you taking a delivery, and that is deliberate.** An order with no pin, or a
+pin you have never looked at, prices and books exactly as it did before. This is a way to look and a
+way to fix; it is not a step you have to pass.
+
+**The map stays where you leave it.** If you drag the map across to look at the next street, nothing
+on the card will pull it back. And once you move the pin, it lands where you let go of it and stays
+there, rather than sliding back to the middle of the box. This was wrong in the first build of this
+version and was caught by dragging the map on a real render and watching the box snap back the moment
+anything redrew. It is the same rule the planner already follows: a redraw must never move you. The
+one thing that __does__ move the map is the address lookup finding a door the map has not shown yet,
+because that is a door you would otherwise not be looking at.
+
+**Seven new tests, and ten faults put back to prove they work.** The faults included the block being
+built inside the price fold instead of at the top of the box (where it would be invisible until you
+asked for a price — the exact fault you reported), a dragged pin never being saved, a dragged pin
+leaving the old door's prices on the screen, the map not following the pin the panel looks up on its
+way to a price, the block being drawn for collect orders, a missing map being left as a blank space
+with no word about why, the map opening already draggable, a locked map swallowing the card's scroll
+on a phone, the map never being measured once the card had settled, and every redraw pulling the map
+back to the pin. All ten were caught by the tests that name them, and each was injected, seen to
+fail, and removed again with the files proved byte-identical. The whole suite is 1711 tests.
 
 **26 Sep 2026 — engine v200, THE SETTINGS THAT STAYED BEHIND NOW TRAVEL (no database step, no
 redeploy — one push). Five things you set on one phone never reached the other: the two lists on

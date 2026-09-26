@@ -57,7 +57,7 @@ import {
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
-import { openPlacePicker } from "../place_map.js";
+import { mountPinMap, openPlacePicker } from "../place_map.js";
 
 // The price section for a trip, as a node to drop into a card.
 //
@@ -79,13 +79,19 @@ import { openPlacePicker } from "../place_map.js";
 // publishes the customer's card. A booking is therefore saved the moment it happens and
 // is NOT discardable by closing the card without pressing Save.
 //
+// `doorSlot` is the node the door block is drawn into, and the HOST hands it in because the
+// host owns the card's layout: the door belongs at the TOP of the box, above the note, and
+// everything else this section draws belongs under the charge. One section, two places on
+// the card, and the card says which is which. No slot, no block — the section is otherwise
+// exactly what it was.
+//
 // `onCollected(order)` is called on the ONE check that first reads the trip as collected,
 // BEFORE `onCommit` runs — so the status the host moves and the trip it stamps leave in
 // the same save and the same publish. This section does not move the status itself: what
 // an order's status means is the order's own business, and this file's job is to tell the
 // host the fact and let it decide. It is a TRANSITION and not a state (see `commit`).
 export function courierQuoteSection({
-  state, orders, onUseFee = null, onCommit = null, onCollected = null,
+  state, orders, onUseFee = null, onCommit = null, onCollected = null, doorSlot = null,
 }) {
   const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
   const first = list[0] || null;
@@ -170,6 +176,186 @@ export function courierQuoteSection({
     }, 1000);
   }
 
+  // ── the door this order is delivered to (v201, 26 Sep 2026) ────────────
+  //
+  // Her report, in so many words: "there is no customer enter address in the form, so
+  // there is no way we can check what customer pin is right, when in that window." She
+  // means the Note / tracking box, and she is right — the box's own help text ends by
+  // saying the address is "under Edit". The reason that now costs her: a courier is given
+  // a POINT, not an address, and this box is where the trip is priced and booked. A wrong
+  // door caught anywhere else is caught too late.
+  //
+  // HER TWO ANSWERS ARE THE DESIGN (26 Sep 2026). "Look, and a Move button": the map is
+  // read-only until she presses [Move this pin], and then the SAME map takes a drag and
+  // saves the moment she lets go — no second card and nothing typed beside it thrown away,
+  // which is what the old doorstep button cost her. "Always, courier orders": it is drawn
+  // with the box, not behind the price fold.
+  //
+  // IT IS NOT A GATE, and that is the standing rule for anything about a door. An order
+  // whose door is unpinned, or pinned somewhere she has not looked at, prices and books
+  // exactly as it always did. This is a way to LOOK and a way to FIX, and nothing here can
+  // stop her taking a delivery.
+  let doorBox = null;
+  let doorWords = null;
+  let doorMapBox = null;
+  let doorBtn = null;
+  let doorHandle = null;
+  // Read-only until she says otherwise — see mountPinMap. It is reset to locked every time
+  // the block is rebuilt, so a card she opens is never already in "move" mode.
+  let doorLocked = true;
+  // Assigned by build(), because only build() knows about the prices. Before the fold has
+  // ever been opened there are no prices and nothing to say.
+  let afterDoorMove = () => {};
+
+  const isCourierOrder = String((first && first.fulfillment) || "") === "courier";
+
+  // A price on screen belongs to the door it was asked for. Moving the pin cannot leave
+  // those numbers where they are — and it does not silently re-ask either: a re-ask is
+  // eight requests and this file's rule is that it stays her tap. So they go, and the line
+  // where prices appear says why.
+  function invalidatePrices() {
+    quotes = [];
+    failed = [];
+    pricedFor = "";
+    pricedTrip = null;
+    afterDoorMove();
+  }
+
+  // The door the driver is actually sent to, falling back to the pin the CUSTOMER dropped
+  // on the shop page — which is a SUGGESTION and is drawn as one. v197's promise is
+  // unchanged: their pin never reaches a driver until she takes it up.
+  function doorSpot() {
+    return dropPlaceOf(state, first) || customerPlaceOf(first);
+  }
+
+  // The picker, for the one case a drag cannot answer: there is no point at all to drag,
+  // and the address has to be looked up. That card is a pop-up of its own, so it REPLACES
+  // this one — a known and stated cost, and the only place in this section that destroys
+  // the card. It is worth paying once per customer: after it, the pin exists and every
+  // other change is a drag on a card that stays.
+  function putDoorstep() {
+    const kept = dropPlaceOf(state, first);
+    const suggested = customerPlaceOf(first);
+    openPlacePicker({
+      state,
+      title: `${String(first.customerName || "The customer").trim()}'s doorstep`,
+      // With no doorstep of hers yet, the map opens ON the customer's pin rather than on
+      // the typed address — they were standing at the door when they dropped it.
+      hint: !kept && suggested
+        ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door, and it is kept against them when you keep it."
+        : "Look the address up, then drag the pin to the exact door. It is remembered for this customer.",
+      address: dropAddress(first),
+      start: kept || suggested,
+      onPick: (spot) => {
+        setDropPlace(state, first, spot);
+        // There is nothing left on this card to repaint — the picker replaced it. What
+        // matters is that the pin is PERSISTED: a door saved on this phone and not synced
+        // is a door the other phone prices the trip at, by hand.
+        if (onCommit) onCommit(first);
+      },
+    });
+  }
+
+  // Draws the whole block, and is safe to call any number of times: every line follows the
+  // state, and the map is only ever BUILT once.
+  function paintDoor() {
+    if (!doorBox || !isCourierOrder) return;
+
+    if (!doorWords) {
+      doorWords = el("p", { class: "card-sub", style: "margin:6px 0 0" });
+      doorMapBox = el("div", { class: "place-map door-map", hidden: true });
+      doorBtn = button("Move this pin", () => {
+        const spot = doorSpot();
+        // Nothing to drag, or no map to drag it on (the tiles never came): the picker is
+        // the only way left and it is a working one — it reads coordinates as well as
+        // addresses, so a phone that cannot hold a map is not a phone that cannot pin.
+        if (!spot || !doorHandle) { putDoorstep(); return; }
+        // Unlock, drag, then press again to put the card back the way she found it. A map
+        // left taking drags is a map that can be nudged while she reaches past it.
+        doorLocked = !doorLocked;
+        doorHandle.setDraggable(!doorLocked);
+        paintDoor();
+      }, "ghost small");
+      // ONE node, never an array: replaceChildren is variadic, and an array handed to it
+      // prints as "[object HTMLParagraphElement],…" with nothing left to press — the fault
+      // this card shipped at v195.
+      doorBox.replaceChildren(
+        el("div", { class: "field", style: "margin:0" },
+          el("label", {}, "The door the driver is sent to"),
+          doorWords,
+          doorMapBox,
+          el("div", { class: "btn-row", style: "margin-top:10px" }, doorBtn)));
+    }
+
+    const kept = dropPlaceOf(state, first);
+    const spot = kept || customerPlaceOf(first);
+    const addr = dropAddress(first);
+    const who = String(first.customerName || "the customer").trim() || "the customer";
+
+    // What she reads. Three states and each one says which it is, because the difference
+    // between "the door I keep for them" and "the pin they dropped themselves" is the whole
+    // of what a doorstep is — and the second must never read as the first.
+    doorWords.textContent = !spot
+      ? (addr
+        ? `${addr} — no point pinned yet, so the driver is sent to that address.`
+        : "This order has no delivery address yet, and no point pinned. The picker below can pin a point on its own.")
+      : kept
+        ? `${addr ? `${addr} — ` : ""}the door you keep for ${who}: ${fmtPlace(spot)}.`
+        : `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page: ${fmtPlace(spot)}. Not yet the door the driver is sent to.`;
+
+    if (doorBtn) {
+      doorBtn.textContent = !spot
+        ? "Put this doorstep on the map"
+        : doorLocked ? "Move this pin" : "Done moving";
+    }
+
+    if (!spot) {
+      // A map with no pin on it is a picture of nothing, and it would spend 200 pixels of
+      // this card saying so. No point, no map.
+      if (doorHandle) { doorHandle.destroy(); doorHandle = null; }
+      doorMapBox.hidden = true;
+      return;
+    }
+
+    doorMapBox.hidden = false;
+    // Idempotent. The map is built ONCE, and every later paint moves the pin on the map
+    // that is already there: rebuilding it would re-fetch every tile to say the same thing,
+    // and a repaint arriving mid-drag would take the pin out from under her finger.
+    if (doorHandle) { doorHandle.setPlace(spot); return; }
+
+    doorHandle = mountPinMap(doorMapBox, {
+      place: spot,
+      onMove: (moved) => {
+        // A drag gives a point and no words, and a point with no label reads as two bare
+        // numbers everywhere this door is said out loud — the ends line, the track card.
+        // So the words are read from the door AT THE MOMENT OF THE DRAG rather than taken
+        // once when the map was built: the pin the panel looked up on its way to a price
+        // overwrites what this door is called, and a label captured at mount would quietly
+        // put the old name back on the next drag.
+        const words = (dropPlaceOf(state, first) || {}).label || dropAddress(first);
+        setDropPlace(state, first, { lat: moved.lat, lng: moved.lng, label: words });
+        // The host owns persistence for the card it built, exactly as it does for a booking.
+        if (onCommit) onCommit(first);
+        paintDoor();
+        invalidatePrices();
+      },
+      onFail: (why) => {
+        // No map — and the door is still checkable. The coordinates above are the same fact
+        // a map would have drawn, and the picker's number field is one tap away.
+        doorHandle = null;
+        doorMapBox.hidden = true;
+        doorWords.textContent += ` (The map is not available right now — ${why}. The point above is still the door.)`;
+      },
+    });
+  }
+
+  // Drawn on the card the moment the box opens, for a courier order, whether or not she
+  // ever asks for a price. This runs while the host is still assembling the card it belongs
+  // to, which is why nothing here may need a measured box: the map is built inside the
+  // loader's callback, and by then the card is on the page.
+  doorBox = doorSlot || null;
+  paintDoor();
+
   // ── built once, on the first open ──────────────────────────────────────
   function build() {
     const endsLine = el("p", { class: "card-sub", style: "margin:0 0 10px" });
@@ -184,30 +370,6 @@ export function courierQuoteSection({
         start: (state.settings && state.settings.pickupPlace) || null,
         onPick: (spot) => {
           setPickupPlace(state, spot);
-          paintEnds();
-          ask();
-        },
-      });
-    }, "ghost small");
-
-    const dropBtn = button("Put this doorstep on the map", () => {
-      const kept = dropPlaceOf(state, first);
-      const suggested = customerPlaceOf(first);
-      openPlacePicker({
-        state,
-        title: `${String(first.customerName || "The customer").trim()}'s doorstep`,
-        // With no doorstep of her own yet, the map OPENS ON the customer's pin rather
-        // than on the typed address — the customer was standing at the door when they
-        // dropped it, so it is the best answer anyone has. When she already keeps a
-        // door, the map opens on HERS: the offer line is where the customer's pin is
-        // taken up, and this map is not the place to change her mind quietly.
-        hint: !kept && suggested
-          ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door, and it is kept against them when you keep it."
-          : "Look the address up, then drag the pin to the exact door. It is remembered for this customer.",
-        address: dropAddress(first),
-        start: kept || suggested,
-        onPick: (spot) => {
-          setDropPlace(state, first, spot);
           paintEnds();
           ask();
         },
@@ -264,13 +426,20 @@ export function courierQuoteSection({
         drop ? `to ${fmtPlace(drop)}` : `to ${who} — doorstep not pinned`,
         drop || dropAddress(first) ? "" : "(this order has no address yet)",
       ].filter(Boolean).join(" ");
-      // The doorstep button stays on screen once a pin exists, and that is the point: a
-      // pin that landed on the wrong estate is worse than no pin, and she is the only
-      // one who knows which it is. So the same button reads "Change" rather than going
-      // away and leaving her no way back to the map.
-      dropBtn.textContent = drop ? "Change this doorstep" : "Put this doorstep on the map";
-      endsRow.replaceChildren(...[up ? null : pickupBtn, dropBtn].filter(Boolean));
+      // The door block at the top of the card is the customer end's one control now (v201).
+      // It stays on screen once a pin exists and that is the point: a pin that landed on
+      // the wrong estate is worse than no pin, and she is the only one who knows which it
+      // is — so it reads [Move this pin] rather than going away and leaving her no way back
+      // to the map. This row keeps the bakery's own end, which is a setup act rather than a
+      // per-trip one and belongs with the prices.
+      endsRow.replaceChildren(...[up ? null : pickupBtn].filter(Boolean));
       paintOffer();
+      // The map follows the pin. This is the hook that matters most: on an order that has
+      // never been pinned, `ask()` looks the address up and keeps the answer against the
+      // customer, so the door block that was showing "no point pinned yet" is holding a
+      // point a moment later. Repainted from here, because every route that changes a door
+      // already ends at paintEnds.
+      paintDoor();
     }
 
     // ── the trip this order is on ────────────────────────────────────────
@@ -746,6 +915,18 @@ export function courierQuoteSection({
         : "No vehicle could be priced for this trip.";
       startClock();
     }
+
+    // What a moved pin does to this half of the card. Assigned here because only build()
+    // knows about the prices — and it is deliberately NOT "ask again": the numbers on screen
+    // were quoted for the door she has just left, so they go, and this is the sentence that
+    // sends her back to the one button that produces new ones. The section's own rule, from
+    // the top of this file: a re-ask is eight requests and it stays her tap.
+    afterDoorMove = () => {
+      paintEnds();
+      paintQuotes();
+      paintWhen();
+      statusLine.textContent = "The door moved — ask again for a price for this spot. The prices that were here were quoted for the old one.";
+    };
 
     dayInput.addEventListener("input", paintWhen);
     timeInput.addEventListener("input", paintWhen);
