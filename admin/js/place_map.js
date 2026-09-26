@@ -69,15 +69,25 @@ export function loadLeaflet() {
 // The map screen.
 //
 //   state    the app's state — the lookup goes through the signed-in channel
-//   address  the words she already has for this door: what is looked up, and the
-//            label the pin wears when the geocoder had no name of its own
+//   address  the words she already has for this door: what is looked up, and what
+//            the pin is NAMED when she keeps it (see below)
 //   start    a point already saved for this door, if there is one
 //   onPick   called with { lat, lng, label } — exactly what setPickupPlace and
 //            setDropPlace take, so no caller has to reshape it
 //
+// WHAT THE KEPT PIN IS CALLED (v207). The address she has, not the geocoder's row. A row is
+// a FRAGMENT — "Taman Sri Nibong, George Town", a street and a town and no house number — and
+// it is a good enough answer to "roughly where is this" and a hopeless answer to "which door".
+// Kept as the pin's name it read as a SECOND, contradicting name beside the address on her
+// courier card, which is the "pin still wrong" she has now reported three times. So the row's
+// wording now lives on the line under the button and in the rows themselves — where she is
+// choosing between doors and a fragment is exactly what she wants — and what reaches
+// setDropPlace/setPickupPlace is the address. Only when she has no address at all do the
+// geocoder's own words stand, because then they are the only name there is. Same split, same
+// reason, as store/geo.js's placeForOrder on the shop side.
+//
 // Returns close(), like every other pop-up in the app.
 export function openPlacePicker({ state, title = "Put the pin on the map", hint = "", address = "", start = null, onPick }) {
-  let label = String(address || "").trim();
   let chosen = validPlace(start);
   let map = null;
   let marker = null;
@@ -140,6 +150,16 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     const findStatus = say("");
     findStatus.hidden = true;
 
+    // ── what the geocoder answered, and what the door is called ───────────
+    // TWO NAMES, DELIBERATELY DIFFERENT (v207). `saidPlace` is how the lookup's own answer is
+    // reported on the line and in the rows — the fragment, which is exactly right there. The
+    // door's own name is `doorName`, and it is the address she has, read from the box AT THE
+    // MOMENT SHE KEEPS IT rather than when the card opened (she may type it into the box while
+    // this card is up). Only when the box is empty does the geocoder's wording stand in — a
+    // door with no address to name it still needs some words — and only then.
+    const saidPlace = (p) => p.label || `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+    const doorName = () => String(addrInput.value || "").trim() || foundWords;
+
     // ── the other matches, when the lookup found more than one ───────────
     // The lookup used to keep whichever candidate the service happened to put first,
     // and she had to notice the pin was wrong and drag it to the right street. The
@@ -156,6 +176,10 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     // would be clipped at its edge.
     const suggPanel = el("div", { class: "sugg-panel", hidden: true });
     let found = [];
+    // What the geocoder last called a place — the WORDS ON THE LINE AND THE ROWS, and never
+    // the name of the door (v207, see the header). Kept out here so the fallback below can
+    // reach it: a door with no address to name it wears these.
+    let foundWords = "";
 
     // Which row the pin is on, worked out from the pin rather than remembered when a row
     // was tapped. A stored index would go on claiming a row after she dragged the pin off
@@ -205,8 +229,11 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     function chooseMatch(i) {
       const p = found[i];
       if (!p) return;
-      label = p.label || addrInput.value.trim();
-      findStatus.textContent = `Found: ${label}`;
+      // The row she tapped MOVES THE PIN and does not rename the door (v207). It is an
+      // answer to "which street is it", and the door's name is the address — a tap that
+      // rewrote that name into the row's fragment is the report this version answers.
+      foundWords = p.label || "";
+      findStatus.textContent = `Found: ${saidPlace(p)}`;
       // put() is the one route that moves the pin, so the marker, the centre, the
       // coordinates line and the enabled "Use this spot" all move together by
       // construction — and it repaints this list, which re-derives the tick.
@@ -234,13 +261,17 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
         return;
       }
       found = out.places || [out.place];
-      label = out.place.label || text;
+      // The geocoder's answer, reported on the line and in the rows. NOT put on the door:
+      // `doorName` reads the address box when she keeps the spot (v207). The fallback is the
+      // text she typed rather than "", because a geocoder that answers with a bare point has
+      // no words of its own to lend — and a door left unnamed prints as two bare numbers.
+      foundWords = out.place.label || text;
       // The line and the tick have to agree, so when there is a list the line says so —
       // otherwise four rows appear under a sentence that mentions one, and the only way
       // to find out they exist is to notice them.
       findStatus.textContent = found.length > 1
-        ? `Found: ${label} — and ${found.length - 1} more below`
-        : `Found: ${label}`;
+        ? `Found: ${saidPlace(out.place)} — and ${found.length - 1} more below`
+        : `Found: ${saidPlace(out.place)}`;
       put(out.place, 17);
       paintSuggestions();
     });
@@ -250,7 +281,7 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     const useBtn = button("Use this spot", () => {
       const p = validPlace(chosen);
       if (!p) return;
-      onPick({ lat: p.lat, lng: p.lng, label });
+      onPick({ lat: p.lat, lng: p.lng, label: doorName() });
       toast("Pin saved");
       closePopup();
     }, "primary");
@@ -272,7 +303,6 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
         numStatus.textContent = "That does not look like a pair of coordinates or a map link.";
         return;
       }
-      label = label || addrInput.value.trim();
       numStatus.textContent = "Pinned from your numbers — check it on the map if one is showing.";
       put(p, 17);
     }, "ghost");

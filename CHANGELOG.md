@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v206)
+# Jienluv2bake — change history (v54 → v207)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v207, THE DOOR IS NOW CALLED BY ITS ADDRESS, NOT BY HALF AN ADDRESS
+FROM THE MAP (no database step, no redeploy — one push). The pin on the courier card.**
+
+Your report, three times: the pin still wrong. Read on the card, the one door was getting
+__two names__, and they did not agree:
+
+   12 Jalan Bunga, 10450 Penang — the door you keep for Mei Ling: Taman Sri Nibong, George Town.
+
+The first is the address you and the customer both use. The second was the name the map's
+lookup had left on that door the first time it was looked up — and a lookup's answer is only a
+row off the map: a street and a town, no house number. So one door was being called by its
+address and by half of a different one.
+
+__A door is now named with the address it was looked up for.__ When your app looks the address
+up on its way to a delivery price, it keeps the __point__ the map found and the __words__ from
+the order — your address — instead of the map's row. The same is true when you press "Look it
+up" in the pin window and keep the spot: the pin moves to the map's point, and the door is named
+with the address you have. Where an order carries no address at all, the words the door already
+has still stand — it is never left as two bare numbers.
+
+Old orders are fixed too, without touching a single record of yours: because the card now says
+the door with the address on the order, a door that was saved with a map's row for a name reads
+correctly from the moment this version is on your phone.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. The engine on your
+**More** screen reads **Engine v207** once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v206, THE MAILING ADDRESS NO LONGER ASKS TO BE TYPED ON EVERY PHONE (no
 database step, no redeploy — one push). One sentence on More > Settings was telling you something

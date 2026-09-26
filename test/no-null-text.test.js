@@ -149,6 +149,9 @@ const { courierQuoteSection } = await import("../admin/js/views/courier_quote.js
 // nodes rather than a single one.
 const { showPopup } = await import("../admin/js/ui.js");
 const { openPlacePicker } = await import("../admin/js/place_map.js");
+// The join key tying an order to a person's saved profile — used below to plant a door she
+// keeps directly into the scenario, so a card can be read without a lookup first.
+const { keyOf } = await import("../admin/js/customers.js");
 
 const all = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); all(c, out); }
@@ -772,7 +775,11 @@ test("a pin dragged on the map is written against the customer, and the prices q
     mk.handlers.dragend({ target: mk });
     assert.equal(st.customers[0].place.lat, 5.6, "now the drop is written against the customer");
     assert.equal(st.customers[0].place.lng, 100.5, "both numbers of it");
-    assert.equal(st.customers[0].place.label, "12 Jalan Bunga",
+    // The WORDS are the order's address, not the geocoder's row (v207): the panel kept this
+    // door on its way to a price, and since v207 it is named with the address it was looked
+    // up for. The point is that a drag keeps WHATEVER words the door had — a bare lat/lng
+    // would print as two numbers on the ends line and the run row.
+    assert.equal(st.customers[0].place.label, "12 Jalan Bunga, 10450 Penang",
       "and the door keeps the words it had — a bare lat/lng would print as two numbers on the ends line and the track card");
     assert.match(mounted.doorSlot.textContent, /12 Jalan Bunga/, "the caption follows the write");
 
@@ -886,6 +893,137 @@ test("a pin named with words that are NOT the address still says which spot it i
     const said = mounted.doorSlot.textContent;
     assert.match(said, /12 Jalan Bunga, 10450 Penang — Mei Ling's own pin from the shop page: Sri Bunga guard house/,
       "the address, then the pin, then what the pin calls itself — three facts, none repeated");
+  } finally {
+    closeDoor(mounted);
+    delete globalThis.window.L;
+  }
+});
+
+// ── the door's NAME vs the geocoder's ROW (v207) ──────────────────────────
+//
+// Her report, three times over: "pin still wrong". Measured on the card, the one door read
+// "12 Jalan Bunga, 10450 Penang — the door you keep for Mei Ling: Taman Sri Nibong, George
+// Town" — the address she and the customer both use, and then a SECOND name for the same
+// door, disagreeing with it. That second name is not a name: it is the row the geocoder
+// answered with, and a row is a fragment — a street and a town, no house number. So the
+// POINT is the geocoder's and the WORDS are the address on the order. Three tests, one per
+// place that named a door with the row: the price panel's own lookup, the picker's press,
+// and the sentence the card draws.
+
+test("the door the panel looks up on its way to a price is named with the ADDRESS, not the geocoder's row (v207)", async () => {
+  signIn();
+  const s = stubChannel();
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+    assert.match(mounted.doorSlot.textContent, /Sri Bunga guard house/,
+      "to begin with the door is the customer's own suggestion, in their own words");
+
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+
+    // The geocoder's stub answers "12 Jalan Bunga" — a fragment, and NOT the order's address
+    // ("12 Jalan Bunga, 10450 Penang"). Its POINT is kept; its WORDS are not.
+    assert.equal(st.customers[0].place.lat, 5.42, "the point on the door is the geocoder's");
+    assert.equal(st.customers[0].place.label, "12 Jalan Bunga, 10450 Penang",
+      "and the words kept for it are the address on the order");
+    assert.notEqual(st.customers[0].place.label, "12 Jalan Bunga",
+      "specifically NOT the geocoder's row, which is the fragment this version stops keeping");
+
+    const said = mounted.doorSlot.textContent;
+    assert.match(said, /12 Jalan Bunga, 10450 Penang — the door you keep for Mei Ling\./,
+      "her card says the door she keeps with one name for it: the address, and who it is for");
+    assert.equal(said.split("12 Jalan Bunga, 10450 Penang").length - 1, 1,
+      "named exactly ONCE — a second, disagreeing name is the report she made three times");
+    assert.doesNotMatch(said, /Sri Bunga guard house/,
+      "and the suggestion's name is gone, because the door is now hers, kept from the lookup");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a lookup's answer moves the pin but does NOT rename the door — the address she typed is kept (v207)", async () => {
+  signIn();
+  const ADDRESS = "12 Jalan Bunga, 10450 Penang";
+  const s = stubGeocode({ ok: true, place: { lat: 5.4, lng: 100.3, label: "Taman Sri Nibong, George Town" } });
+  let close = null;
+  let picked = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: ADDRESS, onPick: (p) => { picked = p; } });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.match(body.textContent, /Found: Taman Sri Nibong, George Town/,
+      "the geocoder's own answer is still reported on the line — she has to be able to check it");
+    buttonByText(body, "Use this spot")._listeners.click[0]();
+
+    assert.ok(picked, "the spot is handed over");
+    assert.equal(picked.lat, 5.4, "on the geocoder's point");
+    assert.equal(picked.lng, 100.3, "both numbers of it");
+    assert.equal(picked.label, ADDRESS,
+      "but NAMED with the address she typed, never the geocoder's fragment");
+  } finally {
+    if (close) close();
+    s.restore();
+  }
+});
+
+test("a picker whose address box is emptied still names the door with the geocoder's answer (v207)", async () => {
+  signIn();
+  const s = stubGeocode({ ok: true, place: { lat: 5.4, lng: 100.3, label: "Taman Sri Nibong, George Town" } });
+  let close = null;
+  let picked = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: "12 Jalan Bunga", onPick: (p) => { picked = p; } });
+    await new Promise((r) => setTimeout(r, 0));
+    const body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    // She empties the box after the lookup — the address was not the one she wants this door
+    // called by, or she is pinning for somebody who gave coordinates only. The door still has
+    // to be named something, and the geocoder's last answer is the only name left standing;
+    // a door called "" prints as two bare numbers everywhere it is said out loud.
+    const addrInput = all(body).find((n) => String(n.className).includes("input"));
+    addrInput.value = "";
+    buttonByText(body, "Use this spot")._listeners.click[0]();
+
+    assert.ok(picked, "the spot is handed over");
+    assert.equal(picked.label, "Taman Sri Nibong, George Town",
+      "with no address in the box, the geocoder's answer is the fallback name for the door");
+  } finally {
+    if (close) close();
+    s.restore();
+  }
+});
+
+test("a door with no address to name it still wears the words it has (v207)", async () => {
+  globalThis.window.L = null;
+  // The fallback half of the rule, and it must not be lost to the fix above. The lookup names
+  // a door only with an address it was looked up for, so where the order carries NO address
+  // the stored words are the only name the door has and they stand. Reached by planting the
+  // kept door straight into the scenario, which is the state a drag on an addressless order
+  // leaves — courier_quote.js's onMove keeps `dropPlaceOf().label || dropAddress`.
+  const st = courierState();
+  st.customers = [{
+    id: "c1", key: keyOf(COURIER_ORDER), name: "Mei Ling", whatsapp: "60123456789",
+    place: { lat: 5.42, lng: 100.33, label: "Taman Sri Nibong, George Town" },
+  }];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, { ...COURIER_ORDER, address: "" });
+    await settle(4);
+    assert.match(mounted.doorSlot.textContent, /Taman Sri Nibong, George Town — the door you keep for Mei Ling\./,
+      "with no address to name it, the words the door already has are what she reads");
   } finally {
     closeDoor(mounted);
     delete globalThis.window.L;

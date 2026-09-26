@@ -295,12 +295,26 @@ export function courierQuoteSection({
     // What she reads. Three states and each one says which it is, because the difference
     // between "the door I keep for them" and "the pin they dropped themselves" is the whole
     // of what a doorstep is — and the second must never read as the first.
+    //
+    // AND THE DOOR SHE KEEPS IS SAID WITH THE ADDRESS ON THE ORDER (v207), which is the one
+    // wording change here. Her report, three times over: "the pin still wrong". Measured on
+    // this card, the line used to read "12 Jalan Bunga, 10450 Penang — the door you keep for
+    // Mei Ling: Taman Sri Nibong, George Town" — the address she and the customer both use,
+    // and then a SECOND name for the same door, disagreeing with it. That second name is not
+    // a name at all: it is the row the geocoder answered with when the door was first looked
+    // up, and a row is a FRAGMENT — a street and a town, no house number (the same fact v205
+    // settled for the customer's own pin, and see courier_place.js splitLabel for why the
+    // fragment has no door in it). A door she keeps is the point for an address, so the
+    // address is what it is called; where the order has none, the stored words are the only
+    // name there is and they stand. The customer's own pin keeps its own words when they
+    // differ, because THOSE words are the customer's own address (v205) — a fact from them,
+    // not a note of this app's.
     doorWords.textContent = !spot
       ? (addr
         ? `${addr} — no point pinned yet, so the driver is sent to that address.`
         : "This order has no delivery address yet, and no point pinned. The picker below can pin a point on its own.")
       : kept
-        ? `${addr ? `${addr} — ` : ""}the door you keep for ${who}: ${fmtPlace(spot)}.`
+        ? `${addr || fmtPlace(spot)} — the door you keep for ${who}.`
         : `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page${
           spot.label && spot.label !== addr ? `: ${fmtPlace(spot)}` : ""
         }. Not yet the door the driver is sent to.`;
@@ -868,7 +882,15 @@ export function courierQuoteSection({
           statusLine.textContent = `${found.reason} Nothing has been priced.`;
           return;
         }
-        setDropPlace(state, first, found.place);
+        // THE DOOR IS KEPT NAMED WITH THE ADDRESS IT WAS LOOKED UP FOR (v207), and this
+        // is the line that matters most because it fires BY ITSELF — she presses "Get a
+        // delivery price" and the door is found, kept and named without her choosing
+        // anything. It used to keep `found.place` whole, which meant the name it kept was
+        // whatever the geocoder called the place: a row, a fragment, no house number. Every
+        // door this app has ever pinned for her on the way to a price carries one. So the
+        // POINT is the geocoder's and the WORDS are hers, which is exactly the split
+        // store/geo.js's placeForOrder makes on the shop side.
+        setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
         paintEnds();
       }
 
