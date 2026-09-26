@@ -191,6 +191,73 @@ test("goTo ignores an off-planet point and moves for a real one (O01)", async ()
   assert.deepEqual(rec.views[rec.views.length - 1].center, [5.4166, 100.3311]);
 });
 
+// ── aiming the map before it is up (v202) ──────────────────────────────────
+//
+// Until v202 a `goTo` that arrived while the CDN was still fetching was a silent no-op,
+// and this file's own comment said so. That was true and it was also a defect nobody had
+// hit: the shop had no way to aim the map except by opening it. The typed-address lookup
+// (store/lookup.js) made it reachable — the box can already be open and still loading when
+// the customer taps an address they typed — and a dropped aim there is not a no-op the
+// customer never notices: the map finishes loading on the OLD point, `put(at)` fires
+// `onMove` for it, and the pin they just chose is silently written over. That is the
+// class of fault this project hunts, so the aim is remembered.
+
+test("a point aimed at the map BEFORE it is up is where it opens — the tap is not thrown away", async () => {
+  const { L, rec } = makeLeaflet();
+  const { host } = setup({ plan: { delayMs: 5, L } });
+  const { showPinMap } = await freshPinMap();
+
+  const moved = [];
+  const handle = showPinMap(host, { start: { lat: 5.42, lng: 100.33 }, onMove: (p) => moved.push(p) });
+  // The customer taps an address the lookup found, while the CDN is still fetching. The
+  // point they tapped is 5.4166,100.3311; the point the box opened with was 5.42,100.33.
+  handle.goTo({ lat: 5.4166, lng: 100.3311 });
+
+  await tick(40);
+
+  assert.equal(rec.maps.length, 1, "the map was built");
+  assert.deepEqual(rec.views[0].center, [5.4166, 100.3311],
+    "and it opened on the address they chose, not on the one the box started with");
+  assert.equal(rec.views[0].zoom, 17, "at the pin zoom, because there is a door to look at");
+  assert.deepEqual(moved, [{ lat: 5.4166, lng: 100.3311 }],
+    "the pin is the chosen point, and NOTHING was reported for the old one");
+  assert.equal(moved.some((p) => p && p.lat === 5.42), false,
+    "the point they replaced must never reach onMove — that would undo their own choice");
+});
+
+test("a point aimed at an ALREADY OPEN map flies it there rather than rebuilding it", async () => {
+  // The other half of the same moment: the box was opened a while ago and the map is up,
+  // so the customer's earlier look around must not be thrown away for a second map.
+  const { host, rec } = setup({ leaflet: makeLeaflet() });
+  const { showPinMap } = await freshPinMap();
+
+  const handle = showPinMap(host, { start: { lat: 5.42, lng: 100.33 }, onMove: () => {} });
+  await tick();
+  assert.equal(rec.maps.length, 1);
+
+  handle.goTo({ lat: 5.4166, lng: 100.3311 });
+
+  assert.equal(rec.maps.length, 1, "one map, not a second one drawn over it");
+  assert.equal(rec.views.length, 2, "and a second setView, which is the flying");
+  assert.deepEqual(rec.views[1].center, [5.4166, 100.3311]);
+  assert.equal(rec.views[1].zoom, 17);
+});
+
+test("a point aimed at a map that has since been stopped is dropped, not flown to", async () => {
+  // The box is closed. `stop()` clears the remembered aim as well as the map, so a lookup
+  // that answers a moment late cannot fly a map that is no longer on screen.
+  const { L, rec } = makeLeaflet();
+  const { host } = setup({ plan: { delayMs: 5, L } });
+  const { showPinMap } = await freshPinMap();
+
+  const handle = showPinMap(host, { onMove: () => {} });
+  handle.goTo({ lat: 5.4166, lng: 100.3311 });
+  handle.stop();
+
+  await tick(40);
+  assert.equal(rec.maps.length, 0, "the stopped map was never built, aim or no aim");
+});
+
 // ── loading Leaflet, and giving up on it (O02) ─────────────────────────────
 
 test("a CDN that answers a moment later still yields a map — the timeout is not zero (O02)", async () => {

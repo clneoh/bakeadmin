@@ -9,8 +9,9 @@ import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occS
 import { normRules } from "../availability.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
-import { askGeo, fixVerdict, placeForOrder } from "./geo.js";
+import { askGeo, fixVerdict, placeForOrder, validPin } from "./geo.js";
 import { showPinMap } from "./pin_map.js";
+import { createLookup } from "./lookup.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -1235,6 +1236,10 @@ export function render() {
     // cannot read the first language most needs to read.
     const note = pinNote;
     paintPin(note && note.key, note && note.m);
+    // And the address list, which is showing a sentence — "Couldn't find that
+    // address", "Tap the one that matches" — in the language the customer just left.
+    const hits = hitNote;
+    paintHits(hits && { key: hits.key, hits: hits.hits });
   };
 }
 
@@ -1551,15 +1556,26 @@ function wireFulfillment() {
 // trip or books a driver — a trip is only ever quoted or booked from a door she has
 // accepted (her condition, in her words: "as security, app side will reconfirm").
 //
-// Two controls, because the two customers are different people. One is standing at
-// the door they want the bread delivered to and can just say so; the other is at
-// work ordering for home, and for them the pin is the thing they already know how
-// to drag from a ride-hailing app.
+// Three ways to say where the door is, because the customers are different people.
+// One is standing at the door they want the bread delivered to and can just say so;
+// the second is at work ordering for home, and for them the pin is the thing they
+// already know how to drag from a ride-hailing app; the third — added at v202 because
+// her own words asked for it — types the address and lets the map come to it, "just
+// like Grab app". The third does not replace either of the other two: it opens the
+// same map on the address it found, and the customer still finishes by hand.
 let doorPin = null;   // { lat, lng } — the customer's own pin, or null for none
 let pinWasAt = null;  // what it was when the map opened, so Cancel can put it back
 let pinMap = null;    // the live map while its box is open, or null
 let pinNote = null;   // { key, m } — the last thing the status line said, kept so a
                       // language switch can say it again in the language just chosen
+let lookup = null;    // the typed-address lookup (store/lookup.js), built once by
+                      // wireLookup()
+let hitNote = null;   // { key, hits } — what the address list is saying at this
+                      // moment, kept for the same reason pinNote is
+let hitTaken = false; // the customer has already chosen a door from the list. The
+                      // instruction above the rows is then about something they have
+                      // done, and it is retired while the rows stay, so a second tap
+                      // can still change their mind without retyping the address.
 
 // The status line, and the one button whose meaning depends on it. `key` names a
 // dictionary entry for something that needs saying (a vague fix, a refusal); with
@@ -1655,13 +1671,106 @@ function wirePin() {
   paintPin();
 }
 
+// ── The typed address (v202) ───────────────────────────────────────────────
+//
+// The list of doors the lookup found, under the address box. store/lookup.js owns the
+// asking and the waiting; this owns only what the customer sees, and it is deliberately
+// the whole of what they see — one box that is either hidden or holds one line of
+// explanation, and a row per door.
+//
+// `key` is a dictionary key or null for "say nothing". It is stored before the paint so
+// a language switch can say the same thing again in the language just chosen, exactly
+// as pinNote does for the status line above it.
+//
+// THE INSTRUCTION IS DRAWN ONLY WHILE NOTHING HAS BEEN CHOSEN. "Tap the one that matches
+// your address" is something to do; the moment a door has been taken the line below the
+// map confirms the pin is set, and the two sentences next to each other contradict — an
+// instruction that outlives its own action, which is the dead-control family this shop
+// has a standing rule against. The ROWS stay, so changing your mind is a second tap
+// rather than retyping the street. `hitTaken` is the whole of that state, and it is
+// cleared on every fresh answer below, because a new answer is a new question.
+function paintHits(state) {
+  hitNote = state && state.key ? { key: state.key, hits: state.hits || [] } : null;
+  const box = document.getElementById("addr-list");
+  if (!box) return;
+  box.replaceChildren();
+  if (!hitNote) { box.hidden = true; return; }
+
+  if (!hitTaken) {
+    const note = document.createElement("p");
+    note.className = "card-sub addr-note";
+    note.textContent = t(hitNote.key);
+    box.append(note);
+  }
+
+  for (const hit of hitNote.hits) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "addr-hit";
+    // A geocoder that answered with a point and no words still found the door, so the
+    // numbers are shown rather than an empty row — the row has to be tappable and has
+    // to say something about which door it is.
+    row.textContent = hit.label || `${hit.lat}, ${hit.lng}`;
+    row.addEventListener("click", () => takeHit(hit));
+    box.append(row);
+  }
+  box.hidden = false;
+}
+
+// The customer picked one of the doors. This is the "Grab" moment: the pin goes there
+// and the map comes to it.
+//
+// THE PIN COMES FIRST, THEN THE MAP, and the order matters. If the map is not open,
+// opening it is what aims it — showPinMap is handed this point as its start, so it
+// opens on the right street at the right zoom rather than on the island. If the map is
+// already open, goTo flies it there without rebuilding it, so nothing the customer has
+// already looked at is thrown away.
+//
+// pinWasAt is moved onto the choice as well, which is the one line here that is not
+// obvious: Cancel puts the pin back to whatever it was when the map session began, and
+// after this the session began at the address they just chose. Without it, picking an
+// address and then pressing Cancel would throw the address away and restore the pin
+// they had before they started typing — a customer undoing a decision they did not make.
+function takeHit(hit) {
+  const p = validPin(hit);
+  if (!p) return;
+  doorPin = p;
+  pinWasAt = p;
+  if (pinMap) pinMap.goTo(p);
+  else openPinBox();
+  paintPin();
+  // The rows are redrawn without the instruction they have just obeyed. Nothing is
+  // asked again and the choice is not forgotten — `answered` in store/lookup.js still
+  // holds this question, so the list comes straight back if they edit the address.
+  hitTaken = true;
+  paintHits(hitNote);
+}
+
+function wireLookup() {
+  const input = document.getElementById("address-input");
+  if (!input) return;
+  // A fresh answer is a fresh question, so the instruction belongs on screen again —
+  // including the answer that says nothing was found. Wrapped rather than passed
+  // straight in, so `hitTaken` cannot survive a new list.
+  lookup = createLookup({ onState: (state) => { hitTaken = false; paintHits(state); } });
+  input.addEventListener("input", () => lookup.typed(input.value));
+  paintHits(null);
+}
+
 // Forget the pin between customers: a phone can be handed across a counter, and the
-// next order must not inherit a stranger's front door.
-function resetPin() {
+// next order must not inherit a stranger's front door. Exported for the same reason
+// setLang is (below): the Node suite has to be able to put the page back to the state a
+// NEW customer arrives in, and module state otherwise leaks from one test to the next —
+// a leak that once let a fault in this very function go unnoticed.
+export function resetPin() {
   doorPin = null;
   pinWasAt = null;
   closePinBox(true);
   paintPin();
+  // An address the customer typed, and the list it produced, belong to the order that
+  // has just been placed. The next customer must not be shown the last one's house,
+  // and an answer still in the air must not land on a box that has been emptied.
+  if (lookup) lookup.clear();
 }
 
 // What ends the track card's glow: the customer getting to it. The same rule the
@@ -1727,6 +1836,7 @@ render();
 renderReferralBanner();
 wireFulfillment();
 wirePin();
+wireLookup();
 wireTrack();
 
 // ── Site language (EN / 中文 / BM) ────────────────────────────────────────

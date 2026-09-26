@@ -59,6 +59,11 @@
       <div class="field" id="address-field" hidden>
         <label for="address-input" data-i18n="addressLabel">Delivery address</label>
         <input id="address-input" class="input" type="text" data-i18n-ph="addressPh" placeholder="Street, area, Penang…" autocomplete="street-address">
+        <!-- Where the addresses the lookup found appear (v202). Emptied and hidden by
+             store/app.js; every word inside it is written by JS, so it carries no
+             data-i18n tags and the dictionary's English-must-match-the-markup rule in
+             test/store-i18n.test.js is untouched. -->
+        <div class="addr-list" id="addr-list" hidden></div>
         <p class="card-sub pin-hint" data-i18n="pinHint">Optional: drop a pin where the courier should stop — the guard house or your block's entrance. Put the block and unit number in the address above.</p>
         <div class="pin-row">
           <button type="button" id="pin-here" class="pin-btn" data-i18n="pinHere">Use my location</button>

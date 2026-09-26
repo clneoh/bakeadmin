@@ -2,11 +2,20 @@
 // (v197, 25 Sep 2026).
 //
 // WHY THE SHOP HAS ITS OWN MAP RATHER THAN REUSING THE BAKERY'S. The bakery's
-// admin/js/place_map.js is a pop-up card that also looks addresses up through her
-// server, and it is built on the admin's pop-up layer — the shop has neither a
-// pop-up layer nor any business asking a geocoder, because that would send
-// customers' home addresses out of their own phones to a public service. What the
-// shop needs is smaller: a map, a pin, and the point. So it is its own ~80 lines.
+// admin/js/place_map.js is a card built on the admin's pop-up layer, which arranges
+// the whole screen around one card and replaces whatever was on it. This page has no
+// such layer and wants none: what the shop needs is smaller — a map, a pin, and the
+// point — so it is its own ~80 lines.
+//
+// IT USED TO SAY MORE THAN THAT HERE, and the correction is worth keeping. Until v202
+// this header gave a second reason: that the shop had "no business asking a geocoder,
+// because that would send customers' home addresses out of their own phones to a
+// public service". That is no longer true of the shop, by her decision and in her words
+// ("Through your own Supabase") — as the customer types their address the page now asks
+// her own Supabase function, which asks Photon and then Nominatim with the BAKERY's
+// name on the request rather than the customer's phone (store/lookup.js,
+// supabase/functions/shop-geocode). Nothing about that reaches this file: the map here
+// is still a map, a pin and a point, and it has never known where the point came from.
 //
 // The cost of that choice is a second copy of the Leaflet version, the CDN, the
 // tiles and the attribution — so a test reads both files and fails if the two ever
@@ -94,8 +103,9 @@ export function loadLeaflet() {
 // Returns a handle: `{ stop(), goTo(point) }` — `stop()` tears the map down, so
 // closing the box and reopening it does not leave a second map bound to a removed
 // container; `goTo(point)` moves the pin and the view onto a point (the customer
-// pressing "Use my location" with the map already open), and is a no-op if the map
-// has not finished loading or has since been stopped.
+// pressing "Use my location", or tapping an address the lookup found, with the map
+// already open). A point that arrives BEFORE the map is up is remembered rather than
+// dropped, and the map opens on it — see `aimed`, below. Only `stop()` discards one.
 export function showPinMap(host, { start = null, onMove = () => {} } = {}) {
   if (!host) return null;
   host.replaceChildren();
@@ -108,11 +118,21 @@ export function showPinMap(host, { start = null, onMove = () => {} } = {}) {
   let stopped = false;
   let goTo = null;   // set once the map is up; null until then, and after stop()
   const at = validPoint(start);
+  // A POINT ASKED FOR WHILE THE CDN WAS STILL FETCHING. Until v202 `goTo` before load
+  // was a silent no-op, and its comment said so — which was true and was also a defect
+  // nobody had hit yet. The shop then grew a way to aim the map from a list (v202), and
+  // that made it reachable: the box can already be open and still loading when the
+  // customer taps an address, and a dropped `goTo` there means the map finishes loading
+  // on the OLD point, calls `put(at)` for it, and `onMove` writes that old point back
+  // over the one they just chose. A tap that silently moves the pin away from where they
+  // put it is exactly the class of fault this project hunts, so the aim is kept.
+  let aimed = null;
 
   loadLeaflet().then((L) => {
     if (stopped) return;
-    const view = at || HOME;
-    map = L.map(canvas, { zoomControl: true, attributionControl: true }).setView([view.lat, view.lng], at ? 17 : HOME.zoom);
+    const aim = validPoint(aimed) || at;
+    const view = aim || HOME;
+    map = L.map(canvas, { zoomControl: true, attributionControl: true }).setView([view.lat, view.lng], aim ? 17 : HOME.zoom);
     L.tileLayer(TILES, { attribution: ATTRIB, maxZoom: 19 }).addTo(map);
     const put = (latlng) => {
       if (!latlng) return;
@@ -135,7 +155,10 @@ export function showPinMap(host, { start = null, onMove = () => {} } = {}) {
     // this were missing — a map that can only be aimed at by a precise drag is the
     // "dead control" complaint waiting to happen.
     map.on("click", (e) => put(e.latlng));
-    if (at) put(at);
+    // `aim`, not `at`: if the customer aimed the map at an address while it was still
+    // loading, that aim is the point to stand on, and `onMove` must hear about it so the
+    // caller's stored pin is the one they chose rather than the one they replaced.
+    if (aim) put(aim);
     // A map built into a box that has only just been revealed measures as an empty
     // 0-pixel rectangle and draws blank tiles with the pin off-screen. Leaflet has
     // to be told the container's real size once the browser has laid it out, and
@@ -153,12 +176,24 @@ export function showPinMap(host, { start = null, onMove = () => {} } = {}) {
     stop() {
       stopped = true;
       goTo = null;
+      aimed = null;
       if (map) { map.remove(); map = null; marker = null; }
       host.replaceChildren();
     },
-    // The map may not have loaded yet when this is called (the CDN is still
-    // fetching): then it does nothing, and the pin the caller has already stored is
-    // what `start` picks up if the box is ever opened again.
-    goTo(point) { if (goTo) goTo(point); },
+    // The map may not have loaded yet when this is called (the CDN is still fetching).
+    // Then the point is REMEMBERED and the map opens on it when it arrives — the
+    // customer tapped an address and must not watch the pin land somewhere else.
+    //
+    // NO `stopped` CHECK HERE, and this is deliberate rather than an oversight: `stop()`
+    // clears `goTo` and `aimed` together, and the one place that reads `aimed` (the load,
+    // above) checks `stopped` before it touches anything. So a point arriving after the
+    // box closed is written to a closure nothing will consult again, and a guard here
+    // would be a line no test could make fail. The behaviour that IS observable — a
+    // stopped box never flies — is tested, and it is enforced at the load.
+    goTo(point) {
+      if (goTo) { goTo(point); return; }
+      const p = validPoint(point);
+      if (p) aimed = p;
+    },
   };
 }

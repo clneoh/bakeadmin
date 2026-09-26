@@ -556,6 +556,47 @@ button.prod-next.off::after { content: ""; }
    standing at the door the bread is going to, the other is ordering from somewhere
    else entirely and needs to point at it. */
 .pin-hint { margin: 6px 0 0; }
+/* What the address lookup found (v202). A box of doors under the address box, each one
+   a row you can tap. It is not a floating dropdown: the shop's own page scrolls, and a
+   list positioned over the keyboard fights it on a phone. */
+.addr-list {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.addr-note {
+  margin: 0;
+  padding: 9px 12px;
+}
+/* The instruction is gone once a door has been chosen, and then the first row sits
+   directly under the list's own border — where its own top border would draw a second
+   line a pixel inside the first. */
+.addr-list > .addr-hit:first-child { border-top: 0; }
+.addr-hit {
+  /* Two lines rather than one: the whole point of this list is telling two houses on
+     the same street apart, and the part that tells them apart is often at the end. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  width: 100%;
+  appearance: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--brown-dark);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: left;
+  padding: 11px 12px;
+  min-height: 44px; /* a thumb target, not a mouse target */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.addr-hit:active { background: #f5ecdf; }
 .pin-row {
   display: flex;
   gap: 8px;

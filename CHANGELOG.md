@@ -1,8 +1,63 @@
-# Jienluv2bake — change history (v54 → v201)
+# Jienluv2bake — change history (v54 → v202)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**26 Sep 2026 — engine v202, THE SHOP NOW COMES TO THE ADDRESS THE CUSTOMER TYPES (no database
+step — but ONE deploy command, and the feature does nothing until you run it — see the bottom of
+this entry). A customer on the shop page used to type their address into a plain box and then press
+"Pin on the map", which opened the map on the whole of Penang. They then had to drag and zoom around
+the island looking for their own street. You asked whether the map could bring them to their address
+instead, the way a ride app does. It now does.**
+
+**What they see.** As they type their address, a short list appears under the box with the doors
+they might mean — the street on one line, the town and postcode with it. They tap the right one, and
+the map opens already standing on that door, close enough to pick out the house, **with the pin
+already on it**. Then they drag or tap to fine-tune it, exactly as before, and press Keep this spot.
+The list holds at most five doors, only in Malaysia, and only doors it has a real point for. Once they
+have tapped one, the line above the list steps aside — the screen must not go on telling them to do
+something they have just done. The doors themselves stay where they are, so changing their mind is
+one more tap rather than typing the street again.
+
+**Nothing is asked until they have actually typed an address, and nothing is asked mid-word.** The
+page waits until they pause, and it only bothers with a question worth asking — a word or two, or a
+postcode on its own, gets no list. It also never blocks anything: if nothing matches, or if the
+service having a bad day, one short sentence appears in their own language, and the map button is
+exactly where it was. A customer who ignores the list completely can still pin by hand the way they
+always could. That has not changed at all.
+
+**Their typed address now leaves the phone one more time — as your bakery, not as them.** This was
+your own decision and it is worth stating. The address goes to your Supabase, which asks the map
+service. So the map service sees your bakery's name and your server, not the customer and not their
+phone. That is the same posture your own app already takes when it looks an address up, and it is
+the reason the shop could not simply ask the map service from the customer's own browser. Nothing is
+stored anywhere: the service is asked a question and gives an answer.
+
+**One thing to do before this works, and it is the only step.** The shop page is a plain website, so
+the lookup has to live somewhere that can hold your bakery's name — a small function on your
+Supabase. Until you put it there, the list says the lookup is unavailable and the customer pins by
+hand, which is exactly what they did before this version. Push alone changes the shop's screen; it
+does not make the list work. The command is repeated at the bottom of this entry, and it is one line.
+
+**Nothing about the pin's standing has changed.** A pin the customer drops — from the list or by
+hand — is still a SUGGESTION and never a fact. Nothing is priced from it, nothing is booked from it,
+and no driver is ever told it. It is still offered to you on the order's delivery-price card and on
+the delivery run, and it still only becomes their doorstep when you press **Use the customer's pin**.
+A suggestion is a suggestion however the customer arrived at it.
+
+**And the door you keep for them still wins.** A lookup the shop did has no say in what you have
+saved against a customer. Where you already keep a door for somebody, that is the door the driver is
+sent to, and their new suggestion is offered beside it as it always was.
+
+**The one step, written out.** In the Terminal, from the folder that holds the app:
+
+    supabase functions deploy shop-geocode --project-ref hzpyblqygnntixkijeem
+
+The `--project-ref` part matters — without it the tool asks you to pick a project from a list, and
+that list also holds an unrelated one. There is nothing to configure and no key to paste: this
+function holds no secrets and can reach nothing but the two public map services. Run the line once
+and the list works from then on.
 
 **26 Sep 2026 — engine v201, THE COURIER BOX NOW SHOWS THE DOOR (no database step, no redeploy —
 one push). Open an order's Note / tracking box and, for an order that goes by courier, the top of it

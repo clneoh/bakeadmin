@@ -131,3 +131,87 @@ export function askGeo(geo, { timeoutMs = 10000 } = {}) {
     }
   });
 }
+
+// ── Looking the typed address up (v202) ────────────────────────────────────
+//
+// The third way the shop can learn where a door is, after "use my location" and the
+// map by hand, and the one her own words asked for: type the address and let the map
+// come to it, "just like Grab app". What she was describing is the half that was
+// missing — the map could always be aimed (store/pin_map.js, goTo), there was simply
+// nothing that knew where to aim it.
+//
+// The lookup itself is made by her own Supabase function (supabase/functions/
+// shop-geocode), NOT from this phone to a public geocoder: that is the whole of her
+// decision, and the reasoning is written out in that function's own geocode.ts. What
+// this file decides is only what is worth ASKING and how to read what comes BACK.
+// Both are pure, so both are driven under Node.
+
+// Below this nobody has typed an address yet, they are still part-way through a word.
+// "Pen" is a question with no useful answer, and asking it costs one of the handful of
+// lookups a free service will take from her in an hour.
+export const LOOKUP_MIN = 8;
+
+// A Malaysian address is a street, an area and a postcode. Past this it is not a longer
+// address, it is a whole WhatsApp message pasted into the box — and the tail of one of
+// those is a telephone number, so the front is the part worth sending. It is CUT rather
+// than refused on purpose: a box that silently does nothing when you paste into it is
+// the dead control this shop has a standing rule against, and a lookup of the first
+// part of a long address is a great deal better than no answer at all.
+export const LOOKUP_MAX = 160;
+
+// At most this many rows. The function is asked for five too; this is the shop's own
+// promise about how long a list a customer has to read, kept here so a reply that
+// ignored the cap cannot make the page longer than the design accounts for.
+export const MAX_HITS = 5;
+
+// The text worth asking about, or null. Whitespace is collapsed first, because a
+// pasted address arrives with newlines and tabs in it and a geocoder asked for
+// "12,\n Jalan" is asked a question nobody would type.
+export function lookupQuery(text) {
+  const q = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  if (q.length < LOOKUP_MIN) return null;
+  return q.slice(0, LOOKUP_MAX);
+}
+
+// The candidates out of the function's reply — the safest possible read of something
+// that arrived over a network.
+//
+// Every point goes through this file's own `validPin`, so a reply is held to exactly
+// the rule the order itself is held to: two real numbers, on the planet, tidied to six
+// decimals. A row that fails is SKIPPED rather than ending the read, because the row
+// below it may be the customer's actual house. `ok` must be true: a reply that says it
+// failed is read as having found nothing, whatever else is in it.
+export function readPlaces(reply) {
+  if (!reply || typeof reply !== "object" || reply.ok !== true) return [];
+  const rows = Array.isArray(reply.places) ? reply.places : [];
+  const out = [];
+  for (const raw of rows) {
+    if (!raw || typeof raw !== "object") continue;
+    const pin = validPin({ lat: raw.lat, lng: raw.lng });
+    if (!pin) continue;
+    out.push({ lat: pin.lat, lng: pin.lng, label: String(raw.label == null ? "" : raw.label).trim() });
+    if (out.length >= MAX_HITS) break;
+  }
+  return out;
+}
+
+// Why a lookup produced nothing, in the words the customer reads. The function answers
+// with a CODE and never a sentence — a sentence chosen on the server is a sentence no
+// customer can read in their own language — so the choosing happens here, off the
+// shop's own dictionary (store-lang.js).
+//
+// The five codes collapse to two things a customer can act on, and that is deliberate.
+// The difference between a service that answered and one that did not is a difference
+// this project can see in its logs and a customer cannot do anything with; what they
+// need is to be told that the map is one tap away and still works.
+const WHY_KEYS = {
+  empty: "addrNone",
+  notfound: "addrNone",
+  refused: "addrFailed",
+  timeout: "addrFailed",
+  unreachable: "addrFailed",
+};
+
+export function lookupWhy(why) {
+  return WHY_KEYS[String(why == null ? "" : why)] || "addrFailed";
+}
