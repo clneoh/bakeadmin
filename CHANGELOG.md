@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v208)
+# Jienluv2bake — change history (v54 → v209)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v209, THE PIN THE CUSTOMER DROPPED IS NOW THE DOOR — ALWAYS (no database
+step, no redeploy — one push). The dot on an order, and the door a driver is sent to.**
+
+You told me where to look, and then what was wrong: __my app, the order; the dot is in the wrong
+place; a different town or area.__ And when I asked you which door to trust when both exist, you
+said: __their own pin — always.__ That is what this version is.
+
+Here is what was happening. Every order could carry two doors: the pin the customer tapped on the
+map when they placed the order, and a door your app had kept for that customer — filled in, on an
+earlier version, by looking their written address up on a map.
+
+The door your app had kept was the one in charge, so the customer's own pin was ignored. And a
+map lookup for a Malaysian house number can only answer down to the street — or, worse, the wrong
+town altogether. That is why your dot sat somewhere else.
+
+__From now on, when a customer tapped their own door, that pin IS the door.__ It is the point a
+delivery price is asked for and the point a driver is booked to. You were standing nowhere near
+their house; they were standing at their own door when they tapped. Your app's own lookup is what
+no longer wins.
+
+**One exception, so you are never trapped.** A pin __you__ placed or dragged yourself still wins,
+and stays exactly where you put it. If you had already corrected a doorstep by hand, this version
+will not move it back.
+
+**And the card tells you which door it is using.** Under **The door the driver is sent to**, the
+line now reads either "__<the address> — the door you keep for <name>__" or "__<the address> —
+<name>'s own pin from the shop page. This is the door the driver is sent to.__" When the two doors
+disagree, one press underneath switches to the other one — whichever of the two is not in use — so
+you can always overrule this with one tap.
+
+**This also applies to the delivery run and to the price.** Pressing **Get a delivery price**, or
+**Price this run with ...**, prices the door on the screen, and a booked trip sends the driver
+there. Nothing to set up: an order whose customer left no pin simply behaves as it always has.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. The engine on your
+**More** screen reads **Engine v209** once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v208, THE DOT NO LONGER SLIDES OFF THE CUSTOMER'S OWN DOOR WHEN YOU ASK
 FOR A PRICE (no database step, no redeploy — one push). The pin on the courier card.**

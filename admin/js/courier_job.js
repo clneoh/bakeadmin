@@ -33,7 +33,7 @@
 // Everything returns plain data. Nothing here fetches, signs, draws or saves.
 
 import {
-  pickupPlace, dropPlaceOf, dropAddress, validPlace, strictNumber,
+  pickupPlace, doorSpotOf, dropAddress, validPlace, strictNumber,
 } from "./courier_place.js";
 import { waNumber, orderLineName } from "./state.js";
 
@@ -93,8 +93,13 @@ export function senderOf(state) {
 
 // One door to knock on: the person, the number, the words she would say, and the
 // pinned point — which may be null, and is left null rather than guessed.
+//
+// THE POINT IS `doorSpotOf`, NOT THE DOOR SHE KEEPS (v209) — this is the line that decides
+// where a driver is actually sent. Where the customer dropped a pin of their own, that pin
+// is the door, and it is this assignment that carries it all the way to the courier. A door
+// she placed with her own hand still wins; see courier_place.js's own header on doorSpotOf.
 export function stopOf(state, order) {
-  const place = validPlace(dropPlaceOf(state, order));
+  const place = validPlace(doorSpotOf(state, order));
   return {
     order: order || null,
     name: String((order && order.customerName) || "").trim(),

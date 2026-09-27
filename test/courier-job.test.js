@@ -159,6 +159,25 @@ test("an unpinned stop keeps place: null rather than a guessed point", () => {
   assert.equal(stop.address, "12 Jalan Bunga, 10450 Penang", "the words she typed are still there to look up");
 });
 
+test("the door a driver is booked to is the customer's own pin, not the door she keeps (v209)", () => {
+  // THE LINE THAT DECIDES WHERE A DRIVER ACTUALLY GOES. Her report, five times over: "the pin
+  // still wrong". Measured on her own app, the dot was the door she KEEPS — filled in by an
+  // older version from a map lookup, sitting in a different town — while the pin the customer
+  // dropped at their own door was ignored. A lookup answers the wrong town as easily as the
+  // right one, so on the order this test builds the booked stop is the customer's point.
+  const s = emptyState();
+  const o = makeOrder({ customerPlace: { lat: 5.4299, lng: 100.3399, label: "the front gate" } });
+  setDropPlace(s, o, { lat: 3.1, lng: 101.6, label: "the wrong town" }, "lookup");
+  assert.deepEqual(stopOf(s, o).place, { lat: 5.4299, lng: 100.3399, label: "the front gate" });
+
+  // And the door SHE placed by her own hand is the one exception — a correction she made must
+  // not be undone by a pin that disagrees with it.
+  const own = emptyState();
+  const o2 = makeOrder({ customerPlace: { lat: 5.4299, lng: 100.3399 } });
+  setDropPlace(own, o2, { lat: 5.42, lng: 100.33, label: "the door she checked" }, "hand");
+  assert.deepEqual(stopOf(own, o2).place, { lat: 5.42, lng: 100.33, label: "the door she checked" });
+});
+
 test("a trip is the bakery plus every stop, and nothing invented", () => {
   const s = emptyState();
   setPickupPlace(s, { lat: 5.4141, lng: 100.3288 });

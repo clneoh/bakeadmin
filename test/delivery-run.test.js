@@ -940,42 +940,49 @@ test("the run names no courier of its own", async () => {
   assert.match(src, /activeCourier\(\)/, "it asks the registry which courier it is talking to");
 });
 
-// ── the customer's own pin, under their row (v197) ────────────────────────
+// ── the two doors under a run row (v197, reversed at v209) ────────────────
 //
-// The second of the two places her answer puts the offer ("Both places"), and the one
+// The second of the two places her answer puts the switch ("Both places"), and the one
 // where the placement is load-bearing: everything in a run row sits inside one <label>,
 // so a press drawn inside that row would tick the customer instead of pinning their door.
 // Hence a block of its own beside the row — and the walk up the parent chain below is
 // what really asserts it, because that trap would not show up in a shim that does not
 // model a label's behaviour.
 
-test("a customer's own pin is offered under their row, and taking it becomes the door kept for them (v197)", () => {
+test("a kept door with no record of her hand loses to the pin the customer dropped (v209)", () => {
   const st = world();
   stubCourier();
-  // Ain already has a doorstep of her own, and the pin she dropped on the shop page is a
-  // different spot — the branch her answer is about: the offer arrives anyway, and only
-  // the words say that a door is already kept.
+  // Ain's kept door came from the fixture with no `from` on it, exactly as a door saved
+  // before v209 reads — and the pin she dropped on the shop page is a different spot. Her
+  // own pin is the door on this run, and the line under her row says where that is.
   st.orders[0].customerPlace = { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house", at: "2026-09-25T10:00:00.000Z" };
   const { root } = openRun(st);
 
+  const runRow = all(root).find((n) => String(n.className).includes("run-row"));
+  assert.match(runRow.textContent, /Sri Bunga guard house/,
+    "the row says the door the driver is sent to is the pin the customer dropped, not the kept one");
+
   const offers = all(root).filter((n) => String(n.className).includes("pin-offer"));
-  assert.equal(offers.length, 1, "one offer, under the one customer who pinned");
-  assert.match(offers[0].textContent, /Ain pinned a different spot this time/);
-  assert.match(offers[0].textContent, /The doorstep you keep for them is untouched until you take this one/);
+  assert.equal(offers.length, 1, "one offer, under the one customer whose two doors disagree");
+  assert.match(offers[0].textContent, /Ain's own pin is in use/);
+  assert.match(offers[0].textContent, /The doorstep you keep for them is a different spot/);
   for (let n = offers[0].parentNode; n; n = n.parentNode) {
     assert.notEqual(n.tagName, "LABEL",
       "the offer is not inside the row's label — a press in there would tick the customer");
   }
 
-  const take = buttonByText(offers[0], "Use the customer's pin instead");
-  assert.ok(take, "with one press to take it");
+  const take = buttonByText(offers[0], "Use the door I keep instead");
+  assert.ok(take, "with one press to put her own door back in use");
   press(take);
 
   const row = st.customers.find((c) => c.key === keyOf(st.orders[0]));
-  assert.equal(row.place.lat, 5.4299, "the pin is now the door kept for Ain");
-  assert.equal(row.place.lat, st.orders[0].customerPlace.lat, "and it is the same point she dropped");
-  assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
-    "taking it ends the offer — there is nothing to dismiss");
+  assert.equal(row.place.lat, 5.42, "the kept door is now the door again");
+  assert.equal(row.place.from, "hand", "and it is recorded as HER OWN hand, so it stays put");
+  const flipped = all(root).filter((n) => String(n.className).includes("pin-offer"));
+  assert.equal(flipped.length, 1, "the one control stays — it now offers the other door");
+  assert.match(flipped[0].textContent, /Ain pinned a different spot this time/);
+  assert.ok(buttonByText(flipped[0], "Use the customer's pin instead"),
+    "and it points the other way, at the pin they dropped");
 });
 
 // ── where each door on a run comes from (v208) ────────────────────────────
@@ -1008,6 +1015,8 @@ test("a customer's own pin is the run's door for them, and only the other doors 
   assert.equal(ain.place.lat, 5.4299, "Ain's door is the pin she dropped herself, not a geocoder's guess");
   assert.equal(ain.place.lng, 100.3399, "both numbers of it, so it is her point and not a neighbour");
   assert.equal(ain.place.label, "1 Jalan A", "named with the address on the order (v207)");
+  assert.equal(ain.place.from, "customer",
+    "and the row the run kept is recorded as THEIRS (v209) — a copy of their pin, not a door of hers");
 
   const bala = st.customers.find((c) => c.key === keyOf(st.orders[2]));
   assert.equal(bala.place.lat, 5.46, "Bala's door is the point the lookup found, because they left no pin");
@@ -1026,29 +1035,54 @@ test("a courier customer who pinned nothing gets no offer at all (v197)", () => 
     "no pin, no offer, no new line on the run");
 });
 
-test("a customer who pinned with no door kept for them yet is offered it in the plain words (O14)", () => {
-  // The other half of the same offer, and the one an overnight sweep found unguarded: when
-  // there is no doorstep for this customer yet, nothing is being corrected, so the sentence
-  // and the press are the plain ones. The test above reaches the `replacing` branch only.
-  //
-  // The press is asserted by its EXACT words on purpose. "Use the customer's pin" and "Use
-  // the pin" are different offers — the second does not say whose door it is, and on a
-  // screen where she is deciding which of two doors to keep, whose it is IS the offer.
+test("a customer who pinned with no door kept for them yet has no offer to make (v209)", () => {
+  // The other half, and the one an overnight sweep found unguarded: with nothing kept for
+  // this customer there is only ONE door on the order, so there is nothing to switch
+  // between — and a press that switches between a door and itself would be a control that
+  // does nothing. Their pin is simply the door, said on the row's own line.
   const st = world();
   stubCourier();
   st.customers = st.customers.filter((c) => c.name !== "Bala"); // nothing kept for them yet
   st.orders[2].customerPlace = { lat: 5.4399, lng: 100.3499, label: "Bala's front gate", at: "2026-09-25T10:00:00.000Z" };
   const { root } = openRun(st);
 
-  const offers = all(root).filter((n) => String(n.className).includes("pin-offer"));
-  assert.equal(offers.length, 1, "one offer, under the one customer who pinned");
-  assert.match(offers[0].textContent, /Bala pinned their door on the shop page when they ordered/);
-  assert.doesNotMatch(offers[0].textContent, /different spot this time/,
-    "nothing is being replaced, so nothing may say it is");
+  assert.equal(all(root).filter((n) => String(n.className).includes("pin-offer")).length, 0,
+    "one door on the order, so the switch is not drawn at all");
 
-  const btn = all(offers[0]).find((n) => n.tagName === "BUTTON");
-  assert.ok(btn, "with one press to take it");
-  assert.equal(btn.textContent, "Use the customer's pin",
-    "and the press says whose pin it is — it is their door, not a pin");
+  const rows = all(root).filter((n) => String(n.className).includes("run-row"));
+  assert.ok(rows.some((r) => /Bala's front gate/.test(r.textContent)),
+    "and their own pin is named on the row as the door the driver is sent to");
+});
+
+test("a door SHE placed by hand is not moved by their pin, and the offer points at theirs (v209)", () => {
+  // The carve-out, on the run screen. Bala's kept door is recorded as her own hand — a drag,
+  // or a pick on the map — so it stays the door even though they pinned somewhere else.
+  // The test above reaches the `which: "kept"` direction only.
+  //
+  // The press is asserted by its EXACT words on purpose. "Use the customer's pin instead"
+  // and "Use the pin" are different offers — the second does not say whose door it is, and
+  // on a screen where she is deciding which of two doors to keep, whose it is IS the offer.
+  const st = world();
+  stubCourier();
+  st.customers.find((c) => c.name === "Bala").place.from = "hand";
+  st.orders[2].customerPlace = { lat: 5.4399, lng: 100.3499, label: "Bala's front gate", at: "2026-09-25T10:00:00.000Z" };
+  const { root } = openRun(st);
+
+  const rows = all(root).filter((n) => String(n.className).includes("run-row"));
+  assert.ok(rows.some((r) => /Bala's door/.test(r.textContent)),
+    "the door she placed herself is still the door on the run");
+
+  const offers = all(root).filter((n) => String(n.className).includes("pin-offer"));
+  assert.equal(offers.length, 1, "one offer, under the one customer whose two doors disagree");
+  assert.match(offers[0].textContent, /Bala pinned a different spot this time/);
+  assert.doesNotMatch(offers[0].textContent, /their door on the shop page/,
+    "a door of hers is being replaced, so the words must say so");
+
+  const btn = buttonByText(offers[0], "Use the customer's pin instead");
+  assert.ok(btn, "with one press to take theirs — and it says whose pin it is");
+  press(btn);
+  const row = st.customers.find((c) => c.key === keyOf(st.orders[2]));
+  assert.equal(row.place.lat, 5.4399, "the pin they dropped is now the door");
+  assert.equal(row.place.from, "customer", "recorded as theirs, so a later re-pin still wins");
 });
 

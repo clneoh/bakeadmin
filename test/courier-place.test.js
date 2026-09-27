@@ -28,7 +28,7 @@ import assert from "node:assert/strict";
 const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
   setDropPlace, setPickupPlace, latLngText, fmtPlace, splitLabel, parseCoords, placeProblem,
-  customerPlaceOf, customerPinOffer,
+  customerPlaceOf, doorFromOf, doorIsTheirs, doorSpotOf, doorSwitchOf,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
 
@@ -300,49 +300,128 @@ test("a pin that is not a pin is not a suggestion either", () => {
   assert.equal(customerPlaceOf(order({ customerPlace: "5.42,100.33" })), null);
 });
 
-test("with no doorstep kept for them, their pin is offered", () => {
+// ── WHICH door is the door (v209) ─────────────────────────────────────────
+//
+// Her instruction, 27 Sep 2026, after five reports of "the pin still wrong":
+// "Their own pin — always." Where the customer dropped a pin, that pin is the point a
+// price is asked for and a driver is sent to, and the door she keeps is the fallback.
+//
+// The one exception is her own hand. She is the only one who knows the door, and a
+// correction she made by hand that snapped back on the next repaint would be a control
+// moving under her finger — so a door SHE placed wins, and the switch offers their pin.
+
+test("their own pin IS the door when she keeps nothing for them", () => {
   const s = state();
   const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
-  const offer = customerPinOffer(s, pinned);
-  assert.equal(offer.replacing, null, "nothing is being replaced — she has no door for them yet");
-  assert.deepEqual(offer.place, { lat: 5.42, lng: 100.33, label: "" });
+  assert.deepEqual(doorSpotOf(s, pinned), { lat: 5.42, lng: 100.33, label: "" });
+  // Nothing to switch TO — there is only one door on this order.
+  assert.equal(doorSwitchOf(s, pinned), null);
 });
 
-test("she is offered their pin EVEN when she keeps a door for them", () => {
-  // Her answer, 25 Sep 2026, and it reverses what I would have built: a kept door
-  // does not silence the offer, it only changes the words. So the offer carries the
-  // door being replaced, and the screen says whose it is.
+test("their own pin beats a door a LOOKUP found for them — the bug she reported", () => {
+  // This is the order she was pointing at: a door kept by an older version from a map
+  // lookup, sitting in a different town, while the customer's own pin — dropped at the
+  // door — was ignored. A lookup answers the wrong town as easily as the right one.
   const s = state();
   const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
-  setDropPlace(s, pinned, { lat: 5.4, lng: 100.3, label: "the door she checked" });
-  const offer = customerPinOffer(s, pinned);
-  assert.ok(offer, "a kept door must not hide the customer's own pin");
+  setDropPlace(s, pinned, { lat: 3.1, lng: 101.6, label: "the wrong town" }, "lookup");
+  assert.deepEqual(doorSpotOf(s, pinned), { lat: 5.42, lng: 100.33, label: "" });
+
+  // And a door saved BEFORE v209 carries no record of how it was made, so it reads as
+  // not-her-hand and loses too. That is what repairs the orders already on her phone.
+  const old = state();
+  const oldPinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(old, oldPinned, { lat: 3.1, lng: 101.6, label: "the wrong town" });
+  old.customers[0].place.from = undefined; // as an older version left it
+  assert.equal(doorFromOf(old, oldPinned), "");
+  assert.deepEqual(doorSpotOf(old, oldPinned), { lat: 5.42, lng: 100.33, label: "" });
+});
+
+test("a door SHE placed by hand is not moved by their pin", () => {
+  // The carve-out. Without it, a pin she corrected by hand would snap back the moment
+  // the card repainted, which is a control moving under her finger.
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(s, pinned, { lat: 5.4, lng: 100.3, label: "the door she checked" }, "hand");
+  assert.equal(doorFromOf(s, pinned), "hand");
+  assert.deepEqual(doorSpotOf(s, pinned), { lat: 5.4, lng: 100.3, label: "the door she checked" });
+  // …and the switch now offers THEIR pin, because that is the door out of use.
+  const offer = doorSwitchOf(s, pinned);
+  assert.ok(offer, "her door must not hide the customer's own pin");
+  assert.equal(offer.which, "customer");
   assert.deepEqual(offer.place, { lat: 5.42, lng: 100.33, label: "" });
   assert.equal(offer.replacing.label, "the door she checked");
-  // …and the door she keeps is still the one everything uses.
-  assert.equal(dropPlaceOf(s, pinned).label, "the door she checked");
 });
 
-test("accepting it ends the offer — that is what makes the offer honest", () => {
-  // No "dismissed" flag is stored anywhere: the offer is drawn while the kept door
-  // differs from what the customer dropped, so taking it is the thing that removes it.
+test("the switch names the OTHER door, whichever of the two is out of use", () => {
   const s = state();
   const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
-  setDropPlace(s, pinned, customerPlaceOf(pinned));
-  assert.equal(customerPinOffer(s, pinned), null);
+
+  // A lookup's door is in force nowhere, so their pin is the door and the switch
+  // offers the kept one.
+  setDropPlace(s, pinned, { lat: 5.4, lng: 100.3, label: "found by lookup" }, "lookup");
+  let offer = doorSwitchOf(s, pinned);
+  assert.equal(offer.which, "kept");
+  assert.equal(offer.place.label, "found by lookup");
+  assert.deepEqual(offer.replacing, { lat: 5.42, lng: 100.33, label: "" });
+
+  // Press what it offers and the two swap over — the control never offers the door
+  // that is already in force.
+  setDropPlace(s, pinned, offer.place, "hand");
+  assert.deepEqual(doorSpotOf(s, pinned), { lat: 5.4, lng: 100.3, label: "found by lookup" });
+  offer = doorSwitchOf(s, pinned);
+  assert.equal(offer.which, "customer");
+  assert.deepEqual(offer.place, { lat: 5.42, lng: 100.33, label: "" });
 });
 
-test("a pin nudged a few metres is the same door, and stops being offered", () => {
+test("taking up their own pin stays THEIR pin, so a later re-pin still wins", () => {
+  // The bulk run and the price button both COPY their pin into the profile so it is not
+  // looked up again. That row is still theirs, and must keep losing to them — otherwise
+  // a customer who moves house could never correct it.
+  const s = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(s, pinned, customerPlaceOf(pinned), "customer");
+  assert.equal(doorFromOf(s, pinned), "customer");
+  const moved = order({ customerPlace: { lat: 5.43, lng: 100.34 } });
+  assert.deepEqual(doorSpotOf(s, moved), { lat: 5.43, lng: 100.34, label: "" });
+});
+
+test("a pin nudged a few metres is the same door, so the switch does not appear", () => {
   // Leaflet hands back a slightly different number every time a pin is re-dropped in
   // the same spot. Offering the same door again because it moved 8 metres would be a
   // press that does nothing, forever.
   const s = state();
   const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
-  setDropPlace(s, pinned, { lat: 5.42005, lng: 100.33005 });
-  assert.equal(customerPinOffer(s, pinned), null);
+  setDropPlace(s, pinned, { lat: 5.42005, lng: 100.33005 }, "hand");
+  assert.equal(doorSwitchOf(s, pinned), null);
   // A different house down the road is not the same door.
-  setDropPlace(s, pinned, { lat: 5.4202, lng: 100.33 });
-  assert.ok(customerPinOffer(s, pinned));
+  setDropPlace(s, pinned, { lat: 5.4202, lng: 100.33 }, "hand");
+  assert.ok(doorSwitchOf(s, pinned));
+});
+
+test("which of the two doors is in force is ONE answer, asked once", () => {
+  // doorIsTheirs is what doorSpotOf and doorSwitchOf are both built from, and what the card's
+  // wording asks — so the point, the press and the words cannot drift apart. A door from a
+  // LOOKUP is not theirs, which is what keeps the card calling it "the door you keep for her".
+  const s = state();
+  const o = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  assert.equal(doorIsTheirs(s, o), true, "their pin, and nothing kept — theirs");
+  assert.equal(doorIsTheirs(s, order()), false, "no pin at all — nobody's");
+  setDropPlace(s, o, { lat: 3.1, lng: 101.6 }, "lookup");
+  assert.equal(doorIsTheirs(s, o), true, "a lookup's door is not her hand, so their pin still wins");
+  setDropPlace(s, o, { lat: 3.1, lng: 101.6 }, "hand");
+  assert.equal(doorIsTheirs(s, o), false, "but a door she placed herself is hers");
+});
+
+test("HOW a door got there survives a round trip", () => {
+  const s = state();
+  const o = order();
+  assert.equal(doorFromOf(s, o), "", "no door at all reads as no record, not as hand");
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288 });
+  assert.equal(doorFromOf(s, o), "hand", "a drag or a map pick is her own hand by default");
+  assert.ok(s.customers[0].place.at, "and it is stamped when it was kept");
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288 }, "lookup");
+  assert.equal(doorFromOf(s, o), "lookup");
 });
 
 // ── the two lines a match wears in the chooser (v198) ─────────────────────

@@ -58,7 +58,8 @@ import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { geocodeAddress } from "../couriers/api.js";
 import {
-  customerPinOffer, customerPlaceOf, dropAddress, dropPlaceOf, fmtPlace, pickupPlace, setDropPlace,
+  customerPlaceOf, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf, fmtPlace,
+  pickupPlace, setDropPlace,
 } from "../courier_place.js";
 import { openPlacePicker } from "../place_map.js";
 import { courierPayQuestions } from "./orders.js";
@@ -256,7 +257,10 @@ export function renderDeliveryRun(root, state, params) {
     const rows = day.groups.flatMap((g) => {
       const first = g.orders[0];
       const key = groupKey(g);
-      const place = dropPlaceOf(state, first);
+      // THE DOOR — the point this run is priced at and a driver is sent to. v209: where the
+      // customer dropped a pin of their own, that pin is the door, even if a door of hers
+      // still exists for them; only a door she placed with her own hand outranks it.
+      const place = doorSpotOf(state, first);
       const tick = el("input", { type: "checkbox", class: "run-tick",
         "aria-label": `Send ${nameOf(first)} on this run` });
       tick.checked = ticked.has(key);
@@ -284,22 +288,29 @@ export function renderDeliveryRun(root, state, params) {
             el("span", { class: "run-name" }, nameOf(first)),
             el("span", { class: "run-sub" }, [where, what].filter(Boolean).join(" · ")))),
         place ? null : button("Put it on the map", () => pinDoorstep(first), "ghost small"));
-      // The customer's own pin, dropped on the shop page when they ordered (v197),
-      // offered under its own row. It is a SUGGESTION and drawn as one — and it is a
-      // block of its own rather than a line inside the row because everything in that
-      // row sits inside one <label>: a press in there would tick the customer instead
-      // of pinning their door. Offered every time it differs from the doorstep she
-      // keeps for them, which is what makes accepting it the thing that ends it.
-      const offer = customerPinOffer(state, first);
+      // The two doors on this order, when they disagree, offered under its own row — one
+      // line and one press. It is a block of its own rather than a line inside the row
+      // because everything in that row sits inside one <label>: a press in there would tick
+      // the customer instead of pinning their door. Offered every time the two differ, which
+      // is what makes taking one the thing that ends it.
+      //
+      // ONE CONTROL, TWO DIRECTIONS (v209): with the customer's own pin normally the door in
+      // force, the press on offer can as easily be the door SHE keeps. `which` says which.
+      const offer = doorSwitchOf(state, first);
+      // `which: "customer"` means HER door is the one in force and the pin they dropped is the
+      // alternative, so the words and the press both split on this one flag and nothing else.
+      const theirs = Boolean(offer && offer.which === "customer");
       return offer
         ? [row, el("div", { class: "pin-offer" },
             el("p", { class: "card-sub" },
-              offer.replacing
-                ? `${nameOf(first)} pinned a different spot this time. The doorstep you keep for them is untouched until you take this one.`
-                : `${nameOf(first)} pinned their door on the shop page when they ordered.`),
+              theirs
+                ? `${nameOf(first)} pinned a different spot this time. Taking it replaces the doorstep you keep for them.`
+                : `${nameOf(first)}'s own pin is in use. The doorstep you keep for them is a different spot.`),
             el("div", { class: "btn-row" },
-              button(offer.replacing ? "Use the customer's pin instead" : "Use the customer's pin",
-                () => keepPin(first, offer.place), "ghost small")))]
+              button(theirs
+                ? "Use the customer's pin instead"
+                : "Use the door I keep instead",
+                () => keepPin(first, offer.place, theirs), "ghost small")))]
         : [row];
     });
 
@@ -311,10 +322,16 @@ export function renderDeliveryRun(root, state, params) {
   }
 
   // Keep a doorstep against a customer. THE one path, whether the pin was dragged on
-  // the map or taken from what the customer pinned themselves — so a pin she accepted
-  // and a pin she placed by hand are the same record, saved and synced the same way.
-  function keepPin(order, place) {
-    setDropPlace(state, order, place);
+  // the map, taken from what the customer pinned themselves, or put back over their pin —
+  // so a pin she accepted and a pin she placed by hand are the same record, saved and
+  // synced the same way.
+  //
+  // `fromCustomer` tags WHICH of those it was, and it is not decoration (v209): it decides
+  // whether the customer's own pin may override this door later. A door taken up from their
+  // pin stays theirs, so a customer who re-pins still wins; her own door is recorded as her
+  // own hand, so it sticks. `pinDoorstep` omits it, which is the "hand" default.
+  function keepPin(order, place, fromCustomer = false) {
+    setDropPlace(state, order, place, fromCustomer ? "customer" : "hand");
     save(state);
     maybeSync(state);
     paintList();
@@ -327,10 +344,10 @@ export function renderDeliveryRun(root, state, params) {
       state,
       title: `${nameOf(order)}'s doorstep`,
       hint: !kept && suggested
-        ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door — nothing uses it until you keep it."
+        ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door."
         : "Look the address up, then drag the pin to the exact door. It is remembered for this customer, so a second order from them costs no lookup at all.",
       address: dropAddress(order),
-      start: kept || suggested,
+      start: doorSpotOf(state, order),
       onPick: (spot) => keepPin(order, spot),
     });
   }
@@ -457,7 +474,11 @@ export function renderDeliveryRun(root, state, params) {
       // order (v207) — the door she keeps is named with the address, and never with the
       // geocoder's row, which is a fragment with no house number in it.
       if (theirs) {
-        setDropPlace(state, first, { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label });
+        setDropPlace(
+          state, first,
+          { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label },
+          "customer",
+        );
         paintList();
         continue;
       }
@@ -477,7 +498,7 @@ export function renderDeliveryRun(root, state, params) {
         statusLine.textContent = `${nameOf(first)}: ${found.reason} Nothing has been priced.`;
         return;
       }
-      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
+      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup");
       paintList();
     }
 

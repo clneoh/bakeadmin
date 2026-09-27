@@ -337,28 +337,29 @@ test("the courier price panel prints no 'null' under its last price row", async 
   assert.deepEqual(stray, [], "no 'null' under the last price row");
 });
 
-// ── the customer's own pin, offered (v197) ────────────────────────────────
+// ── the two doors on an order card (v197, reversed at v209) ───────────────
 //
-// The offer line is drawn by `paintEnds()`, which every change to the doorstep repaints,
-// and this is one of the two screens a shop-page pin can be taken up on. Read off the
-// drawn card rather than off the function, for the same reason as the panel above: what
-// is checked is what she sees.
+// The switch is drawn by `paintEnds()`, which every change to the doorstep repaints, and
+// this is one of the two screens it appears on. Read off the drawn card rather than off the
+// function, for the same reason as the panel above: what is checked is what she sees.
 //
-// The second half is the rule that replaces a "dismissed" flag — the offer is shown only
-// while the pin the customer dropped differs from the door already kept for them, so
-// ACCEPTING is the thing that ends it, and nothing has to be stored about a refusal.
+// The rule that replaces a "dismissed" flag is still here — the control is drawn only while
+// the pin the customer dropped differs from the door kept for them, so PRESSING it is the
+// thing that changes it, and nothing has to be stored about a refusal.
 //
-// SINCE v208 THIS IS A CORRECTION AND NOT A FIRST OFFER. A customer's pin on an order that
-// has no kept door IS the door now (the v208 test below), so there is nothing left to
-// offer — the offer's work is the case where she already keeps a door for that customer and
-// they have pinned somewhere else this time. That is the branch her own answer was about.
+// SINCE v209 THE DOOR IS THEIRS WHERE THEY LEFT ONE. A customer's pin on an order beats the
+// door she keeps, unless that door is her own hand — so the case below is a door kept with no
+// record of her hand (as every door saved before v209 reads), and the card opens with the
+// customer's own pin in use and the kept door on offer. Pressing it puts HER door back and
+// FLIPS the control rather than ending it, because the two still disagree.
 
-test("the customer's own pin is offered with no stray 'null', and stops being offered once it is taken (v197)", async () => {
+test("a kept door with no record of her hand loses to the customer's pin, with no stray 'null' (v209)", async () => {
   globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
     ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
   const s = stubChannel();
   const st = courierState();
-  // A door she ALREADY keeps for this customer, at a different point from the pin below.
+  // A door she ALREADY keeps for this customer, at a different point from the pin below —
+  // and with no `from` on it, which is how a door saved before v209 reads.
   st.customers = [{
     id: "c1", key: keyOf(COURIER_ORDER), name: "Mei Ling", whatsapp: "60123456789",
     place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga, 10450 Penang" },
@@ -376,25 +377,29 @@ test("the customer's own pin is offered with no stray 'null', and stops being of
     for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
 
     offered = byClass(wrap, "pin-offer");
-    assert.ok(offered, "the offer block is drawn on the order card");
+    assert.ok(offered, "the switch block is drawn on the order card");
     assert.equal(offered.hidden, false, "and it is shown");
-    // "Instead", because she already keeps a door for this customer and the pin they dropped
-    // this time is somewhere else. That is the branch her own answer is about: the offer
-    // arrives even when she already has a door, and it is the WORDS that change.
-    assert.match(offered.textContent, /Mei Ling pinned a different spot this time/);
-    assert.match(offered.textContent, /The doorstep you keep for them is untouched until you take this one/);
+    // Their pin is the door in use — the card says so, and the kept door is what is offered.
+    assert.match(offered.textContent, /Mei Ling's own pin is in use/);
+    assert.match(offered.textContent, /The doorstep you keep for them is a different spot/);
+    assert.match(wrap.textContent, /Sri Bunga guard house/,
+      "and the doorstep line itself names the pin the customer dropped");
     assert.equal((st.customers[0] || {}).place.lat, 5.42,
-      "the door she keeps is untouched by the pin, until the pin is taken");
-    const press = buttonByText(offered, "Use the customer's pin instead");
-    assert.ok(press, "with one press to take it");
+      "the door she keeps is untouched until she presses");
+    const press = buttonByText(offered, "Use the door I keep instead");
+    assert.ok(press, "with one press to put her own door back");
     assert.deepEqual(strayNulls(wrap), [], "and nothing on the card prints 'null'");
 
     press._listeners.click[0]();
-    assert.equal(offered.hidden, true, "taking it ends the offer — there is nothing to dismiss");
-    assert.equal(offered.children.length, 0, "and it is emptied, not left holding the last customer's words");
     const kept = (st.customers || [])[0] || {};
-    assert.equal((kept.place || {}).lat, 5.4299, "the pin is what is now kept against that customer");
-    assert.deepEqual(strayNulls(wrap), [], "still no 'null' on the card once it is taken");
+    assert.equal((kept.place || {}).lat, 5.42, "her own door is the one in use now");
+    assert.equal((kept.place || {}).from, "hand",
+      "recorded as her own hand, so it stays put and their pin cannot move it");
+    assert.equal(offered.hidden, false, "the control is still there — the two doors still disagree");
+    assert.match(offered.textContent, /Mei Ling pinned a different spot this time/);
+    assert.ok(buttonByText(offered, "Use the customer's pin instead"),
+      "and it now points the other way, at the pin they dropped");
+    assert.deepEqual(strayNulls(wrap), [], "still no 'null' on the card once it is pressed");
   } finally {
     const hide = wrap && buttonByText(wrap, "Hide the delivery price");
     if (hide) hide._listeners.click[0]();
@@ -440,6 +445,8 @@ test("the dot stays on the customer's own pin when a price is asked for, and no 
     assert.equal((st.customers[0] || {}).place.lng, 100.3399, "both numbers, so it is the same point and not a neighbour");
     assert.equal((st.customers[0] || {}).place.label, "12 Jalan Bunga, 10450 Penang",
       "named with the address on the order (v207), not with the geocoder's row");
+    assert.equal((st.customers[0] || {}).place.from, "customer",
+      "and it is recorded as THEIRS (v209) — it is a copy of their pin, so a customer who re-pins still wins");
     assert.equal(leaf.rec.markers[0].latlng.lat, 5.4299, "and the dot never moved — the price is for the door on screen");
     assert.match(mounted.wrap.textContent, /RM 14\.00/, "a price still arrived, so this is not a card that did nothing");
     stray = strayNulls(mounted.wrap);
@@ -933,8 +940,9 @@ test("a pin named with the customer's own address is not printed twice on her ca
     assert.equal(said.split(ADDR).length - 1, 1,
       "the address is on her card exactly once — it is the name of the pin, not two facts");
     assert.match(said, /Mei Ling's own pin from the shop page/,
-      "and the pin is still said to be theirs and still not yet the driver's door");
-    assert.match(said, /Not yet the door the driver is sent to/);
+      "and the pin is still said to be theirs");
+    assert.match(said, /This is the door the driver is sent to/,
+      "and since v209 it says so — their own pin IS the door, not a suggestion waiting to be taken");
     assert.doesNotMatch(said, new RegExp(`${ADDR}[^]*?${ADDR}`),
       "never the address above the pin and the same words as the pin's own name");
   } finally {
@@ -997,6 +1005,8 @@ test("the door the panel looks up on its way to a price is named with the ADDRES
       "and the words kept for it are the address on the order");
     assert.notEqual(st.customers[0].place.label, "12 Jalan Bunga",
       "specifically NOT the geocoder's row, which is the fragment this version stops keeping");
+    assert.equal(st.customers[0].place.from, "lookup",
+      "and it is recorded as the app's own lookup (v209) — so a pin the customer drops later beats it");
 
     const said = mounted.doorSlot.textContent;
     assert.match(said, /12 Jalan Bunga, 10450 Penang — the door you keep for Mei Ling\./,
@@ -1216,8 +1226,9 @@ test("a door the map has never shown is worth moving the view for (v201)", async
   const leaf = makeLeaflet();
   globalThis.window.L = leaf.L;
   const st = courierState();
-  // A door she already keeps for this customer, and a pin they dropped somewhere else — so
-  // the offer appears and taking it moves the door to a point the map has never drawn.
+  // A door she already keeps for this customer with no record of her hand (so their pin wins,
+  // v209), and a pin they dropped somewhere else — so the switch appears and pressing it moves
+  // the door to a point the map has never drawn.
   st.customers = [{
     id: "c1", key: keyOf(COURIER_ORDER), name: "Mei Ling", whatsapp: "60123456789",
     place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga, 10450 Penang" },
@@ -1227,20 +1238,21 @@ test("a door the map has never shown is worth moving the view for (v201)", async
     mounted = mountDoor(st, withDoor());
     await settle(4);
     assert.equal(leaf.rec.views.length, 1, "the map is aimed at the door once, when it is built");
-    assert.equal(leaf.rec.markers[0].latlng.lat, 5.42, "on the door she keeps for this customer");
+    assert.equal(leaf.rec.markers[0].latlng.lat, 5.4299,
+      "on the customer's own pin, which is the door in force");
 
-    // Opening the price fold is where the offer is drawn, and it moves no door: she already
-    // keeps one for this customer, so `ask()` spends no lookup and the map stays put.
+    // Opening the price fold is where the switch is drawn, and it moves no door: their pin
+    // already answers where this door is, so `ask()` spends no lookup and the map stays put.
     buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
     await settle();
     assert.equal(leaf.rec.views.length, 1, "asking for a price does not re-aim the map at the door it already shows");
 
-    buttonByText(mounted.wrap, "Use the customer's pin instead")._listeners.click[0]();
+    buttonByText(mounted.wrap, "Use the door I keep instead")._listeners.click[0]();
     await settle();
 
-    assert.equal(leaf.rec.views.length, 2, "the door the pin moves to is worth moving the view for");
-    assert.deepEqual(leaf.rec.views[1].center, [5.4299, 100.3399], "and it is aimed at the new point");
-    assert.equal(leaf.rec.markers[0].latlng.lat, 5.4299, "with the pin on it");
+    assert.equal(leaf.rec.views.length, 2, "the door the press moves to is worth moving the view for");
+    assert.deepEqual(leaf.rec.views[1].center, [5.42, 100.33], "and it is aimed at the new point");
+    assert.equal(leaf.rec.markers[0].latlng.lat, 5.42, "with the pin on it");
   } finally {
     closeDoor(mounted);
     s.restore();

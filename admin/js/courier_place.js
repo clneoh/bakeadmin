@@ -98,18 +98,71 @@ export function dropPlaceOf(state, order) {
   return validPlace(row && row.place);
 }
 
+// HOW that saved door got there (v209): "hand" when SHE put it there — a drag on the
+// card, or a pick in the map's own picker — "customer" when she took up the pin they
+// dropped, "lookup" when the app found it from the typed address on its way to a price.
+//
+// It exists for one question only: whether the door she keeps may be overridden by the
+// pin the customer dropped. A door from a LOOKUP must be, because a lookup answers the
+// wrong town as easily as the right one and that is the bug she has now reported five
+// times. A door from HER OWN HAND must not be, because a pin she corrected by hand that
+// snapped back on the next repaint is a control moving under her finger.
+//
+// A door saved before v209 carries no `from` at all, so it reads as neither — and loses
+// to the customer's pin, which is exactly the fix. `setDropPlace` stamps every door it
+// writes from now on.
+export function doorFromOf(state, order) {
+  const row = profileFor(state, keyOf(order));
+  const place = row && row.place;
+  return String((place && place.from) || "");
+}
+
+// WHICH of the two doors on this order is the one in force: the customer's own pin, or a
+// door of hers. The single question everything else here derives from, so the point the
+// price is asked for, the point a driver is sent to, and the words on the card can never
+// disagree about which door they are talking about.
+//
+// True when the customer dropped a pin AND the door she keeps is not her own hand.
+export function doorIsTheirs(state, order) {
+  if (!customerPlaceOf(order)) return false;
+  return doorFromOf(state, order) !== "hand";
+}
+
+// THE POINT THAT IS THE DOOR — the one a price is asked for and a driver is sent to.
+//
+// WHERE THE CUSTOMER DROPPED THEIR OWN PIN, THAT PIN IS THE DOOR. Her instruction, in her
+// words (27 Sep 2026): "Their own pin — always." They were standing at their door when
+// they dropped it; the door she keeps for them may have been found by a lookup, and a
+// lookup can land in another town. So their pin beats anything this app worked out.
+//
+// The one thing it does not beat is her own hand (see doorFromOf above) — she is the only
+// one who knows the door, and a correction she made must stick.
+//
+// `dropPlaceOf` keeps its old meaning — the door SHE KEEPS — because the card still says
+// which door it is out loud. This is the function every consumer that needs the point
+// asks instead.
+export function doorSpotOf(state, order) {
+  const theirs = customerPlaceOf(order);
+  const kept = dropPlaceOf(state, order);
+  return doorIsTheirs(state, order) ? theirs : (kept || theirs);
+}
+
 // The delivery address the order already carries, as typed (the store's one-line
 // address box, or whatever she wrote under Edit).
 export function dropAddress(order) {
   return String((order && order.address) || "").trim();
 }
 
-// The doorstep the CUSTOMER dropped on the shop page, or null (v197). A
-// suggestion and nothing more, and the whole feature turns on that word: it is
-// OFFERED where a doorstep is shown, and only her press writes it into the
-// customer's profile through setDropPlace above. Nothing prices a trip, books a
-// driver or fills a charge box from this — every one of those still asks
-// dropPlaceOf, which is the door she has accepted.
+// The doorstep the CUSTOMER dropped on the shop page, or null (v197).
+//
+// IT WAS A SUGGESTION AND NOTHING MORE until v209, and it is not any more. Her
+// instruction (27 Sep 2026), after five reports of "the pin still wrong": "Their own pin
+// — always." Where they left one, it is now the door the price is asked for and the door
+// a driver is sent to (see doorSpotOf below) — they were at their door when they dropped
+// it, and the door kept for them may only ever have been a lookup's answer. The v197
+// promise that nothing reached a driver from this without her press is therefore
+// RETIRED, deliberately, on her word; the one-press switch in the card is what replaces
+// it, and a door she placed by her own hand still beats this.
 export function customerPlaceOf(order) {
   return validPlace(order && order.customerPlace);
 }
@@ -119,22 +172,30 @@ export function customerPlaceOf(order) {
 // enough that a pin nudged a few metres on the map does not read as a new place.
 const SAME_DOOR_DEG = 0.0001;
 
-// Whether the customer's own pin is still worth offering her, and whether it is
-// offered as a correction to a door she already keeps.
+// The OTHER door on this order — the one that is not in force — so the card can offer one
+// press to switch to it. Null when there is nothing to switch to: no second door, or the
+// two agree to within SAME_DOOR_DEG (about 11 metres), in which case they are one door and
+// a switch between them would be a control that does nothing.
 //
-// It stops being offered the moment the door she keeps IS that pin, which is what
-// makes the offer honest without a "dismissed" flag to store: an accepted
-// suggestion is no longer a suggestion. Her answer (25 Sep 2026) was to be offered
-// theirs EVEN when she already has one for that customer — so a kept door does not
-// silence it, it only changes the words.
-export function customerPinOffer(state, order) {
-  const suggested = customerPlaceOf(order);
-  if (!suggested) return null;
+// SYMMETRIC SINCE v209, and that is the whole of what changed. It used to be
+// `customerPinOffer`, which only ever offered THEIR pin as a correction to the door she
+// keeps — because that was the only direction that could arise while the kept door always
+// won. Now their pin can be the door in force and the door she keeps can be the
+// alternative, so the same control has to point both ways.
+//
+// `which` names the door being offered ("customer" or "kept") and `replacing` the one in
+// force, because the caller has to say both out loud.
+export function doorSwitchOf(state, order) {
+  const theirs = customerPlaceOf(order);
   const kept = dropPlaceOf(state, order);
-  if (kept
-    && Math.abs(kept.lat - suggested.lat) < SAME_DOOR_DEG
-    && Math.abs(kept.lng - suggested.lng) < SAME_DOOR_DEG) return null;
-  return { place: suggested, replacing: kept || null };
+  if (!theirs || !kept) return null;
+  if (Math.abs(kept.lat - theirs.lat) < SAME_DOOR_DEG
+    && Math.abs(kept.lng - theirs.lng) < SAME_DOOR_DEG) return null;
+  // Which one is in force is decided by doorIsTheirs, not by a second guess here: the two
+  // must never be able to disagree about what the card is showing.
+  return doorIsTheirs(state, order)
+    ? { place: kept, which: "kept", replacing: theirs }
+    : { place: theirs, which: "customer", replacing: kept };
 }
 
 // Remember a doorstep against the person this order belongs to. Creates the profile
@@ -145,7 +206,12 @@ export function customerPinOffer(state, order) {
 //
 // Refused, quietly, when the order has nothing to key a person by — the same
 // invariant profiles.js keeps: a row nobody can find again is worse than no row.
-export function setDropPlace(state, order, place) {
+//
+// `from` records HOW the door got here (see doorFromOf above) and is not decoration: it is
+// the whole of whether the customer's own pin may override this door. It defaults to
+// "hand" because that is what every existing caller means — a drag on the card, a pick in
+// the map's picker — and a caller that means something else must say so out loud.
+export function setDropPlace(state, order, place, from = "hand") {
   const p = validPlace(place);
   const key = keyOf(order);
   if (!p || !key) return null;
@@ -165,6 +231,7 @@ export function setDropPlace(state, order, place) {
     lat: p.lat,
     lng: p.lng,
     label: p.label,
+    from: String(from || "hand"),
     at: new Date().toISOString(),
   };
   save(state);
@@ -281,7 +348,7 @@ export function placeProblem(state, order) {
         : "Pin the bakery's pickup spot in Settings first — a courier needs a door to collect from.",
     };
   }
-  if (!dropPlaceOf(state, order)) {
+  if (!doorSpotOf(state, order)) {
     return {
       need: "drop",
       say: dropAddress(order)

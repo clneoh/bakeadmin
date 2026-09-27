@@ -52,8 +52,8 @@ import {
   liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
-  customerPinOffer, customerPlaceOf, dropAddress, dropPlaceOf, fmtPlace, pickupAddress, pickupPlace,
-  setDropPlace, setPickupPlace,
+  customerPlaceOf, doorIsTheirs, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf, fmtPlace,
+  pickupAddress, pickupPlace, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
@@ -221,11 +221,24 @@ export function courierQuoteSection({
     afterDoorMove();
   }
 
-  // The door the driver is actually sent to, falling back to the pin the CUSTOMER dropped
-  // on the shop page — which is a SUGGESTION and is drawn as one. v197's promise is
-  // unchanged: their pin never reaches a driver until she takes it up.
+  // THE DOOR — the one point a price is asked for, the drag moves, and the driver is sent
+  // to. The rule lives in courier_place.js's `doorSpotOf`, so this card, the delivery run
+  // and the booking that reaches the courier cannot disagree about which point it is.
+  //
+  // v197's old promise — that their pin reached nobody until she took it up — is RETIRED
+  // at v209 on her own instruction ("Their own pin — always"), because the door she keeps
+  // could be a lookup's answer in the wrong town. The one-press switch further down the
+  // card is what takes its place, and a door she placed by her own hand still wins.
   function doorSpot() {
-    return dropPlaceOf(state, first) || customerPlaceOf(first);
+    return doorSpotOf(state, first);
+  }
+
+  // Whether the point in force is the customer's own pin rather than a door of hers. The card
+  // has to say which it is, and it cannot ask "is there a kept door?" — since v209 one can
+  // exist while the customer's pin is the point in force, and a card keyed off the row would
+  // call their pin "the door you keep for her". That is why this asks courier_place.js.
+  function theirsIsTheDoor() {
+    return doorIsTheirs(state, first);
   }
 
   // The picker, for the one case a drag cannot answer: there is no point at all to drag,
@@ -287,8 +300,16 @@ export function courierQuoteSection({
           el("div", { class: "btn-row", style: "margin-top:10px" }, doorBtn)));
     }
 
-    const kept = dropPlaceOf(state, first);
-    const spot = kept || customerPlaceOf(first);
+    const spot = doorSpot();
+    // WHICH DOOR IS IN FORCE, and it is not the same question as whether a door is kept
+    // (v209): where the customer dropped their own pin, THEIR pin is the door even though a
+    // door of hers still exists on the profile. The wording below has to follow the point,
+    // not the row — otherwise the card would call the customer's pin "the door you keep".
+    //
+    // THREE STATES, and a door she keeps is only one of them. A door that came from a lookup
+    // is neither her hand nor the customer's pin, and it is still "the door you keep for her" —
+    // which is why this asks whose pin the point is, rather than asking about her hand.
+    const theirs = theirsIsTheDoor();
     const addr = dropAddress(first);
     const who = String(first.customerName || "the customer").trim() || "the customer";
 
@@ -297,7 +318,7 @@ export function courierQuoteSection({
     // of what a doorstep is — and the second must never read as the first.
     //
     // AND THE DOOR SHE KEEPS IS SAID WITH THE ADDRESS ON THE ORDER (v207), which is the one
-    // wording change here. Her report, three times over: "the pin still wrong". Measured on
+    // wording change there. Her report, three times over: "the pin still wrong". Measured on
     // this card, the line used to read "12 Jalan Bunga, 10450 Penang — the door you keep for
     // Mei Ling: Taman Sri Nibong, George Town" — the address she and the customer both use,
     // and then a SECOND name for the same door, disagreeing with it. That second name is not
@@ -309,15 +330,21 @@ export function courierQuoteSection({
     // name there is and they stand. The customer's own pin keeps its own words when they
     // differ, because THOSE words are the customer's own address (v205) — a fact from them,
     // not a note of this app's.
+    //
+    // THE THIRD STATE CHANGED AT v209 and the sentence with it. It used to end "Not yet the
+    // door the driver is sent to", which was true while their pin was only ever a suggestion.
+    // It is the door now, so the line says so, and it says WHY — because a door she keeps can
+    // still exist and she will want to know why the dot is not on it.
     doorWords.textContent = !spot
       ? (addr
         ? `${addr} — no point pinned yet, so the driver is sent to that address.`
         : "This order has no delivery address yet, and no point pinned. The picker below can pin a point on its own.")
-      : kept
-        ? `${addr || fmtPlace(spot)} — the door you keep for ${who}.`
-        : `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page${
+      : theirs
+        ? `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page${
           spot.label && spot.label !== addr ? `: ${fmtPlace(spot)}` : ""
-        }. Not yet the door the driver is sent to.`;
+        }. This is the door the driver is sent to.`
+        : `${addr || fmtPlace(spot)} — the door you keep for ${who}.`;
+
 
     if (doorBtn) {
       doorBtn.textContent = !spot
@@ -348,7 +375,17 @@ export function courierQuoteSection({
         // once when the map was built: the pin the panel looked up on its way to a price
         // overwrites what this door is called, and a label captured at mount would quietly
         // put the old name back on the next drag.
+        //
+        // A DRAG CHANGES THE POINT AND NEVER THE WORDS, which is why this reads the door SHE
+        // KEEPS and not the point in force. Dragging is how she corrects a doorstep, and the
+        // record it writes is her own hand — named the way every door of hers is named, from
+        // the address on the order (v207). Reading the point in force here would rename the
+        // door the moment their own pin became it, so one drag would silently swap
+        // "12 Jalan Bunga, 10450 Penang" for the words on the customer's pin. Measured on
+        // this card at v209, against the v207 test below.
         const words = (dropPlaceOf(state, first) || {}).label || dropAddress(first);
+        // No `from` argument: a drag is her own hand, which is the default — and it is what
+        // makes this correction stick rather than losing to the customer's pin again.
         setDropPlace(state, first, { lat: moved.lat, lng: moved.lng, label: words });
         // The host owns persistence for the card it built, exactly as it does for a booking.
         if (onCommit) onCommit(first);
@@ -392,41 +429,53 @@ export function courierQuoteSection({
       });
     }, "ghost small");
 
-    // The customer's own pin, when they dropped one on the shop page (v197). It is a
-    // SUGGESTION and it is drawn as one — one line and one press, sitting directly
-    // under the doorstep sentence it would change, tinted so it cannot be mistaken for
-    // another fact about this order.
+    // The two doors on this order, when they disagree: one line and one press, sitting
+    // directly under the doorstep sentence it would change, tinted so it cannot be mistaken
+    // for another fact about this order.
     //
-    // It is offered every time the pin they dropped is not the doorstep already kept
-    // for them (her answer, 25 Sep 2026: offer theirs even when she has her own). That
-    // is what makes accepting it the thing that stops it appearing, without a
-    // "dismissed" flag for anything to store, and it is why a kept door does not
-    // silence the offer — it only changes the words.
+    // ONE CONTROL, TWO DIRECTIONS (v209). Until v209 only one direction could ever arise,
+    // because the door she keeps always won and the pin the customer dropped could only be
+    // the alternative — so this offered "Use the customer's pin" and nothing else. Now the
+    // customer's pin is normally the door in force, so the same control has to be able to
+    // offer the door SHE keeps instead. `which` says which door is being offered.
     //
-    // Nothing below this line reacts to it. Every quote, every booking and every
-    // charge still comes from the door she has ACCEPTED, which is the whole promise of
-    // the feature: the customer's pin is never in front of a driver until she says so.
+    // It disappears when the two agree (to within SAME_DOOR_DEG), which is what makes
+    // pressing it the thing that ends it, with no "dismissed" flag for anything to store.
+    //
+    // THE WORDS ARE DIFFERENT FROM v197's, and deliberately: "the doorstep you keep for them
+    // is untouched until you take this one" described a world where their pin was only a
+    // suggestion. It is the door now, so the line says what is happening instead — and when
+    // their pin is the one in force, the customer's own pin is what the card is using, so
+    // the press on offer is the one that puts HER door back.
     const offerBox = el("div", { class: "pin-offer", hidden: true });
 
     function paintOffer() {
-      const offer = customerPinOffer(state, first);
+      const offer = doorSwitchOf(state, first);
       if (!offer) {
         offerBox.hidden = true;
         offerBox.replaceChildren();
         return;
       }
       const who = String(first.customerName || "the customer").trim() || "the customer";
+      // `which: "customer"` means her own door is the one in force and the pin they dropped is
+      // the alternative — so the words below split on this one flag, and nothing else.
+      const theirs = offer.which === "customer";
       offerBox.hidden = false;
       offerBox.replaceChildren(
         el("p", { class: "card-sub" },
-          offer.replacing
-            ? `${who} pinned a different spot this time. The doorstep you keep for them is untouched until you take this one.`
-            : `${who} pinned their door on the shop page when they ordered.`),
+          theirs
+            ? `${who} pinned a different spot this time. Taking it replaces the doorstep you keep for them.`
+            : `${who}'s own pin is in use. The doorstep you keep for them is a different spot.`),
         el("div", { class: "btn-row" },
-          button(offer.replacing ? "Use the customer's pin instead" : "Use the customer's pin", () => {
+          button(theirs
+            ? "Use the customer's pin instead"
+            : "Use the door I keep instead", () => {
             // The identical path the map's own picker takes, so a pin taken up here
-            // and a pin placed by hand land as the same record.
-            setDropPlace(state, first, offer.place);
+            // and a pin placed by hand land as the same record — but tagged by WHAT THE
+            // POINT IS, not by who pressed: a door taken up from their pin stays theirs
+            // (so a customer who re-pins later still wins), and her own door is recorded
+            // as her own hand (so it sticks).
+            setDropPlace(state, first, offer.place, theirs ? "customer" : "hand");
             paintEnds();
             ask();
           }, "ghost small")),
@@ -435,7 +484,7 @@ export function courierQuoteSection({
 
     function paintEnds() {
       const up = pickupPlace(state);
-      const drop = dropPlaceOf(state, first);
+      const drop = doorSpot();
       const who = String(first.customerName || "the customer").trim() || "the customer";
       endsLine.textContent = [
         up ? `From ${fmtPlace(up)}` : "The bakery's pickup spot is not pinned",
@@ -882,7 +931,9 @@ export function courierQuoteSection({
         if (theirs) {
           // The POINT is theirs and the WORDS are the address on the order (v207) —
           // the same split as the branch below, with a better point to make it from.
-          setDropPlace(state, first, { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label });
+          // Tagged "customer" (v209): this row is a COPY of their pin, so it must keep
+          // losing to their pin — if they drop a new one, the new one is the door.
+          setDropPlace(state, first, { lat: theirs.lat, lng: theirs.lng, label: words || theirs.label }, "customer");
           paintEnds();
         } else {
           if (!words) {
@@ -907,7 +958,7 @@ export function courierQuoteSection({
           // it kept was whatever the geocoder called the place: a row, a fragment, no
           // house number. So the POINT is the geocoder's and the WORDS are hers, which
           // is exactly the split store/geo.js's placeForOrder makes on the shop side.
-          setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words });
+          setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup");
           paintEnds();
         }
       }
