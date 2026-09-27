@@ -9,7 +9,7 @@ import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occS
 import { normRules } from "../availability.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
-import { askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
+import { addressFromRow, askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
 import { showPinMap } from "./pin_map.js";
 import { createLookup } from "./lookup.js";
 
@@ -1802,19 +1802,39 @@ function takeHit(hit) {
   if (!p) return;
   doorPin = p;
   pinWasAt = p;
+  // THE BOX IS FILLED IN FROM THE ROW (v214), and this is the one line of the feature. A
+  // row that found the house they typed carries a COMPLETE address — Google's own, richer
+  // than they bothered to type — so it goes into the box in place of their partial one,
+  // which is what she asked for: "it can go into the delivery address instead of customer
+  // type full". A row that only reached the road, or the wrong town, or said nothing, is
+  // refused by addressFromRow and changes nothing (store/geo.js holds the whole test).
+  //
+  // Written as a VALUE and never as typing: no `input` event is fired, so the pin cannot
+  // be taken away by the very write that put the address there — dropListPin only ever
+  // runs from a keystroke.
+  //
+  // `q` is what the box holds AFTER the write, and it has to be: the pin answers the
+  // wording now under it, and a second tap on the same row is judged against that same
+  // wording. Claim the old wording here and the row the customer is looking at would be
+  // refused as stale one line below the tap that drew it.
+  const found = addressFromRow(hit, now);
+  const words = lookupQuery(found) ? found : "";
+  if (words && input) input.value = words;
+  const q = words || now;
   // The wording this pin answers. Nothing the customer does to the map or the address
   // box after this keeps the pin tied to it: a drag on the map drops the claim (above),
   // and an edit to the words drops the pin (dropListPin).
-  pinOrigin = { q: now };
+  pinOrigin = { q };
   pinWasOrigin = pinOrigin;
   if (pinMap) pinMap.goTo(p);
   else openPinBox();
   paintPin();
-  // The rows are redrawn without the instruction they have just obeyed. Nothing is
-  // asked again and the choice is not forgotten — `answered` in store/lookup.js still
-  // holds this question, so the list comes straight back if they edit the address.
+  // The rows are redrawn without the instruction they have just obeyed, and with their own
+  // claim on the box corrected to the words the box now holds. Nothing is asked again and
+  // the choice is not forgotten — `answered` in store/lookup.js still holds this question,
+  // so the list comes straight back if they edit the address.
   hitTaken = true;
-  paintHits(hitNote);
+  paintHits(hitNote ? { key: hitNote.key, hits: hitNote.hits, q } : null);
 }
 
 // The customer's words have changed, so a pin that was an answer to the OLD words has to

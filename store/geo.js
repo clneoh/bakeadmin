@@ -116,6 +116,50 @@ export function placeForOrder(pin, fulfillment, address = "") {
   return { lat: p.lat, lng: p.lng, label: words };
 }
 
+// WHETHER A ROW IS ALLOWED TO WRITE ITSELF INTO THE ADDRESS BOX (v214).
+//
+// v205 forbade this outright, and the reason was measured rather than argued: "the customer
+// know their address well, when i tap the address the address is not a complete one, if it
+// is plaste into the address line, it will contaminate the customer keyin address". What she
+// was describing was the FREE services' answer, and she was right about it — they hold
+// Malaysian ROADS, so a row for a Malaysian address came back as a street and a town with the
+// house number missing. Writing that into the box would have replaced the one complete
+// address on the page with a worse one.
+//
+// v212 changed what a row can be. When Google answers (which it does whenever the key is
+// set), the row is its own `formatted_address` — a COMPLETE Malaysian address, often with
+// details the customer left out. So the rule she asked for in v214 becomes reachable: "the
+// address is very accurate, it can go into the delivery address instead of customer type
+// full".
+//
+// THE TEST IS THE HOUSE NUMBER, AND NOTHING ELSE. This is a deliberate mirror of the
+// bakery's own `houseNotIn` (admin/js/courier_place.js): take the digit-bearing tokens the
+// customer typed — every one, minus the 5-digit postcode, which says which district rather
+// than which door — and require the row's words to CONTAIN ALL OF THEM. A row that has every
+// number they typed found the house they meant, so its answer is richer than their typing and
+// may replace it. A row missing one of them found the road, the wrong town, or nothing —
+// which is the v205 complaint exactly — and is not allowed near their words.
+//
+// Two consequences that follow and are wanted, rather than tolerated:
+//   • An address typed with NO number at all ("Taman Sri Nibong, Penang") can never be
+//     written over. There is no house number to confirm, so the row's words are never
+//     provably better, and the customer's own are left alone. This is the same answer as
+//     "a road-only answer leaves their words alone", arriving from the other end.
+//   • A row that found nothing to say (no label) writes nothing, whatever was typed.
+//
+// It writes NOTHING ITSELF — it decides, and store/app.js does the writing. Both halves are
+// separate on purpose: this is the rule, and the rule is pure, so every address a real
+// customer can type is driven under Node.
+export function addressFromRow(hit, typed) {
+  const words = labelOf(hit && hit.label);
+  if (!words) return "";
+  const asked = String(typed == null ? "" : typed).match(/\d+[a-z]?/gi) || [];
+  const want = asked.map((s) => s.toLowerCase()).filter((s) => !/^\d{5}$/.test(s));
+  if (!want.length) return "";
+  const said = words.toLowerCase().split(/[^a-z0-9]+/);
+  return want.every((n) => said.includes(n)) ? words : "";
+}
+
 // Past this the fix is not a door. Phones report their own accuracy in metres, and
 // a fix good to 500 m is a street or two — worth keeping, and worth saying out loud,
 // because the customer is the one who can still fix it. It is NOT a refusal: she

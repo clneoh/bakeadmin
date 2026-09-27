@@ -20,8 +20,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { LOOKUP_MIN, LOOKUP_MAX, MAX_HITS, lookupQuery, readPlaces, lookupWhy,
-  broaden, lookupLadder, askAgain, LADDER_MAX } from "../store/geo.js";
+  broaden, lookupLadder, askAgain, LADDER_MAX, addressFromRow } from "../store/geo.js";
 import { createLookup } from "../store/lookup.js";
+// The bakery's own half of the same question, imported here for the side-by-side guard at
+// the end of this file (v214) — it is pure, and it is the one other place that decides
+// whether a geocoder reached the house.
+const { houseNotIn } = await import("../admin/js/courier_place.js");
 import { CONFIG } from "../store/config.js";
 import { STORE } from "../store-lang.js";
 import { LANGS } from "../i18n.js";
@@ -666,4 +670,107 @@ test("clearing the box forgets everything, and the next customer starts clean", 
   assert.deepEqual(rec.said, [{ key: null, hits: [], q: null }],
     "the list goes away and nothing is said — and with no rows there is no wording for the "
     + "page to mistake for a question the box is still asking (v204)");
+});
+
+// ── a row that found the house may write the box (v214, 27 Sep 2026) ───────
+//
+// Her instruction, verbatim: "the address is very accurate, it can go into the delivery
+// address instead of customer type full". v205 refused this outright, and it was right to:
+// the free services answered a Malaysian address with the ROAD and threw the house number
+// away, so writing a row into the box replaced the customer's one complete address with a
+// worse one — her own words for it were "it will contaminate the customer keyin address".
+//
+// v212 changed what a row can be. When Google answers, the row is its own complete
+// `formatted_address`. What separates a row worth writing from the one she complained about
+// is the HOUSE NUMBER, and checking for it is the whole of `addressFromRow`.
+//
+// THE SIDE-BY-SIDE GUARD IS THE POINT OF THE LAST TEST HERE. The bakery asks the same
+// question at the other end of the same order — `houseNotIn` decides whether to warn her
+// that a saved door only reached the road — and the two must not be able to disagree about
+// whether the geocoder found the house. test/shop-geocode.test.js holds the two copies of
+// the server's geocoder together for the same reason.
+
+const GOOGLE_ROW = "23, Jalan Seang Tek, George Town, 10400 George Town, Pulau Pinang, Malaysia";
+
+test("a row that found the house number may replace their typing (v214)", () => {
+  assert.equal(addressFromRow({ label: GOOGLE_ROW }, "23 Jalan Seang Tek, Penang"), GOOGLE_ROW,
+    "the number they typed is in the row, so the row is their address — and a fuller one");
+  assert.equal(addressFromRow({ label: GOOGLE_ROW }, "23, Jalan Seang Tek, George Town 10400"), GOOGLE_ROW,
+    "with or without the postcode they typed, the house number settles it");
+});
+
+test("a row that only reached the road is not allowed near their words (v214)", () => {
+  // The v205 complaint, exactly: the free services' answer for a Malaysian address.
+  assert.equal(addressFromRow({ label: "Jalan Seang Tek, George Town, Penang" },
+    "23 Jalan Seang Tek, Penang"), "",
+    "no 23 anywhere in the row — it found the street, so it does not get to name the door");
+  assert.equal(addressFromRow({ label: "Jalan Bunga, Penang" }, "12 Jalan Bunga, Penang"), "",
+    "and the same for the street the pin was on");
+});
+
+test("an address typed with no house number at all is never written over (v214)", () => {
+  // Nothing to confirm the row against, so the row is never provably better and the
+  // customer's own words are left exactly as they are. This is the "a road-only answer
+  // leaves their words alone" answer, arriving from the other end.
+  assert.equal(addressFromRow({ label: "Taman Sri Nibong, George Town, Penang" },
+    "Taman Sri Nibong, Penang"), "");
+  // A postcode is not a house number — it says which district, not which door — so a box
+  // holding only one is in the same position.
+  assert.equal(addressFromRow({ label: "10450 Penang" }, "10450 Penang"), "", "a postcode alone is not a door");
+});
+
+test("EVERY number they typed has to be in the row, not just one (v214)", () => {
+  // A Malaysian address often carries two numbers — a lot number and a mukim, a unit number
+  // and a street — and the row has to have found BOTH. Accepting one is the v205 harm one
+  // digit at a time: the box would be rewritten with an address that has silently dropped
+  // the other number the customer typed.
+  const typed = "Lot 1234, Mukim 12, Jalan Teluk Kumbar, Penang";
+  assert.equal(addressFromRow({ label: "Lot 1234, Mukim 12, Jalan Teluk Kumbar, Penang" }, typed),
+    "Lot 1234, Mukim 12, Jalan Teluk Kumbar, Penang",
+    "the row has the lot number AND the mukim — it may write");
+  assert.equal(addressFromRow({ label: "Mukim 12, Jalan Teluk Kumbar, George Town, Penang" }, typed), "",
+    "the row has the mukim and lost the lot number, so it writes nothing — matching on the one "
+    + "number it happens to hold would throw the other away");
+  assert.equal(addressFromRow({ label: "12-3-4 Blk A, Taman Sri Nibong, George Town" },
+    "12-3-4 Blk A, Taman Sri Nibong, Penang"), "12-3-4 Blk A, Taman Sri Nibong, George Town",
+    "and a unit number is a second thing they typed, so a row holding all of it may write");
+  assert.equal(addressFromRow({ label: "Taman Sri Nibong, George Town, Penang" },
+    "12-3-4 Blk A, Taman Sri Nibong, Penang"), "",
+    "a row that found the taman and none of the numbers is refused");
+});
+
+test("a row with no words, or no row at all, writes nothing (v214)", () => {
+  assert.equal(addressFromRow({ lat: 5.4, lng: 100.3 }, "12 Jalan Bunga, Penang"), "",
+    "a point with no words still moves the pin — it just has nothing to write");
+  assert.equal(addressFromRow(null, "12 Jalan Bunga, Penang"), "");
+  assert.equal(addressFromRow({ label: "12, Jalan Bunga, Penang" }, ""), "",
+    "and an empty box has nothing for a row to answer");
+});
+
+test("the shop's rule and the bakery's agree about the house number (v214)", () => {
+  // The two ends of one order, side by side. `houseNotIn` returns the number the bakery
+  // LOST (or "" for a door it reached); this file's rule returns the words the shop may
+  // WRITE (or "" for nothing). For an address carrying a SINGLE number they are exact
+  // opposites, and a change to either that broke that has to be seen here.
+  //
+  // SINGLE-NUMBER BY CONSTRUCTION, and that is not laziness. Where an address carries two
+  // numbers the two halves ask deliberately different questions — the bakery asks "did we
+  // lose the door at all?" (one number is enough to say no) while the shop asks "did we get
+  // everything the customer wrote?" (all of them are needed) — so the pair is NOT opposite
+  // there, and a row added carelessly to this table would assert something neither end
+  // promises. The two-number case is covered by the test above.
+  const cases = [
+    ["23 Jalan Seang Tek, Penang", "23, Jalan Seang Tek, George Town, 10400 Penang, Malaysia"],
+    ["23 Jalan Seang Tek, Penang", "Jalan Seang Tek, George Town, Penang"],
+    ["12 Jalan Bunga, 10450 Penang", "12, Jalan Bunga, 10450 Penang, Malaysia"],
+    ["12 Jalan Bunga, 10450 Penang", "Jalan Bunga, 10450 Penang, Malaysia"],
+    ["7 Lorong Seri Nibong, Penang", "Taman Sri Nibong, George Town, Penang"],
+  ];
+  for (const [typed, label] of cases) {
+    const bakeryLost = houseNotIn(typed, { label }) !== "";
+    const shopWrites = addressFromRow({ label }, typed) !== "";
+    assert.equal(shopWrites, !bakeryLost,
+      `"${typed}" against "${label}": the bakery says it ${bakeryLost ? "lost the door" : "reached it"} `
+      + `and the shop ${shopWrites ? "writes" : "refuses"} — the two halves of one order cannot disagree`);
+  }
 });

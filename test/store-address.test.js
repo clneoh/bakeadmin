@@ -547,6 +547,11 @@ test("a pin taken from the list travels named with the customer's own words, not
   // and that is the half she corrected: "the customer know their address well, when i tap the
   // address the address is not a complete one, if it is plaste into the address line, it will
   // contaminate the customer keyin address". So the row's name is used for NOTHING but the row.
+  //
+  // SINCE v214 THIS IS THE NARROW CASE, and the reason has become checkable rather than a rule
+  // of thumb: the address typed here carries NO house number for the row to have found, so the
+  // row is still refused entry to the box (addressFromRow, store/geo.js). Where the row DID find
+  // the number, the box is written — v214's own tests, at the end of this file.
   begin(t);
   reply = { ok: true, places: [{ lat: 5.3325, lng: 100.3020, label: "Taman Sri Nibong, George Town" }] };
   const realFetch = globalThis.fetch;
@@ -570,7 +575,8 @@ test("a pin taken from the list travels named with the customer's own words, not
     await flush();
 
     assert.equal(el("address-input").value, "Taman Sri Nibong, Penang",
-      "the tap moved the pin and did NOT write the row's fragment into their address box");
+      "the tap moved the pin and did NOT write the row's fragment into their address box — no house "
+      + "number was typed for the row to have found, so v214 leaves their words exactly as they are");
 
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order reached the backoffice");
@@ -581,6 +587,107 @@ test("a pin taken from the list travels named with the customer's own words, not
       "the address and the pin's name are one string, so her screen cannot show two places disagree");
     assert.doesNotMatch(String(posted.place.label), /George Town/,
       "the geocoder's name for that spot is a fragment and is not allowed on the order at all");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+// ── a row that found the house writes the box (v214, 27 Sep 2026) ───────────
+//
+// Her instruction, verbatim: "the address is very accurate, it can go into the delivery
+// address instead of customer type full". The rule that decides when a row may write lives
+// in store/geo.js (addressFromRow) and is driven pure in test/store-lookup.test.js, side by
+// side with the bakery's own house-number test. What only THIS file can see is the wiring:
+// that the box really is filled, that the pin's claim on the wording moves with it, that the
+// order carries the fuller address with the pin named by the same string, and that a row
+// which only reached the road changes nothing but the dot.
+
+const ROW = "23, Jalan Seang Tek, George Town, 10400 George Town, Pulau Pinang, Malaysia";
+const ROW_AT = { lat: 5.4121, lng: 100.3355, label: ROW };
+
+test("tapping a door that found the house fills the box, and the pin answers the words it wrote (v214)", async (t) => {
+  begin(t);
+  reply = { ok: true, places: [{ ...ROW_AT }] };
+
+  type("23 Jalan Seang Tek, Penang");
+  t.mock.timers.tick(700);
+  await flush();
+  fire(el("addr-list").children[1], "click");
+  await flush();
+
+  assert.equal(el("address-input").value, ROW,
+    "the row's complete address went into the box in place of the part they typed");
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet, "and the pin is set, as always");
+
+  // THE SECOND TAP, and this is the one line of the feature that is easy to get wrong. The row
+  // stays on screen — an instruction is retired by a choice, not by the list — and it is still
+  // an answer to a question the box asks, because the box now asks the row's own wording. Judge
+  // it against the words they TYPED and it is refused as stale the instant the box is written,
+  // which is a dead control sitting under their thumb.
+  const list = el("addr-list");
+  assert.equal(list.children.length, 1, "the row they tapped, with its instruction retired");
+  fire(list.children[0], "click");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet,
+    "tapping that same row again LANDS rather than being refused as out of date");
+
+  // And the claim it now holds is the wording it wrote, so the ordinary edit still takes the
+  // pin away — the v204 rule is not loosened by the box having been filled in for them.
+  type("14 Jalan Seang Tek, Penang");
+  await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinAddrChanged,
+    "editing the address they were given still takes the pin, and says so");
+});
+
+test("a row that only reached the road moves the pin and leaves their words alone (v214)", async (t) => {
+  begin(t);
+  reply = { ok: true, places: [{ lat: 5.4141, lng: 100.3288, label: "Jalan Seang Tek, George Town, Penang" }] };
+
+  type("23 Jalan Seang Tek, Penang");
+  t.mock.timers.tick(700);
+  await flush();
+  fire(el("addr-list").children[1], "click");
+  await flush();
+
+  assert.equal(el("address-input").value, "23 Jalan Seang Tek, Penang",
+    "their own words are untouched — the row never found the 23 they typed, so it has no business "
+    + "rewriting an address it could not match");
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet, "but the pin still moves");
+  assert.deepEqual(rec.views[0].center, [5.4141, 100.3288], "and the map still comes to them");
+  assert.equal(rec.views[0].zoom, 17, "as close as before — a road answer is still the best the lookup has");
+});
+
+test("the order carries the address the row wrote, with the pin named by that same string (v214)", async (t) => {
+  // What actually leaves the phone, which is the part she sees on her own screen. v205's promise
+  // is that the address and the pin's name are ONE string; v214 changes which string, not the
+  // promise — the order now carries a complete address rather than the customer's abbreviation.
+  begin(t);
+  reply = { ok: true, places: [{ ...ROW_AT }] };
+  const realFetch = globalThis.fetch;
+  let posted = null;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes("/functions/v1/shop-geocode")) return { ok: true, status: 200, json: async () => reply };
+    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+    return { ok: true, status: 200, json: async () => [] };
+  };
+  try {
+    registry["menu"].children[0]
+      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("whatsapp-input").value = "60123456789";
+    document.getElementById("fulfillment")._value = "courier";
+
+    type("23 Jalan Seang Tek, Penang");
+    t.mock.timers.tick(700);
+    await flush();
+    fire(el("addr-list").children[1], "click");
+    await flush();
+
+    await registry["order-btn"].onclick();
+    assert.ok(posted, "the order reached the backoffice");
+    assert.equal(posted.address, ROW, "carrying the complete address the row found");
+    assert.deepEqual(posted.place, { lat: ROW_AT.lat, lng: ROW_AT.lng, label: ROW },
+      "and the pin travels named by that same string — one address, one point, nothing else named");
   } finally {
     globalThis.fetch = realFetch;
   }

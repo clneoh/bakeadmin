@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v213)
+# Jienluv2bake — change history (v54 → v214)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v214, THE ADDRESS IT FOUND IS WRITTEN IN FOR THEM (no database step, no
+redeploy — one push). The shop page.**
+
+Your words, once the lookup started landing on the right house: __the address is very accurate,
+it can go into the delivery address instead of customer type full__. So now it does.
+
+**What a customer sees.** They type their address on the shop page. The list of doors appears
+underneath, as it has since v202. They tap the one that is their house — and the **Delivery
+address** box is filled in with the complete address the lookup found, in place of the part they
+had typed. Where they wrote __23 Jalan Seang Tek, Penang__, the box now reads the map service's
+own answer, house number, town, postcode and all. The pin still moves to that door, the map still
+comes to it, and everything else on the page is exactly as it was.
+
+**The house number is what decides it, and nothing else.** The box is only written when the row
+they tapped **holds every number they typed** — so the address being written in is provably an
+answer about the door they meant, rather than a nearby one. If the row only reached the road, or a
+different town, or has one of their numbers but not the other, **their own words are left exactly
+as they are and only the pin moves.** That is deliberate, and it is the whole of the safety here.
+
+**Why this was refused for so long, and why that was right.** Back at v205 you saw a tapped
+suggestion put its own words on your screen, and your words for it were that it __will contaminate
+the customer keyin address__. You were right: the free map services answer a Malaysian address with
+the **road**, and they throw the house number away. Writing a street and a town into the box would
+have replaced the customer's one complete address with a worse one. **What changed is not the rule
+but the service** — since v212 the lookup asks Google first, and Google's answer is a complete
+address, often with details the customer left out. So the rule you first refused is now safe, and
+the test for it is exact: the house number.
+
+**One consequence worth knowing.** A customer who types an address with **no house number in it**
+— __Taman Sri Nibong, Penang__ — can never have their words written over, because there is no
+number for the row to have found and so no way to tell a row that matched from one that guessed.
+Their words stand and the pin moves.
+
+**And the one thing that must not change, does not.** The address on the order and the pin's name
+are still **one string** — the v205 promise. Whatever ends up in the box is what names the pin, so
+your screen still cannot show you two place names and have them disagree.
+
+**Nothing else moved.** A customer who never taps a suggestion is unaffected. Editing the address
+afterwards still takes the pin, and still says so. **Use my location** and **Pin on the map** are
+untouched. The bakery side is untouched. No address the lookup could not match is written anywhere.
+
+**Nothing to run.** No database step and no redeploy: this is the shop page's own code, and one
+push is the whole of it. **Engine v214** on your **More** screen once this is pushed.
+
+---
+
 
 **27 Sep 2026 — engine v213, ASK THAT ADDRESS UP AGAIN (no database step, no redeploy — one
 push). The door card.**
