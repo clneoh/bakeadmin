@@ -344,6 +344,9 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
     { id: "cat_treats", name: "Treats", parentId: "cat_dog", sort: 0 },
   ];
   state.products[0].thumb = THUMB;
+  // The place she dragged this one into among the products no heading carries.
+  // Cheese Straw below has never been dragged and so carries no `sort` at all.
+  state.products[0].sort = 0;
   // Filed under two headings: it goes under the FIRST one only, never twice.
   state.products[0].categories = ["cat_bread", "cat_savoury"];
   state.products.push({ id: "prd_2", name: "Cheese Straw", price: 8, unit: "box", active: true,
@@ -375,9 +378,10 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
     assert.deepEqual(payload.deliveryDays, [1, 3, 5]);
     assert.equal(payload.capacity, 12);
     assert.deepEqual(payload.products, [
-      { name: "Focaccia", price: 15, unit: "loaf", description: "Crisp rosemary crust, airy crumb", thumb: THUMB },
+      { name: "Focaccia", price: 15, unit: "loaf", description: "Crisp rosemary crust, airy crumb", thumb: THUMB, sort: 0 },
       { name: "Cheese Straw", price: 8, unit: "box" },
-    ], "a draft never reaches the shop, and a published product carries its photo");
+    ], "a draft never reaches the shop, a published product carries its photo, and a dragged one its place");
+    assert.ok(!("sort" in payload.products[1]), "a product she has never dragged publishes no place at all");
     assert.deepEqual(payload.categories, [
       { name: "Bread", depth: 0, products: ["Focaccia"], nameZh: "面包" },
       // Focaccia is filed here SECOND, and Cheese Straw first — so each lands

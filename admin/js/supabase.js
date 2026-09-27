@@ -347,11 +347,18 @@ function storefrontPayload(state) {
         const v = p && p[k];
         if (typeof v === "string" && v.trim()) out[k] = v.trim();
       }
-      // The product's square thumbnail. Published only when it IS one (see
+      // The product's thumbnail. Published only when it IS one (see
       // storefront-fields.js), so a value a phone mangled — or a huge pasted one
       // — is dropped here rather than sent to every customer's phone and carried
       // in every backup.
       if (isThumb(p.thumb)) out.thumb = String(p.thumb).trim();
+      // Where this product sits among the ones no heading carries ("More items")
+      // — the only place a product's own `sort` is read. Published only when she
+      // has dragged one, so an untouched product keeps the order it was stored
+      // in and nothing moves on the shop on the day this arrives.
+      const sort = Number(p.sort);
+      const sortSet = p.sort != null && !(typeof p.sort === "string" && p.sort.trim() === "");
+      if (sortSet && Number.isFinite(sort)) out.sort = sort;
       return out;
     });
   // The shop's category headings, in her order, each naming the products shown

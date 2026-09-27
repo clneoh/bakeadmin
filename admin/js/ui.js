@@ -217,6 +217,115 @@ function dragByHead(card, head, layer) {
   head.addEventListener("pointercancel", finish);
 }
 
+// ── Dragging a row into a new position among its own group ───────────────────
+//
+// Two screens reorder with this: Categories (a category among its brothers) and
+// Products (a product among its heading's products, or among the ones no heading
+// carries). It lives here now that it has two consumers rather than beside one
+// of them, because two copies of one gesture drift apart — the second screen
+// would slowly stop behaving like the first.
+//
+// What the caller supplies:
+//   row          the element that moves (it must be a child of `box`)
+//   handle       the grip inside it; the pointer events are bound here
+//   boxOf()      the element whose children are the rows. A function rather
+//                than the element, because a row is usually wired before it is
+//                put in the list and so has no parent yet
+//   rowSelector  the class that marks a row as one of this list's rows, so a
+//                heading or a card of another kind between them is not one
+//   kin(n)       may a drop land among this row? (the Categories screen asks
+//                whether it is a brother; the Products screen whether it is the
+//                same heading's)
+//   onDrop(slot) called with the position among the kin that the bar has been
+//                showing all along, so the model and the picture cannot disagree
+//
+// The drop is marked with a BAR on the row it would land above, never with a gap
+// pushed into the list: a gap in the flow moves every row below it on each
+// pointer sample, which both jitters under the finger and shifts the very
+// midpoints the next sample is measured against.
+export const ROW_MARKS = ["row-dim", "row-above", "row-below"];
+
+export function wireRowReorder({ row, handle, boxOf, rowSelector, kin, onDrop }) {
+  const otherRows = () => [...boxOf().children]
+    .filter((n) => n !== row && n.classList && n.classList.contains(rowSelector));
+  const kinRows = () => otherRows().filter((n) => kin(n));
+
+  let drag = null;
+
+  const clearMarks = () => {
+    for (const n of boxOf().children) n.classList.remove(...ROW_MARKS);
+  };
+
+  const finish = () => {
+    if (!drag) return;
+    // Everything the drag put on the screen comes off however it ended: a
+    // cancelled pointer must not leave a row floating over the list.
+    try { handle.releasePointerCapture(drag.pointerId); } catch { /* already gone */ }
+    row.classList.remove("dragging");
+    row.style.transform = "";
+    clearMarks();
+    drag = null;
+  };
+
+  const mark = () => {
+    clearMarks();
+    row.classList.add("dragging");
+    // Every row that is not kin dims: dropping among them would do nothing, so
+    // the reach of the grip is visible before she lets go rather than after.
+    const near = new Set(kinRows());
+    for (const n of otherRows()) if (!near.has(n)) n.classList.add("row-dim");
+  };
+
+  const drop = () => {
+    const rest = kinRows();
+    const anchor = rest[drag.slot] || null;
+    onDrop(drag.slot, rest.map((n) => n.dataset.id));
+    // The node is moved to match — never a re-render of the list, which would
+    // throw every row back to its start and take the page's scroll with it.
+    if (anchor) boxOf().insertBefore(row, anchor);
+    else if (rest.length) boxOf().insertBefore(row, rest[rest.length - 1].nextElementSibling || null);
+    row.style.transform = "";
+    finish();
+  };
+
+  handle.addEventListener("pointerdown", (e) => {
+    if (e.button != null && e.button !== 0) return;
+    // On a phone a long press on the grip raises the selection callout, which
+    // fires pointercancel and kills the drag in her hand.
+    e.preventDefault();
+    const at = row.getBoundingClientRect();
+    drag = { pointerId: e.pointerId, y: e.clientY, top: at.top, height: at.height, slot: 0, marked: false };
+    mark();
+    try { handle.setPointerCapture(e.pointerId); } catch { /* older engine, or a pointer already gone */ }
+  });
+
+  handle.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    row.style.transform = `translateY(${e.clientY - drag.y}px)`;
+    const mid = drag.top + (e.clientY - drag.y) + drag.height / 2;
+    const rest = kinRows();
+    let slot = rest.length;
+    for (let i = 0; i < rest.length; i++) {
+      const r = rest[i].getBoundingClientRect();
+      if (mid < r.top + r.height / 2) { slot = i; break; }
+    }
+    if (slot === drag.slot && drag.marked) return;
+    drag.slot = slot;
+    drag.marked = true;
+    mark();
+    // The bar goes above the row it would land above, or under the last one when
+    // it would land at the end of the group.
+    if (rest[slot]) rest[slot].classList.add("row-above");
+    else if (rest.length) rest[rest.length - 1].classList.add("row-below");
+  });
+
+  handle.addEventListener("pointerup", (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drop();
+  });
+  handle.addEventListener("pointercancel", finish);
+}
+
 // A reusable centered pop-up (used for editing an order). Layers over the whole
 // screen with a dimmed scrim; `makeBody(refresh, close)` is called to (re)fill
 // the scrollable body, so callers re-invoke `refresh()` after changing anything

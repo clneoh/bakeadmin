@@ -354,10 +354,17 @@ export function mergeStorefront(base, remote) {
         // dropping it — the few hot items a customer comes back looking for.
         // Absent (the default) leaves this page reading every product as today.
         if (p.alwaysListed === true) out.alwaysListed = true;
-        // The square thumbnail the baker set on the product. Checked against the
+        // The thumbnail the baker set on the product. Checked against the
         // same rule the publisher used (storefront-fields.js), so anything that
         // is not a small JPEG data URL is dropped rather than drawn.
         if (isThumb(p.thumb)) out.thumb = String(p.thumb).trim();
+        // Where this product sits among the ones no heading carries ("More
+        // items"), re-checked on the shop's own terms like everything else here
+        // — anything that is not a number is dropped rather than trusted, so a
+        // mangled value leaves the tail in the order it was stored.
+        const sort = Number(p.sort);
+        const sortSet = p.sort != null && !(typeof p.sort === "string" && p.sort.trim() === "");
+        if (sortSet && Number.isFinite(sort)) out.sort = sort;
         return out;
       });
     if (products.length) out.products = products;
@@ -772,7 +779,20 @@ export function render() {
         placed.add(p.name);
       }
     });
-    const unfiled = live.filter((p) => !placed.has(p.name)).map(cardFor);
+    // The tail is the one list a product orders ITSELF in: each carries its own
+    // `sort`, because unlike a heading — which is a record that can hold the
+    // order of everything under it — an unfiled product has nothing to hang its
+    // place on. The sort is stable, so products she has never dragged (no
+    // `sort` at all) keep the order they arrived in rather than shuffling.
+    const unfiled = live
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => !placed.has(p.name))
+      .sort((a, b) => {
+        const ra = Number.isFinite(Number(a.p.sort)) ? Number(a.p.sort) : Number.MAX_SAFE_INTEGER;
+        const rb = Number.isFinite(Number(b.p.sort)) ? Number(b.p.sort) : Number.MAX_SAFE_INTEGER;
+        return ra - rb || a.i - b.i;
+      })
+      .map(({ p }) => cardFor(p));
     if (unfiled.length) {
       children.push(el("h3", { class: "menu-cat menu-cat-tail" }, t("moreItems")));
       children.push(...unfiled);

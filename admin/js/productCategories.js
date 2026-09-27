@@ -126,24 +126,127 @@ export function moveProductInCategory(list, catId, productId, toIndex, current) 
   return (list || []).map((c) => (c && c.id === catId ? { ...c, productOrder: ordered } : c));
 }
 
-// The products filed in one category, in the order the baker set: the
-// category's own productOrder when she has dragged one, and otherwise the
-// product list's own order — which is the order she already arranged there, so
-// a freshly filed product lands where she expects rather than somewhere
-// arbitrary. Products that no longer exist are skipped, so a deleted product
-// never leaves a hole.
-export function productsInCategory(state, catId) {
-  const products = (state && Array.isArray(state.products) ? state.products : [])
-    .filter((p) => p && p.id && Array.isArray(p.categories) && p.categories.includes(catId));
-  const cat = byId(state && state.productCategories, catId);
+// ── The order of the products NO heading carries ("More items") ──────────────
+//
+// A category's order lives on the category (`productOrder`, above). The unfiled
+// products have no such record to hold theirs, so it lives on each product as
+// `sort` — still a stored FIELD rather than the array position, for the reason
+// the file header gives: sync carries whole records keyed by id, so a row's
+// position in state.products never travels between her phones.
+//
+// A product she has never dragged has no `sort` and keeps the order it was
+// stored in, which is exactly how this list was drawn before it could be
+// dragged — so nothing moves under her on the day this arrives.
+export function tailOrder(products) {
+  const list = Array.isArray(products) ? products : [];
+  const rank = (p) => (p && Number.isFinite(Number(p.sort)) ? Number(p.sort) : Number.MAX_SAFE_INTEGER);
+  if (!list.some((p) => rank(p) !== Number.MAX_SAFE_INTEGER)) return list.slice();
+  // Ties keep the order they arrived in: Array.sort is stable, so the rows she
+  // has not dragged stay where they were rather than shuffling among themselves.
+  return list.slice().sort((a, b) => rank(a) - rank(b));
+}
+
+// Move one product to `toIndex` among the products no heading carries, writing
+// the whole order onto the products themselves. Written in full rather than as
+// an index, for the same reason a category's order is: a product added, filed or
+// deleted elsewhere must not silently shift every other row.
+export function moveInTail(products, id, toIndex, current) {
+  const ordered = (current || []).filter((pid) => pid !== id);
+  const at = Math.max(0, Math.min(Number(toIndex) || 0, ordered.length));
+  ordered.splice(at, 0, id);
+  const rank = new Map(ordered.map((pid, i) => [pid, i]));
+  return (products || []).map((p) => (p && rank.has(p.id) ? { ...p, sort: rank.get(p.id) } : p));
+}
+
+// The index a drop lands at, counted in the FULL order rather than in the list
+// on screen. The two differ, and that is the whole reason this exists: the
+// Products screen draws one state's products at a time (On the shop, or Draft,
+// or Hidden) while the order it writes covers every product in that same place,
+// whatever state it is in. A slot counted on screen would land in the wrong row
+// among the products it cannot see — it could even push them all to the end.
+//
+// The anchor is therefore named by ID and looked up in the full list. `slot` is
+// the position among `kinIds` (the rows the bar moved over, in screen order),
+// and `slot === kinIds.length` means "past the end of that run".
+export function indexForDrop(fullIds, kinIds, slot) {
+  const full = Array.isArray(fullIds) ? fullIds : [];
+  const kin = Array.isArray(kinIds) ? kinIds : [];
+  const at = Math.max(0, Math.min(Number(slot) || 0, kin.length));
+  const before = kin[at] || null;
+  if (before) {
+    const i = full.indexOf(before);
+    return i < 0 ? full.length : i;
+  }
+  const after = kin.length ? kin[kin.length - 1] : null;
+  if (after) {
+    const i = full.indexOf(after);
+    return i < 0 ? full.length : i + 1;
+  }
+  return 0;
+}
+
+// One category's products put into the order the baker set: her own
+// productOrder when she has dragged one, and otherwise the order they arrive in
+// — which is the list's own order, so a freshly filed product lands where she
+// expects rather than somewhere arbitrary.
+//
+// Split out from productsInCategory so a caller that has ALREADY chosen its
+// list reads the same ordering rule instead of writing a second copy of it. The
+// Products screen needs exactly that: it groups three state lists of its own
+// (On the shop, Draft, Hidden), and each one must still come out in the order
+// the shop would have shown it.
+export function orderedByCategory(cat, products) {
+  const list = Array.isArray(products) ? products : [];
   const order = cat && Array.isArray(cat.productOrder) ? cat.productOrder : null;
-  if (!order) return products;
+  if (!order) return list;
   const rank = new Map(order.map((pid, i) => [pid, i]));
-  return products.slice().sort((a, b) => {
+  return list.slice().sort((a, b) => {
     const ra = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER;
     const rb = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER;
     return ra - rb;
   });
+}
+
+// The products filed in one category, in the order the baker set. Products that
+// no longer exist are skipped, so a deleted product never leaves a hole.
+export function productsInCategory(state, catId) {
+  const products = (state && Array.isArray(state.products) ? state.products : [])
+    .filter((p) => p && p.id && Array.isArray(p.categories) && p.categories.includes(catId));
+  return orderedByCategory(byId(state && state.productCategories, catId), products);
+}
+
+// A list of products arranged the way the SHOP arranges its menu: her headings
+// in her order, depth-first, each carrying the products whose FIRST tick is that
+// heading (the same rule primaryCategoryId gives the shop), and anything unfiled
+// collected at the end under `cat: null`.
+//
+// It takes the products rather than reading state.products, because the caller
+// has already chosen them — the Products screen runs this once per state list,
+// so her drafts and her hidden products are arranged the same way her live ones
+// are, each within its own list.
+//
+// A heading is left out when it holds nothing IN THIS LIST, so the On-the-shop
+// section does not grow a row of headings she has no live products under, and
+// the unfiled entry is left out when everything is filed. An empty return
+// therefore means the list itself was empty.
+export function groupByCategory(state, products) {
+  const list = Array.isArray(products) ? products : [];
+  const cats = state && state.productCategories;
+  const out = [];
+  const placed = new Set();
+  for (const { cat, depth } of flattenTree(cats)) {
+    const held = orderedByCategory(cat,
+      list.filter((p) => p && primaryCategoryId(cats, p) === cat.id));
+    if (!held.length) continue;
+    out.push({ cat, depth, products: held });
+    for (const p of held) placed.add(p);
+  }
+  // The tail is ordered by the products' OWN `sort` (tailOrder), because there
+  // is no heading record to hold its order — so it must not be left in the
+  // array's order, which is device-local and never travels between her phones.
+  const unfiled = tailOrder(list.filter((p) => p && !placed.has(p)));
+  if (unfiled.length) out.push({ cat: null, depth: 0, products: unfiled });
+  return out;
 }
 
 // How many products are TICKED here, in any position — the number a delete

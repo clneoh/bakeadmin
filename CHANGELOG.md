@@ -1,9 +1,60 @@
-# Jienluv2bake — change history (v54 → v219)
+# Jienluv2bake — change history (v54 → v220)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**28 Sep 2026 — engine v220, THE PICTURE IS NOW TALLER THAN IT IS WIDE, AND YOUR OWN LIST ARRANGES
+ITSELF LIKE YOUR SHOP (no database step, no redeploy — one push).**
+
+Your request: __the thumbnail photo should be taller__ — and, when I asked how far it should reach,
+__taller for store and app__. Both places, then: the picture a customer sees on your shop, and the
+small picture beside the product in your own Products list.
+
+**The picture is now a tall shape rather than a square — four parts wide to five parts tall.** Last
+version you chose a square, and a square crop of a tray or a plate cuts off the top and bottom of the
+food, which is usually the part worth seeing. The app crops your photo to the tall shape by itself,
+taken from the middle, exactly as it did before — you still choose a photo and the app does the
+measuring. The same crop now sits at the left of the customer's row, in your own Products list, and
+in the little preview in the product editor, so the picture you pick is the picture you get in all
+three places, and no part of it is squashed out of shape.
+
+**Your existing product pictures are not lost, and they are not stretched.** The photos you have
+already chosen are squares, and the new box is taller; the shop shows a square photo inside the tall
+box by taking a slice from the middle and filling the rest of the height, so it looks right and
+nothing is distorted. If you want a picture that uses the full height, simply choose that product's
+photo again in its editor and the app stores a genuinely taller one. Nothing to do if you are happy
+with what is there.
+
+**Your Products screen now arranges itself the way your shop does.** Your request: __in app the
+product should arrange like it should at shop__. This is the change you will notice most. The three
+lists you already have — **On the shop**, **Draft** and **Hidden** — all stay, because those are
+about whether a product is on sale, not about what it is. Inside __each__ of the three, your products
+now group under your own headings, in your own order, in exactly the order a customer scrolling your
+shop would meet them. A product with no heading yet sits last under a plain heading called **More
+items**, the same word your shop uses, so what you see in the app is what a customer sees.
+
+**And a product can be moved inside its heading, by a handle.** Your request: __and it should be able
+to swap position by a handle in same category__. Beside each product's row there is a small handle;
+press it and drag the row up or down, and the products in that heading re-arrange behind your finger.
+You asked for a handle rather than up-and-down buttons or number boxes, so a handle is what it is.
+The handle appears only where there is something to move — a heading holding a single product shows
+none, because there is nowhere for it to go — and a drag can never pull a product out of its heading
+into another one, which is what you asked for. The position you set is stored, not just drawn: it
+travels to your other phone and it is the order your shop lists in, so dragging here is the same
+thing as arranging your shop.
+
+**One thing that was quietly broken, found while building this, and fixed.** Adding a heading,
+renaming one, re-ordering one or deleting one did not reach your shop on its own. The shop only
+caught up the next time something else published — so a heading you renamed could sit under its old
+name on the customer page until you happened to edit a product. Every one of those four actions now
+publishes on the spot. It was there in v219 and you would have met it as a heading that "would not
+change"; it does now, at once and on its own.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens and the shop
+page, and one push is the whole of it. **Engine v220** on your **More** screen once this is pushed.
+
+---
 **28 Sep 2026 — engine v219, YOUR SHOP NOW FOLLOWS YOUR OWN HEADINGS, AND EVERY PRODUCT CAN WEAR A
 PICTURE (no database step, no redeploy — one push). Product categories and thumbnails.**
 

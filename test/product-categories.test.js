@@ -144,7 +144,7 @@ const subOf = (n) => titleOf(n.children[1].children[1]);
 const said = () => (body.querySelector(".toast") || { textContent: "" }).textContent;
 // The drag's own classes, so "leaves no mark" means the drag's marks and not
 // "somehow has no card/cat-row class at all".
-const DRAG_CLASSES = ["dragging", "cat-dim", "cat-above", "cat-below"];
+const DRAG_CLASSES = ["dragging", "row-dim", "row-above", "row-below"];
 const marked = (n) => DRAG_CLASSES.filter((c) => n._classes.has(c));
 
 // A `.field` in the add card, found by its label rather than by position — the
@@ -348,15 +348,15 @@ test("a drag reorders only among brothers, and dims the rows it cannot reach", (
   handle._listeners.pointerdown[0]({ button: 0, pointerId: 1, clientX: 10, clientY: 90, preventDefault() {} });
 
   // The sibling under the same parent may be dropped past…
-  assert.equal(rows(root)[2]._classes.has("cat-dim"), false, "a brother stays lit");
+  assert.equal(rows(root)[2]._classes.has("row-dim"), false, "a brother stays lit");
   // …but a row in another branch, and a top-level heading, may not.
-  assert.equal(rows(root)[0]._classes.has("cat-dim"), true, "the parent dims");
-  assert.equal(rows(root)[3]._classes.has("cat-dim"), true, "another branch dims");
-  assert.equal(rows(root)[1]._classes.has("cat-dim"), false, "the row in her hand is not dimmed");
+  assert.equal(rows(root)[0]._classes.has("row-dim"), true, "the parent dims");
+  assert.equal(rows(root)[3]._classes.has("row-dim"), true, "another branch dims");
+  assert.equal(rows(root)[1]._classes.has("row-dim"), false, "the row in her hand is not dimmed");
 
   // A long move that would pass the top-level row lands only after its brother.
   handle._listeners.pointermove[0]({ pointerId: 1, clientX: 10, clientY: 400 });
-  assert.equal(rows(root)[2]._classes.has("cat-below"), true, "the bar shows the end of its own group");
+  assert.equal(rows(root)[2]._classes.has("row-below"), true, "the bar shows the end of its own group");
   handle._listeners.pointerup[0]({ pointerId: 1 });
 
   assert.deepEqual(rowIds(root), ["a", "c", "b", "d"], "it moved among its brothers and stopped there");
@@ -399,3 +399,84 @@ test("a redraw keeps her place on the page", () => {
   addButton(card)._listeners.click[0]();
   assert.equal(globalThis.window.scrollY, 400, "adding a category does not throw her back to the top");
 });
+
+// --- reaching the shop -------------------------------------------------------
+// Every change to a heading has to reach the customer page, and until v220 none
+// of them did: the screen saved the new tree to this phone and published nothing,
+// so a heading she built, renamed, reordered or deleted stayed invisible on her
+// shop until some unrelated change happened to publish. Three of the four call
+// sites sit on paths this file already drives (add, reorder, delete); the rename
+// comes in through the Edit pop-up, which is exercised here too rather than left
+// as the one path nothing checks.
+
+// Any node, not just a direct child — the pop-up's fields are nested one level
+// deeper than the add card's.
+function walk(n, out = []) {
+  for (const c of n.children || []) { out.push(c); walk(c, out); }
+  return out;
+}
+const textOf = (n) => (n.children || [])
+  .map((c) => (c.nodeType === 3 ? String(c.text) : String(c.textContent || ""))).join("").trim();
+const findButton = (node, label) => walk(node).find((n) => n.tagName === "BUTTON" && textOf(n) === label);
+// The publish is the ONLY 2000 ms timer this screen sets (the toast has its own,
+// shorter one), so counting those counts publishes and nothing else.
+const publishes = (timers) => timers.filter((t) => t.ms === 2000).length;
+function findField(node, label) {
+  const field = walk(node)
+    .find((n) => n._classes && n._classes.has("field") && n.children[0] && titleOf(n.children[0]) === label);
+  return field ? field.children[1] : null;
+}
+
+test("every change to a heading is published to the shop", () => {
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  try {
+    const state = freshState([
+      { id: "a", name: "Food", parentId: "", sort: 0 },
+      { id: "b", name: "Drink", parentId: "", sort: 1 },
+    ]);
+    // Shared data ON, because maybeSyncStorefront deliberately does nothing at
+    // all while it is off — and placeholders for the four fields it gates on, so
+    // this test can say "a publish was scheduled" without a real login anywhere.
+    state.settings = { supabase: {
+      enabled: true, url: "https://example.invalid", anonKey: "test-anon-key",
+      email: "test@example.invalid", password: "placeholder-not-a-credential" } };
+    const root = mount(state);
+    assert.equal(publishes(timers), 0, "opening the screen publishes nothing on its own");
+
+    // 1. a heading she builds
+    const card = newCard(root);
+    fieldInput(card, "Name").value = "Snack";
+    addButton(card)._listeners.click[0]();
+    assert.equal(publishes(timers), 1, "a new heading reaches the shop");
+
+    // 2. a heading she renames, through the Edit pop-up
+    rows(root)[0].children[2].children[0]._listeners.click[0]();
+    const popup = document.getElementById("popup-layer");
+    const nameField = findField(popup, "Name");
+    assert.ok(nameField, "the Edit pop-up offers the Name field");
+    nameField.value = "Bread";
+    const update = findButton(popup, "Update category");
+    assert.ok(update, "and its confirm button");
+    update._listeners.click[0]();
+    assert.equal(state.productCategories.find((c) => c.id === "a").name, "Bread", "the rename landed");
+    assert.equal(publishes(timers), 2, "a renamed heading reaches the shop");
+
+    // 3. a heading she reorders. The rename redrew the screen, so the rows are
+    // new nodes with no geometry yet — a phone's rows always have some.
+    lay(rows(root));
+    dragRow(root, 0, 200);
+    assert.equal(publishes(timers), 3, "the order she just set reaches the shop");
+
+    // 4. a heading she deletes
+    const del = rows(root).find((r) => r.dataset.id === "b").children[2].children[1];
+    del._listeners.click[0]();
+    clickConfirm();
+    assert.equal(state.productCategories.some((c) => c.id === "b"), false, "the heading is gone");
+    assert.equal(publishes(timers), 4, "and the shop stops drawing it");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
+});
+

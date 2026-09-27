@@ -57,7 +57,12 @@ const remote = {
     { name: "Brownies", price: 10, unit: "box" },
     { name: "Sourdough", price: 12, unit: "loaf" },
     { name: "Muffin", price: 6, unit: "piece" },
-    { name: "Cinnamon Roll", price: 7, unit: "piece" },
+    { name: "Cinnamon Roll", price: 7, unit: "piece", sort: 1 },
+    // Two more she has not filed. They are LAST in this array and FIRST in the
+    // order she dragged them into, so where they are drawn can only come from
+    // the `sort` on each — which is the whole point of it.
+    { name: "Kaya Toast", price: 5, unit: "piece", sort: 0 },
+    { name: "Roti Bakar", price: 4, unit: "piece" },
   ],
   categories: [
     { name: "Cakes", depth: 0, products: ["Chocolate Cake", "Brownies"] },
@@ -129,7 +134,12 @@ test("the shop lists the published products under her headings, in her order", a
     // …and a product she has not filed lands last, under one plain heading, so
     // nothing she has not got round to filing can disappear from her shop.
     "H:More items",
+    // The tail is the one list a product orders ITSELF in: Kaya Toast is last in
+    // the published array and was dragged to the front, and Roti Bakar, which she
+    // has never dragged, keeps the order it arrived in — behind the two she set.
+    "P:Kaya Toast",
     "P:Cinnamon Roll",
+    "P:Roti Bakar",
   ]);
 
   const names = cardsIn(menu).map((n) => shapeOf(n).slice(2));

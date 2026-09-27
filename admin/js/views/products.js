@@ -2,16 +2,16 @@
 // folded card at the top; tapping Edit opens the same form in a pop-up over the
 // screen, exactly like editing an order.
 
-import { el, button, select, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
+import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRowReorder } from "../ui.js";
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { costOf, recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
-// The square-cropping reader the customer dog photos already use: it centre-crops
-// to a square and hands back a small JPEG data URL, which is exactly the shape a
-// product thumbnail is.
+// The cropping reader the customer photos already use. It centre-crops to the
+// RATIO it is given and hands back a small JPEG data URL; a customer photo wants
+// a square, a product thumbnail wants a taller box, so both pass their own.
 import { readPhoto } from "../photo.js";
 import { isLive, isDraft, isHidden, newDraftRow } from "../productState.js";
-import { flattenTree, pathTo, primaryCategoryId } from "../productCategories.js";
+import { flattenTree, groupByCategory, indexForDrop, moveInTail, moveProductInCategory, pathTo, primaryCategoryId, productsInCategory, tailOrder } from "../productCategories.js";
 import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } from "../translate.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "../calendar.js";
@@ -67,6 +67,11 @@ function renderAll(root, state) {
   const hidden = state.products.filter(isHidden);
 
   const form = newProductCard(state, root);
+  // The page scroll is read and put back around the swap below, the way the
+  // Categories screen does it: publishing a product or hiding one redraws this
+  // whole screen, and without this the list she was looking at jumps back to
+  // the top under her hands.
+  const y = typeof window !== "undefined" ? window.scrollY : 0;
 
   if (!state.products.length) {
     root.replaceChildren(form,
@@ -76,12 +81,87 @@ function renderAll(root, state) {
     return;
   }
 
+  // Inside each of the three lists, the products are arranged the way the SHOP
+  // arranges its menu — her headings in her order, and anything she has not
+  // filed yet last. The three headlines stay because they answer a different
+  // question than the headings do ("is it for sale?", not "where is it listed?"),
+  // and a draft has no place on the shop to be arranged like.
+  //
+  // With no headings built yet there is nothing to be the "rest of", so the list
+  // is drawn flat exactly as it was before this existed — a lone "More items"
+  // over every product would be a heading that says nothing.
+  const headingsExist = (state.productCategories || []).length > 0;
+
+  // Every product nobody has filed, in the order she set. This is the scope the
+  // "More items" group drags within, and it is read across ALL three state
+  // lists, because one stored order has to cover them all — see orderableCards.
+  const unfiled = () => tailOrder(state.products
+    .filter((q) => !primaryCategoryId(state.productCategories, q)));
+
+  // One group's cards, each draggable among the others in the same group.
+  //
+  // The order a drop WRITES is taken from the full list of products in the same
+  // place, never from the rows on screen: this screen shows one state at a time,
+  // so an order written from what she can see would push every product she
+  // cannot see — the drafts, the taken-down ones — to the end of the heading.
+  // `indexForDrop` then turns the position she dropped at, which counts only the
+  // rows beside it, into a position in that full list.
+  const orderableCards = (g) => {
+    if (g.products.length < 2) return g.products.map((p) => productCard(state, p, root));
+    const full = (g.cat ? productsInCategory(state, g.cat.id) : unfiled()).map((q) => q.id);
+    const kin = new Set(g.products.map((p) => p.id));
+    return g.products.map((p) => {
+      const handle = el("span", { class: "prod-handle", title: "Drag to reorder", "aria-hidden": "true" }, "⠿");
+      const card = productCard(state, p, root, handle);
+      wireRowReorder({
+        row: card,
+        handle,
+        boxOf: () => root,
+        rowSelector: "prod-row",
+        // Only the products of THIS group: a card under the next heading is not
+        // one this drop may land among, and neither is one in another state's
+        // list below.
+        kin: (n) => kin.has(n.dataset.id),
+        onDrop: (slot, kinIds) => {
+          const without = full.filter((id) => id !== p.id);
+          const at = indexForDrop(without, kinIds, slot);
+          if (g.cat) {
+            state.productCategories = moveProductInCategory(state.productCategories, g.cat.id, p.id, at, without);
+          } else {
+            state.products = moveInTail(state.products, p.id, at, without);
+          }
+          save(state);
+          // The order she just set IS the order customers see, so the shop has to
+          // be told. Debounced in supabase.js, so a run of drops publishes once.
+          maybeSyncStorefront(state);
+        },
+      });
+      return card;
+    });
+  };
+
   const group = (title, list, hint) => {
-    const rows = list.map((p) => productCard(state, p, root));
-    return [
-      el("h2", { class: "section" }, `${title} (${list.length})`),
-      ...(rows.length ? rows : [el("p", { class: "card-sub muted", style: "margin:0 0 6px" }, hint)]),
-    ];
+    if (!list.length) {
+      return [el("h2", { class: "section" }, `${title} (0)`),
+        el("p", { class: "card-sub muted", style: "margin:0 0 6px" }, hint)];
+    }
+    if (!headingsExist) {
+      // No headings at all: the whole list is unfiled, so it is one group and
+      // drags as one — the same scope the shop's "More items" tail has.
+      return [el("h2", { class: "section" }, `${title} (${list.length})`),
+        ...orderableCards({ cat: null, depth: 0, products: tailOrder(list) })];
+    }
+    const blocks = [];
+    for (const g of groupByCategory(state, list)) {
+      // The tail's words are the shop's own ("More items"), so the last group on
+      // this screen is the last group a customer sees, under the same name.
+      blocks.push(el("h3", {
+        class: `cat-head${g.cat ? "" : " cat-head-tail"}`,
+        ...(g.depth ? { style: `--depth:${g.depth}` } : {}),
+      }, g.cat ? pathTo(state.productCategories, g.cat.id).map((c) => String(c.name || "")).join(" › ") : "More items"));
+      blocks.push(...orderableCards(g));
+    }
+    return [el("h2", { class: "section" }, `${title} (${list.length})`), ...blocks];
   };
 
   root.replaceChildren(
@@ -89,6 +169,7 @@ function renderAll(root, state) {
     ...group("On the shop", live, "Nothing on the shop yet — publish a draft below to start selling it."),
     ...group("Draft — not on the shop yet", drafts, "New products start here as drafts. Publish one to put it on the shop."),
     ...group("Hidden — taken down", hidden, "Hidden products keep their history and recipe; nothing here is shown to customers."));
+  if (y && typeof window !== "undefined") window.scrollTo(0, y);
 }
 
 // ── Availability — the days this product SELLS, marked on a calendar ────────
@@ -505,12 +586,14 @@ function buildEditor(state, product) {
     value: product?.servingTip || "" });
 
   // ── The thumbnail customers see beside this product on the shop ────────────
-  // One square photo. readPhoto does the cropping and the shrinking (160px, JPEG)
-  // — nowhere near the 200px default, because this picture rides in the single
-  // localStorage blob that every cloud snapshot and export carries, and it is
-  // sent to every customer's phone on each page load. Its shape is checked again
-  // on both sides of the publish (storefront-fields.js) so a malformed one is
-  // dropped rather than shipped.
+  // One photo, TALLER than it is wide (4:5 — 160 x 200), because the baker asked
+  // for a picture taller than a square: a square crop of a plate or a tray cuts
+  // the top and bottom off the food. readPhoto does the cropping and the
+  // shrinking — kept well under the 200px default and JPEG only, because this
+  // picture rides in the single localStorage blob that every cloud snapshot and
+  // export carries, and it is sent to every customer's phone on each page load.
+  // Its shape is checked again on both sides of the publish
+  // (storefront-fields.js) so a malformed one is dropped rather than shipped.
   let thumb = String(product?.thumb || "");
   const thumbFile = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const thumbPreview = el("div", { class: "thumb-preview" });
@@ -530,7 +613,7 @@ function buildEditor(state, product) {
     readPhoto(f, (dataUrl) => {
       if (dataUrl) { thumb = dataUrl; drawThumb(); toast("Photo added"); }
       else toast("That file couldn't be read as a photo");
-    }, 160);
+    }, 160, 200);
     // So choosing the SAME file twice still fires a change event.
     thumbFile.value = "";
   });
@@ -957,7 +1040,7 @@ function editorFields(state, editor) {
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
     el("div", { class: "field" }, el("label", {}, "Photo (shown beside it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
-        "One square picture. It is cropped to a square and shrunk for you. Blank shows no picture."),
+        "One picture. It is cropped taller than it is wide and shrunk for you. Blank shows no picture."),
       editor.thumbFile, editor.thumbPreview),
     el("div", { class: "field" }, el("label", {}, "Description (customers read it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
@@ -1275,7 +1358,11 @@ function categoriesLine(state, p) {
     `🗂 ${label}${also.length ? ` · also ticked: ${also.join(", ")}` : ""}`);
 }
 
-function productCard(state, p, root) {
+// `handle` is the grip that moves this row among the products it is listed with,
+// or null when it has none to move among (the caller decides — a group of one has
+// nowhere to drop). It is placed first in the row, so the grip sits where the
+// Categories screen's does.
+function productCard(state, p, root, handle = null) {
   const cost = costOf(state, p);
   const usedBy = state.orders.some((o) => o.productId === p.id);
   const usedInSets = state.products
@@ -1309,8 +1396,9 @@ function productCard(state, p, root) {
       () => deleteProduct(state, p, usedBy, usedInSets, root), "ghost small"));
   }
 
-  return el("div", { class: "card" },
+  return el("div", { class: "card prod-row", dataset: { id: p.id } },
     el("div", { class: "card-row" },
+      handle,
       el("div", { class: "prod-row-main" },
         p.thumb ? el("img", { class: "prod-thumb", src: p.thumb, alt: "" }) : null,
         el("div", { style: "min-width:0" },

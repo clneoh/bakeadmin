@@ -246,7 +246,11 @@ body { min-height: 100vh; }
   margin-left: calc(var(--depth, 0) * 16px);
 }
 .cat-row-text { flex: 1 1 auto; min-width: 0; }
-.cat-handle {
+/* The grip a row is dragged by, on the Categories screen and on the Products
+   screen. One rule for both, because it is one gesture — the two lists reorder
+   with the same helper in ui.js and must feel identical under the thumb. */
+.cat-handle,
+.prod-handle {
   flex: 0 0 auto;
   /* A 36px target, because this one is dragged with a thumb. */
   width: 36px;
@@ -269,24 +273,28 @@ body { min-height: 100vh; }
      pointercancel kills the drag in her hand. */
   -webkit-touch-callout: none;
 }
-.cat-handle:active { cursor: grabbing; background: var(--strip); }
-/* The row in the air: lifted, and over the rows it is passing. */
-.cat-row.dragging {
+.cat-handle:active,
+.prod-handle:active { cursor: grabbing; background: var(--strip); }
+/* The row in the air: lifted, and over the rows it is passing. `.card` rather
+   than either row's own class because both lists lift the same way and the
+   helper in ui.js puts the class on both. A pop-up head also carries `dragging`
+   while it is dragged, but it is not a card, so nothing here reaches it. */
+.card.dragging {
   position: relative;
   z-index: 3;
   box-shadow: var(--shadow-lg);
   cursor: grabbing;
 }
-/* A row the drop cannot land among — it is not one of this category's brothers.
-   Dimmed for the length of the drag, so the reach of the grip is visible before
-   she lets go rather than after. */
-.cat-row.cat-dim { opacity: .4; }
+/* A row the drop cannot land among — not one of the rows the grip may reorder
+   among. Dimmed for the length of the drag, so the reach of the grip is visible
+   before she lets go rather than after. */
+.card.row-dim { opacity: .4; }
 /* Where it will land: a bar on the row it would come above, or under the last
    one when it would land at the end of the group. A bar rather than a gap pushed
    into the list — a gap moves every row below it on each pointer sample, which
    jitters under the finger and shifts the midpoints the next sample measures. */
-.cat-row.cat-above { box-shadow: 0 -3px 0 0 var(--brown), var(--shadow); }
-.cat-row.cat-below { box-shadow: 0 3px 0 0 var(--brown), var(--shadow); }
+.card.row-above { box-shadow: 0 -3px 0 0 var(--brown), var(--shadow); }
+.card.row-below { box-shadow: 0 3px 0 0 var(--brown), var(--shadow); }
 
 /* The product editor's two new fields: the photo picker and the category ticks.
    Both are drawn the same shape — a row indented by the category's own depth, so
@@ -294,7 +302,7 @@ body { min-height: 100vh; }
 .thumb-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .thumb-box {
   width: 64px;
-  height: 64px;
+  height: 80px;
   flex: 0 0 auto;
   object-fit: cover;
   border-radius: 10px;
@@ -317,12 +325,14 @@ body { min-height: 100vh; }
 }
 .cat-pick input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
 
-/* The small square beside a product's name in the products list, so she can see
-   at a glance which ones still need a picture. */
+/* The small picture beside a product's name in the products list, so she can see
+   at a glance which ones still need one. Taller than wide (4:5), matching what
+   the shop draws — the row says what the customer will get. Fixed at 44x55 so a
+   list of rows reads as one column rather than a ragged edge. */
 .prod-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
 .prod-thumb {
   width: 44px;
-  height: 44px;
+  height: 55px;
   flex: 0 0 auto;
   object-fit: cover;
   border-radius: 10px;
@@ -336,6 +346,26 @@ h2.section {
   margin: 20px 2px 10px;
 }
 h2.section:first-child { margin-top: 0; }
+
+/* A category heading INSIDE one of the Products screen's own lists: "On the
+   shop" is the h2 above it, "Food" is this. A step down from that heading and a
+   step up from a card's own sub-line, so the three levels read in order —
+   section, heading, product. Inset by its own --depth, the same way the
+   Categories screen draws the same tree, so a nested heading shows where it
+   hangs rather than looking like another top-level one. */
+h3.cat-head {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brown);
+  margin: 16px 2px 6px;
+  margin-left: calc(2px + var(--depth, 0) * 16px);
+}
+h3.cat-head:first-of-type { margin-top: 4px; }
+/* The tail holding everything she has not filed yet. Muted, because it is the
+   absence of one of her headings rather than one of them — the same footing it
+   has on the shop. */
+h3.cat-head-tail { color: var(--muted); font-weight: 600; }
 
 /* A heading that carries its own action: the title on the left, the thing to do
    about it on the right, sitting on the heading's own line so it is above the

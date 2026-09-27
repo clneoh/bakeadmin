@@ -23,9 +23,10 @@
 // by id, so a row's place in the array never travels between her phones
 // (admin/js/sync.js computeRecords).
 
-import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
+import { el, button, emptyState, confirmDialog, showPopup, toast, wireRowReorder } from "../ui.js";
 import { newId, save } from "../state.js";
 import { childrenOf, flattenTree, listedCount, pathTo, productCount, subtreeIds } from "../productCategories.js";
+import { maybeSyncStorefront } from "../supabase.js";
 
 export function renderProductCategories(root, state) {
   renderAll(root, state);
@@ -137,6 +138,7 @@ function newCategoryCard(state, root) {
       state.productCategories.push({ id: newId("cat"), ...values, sort: brothers.length });
       toast("Category added");
       save(state);
+      maybeSyncStorefront(state); // the headings are what the shop lists under
       renderAll(root, state);
     }, "block primary"));
 }
@@ -160,6 +162,7 @@ function openEditCategoryPopup(state, cat, root) {
           cat.sort = brothers.length;
           toast("Category updated");
           save(state);
+          maybeSyncStorefront(state); // a renamed or re-parented heading reaches the shop
           close();
           renderAll(root, state);
         }, "primary")));
@@ -183,112 +186,27 @@ function categoryRow(state, { cat, depth }, root) {
     el("div", { class: "li-right" },
       button("Edit", () => openEditCategoryPopup(state, cat, root), "ghost small"),
       button("Delete", () => deleteCategory(state, cat, root), "ghost small")));
-  wireReorder(state, row, handle, cat);
+  wireRowReorder({
+    row,
+    handle,
+    boxOf: () => row.parentElement,
+    rowSelector: "cat-row",
+    // A drop may land among this category's brothers and nowhere else: moving a
+    // category under a different parent is the Edit pop-up's job, and a drop
+    // among cousins that silently re-parented would be a much bigger change
+    // than the gesture looks like it makes. Only the row's own id is read, so a
+    // stale record elsewhere on the screen cannot change the answer.
+    kin: (n) => {
+      const c = (state.productCategories || []).find((x) => x.id === n.dataset.id);
+      return !!c && (c.parentId || "") === (cat.parentId || "");
+    },
+    onDrop: (slot) => {
+      state.productCategories = moveTo(state.productCategories, cat.id, slot);
+      save(state);
+      maybeSyncStorefront(state); // the order she just set is the order customers see
+    },
+  });
   return row;
-}
-
-// ── Dragging a row into order ────────────────────────────────────────────────
-//
-// The only list reorder in this app (the planner moves things with ↑/↓ buttons,
-// and the pop-up drag in ui.js translates a card inside its layer — a different
-// gesture), so it lives with its one consumer rather than in ui.js.
-//
-// The drop is marked with a bar on the row it would land above, NOT with a gap
-// pushed into the list. A gap in the flow would move every row below it on each
-// pointer sample, which both jitters under the finger and shifts the very
-// midpoints the next sample is measured against.
-
-const DROP_BAR = ["cat-above", "cat-below"];
-
-function wireReorder(state, row, handle, cat) {
-  const box = () => row.parentElement;
-  const otherRows = () => [...box().children]
-    .filter((n) => n !== row && n.classList && n.classList.contains("cat-row"));
-  // The rows a drop can land among: this category's brothers, in the order the
-  // list shows them. Only their own id is read, so a stale record elsewhere on
-  // the screen cannot change the answer.
-  const brothers = () => otherRows().filter((n) => {
-    const c = (state.productCategories || []).find((x) => x.id === n.dataset.id);
-    return c && (c.parentId || "") === (cat.parentId || "");
-  });
-
-  let drag = null;
-
-  const clearMarks = () => {
-    for (const n of box().children) n.classList.remove("cat-dim", ...DROP_BAR);
-  };
-
-  const finish = () => {
-    if (!drag) return;
-    // Everything the drag put on the screen comes off however it ended: a
-    // cancelled pointer must not leave a row floating over the list.
-    try { handle.releasePointerCapture(drag.pointerId); } catch { /* already gone */ }
-    row.classList.remove("dragging");
-    row.style.transform = "";
-    clearMarks();
-    drag = null;
-  };
-
-  const mark = () => {
-    clearMarks();
-    row.classList.add("dragging");
-    // Every row that is not a brother dims: dropping among them would do
-    // nothing, and the Edit pop-up is where a change of parent belongs.
-    const kin = new Set(brothers());
-    for (const n of otherRows()) if (!kin.has(n)) n.classList.add("cat-dim");
-  };
-
-  const drop = () => {
-    // `slot` is the position among the other brothers that the marker has been
-    // showing all along, so the model and the picture cannot disagree.
-    const rest = brothers();
-    const anchor = rest[drag.slot] || null;
-    state.productCategories = moveTo(state.productCategories, cat.id, drag.slot);
-    // The node is moved to match — never a re-render of the list, which would
-    // throw every row back to its start and take the page's scroll with it.
-    if (anchor) box().insertBefore(row, anchor);
-    else if (rest.length) box().insertBefore(row, rest[rest.length - 1].nextElementSibling || null);
-    row.style.transform = "";
-    save(state);
-    finish();
-  };
-
-  handle.addEventListener("pointerdown", (e) => {
-    if (e.button != null && e.button !== 0) return;
-    // On a phone a long press on the handle raises the selection callout, which
-    // fires pointercancel and kills the drag in her hand.
-    e.preventDefault();
-    const at = row.getBoundingClientRect();
-    drag = { pointerId: e.pointerId, y: e.clientY, top: at.top, height: at.height, slot: 0, marked: false };
-    mark();
-    try { handle.setPointerCapture(e.pointerId); } catch { /* older engine, or a pointer already gone */ }
-  });
-
-  handle.addEventListener("pointermove", (e) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    row.style.transform = `translateY(${e.clientY - drag.y}px)`;
-    const mid = drag.top + (e.clientY - drag.y) + drag.height / 2;
-    const rest = brothers();
-    let slot = rest.length;
-    for (let i = 0; i < rest.length; i++) {
-      const r = rest[i].getBoundingClientRect();
-      if (mid < r.top + r.height / 2) { slot = i; break; }
-    }
-    if (slot === drag.slot && drag.marked) return;
-    drag.slot = slot;
-    drag.marked = true;
-    mark();
-    // The bar goes above the row it would land above, or under the last one when
-    // it would land at the end of the group.
-    if (rest[slot]) rest[slot].classList.add("cat-above");
-    else if (rest.length) rest[rest.length - 1].classList.add("cat-below");
-  });
-
-  handle.addEventListener("pointerup", (e) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    drop();
-  });
-  handle.addEventListener("pointercancel", finish);
 }
 
 // Renumber the moved category's brothers 0,1,2… and hand back a new list.
@@ -316,6 +234,7 @@ function deleteCategory(state, cat, root) {
     state.productCategories = state.productCategories.filter((c) => c.id !== cat.id);
     toast("Category deleted");
     save(state);
+    maybeSyncStorefront(state); // the shop must stop drawing a heading she removed
     renderAll(root, state);
   }, { danger: true, yesLabel: "Delete" });
 }

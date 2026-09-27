@@ -377,13 +377,14 @@ html, body {
   align-items: flex-start;
   min-width: 0;
 }
-/* A square crop, made by the app itself (readPhoto at 160px), so the pixel size
-   and the file's own shape already agree — `object-fit: cover` is the backstop
-   for the odd photo that does not. Fixed at 64px so a menu of cards reads as one
-   shelf rather than a ragged row. */
+/* A crop taller than it is wide — 4:5, made by the app itself (readPhoto at
+   160 x 200), so the drawn box and the file's own shape already agree and
+   `object-fit: cover` is only the backstop for an odd photo. Taller because a
+   square cut the top and bottom off the food. Fixed at 64 x 80 so a menu of
+   cards reads as one shelf rather than a ragged row. */
 .menu-thumb {
   width: 64px;
-  height: 64px;
+  height: 80px;
   flex: 0 0 auto;
   object-fit: cover;
   border-radius: 10px;

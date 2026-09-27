@@ -9,8 +9,11 @@
 // Anything whose meaning has to be identical on both sides therefore lives here,
 // in the one place both can read it, rather than as two copies that can drift.
 
-// A product thumbnail is a small square JPEG the app made with readPhoto()
-// (admin/js/photo.js): a data URL, ~4–9 KB at 160 px.
+// A product thumbnail is a small JPEG the app made with readPhoto()
+// (admin/js/photo.js): a data URL, ~6–12 KB at 160 x 200. Deliberately taller
+// than it is wide, and nothing here cares about the shape — the box the shop
+// draws is what fixes the ratio, and this only checks that the bytes ARE a photo
+// the app made.
 //
 // Checked on both sides because a bad one is expensive either way: it rides in
 // the single ~5 MB localStorage key that every cloud snapshot and export carries,

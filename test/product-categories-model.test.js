@@ -7,8 +7,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  childrenOf, flattenTree, listedCount, moveCategory, moveProductInCategory,
-  parentOf, pathTo, primaryCategoryId, productCount, productsInCategory, subtreeIds,
+  childrenOf, flattenTree, indexForDrop, listedCount, moveCategory, moveInTail,
+  moveProductInCategory, parentOf, pathTo, primaryCategoryId, productCount,
+  productsInCategory, subtreeIds, tailOrder,
 } from "../admin/js/productCategories.js";
 
 const cat = (id, name, parentId = "", sort = 0) => ({ id, name, parentId, sort });
@@ -197,4 +198,66 @@ test("primaryCategoryId skips a category that is gone, so nothing lands under a 
   assert.equal(primaryCategoryId(LIST, p), "dog");
   assert.equal(primaryCategoryId(LIST, { id: "p", categories: ["deleted", "also_gone"] }), "",
     "and with every tick gone it is an unfiled product, which the shop still lists");
+});
+
+// ── The order of the products no heading carries ("More items") ──────────────
+//
+// A heading holds its products' order on the heading record itself. The unfiled
+// products have no such record, so each carries its own `sort` — the Products
+// screen drags them by it and the shop draws its tail by it.
+
+test("tailOrder follows the products' own sort, and products with none keep their place", () => {
+  const a = { id: "a", name: "A" };
+  const b = { id: "b", name: "B", sort: 0 };
+  const c = { id: "c", name: "C", sort: 1 };
+  const d = { id: "d", name: "D" };
+  assert.deepEqual(tailOrder([a, d, c, b]).map((p) => p.id), ["b", "c", "a", "d"],
+    "the sorted ones come first in their order; the untouched keep the order they arrived in");
+  // Nothing has been dragged at all: the list is handed back exactly as it came,
+  // which is what makes this version a no-op on the shop until she drags one.
+  assert.deepEqual(tailOrder([a, d]).map((p) => p.id), ["a", "d"]);
+  assert.deepEqual(tailOrder([]), []);
+  assert.deepEqual(tailOrder(null), []);
+});
+
+test("tailOrder breaks a tie on the order they arrived in, never by name", () => {
+  const a = { id: "a", name: "Zucchini", sort: 0 };
+  const b = { id: "b", name: "Apple", sort: 0 };
+  assert.deepEqual(tailOrder([a, b]).map((p) => p.id), ["a", "b"], "a stable sort, so equal sorts keep their places");
+});
+
+test("moveInTail writes the whole order onto the products themselves", () => {
+  const products = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const moved = moveInTail(products, "c", 0, ["a", "b"]);
+  assert.deepEqual(moved.map((p) => [p.id, p.sort]), [["a", 1], ["b", 2], ["c", 0]],
+    "every product carries its new place, not just the one she moved");
+  assert.deepEqual(products.map((p) => p.id), ["a", "b", "c"], "and the list she had is untouched");
+});
+
+test("moveInTail puts a product dropped past the end last, and an out-of-range index is clamped", () => {
+  const products = [{ id: "a" }, { id: "b" }];
+  assert.deepEqual(moveInTail(products, "a", 1, ["b"]).map((p) => p.id), ["a", "b"]);
+  assert.deepEqual(moveInTail(products, "a", 0, ["b"]).map((p) => p.id), ["a", "b"]);
+  assert.deepEqual(moveInTail(products, "a", 99, ["b"]).map((p) => p.id), ["a", "b"], "99 clamps to the end");
+  assert.deepEqual(moveInTail(products, "a", -5, ["b"]).map((p) => p.id), ["a", "b"], "-5 clamps to the front");
+});
+
+// The one that stops a drag scrambling a list it cannot see. The Products screen
+// shows one state's products at a time while the order it writes covers them all.
+
+test("indexForDrop counts in the FULL order, not the rows on screen", () => {
+  // She drags C. The section she is looking at holds three unfiled products —
+  // B, C and D — while the order C is moving in covers five: A and E are drafts,
+  // and the screen she is on does not draw them.
+  const without = ["a", "b", "d", "e"]; // the full order, with C lifted out
+  const kin = ["b", "d"];               // the rows C can actually land among
+  assert.equal(indexForDrop(without, kin, 0), 1, "above B → where B was, behind the draft A");
+  assert.equal(indexForDrop(without, kin, 1), 2, "above D → between B and D");
+  assert.equal(indexForDrop(without, kin, 2), 3, "past D → after D, before the draft E");
+});
+
+test("indexForDrop falls back to the end when the anchor is not in the full list", () => {
+  assert.equal(indexForDrop(["a"], ["zz"], 0), 1, "an anchor that has gone lands the row last");
+  assert.equal(indexForDrop([], [], 0), 0, "nothing to order at all");
+  assert.equal(indexForDrop(["a", "b"], [], 0), 0, "no kin at all is the front");
 });
