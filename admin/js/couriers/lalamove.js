@@ -586,6 +586,17 @@ export const lalamove = {
     return { ok: true, detail };
   },
 
+  // Why this price cannot be booked, in words, or "" when it can. `bookProblem` below is
+  // the ONE answer to that question, and this method is how a screen that DRAWS the book
+  // button asks it. That matters because the two were not one answer: the screens each
+  // kept their own, thinner list, so a price with a real problem — a reply that came back
+  // without the courier's handle for a door, say — drew an inert button and said nothing
+  // at all. A greyed control with no words is the same fault as a tap that does nothing:
+  // see the comment on `bookProblem` itself, which asks for exactly this.
+  bookProblem(state, trip, quote) {
+    return bookProblem(state, trip, quote);
+  },
+
   // Call the trip off. The courier is the one who decides whether it still can, so a
   // refusal here is an ordinary answer rather than a fault — it arrives as a sentence
   // through the same contract as everything else.

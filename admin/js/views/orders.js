@@ -1875,8 +1875,22 @@ function orderList(state, dateId, root) {
 // the charge. read(amount) takes the amount from the caller — the box knows it from what
 // she typed, a run knows it from the split — and gives back the answers in the terms
 // applyCourierCharge and the three order keys want.
-export function courierPayQuestions(state, first, onChange = () => {}) {
-  let payer = courierPayerOf(first); // "" | "me" | "customer"
+export function courierPayQuestions(state, first, onChange = () => {}, { defaultPayer = "" } = {}) {
+  // Her ask, 27 Sep 2026, the day after v215 shipped: "Can you default the who paid courier
+  // to The customer paid it?" So the ORDER's charge box opens on the answer she gives most
+  // often, rather than on "Not recorded" — which is not a neutral resting place but the one
+  // answer that means NOBODY bore it, and, since v215, the answer that refuses the save.
+  //
+  // It is a DEFAULT and never an overwrite: an order that already records a payer opens on
+  // that payer, because `courierPayerOf` answers first. "Not recorded" stays in the list,
+  // stays hers to choose, and stays how a charge is deleted — see courierControls.problem's
+  // carve-out, which exists for exactly that press.
+  //
+  // The delivery RUN deliberately does not pass this. There the payer is read BEFORE the
+  // amounts and decides which amounts they are (v192): "customer" sends it asking what each
+  // doorstep costs on its own and puts a charge on every customer's bill, so on that screen
+  // it must stay a choice she makes and not one she inherits.
+  let payer = courierPayerOf(first) || defaultPayer; // "" | "me" | "customer"
   let codWanted = courierCodOf(first);
   // How SHE paid the courier is not a field on the order: the expense row IS the record,
   // so this opens on whatever that row already says. That is what stops a save which
@@ -1954,7 +1968,7 @@ function courierControls(state, first, onChange = () => {}) {
   const amountField = el("div", { class: "field" },
     el("label", {}, "Courier charge (optional)"),
     amountInput);
-  const pay = courierPayQuestions(state, first, onChange);
+  const pay = courierPayQuestions(state, first, onChange, { defaultPayer: "customer" });
   // What the box holds, read ONE way. Both the save and the guard below ask this, so
   // they cannot disagree about whether there is an amount in the box.
   const amountNow = () => Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;

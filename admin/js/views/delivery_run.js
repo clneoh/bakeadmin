@@ -573,7 +573,26 @@ export function renderDeliveryRun(root, state, params) {
   function paintPrices() {
     clocks.length = 0;
     const quotes = (priced && priced.quotes) || [];
-    const rows = quotes.map(quoteRow);
+    // One sentence per DISTINCT reason, said once under the rows: every row is priced for
+    // the same trip and the same doorsteps, so a reason that applies to one nearly always
+    // applies to all of them. Each row writes its own entry and the clock below republishes
+    // the whole map, so the last one to run leaves the line complete. See quoteRow.
+    const whyRows = new Map();
+    const whyNode = el("p", { class: "card-sub", style: "margin:8px 0 0" });
+    whyNode.hidden = true;
+    const publishWhy = () => {
+      const said = [...new Set([...whyRows.values()].filter(Boolean))];
+      whyNode.textContent = said.join(" ");
+      whyNode.hidden = said.length === 0;
+    };
+    const rows = quotes.map((q) => quoteRow(q, whyRows));
+    // Pushed for the beat AND published here. The rows have all written their entries by the
+    // time this line runs — they are built above — so the sentence comes out complete. It
+    // has to be drawn NOW and not on the next beat: the reason a press is inert belongs on
+    // screen at the same moment as the inert press, and a whole second of a greyed button
+    // with nothing beside it is exactly the report this version is answering.
+    clocks.push(publishWhy);
+    publishWhy();
     const missed = ((priced && priced.failed) || []).map((f) =>
       el("p", { class: "card-sub", style: "margin:6px 0 0" },
         `${String(f.name || f.service || "A vehicle").trim()} could not be priced: ${f.reason}`));
@@ -588,6 +607,7 @@ export function renderDeliveryRun(root, state, params) {
     priceBox.replaceChildren(...[
       ...rows,
       ...missed,
+      whyNode,
       moved ? el("p", { class: "run-warn", style: "margin:10px 0 0" }, moved) : null,
       blocked ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, blocked) : null,
       runLimitProblem(tickedGroups().length)
@@ -599,7 +619,7 @@ export function renderDeliveryRun(root, state, params) {
     ].filter(Boolean));
   }
 
-  function quoteRow(q) {
+  function quoteRow(q, whyRows) {
     const cur = state.settings.currency;
     const dist = fmtDistanceKm(q.distanceKm);
     const sub = el("span", { class: "quote-sub" });
@@ -653,14 +673,22 @@ export function renderDeliveryRun(root, state, params) {
       const dead = left === "expired";
       // The short line under the vehicle's name: how far, and how long this price lives.
       sub.textContent = [dist, dead ? "expired — ask again" : `valid for ${left}`].filter(Boolean).join(" · ");
-      // A quote that is dead, or one that arrived with no readable expiry or no stop list,
-      // cannot be booked. Each of those reads as a plain word rather than as a greyed
-      // button with nothing said about why.
-      const unusable = dead || !q.id || !Array.isArray(q.stopIds) || q.stopIds.length < 2;
+      // WHY this run cannot be booked, asked of the COURIER rather than worked out here
+      // (v216). This row kept its own, shorter list — dead, no id, a stop list under two —
+      // and the comment that used to stand here claimed each of those "reads as a plain
+      // word rather than as a greyed button with nothing said about why", which was not
+      // true of the button: it was greyed and it said nothing. A run the adapter would
+      // refuse for a reason this list did not know, a reply that came back without the
+      // courier's own handle for a doorstep above all, drew an inert press and no words.
+      const whyBook = typeof courier.bookProblem === "function" && priced
+        ? courier.bookProblem(state, priced.trip, q) : "";
+      // The row already says "expired — ask again" and the button already reads "Expired",
+      // so the adapter's expiry sentence would only say it a third time. See paintPrices.
+      whyRows.set(q, dead ? "" : whyBook);
       const why = liveJobProblem(tickedOrders()) || (stale() ? "moved" : "");
-      bookBtn.disabled = unusable || !!why || busy;
+      bookBtn.disabled = dead || !!whyBook || !!why || busy;
       bookBtn.textContent = dead ? "Expired" : "Book this run";
-      cmpBtn.disabled = unusable || !!why || busy;
+      cmpBtn.disabled = dead || !!whyBook || !!why || busy;
     };
     clock(Date.now());
     paintCmp();

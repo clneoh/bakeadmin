@@ -875,7 +875,7 @@ export function courierQuoteSection({
     // money on a real vehicle. They go through `.quote-row`'s own wrap, so a phone that
     // cannot hold both on one line puts the second on a line of its own rather than off
     // the card.
-    function quoteRow(q) {
+    function quoteRow(q, whyRows) {
       const dist = fmtDistanceKm(q.distanceKm);
       const durable = q.expiryFrom !== "policy";
       const sub = el("span", { class: "quote-sub" });
@@ -897,7 +897,18 @@ export function courierQuoteSection({
       clocks.push((now) => {
         const left = fmtQuoteLeft(q, now);
         const dead = left === "expired";
-        const unbookable = dead || quoteExpired(q) || !q.id || !Array.isArray(q.stopIds) || q.stopIds.length < 2;
+        // WHY this price cannot be booked, asked of the COURIER rather than worked out
+        // here (v216). This row used to keep its own, shorter list — dead, no id, a stop
+        // list under two — so a price the adapter would refuse for any OTHER reason, a
+        // reply that came back without the courier's own handle for a door above all, was
+        // drawn as an inert button with nothing said about it. Her report: "now the
+        // greyed out book button". One question, one answer, in the file that refuses the
+        // booking — which is what `bookProblem`'s own comment asks for.
+        const why = typeof courier.bookProblem === "function" && pricedTrip
+          ? courier.bookProblem(state, pricedTrip, q) : "";
+        // The row already says "expired — ask again" and the button already reads
+        // "Expired", so the adapter's own expiry sentence would only say it a third time.
+        whyRows.set(q, dead ? "" : why);
         sub.replaceChildren(...[
           dist,
           dist ? " · " : "",
@@ -909,7 +920,9 @@ export function courierQuoteSection({
         } else if (dead) {
           row.classList.add("quote-dead");
         }
-        bookBtn.disabled = unbookable || !!bookBlocked || jobBusy;
+        // `why` covers everything `unbookable` used to, and more — except the dead clock,
+        // which is this row's own reading of the time and not a property of the quote.
+        bookBtn.disabled = dead || !!why || !!bookBlocked || jobBusy;
         if (dead) bookBtn.textContent = "Expired";
       });
       return row;
@@ -917,7 +930,26 @@ export function courierQuoteSection({
 
     function paintQuotes() {
       clocks = [];
-      const rows = quotes.map(quoteRow);
+      // One sentence per DISTINCT reason, said once under the prices rather than twice
+      // under each row. Every row here is priced for the same trip and the same doors, so
+      // a reason that applies to one nearly always applies to all of them — and eight
+      // copies of one paragraph is not eight times the information, it is one sentence
+      // made unreadable. Each row writes its own reason into this map and then republishes
+      // the whole of it, so the last row to tick this second leaves the node complete.
+      const whyRows = new Map();
+      const whyNode = el("p", { class: "card-sub", style: "margin:8px 0 0" });
+      whyNode.hidden = true;
+      const publishWhy = () => {
+        const said = [...new Set([...whyRows.values()].filter(Boolean))];
+        whyNode.textContent = said.join(" ");
+        whyNode.hidden = said.length === 0;
+      };
+      const rows = quotes.map((q) => quoteRow(q, whyRows));
+      // Pushed as a CLOCK and not merely called here, so the ticker republishes it too:
+      // the adapter's reason is read from the quote's own expiry, and a price that runs
+      // out while the card is open has to be able to say so. Clocks run in the order they
+      // were pushed, so this one runs after every row has written its entry.
+      clocks.push(publishWhy);
       const missed = failed.map((f) => el("p", { class: "card-sub", style: "margin:6px 0 0" },
         `${String(f.name || f.service || "A vehicle").trim()}: ${f.reason}`));
       // Why no row can be booked, when that is the case.
@@ -932,6 +964,7 @@ export function courierQuoteSection({
       quoteBox.replaceChildren(...[
         ...rows,
         ...missed,
+        whyNode,
         blocked ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, blocked) : null,
         quotes.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
           "Booking a trip does not put its fee in the charge box — the courier's charge, who pays it and whether it is collected at the door are still yours to set above, and it is the Save button that writes them.") : null,

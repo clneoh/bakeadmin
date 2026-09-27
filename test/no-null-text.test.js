@@ -337,6 +337,66 @@ test("the courier price panel prints no 'null' under its last price row", async 
   assert.deepEqual(stray, [], "no 'null' under the last price row");
 });
 
+// ── v216: a price the courier will not book SAYS WHY ──────────────────────
+// Her report, 27 Sep 2026: "now the greyed out book button". Each row kept its own,
+// shorter list of reasons a price could not be booked — dead, no id, fewer than two
+// doors — so a price the courier's own reader refused for any OTHER reason, above all a
+// reply that did not come back with the courier's handle for a door, drew an inert button
+// and said nothing at all. A greyed control with no words is the same fault as a tap that
+// does nothing, so the reason is now asked of the file that refuses the booking and
+// printed under the price.
+//
+// The reply below is the shape that does it: it carries coordinates, so the positional
+// fallback is refused too, but not the coordinates this app sent — so `stopIds` comes back
+// empty and the price is unbookable while being a real, priced answer.
+function stubUnbookableChannel() {
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    const said = JSON.parse(opts.body || "{}");
+    const body = said.action === "geocode"
+      ? { ok: true, place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga" } }
+      : said.action === "vehicles"
+        ? { ok: true, services: [{ key: "MOTORCYCLE" }] }
+        : {
+          ok: true,
+          quotes: [{ quotationId: "q-moto", serviceType: "MOTORCYCLE",
+            priceBreakdown: { total: 14, currency: "MYR" },
+            stops: [{ stopId: "", coordinates: { lat: 1.5, lng: 110.3 } },
+              { stopId: "", coordinates: { lat: 1.6, lng: 110.4 } }] }],
+          failed: [],
+        };
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  return { restore() { globalThis.fetch = real; } };
+}
+
+test("a price the courier will not book says why, instead of going quietly inert (v216)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubUnbookableChannel();
+  let wrap = null;
+  try {
+    wrap = courierQuoteSection({ state: courierState(), orders: [COURIER_ORDER] });
+    doc.body.append(wrap);
+    buttonByText(wrap, "Get a delivery price")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.match(wrap.textContent, /RM 14\.00/, "the price row really drew — this is a real answer");
+    const book = buttonByText(wrap, "Book this trip");
+    assert.ok(book, "with its booking press still on it");
+    assert.equal(book.disabled, true, "the press is inert — this price cannot be booked");
+    assert.match(wrap.textContent, /did not come back with the courier's own handle/,
+      "and the reason is ON THE SCREEN, rather than left to be guessed at from a greyed button");
+    assert.doesNotMatch(wrap.textContent, /This price can be booked/,
+      "nothing on the card claims it can be booked");
+  } finally {
+    const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+    if (hide) hide._listeners.click[0]();
+    if (wrap) wrap.parentNode = null;
+    s.restore();
+  }
+});
+
 // ── the two doors on an order card (v197, reversed at v209) ───────────────
 //
 // The switch is drawn by `paintEnds()`, which every change to the doorstep repaints, and

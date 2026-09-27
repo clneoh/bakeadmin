@@ -284,7 +284,7 @@ function priceOf(key, { alone = false, address = "", override = null } = {}) {
   return ALONE_BY_ADDRESS[address] ?? CAR_ALONE;
 }
 
-function stubCourier({ failAloneAfter = Infinity, standalone } = {}) {
+function stubCourier({ failAloneAfter = Infinity, standalone, badStops = false } = {}) {
   const real = globalThis.fetch;
   const sent = [];
   // How many single-doorstep requests have been answered, so a test can make the courier
@@ -306,7 +306,7 @@ function stubCourier({ failAloneAfter = Infinity, standalone } = {}) {
     const drops = body.action === "quote" && Array.isArray(p.drops) ? p.drops.length : 2;
     const reply = body.action === "quote" && drops < 2 && ++alone > failAloneAfter
       ? { ok: false, reason: "Lalamove could not price that doorstep on its own." }
-      : answerFor(body, { standalone });
+      : answerFor(body, { standalone, badStops });
     return { ok: true, status: 200, json: async () => reply, text: async () => JSON.stringify(reply) };
   };
   globalThis.fetch = stubFetch;
@@ -354,7 +354,13 @@ function answerFor(body, opts = {}) {
         // No geometry at all, which is the documented reply: the reader then takes the
         // stop handles in order, and a test can assert on the count without inventing
         // coordinates it does not care about.
-        stops: Array.from({ length: points }, (_, i) => ({ stopId: `${key}-${points}-s${i}` })),
+        //
+        // `badStops` is the one other shape, and it is a REAL reply: coordinates are sent,
+        // so the positional fallback is refused too, but they are not the ones this app
+        // sent — so no stop handle can be tied to a door and the price cannot be booked.
+        stops: Array.from({ length: points }, (_, i) => (opts.badStops
+          ? { stopId: "", coordinates: { lat: 1 + i, lng: 110 + i } }
+          : { stopId: `${key}-${points}-s${i}` })),
       })),
       failed: [],
     };
@@ -457,6 +463,51 @@ async function book(st, { window: win = "", payer = "", method = "", vehicle = "
   await settle();
   return { root, wire, confirm };
 }
+
+// ── v216: the run's charge question is HERS, and a run it will not book says why ──
+
+test("the run's charge question opens on Not recorded, whatever an order's own card now does (v216)", async () => {
+  // Her ask, 27 Sep 2026, was for the ORDER's charge box to open on "The customer paid
+  // it" — and that is where it is applied. The run deliberately does not follow (v192):
+  // here the payer is read BEFORE the amounts and decides which amounts they are, so
+  // "customer" sends it asking what each doorstep costs on its own and writing a charge
+  // onto EVERY customer's bill. The run's question has to stay a choice she makes rather
+  // than one she inherits, and this is what that looks like on screen — the line under
+  // the price asks her to choose, instead of having chosen for her.
+  const st = world();
+  stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+
+  const row = priceRow(root, "Car");
+  assert.ok(row, "the vehicle came back priced");
+  assert.match(row.textContent,
+    /Choose who paid the courier below, and this line will say what each customer's charge box will hold\./,
+    "the run asks her who bore it rather than answering it for her");
+  assert.doesNotMatch(row.textContent, /Each customer is charged what their own doorstep costs/,
+    "and it has not quietly decided the customer is bearing it");
+});
+
+test("a run the courier will not book says why, instead of going quietly inert (v216)", async () => {
+  // Her report, 27 Sep 2026: "now the greyed out book button". The row kept its own,
+  // shorter list of reasons, so a run the courier's own reader refused for any other
+  // reason — a reply that did not come back with the courier's handle for a doorstep
+  // above all — drew an inert press and said nothing about it.
+  const st = world();
+  stubCourier({ badStops: true });
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+
+  const row = priceRow(root, "Car");
+  assert.ok(row, "the vehicle came back priced — this is a real answer, not a failure");
+  const book = buttonByText(row, "Book this run");
+  assert.ok(book, "with its booking press still on it");
+  assert.equal(book.disabled, true, "the press is inert — this run cannot be booked");
+  assert.match(root.textContent, /did not come back with the courier's own handle/,
+    "and the reason is ON THE SCREEN, rather than left to be guessed at from a greyed button");
+});
 
 // ── 1. one doorstep per customer, on the wire ─────────────────────────────
 

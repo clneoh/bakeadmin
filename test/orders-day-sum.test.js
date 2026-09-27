@@ -390,12 +390,20 @@ test("the courier box says what the customer owes, and moves the moment they bea
   let pop = layers["popup-layer"];
   assert.match(popText(pop), /The customer owes RM 30\.00/,
     "the box says what the order comes to before any charge is typed");
+  assert.deepEqual(openedOn(selWith(pop, "The customer paid it")), ["The customer paid it"],
+    "and the payer question opens on The customer paid it — her ask, 27 Sep 2026 (v216)");
 
   const box = feeInput(pop);
   box.value = "8";
   box._listeners.input[0].call(box); // the handler reads this.value
+  assert.match(popText(pop), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+    "so a typed amount is theirs without any further answer — that is what the default means");
+
+  const unowned = selWith(pop, "The customer paid it");
+  unowned.value = "";                  // back to "Not recorded"
+  unowned._listeners.change[0]();
   assert.match(popText(pop), /The customer owes RM 30\.00/,
-    "an amount on its own asks nobody for it — who bears it is what decides");
+    "and taking the answer back off it leaves an amount nobody owns — the customer owes the bread alone");
 
   const theirs = selWith(pop, "The customer paid it");
   theirs.value = "customer";
@@ -410,6 +418,28 @@ test("the courier box says what the customer owes, and moves the moment they bea
   pop = layers["popup-layer"];
   assert.match(popText(pop), /The customer owes RM 30\.00/,
     "a charge she bears is her own cost — what the customer owes never moves for it");
+});
+
+test("an order that already records a payer opens on THAT payer, not on the default (v216)", () => {
+  // The default is a default and never an overwrite. An order she already answered is
+  // opened showing the answer she gave — otherwise merely looking at an old charge would
+  // be enough to re-attribute it to the customer, and the next Save would move her money.
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const payer = selWith(layers["popup-layer"], "The customer paid it");
+  assert.deepEqual(openedOn(payer), ["I paid it"],
+    "the charge she bore is still shown as hers, however the default is set");
+
+  buttonByText(layers["popup-layer"], "Save")._listeners.click[0]();
+  assert.equal(st.orders[0].courierPaidBy, "me",
+    "and saving without touching it leaves the payer exactly as it was");
 });
 
 test("the Edit pop-up's order total counts a charge the customer bears, and names it", () => {
@@ -560,18 +590,29 @@ test("how they settle the charge is asked only when the customer bears it", () =
   st.orders[0].fulfillment = "courier";
   st.products[0].price = 15;
   const { pop } = courierBox(st);
-  assert.equal(codSelIn(pop), undefined, "no charge yet, so there is nothing to settle");
+  // v216: the payer question opens on The customer paid it, so the question that follows
+  // it is on the card from the first paint — she has already given the answer that
+  // summons it. It is drawn WITH its parent, not ahead of it.
+  assert.deepEqual(openedOn(selWith(pop, "The customer paid it")), ["The customer paid it"],
+    "the payer question opens on The customer paid it — her ask, 27 Sep 2026");
+  assert.ok(codSelIn(pop), "and how they settle it is asked with it, on the customer's own branch");
 
   const box = feeInput(pop);
   box.value = "8";
   box._listeners.input[0].call(box);
-  assert.equal(codSelIn(pop), undefined, "and an amount on its own owns nobody — who bears it decides");
+  assert.ok(codSelIn(pop), "typing the amount only makes clearer what the question is about");
 
   const mine = selWith(pop, "I paid it");
   mine.value = "me";
   mine._listeners.change[0]();
   assert.equal(codSelIn(layers["popup-layer"]), undefined,
     "a charge she paid has nothing for anyone to collect at the door");
+
+  const unowned = selWith(layers["popup-layer"], "The customer paid it");
+  unowned.value = "";                  // back to "Not recorded"
+  unowned._listeners.change[0]();
+  assert.equal(codSelIn(layers["popup-layer"]), undefined,
+    "and an amount on its own owns nobody — who bears it decides");
 
   const theirs = selWith(layers["popup-layer"], "The customer paid it");
   theirs.value = "customer";
@@ -1262,18 +1303,20 @@ test("a price from the courier lands in the charge box, and the customer's total
   assert.equal(box.value, "12.5",
     "the quoted amount is IN the box — the button does not merely say it wrote one");
 
-  // The payer question is under it, and taking a price must not have answered it: a
-  // quoted fee is an amount, not a decision about who bore it.
+  // The payer question is under it, opening on The customer paid it (v216) — so the
+  // quoted fee is theirs the moment it lands, and the total moves with it. It is still
+  // hers to change: that is why the question is drawn at all.
   const payer = selWith(pop, "The customer paid it");
-  assert.ok(payer, "and the payer is still hers to answer");
-  assert.equal(payer.value, "", "a quoted price does not decide who paid the courier");
-  assert.match(owesLine(pop).textContent, /RM 30\.00$/, "with no payer, the customer owes the bread and nothing more");
-
-  payer.value = "customer";
-  payer._listeners.change[0]();
+  assert.ok(payer, "the payer is still hers to answer");
+  assert.deepEqual(openedOn(payer), ["The customer paid it"], "and it opens on The customer paid it (v216)");
   assert.equal(owesLine(pop).textContent,
     "The customer owes RM 42.50 — items total RM 30.00 + courier charge RM 12.50",
-    "and once she says they bore it, the same number the typed fee would have given");
+    "the same number she would have got by typing 12.50 into the box herself");
+
+  payer.value = "me";
+  payer._listeners.change[0]();
+  assert.match(owesLine(pop).textContent, /RM 30\.00$/,
+    "and answering otherwise takes the charge straight back out of what the customer owes");
 
   await closeCard(pop);
 });
@@ -1326,8 +1369,15 @@ test("taking a courier's price and pressing Save with no payer is refused in wor
     await drain();
     buttonByText(pop, "Use this fee")._listeners.click[0]();
     assert.equal(feeInput(pop).value, "12.5", "her press put the quoted price in the box");
-    assert.equal(selWith(pop, "The customer paid it").value, "",
-      "and the payer question is still unanswered, exactly as she left it");
+    assert.deepEqual(openedOn(selWith(pop, "The customer paid it")), ["The customer paid it"],
+      "and the payer question opens on The customer paid it (v216)");
+
+    // v216: with the question opening on an answer, the ONLY way left to leave an amount
+    // with nobody down for it is to take that answer back deliberately. That press is
+    // exactly the state that used to lose her money in silence, so it is still refused.
+    const cleared = selWith(pop, "The customer paid it");
+    cleared.value = "";
+    cleared._listeners.change[0]();
 
     buttonByText(pop, "Save")._listeners.click[0]();
 
@@ -1359,6 +1409,9 @@ test("the Edit form refuses the same charge in the same words, so neither door c
   const box = feeInput(pop);
   box.value = "8";
   box._listeners.input[0].call(box);
+  const cleared = selWith(pop, "The customer paid it");
+  cleared.value = "";                  // the one way left to leave an amount unowned (v216)
+  cleared._listeners.change[0]();
   buttonByText(pop, "Save changes")._listeners.click[0]();
 
   assert.equal(st.orders[0].courierFee, undefined, "an amount with no payer is not written here either");

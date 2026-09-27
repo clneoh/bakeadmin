@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v215)
+# Jienluv2bake — change history (v54 → v216)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v216, THE CHARGE BOX OPENS ON THE CUSTOMER, AND A GREYED BUTTON FINALLY
+SAYS WHY (no database step, no redeploy — one push). Two days after v215.**
+
+Two things you asked for, in your own words: __Can you default the who paid courier to The
+customer paid it?__ and __now the greyed out book button__.
+
+**1. Who paid the courier now opens on The customer paid it.** Open an order's **Note /
+tracking** card — or its **Edit** form — and the question **Who paid the courier** is already
+answered: **The customer paid it**. Type the courier's fee and it is theirs: the line under the
+box moves straight away, __The customer owes RM 38.00 — items total RM 30.00 + courier charge RM
+8.00__, and **Save** writes it in one press. Before this, that same amount went in with **nobody
+named as the payer**, which is what v215 had to refuse — so this version removes the step you
+were being asked to take every time.
+
+**It is a default, and never an overwrite.** An order that __already__ records a payer opens
+showing the answer that order carries — press **Save** without touching it and nothing about it
+changes. **Not recorded** is still in the list, still yours to choose, and still how a charge is
+**deleted** (clearing the payer takes the amount with it, the rule you set on 19 September 2026).
+And the v215 refusal is still there for the one press that needs it: take the payer back to
+**Not recorded** with an amount in the box and press **Save**, and the app refuses in words
+rather than dropping it.
+
+**The delivery run is deliberately left alone.** On the **Delivery** screen the same question
+looks identical, but there it is read **before** the amounts and decides **which amounts they
+are**: settling on __The customer paid it__ makes the app price every doorstep on its own and
+write a charge onto **every** customer's bill. That is a decision about money, so on that screen
+it stays a choice **you** make — the run still opens on **Not recorded**, and says so.
+
+**2. A greyed-out [Book this trip] now says why.** You reported the button drawn grey with
+nothing to explain it. Each price row used to work out its own, shorter list of reasons — a
+price that had run out of time, no price id, fewer than two doors — so a price the courier's own
+reader refused for any **other** reason was drawn inert and **said nothing at all**. The reason
+is now asked of the one place that really refuses the booking, and printed once under the
+prices, in the courier's own words. The commonest one, and the one you are most likely to meet:
+__That price did not come back with the courier's own handle for each door, so it cannot be
+booked. Ask for a fresh price — and if this keeps happening, the app is reading the courier's
+reply wrongly, which is worth fixing rather than working around.__ The same fix is on the
+**Delivery** run's **[Book this run]**, and the reason is drawn at the moment the row appears
+rather than a second later.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens, and one
+push is the whole of it. **Engine v216** on your **More** screen once this is pushed.
+
+---
+
 
 **27 Sep 2026 — engine v215, THE COURIER CHARGE SAVES (no database step, no redeploy — one
 push). The order's charge box.**
