@@ -29,6 +29,7 @@ const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
   setDropPlace, setPickupPlace, latLngText, fmtPlace, splitLabel, parseCoords, placeProblem,
   customerPlaceOf, doorFromOf, doorIsTheirs, doorSpotOf, doorSwitchOf,
+  houseNotIn, roadNotHouse, doorRoadOf,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
 
@@ -463,3 +464,77 @@ test("stray spaces around the cut are trimmed, so no row starts with a gap", () 
   assert.deepEqual(splitLabel("Road,"), { title: "Road", sub: "" }, "a trailing comma leaves no empty second line");
   assert.deepEqual(splitLabel(", Town"), { title: "", sub: "Town" }, "and a leading one leaves the title empty rather than throwing it away");
 });
+
+// ── "is this the house, or only the road" (v211) ──────────────────────────
+//
+// Her report: she types "23 Jalan Seang Tek" and the only thing on offer is "Seang Tek
+// Road, George Town, 10400". Seang Tek is a long road, so the pin is not her door, and
+// nothing on the screen said so. Nothing in a geocoder's reply says "this is only a road"
+// either, so the question is asked the other way round: does the answer contain the number
+// she typed. What follows is the whole of that test, including the ways it must stay quiet.
+
+const ROAD = { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town, 10400" };
+
+test("a house number the answer does not contain is the one thing worth saying", () => {
+  assert.equal(houseNotIn("23 Jalan Seang Tek", ROAD), "23");
+});
+
+test("when the answer DOES contain the number, the house was found and nothing is said", () => {
+  assert.equal(houseNotIn("23 Jalan Seang Tek",
+    { lat: 5.4141, lng: 100.3288, label: "23, Jalan Seang Tek, George Town, 10400" }), "");
+  // The number in the middle of a longer name is still the number.
+  assert.equal(houseNotIn("12 Jalan Bunga",
+    { lat: 5.41, lng: 100.32, label: "Block 12, Jalan Bunga, 10450 Penang" }), "");
+});
+
+test("a number is matched as a WHOLE, so 10400 cannot stand in for 23", () => {
+  // The postcode contains "10", "40", "400" and more. A substring test would call this a
+  // match and hand her the road as if it were the house.
+  assert.equal(houseNotIn("10 Jalan Seang Tek", ROAD), "10");
+  assert.equal(houseNotIn("400 Jalan Seang Tek", ROAD), "400");
+  assert.equal(houseNotIn("23 Jalan Seang Tek",
+    { lat: 5.41, lng: 100.32, label: "Jalan Seang Tek 123, George Town" }), "23",
+  "and 123 is a different house, not this one");
+});
+
+test("an address with no number in it asks for a road, and a road is what it gets", () => {
+  // Not a special case: the same sentence read the other way. She can still look up a
+  // street she has no number for, and nothing is claimed about a house she never named.
+  assert.equal(houseNotIn("Jalan Seang Tek, George Town", ROAD), "");
+  assert.equal(houseNotIn("", ROAD), "");
+  assert.equal(houseNotIn(null, ROAD), "");
+  // And a typed postcode is not a house number, or "23 Jalan Seang Tek, 10400" would be
+  // answered by its own postcode.
+  assert.equal(houseNotIn("Jalan Seang Tek, 10400", ROAD), "");
+  assert.equal(houseNotIn("23 Jalan Seang Tek, 10400", ROAD), "23");
+});
+
+test("a house number with a letter on it is read whole, so 23A is not 23", () => {
+  assert.equal(houseNotIn("23A Jalan Bunga", { lat: 5.41, lng: 100.32, label: "23A Jalan Bunga, Penang" }), "");
+  assert.equal(houseNotIn("23A Jalan Bunga", { lat: 5.41, lng: 100.32, label: "23 Jalan Bunga, Penang" }), "23a",
+    "a different door with the same number is still a miss");
+});
+
+test("an answer with no words at all cannot have found the house", () => {
+  assert.equal(houseNotIn("23 Jalan Seang Tek", { lat: 5.4141, lng: 100.3288, label: "" }), "23");
+  assert.equal(houseNotIn("23 Jalan Seang Tek", { lat: 5.4141, lng: 100.3288 }), "23");
+});
+
+test("the sentence is one sentence, and the short form is the same fact", () => {
+  assert.equal(roadNotHouse("23"), "The lookup found the road, not number 23 — drag the pin to the door.");
+  assert.equal(roadNotHouse("23", { short: true }), "the road, not number 23");
+});
+
+test("the number a lookup missed rides with the door, and only a lookup writes one", () => {
+  const s = state();
+  const o = order();
+  assert.equal(doorRoadOf(s, o), "", "no door at all, nothing to say about it");
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288, label: o.address }, "lookup", "12");
+  assert.equal(doorRoadOf(s, o), "12");
+  // The door is written whole every time, so a drag by her own hand takes the stamp with
+  // it: the old point is gone and so is the fact about it.
+  setDropPlace(s, o, { lat: 5.42, lng: 100.33, label: o.address });
+  assert.equal(doorRoadOf(s, o), "", "her own hand is the correction, and leaves no road behind");
+  assert.equal(doorFromOf(s, o), "hand");
+});
+

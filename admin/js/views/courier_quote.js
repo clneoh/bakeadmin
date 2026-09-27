@@ -52,8 +52,8 @@ import {
   liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
-  customerPlaceOf, doorIsTheirs, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf, fmtPlace,
-  pickupAddress, pickupPlace, setDropPlace, setPickupPlace,
+  customerPlaceOf, doorIsTheirs, doorRoadOf, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf,
+  fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
@@ -317,6 +317,15 @@ export function courierQuoteSection({
     const theirs = theirsIsTheDoor();
     const addr = dropAddress(first);
     const who = String(first.customerName || "the customer").trim() || "the customer";
+    // AND THE DOOR SHE KEEPS HAS TO ADMIT WHEN IT IS ONLY THE ROAD (v211). Its line names the
+    // door with the address on the order — house number and all — and a lookup that could only
+    // find "Seang Tek Road, George Town" over a typed "23 Jalan Seang Tek" would otherwise wear
+    // "23 Jalan Seang Tek" back at her on this card, over a pin on the street. The number the
+    // lookup missed is stored on the door (see doorRoadOf), so the line can keep saying the
+    // address AND say the pin is not the door — on every repaint, not just the one that
+    // followed the lookup. Only her door can carry the stamp: it is a lookup that writes one.
+    const road = doorRoadOf(state, first);
+    const roadTail = road ? ` ${roadNotHouse(road)}` : "";
 
     // What she reads. Three states and each one says which it is, because the difference
     // between "the door I keep for them" and "the pin they dropped themselves" is the whole
@@ -348,7 +357,7 @@ export function courierQuoteSection({
         ? `${addr ? `${addr} — ` : ""}${who}'s own pin from the shop page${
           spot.label && spot.label !== addr ? `: ${fmtPlace(spot)}` : ""
         }. This is the door the driver is sent to.`
-        : `${addr || fmtPlace(spot)} — the door you keep for ${who}.`;
+        : `${addr || fmtPlace(spot)} — the door you keep for ${who}.${roadTail}`;
 
 
     if (doorBtn) {
@@ -480,7 +489,14 @@ export function courierQuoteSection({
             // POINT IS, not by who pressed: a door taken up from their pin stays theirs
             // (so a customer who re-pins later still wins), and her own door is recorded
             // as her own hand (so it sticks).
-            setDropPlace(state, first, offer.place, theirs ? "customer" : "hand");
+            //
+            // And the road caveat travels with the door it is about (v211): the door she
+            // keeps here is the SAME POINT that was looked up, so if the lookup could only
+            // find the road, taking it back over their pin does not make it a house — a
+            // warning dropped by the one press that asserts the door would be a warning that
+            // disappears exactly where it is still needed.
+            setDropPlace(state, first, offer.place, theirs ? "customer" : "hand",
+              theirs ? "" : doorRoadOf(state, first));
             paintEnds();
             ask();
           }, "ghost small")),
@@ -963,7 +979,7 @@ export function courierQuoteSection({
           // it kept was whatever the geocoder called the place: a row, a fragment, no
           // house number. So the POINT is the geocoder's and the WORDS are hers, which
           // is exactly the split store/geo.js's placeForOrder makes on the shop side.
-          setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup");
+          setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup", houseNotIn(words, found.place));
           paintEnds();
         }
       }

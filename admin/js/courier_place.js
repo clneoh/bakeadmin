@@ -117,6 +117,24 @@ export function doorFromOf(state, order) {
   return String((place && place.from) || "");
 }
 
+// The house number a lookup could NOT find for this door, or "" (v211). Set only where a
+// lookup wrote the door, and only when the geocoder's own answer did not contain the number
+// she typed — see houseNotIn below for how that is decided.
+//
+// It exists so the one fact survives the lookup. The door is NAMED with the address on the
+// order, house number and all (v207), because that is the address she and the customer both
+// use; a point that is only the road would otherwise wear that name back at her on the card
+// and on the run, saying "23 Jalan Seang Tek" over a pin on Seang Tek Road. Storing the
+// number is what lets those lines keep saying the address AND say the pin is not the door.
+//
+// It is cleared with the door, because `setDropPlace` writes the whole record: a drag by her
+// own hand leaves no `road` behind, which is right — her hand is the correction.
+export function doorRoadOf(state, order) {
+  const row = profileFor(state, keyOf(order));
+  const place = row && row.place;
+  return String((place && place.road) || "");
+}
+
 // WHICH of the two doors on this order is the one in force: the customer's own pin, or a
 // door of hers. The single question everything else here derives from, so the point the
 // price is asked for, the point a driver is sent to, and the words on the card can never
@@ -211,7 +229,11 @@ export function doorSwitchOf(state, order) {
 // the whole of whether the customer's own pin may override this door. It defaults to
 // "hand" because that is what every existing caller means — a drag on the card, a pick in
 // the map's picker — and a caller that means something else must say so out loud.
-export function setDropPlace(state, order, place, from = "hand") {
+//
+// `road` is the house number a lookup could not find (v211, see doorRoadOf above). Only the
+// callers that just ran a lookup pass it, and only when `houseNotIn` says the answer missed
+// the number — so a hand-placed door leaves no trace of a road, which is the point.
+export function setDropPlace(state, order, place, from = "hand", road = "") {
   const p = validPlace(place);
   const key = keyOf(order);
   if (!p || !key) return null;
@@ -234,6 +256,10 @@ export function setDropPlace(state, order, place, from = "hand") {
     from: String(from || "hand"),
     at: new Date().toISOString(),
   };
+  // Written only when a lookup missed the number, so no other door carries the key at all —
+  // a record with no `road` and a record with `road: ""` would read the same here, which is
+  // one way for two states to mean one thing, and this app has been bitten by that before.
+  if (road) row.place.road = String(road);
   save(state);
   return row.place;
 }
@@ -289,6 +315,47 @@ export function splitLabel(label) {
   const at = text.indexOf(",");
   if (at < 0) return { title: text, sub: "" };
   return { title: text.slice(0, at).trim(), sub: text.slice(at + 1).trim() };
+}
+
+// THE HOUSE NUMBER THE LOOKUP COULD NOT FIND, or "" (v211).
+//
+// Her report, and it is the whole reason this exists: she types "23 Jalan Seang Tek" and the
+// only thing on offer is "Seang Tek Road, George Town, 10400" — a road, not a house, and
+// Seang Tek is a long road. The pin lands on the street and nothing says so.
+//
+// NOTHING IN A GEOCODER'S REPLY SAYS "THIS IS ONLY A ROAD". There is no field for it — the
+// two services here (see supabase/functions/courier/geocode.ts) answer with a point and a
+// label, and Photon's label is composed by us out of street, town and postcode, which is a
+// road's own shape. So the question is asked the other way round: does the answer CONTAIN
+// the number she typed? A Malaysian address leads with its house number, so if the number is
+// in the answer the house was found, and if it is not, the answer is her street wearing her
+// street's name — and the pin is not her door.
+//
+// The comparison is on WHOLE TOKENS, because a five-digit postcode contains plenty of
+// two-digit numbers and "23" must not be satisfied by "10400" or by "123". Five-digit numbers
+// are dropped from what she is taken to have asked for, because a Malaysian postcode is five
+// digits and a five-digit house number is not a thing — which is what keeps "23 Jalan Seang
+// Tek, 10400" from being answered by the postcode alone.
+//
+// An address with no number in it asks for a road, and a road is what comes back, so it warns
+// about nothing. That is not a special case bolted on: it is the same sentence read the other
+// way, and it is why she can still look up a street she has no number for.
+export function houseNotIn(address, place) {
+  const asked = String(address == null ? "" : address).match(/\d+[a-z]?/gi) || [];
+  const want = asked.map((s) => s.toLowerCase()).filter((s) => !/^\d{5}$/.test(s));
+  if (!want.length) return "";
+  const said = String((place && place.label) || "").toLowerCase().split(/[^a-z0-9]+/);
+  if (want.some((n) => said.includes(n))) return "";
+  return want[0];
+}
+
+// The one fact, said the one way, wherever a road-only pin is reported — the picker's answer
+// line, the quote card's door line, and the run's row. Short is for the run row, where the
+// address is already on the line and the sentence sits inside a row a phone has to fit.
+export function roadNotHouse(house, { short = false } = {}) {
+  return short
+    ? `the road, not number ${house}`
+    : `The lookup found the road, not number ${house} — drag the pin to the door.`;
 }
 
 // Numbers she pasted, from anywhere she copied them. Four shapes, in the order that

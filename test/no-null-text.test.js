@@ -760,6 +760,76 @@ test("the lookup's other matches are offered, and pressing one moves the pin to 
   assert.deepEqual(stray, [], "no element printed as '[object …]' — the fault v195 shipped on this very card");
 });
 
+// ── "this is the road, not the house" (v211) ──────────────────────────────
+//
+// Her report: she types "23 Jalan Seang Tek" and the only thing on offer is "Seang Tek
+// Road, George Town, 10400" — and Seang Tek is a long road. The pin landed on her street
+// and nothing on the screen said so: the line read as a fact about her house, over a point
+// that was not her door. Her words for the fix: "make it say this is the road not the house".
+//
+// Asserted at the one place she reads a lookup's answer, and at both ends — the sentence
+// says so when the number is missing, and stays quiet when it is not, which is what makes
+// the first assertion a measurement rather than a line that is always printed.
+
+test("a lookup that could only find the road says so, and one that found the house does not (v211)", async () => {
+  signIn();
+  const reply = (label) => ({ ok: true, place: { lat: 5.4141, lng: 100.3288, label } });
+  let close = null;
+  let s = null;
+  try {
+    // The road only. She typed a house and the answer does not contain it.
+    s = stubGeocode(reply("Seang Tek Road, George Town, 10400"));
+    close = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep",
+      address: "23 Jalan Seang Tek", onPick: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    let body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.match(body.textContent, /Found: Seang Tek Road, George Town, 10400/,
+      "the answer is still named, exactly as before — nothing here is a gate");
+    assert.match(body.textContent, /The lookup found the road, not number 23 — drag the pin to the door\./,
+      "and the line says the pin is the street and not her door, which is the whole of the fix");
+    close(); close = null;
+    s.restore(); s = null;
+
+    // The same lookup where the answer DOES contain the number. This is the half that keeps
+    // the sentence worth reading: a warning on every lookup is not a warning.
+    s = stubGeocode(reply("23, Jalan Seang Tek, George Town, 10400"));
+    close = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep",
+      address: "23 Jalan Seang Tek", onPick: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.match(body.textContent, /Found: 23, Jalan Seang Tek, George Town, 10400/, "the house was found");
+    assert.doesNotMatch(body.textContent, /not number/, "so nothing is claimed about a missing house");
+    close(); close = null;
+    s.restore(); s = null;
+
+    // And an address with no house number in it asks for a road. A road is what it gets, and
+    // there is nothing to warn about — she can still look a street up.
+    s = stubGeocode(reply("Seang Tek Road, George Town, 10400"));
+    close = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep",
+      address: "Jalan Seang Tek, George Town", onPick: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.match(body.textContent, /Found: Seang Tek Road/, "the street is found");
+    assert.doesNotMatch(body.textContent, /not number/, "and no house number was asked for, so none is missed");
+  } finally {
+    if (close) close();
+    if (s) s.restore();
+  }
+});
+
 test("a lookup with one match draws no list, and still lands that match (v198)", async () => {
   // The old server's reply, and the shape of the app on the day it is pushed but the
   // courier function has not been redeployed — `place` and nothing else. A single
@@ -1047,6 +1117,66 @@ test("the door the panel looks up on its way to a price moves the map's pin (v20
     closeDoor(mounted);
     s.restore();
     delete globalThis.window.L;
+  }
+});
+
+// ── the card says it too, and goes on saying it (v211) ────────────────────
+//
+// The picker is where she READS a lookup; the card is where the door it wrote is said back
+// to her afterwards. This is the screen the lie was on: the door is named with the address
+// on the order — house number and all, v207 — so a point found only as far as the road wore
+// "23 Jalan Seang Tek" back at her on this card. Asserted on the drawn card, and TWICE over:
+// once straight after the lookup, and once on a card opened later from the stored door,
+// because a caveat that only survives until the next repaint is not a fact about the door.
+
+test("a door the lookup found only as far as the road says so on the card, and keeps saying it (v211)", async () => {
+  signIn();
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    const said = JSON.parse(opts.body || "{}");
+    const body = said.action === "geocode"
+      // The answer she gets for "23 Jalan Seang Tek": the street, and no house.
+      ? { ok: true, place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town, 10400" } }
+      : said.action === "vehicles"
+        ? { ok: true, services: [{ key: "MOTORCYCLE" }] }
+        : { ok: true, quotes: [], failed: [] };
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  const st = courierState();
+  const order = { ...COURIER_ORDER, address: "23 Jalan Seang Tek" };
+  st.orders = [order];
+  let mounted = null;
+  let later = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+
+    // THE WRITE. The number the lookup missed is stored on the door, and on the door only:
+    // the point is the geocoder's and the words are still her address.
+    assert.equal((st.customers[0] || {}).place.road, "23",
+      "the number the lookup could not find is recorded with the door");
+    assert.equal(st.customers[0].place.label, "23 Jalan Seang Tek",
+      "and the door is still NAMED with the address on the order, as v207 settled");
+
+    // THE READ, on the card she is looking at.
+    assert.match(mounted.doorSlot.textContent, /23 Jalan Seang Tek — the door you keep for Mei Ling\./,
+      "the line still names the door with the address she and the customer both use");
+    assert.match(mounted.doorSlot.textContent, /The lookup found the road, not number 23 — drag the pin to the door\./,
+      "and says the pin is the street, on the same line, so the two cannot be read apart");
+    closeDoor(mounted); mounted = null;
+
+    // AND IT IS NOT A ONE-SHOT. A card opened later, from the stored door, says the same
+    // thing — which is the whole reason the number is stored rather than only printed once.
+    later = mountDoor(st, order);
+    await settle(4);
+    assert.match(later.doorSlot.textContent, /The lookup found the road, not number 23/,
+      "a card opened from the saved door says it again, without asking anything");
+  } finally {
+    if (mounted) closeDoor(mounted);
+    if (later) closeDoor(later);
+    globalThis.fetch = real;
   }
 });
 

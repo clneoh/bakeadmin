@@ -1025,6 +1025,46 @@ test("a customer's own pin is the run's door for them, and only the other doors 
     "and it is named with the address on the order, NOT with the geocoder's row (v207)");
 });
 
+// ── a doorstep that is only the road says so on its own row (v211) ────────
+//
+// The run is where several doorsteps are read at once, and it is the screen where a street
+// wearing a house's name would be missed: every row leads with the address on the order, so
+// a lookup that answered "9 Jalan B" with "Jalan B, Butterworth" wrote a point on the road
+// under words that name house nine. One run covers all three answers — the lookup that
+// missed the number says so on that customer's row, the customer whose OWN pin is the door
+// says nothing (no lookup wrote their point), and the other door says nothing either.
+
+test("a doorstep the lookup found only as far as the road says so on its own row (v211)", async () => {
+  const st = world();
+  const wire = stubCourier();
+  // Ain keeps no door and dropped a pin of her own, so hers is the one door NOT looked up;
+  // Bala has no door at all, so the lookup answers for her and answers with a street.
+  st.customers = [];
+  st.orders[0].customerPlace = { lat: 5.4299, lng: 100.3399, label: "1 Jalan A", at: "2026-09-25T10:00:00.000Z" };
+  const { root } = openRun(st);
+
+  press(buttonByText(root, "Price this run"));
+  await settle();
+
+  const looked = wire.sent.filter((r) => r.action === "geocode");
+  assert.equal(looked.length, 1, "only the door nobody answered for is looked up");
+  const bala = st.customers.find((c) => c.key === keyOf(st.orders[2]));
+  assert.equal(bala.place.road, "9",
+    "the number the lookup could not find is stored with the door it wrote");
+  assert.equal(bala.place.label, "9 Jalan B", "and the door is still named with the address on the order");
+
+  const rows = all(root).filter((n) => String(n.className).includes("run-row"));
+  const rowOf = (name) => rows.find((r) => r.textContent.includes(name));
+  assert.match(rowOf("Bala").textContent, /9 Jalan B — the road, not number 9/,
+    "her row says the pin is the street, in the same breath as the address it wears");
+  assert.match(rowOf("Ain").textContent, /1 Jalan A/,
+    "Ain's row still names her door with the address on the order");
+  assert.doesNotMatch(rowOf("Ain").textContent, /the road, not number/,
+    "and says nothing about a road — her door is the pin she dropped herself, and no lookup wrote it");
+  assert.equal(wire.sent.some((r) => r.action === "geocode" && r.payload.address === "1 Jalan A"), false,
+    "which is the same fact from the wire's side: their own pin is never looked up");
+});
+
 test("a courier customer who pinned nothing gets no offer at all (v197)", () => {
   // Her second answer: "Send as it is today" — an order with no pin is the order this shop
   // has always taken, and nothing about it changes.

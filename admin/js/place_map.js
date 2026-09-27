@@ -22,7 +22,7 @@
 // obeys about what a place IS lives in courier_place.js, which is pure and tested.
 
 import { el, button, showPopup, toast } from "./ui.js";
-import { validPlace, parseCoords, splitLabel } from "./courier_place.js";
+import { validPlace, parseCoords, splitLabel, houseNotIn, roadNotHouse } from "./courier_place.js";
 import { geocodeAddress } from "./couriers/api.js";
 
 const LEAFLET_VERSION = "1.9.4";
@@ -165,6 +165,12 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     const saidPlace = (p) => p.label || `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
     const doorName = () => String(addrInput.value || "").trim() || foundWords;
 
+    // The road-only sentence as a TAIL for a line that already says something, and "" when
+    // there is nothing to say — so a line that answers a lookup appends it unconditionally
+    // and cannot forget it. The leading full stop is here rather than at the two call sites
+    // because both of them end without punctuation (v211).
+    const roadWords = (house) => (house ? `. ${roadNotHouse(house)}` : "");
+
     // ── the other matches, when the lookup found more than one ───────────
     // The lookup used to keep whichever candidate the service happened to put first,
     // and she had to notice the pin was wrong and drag it to the right street. The
@@ -238,7 +244,10 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // answer to "which street is it", and the door's name is the address — a tap that
       // rewrote that name into the row's fragment is the report this version answers.
       foundWords = p.label || "";
-      findStatus.textContent = `Found: ${saidPlace(p)}`;
+      // A row she picks is looked at the same way as the first answer (v211): "3 more below"
+      // is exactly where a road-only candidate hides, so the row that moves the pin onto a
+      // street says so too.
+      findStatus.textContent = `Found: ${saidPlace(p)}` + roadWords(houseNotIn(addrInput.value, p));
       // put() is the one route that moves the pin, so the marker, the centre, the
       // coordinates line and the enabled "Use this spot" all move together by
       // construction — and it repaints this list, which re-derives the tick.
@@ -274,9 +283,17 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // The line and the tick have to agree, so when there is a list the line says so —
       // otherwise four rows appear under a sentence that mentions one, and the only way
       // to find out they exist is to notice them.
-      findStatus.textContent = found.length > 1
+      //
+      // AND THE LINE HAS TO SAY WHEN THE ANSWER IS ONLY A ROAD (v211). The best match still
+      // lands by itself and the list is still only how she says "not that one" — nothing here
+      // is a gate. What is new is that the one case she cannot see for herself now says so:
+      // where she typed a house number and the geocoder's answer does not contain it, the pin
+      // is on her street and not on her door, and the sentence her own words asked for is
+      // added to the line she is already reading.
+      findStatus.textContent = (found.length > 1
         ? `Found: ${saidPlace(out.place)} — and ${found.length - 1} more below`
-        : `Found: ${saidPlace(out.place)}`;
+        : `Found: ${saidPlace(out.place)}`)
+        + roadWords(houseNotIn(text, out.place));
       put(out.place, 17);
       paintSuggestions();
     });

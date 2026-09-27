@@ -58,8 +58,8 @@ import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { geocodeAddress } from "../couriers/api.js";
 import {
-  customerPlaceOf, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf, fmtPlace,
-  pickupPlace, setDropPlace,
+  customerPlaceOf, doorIsTheirs, doorRoadOf, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf,
+  fmtPlace, houseNotIn, pickupPlace, roadNotHouse, setDropPlace,
 } from "../courier_place.js";
 import { openPlacePicker } from "../place_map.js";
 import { courierPayQuestions } from "./orders.js";
@@ -276,8 +276,15 @@ export function renderDeliveryRun(root, state, params) {
         paintPrices();
       });
       const what = g.orders.map((o) => `${String(o.productName || "item").trim()} ×${Number(o.qty) || 0}`).join("  ·  ");
+      // AND A DOOR THAT IS ONLY THE ROAD SAYS SO ON ITS OWN ROW TOO (v211), in the SHORT form:
+      // the row already leads with the address on the order, house number and all, so the tag
+      // is all it needs — and this is the screen where a run of several doorsteps is read at
+      // once, which is exactly where a street wearing a house's name would be missed. Only her
+      // own door can carry the stamp (a lookup is what writes one), so where the customer's own
+      // pin is the door there is nothing to warn about and nothing is said.
+      const road = doorIsTheirs(state, first) ? "" : doorRoadOf(state, first);
       const where = place
-        ? fmtPlace(place)
+        ? fmtPlace(place) + (road ? ` — ${roadNotHouse(road, { short: true })}` : "")
         : dropAddress(first)
           ? `${dropAddress(first)} — doorstep not pinned`
           : "no delivery address on this order yet";
@@ -310,7 +317,13 @@ export function renderDeliveryRun(root, state, params) {
               button(theirs
                 ? "Use the customer's pin instead"
                 : "Use the door I keep instead",
-                () => keepPin(first, offer.place, theirs), "ghost small")))]
+                // The road caveat travels with the door it is about (v211): putting her kept
+                // door back over a customer's pin does not make that point a house, and a
+                // warning dropped by the very press that asserts the door would be missing
+                // exactly where it is still needed. The other direction offers THEIR pin,
+                // which no lookup wrote, so there is nothing to carry.
+                () => keepPin(first, offer.place, theirs, theirs ? "" : doorRoadOf(state, first)),
+                "ghost small")))]
         : [row];
     });
 
@@ -330,8 +343,13 @@ export function renderDeliveryRun(root, state, params) {
   // whether the customer's own pin may override this door later. A door taken up from their
   // pin stays theirs, so a customer who re-pins still wins; her own door is recorded as her
   // own hand, so it sticks. `pinDoorstep` omits it, which is the "hand" default.
-  function keepPin(order, place, fromCustomer = false) {
-    setDropPlace(state, order, place, fromCustomer ? "customer" : "hand");
+  //
+  // `road` is the house number a lookup could not find (v211, see courier_place.js doorRoadOf).
+  // It is passed ONLY by the press that puts her kept door back over a customer's pin — the
+  // same point that was looked up, so the caveat still holds — and NOT by `pinDoorstep`, whose
+  // point is a new one she has just chosen and which therefore carries no old stamp at all.
+  function keepPin(order, place, fromCustomer = false, road = "") {
+    setDropPlace(state, order, place, fromCustomer ? "customer" : "hand", road);
     save(state);
     maybeSync(state);
     paintList();
@@ -499,7 +517,7 @@ export function renderDeliveryRun(root, state, params) {
         statusLine.textContent = `${nameOf(first)}: ${found.reason} Nothing has been priced.`;
         return;
       }
-      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup");
+      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup", houseNotIn(words, found.place));
       paintList();
     }
 

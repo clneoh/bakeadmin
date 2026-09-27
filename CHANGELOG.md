@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v210)
+# Jienluv2bake — change history (v54 → v211)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v211, A LOOKUP THAT CAN ONLY FIND THE ROAD NOW SAYS SO (no database step,
+no redeploy — one push). The doorstep lookup, and the lines that report it.**
+
+Your words: __make it say this is the road not the house.__ It does now.
+
+Here is the thing you were seeing. A Malaysian address leads with its house number. The free map
+services the app asks — the ones that need no key and no bill — very often can only answer down to
+the street. So when you typed **23 Jalan Seang Tek**, the answer came back as **Seang Tek Road,
+George Town, 10400**: your street, named as your street. The pin landed on the road. And the app
+reported that answer in exactly the same voice it uses when it has found the actual house, so there
+was no way for you to tell the two apart.
+
+**From now on the line says which one it is.** Where you type an address with a number and the
+geocoder's own answer does not contain that number, the line adds, in plain words: __The lookup
+found the road, not number 23 — drag the pin to the door.__ Where the answer __does__ contain your
+number, the house was found and the line stays quiet — no needless worrying.
+
+**It shows in all three places that report a lookup.** The line under the pin window's **Look it
+up** press, whether it found one match or several. The card's own line under **The door the driver
+is sent to**, right where you are already reading where the dot is. And each row of the **Price
+this run** list, so a run you price in one press tells you the same thing about the same door.
+
+**And it is remembered, so it keeps being said.** The number the lookup missed is written down
+with the door itself, not just printed once — so the caveat is still there on the next repaint, and
+on the next phone that syncs, and it survives the one-press switch from one door to the other. A
+door you place by hand or drag yourself carries no caveat at all, because no lookup wrote it.
+
+**It stays quiet where it should.** An address you type with no number in it gets no such line —
+there is no house to have missed. And a postcode is not mistaken for a house number, so typing
+10400 does not make the app look for a house called 10400. The comparison is by whole number, never
+by a piece of one: the postcode 10400 can never stand in for number 23, and 123 is a different
+house from 23.
+
+**Nothing is blocked, and nothing was gated.** The point is still placed, the price is still asked
+for, the trip can still be booked — only the words changed, exactly as a warning should work. And
+when the lookup can only reach the road, the box for **Coordinates, if you have them** is right
+there: paste a pair of numbers or a Google Maps link and the pin goes exactly where you put it.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. **Engine v211** on
+your **More** screen once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v210, THE WINDOW THAT OPENS WHEN THE MAP CANNOT (no database step, no
 redeploy — one push). The pin window on the courier card.**
