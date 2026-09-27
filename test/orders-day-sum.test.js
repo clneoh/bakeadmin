@@ -1304,6 +1304,99 @@ test("a courier pricing a trip at nothing does not put a charge in the box, and 
   await closeCard(pop);
 });
 
+// ── v215: an amount with no payer is REFUSED, not dropped in silence ─────────
+// Her report, 27 Sep 2026: "The selected courier charges cannot save" — after she
+// pressed [Use this fee] and then Save. The amount was in the box, the payer question
+// under it was still on "Not recorded", and `courierPayQuestions.read()` settles those
+// two together: no payer means no charge, so the Save wrote NOTHING — no charge, no
+// expense — and still said "Order updated". The amount vanished with no word about why.
+//
+// A save that reports a write it did not make is the same fault as a tap that moves the
+// picture and skips the write. The fix is a refusal in words, answered from the one
+// place that knows what would really be written, and asked by BOTH doors into the charge
+// box so neither can lose her money. These tests pin the refusal, the amount still in
+// the box, the card still open — and that answering the payer saves exactly as before.
+
+test("taking a courier's price and pressing Save with no payer is refused in words, not dropped (v215)", async () => {
+  let pop = null;
+  await withCourierWire(12.5, async () => {
+    const st = await courierState();
+    ({ pop } = courierBox(st));
+    buttonByText(pop, "Get a delivery price")._listeners.click[0]();
+    await drain();
+    buttonByText(pop, "Use this fee")._listeners.click[0]();
+    assert.equal(feeInput(pop).value, "12.5", "her press put the quoted price in the box");
+    assert.equal(selWith(pop, "The customer paid it").value, "",
+      "and the payer question is still unanswered, exactly as she left it");
+
+    buttonByText(pop, "Save")._listeners.click[0]();
+
+    assert.equal(st.orders[0].courierFee, undefined, "the amount is NOT written without a payer");
+    assert.equal((st.expenses || []).length, 0, "and her books are untouched");
+    assert.match(lastToast().textContent, /RM 12\.50/,
+      "the refusal names the amount that would have gone missing");
+    assert.match(lastToast().textContent, /nobody is down as the payer/, "and it gives the reason");
+    assert.ok(buttonByText(pop, "Save"), "the card stays open, so the answer can still be given");
+    assert.equal(feeInput(pop).value, "12.5", "with the amount still in the box, not cleared under her");
+
+    // The way out — and the proof the guard is not a blanket gate: answer the payer and
+    // the very same press writes the charge.
+    const payer = selWith(pop, "The customer paid it");
+    payer.value = "customer";
+    payer._listeners.change[0]();
+    buttonByText(pop, "Save")._listeners.click[0]();
+  });
+
+  await closeCard(pop);
+});
+
+test("the Edit form refuses the same charge in the same words, so neither door can lose it (v215)", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  const { pop } = editOn(st);
+
+  const box = feeInput(pop);
+  box.value = "8";
+  box._listeners.input[0].call(box);
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierFee, undefined, "an amount with no payer is not written here either");
+  assert.equal((st.expenses || []).length, 0, "and no expense row is filed");
+  assert.match(lastToast().textContent, /RM 8\.00/, "the refusal names the amount");
+  assert.match(lastToast().textContent, /nobody is down as the payer/,
+    "in the same words the Note / tracking card uses — one shared answer, not two opinions");
+  assert.ok(buttonByText(pop, "Save changes"), "the card stays open to be answered");
+
+  const mine = selWith(pop, "I paid it");
+  mine.value = "me";
+  mine._listeners.change[0]();
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+
+  assert.equal(st.orders[0].courierFee, 8, "answering the payer saves exactly as it always did");
+  assert.equal(st.expenses.length, 1, "including the Delivery & fuel row her own charge makes");
+});
+
+test("the fee's own toast says what still has to happen, and that a booking is not it (v215)", async () => {
+  // Her question, 27 Sep 2026: "should i book?" Booking is not what saves a charge — the
+  // payer question is — and the moment the fee lands is the only moment worth saying so.
+  let pop = null;
+  await withCourierWire(12.5, async () => {
+    const st = await courierState();
+    ({ pop } = courierBox(st));
+    buttonByText(pop, "Get a delivery price")._listeners.click[0]();
+    await drain();
+    buttonByText(pop, "Use this fee")._listeners.click[0]();
+  });
+
+  assert.match(lastToast().textContent, /who paid the courier/,
+    "the toast names the one thing still outstanding");
+  assert.match(lastToast().textContent, /Booking a trip is separate/,
+    "and says plainly that a booking is not what makes the charge save");
+
+  await closeCard(pop);
+});
+
 test("a price that lands after she has closed the card is not written into it", async () => {
   // A price takes seconds — eight quotations, one per vehicle — and she is standing in
   // a kitchen, not waiting on a screen. So she closes the card, and the reply arrives

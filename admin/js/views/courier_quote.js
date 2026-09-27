@@ -855,7 +855,11 @@ export function courierQuoteSection({
         toast(`${courier.label} priced this trip at ${fmtQuote(q.amount, q.currency, cur)} — that is not a charge, so nothing was put in the box. Ask again, or type the amount.`);
         return;
       }
-      toast(`Fee ${fmtQuote(q.amount, q.currency, cur)} put in the charge box`);
+      // The fee is in the box and this section is about to fold away, so this is the one
+      // moment she can be told what still has to happen for it to SAVE. Her question on
+      // 27 Sep 2026 was "should i book?" — booking is not what saves a charge, and the
+      // payer question is the thing that does.
+      toast(`Fee ${fmtQuote(q.amount, q.currency, cur)} put in the charge box — now choose who paid the courier and press Save. Booking a trip is separate: the charge saves without one.`);
       // Folded away so the amount it just wrote is what she is looking at, with the
       // payer question under it — which is the next thing she has to answer.
       open = false;

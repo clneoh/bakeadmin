@@ -1517,6 +1517,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
     if (!destId || !byId(state.deliveryDates, destId)) return toast("Choose a delivery day");
+    // This door refuses a charge with no payer in the same words the Note / tracking card
+    // uses — one shared answer, so the two cannot drift apart. See courierControls.problem.
+    const whyCharge = charge.problem();
+    if (whyCharge) return toast(whyCharge);
     applyPopupEdits(state, date, group, first, chosen, {
       customerName: customer.value.trim(),
       whatsapp: waNumber(whatsapp.value.trim()),
@@ -1951,6 +1955,13 @@ function courierControls(state, first, onChange = () => {}) {
     el("label", {}, "Courier charge (optional)"),
     amountInput);
   const pay = courierPayQuestions(state, first, onChange);
+  // What the box holds, read ONE way. Both the save and the guard below ask this, so
+  // they cannot disagree about whether there is an amount in the box.
+  const amountNow = () => Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0;
+  // Did this box OPEN on a charge the order already owned — an amount with a payer
+  // recorded? That one fact tells apart the two things "an amount and no payer" can mean
+  // on screen, and they need opposite answers. See `problem` below.
+  const openedOnAnOwnedCharge = courierFeeOf(first) > 0 && !!courierPayerOf(first);
 
   return {
     el: el("div", {}, amountField, pay.el),
@@ -1975,7 +1986,33 @@ function courierControls(state, first, onChange = () => {}) {
       onChange();
       return true;
     },
-    read: () => pay.read(Number(String(feeRaw).replace(/[^0-9.]/g, "")) || 0),
+    // Why this charge cannot be SAVED as it stands, in words, or "" when it can. One
+    // combination loses her money in silence, and it is this one: an amount in the box
+    // with nobody named as the payer. `pay.read()` settles the two together — an amount
+    // with no payer is not a charge, so it reads back as fee 0 and the save wrote
+    // nothing at all, while still saying "Order updated". A save that reports a write it
+    // did not make is the same fault as a tap that moves the picture and skips the
+    // write. Her report, 27 Sep 2026: "The selected courier charges cannot save", after
+    // taking a courier's price with [Use this fee] and pressing Save.
+    //
+    // The reading comes from `pay.read` — the very value that would be written — rather
+    // than from a second opinion about what is in the box, so this guard and the write
+    // can never disagree. Both doors into this box ask it before they touch anything.
+    problem: () => {
+      const n = amountNow();
+      if (n <= 0) return "";
+      const { amount, who } = pay.read(n);
+      if (who) return "";
+      // AN AMOUNT THE ORDER ALREADY CARRIED, whose payer she has just set back to "Not
+      // recorded", is her own way of REMOVING a charge — the rule she set on 19 Sep 2026
+      // ("why i delete courier charges and the tag is not remove?"): a charge nobody owns
+      // is not a charge, so the amount goes with the payer. Refusing THAT would be this
+      // app blocking the very action she deletes a charge with. The guard is only for an
+      // amount that arrived while this box was open and never got an owner.
+      if (openedOnAnOwnedCharge) return "";
+      return `The courier charge is ${fmtRM(amount, state.settings.currency)} but nobody is down as the payer, so it would not be saved — a charge is the amount and who bore it. Choose who paid the courier under it, or clear the amount, then press Save again.`;
+    },
+    read: () => pay.read(amountNow()),
   };
 }
 
@@ -2088,6 +2125,11 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // nothing for anyone to collect at the door, so the key goes with the other
             // two rather than lingering as a flag on no charge. All of that reading is the
             // shared block's, so this box and the Edit form settle it identically.
+            // REFUSED, NOT DROPPED, when an amount is sitting there with no payer: see
+            // courierControls.problem. Asked BEFORE the note and the tracking number are
+            // written too, so a refused Save leaves the whole card exactly as she left it.
+            const why = charge.problem();
+            if (why) return toast(why);
             const answers = charge.read();
             for (const o of group.orders) {
               o.note = note.value.trim();

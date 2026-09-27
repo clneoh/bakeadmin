@@ -1,8 +1,58 @@
-# Jienluv2bake — change history (v54 → v214)
+# Jienluv2bake — change history (v54 → v215)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v215, THE COURIER CHARGE SAVES (no database step, no redeploy — one
+push). The order's charge box.**
+
+Your report: __the selected courier charges cannot save__. It was true, and this version fixes it.
+
+**What was happening.** You pressed **Get a delivery price**, then **Use this fee**, and the
+courier's price appeared in the **Courier charge** box on the order. You pressed **Save**. The app
+said __Order updated__ — and the charge was gone. The amount had been written into the box with
+**nobody named as the payer**, and a charge is the amount __and__ who bore it. With no payer, the
+app read the whole thing as no charge at all, quietly dropped it, and still told you it had saved.
+A save that says it wrote something it did not write is the worst kind of fault, because there is
+nothing on screen to tell you to look again.
+
+**What happens now instead of that.** Press **Save** with an amount in the box and no payer
+chosen, and the app **refuses, in words**: it tells you the charge is RM 12.50 but nobody is down
+as the payer, so it would not be saved, and it gives you the two ways out — choose who paid the
+courier under the box, or clear the amount. **Nothing is written, and your card is left exactly as
+you left it** — the amount still in the box, the note and the tracking number untouched. Choose a
+payer and press **Save** again, and it saves.
+
+**One thing this version is careful not to break.** Clearing the payer is **your own way of
+deleting a charge** — the rule you set on 19 September 2026. So the refusal only applies to an
+amount that arrived while the card was open (from the courier's **Use this fee**, or typed by
+you). An order that already has a charge, whose payer you set back to __Not recorded__ and then
+save, is still **deleted**, exactly as before. Two older tests pin that, and this version had to
+be narrowed until they passed again.
+
+**Both doors, one answer.** The same refusal guards the **Edit** form's **Save changes**, in the
+same words — so a charge cannot be lost through one door after being protected at the other.
+
+**And the question you asked, answered.** **Booking a trip is not what saves the charge.** The
+courier's charge saves on its own, with no booking at all — that was the whole of the bug.
+**[Get a delivery price]** asks the courier what it would charge and costs nothing. **[Use this
+fee]** copies that price into the charge box so you can save it. **[Book this trip]** is the one
+press that **sends a real driver to the bakery and spends real money** — press it when you are
+ready for the driver to come, and it is also what puts the trip's share link into the customer's
+tracking box. The charge is yours to record whenever you like; the booking is the dispatch.
+
+**Booking in advance: the app cannot do it yet.** The time box on the card changes **the price
+only** — it does not schedule the trip, and the card now says so on itself. A booking is a driver
+sent now, so do not press **Book this trip** until you want the driver to arrive. When a booked
+trip can be scheduled for a later time, that becomes its own setting, and the card will say so
+then.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens, and one push
+is the whole of it. **Engine v215** on your **More** screen once this is pushed.
+
+---
+
 
 **27 Sep 2026 — engine v214, THE ADDRESS IT FOUND IS WRITTEN IN FOR THEM (no database step, no
 redeploy — one push). The shop page.**
