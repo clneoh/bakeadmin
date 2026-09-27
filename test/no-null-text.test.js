@@ -1547,3 +1547,295 @@ test("a door the map has never shown is worth moving the view for (v201)", async
     delete globalThis.window.L;
   }
 });
+
+// ── asking the address up again (v213) ────────────────────────────────────
+//
+// A door a lookup wrote is the best answer ONE service had on the day it was asked, and it is
+// not a fact about the world. For a Malaysian house number that answer is usually just the
+// road. v212 put a second, better service in front of the free ones — but a lookup only runs
+// where there is NO door yet: `ask()` writes the door once and every later price reads it back.
+// So every customer pinned before v212 keeps the road-level point for good, and the Google key
+// she has now set would look like it had changed nothing at all. The press below is the way
+// out of that.
+//
+// AND IT IS A PRESS, never something the card does by itself. A pin that moved under her
+// without being asked to is the fault v209 was written to end, and this version must not
+// reintroduce it one version later. The tests below hold both halves: where the press appears,
+// and what each of its three answers does to the door and to the prices.
+
+// The channel, with the geocoder ANSWERING DIFFERENTLY ON EACH ASK. This counter is the whole
+// point of the stub: a second ask is only worth a test if its answer can differ from the
+// first, and the defect this version exists for is that the second ask never happened at all.
+// A stub handing back one fixed answer could not tell a working re-lookup from a press that
+// did nothing.
+function stubGeocodeAsks(answers) {
+  const real = globalThis.fetch;
+  let geocodes = 0;
+  globalThis.fetch = async (url, opts = {}) => {
+    const said = JSON.parse(opts.body || "{}");
+    let body;
+    if (said.action === "geocode") {
+      body = answers[Math.min(geocodes, answers.length - 1)];
+      geocodes += 1;
+    } else if (said.action === "vehicles") {
+      body = { ok: true, services: [{ key: "CAR" }] };
+    } else {
+      body = {
+        ok: true,
+        quotes: [{ quotationId: "q-car", serviceType: "CAR", priceBreakdown: { total: 14, currency: "MYR" },
+          stops: [{ stopId: "s-bakery", coordinates: { lat: 5.4141, lng: 100.3288 } },
+            { stopId: "s-mei", coordinates: { lat: 5.42, lng: 100.33 } }] }],
+        failed: [],
+      };
+    }
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  return { geocodes: () => geocodes, restore() { globalThis.fetch = real; } };
+}
+
+// Her own address, and the three answers a lookup can give for it. ON_THE_ROAD is the answer
+// the free services give today — the street and no house — which is what she has been reading
+// as "a mix of services". AT_THE_HOUSE is what the better service gives, and the point of the
+// whole press. STILL_THE_ROAD moved, yet still missed the number, which is the case that must
+// keep the v211 caveat rather than clear it by having been asked twice.
+const ON_THE_ROAD = { ok: true, place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town, 10400" } };
+const AT_THE_HOUSE = { ok: true, place: { lat: 5.4172, lng: 100.3311, label: "23, Jalan Seang Tek, 10400 George Town" } };
+const STILL_THE_ROAD = { ok: true, place: { lat: 5.4180, lng: 100.3300, label: "Seang Tek Road, George Town" } };
+const NO_ANSWER = { ok: false, reason: "The address service could not be reached." };
+
+// The order every test below asks for a price on. The address is the one whose house number the
+// free services cannot find, so a lookup of it really does come back with the road.
+const SEAK_ORDER = () => ({ ...COURIER_ORDER, address: "23 Jalan Seang Tek" });
+const lookBtnOn = (mounted) => buttonByText(mounted.doorSlot, "Look this address up again");
+
+test("the second ask appears where a lookup wrote the door, and nowhere before one exists (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let bare = null;
+  let looked = null;
+  try {
+    // NO DOOR YET. There is nothing to ask again, so the press is not on the card — and it is
+    // hidden rather than never built, which is why this asserts the flag and not the absence.
+    bare = mountDoor(st, order);
+    await settle(4);
+    assert.ok(lookBtnOn(bare), "the door block carries the press, so the card is not simply missing it");
+    assert.equal(lookBtnOn(bare).hidden, true,
+      "with no door at all there is nothing to re-ask for — the price press looks one up by itself");
+
+    // THE PRICE PRESS IS WHAT WRITES A DOOR, and it writes one from a lookup.
+    buttonByText(bare.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    assert.equal(s.geocodes(), 1, "the price press made the one lookup");
+    assert.equal(st.customers[0].place.from, "lookup", "and the door it wrote is a lookup's, not hers");
+    assert.equal(lookBtnOn(bare).hidden, false,
+      "so the card now offers to ask that same address up again");
+    closeDoor(bare); bare = null;
+
+    // AND IT IS OFFERED FOR A DOOR SAVED BEFORE THE APP RECORDED HOW IT WAS MADE. `from` only
+    // arrived at v209, so every door older than that carries nothing — and the only writer that
+    // ever ran by itself was the lookup, which is what these are treated as. Without this the
+    // press would be missing on exactly the phones it was built for.
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town" },
+    }];
+    looked = mountDoor(st, order);
+    await settle(4);
+    assert.equal(lookBtnOn(looked).hidden, false,
+      "a door stored before the app kept a note of how it was made is a guess too, and can be re-asked");
+  } finally {
+    if (bare) closeDoor(bare);
+    closeDoor(looked);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("the second ask is never offered over her own hand or over the customer's own pin (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([AT_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let hand = null;
+  let theirs = null;
+  try {
+    // HER OWN HAND. A door she dragged or picked is a correction, not a guess, and offering to
+    // replace it with a lookup would be handing her work back to the service she just corrected.
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4, lng: 100.3, label: "the door she checked", from: "hand", at: "2026-09-25T10:00:00.000Z" },
+    }];
+    hand = mountDoor(st, order);
+    await settle(4);
+    assert.equal(lookBtnOn(hand).hidden, true,
+      "a door she placed herself is not a lookup's answer and is not offered up for replacement");
+    assert.equal(st.customers[0].place.lat, 5.4, "and nothing has moved it");
+
+    // THE CUSTOMER'S OWN PIN, which is the door in force (v209). Their pin is a fact FROM them,
+    // and it is not the app's to re-derive: the app never looked it up in the first place.
+    closeDoor(hand); hand = null;
+    st.customers = [];
+    theirs = mountDoor(st, withDoor());
+    await settle(4);
+    assert.ok(lookBtnOn(theirs), "the press is on the card, so its absence below would be a real one");
+    assert.equal(lookBtnOn(theirs).hidden, true,
+      "the customer's own pin is the door, and it is not a guess to be asked again");
+  } finally {
+    if (hand) closeDoor(hand);
+    closeDoor(theirs);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a re-ask that answers with a different point moves the door and takes the old prices with it (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD, AT_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    assert.match(mounted.wrap.textContent, /RM 14\.00/, "there is a price on the card to lose");
+    assert.equal(st.customers[0].place.lat, 5.4141, "and the door stands on the road the lookup found");
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle();
+
+    assert.equal(s.geocodes(), 2, "the press really asked the address up a second time");
+    assert.equal(st.customers[0].place.lat, 5.4172, "and the door moved to the point the new answer gave");
+    assert.equal(st.customers[0].place.lng, 100.3311, "in both numbers, not just the one");
+    assert.equal(st.customers[0].place.from, "lookup", "still written as a lookup's answer, because that is what it is");
+    assert.equal(st.customers[0].place.label, "23 Jalan Seang Tek",
+      "and still NAMED with the address on the order, never the geocoder's row (v207)");
+    assert.equal(st.customers[0].place.road, undefined,
+      "the house number was found this time, so the road caveat is gone rather than left behind");
+
+    assert.match(mounted.wrap.textContent, /The door moved — the lookup answers this address with a different point now\./,
+      "the card says what happened, in its own words");
+    assert.doesNotMatch(mounted.wrap.textContent, /RM 14\.00/,
+      "and the price quoted for the old door does not stay on screen as if it were this one's");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a re-ask that answers with the same point moves nothing, keeps the prices, and says so (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD, ON_THE_ROAD]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    assert.match(mounted.wrap.textContent, /RM 14\.00/, "a price is on the card");
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle();
+
+    assert.equal(s.geocodes(), 2, "the press asked, so this is not a press that did nothing");
+    assert.equal(st.customers[0].place.lat, 5.4141, "the door did not move");
+    assert.match(mounted.wrap.textContent, /found the same spot/,
+      "and the card says it found the same spot rather than staying silent on a press that ran");
+    assert.match(mounted.wrap.textContent, /the road, not number 23/,
+      "with the caveat still on it — asking twice does not make a road answer into a door");
+    assert.match(mounted.wrap.textContent, /RM 14\.00/,
+      "and the prices stand, because the spot they were quoted for has not changed");
+    assert.doesNotMatch(mounted.wrap.textContent, /The door moved/,
+      "nothing moved, and the card does not claim it did");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a re-ask that cannot be made leaves the door alone and says what happened (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD, NO_ANSWER]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+    const keptAt = st.customers[0].place.lat;
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle();
+
+    assert.equal(st.customers[0].place.lat, keptAt, "a lookup that did not answer does not move the door");
+    assert.match(mounted.wrap.textContent, /The address service could not be reached\./,
+      "the reason the service gave reaches her, in its own words");
+    assert.match(mounted.wrap.textContent, /The door has been left as it was\./,
+      "and she is told that the pin she can see is still the one in force");
+    assert.match(mounted.wrap.textContent, /RM 14\.00/, "the price stands, because nothing moved");
+    assert.equal(lookBtnOn(mounted).disabled, false,
+      "and the press is live again, so a second try is possible rather than a button left dead behind a failure");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a re-ask that moves but still only reaches the road keeps the caveat (v213)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD, STILL_THE_ROAD]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle();
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle();
+
+    assert.equal(st.customers[0].place.lat, 5.418, "the door moved to the new point");
+    assert.equal(st.customers[0].place.road, "23",
+      "and the number that is STILL missing is stored with it, so the caveat survives the repaint");
+    assert.match(mounted.doorSlot.textContent, /The lookup found the road, not number 23 — drag the pin to the door\./,
+      "the card says the pin is the street, on the door's own line");
+    assert.match(mounted.wrap.textContent, /The door moved, and it is still only the road, not number 23\./,
+      "and the status line reports both facts at once, so a better point is not mistaken for the door");
+    assert.doesNotMatch(mounted.wrap.textContent, /RM 14\.00/,
+      "with the price for the old point taken away, because the door did move");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});

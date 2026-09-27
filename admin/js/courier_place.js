@@ -146,6 +146,30 @@ export function doorIsTheirs(state, order) {
   return doorFromOf(state, order) !== "hand";
 }
 
+// Whether the app may OFFER to look this order's address up again (v213).
+//
+// A door a lookup wrote is not a fact about the world. It is the best answer ONE service had
+// on the day it was asked, and for a Malaysian house number that answer is often just the
+// road — which is the whole of [[v212]]. v212 added a second, better service, but it is only
+// ever asked when there is no door yet: `setDropPlace` writes the door once and every later
+// price reads it back, so a customer pinned before v212 keeps the old answer for good, and
+// the key she has now set would appear to have changed nothing. This is the way out of that.
+//
+// YES where the door was written by a LOOKUP, and where it was written before the app
+// recorded how a door got there at all. That second case is honest rather than tidy: `from`
+// arrived at v209, and before it the only writer that ran by itself was the lookup, so a door
+// with no `from` is a lookup's answer or a drag she made before the app kept a note of one.
+// Offering the press is safe in that grey area precisely because nothing happens without it.
+//
+// NO where their own pin is the point in force — they were standing at their door, and no
+// lookup improves on that (v209) — and NO where a door she placed by hand is in force, which
+// is a correction rather than a guess, and not something to be offered up for replacement.
+export function doorMayBeLookedUpAgain(state, order) {
+  if (doorIsTheirs(state, order)) return false;
+  const from = doorFromOf(state, order);
+  return from === "lookup" || from === "";
+}
+
 // THE POINT THAT IS THE DOOR — the one a price is asked for and a driver is sent to.
 //
 // WHERE THE CUSTOMER DROPPED THEIR OWN PIN, THAT PIN IS THE DOOR. Her instruction, in her
@@ -190,6 +214,16 @@ export function customerPlaceOf(order) {
 // enough that a pin nudged a few metres on the map does not read as a new place.
 const SAME_DOOR_DEG = 0.0001;
 
+// THE one answer to "are these two points the same door", so the switch's own question and
+// the re-lookup's "did the door actually move" (v213) cannot come apart. A missing point is
+// not the same door as anything — including another missing point — because every caller
+// here is asking about a door that is on screen.
+export function sameDoor(a, b) {
+  if (!a || !b) return false;
+  return Math.abs(a.lat - b.lat) < SAME_DOOR_DEG
+    && Math.abs(a.lng - b.lng) < SAME_DOOR_DEG;
+}
+
 // The OTHER door on this order — the one that is not in force — so the card can offer one
 // press to switch to it. Null when there is nothing to switch to: no second door, or the
 // two agree to within SAME_DOOR_DEG (about 11 metres), in which case they are one door and
@@ -207,8 +241,7 @@ export function doorSwitchOf(state, order) {
   const theirs = customerPlaceOf(order);
   const kept = dropPlaceOf(state, order);
   if (!theirs || !kept) return null;
-  if (Math.abs(kept.lat - theirs.lat) < SAME_DOOR_DEG
-    && Math.abs(kept.lng - theirs.lng) < SAME_DOOR_DEG) return null;
+  if (sameDoor(kept, theirs)) return null;
   // Which one is in force is decided by doorIsTheirs, not by a second guess here: the two
   // must never be able to disagree about what the card is showing.
   return doorIsTheirs(state, order)

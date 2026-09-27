@@ -28,8 +28,8 @@ import assert from "node:assert/strict";
 const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
   setDropPlace, setPickupPlace, latLngText, fmtPlace, splitLabel, parseCoords, placeProblem,
-  customerPlaceOf, doorFromOf, doorIsTheirs, doorSpotOf, doorSwitchOf,
-  houseNotIn, roadNotHouse, doorRoadOf,
+  customerPlaceOf, doorFromOf, doorIsTheirs, doorMayBeLookedUpAgain, doorSpotOf, doorSwitchOf,
+  houseNotIn, roadNotHouse, doorRoadOf, sameDoor,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
 
@@ -538,3 +538,67 @@ test("the number a lookup missed rides with the door, and only a lookup writes o
   assert.equal(doorFromOf(s, o), "hand");
 });
 
+
+// ── asking the address up again (v213) ────────────────────────────────────
+//
+// A door a lookup wrote is not a fact about the world. It is the best answer ONE service had
+// on the day it was asked, and for a Malaysian house number that answer is usually just the
+// road. v212 added a second, better service — but it is only ever asked when there is NO door
+// yet, so every customer pinned before it keeps the old answer for good and the key she has
+// now set would look like it had changed nothing at all. This is the way out, and the rule
+// below is the whole of who it may be offered to.
+
+test("the second ask is offered where a LOOKUP wrote the door, and where nothing recorded how (v213)", () => {
+  const s = state();
+  const o = order();
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288, label: o.address }, "lookup", "12");
+  assert.equal(doorMayBeLookedUpAgain(s, o), true, "a lookup's answer is a guess, and a guess may be asked again");
+
+  // A door saved before v209 carries no record of how it was made. The only writer that ran
+  // by itself was the lookup, so this is the grey area — and offering a press in it is safe
+  // precisely because nothing happens without one.
+  const old = state();
+  const oldOrder = order();
+  setDropPlace(old, oldOrder, { lat: 5.4141, lng: 100.3288, label: oldOrder.address });
+  old.customers[0].place.from = undefined; // as an older version left it
+  assert.equal(doorFromOf(old, oldOrder), "");
+  assert.equal(doorMayBeLookedUpAgain(old, oldOrder), true, "no record of how, so it may be asked again");
+});
+
+test("the second ask is NOT offered over her own hand or over the customer's own pin (v213)", () => {
+  const s = state();
+  const o = order();
+  setDropPlace(s, o, { lat: 5.4, lng: 100.3, label: "the door she checked" }, "hand");
+  assert.equal(doorMayBeLookedUpAgain(s, o), false,
+    "a door she placed by hand is a correction, not a guess, and is not offered up for replacement");
+
+  // And where THEIR pin is the point in force, no lookup improves on it — they were standing
+  // at their door when they dropped it (v209). This holds even when the door she keeps beside
+  // it came from a lookup, because the card's point is theirs and a second ask is answered
+  // into the door she keeps, which is not the point on screen.
+  const t = state();
+  const pinned = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(t, pinned, { lat: 3.1, lng: 101.6, label: "the wrong town" }, "lookup");
+  assert.equal(doorIsTheirs(t, pinned), true, "their pin is the door in force");
+  assert.equal(doorMayBeLookedUpAgain(t, pinned), false, "so nothing is offered over it");
+
+  // The pinned customer with NO kept door at all: still theirs, still nothing to offer.
+  const u = state();
+  const bare = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  assert.equal(doorMayBeLookedUpAgain(u, bare), false, "their pin, and nothing of hers to re-ask");
+});
+
+test("two points are the same door by ONE rule, so the switch and the second ask cannot disagree (v213)", () => {
+  const a = { lat: 5.42, lng: 100.33 };
+  assert.equal(sameDoor(a, { lat: 5.42, lng: 100.33 }), true, "the identical point");
+  // 0.0001 degrees is about 11 metres — finer than anyone re-pinning a doorstep can aim.
+  assert.equal(sameDoor(a, { lat: 5.42005, lng: 100.33005 }), true, "inside the tolerance");
+  assert.equal(sameDoor(a, { lat: 5.4202, lng: 100.33 }), false, "outside it: a different door");
+  assert.equal(sameDoor(a, { lat: 5.42, lng: 100.3302 }), false, "on the other axis too");
+  // A point that is not there is not the same door as anything — including another missing one.
+  // Every caller here is asking about a door that is on screen, and "both are missing" is not
+  // an answer to "has this door moved".
+  assert.equal(sameDoor(null, null), false);
+  assert.equal(sameDoor(a, null), false);
+  assert.equal(sameDoor(null, a), false);
+});

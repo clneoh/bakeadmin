@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v212)
+# Jienluv2bake — change history (v54 → v213)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v213, ASK THAT ADDRESS UP AGAIN (no database step, no redeploy — one
+push). The door card.**
+
+This is the missing half of v212, and without it you would have set up your Google key and seen
+nothing change.
+
+**The thing that was wrong.** Once the app has worked out where a customer's door is, it keeps
+that answer and never asks again. Ask for a price a month later and it reads the saved point back
+and prices that. So every customer you pinned __before__ v212 is holding a road-level point that
+nothing will ever revisit — and the better lookup v212 switched on only ever runs for an address
+the app has never looked up at all. Your key would have been set, working, and invisible.
+
+**So there is now one more press on the door card: "Look this address up again".** It sits next
+to **Move this pin**, under the map. Press it and the app asks that address up a fresh, exactly
+the way it did the first time, and moves the dot to the answer it gets now.
+
+**It is a press, and never something the app does on its own.** A pin that moves under your finger
+while you are reading the card is the exact fault v209 was written to stop, and this must not bring
+it back. Nothing here runs by itself.
+
+**It appears only where the app itself put the door.** One press is offered where a lookup decided
+that point, and where the door was saved before the app began keeping a note of how it was made —
+because before that, a lookup was the only thing that ever wrote one. **It is not offered over a
+pin you placed yourself**, by dragging or by picking on the map: that is your correction, not a
+guess, and the app will not offer to hand your work back to a service. And **it is not offered
+over the customer's own pin** from the shop page: they were standing at their door when they
+dropped it, and the app never looked that one up in the first place.
+
+**Every press tells you what it found, and there are three answers.** It moved: the dot is on the
+new point, and the line says __The door moved — the lookup answers this address with a different
+point now.__ It did not move: the line says it found the same spot, and names the spot it is
+standing on. It could not be asked: the reason is printed in the service's own words, followed by
+__The door has been left as it was.__ A press that says nothing at all would read as a broken
+button, so there is no such press.
+
+**Prices follow the same rule they always have.** If the press moves the door, the prices on
+screen were quoted for the old point and they go, with the line telling you to ask again. If the
+press finds the same spot, nothing moved, so the prices stand — a re-lookup that finds the same
+road does not make you pay for a quote twice.
+
+**And the road warning from v211 keeps its own rule.** If the fresh lookup still cannot find the
+house number, the door keeps the warning line and the press says so in the same breath — __The
+door moved, and it is still only the road, not number 23.__ A point that has been asked about
+twice is not on that account a better point.
+
+**Nothing to run.** No database step and no redeploy: this is all inside the app, and one push is
+the whole of it. **Engine v213** on your **More** screen once this is pushed.
+
+---
+
 
 **27 Sep 2026 — engine v212, THE PIN CAN NOW LAND ON THE HOUSE (no database step — but this one
 needs two commands from you before it does anything).**

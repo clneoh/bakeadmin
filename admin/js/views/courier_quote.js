@@ -52,8 +52,9 @@ import {
   liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
-  customerPlaceOf, doorIsTheirs, doorRoadOf, doorSpotOf, doorSwitchOf, dropAddress, dropPlaceOf,
-  fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse, setDropPlace, setPickupPlace,
+  customerPlaceOf, doorIsTheirs, doorMayBeLookedUpAgain, doorRoadOf, doorSpotOf, doorSwitchOf,
+  dropAddress, dropPlaceOf, fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse,
+  sameDoor, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
@@ -199,6 +200,8 @@ export function courierQuoteSection({
   let doorWords = null;
   let doorMapBox = null;
   let doorBtn = null;
+  // The door block's second press (v213) — drawn only where the door is one a lookup wrote.
+  let lookBtn = null;
   let doorHandle = null;
   // Read-only until she says otherwise — see mountPinMap. It is reset to locked every time
   // the block is rebuilt, so a card she opens is never already in "move" mode.
@@ -206,6 +209,10 @@ export function courierQuoteSection({
   // Assigned by build(), because only build() knows about the prices. Before the fold has
   // ever been opened there are no prices and nothing to say.
   let afterDoorMove = () => {};
+  // Assigned by build() for the same reason, and one more: only build() owns the status line,
+  // which is where the answer to a re-lookup is said. The no-op default is what lets the door
+  // block be DRAWN before the card that contains it has been built.
+  let relookUp = () => {};
 
   const isCourierOrder = String((first && first.fulfillment) || "") === "courier";
 
@@ -213,12 +220,15 @@ export function courierQuoteSection({
   // those numbers where they are — and it does not silently re-ask either: a re-ask is
   // eight requests and this file's rule is that it stays her tap. So they go, and the line
   // where prices appear says why.
-  function invalidatePrices() {
+  // `note` is what the caller knows about the move that the sentence below cannot (v213, the
+  // re-lookup): the prices go for the same reason, and only the words explaining WHY differ.
+  // Left out, the sentence is exactly the one a drag has always produced.
+  function invalidatePrices(note = "") {
     quotes = [];
     failed = [];
     pricedFor = "";
     pricedTrip = null;
-    afterDoorMove();
+    afterDoorMove(note);
   }
 
   // THE DOOR — the one point a price is asked for, the drag moves, and the driver is sent
@@ -294,6 +304,14 @@ export function courierQuoteSection({
         doorHandle.setDraggable(!doorLocked);
         paintDoor();
       }, "ghost small");
+      // ASK THE ADDRESS UP AGAIN (v213). A door a lookup wrote is the best answer one service
+      // had on the day it was asked, not a fact about the world — and for a Malaysian house
+      // number that answer is usually just the road. v212 added a second, better service, but
+      // it is only ever asked when there is NO door yet, so every customer pinned before it
+      // keeps the old answer for good. This is the way out, and it is a press rather than
+      // something the card does by itself: a pin that moved under her without being asked to
+      // is the bug v209 was written to end.
+      lookBtn = button("Look this address up again", () => relookUp(), "ghost small");
       // ONE node, never an array: replaceChildren is variadic, and an array handed to it
       // prints as "[object HTMLParagraphElement],…" with nothing left to press — the fault
       // this card shipped at v195.
@@ -302,7 +320,7 @@ export function courierQuoteSection({
           el("label", {}, "The door the driver is sent to"),
           doorWords,
           doorMapBox,
-          el("div", { class: "btn-row", style: "margin-top:10px" }, doorBtn)));
+          el("div", { class: "btn-row", style: "margin-top:10px" }, doorBtn, lookBtn)));
     }
 
     const spot = doorSpot();
@@ -364,6 +382,14 @@ export function courierQuoteSection({
       doorBtn.textContent = !spot
         ? "Put this doorstep on the map"
         : doorLocked ? "Move this pin" : "Done moving";
+    }
+
+    // ASK UP AGAIN, WHERE ASKING CAN STILL HELP (v213) — the rule itself is in
+    // courier_place.js. Not over the customer's own pin, which is a fact from them, and not
+    // over a pin she placed by her own hand, which is a correction and not a guess. No door
+    // at all means nothing to re-ask for: the price press looks one up by itself.
+    if (lookBtn) {
+      lookBtn.hidden = !(spot && addr && doorMayBeLookedUpAgain(state, first));
     }
 
     if (!spot) {
@@ -1035,11 +1061,68 @@ export function courierQuoteSection({
     // were quoted for the door she has just left, so they go, and this is the sentence that
     // sends her back to the one button that produces new ones. The section's own rule, from
     // the top of this file: a re-ask is eight requests and it stays her tap.
-    afterDoorMove = () => {
+    afterDoorMove = (note = "") => {
       paintEnds();
       paintQuotes();
       paintWhen();
-      statusLine.textContent = "The door moved — ask again for a price for this spot. The prices that were here were quoted for the old one.";
+      // ONE promise, said once. `note` is the re-lookup's own news about WHAT moved (v213) and
+      // never a second telling of what happens to the prices — two sentences that must agree
+      // about the same consequence are two sentences that can come apart. Left out, the
+      // sentence is byte for byte the one a drag has always produced.
+      const prices = "The prices that were here were quoted for the old one.";
+      statusLine.textContent = note
+        ? `${note} Ask again for a price for this spot. ${prices}`
+        : `The door moved — ask again for a price for this spot. ${prices}`;
+    };
+
+    // ── asking the same address up again (v213) ──────────────────────────
+    //
+    // Reached from the door block's own second press, and drawn only where a LOOKUP wrote the
+    // door (see courier_place.js doorMayBeLookedUpAgain). It exists because a lookup's answer
+    // is never re-asked: `ask()` looks an address up only when there is no door yet, and every
+    // later price reads the saved one back — so a customer pinned under the free map services
+    // keeps that road-level point for as long as the app knows them, and the Google key she has
+    // now set would look like it had changed nothing at all.
+    //
+    // THREE ANSWERS, AND EACH ONE IS SAID. It moved; it did not move; it could not be asked.
+    // A button whose only outcome is silence is the dead control this app has a standing rule
+    // against, and here silence would be worse than usual — she would have no way to tell a
+    // lookup that found the same road from a press that never ran.
+    relookUp = async () => {
+      const words = dropAddress(first);
+      const before = doorSpot();
+      if (busy || !words || !before) return;
+      busy = true;
+      if (lookBtn) lookBtn.disabled = true;
+      stopClock();
+      statusLine.textContent = `Looking ${words} up again…`;
+      const found = await geocodeAddress(state, words);
+      if (!wrap.isConnected) return;
+      busy = false;
+      if (lookBtn) lookBtn.disabled = false;
+      if (!found.ok) {
+        statusLine.textContent = `${found.reason} The door has been left as it was.`;
+        return;
+      }
+      // The house number this answer could not find, by the same test the automatic lookup
+      // uses — so a re-lookup that still only reaches the road keeps wearing the caveat (v211)
+      // instead of clearing it by having been asked twice.
+      const road = houseNotIn(words, found.place);
+      const moved = !sameDoor(before, found.place);
+      // Written with the address on the order as its name, never the geocoder's row (v207):
+      // the same split the lookup makes on its way to a price, so the two cannot disagree.
+      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup", road);
+      if (onCommit) onCommit(first);
+      paintDoor();
+      if (!moved) {
+        statusLine.textContent = road
+          ? `Looking ${words} up again found the same spot, and still only ${roadNotHouse(road, { short: true })}. The pin on the card is where this address is being answered with.`
+          : `Looking ${words} up again found the same spot — the pin on the card is what this address is answered with.`;
+        return;
+      }
+      invalidatePrices(road
+        ? `The door moved, and it is still only ${roadNotHouse(road, { short: true })}.`
+        : "The door moved — the lookup answers this address with a different point now.");
     };
 
     dayInput.addEventListener("input", paintWhen);
