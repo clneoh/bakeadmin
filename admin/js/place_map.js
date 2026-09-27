@@ -118,12 +118,17 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     // The marker, the centre and the line under the map move together or not at all.
     // Three things that could be moved separately would eventually read as three
     // different answers to "where is this".
+    // The words for the point she is standing on, in one place, because the card says
+    // them in two — when it opens already standing on a door, and every time the point
+    // moves after that. Two hand-written copies of this sentence would eventually
+    // disagree about the same point.
+    const pinnedAt = (p) => `Pinned at ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
     function put(place, zoom) {
       const p = validPlace(place);
       if (!p) return;
       chosen = p;
       useBtn.disabled = false;
-      coordsLine.textContent = `Pinned at ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+      coordsLine.textContent = pinnedAt(p);
       // The pin has moved, so which row is ticked has changed — by whatever route moved
       // it, whether that was a row, a tap on the map, a drag or pasted numbers. Repainted
       // from here rather than at each call site so that no route can forget, and only
@@ -288,6 +293,13 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     // A control that does nothing must look inert — the app's own rule about
     // affordances. With no spot chosen there is nothing to use, and the button is off.
     useBtn.disabled = !chosen;
+    // AND THE LINE BESIDE IT HAS TO AGREE WITH IT (v210). Where this window opens already
+    // standing on a door — the door in force this card is asking about — the Keep is live
+    // from the first moment, so the line must not sit there saying "No spot chosen yet."
+    // until a map happens to load and say otherwise. That gap was reachable precisely on
+    // the phone this window exists for: the one whose map never came. The map's own arrival
+    // writes this same sentence through `put()`; this only fills the gap before it does.
+    if (chosen) coordsLine.textContent = pinnedAt(chosen);
 
     // ── the fallback, and it is the way out rather than a hidden extra ───
     // Numbers she copied from anywhere: a Google Maps link, a message from the

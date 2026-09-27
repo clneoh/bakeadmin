@@ -338,14 +338,15 @@ export function renderDeliveryRun(root, state, params) {
   }
 
   function pinDoorstep(order) {
-    const kept = dropPlaceOf(state, order);
-    const suggested = customerPlaceOf(order);
     openPlacePicker({
       state,
       title: `${nameOf(order)}'s doorstep`,
-      hint: !kept && suggested
-        ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door."
-        : "Look the address up, then drag the pin to the exact door. It is remembered for this customer, so a second order from them costs no lookup at all.",
+      // ONE SENTENCE, BECAUSE THERE IS ONLY ONE CASE (v210). This window is reached from one
+      // button — "Put it on the map" — and that button is drawn only when the order has NO
+      // door at all (`place ? null : …` on the row above, where `place` is doorSpotOf). So the
+      // customer's-own-pin wording that used to hang off this hint could never be reached:
+      // a customer who pinned has a door, and a door means no button.
+      hint: "Look the address up, then drag the pin to the exact door. It is remembered for this customer, so a second order from them costs no lookup at all.",
       address: dropAddress(order),
       start: doorSpotOf(state, order),
       onPick: (spot) => keepPin(order, spot),

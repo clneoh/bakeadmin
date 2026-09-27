@@ -408,6 +408,114 @@ test("a kept door with no record of her hand loses to the customer's pin, with n
   }
 });
 
+// ── the pin window of last resort opens on the door in force (v210) ───────
+//
+// FOUND AT v209 while answering her own question — "if the customer didn't pin
+// correctly, are you able to help them pin correctly?" — and not by a test, because
+// this path had none. Two things were keyed off whether SHE keeps a door rather than
+// off which door is in force: the picker opened on HER kept door, and its sentence
+// promised a lookup. On an order whose door is the customer's own pin that is the wrong
+// point under the wrong sentence — and this picker is reached precisely when the map
+// cannot be dragged on, so it is the only screen left for this customer.
+//
+// Asserted on the drawn card, and at BOTH ends: the sentence above the map, and the
+// point the window is really standing on — read by pressing the window's own Keep and
+// looking at the door that got written, not by reading a variable.
+
+test("the pin window opens on the door in force and names that door — the customer's pin (v210)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  const st = courierState();
+  // A door she already keeps, in a different place — with no `from`, as a pre-v209 door reads.
+  st.customers = [{
+    id: "c1", key: keyOf(COURIER_ORDER), name: "Mei Ling", whatsapp: "60123456789",
+    place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga, 10450 Penang" },
+  }];
+  const order = {
+    ...COURIER_ORDER,
+    customerPlace: { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house", at: "2026-09-25T10:00:00.000Z" },
+  };
+  // No map, so the press takes the picker route — exactly the route a phone reaches when
+  // its tiles never arrive. The door block lives in the host's own slot (v201), so it has
+  // to be mounted the way orders.js mounts it or there is no press to make.
+  globalThis.window.L = null;
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+
+    const open = buttonByText(mounted.doorSlot, "Move this pin");
+    assert.ok(open, "the card offers the pin window");
+    open._listeners.click[0]();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    assert.match(body.textContent, /This is the customer's own pin/,
+      "the window says the point it is standing on is the pin the customer dropped");
+    assert.doesNotMatch(body.textContent, /Look the address up/,
+      "and it does not promise a lookup the customer has already answered");
+
+    // The point itself, read off the door the window writes. Standing on the customer's
+    // pin, Keep writes THAT point; standing on the door she keeps, it would write 5.42.
+    const keep = buttonByText(body, "Use this spot");
+    assert.ok(keep, "the window's own Keep is on the card");
+    assert.equal(keep.disabled, false, "and it is live, because the window stands on a point");
+    keep._listeners.click[0]();
+
+    const kept = (st.customers || [])[0] || {};
+    assert.equal((kept.place || {}).lat, 5.4299,
+      "keeping it writes the customer's own pin, not the door she keeps");
+    assert.equal((kept.place || {}).lng, 100.3399, "and its own longitude");
+    assert.equal((kept.place || {}).from, "hand",
+      "a pick in this window is her own hand, so it sticks against their pin from now on");
+    assert.deepEqual(strayNulls(body), [], "and nothing on the window prints 'null'");
+    assert.deepEqual(strayObjects(body), [], "nor an element stringified into a line");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("with no pin of the customer's, the pin window looks the address up and says so (v210)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  const st = courierState();
+  st.customers = [{
+    id: "c1", key: keyOf(COURIER_ORDER), name: "Mei Ling", whatsapp: "60123456789",
+    place: { lat: 5.42, lng: 100.33, label: "12 Jalan Bunga, 10450 Penang" },
+  }];
+  globalThis.window.L = null;
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, COURIER_ORDER);
+    await settle(4);
+
+    const open = buttonByText(mounted.doorSlot, "Move this pin");
+    assert.ok(open, "the card offers the pin window");
+    open._listeners.click[0]();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    assert.match(body.textContent, /Look the address up/,
+      "with no pin of theirs the window still offers the lookup, as it always has");
+    assert.doesNotMatch(body.textContent, /This is the customer's own pin/,
+      "and does not claim a pin nobody dropped");
+
+    const keep = buttonByText(body, "Use this spot");
+    keep._listeners.click[0]();
+    const kept = (st.customers || [])[0] || {};
+    assert.equal((kept.place || {}).lat, 5.42,
+      "keeping it writes the door she keeps — the one the window was standing on");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
 // ── the dot does not move when she asks for a price (v208) ────────────────
 //
 // Her report four times over — "the pin still wrong" — and when she was asked to point at
@@ -556,6 +664,56 @@ const rowLine = (row, i) => {
   const line = main && main.children[i];
   return line ? line.textContent : "";
 };
+
+// ── the window says which point it is standing on, map or no map (v210) ───
+//
+// Found while measuring the v210 fix in a real browser at 375px, on the window a phone
+// with no map is left looking at. Opened ON a door already in force, it stood on that
+// point — its Keep was live and wrote the right door — while the line above the button
+// still read "No spot chosen yet.", which was only ever corrected when the window's OWN
+// map arrived. That is a right point under wrong words, on the one phone this window
+// exists for; the two halves of the card have to agree from the first paint.
+test("a window opened on a door already in force says so before any map arrives (v210)", async () => {
+  signIn();
+  let withStart = null;
+  let withoutStart = null;
+  let stray = null;
+  try {
+    // No map: the file's default condition, where the head shim fails every script.
+    withStart = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep", address: "12 Jalan Bunga, 10450 Penang",
+      start: { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house" },
+      onPick: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    const body = popupBody();
+    assert.match(body.textContent, /Pinned at 5\.42990, 100\.33990/,
+      "the window stands on the door in force and says which point that is");
+    assert.doesNotMatch(body.textContent, /No spot chosen yet/,
+      "and does not tell her nothing is chosen while the Keep beside it is live");
+    assert.equal(buttonByText(body, "Use this spot").disabled, false,
+      "the Keep is live, because the window is standing on a point");
+    stray = strayObjects(body);
+    withStart();
+    withStart = null;
+
+    // And the other half, unchanged: with nothing to stand on there is no spot and the
+    // line says so, which is what makes the first assertion above a real measurement
+    // rather than a line that is simply always printed.
+    withoutStart = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep", address: "12 Jalan Bunga, 10450 Penang",
+      onPick: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    const empty = popupBody();
+    assert.match(empty.textContent, /No spot chosen yet/, "with no start the line still says nothing is chosen");
+    assert.equal(buttonByText(empty, "Use this spot").disabled, true, "and the Keep is inert, as it must look");
+  } finally {
+    if (withStart) withStart();
+    if (withoutStart) withoutStart();
+  }
+  assert.deepEqual(stray, [], "and no element is printed as '[object …]'");
+});
 
 test("the lookup's other matches are offered, and pressing one moves the pin to THAT one (v198)", async () => {
   signIn();

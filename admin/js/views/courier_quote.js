@@ -247,18 +247,23 @@ export function courierQuoteSection({
   // the card. It is worth paying once per customer: after it, the pin exists and every
   // other change is a drag on a card that stays.
   function putDoorstep() {
-    const kept = dropPlaceOf(state, first);
-    const suggested = customerPlaceOf(first);
     openPlacePicker({
       state,
       title: `${String(first.customerName || "The customer").trim()}'s doorstep`,
-      // With no doorstep of hers yet, the map opens ON the customer's pin rather than on
-      // the typed address — they were standing at the door when they dropped it.
-      hint: !kept && suggested
+      // THE PICKER OPENS ON THE DOOR IN FORCE, AND THE WORDS NAME THAT SAME DOOR (v210).
+      // This is the picker of last resort — reached when there is no point to drag, or the
+      // tiles never came — so the point it stands on and the sentence above it have to be
+      // the point this card is already calling the door. Both used to key off whether SHE
+      // keeps a door rather than off which door is in force: it opened on the door she
+      // keeps, and it promised a lookup, on an order whose door is the customer's own pin —
+      // the wrong point under the wrong sentence, and reachable through either route in.
+      // `doorIsTheirs` is the same question the card's own line asks (see paintDoor), so the
+      // two cannot disagree.
+      hint: doorIsTheirs(state, first)
         ? "This is the customer's own pin, dropped on the shop page when they ordered. Drag it if it is not the door, and it is kept against them when you keep it."
         : "Look the address up, then drag the pin to the exact door. It is remembered for this customer.",
       address: dropAddress(first),
-      start: kept || suggested,
+      start: doorSpotOf(state, first),
       onPick: (spot) => {
         setDropPlace(state, first, spot);
         // There is nothing left on this card to repaint — the picker replaced it. What

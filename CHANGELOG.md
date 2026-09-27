@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v209)
+# Jienluv2bake — change history (v54 → v210)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v210, THE WINDOW THAT OPENS WHEN THE MAP CANNOT (no database step, no
+redeploy — one push). The pin window on the courier card.**
+
+Small, but it is the one screen you fall back to when a map will not load — so it mattered.
+
+On a courier order there is a press under **The door the driver is sent to**. When a map is on the
+card, that press unlocks the pin so you can drag it. When there is no map at all — its tiles never
+arrived, or there is no point to drag yet — the press opens a small window instead, where you type
+an address, look it up, and place the pin by its numbers. That window is the only way left to pin a
+door on a phone that cannot hold a map, and it had two things wrong.
+
+It opened standing on **the door you keep for that customer**, even where the door in force was the
+customer's own pin from the shop page. And its sentence promised to look the address up — the one
+thing a customer who pinned their own door has already answered. So on exactly the orders it was
+most likely to be used on, the window stood on the wrong point under the wrong words.
+
+There was one more wrong word on it, found while measuring this in a browser rather than in
+a test. Opened standing on a door, the line above the Keep still read __No spot chosen yet__
+until the window's own map happened to arrive — so on a phone whose map never comes, the line
+and the button beside it disagreed about the same point.
+
+__It now opens on the door that is actually in force, and says which one that is — from the
+first moment, map or no map.__ Where the door
+is the customer's own pin, the window says so; where their written address is all you have, it
+offers the lookup exactly as before. Keeping what you see writes whichever of the two you were
+standing on, and — like every press you make — it is recorded as your own hand, so it stays put.
+
+**The delivery run had the same shape of mistake, and it is gone.** The window reached from a run's
+**Put it on the map** carried two sentences, but only one could ever be shown: that press is drawn
+only when an order has no door at all, and a customer who left a pin has a door. The unreachable
+sentence is removed; what you read there is unchanged.
+
+**Nothing to run, nothing to set up.** No database step and no deploy command. **Engine v210** on
+your **More** screen once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v209, THE PIN THE CUSTOMER DROPPED IS NOW THE DOOR — ALWAYS (no database
 step, no redeploy — one push). The dot on an order, and the door a driver is sent to.**
