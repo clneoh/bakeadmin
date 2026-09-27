@@ -23,9 +23,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const { geocodeAddress, placesFromResults: courierResults, placesFromPhoton: courierPhoton } =
+const { geocodeAddress, placesFromResults: courierResults, placesFromPhoton: courierPhoton,
+        placesFromGoogle: courierGoogle, googleTrouble: courierTrouble } =
   await import("../supabase/functions/courier/geocode.ts");
-const { lookupAddress, placesFromResults: shopResults, placesFromPhoton: shopPhoton, MAX_PLACES } =
+const { lookupAddress, placesFromResults: shopResults, placesFromPhoton: shopPhoton, MAX_PLACES,
+        placesFromGoogle: shopGoogle, googleTrouble: shopTrouble } =
   await import("../supabase/functions/shop-geocode/geocode.ts");
 const { allowHit, sweep, MAX_PER_WINDOW, WINDOW_MS } =
   await import("../supabase/functions/shop-geocode/limit.ts");
@@ -45,6 +47,22 @@ const PHOTON_PLACE = { lat: 5.4141, lng: 100.3288, label: "Jalan Bunga, Penang, 
 // with a ready-made label.
 const NOMINATIM_HIT = [{ lat: "5.4141", lon: "100.3288", display_name: "12, Jalan Bunga, Penang, 10450" }];
 const NOMINATIM_PLACE = { lat: 5.4141, lng: 100.3288, label: "12, Jalan Bunga, Penang, 10450" };
+
+// Google's own reply shape for the same door (v212). It answers HTTP 200 whatever
+// happened and puts the verdict in `status`; the coordinates are NAMED, so unlike the
+// other two there is no longitude-first trap; and the label is Google's own finished
+// `formatted_address`, which carries the house number whenever Google knows it.
+const GOOGLE_HIT = {
+  status: "OK",
+  results: [{
+    formatted_address: "23, Jalan Bunga, 10450 George Town, Pulau Pinang, Malaysia",
+    geometry: { location: { lat: 5.4141, lng: 100.3288 } },
+  }],
+};
+const GOOGLE_PLACE = {
+  lat: 5.4141, lng: 100.3288,
+  label: "23, Jalan Bunga, 10450 George Town, Pulau Pinang, Malaysia",
+};
 
 const ok = (body) => ({ ok: true, status: 200, json: async () => body });
 const bad = (status) => ({ ok: false, status, json: async () => ({ error: "no" }) });
@@ -81,6 +99,26 @@ async function both(byHost, opts = {}) {
     return { courier, shop, sent: wire.sent, courierSent };
   } finally { wire.restore(); }
 }
+
+// Hand the two functions a Google key the way the edge runtime does, and take it away
+// again: `envOf` reaches for `globalThis.Deno`, which does not exist under Node. This is
+// the ONLY way a key gets in here, and it is never a real one.
+async function withKey(key, fn) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, "Deno");
+  const prev = globalThis.Deno;
+  if (key == null) delete globalThis.Deno;
+  else globalThis.Deno = {
+    env: { get: (n) => (n === "GOOGLE_GEOCODING_KEY" ? key : undefined) },
+  };
+  try { return await fn(); } finally {
+    if (had) globalThis.Deno = prev; else delete globalThis.Deno;
+  }
+}
+
+// The same wire, with an answer for Google's host as well. `SERVERS` deliberately has
+// none, and the stub THROWS for a host it has no answer for — which is what makes the
+// no-key test below a real guard rather than a formality.
+const WITH_GOOGLE = { "maps.googleapis.com": ok(GOOGLE_HIT), ...SERVERS };
 
 // ── the two lookups find the same doors ────────────────────────────────────
 
@@ -195,6 +233,213 @@ test("an empty address is refused before anything is asked — no request, no sp
     assert.deepEqual(await lookupAddress(null), { ok: false, why: "empty" });
     assert.equal(wire.sent.length, 0, "nothing left the building");
   } finally { wire.restore(); }
+});
+
+// ── the third service, asked first only when there is a key (v212) ─────────
+
+test("with a key set, BOTH sides ask Google FIRST, and it is the only ask when it answers", async () => {
+  // The reason for the third service is the DATA: OpenStreetMap holds Malaysian roads
+  // rather than house numbers, and the free pair are both built from it. So the service
+  // that does hold the house is asked first — asking it second would mean paying for the
+  // good answer and then not using it.
+  await withKey("test-key", async () => {
+    const { courier, shop, sent, courierSent } = await both(WITH_GOOGLE);
+
+    assert.deepEqual(shop, { ok: true, places: [GOOGLE_PLACE] });
+    assert.deepEqual(courier.places, shop.places, "the two carried back the same places");
+    assert.deepEqual(courier.place, GOOGLE_PLACE, "and the bakery's single answer is the first of them");
+
+    assert.equal(courierSent, 1, "the bakery asked exactly one service");
+    assert.deepEqual(sent.map((s) => s.host), ["maps.googleapis.com", "maps.googleapis.com"],
+      "both asked GOOGLE first, and neither went on to the free pair");
+
+    // The ask carries the same country filter the other two are given in their own
+    // queries — a same-named street abroad must not come back as a customer's door —
+    // and the key, which is exactly why this runs on the server and not in the browser.
+    const q = sent[0].url;
+    assert.match(q, /components=country:MY/);
+    assert.match(q, /language=en/);
+    assert.match(q, /key=test-key/);
+    assert.match(q, /address=12%20Jalan%20Bunga/);
+  });
+});
+
+test("with a key set, the free pair are still there BEHIND Google — a refusal falls through", async () => {
+  // The whole safety of shipping this ahead of her account: a Google that will not do
+  // the job must mean "ask the free pair next", never "tell the customer nothing".
+  await withKey("test-key", async () => {
+    for (const status of ["REQUEST_DENIED", "OVER_QUERY_LIMIT", "INVALID_REQUEST", "UNKNOWN_ERROR"]) {
+      const byHost = { "maps.googleapis.com": ok({ status, error_message: "no" }), ...SERVERS };
+      const { courier, shop, sent } = await both(byHost);
+
+      assert.deepEqual(shop, { ok: true, places: [PHOTON_PLACE] }, `${status} still left a door`);
+      assert.deepEqual(courier.places, shop.places);
+      assert.deepEqual(sent.slice(0, 2).map((s) => s.host),
+        ["maps.googleapis.com", "photon.komoot.io"],
+        `${status}: google was asked and refused, then photon answered`);
+    }
+  });
+});
+
+test("a refused Google is NEVER reported as a house that is not there", async () => {
+  // The failure this guards is a specific and nasty one. Google answers HTTP 200 with an
+  // empty `results` when it refuses, so a reader that ran before the verdict was checked
+  // would see an empty list and call it a MISS — telling somebody their house does not
+  // exist when in fact nobody looked. That is a lie in the one sentence whose whole job
+  // is to be honest about not knowing.
+  await withKey("test-key", async () => {
+    const refused = {
+      "maps.googleapis.com": ok({ status: "REQUEST_DENIED", error_message: "bad key" }),
+      "photon.komoot.io": bad(503),
+      "nominatim.openstreetmap.org": bad(503),
+    };
+    const a = await both(refused);
+    assert.deepEqual(a.shop, { ok: false, why: "refused" }, "the lookup was not done, and it says so");
+    assert.match(a.courier.reason, /did not answer/);
+    assert.doesNotMatch(a.courier.reason, /was not found/);
+
+    // And the verdict keeps its OWN code when nothing else answers either. The free pair
+    // are made unreachable rather than merely unhappy here on purpose: "refused" and
+    // "unreachable" are different sentences to a customer, and only a run in which no
+    // service says anything else can tell whether the refusal's own word survived.
+    const gone = {
+      "maps.googleapis.com": ok({ status: "REQUEST_DENIED", error_message: "bad key" }),
+      "photon.komoot.io": () => { throw new Error("ENOTFOUND"); },
+      "nominatim.openstreetmap.org": () => { throw new Error("ENOTFOUND"); },
+    };
+    const b = await both(gone);
+    assert.deepEqual(b.shop, { ok: false, why: "refused" }, "a refusal is not an unreachable network");
+    assert.match(b.courier.reason, /did not answer/);
+    assert.doesNotMatch(b.courier.reason, /could not be reached/);
+  });
+});
+
+test("a Google ZERO_RESULTS is an ordinary miss, not a refusal", async () => {
+  // The other half of the same verdict: ZERO_RESULTS is Google saying it looked and the
+  // house is not in its index, which is the normal, unremarkable answer. The free pair are
+  // unreachable so that Google's verdict is the ONLY thing deciding the answer — with them
+  // also missing, a mis-read ZERO_RESULTS would be masked by their genuine miss.
+  await withKey("test-key", async () => {
+    const byHost = {
+      "maps.googleapis.com": ok({ status: "ZERO_RESULTS", results: [] }),
+      "photon.komoot.io": () => { throw new Error("ENOTFOUND"); },
+      "nominatim.openstreetmap.org": () => { throw new Error("ENOTFOUND"); },
+    };
+    const { courier, shop } = await both(byHost);
+    assert.deepEqual(shop, { ok: false, why: "notfound" }, "Google looked and did not find it");
+    assert.match(courier.reason, /was not found/);
+  });
+});
+
+test("with NO key, Google is never asked and Photon is still first — the old behaviour, untouched", async () => {
+  // This is what makes the change safe to ship before she has an account: with no secret
+  // set, the queue is exactly what it was at v211. The stub throws for a host it has no
+  // answer for, so if Google were asked at all this test would fail loudly rather than
+  // quietly pass.
+  await withKey(null, async () => {
+    const { courier, shop, sent } = await both(SERVERS);
+    assert.deepEqual(shop, { ok: true, places: [PHOTON_PLACE] });
+    assert.deepEqual(courier.places, shop.places);
+    assert.deepEqual(sent.map((s) => s.host), ["photon.komoot.io", "photon.komoot.io"]);
+  });
+});
+
+test("with a key set, a caller's own timeout is still honoured EXACTLY — the patience is split, not repeated", async () => {
+  // Three asks at five seconds each would be the caller's whole budget spent on hangs.
+  // The default is derived from how many services are in the queue, but a caller that
+  // names its own timeout still gets exactly that — which is what this drives.
+  await withKey("test-key", async () => {
+    const hang = (_url, opts) => new Promise((_r, reject) => {
+      opts.signal.addEventListener("abort", () => {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        reject(err);
+      });
+    });
+    const started = Date.now();
+    const { courier, shop, sent } = await both({
+      "maps.googleapis.com": hang, "photon.komoot.io": hang, "nominatim.openstreetmap.org": hang,
+    }, { timeoutMs: 20 });
+    const elapsed = Date.now() - started;
+
+    assert.deepEqual(shop, { ok: false, why: "timeout" });
+    assert.match(courier.reason, /did not answer in time/);
+    assert.equal(sent.length, 6, "all three were tried, on both sides, and each was given up on");
+    // Six hangs at the caller's twenty milliseconds is a tenth of a second of work. The
+    // bound is deliberately loose — it is here to catch a patience that was REPEATED
+    // rather than split (six asks at seconds each), not to measure anything.
+    assert.ok(elapsed < 2000, `six hangs at 20ms each took ${elapsed}ms — the budget was not honoured`);
+  });
+});
+
+test("Google's reply is read the same on both sides, and its label already carries the house number", () => {
+  assert.deepEqual(shopGoogle(GOOGLE_HIT), [GOOGLE_PLACE]);
+  assert.deepEqual(shopGoogle(GOOGLE_HIT), courierGoogle(GOOGLE_HIT));
+
+  // The point is NAMED — `lat` and `lng`, spelled out — so unlike Photon there is no
+  // longitude-first trap to spring here. Asserted anyway, because a reader that swapped
+  // them would still look plausible.
+  assert.equal(shopGoogle(GOOGLE_HIT)[0].lat, 5.4141);
+  assert.equal(shopGoogle(GOOGLE_HIT)[0].lng, 100.3288);
+
+  // Junk in, nothing out — the same 0,0 trap every reader in this feature guards.
+  assert.deepEqual(shopGoogle(null), []);
+  assert.deepEqual(shopGoogle({ results: "nope" }), []);
+  assert.deepEqual(shopGoogle({ results: [null, {}, { geometry: { location: { lat: null, lng: null } } }] }), []);
+
+  const many = {
+    results: Array.from({ length: 9 }, (_, i) => ({
+      formatted_address: `door ${i}`,
+      geometry: { location: { lat: 5.4, lng: 100.3 + i / 100 } },
+    })),
+  };
+  assert.equal(shopGoogle(many).length, MAX_PLACES);
+  assert.deepEqual(shopGoogle(many), courierGoogle(many));
+});
+
+test("Google says HTTP 200 whatever happened, so the verdict in the BODY is what is read", () => {
+  assert.equal(shopTrouble({ status: "OK" }), false, "found something: healthy");
+  assert.equal(shopTrouble({ status: "ZERO_RESULTS" }), false, "looked and did not find: also healthy");
+  for (const s of ["REQUEST_DENIED", "OVER_QUERY_LIMIT", "OVER_DAILY_LIMIT", "INVALID_REQUEST", "UNKNOWN_ERROR"]) {
+    assert.equal(shopTrouble({ status: s }), true, `${s} is the service failing, not the house missing`);
+    assert.equal(courierTrouble({ status: s }), shopTrouble({ status: s }), "read the same on both sides");
+  }
+  assert.equal(shopTrouble({ status: " ok " }), false, "case and whitespace are the same verdict");
+  // A body with no status at all says nothing about failure, and calling it one would
+  // turn every reply this reader does not recognise into a refusal.
+  assert.equal(shopTrouble({ results: [] }), false);
+  assert.equal(shopTrouble(null), false);
+  assert.equal(courierTrouble(null), shopTrouble(null));
+});
+
+test("a Photon result that HAS the house number is labelled with it, not with the road", () => {
+  // The second defect found while chasing her report, and it matters on its own: Photon
+  // sends the number in `housenumber` and the road in `street`, leaving `name` to the
+  // road's own name. Labelling from `name` alone made a result that HAD found number 23
+  // read as the road — and fired v211's own "this is the road, not the house" warning on
+  // an answer that had found the house.
+  const building = {
+    features: [{
+      properties: { countrycode: "MY", housenumber: "23", street: "Jalan Bunga", city: "George Town", postcode: "10450" },
+      geometry: { coordinates: [100.3288, 5.4141] },
+    }],
+  };
+  assert.deepEqual(shopPhoton(building), [{ lat: 5.4141, lng: 100.3288, label: "23 Jalan Bunga, George Town, 10450" }]);
+  assert.deepEqual(shopPhoton(building), courierPhoton(building));
+
+  // No number and no street: unchanged from every earlier version.
+  const named = {
+    features: [{ properties: { countrycode: "MY", name: "Jalan Bunga", city: "Penang", postcode: "10450" },
+                 geometry: { coordinates: [100.3288, 5.4141] } }],
+  };
+  assert.equal(shopPhoton(named)[0].label, "Jalan Bunga, Penang, 10450");
+
+  // A street with no number reads as the street, which is the truth about that point.
+  const streetOnly = {
+    features: [{ properties: { countrycode: "MY", street: "Jalan Bunga" },
+                 geometry: { coordinates: [100.3288, 5.4141] } }],
+  };
+  assert.equal(shopPhoton(streetOnly)[0].label, "Jalan Bunga");
 });
 
 // ── the cap, the country filter, the dedupe — read the same on both sides ──

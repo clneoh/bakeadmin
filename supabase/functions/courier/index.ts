@@ -34,6 +34,15 @@
 //      THE "=" IS REQUIRED. `secrets set LALAMOVE_KEY <key>` is refused with "Invalid
 //      secret pair: LALAMOVE_KEY. Must be NAME=VALUE." — which is what this comment
 //      said until v194, and it cost a round trip to work out.
+//   4. supabase secrets set GOOGLE_GEOCODING_KEY=<key>   # OPTIONAL (v212)
+//      Without it the address lookup answers with the ROAD rather than the house, which
+//      is all the two free geocoders can truthfully say — both are built from
+//      OpenStreetMap, which holds Malaysian roads rather than house numbers. With it,
+//      Google's index is asked first and the free pair stay behind it as the fallback.
+//      The key is configured with a QUOTA CAP on Google's own side, so a spent allowance
+//      means the lookup falls back to the road rather than a charge. Read fresh per call,
+//      so setting it takes effect on the next lookup with no redeploy. This step is the
+//      only one here that is not required for the rest of the function to work.
 //
 // To try it before her account exists, nothing here has to change: the app's own
 // screens work against the same contract with no key at all (they say so in words),

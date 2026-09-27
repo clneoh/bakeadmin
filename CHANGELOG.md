@@ -1,8 +1,87 @@
-# Jienluv2bake — change history (v54 → v211)
+# Jienluv2bake — change history (v54 → v212)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v212, THE PIN CAN NOW LAND ON THE HOUSE (no database step — but this one
+needs two commands from you before it does anything).**
+
+Your words: __the pin dont pin to the right house.__ You were right, and v211 only put a warning on
+it. This version fixes the cause. It also comes with a small job for you, so please read the last
+part of this note.
+
+**Why the pin could not reach the house, and why no amount of work in the app would have fixed
+it.** The two map services the app asks are free and need no account. Both of them are built from
+the same worldwide map, and that map holds Malaysian **roads**. It holds very few house numbers.
+So when you typed **23 Jalan Seang Tek**, the service was not being difficult — the number 23 is
+simply not written down in the file it reads. The best honest answer it could give was the middle
+of Jalan Seang Tek. Nothing in the app could turn that into your customer's gate.
+
+**So the app now asks a service that does have the house numbers.** Google keeps house-level
+positions in Malaysia. When a key for it is set up, the app asks Google __first__, and the two free
+services stay behind it as the fallback. That is the whole of the change: the answer you get is now
+the house rather than the road.
+
+**The map you see and drag does not change at all.** It is the same map, on the same screen, with
+the same pin, exactly as it is today. What is being replaced is not the map — it is the quiet
+lookup, the thing that decides where the dot lands when you type an address. You chose to leave the
+map alone, and it is left alone.
+
+**This is asleep until you do your part.** With no key set, the app behaves exactly as it did at
+v211 — nothing better, nothing worse, and nothing broken. Setting the key is what switches the
+better lookup on. You can do it today or in a month; nothing in between is half-on.
+
+**Your part, in a terminal, about ten minutes, once.** Never type a key into our chat, and never
+put one in a file. There are four small steps.
+
+**Make the key.** At console.cloud.google.com, make a Google Cloud account and turn on the
+**Geocoding API**.
+
+**Restrict it.** Create an API key, and then restrict it so a leaked key can do nothing else: under
+**API restrictions**, choose **Restrict key** and tick only **Geocoding API**. Google will ask for a
+card on file. The first 10,000 lookups each month are free, and a bakery this size will not come
+close to that.
+
+**Cap it.** Set a **quota cap** on the key — a daily limit you are comfortable with. This is the
+important one. Past the cap Google simply stops answering, and the app falls back to the free map
+services, so the pin goes to the road instead of the house. It cannot turn into a bill you did not
+agree to.
+
+**Set it and build it.** In the terminal, in this folder, run the three lines at the bottom of this
+note — one to give the app the key, and two to build the two functions that use it.
+
+**What is behind the key, so the "card on file" sentence is not doing all the work.** The key lives
+on the server, in the same place your Lalamove key lives. It is never put on the shop page, never
+in a file the browser downloads, and no phone ever holds it. A customer's phone only ever receives
+the finished answer. And the shop's own lookup has a rate limit in front of it already, so one
+person cannot spend your allowance in a loop.
+
+**If Google ever refuses** — a spent cap, a mistyped key — the lookup does not stop and does not
+break. It falls back to the free services and you get a road-level pin with v211's warning line
+under it, which is exactly the behaviour you have today. Failing quietly back to what already
+worked was the whole design.
+
+**One genuine bug fixed on the way.** One of the free services does sometimes send a house number,
+and the app was throwing it away — labelling a result that HAD found number 23 as **Jalan Seang
+Tek**, the road's name. So a correct answer looked like the road, and v211's own warning fired on
+it, telling you the pin was on the road when it was on the house. The number is kept now. This one
+is fixed whether or not you ever set up the key.
+
+**The commands** (the `=` in the first one is required; without it the tool refuses):
+
+    supabase secrets set GOOGLE_GEOCODING_KEY=<the key> --project-ref hzpyblqygnntixkijeem
+    supabase functions deploy shop-geocode --project-ref hzpyblqygnntixkijeem
+    supabase functions deploy courier --project-ref hzpyblqygnntixkijeem
+
+That is three lines, and the last two are two separate deploys on purpose: the lookup lives in both
+the shop's function and your app's function, and they are built separately, so doing only one would
+leave the other still asking the free services.
+
+**No database step.** **Engine v212** on your **More** screen once this is pushed.
+
+---
+
 
 **27 Sep 2026 — engine v211, A LOOKUP THAT CAN ONLY FIND THE ROAD NOW SAYS SO (no database step,
 no redeploy — one push). The doorstep lookup, and the lines that report it.**
