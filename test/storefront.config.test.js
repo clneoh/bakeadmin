@@ -35,6 +35,13 @@ const realFetch = globalThis.fetch;
 
 // A config the backoffice might publish (Settings → Storefront). The
 // storefront_config fetch returns it, so the page should re-render to it.
+//
+// It carries what a real publish carries: two headings in the baker's order, a
+// nested one, a product filed under two of them, a product filed nowhere, and a
+// thumbnail on exactly one product. The shop's shape is then asserted whole
+// below rather than in pieces, because "which heading is over which card" is
+// the thing this version changes.
+const THUMB = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 const remote = {
   name: "Jienluv2bake Cakes",
   tagline: "Cakes & more, Penang",
@@ -46,8 +53,18 @@ const remote = {
   capacity: 20,
   policy: "Orders are not refundable; they may be moved to another day.",
   products: [
-    { name: "Chocolate Cake", price: 55, unit: "whole", description: "Rich dark ganache, 3 layers" },
+    { name: "Chocolate Cake", price: 55, unit: "whole", description: "Rich dark ganache, 3 layers", thumb: THUMB },
     { name: "Brownies", price: 10, unit: "box" },
+    { name: "Sourdough", price: 12, unit: "loaf" },
+    { name: "Muffin", price: 6, unit: "piece" },
+    { name: "Cinnamon Roll", price: 7, unit: "piece" },
+  ],
+  categories: [
+    { name: "Cakes", depth: 0, products: ["Chocolate Cake", "Brownies"] },
+    { name: "For Dog", depth: 0, products: [] },
+    { name: "Treats", depth: 1, products: ["Sourdough"] },
+    { name: "Bestsellers", depth: 0, products: ["Muffin"] },
+    { name: "Gone Today", depth: 0, products: ["Nobody Sells This"] },
   ],
 };
 
@@ -67,6 +84,21 @@ const settle = async () => {
   await new Promise((r) => setTimeout(r, 0));
 };
 
+// The menu as a shape rather than as node paths: "H:" for a heading and its
+// words, "P:" for a product card and its name. Read as a list it says the whole
+// thing at once — her order, which heading owns which card, and what is left
+// over at the end — and it fails loudly if a heading is dropped, a card moves
+// under the wrong one, or the tail disappears.
+const shapeOf = (node) => {
+  if (node.tagName === "H3") return `H:${node.children[0].text}`;
+  const main = node.children[0].children[0];
+  const words = main.children[main.children.length - 1];
+  return `P:${words.children[0].children[0].text}`;
+};
+const cardsIn = (menu) => menu.filter((n) => n.tagName !== "H3");
+const cardNamed = (menu, name) =>
+  cardsIn(menu).find((n) => shapeOf(n) === `P:${name}`);
+
 test("published config overrides the header and menu at runtime", async () => {
   await settle();
 
@@ -75,21 +107,72 @@ test("published config overrides the header and menu at runtime", async () => {
   assert.equal(registry["delivery-days"].textContent, "Tue, Thu");
   assert.equal(registry["cutoff"].textContent, "15:00 the day before");
   assert.equal(registry["social"].children.length, 1, "only Instagram links (facebook blank)");
+});
 
-  const cards = registry["menu"].children;
-  assert.equal(cards.length, 2, "menu replaced with the published products");
-  const title = cards[0].children[0].children[0].children[0];
-  const sub = cards[0].children[0].children[0].children[1];
-  const desc = cards[0].children[0].children[0].children[2];
+test("the shop lists the published products under her headings, in her order", async () => {
+  await settle();
+  const menu = registry["menu"].children;
+
+  assert.deepEqual(menu.map(shapeOf), [
+    "H:Cakes",
+    "P:Chocolate Cake",
+    "P:Brownies",
+    // A heading whose own products have all gone keeps its place when something
+    // nested under it survives — otherwise the whole branch vanishes with it.
+    "H:For Dog",
+    "H:For Dog › Treats",
+    "P:Sourdough",
+    "H:Bestsellers",
+    "P:Muffin",
+    // "Gone Today" named a product that does not exist, so it is dropped rather
+    // than drawn as an empty shelf.
+    // …and a product she has not filed lands last, under one plain heading, so
+    // nothing she has not got round to filing can disappear from her shop.
+    "H:More items",
+    "P:Cinnamon Roll",
+  ]);
+
+  const names = cardsIn(menu).map((n) => shapeOf(n).slice(2));
+  assert.equal(names.length, new Set(names).size,
+    "every product is on the page once — a card lives in one place, so a heading cannot repeat one");
+});
+
+test("a card carries its photo before its words, and one without a photo is unchanged", async () => {
+  await settle();
+  const menu = registry["menu"].children;
+
+  // Card layout: .menu-item > [.card-head > [.card-main > [(.menu-thumb), div >
+  // [p.title, p.sub, (.prod-desc))], stamp], stepper, (prod-note), (prod-next),
+  // (prod-cancel)]. Asserted at each level rather than assumed, because a path
+  // that silently lands one level out reads as an empty string, not an error.
+  const withPhoto = cardNamed(menu, "Chocolate Cake");
+  const head = withPhoto.children[0];
+  assert.equal(head.className, "card-head", "the card head");
+  const main = head.children[0];
+  assert.equal(main.className, "card-main", "the photo-and-words half of the head");
+  const thumb = main.children[0];
+  assert.equal(thumb.className, "menu-thumb", "the photo is the first thing in the half");
+  assert.equal(thumb.attrs.src, THUMB, "and it is the baker's own image");
+  assert.equal(thumb.attrs.alt, "", "decorative here — the name is right beside it");
+  const words = main.children[1];
+  const title = words.children[0];
+  assert.equal(title.className, "card-title");
+  const sub = words.children[1];
   assert.equal(title.children[0].text, "Chocolate Cake");
   assert.equal(sub.children[0].text, "RM55.00 / whole");
-  assert.ok(desc, "a published description renders under the price");
+  const desc = words.children[2];
   assert.equal(desc.className, "prod-desc");
   assert.equal(desc.children[0].text, "Rich dark ganache, 3 layers");
-  const bInner = cards[1].children[0].children[0];
-  assert.equal(bInner.children[0].children[0].text, "Brownies");
-  assert.equal(bInner.children.length, 2, "no description → no extra line under the name/price");
+
+  // A product with no photo keeps the words as the half's only child.
+  const noPhoto = cardNamed(menu, "Brownies");
+  const plain = noPhoto.children[0].children[0];
+  assert.equal(plain.className, "card-main");
+  assert.equal(plain.children.length, 1, "no photo → no extra child in .card-main");
+  assert.equal(plain.children[0].children[0].children[0].text, "Brownies");
+  assert.equal(plain.children[0].children.length, 2, "no description → no extra line under the price");
 });
+
 
 test("the published Policies wording is shown on the page, and hidden when blank", async () => {
   await settle();
@@ -264,4 +347,58 @@ test("mergeStorefront keeps the change/cancel window and the Policies wording", 
   const keep = mergeStorefront({ name: "A", policy: "My own words" }, { name: "B" });
   assert.equal(keep.policy, "My own words");
   assert.equal("policy" in base.products[0], false, "base products are not mutated");
+});
+
+test("mergeStorefront adopts the category headings, dropping a half-formed row", () => {
+  const base = { name: "A", products: [] };
+  const out = mergeStorefront(base, {
+    categories: [
+      { name: "  Bread  ", depth: 2, products: ["  Focaccia ", "", null, 42], nameZh: " 面包 " },
+      { name: "Treats", depth: "deep", products: "nonsense" },
+      { name: "   " },
+      null,
+      { name: "Deep", depth: 99, products: [] },
+    ],
+  });
+
+  assert.deepEqual(out.categories, [
+    { name: "Bread", depth: 2, products: ["Focaccia", "42"], nameZh: "面包" },
+    { name: "Treats", depth: 0, products: [] },
+    { name: "Deep", depth: 31, products: [] },
+  ], "names trimmed, a depth the shop cannot draw reads as top level, a nonsense product list as none, "
+   + "a nameless row is dropped, and depth is capped at the deepest indent the stylesheet draws");
+  assert.equal(out.categories[1].depth, 0, "a depth that is not a whole number is top level, not NaN");
+  assert.equal(out.categories[0].nameMs, undefined, "a language name is only kept when it is written");
+});
+
+test("mergeStorefront sends the headings it was given, never a merged or partial set", () => {
+  const base = {
+    name: "A", products: [],
+    categories: [{ name: "Old", depth: 0, products: ["X"] }],
+  };
+  // An empty list is a real instruction — she deleted her last category — so it
+  // must clear the headings an open page is still showing.
+  assert.deepEqual(mergeStorefront(base, { categories: [] }).categories, []);
+  // Saying nothing at all, on the other hand, leaves the local list alone.
+  assert.deepEqual(mergeStorefront(base, { name: "B" }).categories, base.categories);
+});
+
+test("mergeStorefront adopts a product's thumbnail, dropping junk and anything oversized", () => {
+  const big = `data:image/jpeg;base64,${"A".repeat(40001)}`;
+  const out = mergeStorefront({ name: "A", products: [] }, {
+    products: [
+      { name: "Good", price: 1, unit: "u", thumb: THUMB },
+      { name: "Blanks", price: 1, unit: "u", thumb: "   " },
+      { name: "NotAnImage", price: 1, unit: "u", thumb: "https://example.com/x.jpg" },
+      { name: "WrongType", price: 1, unit: "u", thumb: "data:image/png;base64,AAAA" },
+      { name: "Huge", price: 1, unit: "u", thumb: big },
+      { name: "Absent", price: 1, unit: "u" },
+    ],
+  });
+  const by = (n) => out.products.find((p) => p.name === n);
+  assert.equal(by("Good").thumb, THUMB, "a small JPEG data URL is adopted as-is");
+  for (const bad of ["Blanks", "NotAnImage", "WrongType", "Huge", "Absent"]) {
+    assert.equal("thumb" in by(bad), false,
+      `${bad}: the shop drops it rather than drawing a broken or heavy image`);
+  }
 });

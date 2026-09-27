@@ -8,6 +8,8 @@
 import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
 import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
+import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
+import { isThumb } from "../../storefront-fields.js";
 import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, orderLineName, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
@@ -345,7 +347,42 @@ function storefrontPayload(state) {
         const v = p && p[k];
         if (typeof v === "string" && v.trim()) out[k] = v.trim();
       }
+      // The product's square thumbnail. Published only when it IS one (see
+      // storefront-fields.js), so a value a phone mangled — or a huge pasted one
+      // — is dropped here rather than sent to every customer's phone and carried
+      // in every backup.
+      if (isThumb(p.thumb)) out.thumb = String(p.thumb).trim();
       return out;
+    });
+  // The shop's category headings, in her order, each naming the products shown
+  // under it. Depth-first — parents before their children — so the shop draws
+  // the whole tree by walking this list once, `depth` being the indent.
+  //
+  // Per-product NAMES, not ids: the customer page keys everything it holds about
+  // a product by name (availability, the shared pool, the order itself), so
+  // publishing names here needs no id lookup to place a card, and a product
+  // renamed after it was filed cannot go missing from its own heading.
+  const catList = Array.isArray(state.productCategories) ? state.productCategories : [];
+  const categories = flattenTree(catList)
+    .filter(({ cat }) => String(cat.name || "").trim())
+    .map(({ cat, depth }) => {
+      const row = {
+        name: String(cat.name).trim(),
+        depth,
+        // Only what this category actually shows: the products whose FIRST tick
+        // is this category, and which are actually on the shop. A product filed
+        // under two headings is named under the first one only, so it is never
+        // drawn twice.
+        products: productsInCategory(state, cat.id)
+          .filter((p) => p && p.draft !== true && p.active !== false && String(p.name || "").trim())
+          .filter((p) => primaryCategoryId(catList, p) === cat.id)
+          .map((p) => String(p.name).trim()),
+      };
+      for (const k of ["nameZh", "nameMs"]) {
+        const v = cat && cat[k];
+        if (typeof v === "string" && v.trim()) row[k] = v.trim();
+      }
+      return row;
     });
   const dev = (state.settings && state.settings.developer) || {};
   const devName = String(dev.name || "").trim();
@@ -372,6 +409,10 @@ function storefrontPayload(state) {
     // sent, even as an empty list, so deleting her last mark really does take the
     // tints off the shop. publishOccasions drops everything she typed herself.
     occasions: publishOccasions(state.occasions, todayISO()),
+    // Always sent, even empty, like the occasions above: an emptied tree is an
+    // answer ("she deleted her last category"), and it has to take the headings
+    // off a page that is already open.
+    categories,
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the

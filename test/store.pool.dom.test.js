@@ -110,11 +110,20 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 function menuCards() {
   return registry["menu"].children;
 }
-// Card layout: .menu-item > [.card-head > [div > [p.title, p.sub], stamp],
-// stepper, (prod-note)]. Titles are the p element; its text node is one deeper.
+// Card layout: .menu-item > [.card-head > [.card-main > [(.menu-thumb), div >
+// [p.title, p.sub, (.prod-desc))], stamp], stepper, (prod-note), (prod-next),
+// (prod-cancel)]. Titles are the p element; its text node is one deeper. No
+// product in these fixtures carries a thumbnail, and that is asserted rather
+// than assumed — a path that lands one level out returns an empty string, which
+// would read as "the card is missing" instead of pointing at the real fault.
 function titleOf(card) {
-  const t = card.children[0].children[0].children[0];
-  return t && t.children[0] ? t.children[0].text : "";
+  const head = card.children[0];
+  assert.equal(head.className, "card-head", "the card head");
+  const main = head.children[0];
+  assert.equal(main.className, "card-main", "the photo-and-words half of the head");
+  const t = main.children[0].children[0];
+  assert.equal(t.className, "card-title");
+  return t.children[0] ? t.children[0].text : "";
 }
 function cardOf(title) {
   return menuCards().find((c) => titleOf(c) === title);

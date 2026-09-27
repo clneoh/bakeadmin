@@ -11,6 +11,7 @@ import { renderDashboard } from "./views/dashboard.js";
 import { renderDeliveries } from "./views/deliveries.js";
 import { renderUnits } from "./views/units.js";
 import { renderSuppliers } from "./views/suppliers.js";
+import { renderProductCategories } from "./views/productCategories.js";
 import { renderOrders } from "./views/orders.js";
 import { renderProducts } from "./views/products.js";
 import { renderIngredients } from "./views/ingredients.js";
@@ -55,6 +56,7 @@ const routes = {
   "/units":     { title: "Units",      tab: "more",      render: renderUnits },
   "/reviews":   { title: "Reviews",    tab: "more",      render: renderReviews },
   "/suppliers": { title: "Suppliers",  tab: "more",      render: renderSuppliers },
+  "/product-categories": { title: "Categories", tab: "more", render: renderProductCategories },
   "/settings":  { title: "Settings",  tab: "more",      render: renderSettings },
   "/more":      { title: "More",      tab: "more",      render: renderMore },
 };

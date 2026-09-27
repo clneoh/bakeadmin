@@ -28,6 +28,7 @@ const SYNC_KEY = "bakeadmin.sync";
 const LISTS = {
   orders: "orders",
   products: "products",
+  productCategories: "productCategories", // the shop's category tree — a heading built on one phone must exist on the other
   ingredients: "ingredients",
   suppliers: "suppliers", // who you buy from — pack prices ride ingredients, so the shops must too
   uoms: "uoms", // units of measure — a unit added on one phone has to exist on the other

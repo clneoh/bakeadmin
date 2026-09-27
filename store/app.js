@@ -7,6 +7,7 @@ import { CONFIG } from "./config.js";
 import { poolCaps, poolGroups, clampPool, groupFor, poolPieces, closedReason, cancelDaysFor, strictestCancelDays, nextOrderable } from "./pool.js";
 import { monthWeeks, addMonth, occColour, occDays, occStrength, occForDate, occSingleDay } from "./calendar.js";
 import { normRules } from "../availability.js";
+import { isThumb } from "../storefront-fields.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
 import { addressFromRow, askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
@@ -353,9 +354,41 @@ export function mergeStorefront(base, remote) {
         // dropping it — the few hot items a customer comes back looking for.
         // Absent (the default) leaves this page reading every product as today.
         if (p.alwaysListed === true) out.alwaysListed = true;
+        // The square thumbnail the baker set on the product. Checked against the
+        // same rule the publisher used (storefront-fields.js), so anything that
+        // is not a small JPEG data URL is dropped rather than drawn.
+        if (isThumb(p.thumb)) out.thumb = String(p.thumb).trim();
         return out;
       });
     if (products.length) out.products = products;
+  }
+  // The category headings, in the baker's order, each naming the products shown
+  // under it — depth-first, `depth` being the indent. Re-validated here on the
+  // shop's own terms: a half-formed row is dropped rather than drawn, so a
+  // malformed one can never reach the page.
+  //
+  // Replaced WHOLESALE, like the occasions above: the app publishes a complete
+  // snapshot, so an empty list is a real instruction ("she deleted her last
+  // category") and has to clear the headings an already-open page still shows.
+  // An empty list draws nothing, so it can never break the shop.
+  if (Array.isArray(remote.categories)) {
+    out.categories = remote.categories
+      .filter((c) => c && typeof c === "object" && String(c.name || "").trim())
+      .slice(0, 200)
+      .map((c) => {
+        const depth = Number(c.depth);
+        const row = {
+          name: String(c.name).trim(),
+          depth: Number.isInteger(depth) && depth >= 0 ? Math.min(depth, 31) : 0,
+          products: (Array.isArray(c.products) ? c.products : [])
+            .map((n) => String(n || "").trim()).filter(Boolean).slice(0, 500),
+        };
+        for (const k of ["nameZh", "nameMs"]) {
+          const v = c[k];
+          if (typeof v === "string" && v.trim()) row[k] = v.trim();
+        }
+        return row;
+      });
   }
   // The developer credit shown in the store footer (and on the homepage) — set
   // once in the app's Settings and republished. Hidden until both exist.
@@ -532,24 +565,37 @@ export function render() {
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
     const groups = poolGroups(CONFIG.products);
-    const cards = [];
-    for (const p of CONFIG.products) {
-      const lang = loadLang();
+    const lang = loadLang();
+
+    // A product's own date rules decide whether it is on TODAY's menu at all.
+    // Not sold on the chosen delivery day → it is simply not there: the customer
+    // does not see a thing they cannot have. Two exceptions keep the card and
+    // say so instead: the baker's advance notice (that product IS sold on the
+    // day, it only has to be ordered earlier), and a product she has switched to
+    // stay listed — the few hot items a customer comes back looking for, whose
+    // absence would otherwise read as "they stopped making it". A product with
+    // no marks at all (value packs included) sells on any open date.
+    //
+    // Asked in one place and read in two, because the grouping below needs to
+    // know what is on today's menu BEFORE it can decide which headings are worth
+    // drawing — and it must never come out differently from the cards themselves.
+    const menuGate = (p) => {
+      const closed = closedReason(p, selected, todayKey);
+      const kept = !!(closed && closed.kind !== "close" && p.alwaysListed === true);
+      return { closed, kept, shown: !(closed && closed.kind !== "close" && !kept) };
+    };
+
+    // One product's card, or null when it is off today's menu. A function rather
+    // than a loop body because a product filed under two categories is drawn
+    // TWICE — and a DOM node can only live in one place, so each placement needs
+    // a card of its own, with its own stepper.
+    const cardFor = (p) => {
+      const { closed, kept, shown } = menuGate(p);
+      if (!shown) return null;
       const group = groupFor(groups, p);
       const baseLeft = group && byProduct[group.baseName] != null
         ? Number(byProduct[group.baseName]) : undefined;
       const caps = group && Number.isFinite(baseLeft) ? poolCaps(group, baseLeft, cart) : null;
-      // A product's own date rules decide whether it is on TODAY's menu at all.
-      // Not sold on the chosen delivery day → it is simply not there: the customer
-      // does not see a thing they cannot have. Two exceptions keep the card and
-      // say so instead: the baker's advance notice (that product IS sold on the
-      // day, it only has to be ordered earlier), and a product she has switched to
-      // stay listed — the few hot items a customer comes back looking for, whose
-      // absence would otherwise read as "they stopped making it". A product with
-      // no marks at all (value packs included) sells on any open date.
-      const closed = closedReason(p, selected, todayKey);
-      const kept = closed && closed.kind !== "close" && p.alwaysListed === true;
-      if (closed && closed.kind !== "close" && !kept) continue;
       const reason = closedReasonText(closed);
       // A day this product is not sold on at all, as opposed to a sold-out day
       // (a sell day with nothing left). The two wear different stamps, and a kept
@@ -643,22 +689,95 @@ export function render() {
       // The card reads in the visitor's language: translated name/description/
       // unit when the product has them, else the English text.
       const desc = p && descFor(p, lang);
-      cards.push(el("div", { class: `card menu-item${soldOut ? " soldout" : ""}` },
+      return el("div", {
+        class: `card menu-item${soldOut ? " soldout" : ""}`,
+        dataset: { product: p.name },
+      },
         el("div", { class: "card-head" },
-          el("div", {},
-            el("p", { class: "card-title" }, nameFor(p, lang)),
-            el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
-            desc ? el("p", { class: "prod-desc" }, desc) : null),
+          // The photo belongs with the words. The head is space-between, so a
+          // third loose child would be spread into the middle of it — hence the
+          // one wrapper. The stamp keeps its place on the right.
+          el("div", { class: "card-main" },
+            p.thumb
+              ? el("img", { class: "menu-thumb", src: p.thumb, alt: "", loading: "lazy", decoding: "async" })
+              : null,
+            el("div", {},
+              el("p", { class: "card-title" }, nameFor(p, lang)),
+              el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
+              desc ? el("p", { class: "prod-desc" }, desc) : null)),
           stamp),
         el("div", { class: "stepper" }, dec, qtyLabel, inc),
         note,
         nextNote,
-        cancelNote));
-    }
+        cancelNote);
+    };
+
+    // What is actually on today's menu, in the shop's own product order. Asked
+    // with the same gate the cards use, so the two can never disagree.
+    const live = CONFIG.products.filter((p) => menuGate(p).shown);
     // Every product marked off today leaves nothing at all — say so rather than
     // showing a blank space where the menu should be.
-    menu.replaceChildren(...(cards.length ? cards : [el("p", { class: "card-sub" },
-      t("noMenuToday"))]));
+    if (!live.length) {
+      menu.replaceChildren(el("p", { class: "card-sub" }, t("noMenuToday")));
+      return;
+    }
+    // A shop with no categories is drawn exactly as it always was: one plain
+    // list, no headings. Only once she has built a heading does the grouping
+    // below come into play, so a shop that never uses them cannot be changed by
+    // this feature.
+    const catRows = Array.isArray(CONFIG.categories) ? CONFIG.categories : [];
+    if (!catRows.length) {
+      menu.replaceChildren(...live.map(cardFor));
+      return;
+    }
+    // Draw the tree: the headings in her order, each over the cards it names, and
+    // anything she has not filed last under one plain heading. A card filed under
+    // two headings is drawn under BOTH — that is what filing it twice is for — so
+    // only the headings themselves must not repeat. The product is looked up by
+    // name, which is the key the rest of this page already agrees on.
+    const byName = new Map(live.map((p) => [p.name, p]));
+    const rows = catRows.map((c) => ({
+      c,
+      prods: (c.products || []).map((n) => byName.get(n)).filter(Boolean),
+    }));
+    // A heading with nothing to show is dropped rather than drawn as an empty
+    // shelf — but a heading whose own products have all sold out today is KEPT
+    // when something nested under it survives, or a whole branch would vanish
+    // with a parent that had a quiet day.
+    const draws = rows.map((row, i) => {
+      if (row.prods.length) return true;
+      for (let j = i + 1; j < rows.length && rows[j].c.depth > row.c.depth; j++) {
+        if (rows[j].prods.length) return true;
+      }
+      return false;
+    });
+    // The words on a nested heading are the whole path down to it ("For Dog ›
+    // Treats"), so a heading deep in a long scroll still says where it sits. The
+    // stack is the ancestors, kept in step with depth because the list is
+    // depth-first.
+    const stack = [];
+    const placed = new Set();
+    const children = [];
+    rows.forEach((row, i) => {
+      stack[row.c.depth] = row.c;
+      if (!draws[i]) return;
+      const label = stack.slice(0, row.c.depth + 1).filter(Boolean)
+        .map((c) => nameFor(c, lang)).join(" › ");
+      children.push(el("h3", {
+        class: `menu-cat${row.c.depth ? " menu-cat-sub" : ""}`,
+        ...(row.c.depth ? { style: `--depth:${row.c.depth}` } : {}),
+      }, label));
+      for (const p of row.prods) {
+        children.push(cardFor(p));
+        placed.add(p.name);
+      }
+    });
+    const unfiled = live.filter((p) => !placed.has(p.name)).map(cardFor);
+    if (unfiled.length) {
+      children.push(el("h3", { class: "menu-cat menu-cat-tail" }, t("moreItems")));
+      children.push(...unfiled);
+    }
+    menu.replaceChildren(...children);
   };
 
   // Live slots left for `name` on the day currently shown. undefined (no live

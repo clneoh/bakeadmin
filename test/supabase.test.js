@@ -5,6 +5,9 @@ import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefr
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
+
+// A tiny but well-formed JPEG data URL, matching what admin/js/photo.js emits.
+const THUMB = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 const realLocalStorage = globalThis.localStorage;
 
 function baseSettings() {
@@ -332,6 +335,22 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
   // of truth) — state.products.price/unit feed the published menu.
   state.products = [{ id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true,
     description: "Crisp rosemary crust, airy crumb" }];
+  // The headings she built, and the products she filed into them. This is the
+  // only place the shop's order and grouping come from, so it has to travel.
+  state.productCategories = [
+    { id: "cat_bread", name: "Bread", nameZh: "面包", parentId: "", sort: 0 },
+    { id: "cat_savoury", name: "Savoury", parentId: "", sort: 1 },
+    { id: "cat_dog", name: "For Dog", parentId: "", sort: 2 },
+    { id: "cat_treats", name: "Treats", parentId: "cat_dog", sort: 0 },
+  ];
+  state.products[0].thumb = THUMB;
+  // Filed under two headings: it goes under the FIRST one only, never twice.
+  state.products[0].categories = ["cat_bread", "cat_savoury"];
+  state.products.push({ id: "prd_2", name: "Cheese Straw", price: 8, unit: "box", active: true,
+    categories: ["cat_savoury", "cat_treats"] });
+  // A draft she is still working on: not on the shop, so not under a heading.
+  state.products.push({ id: "prd_3", name: "Secret Loaf", price: 9, unit: "loaf", draft: true,
+    categories: ["cat_bread"] });
   const calls = [];
   globalThis.fetch = async (url, opts) => {
     calls.push({ url, opts });
@@ -355,8 +374,22 @@ test("syncStorefront publishes the whole config to storefront_config", async () 
     assert.ok(!("setDays" in payload), "no global value-pack window — date rules live on each product");
     assert.deepEqual(payload.deliveryDays, [1, 3, 5]);
     assert.equal(payload.capacity, 12);
-    assert.deepEqual(payload.products,
-      [{ name: "Focaccia", price: 15, unit: "loaf", description: "Crisp rosemary crust, airy crumb" }]);
+    assert.deepEqual(payload.products, [
+      { name: "Focaccia", price: 15, unit: "loaf", description: "Crisp rosemary crust, airy crumb", thumb: THUMB },
+      { name: "Cheese Straw", price: 8, unit: "box" },
+    ], "a draft never reaches the shop, and a published product carries its photo");
+    assert.deepEqual(payload.categories, [
+      { name: "Bread", depth: 0, products: ["Focaccia"], nameZh: "面包" },
+      // Focaccia is filed here SECOND, and Cheese Straw first — so each lands
+      // under the heading she ticked first and appears under exactly one.
+      { name: "Savoury", depth: 0, products: ["Cheese Straw"] },
+      // A heading nobody shows under is still published, so she can fill it later
+      // without the heading itself having to be rebuilt.
+      { name: "For Dog", depth: 0, products: [] },
+      { name: "Treats", depth: 1, products: [] },
+    ], "depth-first in her order, each product under its FIRST ticked heading once, the draft left out");
+    const named = payload.categories.flatMap((c) => c.products);
+    assert.equal(named.length, new Set(named).size, "no product is named under two headings");
   } finally {
     globalThis.fetch = realFetch;
   }

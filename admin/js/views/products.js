@@ -6,7 +6,12 @@ import { el, button, select, emptyState, confirmDialog, showPopup, toast } from 
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { costOf, recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
+// The square-cropping reader the customer dog photos already use: it centre-crops
+// to a square and hands back a small JPEG data URL, which is exactly the shape a
+// product thumbnail is.
+import { readPhoto } from "../photo.js";
 import { isLive, isDraft, isHidden, newDraftRow } from "../productState.js";
+import { flattenTree, pathTo, primaryCategoryId } from "../productCategories.js";
 import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } from "../translate.js";
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "../calendar.js";
@@ -499,6 +504,65 @@ function buildEditor(state, product) {
     "data-suggest": "Warm 10 min at 150°C — crisp on top, soft inside",
     value: product?.servingTip || "" });
 
+  // ── The thumbnail customers see beside this product on the shop ────────────
+  // One square photo. readPhoto does the cropping and the shrinking (160px, JPEG)
+  // — nowhere near the 200px default, because this picture rides in the single
+  // localStorage blob that every cloud snapshot and export carries, and it is
+  // sent to every customer's phone on each page load. Its shape is checked again
+  // on both sides of the publish (storefront-fields.js) so a malformed one is
+  // dropped rather than shipped.
+  let thumb = String(product?.thumb || "");
+  const thumbFile = el("input", { type: "file", accept: "image/*", style: "display:none" });
+  const thumbPreview = el("div", { class: "thumb-preview" });
+  const drawThumb = () => {
+    thumbPreview.replaceChildren(
+      thumb
+        ? el("img", { class: "thumb-box", src: thumb, alt: "" })
+        : el("span", { class: "thumb-box thumb-empty" }, "🍞"),
+      el("span", { class: "btn-row", style: "margin:0" },
+        button(thumb ? "Choose different" : "Choose photo", () => thumbFile.click(), "soft small"),
+        thumb ? button("Remove", () => { thumb = ""; drawThumb(); }, "ghost small") : null));
+  };
+  drawThumb();
+  thumbFile.addEventListener("change", () => {
+    const f = thumbFile.files && thumbFile.files[0];
+    if (!f) return;
+    readPhoto(f, (dataUrl) => {
+      if (dataUrl) { thumb = dataUrl; drawThumb(); toast("Photo added"); }
+      else toast("That file couldn't be read as a photo");
+    }, 160);
+    // So choosing the SAME file twice still fires a change event.
+    thumbFile.value = "";
+  });
+
+  // ── The heading this product is listed under ──────────────────────────────
+  // Checkboxes, indented by the category's own depth so the shape on the shop is
+  // readable here. A product is listed under its FIRST ticked category — the
+  // tick order is the ranking — so ticking a second one is how she changes which
+  // heading it sits under, not a way to have it in two places at once. A product
+  // filed nowhere is not hidden: it is listed last on the shop under a plain
+  // "More items" heading.
+  const catTree = flattenTree(state.productCategories || []);
+  const catBoxes = new Map();
+  // The order she TICKED them, which is the order they are stored in and the
+  // order that decides which heading they land under. Seeded from what is
+  // already saved, so reopening the editor shows the same heading it had.
+  const ticked = (Array.isArray(product?.categories) ? product.categories : [])
+    .filter((id) => catTree.some((r) => r.cat.id === id));
+  const catPicker = catTree.length
+    ? el("div", {}, ...catTree.map(({ cat, depth }) => {
+        const cb = el("input", { type: "checkbox", checked: ticked.includes(cat.id) });
+        cb.addEventListener("change", () => {
+          const at = ticked.indexOf(cat.id);
+          if (cb.checked && at < 0) ticked.push(cat.id);
+          if (!cb.checked && at >= 0) ticked.splice(at, 1);
+        });
+        return el("label", { class: "cat-pick", style: `--depth:${depth}` },
+          cb, el("span", {}, String(cat.name || "")));
+      }))
+    : el("p", { class: "card-sub", style: "margin:0" },
+        "No categories yet. Build them under More → Categories, then file this product into one.");
+
   // ── Translated 中文 / Bahasa Malaysia text ────────────────────────────────
   // English is written once above; each line here is translated from it and
   // offered as an ordinary grey suggestion — the → at the box's right edge takes
@@ -795,6 +859,10 @@ function buildEditor(state, product) {
     // Written only while on, and forgotten when switched off — so an absent key
     // reads as off and a product she never opened is byte-for-byte unchanged.
     if (!listed) drop.push("alwaysListed");
+    // Filed nowhere → the key goes, and the product is listed last on the shop
+    // under "More items". The tick ORDER is kept as she left it, because the
+    // first tick is the heading it lands under.
+    if (!ticked.length) drop.push("categories");
     const values = {
       name: pname,
       unit: chosenUom ? chosenUom.name : unitVal,
@@ -805,14 +873,17 @@ function buildEditor(state, product) {
       cancelDays: cancelVal,
       description: descVal || undefined,
       servingTip: servingVal || undefined,
+      thumb: thumb || undefined,
       recipe,
     };
+    if (ticked.length) values.categories = [...ticked];
     if (sellRules) values.sellRules = sellRules;
     if (listed) values.alwaysListed = true;
     return { values, tr: trCollect(), drop };
   }
 
-  return { name, unit, price, limit, closeDays, cancelDays, desc, serving, translations, availability, recipeCard, renderRecipeLines, collect };
+  return { name, unit, price, limit, closeDays, cancelDays, desc, serving, thumbFile, thumbPreview,
+    catPicker, translations, availability, recipeCard, renderRecipeLines, collect };
 }
 
 // Fold the translated boxes + their provenance onto a saved product row.
@@ -884,6 +955,10 @@ function editorFields(state, editor) {
     el("div", { class: "form-grid" },
       el("div", {}, el("label", {}, "Name"), editor.name),
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
+    el("div", { class: "field" }, el("label", {}, "Photo (shown beside it on your shop)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "One square picture. It is cropped to a square and shrunk for you. Blank shows no picture."),
+      editor.thumbFile, editor.thumbPreview),
     el("div", { class: "field" }, el("label", {}, "Description (customers read it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
         "A sentence or two about what this is — e.g. rosemary focaccia, crusty outside, airy inside. Blank shows nothing."),
@@ -893,6 +968,10 @@ function editorFields(state, editor) {
         "A short way-to-serve line — e.g. “Warm 10 min at 150°C.” Blank keeps the follow-up simple."),
       editor.serving),
     editor.translations,
+    el("div", { class: "field" }, el("label", {}, "Category (where it is listed on your shop)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "Tick the headings it belongs under — the FIRST one you tick is the heading it is listed under, so a product is never in two places at once. The headings themselves follow the order you set under More → Categories. Unticked products are listed last, under “More items”, so nothing is ever hidden."),
+      editor.catPicker),
     el("div", { class: "field" }, el("label", {}, "Sell price"), editor.price),
     el("div", { class: "field" }, el("label", {}, "Daily limit (optional)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
@@ -1173,6 +1252,29 @@ function productRecipeLine(state, line, i, draft, refresh, selfId, cost) {
     captionForLine(state, line, cost));
 }
 
+// The heading this product is listed under, as the shop spells it out — the
+// whole path, because "Pork" on its own does not say whether it is under For Dog
+// or For Cat. A product filed nowhere says so plainly, and says where it goes
+// instead: it is not hidden, it is listed last.
+//
+// The other ticks are NAMED rather than counted. A bare "(1 more ticked)" next to
+// a heading leaves her to go and find which one, and the reason she has more than
+// one tick is precisely that she wants to know which headings are in play.
+function categoriesLine(state, p) {
+  const primary = primaryCategoryId(state.productCategories, p);
+  if (!primary) {
+    return el("p", { class: "po-breakdown" },
+      "Not in a category yet — listed last on the shop, under “More items”.");
+  }
+  const label = pathTo(state.productCategories, primary)
+    .map((c) => String(c.name || "")).join(" › ");
+  const also = (Array.isArray(p.categories) ? p.categories : [])
+    .filter((id) => id !== primary && byId(state.productCategories, id))
+    .map((id) => pathTo(state.productCategories, id).map((c) => String(c.name || "")).join(" › "));
+  return el("p", { class: "po-breakdown" },
+    `🗂 ${label}${also.length ? ` · also ticked: ${also.join(", ")}` : ""}`);
+}
+
 function productCard(state, p, root) {
   const cost = costOf(state, p);
   const usedBy = state.orders.some((o) => o.productId === p.id);
@@ -1209,13 +1311,16 @@ function productCard(state, p, root) {
 
   return el("div", { class: "card" },
     el("div", { class: "card-row" },
-      el("div", { style: "min-width:0" },
-        el("p", { class: "card-title" }, p.name),
-        el("p", { class: "card-sub" }, subParts.join(" · ")),
-        desc ? el("p", { class: "product-desc" }, desc) : null,
-        usedInSets.length
-          ? el("p", { class: "po-breakdown" }, `Used in: ${usedInSets.map((n) => `"${n}"`).join(", ")}`)
-          : null),
+      el("div", { class: "prod-row-main" },
+        p.thumb ? el("img", { class: "prod-thumb", src: p.thumb, alt: "" }) : null,
+        el("div", { style: "min-width:0" },
+          el("p", { class: "card-title" }, p.name),
+          el("p", { class: "card-sub" }, subParts.join(" · ")),
+          categoriesLine(state, p),
+          desc ? el("p", { class: "product-desc" }, desc) : null,
+          usedInSets.length
+            ? el("p", { class: "po-breakdown" }, `Used in: ${usedInSets.map((n) => `"${n}"`).join(", ")}`)
+            : null)),
       el("div", { class: "li-right" }, ...actions)),
     lines.length ? el("p", { class: "po-breakdown" }, lines.join("  ·  ")) : null);
 }

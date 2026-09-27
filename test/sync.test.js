@@ -1804,3 +1804,53 @@ test("markDirty: a phone holding ticks still sends them, so who is called agrees
       "a phone that has ticked somebody sends the tick");
   } finally { restore(); }
 });
+
+test("computeRecords: category rows ride the sync, order and parent included", () => {
+  const st = baseState();
+  st.productCategories = [
+    { id: "cat_food", name: "Food", parentId: "", sort: 0 },
+    { id: "cat_dog", name: "For Dog", nameZh: "狗粮", parentId: "", sort: 1 },
+    { id: "cat_treats", name: "Treats", parentId: "cat_dog", sort: 0 },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const cats = rows.filter((r) => r.kind === "productCategories");
+  assert.equal(cats.length, 3);
+  assert.deepEqual(cats[0].data, { id: "cat_food", name: "Food", parentId: "", sort: 0 });
+  assert.deepEqual(cats[1].data, { id: "cat_dog", name: "For Dog", nameZh: "狗粮", parentId: "", sort: 1 });
+  // The order is a stored number and the nesting is a stored id, because a
+  // record's PLACE IN THE ARRAY does not travel — the cloud carries whole rows
+  // keyed by id. A category that arrives without its sort would land wherever.
+  assert.deepEqual(cats[2].data, { id: "cat_treats", name: "Treats", parentId: "cat_dog", sort: 0 });
+});
+
+test("mergeRows: a category built on one phone appears on the phone that had none", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.productCategories = []; // this phone has not built the tree yet
+    seedJournal(store);
+
+    const add = sync.mergeRows(st, [cloudRow("productCategories", "cat_food",
+      { id: "cat_food", name: "Food", parentId: "", sort: 0 }, "2026-09-28T00:00:00.000Z")]);
+    assert.equal(add.changed, true);
+    assert.equal(st.productCategories.length, 1);
+    assert.equal(st.productCategories[0].name, "Food");
+
+    const del = sync.mergeRows(st, [cloudRow("productCategories", "cat_food", null, "2026-09-28T01:00:00.000Z", true)]);
+    assert.equal(del.changed, true);
+    assert.equal(st.productCategories.length, 0, "and a heading deleted on the other phone goes here too");
+  } finally { restore(); }
+});
+
+test("mergeRows: a category newly saved on this phone is queued to be pushed", () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.productCategories = [{ id: "cat_food", name: "Food", parentId: "", sort: 0 }];
+    seedJournal(store);
+    const r = sync.markDirty(st, "2026-09-28T00:00:00.000Z");
+    assert.equal(r.pending["productCategories:cat_food"]._deleted, false);
+    assert.equal(r.pending["productCategories:cat_food"].data.name, "Food");
+  } finally { restore(); }
+});

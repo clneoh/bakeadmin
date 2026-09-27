@@ -142,6 +142,10 @@ export function defaultState() {
     suppliers: [],     // who you buy from (each has a WhatsApp number)
     uoms: seedUoms(),  // units of measure; g/kg/ml/L/pcs convert within a family
     products: [],
+    // The shop's categories, a tree of any depth (see js/productCategories.js).
+    // A separate list from settings.categories, which is the EXPENSE chart — one
+    // is what a product is, the other is what money was spent on.
+    productCategories: [],
     deliveryDates: [],
     orders: [],
     customers: [], // customer profiles (dog name/photo, likes, notes) keyed to orders
@@ -368,6 +372,10 @@ function normalize(s) {
     suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
     uoms: (Array.isArray(s.uoms) && s.uoms.length) ? s.uoms : seedUoms(),
     products: Array.isArray(s.products) ? s.products : [],
+    // The shop's category tree. Guarded like every other list: a phone that has
+    // never built one behaves exactly as before, and the cloud merge can land a
+    // tree on it without the shape being assumed.
+    productCategories: Array.isArray(s.productCategories) ? s.productCategories : [],
     deliveryDates: Array.isArray(s.deliveryDates) ? s.deliveryDates : [],
     orders: Array.isArray(s.orders)
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))

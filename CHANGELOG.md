@@ -1,9 +1,86 @@
-# Jienluv2bake — change history (v54 → v218)
+# Jienluv2bake — change history (v54 → v219)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**28 Sep 2026 — engine v219, YOUR SHOP NOW FOLLOWS YOUR OWN HEADINGS, AND EVERY PRODUCT CAN WEAR A
+PICTURE (no database step, no redeploy — one push). Product categories and thumbnails.**
+
+Your request: __I need a category to be setup for each products, and category be manage like how we
+manage ingredient. Now our product listed in store are random, when there is category existed, the
+list will follow category, and in a category sort my name, or other criteria. Need a thumbnail photo
+for each product as well, with photo size adjusted accordingly.__ — and, a moment later, __one
+product can be with more than one category__.
+
+**There is a new screen, and it starts empty on purpose.** **More → Categories** is where your
+headings live, built the same way your ingredients are: press **New category**, give it a name, and
+it appears in the list. Nothing is in it until you put it there, because your shop should say what
+__you__ sell, not what a program guessed for you.
+
+**Your shop now lists by your headings instead of in whatever order the products happened to be
+stored in.** That is the whole point of this version. Under each heading sit the products you filed
+there, and the order they appear in is the order __you__ set — not alphabetical, not by price, not
+by anything the app decided. Your own arrangement is the arrangement.
+
+**A product with no heading yet is never hidden — it is shown last.** A customer scrolling to the
+bottom of your shop finds a plain heading called **More items** with those products under it. So if
+you add a loaf this evening and file it tomorrow, it is on sale tonight; it simply sits at the end
+until you say where it belongs.
+
+**A product can be in more than one heading, and you choose which one it is listed under — by the
+order you tick.** In the product editor your categories appear as a list of tick boxes, and the box
+you tick __first__ is the heading the product is drawn under. Tick a second one and the product does
+not vanish from the first, and it is not drawn twice either: **one product appears in exactly one
+place on your shop**, under its first tick. The other ticks are kept for you, as the note that says
+"this one is also a snack", and the product's own row in the app spells them out so you can see them
+at a glance. You asked for this to be made simple rather than switchable, and that is what it is:
+__1st category, 2nd category, 3rd category; the first one groups it.__
+
+**A heading can hold headings under it, as deep as you like.** Your bakery's headings are flat —
+Food, Drink, Snack, Appetiser — and they can stay that way. The engine underneath is shared with the
+Munchies shop you are planning, where you said the shape is **For Dog, For Cat** at the top and then
+**Pork, Duck, Fruits & Vegetables** underneath, so that is built in now and will need no second
+version later.
+
+**Every product can have a picture, and it is a square.** Choose a photo from your phone in the
+product editor and the app crops it to a tidy square by itself, taken from the middle of the picture
+— you do not have to resize or measure anything. Your shop shows it at the left of the product's
+row, and your own Products list shows it too, so you can see at a glance which products have a
+picture and which are still blank.
+
+**Two things to know about pictures, said plainly rather than found out later.** First, **the
+homepage is untouched** — you asked to leave it alone, and it still carries the photographs already
+written into it, so a picture set here reaches your shop and your own product list but not the front
+page. Second, **a picture costs weight twice**: it travels inside the copy of your records that every
+backup and every export carries, and it is fetched again by every customer who opens your shop. That
+is why it is kept small — a square about 160 pixels across, in the compact photo format — which
+looks right on a phone and keeps your shop quick to open. A picture that is far too large, or in a
+format the shop cannot show, is quietly left out rather than published broken.
+
+**Moving a heading, or a product inside one, is a drag.** Each row carries a small handle at its
+left; press that handle and drag the row up or down, and the list re-arranges behind your finger.
+You asked for exactly this — a drag rather than up-and-down arrows or number boxes — so that is what
+it is. It is the first drag in the app and there was nothing here to copy from, so it is the part
+most worth a second look on your own phone.
+
+**Deleting a heading is guarded, the way your ingredients and suppliers are.** A heading that still
+has headings under it will not delete. A heading with products filed in it will not delete, and it
+tells you how many. An empty one simply goes. There is no undo, and the question it asks is the last
+thing before it happens.
+
+**Two things you would have spotted, and they are fixed rather than left to puzzle over.** The row
+for a heading shows how many products your __shop actually draws__ under it. If you have ticked a
+product into a later heading, the shop has moved it there, so the row now also says __"1 more ticked
+here, listed elsewhere"__ instead of quietly counting it and leaving you to wonder why the number
+does not match your customer page. And a product's own row in the app now __names__ the other
+headings you ticked instead of saying "1 more ticked", because what you want to know is __which__,
+not how many.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens and the shop
+page, and one push is the whole of it. **Engine v219** on your **More** screen once this is pushed.
+
+---
 **27 Sep 2026 — engine v218, ONE CUSTOMER'S DOOR IS NOT ANOTHER CUSTOMER'S BUSINESS (no database
 step, no redeploy — one push). The delivery run's tracking link.**
 
