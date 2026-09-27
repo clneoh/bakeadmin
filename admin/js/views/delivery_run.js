@@ -50,7 +50,7 @@
 // the active one and uses that courier's own words. No courier's name, service keys or
 // error codes appear below.
 
-import { button, confirmDialog, el, emptyState, select, toast } from "../ui.js";
+import { button, confirmDialog, el, emptyState, guarded, saidOf, select, toast } from "../ui.js";
 import { shortDate } from "../dates.js";
 import { groupOrders, save } from "../state.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
@@ -465,6 +465,21 @@ export function renderDeliveryRun(root, state, params) {
     const problem = windowProblem(winFrom.value, winTo.value);
     if (problem) { statusLine.textContent = problem; return; }
 
+    // WRAPPED, BECAUSE THE GUARD IS THE BUG (v217). `askBody` clears `busy` and re-arms the
+    // button on every way out it knows about — and an exit it did not know about (a throw)
+    // left both where they were, so the button stayed grey and every later press was returned
+    // at once by `if (busy …) return` with nothing said. `guarded` releases the guard and the
+    // button whatever happened, and SAYS the throw. See its note in ui.js.
+    await guarded({
+      btn: askBtn,
+      hold: (v) => { busy = v; },
+      work: () => askBody(groups),
+      said: (s) => { statusLine.textContent = s; },
+      trouble: "The price could not be asked for, and nothing has been priced",
+    });
+  }
+
+  async function askBody(groups) {
     busy = true;
     askBtn.disabled = true;
     priceAgain();
@@ -738,8 +753,21 @@ export function renderDeliveryRun(root, state, params) {
 
   async function compareTrips(service) {
     if (busy || stale() || !priced || !root.isConnected) return;
-    compare[service] = { state: "busy", done: 0, total: tickedGroups().length };
-    paintPrices();
+    // The comparison holds no press guard — but it does hold a row of its own, and a throw
+    // used to leave that row saying "busy" with a count that never moved again: the same
+    // dead-control fault as the presses above, said in a different place (v217). So the row
+    // is resolved on the way out whatever happened.
+    try {
+      compare[service] = { state: "busy", done: 0, total: tickedGroups().length };
+      paintPrices();
+      await compareTripsNow(service);
+    } catch (err) {
+      compare[service] = { state: "failed", reason: `The comparison could not be finished — ${saidOf(err)} Nothing is shown rather than shown short.` };
+      paintPrices();
+    }
+  }
+
+  async function compareTripsNow(service) {
     const out = await priceSeparately(service, (done, total) => {
       compare[service] = { state: "busy", done, total };
       paintPrices();
@@ -821,47 +849,60 @@ export function renderDeliveryRun(root, state, params) {
       `This books a real trip and spends real money, and ${courier.label} only lets it be called off while a driver is still being found.`,
       async () => {
         if (busy || !root.isConnected) return;
-        busy = true;
-        paintPrices();
-        const holder = courierByKey(courier.key) || courier;
-        const out = await holder.book(state, priced.trip, q);
-        if (!root.isConnected) return;
-        if (!out.ok) {
-          busy = false;
-          statusLine.textContent = out.reason;
-          paintPrices();
-          return;
-        }
-        // EVERYTHING IS WRITTEN AND SAVED NOW, not on a Save press, because a real vehicle
-        // is on a real road the moment this returns and it must not be discardable by
-        // walking away from the screen.
-        //
-        // The window goes on every LINE of every group, not only the first: the card and
-        // the messages read the group's first line today, but a customer's order can be
-        // edited and re-split, and a promise living on one row would go with that row.
-        for (const g of groups) {
-          if (w) for (const o of g.orders) o.deliveryWindow = w;
-          stampTrip(g.orders, out.job, holder.label);
-        }
-        // The charge, per order, through the one writer every door uses. Each order's amount
-        // is the one runChargeAmounts chose: the customer's OWN doorstep cost when they bear
-        // it, so the saving from going together stays with her, or their apportioned part of
-        // the run's fee when she bears it — which sums to exactly what she was charged.
-        if (pay) groups.forEach((g, i) => writeCourierCharge(state, g.orders, g, pay.read(amounts[i])));
-        busy = false;
-        save(state);
-        maybeSync(state);
-        // Each customer's own card, one at a time, because publishing is per order. The
-        // card now carries the window inside its delivery line and the share in its total.
-        for (const g of groups) maybePublishTracking(state, g);
-        statusLine.textContent = "";
-        refreshDay();
-        toast(out.job && out.job.link
-          ? `Run booked with ${holder.label} — ${groups.length} customer${groups.length === 1 ? "" : "s"} now share one trip and one link.`
-          : `Run booked with ${holder.label} — the courier sent back no share link, so nothing was put on the customers' cards but the trip itself.`);
+        // No button of its own — the yes-press belongs to the dialog — but wrapped on the same
+        // guard (v217): `busy` is what a throw used to leave set, and this is the press that
+        // puts a charge on every customer's order. The sentence does not claim nothing was
+        // booked, because a throw on the way back cannot tell her which side of it we are on.
+        await guarded({
+          hold: (v) => { busy = v; },
+          work: () => bookRunNow(q, groups, amounts, w),
+          said: (s) => { statusLine.textContent = s; paintPrices(); },
+          trouble: `The booking could not be finished — check the run in ${courier.label} before pressing again, in case it went through`,
+        });
       },
       { danger: true, yesLabel: "Book this run" },
     );
+  }
+
+  async function bookRunNow(q, groups, amounts, w) {
+    busy = true;
+    paintPrices();
+    const holder = courierByKey(courier.key) || courier;
+    const out = await holder.book(state, priced.trip, q);
+    if (!root.isConnected) return;
+    if (!out.ok) {
+      busy = false;
+      statusLine.textContent = out.reason;
+      paintPrices();
+      return;
+    }
+    // EVERYTHING IS WRITTEN AND SAVED NOW, not on a Save press, because a real vehicle
+    // is on a real road the moment this returns and it must not be discardable by
+    // walking away from the screen.
+    //
+    // The window goes on every LINE of every group, not only the first: the card and
+    // the messages read the group's first line today, but a customer's order can be
+    // edited and re-split, and a promise living on one row would go with that row.
+    for (const g of groups) {
+      if (w) for (const o of g.orders) o.deliveryWindow = w;
+      stampTrip(g.orders, out.job, holder.label);
+    }
+    // The charge, per order, through the one writer every door uses. Each order's amount
+    // is the one runChargeAmounts chose: the customer's OWN doorstep cost when they bear
+    // it, so the saving from going together stays with her, or their apportioned part of
+    // the run's fee when she bears it — which sums to exactly what she was charged.
+    if (pay) groups.forEach((g, i) => writeCourierCharge(state, g.orders, g, pay.read(amounts[i])));
+    busy = false;
+    save(state);
+    maybeSync(state);
+    // Each customer's own card, one at a time, because publishing is per order. The
+    // card now carries the window inside its delivery line and the share in its total.
+    for (const g of groups) maybePublishTracking(state, g);
+    statusLine.textContent = "";
+    refreshDay();
+    toast(out.job && out.job.link
+      ? `Run booked with ${holder.label} — ${groups.length} customer${groups.length === 1 ? "" : "s"} now share one trip and one link.`
+      : `Run booked with ${holder.label} — the courier sent back no share link, so nothing was put on the customers' cards but the trip itself.`);
   }
 
   // ── the charge questions ──────────────────────────────────────────────

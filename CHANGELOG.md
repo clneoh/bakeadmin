@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v216)
+# Jienluv2bake — change history (v54 → v217)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Sep 2026 — engine v217, A BUTTON THAT COULD GO QUIETLY DEAD CANNOT ANY MORE (no database
+step, no redeploy — one push). The courier price and booking presses.**
+
+Your report: __the get price from lalamove not responding__.
+
+**What I found, and what I could not.** I drove both screens here and could not make the press
+go dead — the **Delivery** run's **[Price this run with Lalamove]** answered with a real price,
+and the order card's press answered too (it said the courier had refused, which is what this
+machine's test login gets). So this is not a version I can tell you __was__ your fault — it is
+the one shape of fault that leaves no trace on the screen, and I found it by reading the code
+rather than by watching it happen.
+
+**The shape of it.** Every press in those two screens carried its own little flag — it raised the
+flag before it asked Lalamove anything, and lowered it again on each way out that it knew about.
+Every throw that happened in between left the flag up. And a raised flag makes the button return
+**every** later press instantly, with **nothing said at all**, on a button still drawn grey. That
+is a dead control: it looks pressable, it is pressable, and it will never do anything again for
+the life of that card. It is also exactly what __not responding__ looks like from your side. The
+app's own rule for this is written in the courier code: an error thrown at a button in a card,
+while you are standing in a kitchen, is __a dead screen with no words on it__ — and the flag was
+the one place that rule was not kept.
+
+**What happens now, every time, on all eight presses.** The flag is raised and lowered by one
+shared piece of code, and the lowering happens in its **last** step rather than on a list of happy
+endings — so **there is no way out of a press that leaves it up**. The button always comes back.
+And a throw is **said**, in a sentence, in the same place the price would have been: __The price
+could not be asked for, and nothing has been priced — [what went wrong].__ Nothing is ever
+swallowed, and no press is ever swallowed again. This covers **Get a price from Lalamove**, **Get
+a price / Price this run**, **Book this trip**, **Book this run**, **Check**, **Call it off**, and
+the one-press address lookup — on the order card **and** on the Delivery run.
+
+**The one sentence that is deliberately not a promise.** A booking that throws after the request
+left but before the reply came back cannot tell whether the trip was booked. That one says __The
+booking could not be finished — check the trip in Lalamove before pressing again, in case it went
+through.__ It does **not** say nothing was booked, because it cannot know that, and telling you
+the money did not move when it might have is worse than telling you to look. An **unbooked**
+trip still says so plainly, as before.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens, and one
+push is the whole of it. **Engine v217** on your **More** screen once this is pushed.
+
+---
 
 **27 Sep 2026 — engine v216, THE CHARGE BOX OPENS ON THE CUSTOMER, AND A GREYED BUTTON FINALLY
 SAYS WHY (no database step, no redeploy — one push). Two days after v215.**

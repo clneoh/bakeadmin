@@ -397,6 +397,105 @@ test("a price the courier will not book says why, instead of going quietly inert
   }
 });
 
+// ── v217: the price press cannot end in silence ───────────────────────────
+// Her report, 27 Sep 2026: "the get price from lalamove not responding". The press itself
+// answers here — what can go wrong is what it does when something INSIDE it throws. Every
+// way out of the work it knew about cleared `busy` and re-armed the button; a way out it did
+// not know about left both where they were, so the button stayed grey, the status line stayed
+// on its last sentence, and every later press was returned at once by `if (busy …) return`
+// with NOTHING said. That is a dead control, which this app has a standing rule against.
+//
+// The throw below is injected into the courier's own `vehicles` — the one honest way to reach
+// it, because `callCourier` is built never to throw, so no shape of reply can produce one.
+// What is asserted is not just that the card says something, but that the press she makes
+// NEXT really runs: that is the half a latched guard used to take away.
+test("a throw inside the price press arms the button again, says so, and does not swallow the next press (v217)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  const { lalamove } = await import("../admin/js/couriers/lalamove.js");
+  const realVehicles = lalamove.vehicles;
+  lalamove.vehicles = async () => { throw new Error("the fleet box fell over"); };
+  let wrap = null;
+  try {
+    wrap = courierQuoteSection({ state: courierState(), orders: [COURIER_ORDER] });
+    doc.body.append(wrap);
+    // Opening the fold is itself a press that asks — see the note in courier_quote.js.
+    buttonByText(wrap, "Get a delivery price")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    const ask = buttonByText(wrap, "Get a price from Lalamove");
+    assert.ok(ask, "the price press is on the card, so the picture below is of a real screen");
+    assert.equal(ask.disabled, false, "the button takes a press again — a throw must not leave it dead");
+    assert.match(wrap.textContent,
+      /The price could not be asked for, and nothing has been priced — the fleet box fell over\./,
+      "and the throw is SAID on the card, rather than swallowed behind a grey button");
+
+    // THE HALF A LATCHED GUARD USED TO TAKE AWAY: her next press. With the fleet back, it has
+    // somewhere to go — and if `busy` had been left set, this press would have returned at
+    // once and this assertion would find no price at all.
+    lalamove.vehicles = realVehicles;
+    ask._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.match(wrap.textContent, /RM 14\.00/, "the next press really runs, and draws its price");
+  } finally {
+    const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+    if (hide) hide._listeners.click[0]();
+    if (wrap) wrap.parentNode = null;
+    lalamove.vehicles = realVehicles;
+    s.restore();
+  }
+});
+
+// ── v217, the money one: a booking that throws must not take the Book press with it ──
+// `jobBusy` is the guard on the press that spends real money, and it was released on the same
+// happy paths only. A throw on the way back left it set, so the Book button answered nothing
+// for the life of the card. The sentence deliberately does NOT claim nothing was booked: a
+// throw between the request and the reply cannot tell her which side of it she is on, so it
+// tells her to look. What is asserted here is that the press survives and the card says so.
+test("a throw inside the booking press arms Book again, and does not claim nothing was booked (v217)", async () => {
+  globalThis.localStorage.getItem = (k) => (k === "bakeadmin.supabase"
+    ? JSON.stringify({ access_token: "t", expires_at: Date.now() + 3600_000 }) : null);
+  const s = stubChannel();
+  const { lalamove } = await import("../admin/js/couriers/lalamove.js");
+  const realBook = lalamove.book;
+  lalamove.book = async () => { throw new Error("the line went dead"); };
+  let wrap = null;
+  try {
+    wrap = courierQuoteSection({ state: courierState(), orders: [COURIER_ORDER] });
+    doc.body.append(wrap);
+    buttonByText(wrap, "Get a delivery price")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.match(wrap.textContent, /Book this trip/, "a real, bookable price is on the card");
+
+    // Say yes to the app's own red confirmation, and watch the booking throw behind it.
+    buttonByText(wrap, "Book this trip")._listeners.click[0]();
+    const confirm = layers["confirm-layer"];
+    const yes = buttonByText(confirm, "Book this trip");
+    assert.ok(yes, "the app asked before spending money");
+    yes._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    assert.match(wrap.textContent,
+      /The booking could not be finished — check the trip in Lalamove before pressing again, in case it went through — the line went dead\./,
+      "the throw is SAID, and it does not pretend to know whether the trip was booked");
+    assert.doesNotMatch(wrap.textContent, /Nothing has been booked|no charge was written/,
+      "and it never claims the money did not move, because it cannot know that");
+
+    // The guard came back with it: the dialog is put up again on the next press rather than
+    // the press being swallowed by a set `jobBusy`.
+    buttonByText(wrap, "Book this trip")._listeners.click[0]();
+    assert.ok(buttonByText(layers["confirm-layer"], "Book this trip"),
+      "the next press really runs — a latched guard would have returned at once");
+  } finally {
+    const hide = wrap && buttonByText(wrap, "Hide the delivery price");
+    if (hide) hide._listeners.click[0]();
+    if (wrap) wrap.parentNode = null;
+    lalamove.book = realBook;
+    s.restore();
+  }
+});
+
 // ── the two doors on an order card (v197, reversed at v209) ───────────────
 //
 // The switch is drawn by `paintEnds()`, which every change to the doorstep repaints, and

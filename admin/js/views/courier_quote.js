@@ -45,7 +45,7 @@
 // for the active one and uses that courier's own words — its `label`, the names it
 // puts on its vehicles. No courier's name, service keys or error codes appear below.
 
-import { button, confirmDialog, el, toast } from "../ui.js";
+import { button, confirmDialog, el, guarded, toast } from "../ui.js";
 import { todayISO } from "../dates.js";
 import {
   fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
@@ -708,30 +708,44 @@ export function courierQuoteSection({
         `This books a real trip and spends real money, and ${courier.label} only lets it be called off while a driver is still being found.`,
         async () => {
           if (jobBusy || !wrap.isConnected) return;
-          jobBusy = true;
-          statusLine.textContent = `Booking the ${String(q.name || "trip").trim() || "trip"} with ${courier.label}…`;
-          paintQuotes();
-          paintJob();
-          const holder = courierByKey(courier.key) || courier;
-          const out = await holder.book(state, trip, q);
-          if (!wrap.isConnected) return;
-          jobBusy = false;
-          if (!out.ok) {
-            statusLine.textContent = out.reason;
-            paintQuotes();
-            paintJob();
-            return;
-          }
-          commit(out.job);
-          statusLine.textContent = "";
-          paintQuotes();
-          paintJob();
-          toast(out.job.link
-            ? `Trip booked with ${holder.label} — the customer's tracking box now holds the share link`
-            : `Trip booked with ${holder.label} — the courier sent back no share link`);
+          // No button of its own: the yes-press belongs to the dialog. Wrapped all the same,
+          // because `jobBusy` is what a throw used to leave set — and a set `jobBusy` is a
+          // Book button that answers nothing for the life of the card. The sentence is
+          // deliberately not "nothing was booked": this is the one press here that spends
+          // money, and a throw on the way back cannot tell her which side of it we are on.
+          await guarded({
+            hold: (v) => { jobBusy = v; },
+            work: () => bookNow(q, trip),
+            said: (s) => { statusLine.textContent = s; paintQuotes(); paintJob(); },
+            trouble: `The booking could not be finished — check the trip in ${courier.label} before pressing again, in case it went through`,
+          });
         },
         { danger: true, yesLabel: "Book this trip" },
       );
+    }
+
+    async function bookNow(q, trip) {
+      jobBusy = true;
+      statusLine.textContent = `Booking the ${String(q.name || "trip").trim() || "trip"} with ${courier.label}…`;
+      paintQuotes();
+      paintJob();
+      const holder = courierByKey(courier.key) || courier;
+      const out = await holder.book(state, trip, q);
+      if (!wrap.isConnected) return;
+      jobBusy = false;
+      if (!out.ok) {
+        statusLine.textContent = out.reason;
+        paintQuotes();
+        paintJob();
+        return;
+      }
+      commit(out.job);
+      statusLine.textContent = "";
+      paintQuotes();
+      paintJob();
+      toast(out.job.link
+        ? `Trip booked with ${holder.label} — the customer's tracking box now holds the share link`
+        : `Trip booked with ${holder.label} — the courier sent back no share link`);
     }
 
     // ── checking a booked trip ───────────────────────────────────────────
@@ -739,6 +753,17 @@ export function courierQuoteSection({
       if (jobBusy || !wrap.isConnected) return;
       const job = jobOf(first);
       if (!job) return;
+      // Wrapped on `jobBusy` like the two presses above (v217). Its failures are said in a
+      // toast rather than the status line, so that is where a throw goes too.
+      await guarded({
+        hold: (v) => { jobBusy = v; },
+        work: () => checkNow(job),
+        said: (s) => { toast(s); paintJob(); },
+        trouble: `The trip could not be checked with ${holderOf(job).label}`,
+      });
+    }
+
+    async function checkNow(job) {
       const holder = holderOf(job);
       jobBusy = true;
       paintJob();
@@ -784,28 +809,40 @@ export function courierQuoteSection({
         `This cannot be undone from here — you would have to book again, at a fresh price.`,
         async () => {
           if (jobBusy || !wrap.isConnected) return;
-          jobBusy = true;
-          paintJob();
-          const out = await holder.cancel(state, job.jobId);
-          if (!wrap.isConnected) return;
-          jobBusy = false;
-          if (!out.ok) {
-            // An ordinary answer rather than a fault: the courier decides how long a
-            // trip may still be called off, and it says so in its own words.
-            toast(out.reason);
-            paintJob();
-            return;
-          }
-          // The app records that SHE called it off, with the moment, rather than a
-          // status word the courier never gave: a DELETE answers with nothing at all,
-          // so a card claiming "Cancelled" in the courier's own voice would be this
-          // screen putting words in its mouth.
-          commit({ ...job, done: true, cancelledAt: new Date().toISOString() });
-          paintJob();
-          toast("Trip called off");
+          // Wrapped like every other press on this guard (v217), and with the same careful
+          // sentence as booking: a cancellation that throws on the way back cannot say which
+          // side of it we are on, so it says to look rather than to press again.
+          await guarded({
+            hold: (v) => { jobBusy = v; },
+            work: () => cancelNow(holder, job),
+            said: (s) => { toast(s); paintJob(); },
+            trouble: `The trip may not have been called off — check it in ${holder.label} before pressing again`,
+          });
         },
         { danger: true, yesLabel: "Call it off" },
       );
+    }
+
+    async function cancelNow(holder, job) {
+      jobBusy = true;
+      paintJob();
+      const out = await holder.cancel(state, job.jobId);
+      if (!wrap.isConnected) return;
+      jobBusy = false;
+      if (!out.ok) {
+        // An ordinary answer rather than a fault: the courier decides how long a
+        // trip may still be called off, and it says so in its own words.
+        toast(out.reason);
+        paintJob();
+        return;
+      }
+      // The app records that SHE called it off, with the moment, rather than a
+      // status word the courier never gave: a DELETE answers with nothing at all,
+      // so a card claiming "Cancelled" in the courier's own voice would be this
+      // screen putting words in its mouth.
+      commit({ ...job, done: true, cancelledAt: new Date().toISOString() });
+      paintJob();
+      toast("Trip called off");
     }
 
     // ── when the driver collects ─────────────────────────────────────────
@@ -973,8 +1010,27 @@ export function courierQuoteSection({
     }
 
     // ── asking ───────────────────────────────────────────────────────────
+    //
+    // WRAPPED, BECAUSE THE GUARD IS THE BUG (v217). Every exit from `askBody` below clears
+    // `busy` and re-arms the button on its own, which is right — but an exit it did not know
+    // about (anything that threw) left both where they were: a greyed button, a status line
+    // still saying "this takes a few seconds", and every later press returned at once by
+    // `if (busy …) return` with nothing said at all. That is a dead control, and it is the
+    // fault she reported as "the get price from lalamove not responding". `guarded` releases
+    // the guard and the button whatever happened, and SAYS the throw. `build()` ends by
+    // calling this, so it is also the press that runs when the fold opens.
     async function ask() {
       if (busy || !wrap.isConnected) return;
+      await guarded({
+        btn: askBtn,
+        hold: (v) => { busy = v; },
+        work: askBody,
+        said: (s) => { statusLine.textContent = s; },
+        trouble: "The price could not be asked for, and nothing has been priced",
+      });
+    }
+
+    async function askBody() {
       busy = true;
       askBtn.disabled = true;
       stopClock();
@@ -1129,6 +1185,18 @@ export function courierQuoteSection({
       const words = dropAddress(first);
       const before = doorSpot();
       if (busy || !words || !before) return;
+      // Wrapped for the same reason `ask` is (v217), and on the same guard: a lookup that
+      // threw used to leave `busy` set and this button disabled for the life of the card.
+      await guarded({
+        btn: lookBtn,
+        hold: (v) => { busy = v; },
+        work: () => relookUpBody(words, before),
+        said: (s) => { statusLine.textContent = s; },
+        trouble: "The address could not be looked up again, and the door has been left as it was",
+      });
+    };
+
+    async function relookUpBody(words, before) {
       busy = true;
       if (lookBtn) lookBtn.disabled = true;
       stopClock();
@@ -1160,7 +1228,7 @@ export function courierQuoteSection({
       invalidatePrices(road
         ? `The door moved, and it is still only ${roadNotHouse(road, { short: true })}.`
         : "The door moved — the lookup answers this address with a different point now.");
-    };
+    }
 
     dayInput.addEventListener("input", paintWhen);
     timeInput.addEventListener("input", paintWhen);

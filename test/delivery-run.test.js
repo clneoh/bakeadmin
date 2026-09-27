@@ -509,6 +509,42 @@ test("a run the courier will not book says why, instead of going quietly inert (
     "and the reason is ON THE SCREEN, rather than left to be guessed at from a greyed button");
 });
 
+// ── v217: the run's price press cannot end in silence ─────────────────────
+// The same fault as the order card's, on the same guard — `busy`, held across the run's own
+// lookup of every doorstep and then the courier's ask. A throw anywhere in there used to
+// leave the flag set and the button grey, and every later press was returned at once with
+// nothing said. The throw is injected into the courier's `vehicles`, which is the only honest
+// way to reach it: `callCourier` is built never to throw, so no shape of reply produces one.
+test("a throw inside the run's price press arms the button again, says so, and does not swallow the next press (v217)", async () => {
+  const st = world();
+  stubCourier();
+  const { lalamove } = await import("../admin/js/couriers/lalamove.js");
+  const realVehicles = lalamove.vehicles;
+  lalamove.vehicles = async () => { throw new Error("the fleet box fell over"); };
+  try {
+    const { root } = openRun(st);
+    press(buttonByText(root, "Price this run"));
+    await settle();
+
+    const ask = buttonByText(root, "Price this run");
+    assert.ok(ask, "the press is on the screen, so the picture below is of a real one");
+    assert.equal(ask.disabled, false, "the button takes a press again — a throw must not leave it dead");
+    assert.match(root.textContent,
+      /The price could not be asked for, and nothing has been priced — the fleet box fell over\./,
+      "and the throw is SAID, rather than swallowed behind a grey button");
+
+    // THE HALF A LATCHED GUARD TOOK AWAY: her next press. With the fleet back it has somewhere
+    // to go — and had `busy` been left set, this press would have returned at once and there
+    // would be no row to find.
+    lalamove.vehicles = realVehicles;
+    press(buttonByText(root, "Price this run"));
+    await settle();
+    assert.ok(priceRow(root, "Car"), "the next press really runs, and comes back priced");
+  } finally {
+    lalamove.vehicles = realVehicles;
+  }
+});
+
 // ── 1. one doorstep per customer, on the wire ─────────────────────────────
 
 test("a run prices ONE drop per customer, however many lines their order holds", async () => {

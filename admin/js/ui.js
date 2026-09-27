@@ -267,6 +267,46 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null } = {}
   return close;
 }
 
+// A thrown value said as a sentence. A browser throws Errors, so an Error's own message is
+// what belongs on the screen; a bare string is taken at its word. Anything ELSE is refused a
+// voice: String() on an object prints "[object Object]", and that is the v195 fault — a word
+// on her screen that is the app's own plumbing rather than a fact. A value with nothing to
+// say gets the honest sentence instead.
+export function saidOf(err) {
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const t = String(raw || "").trim();
+  return t ? `${t.replace(/\.?$/, "")}.` : "the app could not say what went wrong.";
+}
+
+// A press that cannot leave its button dead (v217).
+//
+// The app's own contract for a service outside it is that a call never throws — "a thrown
+// error [at a button in a pop-up she pressed while standing in a kitchen] is a dead screen
+// with no words on it" (couriers/api.js). That contract covers the CHANNEL. The guard in
+// front of the channel is the screen's own, and every press that asked a courier held a flag
+// (`busy`, `jobBusy`) which it set before its first await and cleared again on each of its
+// own ways out. Anything that threw in between left the flag set, and a set flag makes every
+// later press return at once, with nothing said, on a button still grey. That is the shape
+// of fault the baker reported as "the get price from lalamove not responding", and it is the
+// one thing this helper exists to make impossible: `hold` releases the flag and the button
+// comes back whatever happened, and a throw is SAID rather than swallowed.
+//
+// `btn` is optional because a press can wait on a card of her own, whose yes-button is the
+// dialog's and not ours. `said` is where the sentence goes; it is required, so a call site
+// cannot quietly go back to swallowing.
+export async function guarded({ btn = null, hold, work, said, trouble }) {
+  hold(true);
+  if (btn) btn.disabled = true;
+  try {
+    await work();
+  } catch (err) {
+    said(`${trouble} — ${saidOf(err)}`);
+  } finally {
+    hold(false);
+    if (btn) btn.disabled = false;
+  }
+}
+
 export function toast(msg) {
   let t = document.querySelector(".toast");
   if (!t) {
