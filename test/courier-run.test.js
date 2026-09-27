@@ -296,9 +296,29 @@ test("a booked run puts the same trip on every order it carries", () => {
   stampTrip(second, job, "Lalamove");
   for (const o of [...first, ...second]) {
     assert.equal(o.courierJob.jobId, "LLM-1");
-    assert.equal(o.trackingNo, "https://lalamove.com/t/abc", "every customer on the run gets the one link");
   }
   assert.equal(first[0].courierJob, first[1].courierJob, "and it is one trip, not a copy each");
+});
+
+test("the trip's ONE link never reaches a customer on a run of several doorsteps (v218)", () => {
+  // Her report: "the courier link ... when the customer track it, they become aware of the
+  // other drop off point". One link covers the whole trip, so a run carrying several
+  // doorsteps must not hand it to any of them. Default-off: a caller that says nothing
+  // shares nothing, which is the only failure direction that cannot leak.
+  const rows = [{ id: "o1" }, { id: "o2" }];
+  stampTrip(rows, { jobId: "LLM-9", link: "https://lalamove.com/t/whole-trip" }, "Lalamove");
+  for (const o of rows) {
+    assert.equal(o.trackingNo, undefined, "no link on the customer's order");
+    assert.equal(o.courierJob.jobId, "LLM-9", "but the trip itself is still recorded, so the card can still say where it is");
+  }
+});
+
+test("a trip that carries one doorstep alone still hands its link over (v218)", () => {
+  // The carve-out she chose: a single-customer trip is the bakery to their door and
+  // nothing else, so its link reveals no third party, and live tracking is worth having.
+  const rows = [{ id: "o1" }];
+  stampTrip(rows, { jobId: "LLM-10", link: "https://lalamove.com/t/solo" }, "Lalamove", { alone: true });
+  assert.equal(rows[0].trackingNo, "https://lalamove.com/t/solo", "the only customer on the trip gets the link");
 });
 
 test("a courier with no link must never blank a number she typed by hand", () => {
@@ -308,6 +328,16 @@ test("a courier with no link must never blank a number she typed by hand", () =>
   stampTrip(rows, { jobId: "LLM-2", link: "" }, "Lalamove");
   assert.equal(rows[0].trackingNo, "LLM-TYPED-BY-HAND");
   assert.equal(rows[0].courierJob.jobId, "LLM-2", "the trip itself is still recorded");
+});
+
+test("a run's withheld link must not blank a number she typed by hand either (v218)", () => {
+  // The same rule from the other side, and the one v218 could most easily break: the
+  // courier DID send a link, the app is choosing not to publish it, and her own typed
+  // reference must still be sitting there afterwards.
+  const rows = [{ id: "o1", trackingNo: "LLM-TYPED-BY-HAND" }];
+  stampTrip(rows, { jobId: "LLM-11", link: "https://lalamove.com/t/whole-trip" }, "Lalamove");
+  assert.equal(rows[0].trackingNo, "LLM-TYPED-BY-HAND", "her reference is hers, not the courier's to replace");
+  assert.equal(rows[0].courierJob.jobId, "LLM-11");
 });
 
 test("the trip carries the courier's own name, from the provider's label", () => {

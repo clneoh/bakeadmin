@@ -526,7 +526,8 @@ export function runLimitProblem(stops) {
 }
 
 // Write a trip onto the orders it carries, so every customer on a run is on the same
-// journey: the same job record and the same share link.
+// journey: the same job record, and the courier's own link only where that link has
+// nothing of anybody else's in it.
 //
 // Extracted from the quote panel's own commit (v191) because a run stamps MANY groups
 // where a single booking stamps one, and the rule hiding in the second line is worth
@@ -534,14 +535,25 @@ export function runLimitProblem(stops) {
 // one. An empty link must never blank a tracking number she typed by hand — that would
 // be this app deleting a customer's reference on the strength of an absence in somebody
 // else's reply.
-export function stampTrip(orders, job, label = "") {
+//
+// A TRIP'S LINK IS NOT ITS CUSTOMERS' TO SHARE (v218). The courier hands back ONE link
+// for the whole trip — its documents call it a thing "for sharing delivery information
+// with a 3rd party personnel", and there is no per-stop equivalent — so on a run that
+// carries several doorsteps that one link shows each customer the other doorsteps. Her
+// report: "the courier link ... when the customer track it, they become aware of the
+// other drop off point". So the link reaches a customer ONLY where the trip carries
+// nothing but that customer's own doorstep, which is what `alone` says. It defaults to
+// FALSE so a caller that forgets shares nothing, rather than a caller that forgets
+// sharing everybody. The trip itself — the job record, and with it the progress, the
+// driver and the plate the customer's card publishes — goes on every order either way.
+export function stampTrip(orders, job, label = "", { alone = false } = {}) {
   const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
   const named = job
     ? { ...job, courierName: String(label || "").trim() || job.courierName || "" }
     : job;
   for (const o of list) {
     o.courierJob = named;
-    if (named && named.link) o.trackingNo = named.link;
+    if (named && named.link && alone) o.trackingNo = named.link;
   }
   return named;
 }

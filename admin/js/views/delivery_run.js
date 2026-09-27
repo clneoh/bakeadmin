@@ -629,7 +629,10 @@ export function renderDeliveryRun(root, state, params) {
         ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, runLimitProblem(tickedGroups().length))
         : null,
       quotes.length ? el("p", { class: "card-sub", style: "margin:12px 0 0" },
-        `Booking books the whole run as ONE ${courier.label} trip: one vehicle, ${tickedGroups().length} doorstep${tickedGroups().length === 1 ? "" : "s"}, and one share link that goes on every customer's own track card and message. ` +
+        `Booking books the whole run as ONE ${courier.label} trip: one vehicle, ${tickedGroups().length} doorstep${tickedGroups().length === 1 ? "" : "s"}, ` +
+        (tickedGroups().length === 1
+          ? "and the trip's own share link, which goes on that customer's track card and message. "
+          : `and the trip's ONE share link is deliberately kept OFF the customers' own track cards and messages — it opens the whole journey, so it would show each of them the other doorsteps (v218). A single-customer run keeps its link, because there is nobody else in it. `) +
         "Booking writes each order's charge into its box — their own doorstep's cost when the customer bears it, your apportioned part of the run's fee when you do — with the payer, the method and the COD answer you set below, and saves it there and then. A real vehicle is on a real road the moment the press returns, so there is nothing to discard by walking away.") : null,
     ].filter(Boolean));
   }
@@ -842,10 +845,15 @@ export function renderDeliveryRun(root, state, params) {
     const w = windowNow();
     const when = w ? ` Customers will be told ${fmtWindow(w)}.` : "";
     const charge = chargeSentence(amounts, q, cur, answers);
+    // What the customers are told about their tracking, said BEFORE the money is spent —
+    // because on a run it is a promise about privacy, not about convenience (v218).
+    const tracking = groups.length > 1
+      ? `The courier's own tracking link is deliberately NOT put on the customers' orders: it is one link for the whole trip, so it would show each of them the other doorsteps. They keep your own tracking card instead — how far the delivery has got, the driver's name and plate, and a button to ring him.`
+      : `The customer's tracking box takes this trip's share link, which is what their card and message send them to.`;
     confirmDialog(
       `Book the ${String(q.name || "vehicle").trim() || "vehicle"} with ${courier.label} for ${fmtQuote(q.amount, q.currency, cur)}? ` +
       `It carries ONE trip with ${load.stops} doorstep${load.stops === 1 ? "" : "s"} and ${load.items} item${load.items === 1 ? "" : "s"}.${when} ` +
-      `Every customer on the run gets the same share link, so all of their cards and messages send them to the same trip.${charge} ` +
+      `${tracking}${charge} ` +
       `This books a real trip and spends real money, and ${courier.label} only lets it be called off while a driver is still being found.`,
       async () => {
         if (busy || !root.isConnected) return;
@@ -885,7 +893,9 @@ export function renderDeliveryRun(root, state, params) {
     // edited and re-split, and a promise living on one row would go with that row.
     for (const g of groups) {
       if (w) for (const o of g.orders) o.deliveryWindow = w;
-      stampTrip(g.orders, out.job, holder.label);
+      // `alone` only on a run that turned out to carry one doorstep: the courier's link is
+      // ONE link for the whole trip, so on any bigger run it is not the customers' to have.
+      stampTrip(g.orders, out.job, holder.label, { alone: groups.length === 1 });
     }
     // The charge, per order, through the one writer every door uses. Each order's amount
     // is the one runChargeAmounts chose: the customer's OWN doorstep cost when they bear
@@ -901,7 +911,9 @@ export function renderDeliveryRun(root, state, params) {
     statusLine.textContent = "";
     refreshDay();
     toast(out.job && out.job.link
-      ? `Run booked with ${holder.label} — ${groups.length} customer${groups.length === 1 ? "" : "s"} now share one trip and one link.`
+      ? groups.length > 1
+        ? `Run booked with ${holder.label} — ${groups.length} customers now share one trip. The courier's link was kept off their orders, so it cannot show them each other's doors.`
+        : `Run booked with ${holder.label} — the customer's card now carries the trip's share link.`
       : `Run booked with ${holder.label} — the courier sent back no share link, so nothing was put on the customers' cards but the trip itself.`);
   }
 

@@ -1,9 +1,60 @@
-# Jienluv2bake — change history (v54 → v217)
+# Jienluv2bake — change history (v54 → v218)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**27 Sep 2026 — engine v218, ONE CUSTOMER'S DOOR IS NOT ANOTHER CUSTOMER'S BUSINESS (no database
+step, no redeploy — one push). The delivery run's tracking link.**
+
+Your report: __Can the courier link be not shared as one, as when the customer track it, they
+become aware of the other drop off point__.
+
+**You were right, and there is no way to split it.** The courier hands back __one__ link for the
+__whole trip__ — its own documents describe that link as a thing for sharing delivery information
+with a third party, and there is no per-drop-off link at all. So a customer cannot be given live
+tracking of their own box without also being handed every other doorstep on the van. The only way
+to stop them seeing each other is to stop giving that link to customers on a run, and that is what
+this version does.
+
+**A run of two or more doorsteps no longer puts the courier's link on the customers' orders.** It
+does not reach their track page and it does not go in their WhatsApp message, so there is nothing
+for them to open that would show them anybody else. **Everything else they had, they still have:**
+the app's own tracking card keeps saying how far the delivery has got — finding a driver, on the
+way, collected, delivered — and it still carries the driver's name, the plate to look for at the
+gate, and the press that rings him. All of that comes from your own app rather than from the
+courier's page, so none of it can leak a second address.
+
+**What changes for them is the live map.** Without the courier's link there is no moving dot for a
+customer to watch, and their page is as fresh as the last time you press **Check the trip** — which
+is exactly how it already works for any order that has no link in its tracking box. That is the
+price of not showing them each other, and it is worth saying out loud rather than discovering.
+
+**A single customer's own courier order is untouched — you chose this, and it is deliberate.** When
+you book one order on its own, that trip is your bakery to that one door and nobody else is in it,
+so its link gives nothing away and the customer keeps the live tracking exactly as before. The same
+is true if you ever run a day with one doorstep on it. **The rule is: the courier's link reaches a
+customer only when the trip carries nothing but that customer's own doorstep.**
+
+**The card tells you which one you are about to do, before the money is spent.** The booking
+question on the Delivery screen now says which of the two it is: on a run it says the courier's
+link is deliberately kept off the customers' orders and why; on a single doorstep it says the
+customer's tracking box takes the link. And the note afterwards agrees with it instead of claiming
+everyone now shares one link. **Your own card still shows you the link** on every trip, run or not,
+because that is the one you use to check the trip and to call it off.
+
+**One more line promised the old thing, and it was found by driving a real run rather than by
+reading the code.** Under the prices, the Delivery run screen's own note still read that the trip
+had __one share link that goes on every customer's own track card and message__ — true until this
+version, and the exact opposite of what this version does. Nothing was asserting that line, so it
+had survived the first pass of this work; pricing a two-customer run in a browser is what caught it
+saying one thing while the booking did another. It now says what actually happens, and a test names
+that line by its own words, so the screen and the booking cannot drift apart again.
+
+**Nothing to run.** No database step and no redeploy: this is the app's own screens, and one push
+is the whole of it. **Engine v218** on your **More** screen once this is pushed.
+
+---
 **27 Sep 2026 — engine v217, A BUTTON THAT COULD GO QUIETLY DEAD CANNOT ANY MORE (no database
 step, no redeploy — one push). The courier price and booking presses.**
 

@@ -17,9 +17,13 @@
 //      be typed — an end before its start — must reach NEITHER. This is the half of the
 //      feature a customer can be disappointed by.
 //
-//   3. EVERY CUSTOMER GETS THE SAME TRIP. One booking, one share link, stamped onto every
-//      order the run carries — and stamped on all of them, or the ones left behind have no
-//      way to be tracked at all.
+//   3. EVERY CUSTOMER GETS THE SAME TRIP, AND NONE OF THEM GETS THE LINK (v218). One
+//      booking, one job stamped onto every order the run carries — and stamped on all of
+//      them, or the ones left behind have no way to be tracked at all. The courier's own
+//      link is ONE link for the whole trip, so on a run of several doorsteps it goes to
+//      nobody's customer: opening it would show each of them the other drop off points.
+//      Her report. A trip that turned out to carry one doorstep alone still shares its
+//      link, because there is nobody else in it.
 //
 //   4. THE SAVING STAYS WITH HER. A customer who bears the charge pays what their OWN
 //      doorstep would have cost sent on its own — the original, un-consolidated price —
@@ -242,6 +246,17 @@ function world() {
   return st;
 }
 
+// The same day with ONE customer left on it. That is the case where the trip the courier
+// books carries nothing but that one doorstep, so its single link has no third party in it
+// and may be handed over (v218) — the carve-out that keeps ordinary single-order courier
+// work tracked live.
+function worldSolo() {
+  const st = world();
+  st.orders = st.orders.filter((o) => o.groupId === "g1");
+  st.customers = st.customers.filter((c) => c.id === "cus_1");
+  return st;
+}
+
 // A third customer, for the one case the split cannot get right by accident: a fee that
 // does not divide evenly. RM22 over two orders is RM11 each, which any wrong arithmetic
 // would also produce.
@@ -459,8 +474,13 @@ async function book(st, { window: win = "", payer = "", method = "", vehicle = "
   const confirm = layers["confirm-layer"];
   const yes = buttonByText(confirm, "Book this run");
   assert.ok(yes, "the app asked before spending money");
+  // The question is EMPTIED by the app as soon as it is answered, and so is the toast after
+  // its 2.2 seconds, so what was on screen has to be read off while it is still there. A
+  // test that went looking afterwards would find an empty layer and assert nothing.
+  st.confirmText = confirm.textContent;
   press(yes);
   await settle();
+  st.toastText = toastNode.textContent;
   return { root, wire, confirm };
 }
 
@@ -614,15 +634,17 @@ test("one row's own tick moves the count and the bulk press with it", async () =
 
 // ── 2. booking the run ────────────────────────────────────────────────────
 
-test("one booking puts the same trip and one link on every order the run carries", async () => {
+test("one booking puts the same trip on every order the run carries — and its link on none of them (v218)", async () => {
   const st = world();
   const { wire } = await book(st, { payer: "The customer paid it" });
   for (const o of st.orders) {
     assert.ok(o.courierJob, `${o.id} is on the trip`);
     assert.equal(o.courierJob.jobId, "LLM-RUN-1");
-    assert.equal(o.trackingNo, "https://lalamove.com/t/run-abc",
-      "every customer's card and message carries the one share link");
     assert.equal(o.courierJob.courierName, "Lalamove", "from the provider's own label");
+    // The one link covers the WHOLE trip, so handing it to any of them shows them the
+    // others' doorsteps. Her report. The customer keeps the app's own card.
+    assert.equal(o.trackingNo, undefined,
+      "the courier's whole-trip link is not put on a customer's order by a run");
   }
   const books = wire.sent.filter((b) => b.action === "book");
   assert.equal(books.length, 1, "ONE trip, not one per customer");
@@ -632,6 +654,66 @@ test("one booking puts the same trip and one link on every order the run carries
   assert.equal(books[0].payload.quotationId, "Q-CAR-3", "booked at the quotation she chose");
 });
 
+test("a run booked through the screen says the customers were not given the link, before it spends her money (v218)", async () => {
+  // The promise about privacy has to be on screen BEFORE the money moves, not in a toast
+  // afterwards — and the toast must not then claim the customers got one link.
+  const st = world();
+  await book(st, { payer: "The customer paid it" });
+  assert.match(st.confirmText,
+    /The courier's own tracking link is deliberately NOT put on the customers' orders/,
+    "the card says so before she presses yes");
+  assert.match(st.confirmText, /it would show each of them the other doorsteps/,
+    "and says why, in the words of the problem she reported");
+  assert.doesNotMatch(st.confirmText, /gets the same share link/,
+    "the old promise is gone");
+  assert.match(st.toastText, /one trip\. The courier's link was kept off their orders/,
+    "and the toast after it agrees");
+  assert.doesNotMatch(st.toastText, /share one trip and one link/);
+});
+
+test("a run that turned out to carry ONE doorstep does give that customer the link (v218)", async () => {
+  // The carve-out she chose: the trip is the bakery to their door and nothing else, so
+  // there is no third party in the link and live tracking is worth having.
+  const st = worldSolo();
+  await book(st, { payer: "The customer paid it" });
+  assert.equal(st.orders[0].trackingNo, "https://lalamove.com/t/run-abc",
+    "the only customer on the trip gets the link");
+  assert.match(st.confirmText, /The customer's tracking box takes this trip's share link/);
+});
+
+test("the PRICED screen itself stops promising every customer the link (v218)", async () => {
+  // The confirmation and the toast were not the only places this promise was written. The
+  // priced screen's own footer under the rows said the trip had "one share link that goes on
+  // every customer's own track card and message" — true until v218, and the exact opposite of
+  // what v218 does. Nothing asserted it, so it survived the first pass of this version and was
+  // found only by pricing a real run in the browser. A screen that says one thing while the
+  // booking does another is worse than either; this is the test that keeps the two in step.
+  const two = world();
+  const wireTwo = stubCourier();
+  const { root: rootTwo } = openRun(two);
+  press(buttonByText(rootTwo, "Price this run"));
+  await settle();
+  const footerTwo = all(rootTwo).map((n) => n.textContent).join("\n");
+  assert.doesNotMatch(footerTwo, /goes on every customer's own track card/,
+    "the stale promise is gone from the screen she prices on");
+  assert.match(footerTwo, /ONE share link is deliberately kept OFF the customers' own track cards/,
+    "and is replaced by what actually happens on a run of several doorsteps");
+  wireTwo.restore();
+
+  // And the carve-out holds on the screen too, not only in the booking: a run that turns out
+  // to carry one doorstep still tells her the link goes on that customer's card.
+  const one = worldSolo();
+  const wireOne = stubCourier();
+  const { root: rootOne } = openRun(one);
+  press(buttonByText(rootOne, "Price this run"));
+  await settle();
+  const footerOne = all(rootOne).map((n) => n.textContent).join("\n");
+  assert.match(footerOne, /the trip's own share link, which goes on that customer's track card/);
+  assert.doesNotMatch(footerOne, /deliberately kept OFF/,
+    "a single-doorstep run is not warned about a leak it cannot have");
+  wireOne.restore();
+});
+
 test("a trip is stamped on every LINE of a group, not only its first", async () => {
   // Ain's order is two rows. A booking written on the first row alone would come apart the
   // moment that order is edited and its rows are re-split, and the customer would be left
@@ -639,7 +721,6 @@ test("a trip is stamped on every LINE of a group, not only its first", async () 
   const st = world();
   await book(st, { payer: "The customer paid it" });
   assert.equal(st.orders[1].courierJob.jobId, "LLM-RUN-1", "the second line of Ain's order too");
-  assert.equal(st.orders[1].trackingNo, "https://lalamove.com/t/run-abc");
 });
 
 test("a customer bears their OWN doorstep's cost, and the saving stays with her", async () => {
