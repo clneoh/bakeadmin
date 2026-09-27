@@ -1,8 +1,42 @@
-# Jienluv2bake — change history (v54 → v220)
+# Jienluv2bake — change history (v54 → v221)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v221, THE PICTURE IS NOW BIGGER AND RUNS THE WHOLE HEIGHT OF THE CARD (no
+database step, no redeploy — one push).**
+
+Last version I made the picture a tall shape. You told me you meant __bigger__ — __take the fullest
+height as possible__. You are right, and last version only changed the shape; this one changes the
+size.
+
+**The picture now runs the whole height of the product's card.** It starts at the top of the card
+and carries on down to the bottom, past the price and the description and alongside the + and −
+buttons, so the strip beside it is never left empty. On your shop the picture is half again as wide
+as it was, and the full height of the card rather than a small square in the corner. It is the
+biggest the picture can be before your product names would start breaking onto a third line, which
+is the point you asked me to stop at.
+
+**Your own Products list is the same.** In the app, the small picture beside a product is now bigger
+and stretches from the product's name down past everything written about it. A product that has a
+description therefore gets a taller picture than a bare one — the picture follows the row rather than
+being a fixed stamp, so nothing is left empty and nothing is cut off.
+
+**A new photo you choose is now stored bigger, so it stays sharp at this size.** The file the app
+keeps is about 10 KB instead of about 6 KB. That is still tiny — your whole app still travels in one
+small package to the cloud and to every customer's phone — but it means the picture will not look
+soft now that it is drawn so much larger. Choose a product's photo again in its editor and you get
+the bigger version automatically.
+
+**The pictures you already have are fine, and nothing is stretched.** An old square picture is fitted
+into the new tall box by taking a slice from the middle, so it fills the height without being pulled
+out of shape. It will look right straight away. If you want a picture that uses the new size at its
+best, choose that product's photo again — a tall photo of the tray or the plate is what suits this
+shape.
+
+**Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your
+shop and your app the next time you push, and you will see **Engine v221** on your **More** screen.
 
 **28 Sep 2026 — engine v220, THE PICTURE IS NOW TALLER THAN IT IS WIDE, AND YOUR OWN LIST ARRANGES
 ITSELF LIKE YOUR SHOP (no database step, no redeploy — one push).**

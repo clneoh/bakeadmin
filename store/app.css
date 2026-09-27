@@ -351,12 +351,28 @@ html, body {
 }
 
 /* ---------- Menu ---------- */
+/* The card is a ROW: the photo, when there is one, is the left column and the
+   body is everything else. `align-items: stretch` is the whole point — it is
+   what makes the photo take the card's full height rather than a box of its
+   own (the baker asked for the fullest height the card has). A product with no
+   photo is the same shape with the body as the only column. */
 .menu-item {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.card-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
-.menu-item .stepper { align-self: flex-end; }
+/* `margin-top: auto` drops the stepper to the card's foot when the photo has
+   made the body taller than its own words need. On a card with no photo the
+   body is exactly its content, so the margin resolves to nothing and the card
+   is drawn exactly as it always was. */
+.menu-item .stepper { align-self: flex-end; margin-top: auto; }
 .card-head {
   display: flex;
   align-items: flex-start;
@@ -365,27 +381,28 @@ html, body {
 }
 .card-title { font-size: 16px; font-weight: 700; margin: 0 0 2px; font-family: var(--serif); }
 .card-sub { font-size: 13px; color: var(--muted); margin: 0; }
+/* The name/price/description column, beside the stamp. `min-width: 0` is what
+   lets a long product name wrap inside the head instead of shoving the stamp
+   off the right of the card. */
+.card-words { flex: 1 1 auto; min-width: 0; }
 
-/* The left half of a card head: the photo, when the baker gave the product one,
-   beside the words. `.card-head` is space-between, so a third loose child would
-   be pushed into the middle of it — the photo and the words share this wrapper
-   and the stamp keeps its place on the right. `min-width: 0` is what lets a long
-   product name wrap instead of shoving the stamp off the card. */
-.card-main {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  min-width: 0;
-}
-/* A crop taller than it is wide — 4:5, made by the app itself (readPhoto at
-   160 x 200), so the drawn box and the file's own shape already agree and
-   `object-fit: cover` is only the backstop for an odd photo. Taller because a
-   square cut the top and bottom off the food. Fixed at 64 x 80 so a menu of
-   cards reads as one shelf rather than a ragged row. */
+/* The photo runs the FULL height of the card: `align-self: stretch` takes it
+   from the top of the name down past the stepper, so the strip beside the + and
+   − is not left empty. The width is what fixes how much of the card it takes —
+   96px keeps a long product name on two lines rather than three — and the height
+   follows the card, so a product with a description gets a taller picture.
+   `min-height` stops a bare card's photo shrinking to a stamp; `max-height`
+   stops a very long description stretching it into a sliver. The file itself is
+   a 2:3 crop the app made (readPhoto at 240 x 360), so in the common case the
+   drawn box and the file already agree and `object-fit: cover` is only the
+   backstop for an odd photo or an unusual card height. */
 .menu-thumb {
-  width: 64px;
-  height: 80px;
+  width: 96px;
   flex: 0 0 auto;
+  align-self: stretch;
+  height: auto;
+  min-height: 120px;
+  max-height: 190px;
   object-fit: cover;
   border-radius: 10px;
   background: #f1e9de;

@@ -513,7 +513,7 @@ test("the pin and the address the order carries agree — or the pin does not tr
   try {
     // The shop's own menu, driven the way test/store.test.js drives it.
     registry["menu"].children[0]
-      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+      .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 
@@ -564,7 +564,7 @@ test("a pin taken from the list travels named with the customer's own words, not
   };
   try {
     registry["menu"].children[0]
-      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+      .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 
@@ -673,7 +673,7 @@ test("the order carries the address the row wrote, with the pin named by that sa
   };
   try {
     registry["menu"].children[0]
-      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+      .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 

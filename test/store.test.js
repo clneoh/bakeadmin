@@ -174,7 +174,7 @@ test("daySpecs leaves days plain when availability is off or unknown", () => {
 test("order click sends one order and shows the success card (regression: no throw on the date label)", async () => {
   // Add one item via the first menu card's "+" button (drives the real cart).
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0](); // "+" — cart now has 1 item
   assert.equal(registry["order-btn"].disabled, false, "cart non-empty enables the button");
 
@@ -231,7 +231,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 function refill() {
   registry["menu"].children[0]
-    .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
 }
 
 test("the pin the customer marks rides on a courier order, and never on a self-collect one", async () => {
@@ -328,7 +328,7 @@ test("the next customer does not inherit the last one's front door", async () =>
 
 test("the receipt carries the strictest change/cancel window of the whole basket", async () => {
   const card = registry["menu"].children[0];
-  card.children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+  card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
 
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts) => (opts && opts.method === "POST" ? { ok: true } : { ok: true, json: async () => [] });
@@ -345,7 +345,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
 
     // Nothing stated anywhere → no window line at all.
     CONFIG.products.forEach((p) => { delete p.cancelDays; });
-    card.children.find((c) => c.className === "stepper").children[2]._listeners.click[0](); // basket refilled
+    card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0](); // basket refilled
     await registry["order-btn"].onclick();
     assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
       "no product states a window → the receipt says nothing");
@@ -367,7 +367,7 @@ test("parseVia normalises the ?via= digits on a referral link", () => {
 
 test("an order placed from a ?via= link is stamped with the referrer", async () => {
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0](); // "+" — cart now has 1 item
 
   let posted = null;
@@ -394,7 +394,7 @@ test("an order placed from a ?via= link is stamped with the referrer", async () 
 
 test("an order without a ?via= link carries no referral stamp", async () => {
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0]();
 
   let posted = null;
@@ -416,7 +416,7 @@ test("an order without a ?via= link carries no referral stamp", async () => {
 test("order click without a WhatsApp number blocks the order (no POST)", async () => {
   // The number is compulsory — confirmations + the payment QR go over WhatsApp.
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0]();
   assert.equal(registry["order-btn"].disabled, false);
 
@@ -440,7 +440,7 @@ test("order click without a WhatsApp number blocks the order (no POST)", async (
 
 test("order click sanitizes a +60-style phone to wa.me digits", async () => {
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0]();
 
   let posted = null;
@@ -700,7 +700,7 @@ test("an order at the last stage shows the whole journey green — nothing flash
 
 test("order that reaches the app shows received WITHOUT opening WhatsApp (no popup)", async () => {
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0](); // "+" — cart has 1 item
   assert.equal(registry["order-btn"].disabled, false);
 
@@ -734,7 +734,7 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
 
 test("WhatsApp only opens as a fallback when the order could NOT reach the app", async () => {
   const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "stepper");
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
   stepper.children[2]._listeners.click[0]();
   assert.equal(registry["order-btn"].disabled, false);
 

@@ -700,23 +700,29 @@ export function render() {
         class: `card menu-item${soldOut ? " soldout" : ""}`,
         dataset: { product: p.name },
       },
-        el("div", { class: "card-head" },
-          // The photo belongs with the words. The head is space-between, so a
-          // third loose child would be spread into the middle of it — hence the
-          // one wrapper. The stamp keeps its place on the right.
-          el("div", { class: "card-main" },
-            p.thumb
-              ? el("img", { class: "menu-thumb", src: p.thumb, alt: "", loading: "lazy", decoding: "async" })
-              : null,
-            el("div", {},
+        // The photo is the card's own LEFT COLUMN, not a piece of the head. It
+        // stretches to the whole card height — down beside the stepper — so the
+        // strip next to it is never left empty (the baker asked for the fullest
+        // height the card has). Everything else stacks in `.card-body` beside it,
+        // and a product with no photo is simply a card whose body is its only
+        // child, so the two shapes cannot drift apart.
+        p.thumb
+          ? el("img", { class: "menu-thumb", src: p.thumb, alt: "", loading: "lazy", decoding: "async" })
+          : null,
+        el("div", { class: "card-body" },
+          // `.card-head` is space-between, so the words and the stamp each keep
+          // their end. `min-width: 0` on the words is what lets a long product
+          // name wrap instead of shoving the stamp off the card.
+          el("div", { class: "card-head" },
+            el("div", { class: "card-words" },
               el("p", { class: "card-title" }, nameFor(p, lang)),
               el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
-              desc ? el("p", { class: "prod-desc" }, desc) : null)),
-          stamp),
-        el("div", { class: "stepper" }, dec, qtyLabel, inc),
-        note,
-        nextNote,
-        cancelNote);
+              desc ? el("p", { class: "prod-desc" }, desc) : null),
+            stamp),
+          el("div", { class: "stepper" }, dec, qtyLabel, inc),
+          note,
+          nextNote,
+          cancelNote));
     };
 
     // What is actually on today's menu, in the shop's own product order. Asked

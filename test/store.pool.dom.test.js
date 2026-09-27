@@ -110,18 +110,26 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 function menuCards() {
   return registry["menu"].children;
 }
-// Card layout: .menu-item > [.card-head > [.card-main > [(.menu-thumb), div >
-// [p.title, p.sub, (.prod-desc))], stamp], stepper, (prod-note), (prod-next),
-// (prod-cancel)]. Titles are the p element; its text node is one deeper. No
-// product in these fixtures carries a thumbnail, and that is asserted rather
-// than assumed — a path that lands one level out returns an empty string, which
-// would read as "the card is missing" instead of pointing at the real fault.
+// Card layout: .menu-item > [(.menu-thumb), .card-body > [.card-head >
+// [.card-words > [p.title, p.sub, (.prod-desc)], stamp], stepper, (prod-note),
+// (prod-next), (prod-cancel)]]. The photo is the card's own left column, a
+// sibling of the body, so a card that has one shifts everything down one index;
+// the helpers below therefore find the body by name rather than by position.
+// Titles are the p element; its text node is one deeper. No product in these
+// fixtures carries a thumbnail — asserted rather than assumed, because a path
+// that lands one level out returns an empty string, which would read as "the
+// card is missing" instead of pointing at the real fault.
+function bodyOf(card) {
+  const b = card.children.find((c) => c.className === "card-body");
+  assert.ok(b, "the card body");
+  return b;
+}
 function titleOf(card) {
-  const head = card.children[0];
+  const head = bodyOf(card).children[0];
   assert.equal(head.className, "card-head", "the card head");
-  const main = head.children[0];
-  assert.equal(main.className, "card-main", "the photo-and-words half of the head");
-  const t = main.children[0].children[0];
+  const words = head.children[0];
+  assert.equal(words.className, "card-words", "the name and price column");
+  const t = words.children[0];
   assert.equal(t.className, "card-title");
   return t.children[0] ? t.children[0].text : "";
 }
@@ -129,10 +137,10 @@ function cardOf(title) {
   return menuCards().find((c) => titleOf(c) === title);
 }
 function stampOf(card) {
-  const s = card.children[0].children[1];
+  const s = bodyOf(card).children[0].children[1];
   return s && s.children[0] ? s.children[0].text : "";
 }
-function stepperOf(card) { return card.children[1]; }
+function stepperOf(card) { return bodyOf(card).children[1]; }
 function qtyOf(card) {
   const label = stepperOf(card).children[1];
   return label.children[0] ? label.children[0].text : label.textContent;
@@ -165,9 +173,9 @@ test("value pack is gated on a near delivery date and freed on a far one", async
   assert.equal(stampOf(nearPack), "Sold out");
   assert.equal(stepperOf(nearPack).children[0].disabled, true);
   assert.equal(stepperOf(nearPack).children[2].disabled, true);
-  assert.ok(nearPack.children[2] && nearPack.children[2].className.includes("prod-note"),
+  assert.ok(bodyOf(nearPack).children[2] && bodyOf(nearPack).children[2].className.includes("prod-note"),
     "gated pack carries the advance-order note");
-  assert.match(nearPack.children[2].children[0].text, /close 14 days before delivery/i);
+  assert.match(bodyOf(nearPack).children[2].children[0].text, /close 14 days before delivery/i);
   // The base single is unaffected on the same day.
   assert.equal(stampOf(cardOf("Focaccia")), "Only 12 left");
 
@@ -176,13 +184,15 @@ test("value pack is gated on a near delivery date and freed on a far one", async
   const farPack = cardOf("Focaccia Family (4 pcs)");
   assert.equal(stampOf(farPack), "Only 3 left");
   assert.equal(stepperOf(farPack).children[2].disabled, false);
-  assert.equal(farPack.children.length, 2, "no advance-order note on an allowed date");
+  assert.equal(bodyOf(farPack).children.length, 2, "no advance-order note on an allowed date");
 });
 
 test("a product's change/cancel window is drawn on its card, and absent when blank", () => {
   // The Sandwich states a 2-day window; the note is appended AFTER the close
-  // reason, so the close-reason assertion above (children[2]) is untouched.
-  const cancelNote = (card) => card.children.find((c) => c.className.includes("prod-cancel"));
+  // reason, so the close-reason assertion above (children[2]) is untouched. The
+  // notes live in the card BODY, beside the photo rather than under the whole
+  // card, so the search starts there.
+  const cancelNote = (card) => bodyOf(card).children.find((c) => c.className.includes("prod-cancel"));
   const sandwich = cardOf("Sandwich");
   const note = cancelNote(sandwich);
   assert.ok(note, "a product stating a window carries the cancel note");

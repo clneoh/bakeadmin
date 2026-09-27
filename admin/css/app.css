@@ -301,8 +301,8 @@ body { min-height: 100vh; }
    what she ticks reads like the tree the shop will draw. */
 .thumb-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .thumb-box {
-  width: 64px;
-  height: 80px;
+  width: 96px;
+  height: 130px;
   flex: 0 0 auto;
   object-fit: cover;
   border-radius: 10px;
@@ -325,15 +325,22 @@ body { min-height: 100vh; }
 }
 .cat-pick input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
 
-/* The small picture beside a product's name in the products list, so she can see
-   at a glance which ones still need one. Taller than wide (4:5), matching what
-   the shop draws — the row says what the customer will get. Fixed at 44x55 so a
-   list of rows reads as one column rather than a ragged edge. */
-.prod-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+/* The picture beside a product's name in the products list, so she can see at a
+   glance which ones still need one. It runs the FULL height of the row's words —
+   `align-self: stretch` takes it from the name down past the description — so a
+   product with a description gets a taller picture and the strip beside it is
+   never left empty. The width is what fixes how much of the row it takes.
+   `min-height` stops a bare row's picture shrinking to a stamp. The file is a
+   2:3 crop the app made (readPhoto at 240 x 360), so the drawn box and the file
+   already agree and `object-fit: cover` is only the backstop. */
+.prod-row-main { display: flex; align-items: stretch; gap: 10px; min-width: 0; flex: 1 1 auto; }
 .prod-thumb {
-  width: 44px;
-  height: 55px;
+  width: 64px;
   flex: 0 0 auto;
+  align-self: stretch;
+  height: auto;
+  min-height: 80px;
+  max-height: 150px;
   object-fit: cover;
   border-radius: 10px;
   background: var(--strip);

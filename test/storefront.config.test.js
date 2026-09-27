@@ -96,8 +96,11 @@ const settle = async () => {
 // under the wrong one, or the tail disappears.
 const shapeOf = (node) => {
   if (node.tagName === "H3") return `H:${node.children[0].text}`;
-  const main = node.children[0].children[0];
-  const words = main.children[main.children.length - 1];
+  // The photo, when there is one, is the card's own first column; the body is
+  // the child that holds the words. Found by name rather than by index, so a
+  // card with and a card without a photo read the same way here.
+  const body = node.children.find((c) => c.className === "card-body");
+  const words = body.children[0].children[0];
   return `P:${words.children[0].children[0].text}`;
 };
 const cardsIn = (menu) => menu.filter((n) => n.tagName !== "H3");
@@ -147,24 +150,28 @@ test("the shop lists the published products under her headings, in her order", a
     "every product is on the page once — a card lives in one place, so a heading cannot repeat one");
 });
 
-test("a card carries its photo before its words, and one without a photo is unchanged", async () => {
+test("a card carries its photo as its own left column, beside a body of everything else", async () => {
   await settle();
   const menu = registry["menu"].children;
 
-  // Card layout: .menu-item > [.card-head > [.card-main > [(.menu-thumb), div >
-  // [p.title, p.sub, (.prod-desc))], stamp], stepper, (prod-note), (prod-next),
-  // (prod-cancel)]. Asserted at each level rather than assumed, because a path
-  // that silently lands one level out reads as an empty string, not an error.
+  // Card layout: .menu-item > [(.menu-thumb), .card-body > [.card-head >
+  // [.card-words > [p.title, p.sub, (.prod-desc)], stamp], stepper, (prod-note),
+  // (prod-next), (prod-cancel)]]. The photo is a SIBLING of the body, not a child
+  // of the head — that is what lets it stretch the card's full height instead of
+  // stopping above the stepper. Asserted at each level rather than assumed,
+  // because a path that silently lands one level out reads as an empty string,
+  // not an error.
   const withPhoto = cardNamed(menu, "Chocolate Cake");
-  const head = withPhoto.children[0];
-  assert.equal(head.className, "card-head", "the card head");
-  const main = head.children[0];
-  assert.equal(main.className, "card-main", "the photo-and-words half of the head");
-  const thumb = main.children[0];
-  assert.equal(thumb.className, "menu-thumb", "the photo is the first thing in the half");
+  const thumb = withPhoto.children[0];
+  assert.equal(thumb.className, "menu-thumb", "the photo is the card's first column");
   assert.equal(thumb.attrs.src, THUMB, "and it is the baker's own image");
   assert.equal(thumb.attrs.alt, "", "decorative here — the name is right beside it");
-  const words = main.children[1];
+  const body = withPhoto.children[1];
+  assert.equal(body.className, "card-body", "everything else stacks beside the photo");
+  const head = body.children[0];
+  assert.equal(head.className, "card-head", "the card head");
+  const words = head.children[0];
+  assert.equal(words.className, "card-words", "the name and price column");
   const title = words.children[0];
   assert.equal(title.className, "card-title");
   const sub = words.children[1];
@@ -174,14 +181,18 @@ test("a card carries its photo before its words, and one without a photo is unch
   assert.equal(desc.className, "prod-desc");
   assert.equal(desc.children[0].text, "Rich dark ganache, 3 layers");
 
-  // A product with no photo keeps the words as the half's only child.
+  // A product with no photo is the same shape, one column shorter: the body is
+  // the card's only child and nothing else moved.
   const noPhoto = cardNamed(menu, "Brownies");
-  const plain = noPhoto.children[0].children[0];
-  assert.equal(plain.className, "card-main");
-  assert.equal(plain.children.length, 1, "no photo → no extra child in .card-main");
-  assert.equal(plain.children[0].children[0].children[0].text, "Brownies");
-  assert.equal(plain.children[0].children.length, 2, "no description → no extra line under the price");
+  const plain = noPhoto.children[0];
+  assert.equal(plain.className, "card-body", "no photo → the body is the first child");
+  assert.equal(noPhoto.children.length, 1, "and it is the only one");
+  const plainWords = plain.children[0].children[0];
+  assert.equal(plainWords.className, "card-words");
+  assert.equal(plainWords.children[0].children[0].text, "Brownies");
+  assert.equal(plainWords.children.length, 2, "no description → no extra line under the price");
 });
+
 
 
 test("the published Policies wording is shown on the page, and hidden when blank", async () => {

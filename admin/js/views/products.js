@@ -586,14 +586,16 @@ function buildEditor(state, product) {
     value: product?.servingTip || "" });
 
   // ── The thumbnail customers see beside this product on the shop ────────────
-  // One photo, TALLER than it is wide (4:5 — 160 x 200), because the baker asked
+  // One photo, TALLER than it is wide (2:3 — 240 x 360), because the baker asked
   // for a picture taller than a square: a square crop of a plate or a tray cuts
-  // the top and bottom off the food. readPhoto does the cropping and the
-  // shrinking — kept well under the 200px default and JPEG only, because this
-  // picture rides in the single localStorage blob that every cloud snapshot and
-  // export carries, and it is sent to every customer's phone on each page load.
-  // Its shape is checked again on both sides of the publish
-  // (storefront-fields.js) so a malformed one is dropped rather than shipped.
+  // the top and bottom off the food. It is drawn the full height of the shop
+  // card and of the product's row here, so it is stored big enough to stay sharp
+  // at that size rather than the small square it used to be — but still JPEG
+  // only and still small in bytes (about 10 KB), because this picture rides in
+  // the single localStorage blob that every cloud snapshot and export carries,
+  // and it is sent to every customer's phone on each page load. Its shape is
+  // checked again on both sides of the publish (storefront-fields.js) so a
+  // malformed one is dropped rather than shipped.
   let thumb = String(product?.thumb || "");
   const thumbFile = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const thumbPreview = el("div", { class: "thumb-preview" });
@@ -613,7 +615,7 @@ function buildEditor(state, product) {
     readPhoto(f, (dataUrl) => {
       if (dataUrl) { thumb = dataUrl; drawThumb(); toast("Photo added"); }
       else toast("That file couldn't be read as a photo");
-    }, 160, 200);
+    }, 240, 360);
     // So choosing the SAME file twice still fires a change event.
     thumbFile.value = "";
   });
@@ -1040,7 +1042,7 @@ function editorFields(state, editor) {
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
     el("div", { class: "field" }, el("label", {}, "Photo (shown beside it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
-        "One picture. It is cropped taller than it is wide and shrunk for you. Blank shows no picture."),
+        "One picture. It is cropped taller than it is wide and shrunk for you. It runs the full height of the card on your shop. Blank shows no picture."),
       editor.thumbFile, editor.thumbPreview),
     el("div", { class: "field" }, el("label", {}, "Description (customers read it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
