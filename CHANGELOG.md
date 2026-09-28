@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v226)
+# Jienluv2bake — change history (v54 → v227)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v227, THE CUSTOMER'S ADDRESS FILLS ITSELF IN WITH THEIR NAME (no database step,
+no redeploy, one push).**
+
+When you type a customer's name into an order form, the app already offers you the people you have
+served before, each with their number and what they usually buy. Tap the right one and their
+**name and number fill in**. From this version their **delivery address fills in with them** — the
+address on the last order you actually delivered to them.
+
+**It is a default, never an overwrite.** The address fills only a box that is still empty; it does not
+touch one that already says something. So an address you typed yourself, or the one already on an order
+you are editing, stays exactly as it is. A pick can never quietly move a delivery to a different door.
+And if a customer has only ever collected, or has no address on any of their orders, the box is simply
+left alone — nothing is written into it.
+
+**Both order forms do it** — the **＋ New order** card and the **Edit** pop-up — so the two behave
+alike rather than one of them surprising you.
+
+**It never asks the internet for anything.** The addresses are the ones already in your app, from your
+own orders, so there is nothing to pay, no key to switch on and no Google account involved. It draws on
+the orders you have saved, so a customer who has never ordered before has nothing to offer yet, and it
+gets more useful as your customer list grows.
 
 **28 Sep 2026 — engine v226, THE SECOND KIND OF COURIER: PARCELS YOU POST YOURSELF, RECORDED IN THE
 APP (no database step, no redeploy, no key to set — one push).**

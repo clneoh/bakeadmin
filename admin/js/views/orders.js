@@ -1141,6 +1141,17 @@ function suggestionSub(row) {
   ].filter(Boolean).join(" · ");
 }
 
+// The delivery address a suggestion may fill in: where they were last delivered,
+// but only into a box that is still EMPTY. It is a DEFAULT, never an overwrite —
+// an address she has typed, or the one already on the order she is editing, is
+// hers, and a pick that replaced it would quietly move their delivery to another
+// door. Blank when there is nothing to offer, so the caller writes nothing rather
+// than blanking a box.
+function suggestedAddress(row, input) {
+  if (String(input.value || "").trim()) return "";
+  return String((row && row.lastAddress) || "").trim();
+}
+
 // The manual "＋ Add order" card, always at the top of a delivery date. Takes
 // several items at once — they become ONE customer order (a shared group), the
 // same shape a multi-item storefront order arrives as, so the list/inbox/confirm
@@ -1164,12 +1175,15 @@ function orderForm(state, dateId, root, selectDate) {
     fulfillment: "collect", address: "", note: "", orderDate: todayISO(),
   };
   // Filling in from a suggestion has to write both the boxes and the draft: the
-  // draft is what the other controls read, the boxes are what she sees.
+  // draft is what the other controls read, the boxes are what she sees. The
+  // address comes too, but only into an empty box — see suggestedAddress.
   const suggester = customerSuggester(state, (r) => {
     draft.customerName = newOrderContact.customerName = customerRowName(r);
     draft.whatsapp = newOrderContact.whatsapp = suggestionNumber(r);
     customer.value = draft.customerName;
     whatsapp.value = draft.whatsapp;
+    const addr = suggestedAddress(r, address);
+    if (addr) { draft.address = addr; address.value = addr; }
   });
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
     value: draft.customerName,
@@ -1426,6 +1440,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     draft.whatsapp = waNumber(suggestionNumber(r));
     customer.value = draft.customerName;
     whatsapp.value = draft.whatsapp;
+    const addr = suggestedAddress(r, address);
+    if (addr) { draft.address = addr; address.value = addr; }
   });
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
     value: draft.customerName,
