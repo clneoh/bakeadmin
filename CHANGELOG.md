@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v223)
+# Jienluv2bake — change history (v54 → v224)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v224, THE PICTURE WINDOW IS SQUARE AND YOUR PHOTO IS CROPPED TO FILL IT (no
+database step, no redeploy — one push).**
+
+You asked me for the window to be __square, and photo upload can be auto crop to fit the window__.
+Both are done. **The window is a square**, and **your photo is cut to a square as it is saved**, so it
+fills the window edge to edge with no cream strips down the sides. The middle of your picture is the
+part that is kept, and the app shrinks it for you at the same time, so you never have to resize or
+measure anything. What you pick is exactly what shows.
+
+**This changes one thing from last version (v223), where your photo was shown whole.** In v223 the
+window kept its shape and your photo kept its own, with the window's soft cream colour filling the
+spare space. You have now asked for the other thing, and this is it. Everything else about v223 stands:
+the window is still **one standard size in all three places** — your shop's card, your app's Products
+list, and the editor where you choose the photo.
+
+**What that means: whatever the square cuts off is gone.** A very tall or a very wide photo loses its
+outer edges. If a crop has taken off a part you wanted, choosing the photo again is how you change it
+— the app keeps only the small square copy, so a picture cannot be un-cropped afterwards.
+
+**The pictures you already saved still work, and are now trimmed to the square.** They were saved in
+whatever shape they were, so on your shop and in your list they show trimmed to the middle of the
+square window. Choosing the photo again gives you one cut for this window properly — that is the step
+you told me you would take.
+
+**A product with no picture is unchanged.** It simply has no window, and its name and price read
+across the whole card exactly as before.
+
+**One thing to know, carried over from v223: a wider window leaves the words beside it a little less
+room.** On a product that has both a picture and a long name, the name and price wrap onto one or two
+more lines than they used to. If that crowds the words more than you like once you see it, say so and
+I will make the window a little smaller — it is one number and a quick change.
+
+**Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your shop
+and your app the next time you push, and you will see **Engine v224** on your **More** screen.
 
 **28 Sep 2026 — engine v223, ONE STANDARD PICTURE WINDOW, BIGGER AND THE SAME IN BOTH PLACES (no
 database step, no redeploy — one push).**
