@@ -392,10 +392,16 @@ html, body {
    96px keeps a long product name on two lines rather than three — and the height
    follows the card, so a product with a description gets a taller picture.
    `min-height` stops a bare card's photo shrinking to a stamp; `max-height`
-   stops a very long description stretching it into a sliver. The file itself is
-   a 2:3 crop the app made (readPhoto at 240 x 360), so in the common case the
-   drawn box and the file already agree and `object-fit: cover` is only the
-   backstop for an odd photo or an unusual card height. */
+   stops a very long description stretching it into a sliver.
+
+   `contain`, never `cover`. The panel is the FIXED thing and the photo is shown
+   WHOLE inside it, in whatever shape the baker's file happens to be. `cover`
+   would crop a second time, right here, and she would never see it happen — a
+   tall portrait would come back with its top and bottom quietly cut off. With
+   `contain` a tall photo fills the panel top to bottom with the soft panel
+   colour at either side, and a wide one fills it across with the colour above
+   and below. The file keeps its own ratio (readPhotoFit, never readPhoto), and
+   this is the other half of that promise. */
 .menu-thumb {
   width: 96px;
   flex: 0 0 auto;
@@ -403,7 +409,7 @@ html, body {
   height: auto;
   min-height: 120px;
   max-height: 190px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 10px;
   background: #f1e9de;
 }

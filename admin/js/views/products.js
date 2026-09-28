@@ -6,10 +6,11 @@ import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRo
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { costOf, recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
 import { maybeSyncStorefront } from "../supabase.js";
-// The cropping reader the customer photos already use. It centre-crops to the
-// RATIO it is given and hands back a small JPEG data URL; a customer photo wants
-// a square, a product thumbnail wants a taller box, so both pass their own.
-import { readPhoto } from "../photo.js";
+// readPhotoFit, NOT the readPhoto the customer photos use: that one centre-crops
+// to a fixed shape, which would quietly cut the top and bottom off a tall product
+// photo before she ever saw it. This one keeps her photo's own ratio and only
+// shrinks it, and the shop draws it whole inside a fixed panel.
+import { readPhotoFit } from "../photo.js";
 import { isLive, isDraft, isHidden, newDraftRow } from "../productState.js";
 import { flattenTree, groupByCategory, indexForDrop, moveInTail, moveProductInCategory, pathTo, primaryCategoryId, productsInCategory, tailOrder } from "../productCategories.js";
 import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } from "../translate.js";
@@ -586,16 +587,17 @@ function buildEditor(state, product) {
     value: product?.servingTip || "" });
 
   // ── The thumbnail customers see beside this product on the shop ────────────
-  // One photo, TALLER than it is wide (2:3 — 240 x 360), because the baker asked
-  // for a picture taller than a square: a square crop of a plate or a tray cuts
-  // the top and bottom off the food. It is drawn the full height of the shop
-  // card and of the product's row here, so it is stored big enough to stay sharp
-  // at that size rather than the small square it used to be — but still JPEG
-  // only and still small in bytes (about 10 KB), because this picture rides in
-  // the single localStorage blob that every cloud snapshot and export carries,
-  // and it is sent to every customer's phone on each page load. Its shape is
-  // checked again on both sides of the publish (storefront-fields.js) so a
-  // malformed one is dropped rather than shipped.
+  // One photo, kept in the shape it was taken — readPhotoFit stores it whole and
+  // trims nothing. The baker asked for this after two versions cropped her photos
+  // to a fixed shape: a square crop of a plate or a tray cuts the top and bottom
+  // off the food, and a fixed box crops whatever does not fit. The shop draws the
+  // result inside a fixed panel and the app draws it in the product's row, so the
+  // panel is where the size is decided, not here. Still JPEG only and still small
+  // in bytes, because this picture rides in the single localStorage blob that
+  // every cloud snapshot and export carries, and it is sent to every customer's
+  // phone on each page load. Its being a real JPEG is checked again on both sides
+  // of the publish (storefront-fields.js) so a malformed one is dropped rather
+  // than shipped.
   let thumb = String(product?.thumb || "");
   const thumbFile = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const thumbPreview = el("div", { class: "thumb-preview" });
@@ -612,10 +614,10 @@ function buildEditor(state, product) {
   thumbFile.addEventListener("change", () => {
     const f = thumbFile.files && thumbFile.files[0];
     if (!f) return;
-    readPhoto(f, (dataUrl) => {
+    readPhotoFit(f, (dataUrl) => {
       if (dataUrl) { thumb = dataUrl; drawThumb(); toast("Photo added"); }
       else toast("That file couldn't be read as a photo");
-    }, 240, 360);
+    });
     // So choosing the SAME file twice still fires a change event.
     thumbFile.value = "";
   });
@@ -1042,7 +1044,7 @@ function editorFields(state, editor) {
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
     el("div", { class: "field" }, el("label", {}, "Photo (shown beside it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
-        "One picture. It is cropped taller than it is wide and shrunk for you. It runs the full height of the card on your shop. Blank shows no picture."),
+        "One picture. It keeps its own shape — nothing is cut off — and is shrunk for you. It fills the picture panel on your shop card. Blank shows no picture."),
       editor.thumbFile, editor.thumbPreview),
     el("div", { class: "field" }, el("label", {}, "Description (customers read it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },

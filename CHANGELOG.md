@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v221)
+# Jienluv2bake — change history (v54 → v222)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v222, YOUR PHOTO KEEPS ITS OWN SHAPE AND NOTHING IS CUT OFF (no database
+step, no redeploy — one push).**
+
+You said the photo should be __restored to its original wide tall ratio__, and then you told me what
+to do about it: __fix tall and wide__. So this version fixes both. Your photo is no longer cut to fit
+a shape. It now goes on the card exactly as the shape you took it in, and the picture panel stays the
+same size and holds the whole of it.
+
+**A tall photo and a wide photo both work now.** Take a photo of a tall stack of focaccia and the
+whole stack shows, top to bottom. Take a wide photo across a tray and the whole tray shows, side to
+side. Nothing is trimmed off the top, the bottom or the sides, whichever way round your photo is.
+
+**The picture panel is the thing that stays the same, not the photo.** The panel beside a product is
+still the same size it was, so every product's card on your shop still lines up with the next. If
+your photo is not exactly the panel's shape, the panel's own soft cream colour shows in the spare
+space beside it. That is the panel, not a mistake, and it is the trade for never cutting your photo
+again.
+
+**This is the same in your own app.** The picture beside a product in your Products list, and the
+preview in the product's editor when you choose a photo, both show the whole photo the same way.
+
+**A photo you have already chosen is still the old cut.** I have to be straight with you about this
+one: the cutting happened when the photo was saved, so the pictures already in the app are the old
+cropped version and I cannot put back what was trimmed off. They will show whole on the card now,
+which is an improvement, but they are still the old shape. To get a picture that uses this properly,
+open that product in the app, choose its photo again, and the new one is kept in its own shape.
+
+**Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your
+shop and your app the next time you push, and you will see **Engine v222** on your **More** screen.
 
 **28 Sep 2026 — engine v221, THE PICTURE IS NOW BIGGER AND RUNS THE WHOLE HEIGHT OF THE CARD (no
 database step, no redeploy — one push).**
@@ -34,6 +64,9 @@ into the new tall box by taking a slice from the middle, so it fills the height 
 out of shape. It will look right straight away. If you want a picture that uses the new size at its
 best, choose that product's photo again — a tall photo of the tray or the plate is what suits this
 shape.
+
+That middle slice is gone as of v222 above: the picture is no longer cut to shape at all, and the
+panel holds the whole of it instead.
 
 **Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your
 shop and your app the next time you push, and you will see **Engine v221** on your **More** screen.
