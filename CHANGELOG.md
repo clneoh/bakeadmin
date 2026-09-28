@@ -1,8 +1,76 @@
-# Jienluv2bake — change history (v54 → v225)
+# Jienluv2bake — change history (v54 → v226)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v226, THE SECOND KIND OF COURIER: PARCELS YOU POST YOURSELF, RECORDED IN THE
+APP (no database step, no redeploy, no key to set — one push).**
+
+You asked whether Lalamove is one kind of courier and SPX, Ninja Van, Line Clear and EasyParcel are
+another kind, and whether we could just have **two kinds**. Yes, and this is the second one.
+
+**There are exactly two kinds.** Lalamove is __kind one__ — on demand, point to point: it prices a
+vehicle for a journey, a driver accepts, and you get a name, a plate and a live share link. J&T, Ninja
+Van, Line Clear, Pos Laju and SPX are __kind two__ — parcel carriers: they price a box by weight and
+by where it is going, you hand the box over, and it arrives next day or later. **EasyParcel is not a
+third kind** — it is one account and one API standing in front of most of kind two. So there are two,
+exactly as you said, and kind two is what this version adds.
+
+**What is new: More → Parcel couriers.** A list of your own, the same shape as your suppliers. You add
+a carrier by name, and there is **one press that adds the usual five** — J&T Express, Ninja Van, Line
+Clear, Pos Laju and SPX Express — so a fresh phone fills itself in. You can rename or delete any of
+them at any time.
+
+**On a courier order you now record the parcel.** Open an order, and under the fulfilment picker you
+choose **which carrier took it**, type the **consignment number**, and press **Handed to the carrier**
+when you have actually handed it over. Press **Undo — not handed over yet** and that moment is taken
+back, while the carrier stays on the order. The cost goes into the **courier charge box the order
+already had**, with the same question of who paid it, so nothing about your books changes shape.
+
+**The order row shows one quiet line** — for example __J&T Express · JT998877665 · handed over__ — and
+only once a parcel is recorded. An order that is not a parcel looks exactly as it did before.
+
+**The customer is told.** Their track card gains one line naming the carrier, and once you mark the
+parcel handed over it reads **Collected** — the same word a Lalamove pickup publishes. That carrier
+line is drawn **only on an order with no driver**, so every existing Lalamove card is left exactly as
+it was.
+
+**A product can now be ticked "Can travel as a parcel", and that tick blocks nothing.** A courier order
+always offers the carrier picker. If a line is not marked, the app simply **names it** — "Not marked as
+able to travel as a parcel: Fresh Focaccia" — and you can still send it that way. Nothing is hidden,
+removed or turned off, because no rule in this app may block a sale you take by hand. The tick only
+feeds that one warning, and it is where a parcel's weight and box size will sit when the time comes.
+
+**Two things you should know about how it behaves.** A parcel and a booked Lalamove trip are
+**mutually exclusive on one order** — whichever exists, the other's controls are replaced by a sentence
+naming it, and neither is deleted. And an order recorded as a parcel **can no longer be swept into a
+delivery run**, because it is not going on your van.
+
+**No price is shown anywhere, and that is deliberate.** A parcel's cost moves with the zone and the
+box, and the way a box is measured into a price is not the same at every carrier — J&T and Line Clear
+divide by 6000, Ninja Van by 5000, which is about 20 per cent more on the identical box. One stored
+price per carrier would quietly lie to you, so there is no rate field at all. **There is also no key,
+no wallet, no account and no database step in this version** — you keep booking the parcel exactly as
+you do now, on the carrier's own site or over the counter, and the app remembers the rest.
+
+**Be prepared for this to look like almost nothing in your own shop, and that is correct.** Every
+product here is fresh focaccia, and a parcel network is not where fresh bread goes. This is an engine
+feature and it is for **Munchies**, which is the shop whose products are the kind that survive a night
+in a van. You told me the plan: the parcel work is done here, in Bakeadmin, and Munchies syncs to it.
+When the booking side does come, it comes through EasyParcel with **Munchies' own account and its own
+wallet**, kept separate from this shop's — which is what you decided, and it is the right call.
+
+**One more thing, carried over from last version.** A product that is on the shop can always be
+__hidden__ — see v225 below — so nothing here changes how you take a product down.
+
+**Two faults were found and repaired on the way, and neither had ever reached you.** In the app's own
+picker, the code that was supposed to run when you choose a new value had been quietly dead for about
+a hundred versions. **Nothing you could see was wrong**, because nothing in the app had yet depended on
+it — the new parcel card is the first thing that does, and a control that arrives one reopen late would
+have read as missing rather than as conditional. It is repaired once, in the shared picker, so it is now
+correct for the parcel card and for anything added later. The second was in the new card itself: what
+you had typed was being thrown away whenever the form redrew, and that is fixed before it ever shipped.
 
 **28 Sep 2026 — engine v225, A PRODUCT THAT IS ON THE SHOP CAN ALWAYS BE HIDDEN (no database step, no
 redeploy — one push).**
