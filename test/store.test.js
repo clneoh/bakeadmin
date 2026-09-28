@@ -52,7 +52,7 @@ globalThis.window = { open() {} };
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, trackOrder, isOpen, waNumber, parseVia } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, waNumber, parseVia } = await import("../store/app.js");
 const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 
@@ -149,6 +149,36 @@ test("store render() fills the page without crashing", () => {
 test("dateKey formats a local YYYY-MM-DD key", () => {
   assert.equal(dateKey(new Date(2026, 8, 2)), "2026-09-02");
   assert.equal(dateKey(new Date(2026, 0, 7)), "2026-01-07");
+});
+
+// The delivery window's title. It names the span of dates on screen rather than a
+// month, because the window follows today: five whole weeks beginning with the week
+// just gone. Both ends are always spelled out — a customer reading "6 – 12 Sep" and
+// one reading "23 Aug – 26 Sep" must get the same thing, which is why the ends are
+// named rather than inferred, and why a window across a month or a year boundary is
+// not special-cased but simply falls out of naming both.
+test("windowTitle names the window's own two ends, in the visitor's language", () => {
+  assert.equal(windowTitle("2026-08-23", "2026-09-26"), "23 Aug – 26 Sep",
+    "a window across two months names both");
+  assert.equal(windowTitle("2026-09-06", "2026-09-12"), "6 – 12 Sep",
+    "a window inside one month names it once");
+  assert.equal(windowTitle("2026-12-27", "2027-01-02"), "27 Dec – 2 Jan",
+    "a window across the new year is not special-cased, just spelled out");
+
+  // The visitor's own language, read at paint time like every other string.
+  const realStorage = globalThis.localStorage;
+  try {
+    globalThis.localStorage = { getItem: () => "zh", setItem() {} };
+    assert.equal(windowTitle("2026-09-06", "2026-09-12"), "9月6日 – 12日",
+      "Chinese repeats the month only when the window crosses one");
+    assert.equal(windowTitle("2026-08-23", "2026-09-26"), "8月23日 – 9月26日");
+    globalThis.localStorage = { getItem: () => "ms", setItem() {} };
+    assert.equal(windowTitle("2026-08-23", "2026-09-26"), "23 Ogo – 26 Sep",
+      "Malay uses its own month names");
+  } finally {
+    if (realStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = realStorage;
+  }
 });
 
 test("daySpecs flags sold-out days and leaves open days plain", () => {

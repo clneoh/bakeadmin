@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v230)
+# Jienluv2bake — change history (v54 → v231)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v231, THE PICK-A-DELIVERY-DAY CALENDAR IS NOW FIVE WEEKS THAT FOLLOW TODAY (no
+database step, no redeploy, one push).**
+
+The calendar on your shop was a **month** — the whole of September, then the whole of October. That
+sounds tidy and it is not: on the 28th, almost everything on it is days you can no longer sell, and the
+days just before the 1st and just after the last day of the month were **blank squares**, so a delivery
+day at the start of next month was invisible until the month turned over.
+
+From this version it is **five whole weeks anchored on today**, and it moves with the date.
+
+**The first row is the week just gone**, faded the way it has been faded, and faded **harder than before**
+now that there is a week of it — it is there as a sense of where you are in the month, not as something to
+read. **The second row is this week**, with today ringed so the customer can see where "now" is. The three
+rows under that are the weeks ahead, which is where the delivery days actually live.
+
+**Every square is a real date now.** No blanks, no padding — the days before the 1st and after the last of
+the month are simply part of the row they fall in, so a delivery day at the very start of next month is
+visible and bookable from the moment you publish it.
+
+**Your delivery days are unchanged on it** — still circled green with the day you have open, and still
+struck out where a day is full. The line under the calendar still names the day they are getting.
+
+**Paging, and the motion you asked about.** If you publish a delivery day further out than the window
+reaches, **arrows appear either side of the title**. Tapping the one on the right moves the window **one
+whole week later** and the dates arrive **sliding up**; tapping the one on the left moves it back and they
+arrive **coming down** — the direction you are travelling in, so a tap reads as a tap. The arrows are
+**not there today**, and that is on purpose: all five of your published dates sit inside the one window,
+so there is nowhere to go and **nothing dead is drawn on your shop**. They will appear the first time you
+publish a date roughly three weeks out.
+
+**Your shop's rules are untouched.** The 18:00-the-day-before closing, the sold-out days, the day the
+customer has chosen, the product counts, the refresh that keeps a page open in someone's hand up to date —
+all exactly as they were. **Nothing in the backoffice calendars changed**; this is the shop's calendar
+only.
 
 **28 Sep 2026 — engine v230, THE DELIVERY ADDRESS BOX IS NOW THE FULL WIDTH OF THE FORM (no database
 step, no redeploy, one push).**
