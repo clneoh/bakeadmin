@@ -4,8 +4,8 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
-**28 Sep 2026 — engine v224, THE PICTURE WINDOW IS SQUARE AND YOUR PHOTO IS CROPPED TO FILL IT (no
-database step, no redeploy — one push).**
+**28 Sep 2026 — engine v224, THE PICTURE WINDOW IS SQUARE AND YOUR PHOTO IS CROPPED TO FILL IT, AND
+A PRODUCT ROW SHOWS ONLY WHAT A CUSTOMER SEES (no database step, no redeploy — one push).**
 
 You asked me for the window to be __square, and photo upload can be auto crop to fit the window__.
 Both are done. **The window is a square**, and **your photo is cut to a square as it is saved**, so it
@@ -35,6 +35,25 @@ across the whole card exactly as before.
 room.** On a product that has both a picture and a long name, the name and price wrap onto one or two
 more lines than they used to. If that crowds the words more than you like once you see it, say so and
 I will make the window a little smaller — it is one number and a quick change.
+
+**The other half of this version: your product row is now only what a customer sees.** You said
+__we dont need ingredient and cost price for products in app that shown on. On the shop__. So both
+came off **every** row in your app's Products list — the rows on the shop, the drafts, and the hidden
+ones alike.
+
+**What a row shows now is the name, the unit, an optional daily limit, the price you sell at, and the
+category.** The two things that went are **the cost per unit** — the small figure that used to print
+beside your sell price, worked out from the recipe's ingredients — and **the ingredient line**, the
+list of what goes into the product with the amounts. Both are gone from the row.
+
+**Nothing was deleted, and nothing about your recipes changed.** Both are still on each product's
+**Edit** screen exactly where they were, where you build the recipe and where the cost is worked out.
+The row was only ever meant to be a view of what you sell; the recipe is yours, and it stays yours on
+the Edit screen.
+
+**Why this helps:** the row is shorter, so more products fit on the screen at once, and the one figure
+left on it — the price a customer pays — is the one you are actually checking when you scan the list.
+If you want to see a cost, tap **Edit**.
 
 **Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your shop
 and your app the next time you push, and you will see **Engine v224** on your **More** screen.
