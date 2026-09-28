@@ -102,9 +102,7 @@ const all = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); all(c, out); }
   return out;
 };
-const byClass = (root, name) => all(root).find((n) => String(n.className).includes(name));
-const buttonByText = (root, text) =>
-  all(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes(text));
+const buttonByText = (root, text) =>  all(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes(text));
 
 const NAME_BOX = "Customer name (optional)";
 const WA_BOX = "e.g. 012-345 6789";
@@ -118,7 +116,7 @@ const screenText = (root) => all(root).map((n) => (n.nodeType === 3 ? n.text : n
 // The suggestion panel and the rows currently offered under the name box. The
 // row count is the honest reading: `hidden` means different things to different
 // shims, but an empty panel means the same thing to all of them.
-const panel = (root) => byClass(root, "sugg-panel");
+const panel = (root) => all(root).find((n) => n.attrs && n.attrs["data-sugg"] === "customer");
 const offered = (root) => (panel(root) ? panel(root).children : []);
 // Typing: the handler reads this.value, so it is fired with the box as `this`.
 const type = (box, text) => {
@@ -228,8 +226,9 @@ test("the Edit pop-up offers the same list, and a tap fills its name and number"
 
   const pop = layers["popup-layer"];
   assert.equal(offered(pop).length, 0, "the list is shut until she starts typing");
-  assert.equal(all(pop).filter((n) => String(n.className).includes("sugg-panel")).length, 1,
-    "but the panel itself is in the pop-up, under the name box");
+  assert.equal(all(pop).filter((n) => String(n.className).includes("sugg-panel")).length, 2,
+    "but the panels themselves are in the pop-up — the customer one under the name box, " +
+    "and (v228) the address one under the address box");
 
   type(nameBox(pop), "uncle");
   const rows = offered(pop);

@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v227)
+# Jienluv2bake — change history (v54 → v228)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v228, THE ADDRESS BOX SUGGESTS REAL ADDRESSES AS YOU TYPE (one Google setting
+to switch on, one redeploy — the app itself is one push).**
+
+You said last version's address helper only helped people who had ordered before, and that what you
+actually wanted was help **keying in an address for someone new**. That is what this version is.
+
+From now, in the **＋ New order** card and in the **Edit** pop-up, a **short list of real addresses
+appears under the delivery address box as you type**. Type the first few words of the street, and the
+list offers the addresses that match — each one a **whole address with its postcode and area**, not the
+half-remembered line you would have pecked in yourself. Tap the one you want and it fills the box.
+Then the app's own pin lookup can find the door from there, as it already does.
+
+**It never blocks you and it never changes what you have typed.** Your words go into the box the moment
+you type them, whether or not the list appears, and nothing is saved until you press **Add order** or
+**Save**. If the list does not appear — no signal in the kitchen, or the lookup simply found nothing —
+you type the address by hand exactly as you do today, and the order saves just the same. **No suggestion
+can ever hold up a sale.** The list is the only thing that is ever missing.
+
+**It is only the delivery address, and only for you.** The shop's address box is public and stays
+exactly as it is; this is for the orders you take by hand.
+
+**What you have to switch on, once.** This one genuinely needs a Google setting: **Places API (New)**
+has to be turned on for your Google project, and ticked onto the key you already have, and the
+**courier** function has to be redeployed. **Until you do that, nothing is broken** — the list simply
+never appears and the address box behaves exactly as it does today. The step-by-step is in the Google
+Cloud setup guide, and I will walk you through it on your Mac.
+
+**What it costs: nothing at your size.** The first **10,000 lookups a month are free**, and an order
+uses a handful. There is deliberately **no daily limit** on this one — you asked for it to keep working
+rather than stop partway through a day, so a runaway month would be a few ringgit rather than nothing.
+Only your signed-in phone can reach it, too, so no one else can spend it.
+
+**Worth knowing: it sends your customer's half-typed address to Google as you type it.** That is a step
+further than the door lookup, which sends a complete address once. It is the price of a suggestion
+list, and it is the same Google account the door lookup already uses — but you should know it rather
+than find out later.
 
 **28 Sep 2026 — engine v227, THE CUSTOMER'S ADDRESS FILLS ITSELF IN WITH THEIR NAME (no database step,
 no redeploy, one push).**

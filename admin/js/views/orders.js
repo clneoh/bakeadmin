@@ -27,6 +27,9 @@ import { fmtStamp, jobOf } from "../courier_job.js";
 import { parcelOf, parcelHanded, setParcel, markHanded, clearParcel, notParcelable } from "../parcel.js";
 import { courierQuoteSection } from "./courier_quote.js";
 import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOrder } from "../profiles.js";
+// The half-typed address suggestions (v228). Reached through the same channel the
+// pin's lookup uses, so the Google key stays on the server and never touches this page.
+import { suggestAddresses } from "../couriers/api.js";
 
 let orderStatusFilter = "";
 // Text in the "Find an order" box at the top of the Orders screen (empty = box
@@ -1100,7 +1103,7 @@ function customerSuggester(state, onPick) {
     return rows;
   };
 
-  const panel = el("div", { class: "sugg-panel", hidden: true });
+  const panel = el("div", { class: "sugg-panel", "data-sugg": "customer", hidden: true });
   const hide = () => { panel.hidden = true; panel.replaceChildren(); };
 
   const paint = (query) => {
@@ -1152,6 +1155,95 @@ function suggestedAddress(row, input) {
   return String((row && row.lastAddress) || "").trim();
 }
 
+// ── the address box asks Google as she types (v228) ─────────────────────────
+//
+// v227 fills the delivery address from HER OWN history, which cannot help a customer
+// she has never served — and a NEW customer is precisely the case she wanted help
+// with ("if it is a new customer, i need help to key in the address"). This is the
+// other half: while she types, Google is asked what she might be typing, and she taps
+// a full address with its postcode instead of pecking the whole thing into a phone.
+//
+// NOTHING HERE CAN BLOCK ANYTHING, and that is the load-bearing property. The input's
+// own `oninput` still does `draft.address = this.value` synchronously and
+// unconditionally, exactly as it did before this version existed; this block only gets
+// told about the keystroke afterwards. A failure therefore shows nothing at all, a save
+// never waits on the network, and an order with no signal saves exactly as it always
+// has. Anything this file ever grows that gates a save on a suggestion would be a
+// regression against that, not a feature.
+//
+// A TAP REPLACES THE BOX — the OPPOSITE of v227's rule, deliberately. v227's
+// never-overwrite rule protects a delivery from being moved by a SIDE EFFECT (picking
+// a customer). Here the tap IS the instruction, so the box must become the address she
+// picked.
+const ADDRESS_MIN_CHARS = 4; // mirrors MIN_QUERY in supabase/functions/courier/places.ts
+const ADDRESS_WAIT_MS = 400; // the pause after her last keystroke before Google is asked
+
+// The one ask in flight, and it is at MODULE scope on purpose. Both forms are rebuilt
+// while she is typing — the Edit pop-up on a fulfillment change, the New-order card on a
+// sync pull — and each rebuild strands the previous suggester's closure. A closure can
+// still hold a live timer and a live request, and a rebuild is not a reason for either to
+// stop. So every build clears the pending timer and bumps this counter, and every answer
+// checks it before it speaks.
+//
+// IT HOLDS NO DOM, and it must not: `applyPopupEdits` copies draft fields onto the order
+// rows with Object.assign, so anything parked on `draft` would be written onto her orders
+// as a field of its own. A number and a timer id are not draft fields.
+const addrAsk = { gen: 0, timer: 0 };
+
+// Modal-private helper for both address boxes. Returns { panel, typed }.
+function addressSuggester(state, onPick) {
+  // The marker is how a test names THIS panel rather than the customer one above it:
+  // `.sugg-panel` is a shared style worn by three different lists, so it identifies a
+  // look, not a panel.
+  const panel = el("div", { class: "sugg-panel", "data-sugg": "address", hidden: true });
+  let asked = ""; // the one query slot: the last thing actually sent, never a map
+
+  // Supersede everything older the moment this form is built.
+  clearTimeout(addrAsk.timer);
+  addrAsk.timer = 0;
+  addrAsk.gen += 1;
+
+  // Close the list and retire anything in flight. The generation bump is what makes a
+  // late answer DROP its words rather than paint them under her thumb after she has
+  // already moved on — which is the whole reason this is not simply `panel.hidden`.
+  const hide = () => {
+    addrAsk.gen += 1;
+    clearTimeout(addrAsk.timer);
+    addrAsk.timer = 0;
+    panel.hidden = true;
+    panel.replaceChildren();
+  };
+
+  const ask = async (q) => {
+    const mine = ++addrAsk.gen;
+    asked = q; // recorded when SENT, so a repeat of the same words costs no second request
+    const out = await suggestAddresses(state, q);
+    // Superseded while it was in flight — she has typed on, tapped, or the form was
+    // rebuilt. Discard the answer; do not speak it.
+    if (mine !== addrAsk.gen) return;
+    if (!out.ok || !out.places.length) { hide(); return; }
+    panel.replaceChildren(...out.places.map((p) => el("button", {
+      class: "list-item sugg-row", type: "button",
+      onclick: () => { hide(); onPick(p.text); },
+    },
+      el("div", { class: "li-main" },
+        el("div", { class: "li-title" }, el("span", {}, p.text))))));
+    panel.hidden = false;
+  };
+
+  const typed = (text) => {
+    const q = String(text || "").trim();
+    if (q.length < ADDRESS_MIN_CHARS) { hide(); return; }
+    // The same words she paused on last time are already answered. Keep what is
+    // showing rather than spend a request to be told the same thing.
+    if (q === asked) return;
+    hide(); // whatever is on screen belongs to the previous words, so it goes now
+    addrAsk.timer = setTimeout(() => { ask(q); }, ADDRESS_WAIT_MS);
+  };
+
+  return { panel, typed };
+}
+
 // The manual "＋ Add order" card, always at the top of a delivery date. Takes
 // several items at once — they become ONE customer order (a shared group), the
 // same shape a multi-item storefront order arrives as, so the list/inbox/confirm
@@ -1198,8 +1290,19 @@ function orderForm(state, dateId, root, selectDate) {
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
     draft.fulfillment, function () { draft.fulfillment = this.value; });
+  // The address box also offers what she might be typing, from Google (v228). A tap
+  // writes BOTH the draft (what the other controls read) and the box (what she sees),
+  // the same pair the customer suggestion writes.
+  const addressSug = addressSuggester(state, (text) => {
+    draft.address = text;
+    address.value = text;
+  });
   const address = el("input", { class: "input", placeholder: "Delivery address (if courier)",
-    value: draft.address, oninput: function () { draft.address = this.value; } });
+    value: draft.address,
+    oninput: function () {
+      draft.address = this.value; // synchronous and unconditional — never gated on the network
+      addressSug.typed(this.value);
+    } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
   const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; },
@@ -1288,7 +1391,11 @@ function orderForm(state, dateId, root, selectDate) {
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-      el("div", {}, el("label", {}, "Delivery address (if courier)"), address)),
+      el("div", {}, el("label", {}, "Delivery address (if courier)"), address),
+      // Under the address box and across both columns, exactly as the customer
+      // suggester's panel sits under the name box — in the grid's normal flow, so it
+      // is never clipped by the Edit pop-up's scrolling body.
+      addressSug.panel),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
     el("div", { class: "field" },
@@ -1457,8 +1564,19 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
     draft.fulfillment, function () { draft.fulfillment = this.value; refresh(); });
+  // The same box, the same suggester (v228). This form is rebuilt in place by
+  // `refresh()` above, which strands the closure below and starts a fresh one — the
+  // module-level counter in addressSuggester is what stops the stranded one speaking.
+  const addressSug = addressSuggester(state, (text) => {
+    draft.address = text;
+    address.value = text;
+  });
   const address = el("input", { class: "input", placeholder: "Delivery address (if courier)",
-    value: draft.address, oninput: function () { draft.address = this.value; } });
+    value: draft.address,
+    oninput: function () {
+      draft.address = this.value; // synchronous and unconditional — never gated on the network
+      addressSug.typed(this.value);
+    } });
   const note = el("input", { class: "input", placeholder: "Note (optional)",
     value: draft.note, oninput: function () { draft.note = this.value; } });
   // The courier's tracking number, editable here as well as on the row: a number
@@ -1591,7 +1709,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-      el("div", {}, el("label", {}, "Delivery address (if courier)"), address)),
+      el("div", {}, el("label", {}, "Delivery address (if courier)"), address),
+      // Under the address box and across both columns, exactly as the customer
+      // suggester's panel sits under the name box — in the grid's normal flow, so it
+      // is never clipped by the Edit pop-up's scrolling body.
+      addressSug.panel),
     doorSlot,
     el("div", { class: "field" }, note),
     el("div", { class: "field" },
