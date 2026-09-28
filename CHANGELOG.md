@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v224)
+# Jienluv2bake — change history (v54 → v225)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v225, A PRODUCT THAT IS ON THE SHOP CAN ALWAYS BE HIDDEN (no database step, no
+redeploy — one push).**
+
+You said __after publish a product, only delete is allow, it should not be__. You were right, and
+this is fixed. A product that is **on the shop** now always carries a __Hide__ button. Before, the
+row decided for you: a product that already had orders, or that another product uses to make a set,
+offered __Hide__, but a **freshly published product with no orders yet offered only Delete**. So the
+one product you had just put up was the one you could take down only by destroying it.
+
+**Hiding never touches your recipe.** Hide simply takes the product off the customer's menu and
+leaves everything of yours intact — the recipe, the ingredients and amounts, the photo, the price,
+the category, and any order history it has. __Unhide__ puts it straight back. Nothing is deleted, and
+no database step is needed for any of this.
+
+**Delete is still there, beside Hide, on a product that is clean and unused** — one with no orders
+and not used inside a set. That is the same rule as before, just no longer the only button on the
+row. So on a live product you now read __Edit · Hide · Delete__, and on one with history you read
+__Edit · Hide__ (Delete never appears where it would break an order or a set).
+
+**Why this helps:** the mistake this removes is a real one — publish a product, look at the card,
+and the only way off the shop is the button that also deletes the recipe. Now taking a product down
+is one tap and completely safe, and Delete stays for the case where you really do want it gone.
 
 **28 Sep 2026 — engine v224, THE PICTURE WINDOW IS SQUARE AND YOUR PHOTO IS CROPPED TO FILL IT, AND
 A PRODUCT ROW SHOWS ONLY WHAT A CUSTOMER SEES (no database step, no redeploy — one push).**
