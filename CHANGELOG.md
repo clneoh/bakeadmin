@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v231)
+# Jienluv2bake — change history (v54 → v232)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v232, A TRANSLATED LINE YOU DELETE STAYS DELETED, AND THE GREY HINT IS SHORT
+ENOUGH TO READ (no database step, no redeploy, one push).**
+
+This one comes straight from you, and you described it exactly: you delete the Chinese or the Bahasa
+Malaysia wording on a product, and **the machine translation comes back** — greyed, sitting in the box you
+had just emptied, with the little sentence about filling in the English, and the right-pointing arrow over
+it. Then the arrow went away and left the greyed words behind with no way to accept them.
+
+**What was actually happening.** The greyed words and the arrow are supposed to be **one offer**, made
+together: the arrow is drawn on the words, and the words are only there because the arrow can take them.
+They were being written in two different places, so they could disagree — and when you emptied a line, the
+words stayed and the arrow did not.
+
+**From this version a line you have made yours is yours.** If you type your own wording into a translated
+line, or you **delete** what was there, that line goes **quiet**: nothing greyed comes back into it, and no
+arrow is put over it. It stays as you left it when you save.
+
+**The ↻ is still your way back.** A line you have emptied shows the **↻** on its right instead of the
+arrow, so a translation is always one tap away if you change your mind — the line is never a dead end. The
+same ↻ re-translates a line the machine filled for you.
+
+**A line you have not touched is unchanged.** Empty, never typed into, with English above it — it still
+shows the suggested words greyed with the **→** to take them, exactly as before. What is on offer, and how
+to take it, are now decided in the one place, so they can never disagree again.
+
+**And the grey hint is short enough to read now.** It used to say **"e.g. ……if blank, it will be filled with
+English"** after the suggested words, and that is too long for a one-line box: on your phone it ran past
+the right edge and was **cut off mid-word**, right where the arrow sits. It now shows just the suggested
+words with the plain **"e.g."** in front, the same shape as every other suggested box in the app.
+The promise it was making is still made, in full, in the card's own line above: leave a line blank and the
+English shows instead.
+
+**A line you emptied says what blank means.** Instead of the machine's words lingering in it, an emptied
+line now carries a small grey note — **"Left blank — English shows."** — so it is clear that leaving it
+empty is a real choice and not a mistake, and that your customers will simply see the English.
+
+**Nothing else moved.** The translations still come from the same free service, still only ever appear as
+grey suggestions, are still never saved over your own words, and the shop still falls back to the English
+wherever a translation is missing. Nothing here touches your shop, your orders or your prices.
 
 **28 Sep 2026 — engine v231, THE PICK-A-DELIVERY-DAY CALENDAR IS NOW FIVE WEEKS THAT FOLLOW TODAY (no
 database step, no redeploy, one push).**
