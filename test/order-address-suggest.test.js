@@ -152,7 +152,7 @@ const all = (node, out = []) => {
 const buttonByText = (root, text) =>
   all(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes(text));
 const ADDRESS_BOX = "Delivery address (if courier)";
-const addrBox = (root) => all(root).find((n) => n.tagName === "INPUT" && n.attrs.placeholder === ADDRESS_BOX);
+const addrBox = (root) => all(root).find((n) => n.tagName === "TEXTAREA" && n.attrs.placeholder === ADDRESS_BOX);
 // `.sugg-panel` is a shared style worn by the customer list too, so the marker is what
 // names THIS one.
 const addressPanel = (root) => all(root).find((n) => n.attrs && n.attrs["data-sugg"] === "address");
@@ -195,6 +195,12 @@ test("nothing is asked until she stops typing, and a burst of keystrokes is one 
   await withWire(async (wire) => {
     const root = openNewCard(state());
     const box = addrBox(root);
+
+    // The box is multi-line, not the one-line field it was (v229): a courier address is
+    // four or five lines on a phone. `addrBox` above already proves the ELEMENT is a
+    // textarea; this proves it was given the height, so a revert to `rows: 1` is caught.
+    assert.ok(Number(box.attrs.rows) >= 3,
+      "the address box is tall enough to read a whole address back");
 
     // Four keystrokes in a row, faster than the pause: a real typist, not a metronome.
     type(box, "12 J");

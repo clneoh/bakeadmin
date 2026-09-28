@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v228)
+# Jienluv2bake — change history (v54 → v229)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v229, THE DELIVERY ADDRESS BOX HAS ROOM FOR A WHOLE ADDRESS (no database step,
+no redeploy, one push).**
+
+A delivery address is four or five lines — the name, the street, the area, the postcode and the state.
+The box you typed it into was **one line tall**, so most of what you had written was hidden and you were
+reading your own address back through a letterbox. From this version that box is **tall enough to show
+the whole address at once**.
+
+**It is in both order forms** — the **＋ New order** card and the **Edit** pop-up — so the two behave
+alike. The box is also **draggable at its bottom edge** if you want it taller still.
+
+**The map card's address box got the same treatment.** The one labelled **"The address you have"**, where
+you type the address before looking it up, is now multi-line as well — it holds a whole address too, and
+it had the same problem.
+
+**Nothing else changed.** The suggestions still appear as you type, the address still fills itself in when
+you pick a customer, and saving an order works exactly as it did. There is **no database step and no
+redeploy** — it is one push.
 
 **28 Sep 2026 — engine v228, THE ADDRESS BOX SUGGESTS REAL ADDRESSES AS YOU TYPE (one Google setting
 to switch on, one redeploy — the app itself is one push).**

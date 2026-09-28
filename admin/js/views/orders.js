@@ -1297,7 +1297,9 @@ function orderForm(state, dateId, root, selectDate) {
     draft.address = text;
     address.value = text;
   });
-  const address = el("input", { class: "input", placeholder: "Delivery address (if courier)",
+  // Multi-line on purpose: a courier address is four or five lines on a phone, so a
+  // one-line field hid most of it. Taller, and draggable — see textarea.input in app.css.
+  const address = el("textarea", { class: "input", rows: 4, placeholder: "Delivery address (if courier)",
     value: draft.address,
     oninput: function () {
       draft.address = this.value; // synchronous and unconditional — never gated on the network
@@ -1571,7 +1573,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     draft.address = text;
     address.value = text;
   });
-  const address = el("input", { class: "input", placeholder: "Delivery address (if courier)",
+  // The same multi-line box as the New order form, for the same reason — an address
+  // she can read back in full while editing it.
+  const address = el("textarea", { class: "input", rows: 4, placeholder: "Delivery address (if courier)",
     value: draft.address,
     oninput: function () {
       draft.address = this.value; // synchronous and unconditional — never gated on the network
