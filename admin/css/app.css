@@ -300,9 +300,12 @@ body { min-height: 100vh; }
    Both are drawn the same shape — a row indented by the category's own depth, so
    what she ticks reads like the tree the shop will draw. */
 .thumb-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* The same standard 120 x 120 photo window as the shop's card (.menu-thumb in
+   store/app.css) and the products list (.prod-thumb below) — one size in all
+   three, so the picture she picks here is exactly what her customers see. */
 .thumb-box {
-  width: 96px;
-  height: 130px;
+  width: 120px;
+  height: 120px;
   flex: 0 0 auto;
   object-fit: contain;
   border-radius: 10px;
@@ -326,24 +329,20 @@ body { min-height: 100vh; }
 .cat-pick input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
 
 /* The picture beside a product's name in the products list, so she can see at a
-   glance which ones still need one. It runs the FULL height of the row's words —
-   `align-self: stretch` takes it from the name down past the description — so a
-   product with a description gets a taller picture and the strip beside it is
-   never left empty. The width is what fixes how much of the row it takes.
-   `min-height` stops a bare row's picture shrinking to a stamp.
+   glance which ones still need one. The same standard 120 x 120 window as the
+   shop's card (.menu-thumb in store/app.css) and the editor (.thumb-box above).
+   It used to be 64 wide and to follow the row's own height, so the same picture
+   was a different size here than on the shop.
 
-   `contain`, never `cover`: the panel is fixed and the photo is shown WHOLE
+   `contain`, never `cover`: the window is fixed and the photo is shown WHOLE
    inside it, in the shape her file happens to be. The same rule as the shop's
    card, for the same reason — she must see the same picture here that her
    customers see there, and neither of them cropped. */
 .prod-row-main { display: flex; align-items: stretch; gap: 10px; min-width: 0; flex: 1 1 auto; }
 .prod-thumb {
-  width: 64px;
+  width: 120px;
+  height: 120px;
   flex: 0 0 auto;
-  align-self: stretch;
-  height: auto;
-  min-height: 80px;
-  max-height: 150px;
   object-fit: contain;
   border-radius: 10px;
   background: var(--strip);

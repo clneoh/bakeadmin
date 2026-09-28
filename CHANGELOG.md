@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v222)
+# Jienluv2bake — change history (v54 → v223)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v223, ONE STANDARD PICTURE WINDOW, BIGGER AND THE SAME IN BOTH PLACES (no
+database step, no redeploy — one push).**
+
+You asked me for __a standard photo window that is big enough for effectively shows a photo of
+product for APP side and Store side__. That is exactly what this is: one picture window, one size,
+used in every place you meet a product picture.
+
+**The window is the same size in all three places: your shop's card, your app's Products list, and
+the editor where you choose the photo.** Before this version each place had its own size — 96 wide on
+the shop and following the card's own height, and only 64 in the app — so the same picture showed
+three different sizes, and none of them big enough to make out the product. Now it is one window
+everywhere, and it is bigger than before.
+
+**Your photo still goes in whole.** Nothing about last version changes. A tall photo and a wide photo
+both still show in full, with the window's soft cream colour in the spare space beside them. The
+window is the fixed thing; your photo keeps its own shape.
+
+**A product with no picture is unchanged.** It simply has no window, and its name and price read
+across the whole card exactly as before.
+
+**One thing to know: a wider window leaves the words beside it a little less room.** On a product that
+has both a picture and a long name, the name and price now wrap onto one or two more lines than they
+did. If that crowds the words more than you like once you see it, say so and I will make the window a
+little smaller — it is one number and a quick change.
+
+**To use the new window at its best, choose the photo again.** The pictures already saved were cut to
+the old shape back when they were saved, so re-choosing the photo is the step that gives you one made
+for this window. You told me you would reload the product photo, and this is the version it belongs
+to.
+
+**Nothing to run.** No new table, no Supabase change, no redeploy of anything. This reaches your shop
+and your app the next time you push, and you will see **Engine v223** on your **More** screen.
 
 **28 Sep 2026 — engine v222, YOUR PHOTO KEEPS ITS OWN SHAPE AND NOTHING IS CUT OFF (no database
 step, no redeploy — one push).**

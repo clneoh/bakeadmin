@@ -700,12 +700,13 @@ export function render() {
         class: `card menu-item${soldOut ? " soldout" : ""}`,
         dataset: { product: p.name },
       },
-        // The photo is the card's own LEFT COLUMN, not a piece of the head. It
-        // stretches to the whole card height — down beside the stepper — so the
-        // strip next to it is never left empty (the baker asked for the fullest
-        // height the card has). Everything else stacks in `.card-body` beside it,
-        // and a product with no photo is simply a card whose body is its only
-        // child, so the two shapes cannot drift apart.
+        // The photo is the card's own LEFT COLUMN: one standard 120 x 120 window,
+        // the same window her app's products list and the editor use (.menu-thumb
+        // in app.css). A FIXED size, not a strip that stretches to the card's own
+        // height — so the same picture is the same size wherever she meets it.
+        // Everything else stacks in `.card-body` beside it, and a product with no
+        // photo is simply a card whose body is its only child, so the two shapes
+        // cannot drift apart.
         p.thumb
           ? el("img", { class: "menu-thumb", src: p.thumb, alt: "", loading: "lazy", decoding: "async" })
           : null,

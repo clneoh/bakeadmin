@@ -386,29 +386,27 @@ html, body {
    off the right of the card. */
 .card-words { flex: 1 1 auto; min-width: 0; }
 
-/* The photo runs the FULL height of the card: `align-self: stretch` takes it
-   from the top of the name down past the stepper, so the strip beside the + and
-   − is not left empty. The width is what fixes how much of the card it takes —
-   96px keeps a long product name on two lines rather than three — and the height
-   follows the card, so a product with a description gets a taller picture.
-   `min-height` stops a bare card's photo shrinking to a stamp; `max-height`
-   stops a very long description stretching it into a sliver.
+/* ONE standard photo window, and it is the SAME window in the three places she
+   meets a product picture: the shop's card here, her app's products list, and
+   the editor where she picks it. 120 x 120. Before this version each place had
+   its own size — 96 wide here following the card's own height, 64 in the app —
+   so one picture showed three different sizes and none of them big enough to
+   make out the product. A fixed window means what she sees is what a customer
+   sees, at a size that actually shows the bake.
 
-   `contain`, never `cover`. The panel is the FIXED thing and the photo is shown
+   `contain`, never `cover`. The window is the FIXED thing and the photo is shown
    WHOLE inside it, in whatever shape the baker's file happens to be. `cover`
    would crop a second time, right here, and she would never see it happen — a
    tall portrait would come back with its top and bottom quietly cut off. With
-   `contain` a tall photo fills the panel top to bottom with the soft panel
+   `contain` a tall photo fills the window top to bottom with the soft window
    colour at either side, and a wide one fills it across with the colour above
    and below. The file keeps its own ratio (readPhotoFit, never readPhoto), and
    this is the other half of that promise. */
 .menu-thumb {
-  width: 96px;
+  width: 120px;
+  height: 120px;
   flex: 0 0 auto;
-  align-self: stretch;
-  height: auto;
-  min-height: 120px;
-  max-height: 190px;
+  align-self: flex-start;
   object-fit: contain;
   border-radius: 10px;
   background: #f1e9de;

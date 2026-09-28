@@ -364,6 +364,31 @@ test("every product picture is drawn with `contain`, so nothing is cropped twice
   }
 });
 
+test("the three photo windows are ONE standard size — 120 x 120, the same in all three places", () => {
+  const store = read("store/app.css");
+  const admin = read("admin/css/app.css");
+  const rule = (css, sel) => (css.match(new RegExp(sel.replace(".", "\\.") + "\\s*\\{([^}]*)\\}")) || [])[1] || "";
+  const size = (body) => [
+    (body.match(/(?:^|;)\s*width:\s*(\d+)px/) || [])[1],
+    (body.match(/(?:^|;)\s*height:\s*(\d+)px/) || [])[1],
+  ];
+  const boxes = [
+    ["the shop card", rule(store, ".menu-thumb")],
+    ["the app row", rule(admin, ".prod-thumb")],
+    ["the editor preview", rule(admin, ".thumb-box")],
+  ];
+  for (const [label, body] of boxes) {
+    assert.deepEqual(size(body), ["120", "120"],
+      `${label} must be the ONE standard 120 x 120 window — all three the same is the point`);
+    // A window that stretches or has a min/max height is NOT standard: it changes
+    // with the card it sits in, which is exactly what this version replaced.
+    assert.doesNotMatch(body, /align-self:\s*stretch/,
+      `${label} must not stretch to its card — the window is a fixed size`);
+    assert.doesNotMatch(body, /(?:min|max)-height/,
+      `${label} must not carry a min/max height — the window is a fixed size`);
+  }
+});
+
 test("the customer avatar is STILL a square crop — it was not swept up by the change", () => {
   const admin = read("admin/css/app.css");
   const body = (admin.match(/\.customer-avatar\s*\{([^}]*)\}/) || [])[1] || "";

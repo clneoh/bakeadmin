@@ -591,8 +591,9 @@ function buildEditor(state, product) {
   // trims nothing. The baker asked for this after two versions cropped her photos
   // to a fixed shape: a square crop of a plate or a tray cuts the top and bottom
   // off the food, and a fixed box crops whatever does not fit. The shop draws the
-  // result inside a fixed panel and the app draws it in the product's row, so the
-  // panel is where the size is decided, not here. Still JPEG only and still small
+  // result inside ONE standard 120 x 120 window, and this editor and her app's
+  // products list use that same window, so the size is decided there and is the
+  // same in all three places. Still JPEG only and still small
   // in bytes, because this picture rides in the single localStorage blob that
   // every cloud snapshot and export carries, and it is sent to every customer's
   // phone on each page load. Its being a real JPEG is checked again on both sides
@@ -1044,7 +1045,7 @@ function editorFields(state, editor) {
       el("div", {}, el("label", {}, "Unit"), editor.unit)),
     el("div", { class: "field" }, el("label", {}, "Photo (shown beside it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
-        "One picture. It keeps its own shape — nothing is cut off — and is shrunk for you. It fills the picture panel on your shop card. Blank shows no picture."),
+        "One picture. It keeps its own shape — nothing is cut off — and is shrunk for you. It shows in one standard picture window on your shop card and in your own product list. Blank shows no picture."),
       editor.thumbFile, editor.thumbPreview),
     el("div", { class: "field" }, el("label", {}, "Description (customers read it on your shop)"),
       el("p", { class: "card-sub", style: "margin:0 0 5px" },
