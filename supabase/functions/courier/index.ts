@@ -46,7 +46,7 @@
 //      v228 ADDS ONE MORE THING TO THIS SAME KEY AND NO NEW SECRET: the address
 //      SUGGESTIONS the New-order box offers while she types. They need "Places API (New)"
 //      ENABLED on the Google project and TICKED onto this key's API restrictions — see
-//      places.ts for the whole argument. Until that is done the key simply cannot call
+//      suggest.ts for the whole argument. Until that is done the key simply cannot call
 //      Places, this function answers "not set up", and the address box behaves exactly as
 //      it did before v228. That is why the two halves can ship apart safely.
 //
@@ -58,7 +58,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { LALAMOVE_KEY, LALAMOVE_LABEL, hostFor, servicesIn, quotation, cities, placeOrder, orderDetail, orderWithDriver, cancelOrder, notSetUpReason, type LlmConfig } from "./providers/lalamove.ts";
 import { geocodeAddress } from "./geocode.ts";
-import { suggestAddresses, allowSuggestion, type HitRecord } from "./places.ts";
+import { suggestAddresses, allowSuggestion, type HitRecord } from "./suggest.ts";
 import { validPoint } from "./place.ts";
 import { orderArgs } from "./booking.ts";
 

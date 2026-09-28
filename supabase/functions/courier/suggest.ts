@@ -1,4 +1,4 @@
-// supabase/functions/courier/places.ts — Google's address SUGGESTIONS as she types (v228).
+// supabase/functions/courier/suggest.ts — Google's address SUGGESTIONS as she types (v228).
 //
 // WHY THIS IS NOT geocode.ts. That file answers "where is this address?" from a COMPLETE
 // address she has already finished typing, and it exists to put a pin on a map. This one
@@ -32,8 +32,8 @@
 // address, it is a caller seeing what happens.
 //
 // Pure enough to run under Node: `Deno.env` is reached through `globalThis` (see envOf),
-// and nothing here touches the DOM, so the whole file is driven in test/places.test.ts's
-// sibling suite with only `fetch` and a hand-rolled `Deno` stubbed.
+// and nothing here touches the DOM, so the whole file is driven by test/courier-suggest.test.js
+// with only `fetch` and a hand-rolled `Deno` stubbed.
 
 // Google's Places API (New) autocomplete endpoint. Note it is `places.googleapis.com`,
 // a different host from the `maps.googleapis.com` the geocoder uses — the two products

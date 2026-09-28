@@ -1,6 +1,6 @@
-// test/places.test.js — v228: the address box asks Google as she types.
+// test/courier-suggest.test.js — v228: the address box asks Google as she types.
 //
-// supabase/functions/courier/places.ts is the half of the suggester that lives on the
+// supabase/functions/courier/suggest.ts is the half of the suggester that lives on the
 // server: it builds the Places API (New) autocomplete request and reads the reply into
 // rows. No Edge Function's index.ts can be loaded by this suite (it starts with a `jsr:`
 // import and calls Deno.serve — see edge-function-imports.test.js), so the whole of the
@@ -14,7 +14,7 @@ const {
   suggestAddresses, suggestionsFrom, placesTrouble,
   allowSuggestion, sweepHits,
   MIN_QUERY, MAX_QUERY, MAX_SUGGESTIONS, MAX_PER_WINDOW, WINDOW_MS, PLACES_TIMEOUT_MS,
-} = await import("../supabase/functions/courier/places.ts");
+} = await import("../supabase/functions/courier/suggest.ts");
 
 const PLACES_HOST = "places.googleapis.com";
 

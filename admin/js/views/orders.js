@@ -1175,7 +1175,7 @@ function suggestedAddress(row, input) {
 // never-overwrite rule protects a delivery from being moved by a SIDE EFFECT (picking
 // a customer). Here the tap IS the instruction, so the box must become the address she
 // picked.
-const ADDRESS_MIN_CHARS = 4; // mirrors MIN_QUERY in supabase/functions/courier/places.ts
+const ADDRESS_MIN_CHARS = 4; // mirrors MIN_QUERY in supabase/functions/courier/suggest.ts
 const ADDRESS_WAIT_MS = 400; // the pause after her last keystroke before Google is asked
 
 // The one ask in flight, and it is at MODULE scope on purpose. Both forms are rebuilt
