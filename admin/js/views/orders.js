@@ -1393,7 +1393,8 @@ function orderForm(state, dateId, root, selectDate) {
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-      el("div", {}, el("label", {}, "Delivery address (if courier)"), address),
+      // Both columns: the longest field in the form, and the cell beside it was empty.
+      el("div", { class: "span2" }, el("label", {}, "Delivery address (if courier)"), address),
       // Under the address box and across both columns, exactly as the customer
       // suggester's panel sits under the name box — in the grid's normal flow, so it
       // is never clipped by the Edit pop-up's scrolling body.
@@ -1713,7 +1714,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("div", {}, el("label", {}, "Order date"), orderDate),
       el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
       el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-      el("div", {}, el("label", {}, "Delivery address (if courier)"), address),
+      // Both columns: the longest field in the form, and the cell beside it was empty.
+      el("div", { class: "span2" }, el("label", {}, "Delivery address (if courier)"), address),
       // Under the address box and across both columns, exactly as the customer
       // suggester's panel sits under the name box — in the grid's normal flow, so it
       // is never clipped by the Edit pop-up's scrolling body.

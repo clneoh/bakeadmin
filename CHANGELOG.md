@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v229)
+# Jienluv2bake — change history (v54 → v230)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Sep 2026 — engine v230, THE DELIVERY ADDRESS BOX IS NOW THE FULL WIDTH OF THE FORM (no database
+step, no redeploy, one push).**
+
+Last version made that box **tall**; you told me it was still cramped, and you were right — it was
+**narrow**, and I had not seen it. From this version the delivery address box is **as wide as the form**,
+so a whole address sits on the line it belongs on instead of wrapping three words at a time.
+
+**Why it was narrow.** The order form lays its fields out in **two columns**, and the address was sitting
+in **one** of them — with the space beside it standing **empty**. The address is the longest thing you
+type into that form, so it now takes **both columns**, and that wasted gap is gone. On a phone it went
+from about **137 pixels wide to about 315** — the same width as the shop's own address box, which was
+never the problem.
+
+**It is in both order forms** — the **＋ New order** card and the **Edit** pop-up — so the two behave
+alike, and **no other field on the form moved**.
+
+**The map card's address box is unchanged by this one.** The box labelled **"The address you have"** was
+already full width — v229 gave it the height it needed, and nothing about its width was wrong.
+
+**Nothing else changed.** The suggestions still appear as you type, the address still fills itself in when
+you pick a customer, and saving an order works exactly as it did. There is **no database step and no
+redeploy** — it is one push.
 
 **28 Sep 2026 — engine v229, THE DELIVERY ADDRESS BOX HAS ROOM FOR A WHOLE ADDRESS (no database step,
 no redeploy, one push).**
