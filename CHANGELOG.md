@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v237)
+# Jienluv2bake — change history (v54 → v238)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v238, RESET THE PIN, AND LET THE MAP ZOOM (no database step, no redeploy, one
+push).**
+
+This one is yours, word for word: when you call a customer, their address may already have changed, and
+the only thing on offer was to move the pin. The map would not zoom out, and dragging a pin onto the right
+rooftop by thumb was slow and easy to get wrong. You asked why there was no way to reset the pin. There
+wasn't one. There is now, and the map zooms.
+
+**There is now a reset, on the pin card, where you can see it.** When the pin the driver is sent to is the
+customer's own — the one they dropped on your shop page — the button under the map reads **Reset the pin
+from the address**. One press asks your address service for the address on the order again and puts the
+pin where that answer lands. That is the case you described: the pin was right when they dropped it, and
+they have moved since.
+
+**It asks before it replaces their pin.** The customer's own pin is a fact they gave you, so a button that
+quietly overwrote it would be the pin moving on its own again — the fault several versions of this card
+have been spent ending. So the press asks first, in plain words: this is their pin, resetting replaces it
+with a fresh look-up of the address, and a look-up may only find the road. The confirming button says
+**Reset the pin**. Cancel changes nothing at all, not even a look-up.
+
+**And you can put their pin back.** Once a reset has replaced their pin, the same card offers **Use the
+customer's pin instead**, one press, back to their exact point. The reset is not a one-way door.
+
+**A reset yields to a pin they drop afterwards.** If that customer pins a new spot on your shop page after
+you reset, their new pin wins again straight away — the same rule as before. A reset replaces one specific
+stale pin, not every pin that customer will ever drop.
+
+**The map zooms the whole time now.** The plus and minus buttons are drawn on the pin card, and pinch,
+double-tap and a desktop box zoom all work — before you press anything. Only moving the pin is still behind
+**Move this pin**: the map will not pan under a pin you are reading, and the pin will not take a drag, until
+you say so. That split is the point of this version. Looking and correcting used to be one action; they are
+two again.
+
+**Nothing else changed.** Your prices, your delivery calendar, your messages, the order card, the packing
+slip and the label sheet are all exactly as they were. Adding an order is still the one pass v237 made it,
+and a pin you placed by your own hand is still not offered up for replacement.
+
+**On two phones.** If your second phone has not been reloaded yet and is still running v237, it reads a
+reset as the older kind of pin and will price to the pin you replaced until it is reloaded. Reloading it
+fixes it, and there is nothing to run in Supabase for any of this.
 
 **30 Sep 2026 — engine v237, A COURIER ORDER IN ONE PASS, AND THE DAY ON ONE LINE (no database step, no
 redeploy, one push).**

@@ -52,7 +52,7 @@ import {
   liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
 } from "../courier_job.js";
 import {
-  customerPlaceOf, doorIsTheirs, doorMayBeLookedUpAgain, doorRoadOf, doorSpotOf, doorSwitchOf,
+  customerPlaceOf, doorFromOf, doorIsTheirs, doorMayBeReset, doorRoadOf, doorSpotOf, doorSwitchOf,
   dropAddress, dropPlaceOf, fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse,
   sameDoor, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
@@ -311,13 +311,17 @@ export function courierQuoteSection({
         doorHandle.setDraggable(!doorLocked);
         paintDoor();
       }, "ghost small");
-      // ASK THE ADDRESS UP AGAIN (v213). A door a lookup wrote is the best answer one service
-      // had on the day it was asked, not a fact about the world — and for a Malaysian house
-      // number that answer is usually just the road. v212 added a second, better service, but
-      // it is only ever asked when there is NO door yet, so every customer pinned before it
-      // keeps the old answer for good. This is the way out, and it is a press rather than
-      // something the card does by itself: a pin that moved under her without being asked to
-      // is the bug v209 was written to end.
+      // ASK THE ADDRESS UP AGAIN (v213) — or RESET a door that has gone stale (v238). A door a
+      // lookup wrote is the best answer one service had on the day it was asked, not a fact
+      // about the world — and for a Malaysian house number that answer is usually just the
+      // road. v212 added a second, better service, but it is only ever asked when there is NO
+      // door yet, so every customer pinned before it keeps the old answer for good. This is the
+      // way out, and it is a press rather than something the card does by itself: a pin that
+      // moved under her without being asked to is the bug v209 was written to end.
+      //
+      // ONE BUTTON, AND IT IS ASKED UP AGAIN AND RESET BY THE SAME PRESS (v238) — the label
+      // says which of the two she is about to do, and paintDoor repaints it, because the
+      // answer depends on which door is in force and that changes under her.
       lookBtn = button("Look this address up again", () => relookUp(), "ghost small");
       // ONE node, never an array: replaceChildren is variadic, and an array handed to it
       // prints as "[object HTMLParagraphElement],…" with nothing left to press — the fault
@@ -392,11 +396,23 @@ export function courierQuoteSection({
     }
 
     // ASK UP AGAIN, WHERE ASKING CAN STILL HELP (v213) — the rule itself is in
-    // courier_place.js. Not over the customer's own pin, which is a fact from them, and not
-    // over a pin she placed by her own hand, which is a correction and not a guess. No door
-    // at all means nothing to re-ask for: the price press looks one up by itself.
+    // courier_place.js. Not over a pin she placed by her own hand, which is a correction and
+    // not a guess. No door at all means nothing to re-ask for: the price press looks one up
+    // by itself.
+    //
+    // AND SINCE v238 IT IS OFFERED OVER THE CUSTOMER'S OWN PIN TOO, which it never was before.
+    // v209's reason for hiding it there — "they were standing at their door, and no lookup
+    // improves on that" — is true of the day they dropped it, not of today. Her report is the
+    // case it misses: the customer moved, their pin is the stale one, and the press that would
+    // replace it was the press hidden. The label says what the press will do, so the same
+    // button reads "Reset the pin from the address" over their pin and "Look this address up
+    // again" over one of ours — and relookUp asks first where the replacement is theirs.
+    //
+    // `addr` stays in the gate: with no address typed there are no words to look up, and a
+    // press that could only ever do nothing has no business being on screen.
     if (lookBtn) {
-      lookBtn.hidden = !(spot && addr && doorMayBeLookedUpAgain(state, first));
+      lookBtn.textContent = theirs ? "Reset the pin from the address" : "Look this address up again";
+      lookBtn.hidden = !(spot && addr && doorMayBeReset(state, first));
     }
 
     if (!spot) {
@@ -507,12 +523,20 @@ export function courierQuoteSection({
       // `which: "customer"` means her own door is the one in force and the pin they dropped is
       // the alternative — so the words below split on this one flag, and nothing else.
       const theirs = offer.which === "customer";
+      // AND WHY HER DOOR IS THE ONE IN FORCE DECIDES THE SENTENCE (v238). The line below used
+      // to say they "pinned a different spot this time", which is true when her door is her own
+      // hand — she corrected a pin of theirs and both points are real. It is NOT true after a
+      // reset: they did not re-pin, SHE replaced a pin that had gone stale, and telling her the
+      // customer moved when the customer did not is the card inventing a fact about a person.
+      const wasReset = theirs && doorFromOf(state, first) === "reset";
       offerBox.hidden = false;
       offerBox.replaceChildren(
         el("p", { class: "card-sub" },
-          theirs
-            ? `${who} pinned a different spot this time. Taking it replaces the doorstep you keep for them.`
-            : `${who}'s own pin is in use. The doorstep you keep for them is a different spot.`),
+          !theirs
+            ? `${who}'s own pin is in use. The doorstep you keep for them is a different spot.`
+            : wasReset
+              ? `You reset this door from the address on the order. ${who}'s own pin is a different spot.`
+              : `${who} pinned a different spot this time. Taking it replaces the doorstep you keep for them.`),
         el("div", { class: "btn-row" },
           button(theirs
             ? "Use the customer's pin instead"
@@ -1217,14 +1241,19 @@ export function courierQuoteSection({
         : `The door moved — ask again for a price for this spot. ${prices}`;
     };
 
-    // ── asking the same address up again (v213) ──────────────────────────
+    // ── resetting the same address, or asking it up again (v213, extended v238) ──
     //
-    // Reached from the door block's own second press, and drawn only where a LOOKUP wrote the
-    // door (see courier_place.js doorMayBeLookedUpAgain). It exists because a lookup's answer
-    // is never re-asked: `ask()` looks an address up only when there is no door yet, and every
-    // later price reads the saved one back — so a customer pinned under the free map services
-    // keeps that road-level point for as long as the app knows them, and the Google key she has
-    // now set would look like it had changed nothing at all.
+    // Reached from the door block's own second press, and drawn only where the door in force
+    // may be replaced (see courier_place.js doorMayBeReset). It exists because a lookup's
+    // answer is never re-asked: `ask()` looks an address up only when there is no door yet, and
+    // every later price reads the saved one back — so a customer pinned under the free map
+    // services keeps that road-level point for as long as the app knows them, and the Google
+    // key she has now set would look like it had changed nothing at all.
+    //
+    // SINCE v238 IT ALSO REPLACES THE CUSTOMER'S OWN PIN, WHICH IS WHERE SHE REPORTED IT. The
+    // case v209 left out: the customer moved, so the pin they dropped is the stale one now, and
+    // before this the only press that could replace it was hidden. Their pin is asked about
+    // first (see relookUp) — this is a replacement, not a suggestion.
     //
     // THREE ANSWERS, AND EACH ONE IS SAID. It moved; it did not move; it could not be asked.
     // A button whose only outcome is silence is the dead control this app has a standing rule
@@ -1234,18 +1263,49 @@ export function courierQuoteSection({
       const words = dropAddress(first);
       const before = doorSpot();
       if (busy || !words || !before) return;
-      // Wrapped for the same reason `ask` is (v217), and on the same guard: a lookup that
-      // threw used to leave `busy` set and this button disabled for the life of the card.
+      // OVER THE CUSTOMER'S OWN PIN, THE PRESS ASKS FIRST (v238). Everywhere else it replaces
+      // something THIS app worked out — a look-up's answer, or a reset of one — and replacing
+      // it is what this press has always done, so nothing new is put in her way. Their pin is
+      // different: it is a fact from them, and a press that quietly overwrote it would be the
+      // "dot moved on its own" that six versions of this card were written to end.
+      //
+      // WHAT THE CONFIRM HAS TO SAY, and why it says two things: that it replaces THEIR pin,
+      // and that the answer may be no better. A look-up that can only reach the road LOWERS a
+      // real doorstep to a street, and she should read that before the press rather than after
+      // — the card does wear the road caveat once it is written, but by then it is done.
+      if (theirsIsTheDoor()) {
+        const who = String(first.customerName || "the customer").trim() || "the customer";
+        confirmDialog(
+          `${who}'s own pin is the door the driver is sent to. Resetting replaces it with a fresh look-up of the address on this order, and a look-up may only find the road. You can switch back to their pin afterwards.`,
+          () => runReset(words, before),
+          { danger: true, yesLabel: "Reset the pin" });
+        return;
+      }
+      await runReset(words, before);
+    };
+
+    // THE PRESS ITSELF, once it has been decided — one path for both doors, so a reset and a
+    // plain re-look-up cannot come to differ in how they run or what they leave behind.
+    //
+    // `against` is the customer's pin as it stands RIGHT NOW, and it is passed on every route,
+    // not only where their pin is the door in force. That is what keeps the press from being a
+    // silent no-op: courier_place.js's doorIsTheirs reads it back, so a reset that did not name
+    // the pin it replaced would still lose to that pin and the dot would not move at all (v238).
+    //
+    // Wrapped for the same reason `ask` is (v217), and on the same guard: a lookup that threw
+    // used to leave `busy` set and this button disabled for the life of the card.
+    async function runReset(words, before) {
+      const against = customerPlaceOf(first);
       await guarded({
         btn: lookBtn,
         hold: (v) => { busy = v; },
-        work: () => relookUpBody(words, before),
+        work: () => relookUpBody(words, before, against),
         said: (s) => { statusLine.textContent = s; },
         trouble: "The address could not be looked up again, and the door has been left as it was",
       });
-    };
+    }
 
-    async function relookUpBody(words, before) {
+    async function relookUpBody(words, before, against) {
       busy = true;
       if (lookBtn) lookBtn.disabled = true;
       stopClock();
@@ -1265,7 +1325,12 @@ export function courierQuoteSection({
       const moved = !sameDoor(before, found.place);
       // Written with the address on the order as its name, never the geocoder's row (v207):
       // the same split the lookup makes on its way to a price, so the two cannot disagree.
-      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "lookup", road);
+      //
+      // Recorded as a RESET (v238), not a look-up, because this press replaces a door that is
+      // already on the order — and where that door is the customer's own pin, a "lookup" stamp
+      // would lose to it and move nothing at all. `against` carries the pin it replaced, so
+      // their pin wins again the moment they drop a genuinely new one.
+      setDropPlace(state, first, { lat: found.place.lat, lng: found.place.lng, label: words }, "reset", road, against);
       if (onCommit) onCommit(first);
       paintDoor();
       if (!moved) {

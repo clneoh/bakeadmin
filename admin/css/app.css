@@ -1263,7 +1263,9 @@ option.tone-off { color: var(--muted); }
    the pop-up instead of the map. The READ-ONLY map in the note/tracking box is the
    other case, and it is settled where it is built rather than here: a map that cannot
    be dragged must not take a finger hostage, so mountPinMap gives it `pan-y` until she
-   unlocks it (v201, 26 Sep 2026). */
+   unlocks it (v201, 26 Sep 2026). Since v238 that `pan-y` is doing a second job —
+   declining the pinch on the browser's behalf so Leaflet's own touchZoom answers it,
+   which is how the zoom stays live on a card she has not unlocked. */
 .place-map {
   height: 260px;
   margin-top: 12px;
