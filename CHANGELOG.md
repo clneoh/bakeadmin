@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v232)
+# Jienluv2bake — change history (v54 → v233)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**29 Sep 2026 — engine v233, YOUR ORDER PAGE NOW HAS A WAY BACK TO YOUR HOMEPAGE (no database step, no
+redeploy, one push).**
+
+Your order page had no route to your homepage at all. Someone who lands on it straight from an Instagram
+bio or a shared link sees the bakery name and the menu, and if they want the reviews, the gallery or the
+story, there was nowhere to tap. From this version there is a small **Our homepage** link in the orange
+banner at the top, marked with a little house, on its own line under your tagline — and it takes them to
+**jienluv2bake.com.my**.
+
+**It sits on its own line on purpose.** The banner's top row already holds the "Made to order" line and the
+EN / 中文 / BM buttons, and on a phone the "Made to order" line already wraps onto two or three lines — a
+third thing squeezed in there would have crowded all three. Under the tagline it belongs to the banner,
+reads clearly in white on the orange, and is a full-size tap target rather than a thin line of text.
+
+**It is translated like everything else on the page.** A customer reading in Chinese or in Bahasa Malaysia
+sees it in their own language, and it changes with the rest of the page the moment they tap a language,
+with nothing re-loaded.
+
+**Nothing else moved.** The menu, the delivery calendar, the basket, the order form, the track-your-order
+box and the place-order bar are all exactly as they were. Your homepage still opens your order page in a new
+tab, so a customer who came that way keeps both pages open.
 
 **28 Sep 2026 — engine v232, A TRANSLATED LINE YOU DELETE STAYS DELETED, AND THE GREY HINT IS SHORT
 ENOUGH TO READ (no database step, no redeploy, one push).**

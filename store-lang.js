@@ -9,6 +9,7 @@
 
 const en = {
   titleWord: "Order",
+  homeLink: "🏠 Our homepage",
   referral: "🎁 You were referred — you have a welcome discount on your first order",
   deliveryDays: "Delivery days",
   orderBy: "Order by",
@@ -201,6 +202,7 @@ const en = {
 
 const zh = {
   titleWord: "订购",
+  homeLink: "🏠 我们的主页",
   referral: "🎁 经由好友推荐 — 首次下单即可享受专属优惠",
   deliveryDays: "派送日",
   orderBy: "下单截止",
@@ -339,6 +341,7 @@ const zh = {
 
 const ms = {
   titleWord: "Tempahan",
+  homeLink: "🏠 Laman utama kami",
   referral: "🎁 Anda dirujuk — anda ada diskaun sambutan untuk tempahan pertama",
   deliveryDays: "Hari penghantaran",
   orderBy: "Tempahan ditutup",
