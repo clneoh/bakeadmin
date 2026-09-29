@@ -522,3 +522,85 @@ test("the deadline is watched only while its window is still ahead of her", () =
   // And a rule with no moment in it has nothing to watch either.
   assert.equal(readings(bare({}), morning), 0, "a rule with no moment in it is not watched");
 });
+
+// ── the ＋ New order card asks for prices but never books (v237) ─────────────
+//
+// The card is editing a DRAFT that has no order id yet, so it takes prices and nothing
+// else: booking writes a real trip onto an order (`courierJob`, `trackingNo`), and there
+// is no order here to write it onto. `canBook: false` is that mode, and what it has to
+// suppress is precise — the [Book this trip] press above all, because a stray press there
+// would put a real vehicle on the road against a draft nobody has saved.
+//
+// Driven by standing in for the courier's own two methods rather than for `fetch`: what
+// this test is about is what the SCREEN draws for a price-only host, and the wire this
+// file already stubs refuses everything by design.
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
+const buttonNamed = (root, text) =>
+  all(root).find((n) => n.tagName === "BUTTON" && n.textContent === text) || null;
+
+test("a price-only host gets [Use this fee] and no way to book, and says where the fee goes", async () => {
+  stubFetch();
+  const st = world(null);
+  const oneQuote = {
+    id: "q1", name: "Motorcycle", amount: 18.5, currency: "MYR", distanceKm: 2.4,
+    expiresAt: new Date(Date.now() + 30 * 60000).toISOString(), expiryFrom: "policy",
+  };
+  const realVehicles = lalamove.vehicles;
+  const realQuote = lalamove.quote;
+  lalamove.vehicles = async () => ({ ok: true, vehicles: [{ key: "MOTORCYCLE" }] });
+  lalamove.quote = async () => ({ ok: true, quotes: [oneQuote], failed: [] });
+  let used = null;
+  try {
+    const root = Object.assign(createEl("div"), { __root: true });
+    root.append(courierQuoteSection({
+      state: st, orders: st.orders, canBook: false, onUseFee: (q) => { used = q; return true; },
+    }));
+    press(root, "Get a delivery price");
+    await settle();
+    await settle();
+
+    // The price half is untouched: a real row, with the press that fills the charge box.
+    const use = buttonNamed(root, "Use this fee");
+    assert.ok(use, "a price-only host still prices, and still offers the fee");
+    press(root, "Use this fee");
+    assert.equal(used && used.amount, 18.5, "and the press hands the amount over");
+
+    assert.equal(buttonNamed(root, "Book this trip"), null,
+      "no booking press on a draft — booking spends real money on a real vehicle");
+
+    const text = root.textContent;
+    assert.ok(!text.includes("Booking books the trip this price was quoted at"),
+      "and none of the booking prose describes a press that is not here");
+    assert.match(text, /then press Add order/,
+      "the fee's destination is the card's own Add order, not a Save this card does not have");
+  } finally {
+    lalamove.vehicles = realVehicles;
+    lalamove.quote = realQuote;
+  }
+});
+
+test("a booking host still gets [Book this trip] — the two modes are told apart", async () => {
+  stubFetch();
+  const st = world(null);
+  const realVehicles = lalamove.vehicles;
+  const realQuote = lalamove.quote;
+  lalamove.vehicles = async () => ({ ok: true, vehicles: [{ key: "MOTORCYCLE" }] });
+  lalamove.quote = async () => ({ ok: true, quotes: [{
+    id: "q1", name: "Motorcycle", amount: 18.5, currency: "MYR", distanceKm: 2.4,
+    expiresAt: new Date(Date.now() + 30 * 60000).toISOString(), expiryFrom: "policy",
+  }], failed: [] });
+  try {
+    const root = Object.assign(createEl("div"), { __root: true });
+    root.append(courierQuoteSection({ state: st, orders: st.orders }));
+    press(root, "Get a delivery price");
+    await settle();
+    await settle();
+    assert.ok(buttonNamed(root, "Book this trip"), "the courier screen keeps its booking press");
+    assert.ok(!root.textContent.includes("then press Add order"),
+      "and it is told what Save is, not what this app has no Add order button for");
+  } finally {
+    lalamove.vehicles = realVehicles;
+    lalamove.quote = realQuote;
+  }
+});

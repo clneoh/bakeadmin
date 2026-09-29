@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v236)
+# Jienluv2bake — change history (v54 → v237)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v237, A COURIER ORDER IN ONE PASS, AND THE DAY ON ONE LINE (no database step, no
+redeploy, one push).**
+
+This one is yours, and it came from a complaint about your own way of working. Adding an order used to be
+two steps: fill in the New order card, press Add order, then find the order again and open the Edit window
+to finish it. You said that was redundant, that the flow was not smooth, and that it started in the wrong
+place.
+
+**A courier order is now one pass.** The reason it was ever two steps is that four things lived only in the
+Edit window and not on the card: the courier charge, the tracking number, the parcel carrier, and the Get a
+delivery price block. They are all on the card now. Choose Courier delivery and they unfold underneath it,
+in the order you need them: the address with the map pin, the charge, the tracking number, the parcel, and
+the price. Take the order, price the trip and record what it cost, all before you press Add order once.
+
+**The price is on the card. The booking is not.** This is the way you asked for it. You can ask for a price
+and take the fee onto the order from the card, but Book this trip stays on the order itself, where it has
+always been. Booking a real vehicle against an order you have not finished taking would be the wrong thing
+to put under your thumb one press away.
+
+**The day is one line now.** The card used to open on a whole month of calendar, even though you had already
+picked the day on the screen behind it. It now reads as one line — Delivering Fri, 2 Oct — with the calendar
+unfolding underneath only when you tap it. Nothing about how a day is chosen has changed: tapping one still
+switches the screen, so the products and the day's limits are right.
+
+**The items come first.** After the day comes what the customer wants, then the customer. It is the order
+things are actually said to you on the phone: they tell you what they want, then who they are. Everything
+else on the card is unchanged and in the place it has always been.
+
+**Your own note box is now the delivery note.** Your app and your shop both used to call the order's note
+box simply Note. Now that every item carries its own note, that box was left doing a different job, so it
+says what it does: it is the delivery note, for the gate code, the landmark and the time you should arrive.
+The box on your shop and the box in your app now show a grey hint saying exactly that, so a customer knows
+what belongs in it without you having to tell them.
+
+**Nothing is written until you press Add order.** The card was, and still is, a draft. The charge, the
+tracking number and the parcel are written onto the order at the same moment the order itself is created,
+so an order you decide against leaves nothing behind it. And if you type a charge but do not say who paid
+it, the card refuses in words and changes nothing, exactly as the Edit window does.
+
+**Nothing else changed.** The order's own field order in the Edit window, your prices, the delivery
+calendar, your WhatsApp messages, the packing slip and the label sheet are all exactly as they were.
 
 **30 Sep 2026 — engine v236, A NOTE ON EACH ITEM, SWITCHED ON PER PRODUCT (no database step, no redeploy,
 one push).**

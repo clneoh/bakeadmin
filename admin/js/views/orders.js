@@ -54,16 +54,25 @@ let ordersCalMonth = null;
 // rebuilt whenever anything around it changes — including when a day is tapped in
 // its own calendar — and folding under her finger at that moment would be mad.
 let newFormOpen = false;
-// The customer's name and number as typed into the ＋ New order card. Module scope
-// for the same reason as the fold above, and one more: the draft inside orderForm
-// is built fresh on every rebuild, so a rebuild silently threw away what she had
-// put in the customer boxes — the comment down there claimed otherwise, but only
-// the item rows ever came back. Holding just these two fields out here makes the
-// claim true, which matters now that choosing from the suggestion list is a thing
-// she does in this card. Cleared on a fresh visit to the screen (with the fold)
-// and when an add actually completes — never when one is merely asked for, since
-// the capacity and closed-day warnings can still be cancelled.
-let newOrderContact = { customerName: "", whatsapp: "" };
+// THE WHOLE DRAFT of the ＋ New order card, held out here for the same reason as the fold
+// above: the card is rebuilt whenever anything around it changes, and that includes
+// tapping a day in the card's OWN calendar (onPick is selectDate, which redraws the
+// screen). A draft built fresh inside orderForm therefore loses everything she typed —
+// and not only the customer boxes. Measured in v237: `items` was declared inside
+// orderForm as well, so the item rows went with it too; the old comment on this line
+// claimed "only the item rows ever came back", and that was never true. Now that the
+// day line sits UNDER the items, picking a day from this card is an ordinary thing to do
+// part-way through an order, so the whole draft — items included — has to outlive the
+// rebuild. Cleared on a fresh visit to the screen (with the fold) and when an add
+// actually completes — never when one is merely asked for, since the capacity and
+// closed-day warnings can still be cancelled.
+let newOrderDraft = null;
+// Whether the card's day calendar is unfolded under its one-line day, and which month it
+// is paged to. Both module scope for that same rebuild reason. `newFormDayMonth` is
+// handed straight to deliveryCal, which mutates it in place when its arrows are pressed —
+// so paging forward to look at a later week survives a rebuild for free.
+let newFormDayOpen = false;
+let newFormDayMonth = null;
 
 const STATUSES = [
   ["new", "New"],
@@ -309,7 +318,9 @@ export function renderOrders(root, state, params) {
   orderStatusFilter = "";
   orderQuery = ""; // a fresh visit to Orders starts with an empty finder box
   newFormOpen = false;  // …and with the New-order card shut
-  newOrderContact = { customerName: "", whatsapp: "" }; // …and with its customer boxes empty
+  newFormDayOpen = false; // …its day calendar folded back up
+  newFormDayMonth = null; // …and paged to the day that opens
+  newOrderDraft = null; // …and with nothing half-typed inside it
   ordersCalMonth = null; // …and on the month of the day that opens
   installOrderCollapseOutside();
   renderAll(root, state, params);
@@ -1273,21 +1284,32 @@ function orderForm(state, dateId, root, selectDate) {
       el("p", { class: "muted" }, "No products yet. Add products with their recipes first — More → Products."));
   }
 
-  // The form edits a *draft*, not the orders directly, so a mid-edit re-render
-  // (a sync pull, a fresh storefront import) rebuilds this form with what she
-  // actually typed. Nothing is written until Add order is pressed. The customer's
-  // name and number are the two the draft alone could not keep across a rebuild,
-  // so they are seeded from newOrderContact and written back to it as she types.
-  const draft = {
-    customerName: newOrderContact.customerName, whatsapp: newOrderContact.whatsapp,
+  // The form edits a *draft*, not the orders directly, so a mid-edit re-render (a sync
+  // pull, a fresh storefront import, or a day tapped in this card's own calendar)
+  // rebuilds this form with what she actually typed. Nothing is written until Add order
+  // is pressed. The draft lives at MODULE scope (see newOrderDraft) so that is true of
+  // every field and not only the customer's name and number.
+  const draft = newOrderDraft || (newOrderDraft = {
+    customerName: "", whatsapp: "",
     fulfillment: "collect", address: "", note: "", orderDate: todayISO(),
-  };
+    trackingNo: "", carrierId: "", handedAt: "",
+    items: [{ productId: "", qty: 1, price: null }],
+  });
+  // The day is the SCREEN's, not the draft's: picking one switches the screen, because
+  // the product list and each day's limits are built for the date on screen. So the
+  // draft simply follows whatever day is on screen, on every build.
+  draft.deliveryDateId = dateId;
+  draft.deliveryDate = date.date;
+  // The card's own charge box, rebuilt with the courier block and read by `submit`. Held
+  // out here because the block is built on every Fulfillment change and `submit` has to
+  // reach whichever one is standing — null whenever the block is not on screen.
+  let courierCharge = null;
   // Filling in from a suggestion has to write both the boxes and the draft: the
   // draft is what the other controls read, the boxes are what she sees. The
   // address comes too, but only into an empty box — see suggestedAddress.
   const suggester = customerSuggester(state, (r) => {
-    draft.customerName = newOrderContact.customerName = customerRowName(r);
-    draft.whatsapp = newOrderContact.whatsapp = suggestionNumber(r);
+    draft.customerName = customerRowName(r);
+    draft.whatsapp = suggestionNumber(r);
     customer.value = draft.customerName;
     whatsapp.value = draft.whatsapp;
     const addr = suggestedAddress(r, address);
@@ -1296,16 +1318,16 @@ function orderForm(state, dateId, root, selectDate) {
   const customer = el("input", { class: "input", placeholder: "Customer name (optional)",
     value: draft.customerName,
     oninput: function () {
-      draft.customerName = newOrderContact.customerName = this.value;
+      draft.customerName = this.value;
       suggester.paint(this.value);
     } });
   const whatsapp = el("input", { class: "input", type: "tel", inputmode: "tel",
     placeholder: "e.g. 012-345 6789", "data-suggest": "012-345 6789",
     value: draft.whatsapp,
-    oninput: function () { draft.whatsapp = newOrderContact.whatsapp = this.value; } });
+    oninput: function () { draft.whatsapp = this.value; } });
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
-    draft.fulfillment, function () { draft.fulfillment = this.value; });
+    draft.fulfillment, function () { draft.fulfillment = this.value; paintCourier(); });
   // The address box also offers what she might be typing, from Google (v228). A tap
   // writes BOTH the draft (what the other controls read) and the box (what she sees),
   // the same pair the customer suggestion writes.
@@ -1321,28 +1343,41 @@ function orderForm(state, dateId, root, selectDate) {
       draft.address = this.value; // synchronous and unconditional — never gated on the network
       addressSug.typed(this.value);
     } });
-  const note = el("input", { class: "input", placeholder: "Note (optional)",
+  // The order-level note is the DELIVERY note now that every item carries its own
+  // (v236). It stays the same field on the order — only what it is for has changed.
+  const note = el("input", { class: "input note-input", placeholder: "Collect time, delivery time, etc.",
     value: draft.note, oninput: function () { draft.note = this.value; } });
   const orderDate = dateField(draft.orderDate, (iso) => { draft.orderDate = iso; },
     { occasions: state.occasions });
 
-  // "Which day am I adding to?" — the same calendar the top of the screen shows,
-  // so the two can never disagree about which days exist. Choosing a day switches
-  // the screen instead of filling a draft: the product list and each day's limits
-  // are built for the date on screen, so a day held only in the draft would offer
-  // items that are not sellable on it.
+  // "Which day am I adding to?" — the same calendar the top of the screen shows, so the
+  // two can never disagree about which days exist. It is drawn on ONE LINE and unfolds
+  // only when that line is tapped (v237): the card stands on every delivery day, so a
+  // full month grid in front of the first thing she has to type was mostly a wall of
+  // dates she did not need. Choosing a day still SWITCHES THE SCREEN rather than filling
+  // a draft, because the product list and each day's limits are built for the date on
+  // screen — a day held only in the draft would offer items not sellable on it.
+  // The month is held at MODULE scope so paging it forward survives a rebuild — the day
+  // line now sits under the items, so touching it part-way through an order is ordinary.
+  // deliveryCal mutates the object it is handed in place when its arrows are pressed,
+  // which is what makes handing it the same object each build enough.
   const dayCal = deliveryCal({
     state,
     days: deliveryDayList(state),
     getActiveId: () => dateId,
-    month: monthOf(date.date),
-    onPick: selectDate,
+    month: newFormDayMonth || (newFormDayMonth = monthOf(date.date)),
+    // The panel shuts BEFORE the screen switches, so it cannot spring open again under
+    // her on the rebuilt card.
+    onPick: (id) => { newFormDayOpen = false; selectDate(id); },
     noteMisses: true,
   });
 
   const rowsEl = el("div", {});
   const totalEl = el("p", { class: "card-sub", style: "margin:8px 0 0" });
-  const items = [{ productId: "", qty: 1, price: null }];
+  // The rows are the DRAFT's own array, not a fresh one — so a rebuild (a day tapped in
+  // this card's own calendar above all) repaints what she has entered instead of wiping
+  // it back to one empty row.
+  const items = draft.items;
   const paintTotal = () => {
     const priced = items.filter((it) => it.productId && it.price != null);
     totalEl.textContent = priced.length
@@ -1403,38 +1438,125 @@ function orderForm(state, dateId, root, selectDate) {
     const addressText = address.value.trim();
     const noteText = note.value.trim();
     const placed = draft.orderDate;
+    // The courier half is settled BEFORE anything is created (v237). A charge with an
+    // amount in the box and nobody named as the payer is REFUSED in words — the same
+    // words the Edit pop-up uses, because courierControls.problem is the one guard. Asked
+    // here rather than after the order is written, so a refused Add order leaves the card
+    // exactly as she left it and no half-written order behind it.
+    const shared = {};
+    if (fulfillment === "courier" && courierCharge) {
+      const why = courierCharge.problem();
+      if (why) return toast(why);
+      shared.courier = courierCharge.read();
+      shared.trackingNo = draft.trackingNo.trim();
+      shared.parcel = { carrierId: draft.carrierId, handedAt: draft.handedAt };
+    }
     if (picked.length === 1) {
       // The line's own note rides with it (v236); `noteText` beside it is the
       // ORDER-level note, which is a different thing and stays exactly as it was.
       addNew(state, date, picked[0].productId, picked[0].qty, picked[0].price ?? null,
         customerName, phone, fulfillment, addressText, noteText,
-        lineNoteOf(picked[0].note), placed, root);
+        lineNoteOf(picked[0].note), placed, shared, root);
     } else {
-      addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, root);
+      addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, shared, root);
     }
   };
 
-  // Shut until its title is tapped: the card stands on every delivery day and is
-  // not what the screen is for day to day. Inside, the day calendar comes first
-  // (the same month grid the shop shows), then the customer, then the items.
+  // ── the day, on ONE line ─────────────────────────────────────────────────
+  // The same affordance the Order date field already uses (datepicker.js): a soft button
+  // that names the value and unfolds a panel under it. The panel holds deliveryCal rather
+  // than datepicker's own month grid, because only deliveryCal knows which days she
+  // delivers on, what each is already carrying, and which are closed.
+  const dayBtn = el("button", {
+    class: "btn soft block datepick-btn", type: "button",
+    "aria-expanded": newFormDayOpen ? "true" : "false",
+    onclick: () => { newFormDayOpen = !newFormDayOpen; paintDay(); },
+  });
+  const dayPanel = el("div", { class: "datepick-panel" });
+  function paintDay() {
+    dayBtn.setAttribute("aria-expanded", newFormDayOpen ? "true" : "false");
+    dayBtn.replaceChildren(
+      el("span", { class: "datepick-val" }, `Delivering ${shortDate(date.date)}`),
+      el("span", { class: "datepick-ico", "aria-hidden": "true" },
+        newFormDayOpen ? "· close" : "· change"));
+    // replaceChildren is not el(): it prints a bare null as the text "null" on her screen,
+    // so the panel is emptied with a spread of nothing rather than handed a null child.
+    dayPanel.replaceChildren(...(newFormDayOpen ? [dayCal.el] : []));
+  }
+  paintDay();
+  const dayLine = el("div", { class: "datepick" }, dayBtn, dayPanel);
+
+  // ── the courier's half of the order ──────────────────────────────────────
+  // Everything a courier order needs that the card used to be missing: the address, the
+  // tracking number, the parcel, the charge and a price. They unfold only when Fulfillment
+  // says Courier delivery, and that is the point — the card no longer has to be added and
+  // then reopened under Edit to become a courier order (v237).
+  //
+  // The block is BUILT on every change, never built once and unhidden. `isCourierOrder` is
+  // captured ONCE at construction inside courierQuoteSection (courier_quote.js): a price
+  // section built while Fulfillment said self-collect would keep a permanently dead map and
+  // a permanently dead quote half for the rest of the card's life. Only the Fulfillment
+  // handler calls this, so nothing else she has typed is disturbed by it — never renderAll.
+  //
+  // The address NODE is built once at the top of this form and merely MOVED in and out of
+  // here, because the customer suggester writes into it: it holds `address`, and the
+  // suggestion panel belongs under it. Everything else in the block is fresh each build.
+  //
+  // The parcel's carrier picker repaints ITSELF (`paintParcel` below) rather than the whole
+  // block, so naming a carrier cannot throw away the charge she has just typed — the same
+  // rule courier_pay_questions already follows for its own two questions.
+  const courierBox = el("div", {});
+  function buildCourierBlock() {
+    const parcelSlot = el("div", {});
+    function paintParcel() {
+      const p = parcelSection({ state, group: { orders: [draft] }, draft, refresh: paintParcel });
+      parcelSlot.replaceChildren(...(p ? [p] : []));
+    }
+    const charge = courierControls(state, draft, () => {});
+    courierCharge = charge;
+    const tracking = el("input", { class: "input", placeholder: "e.g. JT123456789",
+      autocomplete: "off", value: draft.trackingNo,
+      oninput: function () { draft.trackingNo = this.value; } });
+    // A fresh slot every build: a hoisted one would still be holding the Leaflet mount
+    // from the previous block.
+    const doorSlot = el("div", {});
+    const quote = courierQuoteSection({
+      state, orders: [draft], doorSlot, canBook: false,
+      // [Use this fee] writes through THIS block's own charge box, so there is still one
+      // charge editor in the app. `onCommit` and `onCollected` are both null in
+      // price-only mode: booking writes a trip onto an order, and this order has no id
+      // until Add order is pressed.
+      onUseFee: (q) => charge.set(q.amount),
+    });
+    paintParcel();
+    return [
+      el("div", { class: "field" },
+        el("label", {}, "Delivery address (if courier)"),
+        address,
+        addressSug.panel),
+      doorSlot,
+      el("div", { class: "field" },
+        el("label", {}, "Courier tracking number (optional)"), tracking,
+        el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
+      parcelSlot,
+      charge.el,
+      quote,
+    ];
+  }
+  function paintCourier() {
+    courierCharge = null;
+    courierBox.replaceChildren(...(draft.fulfillment === "courier" ? buildCourierBlock() : []));
+  }
+  paintCourier();
+
+  // Shut until its title is tapped: the card stands on every delivery day and is not what
+  // the screen is for day to day. Inside, the DAY comes first but as a single line, then
+  // the two things she is actually holding when a customer is on the phone — the items,
+  // then who ordered them. The courier's fields follow the Fulfillment choice further down.
   const body = el("div", { class: "fold-body", hidden: !newFormOpen },
     el("div", { class: "field", style: "margin-bottom:10px" },
       el("label", {}, "Delivery day"),
-      dayCal.el),
-    el("div", { class: "form-grid order-sugg" },
-      el("div", {}, el("label", {}, "Customer"), customer),
-      suggester.panel,
-      el("div", {}, el("label", {}, "Order date"), orderDate),
-      el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
-      el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel),
-      // Both columns: the longest field in the form, and the cell beside it was empty.
-      el("div", { class: "span2" }, el("label", {}, "Delivery address (if courier)"), address),
-      // Under the address box and across both columns, exactly as the customer
-      // suggester's panel sits under the name box — in the grid's normal flow, so it
-      // is never clipped by the Edit pop-up's scrolling body.
-      addressSug.panel),
-    el("div", { class: "card-sub", style: "margin:0 0 10px" },
-      "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
+      dayLine),
     el("div", { class: "field" },
       el("label", {}, "Items"),
       rowsEl,
@@ -1442,7 +1564,18 @@ function orderForm(state, dateId, root, selectDate) {
       totalEl),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Everything in the Items list becomes one customer order — add every item, then press Add order."),
-    el("div", { class: "field" }, note),
+    el("div", { class: "form-grid order-sugg" },
+      el("div", {}, el("label", {}, "Customer"), customer),
+      suggester.panel,
+      el("div", {}, el("label", {}, "Order date"), orderDate),
+      el("div", {}, el("label", {}, "WhatsApp (optional)"), whatsapp),
+      el("div", {}, el("label", {}, "Fulfillment"), fulfillmentSel)),
+    // The courier's half, unfolding under the Fulfillment choice above it (v237) — the
+    // address and the suggester's panel with it, which is why the grid no longer holds it.
+    courierBox,
+    el("div", { class: "card-sub", style: "margin:0 0 10px" },
+      "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
+    el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
     button("＋ Add order", submit, "block primary"));
 
   const caret = el("span", { class: "fold-caret" }, newFormOpen ? "▾" : "▸");
@@ -1620,7 +1753,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       draft.address = this.value; // synchronous and unconditional — never gated on the network
       addressSug.typed(this.value);
     } });
-  const note = el("input", { class: "input", placeholder: "Note (optional)",
+  // The order-level note is the DELIVERY note now that every item carries its own
+  // (v236). It stays the same field on the order — only what it is for has changed.
+  const note = el("input", { class: "input note-input", placeholder: "Collect time, delivery time, etc.",
     value: draft.note, oninput: function () { draft.note = this.value; } });
   // The courier's tracking number, editable here as well as on the row: a number
   // read back over the phone, or one typed wrong, gets fixed in the pop-up.
@@ -1753,7 +1888,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // and a map three fields away from the box that holds it reads as belonging to nothing.
   const doorSlot = el("div", {});
 
-  // Same order as the New-order card: which day, then who, then what.
+  // Which day, then who, then what — deliberately NOT the ＋ New order card's order any
+  // more. v237 moved that card to day, then items, then customer, because a customer on the
+  // phone is telling her what they want first. A pop-up she opened on ONE known order has
+  // nothing to decide that way: the order is already in front of her, so it keeps the order
+  // it has always had, and the two screens are allowed to differ.
   return el("div", {},
     el("div", { class: "field", style: "margin-bottom:10px" },
       el("label", {}, "Delivery day"),
@@ -1772,7 +1911,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       // is never clipped by the Edit pop-up's scrolling body.
       addressSug.panel),
     doorSlot,
-    el("div", { class: "field" }, note),
+    el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
       tracking,
@@ -1968,15 +2107,19 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   }
 }
 
-function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, lineNote, orderDate, root) {
+function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, lineNote, orderDate, shared, root) {
   const cap = capacityStatus(state, date.id);
   const newTotal = cap.total + qty;
   const st = deliveryStatus(date.date, state.settings);
+  // The courier's own three records, off the card's shared answers (v237). Destructured
+  // here rather than left nested, because they are written by their own functions AFTER
+  // the row exists and must never be copied onto the row as fields of their own.
+  const { courier = null, parcel = null, trackingNo = "" } = shared || {};
 
   function commit() {
-    // The card keeps her customer across a rebuild, so a successful add has to
-    // clear it by hand or the next order would open on the person she just served.
-    newOrderContact = { customerName: "", whatsapp: "" };
+    // The card keeps her draft across a rebuild, so a successful add has to clear it by
+    // hand or the next order would open on the person she just served.
+    newOrderDraft = null;
     const row = {
       id: newId("ord"),
       deliveryDateId: date.id,
@@ -2000,6 +2143,16 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
     // the same "absent means nothing" spelling the shop side uses when it posts.
     if (lineNote) row.lineNote = lineNote;
     state.orders.push(row);
+    // The courier half, written only once the row EXISTS. Both writers key what they
+    // write on the order's own code (writeCourierCharge through orderCode, which for a
+    // draft is the literal "??????" — a string applyCourierCharge's `!!code` guard lets
+    // through), so writing from the card before this push would orphan a Delivery & fuel
+    // expense the moment the real order got its real code. Written before the save and
+    // before maybePublishTracking, so the tracking number and the carrier are on the row
+    // by the time the customer's card is published.
+    if (trackingNo) row.trackingNo = trackingNo;
+    writeCourierCharge(state, [row], { orders: [row] }, courier);
+    writeParcel(state, row, [row], parcel);
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
@@ -2026,15 +2179,16 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
 // list shows one block with one status and the group shares one order code
 // (orderCode uses groupId || id), exactly like a multi-item storefront order.
 // The capacity/backfill checks run against the combined quantity.
-function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, address, note, orderDate, root) {
+function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, address, note, orderDate, shared, root) {
   const totalQty = items.reduce((s, it) => s + it.qty, 0);
   const cap = capacityStatus(state, date.id);
   const newTotal = cap.total + totalQty;
   const st = deliveryStatus(date.date, state.settings);
+  const { courier = null, parcel = null, trackingNo = "" } = shared || {}; // see addNew
 
   function commit() {
     // See addNew: a completed add starts the card clean.
-    newOrderContact = { customerName: "", whatsapp: "" };
+    newOrderDraft = null;
     const groupId = newId("ordg");
     const createdAt = new Date().toISOString();
     const rows = [];
@@ -2065,6 +2219,13 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
       state.orders.push(row);
       rows.push(row);
     }
+    // One group, one charge and one parcel — keyed on the SHARED group code orderCode
+    // resolves through groupId, exactly as the Edit pop-up writes them. The tracking
+    // number rides on every row of the order, as the pop-up does. See addNew for why this
+    // can only happen after the rows exist.
+    if (trackingNo) for (const o of rows) o.trackingNo = trackingNo;
+    writeCourierCharge(state, rows, { orders: rows }, courier);
+    writeParcel(state, rows[0], rows, parcel);
     save(state);
     maybeSync(state);
     updateOrderBadge(state);
@@ -2414,7 +2575,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
   };
   showPopup(el("div", { class: "popup-title-row" }, "Note / tracking / courier / payment", orderCodeTag(first)),
     (refresh, close) => {
-      const note = el("input", { class: "input", placeholder: "Note (optional)",
+      const note = el("input", { class: "input note-input", placeholder: "Collect time, delivery time, etc.",
         value: draft.note, oninput: function () { draft.note = this.value; } });
       const tracking = el("input", { class: "input", placeholder: "e.g. JT123456789",
         autocomplete: "off", value: draft.trackingNo, oninput: function () { draft.trackingNo = this.value; } });
@@ -2471,7 +2632,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       const doorSlot = el("div", {});
       return el("div", {},
         doorSlot,
-        el("div", { class: "field" }, el("label", {}, "Note (optional)"), note),
+        el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
         el("div", { class: "field" },
           el("label", {}, "Courier tracking number (optional)"), tracking,
           el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),

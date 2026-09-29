@@ -92,8 +92,14 @@ import { mountPinMap, openPlacePicker } from "../place_map.js";
 // the same save and the same publish. This section does not move the status itself: what
 // an order's status means is the order's own business, and this file's job is to tell the
 // host the fact and let it decide. It is a TRANSITION and not a state (see `commit`).
+// `canBook: false` is the PRICE-ONLY mode, used by the ＋ New order card (v237). Booking
+// writes a real trip onto an order — `courierJob`, `trackingNo` — so it needs an order to
+// exist. The New-order card is editing a draft that has no id yet, so it takes prices and
+// nothing else: no [Book this trip], no job card, and no booking prose. Everything in the
+// price half is untouched, because none of it resolves an order by id or reads state.orders.
 export function courierQuoteSection({
   state, orders, onUseFee = null, onCommit = null, onCollected = null, doorSlot = null,
+  canBook = true,
 }) {
   const list = (Array.isArray(orders) ? orders : [orders]).filter(Boolean);
   const first = list[0] || null;
@@ -728,6 +734,9 @@ export function courierQuoteSection({
 
     // ── booking ──────────────────────────────────────────────────────────
     function book(q) {
+      // A price-only host has nowhere to put a trip, so the press is refused here as well
+      // as not drawn — a stray call cannot put a real vehicle on the road.
+      if (!canBook) return;
       if (jobBusy || !wrap.isConnected) return;
       const trip = pricedTrip;
       if (!trip) { toast("Ask for a price first — a trip is booked at the price it was quoted at."); return; }
@@ -931,7 +940,9 @@ export function courierQuoteSection({
       // moment she can be told what still has to happen for it to SAVE. Her question on
       // 27 Sep 2026 was "should i book?" — booking is not what saves a charge, and the
       // payer question is the thing that does.
-      toast(`Fee ${fmtQuote(q.amount, q.currency, cur)} put in the charge box — now choose who paid the courier and press Save. Booking a trip is separate: the charge saves without one.`);
+      toast(canBook
+        ? `Fee ${fmtQuote(q.amount, q.currency, cur)} put in the charge box — now choose who paid the courier and press Save. Booking a trip is separate: the charge saves without one.`
+        : `Fee ${fmtQuote(q.amount, q.currency, cur)} put in the charge box — now choose who paid the courier, then press Add order.`);
       // Folded away so the amount it just wrote is what she is looking at, with the
       // payer question under it — which is the next thing she has to answer.
       open = false;
@@ -958,7 +969,8 @@ export function courierQuoteSection({
       // with a hole in it, and the reason is the useful part — she has to call the
       // running trip off first.
       const bookBlocked = liveJobProblem(list);
-      const bookBtn = button("Book this trip", () => book(q), "soft small");
+      // A price-only host draws no booking press at all — `el()` skips a null child.
+      const bookBtn = canBook ? button("Book this trip", () => book(q), "soft small") : null;
       const row = el("div", { class: "quote-row" },
         el("div", { class: "quote-what" },
           el("span", { class: "quote-name" }, String(q.name || "").trim() || "Vehicle"),
@@ -994,8 +1006,10 @@ export function courierQuoteSection({
         }
         // `why` covers everything `unbookable` used to, and more — except the dead clock,
         // which is this row's own reading of the time and not a property of the quote.
-        bookBtn.disabled = dead || !!why || !!bookBlocked || jobBusy;
-        if (dead) bookBtn.textContent = "Expired";
+        if (bookBtn) {
+          bookBtn.disabled = dead || !!why || !!bookBlocked || jobBusy;
+          if (dead) bookBtn.textContent = "Expired";
+        }
       });
       return row;
     }
@@ -1038,7 +1052,7 @@ export function courierQuoteSection({
         ...missed,
         whyNode,
         blocked ? el("p", { class: "card-sub", style: "margin:8px 0 0" }, blocked) : null,
-        quotes.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
+        canBook && quotes.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
           "Booking a trip does not put its fee in the charge box — the courier's charge, who pays it and whether it is collected at the door are still yours to set above, and it is the Save button that writes them.") : null,
       ].filter(Boolean));
       for (const c of clocks) c(Date.now());
@@ -1273,10 +1287,12 @@ export function courierQuoteSection({
     paintQuotes();
     paintJob();
 
-    bodyWrap.replaceChildren(
+    bodyWrap.replaceChildren(...[
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `Prices for this delivery come from ${courier.label}'s own account. Taking a price fills the charge box, where you still choose who paid the courier — booking the trip is a separate press, and it is the Save button that writes the charge.`),
-      jobBox,
+        canBook
+          ? `Prices for this delivery come from ${courier.label}'s own account. Taking a price fills the charge box, where you still choose who paid the courier — booking the trip is a separate press, and it is the Save button that writes the charge.`
+          : `Prices for this delivery come from ${courier.label}'s own account. Taking a price fills the charge box — choose who paid the courier, then press Add order. Booking the trip happens on the order itself, once it has been added.`),
+      canBook ? jobBox : null,
       endsLine,
       offerBox,
       endsRow,
@@ -1287,8 +1303,9 @@ export function courierQuoteSection({
       askRow,
       statusLine,
       quoteBox,
-      el("p", { class: "card-sub", style: "margin:14px 0 0" },
-        `Booking books the trip this price was quoted at, so the vehicle and the hour that arrive are the ones priced here — moving the time box after a price does not move a booking. The customer's tracking box takes the trip's share link, which is what the card and the shipped message send them to, and the customer's card also carries the trip's own progress, the driver's name, the plate and a button to ring them. ${courier.label} hands the driver over only shortly before the pickup, so a check made before then comes back with the trip and no driver at all — there is no driver line until there is one to have.`));
+      canBook ? el("p", { class: "card-sub", style: "margin:14px 0 0" },
+        `Booking books the trip this price was quoted at, so the vehicle and the hour that arrive are the ones priced here — moving the time box after a price does not move a booking. The customer's tracking box takes the trip's share link, which is what the card and the shipped message send them to, and the customer's card also carries the trip's own progress, the driver's name, the plate and a button to ring them. ${courier.label} hands the driver over only shortly before the pickup, so a check made before then comes back with the trip and no driver at all — there is no driver line until there is one to have.`) : null,
+    ].filter(Boolean));
 
     ask();
   }

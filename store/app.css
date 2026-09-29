@@ -665,6 +665,10 @@ button.prod-next.off::after { content: ""; }
   min-height: 46px;
 }
 .input:focus { outline: 2px solid var(--brown); outline-offset: -1px; border-color: transparent; }
+/* The delivery note is a hint, never content (v237). Set explicitly rather than
+   left to the browser, whose default grey is dark enough to read as typed text
+   and differs between Safari, Chrome and Firefox. `opacity: 1` for Firefox. */
+.note-input::placeholder { color: var(--muted); opacity: 1; }
 
 /* Self collect / courier picker */
 .seg {

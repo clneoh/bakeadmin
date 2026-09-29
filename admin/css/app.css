@@ -555,6 +555,12 @@ h3.cat-head-tail { color: var(--muted); font-weight: 600; }
 }
 .input:focus { outline: 2px solid var(--brown); outline-offset: -1px; border-color: transparent; }
 textarea.input { min-height: 64px; resize: vertical; }
+/* The note boxes carry a hint, never content (v237). Set explicitly rather than
+   left to the browser: the default grey is dark enough to read as something she
+   had already typed, and it differs between Safari, Chrome and Firefox.
+   `opacity: 1` because Firefox dims its own placeholder further. */
+.note-input::placeholder,
+.line-note::placeholder { color: var(--muted); opacity: 1; }
 
 /* A field with a suggestion (data-suggest) shows a small arrow at its right
    edge while it is empty — the greyed text is the suggestion, and pressing →

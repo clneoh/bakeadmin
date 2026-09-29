@@ -1998,3 +1998,36 @@ test("a re-ask that moves but still only reaches the road keeps the caveat (v213
     delete globalThis.window.L;
   }
 });
+
+// ── the ＋ New order card's courier half (v237, 30 Sep 2026) ────────────────
+//
+// The card gained four things in v237 — the delivery address, the courier charge, the
+// tracking number and the parcel — and the biggest of them, the price section, is in
+// this very file already for the very fault this suite exists to catch (see the v189
+// note at the top of the test above). What is NEW is that the block is now reachable
+// from the card rather than only from the Edit pop-up, so a stray `?: null` on it
+// prints onto the screen she takes orders on.
+//
+// The shim in this file is the unforgiving one on purpose: it stringifies a non-node
+// argument exactly as the browser does. The card's own test file drops nulls in its
+// replaceChildren, so it cannot see this; this file can.
+
+test("the card's courier half prints no stray 'null', with nothing filled in at all (v237)", () => {
+  const root = createEl("div");
+  doc.body.append(root);
+  // No couriers on her list and no address typed: every optional line on the block is
+  // taking its absent branch at once, which is where a bare `?: null` shows up.
+  renderOrders(root, state([FOCACCIA]), new URLSearchParams({ date: "d10" }));
+  buttonByText(root, "＋ New order")._listeners.click[0]();
+  // Fold the courier half out, which is what builds the charge box, the parcel list and
+  // the price section on the card.
+  const sel = all(root).find((n) => n.tagName === "SELECT"
+    && (n.children || []).some((o) => o.value === "courier"));
+  sel.value = "courier";
+  (sel._listeners.change || []).forEach((f) => f.call(sel));
+
+  assert.match(root.textContent, /Courier tracking number/,
+    "the courier half really did unfold, so this is not passing over a screen with nothing on it");
+  assert.deepEqual(strayNulls(root), [], "no 'null' anywhere on the card");
+  assert.deepEqual(strayObjects(root), [], "nor an element stringified into a line");
+});

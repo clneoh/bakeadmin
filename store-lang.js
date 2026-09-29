@@ -62,8 +62,8 @@ const en = {
   addrPick: "Tap the one that matches your address.",
   addrNone: "We couldn't find that address. Tap the map and put the pin on your door instead.",
   addrFailed: "The address lookup isn't available right now. Tap the map and put the pin on your door instead.",
-  noteLabel: "Note (optional)",
-  notePh: "Allergies, extras, anything…",
+  noteLabel: "Delivery note (optional)",
+  notePh: "Gate code, landmark, delivery time…",
   // The note a customer can add to ONE item (v236). The link is what they tap
   // to open the box; the placeholder is the example that shows them what kind
   // of thing belongs in it.
@@ -247,8 +247,8 @@ const zh = {
   addrPick: "点选最接近你地址的一项。",
   addrNone: "找不到这个地址。请直接在地图上把标记放到你家门口。",
   addrFailed: "地址查询暂时无法使用。请直接在地图上把标记放到你家门口。",
-  noteLabel: "备注（可选）",
-  notePh: "过敏原、额外要求、其它…",
+  noteLabel: "送货备注（可选）",
+  notePh: "门禁密码、地标、送货时间…",
   addNoteLink: "＋ 添加备注",
   lineNotePh: "例如：不要坚果、写上「生日快乐」",
   sTrack: "查询订单",
@@ -388,8 +388,8 @@ const ms = {
   addrPick: "Ketik yang paling hampir dengan alamat anda.",
   addrNone: "Alamat itu tidak ditemui. Ketik peta dan letakkan tanda pada pintu anda.",
   addrFailed: "Pencarian alamat tidak tersedia buat masa ini. Ketik peta dan letakkan tanda pada pintu anda.",
-  noteLabel: "Nota (pilihan)",
-  notePh: "Alahan, tambahan, apa-apa sahaja…",
+  noteLabel: "Nota penghantaran (pilihan)",
+  notePh: "Kod pintu, mercu tanda, masa penghantaran…",
   addNoteLink: "＋ Tambah nota",
   lineNotePh: "cth. tanpa kacang, tulis “Selamat Hari Jadi”",
   sTrack: "Semak tempahan anda",

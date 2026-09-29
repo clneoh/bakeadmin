@@ -1,6 +1,6 @@
 // test/orders-view.test.js — the shape of the Orders screen's ＋ New order card
 // (admin/js/views/orders.js): it arrives folded, and when it is opened it reads
-// the day calendar first, then the customer, then the items.
+// the day on one line, then the items, then the customer.
 //
 // The screens it lives on sit behind the sign-in, so this is the closest anyone
 // gets to tapping it here: the card is built for real and then walked.
@@ -127,20 +127,36 @@ test("its title opens and shuts it, and the caret follows", () => {
   assert.equal(byClass(root, "fold-caret").children[0].text, "▸");
 });
 
-test("opened, it reads the day calendar first, then the customer, then the items", () => {
+test("opened, it reads the day on one line, then the items, then the customer", () => {
   const { root } = build();
   const body = byClass(root, "fold-body");
   const dayIdx = body.children.findIndex((n) => labelOf(n) === "Delivery day");
-  const customerIdx = body.children.findIndex((n) => labelOf(n) === "Customer");
   const itemsIdx = body.children.findIndex((n) => labelOf(n) === "Items");
+  const customerIdx = body.children.findIndex((n) => labelOf(n) === "Customer");
   const addIdx = body.children.findIndex((n) => String(n.className).includes("block"));
 
   assert.equal(dayIdx, 0, "which day she is adding to comes first");
-  assert.equal(body.children[0].children[1].className, "cal-wrap",
-    "and under it is the month calendar, the same one the shop shows");
-  assert.ok(customerIdx > dayIdx, "who the order is for comes after the day");
-  assert.ok(itemsIdx > customerIdx, "and what they want comes after that");
-  assert.ok(addIdx > itemsIdx, "with Add order last");
+
+  // The day is ONE line and its month grid is SHUT until that line is tapped (v237).
+  // The card stands on every delivery day, so a full grid in front of the first thing
+  // she has to type was mostly a wall of dates she did not need.
+  const dayLine = body.children[0].children[1];
+  assert.ok(String(dayLine.className).includes("datepick"), "the day is the one-line control");
+  const dayBtn = dayLine.children[0];
+  assert.match(dayBtn.textContent, /^Delivering /, "and it names the day already chosen");
+  assert.equal(dayBtn.attrs["aria-expanded"], "false", "shut at first");
+  assert.equal(dayLine.children[1].children.length, 0, "with nothing drawn under it");
+  assert.equal(all(body).some((n) => String(n.className).includes("cal-wrap")), false,
+    "so the month calendar is not on screen");
+
+  dayBtn._listeners.click[0]();
+  assert.equal(dayBtn.attrs["aria-expanded"], "true", "tapping the line unfolds it");
+  assert.ok(all(dayLine).some((n) => String(n.className).includes("cal-wrap")),
+    "onto the same calendar the top of the screen shows");
+
+  assert.ok(itemsIdx > dayIdx, "what they want comes after the day");
+  assert.ok(customerIdx > itemsIdx, "and who ordered it comes after that");
+  assert.ok(addIdx > customerIdx, "with Add order last");
 });
 
 test("a rebuild around an open card leaves it open, and a fresh visit folds it", () => {
