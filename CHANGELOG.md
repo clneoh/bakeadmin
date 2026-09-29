@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v233)
+# Jienluv2bake — change history (v54 → v234)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**29 Sep 2026 — engine v234, A BOOKED TRIP NOW TELLS YOU WHEN CALLING IT OFF STOPS BEING FREE (no database
+step, no redeploy, one push).**
+
+This one started as your own question: if you book a trip and then need to call it off, when does it start
+costing you money? The answer is a rule rather than a feeling. Lalamove lets you call off a scheduled pickup
+at no charge up to 45 minutes before it, and it may charge a fee after that. That rule was living in your
+head, so this version puts it on the page. Under the status line on a booked trip, the card now says
+**Free to call off until 30 Sep, 10:15 am - Lalamove may charge a fee after that.**
+
+**It turns over by itself when the window shuts.** Leave the card open and the sentence changes on its own
+to **Lalamove's free calling-off window shut at 10:15 am, so a fee may apply from here.** You never have to
+work out which side of the deadline you are on, because the card says it for you.
+
+**A trip booked for as soon as possible is told apart honestly.** On an immediate booking the free window
+runs from the moment a driver takes the job, and Lalamove never sends that moment back to the app. So rather
+than inventing a time that could be wrong, the card states the rule instead: **Booked for collection as soon
+as possible, so there is no pickup time to count back from. An immediate trip is free to call off only for a
+short while after a driver takes it - check with Lalamove before you count on it.**
+
+**Nothing is claimed that the app cannot stand behind.** Every sentence says the fee may apply rather than
+that it will, because it is Lalamove's own terms that decide it and not this app. A trip that has finished,
+or one you have already called off, shows no deadline line at all, since there is nothing left to call off.
+
+**Nothing else about booking changed.** The vans, the prices, the five-minute life of a price, the customer's
+tracking box, the charge box and the buttons on this card are all exactly as they were. This is one line
+added to a card you already had.
 
 **29 Sep 2026 — engine v233, YOUR ORDER PAGE NOW HAS A WAY BACK TO YOUR HOMEPAGE (no database step, no
 redeploy, one push).**

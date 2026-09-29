@@ -607,6 +607,28 @@ export function courierQuoteSection({
       // the same one-second tick as the prices, so there is one timer in this section.
       if (!job.cancelledAt && job.statusAt) jobClocks.push((now) => paintStatus(now));
 
+      // WHEN CALLING IT OFF STOPS BEING FREE. The one thing about a booked trip that can
+      // still cost her money after it is booked, so it belongs on the card rather than in
+      // her head. Asked of the courier that HOLDS the trip (never of one selected today —
+      // the grace is that courier's own), and drawn only while the trip is live: a
+      // finished or already-called-off trip has nothing left to call off.
+      const freeLine = (!done && !job.cancelledAt && holder.freeCancelLine)
+        ? el("p", { class: "job-free" }) : null;
+      const paintFree = (now) => {
+        freeLine.textContent = holder.freeCancelLine(job, { today, now });
+      };
+      if (freeLine) {
+        paintFree(Date.now());
+        // A window that shuts while she is reading the card would leave a line still
+        // promising "free until 10:15" at half past — worse than no line at all. So it
+        // rides the same one-second tick as the status, and is pushed only while the
+        // deadline is still AHEAD, so a line that has already shut costs no timer.
+        const fc = holder.freeCancelOf ? holder.freeCancelOf(job) : null;
+        if (fc && fc.kind === "scheduled" && Date.parse(fc.until) > Date.now()) {
+          jobClocks.push((now) => paintFree(now));
+        }
+      }
+
       // The driver, when a check has found one (v190). Not known at booking time and
       // never invented: this courier hands the name, the plate and a number over only
       // shortly before the pickup, so the line is drawn when there is something to put on
@@ -643,6 +665,7 @@ export function courierQuoteSection({
             : `${holder.label} is on this order`),
           row,
           statusLine,
+          freeLine,
           driverLine,
           linkLine),
       );
