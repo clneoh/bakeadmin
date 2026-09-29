@@ -389,7 +389,73 @@ test("the deadline sits under the status and above the driver, where the money o
   const root = openCard(world(job));
   const card = byClass(root, "job-card");
   const order = card.children.map((n) => n.className);
-  assert.deepEqual(order, ["job-head", "job-row", "job-status", "job-free", "job-driver", "job-link"]);
+  assert.deepEqual(order, ["job-head", "job-row", "job-status", "job-free", "job-gap", "job-driver", "job-link"]);
+});
+
+// ── what the trip cost, against what she charged (v235) ───────────────────
+
+test("a booked trip whose cost and charge disagree carries the difference, in the direction it fell", () => {
+  stubFetch();
+  const st = world(bookedJob({ amount: 31 }));
+  // RM 25.50 charged against a RM 31.00 trip — the case her own question was about: the
+  // price she picked is no longer the price it cost.
+  st.orders[0].courierFee = 25.5;
+  st.orders[0].courierPaidBy = "customer";
+  const line = byClass(openCard(st), "job-gap");
+  assert.ok(line, "the card must carry the difference between the trip and the charge");
+  assert.equal(line.textContent,
+    "The customer is charged RM 25.50 and the trip cost RM 31.00 — RM 5.50 short, so that much came out of your own pocket.");
+});
+
+test("the other direction is drawn too, because that is the half she asked to see", () => {
+  stubFetch();
+  const st = world(bookedJob({ amount: 20 }));
+  st.orders[0].courierFee = 25.5;
+  st.orders[0].courierPaidBy = "customer";
+  const line = byClass(openCard(st), "job-gap");
+  assert.ok(line, "a trip that cost LESS than she charged is a finding, not an absence");
+  assert.equal(line.textContent,
+    "The customer is charged RM 25.50 and the trip cost RM 20.00 — RM 5.50 under, and that difference stayed with you.");
+});
+
+test("a trip carrying no charge says the whole cost is hers, rather than drawing no line", () => {
+  stubFetch();
+  // Her own "i can even opt not to collect delivery" — the free-delivery case. Silence here
+  // would hide the one number she decided to give away.
+  const line = byClass(openCard(world(bookedJob({ amount: 31 }))), "job-gap");
+  assert.ok(line, "not collecting the delivery is a decision the card should reflect back");
+  assert.equal(line.textContent,
+    "No courier charge is on the order, so the whole RM 31.00 of this trip is your own cost.");
+});
+
+test("a charge that matches the trip draws nothing, so the card is not given a line about nothing", () => {
+  stubFetch();
+  const st = world(bookedJob({ amount: 18.5, driver: { name: "Ravi", plate: "PEN 1234" } }));
+  st.orders[0].courierFee = 18.5;
+  st.orders[0].courierPaidBy = "customer";
+  const root = openCard(st);
+  assert.equal(byClass(root, "job-gap"), null,
+    "agreement is the ordinary case and must not add a permanent grey line to every card");
+  // And the card is otherwise INTACT — the line's absence is an absence, not a break in the
+  // chain of nodes handed to `el`, which would print an empty row where the money belongs.
+  assert.deepEqual(byClass(root, "job-card").children.map((n) => n.className),
+    ["job-head", "job-row", "job-status", "job-free", "job-driver", "job-link"]);
+});
+
+test("a delivered trip still carries the difference, because the cost does not stop existing when the trip ends", () => {
+  stubFetch();
+  // Unlike the calling-off deadline, which is about something she can still DO and so dies
+  // with the trip, this line is a reading of money already spent. It is the whole point of
+  // the card outliving the trip — "real costing make aware" is a lesson learned AFTERWARDS.
+  const st = world(bookedJob({ amount: 31, done: true, status: "COMPLETED" }));
+  st.orders[0].courierFee = 25.5;
+  st.orders[0].courierPaidBy = "customer";
+  const root = openCard(st);
+  const card = byClass(root, "job-card");
+  assert.match(card.children[0].textContent, /A Lalamove trip on this order/,
+    "the trip is read as finished, so this is the after-the-fact case");
+  assert.equal(byClass(root, "job-free"), null, "and the deadline is gone, as v234 requires");
+  assert.ok(byClass(root, "job-gap"), "but the money still speaks");
 });
 
 test("the window shuts on the card while she is looking at it, with no repaint to lose her place", () => {

@@ -736,6 +736,10 @@ option.tone-off { color: var(--muted); }
    the price pushed to the right of them and kept small, because it is a figure. */
 .add-item-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .add-item-ctl .line-price { flex: 0 0 84px; width: 84px; text-align: right; margin-left: auto; }
+/* The note for THIS line (v236) takes a row of its own under the controls, full
+   width, so a "no nuts, write Happy Birthday" is readable as she types it rather
+   than squeezed into the space left beside the price box. */
+.add-item .line-note { flex: 1 1 100%; width: 100%; }
 
 /* Order-status flow map above the Orders list */
 .status-flow {
@@ -1316,8 +1320,8 @@ option.tone-off { color: var(--muted); }
 .job-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .job-what { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .job-name { font-weight: 600; }
-.job-sub, .job-status, .job-link, .job-driver, .job-free { font-size: 12px; color: var(--muted); }
-.job-status, .job-link, .job-driver, .job-free { margin: 8px 0 0; overflow-wrap: anywhere; }
+.job-sub, .job-status, .job-link, .job-driver, .job-free, .job-gap { font-size: 12px; color: var(--muted); }
+.job-status, .job-link, .job-driver, .job-free, .job-gap { margin: 8px 0 0; overflow-wrap: anywhere; }
 /* The driver on a booked trip (v190), and the two things on this card she taps: the
    number to ring and the link to the courier's own tracking page. The name carries the
    card's own ink rather than the muted grey of the readings around it — she reads it
@@ -1328,6 +1332,11 @@ option.tone-off { color: var(--muted); }
    so it carries the card's own ink the way the driver's line does instead of the grey
    the status and the link sit in — she has to SEE this one, not skim past it. */
 .job-free { color: var(--ink); }
+/* What the trip cost against what she charged (v235). Money as well, and the one line on
+   this card whose whole job is to be NOTICED — a difference she never sees is one she
+   cannot learn from, so it takes the same ink the free-cancel deadline does. The sentence
+   itself carries the meaning ("came out of your own pocket"), so nothing here shouts. */
+.job-gap { color: var(--ink); }
 .job-driver a, .job-link a { color: var(--brown); font-weight: 700; text-decoration: none; }
 .job-driver a:active, .job-link a:active { opacity: .7; }
 .job-actions { display: flex; flex-wrap: wrap; gap: 8px; }

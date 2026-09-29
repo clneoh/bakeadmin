@@ -64,6 +64,11 @@ const en = {
   addrFailed: "The address lookup isn't available right now. Tap the map and put the pin on your door instead.",
   noteLabel: "Note (optional)",
   notePh: "Allergies, extras, anything…",
+  // The note a customer can add to ONE item (v236). The link is what they tap
+  // to open the box; the placeholder is the example that shows them what kind
+  // of thing belongs in it.
+  addNoteLink: "＋ Add a note",
+  lineNotePh: "e.g. no nuts, write “Happy Birthday”",
   sTrack: "Track your order",
   trackHint: "Placed an order? Enter the order number from your confirmation (it starts with <strong>#</strong>, e.g. #A3F9C2).",
   trackPh: "e.g. A3F9C2",
@@ -244,6 +249,8 @@ const zh = {
   addrFailed: "地址查询暂时无法使用。请直接在地图上把标记放到你家门口。",
   noteLabel: "备注（可选）",
   notePh: "过敏原、额外要求、其它…",
+  addNoteLink: "＋ 添加备注",
+  lineNotePh: "例如：不要坚果、写上「生日快乐」",
   sTrack: "查询订单",
   trackHint: "已经下单了？请输入确认讯息里的订单编号（以 <strong>#</strong> 开头，例如 #A3F9C2）。",
   trackPh: "例如：A3F9C2",
@@ -383,6 +390,8 @@ const ms = {
   addrFailed: "Pencarian alamat tidak tersedia buat masa ini. Ketik peta dan letakkan tanda pada pintu anda.",
   noteLabel: "Nota (pilihan)",
   notePh: "Alahan, tambahan, apa-apa sahaja…",
+  addNoteLink: "＋ Tambah nota",
+  lineNotePh: "cth. tanpa kacang, tulis “Selamat Hari Jadi”",
   sTrack: "Semak tempahan anda",
   trackHint: "Sudah menempah? Masukkan nombor tempahan dari mesej pengesahan (bermula dengan <strong>#</strong>, cth. #A3F9C2).",
   trackPh: "cth. A3F9C2",

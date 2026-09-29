@@ -10,6 +10,10 @@ import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 // A product's sell days — the shared root copy the shop reads, so the day this
 // pop-up counts a product on is exactly the day the shop offers it.
 import { availSummary, sellOpen } from "../../../availability.js";
+// The cap and the trimming rule for a customer's note on ONE item (v236) — the
+// same pair the shop applies, from the one module both sides read, so a note can
+// never be longer on this side than the box that collected it allowed.
+import { lineNoteOf, LINE_NOTE_MAX } from "../../../storefront-fields.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -195,6 +199,15 @@ export function applyGroupPatch(orders, patch, qtyOf) {
   return orders;
 }
 
+// One ordered item as one line of text, with the note that belongs to IT in
+// brackets — "Focaccia 800g ×2 (no nuts)". This is the single place the order
+// list, the packing slip and the label sheet spell a line, so the customer's
+// words can never appear on one of them and be missing from another (v236).
+export function orderLineText(state, o) {
+  const note = lineNoteOf(o && o.lineNote);
+  return `${orderLineName(state, o)} ×${Number(o && o.qty) || 1}${note ? ` (${note})` : ""}`;
+}
+
 // Packing labels print from a small pure model so the on-screen preview and the
 // printed sheet always match, and the model is testable without a DOM. `style`
 // picks the density: "full" = every useful field (one line per item, the note,
@@ -212,7 +225,7 @@ export function packingLabelData(state, group, style = "full") {
   const customer = String(first.customerName || "").trim();
   const note = String(first.note || "").trim();
   const address = courier ? String(first.address || "").trim() : "";
-  const itemLines = orders.map((o) => `${orderLineName(state, o)} ×${Number(o.qty) || 1}`);
+  const itemLines = orders.map((o) => orderLineText(state, o));
   const bakery = String((state.settings && state.settings.storefront
     && state.settings.storefront.name) || "Jienluv2bake").trim();
   const code = `#${orderCode(first)}`;
@@ -324,6 +337,9 @@ function groupSearchText(state, group) {
     const wa = waNumber(o.whatsapp);
     if (wa) digitChunks.push(wa);
     words.push(o.note);
+    // The note on THIS item (v236), so typing "nuts" finds the order that asked
+    // for no nuts — the same reason the order-level note is searchable above.
+    words.push(o.lineNote);
     words.push(o.address);
     words.push(o.fulfillment === "courier" ? "courier delivery" : "self collect");
     if (product && product.name) words.push(product.name);
@@ -1345,9 +1361,23 @@ function orderForm(state, dateId, root, selectDate) {
           renderRows();
         }, "Product…");
       const qtySpan = el("span", { class: "stepper-val" }, String(it.qty));
+      // A note that belongs to THIS line (v236) — "no nuts", "write Happy Birthday".
+      // Offered once a product is picked, because a note with no item to belong to
+      // has nowhere to go; and offered on EVERY line whatever that product's own
+      // switch says, because the switch decides what the CUSTOMER is asked and must
+      // never decide what she may write down from a phone call — the standing rule
+      // that no setting may block or hide a sale she takes by hand.
+      const lineNoteBox = it.productId
+        ? el("input", { class: "input line-note", type: "text",
+            maxlength: String(LINE_NOTE_MAX),
+            placeholder: "Note for this item (optional) — e.g. no nuts",
+            value: it.note || "",
+            oninput: function () { it.note = this.value; } })
+        : null;
       // Two lines, built as two: the product across the top so its name is readable,
       // then its controls — how many, the price, remove. Letting flexbox wrap them
-      // instead left the dropdown 2px wide with the price box eating the row.
+      // instead left the dropdown 2px wide with the price box eating the row. The
+      // note box is a third child on its own full-width line for the same reason.
       return el("div", { class: "add-item" },
         prodSel,
         el("div", { class: "add-item-ctl" },
@@ -1357,7 +1387,8 @@ function orderForm(state, dateId, root, selectDate) {
             el("button", { onclick: () => { it.qty = it.qty + 1; qtySpan.textContent = String(it.qty); paintTotal(); } }, "＋")),
           linePriceBox(it, paintTotal),
           el("button", { class: "inbox-del", "aria-label": "Remove item",
-            onclick: () => { items.splice(i, 1); renderRows(); } }, "✕")));
+            onclick: () => { items.splice(i, 1); renderRows(); } }, "✕")),
+        lineNoteBox);
     }));
     paintTotal();
   };
@@ -1373,8 +1404,11 @@ function orderForm(state, dateId, root, selectDate) {
     const noteText = note.value.trim();
     const placed = draft.orderDate;
     if (picked.length === 1) {
+      // The line's own note rides with it (v236); `noteText` beside it is the
+      // ORDER-level note, which is a different thing and stays exactly as it was.
       addNew(state, date, picked[0].productId, picked[0].qty, picked[0].price ?? null,
-        customerName, phone, fulfillment, addressText, noteText, placed, root);
+        customerName, phone, fulfillment, addressText, noteText,
+        lineNoteOf(picked[0].note), placed, root);
     } else {
       addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, root);
     }
@@ -1514,6 +1548,10 @@ function openEditPopup(state, group, dateId, root) {
   const lines = group.orders.map((o) => ({
     id: o.id, productId: o.productId || "", qty: o.qty,
     price: orderLinePrice(state, o),
+    // This line's own note (v236), held on the draft so a repaint re-reads it and
+    // she can change it here as well as in the New-order card. Line-level, so it
+    // is edited per row and never travels in the shared fields below.
+    lineNote: o.lineNote || "",
   }));
   const draft = {
     customerName: first.customerName || "",
@@ -1650,6 +1688,18 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         refresh();
       }, "Product…");
     const qtySpan = el("span", { class: "stepper-val" }, String(line.qty));
+    // This line's own note (v236), the same box the New-order card offers and on the
+    // same terms: shown once there is a product, and shown whether or not that
+    // product's shop switch is on — a note already collected must stay readable and
+    // editable here even after she turns the switch off, and she must be able to add
+    // one she took over the phone whatever the shop asks.
+    const lineNoteBox = line.productId
+      ? el("input", { class: "input line-note", type: "text",
+          maxlength: String(LINE_NOTE_MAX),
+          placeholder: "Note for this item (optional) — e.g. no nuts",
+          value: line.lineNote || "",
+          oninput: function () { line.lineNote = this.value; } })
+      : null;
     return el("div", { class: "add-item" },
       prodSel,
       el("div", { class: "add-item-ctl" },
@@ -1659,7 +1709,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
           el("button", { onclick: () => { line.qty = line.qty + 1; qtySpan.textContent = String(line.qty); paintTotal(); } }, "＋")),
         linePriceBox(line, paintTotal),
         el("button", { class: "inbox-del", "aria-label": "Remove item",
-          onclick: () => { lines.splice(i, 1); refresh(); } }, "✕")));
+          onclick: () => { lines.splice(i, 1); refresh(); } }, "✕")),
+      lineNoteBox);
   };
 
   const rowsEl = el("div", {}, ...lines.map(rowFor));
@@ -1838,6 +1889,13 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         const typed = l.price == null ? NaN : Number(l.price);
         if (Number.isFinite(typed) && typed >= 0) o.unitPrice = typed;
         else delete o.unitPrice;
+        // This line's own note (v236). Written here rather than through `fields`, which
+        // the Object.assign above copies onto EVERY row of the group — a line's note
+        // riding there would give all three items the same words, the same trap the
+        // courier charge and the parcel each document. Emptying the box deletes the key,
+        // so a note she clears leaves the row exactly as it was before she wrote one.
+        const lineNote = lineNoteOf(l.lineNote);
+        if (lineNote) o.lineNote = lineNote; else delete o.lineNote;
         keptRows.push(o);
       } else {
         const row = {
@@ -1859,6 +1917,9 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         };
         stampOrderLine(row, byId(state.products, row.productId));
         if (Number.isFinite(Number(l.price))) row.unitPrice = Number(l.price);
+        // This new line's note, written per row like the kept ones above (v236).
+        const newLineNote = lineNoteOf(l.lineNote);
+        if (newLineNote) row.lineNote = newLineNote;
         state.orders.push(row);
         keptRows.push(row);
       }
@@ -1907,7 +1968,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   }
 }
 
-function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, orderDate, root) {
+function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, lineNote, orderDate, root) {
   const cap = capacityStatus(state, date.id);
   const newTotal = cap.total + qty;
   const st = deliveryStatus(date.date, state.settings);
@@ -1933,6 +1994,11 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
     };
     stampOrderLine(row, byId(state.products, productId));
     if (Number.isFinite(Number(price))) row.unitPrice = Number(price); // the typed price wins
+    // The customer's words for THIS item (v236). Written only when there are
+    // words, so a line nobody noted carries no key at all and an order she takes
+    // with no notes is byte-for-byte the order this app has always written —
+    // the same "absent means nothing" spelling the shop side uses when it posts.
+    if (lineNote) row.lineNote = lineNote;
     state.orders.push(row);
     save(state);
     maybeSync(state);
@@ -1991,6 +2057,11 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
       };
       stampOrderLine(row, byId(state.products, it.productId));
       if (Number.isFinite(Number(it.price))) row.unitPrice = Number(it.price);
+      // Per ROW, from that row's own item — a group of three items may have a note
+      // on one of them and none on the others, so this can never be a value shared
+      // across the group (v236).
+      const lineNote = lineNoteOf(it.note);
+      if (lineNote) row.lineNote = lineNote;
       state.orders.push(row);
       rows.push(row);
     }
@@ -2712,6 +2783,10 @@ function orderGroupRow(state, group, root, dateId) {
   const first = orders[0];
   const multi = orders.length > 1;
   const items = orders.map((o) => ({ name: orderLineName(state, o), qty: o.qty }));
+  // Any note on any line of this order (v236). A single-item order with a note
+  // gets the items line too — otherwise the only place the customer's words could
+  // live would be the big title, and a heading is not where a note belongs.
+  const anyNote = orders.some((o) => lineNoteOf(o.lineNote));
   const title = items.map((i) => i.name).join(" + ");
   const qtyTotal = items.reduce((s, i) => s + i.qty, 0);
   const sub = [first.customerName, waNumber(first.whatsapp), first.note].filter(Boolean).join(" · ");
@@ -2856,7 +2931,9 @@ function orderGroupRow(state, group, root, dateId) {
     el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title, orderCodeTag(first),
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
-      multi ? el("div", { class: "li-sub" }, items.map((i) => `${i.name} ×${i.qty}`).join("  ·  ")) : null,
+      (multi || anyNote)
+        ? el("div", { class: "li-sub" }, orders.map((o) => orderLineText(state, o)).join("  ·  "))
+        : null,
       placedLine,
       sub ? el("div", { class: "li-sub" }, sub) : null,
       parcelLine,

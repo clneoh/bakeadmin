@@ -117,6 +117,22 @@ test("the note prints in full only when the order has one", () => {
   assert.ok(!clean.rows.some(([k]) => k === "note"));
 });
 
+test("an item's own note prints beside that item, never as the order's note (v236)", () => {
+  const orders = [
+    { id: "o_11111111", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p1", qty: 2,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00",
+      lineNote: "no nuts" },
+    { id: "o_22222222", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p2", qty: 3,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00" },
+  ];
+  const data = packingLabelData(makeState(), group(...orders), "full");
+  const items = data.rows.filter(([k]) => k === "item").map(([, t]) => t);
+  assert.deepEqual(items, ["Focaccia ×2 (no nuts)", "Sourdough Loaf ×3"],
+    "the note rides the one item it belongs to and leaves the other exactly as it was");
+  assert.ok(!data.rows.some(([k]) => k === "note"),
+    "and it never turns into the order's own note row, which is a different thing");
+});
+
 test("compact: items on one line, note dropped, courier address kept", () => {
   const data = packingLabelData(makeState(), group(
     singleOrder({ fulfillment: "courier", address: "12 Jalan Bunga", note: "no onions" })), "compact");

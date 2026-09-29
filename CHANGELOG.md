@@ -1,8 +1,92 @@
-# Jienluv2bake — change history (v54 → v234)
+# Jienluv2bake — change history (v54 → v236)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v236, A NOTE ON EACH ITEM, SWITCHED ON PER PRODUCT (no database step, no redeploy,
+one push).**
+
+This one is yours, word for word: you wanted to switch a note box on or off on a product card, so a customer
+can leave a note on each thing they order — and switch it off on the products where a note makes no sense.
+And you asked for the same box in your own app, so a note you are told over the phone can be written down in
+the same place.
+
+**The switch lives on the product card.** In your app, open a product and you will find a tick that reads
+**Ask the customer for a note on this item**, sitting beside the other selling switches. Tick it and the
+customer is offered a note on that item; leave it alone and they are not. It is off until you tick it, so
+nothing on your shop changes until you decide it should.
+
+**On the shop, the note is quiet.** A customer who puts an item in the basket sees a small **Add a note**
+link under it. Nothing is opened on their screen until they tap it, so your menu still looks exactly as it
+looks today. Tap it and a box opens on that item, with a short example in grey: no nuts, or a name to write
+on the loaf. Whatever they type stays with that one item and rides on that item's line when the order comes
+in.
+
+**The note belongs to the item, not to the order.** This is the whole point of it. If someone orders a
+focaccia and a sandwich and writes "no nuts" on the focaccia, that note comes through on the focaccia line
+only. The sandwich line is untouched, and the order's own note box at the bottom still works exactly as it
+did for anything that is about the whole order.
+
+**A note in your own app is offered on every line.** Your New order card, and the Edit order window, both
+give every line its own small note box — whichever product it is, and whether or not you have switched the
+customer's box on. The switch decides what you ASK a customer for; it must never decide what you are allowed
+to write down. A phone order of "no nuts on the focaccia" has to have somewhere to go.
+
+**You see the note where you work.** On the orders list it appears in brackets beside the item it belongs to,
+so it sits next to the thing it is about rather than in a note line at the foot of the order. The same is
+true of the packing slip and the label sheet: it prints beside that item and never as the order's own note.
+
+**Nothing about a note blocks an order.** An empty box and no box at all place exactly the same order — there
+is no such thing as a half-filled note to chase. Switching a product's note box off after the fact never
+hides or loses a note you have already collected, and clearing a note you wrote puts that line back exactly
+as it was.
+
+**Your WhatsApp messages do not change.** The note stays in your app, which is what you asked for. Every
+message you send reads exactly as it reads today, and your customers' tracking page is untouched by this
+version.
+
+**Nothing to set up.** There is no database step and nothing to redeploy. The switch travels to your shop
+with the rest of the product details, and a note travels with the order from one of your phones to the other
+on its own, the same way the rest of the order already does.
+
+**Nothing else changed.** The order's own note box, the prices, the delivery calendar, the basket and the
+place-order bar are all exactly as they were.
+
+**29 Sep 2026 — engine v235, A BOOKED TRIP NOW SHOWS WHAT IT COST AGAINST WHAT YOU CHARGED (no database
+step, no redeploy, one push).**
+
+This one is yours, and it started as a worry rather than a request. A courier price you pick when you take an
+order can turn out to be higher or lower by the time the trip is actually booked, and nothing was watching
+that gap. You asked to see it rather than be protected from it: a real cost makes you aware, leaves room for
+a promotion later, and lets you decide not to collect the delivery at all.
+
+**So the booked-trip card now does the sum.** Under the line that tells you when calling the trip off stops
+being free, the card compares what the trip actually cost against the courier charge on the order, and says
+which way the difference fell. If the trip cost more than you charged, it says so and tells you that much
+came out of your own pocket. If it cost less, it says that too, and that the difference stayed with you.
+Neither direction is treated as the bad one.
+
+**It shows both directions on purpose.** A gap that only spoke up when you were short would be an alarm; you
+asked for a reading, so a surplus and a shortfall are worded the same way, in the same plain sentences.
+
+**A trip you decided not to charge for says so.** If you have recorded no courier charge at all, the card
+tells you the whole cost of the trip is your own, rather than staying silent. That is the free-delivery case
+you named, and the one number worth seeing is the one you chose to give away.
+
+**A charge that matches the trip says nothing at all.** When the two agree there is no line, because a
+difference of nothing is not a difference, and an "RM 0.00" row on every card would be noise you would learn
+to skip.
+
+**A delivered trip keeps the reading.** The calling-off deadline disappears when a trip is over, because
+there is nothing left to call off. This line stays, because a cost is money that has already been spent and
+the whole point is to learn from it afterwards.
+
+**This is on your screen only.** Nothing here goes near a customer. The price a customer was quoted does not
+move, their messages do not change, and their tracking page is untouched by this version.
+
+**Nothing else changed.** The van you pick, the prices, the five-minute life of a price, the booking buttons,
+the charge box and the calling-off deadline are all exactly as they were.
 
 **29 Sep 2026 — engine v234, A BOOKED TRIP NOW TELLS YOU WHEN CALLING IT OFF STOPS BEING FREE (no database
 step, no redeploy, one push).**

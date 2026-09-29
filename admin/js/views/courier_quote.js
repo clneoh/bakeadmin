@@ -56,6 +56,7 @@ import {
   dropAddress, dropPlaceOf, fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse,
   sameDoor, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
+import { feeGapLine } from "../courier.js";
 import { geocodeAddress } from "../couriers/api.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { mountPinMap, openPlacePicker } from "../place_map.js";
@@ -629,6 +630,16 @@ export function courierQuoteSection({
         }
       }
 
+      // WHAT THE TRIP COST, AGAINST WHAT SHE CHARGED (v235). A booked trip is the real
+      // cost of the journey; the charge on the order is the price she decided. When the two
+      // disagree the difference is hers, and seeing WHICH WAY it fell is what she asked for
+      // — "real costing make aware", and something to price from next time. Drawn from the
+      // booked amount rather than the live quotes above, because this is the figure that
+      // actually left her purse; and drawn on HER screen only, never near a customer.
+      // Built as one node and handed to `el`, so a trip with nothing to say prints no line.
+      const gap = feeGapLine(list, job, cur);
+      const gapLine = gap ? el("p", { class: "job-gap" }, gap) : null;
+
       // The driver, when a check has found one (v190). Not known at booking time and
       // never invented: this courier hands the name, the plate and a number over only
       // shortly before the pickup, so the line is drawn when there is something to put on
@@ -666,6 +677,7 @@ export function courierQuoteSection({
           row,
           statusLine,
           freeLine,
+          gapLine,
           driverLine,
           linkLine),
       );
