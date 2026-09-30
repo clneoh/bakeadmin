@@ -34,7 +34,7 @@ globalThis.document = {
 };
 globalThis.window = { open() {} };
 
-import { packingLabelData, splitOrderLine, lineNoteSuffix } from "../admin/js/views/orders.js";
+import { packingLabelData, splitOrderLine, lineNoteSuffix, sheetItemsRow } from "../admin/js/views/orders.js";
 import { orderCode } from "../admin/js/state.js";
 import { shortDate } from "../admin/js/dates.js";
 
@@ -297,23 +297,96 @@ test("a noted item row carries the marked run, so a sheet can underline it (v244
 
 // ── v245: the order's OWN note — underlined, and on every label ─────────────
 
-test("the marked run is always the tail of the row's own text, in every style", () => {
-  // The sheet slices the run off the END of the text it is given. Anything else
-  // would underline the wrong characters, so this is checked on both note kinds
-  // and on every style rather than trusted.
-  const state = makeState();
+test("a compact label marks an item's own note, so the sheet can underline it there too (v245)", () => {
+  // Her report: the item's own words were underlined on the Full and Mailing
+  // labels and not on Compact. The line had always PRINTED the note — Compact
+  // joined the items as plain strings, so there was nothing for the sheet to wrap.
+  // The run now travels in the row's third slot, exactly as on the other styles.
+  const data = packingLabelData(makeState(), group(
+    singleOrder({ productId: "p1", qty: 2, lineNote: "no nuts" })), "compact");
+  assert.deepEqual(data.rows.find(([k]) => k === "items"),
+    ["items", "Focaccia ×2 (no nuts)", [" (no nuts)"]],
+    "the joined line is unchanged and the run to underline rides beside it");
+});
+
+test("a compact label marks every noted item, in the order the items print (v245)", () => {
+  const orders = [
+    { id: "o_11111111", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p1", qty: 2,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00",
+      lineNote: "no nuts" },
+    { id: "o_22222222", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p2", qty: 3,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00",
+      lineNote: "well baked" },
+  ];
+  const data = packingLabelData(makeState(), group(...orders), "compact");
+  assert.deepEqual(data.rows.find(([k]) => k === "items"),
+    ["items", "Focaccia ×2 (no nuts) · Sourdough Loaf ×3 (well baked)",
+      [" (no nuts)", " (well baked)"]],
+    "one run per noted item — first item's words first, so the sheet cannot swap them");
+});
+
+test("a compact label with one undocumented item marks only the noted one (v245)", () => {
+  const orders = [
+    { id: "o_11111111", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p1", qty: 2,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00" },
+    { id: "o_22222222", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p2", qty: 3,
+      customerName: "Maya", fulfillment: "collect", createdAt: "2026-09-01T09:00:00",
+      lineNote: "well baked" },
+  ];
+  const data = packingLabelData(makeState(), group(...orders), "compact");
+  assert.deepEqual(data.rows.find(([k]) => k === "items"),
+    ["items", "Focaccia ×2 · Sourdough Loaf ×3 (well baked)", [" (well baked)"]],
+    "the clean item contributes no run, and the noted one still marks the noted item");
+});
+
+test("a compact label with no notes at all stays the plain pair it always was (v245)", () => {
+  const data = packingLabelData(makeState(), group(
+    singleOrder({ productId: "p1", qty: 2 })), "compact");
+  assert.deepEqual(data.rows.find(([k]) => k === "items"), ["items", "Focaccia ×2"],
+    "no empty third slot — the no-note case must stay byte-identical");
+});
+
+test("sheetItemsRow says nothing for no orders, so no label gains an empty items line (v245)", () => {
+  assert.equal(sheetItemsRow(makeState(), []), null);
+});
+
+test("every marked run is a run of the row's own text — a tail when there is one, in order when there are several", () => {
+  // The sheet finds each run INSIDE the text it was given, so a run it cannot find
+  // is a run it silently drops, and one it can find twice is a run in the wrong
+  // place. A row holding ONE item carries its run as a string and it is the row's
+  // TAIL (v244). A Compact row joins every item, so it carries a LIST instead, in
+  // printing order, and the text must hold a separate copy of each (v245).
+  const orders = [
+    { id: "o_11111111", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p1", qty: 2,
+      customerName: "Maya", fulfillment: "courier", address: "12 Jalan Bunga",
+      createdAt: "2026-09-01T09:00:00", lineNote: "no nuts" },
+    { id: "o_22222222", groupId: "o_9f3ba44e", deliveryDateId: "d1", productId: "p2", qty: 3,
+      customerName: "Maya", fulfillment: "courier", address: "12 Jalan Bunga",
+      createdAt: "2026-09-01T09:00:00", lineNote: "well baked" },
+  ];
   for (const style of ["full", "compact", "mailing"]) {
-    const data = packingLabelData(state, group(singleOrder({
-      fulfillment: "courier", address: "12 Jalan Bunga", note: "gate 2B",
-      productId: "p1", qty: 2, lineNote: "no nuts",
-    })), style);
+    const data = packingLabelData(makeState(), group(...orders), style);
     for (const [cls, text, mark] of data.rows) {
-      if (!mark) continue;
-      assert.ok(String(text).endsWith(mark),
-        `${style}/${cls}: "${mark}" is the tail of "${text}"`);
-      assert.ok(String(text).length > String(mark).length,
-        `${style}/${cls}: the marked run leaves something to print before it`);
+      const runs = (mark == null ? [] : [].concat(mark)).filter(Boolean);
+      if (!runs.length) continue;
+      const str = String(text);
+      if (typeof mark === "string") {
+        assert.ok(str.endsWith(mark), `${style}/${cls}: "${mark}" is the tail of "${str}"`);
+      } else {
+        assert.ok(runs.length > 1,
+          `${style}/${cls}: a row with one run stays a plain string, never a list of one`);
+      }
+      for (const run of runs) {
+        assert.ok(run.length < str.length,
+          `${style}/${cls}: "${run}" leaves the line something to print`);
+        assert.ok(str.split(run).length - 1 >= runs.filter((r) => r === run).length,
+          `${style}/${cls}: "${str}" holds a separate "${run}" for every run the row marked`);
+      }
     }
+    // The order's OWN note is a different thing. Neither of these orders has one,
+    // so a "Note:" line here would mean an item's own words had escaped their item.
+    assert.ok(!data.rows.some(([, t]) => String(t).startsWith("Note:")),
+      `${style}: an item's own note never becomes the order's Note: line`);
   }
 });
 

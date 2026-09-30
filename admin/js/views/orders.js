@@ -261,15 +261,30 @@ function subLineNodes(parts) {
   return nodes;
 }
 
-// A sheet row is [class, text] or [class, text, mark], where `mark` is the exact
-// run of characters at the END of `text` that the sheet underlines — the
-// customer's own words, never a re-spelling of them. A row with nothing to mark
-// stays the plain pair it always was, which is what keeps the sheet's own tests
-// honest about the no-note case (v244).
+// A sheet row is [class, text] or [class, text, mark], where `mark` names what
+// the sheet underlines — the customer's own words, never a re-spelling of them.
+// A row that holds ONE item carries one run, and it is the tail of `text` (v244).
+// The Compact row joins every item, so it carries a list of runs instead, in the
+// order the items print (v245). A row with nothing to mark stays the plain pair
+// it always was, which is what keeps the sheet's own tests honest about the
+// no-note case.
 export function sheetItemRow(state, o, cls) {
   const line = orderLineText(state, o);
   const mark = lineNoteSuffix(o && o.lineNote);
   return mark ? [cls, line, mark] : [cls, line];
+}
+
+// Every item on ONE row — the Compact style. The line is the same joined text it
+// always was; what it must not do is drop the notes, which is exactly what it did
+// while the items were joined as plain strings: a "no nuts" on the second of four
+// items printed on the sheet as ordinary words, with nothing to pick it out
+// (v245). One run per noted item, in printing order, so the sheet can underline
+// each where it falls. No noted item means the plain pair it always was.
+export function sheetItemsRow(state, orders, cls = "items") {
+  const lines = orders.map((o) => orderLineText(state, o));
+  if (!lines.length) return null;
+  const marks = orders.map((o) => lineNoteSuffix(o && o.lineNote)).filter(Boolean);
+  return marks.length ? [cls, lines.join(" · "), marks] : [cls, lines.join(" · ")];
 }
 
 // The order's OWN note as a sheet row (v245). It is the delivery note, and it
@@ -299,7 +314,6 @@ export function packingLabelData(state, group, style = "full") {
   const customer = String(first.customerName || "").trim();
   const note = String(first.note || "").trim();
   const address = courier ? String(first.address || "").trim() : "";
-  const itemLines = orders.map((o) => orderLineText(state, o));
   const bakery = String((state.settings && state.settings.storefront
     && state.settings.storefront.name) || "Jienluv2bake").trim();
   const code = `#${orderCode(first)}`;
@@ -346,7 +360,8 @@ export function packingLabelData(state, group, style = "full") {
   if (style === "compact") {
     rows.push(["code", code]);
     if (customer) rows.push(["customer", customer]);
-    if (itemLines.length) rows.push(["items", itemLines.join(" · ")]);
+    const itemsRow = sheetItemsRow(state, orders);
+    if (itemsRow) rows.push(itemsRow);
     // The delivery note prints here too (v245). It used to be the one field
     // Compact dropped, which meant a note about the doorstep vanished the moment
     // she picked the denser label — on a self-collect order as much as a courier
@@ -2864,13 +2879,32 @@ const LABEL_STYLES = [
 function labelSheetEl(state, group, style) {
   const data = packingLabelData(state, group, style);
   const kids = data.rows.map(([cls, text, mark]) => {
-    if (!mark) return el("div", { class: `ls-${cls}` }, text);
+    const runs = (mark == null ? [] : [].concat(mark)).filter(Boolean);
+    if (!runs.length) return el("div", { class: `ls-${cls}` }, text);
     // The customer's own words, underlined on the sheet exactly as they are on the
-    // order row (v244) — `mark` is the run the row itself chose, so the two
-    // surfaces cannot underline different characters.
-    return el("div", { class: `ls-${cls}` },
-      text.slice(0, text.length - mark.length),
-      el("span", { class: "line-note" }, mark));
+    // order row (v244) — the row itself chose the runs, so the two surfaces cannot
+    // underline different characters. Runs are placed from the RIGHT: the last one
+    // ends the row, and each earlier one is the last match before it, which keeps a
+    // note two items happen to share on the right two items (v245).
+    const str = String(text);
+    const cuts = new Array(runs.length).fill(-1);
+    let limit = str.length;
+    for (let i = runs.length - 1; i >= 0; i--) {
+      const at = str.lastIndexOf(runs[i], limit - runs[i].length);
+      if (at < 0) continue;
+      cuts[i] = at;
+      limit = at;
+    }
+    const out = [];
+    let drawn = 0;
+    for (let i = 0; i < runs.length; i++) {
+      if (cuts[i] < drawn) continue; // a run that cannot be placed is never invented
+      if (cuts[i] > drawn) out.push(str.slice(drawn, cuts[i]));
+      out.push(el("span", { class: "line-note" }, runs[i]));
+      drawn = cuts[i] + runs[i].length;
+    }
+    if (drawn < str.length) out.push(str.slice(drawn));
+    return el("div", { class: `ls-${cls}` }, ...out);
   });
   return el("div", { class: `label-sheet style-${data.style}` }, ...kids);
 }

@@ -196,6 +196,73 @@ test("the Compact label carries the note too, underlined, at the same place the 
   assert.equal(underlines(noteRow).length, 1, "and it is underlined the same way");
 });
 
+test("the Compact label underlines each item's own note, on the one joined line (v245)", () => {
+  // Her report: the item's own words were underlined on the Full and Mailing
+  // labels and not on Compact. Compact joins every item onto ONE row, so the row
+  // had carried the joined text alone and the sheet had no run to wrap — the note
+  // printed as ordinary words. One underline per noted item, on the item it
+  // belongs to, is the whole fix; the line itself is spelled exactly as before.
+  const st = state();
+  st.products.push({ id: "p2", name: "Sourdough", price: 12, limit: 50, active: true, recipe: [], unit: "pc" });
+  st.orders = [
+    { id: "o1", groupId: "g1", deliveryDateId: "d10", deliveryDate: "2026-09-10",
+      orderDate: "2026-09-01", productId: "p1", qty: 2, customerName: "Aunty Bee",
+      status: "baking", lineNote: "no nuts" },
+    { id: "o2", groupId: "g1", deliveryDateId: "d10", deliveryDate: "2026-09-10",
+      orderDate: "2026-09-01", productId: "p2", qty: 1, customerName: "Aunty Bee",
+      status: "baking", lineNote: "well baked" },
+  ];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  tap(buttonByText(rowOf(root, "o1"), "Print label"));
+  tap(buttonByText(layers["popup-layer"], "Compact"));
+
+  const sheet = all(layers["popup-layer"]).find((n) => String(n.className || "").startsWith("label-sheet"));
+  const itemsRow = all(sheet).find((n) => String(n.className || "") === "ls-items");
+  assert.ok(itemsRow, "the joined items line is on the compact sheet");
+  assert.equal(itemsRow.textContent, "Focaccia ×2 (no nuts) · Sourdough ×1 (well baked)",
+    "the line still reads exactly as the items are spelled — joining changed nothing");
+  assert.deepEqual(underlines(itemsRow).map((m) => m.textContent), [" (no nuts)", " (well baked)"],
+    "one underline per noted item");
+  // Text content alone cannot say WHERE an underline sits, so the row's own
+  // children are walked: each span must follow the item it belongs to, not both
+  // land at the end and not swap places.
+  assert.deepEqual(
+    itemsRow.children.map((c) => (c.nodeType === 3 ? c.text : `[${c.textContent}]`)),
+    ["Focaccia ×2", "[ (no nuts)]", " · Sourdough ×1", "[ (well baked)]"],
+    "each underline sits on its own item, where the item's words actually fall");
+});
+
+test("two items that happen to share a note each get their own underline (v245)", () => {
+  // The trap in one joined line: the same words twice. A sheet that hunts each run
+  // from the START of the line would find the first " (no nuts)" twice, underline
+  // item one twice and leave item two plain — so the runs are placed from the
+  // right, and this is the case that proves it.
+  const st = state();
+  st.products.push({ id: "p2", name: "Sourdough", price: 12, limit: 50, active: true, recipe: [], unit: "pc" });
+  st.orders = [
+    { id: "o1", groupId: "g1", deliveryDateId: "d10", deliveryDate: "2026-09-10",
+      orderDate: "2026-09-01", productId: "p1", qty: 2, customerName: "Aunty Bee",
+      status: "baking", lineNote: "no nuts" },
+    { id: "o2", groupId: "g1", deliveryDateId: "d10", deliveryDate: "2026-09-10",
+      orderDate: "2026-09-01", productId: "p2", qty: 1, customerName: "Aunty Bee",
+      status: "baking", lineNote: "no nuts" },
+  ];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  tap(buttonByText(rowOf(root, "o1"), "Print label"));
+  tap(buttonByText(layers["popup-layer"], "Compact"));
+
+  const sheet = all(layers["popup-layer"]).find((n) => String(n.className || "").startsWith("label-sheet"));
+  const itemsRow = all(sheet).find((n) => String(n.className || "") === "ls-items");
+  assert.ok(itemsRow, "the joined items line is on the compact sheet");
+  assert.equal(itemsRow.textContent, "Focaccia ×2 (no nuts) · Sourdough ×1 (no nuts)");
+  assert.deepEqual(
+    itemsRow.children.map((c) => (c.nodeType === 3 ? c.text : `[${c.textContent}]`)),
+    ["Focaccia ×2", "[ (no nuts)]", " · Sourdough ×1", "[ (no nuts)]"],
+    "both items are marked, each on its own copy of the words");
+});
+
 test("a row whose items carry no note draws no underline at all", () => {
   const st = state();
   st.orders = [

@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v245)
+# Jienluv2bake — change history (v54 → v246)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v246, THE NOTES ON THE ITEMS ARE NOW UNDERLINED ON THE COMPACT LABEL TOO (no
+database step, no redeploy, one push).**
+
+You spotted this one: on the Compact label a note like **no nuts** was printing as ordinary words, while
+the same note stood out on the Full and Mailing labels. It was the last place a customer's own words went
+unmarked, and it was easy to miss — Compact puts every item on ONE line, so the note sat in the middle of
+that line with nothing to pick it out.
+
+**Each noted item's words are underlined on that joined line now**, on the item they belong to, so a note
+on the second of four items is underlined on the second item and not somewhere else on the line. **If two
+items carry the same note, each one gets its own underline** — the line is not allowed to mark one item
+twice and leave the other plain.
+
+**The line itself has not changed at all.** It reads exactly as it did — the items in order, the notes in
+brackets beside the item they belong to — and a label for an order with no notes on it is byte-for-byte
+what it was. Nothing else about any label moved: the Full, Mailing and Name-only styles print exactly as
+they did, and the delivery note on the Compact label is untouched by this.
 
 **30 Sep 2026 — engine v245, THE DELIVERY NOTE IS UNDERLINED TOO, AND IT NOW PRINTS ON THE COMPACT
 LABEL (no database step, no redeploy, one push).**
