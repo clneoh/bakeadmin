@@ -1,8 +1,72 @@
-# Jienluv2bake — change history (v54 → v257)
+# Jienluv2bake — change history (v54 → v258)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v258, THE APP NOW TELLS YOU WHEN YOUR PHONE IS RUNNING AN OLD BUILD
+(no database step — pushing this one is the whole of it).**
+
+**Your words were "still the same problem engin no 257", which was the fifth time you reported
+the same press — and this time it sent me looking somewhere else.** The v257 fix is on your
+website; I checked that from outside, and the file your phone downloads does contain it. So the
+fix was not missing. Something was stopping it reaching your phone.
+
+**What was happening.** Your website hands out every file of the app with a ten-minute cache,
+and there is no build number written into any of the addresses. So a phone that had the app
+open — or that opened it within those ten minutes — was given the copy it already had: the old
+one. Nothing on the screen said so. And the **Engine v257** pill on the More screen could not
+say so either, because that pill reads a small file of its own rather than the one carrying the
+fix. It would have read v257 perfectly happily on a phone still running v254.
+
+**Two changes, so that this cannot be quiet again.**
+
+**The app's own files are now confirmed with the website every time it opens.** The part of the
+app that runs in the background used to ask the network for each file — but "the network" was
+allowed to answer out of those ten minutes of cache. It now asks the website to confirm that
+each file is still the current one before using its own copy. An unchanged file costs one very
+small check rather than a re-download, so opening the app does not get slower; a changed file is
+fetched whole. There is nothing here for you to press.
+
+**And a strip now says so when your phone is behind.** Where the site is serving a newer build
+than the one on your phone, an amber strip appears just above the bottom menu — **New version
+ready** — this phone has v257, the site has v258 — with an **Update now** button beside it.
+Press it when you are ready and the app reloads on the new build. Its words say "save what you
+are writing, then update" for a reason: a half-written order does not survive a reload.
+
+**If pressing Update now does not take** — which can happen inside those first ten minutes — the
+strip does not go on offering a button that did nothing. It changes its words, says the update
+still has not taken, and tells you to close the app completely and open it again.
+
+**What this means for you, from now on.** When you report something, look at the bottom of the
+screen first. If that strip is not there, your phone is on the newest build and the fault is in
+the code. If it is there, press Update now and try again before you tell me. Either way you are
+no longer guessing, and neither am I — which is worth more than the fix itself.
+
+**Also put right while here:** the change history had v256 printed above v257, so the two newest
+entries read in the wrong order. They are back the right way round.
+
+**30 Sep 2026 — engine v257, TAPPING "RESET THE PIN" NO LONGER FOLDS THE ORDER YOU ARE
+WRITING (no database step — pushing this one is the whole of it).**
+
+**This is the one you have been reporting.** You press **Look this address up again** on the
+order's own door block, the app asks you to confirm because there is already a pin to replace,
+you tap **Reset the pin** — and you land back on the Orders list with the half-written order
+gone. The look-up itself then carries on and writes the order.
+
+**The cause was the rule that folds the ＋ New order card when you press anywhere else.** That
+rule is right for a press on the page. It was wrong here, because the confirmation the card
+itself opened is drawn on a layer that sits **beside** the page rather than inside it — so the
+app counted your tap on **Reset the pin** as a tap on the page behind, folded the card you were
+writing, and then did the look-up anyway. A press on the confirmation, on a pop-up, or on the
+lock screen no longer folds the card. A press on the page still does, exactly as before.
+
+**Why the last two versions missed it, in plain words.** v255 and v256 both changed the pin
+window's **Look it up**; your words named the button on the order's own door block, which is a
+different button on a different window. And the check that cleared that door block measured
+where each row sat on the screen — it never asked whether the card was still open, and it never
+pressed the case where the confirmation appears, which only happens when there is already a pin
+to replace.
 
 **30 Sep 2026 — engine v256, THE MATCHES IN THE PIN WINDOW NO LONGER PUSH THE CARD
 AT ALL (no database step — pushing this one is the whole of it).**
@@ -42,28 +106,6 @@ window's **Look it up**, and that is the one this version fixes.
 **What did not change:** the first match still lands on the map by itself, the list is still
 only how you say "not that one", the line under the button still says when the answer is the
 road rather than your house, and no wording, price or order of questions is touched.
-
-**30 Sep 2026 — engine v257, TAPPING "RESET THE PIN" NO LONGER FOLDS THE ORDER YOU ARE
-WRITING (no database step — pushing this one is the whole of it).**
-
-**This is the one you have been reporting.** You press **Look this address up again** on the
-order's own door block, the app asks you to confirm because there is already a pin to replace,
-you tap **Reset the pin** — and you land back on the Orders list with the half-written order
-gone. The look-up itself then carries on and writes the order.
-
-**The cause was the rule that folds the ＋ New order card when you press anywhere else.** That
-rule is right for a press on the page. It was wrong here, because the confirmation the card
-itself opened is drawn on a layer that sits **beside** the page rather than inside it — so the
-app counted your tap on **Reset the pin** as a tap on the page behind, folded the card you were
-writing, and then did the look-up anyway. A press on the confirmation, on a pop-up, or on the
-lock screen no longer folds the card. A press on the page still does, exactly as before.
-
-**Why the last two versions missed it, in plain words.** v255 and v256 both changed the pin
-window's **Look it up**; your words named the button on the order's own door block, which is a
-different button on a different window. And the check that cleared that door block measured
-where each row sat on the screen — it never asked whether the card was still open, and it never
-pressed the case where the confirmation appears, which only happens when there is already a pin
-to replace.
 
 **30 Sep 2026 — engine v255, LOOKING AN ADDRESS UP NO LONGER THROWS THE PIN CARD
 AROUND (no database step — pushing this one is the whole of it).**

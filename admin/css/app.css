@@ -96,6 +96,36 @@ body { min-height: 100vh; }
 .share-warn-msg { margin: 0; font-size: 12.5px; line-height: 1.45; }
 .share-warn-msg b { color: var(--amber); font-weight: 700; }
 
+/* ---------- "New version ready" strip ---------- */
+/* GitHub Pages serves the app's code with a ten-minute cache and no build
+   number in any URL, so a phone can keep running the previous build with
+   nothing on screen to say so. This strip is the one place that says it.
+   It sits directly above the tab bar rather than under the top bar: the
+   "Not sharing" strip is already sticky there, two sticky siblings at the
+   same offset would draw over each other once scrolled, and a bar at the
+   bottom is seen wherever the page happens to be scrolled to. */
+.update-bar {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 25; /* over the page, under the tab bar (30) */
+  background: var(--amber-bg);
+  border-top: 1px solid #ecd4a5;
+  box-shadow: 0 -1px 6px rgba(120, 66, 32, .07);
+}
+.update-bar[hidden] { display: none; }
+.update-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 8px 14px;
+}
+.update-bar-msg { flex: 1; margin: 0; font-size: 12.5px; line-height: 1.45; }
+.update-bar-msg b { color: var(--amber); font-weight: 700; }
+.update-bar .btn { flex: none; }
+
 /* ---------- Hero (Home) ---------- */
 .hero {
   position: relative;
