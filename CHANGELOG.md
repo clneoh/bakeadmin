@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v248)
+# Jienluv2bake — change history (v54 → v249)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v249, THE BOX AT THE FOOT OF THE SHOP SAYS WHO IS ASKING
+(no database step, no redeploy, one push).**
+
+The one quiet line at the foot of the shop page now introduces itself. It reads
+**"Webmaster: Like this UI? Tell me, I'll make it better"** — the customer types over that
+sentence exactly as before, and the whole of it still goes out as their own words when they
+send, with nothing to press but Enter.
+
+**It is one line on a phone, and it is never a line and a half.** The sentence was measured
+against the width of the box at phone size rather than guessed at, which is why it says "this
+UI" and "Tell me" rather than spelling everything out: the longer wording you first wrote runs
+wider than the box on a phone, and its tail would have been **cut off mid-sentence** — the
+question would have read as far as "…Let me know, and I" and stopped. What you asked for is
+kept in full, in the shorter form, and all three languages carry it.
+
+**And if a phone is narrow enough that the question does wrap anyway**, the box now opens
+itself to show the whole question instead of hiding the rest. That is the one thing this
+version can do that a shorter sentence alone could not: on any phone, in any of the three
+languages, the customer always sees the entire question rather than its first line.
+
+The Chinese and the Malay say the same thing as the English, in the same few words: the
+Chinese names the person asking as the site's webmaster and asks whether the customer likes
+this page, and the Malay uses "Webmaster" as it is, since that is the word a Malaysian
+website uses too.
 
 **30 Sep 2026 — engine v248, NOBODY HAS TO PRESS ANYTHING, AND NOBODY LOSES WHAT THEY WROTE
 (no database step, no redeploy — the same one function, one push).**

@@ -618,10 +618,36 @@ function renderFeedback(cfg) {
     class: "fb-input", rows: "1", maxlength: "4000",
     placeholder: t("fbPh"), "aria-label": t("fbPh"),
   });
+  // What the question itself needs, measured in a throwaway copy of the box so the real
+  // one never has to hold it in order to find out. A textarea's scrollHeight does not
+  // count its placeholder, so an empty box stays one line tall however wide the question
+  // is — and on a narrow enough phone the question's second line would fall below the box
+  // and be cut off mid-sentence. Where there is no layout to measure (the test shim)
+  // this is 0, which is exactly the behaviour that came before it.
+  const promptHeight = () => {
+    if (typeof box.cloneNode !== "function" || !document.body) return 0;
+    // A box that is not on the page yet has no width, and a box with no width reports
+    // every character on a line of its own. Nothing to measure means nothing to add.
+    if (!Number(box.offsetWidth)) return 0;
+    const probe = box.cloneNode(false);
+    probe.removeAttribute("placeholder");
+    probe.setAttribute("aria-hidden", "true");
+    probe.value = t("fbPh");
+    probe.style.position = "absolute";
+    probe.style.left = "-9999px";
+    probe.style.top = "0";
+    probe.style.width = `${box.offsetWidth || 0}px`;
+    probe.style.height = "auto";
+    document.body.appendChild(probe);
+    const h = Number(probe.scrollHeight) || 0;
+    if (probe.remove) probe.remove();
+    return h;
+  };
   const grow = () => {
     if (!box.style) return;
     box.style.height = "auto";
-    const h = Number(box.scrollHeight) || 0;
+    let h = Number(box.scrollHeight) || 0;
+    if (!box.value) h = Math.max(h, promptHeight());
     if (h > 0) box.style.height = `${h + 2}px`; // +2 for the border, which scrollHeight leaves out
   };
   // Put their words back where they left them — the restore half of the autosave. A
@@ -713,11 +739,13 @@ function renderFeedback(cfg) {
     return send(); // returned so a test can await the send this key started
   });
 
-  grow();
   paint();
   // The box and the trap. The answer line, when there is one, goes under them.
   holder.appendChild(el("div", { class: "fb-row" }, box, trap));
   holder.appendChild(say);
+  // Sized last, and only once the box is actually on the page: an element that has not
+  // been laid out has no width to measure the question against.
+  grow();
 }
 
 // The static header parts (name, tagline, delivery days, social links). Kept

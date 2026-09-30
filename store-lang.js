@@ -204,7 +204,10 @@ const en = {
   devBy: "Website by",
   devWa: "WhatsApp the developer",
 
-  fbPh: "Like this UI? Comment, and I will make it better.",
+  // The question printed IN the box, which the customer types over. It has to fit one
+  // line at phone width or its tail is cut off (see promptHeight in store/app.js), so
+  // the three are kept to ~52 characters / ~23 characters of CJK. Lengthen with care.
+  fbPh: "Webmaster: Like this UI? Tell me, I'll make it better",
   fbHint: "Press Enter to send",
   fbSending: "Sending…",
   fbThanks: "Your idea is well taken care of. New updates soon!",
@@ -352,7 +355,8 @@ const zh = {
   devBy: "网站制作：",
   devWa: "用 WhatsApp 找开发者",
 
-  fbPh: "喜欢这个界面吗？留言，我把它做得更好。",
+  // The same one-line rule as the English: no more than about 23 characters here.
+  fbPh: "网站管理员：喜欢这个界面吗？告诉我，我把它做好",
   fbHint: "按 Enter 发送",
   fbSending: "正在发送…",
   fbThanks: "你的建议我们收到了，会好好处理。新更新很快就来！",
@@ -500,7 +504,8 @@ const ms = {
   devBy: "Laman web oleh",
   devWa: "WhatsApp developer",
 
-  fbPh: "Suka UI ini? Komen, nanti saya perbaiki.",
+  // The same one-line rule as the English.
+  fbPh: "Webmaster: Suka UI ini? Beritahu saya, saya baiki.",
   fbHint: "Tekan Enter untuk hantar",
   fbSending: "Sedang dihantar…",
   fbThanks: "Idea anda sudah kami terima! Update terbaru akan datang tak lama lagi.",

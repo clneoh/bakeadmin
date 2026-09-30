@@ -775,6 +775,6 @@ test("the box is translated into all three languages, and actually translated", 
     assert.notEqual(STORE.ms[key], STORE.en[key], `ms.${key} was left in English`);
   }
   // Her own two sentences, word for word, in the English the customer sees.
-  assert.equal(STORE.en.fbPh, "Like this UI? Comment, and I will make it better.");
+  assert.equal(STORE.en.fbPh, "Webmaster: Like this UI? Tell me, I'll make it better");
   assert.equal(STORE.en.fbThanks, "Your idea is well taken care of. New updates soon!");
 });
