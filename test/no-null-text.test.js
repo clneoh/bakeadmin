@@ -1978,8 +1978,12 @@ test("over the customer's own pin the press ASKS first, and nothing moves until 
     assert.match(mounted.doorSlot.textContent, /own pin from the shop page/,
       "the card is standing on their pin");
 
-    // THE PRICE FOLD IS OPENED FIRST, and not as scene-setting: the press is only wired up when
-    // the fold is built, so a press on the door block of a folded card is a press on nothing.
+    // THE PRICE FOLD IS OPENED FIRST — and this used to say WHY, in words that made the fault
+    // sound like a design: "the press is only wired up when the fold is built, so a press on the
+    // door block of a folded card is a press on nothing." That was true, and it was the bug she
+    // reported as "pressing that botton dont work" (v240). It is opened here now only so that the
+    // sections below — the confirm, and the answer written into the price section's own line —
+    // are the ones this test was written for. The folded card has its own test beside it.
     buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
     await settle(4);
     assert.equal(s.geocodes(), 0,
@@ -2088,6 +2092,91 @@ test("over a door she placed by hand the press ASKS first too, and says which do
       "the label goes back to the plain one — a reset is a guess, and a guess is not asked about");
   } finally {
     closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("the press works on a card whose price fold was NEVER opened (v240)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([AT_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  let hand = null;
+  try {
+    // HER WORDS: "pushed / now i see the button but pressing that botton dont work."
+    //
+    // The press was assigned inside build(), and build() runs only on the first press of "Get a
+    // delivery price" — so until that fold had been opened once, this button was on the card
+    // with its listener wired to a no-op default, and every tap on it did NOTHING AT ALL. v238
+    // hid the button over a door of her own hand and v239 made it visible there, which is what
+    // put a dead control in front of her.
+    //
+    // NOTHING IN THIS TEST OPENS THE FOLD, and that is the whole of it. Every other test in this
+    // file opens it first — necessarily, because the answer to the press used to be written into
+    // the price section's own line — and that is exactly what hid this fault for two versions.
+
+    // ── over a door of the app's own look-up, where nothing stands between the tap and the pin
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town", from: "lookup" },
+    }];
+    mounted = mountDoor(st, order);
+    await settle(4);
+    // The fold is CLOSED, asserted rather than assumed: if a later change ever opens it on mount
+    // this test must fail loudly instead of quietly going back to testing the other path.
+    assert.equal(buttonByText(mounted.wrap, "Get a delivery price").textContent, "Get a delivery price",
+      "the price fold has never been opened on this card");
+    assert.equal(lookBtnOn(mounted).textContent, "Look this address up again",
+      "and the press is the plain one, so nothing is about to ask her anything first");
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(4);
+    assert.equal(s.geocodes(), 1,
+      "THE PRESS ASKED — a button that answers a tap with silence is the dead control this version exists to end");
+    assert.equal(st.customers[0].place.lat, 5.4172, "and the door moved to the point the fresh answer gave");
+    assert.equal(st.customers[0].place.from, "reset",
+      "written as a reset, exactly as it is when the fold happens to be open");
+    // AND IT SAID SO. Moving the pin is not the whole answer on its own: a lookup that lands on
+    // the same point moves nothing at all, and without a line to read she could not tell that
+    // from a press that never ran. Nothing here may need the price section to say it.
+    assert.match(mounted.doorSlot.textContent, /The door moved — the lookup answers this address with a different point now\./,
+      "the door block itself says what the press did, with no price section to say it in");
+    assert.doesNotMatch(mounted.doorSlot.textContent, /Looking 23 Jalan Seang Tek up again…$/,
+      "and it does not leave the card sitting on 'Looking … up again…' after the lookup has answered");
+    closeDoor(mounted); mounted = null;
+
+    // ── and the ask-first path, which is the other thing this same press does
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4, lng: 100.3, label: "the door she checked", from: "hand", at: "2026-09-25T10:00:00.000Z" },
+    }];
+    hand = mountDoor(st, order);
+    await settle(4);
+    layers["confirm-layer"].replaceChildren();
+    assert.equal(buttonByText(hand.wrap, "Get a delivery price").textContent, "Get a delivery price",
+      "this card's price fold is closed too");
+    assert.equal(lookBtnOn(hand).textContent, "Reset the pin from the address",
+      "and the press is the one that asks about a door a person chose");
+    lookBtnOn(hand)._listeners.click[0]();
+    await settle(2);
+    assert.match(layers["confirm-layer"].textContent, /the door you placed on the map by hand/,
+      "the confirmation comes up on a card whose fold was never opened — before v240 this press could not reach it either");
+    buttonByText(layers["confirm-layer"], "Reset the pin")._listeners.click[0]();
+    await settle(4);
+    assert.equal(s.geocodes(), 2, "and saying yes really ran the look-up — the press's second ask on the day");
+    assert.equal(st.customers[0].place.from, "reset",
+      "saying yes really did replace her own door, with no price section anywhere on the card");
+    assert.equal(st.customers[0].place.lat, 5.4172, "at the point the fresh answer gave");
+    assert.equal(st.customers[0].place.against, undefined,
+      "and with no `against`, because this order carries no customer pin for it to have replaced");
+  } finally {
+    if (mounted) closeDoor(mounted);
+    if (hand) closeDoor(hand);
     s.restore();
     delete globalThis.window.L;
   }

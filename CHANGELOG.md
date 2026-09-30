@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v239)
+# Jienluv2bake — change history (v54 → v240)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v240, THE RESET BUTTON NOW ACTUALLY PRESSES (no database step, no redeploy,
+one push).**
+
+You pushed v239, saw the reset button at last, and pressed it — and nothing happened. That was exactly
+what your report said, and it was exactly right. The button was on the card, but its press was not
+connected to anything yet.
+
+Here is what was happening. The reset press was wired up at the same moment as the delivery-price half
+of the card, and that half is only built the first time you press **Get a delivery price**. So on a card
+you had just opened, the button was drawn and waiting but its press led nowhere: no look-up, no message,
+no movement. The instant you happened to open the price fold once, the button started working — which is
+why it looked like an ordinary working button that simply ignored you.
+
+**From this version the reset press is connected the moment the card opens.** It never waits on the
+delivery price again. You can open an order, see the pin, and reset it without touching the price button
+at all — which is the order you would naturally do it in anyway, because you reset a stale pin when you
+call the customer, not when you ask for a price.
+
+**And the press now always tells you what it did, on the card itself, right under the buttons.** It says
+it is looking the address up, then it says one of the three things that can happen: the pin moved, or the
+look-up found the same spot and there was nothing to move, or the address could not be reached and the
+pin has been left exactly as it was. Those words used to appear only up in the price section, which is
+another reason a press on a fresh card looked like it had done nothing at all.
+
+If a reset is about to replace a pin a person chose — the customer's own pin, or one you placed by hand —
+it still asks you first, exactly as v239 described.
+
+Nothing else changed. No database step, no redeploy, no new key, and no new setting to switch on.
 
 **30 Sep 2026 — engine v239, THE RESET NOW SHOWS UP WHERE YOU ACTUALLY WORK (no database step, no
 redeploy, one push).**
