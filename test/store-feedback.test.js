@@ -29,6 +29,7 @@ import { STORE } from "../store-lang.js";
 import { LANGS } from "../i18n.js";
 import { sendFeedback, loadDraft, saveDraft } from "../store/feedback.js";
 import { CONFIG } from "../store/config.js";
+import { ENGINE_VERSION } from "../admin/js/version.js";
 
 const FN_SRC = readFileSync(new URL("../supabase/functions/shop-feedback/index.ts", import.meta.url), "utf8");
 const SHOP_SRC = readFileSync(new URL("../store/feedback.js", import.meta.url), "utf8");
@@ -104,12 +105,17 @@ test("the shop sends ONLY the headers the function will accept", async () => {
 test("the body carries the words and NO recipient — the shop can never choose where mail goes", async () => {
   const wire = stubFetch(jsonReply({ ok: true }));
   try {
-    await sendFeedback({ message: "  A bigger photo please  ", page: "shop", lang: "zh", honeypot: "" });
+    await sendFeedback({
+      message: "  A bigger photo please  ", page: "/store/", origin: "jienluv2bake.com.my",
+      lang: "zh", honeypot: "",
+    });
     const body = JSON.parse(wire.sent[0].body);
-    assert.deepEqual(Object.keys(body).sort(), ["lang", "message", "page", "website"],
-      "the whole of what the shop may say: the words, where they were written, in which language, and the honeypot");
+    assert.deepEqual(Object.keys(body).sort(),
+      ["engine", "lang", "message", "origin", "page", "website"],
+      "the whole of what the shop may say: the words, the address they were written at, the build, the language, and the honeypot");
     assert.equal(body.message, "A bigger photo please", "the words are trimmed and sent as written");
-    assert.equal(body.page, "shop");
+    assert.equal(body.page, "/store/", "the path the customer was actually on");
+    assert.equal(body.origin, "jienluv2bake.com.my", "and the project that path belongs to");
     assert.equal(body.lang, "zh");
 
     // Named one by one, because these are the field names an open relay would be built
@@ -118,6 +124,41 @@ test("the body carries the words and NO recipient — the shop can never choose 
       assert.equal(body[bad], undefined, `the shop must never send "${bad}" — the recipient is the function's to decide`);
     }
     assert.ok(!/recipient|"to"\s*:/.test(wire.sent[0].body), "and never in any other spelling either");
+  } finally { wire.restore(); }
+});
+
+test("the words travel with the build they were written on, and the shop has no second copy of the number", async () => {
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    await sendFeedback({ message: "a real suggestion", page: "/store/", origin: "jienluv2bake.com.my", lang: "en", honeypot: "" });
+    const body = JSON.parse(wire.sent[0].body);
+    // Not a string the page was asked to supply — the running module's own version, so a
+    // customer on a phone still holding yesterday's copy reports yesterday's number rather
+    // than the one the developer assumes. That is the entire value of the field.
+    assert.equal(body.engine, ENGINE_VERSION,
+      "the engine number is the one this build ships, taken from admin/js/version.js and never retyped");
+  } finally { wire.restore(); }
+
+  // One number, one file. A `store/version.js` would be a second place to remember on every
+  // bump, and the two would disagree within a release or two — which is precisely the thing
+  // the number exists to prevent.
+  assert.ok(!/ENGINE_VERSION\s*=/.test(SHOP_SRC),
+    "the shop declares no engine number of its own; it imports the backoffice's");
+  assert.ok(/from\s+"\.\.\/admin\/js\/version\.js"/.test(SHOP_SRC),
+    "and it says where the number comes from");
+});
+
+test("a page that cannot say where it is still sends the words, with what it has", async () => {
+  // The address is a courtesy, not a requirement: an older cached page, or a context with
+  // no `location`, must not lose a customer's sentence over a missing project name.
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    const out = await sendFeedback({ message: "a real suggestion", lang: "en", honeypot: "" });
+    assert.equal(out.ok, true, "the send still goes");
+    const body = JSON.parse(wire.sent[0].body);
+    assert.equal(body.origin, "", "with nothing invented where the page could not say");
+    assert.equal(body.page, "", "and no path guessed either");
+    assert.equal(body.engine, ENGINE_VERSION, "the build is still named — that much the page always knows");
   } finally { wire.restore(); }
 });
 
@@ -239,12 +280,15 @@ test("the function reads the developer's address from the bakery's own settings,
     "the address comes from the published config row the shop page itself reads");
   assert.ok(/developerEmails/.test(FN_SRC), "and it is the developer's own address list");
 
-  // The request may supply exactly four things, and a recipient is not among them.
+  // The request may supply the words, where they were written, which build wrote them, in
+  // which language, and the honeypot — and a recipient is not among them. `origin` and
+  // `engine` were added for the mail's own header block (v252); everything here is
+  // descriptive of the send, and none of it chooses where the mail goes.
   const read = [...FN_SRC.matchAll(/payload\s*&&\s*payload\.(\w+)/g)].map((m) => m[1]);
   assert.ok(read.length >= 3, `the payload is read for what it carries: ${JSON.stringify(read)}`);
   for (const name of read) {
-    assert.ok(["message", "page", "lang", "website"].includes(name),
-      `the function reads payload.${name}, which is not one of the four things a caller may say`);
+    assert.ok(["message", "page", "origin", "engine", "lang", "website"].includes(name),
+      `the function reads payload.${name}, which is not one of the things a caller may say`);
   }
   assert.ok(!/payload\s*&&\s*payload\.to\b/.test(FN_SRC), "there is no `to` to be read");
 });
@@ -260,12 +304,48 @@ test("a filled honeypot is answered like a real send and never mailed", () => {
 });
 
 test("the function never lets a customer's words into a mail header", () => {
-  // The subject is built from the page name, not from the message, and it is flattened to
-  // one line before it is used — a newline in a header is a header-injection hole.
+  // The subject is built from the engine number and the date, never from the message, and
+  // it is flattened to one line before it is used — a newline in a header is a
+  // header-injection hole. Since v252 the engine number is the one caller-supplied value
+  // that reaches the subject, so it is stripped to digits and dots before it gets there:
+  // a header is no place for anything whose shape a caller chose.
   assert.ok(/oneLine\(/.test(FN_SRC), "the subject is flattened");
   assert.ok(!/subject[^\n]*message/.test(FN_SRC), "and it is never built out of the customer's text");
+  assert.ok(/const engine = [^\n]*replace\(\/\[\^0-9\.\]\/g, ""\)/.test(FN_SRC),
+    "the engine number is reduced to digits and dots before it can reach the subject");
   // The body is sent as `text`, so nothing a customer types can become markup.
   assert.ok(/[{,]\s*text\s*[,}]/.test(FN_SRC), "the mail is sent as plain text, never as HTML");
+});
+
+test("the mail says which project, which page, which build and when — the same shape the wish-list mail uses", () => {
+  // She read a feedback email and asked why it carried none of what the wish-list email
+  // carries. The two are read side by side in the same inbox, so they use the same words:
+  // a subject of "<what> · Engine v<n> · <date>", and a "Project:" and "Sent:" pair in the
+  // body. Anything else is two formats to read instead of one.
+  assert.ok(/oneLine\(\s*engine \? `Shop feedback · Engine v\$\{engine\} · \$\{datePart\}`/.test(FN_SRC),
+    "the subject names the build and the date, in the wish-list mail's own shape");
+  assert.ok(/`Project: \$\{project\}`/.test(FN_SRC), "the body names the project");
+  assert.ok(/`Sent: \$\{sent\}`/.test(FN_SRC), "and the moment it arrived");
+  assert.ok(/\$\{origin\}\$\{page\}/.test(FN_SRC),
+    "the project is the live origin and path the customer was reading, joined rather than retyped");
+  assert.ok(/New feedback for the shop page/.test(FN_SRC), "and the block says what it is");
+
+  // The clock is the bakery's own. The function runs in UTC, where 08:52 is the same moment
+  // as 16:52 in Penang — and it is the baker reading this, on her own phone.
+  assert.ok(/timeZone: "Asia\/Kuala_Lumpur"/.test(FN_SRC),
+    "the time is shown on the bakery's clock, not the server's");
+  assert.ok(!/toISOString\(\)/.test(FN_SRC),
+    "and never as a raw UTC stamp, which is what she could not read through before");
+});
+
+test("the customer's words come first in the mail, and the footer cannot be mistaken for them", () => {
+  // The words are what the mail is FOR, so nothing is put above them; and the rule and the
+  // blank line are what stop the sentence running into the block underneath it.
+  const bodyAt = FN_SRC.indexOf("const text = [");
+  assert.ok(bodyAt > -1, "the body is built in one place");
+  const body = FN_SRC.slice(bodyAt, bodyAt + 700);
+  assert.ok(/^\s*const text = \[\s*\n\s*message,/.test(body), "the customer's words are the first thing in the body");
+  assert.ok(body.indexOf(`"— — —"`) > body.indexOf("message,"), "and the rule comes after them, never before");
 });
 
 test("the function and the shop agree on the path", () => {
@@ -420,6 +500,36 @@ test("with an address published the box is drawn, and it prints her own prompt",
   assert.equal(p.box.value, "", "and it is empty until the customer types over it");
   assert.equal(p.box.attrs.maxlength, "4000", "with a ceiling on how much one message can be");
   assert.equal(p.box.attrs["aria-label"], STORE.en.fbPh, "and the prompt is what a screen reader announces");
+});
+
+test("the shop page names the engine build it is running, under the developer's credit", async () => {
+  // She asked for the shop to carry the same kind of number the backoffice shows on More,
+  // so a phone can be read and believed. It belongs in the developer's own corner, under
+  // the credit — the customer came for bread, not for a build number.
+  const realName = CONFIG.developerName;
+  try {
+    CONFIG.developerName = "Knight Neoh";
+    CONFIG.developerWhatsapp = "";
+    const { m } = await drawWith(["knightneoh@gmail.com"]);
+    m.renderStatic(CONFIG);
+
+    const foot = registry["dev-foot"];
+    assert.equal(foot.hidden, false, "the credit is drawn");
+    const label = foot.children.find((c) => c.className === "dev-engine");
+    assert.ok(label, "and the engine line is one of its children");
+    // `el()` puts text in as a child text node rather than through textContent — the same
+    // shape the browser gets, so the label is read the way the browser would render it.
+    const said = label.children.map((c) => (c && c.nodeType === 3 ? c.text : "")).join("");
+    assert.equal(said, `Engine v${ENGINE_VERSION}`,
+      "reading the number the build actually is — the same one the backoffice shows");
+
+    // Under the credit, not instead of it: a version line floating above the name would
+    // read as the shop's own, and a shop with no developer set has no corner to put it in.
+    assert.equal(foot.children[foot.children.length - 1], label, "it is the last line of the credit");
+  } finally {
+    CONFIG.developerName = realName;
+    delete CONFIG.developerWhatsapp;
+  }
 });
 
 test("there is no Send button — Enter is the send", async () => {

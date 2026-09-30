@@ -31,6 +31,11 @@
 // nothing they typed goes unread.
 
 import { CONFIG } from "./config.js";
+// The SAME number the backoffice shows on More. The shop imports it rather than
+// keeping a copy of its own, because two version files in one repository drift apart the
+// first time only one of them is remembered — and the whole point of the number is that
+// it tells the truth about which build a phone is running.
+import { ENGINE_VERSION } from "../admin/js/version.js";
 
 // The path on her Supabase. Called with the same anon key the shop uses for everything
 // else — it is public by design, and this function holds no secret that key could reach.
@@ -90,10 +95,15 @@ export function saveDraft(text) {
 /**
  * Send the customer's words to the developer.
  *
+ * `origin` and `page` are the live address the customer was reading, so the developer's
+ * inbox can name the project without anybody typing it in twice. `engine` is not a
+ * parameter: it is whichever build this file was served from, which is the honest answer
+ * to "what was the customer looking at" even when a phone is running yesterday's copy.
+ *
  * @returns {{ ok: boolean, key: string }} `key` names the line the page should show —
  *   one of `fbThanks`, `fbEmpty`, `fbFailed`.
  */
-export async function sendFeedback({ message, page, lang, honeypot, keepalive }, fetchFn) {
+export async function sendFeedback({ message, page, origin, lang, honeypot, keepalive }, fetchFn) {
   const send = fetchFn || ((...args) => globalThis.fetch(...args));
 
   const text = String(message == null ? "" : message).trim();
@@ -117,6 +127,9 @@ export async function sendFeedback({ message, page, lang, honeypot, keepalive },
       body: JSON.stringify({
         message: text.slice(0, 4000),
         page: String(page == null ? "" : page).slice(0, 120),
+        origin: String(origin == null ? "" : origin).slice(0, 120),
+        // Named, not looked up: the running build's own number.
+        engine: String(ENGINE_VERSION).slice(0, 16),
         lang: String(lang == null ? "" : lang).slice(0, 8),
         // The honeypot travels with the message. Empty for a person; filled for a bot,
         // and the function answers a filled one exactly as it answers a real send — so

@@ -14,6 +14,10 @@ import { addressFromRow, askGeo, fixVerdict, lookupQuery, placeForOrder, validPi
 import { showPinMap } from "./pin_map.js";
 import { createLookup } from "./lookup.js";
 import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
+// The shop shows the same engine number the backoffice shows on More, so the baker can
+// read her phone and know which build the shop is running — and the address fed back with
+// a customer's words names it too. One number, one file, no second copy to forget.
+import { ENGINE_VERSION } from "../admin/js/version.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -524,6 +528,11 @@ function renderDevFoot(cfg) {
   if (emails.length) {
     holder.appendChild(el("a", { class: "dev-mail", href: `mailto:${emails.join(",")}` }, `✉ ${emails.join(", ")}`));
   }
+  // Which build this is, in the smallest type on the page. It sits in the developer's own
+  // corner with the credit above it, so it is there when the baker looks for it and out of
+  // the way of everything a customer came for. It goes with the credit rather than instead
+  // of it: a shop with no developer set has no credit to hang it under.
+  holder.appendChild(el("div", { class: "dev-engine" }, `Engine v${ENGINE_VERSION}`));
 }
 
 // The suggestion box's own state, held OUTSIDE the DOM for the same reason the
@@ -548,6 +557,18 @@ let leaveWired = false;
 // `pagehide` again when it is restored — and a second copy of one sentence in the
 // developer's inbox is not a gift. `leaveSent` remembers what has already gone; typing
 // clears it, because a sentence they have edited is a new one.
+// Where the customer actually was, read off the live address rather than typed in here. A
+// developer reading a feedback email should be able to tell jienluv2bake's shop from
+// munchies' shop without opening anything — and the page path is the half that names which
+// of the two pages the words were written on.
+function pageContext() {
+  const loc = (typeof location !== "undefined" && location) || {};
+  return {
+    origin: String(loc.host || "").slice(0, 120),
+    page: String(loc.pathname || "/store/").slice(0, 120),
+  };
+}
+
 function sendOnLeave() {
   const words = String(fbState.text || "").trim();
   if (words.length < 3 || fbState.busy || fbState.sent) return;
@@ -563,7 +584,7 @@ function sendOnLeave() {
   // hear that the send failed — a failure nobody saw must not be a sentence lost.
   saveDraft("");
   sendFeedback({
-    message: words, page: "shop", lang: loadLang(),
+    message: words, ...pageContext(), lang: loadLang(),
     honeypot: fbTrap ? fbTrap.value : "", keepalive: true,
   }).then((out) => {
     // Told plainly and only if we are still here to tell them: the reply takes the box's
@@ -698,7 +719,7 @@ function renderFeedback(cfg) {
     fbState.busy = true;
     fbState.note = "";
     paint();
-    const out = await sendFeedback({ message: words, page: "shop", lang: loadLang(), honeypot: trap.value });
+    const out = await sendFeedback({ message: words, ...pageContext(), lang: loadLang(), honeypot: trap.value });
     fbState.busy = false;
     if (out.ok) {
       fbState.sent = true;

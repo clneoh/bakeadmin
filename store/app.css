@@ -997,6 +997,13 @@ button.prod-next.off::after { content: ""; }
   color: var(--muted);
   font-weight: 500;
 }
+/* Which engine build the shop is running (v252), in the smallest type on the page and the
+   same muted grey as the credit it sits under — the developer's corner, not the shop's. */
+.dev-foot .dev-engine {
+  margin: 4px 0 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
 
 /* The suggestion box under the "Website by" credit (v247). It appears only when
    the baker has published a developer email, because it has nowhere to send the

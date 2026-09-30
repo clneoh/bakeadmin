@@ -36,7 +36,24 @@ const CORS_HEADERS = {
 
 const MAX_MESSAGE = 4000;
 const MAX_PAGE = 120;
+const MAX_ORIGIN = 120;
+const MAX_ENGINE = 16;
 const MAX_RECIPIENTS = 5;
+
+// Every mail this function sends says WHICH SHOP, WHICH BUILD and WHEN, in the same
+// words the baker's own wish-list mail uses, so a developer reading two of them side by
+// side is not reading two different formats. The date and the time are the BAKERY'S OWN
+// CLOCK (Penang, UTC+8), not the server's UTC and not the customer's device: it is the
+// baker who reads this, and "16:52" should mean the same thing on every page she opens.
+function stamp(d = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kuala_Lumpur",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(d);
+  const at = (type) => parts.find((p) => p.type === type)?.value || "";
+  return `${at("year")}-${at("month")}-${at("day")} ${at("hour")}:${at("minute")}`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,7 +88,12 @@ Deno.serve(async (req) => {
 
   const message = String((payload && payload.message) || "").trim().slice(0, MAX_MESSAGE);
   const page = String((payload && payload.page) || "").trim().slice(0, MAX_PAGE);
+  const origin = String((payload && payload.origin) || "").trim().slice(0, MAX_ORIGIN);
   const lang = String((payload && payload.lang) || "").trim().slice(0, 8);
+  // Only ever digits and dots: the engine number goes into the SUBJECT, and a header is no
+  // place for anything a caller chose the shape of. A build number that is not a build
+  // number is dropped rather than printed.
+  const engine = String((payload && payload.engine) || "").replace(/[^0-9.]/g, "").slice(0, MAX_ENGINE);
   if (message.length < 3) {
     console.error("[shop-feedback] empty message");
     return json({ error: "the message is empty" }, 400);
@@ -86,13 +108,27 @@ Deno.serve(async (req) => {
     return json({ error: "no developer email is set" }, 503);
   }
 
-  const subject = oneLine(page ? `Shop feedback — ${page}` : "Shop feedback");
+  const sent = stamp();
+  const datePart = sent.slice(0, 10);
+  // Which project and which page, as one readable address. Either half may be missing —
+  // an older cached page sends neither — and half an address is still better than none.
+  const project = `${origin}${page}` || "the shop";
+  const subject = oneLine(
+    engine ? `Shop feedback · Engine v${engine} · ${datePart}` : `Shop feedback · ${datePart}`,
+  );
+  // The customer's words come first: they are what the mail is for, and everything below
+  // the rule is only there so the words can be placed. The blank line before that rule is
+  // deliberate — it keeps the sentence from running into the footer it does not belong to.
   const text = [
     message,
     "",
     "— — —",
-    `From the shop page${page ? ` (${page})` : ""}${lang ? `, written in ${lang}` : ""}.`,
-    `Sent ${new Date().toISOString()}.`,
+    `New feedback for the shop page${engine ? ` (Engine v${engine})` : ""}.`,
+    `Project: ${project}`,
+    `Sent: ${sent}`,
+    ...(lang ? [`Written in ${lang}.`] : []),
+    "",
+    "— sent from the shop's suggestion box",
   ].join("\n");
 
   const from = Deno.env.get("RESEND_FROM") || "BakeAdmin wishes <wishlist@send.jienluv2bake.com.my>";

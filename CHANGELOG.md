@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v251)
+# Jienluv2bake — change history (v54 → v252)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v252, THE SHOP'S FEEDBACK MAIL SAYS WHICH SHOP AND WHICH BUILD
+(no database step, but the shop-feedback function must be redeployed).**
+
+**A customer's message now arrives with the same kind of heading your wish-list mail has.**
+Before this version the email was the customer's words and nothing else, so a message saying
+"the cart is confusing" could have come from either of your shops and from any build of the
+page. Now every one of these emails carries, under the words and a short rule:
+
+- **Project** — the address the customer was actually reading, for example
+  jienluv2bake.com.my/store. It is read off the live page rather than typed in anywhere, so
+  your two shops can never be confused for one another, and the second half names which page
+  of that shop the words were written on.
+- **Sent** — the date and time on **your** clock, Penang time, so "16:52" means the same thing
+  on the email, on your phone and in the backoffice. It follows the same shape as the
+  wish-mail mail: `2026-09-30 16:52`.
+- **Engine** — the build the customer was looking at, both in the subject line and in the line
+  above the project, so you can tell whether a complaint about the shop came from a phone that
+  is still running yesterday's copy.
+- **Written in** — the language, when the customer was reading the shop in Malay or Chinese.
+
+**The subject line names the build too**, so the mailbox listing alone tells you what you need:
+`Shop feedback · Engine v252 · 2026-09-30`. Everything else about the mail is unchanged — the
+customer's words still come first, the heading still sits below them, and the mail still goes
+to the developer addresses you set in Settings.
+
+**And the shop itself now says which build it is running.** At the very foot of the shop page,
+under "Website by" and the developer's WhatsApp and email links, there is a new small line:
+
+    Engine v252
+
+**It is the same number your app shows on More**, and the two are read from one file rather
+than kept as two copies that could drift apart. That is the point of it: when a customer tells
+you something looks wrong, you can compare the number at the foot of their shop page with the
+number on your own More screen and know in one glance whether they are seeing the same page you
+are. It is the smallest type on the page and the same muted grey as the credit above it, in the
+developer's own corner, where it is there when you go looking for it and out of the way of
+everything a customer came for.
+
+**One step on your machine.** The part of this that builds the email lives on Supabase, so it
+must be redeployed once, exactly as before:
+
+    supabase functions deploy shop-feedback --project-ref hzpyblqygnntixkijeem
+
+Nothing else to set up — no new secret, no new database table, no new key. The email reuses the
+same Resend account your wish list already sends with, and the same published settings row the
+shop page reads for its "Website by" line.
 
 **30 Sep 2026 — engine v251, THE SHOP'S QUESTION IN YOUR OWN WORDS
 (no database step, no redeploy, one push).**
