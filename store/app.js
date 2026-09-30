@@ -13,6 +13,7 @@ import { STORE } from "../store-lang.js";
 import { addressFromRow, askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
 import { showPinMap } from "./pin_map.js";
 import { createLookup } from "./lookup.js";
+import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -525,6 +526,142 @@ function renderDevFoot(cfg) {
   }
 }
 
+// The suggestion box's own state, held OUTSIDE the DOM for the same reason the
+// cart is: renderStatic() runs again on every language switch, and a textarea
+// rebuilt from nothing would take a half-written sentence with it — and would
+// un-say a thank-you the customer is still reading.
+const fbState = { text: "", sent: false, note: "", busy: false };
+
+// The box under the "Website by" credit, where a customer tells the developer
+// what they would change. It rides the SAME published `developerEmails` the
+// credit above it does: that address is where the words go, so with none set
+// there is nowhere to send them, and the box goes with the credit rather than
+// standing there collecting sentences nobody will ever read.
+function renderFeedback(cfg) {
+  const holder = document.getElementById("fb-foot");
+  if (!holder) return;
+  holder.replaceChildren();
+  const emails = Array.isArray(cfg && cfg.developerEmails)
+    ? cfg.developerEmails.map((e) => String(e).trim()).filter(Boolean)
+    : [];
+  if (!emails.length) {
+    holder.hidden = true;
+    return;
+  }
+  holder.hidden = false;
+
+  // Already sent. The reply, and only the reply — nobody who has just been told
+  // their idea was received needs the box offered again underneath it.
+  if (fbState.sent) {
+    holder.appendChild(el("p", { class: "fb-say fb-done", role: "status" }, t("fbThanks")));
+    return;
+  }
+
+  // ONE LINE, as she asked, and it opens only when the words no longer fit — a box
+  // standing three rows tall on every visit to the shop is weight nobody asked for.
+  const box = el("textarea", {
+    class: "fb-input", rows: "1", maxlength: "4000",
+    placeholder: t("fbPh"), "aria-label": t("fbPh"),
+  });
+  const grow = () => {
+    if (!box.style) return;
+    box.style.height = "auto";
+    const h = Number(box.scrollHeight) || 0;
+    if (h > 0) box.style.height = `${h + 2}px`; // +2 for the border, which scrollHeight leaves out
+  };
+  // Put their words back where they left them — the restore half of the autosave. A
+  // customer can write a sentence, never press Enter (the box has no button to make
+  // sending obvious) and tap away; coming back finds it still here. Read only when this
+  // session has nothing of its own to draw, so a repaint never overwrites live typing.
+  if (!fbState.text) fbState.text = loadDraft();
+  box.value = fbState.text;
+  grow();
+
+  // The honeypot. A person never sees it and never fills it; a bot filling every
+  // input does, and the function answers a filled one exactly as it answers a
+  // real send, so a bot learns nothing from being refused.
+  const trap = el("input", {
+    class: "fb-trap", type: "text", name: "website",
+    tabindex: "-1", autocomplete: "off", "aria-hidden": "true",
+  });
+
+  // ONE LINE UNDER THE BOX, which says whichever of the three things is true and
+  // nothing else: the last failure, that the words are on their way, or — once there
+  // are words and no button to press — the one instruction there is. At rest, with
+  // nothing typed, it says nothing at all.
+  const say = el("p", { class: "fb-say", role: "status" });
+  const paint = () => {
+    box.disabled = !!fbState.busy;
+    if (fbState.note) {
+      say.hidden = false;
+      say.className = "fb-say fb-bad";
+      say.textContent = t(fbState.note);
+      return;
+    }
+    // Nothing to act on yet is silence; anything else gets the one line it is due.
+    const wrote = box.value.trim().length >= 3;
+    say.className = "fb-say";
+    say.hidden = !(fbState.busy || wrote);
+    say.textContent = fbState.busy ? t("fbSending") : wrote ? t("fbHint") : "";
+  };
+
+  const send = async () => {
+    if (fbState.busy) return; // one press, one message; the box is off while it flies
+    const words = box.value.trim();
+    if (words.length < 3) {
+      fbState.note = "fbEmpty";
+      paint();
+      return;
+    }
+    fbState.busy = true;
+    fbState.note = "";
+    paint();
+    const out = await sendFeedback({ message: words, page: "shop", lang: loadLang(), honeypot: trap.value });
+    fbState.busy = false;
+    if (out.ok) {
+      fbState.sent = true;
+      fbState.note = "";
+      fbState.text = "";
+      saveDraft(""); // it arrived, so there is nothing left to keep
+      renderFeedback(CONFIG);
+      return;
+    }
+    // The send did NOT land, and the customer is told so rather than thanked:
+    // a thank-you over a message that never left would stop them trying again,
+    // and nobody would ever learn the words were lost. The developer's WhatsApp
+    // link is already drawn just above this box.
+    fbState.note = out.key;
+    paint();
+  };
+
+  box.addEventListener("input", () => {
+    fbState.text = box.value;
+    // Typing is them saying "I am answering after all" — so a failure line about the
+    // last send stops being true the moment they start the next one.
+    if (fbState.note) fbState.note = "";
+    saveDraft(fbState.text);
+    grow();
+    paint();
+  });
+  // Tapping away keeps it too. This is the second half of "never press Enter": the words
+  // are safe whether they leave the box to look at the page or leave the page entirely.
+  box.addEventListener("blur", () => saveDraft(box.value));
+  // Enter sends. There is no button to press, so nothing else can: a one-line box in
+  // a footer has exactly one key that means "done", and on a phone that is the return
+  // key. Shift+Enter is not a second line — she asked for one line.
+  box.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    return send(); // returned so a test can await the send this key started
+  });
+
+  grow();
+  paint();
+  // The box and the trap. The answer line, when there is one, goes under them.
+  holder.appendChild(el("div", { class: "fb-row" }, box, trap));
+  holder.appendChild(say);
+}
+
 // The static header parts (name, tagline, delivery days, social links). Kept
 // separate so a later-published config can re-render just these.
 export function renderStatic(cfg) {
@@ -555,6 +692,7 @@ export function renderStatic(cfg) {
   }
 
   renderDevFoot(cfg);
+  renderFeedback(cfg);
 }
 
 // A referral-link visitor (?via=…) sees one amount-free line near the top of the

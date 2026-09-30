@@ -203,6 +203,13 @@ const en = {
 
   devBy: "Website by",
   devWa: "WhatsApp the developer",
+
+  fbPh: "Like this UI? Comment, and I will make it better.",
+  fbHint: "Press Enter to send",
+  fbSending: "Sending…",
+  fbThanks: "Your idea is well taken care of. New updates soon!",
+  fbFailed: "Couldn't send just now — please try again, or WhatsApp the developer.",
+  fbEmpty: "Please write your idea first.",
 };
 
 const zh = {
@@ -344,6 +351,13 @@ const zh = {
 
   devBy: "网站制作：",
   devWa: "用 WhatsApp 联系开发者",
+
+  fbPh: "喜欢这个界面吗？留言，我会把它做得更好。",
+  fbHint: "按 Enter 发送",
+  fbSending: "发送中…",
+  fbThanks: "你的建议我们已收到，会好好处理。新更新即将推出！",
+  fbFailed: "刚才发送不成功 — 请再试一次，或用 WhatsApp 联系开发者。",
+  fbEmpty: "请先写下你的想法。",
 };
 
 const ms = {
@@ -485,6 +499,13 @@ const ms = {
 
   devBy: "Laman web oleh",
   devWa: "WhatsApp pembangun",
+
+  fbPh: "Suka UI ini? Komen, dan saya akan memperbaikinya.",
+  fbHint: "Tekan Enter untuk hantar",
+  fbSending: "Menghantar…",
+  fbThanks: "Idea anda telah kami terima dan akan diuruskan. Kemas kini baharu tidak lama lagi!",
+  fbFailed: "Tidak dapat dihantar sebentar tadi — sila cuba lagi, atau WhatsApp pembangun.",
+  fbEmpty: "Sila tulis idea anda dahulu.",
 };
 
 export const STORE = { en, zh, ms };

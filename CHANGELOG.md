@@ -1,8 +1,52 @@
-# Jienluv2bake — change history (v54 → v246)
+# Jienluv2bake — change history (v54 → v247)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v247, THE SHOP FRONT NOW ASKS THE CUSTOMER WHAT THEY WOULD CHANGE
+(no database step, one new function to deploy once, one push).**
+
+You asked for a way for a customer to tell your developer what they would improve about the
+shop page, in their own words, with a reply straight away.
+
+**A single line now sits at the foot of the shop, under the "Website by" line.** It is printed
+with your own question — **"Like this UI? Comment, and I will make it better."** The customer
+types over that sentence and presses **Enter**. There is no Send button, because you asked for
+none: Enter is the send. The line is one line tall and opens further only when the words no
+longer fit, so at rest the whole thing is a single quiet row at the foot of the page. Once
+there are words in the box a small grey line under it says **"Press Enter to send"**, so the
+one key that does something is never something they have to discover by accident.
+
+The moment the send lands, the box is replaced by your reply — **"Your idea is well taken care
+of. New updates soon!"** — so they see the answer without doing anything else. They are never
+asked for an email address, and nothing is created on your side for them.
+
+**The words come to you as an ordinary email**, at the developer address you already set in
+**Settings → Website & developer** — the same address the shop's "Website by" line shows. It
+runs on the **same email service your wish list already uses**, so there is no new account,
+no new key and no new DNS record. Each message says which page it was written on, in which of
+the three languages, and when it arrived.
+
+**There is no box until you have set that address**, because the box has nowhere to send to
+without it. That is on purpose: a box that quietly collects sentences nobody will ever read
+is worse than no box at all.
+
+**A send that did not go through says so, plainly.** If the email could not be sent the
+customer is told, in words, to try again or to use the WhatsApp link that is already drawn
+just above the box — and **their words stay in the box**, exactly as typed, so nothing they
+wrote is lost. A thank-you drawn over a message that never left would stop them trying again
+and nobody would ever find out, so that is the one thing this never does.
+
+**It speaks all three languages.** The question, the line that says how to send and the reply
+are written in English, 中文 and Bahasa Malaysia, and a customer who switches language keeps
+whatever they had half-typed and whatever reply they had already been given.
+
+**What you have to do, once.** This needs one small new function deployed in Supabase the
+same way the wish-list function was — the file is `supabase/functions/shop-feedback`. Until
+it is deployed the box still appears and still says plainly that the send did not go through.
+Nothing else is required: no database step, no new key, no new setting — it uses the
+developer email you have already saved.
 
 **30 Sep 2026 — engine v246, THE NOTES ON THE ITEMS ARE NOW UNDERLINED ON THE COMPACT LABEL TOO (no
 database step, no redeploy, one push).**
