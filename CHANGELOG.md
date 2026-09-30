@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v238)
+# Jienluv2bake — change history (v54 → v239)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v239, THE RESET NOW SHOWS UP WHERE YOU ACTUALLY WORK (no database step, no
+redeploy, one push).**
+
+This is the fix for v238. You pushed it, opened an order, and the reset was still not there. You were
+right, and the reason is this: v238 offered the reset when the pin was the customer's own, and hid it
+when the pin was one **you** had placed by hand.
+
+But placing the pin by hand is the only thing that card ever offered you. So a drag is what you did, and
+a drag is exactly what then hid the reset. Every customer whose pin you had ever corrected by hand still
+showed **Move this pin** and nothing else. v238 changed nothing at all for the doors you had touched
+yourself, which is why it looked like it had not arrived.
+
+**From this version the reset is offered wherever there is a pin to replace.** If a pin exists on the
+order and an address is typed, the press is on the card — the customer's own pin, a pin you dragged by
+hand, a pin an older look-up wrote, or one a reset already wrote. The only case with no press is an order
+that has no pin yet, where there is simply nothing to replace; the price button looks one up on its own.
+
+**Where it would replace something a person chose, it still asks first.** That is the customer's own pin,
+and it is also now your own hand-placed pin. The wording names which of the two it is about to replace.
+Over your own pin it says this is the door you placed on the map by hand, that a look-up may only find the
+road and can be a step back from a door you already had right, and that you can drag the pin again
+afterwards. Over the customer's pin it says, as v238 did, that this is their pin and you can switch back
+to it. Either way the confirming button says **Reset the pin**, and Cancel changes nothing at all.
+
+**Where it only replaces the app's own guess, it does not ask** — a look-up's answer, or a reset of one.
+That is what this press has always done, so nothing new is put in your way there. The button says
+**Look this address up again** on those, and **Reset the pin from the address** on the two that will ask.
+
+Nothing else changed. No database step, no redeploy, no new key, and no new setting to switch on.
 
 **30 Sep 2026 — engine v238, RESET THE PIN, AND LET THE MAP ZOOM (no database step, no redeploy, one
 push).**

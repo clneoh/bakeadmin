@@ -1903,7 +1903,7 @@ test("the second ask appears where a lookup wrote the door, and nowhere before o
   }
 });
 
-test("the press is never offered over her own hand, and IS offered over the customer's own pin (v213, changed v238)", async () => {
+test("the press IS offered over her own hand and over the customer's own pin (v213, changed v238, changed again v239)", async () => {
   signIn();
   const s = stubGeocodeAsks([AT_THE_HOUSE]);
   const leaf = makeLeaflet();
@@ -1914,18 +1914,25 @@ test("the press is never offered over her own hand, and IS offered over the cust
   let hand = null;
   let theirs = null;
   try {
-    // HER OWN HAND. A door she dragged or picked is a correction, not a guess, and offering to
-    // replace it with a lookup would be handing her work back to the service she just corrected.
-    // This is the half of the v213 rule that v238 left alone.
+    // HER OWN HAND. v213 withheld the press here to keep a correction from being handed back to
+    // the service she had just corrected, and v238 kept that half. Her SECOND report is why it
+    // had to go: a drag is the only thing this card ever offered her, so a drag is what she does
+    // — and it writes `from: "hand"`, which the press then refused for good. Every customer she
+    // had ever corrected by hand showed "Move this pin" and nothing else.
+    //
+    // The protection did not go, it MOVED: this door is still never replaced without being asked
+    // (the test below drives that confirmation). Nothing is replaced by merely painting the card.
     st.customers = [{
       id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
       place: { lat: 5.4, lng: 100.3, label: "the door she checked", from: "hand", at: "2026-09-25T10:00:00.000Z" },
     }];
     hand = mountDoor(st, order);
     await settle(4);
-    assert.equal(lookBtnOn(hand).hidden, true,
-      "a door she placed herself is not a lookup's answer and is not offered up for replacement");
-    assert.equal(st.customers[0].place.lat, 5.4, "and nothing has moved it");
+    assert.equal(lookBtnOn(hand).hidden, false,
+      "a door she placed herself can still go stale — she needs both tools, not only the drag");
+    assert.equal(lookBtnOn(hand).textContent, "Reset the pin from the address",
+      "said as a reset, because a look-up may only DOWNGRADE a door she had right");
+    assert.equal(st.customers[0].place.lat, 5.4, "and merely painting the card has moved nothing");
 
     // THE CUSTOMER'S OWN PIN, WHICH IS THE DOOR IN FORCE (v209) — AND WHICH SINCE v238 IS
     // OFFERED ANYWAY. v209 hid the press here on the reasoning that they were standing at their
@@ -2011,6 +2018,74 @@ test("over the customer's own pin the press ASKS first, and nothing moves until 
       "and the card now says the door is the one she keeps, not theirs");
     assert.equal(lookBtnOn(mounted).textContent, "Look this address up again",
       "the press goes back to the other label, because there is no customer pin left to replace");
+  } finally {
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("over a door she placed by hand the press ASKS first too, and says which door it is replacing (v239)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([AT_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  // The door in force is the one she placed on the map herself. This is the state her own
+  // workflow leaves behind — a drag is the only thing the card ever offered her — and it is
+  // the state v238 still refused the press in, which is why she reported it twice.
+  st.customers = [{
+    id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+    place: { lat: 5.4, lng: 100.3, label: "the door she checked", from: "hand", at: "2026-09-25T10:00:00.000Z" },
+  }];
+  let mounted = null;
+  try {
+    mounted = mountDoor(st, order);
+    await settle(4);
+    layers["confirm-layer"].replaceChildren();
+    assert.match(mounted.doorSlot.textContent, /the door you keep for Mei Ling/,
+      "the card is standing on the door she keeps");
+    // HER ACTUAL COMPLAINT, asserted first: the press is ON THE CARD. v238 hid it here, so all
+    // she ever saw was "Move this pin" and nothing else — for a door she had corrected by hand.
+    assert.equal(lookBtnOn(mounted).hidden, false,
+      "the reset is offered over a door of her own hand, which is the state she reported twice");
+
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle(4);
+    assert.equal(s.geocodes(), 0, "opening the fold asked no look-up — a door is already in force");
+
+    // CANCEL REALLY STOPS IT, which is the whole of what "asks first" has to mean.
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(2);
+    const card = layers["confirm-layer"];
+    assert.match(card.textContent, /the door you placed on the map by hand/,
+      "and it names the door it is about to replace, so she is not guessing what it means");
+    assert.doesNotMatch(card.textContent, /own pin from the shop page/,
+      "never their pin — this door is hers, and the card may not invent a fact about a person");
+    assert.match(card.textContent, /only find the road/,
+      "it says the answer may be NO BETTER, which is the real risk of replacing a door she had right");
+    buttonByText(card, "Cancel")._listeners.click[0]();
+    await settle(2);
+    assert.equal(s.geocodes(), 0, "Cancel stopped it: no look-up ran at all");
+    assert.equal(st.customers[0].place.from, "hand", "and her door is still a door of her hand");
+    assert.equal(st.customers[0].place.lat, 5.4, "on her own point, unmoved");
+
+    // SAY YES, and it is replaced — a reset, so it stays pressable again afterwards.
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(2);
+    buttonByText(layers["confirm-layer"], "Reset the pin")._listeners.click[0]();
+    await settle(4);
+    assert.equal(s.geocodes(), 1, "the press ran once she said go ahead");
+    const place = st.customers[0].place;
+    assert.equal(place.from, "reset", "stamped a reset, so the press can be used again on what it found");
+    assert.equal(place.lat, 5.4172, "standing where the fresh answer put it");
+    assert.equal(place.lng, 100.3311, "in both numbers, not just the one");
+    assert.equal(place.against, undefined,
+      "and with no `against`, because this order carries no customer pin for it to have replaced");
+    assert.equal(lookBtnOn(mounted).textContent, "Look this address up again",
+      "the label goes back to the plain one — a reset is a guess, and a guess is not asked about");
   } finally {
     closeDoor(mounted);
     s.restore();

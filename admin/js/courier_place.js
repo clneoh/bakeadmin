@@ -208,21 +208,54 @@ export function doorIsTheirs(state, order) {
 // made before the app kept a note of one. Offering the press is safe in that grey area
 // precisely because nothing happens without it.
 //
-// ALSO YES where their own pin is the door in force (v238, and the one thing this changed).
-// v209's reason for saying no — "they were standing at their door, and no lookup improves on
-// that" — is true of the day they dropped it and says nothing about today. Her report is the
-// case it misses: the customer moved, their pin is now the stale one, and the press that
-// would replace it was hidden by this very line. The card asks before it overwrites their
-// pin, so the press costs her a confirmation and never a surprise.
+// ALSO YES where their own pin is the door in force (v238). v209's reason for saying no —
+// "they were standing at their door, and no lookup improves on that" — is true of the day
+// they dropped it and says nothing about today. Her report is the case it misses: the
+// customer moved, their pin is now the stale one, and the press that would replace it was
+// hidden by this very line.
 //
-// STILL NO where a door she placed by hand is in force: that is a correction rather than a
-// guess, not something to be offered up for replacement, and v213's protection of it is
-// untouched. In fairness that protection holds only for doors written since v209 — a drag
-// from before it carries no `from` and reads as "". Same grey area as above, honestly stated.
+// AND SINCE v239 THE ANSWER IS THE SAME WHEREVER A DOOR IS IN FORCE (her second report). v238
+// got this wrong in a way that left the press invisible in exactly the state she takes the
+// card into: a door of her own making. Her workflow is "we are offer move the pin only" — a
+// drag is the one thing she does on this card, and a drag writes `from: "hand"`, which this
+// rule then refused. So a customer whose pin she had ever corrected by hand could NEVER be
+// reset afterwards, and v238 appeared to have changed nothing at all. The fault was in
+// asking the wrong question: this function should say whether there is a door TO replace,
+// not whether we approve of the one that is there.
+//
+// WHAT A DOOR IS, and the answer is not "something we may overwrite": it is the point a
+// driver is sent to. Where the point is wrong, she needs both tools — a reset to re-derive
+// it from the address, and a drag to place it exactly. Offering one and hiding the other
+// behind it is what she reported twice. Nothing here overwrites anything without being
+// asked: see `resetReplacesAChoice` below, which is what decides the confirmation.
 export function doorMayBeReset(state, order) {
+  return !!doorSpotOf(state, order);
+}
+
+// Whether replacing the door in force would overwrite something a PERSON chose, rather than
+// re-asking a service this app already asked (v239). This is the one question the card needs
+// answered before it presses: not "may I?" but "had I better ask first?" — and it is asked in
+// exactly one place so the button's own label and the confirmation that follows it cannot
+// come apart.
+//
+// YES for the customer's own pin, for a copy of it, and for a door she placed by her own hand.
+// The first two are a FACT FROM THE CUSTOMER, and a press that quietly overwrote one would be
+// the "dot moved on its own" that six versions of this card were written to end. The third is
+// HER OWN CORRECTION, made on the map, knowing the door — and a look-up that can only reach the
+// road is a real downgrade of it. Both are worth one confirmation; neither is worth refusing.
+//
+// NO for a look-up's answer, for a reset of one, and for a door saved before the app recorded
+// how it got there (`from` arrived at v209). Those are this app's own guesses, and replacing a
+// guess with a fresher guess is what this press has always done — so nothing new is put in her
+// way on the route she already knows.
+export function resetReplacesAChoice(state, order) {
+  // THE DOOR IN FORCE FIRST, because that is the door the press replaces. Where their pin is
+  // the point a driver is sent to it is a choice no matter what the profile row says — a
+  // lookup's answer can sit on the profile while their pin is the door, and asking the row
+  // instead would label their pin "Look this address up again" and skip the confirmation.
   if (doorIsTheirs(state, order)) return true;
   const from = doorFromOf(state, order);
-  return from === "lookup" || from === "" || from === "reset";
+  return !(from === "lookup" || from === "" || from === "reset");
 }
 
 // THE POINT THAT IS THE DOOR — the one a price is asked for and a driver is sent to.

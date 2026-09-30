@@ -53,8 +53,8 @@ import {
 } from "../courier_job.js";
 import {
   customerPlaceOf, doorFromOf, doorIsTheirs, doorMayBeReset, doorRoadOf, doorSpotOf, doorSwitchOf,
-  dropAddress, dropPlaceOf, fmtPlace, houseNotIn, pickupAddress, pickupPlace, roadNotHouse,
-  sameDoor, setDropPlace, setPickupPlace,
+  dropAddress, dropPlaceOf, fmtPlace, houseNotIn, pickupAddress, pickupPlace, resetReplacesAChoice,
+  roadNotHouse, sameDoor, setDropPlace, setPickupPlace,
 } from "../courier_place.js";
 import { feeGapLine } from "../courier.js";
 import { geocodeAddress } from "../couriers/api.js";
@@ -404,14 +404,21 @@ export function courierQuoteSection({
     // v209's reason for hiding it there — "they were standing at their door, and no lookup
     // improves on that" — is true of the day they dropped it, not of today. Her report is the
     // case it misses: the customer moved, their pin is the stale one, and the press that would
-    // replace it was the press hidden. The label says what the press will do, so the same
-    // button reads "Reset the pin from the address" over their pin and "Look this address up
-    // again" over one of ours — and relookUp asks first where the replacement is theirs.
+    // replace it was the press hidden.
+    //
+    // AND SINCE v239 IT IS OFFERED OVER A DOOR OF HER OWN MAKING TOO, which is the state she
+    // actually reported twice. v238 fixed the customer's pin and left `from: "hand"` refused —
+    // and a drag is the ONLY thing this card offered her, so every door she had ever corrected
+    // by hand still showed "Move this pin" and nothing else. The label below now follows the
+    // SAME rule as the confirmation that follows it (resetReplacesAChoice), so the two cannot
+    // disagree about whether this press is about to ask her something.
     //
     // `addr` stays in the gate: with no address typed there are no words to look up, and a
     // press that could only ever do nothing has no business being on screen.
     if (lookBtn) {
-      lookBtn.textContent = theirs ? "Reset the pin from the address" : "Look this address up again";
+      lookBtn.textContent = resetReplacesAChoice(state, first)
+        ? "Reset the pin from the address"
+        : "Look this address up again";
       lookBtn.hidden = !(spot && addr && doorMayBeReset(state, first));
     }
 
@@ -1255,6 +1262,12 @@ export function courierQuoteSection({
     // before this the only press that could replace it was hidden. Their pin is asked about
     // first (see relookUp) — this is a replacement, not a suggestion.
     //
+    // AND SINCE v239 IT REPLACES A DOOR OF HER OWN HAND TOO, which is the report v238 did not
+    // answer. v238 left `from: "hand"` refused, and a drag is the only thing this card ever
+    // offered her — so every door she had corrected by hand still showed "Move this pin" and
+    // nothing else, and the reset she asked for was missing in exactly the state she works in.
+    // That door is a correction and not a guess, so it is asked about first like their pin is.
+    //
     // THREE ANSWERS, AND EACH ONE IS SAID. It moved; it did not move; it could not be asked.
     // A button whose only outcome is silence is the dead control this app has a standing rule
     // against, and here silence would be worse than usual — she would have no way to tell a
@@ -1263,22 +1276,33 @@ export function courierQuoteSection({
       const words = dropAddress(first);
       const before = doorSpot();
       if (busy || !words || !before) return;
-      // OVER THE CUSTOMER'S OWN PIN, THE PRESS ASKS FIRST (v238). Everywhere else it replaces
-      // something THIS app worked out — a look-up's answer, or a reset of one — and replacing
-      // it is what this press has always done, so nothing new is put in her way. Their pin is
-      // different: it is a fact from them, and a press that quietly overwrote it would be the
-      // "dot moved on its own" that six versions of this card were written to end.
+      // WHERE REPLACING THE DOOR MEANS REPLACING SOMEBODY'S CHOICE, THE PRESS ASKS FIRST
+      // (v238 for the customer's pin, v239 for a door of her own hand). Everywhere else it
+      // replaces something THIS app worked out — a look-up's answer, or a reset of one — and
+      // replacing it is what this press has always done, so nothing new is put in her way.
       //
-      // WHAT THE CONFIRM HAS TO SAY, and why it says two things: that it replaces THEIR pin,
-      // and that the answer may be no better. A look-up that can only reach the road LOWERS a
-      // real doorstep to a street, and she should read that before the press rather than after
-      // — the card does wear the road caveat once it is written, but by then it is done.
-      if (theirsIsTheDoor()) {
+      // The question is `resetReplacesAChoice`'s, and the label paints itself from the same
+      // function, so a press reading "Reset the pin from the address" is always a press that
+      // will ask. Two things are worth a confirmation: a fact from the customer, which a
+      // quiet overwrite would turn back into the "dot moved on its own" that six versions of
+      // this card were written to end; and her own correction on the map, which a look-up may
+      // only DOWNGRADE to the road.
+      //
+      // WHAT THE CONFIRM HAS TO SAY, and why each wording says two things: which door it
+      // replaces, and that the answer may be no better — a look-up that can only reach the
+      // road LOWERS a real doorstep to a street, and she should read that before the press
+      // rather than after. It also names the way back, because there is one.
+      if (resetReplacesAChoice(state, first)) {
         const who = String(first.customerName || "the customer").trim() || "the customer";
-        confirmDialog(
-          `${who}'s own pin is the door the driver is sent to. Resetting replaces it with a fresh look-up of the address on this order, and a look-up may only find the road. You can switch back to their pin afterwards.`,
-          () => runReset(words, before),
-          { danger: true, yesLabel: "Reset the pin" });
+        // Said by HOW THE DOOR GOT THERE, not by whether their pin is in force. Those agree
+        // everywhere except one case — a copy of their pin kept on the profile when the order
+        // row itself no longer carries it — and there `doorIsTheirs` is false while the door is
+        // still theirs. Saying "the door you placed by hand" over their own pin would be the
+        // card inventing a fact about her, which is the fault v205 and v207 were written to end.
+        const said = doorFromOf(state, first) === "hand"
+          ? "This is the door you placed on the map by hand, and a look-up may only find the road — which can be a step back from a door you already had right. Resetting replaces it with a fresh look-up of the address on this order, and you can always drag the pin again afterwards."
+          : `${who}'s own pin is the door the driver is sent to. Resetting replaces it with a fresh look-up of the address on this order, and a look-up may only find the road. You can switch back to their pin afterwards.`;
+        confirmDialog(said, () => runReset(words, before), { danger: true, yesLabel: "Reset the pin" });
         return;
       }
       await runReset(words, before);

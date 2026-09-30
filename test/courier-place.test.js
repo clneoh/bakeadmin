@@ -29,6 +29,7 @@ const {
   validPlace, pickupPlace, pickupAddress, dropPlaceOf, dropAddress,
   setDropPlace, setPickupPlace, latLngText, fmtPlace, splitLabel, parseCoords, placeProblem,
   customerPlaceOf, doorFromOf, doorIsTheirs, doorMayBeReset, doorSpotOf, doorSwitchOf,
+  resetReplacesAChoice,
   houseNotIn, roadNotHouse, doorRoadOf, doorAgainstOf, sameDoor,
 } = await import("../admin/js/courier_place.js");
 const { canonicaliseCustomers } = await import("../admin/js/profiles.js");
@@ -576,12 +577,79 @@ test("the press is offered over a RESET so a reset that landed on the road can b
   assert.equal(doorMayBeReset(s, o), true, "a reset is a fresh guess too, and may be asked again");
 });
 
-test("the press is NOT offered over a door she placed by hand (v213)", () => {
+test("the press IS offered over a door she placed by hand (v239 — this is what v238 got wrong)", () => {
+  // v213 withheld the press here to protect a correction from a geocoder's guess, and v238
+  // kept that. Her second report is why it had to go: a drag is the ONLY thing this card ever
+  // offered her, so a drag is what she does — and it writes `from: "hand"`, which the press
+  // then refused for good. Every customer whose pin she had ever corrected by hand showed
+  // "Move this pin" and nothing else, and v238 looked like it had changed nothing.
+  //
+  // The protection is not gone, it has moved: the door is still never replaced WITHOUT BEING
+  // ASKED. See resetReplacesAChoice below, which is the confirmation's own question.
   const s = state();
   const o = order();
   setDropPlace(s, o, { lat: 5.4, lng: 100.3, label: "the door she checked" }, "hand");
-  assert.equal(doorMayBeReset(s, o), false,
-    "a door she placed by hand is a correction, not a guess, and is not offered up for replacement");
+  assert.equal(doorMayBeReset(s, o), true, "there is a door, so there is a door to replace");
+});
+
+test("a door may be reset exactly when there is a door — nothing to replace means no press (v239)", () => {
+  // The one question this function answers now. It used to answer "do we approve of how this
+  // door got here", which is a different question, and answering it hid the press in the state
+  // she works in.
+  const bare = state();
+  const o = order();
+  assert.equal(doorSpotOf(bare, o), null, "no pin and no customer pin — there is no door yet");
+  assert.equal(doorMayBeReset(bare, o), false,
+    "nothing to replace, and the price press looks one up by itself");
+});
+
+test("the press ASKS FIRST where it would replace a person's choice, and never where it replaces our own guess (v239)", () => {
+  // The confirmation's one question, and the button's label paints itself from the same
+  // function — so a press reading "Reset the pin from the address" is always a press that asks.
+  const theirs = state();
+  const theirsOrder = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(theirs, theirsOrder, { lat: 5.4141, lng: 100.3288, label: theirsOrder.address }, "lookup");
+  assert.equal(doorIsTheirs(theirs, theirsOrder), true);
+  assert.equal(resetReplacesAChoice(theirs, theirsOrder), true, "a fact from the customer is asked about");
+
+  const hand = state();
+  const handOrder = order();
+  setDropPlace(hand, handOrder, { lat: 5.4, lng: 100.3, label: "the door she checked" }, "hand");
+  assert.equal(resetReplacesAChoice(hand, handOrder), true, "and so is her own correction on the map");
+
+  const looked = state();
+  const lookedOrder = order();
+  setDropPlace(looked, lookedOrder, { lat: 5.4141, lng: 100.3288, label: lookedOrder.address }, "lookup");
+  assert.equal(resetReplacesAChoice(looked, lookedOrder), false,
+    "a look-up's answer is our own guess, and a fresher guess is what this press has always been");
+
+  const again = state();
+  const againOrder = order({ customerPlace: { lat: 5.42, lng: 100.33 } });
+  setDropPlace(again, againOrder, { lat: 5.4141, lng: 100.3288, label: againOrder.address },
+    "reset", "12", { lat: 5.42, lng: 100.33 });
+  assert.equal(resetReplacesAChoice(again, againOrder), false,
+    "and a reset may be pressed again without being made to justify itself twice");
+
+  const old = state();
+  const oldOrder = order();
+  setDropPlace(old, oldOrder, { lat: 5.4141, lng: 100.3288, label: oldOrder.address });
+  old.customers[0].place.from = undefined; // as an older version left it
+  assert.equal(resetReplacesAChoice(old, oldOrder), false,
+    "a door saved before v209 is a look-up's answer, which is the only thing that wrote one by itself");
+});
+
+test("a copy of their pin is asked about even when the order row no longer carries it (v239)", () => {
+  // The one case where "is their pin the door" and "how did this door get here" disagree: the
+  // profile keeps a copy written while the order still had a `customerPlace`, and the order has
+  // since lost it. `doorIsTheirs` says no — there is nothing to compare against — but the door
+  // is still theirs, so the confirmation must not call it the door she placed by hand.
+  const s = state();
+  const o = order(); // no customerPlace on the row
+  setDropPlace(s, o, { lat: 5.42, lng: 100.33, label: o.address }, "customer");
+  assert.equal(doorIsTheirs(s, o), false, "nothing on the row to call theirs");
+  assert.equal(doorFromOf(s, o), "customer", "and the door still says where it came from");
+  assert.equal(doorMayBeReset(s, o), true, "so it is offered");
+  assert.equal(resetReplacesAChoice(s, o), true, "and it is asked about, not quietly overwritten");
 });
 
 test("the press IS offered over the customer's own pin (v238 — this is what changed)", () => {
