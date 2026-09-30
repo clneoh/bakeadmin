@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v258)
+# Jienluv2bake — change history (v54 → v259)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v259, THE EDIT CARD STOPS CLOSING ITSELF WHEN YOU LOOK AN ADDRESS UP
+AGAIN (no database step — pushing this one is the whole of it).**
+
+**Your words were "when i edit order, go in and press look this address up again, it exit the
+page and go into the order list and without allowing me to get a price from lalamove".** That is
+exactly what it did — and it was not the fault the four reports before it sent me chasing.
+
+**The whole of it, in one sentence.** The Edit card holds two things that can save: the **Save
+changes** button at the bottom, and the pin work, which saves by itself the moment it finds a
+door — because a real vehicle on a real road must never be thrown away by closing a card. The
+line doing the pin's saving was written to reach for the app's own save — and both of them were
+called `save`, so it reached for the **Save changes** button instead. Pressing **Look this
+address up again** therefore found the address, wrote it, and then pressed Save for you: your
+order was saved, the card closed, and you were dropped back on the Orders list.
+
+**You can still see it in what the app said at the time — "Order updated".** That is the Save
+button's own message. The pin's press never had a message of its own to give you, which is how
+one word gave the whole thing away.
+
+**What happens now.** The press finds the address, writes it onto the order, says what it found
+on the card's own line, and **leaves the card open and exactly where it was, with the pin
+moved.** **Save changes** is still yours to press when you are ready — and **Get a delivery
+price** is still on the card to press, which is the thing you could not get to before.
+
+**Nothing else about the Edit card changes.** The delivery day, the customer, the items, the
+prices, the charge and the parcel are all exactly as they were.
+
+**There is no database step and nothing to upload — pushing this one is the whole of it.**
 
 **01 Oct 2026 — engine v258, THE APP NOW TELLS YOU WHEN YOUR PHONE IS RUNNING AN OLD BUILD
 (no database step — pushing this one is the whole of it).**

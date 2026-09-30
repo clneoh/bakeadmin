@@ -1985,7 +1985,13 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   const rowsEl = el("div", {}, ...lines.map(rowFor));
   paintTotal();
 
-  const save = () => {
+  // NOT named `save`. This body already imports the STORE's `save` from state.js, and a
+  // function-scoped `const` shadows a module import for the WHOLE body — which is how the
+  // door block's `onCommit` below ("Save changes" is the other door onto the same record)
+  // came to press THIS function instead of persisting: the reset succeeded, the card saved
+  // itself, toasted "Order updated" and closed, dropping her on the Orders list with no
+  // price asked. One press, three versions of the report. See test/edit-popup-relook.test.js.
+  const saveEdits = () => {
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
@@ -2080,7 +2086,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       totalEl),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),
-    button("Save changes", save, "block primary"),
+    button("Save changes", saveEdits, "block primary"),
     el("div", { style: "margin-top:8px" }, button("Cancel", close, "ghost block")));
 }
 
