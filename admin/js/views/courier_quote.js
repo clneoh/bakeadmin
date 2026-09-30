@@ -45,7 +45,7 @@
 // for the active one and uses that courier's own words — its `label`, the names it
 // puts on its vehicles. No courier's name, service keys or error codes appear below.
 
-import { button, confirmDialog, el, guarded, toast } from "../ui.js";
+import { button, confirmDialog, el, guarded, keepStill, toast } from "../ui.js";
 import { todayISO } from "../dates.js";
 import {
   fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
@@ -240,47 +240,15 @@ export function courierQuoteSection({
   // after — precisely what the orders screen does for the row the baker is acting on
   // (orders.js:657-733) and what scenario.js does inside its own containers.
   //
+  // SINCE v255 THE RULE ITSELF LIVES IN ui.js, as `keepStill`/`scrollerFor`, because the pin
+  // picker's own "Look it up" needed the identical correction and a second hand-written copy
+  // would be a second thing to keep in step. See the note there.
+  //
   // WHY THE ANCHOR IS THE BUTTON ROW AND NOT THE BLOCK'S OWN TOP. Measured, and the plan had
   // it wrong: the block's top does not move at all (`slotMovedBy: 0`, `wordsTop: 0` in both
   // runs) — everything that changes happens BELOW it, inside the field. An anchor on the
   // block's top would compute a delta of 0 and be a line of dead code. The button row is the
   // row she is actually touching, and it moves by exactly the height added above it.
-  //
-  // WHY THE SCROLLER IS FOUND BY HAND. The app has two of them — the document, and the one
-  // pop-up layer's `.popup-body` — and this section is mounted in both (the Edit pop-up and
-  // the tracking card scroll the body; the ＋ New order card scrolls the page). A `closest()`
-  // query would be shorter, but a selector the browser answers and a test's stand-in screen
-  // does not is a rule the tests cannot see. Same reason scenario.js walks its own tree.
-  function cardScroller(node) {
-    for (let n = node && node.parentNode; n; n = n.parentNode) {
-      if (n.nodeType !== 1) continue;
-      if (` ${String(n.className || "")} `.includes(" popup-body ")) return n;
-    }
-    return document.scrollingElement || document.documentElement;
-  }
-
-  // ONE CALL, ONE CORRECTION — and a press may set off several of these in a row (the drag
-  // repaints, then invalidates the prices, which reaches paintDoor again through paintEnds).
-  // That is safe, because each call measures its own "before" through the scroll the last one
-  // left behind. What would NOT be safe is nesting them: an inner call would move the scroll
-  // and the outer would then add its own stale delta on top, ending up twice as far from her.
-  // So this wraps ONE function per call site, and the test that drives a real press asserts
-  // the row lands back on its exact pixel — an overshoot is how nesting would show itself.
-  function keepStill(anchor, fn) {
-    // No rect to measure: the repaint runs and nothing is corrected. A stand-in screen with
-    // no layout answers this way, deliberately, and this must never be the thing that throws
-    // on a phone whose node has gone.
-    if (!anchor || !anchor.getBoundingClientRect) { fn(); return; }
-    const was = anchor.getBoundingClientRect().top;
-    fn();
-    // The anchor has to still be on the page to have a spot worth defending, and a node that
-    // left it has no viewport position at all.
-    if (!anchor.isConnected) return;
-    const scroller = cardScroller(anchor);
-    if (!scroller) return;
-    const moved = anchor.getBoundingClientRect().top - was;
-    if (moved) scroller.scrollTop += moved;
-  }
   // Assigned by build(), because only build() knows about the prices. Before the fold has
   // ever been opened there are no prices and nothing to say.
   let afterDoorMove = () => {};

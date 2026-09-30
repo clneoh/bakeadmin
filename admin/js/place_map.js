@@ -26,7 +26,7 @@
 // arbitrates a pinch between the browser and Leaflet, and whether the zoom control's buttons
 // overlap the marker in the door card's 200px box.
 
-import { el, button, showPopup, toast } from "./ui.js";
+import { el, button, keepStill, showPopup, toast } from "./ui.js";
 import { validPlace, parseCoords, splitLabel, houseNotIn, roadNotHouse } from "./courier_place.js";
 import { geocodeAddress } from "./couriers/api.js";
 
@@ -267,31 +267,63 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // A row she picks is looked at the same way as the first answer (v211): "3 more below"
       // is exactly where a road-only candidate hides, so the row that moves the pin onto a
       // street says so too.
-      findStatus.textContent = `Found: ${saidPlace(p)}` + roadWords(houseNotIn(addrInput.value, p));
-      // put() is the one route that moves the pin, so the marker, the centre, the
-      // coordinates line and the enabled "Use this spot" all move together by
-      // construction — and it repaints this list, which re-derives the tick.
-      put(p, 17);
+      //
+      // THE LINE AND THE PIN MOVE TOGETHER, AND THE MAP DOES NOT (v255). Both of these sit
+      // ABOVE the map, so the answer can make the line a line longer and push the map down
+      // the pop-up — the same fault the button below has, one row smaller. `put` is inside
+      // the anchor rule for the same reason the line is: it is part of what this tap does.
+      keepStill(mapBox, () => {
+        findStatus.textContent = `Found: ${saidPlace(p)}` + roadWords(houseNotIn(addrInput.value, p));
+        // put() is the one route that moves the pin, so the marker, the centre, the
+        // coordinates line and the enabled "Use this spot" all move together by
+        // construction — and it repaints this list, which re-derives the tick.
+        put(p, 17);
+      });
     }
 
+    // ── her press, and the one that must not move the map ─────────────────
+    //
+    // "when i say look this address up, why the interface jump out of the page?"
+    //
+    // The answer to her question is in this handler's shape. Everything it writes where she is
+    // not looking — the line under the button, and then the LIST OF OTHER MATCHES — sits ABOVE
+    // the map. Measured at 375×812, pressing this with four candidates in the answer: the list
+    // appears 223 pixels tall, and the map is shoved 269 pixels down a pop-up whose own scroll
+    // compensates by nothing at all. The button she is holding stays exactly where it is, which
+    // is why it reads as the page jumping rather than the button.
+    //
+    // The anchor is the MAP, not the button, and the difference matters here in a way it did
+    // not on the courier card. There the row she pressed was the thing that moved, so it was
+    // the anchor. Here the button never moves at all — the list is inserted BELOW it — so an
+    // anchor on the button would compute a delta of zero and be a line of dead code. What she
+    // is actually watching is the map: it is where she checks that the pin landed on the right
+    // door, and it is the largest thing on the card. Holding its screen position also leaves
+    // the answer visible — the rows are revealed at the top of the pop-up, where she is
+    // already reading, instead of being pushed off the bottom.
     const findBtn = button("Look it up", async () => {
       const text = addrInput.value.trim();
       if (!text) { hideSuggestions(); findStatus.hidden = false; findStatus.textContent = "Type the address first, or put the pin on the map by hand."; return; }
       // Cleared before the ask rather than after it: the previous lookup's rows must
       // never be left sitting under a new lookup's answer. The pin itself stays where it
       // is until a new match arrives, so nothing jumps while she waits.
-      hideSuggestions();
-      found = [];
-      findBtn.disabled = true;
-      findStatus.hidden = false;
-      findStatus.textContent = "Looking this address up…";
+      //
+      // AND THE CLEARING IS ITS OWN CORRECTION, because it takes those same 223 pixels OFF
+      // the card. Without it a second press would lift the map by the height of the list the
+      // first press left behind, and then drop it back — two jumps where she asked for none.
+      keepStill(mapBox, () => {
+        hideSuggestions();
+        found = [];
+        findBtn.disabled = true;
+        findStatus.hidden = false;
+        findStatus.textContent = "Looking this address up…";
+      });
       const out = await geocodeAddress(state, text);
       if (!mineStill()) return;
       findBtn.disabled = false;
       if (!out.ok) {
         // A miss is a normal answer, not an error to apologise for: the map is one tap
         // away and the numbers are one field away, so this reads as an instruction.
-        findStatus.textContent = out.reason;
+        keepStill(mapBox, () => { findStatus.textContent = out.reason; });
         return;
       }
       found = out.places || [out.place];
@@ -310,12 +342,17 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // where she typed a house number and the geocoder's answer does not contain it, the pin
       // is on her street and not on her door, and the sentence her own words asked for is
       // added to the line she is already reading.
-      findStatus.textContent = (found.length > 1
-        ? `Found: ${saidPlace(out.place)} — and ${found.length - 1} more below`
-        : `Found: ${saidPlace(out.place)}`)
-        + roadWords(houseNotIn(text, out.place));
-      put(out.place, 17);
-      paintSuggestions();
+      //
+      // ONE WRAP FOR ALL THREE, because they are one answer: the line, the pin, and the list
+      // of other matches. Correcting between them would move the map three times.
+      keepStill(mapBox, () => {
+        findStatus.textContent = (found.length > 1
+          ? `Found: ${saidPlace(out.place)} — and ${found.length - 1} more below`
+          : `Found: ${saidPlace(out.place)}`)
+          + roadWords(houseNotIn(text, out.place));
+        put(out.place, 17);
+        paintSuggestions();
+      });
     });
 
     // ── the spot she settles on ──────────────────────────────────────────

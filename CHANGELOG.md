@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v254)
+# Jienluv2bake — change history (v54 → v255)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v255, LOOKING AN ADDRESS UP NO LONGER THROWS THE PIN CARD
+AROUND (no database step — pushing this one is the whole of it).**
+
+**Your question was "when i say look this address up, why the interface jump out of the
+page?", and the answer was in the shape of that card.** Pressing **Look it up** in the pin
+window asks the address service for other matches, and the list of them is drawn *under the
+button*, above the map. So the list appearing shoved everything beneath it down the window: on
+a phone's width the map was thrown 269 pixels down the card, and the **Use this spot** button
+went with it. The button you had just pressed did not move at all, which is exactly why it
+read as the page jumping rather than the button.
+
+**The map now stays where it is while the matches appear.** The window is held by the map —
+the thing you are checking the pin against — so when the list arrives the window scrolls to
+keep the map on the same line of your screen, and the matches are revealed above it, where you
+are already looking. Measured on a phone's width, the map and the **Use this spot** button both
+stayed still to the pixel, and three presses in a row left them still. The same holds when the
+look-up finds only one place, and when you tap one of the matches.
+
+**This is the same rule that stopped the ＋ New order card jumping at v254, and it now lives in
+one place.** Both screens use one copy of it, so any later screen that needs the same
+protection inherits something already tested rather than a second hand-written version. Nothing
+else on either screen moved: the wording, the prices, the order things are asked in and the
+address look-up itself are all unchanged.
 
 **30 Sep 2026 — engine v254, THE ＋ NEW ORDER CARD HOLDS STILL UNDER YOUR THUMB, AND ITS
 BIG BUTTON NOW SAYS PLACE ORDER (no database step — pushing this one is the whole of it).**
