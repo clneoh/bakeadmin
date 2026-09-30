@@ -34,7 +34,7 @@ globalThis.document = {
 };
 globalThis.window = { open() {} };
 
-import { packingLabelData } from "../admin/js/views/orders.js";
+import { packingLabelData, splitOrderLine, lineNoteSuffix } from "../admin/js/views/orders.js";
 import { orderCode } from "../admin/js/state.js";
 import { shortDate } from "../admin/js/dates.js";
 
@@ -133,7 +133,10 @@ test("an item's own note prints beside that item, never as the order's note (v23
     "and it never turns into the order's own note row, which is a different thing");
 });
 
-test("compact: items on one line, note dropped, courier address kept", () => {
+test("compact: items on one line, the delivery note kept, courier address kept", () => {
+  // The delivery note prints on Compact too (v245). It was the one field this
+  // style dropped, on a self-collect order as much as a courier one, so a note
+  // about the doorstep disappeared the moment the denser label was picked.
   const data = packingLabelData(makeState(), group(
     singleOrder({ fulfillment: "courier", address: "12 Jalan Bunga", note: "no onions" })), "compact");
   assert.deepEqual(data.rows, [
@@ -141,8 +144,37 @@ test("compact: items on one line, note dropped, courier address kept", () => {
     ["code", "#3BA44E"],
     ["customer", "Ain"],
     ["items", "Focaccia ×2"],
+    ["note", "Note: no onions", "no onions"],
     ["address", "12 Jalan Bunga"],
   ]);
+});
+
+test("compact without a note keeps the rows it always had — no empty note line (v245)", () => {
+  const data = packingLabelData(makeState(), group(
+    singleOrder({ fulfillment: "courier", address: "12 Jalan Bunga" })), "compact");
+  assert.deepEqual(data.rows, [
+    ["brand", brand],
+    ["code", "#3BA44E"],
+    ["customer", "Ain"],
+    ["items", "Focaccia ×2"],
+    ["address", "12 Jalan Bunga"],
+  ]);
+});
+
+test("a self-collect compact label carries the note too — the note is not a courier thing (v245)", () => {
+  const data = packingLabelData(makeState(), group(
+    singleOrder({ fulfillment: "collect", note: "collect after 3pm" })), "compact");
+  assert.deepEqual(data.rows.find(([k]) => k === "note"),
+    ["note", "Note: collect after 3pm", "collect after 3pm"],
+    "the note's own words are the marked run, so the sheet underlines them");
+});
+
+test("a whitespace note prints no note row at all, in every style (v245)", () => {
+  for (const style of ["full", "compact", "mailing"]) {
+    const data = packingLabelData(makeState(), group(singleOrder({ note: "   " })), style);
+    assert.ok(!data.rows.some(([, t]) => String(t).startsWith("Note:")),
+      `${style}: whitespace is not a note, so no empty "Note:" line prints`);
+  }
 });
 
 test("name-only: just brand, code and customer — no items, note or address", () => {
@@ -204,7 +236,7 @@ test("mailing: FROM from the settings box, TO the customer, ORDER the parcel", (
       ["mail-sec", "ORDER"],
       ["mail-line", `#3BA44E · Deliver ${dateLine}`],
       ["mail-line", "Focaccia ×2"],
-      ["mail-line", "Note: ring before delivery"],
+      ["mail-line", "Note: ring before delivery", "ring before delivery"],
     ],
   });
 });
@@ -222,4 +254,75 @@ test("an unknown style behaves like full", () => {
   const data = packingLabelData(makeState(), group(singleOrder()), "garbage");
   assert.equal(data.style, "full");
   assert.ok(data.rows.some(([k]) => k === "item"));
+});
+
+// ── v244: the item's own words, underlined on the row and on the sheet ──────
+
+test("splitOrderLine cuts the line at the customer's note and leaves a clean line whole", () => {
+  const state = makeState();
+  assert.deepEqual(
+    splitOrderLine(state, { productId: "p1", qty: 2, lineNote: "no nuts" }),
+    { head: "Focaccia ×2", suffix: " (no nuts)" },
+    "the head is everything up to the bracket, the suffix is the bracket itself");
+  assert.deepEqual(
+    splitOrderLine(state, { productId: "p1", qty: 2 }),
+    { head: "Focaccia ×2", suffix: "" },
+    "no note means no suffix, and the head is the whole line");
+  assert.equal(lineNoteSuffix("  no nuts  "), " (no nuts)", "trimmed, and bracketed with a leading space");
+  assert.equal(lineNoteSuffix("   "), "", "whitespace alone is not a note — same rule as the box");
+});
+
+test("a noted item row carries the marked run, so a sheet can underline it (v244)", () => {
+  const state = makeState();
+  const withNote = packingLabelData(state, group(
+    singleOrder({ productId: "p1", qty: 2, lineNote: "no nuts" })), "full");
+  assert.deepEqual(
+    withNote.rows.find(([k]) => k === "item"),
+    ["item", "Focaccia ×2 (no nuts)", " (no nuts)"],
+    "the printed line is unchanged and the run to underline is its own element");
+
+  const clean = packingLabelData(state, group(singleOrder({ productId: "p1", qty: 2 })), "full");
+  assert.deepEqual(
+    clean.rows.find(([k]) => k === "item"),
+    ["item", "Focaccia ×2"],
+    "a clean row stays the two-element pair it always was — no empty third slot");
+
+  const mail = packingLabelData(state, group(
+    singleOrder({ productId: "p1", qty: 2, lineNote: "no nuts" })), "mailing");
+  assert.deepEqual(
+    mail.rows.find(([k, , mark]) => k === "mail-line" && mark),
+    ["mail-line", "Focaccia ×2 (no nuts)", " (no nuts)"],
+    "the mailing sheet's item line carries the same marked run");
+});
+
+// ── v245: the order's OWN note — underlined, and on every label ─────────────
+
+test("the marked run is always the tail of the row's own text, in every style", () => {
+  // The sheet slices the run off the END of the text it is given. Anything else
+  // would underline the wrong characters, so this is checked on both note kinds
+  // and on every style rather than trusted.
+  const state = makeState();
+  for (const style of ["full", "compact", "mailing"]) {
+    const data = packingLabelData(state, group(singleOrder({
+      fulfillment: "courier", address: "12 Jalan Bunga", note: "gate 2B",
+      productId: "p1", qty: 2, lineNote: "no nuts",
+    })), style);
+    for (const [cls, text, mark] of data.rows) {
+      if (!mark) continue;
+      assert.ok(String(text).endsWith(mark),
+        `${style}/${cls}: "${mark}" is the tail of "${text}"`);
+      assert.ok(String(text).length > String(mark).length,
+        `${style}/${cls}: the marked run leaves something to print before it`);
+    }
+  }
+});
+
+test("sheetNoteRow returns null for nothing to say, so no row is pushed", async () => {
+  const { sheetNoteRow } = await import("../admin/js/views/orders.js");
+  assert.equal(sheetNoteRow(""), null);
+  assert.equal(sheetNoteRow("   "), null);
+  assert.equal(sheetNoteRow(null), null);
+  assert.deepEqual(sheetNoteRow("  ring the bell  "), ["note", "Note: ring the bell", "ring the bell"]);
+  assert.deepEqual(sheetNoteRow("ring the bell", "mail-line"),
+    ["mail-line", "Note: ring the bell", "ring the bell"]);
 });

@@ -1746,6 +1746,10 @@ option.tone-off { color: var(--muted); }
 .label-sheet .ls-customer { font-size: 17px; font-weight: 700; margin-top: 4px; }
 .label-sheet .ls-item { font-size: 13px; margin-top: 3px; }
 .label-sheet .ls-items { font-size: 13px; margin-top: 6px; }
+/* The customer's own words, underlined wherever an item line is drawn — the order
+   row and the printed label — so a note is never lost in the grey beside a busy
+   line (v244). Underline only: the words keep the line's own weight and colour. */
+.line-note { text-decoration: underline; }
 .label-sheet .ls-note, .label-sheet .ls-address { font-size: 12px; color: #7a6a58; margin-top: 8px; }
 .label-sheet .ls-address { font-weight: 600; }
 .label-print-body .popup-actions { display: flex; justify-content: flex-end; gap: 8px; }

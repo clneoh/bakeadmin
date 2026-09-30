@@ -210,13 +210,76 @@ export function applyGroupPatch(orders, patch, qtyOf) {
   return orders;
 }
 
+// The customer's own words for one item, bracketed exactly as a line spells them
+// — the one place that bracket is written, so the underline on the row and on the
+// printed label wraps the same characters the search and the tests read (v244).
+export function lineNoteSuffix(rawNote) {
+  const note = lineNoteOf(rawNote);
+  return note ? ` (${note})` : "";
+}
+
 // One ordered item as one line of text, with the note that belongs to IT in
 // brackets — "Focaccia 800g ×2 (no nuts)". This is the single place the order
 // list, the packing slip and the label sheet spell a line, so the customer's
 // words can never appear on one of them and be missing from another (v236).
 export function orderLineText(state, o) {
-  const note = lineNoteOf(o && o.lineNote);
-  return `${orderLineName(state, o)} ×${Number(o && o.qty) || 1}${note ? ` (${note})` : ""}`;
+  return `${orderLineName(state, o)} ×${Number(o && o.qty) || 1}${lineNoteSuffix(o && o.lineNote)}`;
+}
+
+// That same line, split at the note's bracket, for the two places that underline
+// it (v244): the head is everything up to the bracket, the suffix is the bracket
+// itself. A line with no note comes back whole with an empty suffix, so a caller
+// can always draw the pair without first asking whether there is a note.
+export function splitOrderLine(state, o) {
+  const text = orderLineText(state, o);
+  const suffix = lineNoteSuffix(o && o.lineNote);
+  return { head: suffix ? text.slice(0, text.length - suffix.length) : text, suffix };
+}
+
+// A line drawn with the customer's words underlined, so a note is never lost in
+// the grey beside a busy row or on a printed sheet (v244). Built from the one
+// string orderLineText owns, so the screen, the label and the search cannot
+// disagree about what the line says — only about how it is drawn.
+function orderLineNodes(state, o) {
+  const { head, suffix } = splitOrderLine(state, o);
+  return suffix ? [head, el("span", { class: "line-note" }, suffix)] : [head];
+}
+
+// A dot-separated line drawn from pieces, where any piece may be marked to wear
+// the same underline the per-item note does (v245) — the order row's sub-line is
+// name · number · delivery note, and only the last of those is the customer's own
+// words. Blank pieces are dropped, and the separator goes only BETWEEN the pieces
+// that survive, so no dangling dot can print.
+function subLineNodes(parts) {
+  const nodes = [];
+  for (const p of parts) {
+    const text = String(p.text == null ? "" : p.text).trim();
+    if (!text) continue;
+    if (nodes.length) nodes.push(" · ");
+    nodes.push(p.mark ? el("span", { class: "line-note" }, text) : text);
+  }
+  return nodes;
+}
+
+// A sheet row is [class, text] or [class, text, mark], where `mark` is the exact
+// run of characters at the END of `text` that the sheet underlines — the
+// customer's own words, never a re-spelling of them. A row with nothing to mark
+// stays the plain pair it always was, which is what keeps the sheet's own tests
+// honest about the no-note case (v244).
+export function sheetItemRow(state, o, cls) {
+  const line = orderLineText(state, o);
+  const mark = lineNoteSuffix(o && o.lineNote);
+  return mark ? [cls, line, mark] : [cls, line];
+}
+
+// The order's OWN note as a sheet row (v245). It is the delivery note, and it
+// applies to a self-collect order exactly as much as to a courier one, so the one
+// row is pushed by every style that prints the order's fields rather than written
+// out three times. The note itself is the marked run, leaving the "Note: " label
+// to the sheet's own styling.
+export function sheetNoteRow(noteText, cls = "note") {
+  const note = String(noteText || "").trim();
+  return note ? [cls, `Note: ${note}`, note] : null;
 }
 
 // Packing labels print from a small pure model so the on-screen preview and the
@@ -267,8 +330,9 @@ export function packingLabelData(state, group, style = "full") {
     for (const ln of recipientAddress) rows.push(["mail-line", ln]);
     rows.push(["mail-sec", "ORDER"]);
     rows.push(["mail-line", [code, dateLine && `Deliver ${dateLine}`].filter(Boolean).join(" · ")]);
-    for (const line of itemLines) rows.push(["mail-line", line]);
-    if (note) rows.push(["mail-line", `Note: ${note}`]);
+    for (const o of orders) rows.push(sheetItemRow(state, o, "mail-line"));
+    const mailNote = sheetNoteRow(note, "mail-line");
+    if (mailNote) rows.push(mailNote);
     return { style, rows };
   }
 
@@ -283,14 +347,22 @@ export function packingLabelData(state, group, style = "full") {
     rows.push(["code", code]);
     if (customer) rows.push(["customer", customer]);
     if (itemLines.length) rows.push(["items", itemLines.join(" · ")]);
+    // The delivery note prints here too (v245). It used to be the one field
+    // Compact dropped, which meant a note about the doorstep vanished the moment
+    // she picked the denser label — on a self-collect order as much as a courier
+    // one. It sits exactly where the full style puts it: after the items, before
+    // the courier address.
+    const compactNote = sheetNoteRow(note);
+    if (compactNote) rows.push(compactNote);
     if (address) rows.push(["address", address]);
     return { style, rows };
   }
   if (dateLine || method) rows.push(["meta", [dateLine, method].filter(Boolean).join(" · ")]);
   rows.push(["code", code]);
   if (customer) rows.push(["customer", customer]);
-  for (const line of itemLines) rows.push(["item", line]);
-  if (note) rows.push(["note", `Note: ${note}`]);
+  for (const o of orders) rows.push(sheetItemRow(state, o, "item"));
+  const fullNote = sheetNoteRow(note);
+  if (fullNote) rows.push(fullNote);
   if (address) rows.push(["address", `Courier: ${address}`]);
   return { style, rows };
 }
@@ -2791,7 +2863,15 @@ const LABEL_STYLES = [
 // preview is exactly what prints.
 function labelSheetEl(state, group, style) {
   const data = packingLabelData(state, group, style);
-  const kids = data.rows.map(([cls, text]) => el("div", { class: `ls-${cls}` }, text));
+  const kids = data.rows.map(([cls, text, mark]) => {
+    if (!mark) return el("div", { class: `ls-${cls}` }, text);
+    // The customer's own words, underlined on the sheet exactly as they are on the
+    // order row (v244) — `mark` is the run the row itself chose, so the two
+    // surfaces cannot underline different characters.
+    return el("div", { class: `ls-${cls}` },
+      text.slice(0, text.length - mark.length),
+      el("span", { class: "line-note" }, mark));
+  });
   return el("div", { class: `label-sheet style-${data.style}` }, ...kids);
 }
 
@@ -2982,7 +3062,16 @@ function orderGroupRow(state, group, root, dateId) {
   const anyNote = orders.some((o) => lineNoteOf(o.lineNote));
   const title = items.map((i) => i.name).join(" + ");
   const qtyTotal = items.reduce((s, i) => s + i.qty, 0);
-  const sub = [first.customerName, waNumber(first.whatsapp), first.note].filter(Boolean).join(" · ");
+  // Name, number, then the order's OWN note — the delivery note. It carries the
+  // same underline the per-item note wears beside its item (v245), because it is
+  // the customer's own words too and it applies to a self-collect order exactly as
+  // much as a courier one. Blank pieces drop out, so a row with nothing to say
+  // still draws no sub-line at all.
+  const sub = subLineNodes([
+    { text: first.customerName },
+    { text: waNumber(first.whatsapp) },
+    { text: first.note, mark: true },
+  ]);
   const stSel = select(STATUSES.map(([v, l]) => ({ value: v, label: l })), first.status || "new",
     () => {
       // Picking Confirmed starts the confirming step, and confirming is what
@@ -3125,10 +3214,11 @@ function orderGroupRow(state, group, root, dateId) {
       el("div", { class: "li-title" }, title, orderCodeTag(first),
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       (multi || anyNote)
-        ? el("div", { class: "li-sub" }, orders.map((o) => orderLineText(state, o)).join("  ·  "))
+        ? el("div", { class: "li-sub" }, orders.flatMap((o, i) =>
+            i ? ["  ·  ", ...orderLineNodes(state, o)] : orderLineNodes(state, o)))
         : null,
       placedLine,
-      sub ? el("div", { class: "li-sub" }, sub) : null,
+      sub.length ? el("div", { class: "li-sub" }, ...sub) : null,
       parcelLine,
       noWaHint,
       autoNote),

@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v243)
+# Jienluv2bake — change history (v54 → v245)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v245, THE DELIVERY NOTE IS UNDERLINED TOO, AND IT NOW PRINTS ON THE COMPACT
+LABEL (no database step, no redeploy, one push).**
+
+You made the point that the **delivery note** is not a courier thing — it applies to a self-collect order
+just as much, so it should stand out and be printed wherever it belongs.
+
+**It is underlined now wherever it is drawn.** The order row carries it as `Aunty Bee · 012-345 6789 ·
+deliver after 3pm`, with the note itself drawn under, exactly as a note on a single item already was. The
+same on the printed label: the `Note:` line keeps its label plain and underlines the customer's words.
+
+**The Compact label prints it too.** Compact used to join every item onto one line and leave the delivery
+note off entirely — so a note about the doorstep, the gate code or a collect time disappeared the moment
+you picked the denser label, on a self-collect order as much as a courier one. It now prints in the same
+place the Full label puts it: after the items, before the courier address.
+
+**Everything else is unchanged.** The Mailing and Full labels read exactly as they did, the note box is
+still offered on both self-collect and courier orders, and an order with no note on it looks and prints
+exactly as before. Name-only stays a bag tag — code and name, no fields to read.
+
+**30 Sep 2026 — engine v244, A NOTE A CUSTOMER LEAVES ON ONE ITEM IS NOW UNDERLINED, SO IT IS
+HARD TO MISS (no database step, no redeploy, one push).**
+
+You asked where the words a customer leaves actually reach you. The answer turned out to be uneven: the
+**delivery note** on the whole order pings your phone the moment the order lands, but the **note on a single
+item** — "no nuts", "write Happy Birthday" — only ever lived inside the app, sitting quietly in grey beside
+its item where it is easy to skim past. You decided that is enough for it to be **underlined**, so it reads
+as something you were meant to notice.
+
+**On the Orders list**, an item that carries the customer's own words now has those words underlined —
+`Focaccia 800g ×2 (no nuts)` with the brackets drawn under. It is the same line in the same place, just
+marked. Nothing moves, nothing is added, and an order with no notes on it looks exactly as it did.
+
+**On the printed label**, the note beside its item is underlined the same way, on both the Full sheet and
+the Mailing sheet — so what you hold in your hand while you kit an order is as easy to read as the screen.
+
+**The line itself is unchanged.** Only the way it is drawn changed, so the row, the label and the search
+still read the very same words — the underline cannot quietly disagree with what the line says.
 
 **30 Sep 2026 — engine v243, THE DELIVERY-DAY CALENDAR IN THE ORDER SCREENS NOW FOLLOWS TODAY, THE
 SAME AS YOUR SHOP (no database step, no redeploy, one push).**
