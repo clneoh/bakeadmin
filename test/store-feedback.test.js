@@ -338,14 +338,35 @@ test("the mail says which project, which page, which build and when — the same
     "and never as a raw UTC stamp, which is what she could not read through before");
 });
 
-test("the customer's words come first in the mail, and the footer cannot be mistaken for them", () => {
-  // The words are what the mail is FOR, so nothing is put above them; and the rule and the
-  // blank line are what stop the sentence running into the block underneath it.
+test("the mail is laid out in the wish-list mail's own order: the block first, the words last", () => {
+  // She asked for the wish mail to be the reference ("Refer it"), and referred to it by
+  // pointing at a mail she had already read. So the order is copied from it, not chosen:
+  // the block that says what this is goes at the TOP, and the customer's words follow it
+  // after one blank line. A rule between them would be a third format to read.
   const bodyAt = FN_SRC.indexOf("const text = [");
   assert.ok(bodyAt > -1, "the body is built in one place");
   const body = FN_SRC.slice(bodyAt, bodyAt + 700);
-  assert.ok(/^\s*const text = \[\s*\n\s*message,/.test(body), "the customer's words are the first thing in the body");
-  assert.ok(body.indexOf(`"— — —"`) > body.indexOf("message,"), "and the rule comes after them, never before");
+  assert.ok(/^\s*const text = \[\s*\n\s*`New feedback for the shop page/.test(body),
+    "the block is the first thing in the body, as it is in the wish-list mail");
+  assert.ok(body.indexOf("message,") > body.indexOf("`Project: ${project}`"),
+    "and the customer's words come after it, never before");
+  assert.ok(!/— — —/.test(body),
+    "there is no rule: the blank line is the whole separator, as in the wish-list mail");
+  assert.ok(!/sent from the shop's suggestion box/.test(body),
+    "and no trailing footer the wish-list mail does not have either");
+});
+
+test("the language is named, never printed as a code", () => {
+  // "en" is a value; "English" is a word. The baker reads this on her phone.
+  const mapAt = FN_SRC.indexOf("const LANG_NAMES");
+  assert.ok(mapAt > -1, "the three languages the shop asks in are named in one place");
+  const map = FN_SRC.slice(mapAt, mapAt + 200);
+  for (const [code, name] of [["en", "English"], ["ms", "Malay"], ["zh", "Chinese"]]) {
+    assert.ok(new RegExp(`\\b${code}:\\s*"${name}"`).test(map),
+      `"${code}" is written out as "${name}"`);
+  }
+  assert.ok(/Written in \$\{languageName\(lang\)\}/.test(FN_SRC),
+    "and the mail uses the name rather than the raw code it was handed");
 });
 
 test("the function and the shop agree on the path", () => {

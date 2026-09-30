@@ -116,19 +116,17 @@ Deno.serve(async (req) => {
   const subject = oneLine(
     engine ? `Shop feedback · Engine v${engine} · ${datePart}` : `Shop feedback · ${datePart}`,
   );
-  // The customer's words come first: they are what the mail is for, and everything below
-  // the rule is only there so the words can be placed. The blank line before that rule is
-  // deliberate — it keeps the sentence from running into the footer it does not belong to.
+  // The heading block comes FIRST and the customer's words last, in the same order the
+  // baker's own wish-list mail uses: she reads two mails from the same system and they are
+  // not two different formats. The blank line is what separates the block from the words —
+  // a rule between them would only be a third format.
   const text = [
-    message,
-    "",
-    "— — —",
     `New feedback for the shop page${engine ? ` (Engine v${engine})` : ""}.`,
     `Project: ${project}`,
     `Sent: ${sent}`,
-    ...(lang ? [`Written in ${lang}.`] : []),
+    ...(lang ? [`Written in ${languageName(lang)}.`] : []),
     "",
-    "— sent from the shop's suggestion box",
+    message,
   ].join("\n");
 
   const from = Deno.env.get("RESEND_FROM") || "BakeAdmin wishes <wishlist@send.jienluv2bake.com.my>";
@@ -181,6 +179,14 @@ async function developerEmails(supabaseUrl, supabaseAnon) {
     console.error("[shop-feedback] config read threw:", err && err.message);
     return [];
   }
+}
+
+// The shop asks in three languages, so which one the customer wrote in is worth
+// knowing — but the mail is read by a person, so it says "English", never "en".
+const LANG_NAMES = { en: "English", ms: "Malay", zh: "Chinese" };
+
+function languageName(lang) {
+  return LANG_NAMES[String(lang).toLowerCase()] || String(lang);
 }
 
 // A subject is one line. A customer's words never reach it — the page name does,

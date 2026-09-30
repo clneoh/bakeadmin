@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v252)
+# Jienluv2bake — change history (v54 → v253)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v253, THE SHOP'S FEEDBACK MAIL NOW READS IN THE SAME ORDER AS
+YOUR WISH-LIST MAIL (no database step, but the shop-feedback function must be redeployed).**
+
+**The heading block moved to the top, and the customer's words now come last.** Engine v252
+put the words first and the heading underneath a short rule. You asked for the wish-list mail
+to be the reference, and the wish-list mail does the opposite: it opens with what the mail is,
+then who it is about and when, and puts the content underneath. So the feedback mail now does
+exactly that, with no rule in between and no closing line:
+
+    New feedback for the shop page (Engine v253).
+
+    Project: jienluv2bake.com.my/store/
+
+    Sent: 2026-09-30 17:31
+
+    Written in English.
+
+    the words the customer typed
+
+**The language is written out as a word.** Engine v252 printed the short code it was handed,
+so the line read `Written in en.` The shop asks its questions in three languages, so the line
+is worth having, but "en" is not a word anybody reads. It now says **Written in English.**,
+**Written in Malay.** or **Written in Chinese.**, and it is left out entirely when the page
+did not say which language the customer was reading.
+
+**The subject line and the Project line are unchanged** from v252: the subject is still
+`Shop feedback · Engine v<n> · <date>`, the project is still the live address the customer was
+reading, and the time is still on your own clock in Penang. Only the order of the body and the
+wording of the language line have moved.
+
+**One step on your machine.** The part of this that builds the email lives on Supabase, not on
+GitHub, so pushing is not enough on its own. Engine v252's version of it was never actually
+running there — the mail you received after v252 was still the build from before, which is why
+it carried none of the new heading. After pushing this version, redeploy it once:
+
+    supabase functions deploy shop-feedback --project-ref hzpyblqygnntixkijeem
 
 **30 Sep 2026 — engine v252, THE SHOP'S FEEDBACK MAIL SAYS WHICH SHOP AND WHICH BUILD
 (no database step, but the shop-feedback function must be redeployed).**
