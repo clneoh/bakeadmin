@@ -979,17 +979,65 @@ test("the lookup's other matches are offered, and pressing one moves the pin to 
     assert.doesNotMatch(body.textContent, /Pinned at 5\.40000, 100\.30000/, "and NOT still on the first one");
     assert.match(body.textContent, /Found: Jalan Bunga Raya, Bayan Lepas, 11900/, "the line agrees with the pin");
 
-    // The tick follows the pin, and it is re-derived rather than remembered: the rows
-    // below are fresh nodes, made by the repaint the pin's own move triggered.
-    assert.deepEqual(matchRows(body).map((r) => rowLine(r, 0)), ["Jalan Bunga", "Jalan Bunga", "✓ Jalan Bunga Raya"],
-      "the tick moved with the pin and left the row above it");
-    assert.equal(matchRows(body).length, 3, "the list kept its rows, so she can try another without asking again");
+    // THE LIST PUTS ITSELF AWAY ON A PICK (v256), because it now FLOATS over the map (see
+    // .sugg-drop) rather than shoving the card down: a list that stayed up would leave the
+    // map covered, and the map is the one thing she needs next — to check the pin landed on
+    // the right door. So the tick is no longer re-derived by a repaint; the row she picked
+    // left with the list, and the LINE is what still names the answer.
+    assert.equal(matchRows(body).length, 0, "picking a row puts the list away, uncovering the map");
+    assert.match(body.textContent, /Found: Jalan Bunga Raya, Bayan Lepas, 11900/,
+      "the line still names the place the pin is on");
+    assert.doesNotMatch(body.textContent, /and 2 more below/,
+      "and stops promising rows below, because none are on the screen");
+
+    // TRYING ANOTHER IS STILL ONE PRESS — and it is the one thing v256 asked for in exchange:
+    // a second press re-asks, which leaves the pin on the new lookup's own best match.
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+    assert.deepEqual(s.asked, ["geocode", "geocode"], "a second press is a second lookup");
+    assert.equal(matchRows(body).length, 3, "the list comes back");
+    assert.deepEqual(matchRows(body).map((r) => rowLine(r, 0)), ["✓ Jalan Bunga", "Jalan Bunga", "Jalan Bunga Raya"],
+      "and the tick is where the pin actually is — re-derived from the pin, not remembered from a tap");
     stray = strayObjects(body);
   } finally {
     if (close) close();
     s.restore();
   }
   assert.deepEqual(stray, [], "no element printed as '[object …]' — the fault v195 shipped on this very card");
+});
+
+test("the picker's list hangs off the button's own row, so it drops from her thumb (v256)", async () => {
+  signIn();
+  const s = stubGeocode(THREE_MATCHES);
+  let close = null;
+  try {
+    close = openPlacePicker({ state: courierState(), title: "Put the pin on the map", address: "12 Jalan Bunga", onPick: () => {} });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const body = popupBody();
+    buttonByText(body, "Look it up")._listeners.click[0]();
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+
+    const rows = matchRows(body);
+    assert.equal(rows.length, 3, "the list is up, so this is measuring the thing it claims to");
+    const panel = rows[0].parentNode;
+    const find = buttonByText(body, "Look it up");
+    const row = find.parentNode;
+
+    // THE STRUCTURE IS THE FIX. `.sugg-drop` is `position: absolute; top: 100%`, so it only
+    // floats under her thumb if the row it hangs from is the row that holds the button —
+    // as a sibling, it is in the flow again and takes the 223 pixels that shove the map.
+    assert.ok(String(row.className).includes("btn-row"), "the lookup button sits in its own row");
+    assert.equal(panel.parentNode, row,
+      "the list is not inside the button's row, so it is back in the flow, taking space off the card and moving everything under it");
+    assert.ok(String(row.className).includes("sugg-host"),
+      "the button's row lost .sugg-host, so the floating list has no box to hang from");
+    assert.ok(String(panel.className).includes("sugg-drop"),
+      "the list lost .sugg-drop, which is the only thing keeping it out of the flow");
+  } finally {
+    if (close) close();
+    s.restore();
+  }
 });
 
 // ── "this is the road, not the house" (v211) ──────────────────────────────

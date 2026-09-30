@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v255)
+# Jienluv2bake — change history (v54 → v256)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v256, THE MATCHES IN THE PIN WINDOW NO LONGER PUSH THE CARD
+AT ALL (no database step — pushing this one is the whole of it).**
+
+**Your words were "it is still the same, press look up this address again make it exit the
+page we are working in, why?", and the honest answer is that v255 made it worse.** v255 tried
+to hold the map still, and while the list of matches takes up room on the card, holding the
+map still can only be done by scrolling the whole window by the height of that list — 269
+pixels on a phone's width. That scroll carried the address box and the **Look it up** button
+you were pressing clean off the top of the card: the button you were holding went from 248
+pixels down the screen to 21 pixels **above** the card's own top edge. Instead of the map
+jumping, the window jumped.
+
+**The list of matches now floats over the map rather than taking up room on the card.** It
+drops from under the button you pressed, sits on top of the map, and is capped at about four
+rows with its own scroll. Because it takes up no space, nothing above it can be pushed
+anywhere — not the button, not the address box, not the window's own scroll.
+
+**And the list puts itself away the moment you choose from it.** That is the one thing that
+had to change for it to float: a list left sitting on top of the map would hide the very thing
+you want next, which is the map, to check the pin landed on the right door. Pick a match and
+the list closes, the pin moves to it, and the map is there.
+
+**Measured on a phone's width with four matches: the button moved 0 pixels and the window
+scrolled 0 pixels.** The map slides down by the height of the one line that appears under the
+button (38 pixels) and nothing else moves — including, now, the button itself. It holds the
+same at two matches as at four, when the look-up finds only one place, and when the look-up
+fails.
+
+**Separately measured, because your words name that button too: "Look this address up again"
+never moved anything.** That is the same press on the order's own door block, and it was
+measured on both kinds of window — the ＋ New order card and the Edit order pop-up — and on
+both kinds of answer, a look-up that finds your house and one that fails. In every case the
+row stayed on the same line and the card stayed open. The window that misbehaved was the pin
+window's **Look it up**, and that is the one this version fixes.
+
+**What did not change:** the first match still lands on the map by itself, the list is still
+only how you say "not that one", the line under the button still says when the answer is the
+road rather than your house, and no wording, price or order of questions is touched.
 
 **30 Sep 2026 — engine v255, LOOKING AN ADDRESS UP NO LONGER THROWS THE PIN CARD
 AROUND (no database step — pushing this one is the whole of it).**

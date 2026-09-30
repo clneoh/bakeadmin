@@ -359,3 +359,60 @@ test("a map's layers cannot leave their own box, and the fixed layers keep their
   assert.ok(Number(mz[1]) < rung("lock-layer"),
     `.place-map sits at ${mz[1]}, which is not below the app's own fixed layers — the point of trapping the map is that NOTHING inside it can reach them`);
 });
+
+// ── the pin picker's list takes no space, so nothing can be shoved (v256) ──
+//
+// Her words, 30 September 2026, after v255 had already tried to answer the same press:
+// "it is still the same, press look up this address again make it exit the page we are
+// working in, why?"
+//
+// v255 held the MAP still, which with the list in the flow means scrolling the pop-up
+// body by the list's own height — measured at 375×812 against four candidates, the
+// list appears 223 pixels tall and the body scrolls 269. That scroll carries the button
+// she pressed from top 248 to top −21, above the body's own top edge of 68: the control
+// under her thumb leaves the card. There is no anchor that survives a list this tall —
+// holding the button still shoves the map down by the same 223. The list has to stop
+// taking the space at all, which is what `.sugg-drop` is.
+//
+// This is a regression guard, not the proof: the proof is `marketing/harness-v256.html`,
+// whose `pickerLook({rows: 4})` went from 269 / −269 / +269 (map / button / body scroll)
+// to 0 / 0 / 0 when this rule and the anchor change landed.
+test("the pin picker's list floats, so no control above it can be pushed off the card (v256)", () => {
+  const css = read("admin/css/app.css");
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const blocks = [...bare.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const rule = (sel) => {
+    const mine = blocks.filter((b) => b.sel === sel);
+    assert.equal(mine.length, 1, `expected exactly one rule for \`${sel}\`, found ${mine.length}`);
+    return mine[0].body;
+  };
+
+  // The row that holds "Look it up" is the positioning context, so `top: 100%` is the
+  // few pixels under the thumb she pressed rather than under the whole field.
+  assert.match(rule(".btn-row.sugg-host"), /position:\s*relative/,
+    ".sugg-host is not positioned, so the floating list has no box to hang from and falls back to the pop-up itself");
+
+  const drop = rule(".sugg-drop");
+  assert.match(drop, /position:\s*absolute/,
+    ".sugg-drop is not absolute, so the list is in the flow again — and in the flow it takes 223 pixels off the card and shoves everything under it down by that much");
+  assert.match(drop, /top:\s*100%/,
+    "the list no longer drops from the bottom of the button's row, so it is pinned somewhere it was never measured");
+  // Over the map, which is the only thing it may cover: the map is where she checks the
+  // pin, and it is directly under this row. Leaflet's panes are sealed inside
+  // .place-map's z-index 0 (v254), so a sibling at 2 wins without a rung-by-rung fight.
+  const z = drop.match(/z-index:\s*(-?\d+)/);
+  assert.ok(z && Number(z[1]) > 0,
+    ".sugg-drop has no z-index above the map's 0, so the map paints over the list and the rows cannot be seen, let alone tapped");
+  assert.match(drop, /max-height:\s*\d+px/,
+    "the list is unbounded, so a long answer could run past the pop-up body's edge and be clipped mid-row");
+  assert.match(drop, /overflow-y:\s*auto/,
+    "the list cannot scroll itself, so the rows past max-height are unreachable");
+
+  // AND THE SHARED PANEL IS UNTOUCHED. `.sugg-panel` is also the customer suggester's, drawn
+  // by views/orders.js inside a .form-grid — where floating would be wrong for the reason
+  // place_map.js has recorded all along: that body scrolls, and a floating panel is clipped
+  // at its edge. The float must live on the picker's own modifier, never on the shared class.
+  const shared = blocks.filter((b) => b.sel === ".sugg-panel").map((b) => b.body).join("\n");
+  assert.doesNotMatch(shared, /position:\s*(absolute|fixed)/,
+    ".sugg-panel is positioned, so the customer suggester in the order forms floats too — and that one is clipped by the pop-up body it lives in");
+});

@@ -887,6 +887,30 @@ option.tone-off { color: var(--muted); }
   overflow: hidden;
 }
 .sugg-panel[hidden] { display: none; }
+/* The pin picker's list FLOATS (v256, 30 Sep 2026). In the flow it cost the card 223
+   pixels the moment a lookup found four candidates, and there is no anchor that can
+   absorb that: holding the map still scrolls the pop-up body by the same amount and
+   throws the address field and the button under her thumb off the top. "press look up
+   this address again make it exit the page we are working in."
+
+   The panel is a child of the button's own row, which is why .sugg-host is here: the
+   row is the positioning context, so top:100% is the 10px under her thumb. It needs
+   no z-index painted by hand against the map — Leaflet's own panes are sealed inside
+   .place-map's z-index:0 (v254), so a sibling at 2 wins without a fight. max-height is
+   bounded to four rows so the body's scroll can never clip it mid-row, and it scrolls
+   itself on the rare answer that is taller. */
+.btn-row.sugg-host { position: relative; }
+.sugg-drop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  z-index: 2;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
 /* A row is a finger's target, not a line of text — 36px, like every other tappable
    row in the app. Written here rather than inherited: .list-item carries the row's
    inset and its own press state, which is why it also needs the padding and the

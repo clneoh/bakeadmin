@@ -202,10 +202,18 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     // one". Her words for it: the best match lands, the list is there to change it.
     //
     // Styled by the app's own .sugg-panel / .sugg-row — the same rows the customer
-    // suggester draws in views/orders.js — and in the normal flow rather than a floating
-    // layer, for the same reason that one is: this body scrolls, and a floating panel
-    // would be clipped at its edge.
-    const suggPanel = el("div", { class: "sugg-panel", hidden: true });
+    // suggester draws in views/orders.js — but FLOATING here (.sugg-drop) where that one
+    // sits in the flow. v255 kept it in the flow, and in the flow it takes 223 pixels the
+    // moment a lookup finds four candidates: everything under it is shoved down the card,
+    // and the only way to hold any of it still is to scroll the pop-up body by that same
+    // 223 — which throws the address field and the button under her thumb off the top.
+    // "press look up this address again make it exit the page we are working in."
+    //
+    // The reason the customer suggester cannot float is real — that body scrolls, and a
+    // floating panel is clipped at its edge — and it does not apply here: the panel is at
+    // most four rows (260px, bounded below) inside a body that is 730px of visible column,
+    // so it is never near an edge, and it scrolls itself when it is.
+    const suggPanel = el("div", { class: "sugg-panel sugg-drop", hidden: true });
     let found = [];
     // What the geocoder last called a place — the WORDS ON THE LINE AND THE ROWS, and never
     // the name of the door (v207, see the header). Kept out here so the fallback below can
@@ -268,49 +276,49 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // is exactly where a road-only candidate hides, so the row that moves the pin onto a
       // street says so too.
       //
-      // THE LINE AND THE PIN MOVE TOGETHER, AND THE MAP DOES NOT (v255). Both of these sit
-      // ABOVE the map, so the answer can make the line a line longer and push the map down
-      // the pop-up — the same fault the button below has, one row smaller. `put` is inside
-      // the anchor rule for the same reason the line is: it is part of what this tap does.
-      keepStill(mapBox, () => {
+      // THE LINE AND THE PIN MOVE TOGETHER, AND NOTHING ELSE DOES (v256). The rows float, so
+      // this tap adds no height anywhere — what is left to correct is the line, which can
+      // grow by a line and sits above the map. The anchor is the BUTTON, not the map: the
+      // button is what her thumb is on, and it is the anchor the map's view could not
+      // defend — holding the map still (v255) meant scrolling the card by the list's own
+      // height, which is what carried the button and the field off the top of it.
+      keepStill(findBtn, () => {
+        // PICKED IS ANSWERED (v256). The list floats over the map now, so leaving it up
+        // would leave the map covered — and the map is exactly what she wants next, to
+        // check the pin landed on the right door. "and 3 more below" stops being true here
+        // too, so the line goes back to naming the answer alone.
+        hideSuggestions();
         findStatus.textContent = `Found: ${saidPlace(p)}` + roadWords(houseNotIn(addrInput.value, p));
         // put() is the one route that moves the pin, so the marker, the centre, the
         // coordinates line and the enabled "Use this spot" all move together by
-        // construction — and it repaints this list, which re-derives the tick.
+        // construction. It repaints this list only while it is up, which it no longer is.
         put(p, 17);
       });
     }
 
-    // ── her press, and the one that must not move the map ─────────────────
+    // ── her press, and the one that must not move the card ─────────────────
     //
     // "when i say look this address up, why the interface jump out of the page?"
     //
-    // The answer to her question is in this handler's shape. Everything it writes where she is
-    // not looking — the line under the button, and then the LIST OF OTHER MATCHES — sits ABOVE
-    // the map. Measured at 375×812, pressing this with four candidates in the answer: the list
-    // appears 223 pixels tall, and the map is shoved 269 pixels down a pop-up whose own scroll
-    // compensates by nothing at all. The button she is holding stays exactly where it is, which
-    // is why it reads as the page jumping rather than the button.
+    // v255 answered that by holding the MAP still, and the answer was worse than the fault.
+    // With the list in the flow, the only way to hold the map is to scroll the pop-up body by
+    // the list's own height — 269 pixels measured at 375×812 against four candidates — and
+    // that scroll carries the address field and the BUTTON UNDER HER THUMB clean off the top
+    // of the card. Her words for it: "press look up this address again make it exit the page
+    // we are working in."
     //
-    // The anchor is the MAP, not the button, and the difference matters here in a way it did
-    // not on the courier card. There the row she pressed was the thing that moved, so it was
-    // the anchor. Here the button never moves at all — the list is inserted BELOW it — so an
-    // anchor on the button would compute a delta of zero and be a line of dead code. What she
-    // is actually watching is the map: it is where she checks that the pin landed on the right
-    // door, and it is the largest thing on the card. Holding its screen position also leaves
-    // the answer visible — the rows are revealed at the top of the pop-up, where she is
-    // already reading, instead of being pushed off the bottom.
+    // So the list floats (`.sugg-drop`) and takes no space at all, and the anchor is the
+    // button she is holding — the one thing on this card that must never move. What the
+    // correction still has to do is small and always BELOW the button: the line under it,
+    // which can grow by a line. Measured on the same phone: 0 for the button, 0 for the
+    // field, 0 for the map, 0 for the pop-up's scroll, against 269 for three of the four.
     const findBtn = button("Look it up", async () => {
       const text = addrInput.value.trim();
       if (!text) { hideSuggestions(); findStatus.hidden = false; findStatus.textContent = "Type the address first, or put the pin on the map by hand."; return; }
       // Cleared before the ask rather than after it: the previous lookup's rows must
       // never be left sitting under a new lookup's answer. The pin itself stays where it
       // is until a new match arrives, so nothing jumps while she waits.
-      //
-      // AND THE CLEARING IS ITS OWN CORRECTION, because it takes those same 223 pixels OFF
-      // the card. Without it a second press would lift the map by the height of the list the
-      // first press left behind, and then drop it back — two jumps where she asked for none.
-      keepStill(mapBox, () => {
+      keepStill(findBtn, () => {
         hideSuggestions();
         found = [];
         findBtn.disabled = true;
@@ -323,7 +331,7 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       if (!out.ok) {
         // A miss is a normal answer, not an error to apologise for: the map is one tap
         // away and the numbers are one field away, so this reads as an instruction.
-        keepStill(mapBox, () => { findStatus.textContent = out.reason; });
+        keepStill(findBtn, () => { findStatus.textContent = out.reason; });
         return;
       }
       found = out.places || [out.place];
@@ -344,8 +352,9 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       // added to the line she is already reading.
       //
       // ONE WRAP FOR ALL THREE, because they are one answer: the line, the pin, and the list
-      // of other matches. Correcting between them would move the map three times.
-      keepStill(mapBox, () => {
+      // of other matches. Correcting between them would move the card three times. Only the
+      // LINE changes the card's height now that the list floats — the other two are inside it.
+      keepStill(findBtn, () => {
         findStatus.textContent = (found.length > 1
           ? `Found: ${saidPlace(out.place)} — and ${found.length - 1} more below`
           : `Found: ${saidPlace(out.place)}`)
@@ -424,8 +433,10 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       el("div", { class: "field", style: "margin-bottom:0" },
         el("label", {}, "The address you have"),
         addrInput,
-        el("div", { class: "btn-row", style: "margin-top:10px" }, findBtn),
-        suggPanel,
+        // The panel rides INSIDE the row that holds the button (.sugg-host is the row's
+        // position:relative), so `top:100%` drops it straight under the thumb she pressed
+        // and `left/right:0` makes it the width of the field rather than of the button.
+        el("div", { class: "btn-row sugg-host", style: "margin-top:10px" }, findBtn, suggPanel),
         findStatus),
       mapBox,
       mapNote,
