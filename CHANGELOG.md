@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v247)
+# Jienluv2bake — change history (v54 → v248)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v248, NOBODY HAS TO PRESS ANYTHING, AND NOBODY LOSES WHAT THEY WROTE
+(no database step, no redeploy — the same one function, one push).**
+
+Two more things you asked for on the little box at the foot of the shop.
+
+**Closing the page is now a send.** A customer who writes a sentence and then closes the shop,
+or taps a link out of it, has had their say — the words go as they leave, without them pressing
+Enter at all. **Nothing goes out while they are still on the page**, so a sentence somebody is
+midway through writing is never mailed off behind their back. Pressing Enter is still a send,
+and still shows your reply straight away.
+
+**And nothing they wrote is lost on the way.** If they step away from the box with words in it,
+or the page is closed before anything could be sent, the sentence is **kept on their own device**
+and is waiting in the box the next time they open the shop — it goes only once it has been sent.
+If a send does not go through, their words are put back, so a failure nobody was around to read
+is never a sentence lost. And **with no internet, nothing is sent at all**: the words simply wait
+on their device for the next visit instead of going down with the page.
+
+The box itself is unchanged and stays as quiet as it was: one line, no Send button, and one small
+grey line that says how to send.
+
+**And the Bahasa Malaysia has been rewritten to read the way Malaysians actually write.** Several
+lines on the shop were correct textbook Malay but nobody writes that way on a Malaysian website —
+"pembangun" for your developer, "telah" where anyone here would say "sudah", "kemas kini baharu",
+"Menghantar…" where a shop would say "Sedang dihantar…", and a reply that read like a letter from
+an office rather than from you. The words are the same promise, in the voice a Malaysian customer
+expects: **"Idea anda sudah kami terima! Update terbaru akan datang tak lama lagi."**
+
+**The Chinese is now Malaysian Chinese**, which is what your customers read. Malaysian Chinese
+read simplified characters exactly as mainland China does, so the characters stay as they are —
+what changes is the words. A few lines had been written the way a shopping app from China writes
+them: the items count used the mainland measure word rather than the one a Malaysian uses, the
+basket was called a shopping bag, two lines said "coming soon" and "enjoy" in the flat official
+way, and the two arrows on the delivery calendar were in **traditional** characters, which is
+simply the wrong script for your customers. The reply now says, in Chinese, that their idea has
+been received and will be taken good care of, with new updates coming very soon — not that it
+"will be processed". Taiwanese Chinese was not used: it would mean changing every character to
+traditional, and your customers do not read that.
 
 **30 Sep 2026 — engine v247, THE SHOP FRONT NOW ASKS THE CUSTOMER WHAT THEY WOULD CHANGE
 (no database step, one new function to deploy once, one push).**

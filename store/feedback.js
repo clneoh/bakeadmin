@@ -23,6 +23,12 @@
 // where they left it, so returning to the shop finds their sentence still there. It is
 // cleared the moment a send succeeds, and it is only ever a draft: nothing is sent because
 // it was saved.
+//
+// AND LEAVING THE PAGE IS ITSELF A SEND. No button and no obligation to press Enter: the
+// words go when the customer closes the shop or taps a link out of it, handed to the
+// browser with `keepalive` so the request survives the page that made it. The draft and
+// the leave-send are the same promise kept two ways — nothing they typed is lost, and
+// nothing they typed goes unread.
 
 import { CONFIG } from "./config.js";
 
@@ -87,7 +93,7 @@ export function saveDraft(text) {
  * @returns {{ ok: boolean, key: string }} `key` names the line the page should show —
  *   one of `fbThanks`, `fbEmpty`, `fbFailed`.
  */
-export async function sendFeedback({ message, page, lang, honeypot }, fetchFn) {
+export async function sendFeedback({ message, page, lang, honeypot, keepalive }, fetchFn) {
   const send = fetchFn || ((...args) => globalThis.fetch(...args));
 
   const text = String(message == null ? "" : message).trim();
@@ -118,6 +124,10 @@ export async function sendFeedback({ message, page, lang, honeypot }, fetchFn) {
         website: String(honeypot == null ? "" : honeypot).slice(0, 100),
       }),
       signal: ctl.signal,
+      // A send made as the customer leaves the page has to outlive it: an ordinary
+      // fetch is cancelled the moment the document goes away, which is precisely the
+      // moment this one is made in. Only the leave-send asks for it.
+      keepalive: !!keepalive,
     });
     if (!res.ok) return { ok: false, key: "fbFailed" };
     const data = await res.json().catch(() => null);

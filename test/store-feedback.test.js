@@ -45,6 +45,7 @@ function stubFetch(reply) {
       method: (opts.method || "GET").toUpperCase(),
       headers: opts.headers || {},
       body: opts.body,
+      keepalive: !!opts.keepalive,
     });
     if (typeof reply === "function") return reply(url, opts);
     if (reply instanceof Error) throw reply;
@@ -163,6 +164,15 @@ test("with nowhere configured to send, the customer is told so rather than thank
     CONFIG.supabase = sb;
     wire.restore();
   }
+});
+
+test("a send that stays on the page is an ordinary request, not one that outlives it", async () => {
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    await sendFeedback({ message: "a real suggestion", page: "shop", lang: "en", honeypot: "" });
+    assert.equal(wire.sent[0].keepalive, false,
+      "only the send made ON THE WAY OUT needs the request to survive the page");
+  } finally { wire.restore(); }
 });
 
 test("the honeypot travels with the message, untouched", async () => {
@@ -310,7 +320,13 @@ globalThis.document = {
   querySelectorAll: () => [],
   body: createEl("body"),
 };
-globalThis.window = { open() {} };
+// The window, with the one event the box listens for on it: `pagehide`, which is how a
+// browser tells the page it is being left — and the moment the auto-send fires.
+globalThis.window = {
+  open() {},
+  _listeners: {},
+  addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); },
+};
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
 // The device's own storage, held by the test so it can be read and emptied between tests.
@@ -350,6 +366,9 @@ async function drawWith(emails, { keepDraft = false } = {}) {
   // without — otherwise the sentence one test typed would be standing in the next test's
   // box. A test about the draft itself asks for it to be kept.
   if (!keepDraft) globalThis.localStorage.clear();
+  // Each fresh copy of the module wires its own `pagehide`, so the listeners from earlier
+  // copies are dropped: the page that was drawn last is the page that is leaving.
+  globalThis.window._listeners = {};
   const m = await freshApp();
   if (emails) CONFIG.developerEmails = emails;
   else delete CONFIG.developerEmails;
@@ -375,7 +394,15 @@ function parts(holder) {
 // The listener returns the send's promise precisely so this can await it.
 const pressEnter = (p, key = "Enter") =>
   p.box._listeners.keydown[0]({ key, preventDefault() {} });
+// Leave the page. This is the auto-send's ONLY trigger — nothing goes out while the
+// customer is still here — and `pagehide` is the moment a browser promises the page will
+// still run code.
+const leavePage = () => { for (const f of [...(globalThis.window._listeners.pagehide || [])]) f(); };
+// The leave-send's own answer arrives after the page would have gone. One turn of the
+// event loop is enough to hear what a still-living page hears.
+const settle = () => new Promise((r) => setTimeout(r, 0));
 const textOf = (node) => (node.children || []).map((c) => (c.nodeType === 3 ? c.text : textOf(c))).join("");
+const sentWords = (wire) => wire.sent.map((s) => JSON.parse(s.body).message);
 
 test("with no developer address published there is no box, and nothing to send into", async () => {
   const { holder } = await drawWith(null);
@@ -542,6 +569,194 @@ test("a language switch does not throw away what they were writing, or the reply
     assert.equal(textOf(registry["fb-foot"]), STORE.en.fbThanks,
       "and a reply already given is not un-said by a later repaint");
   } finally { wire.restore(); }
+});
+
+// ---------------------------------------------------------------------------
+// The autosave, on the screen
+// ---------------------------------------------------------------------------
+
+test("words written and never sent are still there when they come back", async () => {
+  const first = await drawWith(["knightneoh@gmail.com"]);
+  let p = parts(first.holder);
+  p.box.value = "the checkout asks me too many questions";
+  // What the textarea's own input event carries out of the DOM.
+  p.box._listeners.input[0]();
+  assert.equal(globalThis.localStorage.getItem("fbDraft"), "the checkout asks me too many questions",
+    "the words are kept on the device as they are typed, not on a send");
+
+  // They never pressed Enter — they tapped away and closed the page. Coming back is a
+  // fresh load with a fresh module, so the draft is the only thing that outlives them.
+  const again = await drawWith(["knightneoh@gmail.com"], { keepDraft: true });
+  p = parts(again.holder);
+  assert.equal(p.box.value, "the checkout asks me too many questions",
+    "the sentence is where they left it");
+  assert.equal(p.say.textContent, STORE.en.fbHint,
+    "and the box reads as if they had just typed it — the hint is back, not a stale failure");
+});
+
+test("tapping away keeps the words too", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  // Their words arrive in the box without an input event — this is the tap-away half of
+  // "never press Enter", and blur is the only thing that sees it.
+  p.box.value = "the map is hard to use on a phone";
+  p.box._listeners.blur[0]();
+  assert.equal(globalThis.localStorage.getItem("fbDraft"), "the map is hard to use on a phone");
+});
+
+test("a send that worked leaves no draft behind", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  p.box.value = "the photos could be bigger";
+  p.box._listeners.input[0]();
+  assert.ok(globalThis.localStorage.getItem("fbDraft"), "it was kept while they were writing");
+
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    await pressEnter(p);
+  } finally { wire.restore(); }
+
+  assert.equal(globalThis.localStorage.getItem("fbDraft"), null,
+    "the words arrived, so there is nothing left to keep — their next visit starts clean");
+});
+
+test("a send that failed keeps the words for a reload, not just for the box", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  p.box.value = "the photos could be bigger";
+  p.box._listeners.input[0]();
+
+  const wire = stubFetch(jsonReply({ error: "boom" }, 500));
+  try {
+    await pressEnter(p);
+  } finally { wire.restore(); }
+
+  const again = await drawWith(["knightneoh@gmail.com"], { keepDraft: true });
+  assert.equal(parts(again.holder).box.value, "the photos could be bigger",
+    "a failure they walk away from is not a sentence lost either");
+});
+
+// ---------------------------------------------------------------------------
+// Leaving the page is the send
+// ---------------------------------------------------------------------------
+
+test("words left in the box go out when they leave the page, without anything being pressed", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    p.box.value = "the photos could be bigger";
+    p.box._listeners.input[0]();
+    assert.equal(wire.sent.length, 0, "nothing goes out while they are still here — a half-written sentence must not be mailed");
+
+    leavePage();
+    assert.deepEqual(sentWords(wire), ["the photos could be bigger"],
+      "closing the shop is the send; there was no button and no Enter");
+    assert.equal(wire.sent[0].keepalive, true,
+      "and it is handed to the browser in the one way that outlives the page it was made from");
+  } finally { wire.restore(); }
+});
+
+test("a page with nothing written sends nothing when it is left", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  const wire = stubFetch(new Error("should not be called"));
+  try {
+    leavePage();
+    p.box.value = "no";
+    p.box._listeners.input[0]();
+    leavePage();
+    assert.equal(wire.sent.length, 0, "an empty box and a fat thumb are not suggestions");
+  } finally { wire.restore(); }
+});
+
+test("leaving with no connection keeps the words instead of taking them down with the page", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  p.box.value = "the map is hard to use on a phone";
+  p.box._listeners.input[0]();
+
+  const wire = stubFetch(jsonReply({ ok: true }));
+  const real = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const pretend = (onLine) => Object.defineProperty(globalThis, "navigator", { value: { onLine }, configurable: true });
+  pretend(false);
+  try {
+    leavePage();
+    assert.equal(wire.sent.length, 0, "a request that cannot be delivered is not made");
+    assert.equal(globalThis.localStorage.getItem("fbDraft"), "the map is hard to use on a phone",
+      "so their words wait on the device rather than going down with the page");
+    assert.equal(p.box.value, "the map is hard to use on a phone", "and they are still in the box");
+
+    // Back on a connection, leaving sends them as it would have.
+    pretend(true);
+    leavePage();
+    assert.deepEqual(sentWords(wire), ["the map is hard to use on a phone"]);
+  } finally {
+    Object.defineProperty(globalThis, "navigator", real);
+    wire.restore();
+  }
+});
+
+test("one sentence is handed over once, however many times the page is left", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    p.box.value = "the checkout asks me too many questions";
+    p.box._listeners.input[0]();
+    leavePage();
+    // The back/forward cache fires this again when the page is restored.
+    leavePage();
+    leavePage();
+    assert.deepEqual(sentWords(wire), ["the checkout asks me too many questions"],
+      "a second copy of one sentence in the developer's inbox is not a gift");
+
+    // Typing again is a new sentence, and a new sentence has not gone yet.
+    p.box.value = "the checkout asks me too many questions, and the map is slow";
+    p.box._listeners.input[0]();
+    leavePage();
+    assert.equal(wire.sent.length, 2, "and that one goes when they leave with it");
+  } finally { wire.restore(); }
+});
+
+test("a send on the way out leaves no draft behind for a second visit to re-send", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  p.box.value = "the photos could be bigger";
+  p.box._listeners.input[0]();
+  assert.ok(globalThis.localStorage.getItem("fbDraft"), "it was kept while they were writing");
+
+  const wire = stubFetch(jsonReply({ ok: true }));
+  try {
+    leavePage();
+    await settle();
+  } finally { wire.restore(); }
+
+  assert.equal(globalThis.localStorage.getItem("fbDraft"), null,
+    "the words went, so there is nothing left on the device to go a second time");
+  assert.equal(textOf(holder), STORE.en.fbThanks,
+    "and a page still here to hear the answer gives it, exactly as Enter does");
+  const again = await drawWith(["knightneoh@gmail.com"], { keepDraft: true });
+  assert.equal(parts(again.holder).box.value, "", "their next visit opens on an empty box");
+});
+
+test("a leave-send that failed while the page was still here puts the words back", async () => {
+  const { holder } = await drawWith(["knightneoh@gmail.com"]);
+  const p = parts(holder);
+  p.box.value = "the map is hard to use on a phone";
+  p.box._listeners.input[0]();
+
+  const wire = stubFetch(jsonReply({ error: "boom" }, 500));
+  try {
+    leavePage();
+    await settle();
+  } finally { wire.restore(); }
+
+  assert.equal(globalThis.localStorage.getItem("fbDraft"), "the map is hard to use on a phone",
+    "a failure nobody was around to read must not be a sentence lost");
+  const again = await drawWith(["knightneoh@gmail.com"], { keepDraft: true });
+  assert.equal(parts(again.holder).box.value, "the map is hard to use on a phone",
+    "so the next visit finds it exactly where they left it");
 });
 
 // ---------------------------------------------------------------------------

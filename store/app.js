@@ -530,7 +530,55 @@ function renderDevFoot(cfg) {
 // cart is: renderStatic() runs again on every language switch, and a textarea
 // rebuilt from nothing would take a half-written sentence with it — and would
 // un-say a thank-you the customer is still reading.
-const fbState = { text: "", sent: false, note: "", busy: false };
+const fbState = { text: "", sent: false, note: "", busy: false, leaveSent: "" };
+
+// The honeypot's live node. A leave-send has to read it off the screen, because a bot
+// filling it fires nothing this page listens to — and the box is rebuilt on every repaint,
+// so a listener holding the old node would be reading a field that is no longer shown.
+let fbTrap = null;
+let leaveWired = false;
+
+// LEAVING THE PAGE IS ALSO A SEND. There is no Send button and no obligation to press
+// Enter: a customer can write a sentence, close the shop, and the words still go — which is
+// the whole point of a box that asks "comment, and I will make it better" without asking
+// them to press anything. Nothing goes out while they are still here, so a half-finished
+// sentence is never mailed while they are mid-thought.
+//
+// It is handed over ONCE. A page can be left more than once — the back/forward cache fires
+// `pagehide` again when it is restored — and a second copy of one sentence in the
+// developer's inbox is not a gift. `leaveSent` remembers what has already gone; typing
+// clears it, because a sentence they have edited is a new one.
+function sendOnLeave() {
+  const words = String(fbState.text || "").trim();
+  if (words.length < 3 || fbState.busy || fbState.sent) return;
+  if (fbState.leaveSent === words) return;
+  // Nowhere to go. A request the browser cannot deliver would take their words with it when
+  // the page closes, and nobody would be left to hear that it failed — so the draft stays,
+  // and the sentence goes the next time they leave with a connection.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  fbState.leaveSent = words;
+  // The draft goes at the hand-off, not at an answer: the page is leaving and will not be
+  // here to hear one, so waiting for a reply would leave their words on the device to be
+  // sent a second time on the next visit. They come back only if we are still alive to
+  // hear that the send failed — a failure nobody saw must not be a sentence lost.
+  saveDraft("");
+  sendFeedback({
+    message: words, page: "shop", lang: loadLang(),
+    honeypot: fbTrap ? fbTrap.value : "", keepalive: true,
+  }).then((out) => {
+    // Told plainly and only if we are still here to tell them: the reply takes the box's
+    // place exactly as it does when Enter was pressed, so a customer who comes back finds
+    // the answer rather than the sentence they already sent.
+    if (out.ok) {
+      fbState.sent = true;
+      fbState.text = "";
+      renderFeedback(CONFIG);
+      return;
+    }
+    fbState.text = words;
+    saveDraft(words);
+  });
+}
 
 // The box under the "Website by" credit, where a customer tells the developer
 // what they would change. It rides the SAME published `developerEmails` the
@@ -549,6 +597,13 @@ function renderFeedback(cfg) {
     return;
   }
   holder.hidden = false;
+
+  // Wired once, and on the window rather than on the box: the box is rebuilt on every
+  // repaint, and a listener attached to it would be thrown away with it.
+  if (!leaveWired && typeof window !== "undefined" && window.addEventListener) {
+    leaveWired = true;
+    window.addEventListener("pagehide", sendOnLeave);
+  }
 
   // Already sent. The reply, and only the reply — nobody who has just been told
   // their idea was received needs the box offered again underneath it.
@@ -584,6 +639,7 @@ function renderFeedback(cfg) {
     class: "fb-trap", type: "text", name: "website",
     tabindex: "-1", autocomplete: "off", "aria-hidden": "true",
   });
+  fbTrap = trap;
 
   // ONE LINE UNDER THE BOX, which says whichever of the three things is true and
   // nothing else: the last failure, that the words are on their way, or — once there
@@ -639,6 +695,8 @@ function renderFeedback(cfg) {
     // Typing is them saying "I am answering after all" — so a failure line about the
     // last send stops being true the moment they start the next one.
     if (fbState.note) fbState.note = "";
+    // A sentence they have changed is a sentence that has not gone yet.
+    fbState.leaveSent = "";
     saveDraft(fbState.text);
     grow();
     paint();
