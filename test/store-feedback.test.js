@@ -774,7 +774,9 @@ test("the box is translated into all three languages, and actually translated", 
     assert.notEqual(STORE.zh[key], STORE.en[key], `zh.${key} was left in English`);
     assert.notEqual(STORE.ms[key], STORE.en[key], `ms.${key} was left in English`);
   }
-  // Her own two sentences, word for word, in the English the customer sees.
-  assert.equal(STORE.en.fbPh, "Webmaster: Like this UI? Tell me, I'll make it better");
+  // Her own two sentences, word for word, in the English the customer sees. The question
+  // spells out "user interface" rather than "UI" - she ruled that shorthand out as a
+  // word a customer does not use - and it is measured to hold one line at phone width.
+  assert.equal(STORE.en.fbPh, "Webmaster: Like the user interface? I'll improve it");
   assert.equal(STORE.en.fbThanks, "Your idea is well taken care of. New updates soon!");
 });

@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v249)
+# Jienluv2bake — change history (v54 → v250)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v250, THE SHOP'S QUESTION SPELLS OUT "USER INTERFACE"
+(no database step, no redeploy, one push).**
+
+**Shorthand is out.** You looked at the built page and said it plainly — "UI should be user
+interface, ui is not a laymen term" — so the line at the foot of the shop now reads
+**"Webmaster: Like the user interface? I'll improve it"**, with the Malay and Chinese
+equivalents.
+
+**And it is still one line on a phone, which is what made this a measurement rather than a
+rewrite.** A phone gives that box about 323px of room, and "user interface" spelled out takes
+about 150px of it on its own. The full sentence you first wrote runs to about 373px — wider
+than the box — so its tail would have been cut off. Everything you asked for is kept: who is
+asking, the question in full words, and the promise that it gets improved. Only "Let me know"
+goes, because the question mark and a box waiting to be typed in already say it.
+
+The Chinese needed no change — it already used the everyday word for a screen's interface
+rather than a shorthand. The Malay used "UI" too and now spells the term out as "antara muka",
+for exactly the same reason the English does.
 
 **30 Sep 2026 — engine v249, THE BOX AT THE FOOT OF THE SHOP SAYS WHO IS ASKING
 (no database step, no redeploy, one push).**

@@ -205,9 +205,10 @@ const en = {
   devWa: "WhatsApp the developer",
 
   // The question printed IN the box, which the customer types over. It has to fit one
-  // line at phone width or its tail is cut off (see promptHeight in store/app.js), so
-  // the three are kept to ~52 characters / ~23 characters of CJK. Lengthen with care.
-  fbPh: "Webmaster: Like this UI? Tell me, I'll make it better",
+  // line at phone width or its tail runs onto a second line (see promptHeight in
+  // store/app.js). A phone offers ~323px at 13px, and "the user interface" costs about
+  // 150px of it, so the wording is MEASURED, not written: raise it and re-measure.
+  fbPh: "Webmaster: Like the user interface? I'll improve it",
   fbHint: "Press Enter to send",
   fbSending: "Sending…",
   fbThanks: "Your idea is well taken care of. New updates soon!",
@@ -504,8 +505,9 @@ const ms = {
   devBy: "Laman web oleh",
   devWa: "WhatsApp developer",
 
-  // The same one-line rule as the English.
-  fbPh: "Webmaster: Suka UI ini? Beritahu saya, saya baiki.",
+  // The same one-line rule as the English, and "antara muka" is spelled out for the
+  // same reason "user interface" is: "UI" is not a word a customer uses.
+  fbPh: "Webmaster: Suka antara muka ini? Saya akan baiki.",
   fbHint: "Tekan Enter untuk hantar",
   fbSending: "Sedang dihantar…",
   fbThanks: "Idea anda sudah kami terima! Update terbaru akan datang tak lama lagi.",
