@@ -2182,6 +2182,110 @@ test("the press works on a card whose price fold was NEVER opened (v240)", async
   }
 });
 
+test("the press still ANSWERS after the price fold has been opened and shut again (v241)", async () => {
+  signIn();
+  // THE ANSWER IS THE SAME POINT THE DOOR ALREADY HAS, on purpose. That is what makes this fault
+  // invisible rather than merely quiet: with the pin unmoved there is nothing to see on the map
+  // either, so a press whose answer goes nowhere looks exactly like a press that never ran. The
+  // sentence IS the whole of the evidence, which is why it must not be written into a node that
+  // is off screen.
+  const s = stubGeocodeAsks([ON_THE_ROAD]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town", from: "lookup" },
+    }];
+    mounted = mountDoor(st, order);
+    await settle(4);
+
+    // THE FOLD IS OPENED AND THEN SHUT AGAIN, which is the ordinary state of an order she has
+    // already priced. v240 gave the press a home of its own — but build() still handed every
+    // later answer to the PRICE SECTION's line for good, and that line lives inside the fold.
+    // So on a card whose fold had ever been opened, the press answered into a hidden node while
+    // the door block's own line, the one outside the fold, was cleared and never written to
+    // again. Same dead control as v240, reached from the other side.
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle(6);
+    buttonByText(mounted.wrap, "Hide the delivery price")._listeners.click[0]();
+    await settle(2);
+    assert.equal(buttonByText(mounted.wrap, "Get a delivery price").textContent, "Get a delivery price",
+      "the price section is off screen again, and its line with it");
+    assert.equal(s.geocodes(), 0,
+      "and opening it cost no lookup: this order already keeps a door, so `ask` reads it back");
+
+    const before = { ...st.customers[0].place };
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(4);
+
+    assert.equal(s.geocodes(), 1, "the press really ran the lookup");
+    assert.equal(st.customers[0].place.lat, before.lat, "and this address answers with the point it already had");
+    // AND ON THE DOOR BLOCK ITSELF, not merely somewhere in the card. `wrap.textContent` would
+    // pass on this while the sentence sat in the price section's line, which is INSIDE the fold
+    // and invisible — textContent does not know about `hidden`, and an assertion that cannot
+    // tell a line she can read from one she cannot is the forgiving-shim fault this file exists
+    // to avoid. The door block is the node outside the fold, so the answer is proved here.
+    assert.match(mounted.doorSlot.textContent, /found the same spot/,
+      "SO THE CARD SAYS SO — with the price section off screen the answer belongs on the door block's own line, the only line actually on the card");
+    // ANCHORED, because the answer itself begins with those words ("Looking … up again found
+    // the same spot") — an unanchored check here would fail on the very sentence that proves the
+    // press worked, which is the sort of assertion that gets "fixed" by deleting the feature.
+    assert.doesNotMatch(mounted.doorSlot.textContent, /Looking 23 Jalan Seang Tek up again…$/,
+      "and the door's line does not stay on 'Looking … up again…' after the lookup has answered");
+  } finally {
+    if (mounted) closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a DRAG also says what it did on a card whose price fold has been shut again (v241)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([ON_THE_ROAD]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const order = SEAK_ORDER();
+  const st = courierState();
+  st.orders = [order];
+  let mounted = null;
+  try {
+    st.customers = [{
+      id: "c1", key: keyOf(order), name: "Mei Ling", whatsapp: "60123456789",
+      place: { lat: 5.4141, lng: 100.3288, label: "Seang Tek Road, George Town", from: "lookup" },
+    }];
+    mounted = mountDoor(st, order);
+    await settle(4);
+
+    // THE OTHER WRITER OF THE SAME SENTENCE. A drag ends at `invalidatePrices`, whose sentence
+    // about the prices went straight into the price section's line — the line inside the fold.
+    // So the press was not the only thing answering into a hidden node; a pin she had just
+    // dragged did too, and this test holds that half of the fix as well as the press's.
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle(6);
+    buttonByText(mounted.wrap, "Hide the delivery price")._listeners.click[0]();
+    await settle(2);
+
+    buttonByText(mounted.doorSlot, "Move this pin")._listeners.click[0]();
+    const mk = leaf.rec.markers[0];
+    mk.latlng = { lat: 5.42, lng: 100.33 };
+    mk.handlers.dragend({ target: mk });
+    await settle(4);
+
+    assert.equal(st.customers[0].place.lat, 5.42, "the drag moved the door, as a drag always does");
+    assert.match(mounted.doorSlot.textContent, /The door moved — ask again for a price for this spot\./,
+      "and the card says so ON THE DOOR BLOCK, the line that is on screen while the price section is shut");
+  } finally {
+    if (mounted) closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
 test("a re-ask that answers with a different point moves the door and takes the old prices with it (v213)", async () => {
   signIn();
   const s = stubGeocodeAsks([ON_THE_ROAD, AT_THE_HOUSE]);

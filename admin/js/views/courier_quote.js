@@ -226,18 +226,35 @@ export function courierQuoteSection({
   // silence. Her report: "now i see the button but pressing that botton dont work." The door
   // block is drawn before the price fold exists and its press must therefore not need it.
   let relookUp = () => {};
-  // WHERE THE ANSWER TO THAT PRESS IS SAID, and the one writer of it.
+  // THE PRICE SECTION'S OWN LINE, once there is one. Hoisted out of build() because the door
+  // press has to be able to ask whether that line is on screen at all — see sayDoorAnswer.
+  let priceStatusLine = null;
+  // WHERE AN ANSWER ABOUT THE DOOR IS SAID, and the one writer of it.
   //
-  // The price section owns a status line, but it does not exist until build() runs (the "Get a
-  // delivery price" toggle), and this press can run long before that. So the answer goes to the
-  // door block's OWN line while that is the only line there is, and to the price section's line
-  // once that section exists — where it has always been said, and where the sentence about the
-  // prices belongs. ONE string, ONE writer, two possible homes, never both: build() reassigns
-  // this to the price section's line and empties the door's, so the two can never disagree.
+  // TWO LINES CAN HOLD IT, AND WHICH ONE IS DECIDED BY WHAT SHE CAN SEE. The door block's own
+  // line sits on the card and is always visible; the price section's line sits INSIDE the fold,
+  // and is therefore on screen only while the fold is open. This press can run long before the
+  // fold has ever been opened, so it needs the door's line — and it can just as easily run after
+  // the fold has been opened and shut again, which is the ordinary state of an order she has
+  // already priced.
+  //
+  // THAT SECOND STATE IS THE BUG (v241). v240 gave this press a home outside build(), but left
+  // build() handing every later answer to the price section's line for good — and that line lives
+  // inside the fold. So on any card whose fold had ever been opened, the press ran the lookup,
+  // moved the pin, and then said what it had done into a node with `hidden` on its parent: the
+  // card said NOTHING. Her report of a press that answers with silence, one version after the
+  // press itself was said to be fixed. It reads as a press that never ran at all wherever the
+  // lookup answers with the point the door already had, because then nothing else moves either.
+  //
+  // The line NOT in use is emptied rather than left behind: two lines that can each hold the
+  // answer are two lines that can come to disagree about what the press did.
   let sayDoorAnswer = (line) => {
-    if (!doorStatus) return;
-    doorStatus.hidden = !line;
-    doorStatus.textContent = line;
+    const onThePriceLine = !!priceStatusLine && open;
+    if (priceStatusLine) priceStatusLine.textContent = onThePriceLine ? line : "";
+    if (doorStatus) {
+      doorStatus.hidden = onThePriceLine || !line;
+      doorStatus.textContent = onThePriceLine ? "" : line;
+    }
   };
 
   const isCourierOrder = String((first && first.fulfillment) || "") === "courier";
@@ -624,12 +641,13 @@ export function courierQuoteSection({
     const note = road
       ? `The door moved, and it is still only ${roadNotHouse(road, { short: true })}.`
       : "The door moved — the lookup answers this address with a different point now.";
-    // AND THE NEWS OF THE MOVE IS SAID WHERE THERE IS A LINE TO SAY IT ON (v240). With the
-    // price fold open, the price section says it, in the same breath as what it means for the
-    // prices (afterDoorMove) — and this press has already written "Looking … up again…" into
-    // that same line, so leaving it to afterDoorMove is what keeps one answer on one line. With
-    // the fold never opened there is no such line, and without this the door's own line would
-    // sit on "Looking … up again…" for good, having really moved the pin.
+    // AND THE NEWS OF THE MOVE IS SAID WHERE THERE IS A LINE TO SAY IT ON (v240, made
+    // state-aware at v241). With a price section, afterDoorMove says it in the same breath as
+    // what it means for the prices — and since v241 that goes through sayDoorAnswer, so it lands
+    // on whichever line she can actually see rather than into the fold whenever the fold happens
+    // to be shut. With no build() at all there is no afterDoorMove and no such line, so the news
+    // is said here — and without that the door's own line would sit on "Looking … up again…" for
+    // good, having really moved the pin.
     if (!built) sayDoorAnswer(note);
     invalidatePrices(note);
   }
@@ -1115,14 +1133,11 @@ export function courierQuoteSection({
     // ── the prices ───────────────────────────────────────────────────────
     const quoteBox = el("div", { class: "quote-box" });
     const statusLine = el("p", { class: "card-sub", style: "margin:10px 0 0" });
-    // From here on the answer to the door press is said HERE (v240), where it has always been
-    // said and where the sentence about the prices belongs — and the door block's own line goes
-    // quiet for good. One answer and one line: two lines that can each hold it are two lines
-    // that can come to disagree about what the press did.
-    sayDoorAnswer = (line) => {
-      if (doorStatus) { doorStatus.hidden = true; doorStatus.textContent = ""; }
-      statusLine.textContent = line;
-    };
+    // From here on there is a price section, and this is its line — handed to sayDoorAnswer
+    // rather than REPLACING it (v241). Replacing it is what made every later answer land in a
+    // node inside the fold, which is only on screen while the fold is open; the door block's own
+    // line is outside it, and sayDoorAnswer now picks between the two by what she can see.
+    priceStatusLine = statusLine;
     const askBtn = button(`Get a price from ${courier.label}`, () => ask(), "primary");
     const askRow = el("div", { class: "btn-row", style: "margin-top:12px" }, askBtn);
 
@@ -1413,9 +1428,13 @@ export function courierQuoteSection({
       // about the same consequence are two sentences that can come apart. Left out, the
       // sentence is byte for byte the one a drag has always produced.
       const prices = "The prices that were here were quoted for the old one.";
-      statusLine.textContent = note
+      // SAID THE SAME WAY AS EVERY OTHER ANSWER ABOUT THE DOOR (v241), not written straight into
+      // this section's line. A DRAG comes through here too, and with the fold shut that write
+      // went into a hidden node exactly as the press's did — so a pin she had just dragged sat
+      // on the card saying nothing about it.
+      sayDoorAnswer(note
         ? `${note} Ask again for a price for this spot. ${prices}`
-        : `The door moved — ask again for a price for this spot. ${prices}`;
+        : `The door moved — ask again for a price for this spot. ${prices}`);
     };
 
     dayInput.addEventListener("input", paintWhen);

@@ -1,8 +1,39 @@
-# Jienluv2bake — change history (v54 → v240)
+# Jienluv2bake — change history (v54 → v241)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v241, THE RESET NOW ANSWERS ON EVERY CARD, NOT ONLY A FRESH ONE (no database
+step, no redeploy, one push).**
+
+You pushed v240 and you were right again: the press worked, but the card could still stay silent. This
+version closes the last way it could.
+
+Here is what was happening. The answer your press writes — the pin moved, or it found the same spot, or
+the address could not be reached — has two possible places to be said. One is the line under the buttons
+on the door card itself. The other is the line inside the delivery-price section. That section folds away,
+and its line folds away with it. v240 made the press work before the price section existed at all, which
+was the right fix — but the moment you opened **Get a delivery price** even once, the card handed every
+later answer to the folded-away section and stopped using the door card's own line.
+
+So the sequence that caught you was this: open an order, press **Get a delivery price**, close it again,
+then reset the pin. The look-up really ran and the pin really moved, but the sentence saying so was
+written inside the section you had folded away, and the door card said nothing at all. And where the
+look-up answers with the same spot as before, nothing moved on the map either — so the whole press looked
+exactly like a press that had never happened.
+
+**From this version the answer is always said on the line you can actually see.** While the price section
+is open it is said there, exactly as it always was. While it is folded away — or if you have never opened
+it at all — it is said on the door card, right under the buttons. The two lines are never both used at
+once, so they cannot come to disagree about what your press did.
+
+**The same fault was on the pin you drag.** Moving the pin by hand ends through the same sentence about
+the price section's numbers, and that sentence had the same problem: with the price section folded away, a
+drag you had just made reported into a section you could not see. It now says what it did on the door card
+in exactly the same way.
+
+Nothing else changed. No database step, no redeploy, no new key, and no new setting to switch on.
 
 **30 Sep 2026 — engine v240, THE RESET BUTTON NOW ACTUALLY PRESSES (no database step, no redeploy,
 one push).**
