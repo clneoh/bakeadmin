@@ -49,7 +49,8 @@ import { button, confirmDialog, el, guarded, toast } from "../ui.js";
 import { todayISO } from "../dates.js";
 import {
   fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
-  liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCollected, tripOf, tripProblem,
+  liveJobProblem, orderDay, quoteExpired, scheduleAtUTC, tripCalledOff, tripCollected, tripOf,
+  tripProblem,
 } from "../courier_job.js";
 import {
   customerPlaceOf, doorFromOf, doorIsTheirs, doorMayBeReset, doorRoadOf, doorSpotOf, doorSwitchOf,
@@ -1094,8 +1095,9 @@ export function courierQuoteSection({
       // The app records that SHE called it off, with the moment, rather than a
       // status word the courier never gave: a DELETE answers with nothing at all,
       // so a card claiming "Cancelled" in the courier's own voice would be this
-      // screen putting words in its mouth.
-      commit({ ...job, done: true, cancelledAt: new Date().toISOString() });
+      // screen putting words in its mouth. Written by the one shared helper (v242),
+      // because the delivery run screen can call a trip off too.
+      commit(tripCalledOff(job));
       paintJob();
       toast("Trip called off");
     }

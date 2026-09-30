@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v241)
+# Jienluv2bake — change history (v54 → v242)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v242, A CUSTOMER WHO ALREADY HAS A COURIER BOOKING IS NEVER QUIETLY PUT ON A
+SECOND VAN (no database step, no redeploy, one push).**
+
+Your report: if a customer's order already has a courier booked, the delivery run should not tick that
+order, and it needs to say so, so that a delivery is not booked twice.
+
+Here is what was happening. A booked trip is recorded on the order's own row, and the delivery run did not
+look at it when it built the day. Every customer on the day opened already ticked, the Tick them all press
+ticked them all, and a booked customer looked exactly like any other. The only thing that refused was the
+app's own sentence at the Book press — so you could tick a customer a driver was already on the way to,
+price the run, and press Book, and the refusal arrived afterwards as a message rather than as anything you
+could see while you were choosing.
+
+**From this version, a customer whose trip is already running opens OFF the run, with a line under their
+name saying so.** The line names the courier and its own word for where the trip has got to, and it says
+plainly that ticking them and booking the run would send a second vehicle to the same door. The head of the
+list counts them too — it will read something like "Who is on the run — 3 of 5, 1 already booked", so the
+number you tick and the number of rows in front of you never disagree.
+
+**It is not a gate.** The tick is still live and still yours. If you tick a booked customer by hand the app
+honours it, and the refusal comes at the price instead, in the same words as before. That is deliberate:
+the tick is a decision you make, and the app's job is to make sure you can see what you are deciding.
+
+**And the row offers the way out, rather than going grey.** Under the warning there is one press: Call off
+the trip and add to this run. It asks you first, in the open, because calling a trip off is the half that
+cannot be undone — the driver stops being sent, and the customer's tracking box keeps its link but nothing
+will update it any more. If you say yes, the original booking is cancelled with the courier, the order's own
+row records that it was you who called it off and when, the warning disappears, and that customer is put on
+this run so their delivery can be consolidated with the rest of the day. If the courier refuses to call the
+trip off, its own reason is shown and nothing is written.
+
+A trip that has already finished — delivered, or cancelled earlier — is not a barrier at all. Those
+customers open ticked like anyone else, with no warning, because a delivery that has to be done again still
+has to go on a run.
+
+Orders going out by parcel carrier are untouched by this version. They were never on the run list in the
+first place, so there is no second van for them and nothing here to warn you about.
+
+No database step, no redeploy, no new key, and no new setting to switch on.
 
 **30 Sep 2026 — engine v241, THE RESET NOW ANSWERS ON EVERY CARD, NOT ONLY A FRESH ONE (no database
 step, no redeploy, one push).**

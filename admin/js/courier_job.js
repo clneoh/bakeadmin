@@ -305,6 +305,21 @@ export function liveJobOf(order) {
   return j.done ? null : j;
 }
 
+// THE RECORD OF A TRIP SHE CALLED OFF — written by the app, never read from the courier.
+// Calling a trip off answers with nothing at all, so a record carrying the courier's own word
+// for it would be this app putting words in its mouth; what it knows first-hand is that it was
+// HER, and when. So the trip is marked finished and stamped with the moment.
+//
+// It is written HERE, in one place, because two screens can call a trip off — the order's own
+// card and the delivery run — and a record only one of them knows how to write is a trip the
+// other one still believes is running.
+//
+// `when` is passed rather than read here so the caller keeps its own clock, as it does for
+// every other stamp it writes.
+export function tripCalledOff(job, when = new Date().toISOString()) {
+  return job ? { ...job, done: true, cancelledAt: when } : job;
+}
+
 // WHEN A BOOKED TRIP STOPS BEING FREE TO CALL OFF. A courier gives a grace period on a
 // booking, and a fee after it — which makes this the one thing about a trip that can
 // still cost her money once the booking is made, and the reason it is a named function

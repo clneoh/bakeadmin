@@ -4191,6 +4191,12 @@ tr.po-covered td { color: var(--muted); }
 .run-load { font-size: 13px; margin: 10px 0 0; overflow-wrap: anywhere; }
 .run-warn { color: var(--amber); font-weight: 600; }
 
+/* A customer whose trip is already booked (v242). The block reuses the .pin-offer shape — a
+   line and a press under the row, OUTSIDE the row's own label — so a press in it calls the trip
+   off instead of ticking the customer. Only the line's weight and colour are its own, taken
+   from .run-warn, because this is the one thing on the list she must not read past. */
+.run-booked .card-sub { color: var(--amber); font-weight: 600; }
+
 /* One vehicle's own row on the run screen: the presses sit on a line of their own, and the
    comparison and the split open BELOW the whole row rather than beside the price, because a
    phone holds about 300 pixels and neither of them fits in that. */
