@@ -45,6 +45,19 @@ const HOME = { lat: 5.4141, lng: 100.3288, zoom: 13 };
 
 let loading = null;
 
+// Every pin map this file has built and not yet destroyed. A card that is rebuilt drops the box
+// it held without a word to this file — a changed Fulfillment, a day tapped in the order card's
+// own calendar, a pop-up refreshed, a sync pull — and the resize listener below is the only
+// thing that would ever notice. On a phone that notice arrives when the keyboard opens or
+// closes, which is not soon enough: until it does, every orphan keeps its tile layer, its
+// `window` listener, and answers resize calls for the rest of the session. So each mount sweeps
+// the set, and the sweep is asked the same question the listener asks — `isConnected === false`,
+// so a container that cannot answer never reads as gone.
+const livePins = new Set();
+function reapPins() {
+  for (const p of [...livePins]) if (p.box.isConnected === false) p.destroy();
+}
+
 // Leaflet, fetched once per page life. A failure clears the promise rather than
 // caching it, so an attempt after the signal comes back can still succeed — a cached
 // "the CDN is down" is a claim about now that outlives now.
@@ -455,6 +468,15 @@ export function mountPinMap(box, { place = null, onMove = () => {}, onFail = () 
   // jumps back to the middle of the box from under her finger. Only a door the map has never
   // shown — the one the address lookup resolves — is worth moving the view for.
   let shown = null;
+  // Registered the moment the map is ASKED for, not when its tiles arrive: a card can be
+  // rebuilt while Leaflet is still loading, and that orphan is just as real as a visible one.
+  const entry = { box, destroy };
+  livePins.add(entry);
+  // Deferred by one microtask, and that is the whole trick. The card's own rebuild calls
+  // `courierBox.replaceChildren(...buildCourierBlock())`, so the block being replaced is still
+  // on the page at this instant and a sweep now would reap nothing at all. One microtask later
+  // the caller has finished its swap, and "is this box still on the page" has an honest answer.
+  Promise.resolve().then(reapPins);
   // The card this box sits in can be closed while the tiles are still loading, and nothing
   // tells this file when that happens — the app's one pop-up layer empties itself with no
   // word to what it held. So the listener checks that its own box is still on the page
@@ -541,6 +563,7 @@ export function mountPinMap(box, { place = null, onMove = () => {}, onFail = () 
     if (map) { map.off(); map.remove(); map = null; }
     marker = null;
     shown = null;
+    livePins.delete(entry);
     // Guarded: a test shim's `window` need not carry this, and a teardown that throws would
     // take the whole screen down with it.
     if (window.removeEventListener) window.removeEventListener("resize", onResize);

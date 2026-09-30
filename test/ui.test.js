@@ -294,3 +294,68 @@ test("the handle and its grip are declared as file text (v159)", () => {
   // children under the positional tests above.
   assert.match(css, /\.popup-head::after\s*\{[^}]*content:/s, "the grip is drawn, not added");
 });
+
+// ── A map stays inside its own box, and the fixed layers keep their order (v254) ──
+//
+// Her words, 30 September 2026: "sometime pop up like half at back layer". Measured at
+// 375px: with a live Leaflet map in the ＋ New order card's door block, the map painted
+// squarely over the lower half of the confirm dialog — her question cut off mid-sentence,
+// both buttons hidden, and a tap in that band landing on `a.leaflet-control-zoom-out`.
+//
+// Leaflet's own layers go up to 1000 (tiles 200, the marker 600, the zoom control's corner
+// 1000), and it sets only `position: relative; z-index: auto` on the box it is given — which
+// creates NO stacking context. So every one of those layers was competing in the ROOT
+// context against this app's fixed layers, which sit between 20 and 80.
+//
+// This is a regression guard, not the proof: the proof is the grid measurement in
+// `marketing/harness-v254.html`, which went from 16 dirty rows of 24 to 0 when this rule
+// landed. What the guard is for is the day someone tidies `.place-map` and drops the pair
+// as if it were decoration, and nothing else on screen would say so.
+test("a map's layers cannot leave their own box, and the fixed layers keep their order (v254)", () => {
+  const css = read("admin/css/app.css");
+  // Comments FIRST: the rules below carry long explanatory notes that quote other rungs'
+  // numbers ("at 60, under the pop-up layer's 65"), and a regex reading a rule body would
+  // otherwise find those digits and pin the wrong value.
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const blocks = [...bare.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  // One class and nothing else — `.toast`, not `.toast.show`, and `.confirm-layer`, not
+  // `.confirm-layer[hidden]`. The second of each pair is the same box in another state.
+  const own = (cls) => blocks.filter((b) => b.sel === `.${cls}`);
+  const rung = (cls) => {
+    const mine = own(cls).filter((b) => /z-index/.test(b.body));
+    assert.equal(mine.length, 1, `expected one rule carrying .${cls}'s z-index, found ${mine.length}`);
+    const z = mine[0].body.match(/z-index:\s*(-?\d+)/);
+    assert.ok(z, `.${cls} has no plain z-index, so its rung cannot be read`);
+    return Number(z[1]);
+  };
+
+  // The ladder, bottom to top. Each pair is a fault that has actually happened or that the
+  // numbers exist to prevent: the confirm was once at 60, under the pop-up's 65, and every
+  // point of its own box belonged to the card that asked the question (23 September 2026).
+  const ladder = [["topbar", 20], ["tabbar", 30], ["tl-call", 60], ["popup-layer", 65],
+    ["toast", 70], ["confirm-layer", 72], ["lock-layer", 80]];
+  for (let i = 0; i < ladder.length; i++) {
+    const [cls, was] = ladder[i];
+    assert.equal(rung(cls), was,
+      `.${cls} moved off ${was}. If that was deliberate, the rungs above and below it have to be re-read too — this list is what says a question is never buried by the thing that asked it.`);
+    if (i) {
+      const [below, belowWas] = ladder[i - 1];
+      assert.ok(rung(below) < rung(cls),
+        `.${below} sits at ${rung(below)} and .${cls} at ${rung(cls)}, so the layer that must win is painted underneath`);
+    }
+  }
+
+  // And the map. `position: relative` with a z-index of 0 is what makes this box a stacking
+  // context; Leaflet's `z-index: auto` on its own does not, and the 1000 inside it is then
+  // in the ROOT context, over every rung above. Both halves are needed — the position to
+  // have something for the z-index to apply to, and a real (not `auto`) number to create
+  // the context. Zero is enough and is preferred: it changes nothing inside the map.
+  const map = own("place-map").filter((b) => /z-index/.test(b.body));
+  assert.equal(map.length, 1, `expected one rule carrying .place-map's z-index, found ${map.length}`);
+  assert.match(map[0].body, /position:\s*relative/,
+    ".place-map has no position, so a z-index on it does nothing and Leaflet's panes are back in the root context");
+  const mz = map[0].body.match(/z-index:\s*(-?\d+)/);
+  assert.ok(mz, ".place-map has no z-index, so it creates no stacking context and a live map can paint over the confirm");
+  assert.ok(Number(mz[1]) < rung("lock-layer"),
+    `.place-map sits at ${mz[1]}, which is not below the app's own fixed layers — the point of trapping the map is that NOTHING inside it can reach them`);
+});

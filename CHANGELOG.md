@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v253)
+# Jienluv2bake — change history (v54 → v254)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v254, THE ＋ NEW ORDER CARD HOLDS STILL UNDER YOUR THUMB, AND ITS
+BIG BUTTON NOW SAYS PLACE ORDER (no database step — pushing this one is the whole of it).**
+
+**The button inside the card says ＋ Place Order.** It used to say ＋ Add order, and that is the
+only thing that changed: the card's own title is still **＋ New order**, the ＋ New order button on
+the Home screen is untouched, and the Edit order pop-up's **Save changes** is untouched. The two
+sentences that send you to the button now say "then press Place Order", so they no longer point at
+a button that is not there.
+
+**The card no longer jumps out from under your finger when you reset the pin.** Your words were
+"once i click reset pin the screen jump". Resetting the pin makes the card change its own height
+in up to eleven ways at once — the answer line appears, the words re-wrap, the map is shown or
+hidden, the price list is rebuilt — and nothing was putting the page back where you were reading.
+The card is now held by the row of buttons under your thumb: whatever the block does to its own
+height, that row stays on the same line of your screen. Measured at a phone's width, the row sat
+still to the pixel while the page scrolled 15 pixels to absorb the change. The same press used to
+push everything below it by 210 pixels when the press was the one that made a map appear.
+
+**A map no longer keeps running behind a card you have moved on from.** Every time the card is
+rebuilt — you change Fulfilment, you tap a day in the card's calendar, a pop-up refreshes, a sync
+pull arrives — the old map was left alive, holding its tiles and its screen-size listener until
+some later resize happened to notice. On a phone that notice is the keyboard opening, which is
+exactly what happens while you are typing in this form, so the maps piled up. Each new map now
+clears away the ones whose box has left the page, at the moment it is built. Nothing on screen
+changes.
+
+**A map can no longer paint over a question you are being asked.** You put this as "sometimes pop
+up like half at back layer", and it was real. With a live map in the card, the map was drawn over
+the bottom half of the confirm dialog: the sentence cut off mid-sentence, both buttons hidden, and
+a tap in that band landing on the map's + / - zoom instead of the button. The map's own layers
+climb to 1000, and the box it sat in was not containing them, so they were competing with every
+layer this app draws. The map is now sealed inside its own box, in all four places the app draws
+one.
+
+**Nothing else moved.** The door block's wording, the address look-up, the prices and the order
+the card asks things in are all unchanged.
 
 **30 Sep 2026 — engine v253, THE SHOP'S FEEDBACK MAIL NOW READS IN THE SAME ORDER AS
 YOUR WISH-LIST MAIL (no database step, but the shop-feedback function must be redeployed).**

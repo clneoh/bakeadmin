@@ -1682,7 +1682,7 @@ function orderForm(state, dateId, root, selectDate) {
       button("＋ Add another item", () => { items.push({ productId: "", qty: 1, price: null }); renderRows(); }, "ghost"),
       totalEl),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
-      "Everything in the Items list becomes one customer order — add every item, then press Add order."),
+      "Everything in the Items list becomes one customer order — add every item, then press Place Order."),
     el("div", { class: "form-grid order-sugg" },
       el("div", {}, el("label", {}, "Customer"), customer),
       suggester.panel,
@@ -1695,7 +1695,7 @@ function orderForm(state, dateId, root, selectDate) {
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
     el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
-    button("＋ Add order", submit, "block primary"));
+    button("＋ Place Order", submit, "block primary"));
 
   const caret = el("span", { class: "fold-caret" }, newFormOpen ? "▾" : "▸");
   const controller = { card: null, open: false, close: null };

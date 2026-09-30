@@ -1273,6 +1273,19 @@ option.tone-off { color: var(--muted); }
   border-radius: 12px;
   overflow: hidden;
   background: #eceae4; /* the tile layer's own ground colour, so an empty blue box is never shown */
+  /* THE MAP'S PANES DO NOT GET OUT (v254). Leaflet gives its own layers z-indexes up to
+     1000 — tiles 200, the marker 600, the zoom control's corner 1000 — and a `position:
+     relative` with `z-index: auto` on the container creates no stacking context, so all of
+     them were competing in the ROOT context against this app's fixed layers. Measured at
+     375px on her own report ("sometimes pop up like half at back layer"): the door block's
+     live map painted squarely over the lower half of the confirm dialog, her question cut
+     off mid-sentence and both buttons hidden, and a tap in that band hit
+     `a.leaflet-control-zoom-out` instead of the card. Naming a z-index here — zero is
+     enough — keeps every one of Leaflet's layers inside this box, in all four places a map
+     is drawn, and changes nothing visible inside the map itself. Do NOT try to out-rank
+     Leaflet by raising the ladder above: its control layer is 1000 and version-dependent. */
+  position: relative;
+  z-index: 0;
 }
 .place-map .leaflet-control-attribution { font-size: 10px; }
 .leaflet-container { font: inherit; }

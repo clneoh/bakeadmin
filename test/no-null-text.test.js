@@ -1268,6 +1268,272 @@ test("the door block is drawn into the host's slot when the box opens, and not i
   }
 });
 
+test("a card that is rebuilt does not leave the map it replaced running (v254)", async () => {
+  // WHAT SHE REPORTED: "the add order is becoming unstable, sometimes not sure what happen."
+  // The card rebuilds itself constantly — a changed Fulfillment, a day tapped in its own
+  // calendar, a sync pull — and every rebuild threw the old block away without telling
+  // admin/js/place_map.js. The old map therefore kept its tiles and its `window` resize
+  // listener until the keyboard next opened or closed, and answered resize calls until then.
+  //
+  // This is the ordering the sweep has to survive, and the reason it is deferred rather than
+  // run at mount: `mountDoor` builds the section BEFORE the slot reaches the page, exactly as
+  // `courierBox.replaceChildren(...buildCourierBlock())` builds before it swaps. A sweep that
+  // ran synchronously would see a disconnected box and eat the new card's own map.
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let first = null;
+  let second = null;
+  try {
+    first = mountDoor(courierState(), withDoor());
+    await settle(4);
+    assert.equal(leaf.rec.maps.length, 1, "the first card's map is up");
+    assert.equal(leaf.rec.maps[0].removed, false, "and running");
+
+    closeDoor(first); // the block is thrown away; nothing says so out loud
+    second = mountDoor(courierState(), withDoor());
+    await settle(4);
+
+    assert.equal(leaf.rec.maps[0].removed, true,
+      "the map the discarded block left behind is destroyed, rather than kept alive answering resize calls for the rest of the session");
+    assert.equal(leaf.rec.maps[1].removed, false,
+      "and the map the new block built is untouched — the sweep must not eat it for arriving before its slot");
+  } finally {
+    closeDoor(first);
+    closeDoor(second);
+    delete globalThis.window.L;
+  }
+});
+
+// ── the card holding still under her thumb (v254) ──────────────────────────
+//
+// WHAT SHE REPORTED, and this section is about the other half of it: "once i click reset pin
+// the screen jump." The ＋ New order card is INLINE in `#view`, so the page scrolls on
+// `document.scrollingElement` — and nothing on this path compensated for the door block
+// changing height under her finger. Measured at 375x812 in a browser: her own press rewraps
+// the answer line from three lines to two and the row she is holding moves up 15 pixels, with
+// the scroll left at 0. Asking for a price on a card with no pin yet is worse — the 200px map
+// appears BETWEEN the words and the buttons, and the button she is still holding drops 210
+// pixels, taking the price fold down with it.
+//
+// A STAND-IN SCREEN WITH LAYOUT, because that is the one thing this file's shim does not have
+// and the rule under test is entirely about layout. It is a deliberately tiny engine — a node
+// starts where its previous sibling ended, and the page's own scroll moves everything up — but
+// every number in it is a real one, and the two things that change under her change it here
+// for the same reason they change there: the words line rewraps, and a 200px map appears.
+//
+// The scroll is part of the model on purpose. A correction that did not stick, or one applied
+// twice, would show up as the row landing somewhere OTHER than where it started — which is how
+// the assertion below catches an overshoot as well as a miss.
+
+const LINE_H = 15, CHARS_PER_LINE = 34, MAP_H = 200, ROW_H = 34;
+const CARD_TOP = 300; // the topbar, the day header and the calendar — everything above the card
+
+// How tall a node is, as a browser would say. Only the shapes this block actually builds are
+// modelled; anything else is the sum of its children, which is the honest default for a stack.
+function boxHeight(n) {
+  if (n.hidden) return 0;
+  const cls = String(n.className || "");
+  if (cls.includes("place-map")) return MAP_H;
+  if (n.tagName === "P") {
+    return Math.max(1, Math.ceil(String(n.textContent).length / CHARS_PER_LINE)) * LINE_H;
+  }
+  if (n.tagName === "BUTTON") return ROW_H;
+  if (n.tagName === "LABEL") return LINE_H;
+  return (n.children || []).reduce((sum, c) => sum + (c.nodeType === 1 ? boxHeight(c) : 0), 0);
+}
+
+// Where a node sits, measured against the page and then moved by the scroll it is on — the
+// part that makes a correction observable rather than merely applied.
+function boxTop(n, scroller) {
+  let top = CARD_TOP;
+  for (let cur = n; cur; cur = cur.parentNode) {
+    for (const sib of (cur.parentNode ? cur.parentNode.children : [])) {
+      if (sib === cur) break;
+      if (sib.nodeType === 1) top += boxHeight(sib);
+    }
+  }
+  return top - (scroller.scrollTop || 0);
+}
+
+// Give every node the app builds a box, for the length of one test. `document.createElement`
+// is the single door ui.js's `el()` and `button()` both go through, so patching it here is
+// what makes this a measurement of the real section rather than of a fixture.
+function withLayout(scroller) {
+  const real = doc.createElement;
+  doc.createElement = (tag) => {
+    const n = real(tag);
+    n.getBoundingClientRect = () => {
+      const top = boxTop(n, scroller);
+      return { top, bottom: top + boxHeight(n) };
+    };
+    return n;
+  };
+  return () => { doc.createElement = real; };
+}
+
+// The row of the door block's own presses — the anchor the card is held by. Found by class
+// rather than held as a variable, so the test reads the node the card really drew.
+const doorRow = (doorSlot) => all(doorSlot)
+  .find((n) => String(n.className).includes("btn-row"));
+
+// THE ONE MEASUREMENT. The row's VIEWPORT top is what her thumb is on; its DOCUMENT top is
+// what the card's own content did. If the document top did not change, the block never grew,
+// the question is vacuous, and the test says so rather than passing on a still card.
+function reading(doorSlot, scroller) {
+  const row = doorRow(doorSlot);
+  return {
+    row,
+    view: row.getBoundingClientRect().top,
+    doc: row.getBoundingClientRect().top + (scroller.scrollTop || 0),
+  };
+}
+
+// The lookup that finds the HOUSE, in the words on the order — so the door keeps the address
+// as its name and gains no "only the road" tail. That is the answer the press is for, and it
+// is the one measured in the browser: the line stops being three sentences about a pin the
+// customer dropped and becomes one sentence about the door she keeps, and it is two lines
+// where it was three.
+const FOUND_THE_HOUSE = {
+  ok: true,
+  place: { lat: 5.4172, lng: 100.3311, label: "12 Jalan Bunga, 10450 Penang" },
+};
+
+test("resetting a pin does not move the row she is holding (v254)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([FOUND_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  st.orders = [withDoor()];
+  let mounted = null;
+  const scroller = doc.scrollingElement;
+  scroller.scrollTop = 0;
+  const putBack = withLayout(scroller);
+  try {
+    // Her exact state: the customer dropped their own pin from the shop page, so the press
+    // reads "Reset the pin from the address" and asks before it replaces anything.
+    mounted = mountDoor(st, withDoor());
+    await settle(4);
+    layers["confirm-layer"].replaceChildren();
+
+    const before = reading(mounted.doorSlot, scroller);
+    assert.ok(before.row, "the door block has its own row of presses to hold onto");
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(2);
+    buttonByText(layers["confirm-layer"], "Reset the pin")._listeners.click[0]();
+    await settle(6);
+
+    const after = reading(mounted.doorSlot, scroller);
+    // THE PRECONDITION. Without it this test would pass on a card that never changed at all —
+    // and the reset really does change it: the line stops being the customer's pin and becomes
+    // the door she keeps, which is a different length and wraps differently.
+    assert.notEqual(after.doc, before.doc,
+      "the reset really did rewrite the door's own words, so there was something to hold still for");
+    assert.equal(after.view, before.view,
+      "and the row she is holding is on the exact pixel it was, rather than jumping out from under her thumb");
+  } finally {
+    putBack();
+    scroller.scrollTop = 0;
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("a price press that makes a map appear does not move the row she is holding (v254)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([AT_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  // No pin anywhere yet — the state the ＋ New order card is in when she has just typed an
+  // address. Nothing 200 pixels tall sits between the words and the buttons, and pressing for
+  // a price is what puts one there.
+  const st = courierState();
+  let mounted = null;
+  const scroller = doc.scrollingElement;
+  scroller.scrollTop = 0;
+  const putBack = withLayout(scroller);
+  try {
+    mounted = mountDoor(st, { ...COURIER_ORDER });
+    await settle(4);
+    const before = reading(mounted.doorSlot, scroller);
+    assert.ok(before.row, "the door block has its own row of presses to hold onto");
+
+    buttonByText(mounted.wrap, "Get a delivery price")._listeners.click[0]();
+    await settle(8);
+
+    const after = reading(mounted.doorSlot, scroller);
+    assert.notEqual(after.doc, before.doc,
+      "the lookup answered, so a map really was put in above the buttons she is holding");
+    assert.equal(after.view, before.view,
+      "and those buttons are still under her thumb, with the prices opening below them rather than 200 pixels further down");
+  } finally {
+    putBack();
+    scroller.scrollTop = 0;
+    closeDoor(mounted);
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
+test("the same rule holds the card still inside a pop-up, by scrolling the body it lives in (v254)", async () => {
+  signIn();
+  const s = stubGeocodeAsks([FOUND_THE_HOUSE]);
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const st = courierState();
+  st.orders = [withDoor()];
+  let mounted = null;
+  const scroller = doc.scrollingElement;
+  scroller.scrollTop = 0;
+  // The Edit card and the tracking card are the same section in the one pop-up layer, which
+  // scrolls on `.popup-body` rather than on the page. Correcting the page instead would move
+  // the whole app behind the card — the exact fault this helper exists to prevent, from the
+  // other direction. So the layout model is given the POP-UP's scroller here, not the page's:
+  // a rect that ignored the scroll it was corrected by would report a move that never happened.
+  const layer = doc.getElementById("popup-layer");
+  const body = createEl("div");
+  body.className = "popup-body";
+  const putBack = withLayout(body);
+  try {
+    const doorSlot = createEl("div");
+    const wrap = courierQuoteSection({ state: st, orders: [withDoor()], doorSlot });
+    body.append(doorSlot);
+    body.append(wrap);
+    layer.append(body);
+    // On the page, the way the real one is: the pop-up layer is a child of `body`, and the
+    // card's own work refuses to run against a node that is not — a press here has to really
+    // repaint, or this test would prove nothing about what happens when it does.
+    doc.body.append(layer);
+    mounted = { doorSlot, wrap, body };
+    await settle(4);
+
+    const before = reading(doorSlot, body);
+    assert.ok(before.row, "the door block has its own row of presses to hold onto");
+
+    lookBtnOn(mounted)._listeners.click[0]();
+    await settle(2);
+    buttonByText(layers["confirm-layer"], "Reset the pin")._listeners.click[0]();
+    await settle(6);
+
+    const after = reading(doorSlot, body);
+    assert.notEqual(after.doc, before.doc, "the reset rewrote the door's words here too");
+    assert.equal(after.view, before.view, "and the row is held still");
+    assert.ok(body.scrollTop !== 0,
+      "by scrolling the pop-up's own body — the thing this card actually scrolls inside");
+    assert.equal(scroller.scrollTop, 0,
+      "and NOT the page behind it, which would have moved the whole app out from under the card");
+  } finally {
+    putBack();
+    scroller.scrollTop = 0;
+    closeDoor(mounted);
+    doc.getElementById("popup-layer").replaceChildren();
+    s.restore();
+    delete globalThis.window.L;
+  }
+});
+
 test("a pin dragged on the map is written against the customer, and the prices quoted for the old door are cleared (v201)", async () => {
   signIn();
   const s = stubChannel();
