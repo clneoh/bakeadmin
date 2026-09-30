@@ -1,26 +1,49 @@
-# Jienluv2bake — change history (v54 → v250)
+# Jienluv2bake — change history (v54 → v251)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**30 Sep 2026 — engine v251, THE SHOP'S QUESTION IN YOUR OWN WORDS
+(no database step, no redeploy, one push).**
+
+**The line at the foot of the shop now reads exactly as you wrote it.**
+"Webmaster: Like the User Interface? Tell me & I will improve it!" — your words, your
+punctuation, with "Tell me" back where you put it.
+
+**It is a measurement, not a rewrite, and this version takes the measurement in both
+directions.** A phone gives that box about 323px of room, and "the User Interface" spelled out
+costs about 150px of that on its own. Your sentence runs to about 377px, so on a phone it takes
+**two lines** — and the guard built for exactly this opens the box to show the whole question
+rather than cutting the end off it. Nothing is clipped on any phone: at 320px the box simply
+opens a little further, and the page never scrolls sideways.
+
+**The Malay is your own sentence and holds one line — as long as it keeps the shape you wrote
+it in.** "Suka User Interface ini? Komen & Saya akan perbaiki!" measures about 322px against a
+phone's 323px, which is a fit to within a pixel. It carries no "Webmaster:" prefix for that
+reason: the prefix would add another 76px and push it onto a second line. The English and
+Chinese still say who is asking.
+
+The Chinese needed no change at all — it already used the everyday word for a screen's
+interface rather than a shorthand, which is why it reads the same as before.
+
 **30 Sep 2026 — engine v250, THE SHOP'S QUESTION SPELLS OUT "USER INTERFACE"
 (no database step, no redeploy, one push).**
 
 **Shorthand is out.** You looked at the built page and said it plainly — "UI should be user
-interface, ui is not a laymen term" — so the line at the foot of the shop now reads
+interface, ui is not a laymen term" — so the line at the foot of the shop read
 **"Webmaster: Like the user interface? I'll improve it"**, with the Malay and Chinese
 equivalents.
 
-**And it is still one line on a phone, which is what made this a measurement rather than a
+**And it stayed one line on a phone, which is what made this a measurement rather than a
 rewrite.** A phone gives that box about 323px of room, and "user interface" spelled out takes
 about 150px of it on its own. The full sentence you first wrote runs to about 373px — wider
-than the box — so its tail would have been cut off. Everything you asked for is kept: who is
+than the box — so its tail would have been cut off. Everything you asked for was kept: who is
 asking, the question in full words, and the promise that it gets improved. Only "Let me know"
-goes, because the question mark and a box waiting to be typed in already say it.
+went, because the question mark and a box waiting to be typed in already say it.
 
 The Chinese needed no change — it already used the everyday word for a screen's interface
-rather than a shorthand. The Malay used "UI" too and now spells the term out as "antara muka",
+rather than a shorthand. The Malay used "UI" too and spelled the term out as "antara muka",
 for exactly the same reason the English does.
 
 **30 Sep 2026 — engine v249, THE BOX AT THE FOOT OF THE SHOP SAYS WHO IS ASKING

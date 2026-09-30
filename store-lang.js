@@ -204,11 +204,12 @@ const en = {
   devBy: "Website by",
   devWa: "WhatsApp the developer",
 
-  // The question printed IN the box, which the customer types over. It has to fit one
-  // line at phone width or its tail runs onto a second line (see promptHeight in
-  // store/app.js). A phone offers ~323px at 13px, and "the user interface" costs about
-  // 150px of it, so the wording is MEASURED, not written: raise it and re-measure.
-  fbPh: "Webmaster: Like the user interface? I'll improve it",
+  // The question printed IN the box, which the customer types over. Its length is
+  // MEASURED, not written (see promptHeight in store/app.js): a phone offers ~323px at
+  // 13px and "the User Interface" costs about 150px of it, so this string wraps to a
+  // second line on a 375px phone and the box opens to show the whole question rather
+  // than clipping its tail. Raise it and re-measure.
+  fbPh: "Webmaster: Like the User Interface? Tell me & I will improve it!",
   fbHint: "Press Enter to send",
   fbSending: "Sending…",
   fbThanks: "Your idea is well taken care of. New updates soon!",
@@ -505,9 +506,11 @@ const ms = {
   devBy: "Laman web oleh",
   devWa: "WhatsApp developer",
 
-  // The same one-line rule as the English, and "antara muka" is spelled out for the
-  // same reason "user interface" is: "UI" is not a word a customer uses.
-  fbPh: "Webmaster: Suka antara muka ini? Saya akan baiki.",
+  // Her own wording, and it carries NO "Webmaster: " prefix - deliberately, and she wrote
+  // it without one. Measured: as written it is 321.8px and holds one line in a phone's
+  // 323px; adding the prefix costs 76px and wraps it onto two. Spells "User Interface"
+  // out for the same reason the English does: "UI" is not a word a customer uses.
+  fbPh: "Suka User Interface ini? Komen & Saya akan perbaiki!",
   fbHint: "Tekan Enter untuk hantar",
   fbSending: "Sedang dihantar…",
   fbThanks: "Idea anda sudah kami terima! Update terbaru akan datang tak lama lagi.",
