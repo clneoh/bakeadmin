@@ -1,4 +1,4 @@
-# Jienluv2bake — change history (v54 → v256)
+# Jienluv2bake — change history (v54 → v257)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
@@ -43,13 +43,35 @@ window's **Look it up**, and that is the one this version fixes.
 only how you say "not that one", the line under the button still says when the answer is the
 road rather than your house, and no wording, price or order of questions is touched.
 
+**30 Sep 2026 — engine v257, TAPPING "RESET THE PIN" NO LONGER FOLDS THE ORDER YOU ARE
+WRITING (no database step — pushing this one is the whole of it).**
+
+**This is the one you have been reporting.** You press **Look this address up again** on the
+order's own door block, the app asks you to confirm because there is already a pin to replace,
+you tap **Reset the pin** — and you land back on the Orders list with the half-written order
+gone. The look-up itself then carries on and writes the order.
+
+**The cause was the rule that folds the ＋ New order card when you press anywhere else.** That
+rule is right for a press on the page. It was wrong here, because the confirmation the card
+itself opened is drawn on a layer that sits **beside** the page rather than inside it — so the
+app counted your tap on **Reset the pin** as a tap on the page behind, folded the card you were
+writing, and then did the look-up anyway. A press on the confirmation, on a pop-up, or on the
+lock screen no longer folds the card. A press on the page still does, exactly as before.
+
+**Why the last two versions missed it, in plain words.** v255 and v256 both changed the pin
+window's **Look it up**; your words named the button on the order's own door block, which is a
+different button on a different window. And the check that cleared that door block measured
+where each row sat on the screen — it never asked whether the card was still open, and it never
+pressed the case where the confirmation appears, which only happens when there is already a pin
+to replace.
+
 **30 Sep 2026 — engine v255, LOOKING AN ADDRESS UP NO LONGER THROWS THE PIN CARD
 AROUND (no database step — pushing this one is the whole of it).**
 
 **Your question was "when i say look this address up, why the interface jump out of the
 page?", and the answer was in the shape of that card.** Pressing **Look it up** in the pin
-window asks the address service for other matches, and the list of them is drawn *under the
-button*, above the map. So the list appearing shoved everything beneath it down the window: on
+window asks the address service for other matches, and the list of them is drawn __under the
+button__, above the map. So the list appearing shoved everything beneath it down the window: on
 a phone's width the map was thrown 269 pixels down the card, and the **Use this spot** button
 went with it. The button you had just pressed did not move at all, which is exactly why it
 read as the page jumping rather than the button.

@@ -387,15 +387,30 @@ export function packingLabelData(state, group, style = "full") {
 // it starts shut. One document listener serves it, and a card taken off the page
 // is simply dropped from the list on the next tap — nothing has to be unhooked
 // when a rebuild replaces it. Installed from renderOrders rather than at module
-// scope, since the test shim's document has no addEventListener.
+// scope, because this module is imported by tests whose `document` is a shim, and
+// a few of those shims have no addEventListener to install onto.
 const openOrderCards = new Set();
 let orderCollapseInstalled = false;
+// The layers that sit ABOVE the page — a confirmation, a pop-up, the lock. A press
+// that lands on one of them has not landed on the page behind it, so it must not fold
+// a card: the card that opened the confirmation is the one it is asking about.
+const OVERLAY_LAYERS = ["popup-layer", "confirm-layer", "lock-layer"];
 
 function installOrderCollapseOutside() {
   if (orderCollapseInstalled || typeof document === "undefined"
       || typeof document.addEventListener !== "function") return;
   orderCollapseInstalled = true;
   document.addEventListener("pointerdown", (ev) => {
+    // A press that lands on a layer ABOVE the page — the confirmation the card
+    // itself opened, a pop-up, the lock — is not a press on the page behind it,
+    // and the card that opened it must survive it. Without this the door's
+    // "Look this address up again" asked, she tapped "Reset the pin" in the
+    // confirmation, and the order card she was writing folded out from under
+    // her while the look-up went on to write the order.
+    for (const id of OVERLAY_LAYERS) {
+      const layer = document.getElementById(id);
+      if (layer && !layer.hidden && layer.contains && layer.contains(ev.target)) return;
+    }
     for (const ctl of [...openOrderCards]) {
       if (ctl.card.isConnected === false) { openOrderCards.delete(ctl); continue; }
       if (!ctl.card.contains(ev.target)) ctl.close();
