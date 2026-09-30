@@ -5,7 +5,8 @@ import { capacityStatus, dayCapacityParts, dayRuleRows, parseDayDelta, productRe
 import { dayMoney, groupValue } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
-import { DOW, addMonth, monthLabel, monthWeeks, occColour, occForDate } from "../calendar.js";
+import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
+  windowTitle } from "../calendar.js";
 import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 // A product's sell days — the shared root copy the shop reads, so the day this
 // pop-up counts a product on is exactly the day the shop offers it.
@@ -45,11 +46,12 @@ let orderQuery = "";
 // current screen spot across the rebuild — the row the baker is touching must
 // never move, no matter how the New-orders box or the form above change size.
 let anchorRowId = null;
-// The month the Orders screen's calendar is showing, as { year, month } — null
-// until the first render settles it on the day that opens. It lives out here, not
-// inside the render, so paging forward to look at a later week survives a rebuild
-// the baker did not ask for (a sync pull, a status change).
-let ordersCalMonth = null;
+// The week the Orders screen's calendar is showing, as { offset } — whole weeks
+// forward from today's own week, null until the first render settles it on the day
+// that opens. It lives out here, not inside the render, so paging forward to look
+// at a later week survives a rebuild the baker did not ask for (a sync pull, a
+// status change).
+let ordersCalView = null;
 // Whether the ＋ New order card is open. Also module scope, because the card is
 // rebuilt whenever anything around it changes — including when a day is tapped in
 // its own calendar — and folding under her finger at that moment would be mad.
@@ -67,12 +69,12 @@ let newFormOpen = false;
 // actually completes — never when one is merely asked for, since the capacity and
 // closed-day warnings can still be cancelled.
 let newOrderDraft = null;
-// Whether the card's day calendar is unfolded under its one-line day, and which month it
-// is paged to. Both module scope for that same rebuild reason. `newFormDayMonth` is
+// Whether the card's day calendar is unfolded under its one-line day, and which week it
+// is paged to. Both module scope for that same rebuild reason. `newFormDayView` is
 // handed straight to deliveryCal, which mutates it in place when its arrows are pressed —
 // so paging forward to look at a later week survives a rebuild for free.
 let newFormDayOpen = false;
-let newFormDayMonth = null;
+let newFormDayView = null;
 
 const STATUSES = [
   ["new", "New"],
@@ -319,9 +321,9 @@ export function renderOrders(root, state, params) {
   orderQuery = ""; // a fresh visit to Orders starts with an empty finder box
   newFormOpen = false;  // …and with the New-order card shut
   newFormDayOpen = false; // …its day calendar folded back up
-  newFormDayMonth = null; // …and paged to the day that opens
+  newFormDayView = null; // …and paged to the day that opens
   newOrderDraft = null; // …and with nothing half-typed inside it
-  ordersCalMonth = null; // …and on the month of the day that opens
+  ordersCalView = null; // …and on the week of the day that opens
   installOrderCollapseOutside();
   renderAll(root, state, params);
   // Everything built above goes away with this screen — forget the open cards so
@@ -385,25 +387,24 @@ export function matchingGroups(state, query) {
 
 // ── The delivery-day calendar ────────────────────────────────────────────────
 // What the Orders screen shows at the top instead of the old sideways strip of
-// date pills: the same month grid the shop shows its customers, with each day the
+// date pills: the same calendar the shop shows its customers, with each day the
 // bakery delivers carrying how booked it is. A strip could only ever show a
 // handful of days and made a distant date something to hunt for.
 //
+// It draws the shop's ROLLING WINDOW and not a month (v243): five Sun-first weeks
+// beginning with the week just gone, so the row above today is always last week,
+// today is always in the second row, and no cell is ever empty padding. The arrows
+// slide one week and are GONE at the ends of the days she has set, where a month
+// grid greyed them out — and at the end of a month most of what it drew was days
+// already gone.
+//
 // `days` is deliveryDayList(state) on this screen (the Edit pop-up passes its own
-// shorter list); a day in it is tapped to open it, and a day of the month with no
+// shorter list); a day in it is tapped to open it, and a day on the grid with no
 // delivery record is drawn quietly and does nothing. `getActiveId()` is read on
 // every paint rather than captured, so a rebuild marks the day actually on screen,
-// and `month` is the caller's own { year, month }, paged in place so the month she
-// is looking at survives that rebuild.
-function monthOf(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  return { year: d.getFullYear(), month: d.getMonth() };
-}
-
-function before(a, b) {
-  return a.year < b.year || (a.year === b.year && a.month < b.month);
-}
-
+// and `view` is the caller's own { offset } — whole weeks forward from today's own
+// — paged in place, so the week she is looking at survives that rebuild.
+//
 // `noteMisses` turns on one extra thing: tapping a day the bakery does not deliver
 // is ANSWERED instead of swallowed — the calendar says the day is not a delivery
 // day, and where it gets added. The baker is on these screens to put an order
@@ -411,21 +412,16 @@ function before(a, b) {
 // of (15 Sep 2026: she tapped a marked 16 Sep, read "Malaysia Day", and had no way
 // of knowing why no order could go on it). The state is this calendar's own, in
 // its closure: nothing outside the grid answers for it.
-export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisses = false }) {
+export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses = false }) {
   const list = (days || []).filter((d) => d && d.id && d.date);
   const today = todayISO();
   let missedIso = null; // the day she asked about and the bakery does not deliver
   const byDate = new Map(list.map((d) => [d.date, d.id]));
-  // The arrows reach only the months a delivery day falls in: a month with
-  // nothing to deliver has nothing to show, so paging into it is a dead end.
-  let lo = null;
-  let hi = null;
-  for (const d of list) {
-    const m = monthOf(d.date);
-    if (!lo || before(m, lo)) lo = m;
-    if (!hi || before(hi, m)) hi = m;
-  }
-  if (!lo) { lo = monthOf(today); hi = lo; }
+  // How far the arrows may go, and where an unsettled view opens: the ends of the
+  // days she has actually set, so neither arrow ever leads to a week with nothing
+  // on it.
+  const bounds = deliveryWindow(today, list.map((d) => d.date));
+  let slide = 0; // which way the last arrow moved — an arrival, never a redraw
 
   const wrap = el("div", { class: "cal-wrap" });
 
@@ -441,20 +437,34 @@ export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisse
 
   function paint() {
     const active = getActiveId();
+    // A view the caller has not settled yet — or has just cleared — opens on the
+    // day the calendar is on: today's own week when that day is near today, and
+    // otherwise the week that brings it into today's row. A calendar that opened
+    // on today instead would leave the Edit pop-up showing nothing of the order
+    // whose day she came to move.
+    if (view.offset == null) {
+      const activeDate = list.find((d) => d.id === active)?.date;
+      view.offset = activeDate ? windowForDay(today, activeDate) : bounds.home;
+    }
+    view.offset = Math.min(bounds.max, Math.max(bounds.min, view.offset));
     const go = (delta) => {
-      const next = addMonth(month.year, month.month, delta);
-      month.year = next.year;
-      month.month = next.month;
+      const next = Math.min(bounds.max, Math.max(bounds.min, view.offset + delta));
+      if (next === view.offset) return; // no week that way; the arrow is not drawn either
+      view.offset = next;
+      slide = delta;
       paint();
     };
-    const prev = button("‹", () => go(-1), "ghost small cal-nav");
-    const next = button("›", () => go(1), "ghost small cal-nav");
-    if (!before(lo, month)) prev.disabled = true;
-    if (!before(month, hi)) next.disabled = true;
+    // Where there is nowhere to go the arrow is not drawn at all, so a tap can
+    // never do nothing — a greyed button reads as a bug ([feedback-affordances]).
+    const prev = view.offset > bounds.min
+      ? button("‹", () => go(-1), "ghost small cal-nav")
+      : el("span", { class: "cal-slot" });
+    const next = view.offset < bounds.max
+      ? button("›", () => go(1), "ghost small cal-nav")
+      : el("span", { class: "cal-slot" });
 
-    const weeks = monthWeeks(month.year, month.month);
+    const weeks = rollingWeeks(today, { offset: view.offset });
     const cells = weeks.flat().map((iso) => {
-      if (!iso) return el("span", { class: "cal-cell blank" });
       // The baker's own occasion marks are drawn here too — a holiday she marked
       // is worth seeing while she is deciding which day to open, and a day the
       // bakery does not deliver has no other way of saying so.
@@ -465,16 +475,17 @@ export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisse
       const dateId = byDate.get(iso);
       // A day the bakery does not deliver: a quiet number, nothing to open — but a
       // marked day still says its name when tapped, or a holiday falling on a day
-      // she does not deliver would be the one day of the month with no way to be
+      // she does not deliver would be the one day on the grid with no way to be
       // read (the customer's shop page names that day too).
       if (!dateId) {
         const cls = `cal-cell off${iso === today ? " today" : ""}${box}`;
         // A day already gone is asked nothing: there is nothing left to add to it,
         // and the past is reviewed in the list below, not on the grid.
         const askable = noteMisses && !past;
-        if (!tip && !askable) return el("span", { class: cls }, num);
+        if (!tip && !askable) return el("span", { class: cls, dataset: { date: iso } }, num);
         return el("button", {
           class: `${cls} ${tip ? "tippable" : "tappable"}`,
+          dataset: { date: iso },
           onclick: () => {
             nameDay(state.occasions, iso, past); // names a marked day, exactly as everywhere else
             if (askable) missedIso = iso;
@@ -499,6 +510,7 @@ export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisse
       // from the day this module was just told about.
       return el("button", {
         class: `${cls} tappable`,
+        dataset: { date: iso },
         // Naming the day comes BEFORE opening it, as it always has; the repaint
         // before handing over is what takes the "not a delivery day" answer away,
         // so the grid never relies on the caller to tidy up after it.
@@ -512,12 +524,17 @@ export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisse
     });
 
     const note = missNote();
+    // The slide is read and cleared in the same breath, so the new week arrives
+    // once and an ordinary redraw never replays it (store/app.js does the same).
+    const sl = slide;
+    slide = 0;
     wrap.replaceChildren(
-      el("div", { class: "cal-head" },
+      el("div", { class: "cal-head weeks" },
         prev,
-        el("span", { class: "cal-title" }, monthLabel(month.year, month.month)),
+        el("span", { class: "cal-title" },
+          windowTitle(weeks[0][0], weeks[WINDOW_WEEKS - 1][6])),
         next),
-      el("div", { class: "cal-grid" },
+      el("div", { class: "cal-grid", dataset: sl ? { slide: sl > 0 ? "up" : "down" } : null },
         ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),
         ...cells,
         ...occPapers(state.occasions, weeks, today)),
@@ -526,6 +543,13 @@ export function deliveryCal({ state, days, getActiveId, month, onPick, noteMisse
 
   paint();
   return { el: wrap, repaint: paint };
+}
+
+// The week a day is shown in: today's own when the day is anywhere near it, and
+// otherwise the week that brings the day into today's row. It is the same rule
+// deliveryWindow uses for a whole list, asked about one day.
+function windowForDay(today, iso) {
+  return deliveryWindow(today, iso ? [iso] : []).home;
 }
 
 function renderAll(root, state, params) {
@@ -558,13 +582,12 @@ function renderAll(root, state, params) {
     ? requested
     : (dates.find((d) => d.date >= todayISO())?.id || dates[dates.length - 1].id);
 
-  const activeDate = byId(state.deliveryDates, activeId);
-  if (!ordersCalMonth) ordersCalMonth = monthOf(activeDate.date);
+  if (!ordersCalView) ordersCalView = { offset: null };
   const topCal = deliveryCal({
     state,
     days: deliveryDayList(state),
     getActiveId: () => activeId,
-    month: ordersCalMonth,
+    view: ordersCalView,
     onPick: (id) => selectDate(id),
     noteMisses: true,
   });
@@ -581,17 +604,18 @@ function renderAll(root, state, params) {
   };
 
   // Switch dates in place instead of navigating: only the order area below the
-  // calendar is rebuilt, so the calendar keeps the month she paged it to. The URL
+  // calendar is rebuilt, so the calendar keeps the week she paged it to. The URL
   // still updates (without firing the router) so the current date stays shareable.
   const selectDate = (id) => {
     activeId = id;
-    // Opening a day in another month brings the grid with it — a New-orders row a
-    // season away must not leave the calendar showing a month it isn't on.
+    // Opening a day the grid is NOT on brings the grid with it — a New-orders row a
+    // season away must not leave the calendar showing a week it isn't on. A day
+    // already on screen leaves the window exactly where she put it, so opening one
+    // day never slides the week out from under her finger.
     const dest = byId(state.deliveryDates, id);
-    if (dest) {
-      const m = monthOf(dest.date);
-      ordersCalMonth.year = m.year;
-      ordersCalMonth.month = m.month;
+    if (dest && ordersCalView && ordersCalView.offset != null) {
+      const shown = rollingWeeks(todayISO(), { offset: ordersCalView.offset }).flat();
+      if (!shown.includes(dest.date)) ordersCalView.offset = windowForDay(todayISO(), dest.date);
     }
     topCal.repaint();
     renderContent();
@@ -1357,7 +1381,7 @@ function orderForm(state, dateId, root, selectDate) {
   // dates she did not need. Choosing a day still SWITCHES THE SCREEN rather than filling
   // a draft, because the product list and each day's limits are built for the date on
   // screen — a day held only in the draft would offer items not sellable on it.
-  // The month is held at MODULE scope so paging it forward survives a rebuild — the day
+  // The week is held at MODULE scope so paging it forward survives a rebuild — the day
   // line now sits under the items, so touching it part-way through an order is ordinary.
   // deliveryCal mutates the object it is handed in place when its arrows are pressed,
   // which is what makes handing it the same object each build enough.
@@ -1365,7 +1389,7 @@ function orderForm(state, dateId, root, selectDate) {
     state,
     days: deliveryDayList(state),
     getActiveId: () => dateId,
-    month: newFormDayMonth || (newFormDayMonth = monthOf(date.date)),
+    view: newFormDayView || (newFormDayView = { offset: null }),
     // The panel shuts BEFORE the screen switches, so it cannot spring open again under
     // her on the rebuilt card.
     onPick: (id) => { newFormDayOpen = false; selectDate(id); },
@@ -1470,7 +1494,15 @@ function orderForm(state, dateId, root, selectDate) {
   const dayBtn = el("button", {
     class: "btn soft block datepick-btn", type: "button",
     "aria-expanded": newFormDayOpen ? "true" : "false",
-    onclick: () => { newFormDayOpen = !newFormDayOpen; paintDay(); },
+    onclick: () => {
+      newFormDayOpen = !newFormDayOpen;
+      // Unfolding re-homes the calendar on the day the card is on: it may have
+      // changed since she last looked, and a view left where she paged it before
+      // would unfold on a week this order is not on. The null sentinel is what
+      // deliveryCal re-homes on, so this needs no other hook.
+      if (newFormDayOpen) { newFormDayView.offset = null; dayCal.repaint(); }
+      paintDay();
+    },
   });
   const dayPanel = el("div", { class: "datepick-panel" });
   function paintDay() {
@@ -1766,13 +1798,13 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // Picking a day writes the draft and repaints the pop-up, so the soft notes
   // below re-read against the new day — the move itself is unchanged. The
   // calendar is always open here: a pop-up the baker opened on purpose has no
-  // room for another thing to unfold.
-  const curDate = byId(state.deliveryDates, curId);
+  // room for another thing to unfold. Its view is settled fresh on every rebuild
+  // (see deliveryCal), which is what keeps it on the day this order is actually on.
   const deliveryPick = deliveryCal({
     state,
     days: deliveryDayOptions(state, curId),
     getActiveId: () => draft.deliveryDateId || curId,
-    month: monthOf(curDate ? curDate.date : todayISO()),
+    view: { offset: null },
     onPick: (id) => { draft.deliveryDateId = id; refresh(); },
     noteMisses: true,
   }).el;

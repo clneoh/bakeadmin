@@ -159,6 +159,45 @@ test("opened, it reads the day on one line, then the items, then the customer", 
   assert.ok(addIdx > customerIdx, "with Add order last");
 });
 
+test("the card's calendar unfolds on the day the card is on, and re-homes each time", () => {
+  // A day a season out. The card's calendar must show the week THAT day is in and
+  // not the week today is in — unfolding it has one job, which is to say where this
+  // order is going — and it is a different order from the one the screen is on, so
+  // the two calendars must settle independently.
+  const far = {
+    ...STATE,
+    deliveryDates: [{ id: "d7", date: "2026-09-07" }, { id: "dF", date: "2026-11-07" }],
+  };
+  const root = createEl("div");
+  renderOrders(root, far, new URLSearchParams({ date: "dF" }));
+
+  const dayLine = byClass(root, "fold-body").children[0].children[1];
+  const panel = dayLine.children[1];
+  const dayBtn = dayLine.children[0];
+  const onPanel = (iso) => all(panel).some((n) => n.dataset && n.dataset.date === iso);
+  const arrowIn = (glyph) => all(panel).find((n) => n.tagName === "BUTTON"
+    && String(n.className).includes("cal-nav") && n.children[0].text === glyph);
+
+  dayBtn._listeners.click[0]();
+  assert.ok(onPanel("2026-11-07"), "unfolded, it shows the day this order is on");
+  assert.equal(arrowIn("›"), undefined, "at the far end of the days she has set");
+
+  // Page a week back, then shut and open the fold again.
+  arrowIn("‹")._listeners.click[0]();
+  assert.equal(onPanel("2026-11-07"), false, "the week behind it does not hold that day");
+  dayBtn._listeners.click[0]();
+  dayBtn._listeners.click[0]();
+  assert.ok(onPanel("2026-11-07"), "and unfolding re-homes it, rather than reopening on that week");
+
+  // Paging the card's own calendar is the card's business: the screen's calendar
+  // above it is left exactly where it was.
+  const inPanel = all(panel);
+  const top = all(root).find((n) => String(n.className).includes("cal-wrap") && !inPanel.includes(n));
+  assert.ok(top, "the screen keeps its own calendar above the card");
+  assert.ok(all(top).some((n) => n.dataset && n.dataset.date === "2026-11-07"),
+    "still showing the day the screen is on, where the card's own paging left it");
+});
+
 test("a rebuild around an open card leaves it open, and a fresh visit folds it", () => {
   const { root } = build();
   byClass(root, "fold-head")._listeners.click[0]();

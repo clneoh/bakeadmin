@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v242)
+# Jienluv2bake — change history (v54 → v243)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**30 Sep 2026 — engine v243, THE DELIVERY-DAY CALENDAR IN THE ORDER SCREENS NOW FOLLOWS TODAY, THE
+SAME AS YOUR SHOP (no database step, no redeploy, one push).**
+
+Your words: you wanted the calendar in the ＋ New order card to behave like the one on your shop.
+
+It does now, and it is the **same calendar in all three places it appears** — the ＋ New order card, the
+strip at the top of Orders, and the day picker in the Edit-order pop-up. One behaviour in three places, so
+a day sits in the same square wherever you meet it.
+
+**What was wrong with it.** It was a **month** — the whole of September, then the whole of October —
+exactly the calendar v231 replaced on your shop, for the same reason. On the 30th, most of what it drew
+was days already gone; a delivery day on the 29th could not be seen at all; and both arrows were drawn
+even at the ends, so a greyed button sat there inviting a press that would do nothing.
+
+**From this version it is five whole weeks anchored on today.** The first row is the week just gone, the
+second row is this week with today ringed so you can see where "now" is, and the three rows under it are
+the weeks ahead, which is where your delivery days actually live. Today is always in the second row.
+**Every square is a real date now** — no blanks, no padding, so a delivery day at the start of next month
+is visible and openable from the moment you publish it.
+
+**Your delivery days are unchanged on it.** Still circled, still carrying how booked each one is under the
+number, still FULL in red where a day is at capacity, and a day already gone still dimmed but **still open**
+— you backfill and review old days. A day you do not deliver still answers a tap, and still names where it
+gets added, so a holiday falling on a day you do not deliver is never the one square with nothing to say.
+
+**The arrows move one whole week, and are gone where there is nowhere to go.** A dead control reads as a
+bug, so at the ends of the days you have set there is simply **no arrow** — nothing greyed out, nothing to
+press that would do nothing. The window still stops where your shop's stops for the same list, so the two
+calendars agree about where the far end is. A new week arrives **sliding up** going forward and **coming
+down** going back — the direction you are travelling in — and only when you pressed an arrow: an ordinary
+redraw never replays it.
+
+**The marks you made on Delivery Dates are on it too** — the same single-day boxes and the same see-through
+bands, in their own colours and their own depths.
+
+**It opens on the day you are working on, not on today.** The Edit-order pop-up opens on the day that order
+is actually on, so moving an order a season out does not leave you looking at a week with nothing to do
+with it. And picking a day that is already on screen **does not move the window**, so the grid never slides
+out from under your finger.
+
+**One thing I deliberately left alone.** v231 ended with "nothing in the backoffice calendars changed; this
+is the shop's calendar only" — that was your instruction then, and this version is you asking for the
+opposite, for this one calendar. The **look** of the past days in the backoffice is untouched, and so are
+the other admin calendars: the free order-date field, Delivery Dates, Profit and Deliveries. What changed
+here is this one calendar's behaviour.
 
 **30 Sep 2026 — engine v242, A CUSTOMER WHO ALREADY HAS A COURIER BOOKING IS NEVER QUIETLY PUT ON A
 SECOND VAN (no database step, no redeploy, one push).**

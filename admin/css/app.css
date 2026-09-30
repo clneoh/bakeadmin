@@ -1982,12 +1982,30 @@ option.tone-off { color: var(--muted); }
 }
 .cal-title { font-family: var(--serif); font-weight: 700; font-size: 16px; }
 .cal-nav { min-width: 36px; padding: 6px 0; }
+/* The delivery-day calendar draws the shop's ROLLING five weeks rather than a
+   month (v243). Its head is a grid and not a flex row so the title stays centred
+   in the middle track whether or not an arrow is drawn: at the ends of the days
+   she has set, one of them is a bare .cal-slot span in place of a button, and
+   space-between would slide the title off centre. Only this calendar wears
+   .weeks — the other five .cal-head calendars are untouched. */
+.cal-head.weeks { display: grid; grid-template-columns: 36px 1fr 36px; }
+.cal-head.weeks .cal-title { text-align: center; }
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   margin-top: 6px;
   position: relative; /* anchor the absolutely-placed occasion papers */
+}
+/* A new week arrives with a short slide, and only when an arrow was pressed: the
+   attribute is consumed by the paint that sets it, so an ordinary redraw never
+   replays the animation (store/app.css does the same). */
+@keyframes cal-week-up { from { opacity: 0; transform: translateY(10px); } }
+@keyframes cal-week-down { from { opacity: 0; transform: translateY(-10px); } }
+.cal-grid[data-slide="up"] { animation: cal-week-up 180ms ease-out; }
+.cal-grid[data-slide="down"] { animation: cal-week-down 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .cal-grid[data-slide] { animation: none; }
 }
 /* The weekday letters on Delivery Dates' add grid are controls (v100): tap M and
    every Monday in the month is picked. A button arrives with its own chrome, so the
