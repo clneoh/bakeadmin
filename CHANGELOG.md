@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v265)
+# Jienluv2bake — change history (v54 → v266)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v266, A BUTTON NOW SAYS WHAT HAPPENS IF YOU PRESS IT — AND WHAT HAPPENS IF
+YOU DON'T (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "when i see the button, i might self have to ask, i dont know what will happen or
+what will happen if i din press that button, these create confusion"
+
+**What was happening.** Two places in the app put a choice in front of you without saying what the
+choice cost. On the **shop page**, the line above the pin buttons read "Optional: drop a pin where
+the courier should stop" — which tells a customer the pin does not matter, without telling them what
+they get if they do it or lose if they skip it. And in **your own pin window**, the **Coordinates,
+if you have them** box with its white **Use these numbers** button stood open under every map,
+on the one window in the app whose whole job is to be read fast at a door.
+
+**What changed on screen.**
+
+**1. The shop's pin line now answers both halves.** It reads: skip this and the driver goes to the
+address you typed — that is fine for most houses; pin it only if the address alone will not find
+your door, a condo block or a guard house; and either way put the block and unit number in the
+address above. A customer who does nothing now knows exactly what they are getting. Written in all
+three languages.
+
+**2. The coordinates box in your pin window comes out only when it is the answer.** When the map
+cannot load, the box appears by itself, right under the sentence that names it — so "the map is not
+available right now, type the coordinates below instead" is finally pointing at something that is
+really there. On every other day the box and its white button are out of the way, and the window is
+three lines shorter.
+
+**3. It waits behind one press, not gone.** On a working map a small button reads **Have a Google
+Maps link?** — press it and the box comes out. It is there because a Google Maps link is the most
+accurate point a customer ever sends you, and hiding the box outright would leave a working day as
+the one day you had nowhere to put one.
+
+**4. The box's own sentence says what the press does.** It reads: press this and the pin moves to
+those numbers, a Google Maps link works too, and nothing is kept until you press **Use this spot**
+below. So the white button is now a button you can predict before you press it.
+
+**The limit, said plainly.** The box appears when the map itself fails to load. A map whose tiles
+fail but whose map still works is not detected — the box stays behind its press there — and on that
+screen the map is still usable enough to drag a pin or tap an empty one, which is why it is not
+treated as a failure.
 
 **01 Oct 2026 — engine v265, THE CONSIGNMENT BOX IS A PARCEL'S, SO IT IS DRAWN WITH THE PARCEL
 (no database step, nothing to upload — pushing this one is the whole of it).**

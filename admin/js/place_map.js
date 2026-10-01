@@ -387,6 +387,19 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
     // ── the fallback, and it is the way out rather than a hidden extra ───
     // Numbers she copied from anywhere: a Google Maps link, a message from the
     // customer, a place she knows by heart. courier_place.js reads all four shapes.
+    //
+    // OUT OF THE WAY UNTIL IT IS THE ANSWER (v266). This block used to stand open on every
+    // pin she dropped — four lines of fallback under a map that was working, on the one
+    // window in the app whose whole job is to be read fast at a door. Her words on it:
+    // "when i see the button, i might self have to ask, i dont know what will happen or
+    // what will happen if i din press that button, these create confusion." So it now comes
+    // out when the MAP is what failed, which is what its own line always claimed it was
+    // for, and otherwise waits behind one press that says what it is for.
+    //
+    // THE DOOR IS KEPT RATHER THAN THE BLOCK HIDDEN OUTRIGHT, and that is the whole point
+    // of the version: a Google Maps link is the most accurate point a customer ever sends,
+    // and hiding the block on a day the map works would leave nowhere to put one. Best of
+    // both: nothing on screen it does not have to explain, and no way through lost.
     const numInput = el("input", { class: "input", type: "text",
       placeholder: "5.4141, 100.3288  or a Google Maps link" });
     const numStatus = say("");
@@ -401,6 +414,30 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       numStatus.textContent = "Pinned from your numbers — check it on the map if one is showing.";
       put(p, 17);
     }, "ghost");
+    const coordsBox = el("div", { class: "field coords-block", style: "margin:14px 0 0" },
+      el("label", {}, "Coordinates, if you have them"),
+      numInput,
+      // WHAT THE PRESS DOES, AND WHAT IT DOES NOT DO YET. The button fills the box's
+      // answer in and moves the pin; the Keep is the press below it, and saying so is
+      // the difference between a button she can predict and one she has to try.
+      el("div", { class: "btn-row", style: "margin-top:10px" }, numBtn),
+      numStatus,
+      el("p", { class: "card-sub", style: "margin:6px 0 0" },
+        "Press this and the pin moves to those numbers; a Google Maps link works too. "
+        + "Nothing is kept until you press Use this spot below."));
+    // Hidden through the PROPERTY, not through `el(… {hidden: true})`. Both do the same thing
+    // in a browser, but the attribute is the one thing the test shim models loosely, and a
+    // block whose hidden state could be read two ways is a block whose test proves nothing.
+    coordsBox.hidden = true;
+    const numDoor = button("Have a Google Maps link?", () => revealNumbers(), "ghost small");
+    // Shown ONCE and never hidden again while this card is up. A late tile that lands
+    // while she is typing in the box must not take the box out from under her — the
+    // app's own rule, and the reason this is not simply `coordsBox.hidden = !ok`.
+    function revealNumbers() {
+      coordsBox.hidden = false;
+      numDoor.hidden = true;
+      numInput.focus();
+    }
 
     // ── the map itself, which may not arrive ────────────────────────────
     const mapBox = el("div", { class: "place-map" });
@@ -437,6 +474,10 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
       mapNote.hidden = false;
       mapNote.textContent = `The map is not available right now (${(err && err.message) || "it could not be loaded"}). `
         + "Type the coordinates below instead — a Google Maps link works too.";
+      // THE ONE BRANCH THE BLOCK IS FOR. The sentence above has always pointed at these
+      // numbers; until v266 there was a box open under it whether or not the map had
+      // failed, so the sentence was right by accident. Now it is right by construction.
+      revealNumbers();
     });
 
     return [
@@ -452,13 +493,8 @@ export function openPlacePicker({ state, title = "Put the pin on the map", hint 
         findStatus),
       mapBox,
       mapNote,
-      el("div", { class: "field", style: "margin:14px 0 0" },
-        el("label", {}, "Coordinates, if you have them"),
-        numInput,
-        el("div", { class: "btn-row", style: "margin-top:10px" }, numBtn),
-        numStatus,
-        el("p", { class: "card-sub", style: "margin:6px 0 0" },
-          "Paste a Google Maps link, or the pair of numbers. Both are read, and this is the way through when a map will not load.")),
+      numDoor,
+      coordsBox,
       coordsLine,
       el("div", { class: "btn-row" }, useBtn),
     ];

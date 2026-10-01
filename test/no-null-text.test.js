@@ -845,8 +845,88 @@ test("the pickup-pin card draws its controls even when no map can load (v195)", 
   assert.ok(buttonByText(body, "Use this spot"), "and the press that keeps the pin");
   assert.match(body.textContent, /The map is not available right now/,
     "the map's failure is said in words rather than left as a blank card");
+  // WHAT THE LINE ABOVE HAS ALWAYS POINTED AT (v266). "Type the coordinates below instead"
+  // was written over a box that was open whether or not the map had failed, so the sentence
+  // was true by accident. It is now true by construction, and this is the assertion that says
+  // so: the sentence and the box it names appear together, on the one branch either is for.
+  assert.equal(byClass(body, "coords-block").hidden, false,
+    "and the numbers it names are OPEN, rather than promised and absent");
+  assert.equal(buttonByText(body, "Have a Google Maps link?").hidden, true,
+    "with its door shut, because the box behind it is already out");
   assert.deepEqual(strayObjects(body), [], "no element printed as '[object …]'");
   close();
+});
+
+// ── the numbers box, out of the way until it is the answer (v266) ─────────
+//
+// The other side of the same block: on the ordinary day, when the map loads. It stood open
+// under every map in the app's fastest window, and her words on it were "when i see the
+// button, i might self have to ask, i dont know what will happen or what will happen if i
+// din press that button, these create confusion." So it waits behind one press that says
+// what it is, and comes out when the map is what failed. The block's own class is the
+// handle: the shim walks hidden children like any other, so absence must be asserted as the
+// hidden flag and never as absence from the tree.
+
+const coordsBlockOf = (body) => byClass(body, "coords-block");
+
+// The ordinary day, said in the shortest way the loader understands: a `window.L` already
+// present makes `loadLeaflet()` resolve rather than reach for a third party's script, so
+// the failure branch this suite is otherwise built around is not the one under test.
+async function openPickerWithAMap() {
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  const close = openPlacePicker({
+    state: courierState(),
+    title: "The bakery's pickup pin",
+    address: "12 Jalan Bunga, 10450 Penang",
+    onPick: () => {},
+  });
+  await settle();
+  return { leaf, close };
+}
+
+test("with a map on screen, the numbers box waits behind its own door (v266)", async () => {
+  const { leaf, close } = await openPickerWithAMap();
+  let stray = null;
+  try {
+    assert.equal(leaf.rec.maps.length, 1,
+      "the map loaded, so this is the day the block is not for — without this the test below could pass on a card that failed");
+
+    const body = popupBody();
+    assert.equal(coordsBlockOf(body).hidden, true, "so its four lines of fallback are not on the card");
+    assert.ok(buttonByText(body, "Have a Google Maps link?"), "and the way to them is");
+    assert.ok(!body.textContent.includes("The map is not available right now"),
+      "with nothing on the card claiming the map failed");
+    stray = strayNulls(body);
+  } finally {
+    close();
+    delete globalThis.window.L;
+  }
+  assert.deepEqual(stray, [], "no 'null' on the card");
+});
+
+test("one press brings the numbers box out, so a link a customer sent still has somewhere to go (v266)", async () => {
+  // WHY THE DOOR IS KEPT AT ALL. Hiding the block outright on a working map would take away
+  // the only place in the app to put the Google Maps link a customer sends — the most
+  // accurate point anybody ever gives her. The press costs one tap on the day she has one,
+  // and nothing at all on the day she does not.
+  const { close } = await openPickerWithAMap();
+  let stray = null;
+  try {
+    const body = popupBody();
+    const door = buttonByText(body, "Have a Google Maps link?");
+    door._listeners.click[0]();
+
+    assert.equal(coordsBlockOf(body).hidden, false, "the numbers box is out");
+    assert.equal(door.hidden, true, "and the door that opened it is gone, so there is one of them and not two");
+    assert.ok(buttonByText(body, "Use these numbers"), "with the press the block exists for");
+    assert.ok(buttonByText(body, "Use this spot"), "and the Keep below it, untouched");
+    stray = strayNulls(body);
+  } finally {
+    close();
+    delete globalThis.window.L;
+  }
+  assert.deepEqual(stray, [], "no 'null' on the card");
 });
 
 // ── the matches the lookup used to throw away (v198) ──────────────────────

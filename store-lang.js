@@ -30,7 +30,7 @@ const en = {
   addressPh: "Street, area, Penang…",
   // The door pin (v197). Optional in every sense: with no pin the order goes
   // exactly as it always has, and the baker pins the door herself.
-  pinHint: "Optional: drop a pin where the courier should stop — the guard house or your block's entrance. Put the block and unit number in the address above.",
+  pinHint: "Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.",
   pinHere: "Use my location",
   pinOnMap: "Pin on the map",
   pinSet: "Pin set — the courier will drive to the spot you marked.",
@@ -238,7 +238,7 @@ const zh = {
   courier: "外送",
   addressLabel: "派送地址",
   addressPh: "街道、区域、槟城…",
-  pinHint: "（可选）在地图上标出司机应该停下的地方——保安亭或你那一座的入口。座号和门牌号码请写在上面的地址栏。",
+  pinHint: "不标记也可以 — 司机会去上面填写的地址，大多数房子这样就可以了。只有当地址本身找不到你家门时才需要标记：公寓楼、保安亭。无论是否标记，都请把座号和门牌号码写在上面。",
   pinHere: "使用我的位置",
   pinOnMap: "在地图上标记",
   pinSet: "已标记位置 — 司机会前往你标记的地点。",
@@ -387,7 +387,7 @@ const ms = {
   courier: "Penghantaran kurier",
   addressLabel: "Alamat penghantaran",
   addressPh: "Jalan, kawasan, Pulau Pinang…",
-  pinHint: "Pilihan: tandakan tempat kurier patut berhenti — pondok pengawal atau pintu masuk blok anda. Tulis nombor blok dan unit di ruang alamat di atas.",
+  pinHint: "Tak tandakan pun boleh — kurier akan pergi ke alamat yang anda taip, dan itu memadai untuk kebanyakan rumah. Tanda hanya jika alamat itu sahaja tidak cukup untuk mencari pintu anda: blok kondominium, pondok pengawal. Sama ada anda tandakan atau tidak, tulis nombor blok dan unit di ruang alamat di atas.",
   pinHere: "Guna lokasi saya",
   pinOnMap: "Tanda pada peta",
   pinSet: "Lokasi ditanda — kurier akan pergi ke tempat yang anda tandakan.",
