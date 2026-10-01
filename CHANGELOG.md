@@ -4,6 +4,30 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**02 Oct 2026 — three of the reference documents were losing the end of their
+lines (no new engine; your phones did not change).** Three of the printed
+references — the **Courier APIs** brief, the **money and profit guide** and the
+**ntfy and Resend** page — had lines that ran off the right-hand edge of the
+page and were cut off there. Worst of the three was the courier brief's own
+title, which printed 9.5pt past the edge of the paper; the money guide lost the
+end of two of its money cells, and one line inside an ntfy and Resend box lost
+its tail as well.
+
+**Nothing was wrong with what the pages said.** Every one of those words was
+already in the file and is in the file now — the fault was in how the page was
+laid out. A long line was being drawn as a single strip that never wrapped, so
+whatever passed the right-hand margin was simply never printed, and a sentence
+you were reading ended early with nothing to show that anything was missing.
+Long lines now wrap onto the next line, which is what they should always have
+done.
+
+**What did not change.** Not one word of any of the three documents was
+rewritten, reordered or dropped — this was a repair to the page layout only.
+Nothing you press in the app changed, no setting moved, and there is no database
+step. Each document still runs to the same number of pages as before (7, 7 and
+4), and every page of all three was read back and measured to confirm that no
+line now reaches past the margin.
+
 **01 Oct 2026 — engine v268, FIVE PLACES THAT DISAGREED WITH EACH OTHER, AND THE BUTTON THAT
 CLAIMED TOO MUCH (no database step, nothing to upload — pushing this one is the whole of it).**
 
