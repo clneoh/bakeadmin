@@ -31,7 +31,30 @@
   </header>
 
   <main class="view">
+    <!-- The code the shop is running today, at the top of the page and under the
+         shop name (v269). A statement, never a control: it names the code so the
+         customer can type it, and the bakery still takes the money off by hand in
+         WhatsApp. Filled by the shop from the codes the app published; empty and
+         hidden until there is a public code running. -->
+    <div id="promo-today" class="promo-today" hidden></div>
+
     <div id="referral-banner" class="referral-banner" hidden data-i18n="referral">🎁 You were referred — you have a welcome discount on your first order</div>
+
+    <!-- Where a code the customer was handed goes. Rendered always, so a card
+         still works when the shop is not advertising anything that day. -->
+    <div class="card promo-box">
+      <div class="field">
+        <label for="promo-input" data-i18n="promoLabel">Have a code?</label>
+        <div class="promo-row">
+          <input id="promo-input" class="input" type="text" autocapitalize="characters"
+                 autocomplete="off" autocorrect="off" spellcheck="false"
+                 data-i18n-ph="promoPh" placeholder="e.g. FRESH10">
+          <button id="promo-apply" class="promo-apply" type="button" data-i18n="promoApply">Use it</button>
+        </div>
+        <p id="promo-say" class="card-sub promo-say" hidden></p>
+        <button id="promo-clear" class="promo-clear" type="button" hidden data-i18n="promoRemove">Remove the code</button>
+      </div>
+    </div>
 
     <section class="card info">
       <p class="info-row"><strong data-i18n="deliveryDays">Delivery days</strong><span id="delivery-days" class="info-val"></span></p>

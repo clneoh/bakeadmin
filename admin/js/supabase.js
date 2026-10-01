@@ -14,6 +14,10 @@ import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, total
 import { byId, fmtRM, newId, orderCode, orderLineName, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
+// The promo-code engine. Only two things are asked of it here: what the shop may
+// advertise and judge (publishCodes), and how a code a customer typed is spelled
+// by the time it reaches an order (normCode).
+import { normCode, publishCodes } from "./promo.js";
 // The trip on the order, read through the one helper that decides what a half-written
 // record means. NOT the courier registry: this module is imported by the channel that
 // talks to a courier (couriers/api.js reads its session token), so reaching for the
@@ -429,6 +433,14 @@ function storefrontPayload(state) {
     // answer ("she deleted her last category"), and it has to take the headings
     // off a page that is already open.
     categories,
+    // The promo codes the shop may judge — and, for the public ones, advertise.
+    // Always sent, even empty, for the same reason as the two lists above: the
+    // payload replaces the whole row, so an absent key would leave the shop
+    // running yesterday's codes. A personal code is published too, because the
+    // shop can only accept one that a customer types, and the customer's own
+    // personal code is the only way its owner can use it; "personal" means never
+    // advertised, never secret. See publishCodes in js/promo.js.
+    promoCodes: publishCodes(state),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the
@@ -840,6 +852,12 @@ function importIncoming(state, row) {
       // either way, so a "+" can never split a customer in two.
       whatsapp: phoneDigits(data.whatsapp) || String(data.whatsapp || "").trim(),
       referredBy: String(data.referredBy || "").trim(), // the ?via= link stamp
+      // The promo code the customer typed in the shop (?promo=), or the one the
+      // standing today line named and they typed anyway. Spelled the one way the
+      // engine recognises it, because this is the string her own app will later
+      // count against the code — a stray lowercase here would make a code look
+      // unused forever. Absent on every order placed without one, like referredBy.
+      promo: normCode(data.promo),
       fulfillment: data.fulfillment === "courier" ? "courier" : "collect",
       address: String(data.address || "").trim(),
       note: String(data.note || "").trim(),

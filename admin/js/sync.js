@@ -39,6 +39,9 @@ const LISTS = {
   deposits: "deposits", // money in from her own pocket — same on every phone
   credits: "credits", // bring-a-friend ledger rows
   occasions: "occasions", // delivery-calendar reminder marks
+  // A promo code made on one phone has to exist on the other, or a card she
+  // prints and hands out works on the phone that made it and nowhere else.
+  promoCodes: "promoCodes",
   customers: "customers", // customer profiles (dog name/photo, likes, notes)
 };
 const SETTINGS_KEY = "settings:default";

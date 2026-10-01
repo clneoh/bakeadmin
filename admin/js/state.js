@@ -168,6 +168,10 @@ export function defaultState() {
     deposits: [],
     credits: [], // bring-a-friend ledger: {holder, amountRM, role, expiresAt, ...}
     occasions: [], // delivery-calendar reminder marks: {from, to, label}
+    // Promo codes she hands out — one row per code, carrying the six rule
+    // families and the offer (see js/promo.js for the engine and the shape). A
+    // list she grows, like the credits ledger above, not a setting.
+    promoCodes: [],
   };
 }
 
@@ -397,6 +401,10 @@ function normalize(s) {
     deposits: Array.isArray(s.deposits) ? s.deposits : [],
     credits: Array.isArray(s.credits) ? s.credits : [],
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
+    // Guarded like every other list she owns. The rows themselves are cleaned by
+    // js/promo.js on every read, so a half-synced or hand-edited record can never
+    // reach a screen or the shop un-clamped.
+    promoCodes: Array.isArray(s.promoCodes) ? s.promoCodes : [],
   };
   const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders);
   out.deliveryDates = consolidated.deliveryDates;

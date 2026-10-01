@@ -84,6 +84,26 @@ test("buildMessage omits customer/note when blank and handles note", () => {
   assert.ok(msg.includes("📝 No onions"));
 });
 
+// The promo code rides on the order the customer sends. The test above pins the
+// exact message for an order with NO code, which is the guard: the moment the code
+// line is emitted unconditionally, that assertion breaks and every existing order
+// gains a line it never had.
+test("buildMessage adds the promo code as one line, and only when there was one", () => {
+  const cfg = { name: "Jienluv2bake", products: [] };
+  const base = { date: "Wed, 2 Sep", lines: [{ name: "Focaccia", qty: 1, price: 15 }], total: 15, customer: "Aunty Bee", note: "" };
+
+  const without = buildMessage(cfg, base);
+  assert.ok(!without.includes("🎟"), "an order with no code says nothing about codes");
+
+  const withCode = buildMessage(cfg, { ...base, promo: "FRESH10" });
+  assert.equal(withCode.split("\n").length, without.split("\n").length + 1, "exactly one line is added");
+  assert.equal(withCode, `${without}\n🎟 FRESH10`, "the code is the last line, so nothing above it moves");
+
+  // A blank or unaccepted code is not a code. Nothing is ever stamped on an order
+  // that did not use one, or the baker would be honouring a discount nobody took.
+  assert.equal(buildMessage(cfg, { ...base, promo: "" }), without);
+});
+
 test("waNumber strips +/spaces/dashes and adds the +60 country code to locals (store's own copy)", () => {
   assert.equal(waNumber("+60 12-345 6789"), "60123456789");
   assert.equal(waNumber("60123456789"), "60123456789");
@@ -536,6 +556,47 @@ test("mergeStorefront keeps well-formed occasions and drops the rest", () => {
   assert.deepEqual(mergeStorefront({ occasions: [good] }, { occasions: [] }).occasions, []);
   // A payload that says nothing about occasions leaves the key alone.
   assert.deepEqual(mergeStorefront({ occasions: [good] }, { name: "X" }).occasions, [good]);
+});
+
+// The promo codes the shop may judge. This row is the same world-readable one the
+// shop name and tagline come from, so the shop re-checks every code on its own
+// terms rather than trusting the payload it was handed (v269).
+test("mergeStorefront keeps codes it can read and drops the ones it cannot", () => {
+  const good = { code: "FRESH10", vis: "public", gives: { type: "rm", value: 10, cap: 0 } };
+  const out = mergeStorefront({}, { promoCodes: [good] });
+  assert.equal(out.promoCodes.length, 1);
+  assert.equal(out.promoCodes[0].code, "FRESH10");
+  assert.deepEqual(out.promoCodes[0].gives, { type: "rm", value: 10, cap: 0 });
+
+  for (const bad of [
+    { ...good, code: "" },                   // no name at all
+    { ...good, code: "AB" },                 // too short to read off a card
+    { ...good, code: "WAY-TOO-LONG-A-CODE" },
+    { ...good, code: "FRESH 10" },           // a customer cannot type a space
+    null, 7, {},
+  ]) {
+    assert.deepEqual(mergeStorefront({}, { promoCodes: [bad] }).promoCodes, [],
+      "a code the shop cannot read is never put in front of a customer");
+  }
+
+  // Whatever a code arrived as, the shop holds it in the one spelling it matches
+  // customers against — so the same code typed lower-case still works.
+  assert.equal(mergeStorefront({}, { promoCodes: [{ code: " fresh10 " }] }).promoCodes[0].code, "FRESH10");
+
+  // A half-written record is clamped to the full shape rather than drawn as-is:
+  // a code published before a rule family existed still works today.
+  const partial = mergeStorefront({}, { promoCodes: [{ code: "HALF1" }] }).promoCodes[0];
+  assert.equal(partial.state, "live");
+  assert.equal(partial.vis, "public");
+  assert.deepEqual(partial.often, { type: "unlimited", n: 0, maxRM: 0 });
+  assert.deepEqual(partial.when, { from: "", to: "" });
+
+  // Replaced wholesale, like the occasions above: the app publishes a complete
+  // snapshot, so an empty list really means "she has no codes" and a code box on
+  // an already-open page stops accepting the ones it was holding.
+  assert.deepEqual(mergeStorefront({ promoCodes: [{ code: "OLD1" }] }, { promoCodes: [] }).promoCodes, []);
+  // A payload that says nothing about codes leaves the key alone.
+  assert.equal(mergeStorefront({ promoCodes: [{ code: "OLD1" }] }, { name: "X" }).promoCodes[0].code, "OLD1");
 });
 
 test("mergeStorefront sorts occasions by start date and trims the label", () => {

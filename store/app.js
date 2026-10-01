@@ -18,6 +18,10 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+// The promo-code engine, shared with the backoffice so a code the shop accepts is
+// exactly a code her app recognises. It is a leaf module (imports nothing), which
+// is why the shop can take it without pulling the backoffice's storage in.
+import { codeNameOk, evaluate, minimumOf, normalizeCode, offerOf, stoppedBy } from "../admin/js/promo.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -48,6 +52,13 @@ function t(key) { return pick(STORE, loadLang(), key); }
 // re-fetch the menu, the slots and the storefront settings from Supabase (the
 // pause you feel on a phone). Null until render() has run.
 let repaintForLang = null;
+
+// Set from inside render() too: redraws the promo line and the code box's own
+// line. Needed because the published codes arrive ASYNCHRONOUSLY, after the page
+// has already drawn — the storefront row is fetched once at boot, and a customer
+// looking at the top of the page would otherwise never see the offer. Null until
+// render() has run.
+let repaintPromo = null;
 
 // Fill %1, %2, … placeholders left-to-right.
 function sub(s) {
@@ -172,6 +183,47 @@ function currentVia() {
     ? parseVia(location.search) : "";
 }
 
+// The `promo` query string on a printed card's link (?promo=FRESH10) is the code
+// the customer was handed. Read the one way the engine spells a code. A card
+// carries no number and no date, so the code is all it has to carry.
+export function parsePromo(search) {
+  return tidyCode(new URLSearchParams(String(search || "")).get("promo"));
+}
+
+function currentPromo() {
+  return (typeof location !== "undefined" && location.search)
+    ? parsePromo(location.search) : "";
+}
+
+// What the customer typed, cleaned the way the engine spells a code. Forgiving on
+// purpose: "fresh 10", "Fresh-10" and "FRESH10" are the same code to the shop,
+// because a customer reading a card off a phone should not lose a discount to a
+// space. The rules themselves stay strict — being relaxed about typing is the
+// shop's job, not the engine's.
+function tidyCode(t) {
+  return String(t || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+// The offer in words, built from the engine's PARTS rather than a sentence it
+// handed back — the engine answers in data (see js/promo.js), and every word the
+// customer reads is a translated string from store-lang.js.
+function offerWords(w) {
+  if (w.kind === "delivery") return t("promoFreeDelivery");
+  if (w.kind === "pct") {
+    const pct = sub(t("promoOffPercent"), w.value);
+    return w.cap > 0 ? sub(t("promoOffPercentCap"), pct, `RM${w.cap.toFixed(2)}`) : pct;
+  }
+  return sub(t("promoOffAmount"), `RM${w.value.toFixed(2)}`);
+}
+
+// The offer plus the smallest basket it works on, for the standing line and the
+// accepted box — so a code with a minimum never reads as though it has none.
+function clauseWords(code) {
+  const w = offerWords(offerOf(code));
+  const min = minimumOf(code);
+  return min > 0 ? sub(t("promoOnMin"), w, `RM${min.toFixed(2)}`) : w;
+}
+
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -267,6 +319,10 @@ export function buildMessage(cfg, order) {
   }
   if (order.customer) msg += `\n👤 ${order.customer}`;
   if (order.note) msg += `\n📝 ${order.note}`;
+  // The promo code the customer used, when they used one. Guarded, so an order
+  // without a code produces byte-for-byte the message this page has always
+  // produced — the bakery's own test asserts that message word for word.
+  if (order.promo) msg += `\n🎟 ${order.promo}`;
   return msg;
 }
 
@@ -412,6 +468,22 @@ export function mergeStorefront(base, remote) {
         }
         return row;
       });
+  }
+  // The promo codes the baker has published, judged by the SAME engine the code
+  // box uses (admin/js/promo.js) — so a code the page accepts is exactly a code
+  // that engine recognises, never two nearly-identical rules that can disagree.
+  //
+  // Replaced WHOLESALE, like the occasions and categories above: the app
+  // publishes a complete snapshot every time, so an empty list is a real
+  // instruction ("she deleted her last code") and has to clear the codes a code
+  // box on an already-open page would otherwise keep accepting. A row that is
+  // not a well-formed code is DROPPED rather than drawn, so a malformed one can
+  // never reach the page and never be offered to a customer.
+  if (Array.isArray(remote.promoCodes)) {
+    out.promoCodes = remote.promoCodes
+      .filter((c) => c && typeof c === "object" && codeNameOk(c.code))
+      .slice(0, 200)
+      .map(normalizeCode);
   }
   // The developer credit shown in the store footer (and on the homepage) — set
   // once in the app's Settings and republished. Hidden until both exist.
@@ -836,6 +908,119 @@ export function render() {
   // A product's date rules (closes X days before delivery / a from–to window)
   // compare each delivery date to today, so its reference is fixed at load.
   const todayKey = dateKey(new Date());
+
+  // ── Promo code ────────────────────────────────────────────────────────────
+  // The standing offer line above the menu, and the code box beside the referral
+  // banner. ONE judgement stands behind both — admin/js/promo.js — and the shop
+  // never takes money off the total: an accepted code is STATED, carried on the
+  // order, and the bakery subtracts it by hand in WhatsApp, exactly as she does
+  // for the bring-a-friend credit. So nothing here can refuse a sale: an order
+  // goes through with or without a code, and a code this page does not recognise
+  // is simply not stamped on it.
+  //
+  // Declared up here rather than beside the wiring below because renderBar() can
+  // run on the very first paint (reconcileCart fixes a cart the moment the
+  // availability data lands) and renderBar ends by repainting these lines.
+  let promoApplied = "";   // the accepted code, or "" — only this is stamped
+  let promoRefusal = null; // {key} of the last refusal, cleared on a good code
+
+  const promoInput = document.getElementById("promo-input");
+  const promoSay = document.getElementById("promo-say");
+  const promoToday = document.getElementById("promo-today");
+  const promoClear = document.getElementById("promo-clear");
+
+  // What the basket comes to right now. The same sum renderBar shows in the bar,
+  // asked separately because the promo lines need it whether or not the bar is
+  // being redrawn, and a percentage's money has to be worked out against it.
+  function cartTotal() {
+    let total = 0;
+    for (const [n, q] of cart) {
+      const p = CONFIG.products.find((x) => x.name === n);
+      if (p) total += q * p.price;
+    }
+    return total;
+  }
+
+  function publishedCodes() {
+    return Array.isArray(CONFIG.promoCodes) ? CONFIG.promoCodes : [];
+  }
+
+  // The code the shop is willing to ADVERTISE today: public, switched on, inside
+  // its dates, and not already given away. Asked through the engine's own
+  // stoppedBy, so the standing line and the code box can never disagree about
+  // what "still running" means. A personal code is never shown here — being
+  // unadvertised is the whole of what "personal" buys (see publishCodes).
+  function standingCode() {
+    const today = dateKey(new Date());
+    return publishedCodes().find((c) => c.vis === "public" && !stoppedBy(c, today)) || null;
+  }
+
+  function say(key, className, ...args) {
+    if (!promoSay) return;
+    promoSay.textContent = sub(t(key), ...args);
+    promoSay.className = `card-sub promo-say ${className}`;
+    promoSay.hidden = false;
+  }
+
+  // Redraw both lines. Called on every cart change (renderBar) because the basket
+  // is part of the judgement: a percentage's money moves with the total, and so
+  // does whether a minimum is met. Nothing here touches what the customer has
+  // typed into the box — only the line under it.
+  function paintPromo(total) {
+    const codes = publishedCodes();
+    const today = dateKey(new Date());
+
+    // An accepted code is re-judged every time, for the same reason. If it stops
+    // qualifying — she ended it while the page was open, or the basket fell below
+    // its minimum — it stops being applied, because the shop must never state a
+    // discount it can no longer honour. The order still goes through either way.
+    let offer = null;
+    if (promoApplied) {
+      const r = evaluate(codes, promoApplied, { today, total });
+      if (r.ok) offer = r.offer;
+      else { promoApplied = ""; promoRefusal = { key: "promoNo" }; }
+    }
+
+    if (promoToday) {
+      // The standing line stands down for a code the customer ACTUALLY GOT — one
+      // code per order, and the accepted line under the box is what says so.
+      //
+      // It stands down only then. A code the page REFUSED is not on the order, so
+      // nothing is being swapped and there is no second code to avoid offering —
+      // and taking the day's offer off the screen because the customer mistyped
+      // would hide a real sale behind their own typo. The refusal stays, and the
+      // standing line stays there to tell them the code they were looking for.
+      const c = promoApplied ? null : standingCode();
+      promoToday.hidden = !c;
+      promoToday.textContent = c ? sub(t("promoToday"), clauseWords(c), c.code) : "";
+    }
+    if (promoSay) promoSay.hidden = true;
+    if (promoApplied && offer) say("promoAccepted", "good", offerWords(offer), promoApplied);
+    else if (promoRefusal) say(promoRefusal.key, "bad");
+    if (promoClear) promoClear.hidden = !promoApplied;
+  }
+
+  function applyTyped() {
+    if (!promoInput) return;
+    const typed = tidyCode(promoInput.value);
+    const total = cartTotal();
+    if (!typed) {
+      promoApplied = ""; promoRefusal = null;
+    } else {
+      const r = evaluate(publishedCodes(), typed, { today: dateKey(new Date()), total });
+      if (r.ok && r.code) {
+        promoApplied = r.code.code;
+        promoRefusal = null;
+        promoInput.value = r.code.code; // shown back spelled as the engine knows it
+      } else {
+        promoApplied = "";
+        // "We don't know that code" is only ever said of a code we really do not
+        // know. Any other reason gets the plain one until it has its own wording.
+        promoRefusal = { key: r.fail === "unknown" ? "promoUnknown" : "promoNo" };
+      }
+    }
+    paintPromo(total);
+  }
 
   const renderMenu = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
@@ -1487,6 +1672,10 @@ export function render() {
           try {
             Object.assign(CONFIG, mergeStorefront(CONFIG, JSON.parse(cfgText)));
             renderStatic(CONFIG);
+            // The codes arrive with this row, long after the page first drew, so
+            // the standing line and any code already in the box are redrawn here
+            // rather than waiting for the customer to touch something.
+            if (repaintPromo) repaintPromo();
           } catch { /* corrupt config → keep the local one */ }
         }
       }
@@ -1542,6 +1731,10 @@ export function render() {
     document.getElementById("bar-total").textContent = `RM${total.toFixed(2)}`;
     document.getElementById("order-btn").textContent = t("placeOrder");
     document.getElementById("order-btn").disabled = count === 0;
+    // The promo lines ride on the same repaint, because the basket is part of
+    // their judgement: a percentage's money moves with the total, and so does
+    // whether a code's minimum is met.
+    paintPromo(total);
     return total;
   }
 
@@ -1625,6 +1818,12 @@ export function render() {
     // came through. The bakery decides (new vs repeat) and applies the discount.
     const via = currentVia();
     if (via) order.referredBy = via;
+    // The promo code the customer had ACCEPTED, when they had one. Only an
+    // accepted code is ever written — a code the page refused is not recorded,
+    // and never stopped the order. Written only when there is one, the same
+    // "absent means nothing" spelling as the referral stamp above, so an order
+    // placed without a code posts the payload this page has always posted.
+    if (promoApplied) order.promo = promoApplied;
     // A value pack draws its base out of the shared pool in whole pieces, but
     // the pack itself is already one top-level `lines` entry — so the base
     // pieces it consumes travel here, separate from `lines`. The database
@@ -1717,7 +1916,31 @@ export function render() {
     }
   };
 
+  // The promo box's own wiring. Bound here rather than beside the state above so
+  // the listeners are attached once, after the page has drawn.
+  if (promoInput) {
+    promoInput.addEventListener("input", () => { promoRefusal = null; paintPromo(cartTotal()); });
+    promoInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); applyTyped(); }
+    });
+  }
+  const promoBtn = document.getElementById("promo-apply");
+  if (promoBtn) promoBtn.addEventListener("click", applyTyped);
+  if (promoClear) promoClear.addEventListener("click", () => {
+    promoApplied = ""; promoRefusal = null;
+    if (promoInput) promoInput.value = "";
+    paintPromo(cartTotal());
+  });
+  repaintPromo = () => paintPromo(cartTotal());
+
   renderBar();
+
+  // A card's own link (?promo=FRESH10) arrives with the code already in it, so
+  // the customer never has to retype what they were handed. Read once, at boot.
+  if (promoInput && currentPromo()) {
+    promoInput.value = currentPromo();
+    applyTyped();
+  }
 
   // What a language switch repaints, in place. Nothing here re-reads the
   // network: the tagged static HTML and the title (applyTo), the header + info

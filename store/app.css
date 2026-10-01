@@ -1152,3 +1152,72 @@ button.prod-next.off::after { content: ""; }
   line-height: 1.45;
   text-align: center;
 }
+
+/* ---------- Promo code (v269) ---------- */
+
+/* The standing offer, at the top of the shop. A STATEMENT of what is on right
+   now, not a control, so it wears the referral strip's shape. Amber rather than
+   green: green is already the referral's "you were given something", and a
+   referred customer can see both strips at once. */
+.promo-today {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fdf3e3;
+  border: 1px solid #f0dcb8;
+  color: #8a5a12;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.promo-box { margin: 0 0 16px; }
+.promo-box .field { margin-bottom: 0; }
+
+/* The box and its button on one line, the box taking whatever room is left so a
+   long code is never clipped off the right. */
+.promo-row { display: flex; gap: 8px; align-items: stretch; }
+.promo-row .input { flex: 1 1 auto; min-width: 0; text-transform: uppercase; }
+.promo-apply {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--brown);
+  border-radius: 12px;
+  background: var(--brown);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.promo-apply:active { transform: translateY(1px); }
+
+/* The answer under the box. Green when the code is on, the brand red when it is
+   not — the same yes/no pairing the referral strip and the suggestion box use,
+   so "no" reads as "no" at a glance instead of having to be read out. */
+.promo-say.good { color: #2f6b2f; font-weight: 600; }
+.promo-say.bad { color: var(--brown); }
+
+/* Removing a code is a quiet undo, not a second action, so it is a text link at
+   the same 36px target as the per-item note's. */
+.promo-clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0;
+  margin-top: 2px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--brown-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* `hidden` has to win here. A rule of ours that sets `display` beats the browser's
+   own rule for [hidden], so without this the Remove link is drawn on a page where
+   no code has been used — a control offering to remove nothing. */
+.promo-clear[hidden] { display: none; }

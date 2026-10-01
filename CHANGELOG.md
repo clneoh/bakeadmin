@@ -1,8 +1,56 @@
-# Jienluv2bake — change history (v54 → v268)
+# Jienluv2bake — change history (v54 → v269)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v269, PROMO CODES, THE FIRST SLICE (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**What is new for you.** A new screen, **Promo codes**, at the bottom of the
+**More** menu. You make a code there: the code itself, what it gives, and
+whether the shop may show it to everybody or you are giving it to one person.
+Three kinds of offer are in this first version — a ringgit amount off, a
+percentage off, or free delivery.
+
+**What is new for your customers.** The shop page has a **Have a code?** box. A
+customer types the code and presses **Use it**. If it is a code you made, the
+page says what it gives and tells them you will take it off when you confirm the
+order. If it is not, the page says it does not know that code. And when you are
+running a code the shop may show, the top of the page carries a line naming it —
+for example __Today: RM10.00 off, use code FRESH10__ — so a customer who was told
+about the code knows exactly what to type.
+
+**The most important thing about it.** The total on the shop page NEVER moves. A
+code does not change what the customer is charged or what the page adds up. The
+customer types the code, the code arrives on the order, and you take the money
+off by hand in WhatsApp exactly as you already do for the bring-a-friend credit.
+That is deliberate: the code is a note that travels with the order, not a
+machine that edits your prices.
+
+**What comes with the order.** An order that used a code carries that code into
+your app, so you can see at a glance which order had which code on it. An order
+that used no code, or one the page refused, is posted exactly as orders have
+always been posted — nothing is added to it. A code you made on one phone also
+reaches your other phone, so a card you hand out works whichever phone is in
+your hand.
+
+**One thing worth knowing about "personal" codes.** A code marked personal is
+never shown on the shop page and never advertised. It still works when it is
+typed, which is the whole point of giving it to one person. But the shop's own
+data is readable by anyone who looks at the page, so personal means __never shown__
+and not __secret__. The real limits on a code will be the ceiling and your own
+hand-marking, which arrive in the next slices.
+
+**What is not in this version yet.** This first slice is one code working all the
+way through. The finer rules — when a code starts and ends, the smallest basket
+it works on, how many times it may be used, who it is for, and the ringgit
+ceiling — are in the next slices, along with pausing, ending and printing the
+card. None of them is needed for a code to work today.
+
+**What did not change.** Not one existing order, product, price, customer or
+setting was touched, and the message an order without a code sends is byte for
+byte the message it has always sent.
 
 **02 Oct 2026 — three of the reference documents were losing the end of their
 lines (no new engine; your phones did not change).** Three of the printed
