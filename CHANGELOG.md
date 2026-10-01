@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v260)
+# Jienluv2bake — change history (v54 → v261)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v261, EVERY CALENDAR NOW GREYS OUT THE PAST THE SAME WAY YOUR SHOP
+DOES (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked.** "Is all calendar passed day grey out same thru all calendar? I like the one
+at store."
+
+**It was not.** On the Orders calendar a day that had gone by came out in **two different greys
+side by side in the same row** — one shade for the days you deliver, and a slightly different
+one for the days you do not. On the other calendars there was only one grey, but it was the
+app's own faded grey, not the shop's. The shop's is the one you picked.
+
+**What changed on screen.** A day already gone is now drawn in the shop's own quiet grey, **flat
+and one shade, whether or not you deliver that day.** That covers the Orders calendar at the top
+of the Orders screen, the calendar inside **Delivery Dates**, the small calendar you open when
+you pick a delivery day, and the days you mark on a product's availability — they all now use
+the one colour, so a past day looks the same wherever you meet it. Nothing ahead of today is
+touched — a day still to come looks exactly as it did.
+
+**What deliberately did NOT go grey.** Anything on a past day that is telling you something
+keeps its own colour, because greying it out would hide a fact you are looking at. So on a day
+that has gone by, the **green pill** on one of your delivery days stays green, and so does the
+**green tint** on a day a product sells. Greying those would have made a past delivery day look
+like a day you do not deliver, which is the opposite of useful.
+
+**The day you are looking at still turns brown.** That has not changed anywhere — so on the
+Orders calendar you can still tell at a glance which day is open in front of you, and it stays
+plainly different from the days that have simply gone by.
+
+**Why it is safe to be this quiet.** The store calendar's grey is deliberately faint but
+legible, so a day that has gone still reads as a day rather than a hole in the week. That
+reasoning is the shop's, and it now holds here too.
+
+**Nothing else moved.** No number, price, booking count or order changed. The database was not
+touched, and there is nothing to upload — this is the app's own pictures of its calendars.
 
 **01 Oct 2026 — engine v260, YOUR MAILS NOW COME FROM YOUR BAKERY, NOT FROM THE APP (two
 functions must be uploaded — pushing alone does not change this one).**

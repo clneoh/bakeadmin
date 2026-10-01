@@ -2125,7 +2125,6 @@ option.tone-off { color: var(--muted); }
 .cal-cell.tappable { cursor: pointer; }
 .cal-cell.tappable:active { background: var(--gray-bg); }
 .cal-cell.sel { background: var(--brown); color: #fff; font-weight: 700; }
-.cal-cell.past { color: var(--muted); opacity: .5; }
 /* Today is not a box. A hard 1.5px outline read as a second, smaller square inside
    the cell, so today breathes instead — a soft halo in the brand colour. A day
    with its own fill (a delivery pill, a chosen day) keeps that fill instead; an
@@ -2181,6 +2180,20 @@ option.tone-off { color: var(--muted); }
   margin: 0 0 10px;
 }
 .cal-cell.off { color: var(--muted); opacity: .6; }
+/* A day already gone wears the SHOP's past grey, flat and one shade. It used to be
+   a half-transparent --muted here, and a past day that was ALSO a day she does not
+   deliver carried only .off — a different grey at .6 — so the past came out in two
+   shades side by side in the same grid. The colour is the store calendar's own
+   (#ded6cd on store/app.css's .cal-cell.past; both apps share --bg #fbf4ea, so it
+   lands identically), and test/orders-cal.test.js reads it from there rather than
+   repeating it, so the two can never drift apart.
+   Declared BELOW .off on purpose: both selectors are two classes, so source order
+   is the only thing that lets a past day win the tie and take this colour instead.
+   A fill that MEANS something still keeps its own colour — the green pill on one
+   of her delivery dates (.added .num wins on specificity) and the green tint on a
+   day a product sells (.avail-on is declared further down and so wins on order) —
+   because those answer a question the screen is asking. */
+.cal-cell.past { color: #ded6cd; }
 /* Every day here is one height. A delivery day is taller because its booking count
    sits under the number, and a plain day left at the app's usual 34px held its
    number — and any mark washed behind it — 6px higher than the delivery days beside

@@ -14,6 +14,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 function createEl(tag) {
   return {
@@ -329,4 +332,65 @@ test("a screen with no delivery days at all still draws today, and offers no arr
   assert.equal(arrows(cal)[0].tagName, "SPAN", "with nowhere back");
   assert.equal(arrows(cal)[1].tagName, "SPAN", "and nowhere forward");
   assert.ok(dayCell(cal, 10).className.includes("today"), "and today is still marked");
+});
+
+// ── the past is ONE grey, the shop's own ─────────────────────────────────────
+//
+// The baker asked for the store calendar's look on every admin calendar: one
+// shade for every day already gone, whether or not the bakery delivers that day.
+// The admin grid used to answer that in two ways — .off (a half-transparent
+// --muted) for a day she does not deliver and .past (a half-transparent --muted
+// too, but at a different opacity) for a day she does — so the past came out in
+// two shades side by side in the same row. Now every past day takes `past`, and
+// `past` is the shop's flat colour.
+
+test("every past day wears `past`, delivered or not; a future quiet day does not", () => {
+  const cal = build();
+
+  // 5 Sep is behind us and is not one of the bakery's delivery days. It used to
+  // carry only `off`, at a different opacity from the past days around it.
+  const quietPast = dayCell(cal, 5);
+  assert.ok(quietPast.className.includes("past"), "a past day she does not deliver is `past` too");
+  assert.ok(quietPast.className.includes("off"), "…and keeps `off`: it is still not a delivery day");
+
+  // 2 Sep is behind us and IS delivered — it was the only kind that looked right.
+  const delivPast = dayCell(cal, 2);
+  assert.ok(delivPast.className.includes("past"), "a past delivery day is `past`");
+  assert.ok(!delivPast.className.includes("off"), "…and is not a quiet day");
+
+  // 16 Sep is ahead of us and not delivered: the past mark must not leak forward.
+  const futureQuiet = dayCell(cal, 16);
+  assert.ok(futureQuiet.className.includes("off"), "a future day she does not deliver is `off`");
+  assert.ok(!futureQuiet.className.includes("past"), "…and is NOT `past` — nothing ahead of today is");
+});
+
+// The colour is read out of each stylesheet rather than repeated here, so the
+// admin grid and the shop can never drift to two different greys without this
+// failing. Same idiom as the email sender name in test/email-sender-name.test.js.
+const ruleBody = (css, selector) => {
+  const at = css.indexOf(`${selector} {`);
+  assert.notEqual(at, -1, `${selector} must exist`);
+  const from = at + selector.length;
+  return css.slice(css.indexOf("{", from) + 1, css.indexOf("}", from));
+};
+const colorOf = (body) => (body.match(/color\s*:\s*([^;]+)/) || [])[1]?.trim();
+
+test("the admin past grey IS the shop's past grey, flat, and declared after .off", () => {
+  const admin = read("admin/css/app.css");
+  const shop = read("store/app.css");
+
+  const shopPast = colorOf(ruleBody(shop, ".cal-cell.past"));
+  const adminPast = colorOf(ruleBody(admin, ".cal-cell.past"));
+  assert.ok(shopPast, "the shop declares a past colour to copy");
+  assert.equal(adminPast, shopPast, "the admin past grey is the shop's own colour, not a lookalike");
+
+  // Flat: the shop fades nothing, and neither may the admin — an opacity here is
+  // what made the past read as two greys depending on whether she delivers.
+  assert.equal(/opacity\s*:/.test(ruleBody(admin, ".cal-cell.past")), false,
+    "the admin past rule carries no opacity — the colour is the whole of it");
+
+  // Both selectors are two classes (0,2,0), so source order alone decides which
+  // one a past non-delivery day gets. Below .off is what makes `past` win.
+  assert.ok(admin.indexOf(".cal-cell.past {") > admin.indexOf(".cal-cell.off {"),
+    "`.cal-cell.past` is declared after `.cal-cell.off`, or a past quiet day keeps the wrong grey");
 });

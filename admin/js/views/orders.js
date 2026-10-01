@@ -580,7 +580,11 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
       // she does not deliver would be the one day on the grid with no way to be
       // read (the customer's shop page names that day too).
       if (!dateId) {
-        const cls = `cal-cell off${iso === today ? " today" : ""}${box}`;
+        // A day already gone takes `past` on top of `off`, so the whole past — the
+        // days she delivers and the days she does not — is the shop's one grey.
+        // Without this the past came out in two shades: .off at .6 for the days she
+        // does not deliver, .past for the days she does.
+        const cls = `cal-cell off${past ? " past" : ""}${iso === today ? " today" : ""}${box}`;
         // A day already gone is asked nothing: there is nothing left to add to it,
         // and the past is reviewed in the list below, not on the grid.
         const askable = noteMisses && !past;
