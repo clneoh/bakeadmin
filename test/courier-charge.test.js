@@ -25,8 +25,14 @@ const { todayISO } = await import("../admin/js/dates.js");
 
 // One customer order of two Focaccia at RM15 — sold at a frozen price, the way a
 // real order carries what it was sold for.
+//
+// `fulfillment: "courier"` is here because a charge only ever means anything on an order
+// a courier is carrying (1 Oct 2026). Every fixture in this file is a delivery, and before
+// v267 the file simply left the field off — which is exactly the shape that let a charge
+// go on meaning something on an order that had stopped being a courier one.
 const orders = (extra = {}) => ([
   { id: "ordabc123", groupId: "ordgabc123", deliveryDateId: "d18", deliveryDate: "2026-09-18",
+    fulfillment: "courier",
     productId: "p1", qty: 2, productName: "Focaccia", unitPrice: 15, status: "ready", ...extra },
 ]);
 
@@ -56,10 +62,48 @@ test("the charge and its payer are read the house way — absent means not recor
 });
 
 test("what the customer owes on top of the items — nothing unless they bear it", () => {
-  assert.equal(customerCourierFee({ courierFee: 8, courierPaidBy: "customer" }), 8);
-  assert.equal(customerCourierFee({ courierFee: 8, courierPaidBy: "me" }), 0,
+  assert.equal(customerCourierFee({ courierFee: 8, courierPaidBy: "customer", fulfillment: "courier" }), 8);
+  assert.equal(customerCourierFee({ courierFee: 8, courierPaidBy: "me", fulfillment: "courier" }), 0,
     "a charge she pays is her own cost and must never reach the customer's total");
-  assert.equal(customerCourierFee({ courierFee: 8 }), 0, "no payer recorded, no charge to them");
+  assert.equal(customerCourierFee({ courierFee: 8, fulfillment: "courier" }), 0,
+    "no payer recorded, no charge to them");
+});
+
+// Her report on the morning of 1 Oct 2026, twice and in two places: "when i schange the
+// courier delivery to self pickup, the courier chages tag still there" and "confirmation
+// message still include courier charges".
+//
+// Switching an order to self collect does NOT clear the three keys — she may switch back,
+// and re-typing a fee is not something an app should ask of her — so the charge outlives
+// the fulfilment it was recorded for and every reader has to ask whether the order is
+// still a courier one. Before v267 none of them did: the charge still came off the
+// customer's total in the confirmation, in every later message and on the track card, and
+// still wore a "Courier RM8.00 · customer" tag on a row that read "Self collect".
+test("a charge on an order that is NOT going by courier is nothing, wherever it is read", () => {
+  const parked = { courierFee: 8, courierPaidBy: "customer", fulfillment: "collect" };
+  assert.equal(customerCourierFee(parked), 0, "not on the customer's total");
+  assert.equal(customerCourierFee({ ...parked, courierCod: true }), 0,
+    "and not COD money either — the charge's own COD flag is left alone on the order, but"
+    + " there is no courier to collect it at the door, so none of it is asked for");
+  assert.equal(customerCourierFee({ courierFee: 8, courierPaidBy: "customer" }), 0,
+    "an order with no fulfillment at all reads as not a courier one — the same way its own"
+    + " tag has always read it, so a charge and the tag beside it can never disagree");
+
+  // The whole customer's total, and the three messages built off it, on a self-collect
+  // order that still carries the charge it was sold with.
+  const st = state();
+  Object.assign(st.orders[0], { courierFee: 8, courierPaidBy: "customer", fulfillment: "collect" });
+  const g = groupOf(st);
+  assert.deepEqual(customerTotal(st, g), { items: 30, courier: 0, cod: 0, total: 30 },
+    "the items alone — the courier is not carrying anything");
+  assert.ok(!buildConfirmation(st, g, "https://x/track").message.includes("Courier charge"),
+    "and the confirmation does not name a charge that is not being asked for");
+  assert.ok(buildConfirmation(st, g, "https://x/track").message.includes("Items total: RM 30.00"),
+    "the subtotal still prints — a plain order reads Items total then Total, two lines that agree");
+
+  // Her books agree with the customer's: nothing still to collect for a charge nobody is
+  // collecting. An order that was never a courier one is untouched either way.
+  assert.equal(st.orders[0].courierFee, 8, "the keys are NOT cleared — the record survives the switch");
 });
 
 // ── the expense row ────────────────────────────────────────────────────────
@@ -353,7 +397,12 @@ test("COD is read the house way — a lone flag on no charge is not COD", () => 
     "absent means with the order — the behaviour every charge recorded before this existed already had");
   assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: "true" }), false,
     "only the boolean true counts; a truthy string is a stored accident, not a decision");
-  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: true }), true);
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: true, fulfillment: "courier" }), true);
+  assert.equal(courierCodOf({ courierFee: 8, courierPaidBy: "customer", courierCod: true, fulfillment: "collect" }), true,
+    "and the charge's OWN settlement is still COD on a self collect — this reads the charge,"
+    + " not the order. It is customerCourierFee that asks whether a courier is carrying it, and"
+    + " a gate here instead would make the Edit form's COD box read off and delete the tick on"
+    + " the next Save, losing a record it had no reason to touch (1 Oct 2026)");
 });
 
 test("a COD charge is split OUT of the advance total, not folded into it", () => {

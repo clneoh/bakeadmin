@@ -53,6 +53,28 @@ export function courierPayerOf(first) {
   return who === "customer" || who === "me" ? who : "";
 }
 
+// Is this order going by courier at all? (1 Oct 2026.)
+//
+// A charge only ever means something on an order a courier is carrying, and this is
+// the ONE fact the three charge keys cannot supply on their own. Switching an order to
+// self collect does NOT clear them — deliberately: she may switch back, and re-typing a
+// fee is not something an app should ask of her — so the stored keys outlive the
+// fulfilment they were recorded for.
+//
+// Every reader of the customer's money therefore asks this first. Without it a
+// self-collect order still tagged its own row "Courier RM8.00 · customer" AND still
+// added the charge to what the customer was asked for, in the confirmation, every
+// WhatsApp message and the track card. Two of those were her reports on the same
+// morning: "when i schange the courier delivery to self pickup, the courier chages tag
+// still there" and "confirmation message still include courier charges".
+//
+// Strict, and that is the point: it reads the same way the row's own fulfilment tag has
+// always read it (`first.fulfillment === "courier"`), so a charge and the tag beside it
+// can never disagree about what the order is.
+export function isCourierOrder(first) {
+  return !!(first && first.fulfillment === "courier");
+}
+
 // Is this charge COD — handed to the courier at the door rather than paid with the
 // order? (19 Sep 2026.)
 //
@@ -61,15 +83,24 @@ export function courierPayerOf(first) {
 // amount says nothing about who owes what, and reading it as COD would take a charge
 // out of a total that never had one. Absent means "with the order" — the behaviour
 // every charge recorded before this existed already had, so nothing changes meaning.
+// It deliberately does NOT ask isCourierOrder, and that is the one place the two differ.
+// This answers "is this charge settled at the door", which is a fact about the charge and
+// stays true however the order leaves — while `customerCourierFee` below is the only
+// reader that turns it into money, and that one does ask. Gating here instead would make
+// the Edit form's COD box read OFF on a self-collect order, so the next Save would delete
+// the tick as though she had unticked it, and switching the order back to a courier would
+// not bring it back. The money is identical either way; only her record would differ.
 export function courierCodOf(first) {
   return courierPayerOf(first) === "customer" && courierFeeOf(first) > 0
     && !!(first && first.courierCod === true);
 }
 
 // What the customer owes on top of the items. Nothing unless they bear it — a
-// charge she pays is her own cost and must never turn up on their total.
+// charge she pays is her own cost and must never turn up on their total. And nothing at
+// all on an order that is not going by courier — see isCourierOrder.
 export function customerCourierFee(first) {
-  return courierPayerOf(first) === "customer" ? courierFeeOf(first) : 0;
+  return !isCourierOrder(first) ? 0
+    : courierPayerOf(first) === "customer" ? courierFeeOf(first) : 0;
 }
 
 // The customer's total, in its parts, so that everyone who shows it can show the

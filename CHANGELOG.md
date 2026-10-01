@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v266)
+# Jienluv2bake — change history (v54 → v267)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v267, A COURIER CHARGE GOES QUIET WHILE THE ORDER IS A SELF COLLECT (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "when i schange the courier delivery to self pickup, the courier chages tag
+still there, just wondering are details well taken care of?" — and then, a moment later,
+"confirmation message still include courier charges".
+
+**What was happening.** You were right on both counts, and they were the same fault. Switching an order
+from **Courier delivery** to **Self collect** never deleted the courier charge, on purpose — you
+might switch back, and an app should not ask you to type a fee over again. But nothing on the
+reading side ever asked whether the order was still going by courier. So a self-collect order went
+on wearing a **Courier RM 8.00 · customer** tag on its row, went on adding that RM8 into the
+customer's total in the **confirmation message you send**, in **every WhatsApp message** and on the
+customer's **track card**, and went on being counted in **still to collect** on the Money screen.
+
+**What changed on screen.** An order that is a **Self collect** now carries nothing for a courier
+to charge for: no tag on the row, and no courier charge in the customer's total anywhere — the
+confirmation, the messages, the track card and the Money screen all read the items and nothing
+else.
+
+**The charge is parked, not thrown away.** It is still written on the order, so switching
+**Fulfillment** back to **Courier delivery** brings the whole thing back exactly as it was, tag
+and all, with nothing to type again. Parking is not hiding either: both courier charge cards — the
+one under **Edit** and the one under **Note / tracking** — say in words that a charge of RM 8.00 is
+recorded on this order from when it was a courier delivery, that it is not added to the customer's
+total and not on any message while the order is a self collect, and that **switch Fulfillment back
+to Courier delivery** is how it goes back to work. The charge box stays right there under that
+sentence, so clearing it is still the same gesture it always was — set **who paid the courier** back
+to **Not recorded** and save.
+
+**One thing that is deliberately left standing.** If the charge was one **you** paid, the
+**Delivery & fuel** row it put on your books is still there while the order is a self collect. That
+is your cost, not the customer's, and nothing about a fulfilment switch makes it untrue — so the
+parked note says so, and names the Money screen as the place to take it out if the courier was
+never actually paid.
+
+**What did not change.** The charge box on an order that is going by courier, the words it says,
+the COD tick, and the guard that refuses a save when there is an amount in the box with nobody down
+as the payer. That guard now asks on a self-collect order too, because it can only ever speak when
+the box is on screen with an amount in it — so it never refuses a save over something you cannot
+see, and no save can answer "Order updated" for a write it did not make.
 
 **01 Oct 2026 — engine v266, A BUTTON NOW SAYS WHAT HAPPENS IF YOU PRESS IT — AND WHAT HAPPENS IF
 YOU DON'T (no database step, nothing to upload — pushing this one is the whole of it).**
