@@ -1180,6 +1180,96 @@ test("a second lookup that finds nothing takes the first one's matches off the c
   assert.deepEqual(stray, []);
 });
 
+// ── a tap on the picker's map moves nothing (v264, 1 Oct 2026) ─────────────
+//
+// Her words: "click on the map should not move the pin, only dragging the pin will." The
+// picker was the one card where a tap was live from the moment the map arrived — no unlock,
+// nothing to press first — and it did TWO things at once: it put the pin wherever the finger
+// landed and pulled the view onto it. Two answers to one accidental contact with a 200px
+// strip inside a card she scrolls, on a card whose own line already promises the drag
+// ("Look the address up, then drag the pin to the exact door").
+//
+// Driven through the recorded Leaflet rather than read off the source, and on the DRAWN
+// card's own words — `Pinned at …` is what tells the truth about where the window thinks it
+// is standing, and it is the line she reads.
+//
+// Long enough for the loader's microtask, the map's own build and the rAF that measures the
+// box — the same wait the door block below uses, spelled out here rather than reaching for
+// the later `settle` so that this section reads on its own.
+const mapSettle = async (rounds = 4) => {
+  for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 1));
+};
+
+test("a tap on the picker's map does not move a pin that is already there (v264)", async () => {
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let close = null;
+  let stray = null;
+  try {
+    close = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep", address: "12 Jalan Bunga, 10450 Penang",
+      start: { lat: 5.4299, lng: 100.3399, label: "Sri Bunga guard house" },
+      onPick: () => {},
+    });
+    await mapSettle();
+    const map = leaf.rec.maps[0];
+    const marker = leaf.rec.markers[0];
+    const body = popupBody();
+    assert.ok(map && marker, "the card is standing on the door it was opened on");
+    assert.match(body.textContent, /Pinned at 5\.42990, 100\.33990/, "and says which point that is");
+
+    map.handlers.click({ latlng: { lat: 5.4172, lng: 100.3311 } });
+    assert.deepEqual({ lat: marker.latlng.lat, lng: marker.latlng.lng }, { lat: 5.4299, lng: 100.3399 },
+      "a tap leaves the pin exactly where it was");
+    assert.match(body.textContent, /Pinned at 5\.42990, 100\.33990/,
+      "and the card still says so, rather than naming a point the pin is not on");
+    assert.doesNotMatch(body.textContent, /5\.41720/,
+      "the tap's own numbers reach nothing — not the line, not the pin");
+
+    // The other half: the drag is what moves it, and it is the ONLY thing that does.
+    marker.handlers.dragend({ target: { getLatLng: () => ({ lat: 5.4172, lng: 100.3311 }) } });
+    assert.match(body.textContent, /Pinned at 5\.41720, 100\.33110/,
+      "dragging the pin is the way, and it still moves the pin and the line together");
+    stray = strayObjects(body);
+  } finally {
+    if (close) close();
+    delete globalThis.window.L;
+  }
+  assert.deepEqual(stray, []);
+});
+
+test("a tap on the picker's map still places the FIRST pin, when the map has none (v264)", async () => {
+  // Not an exception to her rule, and worth its own test because it is the case the picker
+  // is mostly opened in: an order with no point at all, so no marker, so nothing to drag.
+  // A tap there cannot MOVE a pin — there is none — it places the first one.
+  const leaf = makeLeaflet();
+  globalThis.window.L = leaf.L;
+  let close = null;
+  try {
+    close = openPlacePicker({
+      state: courierState(), title: "Mei Ling's doorstep", address: "12 Jalan Bunga, 10450 Penang",
+      onPick: () => {},
+    });
+    await mapSettle();
+    const map = leaf.rec.maps[0];
+    const body = popupBody();
+    assert.equal(leaf.rec.markers.length, 0, "the card opens with nothing pinned");
+    assert.match(body.textContent, /No spot chosen yet/, "and says so");
+
+    map.handlers.click({ latlng: { lat: 5.4172, lng: 100.3311 } });
+    assert.match(body.textContent, /Pinned at 5\.41720, 100\.33110/, "the tap places the first point");
+    assert.equal(leaf.rec.markers.length, 1, "and draws the pin that goes with it");
+    assert.equal(buttonByText(body, "Use this spot").disabled, false, "so the press that keeps it is live");
+
+    map.handlers.click({ latlng: { lat: 5.6, lng: 100.5 } });
+    assert.match(body.textContent, /Pinned at 5\.41720, 100\.33110/,
+      "and the very next tap moves nothing, because now there is a pin for the rule to protect");
+  } finally {
+    if (close) close();
+    delete globalThis.window.L;
+  }
+});
+
 // ── the door the driver is sent to (v201, 26 Sep 2026) ────────────────────
 //
 // Her report: "there is no customer enter address in the form, so there is no way we can
@@ -1972,8 +2062,9 @@ test("the map is read-only until she presses Move this pin (v201)", async () => 
   const leaf = makeLeaflet();
   globalThis.window.L = leaf.L;
   let mounted = null;
+  const st = courierState();
   try {
-    mounted = mountDoor(courierState(), withDoor());
+    mounted = mountDoor(st, withDoor());
     await settle(4);
     const map = leaf.rec.maps[0];
     const mk = leaf.rec.markers[0];
@@ -2005,7 +2096,17 @@ test("the map is read-only until she presses Move this pin (v201)", async () => 
     assert.equal(map.dragging.on, true, "pressing it turns the map's drag on");
     assert.equal(map.touchZoom.on, true, "and the pinch was already on, because the lock never covered it");
     assert.equal(mk.dragging.on, true, "and the pin's own drag");
-    assert.equal(typeof map.handlers.click, "function", "and a tap becomes a way to place the pin");
+    // THE TAP IS NOT PART OF WHAT UNLOCKING BUYS HER (v264). "Click on the map should not move
+    // the pin, only dragging the pin will." This card's map always carries a pin, so the
+    // handler answers nothing — driven here rather than merely read, because a handler that is
+    // registered and does nothing is exactly what a test with no press would call correct.
+    const pinBefore = { lat: mk.latlng.lat, lng: mk.latlng.lng };
+    const wordsBefore = mounted.doorSlot.textContent;
+    map.handlers.click({ latlng: { lat: 5.4172, lng: 100.3311 } });
+    assert.deepEqual({ lat: mk.latlng.lat, lng: mk.latlng.lng }, pinBefore,
+      "an unlocked tap leaves the pin exactly where it was");
+    assert.equal(mounted.doorSlot.textContent, wordsBefore,
+      "and writes nothing — the door the driver is sent to is the same one it named before the tap");
     assert.equal(box.style.touchAction, "none", "the unlocked map takes the gesture for itself, like the picker's");
 
     buttonByText(mounted.doorSlot, "Done moving")._listeners.click[0]();
@@ -2013,7 +2114,7 @@ test("the map is read-only until she presses Move this pin (v201)", async () => 
     assert.equal(mk.dragging.on, false, "and the pin");
     assert.equal(map.touchZoom.on, true, "but NOT the zoom — a lock that took the pinch away with it is the fault v238 fixed");
     assert.equal(map.doubleClickZoom.on, true, "the double-tap stays live with it");
-    assert.equal(map.handlers.click, undefined, "and takes the tap-to-place away with it");
+    assert.equal(map.handlers.click, undefined, "and takes the tap off the map with it, as it has since v201");
     assert.equal(box.style.touchAction, "pan-y", "giving the card its scroll back");
   } finally {
     closeDoor(mounted);

@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v263)
+# Jienluv2bake — change history (v54 → v264)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v264, A TAP ON THE MAP DOES NOT MOVE THE PIN (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "click on the map should not move the pin, only dragging the pin will"
+
+**What changed on screen.** A tap on the map no longer moves the pin. Only dragging the pin
+itself moves it. This is true of both maps you use to place a pin: the pin map in the order
+form (the one behind **Move this pin** and **Done moving**), and the pin window that opens
+when you set a doorstep or the bakery's pickup pin.
+
+**Why it matters on a phone.** That map is a 200-pixel strip inside a card you scroll. Before
+this, any accidental touch on it moved the pin to wherever your finger landed **and** pulled
+the map onto that spot — two things at once, from one touch you did not mean. The pin window
+even said so in its own words all along: __"Look the address up, then drag the pin to the exact
+door."__ Dragging is what it promised, and dragging is now the only thing that moves it.
+
+**The one place a tap still works, and why it is not an exception.** A map with **nothing on
+it yet** has no pin to move and nothing to drag — so there, a tap places the first pin. That is
+the state the pin window opens in when an order has no point at all, and taking that ability
+away would leave you with a map that does nothing. Once a pin exists, a tap does nothing at all.
+
+**What did NOT change.** Looking the address up, the list of other matches, pasting a
+Google Maps link or a pair of numbers, pressing **Use this spot**, and the **Move this pin**
+button all work exactly as before. So does zooming — the plus and minus, the two-finger pinch
+and the double-tap.
+
+**What was deliberately left alone.** The shop's own map, the one your customer uses at
+checkout, is untouched. For a customer the map is often the only way to place their pin at all
+(they have no coordinate box and no list of matches), and a map a customer can only aim at by
+dragging a small marker with a thumb is the one thing that would make them give up. If you want
+that map changed too, say so — it is a one-line change.
 
 **01 Oct 2026 — engine v263, A DAY YOU DO NOT DELIVER IS DARKER STILL (no database step,
 nothing to upload — pushing this one is the whole of it).**
