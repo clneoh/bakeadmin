@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v259)
+# Jienluv2bake — change history (v54 → v260)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v260, YOUR MAILS NOW COME FROM YOUR BAKERY, NOT FROM THE APP (two
+functions must be uploaded — pushing alone does not change this one).**
+
+**What a customer saw.** The two mails this system sends — the wish-list mail you send out, and
+a customer's suggestion coming back to you from the shop page — each arrived with a person's
+name at the top of the inbox list. That name read **"BakeAdmin wishes"**. **BakeAdmin is the
+app's own internal name.** It is a word that appears nowhere on your homepage, nowhere in your
+shop, and on no label you print. It was the first thing a customer read from you, before they
+opened anything.
+
+**What they see now.** **Jien Luv 2 Bake** — your own name, taken from your homepage title, which
+is where your brand is written down. The address the mail is actually sent from has not moved:
+it is the same verified address as before, and only the name in front of it changed.
+
+**One thing to check, because it can silently win.** If the project has a saved setting called
+`RESEND_FROM`, that setting is used **instead of** the name in the code, and this change would
+make no difference to what a customer sees. Run `supabase secrets list` in **Terminal** to see
+whether it is set. If it is there, tell me, and I will give you the one command to set it to your
+name. If it is not listed, nothing further is needed.
+
+**Why pushing this one is not enough.** These two mails are sent by the two functions that live
+in Supabase, not by the app on your phone. Uploading the code — a push — leaves Supabase running
+the old copy. **Both functions must be uploaded separately**, from the repository folder, in
+**Terminal**: `wish-mail` and `shop-feedback`. The changelog cannot do that part for you; the
+commands are with the version notes.
+
+**No database step.** Nothing was added or changed in the database, and no existing setting moved.
 
 **01 Oct 2026 — engine v259, THE EDIT CARD STOPS CLOSING ITSELF WHEN YOU LOOK AN ADDRESS UP
 AGAIN (no database step — pushing this one is the whole of it).**
