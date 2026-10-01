@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v261)
+# Jienluv2bake — change history (v54 → v262)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v262, A DAY YOU DO NOT DELIVER IS NOW A SOLID DAY, AND THE PAST IS
+REALLY ONE GREY THIS TIME (no database step, nothing to upload — pushing this one is the
+whole of it).**
+
+**What you said.** "I still feel that the greyed and the non grey contrast is not big?" — and
+then, when offered the choice, **make the non-grey more solid.**
+
+**You were right, and v261 had not finished its own job.** v261 put the shop's grey in the
+right place, but it left the older **half-transparent** rule standing on a day you do not
+deliver. That half-transparency is applied to whatever colour the day ends up with, so the past
+was still being drawn in **two shades** — and worse, a past day you do not deliver came out
+**fainter than a future day you do not deliver**, which is backwards. Measured on the real
+Orders calendar: a quiet day sat at **1.98:1** against the card and a past quiet day at
+**1.22:1**, so the two were almost the same picture.
+
+**What changed on screen.** A day you do not deliver is no longer faded — it is a solid, plainly
+readable day that is simply quieter than a day you do deliver. On the real grid that took it
+from **1.98:1 to 3.50:1**, very nearly twice as strong. And because nothing fades the calendar
+cell any more, **the past is now genuinely one shade**: a past day you deliver and a past day
+you do not are the identical colour on screen, which is what v261 was meant to give you. Three
+clear steps now, everywhere: the past faintest, a day you do not deliver solid in the middle, a
+day you deliver darkest of all.
+
+**What did NOT change.** The shop's past grey itself is untouched — you said you liked it, so it
+stays exactly as faint as the shop's is. Anything on a past day that is telling you something
+still keeps its own colour, so on a day that has gone the **green pill** on a delivery day stays
+green and so does the **green tint** on a day a product sells. The day you are looking at still
+turns brown, on every calendar. Today's halo is untouched.
+
+**Why this is the right lever and not the other one.** Between making the past darker and making
+everything else stronger, the second is the one that keeps the shop's calm look you asked for
+while still giving the past something solid to stand against.
+
+**Nothing else moved.** No number, price, booking count or order changed. The database was not
+touched, and there is nothing to upload — this is the app's own pictures of its calendars.
 
 **01 Oct 2026 — engine v261, EVERY CALENDAR NOW GREYS OUT THE PAST THE SAME WAY YOUR SHOP
 DOES (no database step, nothing to upload — pushing this one is the whole of it).**

@@ -2179,7 +2179,15 @@ option.tone-off { color: var(--muted); }
   padding: 8px 8px 6px;
   margin: 0 0 10px;
 }
-.cal-cell.off { color: var(--muted); opacity: .6; }
+/* A day the bakery does not deliver. It was --muted at 60% opacity, and that
+   half-transparency was the whole reason the past would not sit still: opacity
+   multiplies whatever colour the cell finally lands on, so a past day that was
+   ALSO a quiet day came out lighter than one she does deliver, and every quiet
+   day washed out to within a whisker of the paper (measured: #c2b4a7, 1.98:1
+   against the card, versus a delivery day's 13.45:1). Flat --muted reads as a
+   solid day that is plainly quieter than ink, and it leaves .past free to land
+   as ONE colour on every cell it touches. */
+.cal-cell.off { color: var(--muted); }
 /* A day already gone wears the SHOP's past grey, flat and one shade. It used to be
    a half-transparent --muted here, and a past day that was ALSO a day she does not
    deliver carried only .off — a different grey at .6 — so the past came out in two
@@ -2187,6 +2195,9 @@ option.tone-off { color: var(--muted); }
    (#ded6cd on store/app.css's .cal-cell.past; both apps share --bg #fbf4ea, so it
    lands identically), and test/orders-cal.test.js reads it from there rather than
    repeating it, so the two can never drift apart.
+   "One shade" only became literally true once .off stopped carrying an opacity —
+   while it did, .off+.past composited to #ebe6df against .past's own #ded6cd, so
+   the two-ways-to-be-past survived the first fix (v262 finished it).
    Declared BELOW .off on purpose: both selectors are two classes, so source order
    is the only thing that lets a past day win the tie and take this colour instead.
    A fill that MEANS something still keeps its own colour — the green pill on one
@@ -2483,8 +2494,8 @@ option.tone-off { color: var(--muted); }
    rules above and the .cal-* grid rules below, so a day looks the same here as
    it does on Delivery Dates; only what "on" means is new: a green tint over the
    days that sell, and a green heading for a weekday marked right across the
-   month. A day the bakery does not deliver is dimmed (.cal-cell.off) but stays
-   visible — a mark there is allowed, it just never becomes an order. */
+   month. A day the bakery does not deliver is quiet (.cal-cell.off) but stays
+   plainly visible — a mark there is allowed, it just never becomes an order. */
 .avail-head { min-width: 0; }
 .avail-head-end { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .avail-sum {
