@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v262)
+# Jienluv2bake — change history (v54 → v263)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v263, A DAY YOU DO NOT DELIVER IS DARKER STILL (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "can make the quite day more solid?" — asked straight after seeing v262.
+
+**What changed on screen.** A day you do not deliver is now a solid, dark day. v262 had already
+taken the fade off it, but it was still faint — **3.50:1** against the card. It is now
+**6.71:1**, very nearly twice as strong again. The colour is exactly **halfway between the
+app's quiet grey and its ink**, so it reads as a real day rather than a whisper, while still
+looking nothing like a day you deliver.
+
+**The three steps are further apart now, in the same order.** The past is still the faintest
+thing on the calendar, a day you do not deliver is still the middle step, and a day you deliver
+is still the darkest. The middle step has simply moved a long way down towards the bottom. A
+day you deliver is still **twice as dark** as a day you do not — **13.45:1 against 6.71:1** —
+so the two can never be mistaken for each other.
+
+**What did NOT change.** The past grey itself is untouched: still the shop's own faint grey,
+exactly as you asked for it to stay. A day you deliver is exactly as dark as it was. So are the
+**green pill** on a delivery day, the **green tint** on a day a product sells, the **brown** day
+you are looking at, and today's halo.
+
+**One thing worth knowing about, deliberately left alone.** On a product's own availability
+calendar there is a second, rarer kind of quiet: a day you have **marked as selling** but which
+the bakery does not deliver. That one is kept faded on purpose — a green tint turned right
+down — because it means "this mark cannot become an order", which is something to notice rather
+than something to read easily. It is untouched by this version. Say the word if you would
+rather it read stronger too.
+
+**Why 6.71 and not darker.** The same rule draws the product availability calendar, where it is
+the only thing separating **a day you can sell on** from **a day you cannot**. Pushed much
+further, those two would stop being different pictures. Measured on that calendar: a day you can
+sell still reads **13.45:1** against a day you cannot at **6.71:1**, which is a clear step and
+not a blur.
+
+**Nothing else moved.** No number, price, booking count or order changed. The database was not
+touched, and there is nothing to upload — this is the app's own picture of a calendar.
 
 **01 Oct 2026 — engine v262, A DAY YOU DO NOT DELIVER IS NOW A SOLID DAY, AND THE PAST IS
 REALLY ONE GREY THIS TIME (no database step, nothing to upload — pushing this one is the

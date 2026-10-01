@@ -2184,10 +2184,20 @@ option.tone-off { color: var(--muted); }
    multiplies whatever colour the cell finally lands on, so a past day that was
    ALSO a quiet day came out lighter than one she does deliver, and every quiet
    day washed out to within a whisker of the paper (measured: #c2b4a7, 1.98:1
-   against the card, versus a delivery day's 13.45:1). Flat --muted reads as a
-   solid day that is plainly quieter than ink, and it leaves .past free to land
-   as ONE colour on every cell it touches. */
-.cal-cell.off { color: var(--muted); }
+   against the card, versus a delivery day's 13.45:1). Dropping the opacity left
+   it at flat --muted, which was only 3.50:1 — plainly there, but still faint
+   enough that she asked for it to be more solid.
+   The colour is now HALFWAY between --muted and --ink (#9a8471 and #3b2a1f give
+   #6b5748), so a day she does not deliver is a solid day in its own right:
+   6.71:1 against the card, very nearly twice the old value, while still sitting
+   at half a delivery day's 13.45:1 so the two never read as the same thing. On
+   the product availability calendar the same rule has to keep "you can sell here"
+   (plain --ink, 13.45:1) apart from "you cannot" — and it still does: 6.71
+   against 13.45 is a clear step, not a smear.
+   Re-derive it if either token moves: mix the two channels, half and half.
+   Keeping the cell free of any opacity also leaves .past free to land as ONE
+   colour on every cell it touches. */
+.cal-cell.off { color: #6b5748; }
 /* A day already gone wears the SHOP's past grey, flat and one shade. It used to be
    a half-transparent --muted here, and a past day that was ALSO a day she does not
    deliver carried only .off — a different grey at .6 — so the past came out in two

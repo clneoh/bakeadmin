@@ -451,3 +451,52 @@ test("a quiet day is solid, and both kinds of past day land on the same pixel", 
     opacityOf(ruleBody(shop, ".cal-cell.past")), card));
   assert.deepEqual(shopPast, deliveredPast, "the admin past cell paints exactly what the shop's does");
 });
+
+// ── how solid a quiet day has to be ──────────────────────────────────────────
+//
+// Removing the opacity (v262) left the quiet day at flat `--muted`, 3.50:1 against
+// the card. That was measurable progress and still not enough to look at: the baker
+// asked for it again ("can make the quite day more solid?"), and by then "solid"
+// had a number attached, so the ask is written down here as a floor rather than
+// left to the eye. The floor is 6:1 — the quiet day is not a whisper any more.
+//
+// The ceiling matters as much as the floor. A quiet day has to stay clearly lighter
+// than a delivery day, or the calendar loses the one distinction it draws in colour;
+// and on the product availability calendar the same rule separates "you can sell
+// here" (plain --ink) from "you cannot", so letting the quiet grey drift up to ink
+// would quietly delete that answer too.
+const luminance = (rgb) => {
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+};
+const contrast = (a, b) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (hi + 0.05) / (lo + 0.05);
+};
+// The colour may be written as a literal or as a token, and this test is about the
+// ratio, not the syntax. Resolving `var(--x)` here means putting the quiet day back
+// on --muted fails on the number it should fail on, rather than on a parse error.
+const tokenOf = (css, name) => (css.match(new RegExp(`--${name}\\s*:\\s*([^;]+)`)) || [])[1]?.trim();
+const resolve = (css, value) => {
+  const ref = (value || "").trim().match(/^var\(\s*--([\w-]+)\s*\)$/);
+  return ref ? tokenOf(css, ref[1]) || "" : (value || "").trim();
+};
+
+test("a quiet day is solidly darker than the paper, and still lighter than a delivery day", () => {
+  const admin = read("admin/css/app.css");
+  const card = parseColor(tokenOf(admin, "surface"));
+  const ink = parseColor(tokenOf(admin, "ink"));
+
+  const offBody = ruleBody(admin, ".cal-cell.off");
+  const quiet = round(over(parseColor(resolve(admin, colorOf(offBody))), opacityOf(offBody), card));
+  const quietRatio = contrast(quiet, card);
+  const deliverRatio = contrast(ink, card);
+
+  assert.ok(quietRatio >= 6,
+    `a quiet day is solid against the card (measured ${quietRatio.toFixed(2)}:1) — flat --muted was 3.50:1, which is the value the baker looked at and asked to have made darker`);
+
+  // Strictly lighter than a delivery day, with room to see it: at least a full
+  // point of ratio apart, so no future nudge upward can quietly close the gap.
+  assert.ok(deliverRatio - quietRatio >= 1,
+    `a delivery day still reads as the darker of the two (quiet ${quietRatio.toFixed(2)}:1 vs delivery ${deliverRatio.toFixed(2)}:1)`);
+});
