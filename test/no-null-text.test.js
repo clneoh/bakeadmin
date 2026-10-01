@@ -2873,7 +2873,11 @@ test("the card's courier half prints no stray 'null', with nothing filled in at 
   sel.value = "courier";
   (sel._listeners.change || []).forEach((f) => f.call(sel));
 
-  assert.match(root.textContent, /Courier tracking number/,
+  // The sentinel was "Courier tracking number" until v265, when that box stopped being
+  // drawn on a courier order that names no parcel carrier — which is exactly this state.
+  // The address line is the block's first and is drawn whenever Fulfillment says courier,
+  // so it is the one line that can still prove the half unfolded.
+  assert.match(root.textContent, /Delivery address \(if courier\)/,
     "the courier half really did unfold, so this is not passing over a screen with nothing on it");
   assert.deepEqual(strayNulls(root), [], "no 'null' anywhere on the card");
   assert.deepEqual(strayObjects(root), [], "nor an element stringified into a line");

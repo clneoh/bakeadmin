@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v264)
+# Jienluv2bake — change history (v54 → v265)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v265, THE CONSIGNMENT BOX IS A PARCEL'S, SO IT IS DRAWN WITH THE PARCEL
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "after i get price from lalamove, click use this fee, it closes the window, but
+user might confuse as at that page there is stick fields that user have not fill in, maybe that
+field or button should not be there? this create confuse"
+
+**What was happening.** On the **＋ New order** card the courier half drew the **Courier tracking
+number (optional)** box on every courier order, whatever kind of courier it was. A consignment
+number is the thing a carrier gives you for a **parcel**, and a Lalamove trip is not a parcel — so
+on a trip that box was empty, it was not about anything on the card, and it stood beside a delivery
+price that was already finished. That is what read as an order with something still to fill in.
+
+**What changed on screen.** The consignment box now belongs to the parcel, so it is drawn with the
+parcel and nowhere else. Take a Lalamove price and the card under it is the address, the pin, the
+courier charge, the price and the delivery note — no empty box waiting to be filled in. Name a
+parcel carrier and the consignment box appears **under that carrier**, which is where a
+consignment number comes from in the first place.
+
+**The order of the courier half on the card is now** the address with its pin, then the parcel
+carrier, then its consignment box, then the courier charge, then the price. Only the last two
+positions are new: the parcel used to sit under the tracking box, and the tracking box used to sit
+on its own, above everything to do with a parcel.
+
+**Nothing became unreachable.** The parcel carrier picker is still on the card, in the same place,
+saying **Not a parcel — nothing recorded** until you pick one — it is the press that brings the
+consignment box out. A number you had already typed is never hidden from you either: a box that
+holds something is always drawn, so the card can never keep a consignment number you cannot see or
+edit.
+
+**A trip's own number is untouched.** When you book a real Lalamove trip from the order, the live
+share link is written into that same slot by the booking — the box is a parcel's, and the slot is
+still one slot, exactly as it was.
+
+**Swapping carrier does not move you.** Because the consignment box comes and goes with the carrier
+list, the card now has to decide, each time you pick a carrier, whether the box should be standing.
+It only touches it when the answer actually changes — so if you are halfway through typing a
+consignment number and you change your mind about who is carrying it, the box you are typing in
+stays put and stays focused, rather than being thrown away and drawn again under your finger.
+
+**The Edit window and the Note / tracking box keep the layout they had.** Their consignment box
+still stands above their parcel carrier, and the hint there still says so ("the consignment number
+goes in the tracking box above"). The two screens were allowed to differ before and they are
+allowed to differ now; only the ＋ New order card changed.
+
+**What did NOT change.** The delivery note, the courier charge and who bore it, the delivery
+address with its pin, **Get a delivery price** and **Use this fee**, the parcel carrier list, the
+hand-over press, and the rule that nothing at all is written until you press **Place Order**.
+
+**Nothing to run in Supabase, and one push.** This is app code only, exactly like v264.
 
 **01 Oct 2026 — engine v264, A TAP ON THE MAP DOES NOT MOVE THE PIN (no database step,
 nothing to upload — pushing this one is the whole of it).**

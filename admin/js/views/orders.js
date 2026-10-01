@@ -1626,7 +1626,7 @@ function orderForm(state, dateId, root, selectDate) {
 
   // ── the courier's half of the order ──────────────────────────────────────
   // Everything a courier order needs that the card used to be missing: the address, the
-  // tracking number, the parcel, the charge and a price. They unfold only when Fulfillment
+  // parcel, its tracking number, the charge and a price. They unfold only when Fulfillment
   // says Courier delivery, and that is the point — the card no longer has to be added and
   // then reopened under Edit to become a courier order (v237).
   //
@@ -1640,21 +1640,51 @@ function orderForm(state, dateId, root, selectDate) {
   // here, because the customer suggester writes into it: it holds `address`, and the
   // suggestion panel belongs under it. Everything else in the block is fresh each build.
   //
-  // The parcel's carrier picker repaints ITSELF (`paintParcel` below) rather than the whole
-  // block, so naming a carrier cannot throw away the charge she has just typed — the same
-  // rule courier_pay_questions already follows for its own two questions.
+  // The parcel's carrier picker repaints ITSELF (`paintParcel` below), and the tracking box
+  // with it, rather than the whole block, so naming a carrier cannot throw away the charge
+  // she has just typed — the same rule courier_pay_questions already follows for its own two
+  // questions.
   const courierBox = el("div", {});
   function buildCourierBlock() {
     const parcelSlot = el("div", {});
-    function paintParcel() {
-      const p = parcelSection({ state, group: { orders: [draft] }, draft, refresh: paintParcel });
-      parcelSlot.replaceChildren(...(p ? [p] : []));
-    }
+    const trackingSlot = el("div", {});
     const charge = courierControls(state, draft, () => {});
     courierCharge = charge;
     const tracking = el("input", { class: "input", placeholder: "e.g. JT123456789",
       autocomplete: "off", value: draft.trackingNo,
       oninput: function () { draft.trackingNo = this.value; } });
+    // The tracking box is a PARCEL's box, so it is drawn only where a parcel is in
+    // play: a carrier named, a number already in it (she typed one under a carrier,
+    // or a booked trip's own share link was written into it), or a booked trip
+    // owning the order. Asking Lalamove for a fee and taking it is a TRIP — and the
+    // empty box left standing beside the finished price is what read as an order
+    // still to fill in (v265). It comes back the moment it has something to say.
+    function trackingApplies() {
+      return !!draft.carrierId
+        || !!String(draft.trackingNo || "").trim()
+        || !!jobOf(draft);
+    }
+    const trackingField = el("div", { class: "field" },
+      el("label", {}, "Courier tracking number (optional)"), tracking,
+      el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you."));
+    // Only touched when the answer CHANGES. `paintParcel` runs on every carrier pick, and
+    // a `replaceChildren` that re-inserts the box would detach the input she is typing in —
+    // a repaint must not move her. `null` so the first paint always draws the real state.
+    let trackingShown = null;
+    function paintParcel() {
+      const p = parcelSection({
+        state, group: { orders: [draft] }, draft, refresh: paintParcel,
+        // This block draws the box UNDER the parcel section, and under nothing at all
+        // until a carrier is named — so the hint must not point at a box that is not
+        // there.
+        consignmentWhere: null,
+      });
+      parcelSlot.replaceChildren(...(p ? [p] : []));
+      if (trackingApplies() !== trackingShown) {
+        trackingShown = trackingApplies();
+        trackingSlot.replaceChildren(...(trackingShown ? [trackingField] : []));
+      }
+    }
     // A fresh slot every build: a hoisted one would still be holding the Leaflet mount
     // from the previous block.
     const doorSlot = el("div", {});
@@ -1673,10 +1703,8 @@ function orderForm(state, dateId, root, selectDate) {
         address,
         addressSug.panel),
       doorSlot,
-      el("div", { class: "field" },
-        el("label", {}, "Courier tracking number (optional)"), tracking,
-        el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
       parcelSlot,
+      trackingSlot,
       charge.el,
       quote,
     ];
@@ -2627,7 +2655,12 @@ function courierControls(state, first, onChange = () => {}) {
 // The advisory below names a line that is not marked parcel-able and gates
 // NOTHING: it still offers the carrier and the hand-over, because no app rule may
 // block or hide a sale she takes by hand (feedback_guide_not_gate).
-function parcelSection({ state, group, draft, refresh }) {
+// `consignmentWhere` says which way the tracking box lies from here: both pop-ups
+// draw it ABOVE this section, the + New order card draws it BELOW. The hint is the
+// same sentence in all three, so it has to be told — and a host that draws no box
+// beside this section at all (the card, until a carrier is named) passes null and
+// the sentence simply stops before the pointer.
+function parcelSection({ state, group, draft, refresh, consignmentWhere = "above" }) {
   const first = (group && group.orders && group.orders[0]) || null;
   if (!first) return null;
   if (draft.fulfillment !== "courier") return null;
@@ -2689,7 +2722,8 @@ function parcelSection({ state, group, draft, refresh }) {
     carrierSel,
     el("p", { class: "hint" },
       carriers.length
-        ? "For a parcel you post yourself — J&T, Ninja Van, Line Clear. The consignment number goes in the tracking box above."
+        ? "For a parcel you post yourself — J&T, Ninja Van, Line Clear."
+          + (consignmentWhere ? ` The consignment number goes in the tracking box ${consignmentWhere}.` : "")
         : "No carriers yet. Add who you post parcels with under More → Parcel couriers, then record one here."),
     handedEl,
     advisory);
