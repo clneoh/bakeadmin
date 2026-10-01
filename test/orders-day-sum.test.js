@@ -246,6 +246,104 @@ test("Note / tracking opens just those fields, and save writes them onto the ord
   assert.equal("paidMethod" in st.orders[0], false, "choosing Not recorded deletes the key");
 });
 
+// ── v268: the payment box records the payment, not just its name ─────────────
+// The box is called "Paid by the customer", so picking a method is her saying the money
+// is IN. It used to write only `paidMethod`, which left a row wearing a "Cash" tag while
+// the day's till and the Money screen still counted that order as owing — one screen
+// saying paid, two saying unpaid. It now writes the same three keys the Paid · Cash /
+// Paid · TNG buttons write, and the row's tag reads the app's own question (isCollected).
+const loadTag = (root) => all(root).find((n) => String(n.className).split(/\s+/).includes("paid-tag"));
+const moneyLine = (root) => byClass(root, "money-line");
+
+test("a method picked in the payment box records the payment itself", () => {
+  const st = state();
+  st.products[0].price = 15; // Focaccia, RM15 × 2 = RM30
+  st.orders[0].status = "baking";
+  st.orders[0].paidReceived = false; // packed, money handed over at the counter
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(moneyLine(root).textContent, "1 to collect", "the day starts with the money owing");
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  assert.ok(all(pop).some((n) => n.tagName === "LABEL" && n.textContent === "Paid by the customer"),
+    "the box names whose payment it records");
+  const paidSel = selWith(pop, "TNG transfer");
+  paidSel.value = "tng";
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal(st.orders[0].paidReceived, true, "the money is recorded as in");
+  assert.equal(st.orders[0].paidMethod, "tng", "and how it came");
+  assert.ok(st.orders[0].paidAt, "stamped the day it landed, which is what the Money screen counts");
+
+  // Every screen that counts money now agrees: the row, the day's till, and the buttons
+  // that were the only way in.
+  const after = createEl("div");
+  renderOrders(after, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(loadTag(after).children[0].text, "TNG", "the row says how it was paid");
+  assert.equal(moneyLine(after).textContent, "TNG RM 30.00", "and the day's till counts it, with nothing left to collect");
+  assert.equal(buttonByText(after, "Paid · Cash"), undefined, "the two Paid buttons are gone — there is nothing left to record");
+});
+
+test("Not recorded is the way back, so a payment marked by mistake is not a one-way door", () => {
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].status = "ready";
+  st.orders[0].paidReceived = true;
+  st.orders[0].paidMethod = "cash";
+  st.orders[0].paidAt = "2026-09-09T04:00:00.000Z";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(loadTag(root).children[0].text, "Cash", "the row says how it was paid");
+  assert.equal(buttonByText(root, "Paid · Cash"), undefined, "and the quick way in is gone while it is recorded");
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  selWith(pop, "Cash").value = "";
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal("paidMethod" in st.orders[0], false, "the method goes");
+  assert.equal("paidAt" in st.orders[0], false, "and the date it was stamped with");
+  assert.equal(st.orders[0].paidReceived, false,
+    "and the order says money is still owed — the same flag picking Paid writes");
+
+  const after = createEl("div");
+  renderOrders(after, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(loadTag(after), undefined, "so the row stops calling itself paid");
+  assert.ok(buttonByText(after, "Paid · Cash"), "and the two ways to record it come back");
+});
+
+test("a payment she records before the paying stage is money she has, and counts straight away", () => {
+  // The box takes a method at ANY stage, so the order can still be sitting on Confirmed
+  // when she records that a regular paid up front. Every screen has to count that money
+  // from the moment she says so — the stage gate in isCollected is how a MISSING answer
+  // is read, never a veto over one she has given.
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].status = "confirmed";
+  st.orders[0].confirmedSent = true;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(moneyLine(root).textContent, "1 to collect", "before she records it, the day owes the money");
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  selWith(pop, "Cash").value = "cash";
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal(st.orders[0].paidReceived, true, "the payment is on the order");
+  const after = createEl("div");
+  renderOrders(after, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(loadTag(after).children[0].text, "Cash", "the row says how it was paid");
+  assert.equal(moneyLine(after).textContent, "Cash RM 30.00", "and the day's till counts it as in");
+  // The journey strip is about the STAGE, not the money: this order has not reached the
+  // paying step, so that step stays where it is — the same thing the strip says for any
+  // order sitting on Confirmed.
+  const paidStep = all(after).filter((n) => String(n.className).includes("oj-step"))
+    .find((s) => s.children[1].children[0].text === "Paid");
+  assert.ok(!String(paidStep.className).includes("done"), "while the route still shows the step it is on");
+});
+
 // ── v124: the courier's charge, and who bore it ────────────────────────────
 // The pop-up she pointed at ("the paid by in the notes/courier Tracking is for
 // courier charges") now carries the charge itself. What these pin is the split she

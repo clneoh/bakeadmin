@@ -481,3 +481,82 @@ test("the order she is editing does not count against its own product", () => {
   assert.equal(productOptions(state, "d7", "o_p1")[0].tone, "ok",
     "but the order being edited gives its own slots back");
 });
+
+// ── v268: opening WhatsApp is not sending the message ────────────────────────
+// Pressing Send confirmation put the message into WhatsApp's box and, in the same tap,
+// marked the order SENT — so the Confirmed step went green, and so did the customer's own
+// track card, which reads the same flag (supabase.js confirmed_sent), on a message still
+// sitting unsent in that box. The press now records the draft and nothing else, and the
+// green comes from a second press she makes on her way back. Her instruction, 1 Oct 2026:
+// green only once she says it has gone.
+test("Send confirmation drafts the message; I have sent it is what turns it green", () => {
+  const state = withOrder({ status: "confirmed", confirmedSent: false });
+  const opens = [];
+  const realOpen = globalThis.window.open;
+  const realLocation = globalThis.location;
+  globalThis.window.open = (url) => { opens.push(url); };
+  globalThis.location = { origin: "https://jienluv2bake.com.my" };
+  try {
+    const root = createEl("div");
+    renderOrders(root, state, PARAMS());
+    assert.equal(opens.length, 0, "nothing opens until she presses");
+    assert.ok(buttons(root).includes("Send confirmation"), "and the press is offered");
+
+    press(root, "Send confirmation");
+    assert.equal(opens.length, 1, "the message opens in WhatsApp");
+    assert.match(opens[0], /^https:\/\/wa\.me\/60123456789\?text=/, "addressed to the customer");
+    assert.equal("confirmedSent" in state.orders[0] ? state.orders[0].confirmedSent : false, false,
+      "and the order is NOT marked sent");
+    assert.equal(state.orders[0].confirmedOpened, true, "only that the message has been drafted");
+
+    // The map keeps flashing Confirmed — nothing has gone to the customer yet.
+    const drafted = createEl("div");
+    renderOrders(drafted, state, PARAMS());
+    const waiting = all(drafted).find((n) => String(n.className).includes("oj-step")
+      && n.children[1].children[0].text === "Confirmed");
+    assert.ok(!String(waiting.className).includes("done"), "Confirmed is still waiting, not green");
+    // ... and the row asks for the half of it the app cannot see for itself.
+    assert.ok(buttons(drafted).includes("I have sent it"), "so it asks whether the message has gone");
+
+    press(drafted, "I have sent it");
+    assert.equal(state.orders[0].confirmedSent, true, "that press is what marks it sent");
+    assert.equal("confirmedOpened" in state.orders[0], false, "and the draft mark goes with it");
+
+    const sent = createEl("div");
+    renderOrders(sent, state, PARAMS());
+    const done = all(sent).find((n) => String(n.className).includes("oj-step")
+      && n.children[1].children[0].text === "Confirmed");
+    assert.ok(String(done.className).includes("done"), "Confirmed is green now");
+    assert.ok(!buttons(sent).includes("I have sent it"), "and it stops asking once it has an answer");
+  } finally {
+    globalThis.window.open = realOpen;
+    if (realLocation === undefined) delete globalThis.location;
+    else globalThis.location = realLocation;
+  }
+});
+
+test("landing on Confirmed again clears the draft, so an old draft is never answered for", () => {
+  // An order that was drafted, moved on, and then brought back to Confirmed has its
+  // Confirmed step started afresh (setStage) — so a draft mark left behind must not offer
+  // "I have sent it" for a message nobody has opened this time round.
+  const state = withOrder({ status: "baking", confirmedSent: true });
+  state.orders[0].confirmedOpened = true; // drafted during an earlier visit
+  const root = createEl("div");
+  renderOrders(root, state, PARAMS());
+
+  // The row's own status control, found by its class — the day's status filter is a
+  // select too, and carries the same stage names.
+  const stSel = all(root).find((n) => n.tagName === "SELECT" && String(n.className).includes("sel-small"));
+  assert.ok(stSel, "the row's own status control");
+  stSel.value = "confirmed";
+  stSel._listeners.change[0]();
+
+  assert.equal(state.orders[0].status, "confirmed", "the order is back on Confirmed");
+  assert.equal(state.orders[0].confirmedSent, false, "with the step started again");
+  assert.equal("confirmedOpened" in state.orders[0], false, "and the stale draft mark gone with it");
+
+  const again = createEl("div");
+  renderOrders(again, state, PARAMS());
+  assert.ok(!buttons(again).includes("I have sent it"), "so it is asking for a message to be opened, not answered for");
+  assert.ok(buttons(again).includes("Send confirmation"), "and the normal press is what it offers");
+});

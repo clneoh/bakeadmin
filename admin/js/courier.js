@@ -312,7 +312,12 @@ export function feeGapOf(orders, job) {
   const cost = Number(job && job.amount);
   if (!Number.isFinite(cost) || !(cost > 0)) return null;
   const cent = (n) => Math.round(n * 100) / 100;
-  const charged = cent(list.reduce((sum, o) => sum + courierFeeOf(o), 0));
+  // Only a COURIER order's charge counts (v268). Switching an order back to Self collect
+  // deliberately keeps its three charge keys so she can switch again without retyping —
+  // so this sum has to ask which orders are actually being sent, exactly as the charge
+  // cards and the customer's own total do. Without the gate the trip card read "The
+  // customer is charged RM 8.00" about money nobody is paying.
+  const charged = cent(list.reduce((sum, o) => sum + (isCourierOrder(o) ? courierFeeOf(o) : 0), 0));
   return { charged, cost: cent(cost), diff: cent(charged - cost), payer: courierPayerOf(list[0]) };
 }
 

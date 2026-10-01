@@ -1,8 +1,65 @@
-# Jienluv2bake — change history (v54 → v267)
+# Jienluv2bake — change history (v54 → v268)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**01 Oct 2026 — engine v268, FIVE PLACES THAT DISAGREED WITH EACH OTHER, AND THE BUTTON THAT
+CLAIMED TOO MUCH (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you said.** "pushed. when i schange the courier delivery to self pickup, the courier chages
+tag still there, just wondering are details well taken care of?" — and then the audit you asked
+for: "pls run whole system audit for the well being of the system later".
+
+**What was happening.** v267 fixed the tag you could see. Reading the whole system after it
+turned up four more places where one screen had been told the truth about a self-collect order
+and another had not — and one button that made a claim it could not know. They are all the same
+fault underneath: **a fact is written on the order, and only some of the screens that read it
+ask the companion question that goes with it.**
+
+**Five things, fixed together.**
+
+**1. The customer's track card was still being sent the courier's half of a self-collect order.**
+A driver's name, a plate, a phone number, "on the way", and the waybill number — on an order the
+customer is coming to fetch. Switching to **Self collect** keeps the booked trip, so the card was
+reading it. It now publishes none of it: the card says **Self collect** and nothing about a
+courier.
+
+**2. The trip card counted a parked charge.** The card that shows what a courier trip is costing
+you against what the customer pays for it added up the charge on **every** order in the trip —
+including a charge parked on one you have since switched to self collect. It now counts only the
+orders actually going by courier, and says plainly when there is no charge on the order, so the
+whole trip reads as your own cost rather than as money nobody is paying.
+
+**3. "Paid by the customer" recorded a name, not a payment.** Picking **Cash** or **TNG
+transfer** on the order wrote down how they paid and stopped there — so the row could wear a
+**TNG** tag while the day's till, the Money screen and the customer's card all still counted that
+order as owing. It now records the payment itself, the same three things the **Paid · Cash** /
+**Paid · TNG** buttons write, and **Not recorded** is the way back — the one control that can undo
+a payment marked by mistake, since those two buttons disappear once the money is in. It also says
+so, under the box, in words.
+
+**4. Print label vanished the moment the order was packed.** It was offered on **Baked** and
+nowhere else, so a label that tore while the bag was being filled could not be printed again on an
+order still in your kitchen. It is now on every stage from **Baked** to the end, and still on none
+before it — there is no bag to kit yet.
+
+**5. Send confirmation turned the order green before the message was sent.** Pressing it opens
+WhatsApp. It does not press Send in WhatsApp — and the Confirmed step went green anyway, on your
+row and on the customer's own card, for a message still sitting unsent in the box. You chose the
+honest version: the button now only drafts the message, and a small **I have sent it** appears
+beside it. **That** is what turns Confirmed green, on your screen and on theirs. One extra tap on
+each confirmation, in exchange for never marking something sent that was not. Moving the order
+on and back onto Confirmed starts that step again, so a second confirmation is never blocked.
+
+**Two pieces of paper that were out of date.** The guide's step for sending a confirmation now
+describes the new press, and the page about the Google setup no longer says an API is still to be
+enabled — it has been live since 28 September, and the page now reads as a record rather than a
+to-do list.
+
+**What did not change.** The charge box on an order that is going by courier, the parked-charge
+notes v267 added, the words on any message, and everything about how you take an order. Nothing
+here needs a key, a wallet or a database step.
 
 **01 Oct 2026 — engine v267, A COURIER CHARGE GOES QUIET WHILE THE ORDER IS A SELF COLLECT (no
 database step, nothing to upload — pushing this one is the whole of it).**

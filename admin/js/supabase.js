@@ -575,7 +575,13 @@ export function trackingSnapshot(state, group) {
   // NOTE: all five need supabase/courier_job.sql run once, before this build is deployed
   // (see that file). A missing column kills publishing for EVERY order silently, because
   // pushTracking swallows its errors — the same trap courier_fee.sql documents.
-  const trip = jobOf(first);
+  //
+  // GATED on the order being a courier order (v268): switching an order to Self collect
+  // deliberately KEEPS the three charge keys and the trip, because she may switch back —
+  // so the reader, not the writer, is what keeps this card honest. An order she now
+  // collects herself must not publish a driver, a plate, a phone number or a waybill to
+  // its customer. Same rule as the row's own `fulfill-tag` (see views/orders.js).
+  const trip = courier ? jobOf(first) : null;
   const driver = (trip && trip.driver) || null;
   // A parcel she posts herself (v226). It carries no driver and no live link, so its
   // half of the card is only ever the carrier's name and "collected" — which is the
@@ -590,7 +596,7 @@ export function trackingSnapshot(state, group) {
     // The courier's tracking number, as she typed it on the order. Null when there
     // is none (a self-collect order, or one not posted yet) — the customer's card
     // leaves the line out entirely rather than printing an empty label.
-    tracking_no: String(first.trackingNo || "").trim() || null,
+    tracking_no: (courier && String(first.trackingNo || "").trim()) || null,
     // The courier's charge, when the customer bears it. Null when they don't — she
     // pays it, or there is no charge — and the card leaves the line out rather than
     // printing an empty label. NOTE: this column needs supabase/courier_fee.sql run

@@ -573,19 +573,48 @@ test("a trip that never gave a price is not reported on", () => {
 test("every order riding the trip is counted, so a value set's single charge is not read three times", () => {
   // The same charge over three rows is ONE charge. Reading list[0] would have been right here
   // by accident; the trap is the opposite shape — a set whose rows each carry a share.
-  const set = [
-    { courierFee: 4.66, courierPaidBy: "me" },
-    { courierFee: 4.66, courierPaidBy: "me" },
-    { courierFee: 4.68, courierPaidBy: "me" },
-  ];
+  //
+  // Both rows say `fulfillment: "courier"` because a charge only counts on an order that is
+  // actually being sent (v268 — see the gate's own test below). A trip is booked for an
+  // order that goes by courier, so a fixture without it is not a shape this screen can meet.
+  const row = (courierFee) => ({ courierFee, courierPaidBy: "me", fulfillment: "courier" });
+  const set = [row(4.66), row(4.66), row(4.68)];
   assert.equal(feeGapOf(set, trip(14)).charged, 14, "the parts sum to the charge, the way splitEven wrote them");
   assert.equal(feeGapLine(set, trip(14), "RM"), "", "and summing them exactly is what makes this line silent");
-  assert.equal(feeGapOf([{ courierFee: 8, courierPaidBy: "customer" }], trip(14)).diff, -6,
+  assert.equal(feeGapOf([{ courierFee: 8, courierPaidBy: "customer", fulfillment: "courier" }], trip(14)).diff, -6,
     "four rows left empty would otherwise read as a charge of zero");
 });
 
 test("the money is rounded to cents, so float dust never reaches her screen", () => {
-  const ugly = [{ courierFee: 8.1, courierPaidBy: "me" }, { courierFee: 8.2, courierPaidBy: "me" }];
+  const ugly = [
+    { courierFee: 8.1, courierPaidBy: "me", fulfillment: "courier" },
+    { courierFee: 8.2, courierPaidBy: "me", fulfillment: "courier" },
+  ];
   assert.equal(feeGapOf(ugly, trip(10.1)).charged, 16.3, "16.299999999999997 is not a number she has ever seen");
   assert.equal(feeGapLine(ugly, trip(16.3), "RM"), "", "and rounding it is what keeps a zero difference silent");
+});
+
+// ── v268: a charge parked on a self-collect order is not money anyone is paying ──
+// Switching an order to Self collect deliberately KEEPS its three charge keys, because she
+// may switch back without retyping them (v267). Every reader therefore has to ask whether the
+// order is actually going by courier. This one did not, so the booked-trip card read "The
+// customer is charged RM 8.00" about an order nobody was sending — a figure telling her money
+// was coming in that was not.
+test("a charge parked on a self-collect order is not counted against the trip", () => {
+  const parked = [{ courierFee: 8, courierPaidBy: "customer" }]; // no fulfillment: collect
+  const gap = feeGapOf(parked, trip(14));
+  assert.deepEqual(gap, { charged: 0, cost: 14, diff: -14, payer: "customer" },
+    "the parked charge is not counted, so the whole trip reads as her own cost");
+  // The line still speaks, because a trip she booked with nothing charged on it IS the
+  // free-delivery case it exists to name — what changes is that it no longer claims the
+  // customer is being charged.
+  assert.equal(feeGapLine(parked, trip(14), "RM"),
+    "No courier charge is on the order, so the whole RM 14.00 of this trip is your own cost.",
+    "and the sentence is about her own cost, never about money the customer owes");
+
+  // The counterfactual, in one line: the SAME charge on the SAME amount, once the order is
+  // really being sent, is counted again.
+  const sent = [{ courierFee: 8, courierPaidBy: "customer", fulfillment: "courier" }];
+  assert.equal(feeGapOf(sent, trip(8)).charged, 8, "a courier order's charge counts exactly as before");
+  assert.equal(feeGapLine(sent, trip(8), "RM"), "", "so a trip priced to match it stays silent");
 });

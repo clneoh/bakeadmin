@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue } from "../money.js";
+import { dayMoney, groupValue, isCollected } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -90,6 +90,9 @@ const STATUSES = [
 // Where the money stage sits in that list. Used to tell "past Paid" from "on Paid", so a
 // regular who pays at the counter has no Paid step on their route at all.
 const PAID_AT = STATUSES.findIndex(([id]) => id === "paid");
+// Where the label's stage sits: from Baked onwards there is a bag to kit, and the order
+// label is offered at all of them rather than only on Baked itself (v268).
+const BAKED_AT = STATUSES.findIndex(([id]) => id === "baking");
 // Paid and everything after it: moving an order into any of these without the money recorded
 // means that order is owed money, not that it was paid.
 const STAGES_AT_OR_PAST_PAID = STATUSES.slice(PAID_AT).map(([id]) => id);
@@ -2878,6 +2881,14 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         { value: "cash", label: "Cash" },
         { value: "tng", label: "TNG transfer" },
       ], first.paidMethod || "", () => {});
+      // What the choice does, said where the choice is made (v268). The box is named
+      // "Paid by the customer", so picking a method is a claim that they HAVE paid —
+      // and it now writes exactly what the Paid · Cash / Paid · TNG buttons write, so
+      // the two ways in cannot record two different halves of the same fact. The way
+      // back is named too: this is the only control that can un-record a payment marked
+      // by mistake, since the buttons disappear once the money is in.
+      const paidHint = el("p", { class: "hint" },
+        "Cash or TNG records that the money is received, and how — the same as pressing Paid · Cash / Paid · TNG on the row. Not recorded clears it and brings those two buttons back.");
       paintCustTotal();
       // Where the price section draws the door block (v201): the TOP of this card, above the
       // note. Her report was that this box gives her no way to see the address or the pin
@@ -2922,7 +2933,8 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
           },
         }) : null,
         custTotal,
-        el("div", { class: "field" }, el("label", {}, "Paid by the customer"), paidSel),
+        el("div", { class: "field" },
+          el("label", {}, "Paid by the customer"), paidSel, paidHint),
         // The card's own explanation, and it has to match what the card is showing (1 Oct
         // 2026): a self-collect order used to be told what a courier charge does to the
         // customer's total and their messages, on the same screen where the charge had
@@ -2963,11 +2975,34 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             const why = charge.problem();
             if (why) return toast(why);
             const answers = charge.read();
+            // "Paid by the customer" RECORDS the payment; it does not merely label one
+            // (v268). A method now writes the same three keys the Paid · Cash / Paid · TNG
+            // buttons write, and the row's tag is gated on the same rule those buttons
+            // feed. Before this the box wrote only `paidMethod`, so a row could wear a
+            // "TNG" tag while the journey strip and the Money screen still counted that
+            // order as owing money — one screen saying paid, two saying unpaid.
+            //
+            // "Not recorded" is the way BACK, so a payment marked by mistake is not a
+            // one-way door: at or past the paying stage it writes the app's own "still
+            // owed" flag (false — what picking Paid in the dropdown writes), which brings
+            // the Paid · Cash / Paid · TNG buttons back to the row. Before that stage the
+            // flag goes entirely instead, because `false` there would be a claim about
+            // money nobody has been asked for yet (17 Sep 2026 — the same rule setStage
+            // follows).
+            const paidAtNow = new Date().toISOString();
             for (const o of group.orders) {
               o.note = note.value.trim();
               o.trackingNo = number;
-              if (method) o.paidMethod = method;
-              else delete o.paidMethod; // "Not recorded" is the absent key, as everywhere
+              if (method) {
+                o.paidReceived = true;
+                o.paidMethod = method;
+                o.paidAt = o.paidAt || paidAtNow; // stamped once — the day the money landed
+              } else {
+                delete o.paidMethod;
+                delete o.paidAt;
+                if (STAGES_AT_OR_PAST_PAID.includes(o.status)) o.paidReceived = false;
+                else delete o.paidReceived;
+              }
             }
             // The charge's own three keys and the books follow the payer: her own charge
             // becomes a Delivery & fuel expense row, the customer's leaves her books
@@ -3161,7 +3196,13 @@ function setStage(state, group, nextStatus, opts = {}) {
     // finished: it only turns green when Send confirmation / the Paid
     // button is pressed. Orders saved before these fields existed have no
     // flag, which reads as already done.
-    if (nextStatus === "confirmed") o.confirmedSent = false;
+    // ... and the DRAFT mark goes with it (v268): arriving on Confirmed means this
+    // message has not been written yet, so a draft left behind from the last time the
+    // order sat here must not offer "I have sent it" for a message nobody has opened.
+    if (nextStatus === "confirmed") {
+      o.confirmedSent = false;
+      delete o.confirmedOpened;
+    }
     // Stepping PAST Paid without the money recorded says so on the order: a regular who
     // pays at the counter goes Confirmed -> Baked, and that order owes money. Without
     // this the flag would stay absent, which reads as "already paid" (the rule that keeps
@@ -3307,11 +3348,20 @@ function orderGroupRow(state, group, root, dateId) {
   // The stage's WhatsApp action(s). Each message carries the order code, and the
   // buttons that only send a message need a number on the order.
   if (status === "confirmed") {
+    // The message is drafted, not sent (v268): the press opens WhatsApp and records that
+    // much, and the row asks for the one thing the app cannot see by itself. Until she
+    // says so the Confirmed dot stays amber, and the customer's card agrees — the same
+    // flag feeds both (supabase.js confirmed_sent).
+    const drafted = first.confirmedSent === false && first.confirmedOpened === true;
     const sendBtn = button("Send confirmation", () =>
-      sendOrderWhatsApp(state, group, { builder: buildConfirmation, markSent: true, doneMsg: "Confirmation drafted — press Send in WhatsApp", root, dateId }),
-      "soft small");
+      sendOrderWhatsApp(state, group, { builder: buildConfirmation, markOpened: true,
+        doneMsg: "Confirmation drafted — press Send in WhatsApp, then tell me it has gone", root, dateId }),
+      drafted ? "ghost small" : "soft small");
     if (!first.whatsapp) sendBtn.disabled = true;
     actions.push(sendBtn);
+    if (drafted) {
+      actions.push(button("I have sent it", () => markConfirmationSent(state, group, root, dateId), "small primary"));
+    }
   } else if (status === "paid") {
     const remindBtn = button("Send payment reminder", () =>
       sendOrderWhatsApp(state, group, { builder: buildPaymentReminder, doneMsg: "Payment reminder drafted — press Send in WhatsApp", root, dateId }),
@@ -3319,9 +3369,10 @@ function orderGroupRow(state, group, root, dateId) {
     if (!first.whatsapp) remindBtn.disabled = true;
     actions.push(remindBtn);
   } else if (status === "baking") {
-    // Print the label at Baked — the baker needs it in hand to kit the order
-    // (stick it on the bag/box as the items go in), before it is marked Packed.
-    actions.push(button("Print label", () => openLabelPrint(state, group), "ghost small"));
+    // Nothing of its own. Print label sits below, for every stage from Baked onwards
+    // (v268) — it used to be offered at Baked and nowhere else, so the one control that
+    // prints the slip for the bag vanished the moment the order was packed, including
+    // for the order still in her hand, with nothing on the row to say where it went.
   } else if (status === "ready") {
     // How this order leaves decides what she tells the customer: a parcel goes on
     // its way (with its tracking number), a self-collect order is ready to fetch.
@@ -3344,11 +3395,21 @@ function orderGroupRow(state, group, root, dateId) {
   // hands over the money when they collect — so the buttons stay on until the payment lands,
   // wherever the order has got to (17 Sep 2026). They go the moment it is recorded, which is
   // when the Cash / TNG tag appears beside the row.
-  const atOrPastPaid = STATUSES.findIndex(([id]) => id === status) >= PAID_AT;
+  const stageAt = STATUSES.findIndex(([id]) => id === status);
+  const atOrPastPaid = stageAt >= PAID_AT;
   if (atOrPastPaid && first.paidReceived === false) {
     actions.push(
       button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
       button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
+  }
+  // Print label, from Baked onwards rather than only while the order sits on Baked (v268).
+  // The slip goes out with the bag — a label that tore, or one printed before she had
+  // finished packing, needs a second one, and the order it belongs to is often still in
+  // her kitchen at Packed. Printing it again says nothing about the stage, so nothing
+  // here is a claim about the order; before Baked there is no bag to kit, so it is not
+  // offered at all.
+  if (stageAt >= BAKED_AT) {
+    actions.push(button("Print label", () => openLabelPrint(state, group), "ghost small"));
   }
   // The Undo sits with the other things she can do to this order, and before the ✕ so
   // the box that deletes the row stays the last press on the line where it has always
@@ -3416,7 +3477,15 @@ function orderGroupRow(state, group, root, dateId) {
       autoNote),
     el("div", { class: "li-right" },
       el("span", { class: "qty-chip" }, `×${qtyTotal}`),
-      first.paidMethod
+      // Both halves, and the second one is the app's own question rather than a guess
+      // from the row (v268): a method AND the money actually in (isCollected — the same
+      // rule the journey strip, the Money screen and the tally all read). The tag used to
+      // rest on `paidMethod` alone, so a method written without the money — a row recorded
+      // before this version's box learned to write the payment, or one she had since set
+      // back to Not recorded — still dressed the row as paid while every other screen said
+      // it owed money. A method with the money not in is a note about HOW it will come,
+      // and that belongs in the pop-up, not on a row that reads as settled.
+      first.paidMethod && isCollected(group)
         ? el("span", { class: `paid-tag${first.paidMethod === "tng" ? " tng" : ""}` },
             first.paidMethod === "cash" ? "Cash" : "TNG")
         : null,
@@ -3551,23 +3620,49 @@ function trackUrlFor(order) {
   return `${location.origin}/store/?track=${orderCode(order)}`;
 }
 
-// Open WhatsApp with the built message for this order. When markSent is set the
-// stage also counts as done (Send confirmation finishes Confirmed), so the row's
-// map moves the amber dot to the next step.
-function sendOrderWhatsApp(state, group, { builder, markSent = false, doneMsg, root, dateId }) {
+// Open WhatsApp with the built message for this order. When `markOpened` is set the press
+// also records that the message was DRAFTED (order.confirmedOpened) — and nothing more.
+//
+// Opening WhatsApp is not sending the message (v268). The Confirmed step turns green only
+// from the row's own "I have sent it"; until then the app counts the confirmation as
+// outstanding, which is what it is. Before this, pressing Send confirmation lit the step
+// green — and lit the customer's own track card with it, which reads the same flag — on a
+// message that was still sitting unsent in WhatsApp's box.
+//
+// Nothing is published here either: a draft changes nothing the customer can see, and the
+// stage that put this order on Confirmed already published its own card (stageWritten).
+function sendOrderWhatsApp(state, group, { builder, markOpened = false, doneMsg, root, dateId }) {
   const first = group.orders[0];
   if (!first || !first.whatsapp) return;
   const built = builder(state, group, trackUrlFor(first));
   if (!built || !built.recipient) return;
   window.open(`https://wa.me/${built.recipient}?text=${encodeURIComponent(built.message)}`, "_blank");
-  if (markSent) {
-    for (const o of group.orders) o.confirmedSent = true;
+  if (markOpened) {
+    for (const o of group.orders) o.confirmedOpened = true;
     save(state);
     maybeSync(state);
-    publishTracking(state, group); // Confirmed now green on the customer's track card too
   }
   anchorRowId = first.id;
   toast(doneMsg);
+  renderAll(root, state, new URLSearchParams({ date: dateId }));
+}
+
+// The confirmation has actually gone — the half of it the app cannot know on its own
+// (v268). This is the press that turns the step green, on her row and on the customer's
+// track card behind the same flag, and it is the only thing that may say the message was
+// sent. Putting the order back onto Confirmed clears both marks (setStage), so sending a
+// second one is never blocked by the first.
+function markConfirmationSent(state, group, root, dateId) {
+  for (const o of group.orders) {
+    o.confirmedSent = true;
+    delete o.confirmedOpened; // the draft it stood for is done with
+  }
+  const first = firstOf(group);
+  if (first) anchorRowId = first.id;
+  save(state);
+  maybeSync(state);
+  publishTracking(state, group); // Confirmed now green on the customer's track card too
+  toast("Confirmation sent");
   renderAll(root, state, new URLSearchParams({ date: dateId }));
 }
 
