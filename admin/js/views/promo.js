@@ -22,7 +22,8 @@ import { fmtRM, newId, save } from "../state.js";
 import { todayISO, longDate } from "../dates.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { translateTo, translateAllowed } from "../translate.js";
-import { blankCode, codeProblem, normalizeCode, offerOf, SAY_MAX } from "../promo.js";
+import { blankCode, codeProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
+import { usageOf } from "../promo-usage.js";
 
 export function renderPromoCodes(root, state) {
   renderAll(root, state);
@@ -72,6 +73,10 @@ function rulesWords(c) {
   if (c.who.type === "first") out.push("first order only");
   if (c.often.type === "once") out.push("once per customer");
   if (c.often.type === "quota") out.push(`first ${c.often.n} order${c.often.n === 1 ? "" : "s"} only`);
+  // The other half of the ceiling, on the same line: a code capped in ringgit
+  // used to read as though it had no cap at all, which is the one thing this row
+  // must never do — she would have to open the pop-up to find the limit she set.
+  if (Number(c.often.maxRM) > 0) out.push(`${fmtRM(c.often.maxRM)} given away at most`);
   if (c.beside.type === "nocredit") out.push("not with the bring-a-friend credit");
   return out;
 }
@@ -134,6 +139,15 @@ function buildCodeEditor(state, code) {
     class: "input", type: "number", min: "1", step: "1", inputmode: "numeric",
     value: seed.often.n ? String(seed.often.n) : "",
   });
+  // The other half of the ceiling: the most this code may ever give away, added
+  // up across every order it is used on. It is deliberately NOT part of the
+  // "how often" answer — a code anyone may use as often as they like can still
+  // be worth capping, and a percentage has no natural end without one — so it is
+  // asked on its own line rather than hidden behind one of the three options.
+  const oftenMax = el("input", {
+    class: "input", type: "number", min: "0", step: "0.01", inputmode: "decimal",
+    value: seed.often.maxRM ? String(seed.often.maxRM) : "",
+  });
   const beside = el("select", { class: "input" },
     el("option", { value: "anything", selected: seed.beside.type === "anything" }, "Nothing in particular"),
     el("option", { value: "nocredit", selected: seed.beside.type === "nocredit" }, "Not with the bring-a-friend credit"));
@@ -161,6 +175,11 @@ function buildCodeEditor(state, code) {
     el("p", { class: "hint" }, "A percentage with no most-it-can-come-to has no limit at all. Fill this in and the offer can never cost more than this."));
   const basketField = el("div", { class: "field" }, el("label", {}, "Smallest basket (RM)"), basketAmount);
   const oftenField = el("div", { class: "field" }, el("label", {}, "How many orders"), oftenN);
+  const ceilingField = el("div", { class: "field" },
+    el("label", {}, "Stop after giving away (RM)"),
+    oftenMax,
+    el("p", { class: "hint" },
+      "Whichever comes first — the order count above, or this much money. Leave it empty for a code with no limit at all. A code that has a limit stops being offered the moment that limit is reached, and stops being accepted: the total is counted from your own orders, never from anything the shop writes down."));
 
   function paintFields() {
     const k = kind.value;
@@ -182,9 +201,11 @@ function buildCodeEditor(state, code) {
     rec.who = { type: who.value };
     rec.when = { from: from.value || "", to: to.value || "" };
     rec.basket = { type: basket.value, amount: Number(basketAmount.value) || 0 };
-    // maxRM — the ringgit ceiling — is not a box on this screen yet; carried
-    // through untouched so an edit never quietly wipes a limit she set elsewhere.
-    rec.often = { type: often.value, n: Math.floor(Number(oftenN.value) || 0), maxRM: Number(seed.often.maxRM) || 0 };
+    rec.often = {
+      type: often.value,
+      n: Math.floor(Number(oftenN.value) || 0),
+      maxRM: Number(oftenMax.value) || 0,
+    };
     rec.beside = { type: beside.value };
     rec.vis = vis.value;
     rec.say = say.value.trim();
@@ -213,7 +234,7 @@ function buildCodeEditor(state, code) {
   }
 
   return { name, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
-    valueField, capField, basketField, oftenField, translateSay, collect };
+    valueField, capField, basketField, oftenField, ceilingField, translateSay, collect };
 }
 
 function editorFields(editor) {
@@ -232,6 +253,7 @@ function editorFields(editor) {
     el("div", { class: "field" }, el("label", {}, "How often it can be used"), editor.often),
     el("div", { class: "form-grid" }, editor.oftenField, el("div", {})),
     el("p", { class: "hint" }, "\"Once per customer\" and \"a first order only\" are judged from what that customer's phone remembers, and a new phone remembers nothing — so the shop TELLS them and takes the order anyway. The real check is yours, when you confirm it. A limited number of orders is different: it is counted from your own orders, so it genuinely stops being offered when it is reached."),
+    editor.ceilingField,
     el("div", { class: "field" }, el("label", {}, "What it cannot be used with"), editor.beside,
       el("p", { class: "hint" }, "The bring-a-friend welcome discount comes out of the same money as a code that gives ringgit off, so this stops the two stacking on one order.")),
     el("div", { class: "field" }, el("label", {}, "Who can see it"), editor.vis,
@@ -286,19 +308,54 @@ function openEditCodePopup(state, code, root) {
   }, { wide: true });
 }
 
-// How many orders her own app has seen carrying this code. Read straight off the
-// orders rather than kept as a tally on the code, so it can never drift: the
-// moment an order is imported from the shop, or deleted, the number is right.
-function usedCount(state, code) {
-  return (state.orders || []).filter((o) => o && tidy(o.promo) === code.code).length;
+// What the code has done so far and how much of each limit that is, recounted
+// from her own orders every time this screen is drawn. Two limits can be set and
+// either can be the one that ran out, so both are always shown against their own
+// ceiling — she can see a code at 4 of 5 orders and RM18 of RM50 before it stops,
+// which is what tells her whether to raise the count or the money.
+function useWords(c, u) {
+  const n = c.often.type === "quota" ? Number(c.often.n) : 0;
+  const cap = Number(c.often.maxRM) || 0;
+  const bits = [];
+  if (n > 0) bits.push(`${u.used} of ${n} order${n === 1 ? "" : "s"} used`);
+  else bits.push(u.used ? `used on ${u.used} order${u.used === 1 ? "" : "s"}` : "not used yet");
+  if (cap > 0) bits.push(`${fmtRM(u.given)} of ${fmtRM(cap)} given away`);
+  return bits.join(" · ");
+}
+
+// The sentence for a code that has run out — the only place she is told WHICH
+// limit ran out, because that is hers to know and the customer's never to see
+// (the shop has one "fully claimed" answer and no idea which bound produced it).
+function claimedWords(c, stopped) {
+  const n = c.often.type === "quota" ? Number(c.often.n) : 0;
+  const cap = Number(c.often.maxRM) || 0;
+  const orders = `${n} order${n === 1 ? "" : "s"}`;
+  const money = fmtRM(cap);
+  if (stopped.bound === "both") {
+    return `Fully claimed — all ${orders} used, and ${money} given away. The shop has stopped offering it.`;
+  }
+  if (stopped.bound === "money") {
+    return `Fully claimed — it has given away its ${money}. The shop has stopped offering it.`;
+  }
+  return `Fully claimed — all ${orders} used. The shop has stopped offering it.`;
 }
 
 function codeCard(state, code, root) {
-  const used = usedCount(state, code);
-  const c = normalizeCode(code);
+  const u = usageOf(state, code);
+  // Judged with the RECOUNTED numbers, never the record's own. The stored counts
+  // are only ever what the last publish wrote, so a code whose limit was reached
+  // by an order that arrived this morning still reads zero on the record — and
+  // judging that would leave a used-up code wearing no banner at all. The same
+  // substitution the publish seam makes, for the same reason: the orders are the
+  // tally, and the record is only the last thing written down.
+  const c = normalizeCode({ ...code, used: u.used, given: u.given });
+  const stopped = stoppedBy(c, todayISO());
+  const claimed = stopped && stopped.fail === "claimed" ? stopped : null;
   // A row has to say everything the code will do, not just what it gives, or she
   // has to open the Edit pop-up to remember the dates she set. The offer and its
-  // rules on one line; who can see it and how it has done, quieter, underneath.
+  // rules on one line; who can see it and how it has done, quieter, underneath —
+  // and a code that has run out says so in a banner, because a code that has
+  // quietly stopped working is the one thing this screen must never hide.
   return el("div", { class: "card" },
     el("div", { class: "card-row" },
       el("div", { style: "min-width:0" },
@@ -307,11 +364,12 @@ function codeCard(state, code, root) {
         el("p", { class: "hint" },
           [c.vis === "personal" ? "personal — never shown" : "public — shown in the shop",
             c.say ? "your own words" : "",
-            used ? `used on ${used} order${used === 1 ? "" : "s"}` : "not used yet"]
+            useWords(c, u)]
             .filter(Boolean).join(" · "))),
       el("div", { class: "li-right" },
         button("Edit", () => openEditCodePopup(state, code, root), "ghost small"),
-        button("Delete", () => deleteCode(state, code, root, used), "ghost small"))));
+        button("Delete", () => deleteCode(state, code, root, u.used), "ghost small"))),
+    claimed ? el("p", { class: "warn" }, claimedWords(c, claimed)) : null);
 }
 
 function deleteCode(state, code, root, used) {

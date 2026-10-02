@@ -18,6 +18,7 @@ import { customerTotal } from "./courier.js";
 // advertise and judge (publishCodes), and how a code a customer typed is spelled
 // by the time it reaches an order (normCode).
 import { normCode, publishCodes } from "./promo.js";
+import { usageByCode } from "./promo-usage.js";
 // The trip on the order, read through the one helper that decides what a half-written
 // record means. NOT the courier registry: this module is imported by the channel that
 // talks to a courier (couriers/api.js reads its session token), so reaching for the
@@ -410,6 +411,12 @@ function storefrontPayload(state) {
     ? dev.emails.map((e) => String(e || "").trim()).filter(Boolean)
     : [];
   const devWa = String(dev.whatsapp || "").trim();
+  // What every code has done so far, recounted from her own orders at the moment
+  // of publishing — never read off the record, which only ever holds what the
+  // last recount wrote. The shop judges "has this been fully claimed" with these
+  // two numbers, so a code that has given away everything it was allowed stops
+  // being advertised and stops being accepted the next time she publishes.
+  const usage = usageByCode(state);
   const out = {
     whatsapp: String(sf.whatsapp || ""),
     name: String(sf.name || ""),
@@ -440,7 +447,7 @@ function storefrontPayload(state) {
     // shop can only accept one that a customer types, and the customer's own
     // personal code is the only way its owner can use it; "personal" means never
     // advertised, never secret. See publishCodes in js/promo.js.
-    promoCodes: publishCodes(state),
+    promoCodes: publishCodes(state, (c) => usage.get(c.code) || { used: 0, given: 0 }),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the

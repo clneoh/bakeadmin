@@ -201,11 +201,20 @@ export function stoppedBy(code, today = "") {
   if (today && code.when.from && today < code.when.from) return { fail: "notYet", on: code.when.from };
   if (today && code.when.to && today > code.when.to) return { fail: "ended", on: code.when.to };
   // Used up — either bound, whichever is reached first. The count and the
-  // ringgit are derived from her real orders by usageOf (see js/promo.js callers);
+  // ringgit are derived from her real orders by usageOf (see js/promo-usage.js);
   // nothing here reads a tally the shop could have written.
+  //
+  // `bound` names WHICH limit ran out. The customer never reads it — both bounds
+  // present as the one "fully claimed" refusal, so no new wording exists and
+  // neither the count nor the money is ever put in front of them. It is there
+  // because the bound is HER information: her own screen needs to say whether the
+  // code ran out of orders or out of ringgit, and that comparison is worked out
+  // here rather than a second time in a screen that could drift from this one.
   const overCount = code.often.type === "quota" && Number(code.often.n) > 0 && code.used >= Number(code.often.n);
   const overMoney = Number(code.often.maxRM) > 0 && Number(code.given) >= Number(code.often.maxRM);
-  if (overCount || overMoney) return { fail: "claimed" };
+  if (overCount || overMoney) {
+    return { fail: "claimed", bound: overCount ? (overMoney ? "both" : "count") : "money" };
+  }
   return null;
 }
 
@@ -242,31 +251,41 @@ export function evaluate(list, typed, ctx = {}) {
    published, but it never appears in the standing line and never goes on a card.
    The published list is public by nature (it is read with the shop's own public
    key), so "personal" means never-advertised, never secret.                     */
-export function publishCodes(state) {
+export function publishCodes(state, counts = null) {
   // Only names the shop could ever honour. A code whose name cannot be typed
   // (too short, too long, a stray character) would be advertised by a page that
   // then refused it — so it is left out of the list entirely rather than sent
   // and dropped again downstream. It still shows on her own screen, where she
   // can see and fix it; nothing she made is hidden from her.
-  return codesOf(state).filter((c) => codeNameOk(c.code)).map((c) => ({
-    code: c.code,
-    state: c.state,
-    vis: c.vis,
-    frozen: c.frozen,
-    used: c.used,
-    given: c.given,
-    who: c.who,
-    when: c.when,
-    basket: c.basket,
-    gives: c.gives,
-    often: c.often,
-    beside: c.beside,
-    // Her own sentence, when she wrote one. Published because the shop is where
-    // it is read; blank is the normal state and means the shop composes it.
-    say: c.say,
-    sayZh: c.sayZh,
-    sayMs: c.sayMs,
-  }));
+  return codesOf(state).filter((c) => codeNameOk(c.code)).map((c) => {
+    // The two counts are DERIVED, never carried: the caller passes a counter that
+    // recounts from her real orders at the moment of publishing (see
+    // js/promo-usage.js). A tally stored on the record would be stale the instant
+    // an order arrived on another phone, and a stale "used" is exactly what would
+    // leave the shop advertising a code she has already given away in full. With
+    // no counter the record's own numbers stand, so a test or a second business
+    // can publish a hand-made list unchanged.
+    const n = typeof counts === "function" ? counts(c) : null;
+    return {
+      code: c.code,
+      state: c.state,
+      vis: c.vis,
+      frozen: c.frozen,
+      used: n ? n.used : c.used,
+      given: n ? n.given : c.given,
+      who: c.who,
+      when: c.when,
+      basket: c.basket,
+      gives: c.gives,
+      often: c.often,
+      beside: c.beside,
+      // Her own sentence, when she wrote one. Published because the shop is where
+      // it is read; blank is the normal state and means the shop composes it.
+      say: c.say,
+      sayZh: c.sayZh,
+      sayMs: c.sayMs,
+    };
+  });
 }
 
 // Why a code cannot be saved as it stands — null when it is fine. Answers in a

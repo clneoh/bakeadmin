@@ -1,8 +1,67 @@
-# Jienluv2bake — change history (v54 → v270)
+# Jienluv2bake — change history (v54 → v271)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v271, A CODE THAT KNOWS WHEN TO STOP (no database step,
+nothing to upload — pushing this one is the whole of it, and your app must reach
+the cloud once for the shop to be told).**
+
+**The thing a printed code cannot do.** A card has no number on it and no end
+date on it — that was decided deliberately, because a date is a promise a card
+cannot keep and a count is a promise it may not be able to honour. Which left one
+real question: how does a code with a card stop being a good idea? Until today,
+it did not. Now you say so yourself, on the code screen.
+
+**The new box: "Stop after giving away (RM)".** Fill it in and the code stops the
+moment it has given away that much money. It sits beside the order limit you
+already had, and **whichever runs out first is the end of it** — so you can say
+"the first 5 orders, or RM50, whichever comes first", which is usually what you
+actually mean. Leave it empty and the code has no limit at all, exactly as
+before. It works for every kind of code, including a percentage, which otherwise
+has no natural end.
+
+**Where the numbers come from matters, so here it is.** They are **counted from
+your own orders**, freshly, every single time — not kept in a little tally on the
+code. That is why the figure cannot drift: the moment an order reaches your app,
+or you delete one, the count is right again on its own. Nothing the shop writes
+down is ever trusted, because the shop is a public page and cannot be.
+
+**A basket counts once.** A customer who orders three things in one go used the
+code **once**, and it gave away one RM10 — not three. Your app counts the basket,
+not the items, so a three-item order can never eat three of your "first 5 orders".
+(A code you have since deleted stops being counted; the orders that carry it keep
+it and keep reading correctly, exactly as deleting always meant.)
+
+**Your screen now tells you which limit ran out.** Each code shows how far
+through its limits it is — __3 of 9 orders used · RM30.00 of RM30.00 given away__ —
+and a code that has finished says so in an amber banner across its card:
+**Fully claimed — it has given away its RM30.00. The shop has stopped offering
+it.**, or **...all 2 orders used...** when it was the count. That distinction is
+yours alone. The customer never sees it: they get the one sentence that already
+existed, "that code has been fully claimed", with no figure and no reason, because
+neither belongs on their screen.
+
+**What the shop does differently, without a single line of the shop changing.**
+Now that a code carries real counts, the shop can finally act on its own "fully
+claimed" answer: a code that has given away everything you allowed stops being
+advertised at the top of the shop and stops being accepted at the box. This is the
+one change a customer could feel, and it only happens once your app has published
+to the cloud — so after you push, **open the app once on your phone with a
+connection** and the shop will be told.
+
+**One honest limitation, written down rather than glossed over.** An order
+remembers the code's **name**, not the code's terms — so if you change what a code
+gives, every past order is recounted at the new terms. That is the figure on your
+screen, and it is the reason a printed code is meant to be frozen rather than
+left editable. Nothing about an order's own promise changes; it is only the tally
+that follows the code as it stands today.
+
+Nothing to set up in the database, nothing to upload anywhere. `admin/` only, and
+no customer-facing screen is redrawn — the shop simply acts on better information.
+The engine is **v271**; the automatic test suite is now **2,374** checks, all
+passing.
 
 **02 Oct 2026 — engine v270, THE CODE THAT WAS THERE ALL ALONG, AND A PROMO
 SCREEN WITH SOMETHING TO SAY (no database step, nothing to upload — pushing this
