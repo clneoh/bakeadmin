@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v273)
+# Jienluv2bake — change history (v54 → v274)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v274, THE SHOP'S OWN SENTENCE IN A HAND YOU PICKED (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** The handwriting on the shop page. In v273 you asked for a
+font on the messages, and the honest answer there was that WhatsApp carries no
+fonts at all — so only your opening line could lean over. The shop page is a
+different matter: it is our own page, so a real hand can be put on it and it will
+look the same on every phone. You picked which hand by looking at five real
+versions drawn inside the shop's own strip, and you chose the **chalk hand** —
+rounder and fatter, like chalk on a board.
+
+**What this version does.** The amber strip at the top of the shop has two lines.
+The first is the offer and the code — 'RM10 off when you spend RM40, use code
+FRESH10'. That line is untouched: same lettering, same size, still first, because
+it is the part a customer has to act on. The **second line** — the words you wrote
+yourself about the code — is now set in the chalk hand, and a little larger than
+before, so it reads as your own note under the offer rather than a second
+announcement.
+
+**One limit, said plainly.** The hand is a Latin face. It carries **no Chinese
+characters at all**, and no other hand we looked at does either. So a sentence you
+write in Chinese keeps exactly the plain lettering it has always had — the words
+are the same and nothing moves — it simply cannot wear the hand. English and
+Bahasa Malaysia wear it. This is said here rather than left for you to find.
+
+**Nothing is fetched from anywhere else.** The font travels inside the shop, in
+the shop's own folder, with its licence beside it. So there is no request to a font
+company when a customer opens the page, and the letters are the same on an iPhone,
+an Android or a laptop. It is trimmed to the Latin letters only, which is why it is
+about 45 KB rather than the roughly 390 KB the whole family weighs.
+
+**Two corrections to the v273 entry below**, which was written before you had
+picked. It says your shop's sentence is "still in the serif it has always used" —
+it was never a serif; it was the plain system lettering, and it still is under
+anything in Chinese. And it calls the hand you picked a "felt-tip" — you picked
+the **chalk** hand, which is what this version now sets. The rest of that entry
+stands.
+
+The engine is **v274**; the automatic test suite is now **2,418** checks, all
+passing. What a customer can see: `store/app.css`, `store/index.html` and the new
+`store/fonts/` folder. Everything else is the version number itself.
 
 **02 Oct 2026 — engine v273, YOUR MESSAGES IN A VOICE YOU CHOSE (no database
 step, nothing to upload — pushing this one is the whole of it).**

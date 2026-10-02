@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#c4552f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Order · Jienluv2bake</title>
+  <!-- The chalk hand used by the bakery's own sentence in the shelf strip (v274).
+       Fetched before the stylesheet so it is already in flight when app.css asks
+       for it, and `crossorigin` because a font is always a CORS request even from
+       our own origin — without it the browser fetches the file twice. -->
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="fonts/ShantellSans-Regular-latin.woff2">
   <link rel="stylesheet" href="app.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥖</text></svg>">
 </head>

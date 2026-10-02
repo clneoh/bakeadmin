@@ -12,6 +12,26 @@
   --radius: 16px;
   --serif: "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --hand: "Shantell Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* The chalk hand for the bakery's own sentence in the shelf strip (v274). It is
+   a Latin face - it carries no Chinese characters at all - so a sentence written
+   in Chinese falls through to the system font, character by character, exactly
+   as it looked before this file existed. That is the honest limit, not a fault.
+
+   Shipped from our own folder rather than fetched from a font service, so the
+   shop has no third-party request and the letters are the same on every phone.
+   The file is the Latin subset of Shantell Sans Regular, kerning intact; the
+   licence (OFL) sits beside it in fonts/OFL.txt. `swap` shows the system face
+   first and swaps in the hand when it arrives, so a slow download never blanks
+   the line. */
+@font-face {
+  font-family: "Shantell Sans";
+  src: url("fonts/ShantellSans-Regular-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 * { box-sizing: border-box; }
@@ -1173,8 +1193,20 @@ button.prod-next.off::after { content: ""; }
 }
 .promo-today p { margin: 0; }
 /* The bakery's own words, inside the same strip but quieter than the offer and
-   the code it sits under — those are what a customer has to act on. */
-.promo-today .promo-words { margin-top: 4px; font-weight: 400; }
+   the code it sits under — those are what a customer has to act on.
+
+   Her sentence is set in the chalk hand at 16px (v274), not the 13px the strip's
+   own text uses: it is a sentence a customer reads, and at 13px a handwriting
+   face on a phone loses the strokes that make it a hand at all. The offer line
+   above it keeps the strip's 13px system lettering, so the thing to act on still
+   leads. */
+.promo-today .promo-words {
+  margin-top: 5px;
+  font-family: var(--hand);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+}
 .promo-words[hidden] { display: none; }
 
 .promo-box { margin: 0 0 16px; }
