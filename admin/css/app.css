@@ -897,6 +897,16 @@ option.tone-off { color: var(--muted); }
 .list-item .li-title > span:last-child { overflow-wrap: anywhere; }
 .list-item .li-sub { font-size: 13px; color: var(--muted); }
 .list-item .li-right { display: flex; align-items: center; gap: 8px; row-gap: 6px; flex-wrap: wrap; }
+/* An order's own total, on the row (v277). It takes a LINE OF ITS OWN the full width of
+   the row, which is what makes the figures a column: laid beside .li-right it would sit at
+   whatever x the row's chips happened to leave free, and a list of orders would read as a
+   ragged edge instead of a column. Her report, 2 Oct 2026: the money is "non at all in the
+   order list ... the money have to align up". It reuses the app's own label-and-figure row
+   (.info-row / .info-val), so an order's money on the list, in the pop-ups, on the Money
+   screen and in the Profit statement are all one shape. */
+.list-item .li-money { flex: 1 1 100%; margin: 3px 0 0; font-size: 13px; }
+.list-item .li-money > span:first-child { color: var(--muted); }
+.list-item .li-money > .info-val { font-weight: 700; color: var(--ink); }
 
 /* ---------- Customer suggestions under the name box ---------- */
 /* Typing a name in an order form offers the people she has already served (18 Sep

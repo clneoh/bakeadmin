@@ -351,3 +351,60 @@ export function codeProblem(list, rec, selfId = "") {
   if (c.when.from && c.when.to && c.when.to < c.when.from) return { fail: "datesBackwards" };
   return null;
 }
+
+// A date range that has moved BACKWARDS — a promise taken away rather than
+// extended. Generosity has no direction problem: an end date can be dropped
+// altogether (a code that never runs out is the most generous it can be) and a
+// start date can be brought forward, but setting an end date where there was
+// none, pulling one earlier, or pushing a start date later all refuse someone
+// holding a card today.
+function datesNarrowed(b, a) {
+  if (b.to ? (a.to && a.to < b.to) : Boolean(a.to)) return true;
+  if (b.from ? (a.from && a.from > b.from) : Boolean(a.from)) return true;
+  return false;
+}
+
+// A ceiling that has moved DOWN. 0 means "no limit at all" — the top of the
+// scale on both bounds, the order count and the ringgit total — so raising a
+// ceiling, or removing it, is always allowed and lowering one never is. A
+// ceiling is deliberately not printed on the card, which is exactly why it is
+// hers to raise: a launch that is going well can be allowed to run longer, and
+// nobody holding a card is any worse off for it.
+function ceilingNarrowed(b, a) {
+  const n = (o) => (o.type === "quota" ? Number(o.n) || 0 : 0);
+  const rm = (o) => Number(o.maxRM) || 0;
+  const down = (was, now) => (was === 0 ? now > 0 : now > 0 && now < was);
+  return down(n(b), n(a)) || down(rm(b), rm(a));
+}
+
+/* WHAT A PRINTED CODE MAY STILL CHANGE. Once a card is in someone's hand it goes
+   on saying what it said, so the offer on it is frozen: the name, what it gives,
+   who it is for, the smallest basket and what it cannot sit beside can never be
+   re-written. Only two things may still move, and only one way — the end date
+   later, the ceiling up — because being generous with someone holding a card
+   cannot hurt them and taking something back can.
+
+   Everything that is NOT the promise stays hers: her own sentence for the shop,
+   who may see it, and whether the code is live, paused or ended. Pausing and
+   ending are the two brakes, and a rule that froze them would leave her with a
+   code she could neither stop nor restart.
+
+   Takes the code as it WAS and as it is about to be, and answers with a machine
+   reason or null — never a sentence, so a screen can word it and a second
+   business can word it differently. An unfrozen code is never refused: the whole
+   of this rule is about what printing pins down.                              */
+export function frozenProblem(before, after) {
+  const b = normalizeCode(before);
+  const a = normalizeCode(after);
+  if (!b.frozen) return null;
+  if (a.code !== b.code) return { fail: "frozenName" };
+  if (a.gives.type !== b.gives.type || a.gives.value !== b.gives.value || a.gives.cap !== b.gives.cap) {
+    return { fail: "frozenGives" };
+  }
+  if (a.who.type !== b.who.type) return { fail: "frozenWho" };
+  if (a.basket.type !== b.basket.type || a.basket.amount !== b.basket.amount) return { fail: "frozenBasket" };
+  if (a.beside.type !== b.beside.type) return { fail: "frozenBeside" };
+  if (datesNarrowed(b.when, a.when)) return { fail: "frozenDates" };
+  if (ceilingNarrowed(b.often, a.often)) return { fail: "frozenCeiling" };
+  return null;
+}

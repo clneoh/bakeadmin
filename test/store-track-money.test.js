@@ -115,7 +115,9 @@ function allParas(root, out = []) {
   for (const kid of root.children || []) {
     if (kid.nodeType !== 1) continue;
     if (String(kid.tagName).toLowerCase() === "p") {
-      out.push({ text: lines(kid).join(""), cls: String(kid.className || "") });
+      // The NODE is kept beside its text, because a money row's shape is the two spans
+      // inside it and not the words it makes when they are run together (v277).
+      out.push({ text: lines(kid).join(""), cls: String(kid.className || ""), node: kid });
       continue;
     }
     allParas(kid, out);
@@ -142,7 +144,27 @@ async function card(row) {
 }
 const texts = (read) => read.map((p) => p.text);
 const withClass = (read, cls) => read.filter((p) => p.cls.split(/\s+/).includes(cls));
-const money = () => texts(allParas(detailsNode()));
+
+// A money row is TWO spans — the words on the left, the figure on the right — so that the
+// figures form one column down the card (v277). Reading the element's text alone would run
+// the two halves together ("Items totalRM 30.00"), so a row is read back here as the
+// sentence it makes; the column itself is checked separately, just below, by reading each
+// half where it sits.
+function sentence(p) {
+  const kids = (p.node.children || []).filter((c) => c.nodeType === 1);
+  if (!kids.length) return p.text;
+  const label = lines(kids[0]).join(" ").trim();
+  const value = kids[1] ? lines(kids[1]).join("").trim() : "";
+  return value ? `${label}: ${value}` : label;
+}
+const money = () => allParas(detailsNode()).map(sentence);
+
+// The two halves of every money row, in the order the card draws them. This is the shape
+// the CSS turns into a column: a label that takes the room, and a figure that does not.
+function halves(cls) {
+  return allParas(detailsNode()).filter((p) => p.cls.split(/\s+/).includes(cls))
+    .map((p) => (p.node.children || []).filter((c) => c.nodeType === 1));
+}
 
 const base = {
   status: "baking", confirmed_sent: true, paid_received: true,
@@ -170,7 +192,7 @@ test("a COD charge is NOT taken off the subtotal, because it is not inside the t
     "Wed, 30 Sep",
     "Items: Focaccia x2",
     "Items total: RM 30.00",
-    "Courier charge: RM 8.00 - COD, pay the courier on delivery",
+    "Courier charge — COD, pay the courier on delivery: RM 8.00",
     "Total: RM 30.00",
   ], `the charge named without being asked for twice: ${JSON.stringify(money())}`);
 });
@@ -235,9 +257,9 @@ test("a code on the order is named between the charge and the total", async () =
 
 test("the promo line is a muted working, and the total keeps the emphasis", async () => {
   const read = await card({ ...base, total: "RM 30.00", courier_fee: 8, promo_code: "FRESH10", promo_rm: 10 });
-  assert.equal(withClass(read, "track-promo").map((p) => p.text).join("|"), "Promo FRESH10: -RM 10.00",
+  assert.equal(withClass(read, "track-promo").map(sentence).join("|"), "Promo FRESH10: -RM 10.00",
     "the line carries its own class, beside the charge's, above the total");
-  assert.equal(withClass(read, "track-total").map((p) => p.text).join("|"), "Total: RM 30.00",
+  assert.equal(withClass(read, "track-total").map(sentence).join("|"), "Total: RM 30.00",
     "and the figure they are asked for is still the only bold one");
   assert.equal(withClass(read, "track-total")[0].text.includes("*"), false,
     "no asterisks — that is the WhatsApp message's way of bolding, not this page's");
@@ -272,19 +294,60 @@ test("the total is set apart by a class, and carries no WhatsApp markers", async
   const read = await card({ ...base, total: "RM 38.00", courier_fee: 8 });
   const totals = withClass(read, "track-total");
   assert.equal(totals.length, 1, "exactly one line is the total");
-  assert.equal(totals[0].text, "Total: RM 38.00",
+  assert.equal(sentence(totals[0]), "Total: RM 38.00",
     "and it is the figure, with no asterisks — those are the message's way of bolding, not this page's");
   assert.equal(totals[0].text.includes("*"), false,
     "a card printing the asterisks would be the WhatsApp message leaking onto the page");
 
   // The workings recede instead: the subtotal and the charge are muted, the charge flagged
   // as its own kind of line, so the eye lands on the total rather than on the RM8.
-  const sub = withClass(read, "track-note").map((p) => p.text);
+  const sub = withClass(read, "money-row").map(sentence);
   assert.ok(sub.includes("Items total: RM 30.00"), `the subtotal is a muted working: ${JSON.stringify(sub)}`);
   assert.ok(sub.includes("Courier charge: RM 8.00"), "and so is the charge");
-  assert.equal(withClass(read, "track-fee").map((p) => p.text).join("|"), "Courier charge: RM 8.00",
+  assert.equal(withClass(read, "track-fee").map(sentence).join("|"), "Courier charge: RM 8.00",
     "the charge keeps the class it has always carried, above the total it is part of");
 });
+
+// ── the column itself (v277) ─────────────────────────────────────────────────
+// Her report, 2 Oct 2026: "the format still not as clear as a receipt, the money have to
+// align up ... line up in one column". A column is a SHAPE, so it is checked as one: every
+// money line is a row of exactly two spans, the last of which is the figure and carries
+// the class the stylesheet aligns and gives tabular digits to. A row drawn with the figure
+// folded back into its words — which is what this card used to do — fails here even though
+// its text would still read correctly, which is the whole point: the arithmetic tests above
+// cannot see the difference between RM 30.00 on its own right edge and RM 30.00 trailing a
+// label, and she can.
+test("every money line is one row of a label and a figure, in that order", async () => {
+  const read = await card({ ...base, total: "RM 38.00", courier_fee: 8, promo_code: "FRESH10", promo_rm: 5 });
+  const rows = halves("money-row");
+  assert.equal(rows.length, 4, `subtotal, charge, code and total: ${JSON.stringify(money())}`);
+  for (const [label, value] of rows) {
+    assert.ok(label && String(label.className || "").split(/\s+/).includes("money-label"),
+      "the words come first, in the label span");
+    assert.ok(value && String(value.className || "").split(/\s+/).includes("money-val"),
+      "and the figure comes last, in the span the stylesheet pushes right");
+  }
+  assert.deepEqual(rows.map(([, v]) => lines(v).join("")),
+    ["RM 35.00", "RM 8.00", "-RM 5.00", "RM 38.00"],
+    "each figure is its own element, so the four stack into one column");
+});
+
+test("the figure is the last thing on the row, so nothing can sit to its right", async () => {
+  // The one figure on the card that carries a rider — a COD charge — puts that rider in
+  // the LABEL, not after the money: anything drawn to the right of the figure would move
+  // it off the column, and the column is the whole request.
+  const read = await card({ ...base, total: "RM 30.00", courier_fee: 8, courier_cod: true });
+  const rows = halves("money-row");
+  const cod = rows[1];
+  assert.equal(lines(cod[1]).join(""), "RM 8.00", "the charge's figure, alone on the right");
+  assert.ok(lines(cod[0]).join(" ").includes("COD"),
+    `with the words it explains on the left: ${lines(cod[0]).join(" ")}`);
+  for (const row of rows) {
+    assert.equal(String(row[row.length - 1].className).split(/\s+/).includes("money-val"), true,
+      "and every row on the card ends with its figure");
+  }
+});
+
 
 test("the goods are labelled, so the list above a stack of figures says what it is", async () => {
   await card({ ...base, total: "RM 38.00", courier_fee: 8, items: "Focaccia x2, Sandwich x1" });

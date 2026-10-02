@@ -875,6 +875,13 @@ const cardLabels = (box) => {
 };
 const byExactClass = (box, name) =>
   box.children.find((c) => String(c.className || "").split(/\s+/).includes(name));
+// A money line on the customer's card is one ROW of two halves — the words on the left,
+// the figure flush right (v277) — so reading `children[0].text` on it finds an ELEMENT,
+// not the sentence. These two read the halves where they sit.
+const rowLabel = (p) => (p.children[0].children || [])
+  .map((c) => (c.nodeType === 3 ? String(c.text) : (c.children || []).map((g) => String(g.text || "")).join("")))
+  .join(" ").trim();
+const rowFigure = (p) => (p.children[1] ? (p.children[1].children || []).map((c) => String(c.text || "")).join("") : "");
 // The courier charge sits inside the details block rather than beside it, so it is
 // found by walking rather than by looking at the card's own children.
 const deepByClass = (box, name) => {
@@ -987,7 +994,8 @@ test("a courier charge the customer bears is named on the card, and the lookup a
       "and customer, for the same reason: the name was in the row all along and the card never received it");
     const fee = deepByClass(box, "track-fee");
     assert.ok(fee, "the charge is named on its own line, above the total that includes it");
-    assert.equal(fee.children[0].text, "Courier charge: RM8.00");
+    assert.equal(rowLabel(fee), "Courier charge", "the words, on the left");
+    assert.equal(rowFigure(fee), "RM8.00", "the figure, in the column on the right");
     assert.equal(byExactClass(box, "track-note").children[0].text, "For Ain",
       "and the customer's own name reaches the card");
   } finally {
@@ -1031,7 +1039,9 @@ test("a Courier COD charge tells the customer to pay the courier, not the baker"
       "the lookup names courier_cod — PostgREST sends only the columns listed, so the card can never know the charge is COD until this asks for it, and would word it as money owed to the baker");
     const fee = deepByClass(box, "track-fee");
     assert.ok(fee, "the charge is still named in full — the customer has to know what the courier will ask for");
-    assert.equal(fee.children[0].text, "Courier charge: RM8.00 - COD, pay the courier on delivery");
+    assert.equal(rowLabel(fee), "Courier charge — COD, pay the courier on delivery",
+      "where the money goes, kept with the words so the figure stays alone on the right");
+    assert.equal(rowFigure(fee), "RM8.00");
     assert.equal(byExactClass(box, "track-note").children[0].text, "For Ain");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
@@ -1049,8 +1059,9 @@ test("a charge paid with the order still reads as the plain charge", async () =>
   globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
   try {
     await trackOrder("A3F9C2");
-    assert.equal(deepByClass(box, "track-fee").children[0].text, "Courier charge: RM8.00",
+    assert.equal(rowLabel(deepByClass(box, "track-fee")), "Courier charge",
       "no COD wording, and no flag sent — as every row published before this column existed");
+    assert.equal(rowFigure(deepByClass(box, "track-fee")), "RM8.00");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }

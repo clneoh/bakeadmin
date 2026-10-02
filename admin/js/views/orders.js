@@ -20,7 +20,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -3516,6 +3516,23 @@ function orderGroupRow(state, group, root, dateId) {
         + " — this row moved itself. Put it back if that is not right.")
     : null;
 
+  // The order's own money, on the row (v277). Her report, 2 Oct 2026: the money is "non at
+  // all in the order list". Every row now ends with its total in the same right-hand
+  // column as every other row, so a list of orders can be read down the figures the way a
+  // column of receipts can — "the money have to align up ... line up in one column".
+  //
+  // It is the SAME figure the receipt in the Edit / Note pop-ups and the customer's own
+  // message quote, because all three read one customerTotal: an order the row prices at
+  // RM38 and the pop-up prices at RM35 would be the class of fault this whole version is
+  // about. Drawn only when the order has been priced at all — an unpriced row is not an
+  // order worth nothing, and "RM 0.00" beside it would be the app inventing a figure.
+  const orderMoney = customerTotal(state, group);
+  const totalLine = orderMoney.items > 0
+    ? el("div", { class: "info-row li-money" },
+        el("span", {}, "Order total"),
+        el("span", { class: "info-val" }, fmtRM(orderMoney.total, state.settings.currency)))
+    : null;
+
   // The row is tagged with its first item's id; the group id rides along so the
   // inbox tap can still find this row when its own item is not the first one.
   const rowAttrs = { class: "list-item", dataset: { order: first.id } };
@@ -3575,6 +3592,7 @@ function orderGroupRow(state, group, root, dateId) {
         : null,
       stSel,
       ...actions),
+    totalLine,
     orderJourneyEl(first),
     referralBlockEl(state, group, root, dateId));
 }

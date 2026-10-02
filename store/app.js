@@ -2325,6 +2325,34 @@ function moneyText(sym, n) {
   return `${sym}${(Math.round((Number(n) || 0) * 100) / 100).toFixed(2)}`;
 }
 
+// One row of the customer's money block (v277): the words on the left, the figure flush
+// right, so the figures form a single column the eye can add up the way it does on a
+// receipt. Her report, 2 Oct 2026: "the format still not as clear as a receipt, the
+// money have to align up ... line up in one column".
+//
+// The row is CUT OUT OF THE TRANSLATED SENTENCE rather than built from a second set of
+// label strings. Every money label in store-lang.js already writes its figure as %1 (and
+// a promo's code as %1 with its money as %2), so splitting on the placeholder means a
+// translation edited in one place cannot leave this card reading a different word from
+// the message. The punctuation that joined the two halves is dropped — a receipt has no
+// colon — and a `-` written in front of the figure stays with the figure, because the
+// sign belongs to the money and not to the words.
+function moneyRow(tpl, figures, cls) {
+  const n = figures.length;
+  const cut = tpl.indexOf(`%${n}`);
+  let label = cut === -1 ? tpl : tpl.slice(0, cut);
+  // Anything written AFTER the figure is a rider on it, not part of the label — the COD
+  // charge is the only one, and it has to say where the money goes.
+  const tail = (cut === -1 ? "" : tpl.slice(cut + 2)).trim().replace(/^[-–—]\s*/, "");
+  // Any placeholder before the figure belongs to the WORDS — a promo's code.
+  for (let i = 1; i < n; i++) label = label.split(`%${i}`).join(String(figures[i - 1]));
+  const sign = /[-–—]\s*$/.test(label) ? "-" : "";
+  label = label.replace(/[\s:：\-–—]+$/, "");
+  return el("p", { class: `money-row${cls ? ` ${cls}` : ""}` },
+    el("span", { class: "money-label" }, tail ? `${label} — ${tail}` : label),
+    el("span", { class: "money-val" }, sign + String(figures[n - 1])));
+}
+
 // The money, as the same lines the customer's WhatsApp message carries (v199, 25 Sep
 // 2026): what they ordered, its subtotal, the courier's charge when there is one, and the
 // total — so the card and the message cannot be read side by side and disagree.
@@ -2348,28 +2376,27 @@ function moneyEls(row) {
   // leave the card unable to price an order it is showing (v272).
   const off = Number(row && row.promo_rm) || 0;
   const code = String((row && row.promo_code) || "").trim();
+  const rows = [
+    // The subtotal is the total less the charge inside it, and ADD BACK the discount —
+    // the published total is already net of the promo, so without this the goods would
+    // be printed RM10 short of what they cost.
+    moneyRow(t("itemsTotal"), [moneyText(read.sym, read.n - inside + off)]),
+  ];
+  if (fee > 0) {
+    rows.push(moneyRow(t(row.courier_cod ? "courierCod" : "courierCharge"),
+      [moneyText(read.sym, fee)], "track-fee"));
+  }
+  if (off > 0) {
+    rows.push(moneyRow(t("promoLine"), [code, moneyText(read.sym, off)], "track-promo"));
+  }
+  rows.push(moneyRow(t("trkTotal"), [moneyText(read.sym, read.n)], "track-total"));
   return [
     // The goods themselves, under the label the message uses, so the list above a stack
     // of figures is unmistakably what those figures are about.
     el("p", {}, sub(t("trkItems"), items)),
     // The workings are muted and the total is not: the same reading order the message
     // gives with a blank line and bold, done here the way a page does it.
-    //
-    // The subtotal is the total less the charge inside it, and ADD BACK the discount —
-    // the published total is already net of the promo, so without this the goods would
-    // be printed RM10 short of what they cost.
-    el("p", { class: "track-note" }, sub(t("itemsTotal"),
-      moneyText(read.sym, read.n - inside + off))),
-    fee > 0
-      ? el("p", { class: "track-note track-fee" }, sub(
-          t(row.courier_cod ? "courierCod" : "courierCharge"),
-          moneyText(read.sym, fee)))
-      : null,
-    off > 0
-      ? el("p", { class: "track-note track-promo" }, sub(
-          t("promoLine"), code, moneyText(read.sym, off)))
-      : null,
-    el("p", { class: "track-total" }, sub(t("trkTotal"), moneyText(read.sym, read.n))),
+    el("div", { class: "money" }, ...rows),
   ].filter(Boolean);
 }
 

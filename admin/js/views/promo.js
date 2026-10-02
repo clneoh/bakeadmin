@@ -22,8 +22,8 @@ import { fmtRM, newId, save } from "../state.js";
 import { todayISO, longDate } from "../dates.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { translateTo, translateAllowed } from "../translate.js";
-import { blankCode, codeProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
-import { usageOf } from "../promo-usage.js";
+import { blankCode, codeProblem, frozenProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
+import { usageByCode, usageOf } from "../promo-usage.js";
 
 export function renderPromoCodes(root, state) {
   renderAll(root, state);
@@ -37,8 +37,80 @@ function renderAll(root, state) {
       "Make one, print it on a card, and a customer types it into the shop. When an order comes in carrying a code, the app takes the amount off the Total itself — in the confirmation, every later message and the customer's own tracking page — and names the code beside the figure, so the money you collect and the money they were told always agree.")];
   root.replaceChildren(
     newCodeCard(state, root),
+    stepsCard(state),
     el("h2", { class: "section" }, `Promo codes (${list.length})`),
     ...rows);
+}
+
+/* THE ELEVEN STEPS (v277). The whole life of a promotion, in the order she would
+   actually do it, on the one screen where she manages codes. The wording is the
+   discussion's own; the sixth step is the point of no return — the only one that
+   cannot be undone — so it is the only row drawn shaded.
+
+   Folded away by default, because this screen's job is to make and manage codes
+   and eleven rows of prose standing above them would be a wall she scrolls past
+   every visit. The one line that folds it is not a label, it is the answer she
+   came for: where her own codes actually are, and what they have given away.
+
+   Nothing here is pressable, deliberately. The presses live on the code rows —
+   pause and end are steps nine and ten — so no step can look like a control that
+   does something and then not do it. Two of the eleven have nothing to press in
+   this build, and the note under the list says which, rather than leaving her to
+   read step 6 and look for a printer that is not there. */
+const STEPS = [
+  ["Write the promise down first", "One sentence: what it gives, who it is for, until when, and the most it could cost you. If that sentence needs a comma to hold it together, it is probably two codes."],
+  ["Make it", "New code. Answer the six families, and nothing else — everything about the code follows from those."],
+  ["Say who may see it", "Public, so it can be printed and can appear in the shop's own line; or personal, so it only works when typed and is never advertised. This is a decision, not a default."],
+  ["Set the cost ceiling", "The most you will ever give away on this code. When it is reached, the code stops itself."],
+  ["Test it on your own phone", "A test code behaves exactly like the live one but only works for your number. Walk the shop, read the line it produces, and read at least one refusal — so you have seen the words before a customer ever does."],
+  ["Print it, if it is public", "This is the point of no return. From here the offer is frozen, and only the end date can move — and only later."],
+  ["Launch it", "The promise is written down against the code, dated. A public code starts appearing in the shop's line by itself."],
+  ["Watch it", "The screen shows the orders it brought, the customers, and how much has been given away against your ceiling."],
+  ["Pause it if you must", "Always available, and it tells you how many orders are already holding the promise before you press it."],
+  ["End it", "New uses stop. Orders already placed keep what they were promised — ending a code never takes back a discount already given."],
+  ["Read it back", "Once it has finished: how many orders, how many new customers, what it sold, and what it cost you. That is the number that tells you whether to do it again."],
+];
+
+// Where her codes actually are, for the line that folds the list away. Counted
+// from the codes themselves and the same recount every other figure on this
+// screen uses, so this line can never disagree with the rows underneath it.
+function lifeSummary(state) {
+  const list = state.promoCodes || [];
+  if (!list.length) return "no codes yet";
+  const live = list.filter((c) => c.state === "live").length;
+  const paused = list.filter((c) => c.state === "paused").length;
+  const ended = list.filter((c) => c.state === "ended").length;
+  const given = [...usageByCode(state).values()].reduce((n, u) => n + u.given, 0);
+  const bits = [];
+  if (live) bits.push(`${live} live`);
+  if (paused) bits.push(`${paused} paused`);
+  if (ended) bits.push(`${ended} ended`);
+  if (given > 0) bits.push(`${fmtRM(given)} given away`);
+  return bits.join(" · ");
+}
+
+function stepsCard(state) {
+  const body = el("ol", { class: "steps" }, ...STEPS.map(([title, detail], i) =>
+    el("li", { class: i === 5 ? "gate" : "" },
+      el("b", {}, title, i === 5 ? el("span", { class: "gate-tag" }, "point of no return") : null),
+      el("i", {}, detail))));
+  body.hidden = true;
+  const line = el("span", { class: "steps-line" }, lifeSummary(state));
+  const arrow = el("span", { class: "steps-arrow" }, "▸");
+  const head = el("button", { class: "steps-toggle" },
+    el("span", { class: "steps-name" }, "The eleven steps"),
+    line, arrow);
+  head.addEventListener("click", () => {
+    body.hidden = !body.hidden;
+    arrow.textContent = body.hidden ? "▸" : "▾";
+  });
+  return el("div", { class: "card" },
+    head,
+    el("p", { class: "hint", style: "margin:2px 0 0" },
+      "The life of a promotion, in the order you would actually do it. Nothing here is a press — pause and end are on each code below."),
+    body,
+    el("p", { class: "hint", style: "margin:8px 0 0" },
+      "Two of the eleven have nothing to press in this build: there is no test code for step 5, and the printed card for step 6 is the next piece of work. The other nine are live on this screen."));
 }
 
 // A code as she typed it, cleaned the one way the engine recognises it: no stray
@@ -94,6 +166,81 @@ function codeProblemWords(p) {
     case "dupe": return `${p.code} is already a code. Two codes cannot share a name.`;
     default: return "That code cannot be saved as it stands.";
   }
+}
+
+// The engine's freeze reasons, in her words. Each one names the thing on the card
+// that would stop being true, and the two that are about direction say which way
+// is still allowed — because "you cannot move the end date" is wrong and would
+// send her looking for a press that does not exist. Moving it LATER is always
+// allowed; it is only being pulled back that is refused.
+function frozenProblemWords(p, code) {
+  switch (p.fail) {
+    case "frozenName": return `${code.code} is printed, so the name stays ${code.code}. Make a new code if you need a different name.`;
+    case "frozenGives": return "What it gives is on the card, so it cannot change — the card still says what it said.";
+    case "frozenWho": return "Who it is for is on the card, so it cannot change.";
+    case "frozenBasket": return "The smallest basket is on the card, so it cannot change.";
+    case "frozenBeside": return "What it cannot be used with is part of the offer on the card, so it cannot change.";
+    case "frozenDates": return "A printed code's end date can only be moved later, never pulled earlier, and a code with no end date cannot be given one. Being generous with someone holding a card cannot hurt them; taking it back can.";
+    case "frozenCeiling": return "A printed code's ceiling can only be raised, never lowered. If the launch is going well you can allow it more — you cannot give it less.";
+    default: return "That change would re-write an offer that is already printed on a card.";
+  }
+}
+
+// The chip that says, on the row, what a code's life is. A paused or ended code
+// used to look exactly like a live one in the list — the only tell was that it
+// had quietly stopped being offered — so the state is stated rather than implied.
+function stateChips(c) {
+  const chips = [];
+  if (c.frozen) chips.push(el("span", { class: "st-chip frozen" }, "Printed — fixed"));
+  if (c.state === "paused") chips.push(el("span", { class: "st-chip paused" }, "Paused"));
+  if (c.state === "ended") chips.push(el("span", { class: "st-chip expired" }, "Ended"));
+  return chips;
+}
+
+/* THE TWO BRAKES, on the row where the discussion puts them (steps nine and ten).
+   They are the whole of what a printed code still allows, so they outlive every
+   other press on the row — and each one says what it will do BEFORE it does it,
+   including how many orders are already holding the promise.
+
+   Pausing and ending are different things on purpose. A pause is a break and is
+   always reversible; ending is final, and that is what makes it a brake rather
+   than a second pause. The end confirmation says so and points at pause, so the
+   choice between them is hers and she is told it is a choice.                   */
+function lifeButtons(state, code, root, used) {
+  if (code.state === "ended") return [];
+  if (code.state === "paused") {
+    return [
+      button("Resume", () => {
+        code.state = "live";
+        commit(state, root, `${code.code} is back on`);
+      }, "ghost small"),
+      button("End", () => endCode(state, code, root, used), "ghost small"),
+    ];
+  }
+  return [
+    button("Pause", () => pauseCode(state, code, root, used), "ghost small"),
+    button("End", () => endCode(state, code, root, used), "ghost small"),
+  ];
+}
+
+function pauseCode(state, code, root, used) {
+  confirmDialog(
+    used
+      ? `Pause "${code.code}"? The shop stops offering it and stops taking it. ${used} order${used === 1 ? " carries" : "s carry"} it already and keeps what it was promised — nothing already promised changes. You can switch it back on at any time.`
+      : `Pause "${code.code}"? The shop stops offering it and stops taking it. Nothing has used it yet, so nothing is stranded. You can switch it back on at any time.`,
+    () => { code.state = "paused"; commit(state, root, `${code.code} paused`); },
+    { yesLabel: "Pause it" });
+}
+
+function endCode(state, code, root, used) {
+  const u = usageOf(state, code);
+  const holdings = used
+    ? `${used} order${used === 1 ? " carries" : "s carry"} it already and keeps what it was promised${u.given > 0 ? ` — ${fmtRM(u.given)} in all` : ""}.`
+    : "Nothing has used it yet.";
+  confirmDialog(
+    `End "${code.code}" for good? New uses stop, and an ended code cannot be switched back on. ${holdings} If you only want a break, pause it instead.`,
+    () => { code.state = "ended"; commit(state, root, `${code.code} ended`); },
+    { danger: true, yesLabel: "End it" });
 }
 
 function buildCodeEditor(state, code) {

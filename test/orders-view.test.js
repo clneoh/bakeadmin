@@ -606,3 +606,55 @@ test("an order with no code shows no chip, so its row is the row this screen alw
       `${JSON.stringify(extra)} — a row with nothing to say about a code says nothing`);
   }
 });
+
+// ── v277: the order's own money, on the row ──────────────────────────────────
+// Her report, 2 Oct 2026, on the v276 receipt: "the format still not as clear as a
+// receipt, the money have to align up" — and, asked where, "non at all in the order
+// list". The list she works from all day was the one surface an order's total never
+// reached, so a row read "×2" and stopped. Every row now ends with its total in one
+// right-hand column, in the app's own label-and-figure shape (.info-row / .info-val),
+// so a list of orders can be read down the figures the way a column of receipts can.
+const moneyRows = (n) =>
+  all(n).filter((c) => String(c.className).split(/\s+/).includes("li-money"));
+
+const priced = (extra) => {
+  const st = promoOrder(extra);
+  st.products = [{ ...STATE.products[0], price: 15 }];
+  return st;
+};
+
+test("every order row carries its own total, so the money is on the list she works from", () => {
+  const root = createEl("div");
+  renderOrders(root, priced({}), PARAMS());
+
+  const row = dayRow(root);
+  const lines = moneyRows(row);
+  assert.equal(lines.length, 1, "one row of money on the order's own row — no more, no fewer");
+  const [label, figure] = lines[0].children;
+  assert.equal(label.textContent, "Order total", "the words on the left, the same ones every order uses");
+  assert.equal(figure.textContent, "RM 15.00",
+    "and the figure is the order's own — 1 × RM15, the same sum the receipt in the pop-up prices");
+});
+
+test("the money is a line of its OWN, not a chip wedged in beside the qty", () => {
+  const root = createEl("div");
+  renderOrders(root, priced({ promo: "FRESH10" }), PARAMS());
+
+  const row = dayRow(root);
+  const line = moneyRows(row)[0];
+  assert.ok(row.children.includes(line),
+    "the money row hangs directly off the LIST ITEM, not off .li-right — beside the chips it would sit at whatever x they happened to leave free, and a list of orders would read as a ragged edge instead of a column");
+  assert.ok(String(line.className).includes("info-row"),
+    "and it is the app's own .info-row, so an order's money on the list, in the pop-ups, on the Money screen and in the Profit statement are all one shape");
+  assert.ok(String(line.children[1].className).includes("info-val"),
+    "with the figure in the app's own .info-val, which is what right-aligns it");
+});
+
+test("an order nobody has priced says nothing, rather than claiming it is worth nothing", () => {
+  const st = promoOrder({});
+  st.products = [{ ...STATE.products[0], price: undefined }];
+  const root = createEl("div");
+  renderOrders(root, st, PARAMS());
+  assert.equal(moneyRows(dayRow(root)).length, 0,
+    "an unpriced order is not an order worth RM 0.00 — the row would be the app inventing a figure");
+});

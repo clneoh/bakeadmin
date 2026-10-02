@@ -1,8 +1,67 @@
-# Jienluv2bake — change history (v54 → v276)
+# Jienluv2bake — change history (v54 → v277)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v277, THE MONEY LINED UP (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**What you asked for.** The day after v276 you opened the receipt and said: "the
+format still not as clear as a receipt, the money have to align up." Asked which
+one looked wrong, you named the **customer's tracking page**, the **order list**
+("non at all in the order list"), and the **customer's WhatsApp message**. Asked
+what lining up meant, you picked **"Line up in one column"**.
+
+**Two screens changed. What you see now.**
+
+**The customer's tracking page.** The money is no longer one run-on sentence
+("Items total: RM 30.00 · Courier charge: RM 8.00 · Total: RM 38.00"). Each
+figure is now on its own line, in the same right-hand column, with the Total in
+full ink under a dashed hairline:
+
+```
+Items total          RM 30.00
+Courier charge        RM 8.00
+- - - - - - - - - - - - - - -
+Total                RM 38.00
+```
+
+The digits are tabular, so the decimal points sit on that line too. A code the
+order carried appears on the same column, and so does the reason when a code paid
+nothing.
+
+**The order list.** Every order row in your Orders screen now ends with its own
+total, on a line of its own across the foot of the row, at the same right edge as
+every other row:
+
+```
+Focaccia   storefront                    ×2   TNG   Courier RM8.00 · customer
+Mei Ling · 012-345 6789
+Order total                                                         RM 38.00
+```
+
+Before this, a row said "×2" and stopped — the one screen you work from all day
+was the one place an order's money never reached.
+
+**Three things worth knowing.**
+
+- **It is one figure, worked out once.** The row, the receipt in the Edit /
+  Note pop-ups and the customer's message all read the same sum. A row pricing an
+  order at RM38 while the pop-up priced it at RM35 is exactly the sort of
+  disagreement this change exists to prevent.
+- **An order nobody has priced says nothing.** It does not show "RM 0.00" —
+  an unpriced order is not an order worth nothing.
+- **The WhatsApp message is deliberately unchanged.** You were shown both ways —
+  the plain lines with a bold Total, and the same figures inside WhatsApp's grey
+  code block (which lines the figures up but loses the bold) — and you chose the
+  plain lines. So the message a customer receives today is byte-for-byte the
+  message they received yesterday.
+
+**Also left alone on purpose:** the ＋ New order card's single "Items total:"
+line (one figure has nothing to line up against), the shop's own cart bar (one
+figure), the packing label (no money on it), and the Money screen and Profit
+statement (already in this same column).
 
 **02 Oct 2026 — engine v276, AN ORDER'S MONEY AS A RECEIPT (no database step,
 nothing to upload — pushing this one is the whole of it).**

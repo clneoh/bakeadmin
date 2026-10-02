@@ -918,11 +918,44 @@ button.prod-next.off::after { content: ""; }
 .track-code { margin: 0 0 4px; font-weight: 700; }
 .track-result p { margin: 2px 0; }
 .track-note { color: var(--muted); font-size: 13px; }
+/* ---------- An order's money, as a receipt (v277) ---------- */
+/* Her report, 2 Oct 2026: "the format still not as clear as a receipt, the money have to
+   align up ... line up in one column". Every money line on this card is now one ROW —
+   the words on the left, the figure flush right — so the figures stack into a single
+   column instead of each one starting again where its own label happens to end. The
+   same shape her own screens draw (the .receipt block in admin/css/app.css), so the
+   card she is shown and the card she reads back cannot be read two ways.
+   `tabular-nums` is what makes the column true rather than approximate: the figures are
+   digits of one width, so 1s and 8s keep the decimal points on one vertical line. */
+.track-details .money { margin-top: 2px; }
+.money-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 0;
+  font-size: 13px;
+}
+.money-row .money-label { flex: 1 1 auto; min-width: 0; color: var(--muted); }
+.money-row .money-val {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 /* The total, under the workings it was added up from (v199). The same emphasis the
    customer's WhatsApp message gives it with a blank line and a bold pair — done here
-   the way a page does it, and set off from the muted subtotal above by weight and by a
-   little air, so the figure they are being asked for is the one their eye lands on. */
-.track-details .track-total { margin-top: 6px; font-weight: 800; }
+   the way a page does it, and set off from the muted workings above by a hairline, by
+   weight and by a little air, so the figure they are being asked for is the one their
+   eye lands on and the rule says the column above it was added up into it. */
+.track-details .money-row.track-total {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--line);
+  font-weight: 800;
+}
+.track-details .money-row.track-total .money-label,
+.track-details .money-row.track-total .money-val { color: var(--ink); }
 /* The courier's tracking number, on its own line on the customer's card: the
    number face, spaced so it reads digit by digit when they are comparing it with
    a courier's site. Specific enough to beat .track-result p's tight margin. */
