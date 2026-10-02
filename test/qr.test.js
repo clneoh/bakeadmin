@@ -1,0 +1,248 @@
+// The QR encoder behind a printed promo card. Written out by hand so the card
+// needs no library, no build step and no network — which means it has to be
+// proved rather than trusted, because a square that scans wrongly is not noticed
+// until a customer has already been handed the card.
+//
+// The fixtures below were produced by the reference implementation (the `qrcode`
+// npm package, byte-mode forced to one segment, error-correction level M, mask
+// pinned) and are stored as literal rows. They are NOT the output of the encoder
+// in this repo: if the encoder drifts by a single module — a generator
+// polynomial indexed the wrong way round, an alignment position off by two, an
+// interleave order swapped — the comparison fails and says so.
+//
+// Every test here was bitten by reverting the behaviour in place.
+
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { qrMatrix, qrSvg } from "../admin/js/qr.js";
+
+const rowsOf = (m) => {
+  const out = [];
+  for (let y = 0; y < m.size; y++) {
+    let s = "";
+    for (let x = 0; x < m.size; x++) s += m.modules[y * m.size + x] ? "1" : "0";
+    out.push(s);
+  }
+  return out;
+};
+
+// text · pinned mask · size · rows, the reference's own square.
+const REFERENCE = [
+  ["HELLO", 0, 21, [
+    "111111100111001111111",
+    "100000101011001000001",
+    "101110100010001011101",
+    "101110100011001011101",
+    "101110101010101011101",
+    "100000100110101000001",
+    "111111101010101111111",
+    "000000000101100000000",
+    "101010100101000010010",
+    "101010000110001000010",
+    "000001100110100011111",
+    "101011010110001000010",
+    "011001110110101010100",
+    "000000001011010100110",
+    "111111100001011100111",
+    "100000100011110110000",
+    "101110101011011100111",
+    "101110100100001100110",
+    "101110101010100010101",
+    "100000100110001010010",
+    "111111101010101100111",
+  ]],
+  ["HELLO", 5, 21, [
+    "111111100010001111111",
+    "100000101110101000001",
+    "101110101100001011101",
+    "101110101100101011101",
+    "101110100100101011101",
+    "100000100011001000001",
+    "111111101010101111111",
+    "000000001000000000000",
+    "100000101011011001110",
+    "010101011001110111101",
+    "001111101000101101110",
+    "011110000011111101100",
+    "001100100011111111110",
+    "000000001110100001000",
+    "111111100111010010110",
+    "100000100100001001111",
+    "101110100101010010110",
+    "101110100001111001000",
+    "101110100111110111111",
+    "100000100011111111100",
+    "111111101100100010110",
+  ]],
+  ["https://jienluv2bake.com.my/store/?promo=FRESH10", 3, 33, [
+    "111111101001011011111111001111111",
+    "100000101111110010101101001000001",
+    "101110100101000111001000101011101",
+    "101110101111101110011111001011101",
+    "101110100101101001001001101011101",
+    "100000100111011001011000101000001",
+    "111111101010101010101010101111111",
+    "000000001010101001101011100000000",
+    "101101110000001001110100001001011",
+    "110100010111100010110011001101101",
+    "001101110010101011000001010111001",
+    "000000011000011100111011100101000",
+    "010111110001000000100001110111010",
+    "010001011011110010100011100100110",
+    "101001110010010111100100001101100",
+    "111110001111011010011101111010100",
+    "100011101000000100111101011010100",
+    "010100001110001111001001111011011",
+    "001011101000001111001100011110110",
+    "100010011100101000011011110010000",
+    "010110101111000100101110110001110",
+    "110111011001011101100110011001001",
+    "001111101110111011100101000010111",
+    "011011010011111010110011111011010",
+    "101100100010111111100010111111000",
+    "000000001100010111010001100011010",
+    "111111101100100000011011101010000",
+    "100000101010001110000101100011111",
+    "101110100101111101001001111110110",
+    "101110101001010001111011000100001",
+    "101110101110101001010000001100100",
+    "100000100011010111010001010110001",
+    "111111101110011111100101000011100",
+  ]],
+  ["Z".repeat(213), 2, 57, [
+    "111111100111010111101001110111101000010111101011001111111",
+    "100000100100011100011110010111101000010111101101001000001",
+    "101110101001000011000110001000010111101000010111001011101",
+    "101110101010001000011001101000010111101000010001001011101",
+    "101110101001110111000001101111101000010111101101001011101",
+    "100000101101001101000110011000101000010111101010001000001",
+    "111111101010101010101010101010101010101010101010101111111",
+    "000000001000101011010110001000110111101000010110000000000",
+    "101111100010001010011001111111110111101000010111101111100",
+    "010000000000111110100001101111101000010111101001110110010",
+    "000111101100000011000110001111101000010111101000010110010",
+    "111100011001000101010110010000010111101000010110001001101",
+    "101101100010000000011101110000010111101000010111101001101",
+    "111001000000101010100101101111101000010111101001110110010",
+    "001100101110001001000110001111101000010111101000010110010",
+    "110100011111000111010110010000010111101000010110001001110",
+    "100000100110000110000011110000010111101000010111101001110",
+    "110011000110111000110011101111101000010111101001110110010",
+    "000011101100001100100100001111101000010111101000010110010",
+    "110111010111000100100110010000010111101000010110001001101",
+    "100000101001100110110011110000010111101000010111101001101",
+    "110000011001011001111001101111101000010111101001110110010",
+    "010010111000001101000100001111101000010111101000010110010",
+    "100111010010000101110110010000010111101000010110001001101",
+    "100000111000000110001011110000010111101000010111101001101",
+    "000000001110011000010001101111101000010111101001110110010",
+    "110011111000001100010100011111101000010111101000111110010",
+    "000110001011100101111110001000110111101000010111100011101",
+    "001110101001010111101011101010110111101000010110101011101",
+    "101110001111011010010001111000101000010111101001100010010",
+    "100011111001000100010000001111101000010111101001111110010",
+    "111110010010010001111110011111110111101000010110010111101",
+    "000111110001011001101001110000010111101000010110101001101",
+    "010000010111001110010101100000001000010111101001101000010",
+    "100100101111001010010000001111101000010111101001010110011",
+    "111010001110001001111000011111110111101000010110010111100",
+    "001001110101000101100011110000010111101000010110101001100",
+    "011111010111011000001001100000001000010111101001101000010",
+    "101100101011001010010100001111101000010111101001010110010",
+    "111101001000001101000000011111110111101000010110010111101",
+    "001011110111100100111111110000010111101000010110101001101",
+    "011100010101111000010101100000001000010111101001101000010",
+    "011111101010101011000100001111101000010111101001010110010",
+    "101100001101101101111000011111110111101000010110010111101",
+    "011010111111000100111111110000010111101000010110101001101",
+    "001110011000111000101101100000001000010111101001101000010",
+    "101001111011101010110100001111101000010111101001010110010",
+    "111110001101001100110000011111110111101000010110010111101",
+    "000000100110101110011111101111110111101000010110111111101",
+    "000000001000100011001101111000101000010111101000100010010",
+    "111111100010111110110110001010101000010111101001101010010",
+    "100000101101011000110000001000110111101000010110100011101",
+    "101110101110111000011111111111110111101000010111111111101",
+    "101110101000111011001001110000001000010111101001101000000",
+    "101110101010111100110000001000001000010111101001101000000",
+    "100000100011000010110010001111110111101000010110010111100",
+    "111111101010100010011111110111110111101000010110010111110",
+  ]],
+];
+
+test("every square is module-for-module the reference encoder's square", () => {
+  for (const [text, mask, size, rows] of REFERENCE) {
+    const m = qrMatrix(text, { mask });
+    assert.equal(m.fail, undefined, `"${text.slice(0, 20)}" should encode`);
+    assert.equal(m.size, size);
+    assert.deepEqual(rowsOf(m), rows, `pinned mask ${mask} on "${text.slice(0, 20)}"`);
+  }
+});
+
+test("the mask the penalty rules pick makes a whole square, not a half-built one", () => {
+  // The chooser runs the whole placement once per mask and keeps the best. If it
+  // ever returned a matrix from a rejected pass — or the winner before the format
+  // bits were written — the square would still LOOK like a code and would not
+  // scan. Holding it against the same matrix rebuilt with that mask pinned catches
+  // exactly that.
+  for (const [text] of REFERENCE) {
+    const auto = qrMatrix(text);
+    assert.equal(auto.fail, undefined);
+    assert.ok(auto.mask >= 0 && auto.mask < 8);
+    const pinned = qrMatrix(text, { mask: auto.mask });
+    assert.equal(pinned.size, auto.size);
+    assert.deepEqual(rowsOf(pinned), rowsOf(auto), `auto mask ${auto.mask} on "${text.slice(0, 20)}"`);
+  }
+});
+
+test("a mask outside 0-7 is ignored rather than encoded", () => {
+  const m = qrMatrix("HELLO", { mask: 9 });
+  assert.equal(m.fail, undefined);
+  assert.ok(m.mask >= 0 && m.mask < 8, "an impossible mask falls back to the penalty rules");
+  assert.equal(m.size, 21);
+});
+
+test("the smallest version that fits is chosen, and nothing bigger is ever used", () => {
+  // Version 1 holds 16 data codewords: 12 bits of header and final padding leave
+  // room for 14 bytes, and the 15th pushes the whole square up a version.
+  assert.equal(qrMatrix("Z".repeat(14)).version, 1);
+  assert.equal(qrMatrix("Z".repeat(15)).version, 2);
+  // …and capacity is counted in BYTES, not characters: "é" is two bytes in
+  // UTF-8, so fourteen of them are as long as twenty-eight letters and land two
+  // whole versions higher. Counting characters would put them in version 1 and
+  // produce a square that overruns its own codewords.
+  assert.equal(qrMatrix("é".repeat(14)).version, 3);
+  assert.equal(qrMatrix("Z".repeat(28)).version, 3);
+});
+
+test("the largest square this encoder claims is the last one it will take", () => {
+  assert.equal(qrMatrix("Z".repeat(210)).version, 10);
+  assert.equal(qrMatrix("Z".repeat(213)).version, 10);
+  // 213 bytes is the most version 10 holds at level M; one more is refused rather
+  // than guessed at, because a truncated code is worse than no code.
+  assert.deepEqual(qrMatrix("Z".repeat(214)), { fail: "toolong" });
+});
+
+test("nothing to encode is refused, not drawn as an empty square", () => {
+  assert.deepEqual(qrMatrix(""), { fail: "empty" });
+  assert.deepEqual(qrMatrix(null), { fail: "empty" });
+  assert.deepEqual(qrMatrix(undefined), { fail: "empty" });
+  assert.equal(qrSvg(""), null);
+});
+
+test("the SVG carries the square, a quiet margin, and no fixed size of its own", () => {
+  const m = qrMatrix("HELLO");
+  const svg = qrSvg("HELLO");
+  assert.ok(svg.startsWith("<svg "));
+  // Four modules of quiet on every side is what a scanner needs to find the
+  // square at all, and it is the viewBox — not a fixed pixel size — so the card's
+  // CSS decides how big it prints.
+  assert.ok(svg.includes(`viewBox="0 0 ${m.size + 8} ${m.size + 8}"`), svg.slice(0, 200));
+  assert.ok(!/<svg[^>]*\swidth=/.test(svg), "the SVG must not fix its own width");
+  assert.ok(svg.includes('shape-rendering="crispEdges"'));
+  assert.ok(/<rect[^>]*fill="#fff"/.test(svg), "a light background behind the square");
+  assert.ok(/<path[^>]*fill="#000"/.test(svg), "the dark modules as one path");
+  // The same square, whatever else the drawing does with it.
+  assert.equal(qrSvg("HELLO").replace(/fill="[^"]*"/g, ""), qrSvg("HELLO", { dark: "#000", light: "#fff" }).replace(/fill="[^"]*"/g, ""));
+});

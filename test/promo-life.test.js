@@ -26,7 +26,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blankCode, frozenProblem, normalizeCode, stoppedBy } from "../admin/js/promo.js";
+import { blankCode, freezeProblem, frozenProblem, normalizeCode, stoppedBy } from "../admin/js/promo.js";
 import { usageOf } from "../admin/js/promo-usage.js";
 
 /* ─────────────────────────── the engine: what printing pins ─────────────── */
@@ -138,6 +138,43 @@ test("an UNPRINTED code is never refused — the freeze is only about what print
     often: { type: "quota", n: 1, maxRM: 1 },
   };
   assert.equal(frozenProblem(loose, { ...loose, ...rewritten }), null);
+});
+
+/* ────────────────────── the engine: what may be frozen at all ───────────── */
+
+test("a code with no ceiling cannot be printed — the ceiling is the whole gate", () => {
+  // A card carries no number and no end date, so the ceiling is the ONLY thing
+  // left bounding what it can cost. An unbounded offer on a piece of paper nobody
+  // can count is exactly the shape a launch that works would find, so this is a
+  // refusal rather than a warning.
+  const bare = { ...printed(), frozen: false, often: { type: "unlimited", n: 0, maxRM: 0 } };
+  assert.deepEqual(freezeProblem(bare), { fail: "noCeiling" });
+  // An uncapped PERCENTAGE is the sharpest case of the same thing, and it is the
+  // one the plan named: nothing limits what 10% repeated is worth.
+  assert.deepEqual(freezeProblem({ ...bare, gives: { type: "pct", value: 10, cap: 0 } }), { fail: "noCeiling" });
+  // EITHER bound is enough. A quota counts; a ringgit total counts; a percentage
+  // capped in ringgit counts even with no order limit at all.
+  assert.equal(freezeProblem({ ...bare, often: { type: "quota", n: 1, maxRM: 0 } }), null);
+  assert.equal(freezeProblem({ ...bare, often: { type: "unlimited", n: 0, maxRM: 50 } }), null);
+  assert.equal(freezeProblem({ ...bare, often: { type: "unlimited", n: 0, maxRM: 50 }, gives: { type: "pct", value: 10, cap: 0 } }), null);
+  // 0 is "no limit", not a small limit — a quota box reading 0 is a limit she has
+  // not finished setting, and it must not pass the gate as though it were one.
+  assert.deepEqual(freezeProblem({ ...bare, often: { type: "quota", n: 0, maxRM: 0 } }), { fail: "noCeiling" });
+});
+
+test("a code with no name cannot be printed — the card would carry nothing to type", () => {
+  assert.deepEqual(freezeProblem({ ...printed(), frozen: false, code: "" }), { fail: "freezeNoCode" });
+  // The name is asked about BEFORE the ceiling, because a card with no code on it
+  // is useless however well bounded the offer behind it is.
+  assert.deepEqual(freezeProblem({ ...printed(), frozen: false, code: "", often: { type: "unlimited", n: 0, maxRM: 0 } }),
+    { fail: "freezeNoCode" });
+});
+
+test("an already-printed code passes the gate — printing is not a thing you can do twice", () => {
+  // Pressing Print on a code that is already printed is harmless and changes
+  // nothing; the gate is about whether the FIRST card could be honest, not about
+  // counting presses.
+  assert.equal(freezeProblem(printed()), null);
 });
 
 /* ─────────────────────────── the engine: ending keeps its history ───────── */
@@ -477,4 +514,133 @@ test("the fold line answers where her codes actually are, not just a label", () 
   // row cut a figure short, and a clipped figure is the one thing this line exists
   // not to be.
   assert.equal(root.querySelector(".steps-toggle").querySelectorAll(".steps-top").length, 1);
+});
+
+test("the steps no longer promise a card that is not there", () => {
+  // The note under the list named step 6 as work still to come. It is now a press
+  // on the row, and a note that says otherwise sends her looking for something the
+  // screen already has.
+  paint(stateWith([CODE({})]));
+  const hints = root.querySelectorAll(".hint").map((h) => h.textContent);
+  const note = hints.find((t) => t.includes("eleven"));
+  assert.ok(note, "the note under the eleven steps is still there");
+  assert.ok(!/next piece of work/.test(note), note);
+  assert.match(note, /Print it press/, "it names the press that does the job");
+  assert.match(note, /step 5/, "and the one step that is still not mechanised");
+});
+
+/* ───────────────────── the Print press, and the point of no return ──────── */
+
+// A code that is allowed to be printed: public, live, unprinted, and with the
+// ceiling the gate insists on.
+const PRINTABLE = {
+  code: "FRESH10",
+  vis: "public",
+  often: { type: "quota", n: 50, maxRM: 200 },
+};
+
+// window.open is a stub on the stand-in page, so a test can watch for it.
+function watchOpen() {
+  const opened = [];
+  globalThis.window.open = (url) => { opened.push(url); return null; };
+  return opened;
+}
+
+const rowPress = (code) => cardOf(code).querySelectorAll("button").map((b) => b.textContent);
+
+test("Print it writes the card, and freezes the offer as it opens it", () => {
+  const opened = watchOpen();
+  const state = stateWith([CODE(PRINTABLE)]);
+  paint(state);
+  assert.ok(rowPress("FRESH10").includes("Print it"), rowPress("FRESH10").join(" | "));
+  pressOf(cardOf("FRESH10"), "Print it").click();
+  const said = confirmText();
+  assert.match(said, /Print "FRESH10" on a card\?/);
+  assert.match(said, /point of no return/, "she is told what the press is before she makes it");
+  assert.match(said, /the amount, who it is for, the smallest basket and the name/, "what is about to be fixed is named");
+  // The card prints no number, so the confirmation is the only place she is
+  // reminded what is actually bounding the paper she is about to hand out.
+  assert.match(said, /stops itself at 50 orders or RM 200\.00 given away, whichever is reached first/, said);
+  confirmLayer().querySelectorAll("button").find((b) => b.textContent === "Print it").click();
+  assert.equal(state.promoCodes[0].frozen, true, "the code is frozen in her own state");
+  assert.deepEqual(opened, ["promo-card.html?code=FRESH10"], "and the card for that code is opened");
+  assert.deepEqual(chipsOf("FRESH10"), ["Printed — fixed"], "the repainted row says what it is now");
+  assert.ok(!rowPress("FRESH10").includes("Print it"), "and stops offering a second card");
+});
+
+test("the freeze is SAVED before the card is opened — the paper is drawn from the save", () => {
+  // The card page reads the code back out of her own stored state, so a card
+  // opened before the save landed would draw the offer as it was BEFORE printing.
+  // Nothing about that failure is visible: the card would look right and the app
+  // would disagree with it, which is the one thing a card must never do.
+  const state = stateWith([CODE(PRINTABLE)]);
+  paint(state);
+  let frozenAtOpen = null;
+  globalThis.window.open = () => {
+    const stored = JSON.parse(globalThis.localStorage.getItem("bakeadmin.v1"));
+    frozenAtOpen = stored.promoCodes[0].frozen;
+    return null;
+  };
+  pressOf(cardOf("FRESH10"), "Print it").click();
+  confirmLayer().querySelectorAll("button").find((b) => b.textContent === "Print it").click();
+  assert.equal(frozenAtOpen, true, "the saved code was already frozen when the card opened");
+});
+
+test("Print it is REFUSED for an offer with no ceiling, and nothing is frozen", () => {
+  const opened = watchOpen();
+  // The plan's own case: an uncapped percentage with no ringgit ceiling. A public
+  // code with nothing bounding it costs nothing to print and could cost everything.
+  const state = stateWith([CODE({ gives: { type: "pct", value: 10, cap: 0 }, often: { type: "unlimited", n: 0, maxRM: 0 } })]);
+  paint(state);
+  pressOf(cardOf("FRESH10"), "Print it").click();
+  assert.equal(confirmLayer().hidden, true, "no point-of-no-return dialog was opened at all");
+  assert.match(toastText(), /Set a cost ceiling first/, toastText());
+  assert.match(toastText(), /step 4/, "it sends her to the step that sets it");
+  assert.equal(state.promoCodes[0].frozen, false, "nothing was frozen");
+  assert.deepEqual(opened, [], "and no card was opened");
+});
+
+test("the ceiling the gate wants can be either bound — the money alone will do", () => {
+  const opened = watchOpen();
+  const state = stateWith([CODE({ often: { type: "unlimited", n: 0, maxRM: 80 } })]);
+  paint(state);
+  pressOf(cardOf("FRESH10"), "Print it").click();
+  assert.equal(confirmLayer().hidden, false, "a ringgit ceiling is a ceiling");
+  assert.match(confirmText(), /stops itself at RM 80\.00 given away/, confirmText());
+  confirmLayer().querySelectorAll("button").find((b) => b.textContent === "Print it").click();
+  assert.equal(state.promoCodes[0].frozen, true);
+  assert.deepEqual(opened, ["promo-card.html?code=FRESH10"]);
+});
+
+test("only a public, live, unprinted code is offered a card at all", () => {
+  const state = stateWith([
+    CODE({ code: "PERSONAL", vis: "personal", often: { type: "quota", n: 5, maxRM: 50 } }),
+    CODE({ id: "p2", code: "GONENOW", state: "ended", often: { type: "quota", n: 5, maxRM: 50 } }),
+    CODE({ id: "p3", code: "PRINTED", frozen: true, often: { type: "quota", n: 5, maxRM: 50 } }),
+    CODE({ id: "p4", code: "READY10", often: { type: "quota", n: 5, maxRM: 50 } }),
+  ]);
+  paint(state);
+  // Step 6 is "Print it, IF IT IS PUBLIC" — a card is an advertisement, so a code
+  // that is never advertised has nothing to print. An ended code has no promise
+  // left to make, and a printed one already made it.
+  assert.ok(!rowPress("PERSONAL").includes("Print it"));
+  assert.ok(!rowPress("GONENOW").includes("Print it"));
+  assert.ok(!rowPress("PRINTED").includes("Print it"));
+  assert.ok(rowPress("READY10").includes("Print it"), "the one code that may be printed is offered it");
+  // A paused code is still printable: pausing is a brake, not a decision about
+  // whether the offer was ever made.
+  const paused = stateWith([CODE({ code: "ONHOLD5", state: "paused", often: { type: "quota", n: 5, maxRM: 50 } })]);
+  paint(paused);
+  assert.ok(rowPress("ONHOLD5").includes("Print it"));
+});
+
+test("cancelling the card changes nothing at all", () => {
+  const opened = watchOpen();
+  const state = stateWith([CODE(PRINTABLE)]);
+  paint(state);
+  pressOf(cardOf("FRESH10"), "Print it").click();
+  confirmLayer().querySelectorAll("button").find((b) => b.textContent === "Cancel").click();
+  assert.equal(state.promoCodes[0].frozen, false);
+  assert.deepEqual(opened, []);
+  assert.deepEqual(chipsOf("FRESH10"), []);
 });

@@ -22,7 +22,7 @@ import { fmtRM, newId, save } from "../state.js";
 import { todayISO, longDate } from "../dates.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { translateTo, translateAllowed } from "../translate.js";
-import { blankCode, codeProblem, frozenProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
+import { blankCode, codeProblem, freezeProblem, frozenProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
 import { usageByCode, usageOf } from "../promo-usage.js";
 
 export function renderPromoCodes(root, state) {
@@ -116,7 +116,7 @@ function stepsCard(state) {
       "The life of a promotion, in the order you would actually do it. Nothing here is a press — pause and end are on each code below."),
     body,
     el("p", { class: "hint", style: "margin:4px 0 0" },
-      "Two of the eleven have nothing to press yet: there is no test code for step 5, and the printed card for step 6 is the next piece of work. The other nine are live on this screen."));
+      "One of the eleven has nothing to press yet: there is no test code for step 5. The printed card for step 6 is the Print it press on a public code's row below, and the freezes and the brakes that follow it are all live here."));
 }
 
 // A code as she typed it, cleaned the one way the engine recognises it: no stray
@@ -189,6 +189,17 @@ function frozenProblemWords(p, code) {
     case "frozenDates": return "A printed code's end date can only be moved later, never pulled earlier, and a code with no end date cannot be given one. Being generous with someone holding a card cannot hurt them; taking it back can.";
     case "frozenCeiling": return "A printed code's ceiling can only be raised, never lowered. If the launch is going well you can allow it more — you cannot give it less.";
     default: return "That change would re-write an offer that is already printed on a card.";
+  }
+}
+
+// Why a code cannot be printed yet, in her words. Both of these are refusals of
+// the CARD, not of the code — the code is fine and keeps working; it is the paper
+// that cannot be made honest yet. So both say what to do instead of just no.
+function freezeWords(p) {
+  switch (p.fail) {
+    case "noCeiling": return "Set a cost ceiling first — that is step 4, on this code's own row. A card carries no number and no end date, so the ceiling is the only thing left bounding what it can cost you: without one, a launch that takes off has nothing to stop it. Raise the ceiling any time afterwards; it can never be lowered once the card is out.";
+    case "freezeNoCode": return "Give the code a name first — a card that prints no code is a card the shop cannot accept.";
+    default: return "That code cannot be printed as it stands.";
   }
 }
 
@@ -265,6 +276,47 @@ function endCode(state, rec, c, root, used) {
     `End "${c.code}" for good? New uses stop, and an ended code cannot be switched back on. ${holding} If you only want a break, pause it instead.`,
     () => { rec.state = "ended"; commit(state, root, `${c.code} ended`); },
     { danger: true, yesLabel: "End it" });
+}
+
+/* STEP SIX, THE POINT OF NO RETURN. The press both makes the card and freezes the
+   offer, in that order, because the card page reads the frozen code out of her own
+   saved state — so the save has to have landed before the page opens, or the paper
+   would draw an offer that is not the one the app now holds.
+
+   Nothing is lost by a mis-press: the card only exists once she prints it, and
+   closing a tab prints nothing. But the freeze is real, and it is undone only by
+   making a new code — so the confirmation names what is about to be fixed, and
+   names what is still hers to move, before either happens.
+
+   The button that leads here is only drawn for a public code that is neither
+   printed nor ended (step 3 decides who may see it, step 6 is only about the ones
+   that may be seen), so this function's own gate is a second check rather than the
+   only one — the engine's rule holds whichever screen ever calls it.             */
+function ceilingSentence(c) {
+  const n = c.often.type === "quota" ? Number(c.often.n) : 0;
+  const rm = Number(c.often.maxRM) || 0;
+  const bits = [];
+  if (n > 0) bits.push(`${n} order${n === 1 ? "" : "s"}`);
+  if (rm > 0) bits.push(`${fmtRM(rm)} given away`);
+  if (!bits.length) return "";
+  const at = bits.length > 1 ? `${bits[0]} or ${bits[1]}, whichever is reached first` : bits[0];
+  return ` The card will not say it, but the code stops itself at ${at} — you can raise that later, never lower it.`;
+}
+
+function printCode(state, rec, c, root) {
+  const problem = freezeProblem(rec);
+  if (problem) return toast(freezeWords(problem));
+  confirmDialog(
+    `Print "${c.code}" on a card? This is the point of no return. From here the offer is frozen: the amount, who it is for, the smallest basket and the name all go on saying what they say, because the card in the customer's hand cannot be amended. What the card does not say is still yours to move — the end date later, never earlier, and nothing else.${ceilingSentence(c)}`,
+    () => {
+      rec.frozen = true;
+      // Save first, open second: the card page reads the frozen code back out of
+      // her own stored state, so a card drawn before the save would be drawn from
+      // the code as it was — the one thing this press must never do.
+      commit(state, root, `${c.code} printed — the offer is fixed`);
+      window.open(`promo-card.html?code=${encodeURIComponent(c.code)}`, "_blank");
+    },
+    { yesLabel: "Print it" });
 }
 
 function buildCodeEditor(state, code) {
@@ -561,6 +613,12 @@ function codeCard(state, code, root) {
             useWords(c, u)]
             .filter(Boolean).join(" · "))),
       el("div", { class: "li-right" },
+        // Step 6 on the row itself. A card is a public thing, so a personal code
+        // is never offered one; an ended code has nothing left to print; and a
+        // code that is already printed says so in its chip instead.
+        c.vis === "public" && !c.frozen && c.state !== "ended"
+          ? button("Print it", () => printCode(state, code, c, root), "ghost small")
+          : null,
         button("Edit", () => openEditCodePopup(state, code, root), "ghost small"),
         button("Delete", () => deleteCode(state, code, root, u.used), "ghost small"))),
     brakes.length ? el("div", { class: "row-actions" }, ...brakes) : null,

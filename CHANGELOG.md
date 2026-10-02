@@ -1,8 +1,86 @@
-# Jienluv2bake — change history (v54 → v278)
+# Jienluv2bake — change history (v54 → v279)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v279, THE PRINTED CARD: PRINT IT, AND THE OFFER IS FIXED
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** Of the eleven steps, step 6 — Print it — was the last one
+with nothing behind it, and it is the step that puts a code into a customer's
+hand. You asked for the printed card next.
+
+**What you see now, on More → Promo codes.**
+
+**A public code's row has a "Print it" button.** It sits first, ahead of Edit and
+Delete, and it only appears where a card makes sense:
+
+- on a **public** code, because a card is a public thing and a personal code is
+  never advertised;
+- not on one that has **ended**, because there is nothing left to hand out;
+- not on one that is **already printed** — that code wears its "Printed — fixed"
+  chip instead, and the chip is the answer.
+
+A **paused** code can still be printed. Pausing is a break, and printing a card
+for a code you are about to switch back on is exactly the right thing to do.
+
+**Pressing it asks first, and the question is honest about what it is.** It says
+this is the point of no return: from here the amount, who it is for, the smallest
+basket and the name all go on saying what they say, because the card in the
+customer's hand cannot be amended. It also tells you what stays yours — the end
+date, later and never earlier, and nothing else — and, when the code has one, it
+names the ceiling the code will stop itself at.
+
+**It refuses a code with no cost ceiling, and says why.** This is the one new
+rule, and it follows from the paper. A card carries no number and no end date, so
+the ceiling is the only thing left bounding what the card can cost you: without
+one, a launch that takes off has nothing to stop it and the paper cannot be
+recalled. The refusal names step 4, on that same code's own row, and it applies
+to every kind of offer — ringgit off, a percentage, and free delivery alike.
+
+**A code with no name is refused too**, because a card that prints no code is a
+card the shop cannot accept.
+
+**What the card itself looks like.** A new tab opens on a print-sized page holding
+**four identical cards on one sheet of A4**, with a hairline guide to cut along.
+Each card carries your bakery name and tagline, the offer in the customer's own
+words, the smallest basket if there is one, your own sentence for the shop when
+you wrote one, the rules that go on being true ("First order only", "One per
+customer", "Not with the bring-a-friend welcome discount"), the code in large
+letters, and a square to scan.
+
+**The square points at your shop with the code already filled in.** A customer
+who scans it lands on the shop with the code already in the box — they type
+nothing. The same address is printed underneath in words, so a card that ever
+pointed somewhere wrong would be wrong visibly, on the paper, before anyone was
+handed it. Every square this version draws was scanned back and read correctly
+before it was called done.
+
+**What the card deliberately does NOT carry: any end date, any count, any ceiling
+figure.** Those three are promises paper cannot keep — a date is one you may have
+to move, and "the first fifty orders" is one the card cannot count — so they are
+left off rather than printed and broken later. The rules it does carry are the
+ones that will still be true for the card's whole life.
+
+**Opened by itself, the page never prints a blank sheet.** Opened with no code,
+or with a code that is not on that device, it says so plainly, tells you nothing
+has been changed, and offers no Print button at all. A blank sheet is the one
+outcome that could reach a customer, so it is the one outcome the page refuses to
+produce.
+
+**Undoing it.** Printing is the point of no return, so nothing is printed until
+you press Print it in the app, and cancelling the question changes nothing. Once a
+code is printed you can still **raise** its ceiling, **extend** its end date, and
+**end** it — the same three freedoms as before. What you cannot do is change what
+it gives, who it is for, or the smallest basket, because a customer is holding a
+card that says so.
+
+**How this was checked.** 2,497 automated checks pass, including the card against
+a frozen code field by field, the two promises it must never print, and every
+square against a reference encoder — and each new check was then broken on
+purpose to prove it can fail. The card was also opened and driven on screen: it
+draws, the square scans into the shop, and the empty and unknown cases say so.
 
 **02 Oct 2026 — engine v278, A CODE'S LIFE: PAUSE, END, AND WHAT PRINTING FIXES
 (no database step, nothing to upload — pushing this one is the whole of it).**

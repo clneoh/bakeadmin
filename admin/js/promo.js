@@ -408,3 +408,27 @@ export function frozenProblem(before, after) {
   if (ceilingNarrowed(b.often, a.often)) return { fail: "frozenCeiling" };
   return null;
 }
+
+/* THE GATE ON PRINTING, which is a different question from frozenProblem above.
+
+   frozenProblem asks "may an ALREADY printed code change". This asks "may this
+   code be printed at all" — the step before. The answer turns on one thing: a
+   card carries no number and no end date (a date is a promise the card could not
+   keep, and a count is one it could not count), so the ceiling is the only bound
+   the card leaves standing. A code with no ceiling would go out on paper with
+   nothing at all stopping what it can cost her, and paper cannot be recalled.
+
+   Zero means NO LIMIT here, not a small one — it is the top of the scale rather
+   than the bottom, which is why the test is `<= 0` on both bounds and why setting
+   either one is enough to pass.
+
+   A code with no name is refused too: a card that prints no code is a card the
+   shop cannot accept, so the name is checked before the ceiling.                */
+export function freezeProblem(rec) {
+  const c = normalizeCode(rec);
+  if (!c.code) return { fail: "freezeNoCode" };
+  const n = c.often.type === "quota" ? Number(c.often.n) || 0 : 0;
+  const rm = Number(c.often.maxRM) || 0;
+  if (n <= 0 && rm <= 0) return { fail: "noCeiling" };
+  return null;
+}
