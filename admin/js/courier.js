@@ -35,7 +35,7 @@
 import { newId, orderCode, orderLinePrice, fmtRM, groupOrders, round2 } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
-import { awardOf, codesOf, findCode } from "./promo.js";
+import { awardOf, codesOf, findCode, minimumOf, normCode, shortfallOf } from "./promo.js";
 
 // From her own chart of accounts, in her words: "delivery charges". The label IS
 // the stored value, so it must match DEFAULT_CATEGORIES exactly.
@@ -126,17 +126,49 @@ export function promoValue(state, codeName, items, deliveryFee = 0) {
   return awardOf(findCode(codesOf(state), codeName), Number(items) || 0, Number(deliveryFee) || 0);
 }
 
+// What a group's goods come to — the basket every promo question is asked against.
+// One helper, because the code's award and its shortfall must be judged on the same
+// number, and that number must be the one the customer's own total was built from.
+function basketItems(state, orders) {
+  return (Array.isArray(orders) ? orders : []).reduce((sum, o) => {
+    const price = orderLinePrice(state, o);
+    return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
+  }, 0);
+}
+
 // The same, read off a saved order group rather than a figure handed in — what every
 // screen showing a SAVED order asks, so none of them works the basket out itself.
 export function promoOn(state, orders) {
   const rows = Array.isArray(orders) ? orders : [];
   const first = rows[0];
   if (!first) return { code: "", money: 0 };
-  const items = rows.reduce((sum, o) => {
-    const price = orderLinePrice(state, o);
-    return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0);
-  return promoValue(state, first.promo, items, customerCourierFee(first));
+  return promoValue(state, first.promo, basketItems(state, rows), customerCourierFee(first));
+}
+
+// A code the order CARRIED that gave nothing, and why — the customer typed it into the
+// shop, the shop told her what it still needed, and the order went through without it.
+// Answers { code, short, minimum } or null.
+//
+// Named only while the code still EXISTS. A code she has since deleted is not something
+// to explain on an old order: there is no offer left to point at, and the honest reading
+// of that order is simply that it carried no discount. Same rule as promoValue's — the
+// order is read, the code's life is not.
+export function codeNotApplied(state, orders) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const first = rows[0];
+  return codeMissed(state, first && first.promo, basketItems(state, rows));
+}
+
+// The same question asked against a basket handed in rather than read off a saved
+// order — what the Edit form needs, because it prices the lines she is typing and not
+// the lines on the order (v276).
+export function codeMissed(state, codeName, items) {
+  const name = normCode(codeName);
+  if (!name) return null;
+  const c = findCode(codesOf(state), name);
+  if (!c) return null;
+  const short = shortfallOf(c, Number(items) || 0);
+  return short > 0 ? { code: c.code, short, minimum: minimumOf(c) } : null;
 }
 
 // The customer's total, in its parts, so that everyone who shows it can show the
@@ -160,19 +192,24 @@ export function promoOn(state, orders) {
 // code applied, so every caller's existing reading of this object still holds.
 export function customerTotal(state, group) {
   const orders = (group && group.orders) || [];
-  const items = orders.reduce((sum, o) => {
-    const price = orderLinePrice(state, o);
-    return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
-  }, 0);
+  const items = basketItems(state, orders);
   const charge = customerCourierFee(orders[0]);
   const cod = courierCodOf(orders[0]) ? charge : 0;
   const courier = charge - cod;
   const promo = promoOn(state, orders);
+  // A code the order carried that paid out nothing (v276). Asked only when the code DID
+  // pay nothing, so an order with a working code never carries both facts at once, and
+  // an order with no code at all carries neither.
+  const missed = promo.money > 0 ? null : codeNotApplied(state, orders);
   // Floored at nothing: a discount larger than the order (a free-delivery code on a
   // collect order has no fee to waive, but a hand-edited code could still overshoot)
   // must never leave her asking for a negative amount.
   const total = Math.max(0, round2(items + courier - promo.money));
-  return { items, courier, cod, promo: promo.money, promoCode: promo.code, total };
+  return {
+    items, courier, cod, promo: promo.money, promoCode: promo.code,
+    notApplied: missed ? missed.code : "", promoMinimum: missed ? missed.minimum : 0,
+    total,
+  };
 }
 
 // The money part of every message, in ONE place so the confirmation, the payment
@@ -210,9 +247,68 @@ export function moneyLines(state, parts) {
   if (parts.promo > 0) {
     out.push(`Promo${parts.promoCode ? ` ${parts.promoCode}` : ""}: -${fmtRM(parts.promo, cur)}`);
   }
+  // A code that gave nothing, named once and plainly (v276). She typed it into the shop
+  // and was told what it still needed, so the order going through without it is not a
+  // surprise — but the confirmation is where she looks for the discount, and silence
+  // there reads as a code that was forgotten rather than one that never applied.
+  else if (parts.notApplied) {
+    out.push(`Code ${parts.notApplied} not applied: basket below ${fmtRM(parts.promoMinimum, cur)}`);
+  }
   out.push("");
   out.push(`*Total: ${fmtRM(parts.total, cur)}*`);
   return out;
+}
+
+// The same money as a RECEIPT for her own screens (v276): one row per fact, the words
+// on the left and the figure on the right, and the Total last — the shape she picked
+// over the run-on sentence that used to sit here ("The customer owes RM24.00 — items
+// total RM16.00 + courier charge RM8.00 ..."), which she had to unpick to read.
+//
+// Pure data, and shared by the two screens that show an order's money, so the Edit
+// form and the Note / tracking card cannot list the same sum differently. The
+// customer's message states the same facts in its own one-line-per-fact way
+// (moneyLines), because a chat message and a printed card are different things — but
+// both read one `parts`, so the figures can never disagree.
+//
+// `total: true` marks the row the rule is drawn above. `note` is a rider on the row,
+// used only by a COD charge, which has to say where the money goes.
+export function receiptRows(state, parts) {
+  const cur = state.settings.currency;
+  const rows = [{ label: "Items total", value: fmtRM(parts.items, cur) }];
+  if (parts.cod) {
+    rows.push({ label: "Courier charge", value: fmtRM(parts.cod, cur),
+      note: "COD, pay the courier when your order reaches you" });
+  } else if (parts.courier) {
+    rows.push({ label: "Courier charge", value: fmtRM(parts.courier, cur) });
+  }
+  if (parts.promo > 0) {
+    rows.push({ label: `Promo${parts.promoCode ? ` ${parts.promoCode}` : ""}`,
+      value: `-${fmtRM(parts.promo, cur)}` });
+  } else if (parts.notApplied) {
+    // Shown as a row of its own reading nothing, rather than left out: a code the
+    // customer typed is a fact about this order, and a receipt that simply omits it
+    // cannot be told apart from one for an order she never used a code on.
+    rows.push({ label: `Promo ${parts.notApplied}`, value: fmtRM(0, cur) });
+  }
+  rows.push({ label: "Total", value: fmtRM(parts.total, cur), total: true });
+  return rows;
+}
+
+// The line under the receipt that says WHY a code gave nothing, in her words. Empty
+// for every order that is not carrying a code it never earned, so a plain order draws
+// nothing extra at all.
+//
+// It ends by handing the decision back to her, because the smallest basket is a GUIDE
+// and not a gate (2 Oct 2026): "sometime when situation allow, baker will handle promo
+// flexibly, say order is 80 and customer ask for 10 discount, baker discretion sometimes
+// will allow too, but if customer only order 16 and ask for 10 discount then baker will
+// turn down the offer ... it is a guide, not the gate." So the note states the code's own
+// rule and then says, plainly, that the rule is not the last word — she is. This line is
+// on HER screens only; the customer's message states the rule without it.
+export function receiptNote(state, parts) {
+  if (!parts.notApplied) return "";
+  const cur = state.settings.currency;
+  return `${parts.notApplied} needs a basket of ${fmtRM(parts.promoMinimum, cur)} — this one was ${fmtRM(parts.items, cur)}, so the code gave nothing. The rule is a guide, not a gate: you can still take something off by hand.`;
 }
 
 // Record the charge on the books. Called on save from the Note / tracking pop-up,

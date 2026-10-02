@@ -20,7 +20,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, promoOn, promoValue } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -1224,6 +1224,20 @@ function promoTag(order) {
   return code ? el("span", { class: "promo-tag" }, `🎟 ${code}`) : null;
 }
 
+// An order's money as a RECEIPT (v276) — one row per fact, words left, figure right,
+// a rule above the Total. Drawn from the shared rows in courier.js, so the two screens
+// that show an order's money (the Edit form and the Note / tracking card) and the
+// customer's own message are all listing the same sum. `parts` is whatever the caller
+// priced — a saved order, or the lines she is typing.
+function receiptEls(state, parts) {
+  const rows = receiptRows(state, parts).map((r) =>
+    el("div", { class: "info-row" + (r.total ? " pl-total" : "") },
+      el("span", {}, r.note ? `${r.label} — ${r.note}` : r.label),
+      el("span", { class: "info-val" }, r.value)));
+  const note = receiptNote(state, parts);
+  return note ? [...rows, el("p", { class: "hint", style: "margin:6px 0 0" }, note)] : rows;
+}
+
 // The price box on an order line, shared by the ＋ New order card and the Edit
 // pop-up (16 Sep 2026). It starts on what the product costs, and whatever she types
 // is frozen onto THAT order (o.unitPrice, state.js) — so the confirmation, the later
@@ -1971,7 +1985,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   const deliveryNotes = el("div", { class: "card-sub", style: "margin:6px 0 0" },
     ...moveNoteLines(state, group, curId).map((t) => el("p", { style: "margin:2px 0" }, t)));
 
-  const totalEl = el("p", { class: "card-sub", style: "margin:8px 0 0" });
+  const totalEl = el("div", { class: "receipt", style: "margin:8px 0 0" });
   // A charge the customer bears belongs in this total, because this is the number she
   // reads to know what the order is worth. Named when it is there, so a figure RM8
   // above the items explains itself rather than looking like a mistake; a charge SHE
@@ -1998,7 +2012,6 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   function paintTotal() {
     const priced = lines.filter((l) => l.productId && l.price != null);
     const itemsTotal = priced.reduce((sum, l) => sum + l.qty * Number(l.price), 0);
-    const cur = state.settings.currency;
     // Read off the draft's fulfilment rather than off the charge's own controls, because
     // this total is the CUSTOMER's and a self-collect order has no courier for a charge
     // to reach them through (1 Oct 2026).
@@ -2012,15 +2025,20 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // lines as she types them, exactly as the items total above it does.
     const promo = promoValue(state, first.promo, itemsTotal, courierCharge);
     const off = promo.money;
-    totalEl.textContent = priced.length
-      ? `Order total: ${fmtRM(Math.max(0, itemsTotal + here - off), cur)}`
-        + (courierCharge
-          ? courierCod
-            ? ` — items total ${fmtRM(itemsTotal, cur)}, plus ${fmtRM(courierCharge, cur)} collected by the courier on delivery`
-            : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(courierCharge, cur)}`
-          : off ? ` — items total ${fmtRM(itemsTotal, cur)}` : "")
-        + (off ? ` - promo${promo.code ? ` ${promo.code}` : ""} ${fmtRM(off, cur)}` : "")
-      : "";
+    // The same question the message answers, asked of the DRAFT's basket rather than the
+    // saved order's, so this card explains a code that gave nothing exactly as the
+    // customer's confirmation will (v276).
+    const missed = off > 0 ? null : codeMissed(state, first.promo, itemsTotal);
+    totalEl.replaceChildren(...(priced.length ? receiptEls(state, {
+      items: itemsTotal,
+      courier: here,
+      cod: courierCod ? courierCharge : 0,
+      promo: off,
+      promoCode: off ? promo.code : "",
+      notApplied: missed ? missed.code : "",
+      promoMinimum: missed ? missed.minimum : 0,
+      total: Math.max(0, itemsTotal + here - off),
+    }) : []));
   }
   // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
   // 2026): the charge is part of what this order is, and Edit is where she changes what
@@ -2870,13 +2888,16 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // What the customer ends up owing, repainted as she types: the items, plus the
       // charge when THEY bear it. A charge she bears is her own cost and never reaches
       // this number. Without this line the fee box shows no consequence of its own
-      // (19 Sep 2026).
-      const custTotal = el("p", { class: "card-sub", style: "margin:10px 0 0" });
+      // (19 Sep 2026). Drawn as the receipt (v276) rather than as one run-on sentence.
+      const custTotal = el("div", { class: "receipt", style: "margin:10px 0 0" });
       const itemsTotal = groupValue(state, group);
       // The code this order carried, and what it took off — read here rather than by
       // customerTotal, because this line repaints as she types the charge and has to
       // agree with the message the same repaint will let her send (v272).
       const promo = promoOn(state, group.orders);
+      // The same code's failure to pay out, so this card explains it exactly as the
+      // customer's confirmation will (v276).
+      const missed = promo.money > 0 ? null : codeNotApplied(state, group.orders);
       // The same three facts the Edit form works out, read off the SAVED order because
       // this box has no fulfilment control of its own — the order's fulfilment is not one
       // of the things this card is for. See the Edit form's block for what they mean.
@@ -2884,7 +2905,6 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       const parkedCharge = !courierOrder && (courierFeeOf(first) > 0 || !!courierPayerOf(first));
       const showCharge = courierOrder || parkedCharge;
       function paintCustTotal() {
-        const cur = state.settings.currency;
         const { fee, who, collect } = courierOrder
           ? charge.read() : { fee: 0, who: "", collect: false };
         const theirs = who === "customer" ? fee : 0;
@@ -2895,16 +2915,17 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         const cod = who === "customer" && collect ? theirs : 0;
         // The promo comes off what they owe here exactly as it does in the message they
         // are sent, so the two figures she can read side by side are the same figure.
-        // Added on the END rather than rebuilt into the sentence, so an order with no
-        // code reads word for word as it always has.
         const off = promo.money;
-        custTotal.textContent = `The customer owes ${fmtRM(Math.max(0, itemsTotal + theirs - cod - off), cur)}`
-          + (theirs
-            ? cod
-              ? ` — items total ${fmtRM(itemsTotal, cur)}, plus ${fmtRM(cod, cur)} collected by the courier on delivery`
-              : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(theirs, cur)}`
-            : off ? ` — items total ${fmtRM(itemsTotal, cur)}` : "")
-          + (off ? ` - promo${promo.code ? ` ${promo.code}` : ""} ${fmtRM(off, cur)}` : "");
+        custTotal.replaceChildren(...receiptEls(state, {
+          items: itemsTotal,
+          courier: theirs - cod,
+          cod,
+          promo: off,
+          promoCode: off ? promo.code : "",
+          notApplied: missed ? missed.code : "",
+          promoMinimum: missed ? missed.minimum : 0,
+          total: Math.max(0, itemsTotal + theirs - cod - off),
+        }));
       }
       // The charge's questions, built by the shared block so this box and the Edit form
       // cannot word or write them differently. It repaints only itself when the payer

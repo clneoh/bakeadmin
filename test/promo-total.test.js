@@ -96,7 +96,7 @@ test("the confirmation names the code and takes it off the Total", () => {
 test("the customer's total, in its parts, is the one figure the four messages share", () => {
   const { st, g } = ordered();
   assert.deepEqual(customerTotal(st, g),
-    { items: 30, courier: 0, cod: 0, promo: 10, promoCode: "FRESH10", total: 20 },
+    { items: 30, courier: 0, cod: 0, promo: 10, promoCode: "FRESH10", notApplied: "", promoMinimum: 0, total: 20 },
     "one helper, so the message and the customer's own card cannot quote different figures");
 });
 
@@ -196,7 +196,7 @@ test("a free-delivery code on a self-collect order is worth nothing and says not
   const { st, g } = ordered(mkCode({ code: "FREEPOST", gives: { type: "delivery", value: 0, cap: 0 } }),
     { fulfillment: "collect", courierFee: 8, courierPaidBy: "customer" });
   assert.deepEqual(customerTotal(st, g),
-    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", total: 30 });
+    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", notApplied: "", promoMinimum: 0, total: 30 });
   assert.equal(confirm(st, g).includes("Promo"), false, "and the message is the plain one");
 });
 
@@ -233,7 +233,7 @@ test("a code she has since deleted does not invent one, and does not crash", () 
   const st = state();
   st.orders = orders({ promo: "FRESH10" });
   assert.deepEqual(customerTotal(st, { orders: st.orders }),
-    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", total: 30 },
+    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", notApplied: "", promoMinimum: 0, total: 30 },
     "nothing to price it from, so nothing comes off — the same answer as no code at all");
 });
 
@@ -303,18 +303,30 @@ const minCode = (amount, over = {}) =>
 test("a code whose smallest basket the order never reached gives NOTHING", () => {
   const { st, g } = ordered(minCode(100));
   assert.deepEqual(customerTotal(st, g),
-    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", total: 30 },
-    "RM10 off was asked for on RM30 of goods, and RM30 is not RM100 — so nothing comes off");
+    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "",
+      notApplied: "FRESH10", promoMinimum: 100, total: 30 },
+    "RM10 off was asked for on RM30 of goods, and RM30 is not RM100 — so nothing comes off,"
+    + " and the code is carried as the one that was missed rather than as a discount");
 });
 
-test("and the message says nothing at all, exactly as an order with no code does", () => {
-  // Not "Promo FRESH10: -RM 0.00" and not a bare code name. A discount that was
-  // never earned leaves no trace on the order the customer reads, so the message is
-  // byte for byte the plain one — the same guard the zero-value code gets above.
+test("and the message names the code it could not apply, in one line", () => {
+  // v275 kept this message byte-for-byte identical to a plain order's, on the reading that
+  // a code that was never earned should leave no trace. Her answer, 2 Oct 2026, overturned
+  // that: silence where a code was typed reads as a code that was FORGOTTEN, so the
+  // confirmation now states the one thing the customer can act on. Still not
+  // "Promo FRESH10: -RM 0.00" (a discount of nothing is not a discount) and still not a bare
+  // code name — and the Total itself does not move by a ringgit.
   const missed = ordered(minCode(100));
   const plain = state();
   plain.orders = orders();
-  assert.equal(confirm(missed.st, missed.g), confirm(plain, { orders: plain.orders }));
+  const withCode = confirm(missed.st, missed.g);
+  const withoutCode = confirm(plain, { orders: plain.orders });
+  const line = "Code FRESH10 not applied: basket below RM 100.00";
+  assert.ok(withCode.includes(line), `the code is named, and so is the basket it wanted: ${withCode}`);
+  assert.ok(!withoutCode.includes("Code FRESH10"),
+    "and an order that carried no code still says nothing about one");
+  assert.equal(withCode.replace(`${line}\n`, ""), withoutCode,
+    "that line is the ONLY difference — every other line, and the total, is the plain message");
 });
 
 test("a basket exactly ON the smallest basket gets the whole discount", () => {
@@ -351,7 +363,8 @@ test("a delivery code below its smallest basket waives nothing", () => {
     minCode(100, { code: "FREEPOST", gives: { type: "delivery", value: 0, cap: 0 } }),
     { courierFee: 8, courierPaidBy: "customer" });
   assert.deepEqual(customerTotal(st, g),
-    { items: 30, courier: 8, cod: 0, promo: 0, promoCode: "", total: 38 },
+    { items: 30, courier: 8, cod: 0, promo: 0, promoCode: "",
+      notApplied: "FREEPOST", promoMinimum: 100, total: 38 },
     "the charge stands, and the code waives none of it");
 });
 

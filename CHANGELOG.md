@@ -1,8 +1,63 @@
-# Jienluv2bake — change history (v54 → v275)
+# Jienluv2bake — change history (v54 → v276)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v276, AN ORDER'S MONEY AS A RECEIPT (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** "build the next promo screen, What is the promo screen
+for? Can the showing of promo be more streight forward, clearer, like putting
+them in an accounting format, clearly shown the working, how they add up." So the
+promo showing was rebuilt the way the Profit statement already reads.
+
+**What you see now, on both screens that show an order's money** (the Edit
+pop-up and the Note / tracking card), in place of the one run-on sentence that
+used to be there:
+
+```
+Items total                 RM 16.00
+Courier charge               RM 8.00
+Promo FRESH10                RM 0.00
+- - - - - - - - - - - - - - - - - -
+Total                       RM 24.00
+```
+
+and under it, in small grey type, why the code paid nothing: **"FRESH10 needs a
+basket of RM 100.00 — this one was RM 16.00, so the code gave nothing. The rule is
+a guide, not a gate: you can still take something off by hand."**
+
+**Four things this changed.**
+
+- **A code that gave nothing is now a LINE ON THE RECEIPT, reading RM 0.00** —
+  not left out. Before, an order that carried a code which paid nothing looked
+  identical to an order with no code at all, so you could not tell from the money
+  whether a customer had tried a code. Now you can.
+- **The reason sits under the figures, in your own terms.** The basket the code
+  wanted, the basket this order actually was, and then a plain statement that the
+  rule is a **guide** — it is your bakery, and you can still take something off by
+  hand.
+- **The customer's WhatsApp message says the same thing in one quiet line**:
+  `Code FRESH10 not applied: basket below RM 100.00`. Until now that message said
+  nothing at all about the code, which you told me reads as a code that was
+  **forgotten** rather than one that never applied. An order with no code is
+  unchanged, line for line.
+- **Nothing about a missed code touches the money.** The line explains; it never
+  deducts. v275's fix stands exactly as it was, and the customer's Total is
+  identical to what it was before this version.
+
+**What is deliberately NOT here.** There is still no box on an order to record a
+discount you grant by hand, and the customer's own message states the code did not
+apply **before** you have decided whether to honour it. Both are flagged rather than
+guessed at.
+
+**Under the hood.** The receipt rows and the customer's message lines are built by
+one function each in `admin/js/courier.js` (`receiptRows`, `moneyLines`), both
+reading a single `parts` object, so a screen and a message can never quote two
+different figures for one order. 13 new tests; the suite is 2,440 green. The
+customer-visible change is the one line in the message; everything else is inside
+your app.
 
 **02 Oct 2026 — engine v275, A DISCOUNT NOBODY EARNED (no database step, nothing
 to upload — pushing this one is the whole of it).**

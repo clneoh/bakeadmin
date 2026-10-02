@@ -461,7 +461,7 @@ test("a price changed in the Edit pop-up is frozen onto that order", () => {
 
   box.value = "12.50";
   box._listeners.input.forEach((f) => f.call(box)); // the handler reads this.value
-  assert.match(all(pop).map((n) => n.textContent).join(" "), /Order total: RM 25.00/,
+  assert.equal(receiptText(pop), "Items total | RM 25.00 | Total | RM 25.00",
     "2 × RM12.50 — the total follows the price she typed");
 
   buttonByText(pop, "Save changes")._listeners.click[0]();
@@ -476,6 +476,19 @@ test("a price changed in the Edit pop-up is frozen onto that order", () => {
 // customer" (19 Sep 2026). The reminder, the shipped message and the track card
 // had it from the first save; the two figures SHE reads did not.
 const popText = (pop) => all(pop).map((n) => n.textContent).join(" | ");
+// The receipt's own rows, as "label | figure" pairs — the shape v276 put in place of the
+// one run-on sentence these tests used to read. Read off the receipt's own row children
+// rather than out of popText, so the card's ancestors (whose textContent is the whole sum
+// run together) cannot stand in for the rows and let a wrong receipt pass.
+const receiptText = (pop) => {
+  const box = byClass(pop, "receipt");
+  if (!box) return "";
+  return (box.children || [])
+    .map((row) => (row.children || []).map((n) => n.textContent).filter(Boolean).join(" | "))
+    .join(" | ");
+};
+const money = (pop, ...cells) => receiptText(pop).includes(cells.join(" | "));
+const ITEMS_30 = ["Items total", "RM 30.00"];
 
 test("the courier box says what the customer owes, and moves the moment they bear it", () => {
   const st = state();
@@ -486,7 +499,7 @@ test("the courier box says what the customer owes, and moves the moment they bea
 
   buttonByText(root, "Note / tracking")._listeners.click[0]();
   let pop = layers["popup-layer"];
-  assert.match(popText(pop), /The customer owes RM 30\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"),
     "the box says what the order comes to before any charge is typed");
   assert.deepEqual(openedOn(selWith(pop, "The customer paid it")), ["The customer paid it"],
     "and the payer question opens on The customer paid it — her ask, 27 Sep 2026 (v216)");
@@ -494,27 +507,27 @@ test("the courier box says what the customer owes, and moves the moment they bea
   const box = feeInput(pop);
   box.value = "8";
   box._listeners.input[0].call(box); // the handler reads this.value
-  assert.match(popText(pop), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Courier charge", "RM 8.00", "Total", "RM 38.00"),
     "so a typed amount is theirs without any further answer — that is what the default means");
 
   const unowned = selWith(pop, "The customer paid it");
   unowned.value = "";                  // back to "Not recorded"
   unowned._listeners.change[0]();
-  assert.match(popText(pop), /The customer owes RM 30\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"),
     "and taking the answer back off it leaves an amount nobody owns — the customer owes the bread alone");
 
   const theirs = selWith(pop, "The customer paid it");
   theirs.value = "customer";
   theirs._listeners.change[0]();
   pop = layers["popup-layer"]; // the body repaints on the payer, as the method line does
-  assert.match(popText(pop), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Courier charge", "RM 8.00", "Total", "RM 38.00"),
     "now it is their money: the bread, the charge, and the sum she will ask for, told apart");
 
   const mine = selWith(pop, "I paid it");
   mine.value = "me";
   mine._listeners.change[0]();
   pop = layers["popup-layer"];
-  assert.match(popText(pop), /The customer owes RM 30\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"),
     "a charge she bears is her own cost — what the customer owes never moves for it");
 });
 
@@ -554,8 +567,7 @@ test("the Edit pop-up's order total counts a charge the customer bears, and name
   renderOrders(root, st, new URLSearchParams({ date: "d10" }));
 
   buttonByText(root, "Edit")._listeners.click[0]();
-  assert.match(popText(layers["popup-layer"]),
-    /Order total: RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+  assert.ok(money(layers["popup-layer"], ...ITEMS_30, "Courier charge", "RM 8.00", "Total", "RM 38.00"),
     "the figure she reads as the order's worth includes what the customer pays the courier");
 });
 
@@ -573,14 +585,13 @@ test("a code on the order comes off what the customer owes, and is named beside 
 
   buttonByText(root, "Note / tracking")._listeners.click[0]();
   const pop = layers["popup-layer"];
-  assert.match(popText(pop),
-    /The customer owes RM 20\.00 — items total RM 30\.00 - promo FRESH10 RM 10\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Promo FRESH10", "-RM 10.00", "Total", "RM 20.00"),
     "the RM30 of bread, the code named, and the figure she will actually collect");
 });
 
-test("a code that took nothing off leaves the sentence exactly as it was", () => {
+test("a code that took nothing off leaves the receipt exactly as it was", () => {
   // The guard on her own screen: a promoted code she has since deleted, or one whose
-  // terms come to nothing here, must not add a clause to a sentence she reads every day.
+  // terms come to nothing here, must not add a clause to a sum she reads every day.
   const st = state();
   st.orders[0].fulfillment = "courier";
   st.products[0].price = 15;
@@ -591,8 +602,8 @@ test("a code that took nothing off leaves the sentence exactly as it was", () =>
 
   buttonByText(root, "Note / tracking")._listeners.click[0]();
   const text = popText(layers["popup-layer"]);
-  assert.match(text, /The customer owes RM 30\.00/);
-  assert.doesNotMatch(text, /promo/, "nothing is said about a code that came to nothing");
+  assert.ok(money(layers["popup-layer"], ...ITEMS_30, "Total", "RM 30.00"));
+  assert.doesNotMatch(text, /promo/i, "nothing is said about a code that came to nothing");
 });
 
 test("the Edit pop-up's order total counts the code off, and names it", () => {
@@ -607,8 +618,8 @@ test("the Edit pop-up's order total counts the code off, and names it", () => {
   renderOrders(root, st, new URLSearchParams({ date: "d10" }));
 
   buttonByText(root, "Edit")._listeners.click[0]();
-  assert.match(popText(layers["popup-layer"]),
-    /Order total: RM 28\.00 — items total RM 30\.00 \+ courier charge RM 8\.00 - promo FRESH10 RM 10\.00/,
+  assert.ok(money(layers["popup-layer"], ...ITEMS_30, "Courier charge", "RM 8.00",
+    "Promo FRESH10", "-RM 10.00", "Total", "RM 28.00"),
     "the goods, the charge, the code — a line she can add up as she reads it");
 });
 
@@ -624,8 +635,8 @@ test("a self collect order parks the charge instead of counting it, and says so"
   buttonByText(root, "Edit")._listeners.click[0]();
   const pop = layers["popup-layer"];
   const text = popText(pop);
-  assert.match(text, /Order total: RM 30\.00/, "the customer's total is the items alone");
-  assert.doesNotMatch(text, /Order total: RM 38/, "the parked charge is not inside it");
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"), "the customer's total is the items alone");
+  assert.ok(!money(pop, "Total", "RM 38.00"), "the parked charge is not inside it");
   assert.ok(all(pop).some((n) => String(n.className).includes("parked-charge")),
     "and the charge is NAMED rather than silently hidden — it is still on the order, and she"
     + " is the only one who can settle it");
@@ -667,8 +678,8 @@ test("a self collect order parks the charge on the Note / tracking card too, and
   buttonByText(root, "Note / tracking")._listeners.click[0]();
   const pop = layers["popup-layer"];
   const text = popText(pop);
-  assert.match(text, /The customer owes RM 30\.00/, "the customer's total is the items alone");
-  assert.doesNotMatch(text, /plus RM 8\.00|courier charge RM 8\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"), "the customer's total is the items alone");
+  assert.ok(!money(pop, "Courier charge", "RM 8.00"),
     "the parked charge is not counted into what they owe, here or anywhere");
   assert.ok(all(pop).some((n) => String(n.className).includes("parked-charge")),
     "and it is NAMED rather than silently dropped, the same as on the Edit card");
@@ -762,8 +773,9 @@ test("a charge she bore stays out of the Edit order total", () => {
 
   buttonByText(root, "Edit")._listeners.click[0]();
   const text = popText(layers["popup-layer"]);
-  assert.match(text, /Order total: RM 30\.00/, "her own cost is not something the customer owes");
-  assert.doesNotMatch(text, /Order total: RM 38/,
+  assert.ok(money(layers["popup-layer"], ...ITEMS_30, "Total", "RM 30.00"),
+    "her own cost is not something the customer owes");
+  assert.ok(!money(layers["popup-layer"], "Total", "RM 38.00"),
     "nor may it be added to the total she reads as the order's worth");
 });
 
@@ -966,15 +978,20 @@ test("the box names what the courier collects, and keeps it out of the total she
   theirs.value = "customer";
   theirs._listeners.change[0]();
   let pop2 = layers["popup-layer"];
-  assert.match(popText(pop2), /The customer owes RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+  assert.ok(money(pop2, ...ITEMS_30, "Courier charge", "RM 8.00", "Total", "RM 38.00"),
     "with the order, the charge is inside what she asks for, exactly as v126 read it");
 
   const sel = codSelIn(pop2);
   sel.value = "cod";
   sel._listeners.change[0]();
-  assert.match(popText(layers["popup-layer"]),
-    /The customer owes RM 30\.00 — items total RM 30\.00, plus RM 8\.00 collected by the courier on delivery/,
-    "COD: the bread is what she asks for, and the charge is named as the courier's to take — never added in, or she asks for the RM8 twice");
+  const codText = receiptText(layers["popup-layer"]);
+  // The COD row's label carries its own rider ("Courier charge — COD, pay the courier
+  // when your order reaches you"), so the rows are read one at a time rather than as one
+  // contiguous run.
+  assert.ok(codText.includes("Items total | RM 30.00") && codText.includes("Total | RM 30.00"),
+    "COD: the bread is what she asks for, and the charge is never added in, or she asks for the RM8 twice");
+  assert.match(codText, /COD, pay the courier when your order reaches you/,
+    "the charge is named as the courier's to take, and when");
 });
 
 test("a COD charge is written onto every row of the order, and goes with the mode", () => {
@@ -1238,7 +1255,7 @@ test("Edit's own total follows the fee box as she types, and names the charge", 
   st.orders[0].fulfillment = "courier";
   st.products[0].price = 15;                 // 2 × RM15 of bread
   const { pop } = editOn(st);
-  assert.match(popText(pop), /Order total: RM 30\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Total", "RM 30.00"),
     "no charge yet, so the total is the items and nothing else");
 
   const box = feeInput(pop);
@@ -1247,16 +1264,17 @@ test("Edit's own total follows the fee box as she types, and names the charge", 
   const theirs = selWith(pop, "The customer paid it");
   theirs.value = "customer";
   theirs._listeners.change[0]();
-  assert.match(popText(pop),
-    /Order total: RM 38\.00 — items total RM 30\.00 \+ courier charge RM 8\.00/,
+  assert.ok(money(pop, ...ITEMS_30, "Courier charge", "RM 8.00", "Total", "RM 38.00"),
     "the figure she reads here moves with the box — a total that only moved after a save is one she cannot check");
 
   const sel = codSelIn(pop);
   sel.value = "cod";
   sel._listeners.change[0]();
-  assert.match(popText(pop),
-    /Order total: RM 30\.00 — items total RM 30\.00, plus RM 8\.00 collected by the courier on delivery/,
-    "COD: the courier takes it, so it is named under the total rather than added into it");
+  const codText = receiptText(pop);
+  assert.ok(codText.includes("Items total | RM 30.00") && codText.includes("Total | RM 30.00"),
+    "COD: the courier takes it, so it is not added into the total");
+  assert.match(codText, /COD, pay the courier when your order reaches you/,
+    "and it is named under the total rather than silently dropped");
 });
 
 test("a charge cleared through Edit leaves no key behind, and republishes the card", async () => {
@@ -1595,8 +1613,10 @@ async function withCourierWire(total, run, { holdFor = null } = {}) {
 // evidence of what the screen TOLD her, which is the thing that must not lie.
 const lastToast = () => all(globalThis.document.body)
   .filter((n) => n.className === "toast").pop();
-const owesLine = (pop) => all(pop)
-  .find((n) => String(n.textContent).startsWith("The customer owes"));
+// The receipt the card draws for the customer's money — the whole sum in one node.
+// v276 replaced the sentence these two tests used to read with rows; the guard they
+// carry (the total does not move for a price that never landed) is unchanged.
+const owesLine = (pop) => byClass(pop, "receipt");
 
 // Close the card, and give its own clock the tick it needs to notice. The price panel
 // counts each quotation down on a one-second interval and stops it the moment its node
@@ -1639,8 +1659,7 @@ test("a price from the courier lands in the charge box, and the customer's total
   const payer = selWith(pop, "The customer paid it");
   assert.ok(payer, "the payer is still hers to answer");
   assert.deepEqual(openedOn(payer), ["The customer paid it"], "and it opens on The customer paid it (v216)");
-  assert.equal(owesLine(pop).textContent,
-    "The customer owes RM 42.50 — items total RM 30.00 + courier charge RM 12.50",
+  assert.ok(money(pop, ...ITEMS_30, "Courier charge", "RM 12.50", "Total", "RM 42.50"),
     "the same number she would have got by typing 12.50 into the box herself");
 
   payer.value = "me";
