@@ -281,3 +281,90 @@ test("the money lines put the promo between the workings and the total", () => {
     "*Total: RM 28.00*",
   ]);
 });
+
+// ── the code's smallest basket ───────────────────────────────────────────────
+//
+// Her report, 2 Oct 2026, the day after v272 shipped its arithmetic: "the arithmatic is
+// not rigght, the fresh10 promo code discount 10 for order of 100, but my order only 16,
+// it deduct 10 and customer have to pay 6 only. if thats the case bakery will broke."
+//
+// She was right, and the hole was exactly here. The shop's code box has always refused a
+// basket that is under the code's smallest basket — evaluate() asks it. But the DEDUCTION
+// never asked it: it went straight to what the offer was worth on the goods, which is a
+// question about the offer and not about the sale. So a code riding on an order whose
+// basket was never big enough still took its full value off the Total, and the bakery paid
+// for a discount nobody had earned.
+//
+// The rule these tests hold: whether the basket was ever big enough is a fact about THIS
+// ORDER, which never changes, and unlike the code's dates it is judged on every read.
+const minCode = (amount, over = {}) =>
+  mkCode({ basket: { type: "amount", amount }, ...over });
+
+test("a code whose smallest basket the order never reached gives NOTHING", () => {
+  const { st, g } = ordered(minCode(100));
+  assert.deepEqual(customerTotal(st, g),
+    { items: 30, courier: 0, cod: 0, promo: 0, promoCode: "", total: 30 },
+    "RM10 off was asked for on RM30 of goods, and RM30 is not RM100 — so nothing comes off");
+});
+
+test("and the message says nothing at all, exactly as an order with no code does", () => {
+  // Not "Promo FRESH10: -RM 0.00" and not a bare code name. A discount that was
+  // never earned leaves no trace on the order the customer reads, so the message is
+  // byte for byte the plain one — the same guard the zero-value code gets above.
+  const missed = ordered(minCode(100));
+  const plain = state();
+  plain.orders = orders();
+  assert.equal(confirm(missed.st, missed.g), confirm(plain, { orders: plain.orders }));
+});
+
+test("a basket exactly ON the smallest basket gets the whole discount", () => {
+  // "RM30 and above" means RM30. The boundary is the one an off-by-one would break,
+  // and it is the difference between honouring the offer she advertised and quietly
+  // withholding it from the customers who did exactly what the shop told them to.
+  const { st, g } = ordered(minCode(30));
+  assert.equal(customerTotal(st, g).promo, 10, "RM30 of goods reaches a RM30 smallest basket");
+  assert.equal(customerTotal(st, g).total, 20);
+});
+
+test("one ringgit short is short", () => {
+  const { st, g } = ordered(minCode(31));
+  assert.equal(customerTotal(st, g).promo, 0, "RM30 of goods does not reach RM31");
+  assert.equal(customerTotal(st, g).total, 30);
+});
+
+test("promoValue carries the same rule, so the Edit form cannot disagree", () => {
+  // The Edit window quotes a figure for a basket that is not saved yet, so it goes
+  // through promoValue and not through customerTotal. Both must answer together or
+  // the form's preview total and the message sent a moment later will differ.
+  const { st } = ordered(minCode(100));
+  assert.deepEqual(promoValue(st, "FRESH10", 30, 0), { code: "", money: 0 },
+    "a hand-typed basket below the smallest basket gives nothing");
+  assert.deepEqual(promoValue(st, "FRESH10", 100, 0), { code: "FRESH10", money: 10 },
+    "and the same code on a big enough basket gives what it promises");
+});
+
+test("a delivery code below its smallest basket waives nothing", () => {
+  // The same rule, through the other kind of offer: a free-delivery code that asks for
+  // RM100 waives no charge on an RM30 basket. Otherwise the rule would hold for ringgit
+  // offers and leak for the one kind whose value arrives as a courier's fee.
+  const { st, g } = ordered(
+    minCode(100, { code: "FREEPOST", gives: { type: "delivery", value: 0, cap: 0 } }),
+    { courierFee: 8, courierPaidBy: "customer" });
+  assert.deepEqual(customerTotal(st, g),
+    { items: 30, courier: 8, cod: 0, promo: 0, promoCode: "", total: 38 },
+    "the charge stands, and the code waives none of it");
+});
+
+test("the smallest basket is judged while the code's dates are not", () => {
+  // The two are different kinds of fact and must not be confused. A code ENDED
+  // yesterday still discounts the order it was placed on — history is not rewritten.
+  // The same code ending yesterday still gives nothing on a basket that never reached
+  // its minimum — because that was never a discount in the first place.
+  const { st, g } = ordered(minCode(100, { state: "ended", when: { from: "", to: "2026-09-01" } }));
+  assert.equal(customerTotal(st, g).promo, 0,
+    "ending a code cannot turn a sale that never qualified into one that did");
+
+  const reached = ordered(minCode(30, { state: "ended", when: { from: "", to: "2026-09-01" } }));
+  assert.equal(customerTotal(reached.st, reached.g).promo, 10,
+    "and an ended code still keeps what it gave on a basket that did reach it");
+});

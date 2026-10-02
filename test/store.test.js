@@ -57,7 +57,7 @@ const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 // v270: the shop's own line and its refusals, kept as pure functions so they are
 // judged here rather than by looking at a phone.
-const { clauseWords, dayWords, ownWords, rememberShopOrder, shopMemo, shopVerdict } = await import("../store/app.js");
+const { clauseWords, dayWords, ownWords, rememberShopOrder, shopMemo, shopVerdict, softVerdict } = await import("../store/app.js");
 const { STORE } = await import("../store-lang.js");
 
 // The receipt's own lines, as plain strings, from the confirm box.
@@ -1340,6 +1340,40 @@ test("a reason the shop has never heard of is answered plainly, never guessed at
   // No judgement at all is the one thing the shop does know: it has not heard of
   // that code.
   assert.equal(shopVerdict(null).key, "promoUnknown");
+});
+
+// ── v275: the smallest basket, in the shop's own line ─────────────────────
+test("a stated-but-not-gated code still says the smallest basket it needs", () => {
+  // Her report of 2 Oct 2026: a "RM10 off on RM100" code riding on a small order still
+  // took its RM10 off. The deduction is fixed in one place — awardOf, js/promo.js — and
+  // this is the other half of it: the shop must never promise money the app will not
+  // hand over, or the customer reads RM10 off and then finds it was not given.
+  //
+  // A code the customer has already used, or one meant for a first order, is STATED with
+  // its caveat and left on the order — she decides by hand. That is unchanged, and so is
+  // the order going through. But when the basket never reached the code's smallest basket
+  // the code gives nothing for it whatever else is true, so the caveat is not the useful
+  // sentence: the shortfall is.
+  const c = { code: "FRESH10", gives: { type: "rm", value: 10, cap: 0 },
+    basket: { type: "amount", amount: 100 } };
+
+  const short = softVerdict("promoAcceptedUsed", "FRESH10", 16, [c]);
+  assert.equal(short.key, "promoSmall", "the line the customer can act on, not an offer that will not be honoured");
+  assert.equal(short.short, 84, "and it names how much more is needed");
+  assert.equal(short.offer, null, "no offer is stated, because on this basket there is none");
+  assert.equal(short.code, "FRESH10", "and the code still rides on the order — this is a sentence, not a gate");
+
+  const enough = softVerdict("promoAcceptedUsed", "FRESH10", 100, [c]);
+  assert.equal(enough.key, "promoAcceptedUsed", "a basket that does reach it keeps the caveat it was stated with");
+  assert.equal(enough.offer.money, 10);
+
+  // A code the shop cannot find is left exactly as it was: the soft line, the name it
+  // was handed, and no offer to state. (The name arrives already tidied — the shop
+  // cleans what the customer typed before it ever reaches a judgement.)
+  const missing = softVerdict("promoAcceptedFirst", "NOPE", 16, []);
+  assert.equal(missing.key, "promoAcceptedFirst");
+  assert.equal(missing.code, "NOPE");
+  assert.equal(missing.offer, null);
 });
 
 test("a date is read out in the reader's own month, not in English", () => {

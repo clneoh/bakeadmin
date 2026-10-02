@@ -21,10 +21,14 @@
 //   · What a code GAVE AWAY is what the customer did not pay, so it is counted as
 //     items sold at the price they were sold at (orderLinePrice), the same figure
 //     customerTotal and her takings use — and a free-delivery code is worth the
-//     delivery charge the customer would have paid, not nothing.
+//     delivery charge the customer would have paid, not nothing. It is the AWARD
+//     (awardOf, which honours the code's smallest basket) and not the bare offer,
+//     so an order that carried a code it never qualified for counts RM0 given and
+//     cannot eat a ringgit ceiling it never touched. The COUNT still counts that
+//     order: the code did ride on it, and that is what "used" means.
 
 import { customerCourierFee } from "./courier.js";
-import { codesOf, normCode, normalizeCode, worthOf } from "./promo.js";
+import { awardOf, codesOf, normCode, normalizeCode } from "./promo.js";
 import { groupOrders, orderLinePrice, round2 } from "./state.js";
 
 const NONE = () => ({ used: 0, given: 0 });
@@ -61,7 +65,7 @@ export function usageByCode(state) {
     const before = out.get(code.code) || { used: 0, given: 0 };
     out.set(code.code, {
       used: before.used + 1,
-      given: round2(before.given + worthOf(code, cartItems(state, rows), customerCourierFee(rows[0])).money),
+      given: round2(before.given + awardOf(code, cartItems(state, rows), customerCourierFee(rows[0])).money),
     });
   }
   return out;

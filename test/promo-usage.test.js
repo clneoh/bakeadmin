@@ -193,6 +193,27 @@ test("a delivery code counts the charge it waived, not nothing", () => {
 
 // ── Edges that must not crash or lie ──────────────────────────────────────
 
+test("an order too small for the code gives away nothing, and cannot eat the ringgit ceiling", () => {
+  // Her report of 2 Oct 2026: a "RM10 off on RM100" code riding on a small order still
+  // took its RM10 off. The tally had the same hole as the Total did — it counted the
+  // bare offer instead of the award — so the two are fixed together (see awardOf).
+  //
+  // The order still COUNTS as a use: the code did ride on it, and that is what "used"
+  // means to her. What it must not do is spend ringgit that never left her purse, or it
+  // would exhaust a ceiling that orders which WERE entitled to the discount still need.
+  const min = code({ basket: { type: "amount", amount: 100 } }); // the goods here are RM18
+  const st = state([
+    order({ id: "a", promo: "FRESH10" }),
+    order({ id: "b", promo: "FRESH10" }),
+  ], [min]);
+  const u = usageOf(st, min);
+  assert.equal(u.used, 2, "the code did ride on both orders");
+  assert.equal(u.given, 0, "and gave away not one ringgit");
+  assert.equal(
+    stoppedBy(normalizeCode({ ...min, ...u, often: { type: "quota", n: 9, maxRM: 50 } }), TODAY),
+    null, "so a code with RM50 to give still has the whole RM50 to give");
+});
+
 test("a code she has deleted stops being counted, without touching the orders that carry it", () => {
   const st = state([order({ id: "a", promo: "GONE01" })], [code()]);
   assert.deepEqual(usageOf(st, { code: "GONE01" }), { used: 0, given: 0 },

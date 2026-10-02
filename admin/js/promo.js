@@ -186,6 +186,42 @@ export function minimumOf(code) {
   return b.type === "amount" ? Number(b.amount) || 0 : 0;
 }
 
+// How much MORE the basket needs before this code works on it — 0 when the basket
+// already reaches the code's smallest basket, or when the code asks for no
+// smallest basket at all.
+//
+// One answer, asked by both doors: evaluate() refuses with it, and the shop's own
+// line for a code it is stating-but-not-gating words itself from it. A shortfall
+// worked out twice is a shortfall that can disagree with itself.
+export function shortfallOf(code, items) {
+  const need = minimumOf(code) - (Number(items) || 0);
+  return need > 0 ? round2(need) : 0;
+}
+
+/* What a code GIVES on an order it is already on. The one difference from
+   worthOf, and the whole reason this exists: worthOf answers "what is this offer
+   worth on a basket", which is a question about the OFFER. This answers "what
+   does this code actually give on this sale", which is a question about the SALE
+   — and an offer whose smallest basket this sale never reached gives nothing at
+   all, exactly as a free-delivery code gives nothing on an order being collected.
+
+   This is the seam every figure the customer is asked for comes through (see
+   customerTotal in courier.js), so the smallest basket is honoured in ONE place
+   rather than at each screen that quotes a total.
+
+   It reads the basket and never the calendar. A code that has since been paused,
+   ended or used up still gives what it gave on the order it was placed on: that
+   is history, and history is not rewritten. Whether the basket was ever big
+   enough is not a fact about the code's life but about this one order, which
+   does not change either.                                                       */
+export function awardOf(code, items, deliveryFee = 0) {
+  if (!code) return { code: "", money: 0 };
+  const basket = Number(items) || 0;
+  if (shortfallOf(code, basket) > 0) return { code: "", money: 0 };
+  const money = worthOf(code, basket, Number(deliveryFee) || 0).money;
+  return { code: money > 0 ? code.code : "", money: money > 0 ? money : 0 };
+}
+
 /* The part of the judgement that depends on nothing but the code and the day:
    is it switched on, is it inside its dates, has it already given away
    everything it was allowed to. Answers with the reason it is stopped, or null.
@@ -238,9 +274,9 @@ export function evaluate(list, typed, ctx = {}) {
 
   if (code.beside.type === "nocredit" && ctx.creditApplied === true) return { ok: false, fail: "clash" }; // 6
 
-  const min = minimumOf(code); // 7 · big enough — the ONLY fixable reason, so it is last
   const total = Number(ctx.total) || 0;
-  if (min > 0 && total < min) return { ok: false, fail: "small", short: round2(min - total) };
+  const short = shortfallOf(code, total); // 7 · big enough — the ONLY fixable reason, so it is last
+  if (short > 0) return { ok: false, fail: "small", short };
 
   const w = worthOf(code, total, ctx.deliveryFee); // 8 · state the offer, with its working
   return { ok: true, code, offer: w, money: w.money, delivery: w.kind === "delivery" };

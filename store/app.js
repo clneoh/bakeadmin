@@ -21,7 +21,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // The promo-code engine, shared with the backoffice so a code the shop accepts is
 // exactly a code her app recognises. It is a leaf module (imports nothing), which
 // is why the shop can take it without pulling the backoffice's storage in.
-import { codeNameOk, evaluate, findCode, minimumOf, normCode, normalizeCode, offerOf, stoppedBy, worthOf } from "../admin/js/promo.js";
+import { codeNameOk, evaluate, findCode, minimumOf, normCode, normalizeCode, offerOf, shortfallOf, stoppedBy, worthOf } from "../admin/js/promo.js";
 
 // Day/month short names per site language. English is today's authoring default;
 // fmtDay and the "Delivery days" info card read by the visitor's language so a
@@ -299,6 +299,36 @@ export function shopVerdict(r) {
   const on = r && typeof r.on === "string" ? r.on : "";
   if (dated && !/^\d{4}-\d{2}-\d{2}$/.test(on)) return { kind: "no", key: "promoNo", fail };
   return { kind: "no", key: REFUSAL_KEY[fail] || "promoNo", fail, on, short: r && r.short };
+}
+
+// The shop's answer for a code it STATES but never gates on — "one per customer" and
+// "first orders only", the two it can only ever guess at. The code goes on the order
+// exactly as if it had passed, because the real check is hers, in the app.
+//
+// One thing overrides the caveat: the basket. A code the customer qualified for on
+// every other count but whose smallest basket this basket never reached is ON the
+// order and gives NOTHING for it — the app deducts nothing (see awardOf in
+// js/promo.js). So the shop must not promise money it will not hand over. It says the
+// one line the customer can act on instead — "Add RM84 more to use it" — and the order
+// still goes through with the code still riding on it, unchanged.
+//
+// Pure — no words, no document — so the Node tests press it directly, the same reason
+// shopVerdict above is exported.
+export function softVerdict(key, typed, total, codes = []) {
+  const c = findCode(codes, typed);
+  const short = c ? shortfallOf(c, total) : 0;
+  if (c && short > 0) {
+    return { kind: "soft", key: "promoSmall", fail: "small", code: c.code, short, offer: null, caveat: true };
+  }
+  return {
+    kind: "soft",
+    key,
+    // findCode is asked for the engine's own spelling of the name: a card typed as
+    // "fresh 10" is stamped "FRESH10".
+    code: c ? c.code : normCode(typed),
+    offer: c ? worthOf(c, total, 0) : null,
+    caveat: true,
+  };
 }
 
 // What THIS phone remembers about its own ordering. Not a login, and never
@@ -1127,20 +1157,7 @@ export function render() {
     if (v.kind === "ok") {
       return { kind: "ok", key: v.key, code: r.code.code, offer: r.offer, delivery: r.delivery };
     }
-    if (v.kind === "soft") {
-      // Two reasons the shop STATES but never gates on. The code is on the order
-      // exactly as if it had passed — she confirms it by hand, where the true
-      // history is. findCode is asked only for the engine's own spelling of the
-      // name (a card typed as "fresh 10" is stamped "FRESH10").
-      const c = findCode(codes, typed);
-      return {
-        kind: "soft",
-        key: v.key,
-        code: c ? c.code : normCode(typed),
-        offer: c ? worthOf(c, total, 0) : null,
-        caveat: true,
-      };
-    }
+    if (v.kind === "soft") return softVerdict(v.key, typed, total, codes);
     return { kind: "no", key: v.key, fail: v.fail, on: v.on, short: v.short };
   }
 
@@ -1187,7 +1204,12 @@ export function render() {
       }
     }
     if (promoSay) promoSay.hidden = true;
-    if (got && got.offer) say(got.key, "good", offerWords(got.offer), got.code);
+    // A code the shop is stating-but-not-gating can still be one the basket is too
+    // small for. It is on the order either way, but it will give nothing for it, so
+    // the customer gets the line they can act on — "Add RM84 more to use it" — and
+    // not an offer that will never be honoured.
+    if (got && got.short) say(got.key, "bad", ...refusalArgs(got));
+    else if (got && got.offer) say(got.key, "good", offerWords(got.offer), got.code);
     else if (promoRefusal) say(promoRefusal.key, "bad", ...refusalArgs(promoRefusal));
     if (promoClear) promoClear.hidden = !promoApplied;
   }

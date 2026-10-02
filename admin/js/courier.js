@@ -35,7 +35,7 @@
 import { newId, orderCode, orderLinePrice, fmtRM, groupOrders, round2 } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
-import { codesOf, findCode, worthOf } from "./promo.js";
+import { awardOf, codesOf, findCode } from "./promo.js";
 
 // From her own chart of accounts, in her words: "delivery charges". The label IS
 // the stored value, so it must match DEFAULT_CATEGORIES exactly.
@@ -113,16 +113,17 @@ export function customerCourierFee(first) {
 // rewrite history and quietly un-discount an order she has already promised — the
 // same reason ending a code keeps what it already gave (see promo.js).
 //
+// The code's SMALLEST BASKET is judged here, and it is the one term that is. It is not
+// a fact about the code's life like its dates are; it is a fact about this one order,
+// and an order's own basket never changes. A code that asks for RM100 of goods and sits
+// on an RM16 order gives nothing — the customer was never entitled to the discount, and
+// taking RM10 off anyway is the bakery paying for a discount that was never earned.
+//
 // The terms come from the code AS THE APP HOLDS IT NOW, because an order remembers
 // the code's NAME and not its terms — the honest limitation promo-usage.js also
 // documents. Editing a code's value re-values its past orders too.
 export function promoValue(state, codeName, items, deliveryFee = 0) {
-  const code = findCode(codesOf(state), codeName);
-  if (!code) return { code: "", money: 0 };
-  const money = worthOf(code, Number(items) || 0, Number(deliveryFee) || 0).money;
-  // A code worth nothing (a percentage of an order that comes to nothing, say) leaves
-  // no line and changes no total — the message then reads exactly as it did before.
-  return { code: money > 0 ? code.code : "", money: money > 0 ? money : 0 };
+  return awardOf(findCode(codesOf(state), codeName), Number(items) || 0, Number(deliveryFee) || 0);
 }
 
 // The same, read off a saved order group rather than a figure handed in — what every

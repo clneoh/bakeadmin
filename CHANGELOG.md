@@ -1,8 +1,62 @@
-# Jienluv2bake — change history (v54 → v274)
+# Jienluv2bake — change history (v54 → v275)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v275, A DISCOUNT NOBODY EARNED (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**What you reported.** "the arithmatic is not rigght, the fresh10 promo code
+discount 10 for order of 100, but my order only 16, it deduct 10 and customer have
+to pay 6 only. if thats the case bakery will broke." You were right, and it was the
+worst kind of wrong: nothing crashed, nothing looked odd, and the app quietly took
+money off an order that had never earned it.
+
+**What actually happened.** A code has two separate things about it, and only one
+of them was being asked. The **shop's code box** has always asked the first one —
+"is this basket big enough for this code at all?" — and it refuses a code below its
+smallest basket, telling the customer how much more they need. But the **arithmetic
+that takes the money off** only ever asked the second one: "what is this offer worth
+on these goods?" That is a question about the offer, not about the sale. So once a
+code was on an order, the smallest basket was never looked at again — and a RM10
+code sitting on a RM16 order took its full RM10 off, leaving RM6 to pay.
+
+**The fix.** The smallest basket is now asked **wherever the money is worked out**,
+which is one place: it is the same single figure the four customer messages and your
+own screens all read, so they cannot disagree with each other. A code on an order
+whose basket never reached its smallest basket now gives **nothing**, and the order
+reads exactly as an order with no code at all — no line, no total change, no stray
+"RM 0.00". Two more things ride on the same rule:
+
+- **The tally on your Promo codes screen.** What a code has "given away" is counted
+  the same way, so an order that carried a code it never qualified for counts
+  **RM0 given** and cannot eat a ceiling it never touched. It still counts as a
+  **use** — the code did ride on the order, and that is what "used" means.
+- **The shop's own line.** A code the page states but does not act on (one per
+  customer, or a first order only — the two it can only guess at) no longer promises
+  the discount when the basket is too small for it. The customer gets the line they
+  can act on instead: "Add RM84 more to use it." The order still goes through and the
+  code still rides on it, exactly as before.
+
+**What has NOT changed, and it is the important half.** A code you have since
+**paused, ended or used up** still comes off the order it was actually placed on.
+Ending a code is a decision about the next order and never about one you have already
+promised, and this version does not touch that. The distinction is exact: the
+**dates** are a fact about the code's life and are never re-judged; the **basket** is
+a fact about that one order, and an order's own basket never changes either. A code
+that gives RM10 on RM100 gave nothing on a RM16 order on the day it was placed, and
+it gives nothing for it now.
+
+**What this is not.** It is not a way to stop you giving a discount by hand. Nothing
+here blocks an order, hides a sale, or refuses a code you want to honour — it only
+stops the app doing arithmetic on a discount that was never earned. If you want a
+customer to have money off an order that did not qualify, you still take it off
+yourself, exactly as you always have.
+
+The engine is **v275**; the automatic test suite is now **2,427** checks, all
+passing. What a customer can see: `store/app.js`. Everything else is
+`admin/` — your own screens — plus the version number itself.
 
 **02 Oct 2026 — engine v274, THE SHOP'S OWN SENTENCE IN A HAND YOU PICKED (no
 database step, nothing to upload — pushing this one is the whole of it).**
