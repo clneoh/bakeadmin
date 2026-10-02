@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v279)
+# Jienluv2bake — change history (v54 → v280)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v280, THE WHOLE STATEMENT OPENS: SALES AND COST OF SALES
+TOO (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** You were in More → Profit, reading the statement, and
+asked: __"at the profit section, can the sales and cost of sales be clickable to
+reveal its journal"__. The spending lines had opened on a tap since 17 September —
+these two did not.
+
+**What you see now, on More → Profit.** Tap **Sales** and its journal opens; tap
+**Cost of sales** and that one opens. Both read the same orders — one from the
+side of what the customer paid, the other from the side of what your recipes say
+those loaves cost to bake — so the two can never disagree about which orders the
+month held.
+
+- **Each row is one order line**: the day it is delivered, what was sold and how
+  many (`Focaccia × 2`), and the customer's own name, with the figure on the right.
+  In the Sales journal that is the amount sold; in the Cost of sales journal it is
+  what those loaves cost to make.
+- **A product you have since renamed or deleted still reads as the loaf that was
+  sold** — the name frozen on the order, not the live product's. The journal is a
+  record of what happened, so nothing in it is re-described later.
+- **The rows land on the figure you tapped.** The Sales journal totals to the
+  Sales line, the Cost of sales journal to the Cost of sales line, exactly — the
+  same guarantee the spending journals have kept since September.
+- **A line your recipe prices at nothing is marked** "no recipe cost" rather than
+  sitting there as a plain RM 0.00, and the footer counts them. That is a profit
+  reading too high, and it is the one thing in these journals worth chasing.
+- **A month with nothing in it opens and says so** — "Nothing was sold in October
+  2026" — rather than a line that looks live and does nothing when tapped, which
+  is the fault you reported in September.
+- **Sales counts on the day the order is DELIVERED**, not the day it was ordered,
+  which is the same day the day headers, the weekly numbers and the customer's own
+  calendar use. The journal says so under the total, because a sale counted on a
+  day other than the one you expected is the one thing here that could look wrong
+  and not be.
+
+**One thing that stays a figure, not a door.** Gross profit and Net profit are
+worked out from the lines above them, so they have no rows of their own to open.
+They stay as they are.
 
 **02 Oct 2026 — engine v279, THE PRINTED CARD: PRINT IT, AND THE OFFER IS FIXED
 (no database step, nothing to upload — pushing this one is the whole of it).**
