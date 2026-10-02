@@ -219,6 +219,10 @@ const en = {
   // Malaysians know for a parcel the receiver pays for, so it is kept, with what to
   // do about it spelled out beside it (19 Sep 2026).
   courierCod: "Courier charge: %1 - COD, pay the courier on delivery",
+  // The promo code on the order and what it took off, %1 the code and %2 the ringgit —
+  // the same line the customer's WhatsApp message carries, so the two can be read side
+  // by side without disagreeing (v272).
+  promoLine: "Promo %1: -%2",
   // The booked trip, as the courier's own reply last said. %1 is one of a handful of
   // NEUTRAL phase words below rather than the courier's own vocabulary — the backoffice
   // publishes the phase, this page owns the words, so no company's status list is
@@ -404,6 +408,7 @@ const zh = {
   trkTotal: "总计：%1",
   courierCharge: "快递费：%1",
   courierCod: "快递费：%1 - 货到付款，收货时付给送货员",
+  promoLine: "优惠码 %1：-%2",
   tripStatus: "配送：%1",
   tripFinding: "正在寻找司机",
   tripOnTheWay: "司机在路上",
@@ -576,6 +581,7 @@ const ms = {
   trkTotal: "Jumlah keseluruhan: %1",
   courierCharge: "Caj kurier: %1",
   courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
+  promoLine: "Kod %1: -%2",
   tripStatus: "Penghantaran: %1",
   tripFinding: "Sedang mencari pemandu",
   tripOnTheWay: "Pemandu dalam perjalanan",

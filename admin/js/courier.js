@@ -32,9 +32,10 @@
 //
 // Pure — no DOM, no fetch — so it runs under Node for tests.
 
-import { newId, orderCode, orderLinePrice, fmtRM, groupOrders } from "./state.js";
+import { newId, orderCode, orderLinePrice, fmtRM, groupOrders, round2 } from "./state.js";
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
+import { codesOf, findCode, worthOf } from "./promo.js";
 
 // From her own chart of accounts, in her words: "delivery charges". The label IS
 // the stored value, so it must match DEFAULT_CATEGORIES exactly.
@@ -103,6 +104,40 @@ export function customerCourierFee(first) {
     : courierPayerOf(first) === "customer" ? courierFeeOf(first) : 0;
 }
 
+// The promo code a group carries, and what it is worth ON THAT ORDER. Answers
+// { code, money } — { code:"", money:0 } for an order that carried none, or one
+// whose code she has since deleted.
+//
+// Deliberately NOT judged by stoppedBy: whether a code has since been paused, ended
+// or used up says nothing about an order already placed. Re-judging it here would
+// rewrite history and quietly un-discount an order she has already promised — the
+// same reason ending a code keeps what it already gave (see promo.js).
+//
+// The terms come from the code AS THE APP HOLDS IT NOW, because an order remembers
+// the code's NAME and not its terms — the honest limitation promo-usage.js also
+// documents. Editing a code's value re-values its past orders too.
+export function promoValue(state, codeName, items, deliveryFee = 0) {
+  const code = findCode(codesOf(state), codeName);
+  if (!code) return { code: "", money: 0 };
+  const money = worthOf(code, Number(items) || 0, Number(deliveryFee) || 0).money;
+  // A code worth nothing (a percentage of an order that comes to nothing, say) leaves
+  // no line and changes no total — the message then reads exactly as it did before.
+  return { code: money > 0 ? code.code : "", money: money > 0 ? money : 0 };
+}
+
+// The same, read off a saved order group rather than a figure handed in — what every
+// screen showing a SAVED order asks, so none of them works the basket out itself.
+export function promoOn(state, orders) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const first = rows[0];
+  if (!first) return { code: "", money: 0 };
+  const items = rows.reduce((sum, o) => {
+    const price = orderLinePrice(state, o);
+    return sum + (Number(o.qty) || 0) * (price == null ? 0 : price);
+  }, 0);
+  return promoValue(state, first.promo, items, customerCourierFee(first));
+}
+
 // The customer's total, in its parts, so that everyone who shows it can show the
 // addition instead of a figure that appears from nowhere: "show the add up for rm72"
 // (19 Sep 2026). One source for the number the messages, the track card and the app
@@ -110,11 +145,18 @@ export function customerCourierFee(first) {
 //
 // Three parts once a charge can be COD: `courier` is the part INSIDE the advance
 // total, `cod` is the part paid to the courier at the door, and `total` — what they
-// are asked for now — is items + courier. A COD charge must never reach `total`, or
-// she asks for the RM8 and the courier asks for it again (19 Sep 2026).
+// are asked for now — is items + courier - promo. A COD charge must never reach
+// `total`, or she asks for the RM8 and the courier asks for it again (19 Sep 2026).
+//
+// The promo comes off HERE, once, rather than at each of the four places that quote
+// this total (26 Sep 2026). A discount applied in the message but not on the track
+// card would be the same class of fault as a charge in one and not the other: the
+// customer reads two different figures for one order and cannot tell which to pay.
 //
 // The items are counted at the price each line was SOLD at (orderLinePrice), exactly
 // as groupValue counts her takings — the two differ only by the customer's charge.
+// `promo` is the ringgit taken off, and `promoCode` names it; both are 0/"" when no
+// code applied, so every caller's existing reading of this object still holds.
 export function customerTotal(state, group) {
   const orders = (group && group.orders) || [];
   const items = orders.reduce((sum, o) => {
@@ -124,7 +166,12 @@ export function customerTotal(state, group) {
   const charge = customerCourierFee(orders[0]);
   const cod = courierCodOf(orders[0]) ? charge : 0;
   const courier = charge - cod;
-  return { items, courier, cod, total: items + courier };
+  const promo = promoOn(state, orders);
+  // Floored at nothing: a discount larger than the order (a free-delivery code on a
+  // collect order has no fee to waive, but a hand-edited code could still overshoot)
+  // must never leave her asking for a negative amount.
+  const total = Math.max(0, round2(items + courier - promo.money));
+  return { items, courier, cod, promo: promo.money, promoCode: promo.code, total };
 }
 
 // The money part of every message, in ONE place so the confirmation, the payment
@@ -154,6 +201,13 @@ export function moneyLines(state, parts) {
     out.push(parts.cod
       ? `Courier charge: ${fmtRM(parts.cod, cur)} - COD, pay the courier when your order reaches you`
       : `Courier charge: ${fmtRM(parts.courier, cur)}`);
+  }
+  // The code, and what it took off, between the workings and the total — so the total
+  // below can be checked by adding the lines above it, which is the whole reason these
+  // lines are named rather than handed over as one figure (19 Sep 2026). Named by the
+  // code itself because which code it was is what tells her whether it is RM10 or RM5.
+  if (parts.promo > 0) {
+    out.push(`Promo${parts.promoCode ? ` ${parts.promoCode}` : ""}: -${fmtRM(parts.promo, cur)}`);
   }
   out.push("");
   out.push(`*Total: ${fmtRM(parts.total, cur)}*`);

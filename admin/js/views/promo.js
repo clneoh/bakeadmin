@@ -34,7 +34,7 @@ function renderAll(root, state) {
   const rows = list.length
     ? list.map((c) => codeCard(state, c, root))
     : [emptyState("No codes yet",
-      "Make one, print it on a card, and a customer types it into the shop. The page will not take the money off — it tells you the code so you can take it off yourself in WhatsApp, the same as the bring-a-friend credit.")];
+      "Make one, print it on a card, and a customer types it into the shop. When an order comes in carrying a code, the app takes the amount off the Total itself — in the confirmation, every later message and the customer's own tracking page — and names the code beside the figure, so the money you collect and the money they were told always agree.")];
   root.replaceChildren(
     newCodeCard(state, root),
     el("h2", { class: "section" }, `Promo codes (${list.length})`),

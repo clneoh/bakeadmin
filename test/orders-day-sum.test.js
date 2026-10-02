@@ -559,6 +559,59 @@ test("the Edit pop-up's order total counts a charge the customer bears, and name
     "the figure she reads as the order's worth includes what the customer pays the courier");
 });
 
+// ── v272, 2 Oct 2026: the code comes off the figure SHE reads too ──────────
+// The customer's message and her own screen must quote one figure. Both go through
+// customerTotal, and these two read the sentences the two screens actually draw.
+test("a code on the order comes off what the customer owes, and is named beside it", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15; // 2 × RM15 of bread
+  st.orders[0].promo = "FRESH10";
+  st.promoCodes = [{ id: "c1", code: "FRESH10", gives: { type: "rm", value: 10 } }];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  assert.match(popText(pop),
+    /The customer owes RM 20\.00 — items total RM 30\.00 - promo FRESH10 RM 10\.00/,
+    "the RM30 of bread, the code named, and the figure she will actually collect");
+});
+
+test("a code that took nothing off leaves the sentence exactly as it was", () => {
+  // The guard on her own screen: a promoted code she has since deleted, or one whose
+  // terms come to nothing here, must not add a clause to a sentence she reads every day.
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.products[0].price = 15;
+  st.orders[0].promo = "GONE";
+  st.promoCodes = [];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Note / tracking")._listeners.click[0]();
+  const text = popText(layers["popup-layer"]);
+  assert.match(text, /The customer owes RM 30\.00/);
+  assert.doesNotMatch(text, /promo/, "nothing is said about a code that came to nothing");
+});
+
+test("the Edit pop-up's order total counts the code off, and names it", () => {
+  const st = state();
+  st.products[0].price = 15;
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "customer";
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].promo = "FRESH10";
+  st.promoCodes = [{ id: "c1", code: "FRESH10", gives: { type: "rm", value: 10 } }];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  assert.match(popText(layers["popup-layer"]),
+    /Order total: RM 28\.00 — items total RM 30\.00 \+ courier charge RM 8\.00 - promo FRESH10 RM 10\.00/,
+    "the goods, the charge, the code — a line she can add up as she reads it");
+});
+
 test("a self collect order parks the charge instead of counting it, and says so", () => {
   const st = state();
   st.products[0].price = 15;

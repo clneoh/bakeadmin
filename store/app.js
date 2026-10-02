@@ -2321,17 +2321,31 @@ function moneyEls(row) {
   if (!read) return [el("p", {}, `${items} — ${String((row && row.total) || "")}`)];
   const fee = Number(row && row.courier_fee) || 0;
   const inside = fee > 0 && !(row && row.courier_cod) ? fee : 0;
+  // The code, and what it took off. Published as an amount rather than worked out here,
+  // because a code she has since deleted is no longer in the published list and would
+  // leave the card unable to price an order it is showing (v272).
+  const off = Number(row && row.promo_rm) || 0;
+  const code = String((row && row.promo_code) || "").trim();
   return [
     // The goods themselves, under the label the message uses, so the list above a stack
     // of figures is unmistakably what those figures are about.
     el("p", {}, sub(t("trkItems"), items)),
     // The workings are muted and the total is not: the same reading order the message
     // gives with a blank line and bold, done here the way a page does it.
-    el("p", { class: "track-note" }, sub(t("itemsTotal"), moneyText(read.sym, read.n - inside))),
+    //
+    // The subtotal is the total less the charge inside it, and ADD BACK the discount —
+    // the published total is already net of the promo, so without this the goods would
+    // be printed RM10 short of what they cost.
+    el("p", { class: "track-note" }, sub(t("itemsTotal"),
+      moneyText(read.sym, read.n - inside + off))),
     fee > 0
       ? el("p", { class: "track-note track-fee" }, sub(
           t(row.courier_cod ? "courierCod" : "courierCharge"),
           moneyText(read.sym, fee)))
+      : null,
+    off > 0
+      ? el("p", { class: "track-note track-promo" }, sub(
+          t("promoLine"), code, moneyText(read.sym, off)))
       : null,
     el("p", { class: "track-total" }, sub(t("trkTotal"), moneyText(read.sym, read.n))),
   ].filter(Boolean);
@@ -2456,7 +2470,7 @@ export async function trackOrder(code) {
     // can never draw, and it fails silently — the row would arrive complete and the
     // card would simply be missing a section, with nothing anywhere saying why.
     const res = await fetch(
-      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,courier_fee,courier_cod,customer,updated_at,courier_name,courier_phase,courier_driver,courier_plate,courier_phone&code=eq.${clean}&limit=1`,
+      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,courier_fee,courier_cod,promo_code,promo_rm,customer,updated_at,courier_name,courier_phase,courier_driver,courier_plate,courier_phone&code=eq.${clean}&limit=1`,
       { headers: { apikey: sb.anonKey }, cache: "no-store" });
     const rows = res.ok ? await res.json() : null;
     const row = Array.isArray(rows) && rows[0];

@@ -215,6 +215,58 @@ test("a thousands separator in the published total is read straight through", as
   assert.ok(money().includes("Total: RM 1038.00"));
 });
 
+// ── the promo (v272, 2 Oct 2026) ─────────────────────────────────────────────
+// The code comes off the customer's total in every message AND here, so the card is the
+// fourth place that has to move with it. The published total is already net of the
+// discount, so the card — which derives the goods by subtracting the charge from that
+// total — must add the discount back first, or the same mistake the COD case above
+// catches appears from the other side: a subtotal RM10 short of what was sold.
+test("a code on the order is named between the charge and the total", async () => {
+  await card({ ...base, total: "RM 30.00", courier_fee: 8, promo_code: "FRESH10", promo_rm: 10 });
+  assert.deepEqual(money(), [
+    "Wed, 30 Sep",
+    "Items: Focaccia x2",
+    "Items total: RM 32.00",
+    "Courier charge: RM 8.00",
+    "Promo FRESH10: -RM 10.00",
+    "Total: RM 30.00",
+  ], `the RM10 put back to find the goods, then named again as what came off: ${JSON.stringify(money())}`);
+});
+
+test("the promo line is a muted working, and the total keeps the emphasis", async () => {
+  const read = await card({ ...base, total: "RM 30.00", courier_fee: 8, promo_code: "FRESH10", promo_rm: 10 });
+  assert.equal(withClass(read, "track-promo").map((p) => p.text).join("|"), "Promo FRESH10: -RM 10.00",
+    "the line carries its own class, beside the charge's, above the total");
+  assert.equal(withClass(read, "track-total").map((p) => p.text).join("|"), "Total: RM 30.00",
+    "and the figure they are asked for is still the only bold one");
+  assert.equal(withClass(read, "track-total")[0].text.includes("*"), false,
+    "no asterisks — that is the WhatsApp message's way of bolding, not this page's");
+});
+
+test("an order with no code draws no promo line", async () => {
+  // The same guard the messages carry: a null column must leave the line out, not print
+  // an empty label or a discount of nothing.
+  await card({ ...base, total: "RM 30.00", courier_fee: 8, promo_code: null, promo_rm: null });
+  assert.equal(money().some((s) => s.startsWith("Promo")), false,
+    `nothing said about a code that was never used: ${JSON.stringify(money())}`);
+  assert.deepEqual(money().slice(2), [
+    "Items total: RM 22.00",
+    "Courier charge: RM 8.00",
+    "Total: RM 30.00",
+  ], "the goods derived as the total less the charge inside it — nothing added back, nothing taken off");
+});
+
+test("a code with no charge beside it still adds up", async () => {
+  // A self-collect order, or a code on an order she is delivering herself: goods, the
+  // discount, the total — the two lines that agree, one of them showing the working.
+  await card({ ...base, total: "RM 20.00", promo_code: "FRESH10", promo_rm: 10 });
+  assert.deepEqual(money().slice(2), [
+    "Items total: RM 30.00",
+    "Promo FRESH10: -RM 10.00",
+    "Total: RM 20.00",
+  ]);
+});
+
 // ── the emphasis ─────────────────────────────────────────────────────────────
 test("the total is set apart by a class, and carries no WhatsApp markers", async () => {
   const read = await card({ ...base, total: "RM 38.00", courier_fee: 8 });

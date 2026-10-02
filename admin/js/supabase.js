@@ -579,7 +579,10 @@ export function trackingSnapshot(state, group) {
   // A COD charge is published as its own column rather than folded in, because this
   // total is what the card tells them the order comes to — and the courier is about to
   // ask them for the charge at the door (19 Sep 2026).
-  const { courier: courierFee, cod: courierCod, total: totalNum } = customerTotal(state, group);
+  const {
+    courier: courierFee, cod: courierCod, total: totalNum,
+    promo: promoRm, promoCode,
+  } = customerTotal(state, group);
   const total = fmtRM(totalNum, state.settings.currency);
   // The booked trip, as the order itself remembers it. Every one of these is null on an
   // order with no trip, and the customer's card leaves its line out rather than printing
@@ -631,6 +634,19 @@ export function trackingSnapshot(state, group) {
     // deployed (see that file). A missing column kills publishing for EVERY order
     // silently, because publishTracking swallows its errors.
     courier_cod: courierCod > 0 ? true : null,
+    // The promo code on the order and the ringgit it took off, so the customer's card
+    // can show the same line their WhatsApp message shows. Null on an order that
+    // carried no code, and the card then leaves the line out rather than printing an
+    // empty label — the rule tracking_no and the charge columns already follow.
+    //
+    // The AMOUNT is published rather than left for the card to work out: the code list
+    // it would need is published too, but a code she has since deleted is not on it,
+    // and a card that could not price an order it is showing would be worse than no
+    // card at all. NOTE: both columns need supabase/promo_track.sql run once, before
+    // this build is deployed (see that file) — and a missing column kills publishing
+    // for EVERY order silently, because pushTracking swallows its errors.
+    promo_code: promoCode || null,
+    promo_rm: promoRm > 0 ? promoRm : null,
     // Who is carrying it, where it has got to, and who is driving — each null when the
     // order has no trip or the trip has not told us that yet.
     //

@@ -20,7 +20,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -2007,13 +2007,19 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const courierCharge = who === "customer" ? fee : 0;
     const courierCod = who === "customer" && collect;
     const here = courierCod ? 0 : courierCharge;
+    // The code, valued against the DRAFT's own basket and the charge this form is
+    // currently showing — not against the saved order, so the figure moves with the
+    // lines as she types them, exactly as the items total above it does.
+    const promo = promoValue(state, first.promo, itemsTotal, courierCharge);
+    const off = promo.money;
     totalEl.textContent = priced.length
-      ? `Order total: ${fmtRM(itemsTotal + here, cur)}`
+      ? `Order total: ${fmtRM(Math.max(0, itemsTotal + here - off), cur)}`
         + (courierCharge
           ? courierCod
             ? ` — items total ${fmtRM(itemsTotal, cur)}, plus ${fmtRM(courierCharge, cur)} collected by the courier on delivery`
             : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(courierCharge, cur)}`
-          : "")
+          : off ? ` — items total ${fmtRM(itemsTotal, cur)}` : "")
+        + (off ? ` - promo${promo.code ? ` ${promo.code}` : ""} ${fmtRM(off, cur)}` : "")
       : "";
   }
   // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
@@ -2867,6 +2873,10 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // (19 Sep 2026).
       const custTotal = el("p", { class: "card-sub", style: "margin:10px 0 0" });
       const itemsTotal = groupValue(state, group);
+      // The code this order carried, and what it took off — read here rather than by
+      // customerTotal, because this line repaints as she types the charge and has to
+      // agree with the message the same repaint will let her send (v272).
+      const promo = promoOn(state, group.orders);
       // The same three facts the Edit form works out, read off the SAVED order because
       // this box has no fulfilment control of its own — the order's fulfilment is not one
       // of the things this card is for. See the Edit form's block for what they mean.
@@ -2883,12 +2893,18 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // added into it, or she would ask for the same RM8 the courier is asking for
         // (19 Sep 2026).
         const cod = who === "customer" && collect ? theirs : 0;
-        custTotal.textContent = `The customer owes ${fmtRM(itemsTotal + theirs - cod, cur)}`
+        // The promo comes off what they owe here exactly as it does in the message they
+        // are sent, so the two figures she can read side by side are the same figure.
+        // Added on the END rather than rebuilt into the sentence, so an order with no
+        // code reads word for word as it always has.
+        const off = promo.money;
+        custTotal.textContent = `The customer owes ${fmtRM(Math.max(0, itemsTotal + theirs - cod - off), cur)}`
           + (theirs
             ? cod
               ? ` — items total ${fmtRM(itemsTotal, cur)}, plus ${fmtRM(cod, cur)} collected by the courier on delivery`
               : ` — items total ${fmtRM(itemsTotal, cur)} + courier charge ${fmtRM(theirs, cur)}`
-            : "");
+            : off ? ` — items total ${fmtRM(itemsTotal, cur)}` : "")
+          + (off ? ` - promo${promo.code ? ` ${promo.code}` : ""} ${fmtRM(off, cur)}` : "");
       }
       // The charge's questions, built by the shared block so this box and the Edit form
       // cannot word or write them differently. It repaints only itself when the payer

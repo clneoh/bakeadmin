@@ -1,8 +1,64 @@
-# Jienluv2bake — change history (v54 → v271)
+# Jienluv2bake — change history (v54 → v272)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v272, THE CODE COMES OFF THE TOTAL (ONE SMALL DATABASE
+STEP FIRST — run it before you push, the order matters; nothing to upload
+otherwise).**
+
+**The thing you reported.** "pushed. The whatsapp message still withhout the promo
+discount." You were right again, and this time it was by design that had gone
+stale: since the code first arrived, it rode on the order and every discount was
+taken off by **you**, by hand, in WhatsApp. You have now said the app should do
+that arithmetic itself, and this is that.
+
+**The code now comes off the Total, in all four places the customer reads it** —
+the confirmation, the payment reminder, the "on its way" message, and their own
+track page. It appears as its own line, named by the code, between the workings
+and the total, so the figure can still be added up by the person reading it:
+
+__Items total: RM 30.00 · Promo FRESH10: -RM 10.00 · Total: RM 20.00__
+
+**And on your own screen.** The two figures you read on an order move with it: the
+**"The customer owes"** line in the Note / tracking window, and the **Order total**
+in the Edit window. The code is named in the sentence there too, so you can see
+which figure came from where. The **"Still to collect"** figure on your Money
+screen follows, because it was always worked out from the same number.
+
+**What does not change.** An order with no code reads word for word as it did
+before — every line, every blank line, every total. A code that has since been
+paused, ended or used up **still comes off the order it was actually placed on**:
+ending a code is a decision about future orders, and it never reaches back and
+re-prices one you have already promised. A code whose terms come to nothing on
+this order prints no line at all rather than __-RM 0.00__. A discount larger than
+the order leaves you asking for RM 0.00, never a negative amount. A percentage
+comes off the goods and not off the courier's charge, which is money passing
+through you rather than yours to give away. A free-delivery code waives the
+delivery charge — and on an order you are collecting yourself it has nothing to
+waive, so it says nothing.
+
+**THE DATABASE STEP — do this first, before you push.** In your Supabase SQL
+editor, run the file **supabase/promo_track.sql** (Dashboard, SQL, New query,
+paste, Run). It adds two columns, `promo_code` and `promo_rm`, to the customer
+tracking table. **Order matters here.** Your app publishes a whole tracking row in
+one call, and if those columns do not exist yet, that call is refused as a whole
+and **the customer's tracking page stops updating for every order** — not only the
+orders that carried a code. This is the same trap the courier charge tables set,
+which is why they say the same thing. Run the SQL once, then push. It is safe to
+run twice.
+
+**One thing that has NOT changed, so it does not surprise you.** Your sales and
+profit figures still count the **full price** of what you sold; the discount comes
+out of the money you actually collect and not out of the goods' own value. So on a
+discounted order, the amount you collected and the amount your books call a sale
+will differ by the discount. That is a real question about where a discount should
+sit in your books, and it is yours to decide — nothing is hidden, and no figure
+you read is wrong, they are answering two different questions.
+
+The engine is **v272**; the automatic test suite is now **2,401** checks, all
+passing. `admin/`, `store/` and `store-lang.js`.
 
 **02 Oct 2026 — engine v271, A CODE THAT KNOWS WHEN TO STOP (no database step,
 nothing to upload — pushing this one is the whole of it, and your app must reach
