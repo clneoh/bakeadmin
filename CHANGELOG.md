@@ -1,8 +1,93 @@
-# Jienluv2bake — change history (v54 → v277)
+# Jienluv2bake — change history (v54 → v278)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v278, A CODE'S LIFE: PAUSE, END, AND WHAT PRINTING FIXES
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** The Promo codes screen had a half-finished piece. The
+eleven management steps were drawn as a plain grey box that did not match the
+rest of the app, and the Pause and End controls for a code's life were not wired
+to anything. You chose **"Finish it properly"** — the real screen, the buttons
+working, the rule about printed codes, and a test for each.
+
+**What you see now, on More → Promo codes.**
+
+**Every row says what its code's life is.** A paused or ended code used to look
+exactly like a live one — the only tell was that it had quietly stopped being
+offered. Now the name carries a chip:
+
+- nothing at all on a **live** code, because a row that is working needs no label;
+- **Paused** on a paused one;
+- **Ended** on an ended one;
+- **Printed — fixed** on a code that is already on a card.
+
+**Pause and End sit on the row, under the offer.** They are different things on
+purpose:
+
+- **Pause** is a break. It stops the shop offering the code and accepting it, it
+  can be switched back on at any time, and it changes nothing about the orders
+  that already carry it.
+- **End** is final. New uses stop and it cannot be switched back on. The
+  confirmation says exactly that, and points you at Pause if a break is what you
+  wanted.
+
+Both tell you what they are about to do before they do it, including how many
+orders already hold the promise — "**2 orders carry it already and keep what
+they were promised — nothing already promised changes**" — and, when ending, how
+much the code has given away in all. An ended code keeps every order it already
+had: ending stops new uses, it never rewrites history.
+
+**A printed code is fixed.** Once a code is on a card in someone's hand, the
+offer on that card has to go on being true. So a printed code refuses any change
+to what it gives, who it is for, the smallest basket, what it cannot sit beside,
+or its name. Two things stay open, and only one way round, because being generous
+with someone holding a card cannot hurt them and taking something back can:
+
+- the **end date may be moved later**, or dropped altogether. It may never be
+  pulled earlier, and a code that never ran out cannot be given a date now.
+- the **ceiling may be raised**, or removed. It may never be lowered.
+
+The Edit button on such a row reads **"Update the end date and ceiling"** rather
+than "Update code", so the label never promises a change the code will refuse.
+When a change is refused, the row says which part of the card it would have
+broken.
+
+**A printed code cannot be deleted.** A card in someone's hand would simply stop
+working, with nothing to explain why, and the row would be gone so you could not
+even see that was what happened. The tap is not dead — it says why, and names
+**End** instead, which stops new uses and leaves the card honest.
+
+**The eleven steps fold.** The life of a promotion, in the order you would do it,
+is now a proper list under a fold line — and the fold line is not a label, it is
+the answer you came for, for example "**1 live · 1 paused · 1 ended · RM 20.00
+given away**". The sixth step, printing, is the only one that cannot be undone,
+so it is the only row shaded, and it says **point of no return** in words rather
+than by colour alone. Two of the eleven have nothing to press yet — there is no
+test code for step 5, and the printed card for step 6 is the next piece of work —
+and a note under the list says so, rather than leaving you to look for a printer
+that is not there.
+
+**One fault found and fixed before you saw it.** The Pause, Resume and End
+presses were first built against the row's own working copy of a code rather than
+the stored one, so the confirmation opened, the press looked like it had worked,
+and the code never actually changed. It was found by driving the real buttons
+rather than by reading the code, and every press is now measured landing on the
+stored code. It never reached your phone.
+
+**Three things worth knowing.**
+
+- **Nothing sets a code to printed yet.** This version builds the rule and the
+  screen that respects it; the printed card itself — which is what freezes a code
+  — is the next piece of work. Until then the rule protects a code that arrives
+  frozen by a sync or by an import.
+- **Pause and End never touch an order.** A code written onto an order when the
+  shop sent it stays on that order and keeps showing what you owe. Ending stops
+  the shop accepting the code; it does not re-price anything.
+- **The shop is unchanged.** Every change in this version is in the backoffice.
+  Nothing a customer sees moves, so there is no new upload and no database step.
 
 **02 Oct 2026 — engine v277, THE MONEY LINED UP (no database step, nothing to
 upload — pushing this one is the whole of it).**

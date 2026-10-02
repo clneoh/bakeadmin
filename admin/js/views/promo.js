@@ -97,20 +97,26 @@ function stepsCard(state) {
   body.hidden = true;
   const line = el("span", { class: "steps-line" }, lifeSummary(state));
   const arrow = el("span", { class: "steps-arrow" }, "▸");
+  // The handle is two rows on purpose: the name and the arrow share the first, and
+  // where her codes actually are takes the whole second row. Sharing one row at
+  // 375px cut the summary short — "RM 20.00 given a…" — and a clipped figure is a
+  // figure she cannot read, which is the one thing this line exists to be.
   const head = el("button", { class: "steps-toggle" },
-    el("span", { class: "steps-name" }, "The eleven steps"),
-    line, arrow);
+    el("span", { class: "steps-top" },
+      el("span", { class: "steps-name" }, "The eleven steps"),
+      arrow),
+    line);
   head.addEventListener("click", () => {
     body.hidden = !body.hidden;
     arrow.textContent = body.hidden ? "▸" : "▾";
   });
   return el("div", { class: "card" },
     head,
-    el("p", { class: "hint", style: "margin:2px 0 0" },
+    el("p", { class: "hint", style: "margin:4px 0 0" },
       "The life of a promotion, in the order you would actually do it. Nothing here is a press — pause and end are on each code below."),
     body,
-    el("p", { class: "hint", style: "margin:8px 0 0" },
-      "Two of the eleven have nothing to press in this build: there is no test code for step 5, and the printed card for step 6 is the next piece of work. The other nine are live on this screen."));
+    el("p", { class: "hint", style: "margin:4px 0 0" },
+      "Two of the eleven have nothing to press yet: there is no test code for step 5, and the printed card for step 6 is the next piece of work. The other nine are live on this screen."));
 }
 
 // A code as she typed it, cleaned the one way the engine recognises it: no stray
@@ -202,44 +208,62 @@ function stateChips(c) {
    other press on the row — and each one says what it will do BEFORE it does it,
    including how many orders are already holding the promise.
 
+   TWO RECORDS, and the difference is the whole reason this takes two. `rec` is the
+   row as it is STORED; `c` is the normalised copy codeCard makes so the row can be
+   judged with the recounted numbers. Reading through `c` is right — it is the one
+   that knows how many orders really carry the code. WRITING through it is not: v278
+   first shipped these presses the copy, so a press of Pause set `state` on an object
+   the next repaint threw away. The dialog opened, the press looked like it had
+   worked, and the code never paused. Read through `c`; write through `rec`.
+
    Pausing and ending are different things on purpose. A pause is a break and is
    always reversible; ending is final, and that is what makes it a brake rather
    than a second pause. The end confirmation says so and points at pause, so the
    choice between them is hers and she is told it is a choice.                   */
-function lifeButtons(state, code, root, used) {
-  if (code.state === "ended") return [];
-  if (code.state === "paused") {
+function lifeButtons(state, rec, c, root, used) {
+  if (c.state === "ended") return [];
+  if (c.state === "paused") {
     return [
       button("Resume", () => {
-        code.state = "live";
-        commit(state, root, `${code.code} is back on`);
+        rec.state = "live";
+        commit(state, root, `${c.code} is back on`);
       }, "ghost small"),
-      button("End", () => endCode(state, code, root, used), "ghost small"),
+      button("End", () => endCode(state, rec, c, root, used), "ghost small"),
     ];
   }
   return [
-    button("Pause", () => pauseCode(state, code, root, used), "ghost small"),
-    button("End", () => endCode(state, code, root, used), "ghost small"),
+    button("Pause", () => pauseCode(state, rec, c, root, used), "ghost small"),
+    button("End", () => endCode(state, rec, c, root, used), "ghost small"),
   ];
 }
 
-function pauseCode(state, code, root, used) {
+// How many orders are already holding this code's promise, as a sentence. Written
+// once and used by both brakes, because a brake that miscounts the orders it is
+// about to strand is a brake she cannot trust — and "2 orders carries it and keeps
+// what it was promised" is exactly what a single-branch plural produces (v278).
+// `tail` is the clause specific to the press: what happens to those orders.
+function holdingsWords(n, tail = "") {
+  if (n === 1) return `1 order carries it already and keeps what it was promised${tail}.`;
+  if (n > 1) return `${n} orders carry it already and keep what they were promised${tail}.`;
+  return "Nothing has used it yet.";
+}
+
+function pauseCode(state, rec, c, root, used) {
+  const holding = used
+    ? holdingsWords(used, " — nothing already promised changes")
+    : "Nothing has used it yet, so nothing is stranded.";
   confirmDialog(
-    used
-      ? `Pause "${code.code}"? The shop stops offering it and stops taking it. ${used} order${used === 1 ? " carries" : "s carry"} it already and keeps what it was promised — nothing already promised changes. You can switch it back on at any time.`
-      : `Pause "${code.code}"? The shop stops offering it and stops taking it. Nothing has used it yet, so nothing is stranded. You can switch it back on at any time.`,
-    () => { code.state = "paused"; commit(state, root, `${code.code} paused`); },
+    `Pause "${c.code}"? The shop stops offering it and stops taking it. ${holding} You can switch it back on at any time.`,
+    () => { rec.state = "paused"; commit(state, root, `${c.code} paused`); },
     { yesLabel: "Pause it" });
 }
 
-function endCode(state, code, root, used) {
-  const u = usageOf(state, code);
-  const holdings = used
-    ? `${used} order${used === 1 ? " carries" : "s carry"} it already and keeps what it was promised${u.given > 0 ? ` — ${fmtRM(u.given)} in all` : ""}.`
-    : "Nothing has used it yet.";
+function endCode(state, rec, c, root, used) {
+  const u = usageOf(state, rec);
+  const holding = holdingsWords(used, u.given > 0 ? ` — ${fmtRM(u.given)} in all` : "");
   confirmDialog(
-    `End "${code.code}" for good? New uses stop, and an ended code cannot be switched back on. ${holdings} If you only want a break, pause it instead.`,
-    () => { code.state = "ended"; commit(state, root, `${code.code} ended`); },
+    `End "${c.code}" for good? New uses stop, and an ended code cannot be switched back on. ${holding} If you only want a break, pause it instead.`,
+    () => { rec.state = "ended"; commit(state, root, `${c.code} ended`); },
     { danger: true, yesLabel: "End it" });
 }
 
@@ -359,7 +383,20 @@ function buildCodeEditor(state, code) {
     rec.sayZh = sayZh.value.trim();
     rec.sayMs = sayMs.value.trim();
     const problem = codeProblem(state.promoCodes, rec, code ? code.id : "");
-    return problem ? { error: codeProblemWords(problem) } : { record: normalizeCode({ ...rec, id: rec.id }) };
+    if (problem) return { error: codeProblemWords(problem) };
+    const record = normalizeCode({ ...rec, id: rec.id });
+    // PRINTING PINS THE PROMISE (v278). Once a card is in someone's hand the offer
+    // on it has to go on being true, so a frozen code refuses any change to what it
+    // gives, who it is for, the smallest basket, what it sits beside, or its name —
+    // and refuses having its end date pulled earlier or its ceiling lowered. The
+    // engine holds the rule (frozenProblem); this only turns its reason into words.
+    // Checked HERE, with the other validation, rather than in the Update press, so
+    // anything that ever saves a code gets the same answer.
+    if (code && code.frozen) {
+      const frozen = frozenProblem(code, record);
+      if (frozen) return { error: frozenProblemWords(frozen, code) };
+    }
+    return { record };
   }
 
   // Fill the 中文 and BM boxes from the English, leaving anything she has typed
@@ -441,11 +478,17 @@ function openEditCodePopup(state, code, root) {
   showPopup(el("div", { class: "popup-title-row" }, `Edit ${code.code}`), (refresh, close) => {
     return el("div", {},
       ...editorFields(editor),
+      // A printed code's promise is fixed, so the note under the fields says WHAT is
+      // still hers to move rather than leaving her to find out by being refused, and
+      // the button names the two things it will actually save (v278). An unprinted
+      // code keeps the note it has always had.
       el("p", { class: "hint" },
-        "Changing what a code gives does not change an order that already used it. Every order keeps the code as it was written when the customer typed it."),
+        code.frozen
+          ? "This code is printed on a card, so its offer is fixed: not the amount, not who it is for, not the smallest basket, not the name. What the card does not say can still move — the end date later, the ceiling up. Either way, changing a code never changes an order that already used it."
+          : "Changing what a code gives does not change an order that already used it. Every order keeps the code as it was written when the customer typed it."),
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
-        button("Update code", () => {
+        button(code.frozen ? "Update the end date and ceiling" : "Update code", () => {
           const { error, record } = editor.collect();
           if (error) return toast(error);
           Object.assign(code, record);
@@ -503,10 +546,14 @@ function codeCard(state, code, root) {
   // rules on one line; who can see it and how it has done, quieter, underneath —
   // and a code that has run out says so in a banner, because a code that has
   // quietly stopped working is the one thing this screen must never hide.
+  const brakes = lifeButtons(state, code, c, root, u.used);
   return el("div", { class: "card" },
     el("div", { class: "card-row" },
       el("div", { style: "min-width:0" },
-        el("p", { class: "card-title" }, c.code),
+        // The code's LIFE sits beside its name, where a paused or ended code used to
+        // look exactly like a live one (v278). The chips say what the row cannot say
+        // on its own, and they say it before the offer rather than after it.
+        el("p", { class: "card-title" }, c.code, ...stateChips(c)),
         el("p", { class: "card-sub" }, [clauseWords(c), ...rulesWords(c)].join(" · ")),
         el("p", { class: "hint" },
           [c.vis === "personal" ? "personal — never shown" : "public — shown in the shop",
@@ -516,13 +563,26 @@ function codeCard(state, code, root) {
       el("div", { class: "li-right" },
         button("Edit", () => openEditCodePopup(state, code, root), "ghost small"),
         button("Delete", () => deleteCode(state, code, root, u.used), "ghost small"))),
+    brakes.length ? el("div", { class: "row-actions" }, ...brakes) : null,
+    c.frozen
+      ? el("p", { class: "hint", style: "margin:8px 0 0" },
+          "Printed on a card, so the offer is fixed. What the card does not say can still move — the end date later, the ceiling up — and nothing else can.")
+      : null,
     claimed ? el("p", { class: "warn" }, claimedWords(c, claimed)) : null);
 }
 
 function deleteCode(state, code, root, used) {
-  // Deleting is allowed even when orders carry the code, and that is safe rather
-  // than careless: the code was written onto each order when the shop sent it, so
-  // those orders keep reading correctly and keep showing her what she owes. What
+  // A printed code is never deleted (v278): a card in someone's hand would simply
+  // stop working, with nothing to explain why, and the row would be gone so she
+  // could not even see that was what happened. The tap is not dead — it says why and
+  // names the press that does the job, because ending stops new uses and leaves the
+  // card honest, which is the thing deleting cannot do.
+  if (code.frozen) {
+    return toast(`${code.code} is printed, so it cannot be deleted — a card in someone's hand would just stop working. End it instead: that stops new uses and leaves the card honest.`);
+  }
+  // Otherwise deleting is allowed even when orders carry the code, and that is safe
+  // rather than careless: the code was written onto each order when the shop sent it,
+  // so those orders keep reading correctly and keep showing her what she owes. What
   // deleting really does is stop the shop accepting it.
   confirmDialog(used
     ? `Delete code "${code.code}"? ${used} order${used === 1 ? " carries" : "s carry"} it — those keep it, and you still owe them what you promised. The shop stops accepting the code.`
