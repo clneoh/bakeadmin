@@ -96,6 +96,13 @@ export function defaultState() {
         referrerRM: 3, // the credit the referrer earns
         validDays: 90, // "" (blank) = never expires
       },
+      // How the four WhatsApp messages to a customer open (2 Oct 2026). WhatsApp
+      // carries no fonts — the letters come from whichever phone is reading — so the
+      // only lever is its own marks, and italics on the opening line is the whole of
+      // this choice. "plain" is word for word what every message sent before this
+      // existed; "greeting" leans the first line over and changes nothing else. One
+      // value for all four messages so they cannot open differently from each other.
+      messageStyle: "plain",
       // The production line planner (19 Sep 2026): the numbers her line is
       // measured from, typed by her on More → Production line. Seeded with the
       // ones she measured on /form/ so the screen says something true on the
@@ -362,6 +369,10 @@ function normalize(s) {
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
+      // A hand-edited import must not put an unknown style in: the message builders
+      // read exactly one value, and a third one would silently send "plain" while
+      // the settings screen showed a choice she never made (2 Oct 2026).
+      messageStyle: ((s.settings || {}).messageStyle === "greeting") ? "greeting" : "plain",
       production: { ...d.settings.production, ...(((s.settings || {}).production) || {}) },
       scenario: { ...d.settings.scenario, ...(((s.settings || {}).scenario) || {}) },
       // Saved scenarios, guarded as a list: a hand-edited import that put an

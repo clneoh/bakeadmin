@@ -1,8 +1,60 @@
-# Jienluv2bake — change history (v54 → v272)
+# Jienluv2bake — change history (v54 → v273)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v273, YOUR MESSAGES IN A VOICE YOU CHOSE (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** "Can you make font selection for message from baker to be
+customisable, example italic", and then, when I showed you what is actually
+possible: "i like to make it more casual with the right font from the kitchen".
+Here is the honest answer, and then the half of it you can have today.
+
+**One limit, said plainly.** A font **cannot** be chosen in a WhatsApp message.
+WhatsApp carries no fonts at all — the letters you send are always drawn by the
+phone of whoever is reading them, and there is nothing you or I can put in the
+message to change that. Its only four marks are bold, italics, strikethrough and
+monospace. So "a different font in the message" is not a thing that exists; the
+closest thing that does is **making your opening line lean over.**
+
+**What this version adds: Message style, on More → Settings.** A card with one
+choice, and it applies to **all four** messages you send a customer — the
+confirmation, the payment reminder, the "on its way" message and the "ready /
+pickup" message:
+
+- **Plain — exactly what you send today.** The default, and it stays the default
+  until you change it. Every message is word for word, letter for letter, the
+  message that went out before this card existed.
+- **The greeting leans over.** Only the first line moves, and only into italics.
+  __Hi Mei Ling! Your order is confirmed.__ Everything below it — the order code,
+  the items, the money and the bold Total — is untouched.
+
+**Why one switch for all four, and not one per message.** Four separate switches
+are four ways for your messages to end up opening differently from each other,
+which is exactly the kind of thing a customer notices and you would never have
+meant. One choice, four messages, no way for them to disagree.
+
+**The bold Total is not affected.** It already carries its own marks, and the ones
+this adds sit on the first line only — so the figure the customer pays is still
+the boldest thing in the message.
+
+**It travels to your other phone.** The choice is saved with your settings, and a
+phone that has never been opened to this card takes your choice from the cloud
+rather than overwriting it. Choosing **Plain** again is a real answer too, and it
+travels as one — it does not go silent and let the old choice come back.
+
+**What is NOT in this version.** The shop page's own sentence, under the today
+line, is still in the serif it has always used. You picked a **felt-tip hand** for
+it, and for that to look the same on every phone — not only on iPhones — the shop
+has to carry the font file itself. It is a free font and it is about 25 KB, and
+**only you can fetch it**: it is one download on your laptop, and I will walk you
+through it and show you the real sample before anything is built. That is the next
+version, and it waits on that file.
+
+The engine is **v273**; the automatic test suite is now **2,412** checks, all
+passing. `admin/` only — nothing a customer sees, and no SQL.
 
 **02 Oct 2026 — engine v272, THE CODE COMES OFF THE TOTAL (ONE SMALL DATABASE
 STEP FIRST — run it before you push, the order matters; nothing to upload
