@@ -55,6 +55,10 @@ globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, waNumber, parseVia, render } = await import("../store/app.js");
 const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
+// v270: the shop's own line and its refusals, kept as pure functions so they are
+// judged here rather than by looking at a phone.
+const { clauseWords, dayWords, ownWords, rememberShopOrder, shopMemo, shopVerdict } = await import("../store/app.js");
+const { STORE } = await import("../store-lang.js");
 
 // The receipt's own lines, as plain strings, from the confirm box.
 function confirmLines() {
@@ -590,6 +594,14 @@ test("mergeStorefront keeps codes it can read and drops the ones it cannot", () 
   assert.equal(partial.vis, "public");
   assert.deepEqual(partial.often, { type: "unlimited", n: 0, maxRM: 0 });
   assert.deepEqual(partial.when, { from: "", to: "" });
+  assert.equal(partial.say, "", "a code she has written nothing for has no sentence, not a placeholder");
+
+  // Her own words ride along with the code (v270) — trimmed, because a stray
+  // space she cannot see would show up as a gap under the offer on the page.
+  const worded = mergeStorefront({}, { promoCodes: [{ code: "FRESH10", say: "  Baked this morning.  ", sayZh: "今早刚出炉。" }] });
+  assert.equal(worded.promoCodes[0].say, "Baked this morning.");
+  assert.equal(worded.promoCodes[0].sayZh, "今早刚出炉。");
+  assert.equal(worded.promoCodes[0].sayMs, "", "a language she left blank arrives blank, for the shop to fall back on");
 
   // Replaced wholesale, like the occasions above: the app publishes a complete
   // snapshot, so an empty list really means "she has no codes" and a code box on
@@ -1278,4 +1290,167 @@ test("the next customer does not inherit the last one's note", async () => {
     assert.equal(noteBox(cardNamed(p.name)).value, "",
       "the last customer's words are not sitting in this one's box");
   });
+});
+
+// ── v270: what the shop says when it will not take a code ──────────────────
+// The engine answers in a machine reason and the shop renders it. Every reason
+// the engine can give has to have a sentence here, because a reason with no
+// sentence falls back to the flat "we don't know that code" line — which would
+// tell a customer their code was never heard of when it had simply ended, or was
+// for a first order, or was a few ringgit short.
+
+test("every reason the engine can give the shop has its own sentence", () => {
+  const shown = (r) => {
+    const v = shopVerdict(r);
+    return [v.kind, v.key];
+  };
+  assert.deepEqual(shown({ ok: true, code: { code: "FRESH10" }, offer: { kind: "rm", value: 10 } }),
+    ["ok", "promoAccepted"]);
+  assert.deepEqual(shown({ ok: false, fail: "unknown" }), ["no", "promoUnknown"]);
+  assert.deepEqual(shown({ ok: false, fail: "paused" }), ["no", "promoPaused"]);
+  assert.deepEqual(shown({ ok: false, fail: "claimed" }), ["no", "promoClaimed"]);
+  assert.deepEqual(shown({ ok: false, fail: "clash" }), ["no", "promoClash"]);
+  assert.deepEqual(shown({ ok: false, fail: "ended", on: "2026-09-30" }), ["no", "promoEnded"]);
+  assert.deepEqual(shown({ ok: false, fail: "notYet", on: "2026-11-01" }), ["no", "promoNotYet"]);
+  assert.deepEqual(shown({ ok: false, fail: "small", short: 12 }), ["no", "promoSmall"]);
+
+  // The two the shop STATES and does not gate on. Her standing rule is that a
+  // website rule must never block or hide a sale she takes by hand, so a code
+  // already used once, or one meant for a first order, is taken and stamped —
+  // the customer is simply told it will be confirmed when she takes the order.
+  assert.deepEqual(shown({ ok: false, fail: "used" }), ["soft", "promoAcceptedUsed"]);
+  assert.deepEqual(shown({ ok: false, fail: "firstOnly" }), ["soft", "promoAcceptedFirst"]);
+});
+
+test("a date reason with no readable date falls back rather than printing a sentence with a hole", () => {
+  // "That code ended on %1" with %1 empty reads as a glitch, which is worse than
+  // the flat line it falls back to.
+  for (const on of ["", "30/09/2026", undefined, null, 42]) {
+    const v = shopVerdict({ ok: false, fail: "ended", on });
+    assert.equal(v.key, "promoNo", `"${on}" is not a date the shop will print`);
+    assert.equal(v.kind, "no");
+  }
+});
+
+test("a reason the shop has never heard of is answered plainly, never guessed at", () => {
+  // An engine reason this page has never been taught is NOT a reason to borrow
+  // someone else's sentence — a "small" line for an unknown fault would send the
+  // customer off to spend more for something that was never a minimum.
+  assert.equal(shopVerdict({ ok: false, fail: "whoKnows" }).key, "promoNo");
+  // No judgement at all is the one thing the shop does know: it has not heard of
+  // that code.
+  assert.equal(shopVerdict(null).key, "promoUnknown");
+});
+
+test("a date is read out in the reader's own month, not in English", () => {
+  assert.equal(dayWords("2026-10-31"), "31 October");
+  assert.equal(dayWords("2026-10-31", "zh"), "10月31日");
+  assert.equal(dayWords("2026-10-31", "ms"), "31 Oktober", "Oktober, not October");
+  for (const junk of ["", "2026-10", "31/10/2026", null, undefined]) {
+    assert.equal(dayWords(junk), "", `"${junk}" is not a day and is not guessed at`);
+  }
+});
+
+test("the standing line says the whole offer — what, how much to spend, and until when", () => {
+  const c = {
+    code: "FRESH10", gives: { type: "rm", value: 10, cap: 0 },
+    basket: { type: "amount", amount: 30 }, when: { from: "", to: "2026-10-31" },
+  };
+  assert.equal(clauseWords(c), "RM10.00 off on RM30.00 and above, until 31 October",
+    "the minimum belongs to the offer and the end date to the whole thing, so the sentence does not read as if the dates were the condition");
+
+  // With no end date there is nothing to say about one — and no empty tail.
+  assert.equal(clauseWords({ ...c, when: { from: "", to: "" } }),
+    "RM10.00 off on RM30.00 and above");
+  // A code with nothing to say beyond its offer is left as its offer.
+  assert.equal(clauseWords({ code: "X", gives: { type: "rm", value: 5, cap: 0 } }), "RM5.00 off");
+});
+
+// ── v270: her own words under the shop's own line ─────────────────────────
+
+test("her own words are shown in the reader's language, and fall back to what she wrote", () => {
+  const c = { say: "Baked this morning.", sayZh: "", sayMs: "Dibakar pagi ini." };
+  assert.equal(ownWords(c, "en"), "Baked this morning.");
+  assert.equal(ownWords(c, "ms"), "Dibakar pagi ini.");
+  assert.equal(ownWords(c, "zh"), "Baked this morning.",
+    "a blank translation shows the English she wrote, which is more use than showing nothing");
+  assert.equal(ownWords({ say: "   " }, "en"), "", "whitespace is not a sentence");
+  assert.equal(ownWords(null, "en"), "");
+});
+
+// ── v270: what this phone remembers about its own orders ───────────────────
+
+// A stand-in for localStorage, so the memory can be judged without a browser.
+function fakeStore(seed) {
+  const box = { ...(seed || {}) };
+  return {
+    getItem: (k) => (k in box ? box[k] : null),
+    setItem: (k, v) => { box[k] = String(v); },
+  };
+}
+
+test("a phone that has ordered before remembers that, and which codes it used", () => {
+  const empty = shopMemo(fakeStore());
+  assert.deepEqual(empty, { orders: 0, codes: [] }, "a phone that has never ordered says so");
+
+  const one = rememberShopOrder("fresh10", fakeStore());
+  assert.equal(one.orders, 1);
+  assert.deepEqual(one.codes, ["FRESH10"], "the code is remembered in the one spelling the engine matches on");
+
+  // The same code twice is one code, and two orders.
+  const store = fakeStore();
+  rememberShopOrder("FRESH10", store);
+  const two = rememberShopOrder(" fresh10 ", store);
+  assert.equal(two.orders, 2);
+  assert.deepEqual(two.codes, ["FRESH10"], "a code used twice is still one code");
+
+  // An order with no code counts as an order and adds no code.
+  const ordered = rememberShopOrder("", store);
+  assert.equal(ordered.orders, 3);
+  assert.deepEqual(ordered.codes, ["FRESH10"]);
+});
+
+test("a memory it cannot read is treated as no memory, never as a crash", () => {
+  for (const junk of ["not json", "[]", "null", '{"orders":"lots","codes":"FRESH10"}', "7"]) {
+    assert.deepEqual(shopMemo(fakeStore({ "jienluv2bake.shop.v1": junk })), { orders: 0, codes: [] },
+      `"${junk}" is not a memory the shop can use`);
+  }
+});
+
+// ── v270: every sentence the shop can show exists, in all three languages ──
+
+test("every promo line the shop can print is written in all three languages", () => {
+  // Built by walking what the code can actually produce rather than by listing
+  // keys by hand: a reason added to the engine and forgotten in one language is
+  // exactly the fault this is here to catch.
+  const keys = new Set([
+    "promoAccepted", "promoAcceptedUsed", "promoAcceptedFirst", "promoNo", "promoUntil",
+    ...["unknown", "paused", "ended", "notYet", "claimed", "clash", "small"]
+      .map((fail) => shopVerdict({ ok: false, fail, on: "2026-09-30", short: 1 }).key),
+  ]);
+  for (const lang of ["en", "zh", "ms"]) {
+    const dict = (STORE || {})[lang] || {};
+    for (const k of keys) {
+      assert.equal(typeof dict[k], "string", `${k} is missing from ${lang}`);
+      assert.ok(dict[k].length > 0, `${k} is empty in ${lang}`);
+    }
+  }
+  // The two that carry a value must keep their placeholders in every language, or
+  // the customer is shown a sentence with a hole in it.
+  for (const lang of ["en", "zh", "ms"]) {
+    assert.match(STORE[lang].promoUntil, /%1/);
+    assert.match(STORE[lang].promoUntil, /%2/);
+    for (const k of ["promoEnded", "promoNotYet", "promoSmall"]) {
+      assert.match(STORE[lang][k], /%1/, `${k} lost its placeholder in ${lang}`);
+    }
+    for (const k of ["promoAcceptedUsed", "promoAcceptedFirst"]) {
+      assert.match(STORE[lang][k], /%1/, `${k} lost its offer in ${lang}`);
+      assert.match(STORE[lang][k], /%2/, `${k} lost its code in ${lang}`);
+    }
+    // And none of them is left in English by accident.
+    for (const k of keys) {
+      if (lang === "en") continue;
+      assert.notEqual(STORE[lang][k], STORE.en[k], `${k} was left untranslated in ${lang}`);
+    }
+  }
 });

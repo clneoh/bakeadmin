@@ -9,17 +9,20 @@
 // Same shape as Parcel couriers / Suppliers / Units: an always-on "New code"
 // card, each row with Edit, one pop-up shared by both.
 //
-// What this screen offers is deliberately narrower than what a code can carry.
-// This first slice makes a code that gives an amount off, or a percentage, or
-// free delivery, and decides whether the shop may advertise it. The other rule
-// families are already in the record at their no-opinion defaults; the screens
-// for them arrive in their own slices.
+// What a code carries, and what this screen lets her set. From v270 all six
+// families are here: what it gives, who it is for, when it runs, the smallest
+// basket it works on, how often, and what it cannot sit beside. The seventh
+// option the discussion left open — "cannot sit beside another code" — is
+// deliberately absent: the shop allows exactly one typed code per order and the
+// standing line always stands down for it, so such a control could never refuse
+// anything. A control that can never refuse is a control that does nothing.
 
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { fmtRM, newId, save } from "../state.js";
-import { todayISO } from "../dates.js";
+import { todayISO, longDate } from "../dates.js";
 import { maybeSyncStorefront } from "../supabase.js";
-import { blankCode, codeProblem, normalizeCode, offerOf } from "../promo.js";
+import { translateTo, translateAllowed } from "../translate.js";
+import { blankCode, codeProblem, normalizeCode, offerOf, SAY_MAX } from "../promo.js";
 
 export function renderPromoCodes(root, state) {
   renderAll(root, state);
@@ -58,6 +61,21 @@ function clauseWords(code) {
   return min > 0 ? `${offerWords(code)} on ${fmtRM(min)} and above` : offerWords(code);
 }
 
+// The rest of what a code carries, in the fewest words that still say exactly
+// what will happen. Only the families she has actually given an opinion are
+// named, so a plain code reads as plainly as it did before there were families.
+function rulesWords(c) {
+  const out = [];
+  if (c.when.from && c.when.to) out.push(`${longDate(c.when.from)} to ${longDate(c.when.to)}`);
+  else if (c.when.from) out.push(`from ${longDate(c.when.from)}`);
+  else if (c.when.to) out.push(`until ${longDate(c.when.to)}`);
+  if (c.who.type === "first") out.push("first order only");
+  if (c.often.type === "once") out.push("once per customer");
+  if (c.often.type === "quota") out.push(`first ${c.often.n} order${c.often.n === 1 ? "" : "s"} only`);
+  if (c.beside.type === "nocredit") out.push("not with the bring-a-friend credit");
+  return out;
+}
+
 function codeProblemWords(p) {
   if (!p) return "";
   switch (p.fail) {
@@ -66,6 +84,7 @@ function codeProblemWords(p) {
     case "noAmount": return "Say how much comes off.";
     case "noPercent": return "Say what percentage comes off.";
     case "percentTooBig": return "A percentage has to be under 100.";
+    case "noQuota": return "Say how many orders it is for. Blank or 0 would make it unlimited, which is the opposite of what you asked for.";
     case "datesBackwards": return "The end date is before the start date.";
     case "dupe": return `${p.code} is already a code. Two codes cannot share a name.`;
     default: return "That code cannot be saved as it stands.";
@@ -73,52 +92,128 @@ function codeProblemWords(p) {
 }
 
 function buildCodeEditor(state, code) {
+  // A new code starts today and never ends, which is the shape of a code someone
+  // hands out without thinking about dates. Everything else starts at the engine's
+  // own no-opinion default, read from blankCode() rather than retyped here, so the
+  // form and the record can never disagree about what "I have not decided" is.
+  const seed = code ? normalizeCode(code) : { ...blankCode(), when: { from: todayISO(), to: "" } };
+
   const name = el("input", {
     class: "input", placeholder: "e.g. FRESH10", autocapitalize: "characters",
-    value: code ? code.code : "",
+    value: seed.code,
   });
   const kind = el("select", { class: "input" },
-    el("option", { value: "rm", selected: !code || code.gives.type === "rm" }, "Ringgit off"),
-    el("option", { value: "pct", selected: !!code && code.gives.type === "pct" }, "Percent off"),
-    el("option", { value: "delivery", selected: !!code && code.gives.type === "delivery" }, "Free delivery"));
+    el("option", { value: "rm", selected: seed.gives.type === "rm" }, "Ringgit off"),
+    el("option", { value: "pct", selected: seed.gives.type === "pct" }, "Percent off"),
+    el("option", { value: "delivery", selected: seed.gives.type === "delivery" }, "Free delivery"));
   const value = el("input", {
     class: "input", type: "number", min: "0", step: "0.01", inputmode: "decimal",
-    value: code && code.gives.value ? String(code.gives.value) : "",
+    value: seed.gives.value ? String(seed.gives.value) : "",
   });
   const cap = el("input", {
     class: "input", type: "number", min: "0", step: "0.01", inputmode: "decimal",
-    value: code && code.gives.cap ? String(code.gives.cap) : "",
+    value: seed.gives.cap ? String(seed.gives.cap) : "",
   });
+  const who = el("select", { class: "input" },
+    el("option", { value: "all", selected: seed.who.type === "all" }, "Anyone"),
+    el("option", { value: "first", selected: seed.who.type === "first" }, "A first order only"));
+  const from = el("input", { class: "input", type: "date", value: seed.when.from });
+  const to = el("input", { class: "input", type: "date", value: seed.when.to });
+  const basket = el("select", { class: "input" },
+    el("option", { value: "none", selected: seed.basket.type === "none" }, "No smallest basket"),
+    el("option", { value: "amount", selected: seed.basket.type === "amount" }, "Only on a basket of at least"));
+  const basketAmount = el("input", {
+    class: "input", type: "number", min: "0", step: "0.01", inputmode: "decimal",
+    value: seed.basket.amount ? String(seed.basket.amount) : "",
+  });
+  const often = el("select", { class: "input" },
+    el("option", { value: "unlimited", selected: seed.often.type === "unlimited" }, "As often as they like"),
+    el("option", { value: "once", selected: seed.often.type === "once" }, "Once per customer"),
+    el("option", { value: "quota", selected: seed.often.type === "quota" }, "Only for the first"));
+  const oftenN = el("input", {
+    class: "input", type: "number", min: "1", step: "1", inputmode: "numeric",
+    value: seed.often.n ? String(seed.often.n) : "",
+  });
+  const beside = el("select", { class: "input" },
+    el("option", { value: "anything", selected: seed.beside.type === "anything" }, "Nothing in particular"),
+    el("option", { value: "nocredit", selected: seed.beside.type === "nocredit" }, "Not with the bring-a-friend credit"));
   const vis = el("select", { class: "input" },
-    el("option", { value: "public", selected: !code || code.vis === "public" }, "Public — shown in the shop"),
-    el("option", { value: "personal", selected: !!code && code.vis === "personal" }, "Personal — never shown"));
+    el("option", { value: "public", selected: seed.vis === "public" }, "Public — shown in the shop"),
+    el("option", { value: "personal", selected: seed.vis === "personal" }, "Personal — never shown"));
 
-  // The two boxes that only matter for one kind of offer. Kept in place and
-  // simply hidden, so switching kind back and forth never loses what she typed.
+  // Her own sentence for the shop, in her own words. Blank is the normal state:
+  // the shop then says it its own way, in the customer's own language, and says
+  // the dates and any smallest basket by itself. Written, it appears under that
+  // line — never instead of it, because that line is what names the code.
+  const say = el("textarea", { class: "input", rows: 2, maxlength: String(SAY_MAX), value: seed.say,
+    placeholder: "e.g. Our birthday month — RM10 off your first order, and tell us what you think of it." });
+  const sayZh = el("textarea", { class: "input", rows: 2, maxlength: String(SAY_MAX), value: seed.sayZh,
+    placeholder: "Auto-translated 中文 — blank shows the English" });
+  const sayMs = el("textarea", { class: "input", rows: 2, maxlength: String(SAY_MAX), value: seed.sayMs,
+    placeholder: "Auto-translated Bahasa Malaysia — blank shows the English" });
+
+  // The boxes that only matter for one answer. Kept in place and simply hidden,
+  // so switching back and forth never loses what she typed — and an empty box is
+  // what the engine reads as "no opinion here", so a hidden one is harmless.
   const valueField = el("div", { class: "field" }, el("label", {}, "How much comes off"), value);
   const capField = el("div", { class: "field" },
     el("label", {}, "Most it can ever come to (optional)"), cap,
     el("p", { class: "hint" }, "A percentage with no most-it-can-come-to has no limit at all. Fill this in and the offer can never cost more than this."));
+  const basketField = el("div", { class: "field" }, el("label", {}, "Smallest basket (RM)"), basketAmount);
+  const oftenField = el("div", { class: "field" }, el("label", {}, "How many orders"), oftenN);
 
   function paintFields() {
     const k = kind.value;
     valueField.hidden = k === "delivery";
     valueField.querySelector("label").textContent = k === "pct" ? "What percentage comes off" : "How much comes off";
     capField.hidden = k !== "pct";
+    basketField.hidden = basket.value !== "amount";
+    oftenField.hidden = often.value !== "quota";
   }
   kind.addEventListener("change", paintFields);
+  basket.addEventListener("change", paintFields);
+  often.addEventListener("change", paintFields);
   paintFields();
 
   function collect() {
-    const rec = code ? { ...code } : { id: newId("promo"), ...blankCode(), when: { from: todayISO(), to: "" } };
+    const rec = code ? { ...code } : { id: newId("promo"), ...blankCode() };
     rec.code = tidy(name.value);
     rec.gives = { type: kind.value, value: Number(value.value) || 0, cap: Number(cap.value) || 0 };
+    rec.who = { type: who.value };
+    rec.when = { from: from.value || "", to: to.value || "" };
+    rec.basket = { type: basket.value, amount: Number(basketAmount.value) || 0 };
+    // maxRM — the ringgit ceiling — is not a box on this screen yet; carried
+    // through untouched so an edit never quietly wipes a limit she set elsewhere.
+    rec.often = { type: often.value, n: Math.floor(Number(oftenN.value) || 0), maxRM: Number(seed.often.maxRM) || 0 };
+    rec.beside = { type: beside.value };
     rec.vis = vis.value;
+    rec.say = say.value.trim();
+    rec.sayZh = sayZh.value.trim();
+    rec.sayMs = sayMs.value.trim();
     const problem = codeProblem(state.promoCodes, rec, code ? code.id : "");
     return problem ? { error: codeProblemWords(problem) } : { record: normalizeCode({ ...rec, id: rec.id }) };
   }
 
-  return { name, kind, value, cap, vis, valueField, capField, collect };
+  // Fill the 中文 and BM boxes from the English, leaving anything she has typed
+  // herself alone. The same bargain as the storefront policy text: machine-filled
+  // once, hers to edit for ever after.
+  async function translateSay() {
+    const src = say.value.trim();
+    if (!src) return toast("Write it in English first");
+    if (!translateAllowed()) return toast("No connection — translations fill when you're back online");
+    let filled = 0;
+    for (const [lang, box] of [["zh", sayZh], ["ms", sayMs]]) {
+      if (box.value.trim()) continue;
+      try {
+        const out = await translateTo((url) => fetch(url), src, lang);
+        if (out && out.trim()) { box.value = out.trim(); filled++; }
+      } catch { /* leave it blank and try the rest */ }
+    }
+    toast(filled ? "Translated — edit it if you like" : "Nothing to translate");
+  }
+
+  return { name, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
+    valueField, capField, basketField, oftenField, translateSay, collect };
 }
 
 function editorFields(editor) {
@@ -127,8 +222,28 @@ function editorFields(editor) {
       el("p", { class: "hint" }, "What the customer types. Letters and numbers only, so it reads easily off a card — FRESH10, not FRESH 10.")),
     el("div", { class: "field" }, el("label", {}, "What it gives"), editor.kind),
     el("div", { class: "form-grid" }, editor.valueField, editor.capField),
+    el("div", { class: "form-grid" },
+      el("div", { class: "field" }, el("label", {}, "Runs from"), editor.from),
+      el("div", { class: "field" }, el("label", {}, "Runs until (optional)"), editor.to)),
+    el("p", { class: "hint" }, "Leave the end date empty for a code that never runs out. The shop stops accepting it the day after its end date."),
+    el("div", { class: "field" }, el("label", {}, "Who it is for"), editor.who),
+    el("div", { class: "field" }, el("label", {}, "Smallest basket it works on"), editor.basket),
+    el("div", { class: "form-grid" }, editor.basketField, el("div", {})),
+    el("div", { class: "field" }, el("label", {}, "How often it can be used"), editor.often),
+    el("div", { class: "form-grid" }, editor.oftenField, el("div", {})),
+    el("p", { class: "hint" }, "\"Once per customer\" and \"a first order only\" are judged from what that customer's phone remembers, and a new phone remembers nothing — so the shop TELLS them and takes the order anyway. The real check is yours, when you confirm it. A limited number of orders is different: it is counted from your own orders, so it genuinely stops being offered when it is reached."),
+    el("div", { class: "field" }, el("label", {}, "What it cannot be used with"), editor.beside,
+      el("p", { class: "hint" }, "The bring-a-friend welcome discount comes out of the same money as a code that gives ringgit off, so this stops the two stacking on one order.")),
     el("div", { class: "field" }, el("label", {}, "Who can see it"), editor.vis,
       el("p", { class: "hint" }, "Public codes are put on the shop page for everyone. Personal codes are never advertised — you give the code to one person — but they still work when typed, and anyone who reads the page's own data can see them, so the limit is that they are never shown, not that they are secret.")),
+    el("div", { class: "field" }, el("label", {}, "What the shop says about it (optional)"), editor.say,
+      el("p", { class: "hint" }, "Leave this blank and the shop writes the line itself: what comes off, any smallest basket, the end date, and the code to type — in the customer's own language. Write something here and it shows UNDER that line, in your words. That line always stays, because it is what tells the customer the code to type.")),
+    el("div", { class: "form-grid" },
+      el("div", { class: "field" }, el("label", {}, "中文"), editor.sayZh),
+      el("div", { class: "field" }, el("label", {}, "Bahasa Malaysia"), editor.sayMs)),
+    el("div", { class: "btn-row" },
+      button("Translate", editor.translateSay, "soft"),
+      el("p", { class: "hint", style: "margin:0 align-self:center" }, "Fills whichever of the two is still blank, and never overwrites your own words.")),
   ];
 }
 
@@ -181,14 +296,18 @@ function usedCount(state, code) {
 function codeCard(state, code, root) {
   const used = usedCount(state, code);
   const c = normalizeCode(code);
+  // A row has to say everything the code will do, not just what it gives, or she
+  // has to open the Edit pop-up to remember the dates she set. The offer and its
+  // rules on one line; who can see it and how it has done, quieter, underneath.
   return el("div", { class: "card" },
     el("div", { class: "card-row" },
       el("div", { style: "min-width:0" },
         el("p", { class: "card-title" }, c.code),
-        el("p", { class: "card-sub" },
-          [clauseWords(c),
-            c.vis === "personal" ? "personal — never shown" : "public — shown in the shop",
-            used ? `${used} order${used === 1 ? "" : "s"}` : "not used yet"]
+        el("p", { class: "card-sub" }, [clauseWords(c), ...rulesWords(c)].join(" · ")),
+        el("p", { class: "hint" },
+          [c.vis === "personal" ? "personal — never shown" : "public — shown in the shop",
+            c.say ? "your own words" : "",
+            used ? `used on ${used} order${used === 1 ? "" : "s"}` : "not used yet"]
             .filter(Boolean).join(" · "))),
       el("div", { class: "li-right" },
         button("Edit", () => openEditCodePopup(state, code, root), "ghost small"),

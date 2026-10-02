@@ -23,7 +23,23 @@ const en = {
   // it is what puts it on the order — the shop never takes the money off itself.
   promoToday: "Today: %1 — use code %2",
   promoAccepted: "%1 — code %2 is on. We'll take it off when we confirm your order.",
+  // The two the shop can only ever GUESS at, because a public page has no login
+  // and knows nobody: "one per customer" and "first orders only" can only be
+  // remembered by this phone, and a new phone or a cleared browser remembers
+  // nothing. So the code still goes on the order and the bakery settles it by
+  // hand — these two say the code is on AND that we will confirm it, rather than
+  // refusing a discount on a guess.
+  promoAcceptedUsed: "%1 — code %2 is on. It's one per customer, so we'll confirm it when we take your order.",
+  promoAcceptedFirst: "%1 — code %2 is on. It's for a first order, so we'll confirm it when we take your order.",
   promoUnknown: "We don't know that code — check the letters and try again.",
+  // Every other reason a code can be turned down, each in its own words. %1 is a
+  // date for the two that name one, and the amount still needed for the last.
+  promoPaused: "That code is on hold — it isn't available at the moment.",
+  promoEnded: "That code ended on %1 — it's no longer available.",
+  promoNotYet: "That code hasn't started yet — it starts on %1.",
+  promoClaimed: "That code has been fully claimed — all of it has been used.",
+  promoClash: "That code can't be used with the welcome discount you already have — message us and we'll sort it out.",
+  promoSmall: "Not quite enough yet — add %1 more to use it.",
   // Until each reason has its own wording, anything else the rules refuse says
   // this. Deliberately not "we don't know that code", which would be untrue.
   promoNo: "That code can't be used at the moment — message us and we'll sort it out.",
@@ -32,6 +48,9 @@ const en = {
   promoOffPercent: "%1% off",
   promoOffPercentCap: "%1, up to %2",
   promoOnMin: "%1 on %2 and above",
+  // Appended only when the code has an end date, so the standing line says when
+  // the offer runs out instead of the customer finding out at the box.
+  promoUntil: "%1, until %2",
   deliveryDays: "Delivery days",
   orderBy: "Order by",
   beforeVal: "%1 the day before",
@@ -249,13 +268,22 @@ const zh = {
   promoRemove: "移除优惠码",
   promoToday: "今日优惠：%1 — 输入优惠码 %2",
   promoAccepted: "%1 — 已套用优惠码 %2，我们确认订单时会为你扣减。",
+  promoAcceptedUsed: "%1 — 已套用优惠码 %2。此码每人限用一次，我们确认订单时会为你核实。",
+  promoAcceptedFirst: "%1 — 已套用优惠码 %2。此码只限首次下单，我们确认订单时会为你核实。",
   promoUnknown: "我们找不到这个优惠码 — 请检查字母后再试一次。",
+  promoPaused: "此优惠码已暂停 — 暂时无法使用。",
+  promoEnded: "此优惠码已于 %1 结束 — 不再有效。",
+  promoNotYet: "此优惠码还没开始 — 将于 %1 生效。",
+  promoClaimed: "此优惠码已全数用完 — 名额已被领完。",
+  promoClash: "此优惠码不能与你已享有的迎新优惠同时使用 — 请联络我们，我们帮你处理。",
+  promoSmall: "还差一点 — 再加 %1 即可使用。",
   promoNo: "这个优惠码暂时无法使用 — 请联络我们，我们帮你处理。",
   promoFreeDelivery: "免运费",
   promoOffAmount: "减 %1",
   promoOffPercent: "减 %1%",
   promoOffPercentCap: "%1，最多 %2",
   promoOnMin: "满 %2 可享 %1",
+  promoUntil: "%1，%2 截止",
   deliveryDays: "派送日",
   orderBy: "下单截止",
   beforeVal: "烘焙日前一天 %1 前",
@@ -412,13 +440,22 @@ const ms = {
   promoRemove: "Buang kod",
   promoToday: "Hari ini: %1 — guna kod %2",
   promoAccepted: "%1 — kod %2 telah digunakan. Kami akan tolakkan apabila kami sahkan tempahan anda.",
+  promoAcceptedUsed: "%1 — kod %2 telah digunakan. Satu sahaja setiap pelanggan, jadi kami akan sahkan apabila kami ambil tempahan anda.",
+  promoAcceptedFirst: "%1 — kod %2 telah digunakan. Kod ini untuk tempahan pertama, jadi kami akan sahkan apabila kami ambil tempahan anda.",
   promoUnknown: "Kami tidak kenal kod itu — semak hurufnya dan cuba lagi.",
+  promoPaused: "Kod itu sedang ditahan — ia tidak tersedia buat masa ini.",
+  promoEnded: "Kod itu tamat pada %1 — ia tidak lagi tersedia.",
+  promoNotYet: "Kod itu belum bermula — ia bermula pada %1.",
+  promoClaimed: "Kod itu telah habis diambil — semuanya telah digunakan.",
+  promoClash: "Kod itu tidak boleh digunakan bersama diskaun sambutan yang anda sudah ada — hubungi kami dan kami akan uruskannya.",
+  promoSmall: "Belum cukup lagi — tambah %1 lagi untuk menggunakannya.",
   promoNo: "Kod itu tidak boleh digunakan buat masa ini — hubungi kami dan kami akan uruskannya.",
   promoFreeDelivery: "Penghantaran percuma",
   promoOffAmount: "Potongan %1",
   promoOffPercent: "Potongan %1%",
   promoOffPercentCap: "%1, sehingga %2",
   promoOnMin: "%1 untuk %2 ke atas",
+  promoUntil: "%1, sehingga %2",
   deliveryDays: "Hari penghantaran",
   orderBy: "Tempahan ditutup",
   beforeVal: "%1 sehari sebelumnya",

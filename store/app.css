@@ -1171,6 +1171,11 @@ button.prod-next.off::after { content: ""; }
   line-height: 1.45;
   text-align: center;
 }
+.promo-today p { margin: 0; }
+/* The bakery's own words, inside the same strip but quieter than the offer and
+   the code it sits under — those are what a customer has to act on. */
+.promo-today .promo-words { margin-top: 4px; font-weight: 400; }
+.promo-words[hidden] { display: none; }
 
 .promo-box { margin: 0 0 16px; }
 .promo-box .field { margin-bottom: 0; }

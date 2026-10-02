@@ -1619,6 +1619,25 @@ option.tone-off { color: var(--muted); }
   border-radius: 999px;
   vertical-align: 2px;
 }
+/* The promo code an order was placed with (v270), in the tags' family so it reads
+   as one more thing about this order rather than a warning. Its own colour, amber,
+   because it is the one tag that names money she still has to take off by hand —
+   and monospace, like the order's own #code, so the two read as codes rather than
+   as words. */
+.promo-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--amber, #b26a16);
+  background: var(--amber-bg, #fdf1dc);
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
 .fulfill-tag {
   display: inline-block;
   margin-left: 6px;

@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   blankCode, codeNameOk, codeProblem, codesOf, evaluate, findCode, minimumOf,
-  normCode, normalizeCode, offerOf, publishCodes, stoppedBy, worthOf,
+  normCode, normalizeCode, offerOf, publishCodes, SAY_MAX, stoppedBy, worthOf,
 } from "../admin/js/promo.js";
 
 const TODAY = "2026-10-02";
@@ -293,4 +293,59 @@ test("a name she has already used is reported before a box she has left empty", 
   assert.equal(codeProblem(list, both).fail, "dupe");
   // …and with the name free, the empty box is what it says.
   assert.equal(codeProblem(list, code({ code: "FRESH20", gives: { type: "rm", value: 0, cap: 0 } })).fail, "noAmount");
+});
+
+test("a quota of zero is refused, because the engine would read it as no limit at all", () => {
+  // "No opinion" and "none at all" are opposite answers that share a spelling:
+  // the engine reads n <= 0 as no opinion, i.e. unlimited. A limit of nothing
+  // must therefore never reach it, or a code she capped at zero silently becomes
+  // the one code with no cap.
+  const zero = codeProblem([], code({ often: { type: "quota", n: 0, maxRM: 0 } }));
+  assert.equal(zero && zero.fail, "noQuota");
+  assert.equal(codeProblem([], code({ often: { type: "quota", n: -1, maxRM: 0 } })).fail, "noQuota");
+  assert.equal(codeProblem([], code({ often: { type: "quota", n: 3, maxRM: 0 } })), null,
+    "a real count is a real limit");
+  assert.equal(codeProblem([], code({ often: { type: "unlimited", n: 0, maxRM: 0 } })), null,
+    "and a code that is unlimited on purpose is not a quota with a missing count");
+});
+
+// ── Her own words on the strip ────────────────────────────────────────────
+
+test("the bakery's own sentence is kept as she typed it, and cannot grow into a wall of text", () => {
+  const c = normalizeCode({
+    code: "FRESH10",
+    say: "  Fresh from the oven  ",
+    sayZh: "  刚出炉  ",
+    sayMs: "  Baru keluar oven  ",
+  });
+  assert.equal(c.say, "Fresh from the oven", "what she typed survives, without the space around it");
+  assert.equal(c.sayZh, "刚出炉");
+  assert.equal(c.sayMs, "Baru keluar oven");
+  const long = "x".repeat(SAY_MAX + 40);
+  const capped = normalizeCode({ code: "FRESH10", say: long });
+  assert.equal(capped.say, long.slice(0, SAY_MAX), "a sentence the strip cannot carry is cut at the end, never reworded");
+  assert.equal(normalizeCode({ code: "FRESH10" }).say, "", "a code with no sentence of hers has none, not a placeholder");
+  assert.equal(normalizeCode({ code: "FRESH10", say: null }).say, "");
+  assert.equal(blankCode().say, "", "and a fresh code starts with the shop composing its own line");
+});
+
+test("her own words are published beside the code, because the shop is where they are read", () => {
+  const [out] = publishCodes({
+    promoCodes: [code({ say: "Baked this morning, still warm.", sayZh: "今早刚出炉。", sayMs: "Dibakar pagi ini." })],
+  });
+  assert.equal(out.say, "Baked this morning, still warm.");
+  assert.equal(out.sayZh, "今早刚出炉。");
+  assert.equal(out.sayMs, "Dibakar pagi ini.");
+  const [plain] = publishCodes({ promoCodes: [code()] });
+  assert.equal(plain.say, "", "blank is the normal state — the shop then composes the line itself");
+});
+
+test("her own sentence can never change what a code is called", () => {
+  // The name is judged on its own. A sentence that happens to contain a code
+  // must not make a good name bad or a bad name good — the customer reads the
+  // name, not the sentence, when they type it at the box.
+  const c = normalizeCode({ code: "FRESH10", say: "Type FRESH10 at the checkout" });
+  assert.equal(c.code, "FRESH10", "the sentence is not spliced into the name");
+  assert.equal(codeProblem([], code({ code: "AB", say: "Ask us for the good code" })).fail, "shape",
+    "and a name too short to read off a card is still refused, however nice the sentence is");
 });

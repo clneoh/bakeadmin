@@ -560,3 +560,49 @@ test("landing on Confirmed again clears the draft, so an old draft is never answ
   assert.ok(!buttons(again).includes("I have sent it"), "so it is asking for a message to be opened, not answered for");
   assert.ok(buttons(again).includes("Send confirmation"), "and the normal press is what it offers");
 });
+
+// ── v270: the code a customer ordered with, read where the order is read ─────
+// She reported it the day after v269: "i dont see the promo code fresh10 send over
+// to app together with the order". It had been ON the order since v269 — the shop
+// stamps it, the app's import keeps it — but nothing ever DREW it, so the one place
+// she looks for an order was the one place it did not appear. A code that arrives
+// and cannot be read is a code that did not arrive.
+const promoOrder = (extra) => ({ ...STATE, orders: [{
+  id: "o1", deliveryDateId: "d7", productId: "p1", qty: 1, customerName: "Ain",
+  whatsapp: "60123456789", status: "new", source: "storefront", ...extra,
+}] });
+// The order's OWN row on the delivery day — the row this screen is worked from,
+// and the only row that carries `dataset.order`. Found by that marker rather than
+// by "anything on the page", so the chip has to be on the row she reads an order
+// on and cannot pass by turning up somewhere else on the screen.
+const dayRow = (root) => all(root).find((n) => n.dataset && n.dataset.order === "o1");
+const promoTags = (n) =>
+  all(n).filter((c) => String(c.className).split(/\s+/).includes("promo-tag"));
+
+test("an order placed with a code says WHICH code, on the row she reads it on", () => {
+  const root = createEl("div");
+  renderOrders(root, promoOrder({ promo: "FRESH10" }), PARAMS());
+
+  const row = dayRow(root);
+  assert.ok(row, "the order's own row is on the screen");
+  const tags = promoTags(row);
+  assert.equal(tags.length, 1, "the code travels onto the row, rather than sitting in her data unseen");
+  assert.equal(tags[0].children[0].text, "🎟 FRESH10",
+    "and the row names the code itself — she takes the money off by hand, so which code it was is what tells her how much");
+});
+
+test("a code is read back in the one spelling the engine recognises it by", () => {
+  const root = createEl("div");
+  renderOrders(root, promoOrder({ promo: "  fresh10 " }), PARAMS());
+  assert.equal(promoTags(dayRow(root))[0].children[0].text, "🎟 FRESH10",
+    "however an older record spelled it, the row cannot show two spellings of one code");
+});
+
+test("an order with no code shows no chip, so its row is the row this screen always drew", () => {
+  for (const extra of [{}, { promo: "" }, { promo: undefined }]) {
+    const root = createEl("div");
+    renderOrders(root, promoOrder(extra), PARAMS());
+    assert.equal(promoTags(dayRow(root)).length, 0,
+      `${JSON.stringify(extra)} — a row with nothing to say about a code says nothing`);
+  }
+});

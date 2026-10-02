@@ -1,8 +1,85 @@
-# Jienluv2bake — change history (v54 → v269)
+# Jienluv2bake — change history (v54 → v270)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**02 Oct 2026 — engine v270, THE CODE THAT WAS THERE ALL ALONG, AND A PROMO
+SCREEN WITH SOMETHING TO SAY (no database step, nothing to upload — pushing this
+one is the whole of it).**
+
+**The thing you reported.** "i dont see the promo code fresh10 send over to app
+together with the order." You were right, and thank you for telling me. The code
+had been travelling with the order since v269 — the shop stamps it on, your app
+saves it — but **no screen ever showed it**. The one place you look for an order
+was the one place it did not appear. A code that arrives and cannot be read is a
+code that did not arrive.
+
+**What you will see now.** An order that was placed with a code wears a small
+amber **FRESH10** tag beside its order number, on every row you read an order on:
+the delivery day's list, the unread inbox at the top, the search results, and the
+**Edit order** window. It shows the code itself and not the word "promo", because
+you take the money off by hand — so which code it was is what tells you whether
+it is RM10 or RM5. If the code is lower-case in some old record, it is shown the
+one way it is always matched, so you never see two spellings of one code. An
+order placed without a code looks exactly as it always did.
+
+**The shop's line now says the whole offer.** When you are running a public code,
+the line at the top of the shop used to name the offer and the code. It now also
+says the smallest basket it works on and, when you have set one, the day it runs
+out — for example __Today: RM10.00 off on RM30.00 and above, until 31 October —
+use code FRESH10__. A customer can see what the offer is worth before they fill
+a basket, instead of finding out at the box.
+
+**And you can add your own sentence to it.** On the code screen there is now a
+box for your own words about the code, in English, Chinese and Bahasa Malaysia,
+with a **Translate** button that fills the two other languages for you and never
+overwrites anything you typed yourself. Whatever you write appears under the
+shop's own line, in the customer's language — a short line about the code, in
+your voice. Two things about it: it is **extra, never instead**, because the
+shop's own line is what tells the customer the code exists and what to type; and
+if you leave the Chinese or Malay box empty, the shop shows the English you
+wrote rather than showing nothing.
+
+**The code screen is now a full one.** A code is no longer only "what it gives".
+Six things about a code are real, all of them optional and all of them defaulting
+to the widest, simplest answer: **who it is for** (anyone, or a first order),
+**when it runs** (from a day, until a day), **the smallest basket** it works on,
+**how often it can be used** (as often as they like, once per customer, or only
+the first few orders), **what it cannot be used with** (nothing in particular, or
+not together with the bring-a-friend credit), and **who can see it** (everybody,
+or just the person you gave it to). Leave any of them alone and the code behaves
+exactly as it did before.
+
+**The shop now says exactly why it will not take a code.** Before this, the shop
+knew only two answers — the code is good, or it has never heard of it. It now has
+its own plain sentence for nine different situations: we do not know that code;
+that code is on hold; **that code ended on 30 September** (it names the day, so it
+does not read as a glitch); that code has not started yet, it starts on a day; that
+code has been fully claimed; not quite enough yet, add a ringgit figure more to use
+it; and the two the shop states rather than refuses.
+
+**About those last two.** The shop is a public page with no sign-in, so it cannot
+know who the customer is. That means **once per customer** and **first order only**
+can never be more than a good guess, made from what that phone remembers — and a
+new phone or a cleared browser guesses wrong. So the shop does not use them to
+refuse anybody. It says the code is for a first order and that you will confirm it
+when you take the order, and then it takes the code anyway. Your rule stands: a
+rule on the website must never block or hide a sale you take by hand. The real
+check is yours, in your app, where the true history is.
+
+**One refusal that only the app can give.** If you type a number of orders into a
+code and that number is zero or blank, the app now refuses it by name. Zero would
+otherwise be read as "no limit at all" and quietly make that code the one code
+with no limit — the opposite of what you asked for.
+
+**What did not change.** The total on the shop page still never moves — a code
+still does not change what a customer is charged, and you still take every
+discount off by hand in WhatsApp. An order placed without a code is posted, sent
+and shown exactly as it has always been: the message such an order sends is byte
+for byte the message it has always sent. No existing order, product, price,
+customer or setting was touched, there is no database step, and nothing needs
+uploading.
 
 **02 Oct 2026 — engine v269, PROMO CODES, THE FIRST SLICE (no database step,
 nothing to upload — pushing this one is the whole of it).**

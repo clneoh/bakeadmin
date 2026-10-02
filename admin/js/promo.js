@@ -50,6 +50,14 @@ export function codeNameOk(s) {
 // her real orders, carried on the record so the shop can judge "has this been
 // fully claimed". They live here so that a code's stored shape is stated exactly
 // once, and normaliseCode can always answer with that whole shape.
+//
+// `say` is the one place she writes for the customer in her own words. Blank is
+// the normal state and means "let the shop say it its own way" — the shop's own
+// sentence is composed from the code's parts and exists in all three languages,
+// so a code with nothing written here still reads properly in 中文 and BM. The
+// three boxes mirror the storefront policy text (see Settings → Storefront):
+// English is hers to write, the other two are machine-filled and hers to correct,
+// and a blank translation falls back to the English she wrote.
 export function blankCode() {
   return {
     code: "",
@@ -62,10 +70,18 @@ export function blankCode() {
     gives: { type: "rm", value: 0, cap: 0 }, // rm | pct | delivery
     often: { type: "unlimited", n: 0, maxRM: 0 }, // unlimited | once | quota
     beside: { type: "anything" }, // anything | nocredit
+    say: "",   // her own sentence for the shop, or "" for the shop's own words
+    sayZh: "",
+    sayMs: "",
     used: 0, // orders that have carried it — derived, never incremented here
     given: 0, // ringgit those orders gave away — derived the same way
   };
 }
+
+// How much of her own sentence the shop will carry. Long enough for two lines on
+// a phone, short enough that the strip above the menu cannot grow into a wall of
+// text and push the delivery days off the screen.
+export const SAY_MAX = 160;
 
 // Never trust a hand-edited, half-synced or half-published record: every family
 // is clamped back to something the rules can actually run on, so a malformed row
@@ -89,6 +105,7 @@ export function normalizeCode(rec) {
     const n = Number(v);
     return Number.isInteger(n) && n > 0 ? n : 0;
   };
+  const words = (v) => String(v == null ? "" : v).trim().slice(0, SAY_MAX);
   return {
     // The row's identity has to survive this or it is LOST: the editor files a
     // new code by the id it generated, and the row is found again to edit or
@@ -112,10 +129,17 @@ export function normalizeCode(rec) {
     },
     often: {
       type: pick(often.type, ["unlimited", "once", "quota"], b.often.type),
+      // A quota of 0 is not "no quota", it is a limit she has not finished
+      // setting — and the engine reads 0 as no opinion at all, which would make
+      // the code unlimited. It is refused by codeProblem, so this clamp only ever
+      // catches a hand-edited or half-synced row.
       n: count(often.n),
       maxRM: money(often.maxRM),
     },
     beside: { type: pick(beside.type, ["anything", "nocredit"], b.beside.type) },
+    say: words(src.say),
+    sayZh: words(src.sayZh),
+    sayMs: words(src.sayMs),
     // Counted, not trusted: a negative or nonsense tally clamps to none, so a
     // bad number can never make a code look exhausted when it is not.
     used: count(src.used),
@@ -237,6 +261,11 @@ export function publishCodes(state) {
     gives: c.gives,
     often: c.often,
     beside: c.beside,
+    // Her own sentence, when she wrote one. Published because the shop is where
+    // it is read; blank is the normal state and means the shop composes it.
+    say: c.say,
+    sayZh: c.sayZh,
+    sayMs: c.sayMs,
   }));
 }
 
@@ -260,6 +289,10 @@ export function codeProblem(list, rec, selfId = "") {
   if (c.gives.type === "rm" && c.gives.value <= 0) return { fail: "noAmount" };
   if (c.gives.type === "pct" && c.gives.value <= 0) return { fail: "noPercent" };
   if (c.gives.type === "pct" && c.gives.value >= 100) return { fail: "percentTooBig" };
+  // A limit of "somewhere between none and one" is not a limit: a quota of 0
+  // would be read by the engine as no opinion at all and quietly become
+  // unlimited, which is the opposite of what she asked for.
+  if (c.often.type === "quota" && c.often.n <= 0) return { fail: "noQuota" };
   if (c.when.from && c.when.to && c.when.to < c.when.from) return { fail: "datesBackwards" };
   return null;
 }

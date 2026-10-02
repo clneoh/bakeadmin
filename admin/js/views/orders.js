@@ -35,6 +35,10 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 // The half-typed address suggestions (v228). Reached through the same channel the
 // pin's lookup uses, so the Google key stays on the server and never touches this page.
 import { suggestAddresses } from "../couriers/api.js";
+// The one spelling a promo code is recognised by (v270). An order's own code is
+// read back through it, so a stray lowercase in some older record cannot make two
+// spellings of one code look like two codes on the row.
+import { normCode } from "../promo.js";
 
 let orderStatusFilter = "";
 // Text in the "Find an order" box at the top of the Orders screen (empty = box
@@ -822,6 +826,7 @@ export function newOrdersInbox(state, selectDate, root) {
     const main = el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title, orderCodeTag(first),
         referredTag(first),
+        promoTag(first),
         g.orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       el("div", { class: "li-sub" }, sub));
     const meta = el("div", { class: "li-right" },
@@ -888,6 +893,7 @@ function orderFinderEl(state, root, selectDate, body) {
     const main = el("div", { class: "li-main" },
       el("div", { class: "li-title" }, items.join(" + "), orderCodeTag(first),
         referredTag(first),
+        promoTag(first),
         group.orders.some((o) => o.source === "storefront")
           ? el("span", { class: "src-tag" }, "storefront") : null),
       el("div", { class: "li-sub" }, sub));
@@ -1200,6 +1206,22 @@ function referredTag(order) {
   return waNumber(order && order.referredBy)
     ? el("span", { class: "ref-tag" }, "🎁 referred")
     : null;
+}
+
+// A small "🎟 FRESH10" chip on every row the order is read on (v270). The code a
+// customer ordered with arrives on the order and, until now, stayed inside her
+// data where she could not see it — she reported exactly that: "i dont see the
+// promo code fresh10 send over to app together with the order". Drawn only when
+// the order carries one, so every order without a code is the row this screen
+// drew before.
+//
+// The code ITSELF, not the word "promo": she takes the discount off by hand in
+// WhatsApp, and which code it was is what tells her how much — FRESH10 and
+// AUNTY5 are different amounts, so a chip that named neither would send her into
+// the order to look it up, which is the trip this chip exists to save.
+function promoTag(order) {
+  const code = normCode(order && order.promo);
+  return code ? el("span", { class: "promo-tag" }, `🎟 ${code}`) : null;
 }
 
 // The price box on an order line, shared by the ＋ New order card and the Edit
@@ -1874,7 +1896,8 @@ function openEditPopup(state, group, dateId, root) {
 
   const title = el("div", { class: "popup-title-row" },
     "Edit order",
-    orderCodeTag(first));
+    orderCodeTag(first),
+    promoTag(first));
   showPopup(title, (refresh, close) => popupEditBody(state, date, group, first, lines, draft, refresh, close, root, dateId));
 }
 
@@ -3465,6 +3488,7 @@ function orderGroupRow(state, group, root, dateId) {
   return el("div", rowAttrs,
     el("div", { class: "li-main" },
       el("div", { class: "li-title" }, title, orderCodeTag(first),
+        promoTag(first),
         orders.some((o) => o.source === "storefront") ? el("span", { class: "src-tag" }, "storefront") : null),
       (multi || anyNote)
         ? el("div", { class: "li-sub" }, orders.flatMap((o, i) =>
