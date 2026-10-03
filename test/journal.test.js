@@ -19,15 +19,27 @@ function domShim() {
     const node = {
       tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
       _classes: new Set(), style: {}, value: "", checked: false, selected: false,
-      disabled: false, hidden: false, _listeners: {},
-      appendChild(c) { if (c != null) this.children.push(c); return c; },
-      append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
-      replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+      disabled: false, hidden: false, _listeners: {}, parentNode: null,
+      appendChild(c) { if (c != null) { this.children.push(c); c.parentNode = this; } return c; },
+      append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); c.parentNode = this; } },
+      replaceChildren(...cs) {
+        this.children = [];
+        for (const c of cs) if (c != null) { this.children.push(c); c.parentNode = this; }
+      },
+      remove() {
+        const p = this.parentNode;
+        if (p) p.children = p.children.filter((x) => x !== this);
+        this.parentNode = null;
+      },
       addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
       removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((g) => g !== f); },
       setAttribute(k, v) { this.attrs[k] = String(v); },
       getAttribute(k) { return this.attrs[k]; },
-      focus() {}, click() {},
+      focus() {},
+      // A click is the browser ACTING on the node, and the app's last-resort save path is a
+      // detached link it makes and clicks. Recording it is how that path can be seen at all —
+      // the node is gone from the tree by the time the call returns.
+      click() { globalThis.document.clicks.push(this); },
     };
     Object.defineProperty(node, "className", {
       get() { return [...node._classes].join(" "); },
@@ -56,6 +68,7 @@ function domShim() {
     getElementById: (id) => [body, ...walk(body)].find((n) => n.attrs && n.attrs.id === id) || null,
     querySelector: () => null,
     querySelectorAll: () => [],
+    clicks: [],
     body,
   };
   return { body, createEl };
@@ -186,62 +199,158 @@ test("every journal wears the same two presses, in the same order", () => {
 });
 
 // ── the Share press ─────────────────────────────────────────────────────────
+//
+// What this press hands over changed in v283, and the reason is the fault she reported: the
+// share sheet opened on her phone with WhatsApp missing from it. A phone offers WhatsApp for a
+// FILE and not always for a bare block of text, so the journal now leaves as a PDF.
+//
+// The order is asked of the phone rather than assumed, and every step below is one rung of that
+// ladder. What each test pins is that a rung BELOW is never reached on her behalf.
 
-test("Share hands the phone's own share sheet the journal as plain text", async () => {
-  let shared = null; let copied = null;
-  globalThis.navigator.share = (payload) => { shared = payload; return Promise.resolve(); };
-  globalThis.navigator.clipboard = { writeText: (t) => { copied = t; return Promise.resolve(); } };
+// A phone's answers, installed for the length of one test and taken off again. `share` records
+// what it was handed before it answers.
+function phone({ canShareFiles, share, clipboard = true } = {}) {
+  const heard = [];
+  if (canShareFiles !== undefined) globalThis.navigator.canShare = () => canShareFiles;
+  globalThis.navigator.share = (payload) => {
+    heard.push(payload);
+    return share ? share(payload) : Promise.resolve();
+  };
+  const copied = [];
+  if (clipboard) globalThis.navigator.clipboard = { writeText: (t) => { copied.push(t); return Promise.resolve(); } };
+  return {
+    heard, copied,
+    saved: () => globalThis.document.clicks,
+    off() {
+      delete globalThis.navigator.share;
+      delete globalThis.navigator.canShare;
+      delete globalThis.navigator.clipboard;
+    },
+  };
+}
+
+// Count what was turned into a downloadable address, and hand back a fake one — the shape of
+// the save path, watched from the outside.
+function saving() {
+  const blobs = [];
+  const real = URL.createObjectURL;
+  URL.createObjectURL = (b) => { blobs.push(b); return "blob:test/1"; };
+  return { blobs, off() { URL.createObjectURL = real; } };
+}
+
+const reset = () => { globalThis.document.clicks.length = 0; };
+
+test("Share hands the phone the journal as a PDF FILE — the form WhatsApp offers itself for", async () => {
+  // The whole point of v283. A file, named after the journal, carrying a real PDF.
+  reset();
+  const p = phone({ canShareFiles: true });
   try {
     await shareJournal(sheetOf());
-    assert.equal(shared.title, "Sales journal");
-    assert.ok(shared.text.includes("Jien Luv 2 Bake — Sales journal"));
-    assert.equal(copied, null, "a share that worked must not also copy");
-  } finally {
-    delete globalThis.navigator.share;
-    delete globalThis.navigator.clipboard;
-  }
+    assert.equal(p.heard.length, 1, "one share, not a file and then a text as well");
+    const payload = p.heard[0];
+    assert.ok(Array.isArray(payload.files) && payload.files.length === 1, "a file, not a block of text");
+    const file = payload.files[0];
+    assert.equal(file.name, "Sales journal.pdf", "named so she can find it again in the chat");
+    assert.equal(file.type, "application/pdf");
+    assert.equal(payload.text, undefined, "she chose the document, not both");
+    assert.ok(file.size > 0);
+    const head = Buffer.from(await file.arrayBuffer()).toString("latin1");
+    assert.ok(head.startsWith("%PDF-"), "and what is inside it really is a PDF");
+    assert.ok(head.includes("Jien Luv 2 Bake"), "with her own letterhead on it");
+    assert.equal(p.copied.length, 0, "a share that worked must not also copy");
+  } finally { p.off(); }
+});
+
+test("a phone that cannot take a file is handed the text, so the journal still leaves the app", async () => {
+  // The rung below the file. A phone that says no to `files` must not be left with nothing.
+  reset();
+  const p = phone({ canShareFiles: false });
+  try {
+    await shareJournal(sheetOf());
+    assert.equal(p.heard.length, 1);
+    assert.equal(p.heard[0].files, undefined, "no file was forced on a phone that refused one");
+    assert.ok(p.heard[0].text.includes("Jien Luv 2 Bake — Sales journal"));
+    assert.equal(p.copied.length, 0);
+  } finally { p.off(); }
+});
+
+test("a phone that never says whether it takes a file is handed the text", async () => {
+  // `canShare` is asked, never assumed: a phone without it is not one that has agreed.
+  reset();
+  const p = phone({});
+  try {
+    await shareJournal(sheetOf());
+    assert.equal(p.heard.length, 1);
+    assert.equal(p.heard[0].files, undefined);
+    assert.equal(p.heard[0].title, "Sales journal");
+    assert.ok(p.heard[0].text.includes("Jien Luv 2 Bake — Sales journal"));
+  } finally { p.off(); }
 });
 
 test("her own cancel of the share sheet is a decision, not a fault", async () => {
   // The one behaviour here that would read as a bug: she opens the share sheet, changes her
-  // mind, closes it — and the journal lands on her clipboard anyway.
+  // mind, closes it — and the journal lands on her clipboard anyway. There are now TWO places
+  // she can cancel (the file, then the text), and a cancel at either has to end it.
   const abort = new Error("cancelled"); abort.name = "AbortError";
-  let shared = null; let copied = null;
-  globalThis.navigator.share = (payload) => { shared = payload; return Promise.reject(abort); };
-  globalThis.navigator.clipboard = { writeText: (t) => { copied = t; return Promise.resolve(); } };
   try {
-    await shareJournal(sheetOf());
-    assert.ok(shared, "the share sheet was asked");
-    assert.equal(copied, null, "a cancel puts nothing on the clipboard behind her back");
-  } finally {
-    delete globalThis.navigator.share;
-    delete globalThis.navigator.clipboard;
-  }
-});
-
-test("a phone with no share sheet falls back to the clipboard, with the whole journal", async () => {
-  let copied = null;
-  globalThis.navigator.clipboard = { writeText: (t) => { copied = t; return Promise.resolve(); } };
-  try {
-    await shareJournal(sheetOf());
-    assert.equal(copied, buildJournalText(sheetOf()),
-      "what reaches the clipboard is the same text the share sheet would have been handed");
-  } finally {
-    delete globalThis.navigator.clipboard;
-  }
+    for (const canShareFiles of [true, false]) {
+      reset();
+      const p = phone({ canShareFiles, share: () => Promise.reject(abort) });
+      try {
+        await shareJournal(sheetOf());
+        assert.equal(p.heard.length, 1,
+          "her cancel ends it there — the journal is not offered again as text behind the sheet");
+        assert.equal(p.copied.length, 0, "and nothing goes on the clipboard behind her back");
+        assert.equal(p.saved().length, 0, "and no file is quietly saved to her phone");
+      } finally { p.off(); }
+    }
+  } finally { reset(); }
 });
 
 test("a share that genuinely failed still gets the journal out", async () => {
-  let copied = null;
-  globalThis.navigator.share = () => Promise.reject(new Error("no handler"));
-  globalThis.navigator.clipboard = { writeText: (t) => { copied = t; return Promise.resolve(); } };
+  const s = saving();
+  reset();
+  const p = phone({ canShareFiles: false, share: () => Promise.reject(new Error("no handler")) });
   try {
     await shareJournal(sheetOf());
-    assert.ok(copied && copied.includes("Sales journal"), "a real failure is what the copy is for");
-  } finally {
-    delete globalThis.navigator.share;
-    delete globalThis.navigator.clipboard;
-  }
+    assert.equal(p.heard.length, 1, "the share sheet was tried and it failed");
+    assert.equal(p.saved().length, 1, "so the document is saved to her phone instead");
+    assert.match(lastToast().textContent, /Saved as a PDF/);
+    assert.equal(p.copied.length, 0, "the copy is the last resort, not the second one");
+  } finally { p.off(); s.off(); reset(); }
+});
+
+test("a phone with no share sheet at all is given the file, not a block of text", async () => {
+  // She asked for a document. On a phone that cannot share one, the honest answer is to put the
+  // document on the phone, not to silently hand her something else.
+  const s = saving();
+  reset();
+  const p = phone({});
+  delete globalThis.navigator.share;
+  try {
+    await shareJournal(sheetOf());
+    assert.equal(p.saved().length, 1, "one download");
+    assert.equal(p.saved()[0].getAttribute("download"), "Sales journal.pdf");
+    assert.equal(s.blobs.length, 1);
+    assert.equal(s.blobs[0].type, "application/pdf", "the file that was saved is the PDF");
+    assert.equal(p.copied.length, 0, "she asked for a document, so a document is what she gets");
+  } finally { p.off(); s.off(); reset(); }
+});
+
+test("where even saving is impossible, the clipboard is the last resort", async () => {
+  // The very bottom rung. Nothing else can work, so the text is what is left — the behaviour
+  // the whole press had before v283, kept for the phone that can do nothing else.
+  reset();
+  const real = URL.createObjectURL;
+  URL.createObjectURL = undefined;
+  const p = phone({});
+  delete globalThis.navigator.share;
+  try {
+    await shareJournal(sheetOf());
+    assert.equal(p.copied.length, 1);
+    assert.equal(p.copied[0], buildJournalText(sheetOf()),
+      "what reaches the clipboard is the same text the share sheet would have been handed");
+  } finally { p.off(); URL.createObjectURL = real; reset(); }
 });
 
 // ── the Print press ─────────────────────────────────────────────────────────

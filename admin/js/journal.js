@@ -5,17 +5,19 @@
 // existed only inside a pop-up she could scroll — nothing she could hand to anyone, keep, or
 // paste into a message.
 //
-// A journal is described ONCE, as a `sheet`, and BOTH renderings read that description: the
-// paper and the shared text can therefore never disagree about a row or a total. It is the
-// same guarantee `expenseRows` and `tradingRows` already keep against the statement itself.
+// A journal is described ONCE, as a `sheet`, and ALL FOUR renderings read that description: the
+// screen, the paper, the message and the PDF file can therefore never disagree about a row or a
+// total. It is the same guarantee `expenseRows` and `tradingRows` already keep against the
+// statement itself.
 //
-// Amounts are carried as NUMBERS, never as formatted strings. Screen, paper and message then
-// all run the same `fmtRM`, so a figure written one way in the app and another way on the paper
-// is not possible by construction.
+// Amounts are carried as NUMBERS, never as formatted strings. Screen, paper, message and PDF
+// then all run the same `fmtRM`, so a figure written one way in the app and another way on the
+// paper is not possible by construction.
 
 import { el, button, copyText, toast } from "./ui.js";
 import { fmtRM } from "./state.js";
 import { longDate, todayISO } from "./dates.js";
+import { A4, makePdf, textWidth, wrapText } from "./pdf.js";
 
 // The rule a plain-text journal draws between its head, its rows and its totals. A fixed
 // width deliberately: a rule that stretched with the longest row would drift line to line
@@ -164,6 +166,190 @@ export function journalSheetEl(sheet, cur = "RM") {
       [s.where ? `From ${s.where}` : "", `printed ${printedOf(s)}`].filter(Boolean).join(" · ")));
 }
 
+// ── The sheet as a PDF file ─────────────────────────────────────────────────────────────────
+//
+// The fourth rendering of the same sheet, and the one that fixes the fault she reported: the
+// share sheet opened on her phone with WhatsApp missing from it, because a bare block of text
+// is not a thing WhatsApp offers itself for. A file is. So the journal leaves as a document —
+// one she can also keep, forward and re-open, which is what she asked for.
+
+// A4 at 20 mm margins, which is what the printed sheet also uses.
+const PDF_MARGIN = 56.7;
+const PDF_RIGHT = A4.w - PDF_MARGIN;
+// Nothing is drawn below this, so the footer below it always has clear paper under it.
+const PDF_BOTTOM = PDF_MARGIN + 38;
+const PDF_LEAD = 14;
+const INK = [0.19, 0.16, 0.14];
+const MUTED = [0.44, 0.42, 0.4];
+const RULE_INK = [0.74, 0.71, 0.68];
+
+// Everything a page of the journal is drawn with, kept in one place so the arithmetic that
+// advances down the page happens in exactly one spot. `y` is always the BASELINE of the next
+// line to be drawn, and drawing a line is the only thing that moves it — which is what stops a
+// rule being drawn through a sentence, the trap a fixed pixel table falls into.
+function sheetPages(s, cur) {
+  const pages = [];
+  let ops = null;
+  let y = 0;
+
+  // A money column measured across the whole sheet, so every figure ends on the same edge. The
+  // digits and "RM" are the same width in both faces, so one measurement serves the bold totals.
+  const moneyW = Math.max(0, ...[
+    ...s.lines.filter((l) => !l.heading).map((l) => money(l.amount, l.dir, cur)),
+    ...s.totals.map((t) => fmtRM(t.amount, cur)),
+  ].map((m) => textWidth(m, { size: 10 })));
+  const colW = Math.max(120, PDF_RIGHT - PDF_MARGIN - moneyW - 16);
+
+  const put = (text, x, options = {}) => {
+    ops.push({ op: "text", x, y, text, font: options.font || "F1",
+      size: options.size || 10, color: options.color || INK });
+  };
+  const rule = (width, color) => ops.push({
+    op: "rule", x1: PDF_MARGIN, y1: y, x2: PDF_RIGHT, y2: y,
+    width: width == null ? 0.6 : width, color: color || RULE_INK });
+
+  const startPage = (continued) => {
+    ops = [];
+    pages.push({ w: A4.w, h: A4.h, ops });
+    y = A4.h - PDF_MARGIN;
+    if (continued) {
+      put(`${s.title} (continued)`, PDF_MARGIN, { font: "F2", size: 11, color: MUTED });
+      y -= 22;
+      rule(0.5);
+      y -= 16;
+      return;
+    }
+    if (s.bakery) { put(s.bakery, PDF_MARGIN, { font: "F2", size: 9, color: MUTED }); y -= 16; }
+    put(s.title, PDF_MARGIN, { font: "F2", size: 18 });
+    y -= 24;
+    if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+    y -= 3;
+    rule(0.8);
+    y -= 17;
+  };
+
+  // Called before anything is drawn, with the height that thing will need. A break therefore
+  // always happens between two whole things, never through one.
+  const need = (height) => { if (y - height < PDF_BOTTOM) startPage(true); };
+
+  // One row: its words, wrapped into the column the money leaves free, with the figure on the
+  // first line and right-aligned. `ruleAbove` draws the line that separates a subtotal.
+  const row = (what, figure, { font = "F1", size = 10, ruleAbove = 0 } = {}) => {
+    const figureW = figure ? textWidth(figure, { font, size }) : 0;
+    const chunks = wrapText(what, Math.max(60, PDF_RIGHT - PDF_MARGIN - figureW - 16), { font, size });
+    need((ruleAbove ? ruleAbove + 7 : 0) + chunks.length * PDF_LEAD);
+    if (ruleAbove) { y -= ruleAbove; rule(0.6); y -= 7; }
+    chunks.forEach((chunk, i) => {
+      put(chunk, PDF_MARGIN, { font, size });
+      if (i === 0 && figure) put(figure, PDF_RIGHT - figureW, { font, size });
+      y -= PDF_LEAD;
+    });
+  };
+
+  startPage(false);
+
+  if (!s.lines.length) {
+    put(s.empty, PDF_MARGIN, { size: 10, color: MUTED });
+    y -= PDF_LEAD;
+  } else {
+    s.lines.forEach((l, i) => {
+      if (l.heading) {
+        need(26);
+        y -= 9;
+        put(l.what, PDF_MARGIN, { font: "F2", size: 10 });
+        y -= 15;
+        return;
+      }
+      const subtotal = !!(l.cls && /total|net/.test(l.cls));
+      // The same rule the screen and the message draw above a subtotal, and never as the first
+      // line of the sheet, where a rule would only underline the head.
+      row(l.what, money(l.amount, l.dir, cur),
+        { font: subtotal ? "F2" : "F1", ruleAbove: subtotal && i > 0 ? 6 : 0 });
+    });
+  }
+
+  if (s.totals.length) {
+    y -= 6;
+    s.totals.forEach((t, i) => {
+      row(t.label, fmtRM(t.amount, cur),
+        { font: "F2", ruleAbove: i === 0 ? 6 : 2 });
+    });
+  }
+
+  if (s.note) {
+    y -= 8;
+    need(24);
+    // A blank line in the note is a paragraph, the same as it is on the screen and the paper.
+    for (const para of s.note.split("\n\n").filter((p) => p.trim())) {
+      const chunks = wrapText(para, PDF_RIGHT - PDF_MARGIN, { size: 8.5 });
+      need(chunks.length * 11.5 + 6);
+      for (const chunk of chunks) {
+        put(chunk, PDF_MARGIN, { size: 8.5, color: MUTED });
+        y -= 11.5;
+      }
+      y -= 6;
+    }
+  }
+
+  // The footer belongs to the last page and to no other, so it is drawn at a fixed height
+  // rather than in the flow — which is why the flow was stopped above it.
+  const foot = [s.where ? `From ${s.where}` : "", `printed ${printedOf(s)}`].filter(Boolean).join(" · ");
+  if (foot) {
+    y = PDF_MARGIN + 16;
+    rule(0.5, [0.8, 0.78, 0.75]);
+    y = PDF_MARGIN + 4;
+    put(foot, PDF_MARGIN, { size: 7.5, color: MUTED });
+  }
+
+  return pages;
+}
+
+// The sheet as the bytes of a PDF file. Hand-written, because this app has no build step and no
+// PDF library — see `pdf.js`.
+export function journalPdf(sheet, cur = "RM") {
+  const s = journalSheet(sheet);
+  return makePdf(sheetPages(s, cur));
+}
+
+// What the document is called when it arrives in the chat. Named after the journal, because
+// that is the name she will look for in WhatsApp's list of documents a week later — not a hash.
+export function journalPdfName(sheet) {
+  const s = journalSheet(sheet);
+  const safe = s.title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim();
+  return `${safe || "Journal"}.pdf`;
+}
+
+// The journal as a File the phone can hand to another app. Returns null where there is no File
+// API at all, which is the honest answer rather than a broken object.
+function journalFile(s, cur) {
+  if (typeof File !== "function" || typeof Blob !== "function") return null;
+  try {
+    return new File([journalPdf(s, cur)], journalPdfName(s), { type: "application/pdf" });
+  } catch (err) {
+    return null;
+  }
+}
+
+// The last resort on a phone with no share sheet: the document is saved to the phone instead,
+// so she still ends up with the PDF she asked for rather than a block of text she did not.
+function saveJournalPdf(s, cur) {
+  if (typeof document === "undefined" || typeof URL === "undefined"
+    || typeof URL.createObjectURL !== "function") return false;
+  let url = "";
+  try {
+    url = URL.createObjectURL(new Blob([journalPdf(s, cur)], { type: "application/pdf" }));
+    const link = el("a", { href: url, download: journalPdfName(s) });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  } catch (err) {
+    if (url) URL.revokeObjectURL(url);
+    return false;
+  }
+}
+
 // Where the sheet is built for the printer. Made on demand rather than carried in the app
 // shell: nothing on screen ever needs it, and a page that has never printed has no node in
 // the tree at all.
@@ -205,21 +391,55 @@ export function printJournal(sheet, cur = "RM") {
   window.print();
 }
 
-// Share one sheet: the phone's own share sheet where there is one — straight into WhatsApp,
-// Mail or Notes — and the clipboard where there is not.
+// Share one sheet. The journal goes as a PDF FILE, because that is the one form WhatsApp
+// actually offers itself for — a bare block of text is not, and that was the fault she hit.
+//
+// A phone is asked what it can take, in order, and the first thing it can do is what happens:
+//
+//   1. the file, where the phone says it can share one — straight into WhatsApp, Mail or Files;
+//   2. the text, where it can share but not share a file, so a journal still leaves the app;
+//   3. the file saved to the phone, where there is no share sheet at all;
+//   4. the clipboard, where even that is not available.
+//
+// A cancel is a DECISION, not a failure: it is swallowed silently at every step and never falls
+// through to the next one. Copying the journal behind her back after she closed the sheet is
+// the one outcome here worse than doing nothing.
 export async function shareJournal(sheet, cur = "RM") {
-  const text = buildJournalText(sheet, cur);
+  const s = journalSheet(sheet);
+  const text = buildJournalText(s, cur);
   const nav = typeof navigator !== "undefined" ? navigator : null;
+  const file = journalFile(s, cur);
+
+  const cancelled = (err) => !!(err && err.name === "AbortError");
+
   if (nav && typeof nav.share === "function") {
+    // `canShare` is what the phone answers with, and it is asked rather than assumed: a phone
+    // that would refuse `files` throws, and a refusal we caused ourselves reads as a fault.
+    let fileOk = false;
+    if (file && typeof nav.canShare === "function") {
+      try { fileOk = nav.canShare({ files: [file] }) === true; } catch (err) { fileOk = false; }
+    }
+    if (fileOk) {
+      try {
+        await nav.share({ files: [file], title: s.title });
+        return;
+      } catch (err) {
+        if (cancelled(err)) return;
+        // The phone refused the file after saying it could take one. The text share below is
+        // the way through, rather than leaving her with nothing.
+      }
+    }
     try {
-      await nav.share({ title: journalSheet(sheet).title, text });
+      await nav.share({ title: s.title, text });
       return;
     } catch (err) {
-      // Her own cancel arrives here as an AbortError. That is a decision, not a fault, and
-      // copying the journal behind her back would be the one outcome worse than doing nothing.
-      if (err && err.name === "AbortError") return;
-      // Anything else is the share genuinely failing, and the copy is the way through.
+      if (cancelled(err)) return;
     }
+  }
+
+  if (file && saveJournalPdf(s, cur)) {
+    toast("Saved as a PDF — send it from WhatsApp");
+    return;
   }
   copyText(text, "Journal copied — paste it into WhatsApp or an email");
 }

@@ -1,8 +1,52 @@
-# Jienluv2bake — change history (v54 → v282)
+# Jienluv2bake — change history (v54 → v283)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**03 Oct 2026 — engine v283, SHARE SENDS THE JOURNAL AS A PDF FILE (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You pressed Share on a journal and the share sheet opened **without
+WhatsApp in it**. Nothing was broken — a phone is handed a journal as ordinary
+text, and WhatsApp does not offer itself for a bare block of text. It does offer
+itself for a **file**. You said to make it share by PDF, and that is what this is.
+
+**What you see now.** The **Share** button does the same thing it always did, and
+what comes out of it is different: the journal arrives in the chat as a **PDF
+document** — `Cash journal.pdf`, `Profit and loss.pdf` — which you can open, keep,
+forward and print again. It is listed for Mail, Notes and Save to Files exactly as
+before, and WhatsApp is on that list now.
+
+**Worked out with your phone, in this order.** The app asks the phone what it can
+take rather than assuming:
+
+- The phone can share a file — you get the **PDF**, which is what happens on yours.
+- The phone says it can share, but not a file — you get the journal as **text**,
+  so it still leaves the app rather than nothing happening.
+- The phone has no share sheet at all — the **PDF is saved to the phone** and a
+  short message says so. You send it from WhatsApp yourself.
+- Even saving is impossible — the journal is **copied** instead, with a message
+  saying so.
+
+**If you open the share sheet and change your mind**, closing it does nothing
+else. Nothing is copied and nothing is saved behind your back, at any of those
+four steps. A cancel is your decision, not a fault.
+
+**What is on the document.** Your shop name as a letterhead, the journal's name
+and the stretch it covers, every row and every total in the same words and the
+same order as the screen, the note that explains the figures, and along the bottom
+`From More → Profit · printed 3 Oct 2026`. Money that went out reads `-RM 12.00`.
+A long journal runs onto a second page, which says at the top what it continues.
+A4, black on white, 20 mm margins. It is about 3 KB — small enough for any chat.
+
+**Print has not changed.** The Print button still opens the phone's own print
+sheet, and **Save as PDF** is still a choice inside it.
+
+**What did not change.** No figure moved and no rule about your money changed. The
+screen is identical. The document is a fourth rendering of the same journal the
+screen, the paper and the sent message already shared, so the figure in the file
+is the figure on the screen, to the cent.
 
 **03 Oct 2026 — engine v282, EVERY JOURNAL CAN LEAVE THE SCREEN: PRINT IT OR SEND
 IT (no database step, nothing to upload — pushing this one is the whole of it).**
@@ -26,6 +70,8 @@ same order, under its last line:
   - **If you open the share sheet and change your mind**, closing it does nothing
     else. The journal is not copied behind your back. A cancel is your decision,
     not a fault.
+  - __Superseded the next day by v283: the phone is handed a PDF file now, not
+    plain text, because WhatsApp was not appearing in the share sheet.__
 
 **Where the two buttons are.** Every book in the app:
 
