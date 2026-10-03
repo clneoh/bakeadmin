@@ -42,6 +42,55 @@ export function codeNameOk(s) {
   return /^[A-Z0-9]{3,16}$/.test(normCode(s));
 }
 
+// ── v286: a suggested code the customer can read off a card ──────────────────
+//
+// A code is read by eye TWICE: she types it when she makes it, and the customer types it off
+// the printed card. The pairs people get wrong doing that are 0/O, 1/I and 1/L — a customer
+// holding a card that says `FRESH1O` has no way to know which one it is. So a SUGGESTED code
+// is cut from an alphabet with none of those five characters in it.
+//
+// NOTHING IS FORCED BY THIS. The box stays hers to type into, and every code that already
+// exists keeps working exactly as it did — the shape rule (codeNameOk) is unchanged and still
+// allows the look-alikes, because a code she has already printed cannot be renamed.
+export const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+export const CODE_LENGTH = 5;
+
+function randomChars(n) {
+  const out = [];
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const buf = new Uint8Array(n);
+    crypto.getRandomValues(buf);
+    for (let i = 0; i < n; i += 1) out.push(CODE_ALPHABET[buf[i] % CODE_ALPHABET.length]);
+    return out.join("");
+  }
+  // The same fallback the rest of the app uses, so nothing here depends on crypto existing.
+  for (let i = 0; i < n; i += 1) {
+    out.push(CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]);
+  }
+  return out.join("");
+}
+
+// A fresh code that is not already in use. `taken` may be a list of codes or a list of code
+// RECORDS — the two shapes this app hands it — and the only thing that matters is that a
+// printed card is never given a name that already means something else: two codes sharing one
+// name is the fault the shop cannot recover from, because it would take the wrong amount off.
+export function makeCode(taken = []) {
+  const used = new Set(
+    [...(taken || [])].map((c) => normCode((c && c.code) || c || "")),
+  );
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const c = randomChars(CODE_LENGTH);
+    if (!used.has(c)) return c;
+  }
+  // 31^5 is 28.6 million, so reaching here means `taken` is not what we think it is. A longer
+  // code is the honest answer — never hand back one that is already in use.
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const c = randomChars(CODE_LENGTH + 3);
+    if (!used.has(c)) return c;
+  }
+  return randomChars(CODE_LENGTH + 6);
+}
+
 // A brand-new code, every family at its no-opinion default. The one exception is
 // "when" — a code with no start date starts the day it is made, so the default
 // from-date is filled by the caller, not here (this file never reads the clock).

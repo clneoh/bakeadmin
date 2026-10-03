@@ -1285,6 +1285,19 @@ option.tone-off { color: var(--muted); }
 .po-buy { font-weight: 600; }
 .po-need { font-size: 12px; font-weight: 400; color: var(--muted); }
 
+/* ---------- The code box and its Suggest one button (v286) ---------- */
+/* They share a line, and the BOX keeps the room: she is usually typing her own code, and the
+   suggestion is the occasional convenience rather than the main event, so the button is a fixed
+   width and the box takes what is left.
+   AND THE LINE WRAPS. Measured on a narrow screen the fixed-width button squeezed the box down
+   to 71 pixels — a box too small to read a code back in, which is the very fault this version
+   exists to prevent. So the box asks for 180 pixels of basis: give it that and they share a
+   line, do not and the button drops below and the box takes the whole width. Either way the box
+   is never the thing that gets crushed. */
+.code-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.code-row .input { flex: 1 1 180px; min-width: 0; max-width: 100%; }
+.code-row .btn { flex: 0 0 auto; }
+
 /* ---------- Amending a shopping list at the shop (v285) ---------- */
 /* One line per row: what it is on the left, the two numbers she changes beside each other,
    the line's own total under them, and the ✕ that takes it off the list. A grid rather than

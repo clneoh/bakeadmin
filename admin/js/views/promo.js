@@ -22,7 +22,7 @@ import { fmtRM, newId, save } from "../state.js";
 import { todayISO, longDate } from "../dates.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { translateTo, translateAllowed } from "../translate.js";
-import { blankCode, codeProblem, freezeProblem, frozenProblem, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
+import { blankCode, codeProblem, freezeProblem, frozenProblem, makeCode, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
 import { usageByCode, usageOf } from "../promo-usage.js";
 
 export function renderPromoCodes(root, state) {
@@ -330,6 +330,13 @@ function buildCodeEditor(state, code) {
     class: "input", placeholder: "e.g. FRESH10", autocapitalize: "characters",
     value: seed.code,
   });
+  // A code the customer can read off a card without having to guess (v286). It only fills the
+  // box in — she can type over it, and can go on typing her own codes exactly as before. It
+  // avoids the codes already in use, because a card that carries a name already meaning
+  // something else would take the wrong amount off.
+  const suggest = button("Suggest one", () => {
+    name.value = makeCode(state.promoCodes || []);
+  }, "soft");
   const kind = el("select", { class: "input" },
     el("option", { value: "rm", selected: seed.gives.type === "rm" }, "Ringgit off"),
     el("option", { value: "pct", selected: seed.gives.type === "pct" }, "Percent off"),
@@ -469,14 +476,15 @@ function buildCodeEditor(state, code) {
     toast(filled ? "Translated — edit it if you like" : "Nothing to translate");
   }
 
-  return { name, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
+  return { name, suggest, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
     valueField, capField, basketField, oftenField, ceilingField, translateSay, collect };
 }
 
 function editorFields(editor) {
   return [
-    el("div", { class: "field" }, el("label", {}, "Code"), editor.name,
-      el("p", { class: "hint" }, "What the customer types. Letters and numbers only, so it reads easily off a card — FRESH10, not FRESH 10.")),
+    el("div", { class: "field" }, el("label", {}, "Code"),
+      el("div", { class: "code-row" }, editor.name, editor.suggest),
+      el("p", { class: "hint" }, "What the customer types. Letters and numbers only, so it reads easily off a card — FRESH10, not FRESH 10. The Suggest one button makes a code with no 0, O, 1, I or L in it, because those are the characters people mix up when they read a code off a card and type it in. Your own codes are unaffected — it only fills the box in, and you can type over it.")),
     el("div", { class: "field" }, el("label", {}, "What it gives"), editor.kind),
     el("div", { class: "form-grid" }, editor.valueField, editor.capField),
     el("div", { class: "form-grid" },

@@ -644,3 +644,46 @@ test("cancelling the card changes nothing at all", () => {
   assert.deepEqual(opened, []);
   assert.deepEqual(chipsOf("FRESH10"), []);
 });
+
+// ── v286: a suggested code she can read off a card, and the customer can type ──
+
+test("the New code card's Suggest one fills the box, and the code it gives actually saves", () => {
+  const state = stateWith([CODE({ code: "FRESH10" })]);
+  paint(state);
+  const card = root.querySelectorAll(".card")
+    .find((c) => (c.querySelector("h3") || {}).textContent === "New code");
+  const box = card.querySelectorAll("input").find((i) => i.attrs.placeholder === "e.g. FRESH10");
+  assert.ok(box, "the code box is on the card");
+  assert.equal(box.value, "", "a new code starts with an empty box — nothing is chosen for her");
+
+  pressOf(card, "Suggest one").click();
+  assert.match(box.value, /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/,
+    "five characters, from the alphabet with no 0, O, 1, I or L in it");
+  assert.notEqual(box.value, "FRESH10", "and never a name she already has");
+
+  // A suggestion is only worth anything if it SAVES, so give it an amount and add it. This is
+  // also what proves the suggested shape passes the engine's own name rule rather than only
+  // looking right in the box.
+  const amount = card.querySelectorAll("input").filter((i) => i.attrs.type === "number")[0];
+  amount.value = "10";
+  pressOf(card, "Add code").click();
+  assert.equal(state.promoCodes.length, 2, "the suggested code went onto the list");
+  assert.match(state.promoCodes[1].code, /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/);
+  assert.ok(!/[0O1IL]/.test(state.promoCodes[1].code));
+});
+
+test("a code she types herself is untouched by any of this", () => {
+  // The button is additive. Every code that already exists, and every code typed by hand,
+  // keeps working exactly as it did — the shape rule was not narrowed to the safe alphabet.
+  const state = stateWith([CODE({ code: "RAYA1O" })]);
+  paint(state);
+  const card = root.querySelectorAll(".card")
+    .find((c) => (c.querySelector("h3") || {}).textContent === "New code");
+  const box = card.querySelectorAll("input").find((i) => i.attrs.placeholder === "e.g. FRESH10");
+  box.value = "MY1LOVE";
+  const amount = card.querySelectorAll("input").filter((i) => i.attrs.type === "number")[0];
+  amount.value = "5";
+  pressOf(card, "Add code").click();
+  assert.equal(state.promoCodes.length, 2, "a code with look-alikes in it is still accepted");
+  assert.equal(state.promoCodes[1].code, "MY1LOVE", "stored exactly as she typed it");
+});

@@ -8,8 +8,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  blankCode, codeNameOk, codeProblem, codesOf, evaluate, findCode, minimumOf,
-  normCode, normalizeCode, offerOf, publishCodes, SAY_MAX, stoppedBy, worthOf,
+  blankCode, CODE_ALPHABET, CODE_LENGTH, codeNameOk, codeProblem, codesOf, evaluate,
+  findCode, makeCode, minimumOf, normCode, normalizeCode, offerOf, publishCodes,
+  SAY_MAX, stoppedBy, worthOf,
 } from "../admin/js/promo.js";
 
 const TODAY = "2026-10-02";
@@ -348,4 +349,71 @@ test("her own sentence can never change what a code is called", () => {
   assert.equal(c.code, "FRESH10", "the sentence is not spliced into the name");
   assert.equal(codeProblem([], code({ code: "AB", say: "Ask us for the good code" })).fail, "shape",
     "and a name too short to read off a card is still refused, however nice the sentence is");
+});
+
+// ── v286: a suggested code the customer can read off a card ──────────────────
+
+test("a suggested code is drawn from an alphabet with no pair people mix up", () => {
+  // The code is read by eye twice — she types it when she makes it, and the customer types it
+  // off the printed card. 0/O, 1/I and 1/L are the pairs that go wrong doing that, so the
+  // alphabet carries none of them.
+  for (const ch of "0O1IL") {
+    assert.ok(!CODE_ALPHABET.includes(ch), `${ch} must not be in the suggested alphabet`);
+  }
+  assert.equal(CODE_ALPHABET.length, 31, "31 characters: the ten digits minus 0 and 1, and A-Z minus I, L and O");
+  assert.equal(new Set(CODE_ALPHABET).size, CODE_ALPHABET.length, "and no character twice");
+});
+
+test("makeCode returns a code that is readable, typed-sized, and passes the shape rule", () => {
+  for (let i = 0; i < 200; i += 1) {
+    const c = makeCode([]);
+    assert.equal(c.length, CODE_LENGTH);
+    for (const ch of c) assert.ok(CODE_ALPHABET.includes(ch), `${c} carries ${ch}`);
+    assert.ok(codeNameOk(c), `${c} must be a code she could actually save`);
+  }
+});
+
+test("makeCode never hands back a name that is already taken", () => {
+  // The one fault the shop could not recover from: two codes sharing a name would take the
+  // wrong amount off.
+  //
+  // THE DRAW IS PINNED, and that is the whole point of this test. Left random it passes even
+  // with the check deleted, because a five-character code is almost never one of the two or
+  // three names a fixture holds — an assertion that cannot fail is not an assertion. Pinning
+  // it makes the taken name exactly the one the generator would otherwise hand back.
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    value: (buf) => { for (let i = 0; i < buf.length; i += 1) buf[i] = 0; return buf; },
+    configurable: true, writable: true,
+  });
+  try {
+    const wouldBe = "22222";
+    assert.equal(makeCode([]), wouldBe, "with the draw pinned, this is the code it would give");
+    assert.notEqual(makeCode([wouldBe]), wouldBe, "so a name already spoken for is refused");
+    assert.notEqual(makeCode([{ code: wouldBe }]), wouldBe, "and a RECORD is read as its own code");
+    assert.notEqual(makeCode([` ${wouldBe.toLowerCase()} `]), wouldBe, "however carelessly it was stored");
+  } finally {
+    delete globalThis.crypto.getRandomValues;
+  }
+});
+
+test("when the alphabet is exhausted it LENGTHENS rather than repeating a name", () => {
+  // 31^5 is 28.6 million, so a real app never reaches this — but if the source of randomness
+  // is stuck, the honest answer is a longer code, never a duplicate. Pinning the randomness
+  // proves the branch without pretending we can exhaust the space.
+  // `globalThis.crypto` itself is getter-only, but the method on it can be shadowed — and
+  // removed again afterwards, so nothing else in the run sees a pinned draw.
+  const frozen = "22222";                      // every draw lands on the alphabet's first letter
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    value: (buf) => { for (let i = 0; i < buf.length; i += 1) buf[i] = 0; return buf; },
+    configurable: true, writable: true,
+  });
+  try {
+    assert.equal(makeCode([]), frozen, "with the draw pinned, the first suggestion is deterministic");
+    const escaped = makeCode([frozen, "22222222"]);
+    assert.ok(escaped.length > CODE_LENGTH, "and it grows rather than handing back a name in use");
+    assert.ok(!escaped.includes("0") && !escaped.includes("1"));
+  } finally {
+    delete globalThis.crypto.getRandomValues;
+  }
+  assert.notEqual(makeCode([]), "", "and the real source of randomness is back");
 });

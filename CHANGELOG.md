@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v285)
+# Jienluv2bake — change history (v54 → v286)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**03 Oct 2026 — engine v286, A SUGGESTED PROMO CODE YOU CAN READ OFF A CARD (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You asked me to compare your promo codes with the printed-label codes
+munchies used to run and see if there was anything worth taking. There was one
+thing, and it is small: a code is read by eye **twice** — you type it when you make
+it, and the customer types it off the printed card. The pairs people get wrong
+doing that are **0 and O**, and **1 and I or L**. Your codes were allowed to
+contain any of them.
+
+**What you see now.** On **More → Promo codes**, the **New code** card has a
+**Suggest one** button beside the code box. Press it and the box fills with a code
+such as `PCX68` — five characters drawn from an alphabet with no **0**, **O**,
+**1**, **I** or **L** in it, so there is nothing on the card to misread.
+
+**Nothing is chosen for you.** The box is still yours to type in, and the button
+only fills it — type over it, or ignore it and type your own code as you always
+have. **Every code you already have keeps working exactly as it did**, including
+ones with those characters in them: a code that is already printed cannot be
+renamed, and none of them were touched.
+
+**It will not hand you a name you already use.** Before suggesting, it checks
+every code on the list and never offers one that is spoken for — two codes sharing
+a name is the one thing the shop could not recover from, because it would take the
+wrong amount off.
+
+**The button leaves the room to the box.** The code box asks for a sensible minimum
+width; if the screen is wide enough they sit on one line, and if it is not the
+button drops below and the box takes the whole width. Either way the box is never
+the part that gets squeezed — measured at a 375-pixel phone screen the box is 181
+pixels beside the button, and on anything narrower it is 208 or more.
+
+**Where this came from.** Munchies' printed-label codes carried the same idea, and
+their comment names the reason exactly: __"a customer or the owner may type the code
+by hand off a printed label, and those pairs are the ones people get wrong."__ This
+is the only piece of theirs worth taking; the rest of theirs is a printed-label
+pipeline for shops, which you do not have. **No database step and nothing to
+upload.**
 
 **03 Oct 2026 — engine v285, THE SHOPPING LIST CAN BE CORRECTED AT THE SHOP, AND
 AN INGREDIENT KEEPS ITS PRICES (no database step, nothing to upload — pushing
