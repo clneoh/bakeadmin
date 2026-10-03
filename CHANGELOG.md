@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v286)
+# Jienluv2bake — change history (v54 → v287)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v287, EVERY CODE HAS A LABEL, AND PRINTING NO LONGER
+FREEZES IT (no database step, nothing to upload — pushing this one is the whole
+of it).**
+
+**Why.** In your words: __"instead of printed card, i think something like what we
+have in shop and code is more useful, we have QRs, some active some retired, when
+a promo code come together with a QR, when you tab on label, you are allow to copy,
+print."__ Until now the only QR in the app was drawn on a **separate printed-card
+page**, reached by a **Print it** press that was a deliberate point of no return —
+it froze the offer permanently. There was no copy, and no QR anywhere on screen.
+
+**Every code now has a label, on its own row.** Under **More → Promo codes**, each
+code carries **its own QR**, so the list reads as a set of labels with the life
+chips saying which are still going. **Tap the label** and it opens: the QR drawn
+large enough to hold another phone up to, the link in words, **Copy link**, and
+**Print it**. The square is built from the very address the printed card uses, so a
+label and a card always point at one place — and **Copy link** pastes straight into
+WhatsApp, where the shop opens with the code already in the box.
+
+**A retired code keeps its label.** An **ended** code still shows its QR and still
+offers **Copy link** — a dead link is worth being able to look at — but it is **not
+offered a print**, because a label with an ended code in it would not work. It says
+so rather than simply hiding the button.
+
+**Printing no longer freezes anything.** Until this version, the first print pinned
+the offer for good: the amount, who it is for, the smallest basket, what it cannot
+sit beside and the name all stopped moving, an end date could only be moved later, a
+ceiling could only be raised, and the code could not be deleted at all. **All of
+that is gone.** Print and copy as often as you like, change the offer whenever you
+like, and **retire a label by ending the code** — which is what ending was always
+for: it stops new uses and leaves orders already placed with what they were promised.
+There is no new thing to learn; **End** is the retirement, and **Pause** is the
+reversible version of it.
+
+**The one thing to know, and the app says it on the label itself.** A label already
+in someone's hand is honoured at whatever the offer says when the customer **orders**,
+not when they picked it up. So if you print a hundred cards and then change the offer,
+those cards give the new offer. That is the trade, and it is better to read it here
+than to find out from a customer.
+
+**What has NOT changed.** A code still needs a **name** and a **cost ceiling** before
+it can be given a label — a label carries no number and no end date, so the ceiling is
+the only thing bounding what it can cost you. Editing a code still cannot reach back
+into an order that already used it: every order keeps the code as it was written when
+the customer typed it.
+
+**No database step and nothing to upload.** This is `admin/` only — no SQL, no Edge
+Function, no key. Pushing it is the whole of it.
 
 **03 Oct 2026 — engine v286, A SUGGESTED PROMO CODE YOU CAN READ OFF A CARD (no
 database step, nothing to upload — pushing this one is the whole of it).**

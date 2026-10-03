@@ -93,7 +93,6 @@ test("every family has a no-opinion default, so a record that predates a family 
   for (const family of ["state", "vis", "who", "when", "basket", "gives", "often", "beside"]) {
     assert.deepEqual(c[family], b[family], `${family} was left without its no-opinion default`);
   }
-  assert.equal(c.frozen, false);
   assert.equal(c.used, 0);
   assert.equal(c.given, 0);
 });

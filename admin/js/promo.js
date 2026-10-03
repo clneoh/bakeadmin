@@ -112,7 +112,6 @@ export function blankCode() {
     code: "",
     state: "live", // live | paused | ended
     vis: "public", // public = may be advertised; personal = never advertised
-    frozen: false, // printed: the offer can no longer be re-written
     who: { type: "all" }, // all | first
     when: { from: "", to: "" }, // ISO dates; to "" = no end date
     basket: { type: "none", amount: 0 }, // none | amount
@@ -164,7 +163,6 @@ export function normalizeCode(rec) {
     code: normCode(src.code),
     state: pick(src.state, ["live", "paused", "ended"], b.state),
     vis: pick(src.vis, ["public", "personal"], b.vis),
-    frozen: src.frozen === true,
     who: { type: pick(who.type, ["all", "first"], b.who.type) },
     when: { from: iso(when.from), to: iso(when.to) },
     basket: {
@@ -355,7 +353,6 @@ export function publishCodes(state, counts = null) {
       code: c.code,
       state: c.state,
       vis: c.vis,
-      frozen: c.frozen,
       used: n ? n.used : c.used,
       given: n ? n.given : c.given,
       who: c.who,
@@ -401,81 +398,36 @@ export function codeProblem(list, rec, selfId = "") {
   return null;
 }
 
-// A date range that has moved BACKWARDS — a promise taken away rather than
-// extended. Generosity has no direction problem: an end date can be dropped
-// altogether (a code that never runs out is the most generous it can be) and a
-// start date can be brought forward, but setting an end date where there was
-// none, pulling one earlier, or pushing a start date later all refuse someone
-// holding a card today.
-function datesNarrowed(b, a) {
-  if (b.to ? (a.to && a.to < b.to) : Boolean(a.to)) return true;
-  if (b.from ? (a.from && a.from > b.from) : Boolean(a.from)) return true;
-  return false;
-}
+/* THE GATE ON A LABEL — the only rule left about handing a code out.
 
-// A ceiling that has moved DOWN. 0 means "no limit at all" — the top of the
-// scale on both bounds, the order count and the ringgit total — so raising a
-// ceiling, or removing it, is always allowed and lowering one never is. A
-// ceiling is deliberately not printed on the card, which is exactly why it is
-// hers to raise: a launch that is going well can be allowed to run longer, and
-// nobody holding a card is any worse off for it.
-function ceilingNarrowed(b, a) {
-  const n = (o) => (o.type === "quota" ? Number(o.n) || 0 : 0);
-  const rm = (o) => Number(o.maxRM) || 0;
-  const down = (was, now) => (was === 0 ? now > 0 : now > 0 && now < was);
-  return down(n(b), n(a)) || down(rm(b), rm(a));
-}
-
-/* WHAT A PRINTED CODE MAY STILL CHANGE. Once a card is in someone's hand it goes
-   on saying what it said, so the offer on it is frozen: the name, what it gives,
-   who it is for, the smallest basket and what it cannot sit beside can never be
-   re-written. Only two things may still move, and only one way — the end date
-   later, the ceiling up — because being generous with someone holding a card
-   cannot hurt them and taking something back can.
-
-   Everything that is NOT the promise stays hers: her own sentence for the shop,
-   who may see it, and whether the code is live, paused or ended. Pausing and
-   ending are the two brakes, and a rule that froze them would leave her with a
-   code she could neither stop nor restart.
-
-   Takes the code as it WAS and as it is about to be, and answers with a machine
-   reason or null — never a sentence, so a screen can word it and a second
-   business can word it differently. An unfrozen code is never refused: the whole
-   of this rule is about what printing pins down.                              */
-export function frozenProblem(before, after) {
-  const b = normalizeCode(before);
-  const a = normalizeCode(after);
-  if (!b.frozen) return null;
-  if (a.code !== b.code) return { fail: "frozenName" };
-  if (a.gives.type !== b.gives.type || a.gives.value !== b.gives.value || a.gives.cap !== b.gives.cap) {
-    return { fail: "frozenGives" };
-  }
-  if (a.who.type !== b.who.type) return { fail: "frozenWho" };
-  if (a.basket.type !== b.basket.type || a.basket.amount !== b.basket.amount) return { fail: "frozenBasket" };
-  if (a.beside.type !== b.beside.type) return { fail: "frozenBeside" };
-  if (datesNarrowed(b.when, a.when)) return { fail: "frozenDates" };
-  if (ceilingNarrowed(b.often, a.often)) return { fail: "frozenCeiling" };
-  return null;
-}
-
-/* THE GATE ON PRINTING, which is a different question from frozenProblem above.
-
-   frozenProblem asks "may an ALREADY printed code change". This asks "may this
-   code be printed at all" — the step before. The answer turns on one thing: a
-   card carries no number and no end date (a date is a promise the card could not
+   A label carries no number and no end date (a date is a promise it could not
    keep, and a count is one it could not count), so the ceiling is the only bound
-   the card leaves standing. A code with no ceiling would go out on paper with
-   nothing at all stopping what it can cost her, and paper cannot be recalled.
+   it leaves standing. A code with no ceiling would go out on paper — or into a
+   message — with nothing at all stopping what it can cost her.
 
-   Zero means NO LIMIT here, not a small one — it is the top of the scale rather
+   Zero means NO LIMIT here, not a small one: it is the top of the scale rather
    than the bottom, which is why the test is `<= 0` on both bounds and why setting
    either one is enough to pass.
 
-   A code with no name is refused too: a card that prints no code is a card the
-   shop cannot accept, so the name is checked before the ceiling.                */
-export function freezeProblem(rec) {
+   A code with no name is refused too: a label that prints no code is one the shop
+   cannot accept, so the name is checked before the ceiling.
+
+   WHAT USED TO BE HERE, and why it is not (v278 → v286, removed v287). Printing
+   once froze a code for good — the name, what it gives, who it is for, the
+   smallest basket and what it cannot sit beside could never be re-written, and
+   only the end date (later) and the ceiling (up) could move. The owner removed
+   that on 4 Oct 2026: a label is now printed and copied as often as she likes,
+   the offer stays editable, and a label is RETIRED instead. Retiring already
+   existed — `ended` stops new uses while orders already placed keep what they
+   were promised, and `paused` is the reversible version — so nothing new was
+   needed for it.
+
+   The one consequence, which the screen, the guide and the changelog all say out
+   loud rather than hide: a label already in someone's hand is honoured at
+   whatever the offer says when they ORDER, not when they picked it up.        */
+export function labelProblem(rec) {
   const c = normalizeCode(rec);
-  if (!c.code) return { fail: "freezeNoCode" };
+  if (!c.code) return { fail: "labelNoCode" };
   const n = c.often.type === "quota" ? Number(c.often.n) || 0 : 0;
   const rm = Number(c.often.maxRM) || 0;
   if (n <= 0 && rm <= 0) return { fail: "noCeiling" };
