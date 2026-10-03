@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v289)
+# Jienluv2bake — change history (v54 → v290)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v290, YOU CAN ADD A CUSTOMER YOURSELF, AND READ YOUR
+REMARK ON THE LIST (no database step, nothing to upload — pushing this one is the
+whole of it).**
+
+**Why.** Two things, and they arrived together. **A partner who has never ordered
+from you had nowhere to live** — until now a person existed only by placing an
+order, so a partner you recruited to hand out labels could not be named as a promo
+code's owner. And you wanted to **read your note about someone without opening
+them**.
+
+**What you see now, on More → Customers.**
+
+- **A "New customer" card.** Add someone by hand — a partner, or a friend who sends
+  people your way. **A name or a number is enough**; everything else (their reward,
+  their note, a photo) is written exactly where it always was.
+- **They appear under their own heading: "Added by hand — no orders yet"**, at the
+  bottom of the list, with a count. Their card opens like anyone else's, and
+  fine-tuning their reward works there too.
+- **Your remark now shows on the row itself**, so you can read it without opening
+  anyone — in your own words, on one line, whichever is longest clipped with the
+  full note still one tap away.
+
+**The important part, and why they are in the same list rather than a separate one.**
+Your customer list stays what it was — **people who have ordered**, with their spend
+and their last delivery — and the people you added simply sit underneath, grouped.
+They are counted, they export to the CSV, they can be messaged in bulk, and **they
+are offered by the name box when you take an order**. That last one matters most: if
+they had been kept in a list of their own, the day your partner finally ordered the
+app would have offered you nothing, you would have typed the name and number by
+hand, and that one person would have become **two records** — one keyed by name, one
+by number, for good. **The moment they order they move up into the list proper, by
+themselves.**
+
+**Two things that would have read as faults.** A hand-added person has no orders,
+and their row would have said **"0 orders · 0 units · about RM 0.00"** — the shape
+this app uses for a broken screen. It now says what is true: __"Added by hand — no
+orders yet"__. And opening their card said __"This customer's orders were removed"__,
+which is untrue of someone who never had any, and reads as lost data. It now says
+they have not ordered yet.
+
+**No database step and nothing to upload** — `admin/` only.
 
 **04 Oct 2026 — engine v289, A NAMED REWARD, AND A CODE THAT NAMES ITS PERSON
 (no database step, nothing to upload — pushing this one is the whole of it).**

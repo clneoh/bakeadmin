@@ -76,6 +76,9 @@ export function renderCustomers(root, state, params) {
   const shown = customerList(state, sort, who, today);
   const all = who === "all" ? shown : customerList(state, sort, "all", today);
   const phoneShown = shown.filter((r) => r.whatsapp).length;
+  // How many of the people on screen she added herself (v290) — named in the count above, so the
+  // total cannot read as "everyone here has ordered from me".
+  const addedCount = shown.filter((r) => r.manual).length;
 
   // Re-renders via the selects keep every setting (sort, who, pick) in the URL.
   const nav = (p) => navigate(`#/customers?sort=${sortSel.value}&who=${whoSel.value}${p ? "&pick=1" : ""}`);
@@ -99,14 +102,29 @@ export function renderCustomers(root, state, params) {
     el("div", { class: "card" },
       el("h2", { style: "margin:0 0 2px" }, "Customer list"),
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        // "in your history" stopped being true the moment a person could be added by hand (v290):
+        // a partner she recruited has no history at all. The count says what it counts.
         who === "all"
-          ? `${shown.length} customer${shown.length === 1 ? "" : "s"} in your history · ${phoneShown} with a WhatsApp number.`
+          ? `${shown.length} customer${shown.length === 1 ? "" : "s"}${addedCount ? `, ${addedCount} added by hand` : ""} · ${phoneShown} with a WhatsApp number.`
           : `${shown.length} of ${all.length} customer${all.length === 1 ? "" : "s"} match — tap a name to see their history.`),
       el("div", { class: "two-col" },
         el("div", { class: "field" }, el("label", {}, "Who to look at"), whoSel),
         el("div", { class: "field" }, el("label", {}, "Sort by"), sortSel)),
       finder,
       finderCount),
+    // SOMEONE SHE ADDS HERSELF (v290). Until this, a person existed only by ordering — so a
+    // partner recruited to hand labels out had nowhere to live, and could not be named as a promo
+    // code's owner. It opens the SAME editor the profile card uses, in its creating shape.
+    el("div", { class: "card" },
+      el("h2", { style: "margin:0 0 2px" }, "New customer"),
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "Someone who has not ordered yet — a partner who hands your labels out, or a friend who sends people your way. They join this same list under “Added by hand”, they can be given a reward and a code, and the moment they order they move up into the list proper. A name or a number is enough to start."),
+      button("＋ Add a customer", () => editProfilePopup(
+        state,
+        { _key: "", name: "", whatsapp: "", profile: null },
+        drawList,
+        { newCustomer: true },
+      ), "soft")),
     msgCard,
     el("h2", { class: "section" },
       who === "gone30" ? "Quiet customers — no order in 30 days"
@@ -145,7 +163,19 @@ export function renderCustomers(root, state, params) {
       return;
     }
     finderCount.textContent = q.length >= 2 ? `${rows.length} of ${now.length} match “${q}”` : "";
-    listBox.replaceChildren(...rows.map(rowEl));
+    // THE HEADING SHE ASKED FOR (v290). It is a GROUPING, not a second list: the hand-added people
+    // are in the same book, counted, exportable, messageable and offered by the order form's own
+    // name suggestions — they are only drawn apart, so the list never reads as though they had
+    // ordered. Grouped under EVERY sort (under `name` they would otherwise be interleaved), and
+    // they are zero under `orders`/`units`/`recent` so the top of the list is unchanged.
+    const ordered = rows.filter((r) => !r.manual);
+    const added = rows.filter((r) => r.manual);
+    const nodes = ordered.map(rowEl);
+    if (added.length) {
+      nodes.push(el("h3", { class: "section" }, `Added by hand — no orders yet (${added.length})`));
+      nodes.push(...added.map(rowEl));
+    }
+    listBox.replaceChildren(...nodes);
   }
 
   function rowEl(r) {
@@ -165,24 +195,36 @@ export function renderCustomers(root, state, params) {
 
     const subs = [
       r.whatsapp ? `📱 ${r.whatsapp}` : "No number saved",
-      `${r.orders} order${r.orders === 1 ? "" : "s"} · ${r.units} unit${r.units === 1 ? "" : "s"} · ${r.totalSpend > 0 ? `about ${money(state, r.totalSpend)}` : "no prices set"}${r.fav ? ` · likes ${r.fav}` : ""}`,
+      // SOMEONE SHE ADDED BY HAND HAS NO ORDERS (v290), and "0 orders · 0 units · about RM 0.00"
+      // is the shape this app uses for a broken screen, not for a fact. It says what is true.
+      r.manual
+        ? "Added by hand — no orders yet"
+        : `${r.orders} order${r.orders === 1 ? "" : "s"} · ${r.units} unit${r.units === 1 ? "" : "s"} · ${r.totalSpend > 0 ? `about ${money(state, r.totalSpend)}` : "no prices set"}${r.fav ? ` · likes ${r.fav}` : ""}`,
     ];
     if (r.lastOrdered) {
       subs.push(`last ${short(r.lastOrdered)}${r.last && r.last !== r.lastOrdered ? ` · delivered ${short(r.last)}` : ""}`);
     }
-    // A saved profile adds a small line under the row (dog + why they stand out).
-    if (r.profile && (r.profile.dogName || r.profile.likes || r.profile.avoid)) {
+    // A saved profile adds a small line under the row — the dog, why they stand out, and HER OWN
+    // NOTE (v290). `notes` has to be in the GUARD as well as in the line below: until this, a
+    // customer whose only saved detail was a note drew nothing at all.
+    if (r.profile && (r.profile.dogName || r.profile.likes || r.profile.avoid || r.profile.notes)) {
       const bits = [];
       if (r.profile.dogName) bits.push(`🐕 ${r.profile.dogName}`);
       if (r.profile.likes) bits.push(`likes ${r.profile.likes}`);
       if (r.profile.avoid) bits.push(`avoids ${r.profile.avoid}`);
-      subs.push(bits.join(" · "));
+      if (bits.length) subs.push(bits.join(" · "));
+      // THE REMARK, on a line of its own and clamped to one (see .li-note in app.css): a note is
+      // free text and "Anything to remember" can be a whole sentence. The row must not grow to
+      // four lines and bury the list — the whole note is one tap away in the profile card.
+      if (r.profile.notes) subs.push(el("div", { class: "li-sub li-note" }, r.profile.notes));
     }
 
     row.append(
       el("div", { class: "li-main" },
         el("div", { class: "li-title" }, avatarEl(r.profile, "sm"), el("span", {}, customerRowName(r))),
-        ...subs.map((s) => el("div", { class: "li-sub" }, s))),
+        // A sub-line is a string, which gets the plain wrapper — except the note, which arrives
+        // already wrapped so it can carry a class of its own.
+        ...subs.map((s) => (s && s.nodeType ? s : el("div", { class: "li-sub" }, s)))),
       el("div", { class: "li-right" },
         r.whatsapp ? button("💬 Chat", (ev) => { ev.stopPropagation(); openChat(r); }, "ghost small") : null,
         mark));
@@ -344,7 +386,12 @@ function profileBlockEl(state, r, refresh, onSaved) {
 // dog's name, a photo, what they like, what to avoid, and a note. Photo is
 // shrunken to a thumb (photo.js) before it's saved; Remove clears it. Saved
 // profiles ride the synced customers collection, so both phones see them.
-function editProfilePopup(state, r, afterSave) {
+// `opts.newCustomer` is the ONLY difference between adding someone and editing someone (v290):
+// with an empty `_key` and no profile, `upsertProfile` already creates rather than updates, so the
+// card only has to change its words. A SECOND FORM was the tempting alternative and the wrong one —
+// it would be a fifth place a profile field can be dropped from, the same trap v289 documented.
+function editProfilePopup(state, r, afterSave, opts = {}) {
+  const isNew = opts.newCustomer === true;
   const p = profileFor(state, r._key) || {};
   let close = () => {};
   let photo = String(p.dogPhoto || "");
@@ -402,11 +449,11 @@ function editProfilePopup(state, r, afterSave) {
     save(state);
     maybeSync(state);
     close();
-    toast("Profile saved");
+    toast(isNew ? "Customer added" : "Profile saved");
     afterSave();
   };
 
-  showPopup(`Profile — ${(p.dogName || r.name || "this customer")}`, (refresh, closeFn) => {
+  showPopup(isNew ? "New customer" : `Profile — ${(p.dogName || r.name || "this customer")}`, (refresh, closeFn) => {
     close = closeFn;
     draw();
     return el("div", {},
@@ -423,7 +470,7 @@ function editProfilePopup(state, r, afterSave) {
       el("div", { class: "field" }, el("label", {}, "🎁 Their reward"), reward,
         el("p", { class: "hint" },
           "What they get for bringing you custom — a free loaf for every five friends, RM5 off each order, or whatever you have agreed. Write it in your own words; there is no fixed amount. The app names it and counts what they brought in; you settle up yourself, the same way you do with the credits below.")),
-      el("div", { class: "btn-row" }, button("Save profile", saveProfile, "primary"), button("Cancel", close, "ghost")));
+      el("div", { class: "btn-row" }, button(isNew ? "Add customer" : "Save profile", saveProfile, "primary"), button("Cancel", close, "ghost")));
   });
 }
 
@@ -503,7 +550,12 @@ function openHistory(state, r, onSaved) {
       profileBlockEl(state, r, refresh, onSaved),
       referralSection(state, r, ui, refresh, recentProduct(state, blocks)),
       !blocks.length
-        ? emptyState("No order history", "This customer's orders were removed.")
+        // TWO DIFFERENT EMPTIES, and telling them apart matters (v290). Someone she added by hand
+        // has never had an order, so "orders were removed" is simply untrue of them — and reads as
+        // a fault in her data rather than as a person she typed in on purpose.
+        ? (r.manual
+            ? emptyState("Added by hand", "They have not ordered yet. Their name is in your list, so you can set their reward, give them a code, or find them the moment they do.")
+            : emptyState("No order history", "This customer's orders were removed."))
         : el("div", {},
             el("p", { class: "card-sub", style: "margin:12px 0 2px" }, "Order history — newest first"),
             ...blocks.map((b) => historyBlock(state, b)))),

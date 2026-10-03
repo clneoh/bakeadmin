@@ -989,6 +989,18 @@ option.tone-off { color: var(--muted); }
   overflow: hidden;
 }
 .customer-avatar.sm { width: 24px; height: 24px; font-size: 14px; }
+/* ---------- A customer's own remark, on the list row (v290) ---------- */
+/* She asked to read the Note without opening anyone. It is free text — "Anything to remember" can
+   be a whole sentence — so it is clamped to ONE line here, and the whole of it is still one tap
+   away in the profile card. Without the clamp a chatty note would grow the row to four lines and
+   bury the list it sits in, which is the opposite of what a remark on a list is for. */
+.li-sub.li-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-style: italic;
+}
 
 /* The "get to know this customer" card at the top of the history pop-up. */
 .profile-card {
