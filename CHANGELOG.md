@@ -1,8 +1,64 @@
-# Jienluv2bake — change history (v54 → v284)
+# Jienluv2bake — change history (v54 → v285)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**03 Oct 2026 — engine v285, THE SHOPPING LIST CAN BE CORRECTED AT THE SHOP, AND
+AN INGREDIENT KEEPS ITS PRICES (no database step, nothing to upload — pushing
+this one is the whole of it).**
+
+**Why.** In your words: __"PO, say it is created an base on the po we go shopping,
+same supplier price change and we decide to buy more, i would like to change the
+price and the qty, i need the PO to be amendable, ingredient price journaled,
+ingredient price updated accordingly. So an ingredient need a journals."__ A saved
+shopping list was frozen the moment it was saved. So when you got to the supplier
+and the price had moved, or you decided to take more, there was nowhere to put
+it — and the app's idea of what that ingredient costs stayed wrong until you
+remembered to go and correct it on another screen.
+
+**The list is now amendable — until you tap Bought.** On a saved list you now
+have an **Amend** press. It opens the list with two boxes per line: **how many
+packs** you took, and **what each pack cost**. Change either and the line's total
+and the list's total follow as you type. You can also **Remove** a line you
+didn't take, **add a line** for something you picked up that wasn't on the list,
+and — if the shelf already covered something — press **buy some** on it to decide
+to stock up anyway.
+
+**Once you tap Bought, the list is what happened.** That is deliberate. Bought has
+already put the packs on your shelf and asked you what you paid, so correcting the
+list afterwards would mean unpicking both. Amend is offered only while the list is
+still un-bought; the correction belongs at the shop, which is where you are when
+you discover it.
+
+**Your ingredient follows the price you actually paid.** Change a price on the
+list, save, and the app writes that price onto the ingredient — so your recipes,
+your product costs, and your next shopping list all use it, with nothing else to
+set. The app tells you it did it rather than doing it quietly.
+
+**And every price move is now recorded.** Open an ingredient and, once its price
+has moved at least once, it carries a **Journal** press. It lists **only the
+moments the price moved, newest last**, each row saying what it moved to and what
+it was before — and with **the price you are on now at the top**, because a list of
+changes on its own never says where you ended up. Buying the same thing again at
+the same price is stock, not news, so it is not listed. The journal prints and
+shares like every other book in the app, including as a PDF.
+
+**Why a journal matters here.** Your Profit screen reads Cost of sales from your
+recipes and the ingredient prices as they stand **today** — so changing a price
+moves months that have already closed. That has always been true and the screen
+says so; what was missing was any record of **when** a price moved, and this is it.
+
+**A fault found and fixed while building this.** The **"What did you pay?"** box
+you get after tapping Bought was **never pre-filled** with your list's total. It
+had been reading the total from the wrong place since the box was built, so it
+always opened blank and its sentence never named the figure. It is now filled in
+from the list's own total, which is also what makes amending worth doing.
+
+**What did not change.** Nothing that was already saved was rewritten, no figure
+moved on its own, and the money is still recorded exactly where and when it always
+was — at Bought, from the account you choose in that box. A list's own totals
+still pre-fill that box. **No database step and nothing to upload.**
 
 **03 Oct 2026 — engine v284, A LONG COURIER LINK NO LONGER RUNS OFF THE CARD
 (no database step, nothing to upload — pushing this one is the whole of it).**

@@ -1285,6 +1285,35 @@ option.tone-off { color: var(--muted); }
 .po-buy { font-weight: 600; }
 .po-need { font-size: 12px; font-weight: 400; color: var(--muted); }
 
+/* ---------- Amending a shopping list at the shop (v285) ---------- */
+/* One line per row: what it is on the left, the two numbers she changes beside each other,
+   the line's own total under them, and the ✕ that takes it off the list. A grid rather than
+   a flex row so the ✕ stays pinned to the top-right corner whatever the name wraps to, and
+   the fields take the full width underneath — at 375 pixels three columns will not fit, and
+   squashing them is how a number input ends up too small to hit. */
+.amend-rows { display: flex; flex-direction: column; gap: 10px; }
+.amend-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.amend-name { grid-column: 1; min-width: 0; font-weight: 600; }
+.amend-drop { grid-column: 2; grid-row: 1; }
+/* A line the shelf already covers: nothing to change, so it reads quieter than the rest. */
+.amend-covered { background: var(--surface-2, #faf7f3); }
+.amend-sub { font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.amend-fields { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.amend-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.amend-num { width: 104px; min-height: 36px; font-size: 15px; }
+.amend-line { flex: 1 1 auto; text-align: right; font-weight: 700; align-self: center;
+              font-variant-numeric: tabular-nums; color: var(--brown-dark); }
+.amend-total { margin: 12px 0 0; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.amend-add { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.amend-pick { flex: 1 1 auto; min-width: 0; min-height: 36px; }
+
 /* ---------- Empty ---------- */
 .empty { text-align: center; padding: 36px 16px; color: var(--muted); }
 .empty-icon {
