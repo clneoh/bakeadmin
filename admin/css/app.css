@@ -1810,6 +1810,12 @@ option.tone-off { color: var(--muted); }
 /* A journal line: the words take the room they need, the figure never shrinks. */
 .journal-line .j-what { flex: 1 1 auto; min-width: 0; }
 .journal-line .info-val { flex: 0 0 auto; white-space: nowrap; padding-left: 10px; }
+
+/* Where a journal is built for the printer, and ONLY for the printer (3 Oct 2026). The sheet
+   is drawn into this node at the instant Print is pressed and the node is emptied again
+   immediately after, so on screen there is normally nothing in it at all — and while it is
+   full, for that instant, it must still not appear. print.css is the only thing that shows it. */
+.print-layer { display: none; }
 /* A settings row that opens an editor when tapped (the two money lists, v108). */
 .info-row.tappable { cursor: pointer; border-radius: 8px; }
 .info-row.tappable:active { background: var(--gray-bg); }

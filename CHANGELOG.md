@@ -1,8 +1,62 @@
-# Jienluv2bake — change history (v54 → v281)
+# Jienluv2bake — change history (v54 → v282)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**03 Oct 2026 — engine v282, EVERY JOURNAL CAN LEAVE THE SCREEN: PRINT IT OR SEND
+IT (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**What you asked for.** You were reading a journal and said: __"those journals in
+profits and other journals should be printable and able to be shared"__. Until
+now a journal existed only inside the pop-up you were scrolling. You could read
+it, and there was no way to hand it to anyone or keep it.
+
+**What you see now.** Every journal in the app wears the same two buttons, in the
+same order, under its last line:
+
+- **Print** — the phone's own print sheet opens with the journal on it. That is
+  also where **Save as PDF** lives, so a journal can leave as a file.
+- **Share** — the phone's own share sheet opens with the journal as plain text,
+  ready to go straight into WhatsApp, Mail or Notes.
+  - A phone with no share sheet — or a share that fails for any other reason —
+    **copies the journal instead** and says so in a short message. You paste it
+    wherever you want it. The fallback carries exactly the same text the share
+    sheet would have been handed.
+  - **If you open the share sheet and change your mind**, closing it does nothing
+    else. The journal is not copied behind your back. A cancel is your decision,
+    not a fault.
+
+**Where the two buttons are.** Every book in the app:
+
+- **More → Profit** — the Sales journal, the Cost of sales journal, and every
+  spending category's journal, including Total expenses.
+- **More → Profit** — the **Profit and loss** statement itself. You chose that
+  the whole statement gets the pair and not only the journals: Sales down to Net
+  profit, with its two notes underneath. A journal on its own is half a document,
+  and this is the other half.
+- **More → Money** — one method's book, opened either from its row on the screen
+  or from **Books**. In Books, only the book you have opened can print; the list
+  underneath never does.
+
+**What the printed sheet says.** Your shop name as a letterhead, then what the
+journal is and the stretch it covers; every row and every total, in the same words
+and the same order as the screen; a line in the journal's own words saying what
+the figures mean and where they come from; and along the bottom, `From More →
+Profit · printed 3 Oct 2026`. The statement's sheet carries the Cost of sales note
+as well, because anyone reading Gross profit needs it. It is plain black on white.
+
+**One rule this build rests on.** The screen, the paper and the sent message are
+three renderings of **one** description of the journal. They cannot disagree about
+a row or a total: whatever figure is on the screen is on the paper to the cent, and
+the same figure is in the message.
+
+**On the phone.** Pressing Print opens the phone's real print dialog — the same one
+any other app uses — and **Save as PDF** is a choice inside it. Choosing a printer
+there is the only way to see the true paper; the sheet itself is built by the app.
+
+**What did not change.** No figure moved, and no rule about your money changed.
+Every pop-up looks as it did; the two new buttons sit under the last line of each.
 
 **03 Oct 2026 — engine v281, THE STATEMENT SAYS WHAT KIND OF COST IT IS SHOWING
 (no database step, nothing to upload — pushing this one is the whole of it).**
