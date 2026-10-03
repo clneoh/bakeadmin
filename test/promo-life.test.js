@@ -32,6 +32,7 @@ import assert from "node:assert/strict";
 import { blankCode, codeProblem, labelProblem, normalizeCode, stoppedBy } from "../admin/js/promo.js";
 import { usageOf } from "../admin/js/promo-usage.js";
 import { shopLink } from "../admin/js/promo-card.js";
+import { todayISO } from "../admin/js/dates.js";
 import { qrSvg } from "../admin/js/qr.js";
 
 /* ─────────────────────────── the engine: the label's gate ───────────────── */
@@ -592,4 +593,77 @@ test("nothing refuses a change to a code that has a label out (v287)", () => {
   };
   assert.equal(codeProblem([out], rewritten, out.id), null,
     "every family may be rewritten, the end date pulled earlier and the ceiling lowered");
+});
+
+// ── v288: how many times a label was opened ──────────────────────────────────
+// A cloud fact on a synchronous screen: the slot is drawn empty and filled when the answer
+// lands. Nothing shows until then, and nothing shows for good if the cloud cannot be reached.
+
+const withCloud = (state) => {
+  state.settings = { currency: "RM", supabase: {
+    enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" } };
+  return state;
+};
+
+const cloudAnswering = (rows) => async (url) => {
+  if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+  if (url.includes("promo_visit_days")) return { ok: true, json: async () => rows };
+  return { ok: false, status: 404, json: async () => ({}) };
+};
+
+// The view does not await its own fill, so the test drains the microtasks it left behind.
+const settled = () => new Promise((r) => setTimeout(r, 0));
+
+test("each code's opens are filled in when the cloud answers (v288)", async () => {
+  const state = withCloud(stateWith([CODE({ code: "FRESH10" }), CODE({ id: "p2", code: "RAYA5" })]));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = cloudAnswering([
+    { code: "FRESH10", day: todayISO(), n: 4 },
+    { code: "FRESH10", day: "2020-01-01", n: 1 },
+  ]);
+  try {
+    paint(state);
+    await settled();
+    const fresh = cardOf("FRESH10");
+    assert.match(nodeText(fresh), /Opened 5 times/, "the days are added up into one figure");
+    const strip = fresh.querySelectorAll(".visit-strip")[0];
+    assert.ok(strip, "and it comes with a bar per day");
+    assert.equal(strip.querySelectorAll(".visit-bar").length, 28, "four weeks of them");
+    assert.match(nodeText(cardOf("RAYA5")), /Not opened yet/,
+      "a code the cloud DID answer about and which has no opens says so in words — that zero is real");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("a read that fails leaves the row EXACTLY as it was — not a zero (v288)", async () => {
+  // The whole reason the slot is drawn empty. "0 opens" is a positive claim about her label,
+  // and this screen must not make it on the strength of a request that never came back.
+  const state = withCloud(stateWith([CODE()]));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  try {
+    paint(state);
+    await settled();
+    const card = cardOf("FRESH10");
+    assert.equal(nodeText(card).includes("Opened"), false, "no count");
+    assert.equal(nodeText(card).includes("Not opened yet"), false, "and no claim that nobody came");
+    assert.equal(card.querySelectorAll(".visit-bar").length, 0, "and no strip");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("with no cloud configured the row is untouched too, and nothing is even asked", async () => {
+  let called = false;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  try {
+    paint(stateWith([CODE()]));            // stateWith has no settings.supabase
+    await settled();
+    assert.equal(called, false, "the screen does not chatter at a shop that has no cloud");
+    assert.equal(nodeText(cardOf("FRESH10")).includes("Opened"), false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

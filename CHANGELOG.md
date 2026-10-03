@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v287)
+# Jienluv2bake — change history (v54 → v288)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v288, HOW MANY TIMES EACH LABEL WAS OPENED.**
+**⚠️ THIS ONE HAS A DATABASE STEP — run `supabase/promo_visits.sql` once, see
+the box below.**
+
+**Why.** You could already see what a code **sold**, worked out from your own
+orders. What you could not see is whether the label was **picked up at all** —
+and those are different problems needing different answers. __"Nobody followed the
+link"__ means print more cards, or hand them out somewhere else. __"Forty people
+followed it and two bought"__ means the card is fine and the offer needs work.
+
+**What you see now.** On **More → Promo codes**, each code's row shows **how many
+times its link was opened**, and under that a strip of the **last 28 days, one bar
+a day** — so a label going cold is visible at a glance rather than something you
+have to work out from a date list. A day with no opens is a faint stub rather than
+a gap, so "quiet" never reads as "no data". A code the app __did__ get an answer for
+and which nobody has opened yet says **"Not opened yet"** in words — that zero is
+real and worth knowing.
+
+**What the number is, and what it is not — please read this part.**
+
+- It counts **opens, not people**. You chose that: a reload counts again, and a
+  phone that leaves the page open counts once. It is a **pulse for alive-versus-
+  cold**, not a headcount.
+- **Sharing the link in WhatsApp or Facebook adds an open with nobody behind it** —
+  those apps fetch a link to draw the preview. And your own testing counts.
+- **A customer who types the code at the shop, with no link, is not counted.** This
+  measures the CARDS, not the code in general.
+- The app will not show a figure it does not have. If Supabase cannot be reached,
+  the row is left **exactly as it was** rather than showing a zero — because a zero
+  here is a claim ("nobody opened your label") and it must not be made on the
+  strength of a request that never came back.
+
+**⚙️ The one step, and it is yours: run `supabase/promo_visits.sql` once.** Open
+**Supabase → your project → SQL Editor → New query**, paste the whole file, press
+**Run**. It is safe to run more than once. **You can run it before or after you
+push** — if you push first, nothing breaks: the shop's page simply fails to record
+opens until the table exists, quietly, and the Promo screen shows no count. (Your
+own browser's console will show a **404** while the table is missing. That is the
+missing table, not a fault, and no customer ever sees it.)
+
+**What was built, and why it is shaped this way.** One row is stored per open. The
+shop page records it in the background and never waits for it — a visit that cannot
+be recorded must not slow a customer down or change a word on the page. **The shop
+counts an open once per page load**, which matters more than it sounds: that page
+re-reads its settings every 30 seconds while it is open, so without that rule a
+single customer leaving the tab open would have added an open every half-minute and
+a label that sold nothing would have read as a triumph. Measured live: the settings
+were re-read **7 times in one minute and the open was recorded exactly once**.
+
+**No SQL runs on its own and nothing is uploaded** — the Edge Functions are untouched.
 
 **04 Oct 2026 — engine v287, EVERY CODE HAS A LABEL, AND PRINTING NO LONGER
 FREEZES IT (no database step, nothing to upload — pushing this one is the whole

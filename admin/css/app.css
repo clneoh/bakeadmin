@@ -1284,6 +1284,18 @@ option.tone-off { color: var(--muted); }
 .po-buy { font-weight: 600; }
 .po-need { font-size: 12px; font-weight: 400; color: var(--muted); }
 
+/* ---------- How many times a label was opened (v288) ---------- */
+/* A bar a day for the last four weeks, under the count. She asked to see a code going cold,
+   and a run of low bars says that faster than a list of dates does.
+   A day with NO opens is a faint stub rather than a gap: a missing bar would read as a day
+   the app has no data for, which is a different thing from a day nobody came. */
+.visit-slot:empty { display: none; }
+.visit-strip-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 6px; }
+.visit-cap { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.visit-strip { display: flex; align-items: flex-end; gap: 1px; flex: 1 1 auto; min-width: 0; height: 26px; }
+.visit-bar { flex: 1 1 0; min-width: 2px; background: var(--brown-dark); border-radius: 1px 1px 0 0; }
+.visit-bar.quiet { background: var(--line); }
+
 /* ---------- A code's LABEL (v287) ---------- */
 /* One QR per code, on its row, so the Promo screen reads as a set of labels with the
    life chips saying which are still going. It carries the word "Label" under it,

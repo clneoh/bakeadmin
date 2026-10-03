@@ -67,6 +67,77 @@ let repaintForLang = null;
 // render() has run.
 let repaintPromo = null;
 
+/* ── Counting a label being opened (v288) ──────────────────────────────────────
+   A label's QR — and the link she copies into WhatsApp — land here carrying `?promo=CODE`.
+   This records that open, so she can tell "nobody picked the label up" from "forty did and two
+   of them bought". Those are different problems and they need different answers: print more
+   labels, or change the offer.
+
+   IT COUNTS ONLY A CODE THIS SHOP ALREADY ACCEPTS. That is a PRODUCT rule, not a security
+   control: this page ships the public key, so anyone determined can post to the table whatever
+   we do here. What it buys is that a typo in a url, a stranger's guess and a crawler inventing
+   addresses never reach her numbers.
+
+   AND IT NEVER TOUCHES THE SHOP. Fire and forget, ten seconds at the most, every failure
+   swallowed — a visit that cannot be recorded must not slow a customer down or change a single
+   word on the page.                                                                     */
+
+// Whether this page load should count an open, as a pure answer: the code to count, or "" for
+// no. Exported because it is the whole of the judgement and worth holding to without booting
+// the shop — an absent ?promo=, an unknown code and a missing config all have to answer "".
+export function labelOpenToCount(search, codes, cfg) {
+  const url = String((cfg && cfg.url) || "").trim();
+  const key = String((cfg && cfg.anonKey) || "").trim();
+  if (!url || !key) return "";
+  const code = parsePromo(search);
+  if (!code) return "";
+  return (codes || []).some((x) => normCode(x && x.code) === code) ? code : "";
+}
+
+// ONE LATCH PER PAGE LOAD, and the latch is the whole point. `refresh()` runs again every 30
+// seconds while the shop is open, so without it a single customer leaving the tab open would
+// mint a visit every half minute and a label that sold nothing would read as a triumph. A
+// RELOAD is a new page load and counts again — that is her choice, and exactly why the number
+// is a pulse for alive-versus-cold rather than a headcount.
+//
+// A factory rather than a module-level boolean so the rule can be held to in a test.
+export function labelOpenCounter(doPost) {
+  let counted = false;
+  return (search, codes, cfg) => {
+    if (counted) return "";
+    const code = labelOpenToCount(search, codes, cfg);
+    if (!code) return "";
+    // Latched only HERE, past every guard: the codes arrive asynchronously, so a refresh that
+    // runs before them must be free to count on the one that does have them.
+    counted = true;
+    doPost(code, cfg);
+    return code;
+  };
+}
+
+// The POST itself. Exported so its url, its headers and its payload can be read in a test.
+export function postLabelOpen(code, cfg) {
+  const base = String(cfg.url).replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  return fetch(`${base}/rest/v1/promo_visits`, {
+    method: "POST",
+    headers: {
+      apikey: cfg.anonKey,
+      "Content-Type": "application/json",
+      // INSERT-only RLS: asking for the row back would be a read, and reading is not granted.
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify([{ code }]),
+    signal: controller.signal,
+  }).catch(() => {}).finally(() => clearTimeout(timer));
+}
+
+// Module scope, NOT inside render(): render() can run more than once, and a latch that reset
+// with it would count the same open twice. Nothing about the customer is kept — one boolean
+// for the life of the tab.
+const countLabelOpen = labelOpenCounter(postLabelOpen);
+
 // Fill %1, %2, … placeholders left-to-right.
 function sub(s) {
   const args = Array.prototype.slice.call(arguments, 1);
@@ -1888,6 +1959,11 @@ export function render() {
             // the standing line and any code already in the box are redrawn here
             // rather than waiting for the customer to touch something.
             if (repaintPromo) repaintPromo();
+            // The codes are in hand NOW, which is the first moment a visit can be judged
+            // against them (v288). Called here and nowhere else, so the count can only ever
+            // follow the arrival of the list it is checked against — and latched inside, so
+            // the 30-second poll below cannot count the same open again.
+            countLabelOpen(location.search, publishedCodes(), CONFIG.supabase);
           } catch { /* corrupt config → keep the local one */ }
         }
       }

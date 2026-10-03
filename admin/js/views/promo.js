@@ -21,14 +21,18 @@ import { el, button, copyText, emptyState, confirmDialog, showPopup, toast } fro
 import { qrSvg } from "../qr.js";
 import { shopLink } from "../promo-card.js";
 import { fmtRM, newId, save } from "../state.js";
-import { todayISO, longDate } from "../dates.js";
-import { maybeSyncStorefront } from "../supabase.js";
+import { todayISO, toISODate, longDate } from "../dates.js";
+import { fetchPromoVisits, maybeSyncStorefront } from "../supabase.js";
 import { translateTo, translateAllowed } from "../translate.js";
-import { blankCode, codeProblem, labelProblem, makeCode, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
+import { blankCode, codeProblem, codesOf, labelProblem, makeCode, normalizeCode, offerOf, SAY_MAX, stoppedBy } from "../promo.js";
 import { usageByCode, usageOf } from "../promo-usage.js";
 
 export function renderPromoCodes(root, state) {
   renderAll(root, state);
+  // How many times each label was OPENED is a cloud fact, and this screen is drawn
+  // synchronously — so each code's card carries an empty slot and this fills it when the
+  // answer lands. Nothing is awaited and nothing blocks the paint.
+  fillVisitSlots(root, state);
 }
 
 function renderAll(root, state) {
@@ -42,6 +46,75 @@ function renderAll(root, state) {
     stepsCard(state),
     el("h2", { class: "section" }, `Promo codes (${list.length})`),
     ...rows);
+}
+
+/* ── How many times a label was opened (v288) ──────────────────────────────────
+   The bakery's own words for why this number exists: she can already see what a code SOLD,
+   recounted from her own orders, but not whether the label was picked up at all. Those are
+   different problems — print more labels, or change the offer — and until now she could not
+   tell them apart.
+
+   NOTHING IS SHOWN UNTIL THE CLOUD ANSWERS. A failed or unfinished read leaves the slot
+   empty, the same bargain `pendingReviewCount` strikes on the Home screen: a zero here is a
+   positive claim ("nobody opened your label") and this screen must not make it on the
+   strength of a request that never came back. A code the cloud DID answer about and which
+   has no opens yet says so in words — that zero is real and worth seeing.
+
+   THE RUN TOKEN IS THE UNMOUNT GUARD. Every render bumps `visitsRun`; a reply carrying an
+   older number is dropped, so a slow answer from a screen she has left can never paint into
+   the one she is looking at. */
+let visitsRun = 0;
+const VISIT_STRIP_DAYS = 28;
+
+async function fillVisitSlots(root, state) {
+  const run = (visitsRun += 1);
+  const codes = codesOf(state);
+  const out = await fetchPromoVisits(state, codes);
+  if (run !== visitsRun) return;                 // a later render has taken over
+  if (!out.ok) return;                           // say nothing rather than a false zero
+  // A class selector and `dataset`, not `[data-visits]` and `getAttribute` — the second pair
+  // works in a browser and reads as undefined under the tests' own DOM stand-in, which is the
+  // kind of shim gap that once printed the word "null" onto a real receipt.
+  const slots = root.querySelectorAll ? root.querySelectorAll(".visit-slot") : [];
+  for (const slot of slots) {
+    if (!slot || slot.isConnected === false) continue;
+    const code = String((slot.dataset || {}).visits || "");
+    slot.replaceChildren(...visitLines(code ? out.byCode.get(code) : null));
+  }
+}
+
+function visitLines(entry) {
+  const total = Number(entry && entry.total) || 0;
+  if (!total) {
+    return [el("p", { class: "hint" }, "Not opened yet — nobody has followed this label's link.")];
+  }
+  return [
+    el("p", { class: "hint" }, `Opened ${total} time${total === 1 ? "" : "s"}`),
+    visitStrip(entry),
+  ];
+}
+
+// The last four weeks, a bar a day. She asked to see a code going cold, and a run of low
+// bars says that faster than a list of dates does. A day with no opens is a faint stub
+// rather than a gap, so "quiet" never reads as "no data".
+function visitStrip(entry) {
+  const today = new Date(`${todayISO()}T00:00:00`);
+  const days = [];
+  for (let back = VISIT_STRIP_DAYS - 1; back >= 0; back -= 1) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - back);
+    const iso = toISODate(d);
+    days.push({ iso, n: Number((entry.days || new Map()).get(iso)) || 0 });
+  }
+  const peak = Math.max(1, ...days.map((x) => x.n));
+  const bars = days.map((x) => el("span", {
+    class: x.n ? "visit-bar" : "visit-bar quiet",
+    style: `height:${x.n ? Math.max(4, Math.round((x.n / peak) * 24)) : 2}px`,
+    title: `${x.iso} — ${x.n} open${x.n === 1 ? "" : "s"}`,
+  }));
+  return el("div", { class: "visit-strip-row" },
+    el("span", { class: "visit-cap" }, "opens, last 28 days"),
+    el("span", { class: "visit-strip" }, ...bars));
 }
 
 /* THE ELEVEN STEPS (v277). The whole life of a promotion, in the order she would
@@ -660,6 +733,10 @@ function codeCard(state, code, root) {
         button("Edit", () => openEditCodePopup(state, code, root), "ghost small"),
         button("Delete", () => deleteCode(state, code, root, u.used), "ghost small"))),
     brakes.length ? el("div", { class: "row-actions" }, ...brakes) : null,
+    // Where the OPENS land (v288). Drawn empty and filled later, because that number lives in
+    // the cloud and this screen is drawn synchronously — and left empty for good when the
+    // cloud cannot be reached, so a failure reads as "not known" rather than as "nobody".
+    el("div", { class: "visit-slot", dataset: { visits: c.code } }),
     claimed ? el("p", { class: "warn" }, claimedWords(c, claimed)) : null);
 }
 
