@@ -68,7 +68,7 @@ function mergeDuplicateProfiles(state, base) {
   const list = state.customers || [];
   const clash = list.find((p) => p !== base && p && p.key === base.key);
   if (!clash) return;
-  for (const f of ["dogName", "dogPhoto", "likes", "avoid", "notes", "place"]) {
+  for (const f of ["dogName", "dogPhoto", "likes", "avoid", "notes", "place", "reward"]) {
     if (!base[f] && clash[f]) base[f] = clash[f];
   }
   const i = list.indexOf(clash);
@@ -87,7 +87,7 @@ function touchedAt(p) {
 // edited by anyone, so the only rule that cannot lose her knowledge is "never
 // throw away a value only one of them has".
 function foldProfileInto(base, other) {
-  for (const f of ["name", "whatsapp", "dogName", "dogPhoto", "likes", "avoid", "notes", "place"]) {
+  for (const f of ["name", "whatsapp", "dogName", "dogPhoto", "likes", "avoid", "notes", "place", "reward"]) {
     if (!base[f] && other[f]) base[f] = other[f];
   }
   if (other.createdAt && (!base.createdAt || other.createdAt < base.createdAt)) {
@@ -308,6 +308,17 @@ export function upsertProfile(state, draft, fromKey) {
   base.likes = String(draft.likes || "").trim();
   base.avoid = String(draft.avoid || "").trim();
   base.notes = String(draft.notes || "").trim();
+  // WHAT THIS ADVOCATE GETS, IN HER OWN WORDS (v289). "Not just as plain as rm3" — a partner may
+  // be owed a free loaf, a favour, or a different arrangement entirely, and a number cannot hold
+  // that. It is free text on purpose and it totals NOTHING: the app names the reward and counts
+  // what they brought in; she settles up herself, exactly as she does with the credit ledger.
+  //
+  // IT IS ALSO ONE OF FOUR LISTS. A field this record does not name is DROPPED — here, and in
+  // mergeDuplicateProfiles and foldProfileInto below — and it would be dropped silently, with
+  // every test still green, because nothing asserts the shape of a profile the way
+  // test/promo.test.js asserts the shape of a code. See the round-trip test in
+  // test/profiles.test.js: that is what makes the next forgotten list fail instead of hide.
+  base.reward = String(draft.reward || "").trim();
   base.updatedAt = now;
 
   if (!list.some((p) => p.id === base.id)) list.push(base);

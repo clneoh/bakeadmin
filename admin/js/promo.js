@@ -118,6 +118,22 @@ export function blankCode() {
     gives: { type: "rm", value: 0, cap: 0 }, // rm | pct | delivery
     often: { type: "unlimited", n: 0, maxRM: 0 }, // unlimited | once | quota
     beside: { type: "anything" }, // anything | nocredit
+    // WHOSE CODE THIS IS (v289). A formal partner prints labels and runs marketing, and this is
+    // what makes their label attributable — the code's own `used` count and its label's opens
+    // become that person's tally, with nothing new to track. `who` above is a CLASS of buyer
+    // ("anyone" / "a first order only"), never a person; this is the person.
+    //
+    // `id` IS THE PROFILE'S OWN ID, NOT ITS `key`. A key MOVES: correcting a customer's WhatsApp
+    // number re-keys them, a name-only customer who gains a number flips from name to digits, and
+    // two people sharing a name with no number collapse onto ONE key — which would bind two
+    // different printed codes to one shared person. A profile id is issued once, survives a
+    // re-key, and survives a merge.
+    //
+    // `name` IS FROZEN BESIDE IT, the way orderLineName freezes a sold product's name: a profile
+    // she later renames or merges away still reads as who it was when the code was made.
+    //
+    // AND IT IS DELIBERATELY NEVER PUBLISHED — see publishCodes. The shop's row is world-readable.
+    holder: { id: "", name: "" },
     say: "",   // her own sentence for the shop, or "" for the shop's own words
     sayZh: "",
     sayMs: "",
@@ -184,6 +200,14 @@ export function normalizeCode(rec) {
       maxRM: money(often.maxRM),
     },
     beside: { type: pick(beside.type, ["anything", "nocredit"], b.beside.type) },
+    // THE FOURTH LIST. A field blankCode names but this does not is STRIPPED here, on the next
+    // read — and nothing would fail, because the shape test in test/promo.test.js iterates a
+    // hardcoded family list that does not include this one. The round-trip test added with it
+    // (deepEqual of normalizeCode(blankCode()) against blankCode()) is what makes a future
+    // forgotten list turn red instead of quietly killing the feature.
+    //
+    // `name` is capped like her own sentence: it is a person's name, not a paragraph.
+    holder: { id: String((src.holder && src.holder.id) || ""), name: words(src.holder && src.holder.name) },
     say: words(src.say),
     sayZh: words(src.sayZh),
     sayMs: words(src.sayMs),
@@ -349,6 +373,11 @@ export function publishCodes(state, counts = null) {
     // no counter the record's own numbers stand, so a test or a second business
     // can publish a hand-made list unchanged.
     const n = typeof counts === "function" ? counts(c) : null;
+    // THIS LIST IS DELIBERATE AND `holder` IS NOT IN IT (v289). A code may belong to a named
+    // customer, and that name is the baker's own customer book — while the row this builds is
+    // PUBLISHED and world-readable, so anyone holding the shop's public key could read it.
+    // Adding `holder` here would put her customers' names on the open internet. It stays on her
+    // own screen, on the admin's code card, and nowhere else. test/promo.test.js holds it there.
     return {
       code: c.code,
       state: c.state,

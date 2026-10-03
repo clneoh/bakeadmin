@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v288)
+# Jienluv2bake — change history (v54 → v289)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v289, A NAMED REWARD, AND A CODE THAT NAMES ITS PERSON
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Two schemes, one missing half each. The **bring-a-friend** link is for a
+casual advocate and costs you nothing to hand out — but its reward could only ever
+be a flat **RM3**, the same for everyone, set once in Settings. And a **promo code**
+was anonymous: its orders and its label's opens were counted, but not __whose__ they
+were, so a partner's label couldn't be told from anyone else's.
+
+**Both stay, and the difference between them is the thing you hand over** — a __link__
+for a friend, which travels and costs nothing; a __code and a label__ for a partner who
+prints brochures and runs their own marketing.
+
+**What you see now, in two places.**
+
+- **On a customer's card** — a line you write yourself: **Reward**, e.g. __"a free
+  loaf for every five friends"__. Not a number, because a partner may be owed a loaf,
+  a favour, or an arrangement of their own. It sits in the profile block, above the
+  bring-a-friend block, so it shows **whether or not that person has a WhatsApp
+  number** — the casual friend-to-friend advocate is exactly the one who may not.
+  The RM3 and 90-day settings are untouched and still the defaults.
+- **On a promo code** — a new choice: **Whose code is this**. Pick a customer and
+  their name appears on the code's row as __Aunty Bee's code__, beside "public —
+  shown in the shop". Their label now tells itself apart from anyone else's, and the
+  code's own count and opens are their tally.
+
+**THE THING TO KNOW: their name is never published.** The data your shop is given is
+readable by anyone holding its public key. A code's person is kept in your own app —
+**never** sent to the shop, and **never** printed on the label. The label stays
+impersonal, which is right for a piece of paper handed to whoever walks past.
+
+**What the reward is, and is not, said plainly.** It is a **label you apply by hand**,
+exactly like the credits. The app names it and counts what that person brought in; it
+does **not** total what you owe, and it does not track what you have already given.
+That is the trade for being able to write __"a free loaf"__ instead of a figure.
+
+**No database step and nothing to upload** — `admin/` only.
 
 **04 Oct 2026 — engine v288, HOW MANY TIMES EACH LABEL WAS OPENED.**
 **⚠️ THIS ONE HAS A DATABASE STEP — run `supabase/promo_visits.sql` once, see

@@ -416,3 +416,38 @@ test("when the alphabet is exhausted it LENGTHENS rather than repeating a name",
   }
   assert.notEqual(makeCode([]), "", "and the real source of randomness is back");
 });
+
+// ── v289: a code that belongs to a person ────────────────────────────────────
+
+test("EVERY family blankCode names, the normaliser must name back", () => {
+  // THE TEST THAT MAKES A FORGOTTEN LIST FAIL INSTEAD OF HIDE. `normalizeCode` rebuilds an
+  // explicit object literal, so a field added to blankCode() and not to it is STRIPPED on the
+  // next read — the feature is simply dead, and every other test stays green because the shape
+  // test above iterates a hardcoded family list that does not know about the new field.
+  // This one cannot be fooled that way: it holds the two shapes against each other.
+  // `id` is the one deliberate difference: blankCode() carries none — the editor assigns one —
+  // and the normaliser always answers with one, because the row has to be addressable. Anything
+  // ELSE that differs is a field this pair disagrees about, which is the fault being caught.
+  assert.deepEqual(normalizeCode(blankCode()), { id: "", ...blankCode() },
+    "a field blankCode() declares must survive a normalise, or it is silently dead");
+});
+
+test("a code's holder round-trips, so a partner's label stays theirs", () => {
+  const c = normalizeCode({ ...blankCode(), code: "CAFE5", holder: { id: "cus_1", name: "Cafe Aunty" } });
+  assert.deepEqual(c.holder, { id: "cus_1", name: "Cafe Aunty" });
+  assert.deepEqual(normalizeCode({ ...blankCode(), code: "PLAIN1" }).holder, { id: "", name: "" },
+    "a code that belongs to nobody is nobody — not undefined, so a screen never has to ask");
+});
+
+test("a code that belongs to someone NEVER publishes their name", () => {
+  // The row publishCodes builds is WORLD-READABLE — anyone holding the shop's public key can
+  // read it. A holder's name is the baker's own customer book, so it must not be in there, ever.
+  // This is the invariant, not a comment: adding `holder` to publishCodes turns this red.
+  const state = { promoCodes: [code({ code: "CAFE5", holder: { id: "cus_1", name: "Cafe Aunty" } })] };
+  const out = publishCodes(state);
+  const json = JSON.stringify(out);
+  assert.equal("holder" in out[0], false, "the holder key is not published at all");
+  assert.ok(!json.includes("Cafe Aunty"), "and the person's name is nowhere in the payload");
+  assert.ok(!json.includes("cus_1"), "nor the profile id");
+  assert.equal(out[0].code, "CAFE5", "while the code itself is published as always");
+});

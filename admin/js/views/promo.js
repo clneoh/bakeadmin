@@ -477,6 +477,27 @@ function buildCodeEditor(state, code) {
   const beside = el("select", { class: "input" },
     el("option", { value: "anything", selected: seed.beside.type === "anything" }, "Nothing in particular"),
     el("option", { value: "nocredit", selected: seed.beside.type === "nocredit" }, "Not with the bring-a-friend credit"));
+  // WHO THIS CODE BELONGS TO (v289). A bring-a-friend LINK is for a casual, friend-to-friend
+  // advocate and costs nothing to issue; a CODE and a LABEL is for a formal partner who prints
+  // brochures and runs marketing. Naming that partner here is what makes their label
+  // attributable: the code's own `used` count and its label's opens become their tally, with
+  // nothing new to track.
+  //
+  // The picker lists the CUSTOMER PROFILES — the synced record per person (`state.customers`),
+  // not the customer list, which is derived from orders and has no id to tie to. A name and
+  // number are shown from the store, so the id is what travels and the name is what she reads.
+  const personLabel = (pp) => String(pp.name || "").trim()
+    || String(pp.whatsapp || "").trim()
+    || "Unnamed customer";
+  const people = (Array.isArray(state.customers) ? state.customers : [])
+    .filter((pp) => pp && pp.id)
+    .sort((a, b) => personLabel(a).localeCompare(personLabel(b)));
+  const holder = el("select", { class: "input" },
+    el("option", { value: "", selected: !(seed.holder && seed.holder.id) },
+      people.length ? "Nobody — this code stands on its own" : "Nobody — no customers to name yet"),
+    ...people.map((pp) => el("option", {
+      value: pp.id, selected: !!(seed.holder && seed.holder.id === pp.id),
+    }, personLabel(pp))));
   const vis = el("select", { class: "input" },
     el("option", { value: "public", selected: seed.vis === "public" }, "Public — shown in the shop"),
     el("option", { value: "personal", selected: seed.vis === "personal" }, "Personal — never shown"));
@@ -534,6 +555,12 @@ function buildCodeEditor(state, code) {
     };
     rec.beside = { type: beside.value };
     rec.vis = vis.value;
+    // WHO THIS CODE BELONGS TO (v289). Stored as the PROFILE'S ID, never its key and never just
+    // the name — a key moves when a WhatsApp number is corrected and collapses when two people
+    // share a name, and a name can be retyped. The name is frozen beside it so the row still
+    // reads as who it was even if the profile is later renamed or merged away.
+    const chosen = people.find((pp) => pp.id === holder.value) || null;
+    rec.holder = { id: chosen ? chosen.id : "", name: chosen ? personLabel(chosen) : "" };
     rec.say = say.value.trim();
     rec.sayZh = sayZh.value.trim();
     rec.sayMs = sayMs.value.trim();
@@ -569,7 +596,7 @@ function buildCodeEditor(state, code) {
     toast(filled ? "Translated — edit it if you like" : "Nothing to translate");
   }
 
-  return { name, suggest, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
+  return { name, suggest, holder, kind, who, from, to, basket, often, beside, vis, say, sayZh, sayMs,
     valueField, capField, basketField, oftenField, ceilingField, translateSay, collect };
 }
 
@@ -593,6 +620,8 @@ function editorFields(editor) {
     editor.ceilingField,
     el("div", { class: "field" }, el("label", {}, "What it cannot be used with"), editor.beside,
       el("p", { class: "hint" }, "The bring-a-friend welcome discount comes out of the same money as a code that gives ringgit off, so this stops the two stacking on one order.")),
+    el("div", { class: "field" }, el("label", {}, "🎁 Whose code is this"), editor.holder,
+      el("p", { class: "hint" }, "For a partner or a friend who hands your labels out — a shop, a friend running their own marketing. Naming them is what makes their label tell itself apart from anyone else's: their orders and their label's opens are counted against this code, and it is what you look at when their reward comes round. Leave it as Nobody for a plain promotion you hand out yourself. Their name is never published to the shop — it stays in your own app.")),
     el("div", { class: "field" }, el("label", {}, "Who can see it"), editor.vis,
       el("p", { class: "hint" }, "Public codes are put on the shop page for everyone. Personal codes are never advertised — you give the code to one person — but they still work when typed, and anyone who reads the page's own data can see them, so the limit is that they are never shown, not that they are secret.")),
     el("div", { class: "field" }, el("label", {}, "What the shop says about it (optional)"), editor.say,
@@ -718,6 +747,11 @@ function codeCard(state, code, root) {
         el("p", { class: "card-sub" }, [clauseWords(c), ...rulesWords(c)].join(" · ")),
         el("p", { class: "hint" },
           [c.vis === "personal" ? "personal — never shown" : "public — shown in the shop",
+            // WHOSE CODE THIS IS, on her own screen only (v289). It is deliberately NOT on the
+            // printed label and NOT in what the shop publishes — see publishCodes in promo.js.
+            // The name is the one frozen on the code, so it reads right even if the profile has
+            // been renamed or merged away since.
+            c.holder && c.holder.name ? `🎁 ${c.holder.name}'s code` : "",
             c.say ? "your own words" : "",
             useWords(c, u)]
             .filter(Boolean).join(" · "))),

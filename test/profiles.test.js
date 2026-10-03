@@ -486,3 +486,50 @@ test("mergeCustomers refuses to join a person to themselves", () => {
   assert.equal(mergeCustomers(st, "6012111", ""), null);
   assert.equal(customerList(st).length, 1, "and nothing moved");
 });
+
+// ── v289: an advocate's reward, in the baker's own words ─────────────────────
+
+test("a reward survives a save, and survives a merge", () => {
+  const st = state([], []);
+  const first = upsertProfile(st, {
+    name: "Aunty Bee", whatsapp: "6012-111", reward: "a free loaf for every five friends",
+  });
+  assert.equal(first.reward, "a free loaf for every five friends", "saved with the rest of the profile");
+
+  const again = upsertProfile(st, {
+    id: first.id, name: "Aunty Bee", whatsapp: "6012-111",
+    reward: "a free loaf for every five friends", likes: "banana",
+  });
+  assert.equal(again.reward, "a free loaf for every five friends", "and a later save keeps it");
+
+  // THE MERGE IS WHERE A LIST LIKE THIS GETS FORGOTTEN. mergeDuplicateProfiles fills only the
+  // fields IT names, so a reward living on the duplicate would be dropped without a word — the
+  // record still saves, the screen still draws, and the reward is simply gone.
+  const st2 = state([], [
+    { id: "cus_a", key: "6012111", createdAt: "2026-01-01T00:00:00.000Z",
+      name: "Aunty Bee", whatsapp: "6012111", reward: "a free loaf for every five friends" },
+    { id: "cus_b", key: "6012111", createdAt: "2026-01-02T00:00:00.000Z",
+      name: "Aunty Bee", whatsapp: "6012111" },
+  ]);
+  const kept = upsertProfile(st2, { id: "cus_b", name: "Aunty Bee", whatsapp: "6012111" });
+  assert.equal(kept.reward, "a free loaf for every five friends",
+    "the merge fills the blank from the duplicate rather than losing it");
+  assert.equal(st2.customers.length, 1, "and the two really did merge");
+});
+
+test("a code's tie survives the customer's number being corrected", () => {
+  // WHY A CODE STORES THE PROFILE'S ID AND NOT ITS KEY. Correcting a customer's WhatsApp number
+  // RE-KEYS them — so a code holding the old key would quietly stop pointing at anybody. The id
+  // is issued once and never moves.
+  const st = state([], []);
+  const before = upsertProfile(st, { name: "Aunty Bee", whatsapp: "6012-111" });
+  const id = before.id;
+  // Captured FIRST: upsertProfile edits the record in place, so reading `before.key` afterwards
+  // reads the record as it is now and would compare a value with itself.
+  const keyBefore = before.key;
+
+  const after = upsertProfile(st, { id, name: "Aunty Bee", whatsapp: "6012-999" });
+  assert.equal(after.id, id, "the id is issued once and survives the re-key");
+  assert.equal(after.key, "6012999", "the key follows the corrected number");
+  assert.notEqual(after.key, keyBefore, "so the KEY moves — which is exactly what a code must not store");
+});

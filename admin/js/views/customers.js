@@ -316,8 +316,13 @@ function profileBlockEl(state, r, refresh, onSaved) {
     p.likes ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, `Likes ${p.likes}`) : null,
     p.avoid ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, `Avoids ${p.avoid}`) : null,
     p.notes ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, p.notes) : null,
+    // WHAT THIS ADVOCATE GETS, IN HER OWN WORDS (v289). Shown HERE, in the profile block, and
+    // not inside the bring-a-friend block below — that one returns nothing at all for a customer
+    // with no WhatsApp number (see referralSection), and the casual, friend-to-friend advocate is
+    // exactly the person who may have none.
+    p.reward ? el("p", { class: "card-sub reward-line", style: "margin:2px 0 0" }, `🎁 Reward: ${p.reward}`) : null,
   ];
-  const empty = !p.name && !p.dogName && !p.likes && !p.avoid && !p.notes;
+  const empty = !p.name && !p.dogName && !p.likes && !p.avoid && !p.notes && !p.reward;
 
   return el("div", { class: "profile-card" },
     el("div", { class: "profile-top" },
@@ -350,6 +355,10 @@ function editProfilePopup(state, r, afterSave) {
   const likes = el("input", { class: "input", value: p.likes || "", placeholder: "e.g. banana, extra cocoa", "data-suggest": "banana, extra cocoa" });
   const avoid = el("input", { class: "input", value: p.avoid || "", placeholder: "e.g. nuts, coconut", "data-suggest": "nuts, coconut" });
   const notes = el("input", { class: "input", value: p.notes || "", placeholder: "Anything to remember" });
+  // What this person gets for bringing you custom (v289). Free text on purpose: her words are
+  // "not just as plain as rm3", and a partner may be owed a free loaf, a favour, or an
+  // arrangement of their own.
+  const reward = el("input", { class: "input", value: p.reward || "", placeholder: "e.g. a free loaf for every five friends" });
 
   const file = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const preview = el("div", { style: "display:flex;align-items:center;gap:10px;flex-wrap:wrap" });
@@ -387,6 +396,7 @@ function editProfilePopup(state, r, afterSave) {
       likes: likes.value,
       avoid: avoid.value,
       notes: notes.value,
+      reward: reward.value,
     }, r._key); // the person this pop-up was opened from
     if (!prof) return toast("Enter a name or WhatsApp number first");
     save(state);
@@ -410,6 +420,9 @@ function editProfilePopup(state, r, afterSave) {
       el("div", { class: "field" }, el("label", {}, "What they like"), likes),
       el("div", { class: "field" }, el("label", {}, "What to avoid"), avoid),
       el("div", { class: "field" }, el("label", {}, "Note"), notes),
+      el("div", { class: "field" }, el("label", {}, "🎁 Their reward"), reward,
+        el("p", { class: "hint" },
+          "What they get for bringing you custom — a free loaf for every five friends, RM5 off each order, or whatever you have agreed. Write it in your own words; there is no fixed amount. The app names it and counts what they brought in; you settle up yourself, the same way you do with the credits below.")),
       el("div", { class: "btn-row" }, button("Save profile", saveProfile, "primary"), button("Cancel", close, "ghost")));
   });
 }
