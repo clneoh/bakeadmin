@@ -981,13 +981,25 @@ button.prod-next.off::after { content: ""; }
    is 37 to 48. The two controls that matter most at the door were the two smallest
    targets on the page, found by measuring rather than by reading the rule. So the pill
    takes the page's own floor and centres its word in it, instead of growing with the
-   text. */
+   text.
+
+   AND THE WORD ITSELF MAY BREAK (v284). Her report, 3 Oct 2026: *"the lalamove link is
+   very long and go out of bound."* A courier's share link is one unbroken run of about
+   150 characters, and an inline-flex box cannot break one — the pill simply grew past
+   the card and off the screen. `overflow-wrap: anywhere` is the rule that fixes it, and
+   it is the same one her own backoffice already carries on `.job-link`, so the customer's
+   card and her own screen stop a long link the same way. `anywhere` and not `break-word`:
+   it is the one that also lowers the box's minimum width, which is what lets the pill fit
+   the card at all. The vertical padding exists so that a wrapped word has room inside the
+   pill; a one-line pill is still exactly the 38 pixels measured above, because min-height
+   wins and the word stays centred. */
 .track-result a {
   display: inline-flex;
   align-items: center;
   min-height: 38px;
-  padding: 0 14px;
+  padding: 6px 14px;
   box-sizing: border-box;
+  overflow-wrap: anywhere;
   border-radius: 999px;
   background: var(--brown-soft);
   color: var(--brown-dark);

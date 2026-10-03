@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v283)
+# Jienluv2bake — change history (v54 → v284)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**03 Oct 2026 — engine v284, A LONG COURIER LINK NO LONGER RUNS OFF THE CARD
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You sent me a customer's tracking card and said: __"the lalamove link is
+very long and go out of bound."__ Once your Lalamove account went live, a real
+booking came back with a real share link — one unbroken run of about 150
+characters, with no spaces anywhere in it. Your customer's card draws that link as
+a **rounded button**, and a button cannot break a word it cannot find a space in.
+So the link stayed one enormous line and grew straight out of the card and off the
+screen.
+
+**What you see now.** The link stays **inside** the card. It wraps onto as many
+lines as it needs, and the button grows downwards instead of sideways. Nothing
+else about the card moved: the wording, the order of the lines, the money and the
+progress line are all exactly as they were, and the link still opens the courier's
+own page in a new tab.
+
+**A short link is untouched.** Measured on the card at a 375-pixel phone screen:
+a short link such as `https://track.jt.com.my/A3F9C2` is still exactly the **38
+pixels** tall it has always been, because the button's own floor and its centring
+are unchanged. Only a link long enough to need a second line behaves differently.
+
+**Measured before and after, on your own order.** Your order's link is 131
+characters. Before: it ran past the card's right edge and off the screen. After:
+it wraps to five lines, its right edge sits at 344 against the card's 361, and the
+page no longer scrolls sideways — the page's own scroll width equals the phone's
+width. **Your backoffice card was never affected**: the booked-trip card on your
+own screen already carried this rule, so both of your screens now stop a long link
+the same way.
+
+**Where else that link is drawn — checked, not assumed.** You asked me to check
+everywhere it lives, so I did. The link is stored once, on the order, and reaches
+your customer in three places: the **customer's track card** (the one that was
+broken — fixed here); the **shipped WhatsApp message**, which carries it as plain
+text that WhatsApp wraps in the chat itself, so it was never at risk; and your
+**own booked-trip card**, which was already right. The delivery-run screen only
+mentions it in a passing message, and the orders list draws it as a number to read
+out rather than a link, so neither of those can overflow.
+
+**No database step, and nothing to upload.** This is one style rule in the shop's
+stylesheet — no SQL, no Edge Function, no key, and your Lalamove account and your
+data are untouched. Pushing it is the whole of it.
 
 **03 Oct 2026 — engine v283, SHARE SENDS THE JOURNAL AS A PDF FILE (no database
 step, nothing to upload — pushing this one is the whole of it).**
