@@ -1,8 +1,66 @@
-# Jienluv2bake — change history (v54 → v296)
+# Jienluv2bake — change history (v54 → v297)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v297, THE OFFERS REALLY FLIP, WITH DOTS, AND A CLICK NO LONGER
+FREEZES THEM (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Three things in one message, and the third was a fault of mine. Her words:
+__"I dont like the flip, the flip should be 3D flip, and also i came with a flaw, once we put mouse
+over it or click it, the flip stop, there should be 2 dot if there is 2 message, 3 dot if 3
+message. move the mouse outside the window, the flip should be back"__
+
+**1 — The flip is properly 3D now.** v296 turned both panels through the **same** arc — the old one
+out one way, the new one in from where it had just left — which mirrors them the whole time and
+reads as a vertical **squash**. Now the offer being replaced tips **away over the top** while the
+next rises from **below**. Two panels turning through opposite arcs is a card turning over; that
+one difference is the whole of it.
+
+**2 — One dot per offer.** Two messages, two dots; three messages, three dots; **one message, no
+dots at all** — the same rule that already leaves the turn unarmed, because one offer is a
+statement. Pressing a dot goes straight to that offer, and **does not stop the turn**.
+
+**3 — The flaw you found, and it was mine.** v292 paused the flip for **twenty seconds on any
+click**. It was meant as the only pause a phone had, but it was a **clock, not the pointer** — so
+clicking the strip trapped it for twenty seconds, and moving the mouse away could not release it.
+That is exactly the symptom you described. **The pointer being over the strip is now the whole of
+the pause**, so moving the mouse out — of the strip, or out of the window entirely — always starts
+it again.
+
+**4 — I read your own design skill, which I should have done before touching this, and it caught
+four things I had wrong:**
+
+- **The dots were 22 pixels across. WCAG 2.5.8's floor is 24.** They are 28 now — the dot you see
+  is still the same size as the ones on your homepage, and it is the button around it that carries
+  the size.
+- **They had no focus ring**, so anyone tabbing to them could not see where they were. They have
+  one.
+- **The turn used the same easing both ways.** Your skill says __ease-out coming in, ease-in going
+  out__ — that is what it does now, and it is the difference between a turn that settles and one
+  that just stops.
+- **The turn was 420 milliseconds**, just outside the 250–400 band your skill names for a change
+  like this. It is **380** now.
+
+**One thing I did NOT change, and it is yours to call.** Your skill asks for body text to be pushed
+toward **7:1 contrast** because your customers read it on a phone in Penang daylight. The offer
+line sits at **5.3:1** — comfortably past the 4.5:1 that is required, but short of that goal.
+Getting to 7:1 means darkening the amber text noticeably, which is a change to how the strip
+looks. Say the word and it is one line.
+
+**What I could not check from here, said plainly.** The preview pane was off-screen the whole time,
+and **a hidden page does not run animations at all** — so I could verify __where__ each panel ends up
+(it is the opposite side, which is the 3D fact) but **I could not watch the turn itself**. Please
+look at it on your phone. Everything else was measured: the strip holds **169.4 pixels** and the
+page below it **380.1**, identical on every single turn, so the dots have not brought the jumping
+back.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. The
+shop's page and nothing else. The suite is 2,635 tests, all green. Proved live on the real shop
+page at a phone width: **26 checks**, including that a click no longer freezes the turn, that a
+pointer leaving the window starts it again, that pressing a dot goes to that offer without
+stopping the turn, and that the two panels sit on opposite sides.
 
 **04 Oct 2026 — engine v296, THE OFFERS FLIP RATHER THAN FADE (no database step, nothing
 to upload — pushing this one is the whole of it).**

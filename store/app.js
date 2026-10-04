@@ -1187,6 +1187,7 @@ export function render() {
   const promoSay = document.getElementById("promo-say");
   const promoToday = document.getElementById("promo-today");
   const promoRotor = document.getElementById("promo-rotor");
+  const promoDots = document.getElementById("promo-dots");
   const promoClear = document.getElementById("promo-clear");
 
   // ── The standing offers, and how they turn (v292; the jump fixed in v295) ──
@@ -1223,23 +1224,29 @@ export function render() {
   // customer actually has, with no number of ours that can go stale. Turning then only
   // moves which slide is lit, and nothing under the strip moves at all.
   const TURN_MS = 1500;
-  const PRESS_HOLD_MS = 20000;
 
   let turnTimer = null;
   let liveCodes = [];   // what the strip is turning through right now
   let shownCodes = [];  // ...and what it was turning through when it last drew
   let codeAt = 0;       // which of them is on screen
   let overStrip = false;
-  let heldUntil = 0;
   let slides = [];      // one per offer, all in the strip at once
+  let dots = [];        // ...and one dot per offer, under them
   let litAt = -1;       // which slide is lit, so a repaint can skip a pointless repaint
 
-  // Whether the offers may turn RIGHT NOW. Read fresh on every tick rather than
-  // tearing the timer down and rebuilding it on every hover, so a pointer moving
-  // over the strip can never leave two timers running.
+  // Whether the offers may turn RIGHT NOW. Read fresh on every tick rather than tearing
+  // the timer down and rebuilding it on every hover, so a pointer moving over the strip
+  // can never leave two timers running.
+  //
+  // ⚠️ THERE IS DELIBERATELY NO PRESS-HOLD HERE (v297). v292 paused the turn for twenty
+  // seconds on any `pointerdown`, meant as the only pause a phone had. It was a trap: a
+  // CUSTOMER WHO CLICKED THE STRIP — or a dot on it — froze it for twenty seconds, and
+  // moving the pointer away could not release it, because the hold was a clock rather than
+  // the pointer. Her report: "once we put mouse over it or click it, the flip stop… move
+  // the mouse outside the window, the flip should be back." The pointer being OVER the
+  // strip is the whole of the pause now, so leaving always starts it again.
   function mayTurn() {
-    if (document.hidden || overStrip) return false;
-    return Date.now() >= heldUntil;
+    return !document.hidden && !overStrip;
   }
 
   // One offer, as its own slide. Two lines: the app's line, which names the code, and
@@ -1260,23 +1267,44 @@ export function render() {
   function buildSlides(list) {
     slides = list.map(slideEl);
     if (promoRotor) promoRotor.replaceChildren(...slides);
+    // HER ASK: "there should be 2 dot if there is 2 message, 3 dot if 3 message." One dot
+    // per offer, under the strip — and none at all for a single offer, which is the same
+    // rule that leaves the timer unarmed: one offer is a statement, not a carousel.
+    dots = list.map((c, i) => el("button", {
+      class: "promo-dot", type: "button",
+      "aria-label": `${i + 1} / ${list.length}`,
+      // A dot is a way IN, never a way to stop: pressing one goes to that offer and lets
+      // the turn carry on. It used to also freeze the strip for twenty seconds — see mayTurn.
+      onclick: () => { showSlide(i); armTurn(); },
+    }));
+    if (promoDots) promoDots.replaceChildren(...dots);
     litAt = -1;
   }
 
-  // Light one slide and extinguish the rest. The wording is drawn once, at build time
-  // and never again — this only moves a class, which is what makes the strip's height
+  // Light one slide and extinguish the rest. The wording is drawn once, at build time and
+  // never again — this only moves a class, which is what makes the strip's height
   // unmovable: nothing here can change how tall the content is.
+  //
+  // ★ THE LEAVING OFFER GOES OUT THE OPPOSITE DOOR (v297). Every other slide waits edge-on
+  // at `rotateX(90deg)` and rises to meet the reader; the one that has just been replaced
+  // is sent to `rotateX(-90deg)` instead. Two panels turning through the SAME arc is a
+  // squash; two turning through opposite arcs is a flip, and this is the whole of what
+  // makes it read as 3D. Her words: "the flip should be 3D flip".
   function showSlide(at) {
     codeAt = at;
     const i = Number(at) || 0;
     if (i === litAt && slides.length) return;
     litAt = i;
-    slides.forEach((s, n) => {
-      s.classList.toggle("is-on", n === i);
+    const n = slides.length;
+    const left = n > 1 ? (i - 1 + n) % n : -1;
+    slides.forEach((s, k) => {
+      s.classList.toggle("is-on", k === i);
+      s.classList.toggle("is-left", k === left);
       // The offers nobody is reading must not be read aloud either. They are stacked
       // behind the lit one, so a screen reader would otherwise take all of them in turn.
-      s.setAttribute("aria-hidden", n === i ? "false" : "true");
+      s.setAttribute("aria-hidden", k === i ? "false" : "true");
     });
+    dots.forEach((d, k) => d.classList.toggle("is-on", k === i));
   }
 
   // Stand the turning down. There is no fade to undo any more — the cross-fade is a CSS
@@ -1309,7 +1337,11 @@ export function render() {
   if (promoToday) {
     promoToday.addEventListener("pointerenter", () => { overStrip = true; });
     promoToday.addEventListener("pointerleave", () => { overStrip = false; });
-    promoToday.addEventListener("pointerdown", () => { heldUntil = Date.now() + PRESS_HOLD_MS; });
+    // Belt and braces for the exact case she reported — "move the mouse outside the window,
+    // the flip should be back". A pointer that leaves the whole document without passing
+    // through the strip's own leave event must not leave the turn held for ever.
+    document.addEventListener("pointerleave", () => { overStrip = false; });
+    document.addEventListener("pointercancel", () => { overStrip = false; });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) stopTurn();
       else armTurn();
@@ -1438,7 +1470,9 @@ export function render() {
       if (!list.length) {
         stopTurn();
         if (promoRotor) promoRotor.replaceChildren();
+        if (promoDots) promoDots.replaceChildren();
         slides = [];
+        dots = [];
         litAt = -1;
         codeAt = 0;
       } else {

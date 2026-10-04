@@ -45,18 +45,17 @@ test("every offer shares one grid cell, so the strip cannot change height", () =
     "the offer has to fade as well as turn, or a half-turned one reads through the other");
 });
 
-test("the turn is a flip, and the two directions fade at different rates", () => {
-  // Her ask: "can the flip be an animation". The mechanism is a quarter-turn: an offer
-  // nobody is reading rests edge-on (`rotateX(-90deg)`) and coming round brings it to face
-  // the reader. Nothing here is a timer in the script — a flip driven by a JS clock is a
-  // flip that can be left half-way round by a repaint.
+test("the turn is a 3D flip: the two panels go out by OPPOSITE doors", () => {
+  // Her asks, in order: "can the flip be an animation", then "the flip should be 3D flip".
+  // v296 failed the second one: it sent BOTH panels through the same arc (old 0 → −90, new
+  // −90 → 0), which mirrors them the whole way and reads as a vertical squash.
   const rotor = css.match(/\.promo-rotor\s*\{[^}]*\}/)[0];
   assert.match(rotor, /perspective:/,
     "without a perspective on the rotor the turn is flat and reads as a squash, not a flip");
 
   const slide = css.match(/\.promo-slide\s*\{[^}]*\}/)[0];
-  assert.match(slide, /transform:\s*rotateX\(-90deg\)/,
-    "an unread offer rests a quarter-turn away, edge-on to the reader");
+  assert.match(slide, /transform:\s*rotateX\(90deg\)/,
+    "an offer waiting its turn rests edge-on BELOW the reader");
   assert.match(slide, /transition:[^;]*transform/,
     "the turn itself must be a transition on transform");
 
@@ -65,12 +64,24 @@ test("the turn is a flip, and the two directions fade at different rates", () =>
   assert.match(lit[0], /transform:\s*rotateX\(0deg\)/,
     "the lit offer faces the reader");
 
-  // ⚠️ THE TRICK, and the one thing a later tidy-up would flatten. Both slides travel
-  // through the same angle, so if they faded at the same rate they would BOTH sit at half
-  // opacity and half-turned in the middle of the turn — muddle. The one leaving must be
-  // gone before it is half-way round, and the one arriving must hold its fade back.
+  // ⚠️ THE OPPOSITE DOOR, and the whole of what makes it read as 3D. Remove this rule and
+  // the two panels mirror each other through one arc again — the squash v296 shipped.
+  const left = css.match(/\.promo-slide\.is-left\s*\{[^}]*\}/);
+  assert.ok(left, "nothing sends the replaced offer out the other door — that rule IS the 3D flip");
+  assert.match(left[0], /transform:\s*rotateX\(-90deg\)/,
+    "the offer that has just been replaced must tip AWAY over the top, not back the way it came");
+  assert.equal(left[0].includes("opacity"), false,
+    "the leaving slide must not carry an opacity of its own — it fades on the base rule, fast");
+
+  // It has to win over the base rule on its own: more specific, and later in the sheet.
+  assert.equal(
+    css.lastIndexOf(".promo-slide.is-left") > css.lastIndexOf("\n.promo-slide {"),
+    true, "the .is-left rule must come after the base .promo-slide rule");
+
+  // And the two directions still fade at different rates — both panels are on screen at
+  // once, and equal fades would put two half-turned messages up together.
   const outOpacity = slide.match(/opacity\s+([\d.]+)s/);
-  // `opacity .3s ease .12s` — the easing word sits between the duration and the delay.
+  // `opacity .3s ease .14s` — the easing word sits between the duration and the delay.
   const inRule = lit[0].match(/opacity\s+([\d.]+)s(?:\s+[a-z-]+)?(?:\s+([\d.]+)s)?/);
   assert.ok(outOpacity, "the leaving slide has no opacity timing");
   assert.ok(inRule, "the arriving slide has no opacity timing");
@@ -78,6 +89,74 @@ test("the turn is a flip, and the two directions fade at different rates", () =>
     "the arriving slide must DELAY its fade — without the delay both offers are half-visible mid-turn");
   assert.equal(Number(outOpacity[1]) < Number(inRule[1]), true,
     "the leaving slide must fade FASTER than the arriving one comes up");
+});
+
+test("there is one dot per offer, and none for a single offer", () => {
+  // Her ask: "there should be 2 dot if there is 2 message, 3 dot if 3 message."
+  assert.match(html, /<div id="promo-dots"[^>]*><\/div>/,
+    "index.html must carry an empty #promo-dots for the script to fill");
+  assert.match(app, /dots = list\.map\(/,
+    "the dots must be built one per offer, from the same list the slides come from");
+  // A row of dots that a single offer does not need — the same rule that leaves the timer
+  // unarmed, and the :empty rule is what keeps an empty row from adding height.
+  assert.match(css, /\.promo-dots:empty\s*\{\s*display:\s*none/,
+    "an empty dot row must not take up space");
+});
+
+test("the dots meet the accessibility floor the house skill sets", () => {
+  // ⚠️ THE FIRST DRAFT SHIPPED 22px HIT AREAS — under WCAG 2.5.8's 24×24 CSS px floor.
+  // These are the rules that were missing, held here so they cannot quietly go again.
+  const dot = css.match(/\.promo-dot\s*\{[^}]*\}/);
+  assert.ok(dot, "app.css has no .promo-dot rule");
+  const size = (prop) => {
+    const m = dot[0].match(new RegExp(`${prop}:\\s*(\\d+)px`));
+    return m ? Number(m[1]) : 0;
+  };
+  assert.equal(size("width") >= 24, true,
+    `the dot's hit area must clear WCAG 2.5.8's 24px floor (it is ${size("width")}px)`);
+  assert.equal(size("height") >= 24, true,
+    `…in both directions (height is ${size("height")}px)`);
+
+  // A control must say what it is to a screen reader, and this one is a button with no text.
+  assert.match(app, /"aria-label": `\$\{i \+ 1\} \/ \$\{list\.length\}`/,
+    "each dot needs its own aria-label — it is an icon-only button");
+
+  // A visible focus ring: the house skill forbids `outline: none` without a replacement,
+  // and these are keyboard-reachable buttons.
+  assert.match(css, /\.promo-dot:focus-visible\s*\{[^}]*outline:/,
+    "the dots are reachable by keyboard and must show where the focus is");
+});
+
+test("the motion follows the house rules for durations and easings", () => {
+  // The house skill: 250–400ms for a page-level state change, never over 500ms; and
+  // ease-out for entering, ease-in for leaving.
+  const slide = css.match(/\.promo-slide\s*\{[^}]*\}/)[0];
+  const lit = css.match(/\.promo-slide\.is-on\s*\{[^}]*\}/)[0];
+  const dur = (rule) => Number((rule.match(/transform\s+([\d.]+)s/) || [])[1] || 0);
+  assert.equal(dur(slide) > 0 && dur(slide) <= 0.5, true,
+    `the turn must stay inside the house ceiling of 500ms (it is ${dur(slide)}s)`);
+  assert.equal(dur(lit), dur(slide),
+    "the two halves of one turn must take the same time, or the swap looks like a stumble");
+
+  // ease-in leaves, ease-out arrives. Both are cubic-beziers, so the first control point
+  // tells them apart: an ease-out starts fast (x1 ≈ 0) and an ease-in starts slow (x1 high).
+  const leaveX1 = Number((slide.match(/cubic-bezier\(([\d.]+),/) || [])[1]);
+  const enterX1 = Number((lit.match(/cubic-bezier\(([\d.]+),/) || [])[1]);
+  assert.equal(enterX1 < leaveX1, true,
+    "the arriving offer should ease OUT (starts fast) and the leaving one ease IN (starts slow)");
+});
+
+test("a press on the strip can no longer freeze the turn for ever", () => {
+  // ⚠️ HER REPORT: "once we put mouse over it or click it, the flip stop… move the mouse
+  // outside the window, the flip should be back." v292 paused on any `pointerdown` for
+  // twenty seconds — a CLOCK, not the pointer — so a click trapped the strip and moving
+  // away could not release it. The pointer being over the strip is the whole of the pause.
+  assert.doesNotMatch(app, /PRESS_HOLD_MS/,
+    "the twenty-second press-hold is back — it traps the strip on any click");
+  assert.doesNotMatch(app, /heldUntil/,
+    "a clock-based hold is back; the pause must be the pointer being over the strip, and nothing else");
+  assert.match(app, /promoToday\.addEventListener\("pointerleave", \(\) => \{ overStrip = false; \}\)/,
+    "leaving the strip must release the turn");
 });
 
 test("only the lit slide can be tapped", () => {
