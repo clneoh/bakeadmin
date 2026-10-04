@@ -1378,6 +1378,14 @@ button.prod-next.off::after { content: ""; }
   padding: 9px 11px;
   background: var(--brown-soft);
 }
+/* A Point whose smallest basket this basket has not reached (v306). PARKED, NOT HIDDEN: it
+   stays on the page with the reason in its own line, because a choice that vanished below RM30
+   would read as a broken page rather than as the baker's own rule — and a customer can act on a
+   shortfall they can see. It is drawn quiet rather than dimmed to nothing, so it still reads. */
+.point-opt.short { background: var(--bg); border-style: dashed; }
+.point-opt.short .point-name { color: var(--muted); }
+.point-opt.short .point-sub { color: var(--brown); }
+
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .point-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 

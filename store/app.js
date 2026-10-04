@@ -21,6 +21,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // The promo-code engine, shared with the backoffice so a code the shop accepts is
 // exactly a code her app recognises. It is a leaf module (imports nothing), which
 // is why the shop can take it without pulling the backoffice's storage in.
+import { pointMinOrder, pointShortfall } from "../admin/js/points.js";
 import { codeNameOk, evaluate, findCode, minimumOf, normCode, normalizeCode, offerOf, shortfallOf, stoppedBy, worthOf } from "../admin/js/promo.js";
 
 // Day/month short names per site language. English is today's authoring default;
@@ -629,15 +630,25 @@ export function mergeStorefront(base, remote) {
   // instruction — "she has no Points open" — and has to take a Point off a page that is already
   // showing it.
   //
-  // ⚠️ ONLY the id and the name arrive. The receiver, their phone, the fee and the address never
-  // leave her app — the shop is public, and the message that tells a customer where to go is
-  // built from HER copy. So the shop validates what it gets down to exactly these two fields,
-  // which is also what makes a malformed row unable to reach the page.
+  // ⚠️ THE ID, THE NAME AND THE SMALLEST BASKET arrive, and nothing else. The receiver, their
+  // phone, the fee and the address never leave her app — the shop is public, and the message
+  // that tells a customer where to go is built from HER copy. So the shop validates what it gets
+  // down to exactly these fields, which is also what makes a malformed row unable to reach the
+  // page.
+  //
+  // The smallest basket is the opposite of private (v306): it is what the customer has to know
+  // BEFORE choosing, and without it this page could only take an order the Point does not want.
+  // A missing or unreadable `min` is 0 — NO minimum — because a rule the shop invented would
+  // refuse an order nobody asked it to refuse.
   if (Array.isArray(remote.points)) {
     out.points = remote.points
       .filter((p) => p && typeof p === "object"
         && String(p.id || "").trim() && String(p.name || "").trim())
-      .map((p) => ({ id: String(p.id).trim(), name: String(p.name).trim() }));
+      .map((p) => {
+        const min = Number(p.minOrderRM);
+        return { id: String(p.id).trim(), name: String(p.name).trim(),
+          minOrderRM: Number.isFinite(min) && min > 0 ? min : 0 };
+      });
   }
   if (Array.isArray(remote.products)) {
     const products = remote.products
@@ -2252,6 +2263,10 @@ export function render() {
     // their judgement: a percentage's money moves with the total, and so does
     // whether a code's minimum is met.
     paintPromo(total);
+    // ★ AND THE COLLECT-FROM LIST, for the same reason and on the same repaint (v306): whether a
+    // Point will take this basket is part of the basket's judgement, so a customer who adds an
+    // item watches Farlim become choosable — and one who removes one watches it say why not.
+    refreshPointList(total);
     return total;
   }
 
@@ -2856,7 +2871,7 @@ function publishedPoints() {
 //
 // The whole field is hidden while she has no Point open, so a shop that never uses them is
 // byte-for-byte the shop it was.
-function renderPointList(wrap) {
+function renderPointList(wrap, total = 0) {
   const field = document.getElementById("point-field");
   const list = document.getElementById("point-list");
   if (!field || !list || !wrap) return;
@@ -2871,28 +2886,54 @@ function renderPointList(wrap) {
       if (b && b.classList) b.classList.toggle("active", (b.dataset.pointId || "") === id);
     }
   };
-  const row = (id, name, sub) => el("button", {
-    class: "point-opt", type: "button", "data-point-id": id,
-    onclick: () => choose(id, name),
-  }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub));
+  // ★ A SHORT BASKET IS SHOWN AND REFUSED, not hidden (v306). `short` is a POINT that asks for a
+  // smallest basket this basket has not reached: it stays on the page with the reason in its own
+  // line, because a Point that simply vanished below RM30 would read as a broken page rather than
+  // as her rule — and the customer can act on a shortfall they can see.
+  //
+  // The rule is HERS, typed on her own Point, so the shop honours it rather than merely stating
+  // it: this is not the app's own rule being turned into a gate, which is the thing her standing
+  // instruction forbids.
+  const row = (id, name, sub, { short = false } = {}) => {
+    const b = el("button", {
+      class: `point-opt${short ? " short" : ""}`, type: "button", "data-point-id": id,
+      onclick: () => {
+        if (short) { showConfirm([el("p", { class: "confirm-title" }, name),
+          el("p", { class: "confirm-body" }, sub)], "warn"); return; }
+        choose(id, name);
+      },
+    }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub));
+    return b;
+  };
+
+  const basket = Number(total) || 0;
+  const judged = points.map((p) => {
+    const need = pointShortfall(p, basket);
+    return { p, short: need > 0, need };
+  });
 
   list.replaceChildren(
     row("", t("ourKitchen"), t("kitchenSub")),
-    ...points.map((p) => row(p.id, p.name, t("pointSub"))));
+    ...judged.map(({ p, short, need }) => row(p.id, p.name,
+      short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2)) : t("pointSub"), { short })));
 
   // ⚠️ A POINT SHE PAUSED OR DELETED MUST NOT STAY CHOSEN. A customer may have picked it
   // before she took it off, and the shop cannot then post an order to a place she is no
   // longer offering — so a choice that is no longer open falls back to the kitchen, which is
   // always there. Re-applied on every repaint, so the picker and the order cannot disagree.
   const want = String(wrap._pointId || "");
-  const stillOpen = want && points.some((p) => p.id === want);
-  choose(stillOpen ? want : "", stillOpen ? (points.find((p) => p.id === want) || {}).name || "" : t("ourKitchen"));
+  // ⚠️ AND A CHOICE THAT IS NO LONGER OPEN FALLS BACK — now including one whose SMALLEST BASKET
+  // the basket has dropped below. A customer who chose Farlim at RM40 and then removed an item is
+  // not left holding a Point they can no longer use: the picker goes back to the kitchen and the
+  // Point says why. Re-applied on every repaint, so the picker and the order cannot disagree.
+  const open = judged.find((j) => j.p.id === want && !j.short);
+  choose(open ? want : "", open ? open.p.name : t("ourKitchen"));
 }
 
-function refreshPointList() {
+function refreshPointList(total = 0) {
   const wrap = document.getElementById("fulfillment");
   const field = document.getElementById("point-field");
-  renderPointList(wrap);
+  renderPointList(wrap, total);
   // Only a COLLECTION order chooses where, and only when she has a Point open. The empty
   // field hides itself, so this never leaves a labelled box with nothing in it.
   if (field) field.hidden = !wrap || wrap._value === "courier" || !publishedPoints().length;

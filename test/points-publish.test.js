@@ -260,6 +260,17 @@ test("a screen nothing has changed on publishes nothing", () => {
 
 // Found by the label she reads, through deepText: a label's words are a TEXT NODE child, so
 // reading `.textContent` off it finds undefined and blames the card.
+// What a picker SHOWS. A browser makes `select.value` follow the option marked selected; this
+// shim does not, so the option wearing `selected` is the honest read.
+const selectedValue = (sel) => {
+  const opt = (sel.children || []).find((c) => c.selected === true);
+  return opt ? opt.value : "";
+};
+const setSel = (sel, value) => {
+  sel.value = value;
+  (sel._listeners.change || []).forEach((f) => f.call(sel));
+};
+
 const fieldNamed = (card, label) => {
   const field = walk(card).find((n) => String(n.className || "").split(/\s+/).includes("field")
     && n.children[0] && deepText(n.children[0]) === label);
@@ -321,4 +332,48 @@ test("the Edit card opens on the hours already stored, and can clear them (v304)
   press(findButton(popup, "Update Point"));
   assert.equal(st.points[0].collectWindow, "", "emptying the boxes takes the hours back off");
   assert.ok(/No collection window/.test(deepText(root)), "and the row goes quiet about the time");
+});
+
+// ── v306: the smallest basket, on the card ─────────────────────────────────
+// The same switch the Promo codes screen already uses — "No minimum" / "Only on a basket of at
+// least" — because a minimum is a minimum, and learning a second shape for one idea is how two
+// screens come to mean two different things by one word.
+
+test("the card takes a smallest basket, and the switch decides whether it applies (v306)", () => {
+  const st = liveState([]);
+  const root = mount(st);
+  const add = root.children[0];
+  fieldNamed(add, "Point name").value = "Farlim, Air Itam";
+  const on = fieldNamed(add, "Minimum order");
+  assert.equal(selectedValue(on), "none", "a new Point has NO minimum — where every Point starts");
+
+  setSel(on, "amount");
+  fieldNamed(add, "Smallest basket (RM)").value = "30";
+  press(findButton(add, "Add Point"));
+
+  assert.equal(st.points.length, 1, "the Point landed");
+  assert.equal(st.points[0].minOrderRM, 30, "with its smallest basket");
+  assert.ok(/Minimum order RM30\.00/.test(deepText(root)), "and the row says it");
+});
+
+test("switching the minimum OFF stores no minimum at all (v306)", () => {
+  const st = liveState([{ ...FARLIM, minOrderRM: 30 }]);
+  const root = mount(st);
+  press(findButton(cardFor(root, "Farlim, Air Itam"), "Edit"));
+  const popup = document.getElementById("popup-layer");
+  assert.equal(selectedValue(fieldNamed(popup, "Minimum order")), "amount", "opened on the switch as set");
+  assert.equal(fieldNamed(popup, "Smallest basket (RM)").value, "30");
+
+  setSel(fieldNamed(popup, "Minimum order"), "none");
+  press(findButton(popup, "Update Point"));
+  assert.equal(st.points[0].minOrderRM, 0, "switched off IS no minimum");
+  assert.ok(/No minimum order/.test(deepText(root)), "and the row says so");
+});
+
+test("a Point with no minimum keeps the sentence it has always had (v306)", () => {
+  // One loaf still goes, and the card says so rather than leaving a blank — the same promise
+  // she made when she opened the first Point.
+  const st = liveState([{ ...FARLIM }]);
+  const root = mount(st);
+  assert.ok(/No minimum order — one loaf still goes\./.test(deepText(root)), deepText(root).slice(0, 200));
 });

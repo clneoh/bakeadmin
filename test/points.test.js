@@ -23,7 +23,8 @@ import {
   DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint,
   collectionWindowText,
   orderPointName, pointAddressFor, pointById, pointPhoneText, pointPlace, pointPlaceText,
-  pointProblem, pointWindow, pointWindowText, pointsOf, activePoints, publishPoints,
+  pointMinOrder, pointProblem, pointShortfall, pointWindow, pointWindowText, pointsOf,
+  activePoints, publishPoints,
   setPointPaused, setPointPlace, updatePoint,
 } from "../admin/js/points.js";
 
@@ -228,21 +229,27 @@ test("the pin stays in her app", () => {
   const st = state();
   const p = addPoint(st, FEE);
   setPointPlace(st, p.id, { lat: 5.41405, lng: 100.31408, label: "Farlim" });
-  assert.deepEqual(Object.keys(publishPoints(st)[0]).sort(), ["id", "name"]);
+  assert.deepEqual(Object.keys(publishPoints(st)[0]).sort(), ["id", "minOrderRM", "name"]);
   assert.equal(JSON.stringify(publishPoints(st)).includes("100.31408"), false);
 });
 
 // ── what the SHOP is allowed to know (v299) ─────────────────────────────────
 
-test("the shop is told a Point's name and NOTHING else", () => {
+test("the shop is told a Point's name and its smallest basket, and NOTHING else", () => {
   // ⚠️ THE SHOP IS A PUBLIC PAGE. The receiver's name, their phone and the fee are hers;
   // publishing any of them would put a private person's mobile number on a page anyone can
   // read, and the fee is what she pays out rather than a price. Same rule as the promo
   // code's holder (v289).
+  //
+  // The SMALLEST BASKET is the one thing that did get added (v306), and it is the opposite of
+  // private: it is exactly what a customer has to know before choosing, and without it the shop
+  // could only take an order the Point does not want. The key list is asserted WHOLE, so a
+  // fourth key cannot be added by accident.
   const st = state();
-  addPoint(st, FEE);
+  addPoint(st, { ...FEE, minOrderRM: 30 });
   const [published] = publishPoints(st);
-  assert.deepEqual(Object.keys(published).sort(), ["id", "name"]);
+  assert.deepEqual(Object.keys(published).sort(), ["id", "minOrderRM", "name"]);
+  assert.equal(published.minOrderRM, 30, "the smallest basket, as a plain number");
   const blob = JSON.stringify(published);
   assert.equal(blob.includes("Aunty Lim"), false, "the receiver is never published");
   assert.equal(blob.includes("60123456789"), false, "nor their phone");
@@ -369,4 +376,60 @@ test("an edited Point keeps the window she typed, and can be given one it never 
   assert.equal(pointById(st, p.id).collectWindow, "", "emptying the boxes takes the window off");
   updatePoint(st, p.id, { ...FEE, collectWindow: "15:00-19:00" });
   assert.equal(pointWindowText(pointById(st, p.id)), "3-7 pm", "and it can be set again");
+});
+
+// ── v306: THE SMALLEST BASKET A POINT WILL TAKE ─────────────────────────────
+// Her words: "now the per-point minimum order, this should be switchable". Unit chosen by her
+// from two offered: RINGGIT — the same unit the promo code's own smallest basket uses, so
+// "a basket of RM30" means one thing in this app.
+//
+// ⚠️ IT DEFAULTS TO NONE, and that is her own earlier decision ("keep it as simple as possible,
+// say no minimum for self collect order"). A minimum of 0 IS no minimum: nothing in the record
+// distinguishes a Point she has never set one on from one she has just switched off.
+
+test("a Point carries a smallest basket, in ringgit, and 0 means none (v306)", () => {
+  const p = addPoint(state(), { ...FEE, minOrderRM: 30 });
+  assert.equal(p.minOrderRM, 30);
+  assert.equal(pointMinOrder(p), 30);
+  assert.equal(addPoint(state(), FEE).minOrderRM, 0, "a Point she opens has no minimum");
+  assert.equal(pointMinOrder(null), 0);
+});
+
+test("a minimum that is not money is NO minimum, never a broken one (v306)", () => {
+  // The same floor the fee has: junk, a negative and a blank all mean "no minimum" rather than
+  // reaching a customer as a rule nobody set.
+  for (const junk of ["rubbish", -5, "", null, undefined, NaN]) {
+    assert.equal(normalizePoint({ name: "X", minOrderRM: junk }).minOrderRM, 0, `for ${junk}`);
+  }
+  // A tidy case rather than a half-cent tie: what matters is that it goes through the app's own
+  // rounding (round2) and not through some second arithmetic of its own.
+  assert.equal(normalizePoint({ name: "X", minOrderRM: "12.499" }).minOrderRM, 12.5,
+    "and real money is rounded the way every other figure in this app is");
+});
+
+test("the shortfall is what the shop says and what it refuses on — ONE answer (v306)", () => {
+  const p = normalizePoint({ ...FEE, id: "pt_f", minOrderRM: 30 });
+  assert.equal(pointShortfall(p, 0), 30);
+  assert.equal(pointShortfall(p, 18), 12, "RM18 against RM30 is RM12 short");
+  assert.equal(pointShortfall(p, 30), 0, "reaching it exactly is reaching it");
+  assert.equal(pointShortfall(p, 45), 0, "and over it is not a negative shortfall");
+  // A Point with no minimum is never short, whatever the basket.
+  assert.equal(pointShortfall(normalizePoint(FEE), 0), 0);
+  assert.equal(pointShortfall(null, 0), 0);
+  assert.equal(pointShortfall(p, "rubbish"), 30, "a basket the shop cannot read is an empty basket");
+  // ⚠️ AND A BASKET A HAIR UNDER THE LINE IS NOT SHORT. Ten items at RM2.999999999 is RM30 as far
+  // as any customer and any till is concerned, and a Point parked on a floating-point remainder
+  // would say "yours is RM30.00 so far" under a line saying it needs RM30 — the screen calling
+  // her own rule a lie. round2 is what makes the two agree.
+  assert.equal(pointShortfall(p, 29.999999999), 0, "the line is the line, to the sen");
+  assert.equal(pointShortfall(p, 29.99), 0.01, "but a real sen short is a sen short");
+});
+
+test("switching the minimum off is a minimum of zero, not a remembered number (v306)", async () => {
+  const st = state();
+  const p = addPoint(st, { ...FEE, minOrderRM: 30 });
+  updatePoint(st, p.id, { ...FEE, minOrderRM: 0 });
+  assert.equal(pointMinOrder(pointById(st, p.id)), 0, "the switch off IS no minimum");
+  updatePoint(st, p.id, { ...FEE, minOrderRM: 45 });
+  assert.equal(pointMinOrder(pointById(st, p.id)), 45, "and it can be set again");
 });

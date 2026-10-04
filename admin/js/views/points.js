@@ -13,7 +13,7 @@
 // no basket rule at all. Collecting is free; the fee on this card is what SHE pays the
 // provider, not what a customer pays her. Do not add a minimum back without her asking.
 
-import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
+import { el, button, emptyState, confirmDialog, select, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
 import { addressSuggester } from "../address_suggest.js";
 import { windowAt, windowParts, windowProblem } from "../time_window.js";
@@ -21,7 +21,7 @@ import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
 import {
   DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
-  pointPlace, pointPlaceText, pointProblem, pointWindow, pointWindowText, pointsOf,
+  pointMinOrder, pointPlace, pointPlaceText, pointProblem, pointWindow, pointWindowText, pointsOf,
   setPointPaused, setPointPlace,
   updatePoint,
 } from "../points.js";
@@ -84,6 +84,26 @@ function buildPointEditor(state, point) {
   const fee = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.10",
     min: "0", value: point ? String(point.feeRM) : String(DEFAULT_FEE_RM), style: "max-width:120px" });
 
+  // ★ THE SMALLEST BASKET THIS POINT WILL TAKE (v306). The SAME switch the Promo codes screen
+  // already uses — "No smallest basket" / "Only on a basket of at least" — because a minimum is
+  // a minimum, and learning a second shape for the same idea is how two screens come to mean
+  // two different things by one word.
+  //
+  // ⚠️ IT DEFAULTS TO NONE, which is where every Point already is: she chose "keep it as simple
+  // as possible, say no minimum for self collect order", and a Point she opens without one keeps
+  // behaving exactly as it did. A minimum of 0 IS no minimum.
+  const minOn = select(
+    [{ value: "none", label: "No minimum" }, { value: "amount", label: "Only on a basket of at least" }],
+    pointMinOrder(point) > 0 ? "amount" : "none",
+    function () { paintMin(); });
+  const minAmount = el("input", { class: "input", type: "number", inputmode: "decimal",
+    step: "1", min: "0", style: "max-width:120px",
+    value: pointMinOrder(point) > 0 ? String(pointMinOrder(point)) : "" });
+  const minField = el("div", { class: "field" },
+    el("label", {}, "Smallest basket (RM)"), minAmount);
+  function paintMin() { minField.hidden = minOn.value !== "amount"; }
+  paintMin();
+
   // ★ WHEN THEY CAN COLLECT (v304). Two time boxes, the same pair the Delivery run fills in for
   // the van — so a window means one thing in this app and is read by one piece of code.
   //
@@ -108,6 +128,9 @@ function buildPointEditor(state, point) {
       // ★ WHEN THEY CAN COLLECT (v304) - the two boxes packed into the one value the Point
       // stores, exactly as a delivery window is (see time_window.js).
       collectWindow: windowAt(collectFrom.value, collectTo.value),
+      // "No minimum" IS a minimum of zero — nothing in the record distinguishes a Point she has
+      // never set one on from one she has just switched off, which is what "no minimum" means.
+      minOrderRM: minOn.value === "amount" ? Number(minAmount.value) || 0 : 0,
     };
     // The same two questions the run screen asks, in the same words: the name is the Point's
     // own floor, and a window that ends before it starts is refused rather than published.
@@ -115,7 +138,8 @@ function buildPointEditor(state, point) {
       || windowProblem(collectFrom.value, collectTo.value);
     return { draft, error };
   };
-  return { name, address, addressSug, receiver, phone, fee, collectFrom, collectTo, collect };
+  return { name, address, addressSug, receiver, phone, fee, minOn, minField,
+    collectFrom, collectTo, collect };
 }
 
 function newPointCard(state, root) {
@@ -131,6 +155,8 @@ function newPointCard(state, root) {
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee,
       el("p", { class: "hint" },
         "What YOU pay whoever receives here, per order. It is not a charge to the customer — collecting is free to them. Start at RM0.50 and change it whenever you like.")),
+    el("div", { class: "field" }, el("label", {}, "Minimum order"), ed.minOn),
+    ed.minField,
     el("div", { class: "field" }, el("label", {}, "Customers can collect from"), ed.collectFrom),
     el("div", { class: "field" }, el("label", {}, "and until"), ed.collectTo,
       el("p", { class: "hint" },
@@ -153,6 +179,8 @@ function openEditPointPopup(state, point, root) {
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
     el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee),
+    el("div", { class: "field" }, el("label", {}, "Minimum order"), ed.minOn),
+    ed.minField,
     el("div", { class: "field" }, el("label", {}, "Customers can collect from"), ed.collectFrom),
     el("div", { class: "field" }, el("label", {}, "and until"), ed.collectTo,
       el("p", { class: "hint" },
@@ -204,6 +232,10 @@ function pointCard(state, point, root) {
     // VAN CANNOT BE SENT TO — a courier is given coordinates, never an address. So the line
     // says plainly which of the two it is, and the press opens the same map a customer's
     // doorstep is placed with, because it is the same act.
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      pointMinOrder(point)
+        ? `🧺 Minimum order RM${pointMinOrder(point).toFixed(2)}`
+        : "🧺 No minimum order — one loaf still goes."),
     el("p", { class: "card-sub", style: "margin:6px 0 0" },
       pointWindowText(point)
         ? `🕑 Collect ${pointWindowText(point)}`

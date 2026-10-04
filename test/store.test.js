@@ -619,18 +619,36 @@ test("mergeStorefront keeps codes it can read and drops the ones it cannot", () 
 
 // ── v299: the Self collection Points the shop may offer ─────────────────────
 
-test("the shop keeps the Points it can read, and only the two fields it needs", () => {
-  // ⚠️ THE SHOP IS PUBLIC. Only an id and a name are read off the payload; anything else is
-  // dropped here rather than drawn. This is also what makes a malformed row unable to reach
-  // the page — the app validates on its side, and the shop validates again on its own terms.
+test("the shop keeps the Points it can read, and only the fields it needs", () => {
+  // ⚠️ THE SHOP IS PUBLIC. Only an id, a name and the SMALLEST BASKET are read off the payload;
+  // anything else is dropped here rather than drawn. This is also what makes a malformed row
+  // unable to reach the page — the app validates on its side, and the shop validates again on
+  // its own terms.
+  //
+  // The smallest basket joined them in v306. It is the opposite of private — it is what the
+  // customer has to know BEFORE choosing — while the receiver, the address and the fee are
+  // exactly the things that must never leave her app.
   const out = mergeStorefront({}, { points: [
-    { id: "pt_1", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik", receiver: "Aunty Lim", feeRM: 0.5 },
+    { id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 30, address: "Lebuhraya Thean Teik", receiver: "Aunty Lim", feeRM: 0.5 },
     { id: "pt_2", name: "Chai Leng Park, Prai" },
   ] });
   assert.deepEqual(out.points, [
-    { id: "pt_1", name: "Farlim, Air Itam" },
-    { id: "pt_2", name: "Chai Leng Park, Prai" },
+    { id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 30 },
+    { id: "pt_2", name: "Chai Leng Park, Prai", minOrderRM: 0 },
   ], "the receiver, the address and the fee never reach the shop");
+});
+
+test("a smallest basket the shop cannot read is NO minimum, never a guess (v306)", () => {
+  // A rule the shop invented would refuse an order nobody asked it to refuse. Junk, a negative
+  // and a missing key all mean "no minimum", which is what every Point meant until v306.
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "A", minOrderRM: "rubbish" },
+    { id: "pt_2", name: "B", minOrderRM: -5 },
+    { id: "pt_3", name: "C" },
+    { id: "pt_4", name: "D", minOrderRM: 0 },
+    { id: "pt_5", name: "E", minOrderRM: "12.50" },
+  ] });
+  assert.deepEqual(out.points.map((p) => p.minOrderRM), [0, 0, 0, 0, 12.5]);
 });
 
 test("a Point the shop cannot read is dropped rather than drawn", () => {
@@ -642,12 +660,12 @@ test("a Point the shop cannot read is dropped rather than drawn", () => {
     "nonsense",
     null,
   ] });
-  assert.deepEqual(out.points, [{ id: "pt_1", name: "Real" }]);
+  assert.deepEqual(out.points, [{ id: "pt_1", name: "Real", minOrderRM: 0 }]);
   // A payload that says nothing about Points leaves the key alone.
-  assert.equal(mergeStorefront({ points: [{ id: "pt_x", name: "Kept" }] }, { name: "X" }).points[0].name, "Kept");
+  assert.equal(mergeStorefront({ points: [{ id: "pt_x", name: "Kept", minOrderRM: 0 }] }, { name: "X" }).points[0].name, "Kept");
   // And an EMPTY list is a real instruction, not silence — the payload replaces the whole row,
   // so it has to take a Point off a page that is already showing it.
-  assert.deepEqual(mergeStorefront({ points: [{ id: "pt_x", name: "Gone" }] }, { points: [] }).points, []);
+  assert.deepEqual(mergeStorefront({ points: [{ id: "pt_x", name: "Gone", minOrderRM: 0 }] }, { points: [] }).points, []);
 });
 
 // ── v292: the shop's standing offers, and how they turn ─────────────────────

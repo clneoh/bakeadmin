@@ -59,6 +59,12 @@ export function blankPoint() {
     // because a second way of spelling a window is a second way of getting one wrong. Empty
     // means she has not said, and an empty window promises nothing rather than promising wide.
     collectWindow: "",
+    // ★ THE SMALLEST BASKET THIS POINT WILL TAKE (v306), in ringgit — the SAME unit the promo
+    // code's own smallest basket uses, so "a basket of RM30" means one thing in this app.
+    // ZERO MEANS NO MINIMUM, which is where every Point starts: she chose it that way ("keep it
+    // as simple as possible, say no minimum for self collect order"), and a Point she opens
+    // without one keeps behaving exactly as it did.
+    minOrderRM: 0,
     // ★ WHERE IT IS, AS A POINT ON THE MAP (v300) — the same shape a customer's doorstep
     // wears, because a courier is given "5.41405,100.31408" and never an address. A Point
     // without one is a name she can read and a van cannot be sent to, so the trip builder
@@ -97,7 +103,17 @@ export function normalizePoint(src) {
     // ends before it starts, so a half-typed promise reads as unset rather than reaching a
     // customer as "collect 5-2 pm".
     collectWindow: validWindow(s.collectWindow) ? String(s.collectWindow) : "",
+    // A minimum is money, so it is rounded like every other figure in this app, and anything
+    // that is not a positive number is NO minimum rather than a broken one.
+    minOrderRM: minMoney(s.minOrderRM),
   };
+}
+
+// A smallest basket, cleaned: a positive amount of money, or 0 for "no minimum". Kept beside
+// the promo code's own `minimumOf`, which answers 0 for "no opinion" in the same way.
+function minMoney(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? round2(n) : 0;
 }
 
 // Where a Point is, or null while it is still unpinned.
@@ -145,6 +161,24 @@ export function pointWindowText(point) {
 // window is deliberately NOT used as a fallback**: that is when the bread REACHES the Point,
 // which is her business, and a customer told it would turn up as the van does. A place either
 // has collection hours or it promises only the day.
+// ★ THE SMALLEST BASKET THIS POINT WILL TAKE (v306), or 0 for "no minimum". The amount is
+// measured against what the CUSTOMER's basket comes to before the order is posted, and it is
+// published to the shop so the shop can say so rather than quietly taking an order she did not
+// want. It is NOT a rule this app works out — she types it, per Point, and most Points have none.
+export function pointMinOrder(point) {
+  return minMoney(point && point.minOrderRM);
+}
+
+// Is this basket big enough for this Point? Returns the shortfall in ringgit, 0 when the basket
+// already reaches it or when the Point asks for no minimum at all.
+//
+// ONE ANSWER, asked by the shop's own row so the sentence it prints and the refusal it makes
+// cannot disagree — the same shape `shortfallOf` gives a promo code's smallest basket.
+export function pointShortfall(point, basketRM) {
+  const need = pointMinOrder(point) - (Number(basketRM) || 0);
+  return need > 0 ? round2(need) : 0;
+}
+
 export function collectionWindowText(state, order) {
   const text = pointWindowText(pointById(state, order && order.pointId));
   return text ? `, collect ${text}` : "";
@@ -264,7 +298,13 @@ export function deletePoint(state, id) {
 // whole row, so an absent key would leave the shop offering yesterday's Points. Same reason
 // the occasions, the categories and the promo codes are sent the same way.
 export function publishPoints(state) {
-  return activePoints(state).map((p) => ({ id: p.id, name: p.name }));
+  // ⚠️ `min` IS PUBLISHED AND THE RECEIVER'S NAME, PHONE AND FEE ARE NOT (v306). The rule this
+  // list has followed since v299 is that nothing PRIVATE leaves her app — a public page has no
+  // login, so the person who receives there must never be named on it. A smallest basket is the
+  // opposite of private: it is exactly what the customer has to know before they choose, and
+  // without it the shop could only take an order the Point does not want. It is sent as a plain
+  // number, 0 for "no minimum", so the shop never has to read a missing key as a rule.
+  return activePoints(state).map((p) => ({ id: p.id, name: p.name, minOrderRM: pointMinOrder(p) }));
 }
 
 // The name to PRINT for an order that went to a Point: the name frozen on the order when

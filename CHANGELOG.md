@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v305)
+# Jienluv2bake — change history (v54 → v306)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v306, THE SMALLEST BASKET A POINT WILL TAKE (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why.** Your ask: __"the per-point minimum order, this should be switchable"__. It is exactly
+that — **per Point, and switchable**, on the Point's own card.
+
+**★ THE SWITCH, AND WHERE IT COMES FROM.** On a Point you now get **Minimum order** with two
+choices — **No minimum** and **Only on a basket of at least** — and the second one opens a
+**Smallest basket (RM)** box. That is the SAME switch the Promo codes screen has used since v269,
+because a minimum is a minimum and learning a second shape for one idea is how two screens come to
+mean two different things by one word. **You picked ringgit**, out of the two units offered, so
+"a basket of RM30" means the same thing everywhere in the app.
+
+**⚠️ EVERY POINT STARTS WITH NO MINIMUM**, which is where they already are and what you asked for
+when this whole feature was being discussed — __"keep it as simple as possible, say no minimum for
+self collect order"__. The card says so plainly: **No minimum order — one loaf still goes.**
+
+**On your card.** Each Point's row now reads **Minimum order RM30.00**, or the sentence above.
+
+**In your shop.** A Point whose smallest basket the customer has not reached is **PARKED, NOT
+HIDDEN** — it stays on the page with the reason in its own line:
+
+  **Farlim, Air Itam**
+  Needs a basket of RM30.00 or more — yours is RM15.00 so far
+
+Tapping it says the same sentence rather than silently doing nothing, and **the moment their basket
+reaches RM30 the Point opens up — on the same repaint, with no reload.** Add a loaf and watch it;
+take one back and it parks again, **and a Point they had already chosen falls back to your
+kitchen**, because the shop cannot post an order to a Point whose basket is not met.
+
+**⚠️ THIS IS YOUR RULE, SO THE SHOP HONOURS IT — and that is not the same as a gate.** The thing
+your standing instruction forbids is a rule **the app invents** (a closed day, a sold-out line)
+standing between you and a sale. A smallest basket is a rule **you typed on your own Point**, so
+enforcing it is the shop doing what you asked. **Nothing on your own side is blocked:** an order you
+take over the phone for one loaf at Farlim is yours to take, and the app will not argue.
+
+**⚠️ AND ONLY WHAT THE SHOP NEEDS LEAVES YOUR APP.** The Point's smallest basket is now published
+along with its id and name — **the receiver, their phone, the fee and the address still never do**.
+A smallest basket is the opposite of private: it is exactly what the customer has to know __before__
+choosing, and without it the page could only take an order the Point does not want.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. Every
+Point you already have carries no minimum, so **every one of them behaves exactly as it did
+yesterday** — proved rather than asserted: the shop's own v299 checks still pass, 20 of 20, with
+Points published that have no minimum at all. The suite is **2,720 tests, all green**, including
+eight new ones, and every one was watched going red with the fault put back.
 
 **04 Oct 2026 — engine v305, THE HOURS ON THE RUN ROW (no database step, nothing to upload —
 pushing this one is the whole of it).**
