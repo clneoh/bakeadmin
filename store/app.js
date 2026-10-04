@@ -314,6 +314,39 @@ export function clauseWords(code) {
   return w;
 }
 
+// ── The standing offers, and how they turn (v292) ───────────────────────────
+//
+// EVERY code the shop is willing to advertise today — public, switched on,
+// inside its dates, and not already given away — in the order she published
+// them. Asked through the engine's own `stoppedBy`, so the standing line and the
+// code box can never disagree about what "still running" means.
+//
+// This was a `.find()` until v292: the FIRST live public code was shown and every
+// other one was dropped without a word. A bakery advertising three offers was
+// advertising one.
+export function standingToday(codes, today) {
+  const list = Array.isArray(codes) ? codes : [];
+  return list.filter((c) => c && c.vis === "public" && !stoppedBy(c, today));
+}
+
+// Which code the turn shows next. The only rule is the clamp: a position that is
+// no longer in the list — because she paused a code while the page was open —
+// starts again from the first rather than wrapping into a hole and drawing
+// nothing. One offer needs no special case: `(0 + 1) % 1` is 0 on its own.
+export function standingNext(total, at) {
+  const n = Number(total) || 0;
+  const i = Number(at) || 0;
+  if (i < 0 || i >= n) return 0;
+  return (i + 1) % n;
+}
+
+// Whether the strip turns AT ALL. One offer is not a carousel with one slide, it
+// is a statement — so no timer is armed for it, where the homepage's own carousel
+// arms one and ticks every six seconds to no effect. Zero offers is not a strip.
+export function turnsAtAll(count) {
+  return Number(count) > 1;
+}
+
 // The bakery's OWN sentence about a code, in the reader's language, or "" when
 // she has not written one. Blank 中文/BM falls back to the English she wrote,
 // the same way the storefront policy text does — a line in English is more use
@@ -1153,9 +1186,126 @@ export function render() {
   const promoInput = document.getElementById("promo-input");
   const promoSay = document.getElementById("promo-say");
   const promoToday = document.getElementById("promo-today");
+  const promoRotor = document.getElementById("promo-rotor");
   const promoOffer = document.getElementById("promo-offer");
   const promoWords = document.getElementById("promo-words");
   const promoClear = document.getElementById("promo-clear");
+
+  // ── The standing offers, and how they turn (v292) ─────────────────────────
+  //
+  // More than one code can be running at once, and the strip used to show only
+  // the first. Now they turn. The pattern is the homepage's own carousel
+  // (reviews.js buildCarousel) — six seconds, stop while the pointer is over it,
+  // stop while the tab is hidden, and under two items nothing moves — with three
+  // deliberate differences, each for a reason:
+  //
+  //   · A FADE IN PLACE, not a sliding track. That carousel slides review CARDS;
+  //     this is one line of message, and sliding a single line sideways reads as
+  //     a glitch rather than as a second offer.
+  //   · With ONE code the timer is never armed at all. The homepage arms its
+  //     interval even for a single slide, where it ticks every six seconds to no
+  //     effect.
+  //   · A PRESS holds it still for a while. There is no hover on a phone, so a
+  //     tap is the only pause a customer there has — and a pause that ended the
+  //     moment the finger came up would be no pause at all. It starts again by
+  //     itself, so a tap can never leave the strip stuck on one offer.
+  const TURN_MS = 6000;
+  const FADE_MS = 220;
+  const PRESS_HOLD_MS = 20000;
+
+  let turnTimer = null;
+  let fadeTimer = null;
+  let liveCodes = [];   // what the strip is turning through right now
+  let shownCodes = [];  // ...and what it was turning through when it last drew
+  let codeAt = 0;       // which of them is on screen
+  let overStrip = false;
+  let heldUntil = 0;
+
+  // Whether the offers may turn RIGHT NOW. Read fresh on every tick rather than
+  // tearing the timer down and rebuilding it on every hover, so a pointer moving
+  // over the strip can never leave two timers running.
+  function mayTurn() {
+    if (document.hidden || overStrip) return false;
+    return Date.now() >= heldUntil;
+  }
+
+  // The fade is the ONLY motion on this strip, so "reduce motion" turns the
+  // ANIMATION off and leaves the turning alone: the message still changes, it
+  // simply does not slide or fade to get there. Stopping the turn instead would
+  // hide every offer but the first from exactly the customers who asked for less
+  // movement — the setting is about motion, not about information.
+  function reduceMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    } catch { return false; }
+  }
+
+  // Draw whichever code the turn is on. `fade` is asked for by the timer and never
+  // by a repaint: a repaint is happening because the CART changed, and fading the
+  // words out under a customer who is watching the bar would be motion they did
+  // nothing to cause.
+  function drawStanding(at, { fade = false } = {}) {
+    codeAt = at;
+    const c = liveCodes[at] || null;
+    const paint = () => {
+      // Her own sentence, underneath the app's line and never instead of it: the
+      // app's line is what names the code, and a customer who cannot type the
+      // code cannot use it. A code she has written nothing for shows one line,
+      // exactly as it did before she could write anything.
+      if (promoOffer) promoOffer.textContent = sub(t("promoToday"), clauseWords(c), c.code);
+      if (promoWords) {
+        const own = ownWords(c);
+        promoWords.hidden = !own;
+        promoWords.textContent = own;
+      }
+    };
+    if (!fade || !promoRotor || reduceMotion()) { paint(); return; }
+    if (fadeTimer) clearTimeout(fadeTimer);
+    promoRotor.classList.add("is-fading");
+    fadeTimer = setTimeout(() => {
+      fadeTimer = null;
+      paint();
+      promoRotor.classList.remove("is-fading");
+    }, FADE_MS);
+  }
+
+  // Stand the turning down and make sure the words are never left faded out — a
+  // repaint landing mid-fade would otherwise leave a blank strip behind.
+  function stopTurn() {
+    if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+    if (promoRotor) promoRotor.classList.remove("is-fading");
+  }
+
+  // Arm the turning from scratch. Called on every repaint, so there is never a
+  // second timer — and no timer at all when there is nothing to turn to.
+  function armTurn() {
+    stopTurn();
+    if (!promoToday || !turnsAtAll(liveCodes.length)) return;
+    turnTimer = setInterval(() => {
+      if (!mayTurn()) return;
+      drawStanding(standingNext(liveCodes.length, codeAt), { fade: true });
+    }, TURN_MS);
+  }
+
+  // A repaint must not throw the code the customer is reading back to the top of
+  // the list. The order is kept while the offers themselves are unchanged; the
+  // day one is added, ended or paused, the strip starts again from the first.
+  function sameOffers(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i].code !== b[i].code) return false;
+    return true;
+  }
+
+  if (promoToday) {
+    promoToday.addEventListener("pointerenter", () => { overStrip = true; });
+    promoToday.addEventListener("pointerleave", () => { overStrip = false; });
+    promoToday.addEventListener("pointerdown", () => { heldUntil = Date.now() + PRESS_HOLD_MS; });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) stopTurn();
+      else armTurn();
+    });
+  }
 
   // What the basket comes to right now. The same sum renderBar shows in the bar,
   // asked separately because the promo lines need it whether or not the bar is
@@ -1178,9 +1328,14 @@ export function render() {
   // stoppedBy, so the standing line and the code box can never disagree about
   // what "still running" means. A personal code is never shown here — being
   // unadvertised is the whole of what "personal" buys (see publishCodes).
-  function standingCode() {
-    const today = dateKey(new Date());
-    return publishedCodes().find((c) => c.vis === "public" && !stoppedBy(c, today)) || null;
+  //
+  // EVERY ONE OF THEM, not just the first (v292). This was `.find()`, which took
+  // the first live public code and dropped the rest without a word — so a bakery
+  // running three offers advertised one and hid two behind it. The turning is
+  // below; this is only the choosing, and it is pure so it is judged here rather
+  // than by looking at a phone.
+  function standingCodes() {
+    return standingToday(publishedCodes(), dateKey(new Date()));
   }
 
   function say(key, className, ...args) {
@@ -1261,17 +1416,22 @@ export function render() {
       // and taking the day's offer off the screen because the customer mistyped
       // would hide a real sale behind their own typo. The refusal stays, and the
       // standing line stays there to tell them the code they were looking for.
-      const c = promoApplied ? null : standingCode();
-      promoToday.hidden = !c;
-      if (promoOffer) promoOffer.textContent = c ? sub(t("promoToday"), clauseWords(c), c.code) : "";
-      // Her own sentence, underneath the app's line and never instead of it: the
-      // app's line is what names the code, and a customer who cannot type the
-      // code cannot use it. A code she has written nothing for shows one line,
-      // exactly as it did before she could write anything.
-      if (promoWords) {
-        const own = c ? ownWords(c) : "";
-        promoWords.hidden = !own;
-        promoWords.textContent = own;
+      const list = promoApplied ? [] : standingCodes();
+      // Keep the offer the customer is already reading across a repaint — this
+      // runs on every cart change — and start from the top only when the offers
+      // themselves have changed.
+      if (!sameOffers(list, shownCodes)) codeAt = 0;
+      liveCodes = list;
+      shownCodes = list.slice();
+      promoToday.hidden = !list.length;
+      if (!list.length) {
+        stopTurn();
+        if (promoOffer) promoOffer.textContent = "";
+        if (promoWords) { promoWords.hidden = true; promoWords.textContent = ""; }
+      } else {
+        if (codeAt >= list.length) codeAt = 0;
+        drawStanding(codeAt);
+        armTurn();
       }
     }
     if (promoSay) promoSay.hidden = true;

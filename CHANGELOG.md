@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v291)
+# Jienluv2bake — change history (v54 → v292)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v292, THE SHOP'S OFFERS TURN INSTEAD OF HIDING (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your words: __"the public code shown in shop, if more than one hide behind
+each other, we need a carousel, where it message turn, put the mouse over it stop
+rotate."__ And you were reading it exactly right. The shop's offer line took the
+**first** live public code and quietly dropped every other one — so a week when you
+were running three offers, your shop was advertising one of them and hiding two
+behind it.
+
+**What your customers see now, at the top of the shop.**
+
+- **Every code you have running takes its turn.** About six seconds each, then the
+  next one — the same pace as the reviews carousel on your homepage.
+- **The words fade; the strip does not.** The amber box stays exactly where it is
+  and only the line inside it changes. The whole box blinking off and on would read
+  as a broken page rather than as a second offer.
+- **Point at it and it stops.** It waits while the pointer is over it and starts
+  again when you move away.
+- **On a phone, a tap holds it still for about twenty seconds** — long enough to
+  read a long offer — and then it carries on by itself. A tap can never leave the
+  strip stuck on one offer.
+- **A background tab stops it**, and it starts again when the tab comes back.
+- **With only one code running, nothing turns at all** — no movement, and literally
+  no timer running. One offer is a statement, not a one-slide carousel.
+- **And if a customer has asked their phone for less movement**, the words still
+  change so they see every offer — they simply change without fading. The setting is
+  about movement, not about hiding things from them.
+
+**Which code shows first, and what counts as running.** The first one you published.
+A code is advertised only if it is public, switched on, inside its dates and not
+used up — asked through the same rule the code box already uses, so the standing
+line and the box can never disagree about what "still running" means. A **personal**
+code is never advertised; being unadvertised is the whole of what personal buys.
+If you pause or end a code while someone is looking at the shop, the strip picks up
+the change on its own and does not leave them reading an offer that has gone.
+
+**Your data is untouched, and there is nothing to run.** No database step, no
+upload, no key. This version changes the shop's page and nothing else — your orders,
+products, ingredients, prices, bake days and promo codes are exactly as they were,
+and no code's terms are changed by it. The suite is 2,611 tests, all green. Proved
+live against the real shop page: 50 checks across three states — three codes
+running, one code running, and three codes with reduced motion — including that the
+turn wraps at the end, that hovering and pressing both stop it, that it starts
+again by itself after a press, that a hidden tab stops it, and that the amber strip
+itself is never faded.
 
 **04 Oct 2026 — engine v291, A REWARD YOU CAN ACTUALLY HAND OVER (no database
 step, nothing to upload — pushing this one is the whole of it).**

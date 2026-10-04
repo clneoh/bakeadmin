@@ -48,8 +48,14 @@
          never instead — a strip that stopped naming the code would be telling a
          customer about a discount they cannot ask for. -->
     <div id="promo-today" class="promo-today" hidden>
-      <p id="promo-offer" class="promo-offer"></p>
-      <p id="promo-words" class="promo-words" hidden></p>
+      <!-- The two lines live inside #promo-rotor so that ONLY the words fade when
+           the offers turn (v292). Fading #promo-today itself would blink the amber
+           background off and on, and a strip that flickers reads as a broken page
+           rather than as a second offer. -->
+      <div id="promo-rotor" class="promo-rotor">
+        <p id="promo-offer" class="promo-offer"></p>
+        <p id="promo-words" class="promo-words" hidden></p>
+      </div>
     </div>
 
     <div id="referral-banner" class="referral-banner" hidden data-i18n="referral">🎁 You were referred — you have a welcome discount on your first order</div>

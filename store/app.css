@@ -1237,6 +1237,17 @@ button.prod-next.off::after { content: ""; }
   text-align: center;
 }
 .promo-today p { margin: 0; }
+/* Only the WORDS cross-fade when the offers turn (v292), never the strip itself:
+   fading .promo-today would blink its amber background off and on, and a strip
+   that flickers reads as a broken page rather than as a second offer. The hand
+   face's own line-height is set below, so this wrapper stays out of the way. */
+.promo-rotor { transition: opacity .22s ease; }
+.promo-rotor.is-fading { opacity: 0; }
+/* The setting is about MOTION, not about information: a customer who asks for
+   less movement still gets every offer, the words simply change without fading. */
+@media (prefers-reduced-motion: reduce) {
+  .promo-rotor { transition: none; }
+}
 /* The bakery's own words, inside the same strip but quieter than the offer and
    the code it sits under — those are what a customer has to act on.
 
