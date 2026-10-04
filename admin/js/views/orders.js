@@ -37,6 +37,11 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
 import { orderPointName, pointChoices, setOrderPoint } from "../points.js";
+// ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
+// order into the two parties EasyParcel wants, and says what is missing. `parcels/api.js` is
+// the one channel to the `parcel` function, where the key lives.
+import { balanceNote, missingFrom, parcelContent, rateLines, receiverFrom, senderFrom } from "../parcels.js";
+import { parcelBalance, parcelBook, parcelRates } from "../parcels/api.js";
 // The one spelling a promo code is recognised by (v270). An order's own code is
 // read back through it, so a stray lowercase in some older record cannot make two
 // spellings of one code look like two codes on the row.
@@ -2148,7 +2153,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("label", {}, "Courier tracking number (optional)"),
       tracking,
       el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
-    parcelSection({ state, group, draft, refresh }),
+    parcelSection({ state, group, draft, refresh, withApi: true }),
     // Drawn for a courier order as it always was, and also for a self-collect order that
     // still carries a charge — so a parked charge is never invisible to the only person
     // who can settle it (1 Oct 2026).
@@ -2771,7 +2776,7 @@ function parkedChargeNote(state, first) {
 // same sentence in all three, so it has to be told — and a host that draws no box
 // beside this section at all (the card, until a carrier is named) passes null and
 // the sentence simply stops before the pointer.
-function parcelSection({ state, group, draft, refresh, consignmentWhere = "above" }) {
+function parcelSection({ state, group, draft, refresh, consignmentWhere = "above", withApi = false }) {
   const first = (group && group.orders && group.orders[0]) || null;
   if (!first) return null;
   if (draft.fulfillment !== "courier") return null;
@@ -2837,7 +2842,178 @@ function parcelSection({ state, group, draft, refresh, consignmentWhere = "above
           + (consignmentWhere ? ` The consignment number goes in the tracking box ${consignmentWhere}.` : "")
         : "No carriers yet. Add who you post parcels with under More → Parcel couriers, then record one here."),
     handedEl,
-    advisory);
+    advisory,
+    // ⚠️ ONLY WHERE THE ORDER IS EDITED IN FULL (v307). The Note / tracking card is three
+    // fields on purpose — "the note, the number and the courier's charge, nothing else to
+    // scroll past" — and a price list from a courier is not a note. Posting a parcel is a
+    // deliberate thing she does to an order, so it lives where the order is looked at whole.
+    withApi ? parcelApiBlock({ state, group, draft, refresh }) : null);
+}
+
+// ── ★ EasyParcel, on the order it belongs to (v307) ─────────────────────────
+//
+// ⚠️ THE PRICE IS ASKED ONCE AND EVERY COURIER COMES BACK WITH IT. That is the whole reason
+// this exists rather than her comparing two websites by hand: one call, every carrier
+// EasyParcel has, for THIS parcel to THIS postcode at THIS weight. The rows are sorted
+// cheapest first, and the cheapest is NOT chosen for her — which carrier to use is her
+// decision, and the reason to show several is that the cheapest is not always the one wanted.
+//
+// ⚠️ AND IT SPENDS HER WALLET, which is why Booking asks first and says the price in the
+// question. EasyParcel is PREPAID: a booking with too little credit fails with the parcel
+// already packed, so the balance is shown beside the price rather than found out afterwards.
+//
+// NOTHING HERE IS REQUIRED. An order can still be posted by hand exactly as it was in v226 —
+// record the carrier, type the consignment number. This is offered beside that, never instead
+// of it, which is the same shape the Lalamove price card has.
+// "a, b and c" — the way the missing list reads on screen. No "and" for one, and a comma for
+// two, because "your a and their b" is what she is looking at.
+function listWords(items) {
+  const list = (Array.isArray(items) ? items : []).filter(Boolean);
+  if (list.length < 2) return list[0] || "";
+  return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+function parcelApiBlock({ state, group, draft, refresh }) {
+  const first = (group && group.orders && group.orders[0]) || null;
+  if (!first) return null;
+
+  const rates = Array.isArray(draft.parcelRates) ? draft.parcelRates : null;
+  const lines = rateLines(rates);
+  const picked = draft.parcelRate || null;
+  const status = el("p", { class: "card-sub", style: "margin:8px 0 0" },
+    draft.parcelSaid || "");
+
+  const weigh = el("input", { class: "input", type: "number", inputmode: "decimal",
+    step: "0.1", min: "0", style: "max-width:120px",
+    value: draft.parcelKg ? String(draft.parcelKg) : "",
+    oninput: function () { draft.parcelKg = this.value; } });
+
+  // What the two ends look like to EasyParcel, and what is still missing. Worked out here so
+  // the press can say WHAT is missing rather than that something is.
+  // ⚠️ THE OWNER GOES IN FRONT OF THE LIST, NOT IN FRONT OF EVERY ITEM. "EasyParcel needs your
+  // name, phone number and street address" is a sentence; mapping each label on its own gives
+  // "their a street address", which is what this said on screen until the harness read it.
+  const parties = () => {
+    const send = senderFrom(state.settings);
+    const to = receiverFrom(first);
+    const mine = missingFrom(send);
+    const theirs = missingFrom(to);
+    const parts = [];
+    if (mine.length) parts.push(`your ${listWords(mine)}`);
+    if (theirs.length) parts.push(`the customer's ${listWords(theirs)}`);
+    return { send, to, missing: parts };
+  };
+  const box = () => ({ weightKg: Number(draft.parcelKg) || 0 });
+
+  const payload = () => {
+    const { send, to } = parties();
+    return {
+      pick: send, send: to, box: box(),
+      reference: orderCode(first),
+      content: parcelContent(first, state),
+      // The value a carrier insures against: what the customer actually paid, through the one
+      // order-money function every other screen reads.
+      valueRM: Math.max(0, Number(customerTotal(state, group).total) || 0),
+    };
+  };
+
+  const checkPrice = async () => {
+    const { missing } = parties();
+    if (missing.length) { draft.parcelSaid = `Before a price can be asked for, EasyParcel needs ${listWords(missing)}.`; refresh(); return; }
+    if (!(Number(draft.parcelKg) > 0)) { draft.parcelSaid = "How much does the parcel weigh? EasyParcel prices by weight, so it needs a number."; refresh(); return; }
+    draft.parcelSaid = "Asking EasyParcel…";
+    draft.parcelRates = null;
+    draft.parcelRate = null;
+    refresh();
+    const out = await parcelRates(state, payload());
+    if (!out.ok) { draft.parcelSaid = out.reason; refresh(); return; }
+    draft.parcelRates = out.rates;
+    draft.parcelSaid = "";
+    refresh();
+  };
+
+  const checkBalance = async () => {
+    draft.parcelSaid = "Checking your balance…";
+    refresh();
+    const out = await parcelBalance(state);
+    draft.parcelSaid = out.ok ? "" : out.reason;
+    draft.parcelBalance = out.ok ? out.balanceRM : null;
+    refresh();
+  };
+
+  const book = (rate) => {
+    const cost = Number(rate.priceRM) || 0;
+    confirmDialog(
+      `Book this parcel with ${rate.courierName} for RM${cost.toFixed(2)}?`,
+      async () => {
+        draft.parcelSaid = "Booking…";
+        refresh();
+        const out = await parcelBook(state, { ...payload(), courier: rate.courierName, dropoff: !!rate.dropoff });
+        if (!out.ok) { draft.parcelSaid = out.reason; refresh(); return; }
+        const done = (out.booked || [])[0];
+        if (!done) {
+          // ⚠️ A REFUSAL IS ITS OWN SENTENCE. "Insufficient Credit" is a wallet problem she can
+          // fix in a minute, and it is said as a wallet problem rather than as a failure.
+          draft.parcelSaid = (out.failed && out.failed[0] && out.failed[0].reason)
+            || "EasyParcel took the call but did not book it. Nothing has been charged — check the order before trying again.";
+          refresh();
+          return;
+        }
+        // ⚠️ SAVED AT ONCE, NOT ON SAVE. A booking is money spent and a courier coming — the
+        // same rule a booked trip already follows ("a real vehicle on a real road must not be
+        // discardable by closing a form"). Left on the draft, closing the card would leave her
+        // charged for a parcel with no consignment number on the order and no way to find it.
+        const rows = (group && group.orders) || [first];
+        for (const o of rows) o.trackingNo = done.awb;
+        draft.trackingNo = done.awb;
+        // ⚠️ THE CARRIER RECORD IS NOT TOUCHED. It is HER record of who she posts with, and
+        // EasyParcel's name for a service is not her list's entry — writing "SPX" where her
+        // list says "Ninja Van" would put a carrier on the customer's card that she never
+        // chose. She can pick it in the box above in one press if she wants it named.
+        save(state);
+        maybeSync(state);
+        draft.parcelSaid = `Booked with ${rate.courierName} — RM${cost.toFixed(2)} paid from your EasyParcel credit. Consignment number ${done.awb}, and it is in the tracking box above.`;
+        draft.parcelRates = null;
+        draft.parcelRate = null;
+        toast(`Parcel booked — ${done.awb}`);
+        refresh();
+      },
+      { yesLabel: `Book for RM${cost.toFixed(2)}` });
+  };
+
+  const rowFor = (r) => {
+    const on = picked && picked.courierName === r.courierName && picked.priceRM === r.priceRM;
+    return el("button", {
+      class: `point-opt${on ? " active" : ""}`, type: "button",
+      onclick: () => { draft.parcelRate = r; refresh(); },
+    },
+      el("span", { class: "point-name" }, `${r.courierName} — RM${r.priceRM.toFixed(2)}`),
+      el("span", { class: "point-sub" },
+        [r.serviceName, r.delivery, r.dropoff ? "drop off" : "", r.pickup ? "they collect" : "", r.cheapest ? "cheapest" : ""]
+          .filter(Boolean).join(" · ")));
+  };
+
+  const { missing } = parties();
+  const balance = Number.isFinite(Number(draft.parcelBalance)) ? Number(draft.parcelBalance) : null;
+
+  return el("div", { class: "field" },
+    el("label", {}, "EasyParcel"),
+    el("p", { class: "hint" },
+      "Ask every carrier they use what this parcel costs. Booking pays from your EasyParcel credit — nothing here is required, and posting it by hand still works exactly as before."),
+    el("div", { class: "field" }, el("label", {}, "Parcel weight (kg)"), weigh),
+    missing.length
+      ? el("p", { class: "card-sub", style: "margin:0" }, `EasyParcel needs ${listWords(missing)} before it can price this.`)
+      : null,
+    el("div", { class: "btn-row" },
+      button("Check the price", checkPrice, "soft small"),
+      button(balance === null ? "Check my balance" : "Refresh my balance", checkBalance, "ghost small")),
+    balance === null ? null : el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      balanceNote(balance, picked ? picked.priceRM : 0)),
+    lines.length ? el("div", { class: "point-list", style: "margin-top:8px" }, ...lines.map(rowFor)) : null,
+    picked
+      ? el("div", { class: "btn-row" }, button(`Book it — RM${Number(picked.priceRM).toFixed(2)}`, () => book(picked), "primary small"))
+      : null,
+    status);
 }
 
 // One order, one invoice (v293, numbered by the order's own code since v294).

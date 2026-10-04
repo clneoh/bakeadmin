@@ -1,8 +1,69 @@
-# Jienluv2bake — change history (v54 → v306)
+# Jienluv2bake — change history (v54 → v307)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v307, THE EASYPARCEL SEAM (no database step in the app — but ONE
+one-time step for you, below).**
+
+**Why.** You asked to compare Ninja Van and SPX, and the honest answer turned out to be that
+**you do not integrate with a carrier — you integrate with an aggregator.** Ninja Van's own API
+is not self-serve (you must have an account, ask their sales team by email for even a sandbox,
+and production keys come only after an "integration audit" with sample orders). SPX has no public
+direct API at all for someone who is not a Shopee seller. **EasyParcel carries both** — along with
+J&T, Pos Laju and DHL — and its API **is** self-serve, with a free demo environment. That is the
+same choice you made back on 28 September: __"record first, the booking API after / EasyParcel
+behind that API"__.
+
+**★ WHAT YOU GET: ONE PRESS, EVERY CARRIER, PRICED FOR THIS PARCEL.** On an order's **Edit** card
+there is now an **EasyParcel** block. Type the parcel's weight, press **Check the price**, and
+every carrier they use comes back with a price for **that parcel, to that postcode, at that
+weight** — cheapest first, with the delivery time and whether they collect or you drop off:
+
+  **J&T Express — RM6.20** · J&T Standard · 3-5 working day(s) · drop off · they collect · cheapest
+  **SPX — RM7.10** · SPX Express · 3-4 working day(s) · drop off · they collect
+  **Ninjavan — RM9.40** · Ninja Van Standard · 2-3 working day(s) · they collect
+
+**That is the comparison you asked for, done per parcel instead of guessed at from a blog post.**
+The cheapest is marked but **never chosen for you** — which carrier to use is your call, and the
+reason to show several is that the cheapest is not always the one you want.
+
+**★ AND YOUR WALLET IS WARNED BEFORE, NOT AFTER.** EasyParcel is **prepaid**: a booking with too
+little credit fails **with the parcel already packed**. So the balance is shown beside the price,
+and when it is short it says so plainly — __"Your EasyParcel balance is RM4.20 and this parcel
+costs RM6.20 — top it up before booking, or the booking will fail with the parcel already
+packed."__ When a booking does come back refused, **their own words are shown** — "Insufficient
+Credit" — rather than a generic failure.
+
+**★ BOOKING SAYS THE PRICE AND THEN PAYS IT.** Pressing Book asks first, naming the courier and the
+amount — __"Book this parcel with SPX for RM7.10?"__ — and only then books and pays in one call.
+**The consignment number is SAVED AT ONCE**, not left waiting for a Save that may never come: the
+same rule your booked trips already follow, because a parcel that has been paid for must not be
+discardable by closing a card. It lands in the tracking box, where every screen already reads it.
+
+**WHAT THIS DOES NOT DO, said plainly rather than discovered.**
+
+- **It does not write the consignment number onto the customer's card by itself** — it goes in the
+  tracking box, exactly as a parcel you booked by hand does.
+- **It does not pick your carrier record for you.** EasyParcel's name for a service is not your
+  own list's entry, so booking fills in the number and leaves the carrier box alone — one press
+  above if you want it named.
+- **It is not required.** Posting a parcel by hand still works exactly as it did — record the
+  carrier, type the number. This is offered beside that, never instead of it.
+- **Dry and sealed only, unchanged.** Fresh focaccia and anything frozen are still not parcels.
+
+**⚠️ ONE THING ONLY YOU CAN DO, and it is a signup, not a key in chat.** Sign up at
+easyparcel.my, complete the account verification, and register the key for API access — their
+three steps. Then the key is stored **on the server** (never in the app, never in a browser) with
+two Terminal commands, which are written at the top of the new function. Until that is done the
+block says so in words and nothing else changes. **Set it to DEMO first** — the demo host books a
+parcel nobody collects, which is how you can try the whole thing before a sen is spent.
+
+**Your data is untouched, and there is nothing to run in the app.** No SQL, no upload. No order,
+product, price or bake day is touched, and every screen behaves exactly as it did. The suite is
+**2,756 tests, all green**, including **thirty-six** new ones — the wire format against
+EasyParcel's own 55-page document, the address reading, and the seam end to end on the real card.
 
 **04 Oct 2026 — engine v306, THE SMALLEST BASKET A POINT WILL TAKE (no database step, nothing to
 upload — pushing this one is the whole of it).**
