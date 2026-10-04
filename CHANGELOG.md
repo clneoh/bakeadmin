@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v295)
+# Jienluv2bake — change history (v54 → v296)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v296, THE OFFERS FLIP RATHER THAN FADE (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Why.** Your question, straight after v295 landed: __"can the flip be an animation"__.
+Until now the offers cross-faded into each other. Now they actually **turn**.
+
+**What you see.** Each offer is a panel that **turns a quarter-turn into place**: the one
+leaving tips away from you while the next swings up to face you. Straight on when it
+settles, so it stays perfectly readable — it is the change between them that moves, never
+the text you are reading.
+
+**How the two halves stay out of each other's way.** Both panels travel through the same
+angle as they swap, so if they faded at the same rate you would catch them **both
+half-turned and half-visible in the middle** — which reads as a smudge rather than as a
+turn. So the one leaving fades out quickly, in about a sixth of a second, and is gone
+before it is half-way round; the one arriving holds its fade back until the turn is nearly
+finished, then comes up. Two timing rules, no timer in the script.
+
+**The height fix from v295 is untouched, and I checked rather than assumed.** A turn is
+paint-only — it cannot change how tall anything is — but the same measurement was run
+again with the animation in place, taken **mid-turn** rather than at rest: the strip holds
+**135.4 pixels** and the page below it stays at **346.1**, exactly as before. So it flips
+without the page moving.
+
+**If a customer has asked their phone for less movement**, the offers still change — they
+simply arrive facing them, with no turn. That setting has been respected here since v292
+and still is.
+
+**One thing to watch, and it is yours to tune.** The turn takes about four tenths of a
+second out of every 1.5 seconds, so the words sit still for about a second. Whether that
+is the right balance is much easier to judge on the real shop than in a description — if
+it feels busy, say so, and either the turn gets quicker or the 1.5 seconds gets longer.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no
+key. The shop's page and nothing else: no order, product, ingredient, price, bake day or
+promo code is touched. The suite is 2,631 tests, all green. Proved live on the real shop
+page at a phone width — 14 checks, all passing, measured mid-turn — and the turn itself was
+frozen part-way round in a browser and looked at, to be sure it is a real turn and not a
+squash.
 
 **04 Oct 2026 — engine v295, THE SHOP'S OFFER STRIP STOPS MOVING THE PAGE (no database
 step, nothing to upload — pushing this one is the whole of it).**

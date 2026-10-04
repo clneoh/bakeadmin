@@ -1252,20 +1252,45 @@ button.prod-next.off::after { content: ""; }
    page is like jumping up and down repeatedly… The window should be fix, base on the
    tallest message."
 
-   The cross-fade is these two rules and nothing else — no timer in the script, so a repaint
-   landing mid-turn cannot leave a blank strip behind. */
-.promo-rotor { display: grid; }
+   The turn is these rules and nothing else — no timer in the script, so a repaint landing
+   mid-turn cannot leave a blank strip behind.
+
+   ---------- And the turn is a FLIP (v296) ----------
+   Her ask: "can the flip be an animation". An offer nobody is reading rests a QUARTER-TURN
+   AWAY — `rotateX(-90deg)`, edge-on to the reader — and turning its class on brings it round
+   to face them. The old one lies back as the new one stands up.
+
+   THE TWO TRANSITIONS ARE DELIBERATELY DIFFERENT, and that is the whole trick. Both slides
+   travel through the same angle, so if they faded at the same rate they would both sit at
+   half-opacity and half-turned in the middle of the turn, reading as muddle. So the one
+   LEAVING drops its opacity fast (.16s) and is gone before it is half-way round, while the
+   one ARRIVING holds its fade back (.12s delay, .3s) until the turn is most of the way
+   there. Two rules, no timer, and it is the same property read in both directions.
+
+   `transform` and `opacity` are paint-only, so NONE of this can change the strip's height —
+   the guarantee above holds with the animation as it did without it. */
+.promo-rotor { display: grid; perspective: 600px; }
 .promo-slide {
   grid-area: 1 / 1;      /* every slide lands in the same cell, so the tallest sets the height */
   opacity: 0;
-  transition: opacity .16s ease;
+  transform: rotateX(-90deg);
+  transform-origin: center center;
+  backface-visibility: hidden;
   pointer-events: none;  /* an unlit slide sits behind the lit one; it must never catch a tap */
+  /* LEAVING: gone quickly, so it never lingers behind the one arriving. */
+  transition: transform .38s cubic-bezier(.4, 0, .2, 1), opacity .16s ease;
 }
-.promo-slide.is-on { opacity: 1; pointer-events: auto; }
+.promo-slide.is-on {
+  opacity: 1;
+  transform: rotateX(0deg);
+  pointer-events: auto;
+  /* ARRIVING: the turn is most of the way round before the words come up. */
+  transition: transform .38s cubic-bezier(.4, 0, .2, 1), opacity .3s ease .12s;
+}
 /* The setting is about MOTION, not about information: a customer who asks for less
-   movement still gets every offer, the words simply change without fading. */
+   movement still gets every offer — it simply arrives facing them, with no turn. */
 @media (prefers-reduced-motion: reduce) {
-  .promo-slide { transition: none; }
+  .promo-slide, .promo-slide.is-on { transition: none; }
 }
 /* The bakery's own words, inside the same strip but quieter than the offer and
    the code it sits under — those are what a customer has to act on.

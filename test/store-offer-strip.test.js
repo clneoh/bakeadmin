@@ -41,8 +41,43 @@ test("every offer shares one grid cell, so the strip cannot change height", () =
   assert.ok(slide, "app.css has no .promo-slide rule");
   assert.match(slide[0], /grid-area:\s*1\s*\/\s*1/,
     "every slide must land in the SAME cell — that is the one thing making the tallest message decide the height");
-  assert.match(slide[0], /transition:\s*opacity/,
-    "the cross-fade is a CSS transition on the slide; without it the offers cut rather than turn");
+  assert.match(slide[0], /transition:[^;]*opacity/,
+    "the offer has to fade as well as turn, or a half-turned one reads through the other");
+});
+
+test("the turn is a flip, and the two directions fade at different rates", () => {
+  // Her ask: "can the flip be an animation". The mechanism is a quarter-turn: an offer
+  // nobody is reading rests edge-on (`rotateX(-90deg)`) and coming round brings it to face
+  // the reader. Nothing here is a timer in the script — a flip driven by a JS clock is a
+  // flip that can be left half-way round by a repaint.
+  const rotor = css.match(/\.promo-rotor\s*\{[^}]*\}/)[0];
+  assert.match(rotor, /perspective:/,
+    "without a perspective on the rotor the turn is flat and reads as a squash, not a flip");
+
+  const slide = css.match(/\.promo-slide\s*\{[^}]*\}/)[0];
+  assert.match(slide, /transform:\s*rotateX\(-90deg\)/,
+    "an unread offer rests a quarter-turn away, edge-on to the reader");
+  assert.match(slide, /transition:[^;]*transform/,
+    "the turn itself must be a transition on transform");
+
+  const lit = css.match(/\.promo-slide\.is-on\s*\{[^}]*\}/);
+  assert.ok(lit, "the lit slide has no rule of its own");
+  assert.match(lit[0], /transform:\s*rotateX\(0deg\)/,
+    "the lit offer faces the reader");
+
+  // ⚠️ THE TRICK, and the one thing a later tidy-up would flatten. Both slides travel
+  // through the same angle, so if they faded at the same rate they would BOTH sit at half
+  // opacity and half-turned in the middle of the turn — muddle. The one leaving must be
+  // gone before it is half-way round, and the one arriving must hold its fade back.
+  const outOpacity = slide.match(/opacity\s+([\d.]+)s/);
+  // `opacity .3s ease .12s` — the easing word sits between the duration and the delay.
+  const inRule = lit[0].match(/opacity\s+([\d.]+)s(?:\s+[a-z-]+)?(?:\s+([\d.]+)s)?/);
+  assert.ok(outOpacity, "the leaving slide has no opacity timing");
+  assert.ok(inRule, "the arriving slide has no opacity timing");
+  assert.equal(Number(inRule[2] || 0) > 0, true,
+    "the arriving slide must DELAY its fade — without the delay both offers are half-visible mid-turn");
+  assert.equal(Number(outOpacity[1]) < Number(inRule[1]), true,
+    "the leaving slide must fade FASTER than the arriving one comes up");
 });
 
 test("only the lit slide can be tapped", () => {
