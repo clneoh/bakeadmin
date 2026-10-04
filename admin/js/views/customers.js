@@ -16,6 +16,7 @@ import { maybeSync } from "../supabase.js";
 import {
   ROLE_LABEL, schemeOf, referralLink, shareMessage, followupMessage, creditRows,
   markCreditUsed, setCreditExpiry, removeCredit, addManualCredit,
+  rewardStanding, giveReward, removeRewardGrant,
 } from "../referrals.js";
 
 const SORTS = [
@@ -358,13 +359,8 @@ function profileBlockEl(state, r, refresh, onSaved) {
     p.likes ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, `Likes ${p.likes}`) : null,
     p.avoid ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, `Avoids ${p.avoid}`) : null,
     p.notes ? el("p", { class: "card-sub", style: "margin:2px 0 0" }, p.notes) : null,
-    // WHAT THIS ADVOCATE GETS, IN HER OWN WORDS (v289). Shown HERE, in the profile block, and
-    // not inside the bring-a-friend block below — that one returns nothing at all for a customer
-    // with no WhatsApp number (see referralSection), and the casual, friend-to-friend advocate is
-    // exactly the person who may have none.
-    p.reward ? el("p", { class: "card-sub reward-line", style: "margin:2px 0 0" }, `🎁 Reward: ${p.reward}`) : null,
   ];
-  const empty = !p.name && !p.dogName && !p.likes && !p.avoid && !p.notes && !p.reward;
+  const empty = !p.name && !p.dogName && !p.likes && !p.avoid && !p.notes && !p.reward && !p.rewardEvery;
 
   return el("div", { class: "profile-card" },
     el("div", { class: "profile-top" },
@@ -379,7 +375,84 @@ function profileBlockEl(state, r, refresh, onSaved) {
         editablePerson(r)
           ? button(empty ? "✎ Add details" : "✎ Edit",
               () => editProfilePopup(state, r, () => { refresh(); if (onSaved) onSaved(); }), "ghost small")
-          : null)));
+          : null)),
+    // WHAT THIS ADVOCATE GETS AND WHAT THEY HAVE HAD (v291). It sits UNDER the profile top rather
+    // than inside `.profile-who`, because it carries a press and the who-column is a flex child
+    // beside the avatar. It was a bare sentence from v289 until she asked how to EXERCISE the
+    // reward — see rewardBlockEl.
+    rewardBlockEl(state, r, p, refresh, onSaved));
+}
+
+// The reward, made exercisable (v291).
+//
+// Her words say WHAT they get; the number on the profile says how often; this
+// counts what they brought in against it and remembers what she has handed over.
+//
+// EVERY PRESS HERE IS OFFERED WHETHER OR NOT THE ARITHMETIC SAYS ONE IS DUE. She
+// may settle a favour early, or hand over a reward for reasons the app cannot
+// see — and a press refused because the app disagrees with her is a press that
+// lies to her. The count is information, never a gate.
+//
+// A hand-out is a RECORD pushed onto state.rewards, not a number incremented on
+// the profile. A number would be one value under the sync layer's last-write-wins
+// and the phone that saved last would silently discard the other's grant; records
+// cannot lose an update. Same reasoning as the credit ledger, and the same
+// Undo-a-mistake courtesy the credit rows already offer.
+function rewardBlockEl(state, r, p, refresh, onSaved) {
+  // No saved record, no reward to exercise: a reward lives ON the profile, and
+  // this person has none yet. Their row's own "✎ Add details" is the way in.
+  if (!p.id) return null;
+  const st = rewardStanding(state, p, { whatsapp: r.whatsapp });
+  if (!p.reward && !st.every && !st.came && !st.given) return null;
+
+  const counts = [`${st.came} brought in`];
+  if (st.every > 0) {
+    counts.push(`every ${st.every}`);
+    counts.push(st.due > 0 ? `${st.due} due` : "nothing due");
+  }
+  const saveSync = () => { save(state); maybeSync(state); };
+  const last = st.grants[0];
+
+  return el("div", { class: "reward-block" },
+    p.reward ? el("p", { class: "reward-line" }, `🎁 ${p.reward}`) : null,
+    el("p", { class: "card-sub", style: "margin:2px 0 0" }, counts.join(" · ")),
+    el("div", { class: "li-row", style: "align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 0" },
+      button("🎁 Given",
+        () => {
+          const rec = giveReward(state, {
+            profileId: p.id,
+            holder: r.whatsapp,
+            holderName: customerRowName(r),
+            what: p.reward,
+            came: st.came,
+          });
+          if (!rec) return toast("Save this customer first, then record their reward");
+          saveSync();
+          toast(p.reward ? `Reward recorded — ${p.reward}` : "Reward recorded");
+          refresh();
+          if (onSaved) onSaved();
+        }, "soft small"),
+      st.given ? el("span", { class: "card-sub", style: "margin:0" }, `${st.given} given`) : null,
+      last
+        ? button("Undo last", () => {
+            confirmDialog(
+              `Take back the most recent reward${last.what ? ` (${last.what})` : ""}?`,
+              () => {
+                removeRewardGrant(state, last.id);
+                saveSync();
+                toast("Reward taken back");
+                refresh();
+                if (onSaved) onSaved();
+              }, { danger: true, yesLabel: "Take back" });
+          }, "ghost small")
+        : null),
+    // The record's own trace. A list of hand-outs that showed nothing but a count
+    // would be indistinguishable from the counter this deliberately is not.
+    last
+      ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
+          `Last given ${longDate(String(last.at || "").slice(0, 10))}`
+          + (last.came ? `, after they had brought in ${last.came}.` : "."))
+      : null);
 }
 
 // The editable profile form (a pop-up over the history). Fields: name, WhatsApp,
@@ -406,6 +479,11 @@ function editProfilePopup(state, r, afterSave, opts = {}) {
   // "not just as plain as rm3", and a partner may be owed a free loaf, a favour, or an
   // arrangement of their own.
   const reward = el("input", { class: "input", value: p.reward || "", placeholder: "e.g. a free loaf for every five friends" });
+  // The NUMBER beside those words (v291), in its own box. Her sentence is never
+  // read for it: a parser that misread "every five friends" would promise a
+  // partner a loaf she never agreed to.
+  const rewardEvery = el("input", { class: "input", type: "number", inputmode: "numeric", min: "0", step: "1",
+    value: p.rewardEvery ? String(p.rewardEvery) : "", placeholder: "e.g. 5", style: "max-width:120px" });
 
   const file = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const preview = el("div", { style: "display:flex;align-items:center;gap:10px;flex-wrap:wrap" });
@@ -444,6 +522,7 @@ function editProfilePopup(state, r, afterSave, opts = {}) {
       avoid: avoid.value,
       notes: notes.value,
       reward: reward.value,
+      rewardEvery: rewardEvery.value,
     }, r._key); // the person this pop-up was opened from
     if (!prof) return toast("Enter a name or WhatsApp number first");
     save(state);
@@ -467,9 +546,10 @@ function editProfilePopup(state, r, afterSave, opts = {}) {
       el("div", { class: "field" }, el("label", {}, "What they like"), likes),
       el("div", { class: "field" }, el("label", {}, "What to avoid"), avoid),
       el("div", { class: "field" }, el("label", {}, "Note"), notes),
-      el("div", { class: "field" }, el("label", {}, "🎁 Their reward"), reward,
+      el("div", { class: "field" }, el("label", {}, "🎁 Their reward"), reward),
+      el("div", { class: "field" }, el("label", {}, "🎁 Given every … customers brought in"), rewardEvery,
         el("p", { class: "hint" },
-          "What they get for bringing you custom — a free loaf for every five friends, RM5 off each order, or whatever you have agreed. Write it in your own words; there is no fixed amount. The app names it and counts what they brought in; you settle up yourself, the same way you do with the credits below.")),
+          "What they get for bringing you custom — a free loaf for every five friends, RM5 off each order, or whatever you have agreed. Write the reward in your own words, then put its number here: a free loaf every 5 customers brought in. Leave the number blank if it is not a set figure — the app still counts what they brought in, it just never calls one due. Their card shows the count and a Given button, so you can see at a glance what is owed and record what you have handed over.")),
       el("div", { class: "btn-row" }, button(isNew ? "Add customer" : "Save profile", saveProfile, "primary"), button("Cancel", close, "ghost")));
   });
 }

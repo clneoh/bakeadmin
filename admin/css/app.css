@@ -1031,6 +1031,22 @@ option.tone-off { color: var(--muted); }
 .pin-offer .btn-row { gap: 6px; margin-top: 8px; }
 .pin-offer .btn-row .btn { flex: 0 1 auto; }
 
+/* ---------- The reward, exercised (v291) ----------
+   Under the profile top inside the customer card. It carries her own words, the
+   count against them, and a press — so it is a block with its own edges rather
+   than one more line of the profile facts. Tinted like the offer it is, but in
+   the amber the app already uses for a code's tag, so it never reads as the
+   green "bring-a-friend" ledger below it. */
+.reward-block {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: var(--brown-soft);
+  border-radius: 10px;
+}
+.reward-block .reward-line { margin: 0; font-weight: 600; font-size: 14px; }
+.reward-block .btn-row { gap: 6px; margin: 0; }
+.reward-block .card-sub { margin: 0; }
+
 /* ---------- Bring-a-friend ---------- */
 .ref-block {
   flex: 1 1 100%;

@@ -1,8 +1,58 @@
-# Jienluv2bake — change history (v54 → v290)
+# Jienluv2bake — change history (v54 → v291)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v291, A REWARD YOU CAN ACTUALLY HAND OVER (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You asked the question that made this version: __"how do we exercise their
+reward, if the reward is only written text?"__ Until now the reward was a sentence on
+the customer — you read it and settled up by hand, and the app neither reminded you
+nor remembered what you had given. Nothing said **when** a reward had come round.
+
+**What you see now, on More → Customers → open a customer.**
+
+- **The reward is a card of its own on their record**, in amber so it does not
+  read as the green bring-a-friend ledger below it.
+- **It says what they brought in, and what is due.** __"9 brought in · every 5 · 1
+  due"__ — the count is from your own orders, recounted every time, so nothing can
+  double-count.
+- **A Given button records the hand-over.** Their card then says __"1 given"__ with
+  the date, so the next time you open them you can see what you have already settled.
+- **Undo last takes a press back**, if you tapped it twice or they returned it.
+
+**Their reward, and its number, are two separate boxes.** Your sentence stays exactly
+as you wrote it — __"a free loaf for every five friends"__. Beside it is a number box,
+**"Given every … customers brought in"**. Nothing is ever read out of your sentence:
+a parser that misread "every five" would tell you a partner is owed a loaf you never
+agreed to. Leave the number empty if it is not a set figure — the app still counts
+what they brought in, it just never calls one due.
+
+**What counts as "brought in" is one number, whichever way they work.** A friend with
+a share link and a partner with a code are counted the same way, and a person can be
+both — so the count is the union of the two, never their sum. A cart that carried both
+a link and a code counts **once**. And a friend who had **already ordered from you**
+is not a new customer here, exactly as the Give-credit button has always judged it.
+
+**Every hand-over is its own record, and that is deliberate.** Both your phones hold
+one shared copy of your business. A "rewards given" tally kept as a single number
+would be **overwritten by whichever phone saved last** — one phone's hand-over would
+vanish in silence. One record per hand-over cannot lose an update. It is the same
+reason your credit ledger is a list.
+
+**Nothing is ever blocked.** The Given button is offered whether or not the app's
+arithmetic says a reward is due — you may settle a favour early, or hand one over for
+a reason the app cannot see. The count is information, never a gate.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload,
+no new key. This version adds one new list and touches nothing you already have: your
+orders, products, ingredients, prices, bake days and saved plans are exactly as they
+were. The suite is 2,607 tests, all green. Proved live at a phone width: 29 checks,
+including that a cart carrying both a link and a code counts once, that a second
+hand-over is recorded rather than replacing the first, that Undo takes back exactly
+one, and that the number box really reaches the customer's record.
 
 **04 Oct 2026 — engine v290, YOU CAN ADD A CUSTOMER YOURSELF, AND READ YOUR
 REMARK ON THE LIST (no database step, nothing to upload — pushing this one is the

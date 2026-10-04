@@ -174,6 +174,12 @@ export function defaultState() {
     // (category "My own withdrawal"), which is the same money-out list.
     deposits: [],
     credits: [], // bring-a-friend ledger: {holder, amountRM, role, expiresAt, ...}
+    // Reward hand-outs (v291): one record each time she settles an advocate's
+    // reward — {profileId, holder, what, count, at}. A LIST and never a counter,
+    // because the two phones sync record-by-record under last-write-wins and a
+    // single incremented number on the profile would be overwritten by whichever
+    // phone saved last, losing the other's grant.
+    rewards: [],
     occasions: [], // delivery-calendar reminder marks: {from, to, label}
     // Promo codes she hands out — one row per code, carrying the six rule
     // families and the offer (see js/promo.js for the engine and the shape). A
@@ -411,6 +417,7 @@ function normalize(s) {
     expenses: Array.isArray(s.expenses) ? s.expenses : [],
     deposits: Array.isArray(s.deposits) ? s.deposits : [],
     credits: Array.isArray(s.credits) ? s.credits : [],
+    rewards: Array.isArray(s.rewards) ? s.rewards : [],
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
     // Guarded like every other list she owns. The rows themselves are cleaned by
     // js/promo.js on every read, so a half-synced or hand-edited record can never
