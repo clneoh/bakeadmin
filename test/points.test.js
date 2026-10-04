@@ -1,0 +1,170 @@
+// test/points.test.js — Self collection Points (v298).
+//
+// Her scope, in her words: "we just need to have a card for points". So this file tests the
+// MODEL behind that card and nothing else — no dashboard, no budget, no cost-against-value.
+// Three of those were drawn once and withdrawn; a test here would only invite them back.
+//
+// The three things worth pinning, and each is a way of being confidently wrong:
+//
+//   1. THE KITCHEN IS NOT A POINT. Collecting from the bakery is `fulfillment: "collect"`
+//      with no point, and it must stay that way — free, no minimum, no record, no fee, no
+//      provider. A Point that quietly became the kitchen would inherit a fee she does not
+//      owe and a life she cannot end.
+//   2. DELETE MUST NOT REWRITE HISTORY. The Point's name is frozen onto the order, so an
+//      order that went to Farlim still says Farlim after the Point is deleted.
+//   3. PAUSE IS THE NORMAL ENDING. She opens them one at a time and expects most to end, so
+//      pausing one must not disturb a single other Point.
+//
+// Run with: node --test test/
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, normalizePoint, orderPointName,
+  pointById, pointPhoneText, pointProblem, pointsOf, activePoints, setPointPaused, updatePoint,
+} from "../admin/js/points.js";
+
+function state(extra = {}) {
+  return { orders: [], points: [], ...extra };
+}
+
+const FEE = { name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik, 11500 Air Itam",
+  receiver: "Aunty Lim", phone: "012-345 6789", feeRM: 0.5 };
+
+// ── the shape ────────────────────────────────────────────────────────────────
+
+test("a new Point starts at the default fee and is offered at once", () => {
+  const st = state();
+  const p = addPoint(st, FEE, "2026-10-12T00:00:00.000Z");
+  assert.ok(p && p.id.startsWith("pt_"), "a Point is given its own id");
+  assert.equal(p.name, "Farlim, Air Itam");
+  assert.equal(p.feeRM, 0.5);
+  assert.equal(p.feeRM, DEFAULT_FEE_RM);
+  assert.equal(p.paused, false, "a Point she has just opened is offered — pausing is a decision, not a default");
+  assert.equal(p.createdAt, "2026-10-12T00:00:00.000Z");
+  assert.equal(st.points.length, 1);
+});
+
+test("the receiver's number is stored the way every other number in this app is", () => {
+  // Digits with the country code, so it can be dialled, linked and compared without a
+  // second spelling of the same number. A driver reads it back through pointPhoneText.
+  const p = addPoint(state(), FEE);
+  assert.equal(p.phone, "60123456789");
+  assert.equal(pointPhoneText(p.phone), "012-345 6789", "and it reads back as a number a driver would dial");
+  // Anything not shaped like a number keeps its plain text rather than being emptied.
+  assert.equal(normalizePoint({ name: "X", phone: "ask at the counter" }).phone, "ask at the counter");
+  assert.equal(normalizePoint({ name: "X", phone: "" }).phone, "");
+});
+
+test("a Point needs a name, and nothing else", () => {
+  // The floor a parcel carrier has. A Point she has not finished filling in is still hers
+  // to save — refusing it would be a website rule standing between her and her own list.
+  assert.equal(pointProblem({ name: "" }), "A Point needs a name");
+  assert.equal(pointProblem({ name: "   " }), "A Point needs a name");
+  assert.equal(pointProblem({ name: "Farlim" }), "");
+  assert.equal(pointProblem({ name: "Farlim", receiver: "", phone: "" }), "",
+    "no receiver and no phone is allowed — it is only the driver who suffers, and the card says so");
+  assert.equal(addPoint(state(), { name: "" }), null, "and a nameless Point is never created");
+});
+
+test("two Points cannot share a name, and editing one is not a clash with itself", () => {
+  const st = state();
+  const a = addPoint(st, FEE);
+  assert.match(pointProblem({ name: "farlim, air itam" }, pointsOf(st)), /already a Point/);
+  assert.equal(addPoint(st, { name: "Farlim, Air Itam" }), null);
+  // Renaming a Point to its own name is not a clash.
+  assert.equal(pointProblem({ id: a.id, name: "Farlim, Air Itam" }, pointsOf(st)), "");
+  assert.ok(updatePoint(st, a.id, { ...FEE, name: "Farlim, Air Itam" }));
+});
+
+test("junk clamps rather than throwing, and never reaches a screen", () => {
+  assert.deepEqual(normalizePoint(null), blankPoint());
+  assert.deepEqual(normalizePoint("nonsense"), blankPoint());
+  assert.equal(normalizePoint({ name: "  X  " }).name, "X");
+  assert.equal(normalizePoint({ name: "X", feeRM: -3 }).feeRM, DEFAULT_FEE_RM,
+    "a negative fee falls back rather than paying a provider backwards");
+  assert.equal(normalizePoint({ name: "X", feeRM: "abc" }).feeRM, DEFAULT_FEE_RM);
+  assert.equal(normalizePoint({ name: "X", feeRM: 1.005 }).feeRM, 1,
+    "money is rounded the way every other figure in this app is");
+  assert.equal(normalizePoint({ name: "X", paused: "yes" }).paused, false,
+    "only a real true pauses — a stray string does not take a Point off the shop");
+  // A row with no name is dropped rather than drawn as a blank card.
+  assert.deepEqual(pointsOf({ points: [{ id: "pt_1" }, { id: "pt_2", name: "Real" }] }).map((p) => p.name),
+    ["Real"]);
+});
+
+// ── 2 · DELETE MUST NOT REWRITE HISTORY ──────────────────────────────────────
+
+test("deleting a Point leaves the orders that used it saying where they went", () => {
+  const st = state({ orders: [{ id: "o1", pointId: "pt_x", pointName: "Farlim, Air Itam" }] });
+  const p = addPoint(st, FEE);
+  st.orders.push({ id: "o2", pointId: p.id, pointName: p.name });
+
+  assert.equal(orderPointName(st, st.orders[1]), "Farlim, Air Itam", "while the Point exists");
+  assert.equal(deletePoint(st, p.id), true);
+  assert.equal(pointById(st, p.id), null, "the Point is gone");
+  assert.equal(orderPointName(st, st.orders[1]), "Farlim, Air Itam",
+    "and the order STILL says Farlim — the name was frozen onto it when it was placed");
+});
+
+test("an order whose Point is gone never prints a bare id", () => {
+  // A frozen name is what an order carries. With neither a frozen name nor a live Point,
+  // the honest answer is nothing at all — an order reading "pt_9f2a" tells the person
+  // holding the bags nothing.
+  const st = state();
+  assert.equal(orderPointName(st, { pointId: "pt_gone" }), "");
+  assert.equal(orderPointName(st, { pointId: "pt_gone", pointName: "Farlim" }), "Farlim");
+  assert.equal(orderPointName(st, null), "");
+});
+
+// ── 3 · PAUSE IS THE NORMAL ENDING, AND POINTS ARE INDEPENDENT ───────────────
+
+test("pausing one Point disturbs no other", () => {
+  // "baker will open collection point one by one… and not likely will open all point one go."
+  const st = state();
+  const a = addPoint(st, { ...FEE, name: "Farlim, Air Itam" }, "2026-10-12T00:00:00.000Z");
+  const b = addPoint(st, { ...FEE, name: "Chai Leng Park, Prai" }, "2026-10-13T00:00:00.000Z");
+  const c = addPoint(st, { ...FEE, name: "Bukit Mertajam" }, "2026-10-14T00:00:00.000Z");
+
+  setPointPaused(st, b.id, true);
+  assert.equal(pointById(st, a.id).paused, false, "one Point pausing is one Point pausing");
+  assert.equal(pointById(st, c.id).paused, false);
+  assert.deepEqual(activePoints(st).map((p) => p.name), ["Farlim, Air Itam", "Bukit Mertajam"],
+    "the shop offers the active ones only");
+
+  setPointPaused(st, b.id, false);
+  assert.equal(activePoints(st).length, 3, "and Resume brings it back");
+});
+
+test("paused Points sink to the bottom of the card", () => {
+  // She sees the ones that are working first; a paused Point is still there to be brought
+  // back, and a name would otherwise shuffle around as she pauses things.
+  const st = state();
+  const a = addPoint(st, { ...FEE, name: "First" }, "2026-10-12T00:00:00.000Z");
+  addPoint(st, { ...FEE, name: "Second" }, "2026-10-13T00:00:00.000Z");
+  addPoint(st, { ...FEE, name: "Third" }, "2026-10-14T00:00:00.000Z");
+  assert.deepEqual(pointsOf(st).map((p) => p.name), ["First", "Second", "Third"]);
+  setPointPaused(st, a.id, true);
+  assert.deepEqual(pointsOf(st).map((p) => p.name), ["Second", "Third", "First"],
+    "the paused one is last, and the order she opened them in is otherwise kept");
+});
+
+test("an edit corrects a Point and never makes a new one", () => {
+  const st = state();
+  const p = addPoint(st, FEE, "2026-10-12T00:00:00.000Z");
+  const next = updatePoint(st, p.id, { ...FEE, name: "Farlim — Aunty Lim's shop", feeRM: 1 });
+  assert.equal(st.points.length, 1, "an edit is a correction, not a second Point");
+  assert.equal(next.id, p.id, "and the id never moves");
+  assert.equal(next.createdAt, "2026-10-12T00:00:00.000Z",
+    "nor the day she opened it — that is a fact about the Point, not a field of the form");
+  assert.equal(next.feeRM, 1, "the fee is hers to raise");
+  assert.equal(updatePoint(st, "pt_nope", FEE), null, "editing a Point that is not there does nothing");
+});
+
+test("deleting a Point that is not there removes nothing", () => {
+  const st = state();
+  addPoint(st, FEE);
+  assert.equal(deletePoint(st, "pt_nope"), false);
+  assert.equal(deletePoint(st, ""), false);
+  assert.equal(st.points.length, 1);
+});

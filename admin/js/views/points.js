@@ -1,0 +1,182 @@
+// views/points.js — the Self collection Points card (v298).
+//
+// HER SCOPE, and it is deliberately small: "we just need to have a card for points". One
+// card, listing the Points, where she can add one, edit one, pause one, bring one back and
+// delete one. There is no dashboard, no cost-against-value panel and no budget — all three
+// were drawn once and withdrawn. See js/points.js for the model and for why a Point is not
+// a "pickup point" and not the kitchen.
+//
+// Same shape as Parcel couriers / Suppliers / Ingredients: an always-on "New Point" card at
+// the top, one row per Point below it, and a single editor pop-up shared by New and Edit.
+//
+// ⚠️ NO MINIMUM ORDER. She first chose one, then said keep it simple — so a Point carries
+// no basket rule at all. Collecting is free; the fee on this card is what SHE pays the
+// provider, not what a customer pays her. Do not add a minimum back without her asking.
+
+import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
+import { save } from "../state.js";
+import {
+  DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
+  pointProblem, pointsOf, setPointPaused, updatePoint,
+} from "../points.js";
+
+export function renderPoints(root, state) {
+  renderAll(root, state);
+}
+
+function renderAll(root, state) {
+  const list = pointsOf(state);
+  const active = list.filter((p) => !p.paused).length;
+  const paused = list.length - active;
+  const rows = list.length
+    ? list.map((p) => pointCard(state, p, root))
+    : [emptyState("No Points yet",
+      "A Self collection Point is somewhere other than your kitchen a customer can collect from — a friend's shop, a café. Open one when you are ready; you do not have to open them all.")];
+
+  root.replaceChildren(
+    newPointCard(state, root),
+    el("h2", { class: "section" },
+      list.length
+        ? `Self collection Points (${list.length})${paused ? ` · ${active} active, ${paused} paused` : ""}`
+        : "Self collection Points"),
+    ...rows);
+}
+
+// One editor for New and Edit both, so the two can never ask for different things or save
+// different fields — the lesson every other list in this app already learned.
+function buildPointEditor(state, point) {
+  const name = el("input", { class: "input", value: point?.name || "",
+    placeholder: "e.g. Farlim, Air Itam" });
+  const address = el("textarea", { class: "input", rows: 3, value: point?.address || "",
+    placeholder: "Where it is, for the driver — a street, a shop name, a landmark" });
+  const receiver = el("input", { class: "input", value: point?.receiver || "",
+    placeholder: "e.g. Aunty Lim" });
+  const phone = el("input", { class: "input", type: "tel", value: point?.phone || "",
+    placeholder: "e.g. 012-345 6789" });
+  const fee = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.10",
+    min: "0", value: point ? String(point.feeRM) : String(DEFAULT_FEE_RM), style: "max-width:120px" });
+
+  const collect = () => {
+    const draft = {
+      id: point?.id || "",
+      name: name.value,
+      address: address.value,
+      receiver: receiver.value,
+      phone: phone.value,
+      feeRM: fee.value,
+    };
+    return { draft, error: pointProblem(draft, pointsOf(state)) };
+  };
+  return { name, address, receiver, phone, fee, collect };
+}
+
+function newPointCard(state, root) {
+  const ed = buildPointEditor(state, null);
+  return el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 10px" }, "New Self collection Point"),
+    el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
+    el("div", { class: "field" }, el("label", {}, "Address"), ed.address),
+    el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver,
+      el("p", { class: "hint" },
+        "The person who hands the bags over when the driver arrives. A courier stop hands to a person, not to a doorstep — so without a name and a number here, the driver has nobody to look for.")),
+    el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
+    el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee,
+      el("p", { class: "hint" },
+        "What YOU pay whoever receives here, per order. It is not a charge to the customer — collecting is free to them. Start at RM0.50 and change it whenever you like.")),
+    button("Add Point", () => {
+      const { draft, error } = ed.collect();
+      if (error) return toast(error);
+      addPoint(state, draft);
+      toast("Point added — it is offered in the shop from now on");
+      save(state);
+      renderAll(root, state);
+    }, "block primary"));
+}
+
+function openEditPointPopup(state, point, root) {
+  const ed = buildPointEditor(state, point);
+  showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
+    el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
+    el("div", { class: "field" }, el("label", {}, "Address"), ed.address),
+    el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
+    el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
+    el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee),
+    el("div", { class: "popup-actions" },
+      button("Cancel", close, "ghost"),
+      button("Update Point", () => {
+        const { draft, error } = ed.collect();
+        if (error) return toast(error);
+        if (!updatePoint(state, point.id, draft)) return toast("Couldn't save that");
+        toast("Point updated");
+        save(state);
+        close();
+        renderAll(root, state);
+      }, "primary"))), { wide: true });
+}
+
+// How many orders have been placed to this Point. Read off the orders rather than kept as
+// a tally on the Point — the same recount-not-remember rule the promo codes follow, so
+// nothing can drift and re-importing an order can never double-count.
+function usedBy(state, point) {
+  return (state.orders || []).filter((o) =>
+    o && String(o.pointId || "") === point.id).length;
+}
+
+function pointCard(state, point, root) {
+  const used = usedBy(state, point);
+  const phone = pointPhoneText(point.phone);
+  const who = [point.receiver || null, phone || null].filter(Boolean).join(" · ");
+
+  // The three presses go on a LINE OF THEIR OWN under the details, not squeezed into the
+  // card's right edge. Three is one more than that edge holds on a phone — Pause and Edit
+  // fitted and Delete wrapped under them, which read as two rows that look alike and behave
+  // differently. This is also the shape she approved in the drawing.
+  return el("div", { class: "card" },
+    el("div", { style: "min-width:0" },
+      el("p", { class: "card-title" },
+        point.name,
+        el("span", { class: `st-chip ${point.paused ? "paused" : "valid"}` },
+          point.paused ? "Paused" : "Active")),
+      el("p", { class: "card-sub" },
+        who || "Nobody named to receive here yet"),
+      point.address ? el("p", { class: "card-sub" }, point.address) : null,
+      el("p", { class: "card-sub" },
+        [`RM${point.feeRM.toFixed(2)} per order`,
+          used ? `${used} order${used === 1 ? "" : "s"}` : "no orders yet"]
+          .join(" · "))),
+    el("div", { class: "btn-row" },
+      button(point.paused ? "Resume" : "Pause",
+        () => togglePaused(state, point, root), "ghost small"),
+      button("Edit", () => openEditPointPopup(state, point, root), "ghost small"),
+      button("Delete", () => confirmDelete(state, point, root), "ghost small")));
+}
+
+function togglePaused(state, point, root) {
+  const back = point.paused;
+  setPointPaused(state, point.id, !back);
+  toast(back ? `${point.name} is offered in the shop again` : `${point.name} paused — the shop stops offering it`);
+  save(state);
+  renderAll(root, state);
+}
+
+function confirmDelete(state, point, root) {
+  const used = usedBy(state, point);
+  // ⚠️ DELETING IS SAFE, AND THE CONFIRMATION SAYS WHAT REALLY HAPPENS rather than
+  // threatening to break history. The name was frozen onto each order when it was placed
+  // (see orderPointName), so those orders keep reading correctly and keep telling the
+  // customer where their order went. This is the same sentence Parcel couriers uses, for
+  // the same reason.
+  confirmDialog(used
+    ? `Delete the Point “${point.name}”? ${used} order${used === 1 ? " has" : "s have"} collected there — those keep the name, and they keep showing it to the customer.`
+    : `Delete the Point “${point.name}”?`,
+  () => {
+    deletePoint(state, point.id);
+    toast("Point deleted");
+    save(state);
+    renderAll(root, state);
+  }, { danger: true, yesLabel: "Delete" });
+}
+
+// Re-exported so a caller that only wants "where did this order collect from" does not have
+// to reach into the model for it.
+export { orderPointName };

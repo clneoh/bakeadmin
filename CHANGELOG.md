@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v297)
+# Jienluv2bake — change history (v54 → v298)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v298, SELF COLLECTION POINTS — THE CARD (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why.** You asked to get the system ready for collecting from places that are not your kitchen
+— Sg Ara, Farlim, Chai Leng Park, Bukit Mertajam — and to discuss it first. We did, and this is
+the first piece of it: **the card**, which is the piece you scoped yourself.
+
+Her words: __"we just need to have a card for points"__
+
+**What you see now, on More → 📍 Self collection Points.**
+
+- **A "New Self collection Point" card**, and your Points listed under it.
+- **Five things per Point:** its name, the address, **who receives**, **their phone**, and **the
+  fee per order** — what __you__ pay whoever receives there.
+- **Pause · Edit · Delete** on every row. A paused Point sinks to the bottom and goes pale, and
+  **Resume** brings it back.
+- **Every Point is its own record**, so opening one changes nothing about the others — which is
+  how you said you'd do it: __"open collection point one by one… and not likely will open all
+  point one go."__
+
+**Three things the card is careful about, and each is one of your rules.**
+
+- **Your kitchen is NOT a Point.** Collecting from Sg Ara is what your shop already offers — free,
+  no minimum, always there. It gets no record, no fee and no provider, because it has none of
+  those. A Point is a __third__ thing beside it.
+- **Delete never rewrites where an order went.** An order keeps the Point's **name frozen onto
+  it**, so an order that went to Farlim still says Farlim after the Point is deleted — the same
+  way an order keeps the name and price a product was sold at.
+- **Pause is a normal ending, not a failure.** You said most Points you open will end this way, so
+  pausing is one press and completely reversible.
+
+**⚠️ WHAT THIS VERSION DOES NOT DO YET, said plainly rather than discovered.** This is the **card
+only**. Your shop does **not** offer Points to customers yet, an **order does not carry which
+Point** it went to, and the **Delivery run does not include them**. Those are the next pieces. So
+today: you can define your Points and see them, and nothing else changes.
+
+**And the fee is yours to set, with no arithmetic done for you.** You said __"allow me to manually
+set it fee x2 or x3, but default x1"__ — so the app never measures an order's size. There is no
+product-size field and no volume sum anywhere.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. One
+new list is added and starts empty; no order, product, ingredient, price or bake day is touched.
+The suite is 2,646 tests, all green. Proved live on the real card at a phone width: **26 checks**,
+including that a nameless Point is refused with a reason, that pausing one Point leaves every other
+alone, that deleting one leaves the order still saying where it went, and that nothing scrolls
+sideways at 375px.
 
 **04 Oct 2026 — engine v297, THE OFFERS REALLY FLIP, WITH DOTS, AND A CLICK NO LONGER
 FREEZES THEM (no database step, nothing to upload — pushing this one is the whole of it).**

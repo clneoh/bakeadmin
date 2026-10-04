@@ -27,6 +27,7 @@ export function renderMore(root, state) {
     menuItem("#/deliveries", "📅 Delivery dates", "Set and manage delivery dates"),
     menuItem("#/run", "🚚 Delivery run", "Several orders, one trip — and what it saves"),
     menuItem("#/parcel-couriers", "📦 Parcel couriers", "J&T, Ninja Van, Line Clear — for parcels you post yourself"),
+    menuItem("#/points", "📍 Self collection Points", "Places other than your kitchen a customer can collect from"),
     menuItem("#/ingredients", "🧂 Ingredients", "Cooking units + supplier prices for the PO"),
     menuItem("#/history", "📚 PO history", "Saved purchase orders"),
     menuItem("#/units", "📐 Units", "g, kg, L — how packs compare"),
