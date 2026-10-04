@@ -2149,6 +2149,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("p", { class: "hint" },
         "Your kitchen is the default. An order collecting at a Point goes on the Delivery run to that Point, with the fee you set there.")),
     el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
+    // ── one way: posted as a parcel ─────────────────────────────────────────────
+    // Drawn for a courier order, which is what a postal order IS in this app (v226). The
+    // consignment number belongs here and not with the van: it is the number a CARRIER gave her.
+    draft.fulfillment === "courier" ? courierKind("Post a parcel", "Nationwide, a few days") : null,
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
       tracking,
@@ -2157,6 +2161,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // Drawn for a courier order as it always was, and also for a self-collect order that
     // still carries a charge — so a parked charge is never invisible to the only person
     // who can settle it (1 Oct 2026).
+    // ── the other way: sent by van ──────────────────────────────────────────────
+    // The charge and the price are ONE job — what sending a vehicle costs — so they sit under
+    // one heading. Drawn on the same condition the price section is, so the heading can never
+    // announce a block that is not there.
+    showCharge || jobOf(first) ? courierKind("Send a van", "Today, inside Penang") : null,
     parkedCharge ? parkedChargeNote(state, first) : null,
     showCharge ? charge.el : null,
     // Same price section as the Note / tracking box carries, for the same reason that
@@ -2871,6 +2880,19 @@ function listWords(items) {
   const list = (Array.isArray(items) ? items : []).filter(Boolean);
   if (list.length < 2) return list[0] || "";
   return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+// ★ THE TWO WAYS AN ORDER LEAVES, NAMED (v309). Her report: on one card she could see "Parcel
+// carrier", "EasyParcel", "Courier charge" and "Get a delivery price" with nothing saying which
+// belonged to which — and she read the two the wrong way round, which is the proof.
+//
+// ⚠️ THE NAME SAYS WHAT IT DOES, NEVER "KIND 1" OR "KIND 2". Those are this codebase's own words
+// for the two kinds of courier and they mean nothing on her screen; what she needs to know is that
+// one of them is a van today and the other is a parcel over a few days.
+function courierKind(name, what) {
+  return el("h3", { class: "courier-kind" },
+    el("span", {}, name),
+    el("span", { class: "kind-what" }, what));
 }
 
 function parcelApiBlock({ state, group, draft, refresh }) {

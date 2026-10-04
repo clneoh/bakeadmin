@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v308)
+# Jienluv2bake — change history (v54 → v309)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v309, THE TWO WAYS AN ORDER LEAVES ARE SAID APART (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your words: __"what i see is easy parcel is kind 1, lalamove is kind 2, but the interface
+din draw a clean border between them, so it is quite confusing for user"__. **The first half of that
+sentence is the proof.** You had the two the wrong way round — which you could only do because the
+card never told you which was which. Four labels sat next to each other — **Parcel carrier**,
+**EasyParcel**, **Courier charge**, **Get a delivery price** — with nothing saying what belonged to
+what.
+
+**What changed.** The card now draws a **rule with a name on it**, twice:
+
+  **Post a parcel**  __Nationwide, a few days__
+  — the consignment number, the parcel carrier, and EasyParcel
+
+  **Send a van**  __Today, inside Penang__
+  — the courier charge, who paid it, and **Get a delivery price**
+
+**⚠️ AND THE NAME SAYS WHAT IT DOES, NEVER "KIND 1" OR "KIND 2".** Those are this app's own words
+for the two kinds of courier and they mean nothing on your screen. What you need to know is that one
+of them is a van today and the other is a parcel over a few days — so that is what it says. **Nothing
+moved:** every field is exactly where it was, and each heading went above the fields it already sat
+on, so a heading can never end up announcing the other one's controls.
+
+**⚠️ TWO THINGS I MEASURED RATHER THAN GUESSED, and both would have failed quietly.** My first rule
+used the card's own line colour — **1.25:1 against the surface**, a faint tint that disappears on a
+phone in Penang daylight, which is exactly where you read it. **A boundary you cannot see would not
+have answered you.** It is now **3.5:1**, which clears the 3:1 the standard asks of an interface
+edge. And the small grey beside the name — __"Nationwide, a few days"__ — was **3.5:1**, **under the
+4.5:1 that applies to any text**; it is now **5.69:1**. Both were measured in the browser by reading
+the rendered pixels, not worked out on paper.
+
+**Your data is untouched, and there is nothing to run.** No SQL, no upload, no key. No order,
+product, price or bake day is touched, and no field moved on any card. The suite is **2,756 tests,
+all green**, and the real Edit card now runs **36 checks** — including that each heading sits above
+its own fields in document order, and that neither one says "kind 1".
 
 **04 Oct 2026 — engine v308, THE EASYPARCEL BLOCK READS AS OFF, NOT AS BROKEN (no database step,
 nothing to upload — pushing this one is the whole of it).**
