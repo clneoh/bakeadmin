@@ -1237,16 +1237,35 @@ button.prod-next.off::after { content: ""; }
   text-align: center;
 }
 .promo-today p { margin: 0; }
-/* Only the WORDS cross-fade when the offers turn (v292), never the strip itself:
-   fading .promo-today would blink its amber background off and on, and a strip
-   that flickers reads as a broken page rather than as a second offer. The hand
-   face's own line-height is set below, so this wrapper stays out of the way. */
-.promo-rotor { transition: opacity .22s ease; }
-.promo-rotor.is-fading { opacity: 0; }
-/* The setting is about MOTION, not about information: a customer who asks for
-   less movement still gets every offer, the words simply change without fading. */
+/* ---------- The offers turn, and the strip holds its height (v292, v295) ----------
+
+   EVERY offer is in the strip at once, stacked on top of each other in ONE grid cell,
+   and only the current one is lit. A grid row is as tall as its tallest item, so the
+   strip is exactly as tall as the TALLEST message and stays that height for ever — the
+   browser works it out, at whatever font, language and text size the customer actually
+   has, with no measurement of ours that can go stale.
+
+   WHY IT IS BUILT THIS WAY. v292 wrote each offer into ONE pair of lines as the turn
+   came round, so the strip was as tall as whichever message it happened to be showing.
+   Two codes where only one carries a sentence of her own are two different heights, so
+   every turn made the whole page below jump. Her words: "when the message switch, the
+   page is like jumping up and down repeatedly… The window should be fix, base on the
+   tallest message."
+
+   The cross-fade is these two rules and nothing else — no timer in the script, so a repaint
+   landing mid-turn cannot leave a blank strip behind. */
+.promo-rotor { display: grid; }
+.promo-slide {
+  grid-area: 1 / 1;      /* every slide lands in the same cell, so the tallest sets the height */
+  opacity: 0;
+  transition: opacity .16s ease;
+  pointer-events: none;  /* an unlit slide sits behind the lit one; it must never catch a tap */
+}
+.promo-slide.is-on { opacity: 1; pointer-events: auto; }
+/* The setting is about MOTION, not about information: a customer who asks for less
+   movement still gets every offer, the words simply change without fading. */
 @media (prefers-reduced-motion: reduce) {
-  .promo-rotor { transition: none; }
+  .promo-slide { transition: none; }
 }
 /* The bakery's own words, inside the same strip but quieter than the offer and
    the code it sits under — those are what a customer has to act on.

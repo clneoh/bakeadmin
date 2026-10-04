@@ -48,14 +48,11 @@
          never instead — a strip that stopped naming the code would be telling a
          customer about a discount they cannot ask for. -->
     <div id="promo-today" class="promo-today" hidden>
-      <!-- The two lines live inside #promo-rotor so that ONLY the words fade when
-           the offers turn (v292). Fading #promo-today itself would blink the amber
-           background off and on, and a strip that flickers reads as a broken page
-           rather than as a second offer. -->
-      <div id="promo-rotor" class="promo-rotor">
-        <p id="promo-offer" class="promo-offer"></p>
-        <p id="promo-words" class="promo-words" hidden></p>
-      </div>
+      <!-- Empty on purpose: every running offer is built into #promo-rotor as its own
+           slide by the script, all stacked in one grid cell so the strip is as tall as
+           the TALLEST message and cannot change height as they turn (v295). A static
+           line here would be a second copy of an offer the script is about to draw. -->
+      <div id="promo-rotor" class="promo-rotor"></div>
     </div>
 
     <div id="referral-banner" class="referral-banner" hidden data-i18n="referral">🎁 You were referred — you have a welcome discount on your first order</div>

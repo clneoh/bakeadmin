@@ -1,8 +1,53 @@
-# Jienluv2bake — change history (v54 → v294)
+# Jienluv2bake — change history (v54 → v295)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v295, THE SHOP'S OFFER STRIP STOPS MOVING THE PAGE (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your report, two codes running: __"when the message switch, the page is like
+jumping up and down repeatedly… The window should be fix, base on the tallest message."__
+You were right, and it was mine to fix — **v292 caused it.**
+
+**What was wrong.** The strip is only as tall as the message it is showing. When one of
+your codes carries a sentence of your own and the other does not, those are **two
+different heights** — so every time the strip turned, it grew or shrank and **everything
+below it moved with it**. Measured on the fault, on a real browser at phone width: the
+strip swung between **40.8 and 135.4 pixels** and dragged the whole page up and down by
+almost a hundred pixels, every second and a half, for as long as a customer stayed on the
+page.
+
+**What it does now.**
+
+- **The strip is exactly as tall as your TALLEST message, and never changes.** Every
+  running offer is drawn at once and stacked under each other; only the current one is
+  lit. The box is sized by the longest, so a short offer simply sits inside it. Measured
+  again with the fix: the strip holds **135.4 pixels** and the page below it stays put at
+  **346.1**, through turn after turn.
+- **It turns every 1.5 seconds**, your number.
+- **Pointing at it still stops it**, and a press on a phone still holds it — both unchanged.
+- **The slight dimming is gentler** now that the offers come round twice as fast, so the
+  words are readable for most of the time they are up.
+
+**One thing worth knowing about the 1.5 seconds.** A two-line message — the offer plus a
+sentence of yours — gives a customer about a second and a half to read it before it goes.
+That is quick. It is exactly what you asked for and it is one number to change, so if it
+turns out to be too fast once you watch it with real customers, say so.
+
+**One more thing it fixes, quietly.** The lit offer now says which one it is to a screen
+reader, and the others are marked as behind it — previously, with all the offers in the
+strip, a reader could have taken all of them in turn as though they were one message.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no
+key. This is the shop's page and nothing else: no order, product, ingredient, price, bake
+day or promo code is touched, and no code's terms change. The suite is 2,630 tests, all
+green. Proved live on the real shop page at a phone width: 14 checks, including that the
+strip's height is identical on every turn, that the page under it never moves, and that
+the box measures the same whichever offer is lit. The fault was then put back on purpose —
+the strip immediately swung 94.6 pixels and the checks went red — which is what proves the
+measurement can see it.
 
 **04 Oct 2026 — engine v294, THE INVOICE NUMBER IS THE ORDER'S OWN CODE (no database
 step, nothing to upload — pushing this one is the whole of it).**

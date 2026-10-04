@@ -1187,39 +1187,52 @@ export function render() {
   const promoSay = document.getElementById("promo-say");
   const promoToday = document.getElementById("promo-today");
   const promoRotor = document.getElementById("promo-rotor");
-  const promoOffer = document.getElementById("promo-offer");
-  const promoWords = document.getElementById("promo-words");
   const promoClear = document.getElementById("promo-clear");
 
-  // ── The standing offers, and how they turn (v292) ─────────────────────────
+  // ── The standing offers, and how they turn (v292; the jump fixed in v295) ──
   //
-  // More than one code can be running at once, and the strip used to show only
-  // the first. Now they turn. The pattern is the homepage's own carousel
-  // (reviews.js buildCarousel) — six seconds, stop while the pointer is over it,
-  // stop while the tab is hidden, and under two items nothing moves — with three
-  // deliberate differences, each for a reason:
+  // More than one code can be running at once, and the strip used to show only the
+  // first. Now they turn. The pattern is the homepage's own carousel
+  // (reviews.js buildCarousel) — stop while the pointer is over it, stop while the
+  // tab is hidden, and under two items nothing moves — with these deliberate
+  // differences, each for a reason:
   //
   //   · A FADE IN PLACE, not a sliding track. That carousel slides review CARDS;
   //     this is one line of message, and sliding a single line sideways reads as
   //     a glitch rather than as a second offer.
   //   · With ONE code the timer is never armed at all. The homepage arms its
-  //     interval even for a single slide, where it ticks every six seconds to no
-  //     effect.
+  //     interval even for a single slide, where it ticks to no effect.
   //   · A PRESS holds it still for a while. There is no hover on a phone, so a
   //     tap is the only pause a customer there has — and a pause that ended the
   //     moment the finger came up would be no pause at all. It starts again by
   //     itself, so a tap can never leave the strip stuck on one offer.
-  const TURN_MS = 6000;
-  const FADE_MS = 220;
+  //   · 1.5 seconds between offers, which is her number, not the homepage's six.
+  //
+  // ★ EVERY OFFER IS DRAWN AT ONCE, STACKED, AND ONLY THE CURRENT ONE IS LIT (v295).
+  //
+  // v292 wrote each offer into ONE pair of lines as the turn came round, so the strip
+  // was exactly as tall as the message it happened to be showing. Two codes where only
+  // one carries a sentence of her own are two different heights — so every turn made
+  // the whole page below the strip jump. Her words: "when the message switch, the page
+  // is like jumping up and down repeatedly… The window should be fix, base on the
+  // tallest message."
+  //
+  // So the offers are built as slides and STACKED IN ONE GRID CELL. A grid row is as
+  // tall as its tallest item, which makes the strip exactly as tall as the TALLEST
+  // message — worked out by the browser, at whatever font, language and text size the
+  // customer actually has, with no number of ours that can go stale. Turning then only
+  // moves which slide is lit, and nothing under the strip moves at all.
+  const TURN_MS = 1500;
   const PRESS_HOLD_MS = 20000;
 
   let turnTimer = null;
-  let fadeTimer = null;
   let liveCodes = [];   // what the strip is turning through right now
   let shownCodes = [];  // ...and what it was turning through when it last drew
   let codeAt = 0;       // which of them is on screen
   let overStrip = false;
   let heldUntil = 0;
+  let slides = [];      // one per offer, all in the strip at once
+  let litAt = -1;       // which slide is lit, so a repaint can skip a pointless repaint
 
   // Whether the offers may turn RIGHT NOW. Read fresh on every tick rather than
   // tearing the timer down and rebuilding it on every hover, so a pointer moving
@@ -1229,52 +1242,48 @@ export function render() {
     return Date.now() >= heldUntil;
   }
 
-  // The fade is the ONLY motion on this strip, so "reduce motion" turns the
-  // ANIMATION off and leaves the turning alone: the message still changes, it
-  // simply does not slide or fade to get there. Stopping the turn instead would
-  // hide every offer but the first from exactly the customers who asked for less
-  // movement — the setting is about motion, not about information.
-  function reduceMotion() {
-    try {
-      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    } catch { return false; }
+  // One offer, as its own slide. Two lines: the app's line, which names the code, and
+  // her own sentence underneath it when she has written one — never instead of it, because
+  // a customer who cannot type the code cannot use it. A code she has written nothing for
+  // is simply a SHORTER slide; it does not make the strip shorter, because the tallest one
+  // decides that.
+  function slideEl(c) {
+    const own = ownWords(c);
+    return el("div", { class: "promo-slide" },
+      el("p", { class: "promo-offer" }, sub(t("promoToday"), clauseWords(c), c.code)),
+      own ? el("p", { class: "promo-words" }, own) : null);
   }
 
-  // Draw whichever code the turn is on. `fade` is asked for by the timer and never
-  // by a repaint: a repaint is happening because the CART changed, and fading the
-  // words out under a customer who is watching the bar would be motion they did
-  // nothing to cause.
-  function drawStanding(at, { fade = false } = {}) {
+  // Build the whole set at once, and light the first. Called only when the offers
+  // themselves have changed — a repaint from the cart must not rebuild the slides, or
+  // the cross-fade would restart under a customer who did nothing.
+  function buildSlides(list) {
+    slides = list.map(slideEl);
+    if (promoRotor) promoRotor.replaceChildren(...slides);
+    litAt = -1;
+  }
+
+  // Light one slide and extinguish the rest. The wording is drawn once, at build time
+  // and never again — this only moves a class, which is what makes the strip's height
+  // unmovable: nothing here can change how tall the content is.
+  function showSlide(at) {
     codeAt = at;
-    const c = liveCodes[at] || null;
-    const paint = () => {
-      // Her own sentence, underneath the app's line and never instead of it: the
-      // app's line is what names the code, and a customer who cannot type the
-      // code cannot use it. A code she has written nothing for shows one line,
-      // exactly as it did before she could write anything.
-      if (promoOffer) promoOffer.textContent = sub(t("promoToday"), clauseWords(c), c.code);
-      if (promoWords) {
-        const own = ownWords(c);
-        promoWords.hidden = !own;
-        promoWords.textContent = own;
-      }
-    };
-    if (!fade || !promoRotor || reduceMotion()) { paint(); return; }
-    if (fadeTimer) clearTimeout(fadeTimer);
-    promoRotor.classList.add("is-fading");
-    fadeTimer = setTimeout(() => {
-      fadeTimer = null;
-      paint();
-      promoRotor.classList.remove("is-fading");
-    }, FADE_MS);
+    const i = Number(at) || 0;
+    if (i === litAt && slides.length) return;
+    litAt = i;
+    slides.forEach((s, n) => {
+      s.classList.toggle("is-on", n === i);
+      // The offers nobody is reading must not be read aloud either. They are stacked
+      // behind the lit one, so a screen reader would otherwise take all of them in turn.
+      s.setAttribute("aria-hidden", n === i ? "false" : "true");
+    });
   }
 
-  // Stand the turning down and make sure the words are never left faded out — a
-  // repaint landing mid-fade would otherwise leave a blank strip behind.
+  // Stand the turning down. There is no fade to undo any more — the cross-fade is a CSS
+  // transition on the slides themselves, so a repaint landing mid-turn cannot leave a
+  // blank strip behind.
   function stopTurn() {
     if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
-    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
-    if (promoRotor) promoRotor.classList.remove("is-fading");
   }
 
   // Arm the turning from scratch. Called on every repaint, so there is never a
@@ -1284,7 +1293,7 @@ export function render() {
     if (!promoToday || !turnsAtAll(liveCodes.length)) return;
     turnTimer = setInterval(() => {
       if (!mayTurn()) return;
-      drawStanding(standingNext(liveCodes.length, codeAt), { fade: true });
+      showSlide(standingNext(liveCodes.length, codeAt));
     }, TURN_MS);
   }
 
@@ -1417,20 +1426,25 @@ export function render() {
       // would hide a real sale behind their own typo. The refusal stays, and the
       // standing line stays there to tell them the code they were looking for.
       const list = promoApplied ? [] : standingCodes();
-      // Keep the offer the customer is already reading across a repaint — this
-      // runs on every cart change — and start from the top only when the offers
-      // themselves have changed.
-      if (!sameOffers(list, shownCodes)) codeAt = 0;
+      // Keep the offer the customer is already reading across a repaint — this runs
+      // on every cart change — and start from the top only when the offers themselves
+      // have changed. The SLIDES are rebuilt only then too: rebuilding them on every
+      // cart change would restart their cross-fade under a customer who did nothing.
+      const changed = !sameOffers(list, shownCodes);
+      if (changed) codeAt = 0;
       liveCodes = list;
       shownCodes = list.slice();
       promoToday.hidden = !list.length;
       if (!list.length) {
         stopTurn();
-        if (promoOffer) promoOffer.textContent = "";
-        if (promoWords) { promoWords.hidden = true; promoWords.textContent = ""; }
+        if (promoRotor) promoRotor.replaceChildren();
+        slides = [];
+        litAt = -1;
+        codeAt = 0;
       } else {
+        if (changed || !slides.length) buildSlides(list);
         if (codeAt >= list.length) codeAt = 0;
-        drawStanding(codeAt);
+        showSlide(codeAt);
         armTurn();
       }
     }
