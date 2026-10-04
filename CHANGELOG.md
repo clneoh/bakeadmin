@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v310)
+# Jienluv2bake — change history (v54 → v311)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v311, THE ADDRESS BOX SAYS WHY IT ISN'T SUGGESTING (ONE STEP FOR YOU, BELOW —
+the app side is a push, the reason needs a redeploy).**
+
+**Why.** Your words: __"why sometimes in add order or edit order, the address is not auto complete,
+and the map dont show?"__ — and then, precisely: __"the suggestion list never appear"__. **It was
+true, and the app never said why. It knew, and stayed quiet.**
+
+**★ WHAT WAS HAPPENING.** The suggestions are a Google feature that has to be switched on, and the
+server deliberately answered a switched-off one with **a plain "no" and no error** — its own words:
+__"this reaches her as a box that simply does not suggest, which is exactly what it did before this
+version existed."__ That reads well until the feature __does__ exist and **never works**: a box that
+never suggests and never explains itself is indistinguishable from a broken box.
+
+**What you see now.** When the suggestions cannot work, the box says so, in the place the list would
+have been:
+
+  **Address suggestions are switched off — Google refused the request. The Google key needs Places
+  API (New) enabled and allowed.**
+
+**★ AND IT SAYS IT ONCE, THEN STOPS ASKING.** A line under a field she is typing in must not flicker,
+and a phone must not spend a request per keystroke to be told the same thing. And the box now
+**marks the difference between the two kinds of failure**: something you must fix (not signed in;
+the Google key not allowed to use Places) is **said out loud**; a signal dropping out is **not**,
+because that one passes on its own and the suggestions come back by themselves.
+
+**⚠️ THE ONE THING THIS NEEDS FROM YOU: the __reason__ travels in the server's answer, so the `courier`
+function has to be uploaded again.** The exact line is in the commit notes below. **Until it is
+uploaded the box stays exactly as it is today.** Nothing else changes, and nothing is broken by
+uploading it.
+
+**⚠️ AND THE SCREENSHOT FOUND A SECOND FAULT THAT HAD ALREADY SHIPPED — a real one, mine, and this
+one is worth reading.** Looking at the real card, the EasyParcel block was printing the **literal
+word "null"** under the weight box and **three more beside its buttons**. The block builds its own
+contents as a list with optional parts in it, and **`replaceChildren(null)` does not skip a null — it
+inserts a text node reading "null".** **Every one of the 2,758 tests passed while it was on your
+screen**, because the test shims quietly filter nulls for you. **A forgiving stub hid a real fault**
+— the same lesson as v226, word for word. It is fixed, and the real-browser check that would have
+caught it is now in place and was watched going red.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched. The suite is
+**2,758 tests, all green**, and the real card now runs **41 checks** on the Orders screen and **9**
+on the address box.
 
 **04 Oct 2026 — engine v310, THE SAME DIVIDE ON EVERY CARD (no database step, nothing to upload —
 pushing this one is the whole of it).**

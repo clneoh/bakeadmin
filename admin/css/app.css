@@ -964,6 +964,20 @@ option.tone-off { color: var(--muted); }
   overflow: hidden;
 }
 .sugg-panel[hidden] { display: none; }
+/* ★ WHEN THE SUGGESTIONS CANNOT WORK AT ALL, SAY SO IN THE PLACE THEY WOULD HAVE BEEN (v311).
+   Her report: "the suggestion list never appear" - true, and the app never said why, because a
+   failed ask simply hid this panel. A feature that is off and does not say so reads exactly like
+   a feature that is broken.
+   Deliberately a LINE and not a button: there is nothing here to press, and it must not look like
+   a suggestion she can tap. `--muted` would be under the 4.5:1 text floor at this size, so it uses
+   a tint of the ink, the same correction v309 made for the kind headings. */
+.sugg-note {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in oklab, var(--ink) 70%, var(--surface));
+}
 /* The pin picker's list FLOATS (v256, 30 Sep 2026). In the flow it cost the card 223
    pixels the moment a lookup found four candidates, and there is no anchor that can
    absorb that: holding the map still scrolls the pop-up body by the same amount and

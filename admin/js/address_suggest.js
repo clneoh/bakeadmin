@@ -55,6 +55,18 @@ export function addressSuggester(state, onPick) {
   // look, not a panel.
   const panel = el("div", { class: "sugg-panel", "data-sugg": "address", hidden: true });
   let asked = ""; // the one query slot: the last thing actually sent, never a map
+  // ⚠️ ONCE THE SERVER SAYS IT CANNOT SUGGEST AT ALL, STOP ASKING AND SAY SO (v311).
+  //
+  // HER REPORT: __"the suggestion list never appear"__. It was true, and the app never said why:
+  // a failed ask called `hide()` and the box went quiet, so a phone whose suggestions were not set
+  // up looked exactly like a phone that simply had nothing to offer. **A feature that is off and
+  // does not say so is the same bug as a control that does nothing.**
+  //
+  // AND IT IS SAID ONCE, NOT PER KEYSTROKE. `setup` marks a problem that will not pass on its own
+  // (no session, a key the server does not have); a network hiccup is NOT marked and stays silent,
+  // because a line about the signal under a box she is typing in is noise — and the feature comes
+  // back by itself the moment the signal does.
+  let setupSaid = false;
 
   // Supersede everything older the moment this form is built.
   clearTimeout(addrAsk.timer);
@@ -79,7 +91,12 @@ export function addressSuggester(state, onPick) {
     // Superseded while it was in flight — she has typed on, tapped, or the form was
     // rebuilt. Discard the answer; do not speak it.
     if (mine !== addrAsk.gen) return;
-    if (!out.ok || !out.places.length) { hide(); return; }
+    if (!out.ok) {
+      if (out.setup) saidit(out.reason);
+      else hide();
+      return;
+    }
+    if (!out.places.length) { hide(); return; }
     panel.replaceChildren(...out.places.map((p) => el("button", {
       class: "list-item sugg-row", type: "button",
       onclick: () => { hide(); onPick(p.text); },
@@ -89,8 +106,19 @@ export function addressSuggester(state, onPick) {
     panel.hidden = false;
   };
 
+  // The one quiet line, where the suggestions would have been. Never a button, never a
+  // paragraph: one sentence naming what is wrong, in the place the list would have appeared.
+  const saidit = (why) => {
+    setupSaid = true;
+    panel.replaceChildren(el("p", { class: "sugg-note" }, String(why || "Address suggestions are not available on this phone.")));
+    panel.hidden = false;
+  };
+
   const typed = (text) => {
     const q = String(text || "").trim();
+    // ⚠️ AND NOTHING IS ASKED AGAIN once we know. Not hiding the line, and not spending a request
+    // to be told the same thing on every keystroke for the rest of the form.
+    if (setupSaid) return;
     if (q.length < ADDRESS_MIN_CHARS) { hide(); return; }
     // The same words she paused on last time are already answered. Keep what is
     // showing rather than spend a request to be told the same thing.

@@ -2921,7 +2921,16 @@ function parcelApiBlock({ state, group, draft, refresh }) {
   // her" rule at the level of one card. Every other block in this file paints itself for the
   // same reason — `paintCourier`, `paintParcel`, `paintPoint`.
   const wrap = el("div", { class: "field" });
-  const paint = () => wrap.replaceChildren(...body());
+  // ⚠️ THE NULLS ARE FILTERED HERE, AND THE REAL DOM IS WHY (v311). `body()` is a list with
+  // `? : null` branches in it, and **`replaceChildren(null)` inserts a TEXT NODE reading the word
+  // "null"** — it does not skip it. That is the same trap `showPopup` documents for a list passed
+  // as one argument, and it was ON HER SCREEN: a stray "null" under the weight box and three of
+  // them beside the buttons.
+  //
+  // **EVERY NODE TEST PASSED WHILE IT WAS BROKEN**, because the test shims' `replaceChildren`
+  // filters nulls for you — a forgiving shim hiding a real fault, which is the v226 lesson word for
+  // word. It took a screenshot of the real page to see it.
+  const paint = () => wrap.replaceChildren(...body().filter(Boolean));
 
   // ★ WHETHER IT IS SET UP AT ALL, ASKED ONCE AND SAID PLAINLY (v308).
   //
