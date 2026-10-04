@@ -633,6 +633,41 @@ test("a run prices ONE drop per customer, however many lines their order holds",
     "the collection day and time she set, turned into the UTC instant the API wants");
 });
 
+test("★ a Point prices ONE drop for the whole Point, not one per customer", async () => {
+  // ⚠️ THE TEST THAT PROVES THE MONEY. Two customers collecting at Farlim are ONE place a van
+  // goes — and the courier bills a fee per drop, so a trip built one-drop-per-customer charges
+  // her TWICE for one stop. Read on the WIRE, because the wire is where the money is; reading
+  // the trip object back would not catch it.
+  const st = worldWithPoint(["g1", "g2"]);
+  const wire = stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+
+  const asks = wire.sent.filter((b) => b.action === "quote");
+  assert.equal(asks.length, 1, "one price request for the whole run");
+  assert.equal(asks[0].payload.drops.length, 1,
+    "ONE drop for the Point, however many customers collect there");
+  assert.deepEqual(asks[0].payload.drops.map((d) => d.address),
+    ["Lebuhraya Thean Teik, 11500 Air Itam"],
+    "and it is the POINT's own door, never a customer's house");
+});
+
+test("a Point and a doorstep price two drops, in the order they are ticked", async () => {
+  // The mixed run she wants: one Point carrying a customer, and another customer whose own
+  // door the van goes to. Two drops — and neither customer counted twice.
+  const st = worldWithPoint(["g1"]);
+  const wire = stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(root, "Price this run"));
+  await settle();
+  const asks = wire.sent.filter((b) => b.action === "quote");
+  assert.equal(asks[0].payload.drops.length, 2, "the Point and the doorstep");
+  assert.deepEqual(asks[0].payload.drops.map((d) => d.address).sort(),
+    ["9 Jalan B", "Lebuhraya Thean Teik, 11500 Air Itam"].sort(),
+    "the Point's own door and the other customer's");
+});
+
 test("the load beside the price counts doorsteps and items, not rows", async () => {
   const st = world();
   const wire = stubCourier();
@@ -650,6 +685,81 @@ test("one customer of three does not need three ticks", async () => {
   const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
   assert.equal(ticks.length, 2, "one tick per customer, never per order line");
   assert.ok(ticks.every((t) => t.checked), "and the whole day is on to begin with");
+});
+
+// ── v301: a Self collection Point is ONE STOP ──────────────────────────────
+
+// A day where customers collect from a Point instead of having their own door. Built on
+// `world()` so everything else about it — the pinned doors, the prices, the wire — is the
+// fixture every other test already trusts.
+function worldWithPoint(groupsAtPoint) {
+  const st = world();
+  st.points = [{
+    id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik, 11500 Air Itam",
+    receiver: "Aunty Lim", phone: "60123456789", feeRM: 0.5, paused: false,
+    createdAt: "2026-10-12T00:00:00.000Z",
+    place: { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" },
+  }];
+  for (const o of st.orders) if (groupsAtPoint.includes(o.groupId)) o.pointId = "pt_farlim";
+  return st;
+}
+
+test("two customers collecting at one Point are ONE stop, not two", async () => {
+  // The whole reason Points exist: four bags at Farlim are one journey a van makes, and a
+  // trip built one-per-customer would send the same van back to the same shop and be billed
+  // a stop fee for each one. Read off the LOAD LINE, because that is what the price is asked
+  // for and what a booking carries.
+  const st = worldWithPoint(["g1", "g2"]);
+  stubCourier();
+  const { root } = openRun(st);
+
+  const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
+  assert.equal(ticks.length, 1, "ONE tick for the Point, however many customers collect there");
+  assert.ok(ticks[0].checked, "and it is on with the rest of the day");
+
+  const read = all(root).find((n) => String(n.className).includes("run-load"));
+  assert.ok(read.textContent.startsWith("1 stop"), `one stop at one Point — read "${read.textContent}"`);
+  assert.ok(read.textContent.includes("6 items"), "while every line of bread is still counted");
+});
+
+test("the Point's row says what it is, and how much it is carrying", async () => {
+  const st = worldWithPoint(["g1", "g2"]);
+  stubCourier();
+  const { root } = openRun(st);
+
+  const row = all(root).find((n) => String(n.className).includes("run-row-point"));
+  assert.ok(row, "the Point gets a row of its own, marked as one");
+  assert.ok(row.textContent.includes("Farlim, Air Itam"), "named as the Point");
+  assert.ok(row.textContent.includes("2 orders collecting here"),
+    `and says how many orders it is carrying — read "${row.textContent}"`);
+  // A Point is a PLACE, so the customer's own name must not be on it — the bread is going to
+  // Farlim and the customer is meeting it there.
+  assert.equal(row.textContent.includes("Ain"), false, "no customer's name on a Point's row");
+});
+
+test("a Point and a doorstep are two stops, and neither is counted twice", async () => {
+  // The mixed run she actually wants: a Point carrying one customer, and another customer
+  // whose own door the van goes to. Two stops — and if the Point's customer were counted
+  // twice the load would read three.
+  const st = worldWithPoint(["g1"]);   // only Ain collects at the Point
+  stubCourier();
+  const { root } = openRun(st);
+
+  const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
+  assert.equal(ticks.length, 2, "the Point row and the doorstep row");
+  const read = all(root).find((n) => String(n.className).includes("run-load"));
+  assert.ok(read.textContent.startsWith("2 stops"), `two stops — read "${read.textContent}"`);
+  assert.ok(read.textContent.includes("6 items"), "and still six focaccia");
+  assert.equal(all(root).filter((n) => String(n.className).includes("run-row-point")).length, 1);
+});
+
+test("a Point with nobody collecting there is not on the run at all", async () => {
+  const st = worldWithPoint([]);   // the Point exists, but no order went to it
+  stubCourier();
+  const { root } = openRun(st);
+  assert.equal(all(root).filter((n) => String(n.className).includes("run-row-point")).length, 0);
+  const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
+  assert.equal(ticks.length, 2, "the day is exactly the two customers it always was");
 });
 
 test("one row's own tick moves the count and the bulk press with it", async () => {

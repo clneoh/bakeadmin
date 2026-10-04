@@ -15,6 +15,7 @@
 
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
+import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
 import {
   DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
@@ -24,6 +25,19 @@ import {
 
 export function renderPoints(root, state) {
   renderAll(root, state);
+}
+
+// ⚠️ EVERY CHANGE TO A POINT HAS TO REACH THE SHOP. The Points travel in the published
+// storefront row (v299), so saving one on this phone is only half of it — without republishing,
+// she adds a Point and her shop never offers it. Her report: __"the point added still not able
+// to appear on store"__. `maybeSyncStorefront` is the seam, debounced, and it is the same call
+// the Promo codes screen already makes to publish its own list.
+//
+// The PIN is the one change that does NOT republish: it is never published at all (see
+// publishPoints), so republishing for a drag would be a request that changes nothing.
+function saveAndPublish(state) {
+  save(state);
+  maybeSyncStorefront(state);
 }
 
 function renderAll(root, state) {
@@ -90,7 +104,7 @@ function newPointCard(state, root) {
       if (error) return toast(error);
       addPoint(state, draft);
       toast("Point added — it is offered in the shop from now on");
-      save(state);
+      saveAndPublish(state);
       renderAll(root, state);
     }, "block primary"));
 }
@@ -110,7 +124,7 @@ function openEditPointPopup(state, point, root) {
         if (error) return toast(error);
         if (!updatePoint(state, point.id, draft)) return toast("Couldn't save that");
         toast("Point updated");
-        save(state);
+        saveAndPublish(state);
         close();
         renderAll(root, state);
       }, "primary"))), { wide: true });
@@ -167,27 +181,34 @@ function pointCard(state, point, root) {
 // uses — one map, one shape, one thing to learn. The address box is given this Point's own
 // text so the "Look it up" button has something to work from, which is what saves her
 // dragging when she has already typed where it is.
-function openPinPicker(state, point, root) {
+//
+// EXPORTED because the Delivery run pins a Point too (v301), and two screens pinning the same
+// Point in two different ways is two ways to be wrong about where a van goes.
+export function openPointPinPicker(state, point, after) {
   openPlacePicker({
     state,
     title: `${point.name} — where it is`,
     hint: "This is the door the driver is sent to. Pin it once and every run that carries this Point knows where to go.",
-    address: String(point.address || "").trim(),
+    address: String((point && point.address) || "").trim(),
     start: pointPlace(point),
     onPick: (spot) => {
       if (!setPointPlace(state, point.id, spot)) return toast("That spot couldn't be saved");
       save(state);
       toast(`${point.name} pinned`);
-      renderAll(root, state);
+      if (after) after();
     },
   });
+}
+
+function openPinPicker(state, point, root) {
+  openPointPinPicker(state, point, () => renderAll(root, state));
 }
 
 function togglePaused(state, point, root) {
   const back = point.paused;
   setPointPaused(state, point.id, !back);
   toast(back ? `${point.name} is offered in the shop again` : `${point.name} paused — the shop stops offering it`);
-  save(state);
+  saveAndPublish(state);
   renderAll(root, state);
 }
 
@@ -204,7 +225,7 @@ function confirmDelete(state, point, root) {
   () => {
     deletePoint(state, point.id);
     toast("Point deleted");
-    save(state);
+    saveAndPublish(state);
     renderAll(root, state);
   }, { danger: true, yesLabel: "Delete" });
 }

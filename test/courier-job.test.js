@@ -153,6 +153,66 @@ test("a stop carries the person, the number, the words and the point", () => {
   assert.equal(stop.order, o, "the order itself travels, so the panel can name it back to her");
 });
 
+// ── v301: a collection at a Self collection Point ─────────────────────────
+
+const FARLIM = {
+  id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik, 11500 Air Itam",
+  receiver: "Aunty Lim", phone: "012-345 6789", feeRM: 0.5, paused: false,
+  createdAt: "2026-10-12T00:00:00.000Z",
+  place: { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" },
+};
+
+test("★ a collection at a Point sends the driver to the POINT, not the customer's house", () => {
+  // ⚠️ THE LINE THAT DECIDES WHERE A VAN ACTUALLY GOES. A customer who chose to collect at
+  // Farlim is NOT AT FARLIM — sending a driver to their house with four other people's bread
+  // would be the most expensive possible way to be wrong on this screen. The order carries
+  // which Point it went to, so the stop is the Point: its pin, its name, and the person who
+  // receives there, none of which is the customer.
+  const s = emptyState({ points: [FARLIM] });
+  const o = makeOrder({ pointId: "pt_farlim" });
+  // The customer has a door of their own, pinned and real — and it must be IGNORED.
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga" });
+
+  const stop = stopOf(s, o);
+  assert.deepEqual(stop.place, { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" },
+    "the van goes to the Point, never to the customer's own pinned door");
+  assert.equal(stop.name, "Farlim, Air Itam", "and the driver is told to look for the Point");
+  assert.equal(stop.phone, "60123456789", "ringing whoever receives there, not the customer");
+  assert.equal(stop.address, "Lebuhraya Thean Teik, 11500 Air Itam");
+  assert.equal(stop.pointId, "pt_farlim");
+  assert.equal(stop.order, o, "the order still travels, so the panel can name it back to her");
+});
+
+test("a PAUSED Point still sends the van where the order was promised", () => {
+  // Pausing decides what is OFFERED, never what an order already promised — the customer was
+  // already told to go to Farlim, and their bread still has to get there. Same rule that keeps
+  // an ended promo code coming off the order it was placed on.
+  const s = emptyState({ points: [{ ...FARLIM, paused: true }] });
+  const stop = stopOf(s, makeOrder({ pointId: "pt_farlim" }));
+  assert.deepEqual(stop.place, { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" });
+});
+
+test("a Point with no pin leaves its stop unpinned rather than guessing", () => {
+  // The same rule an unpinned doorstep keeps, for the same reason: a fallback point is a price
+  // for a journey that is not the one she is taking, and it looks like a right answer on
+  // screen. `tripProblem` is what says so.
+  const s = emptyState({ points: [{ ...FARLIM, place: null }] });
+  const stop = stopOf(s, makeOrder({ pointId: "pt_farlim" }));
+  assert.equal(stop.place, null);
+  assert.equal(stop.name, "Farlim, Air Itam", "the words are still there to look it up from");
+  assert.equal(stop.address, "Lebuhraya Thean Teik, 11500 Air Itam");
+});
+
+test("a Point she has DELETED does not move an order that already went there", () => {
+  // The order keeps the Point's NAME frozen (v299), but a deleted Point has no pin to give —
+  // so the stop falls back to the customer's own door, which is the honest answer rather than a
+  // van sent to coordinates nobody has any more.
+  const s = emptyState();
+  const o = makeOrder({ pointId: "pt_gone", pointName: "Farlim, Air Itam" });
+  setDropPlace(s, o, { lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga" });
+  assert.deepEqual(stopOf(s, o).place, { lat: 5.4141, lng: 100.3288, label: "12 Jalan Bunga" });
+});
+
 test("an unpinned stop keeps place: null rather than a guessed point", () => {
   const s = emptyState();
   const stop = stopOf(s, makeOrder());

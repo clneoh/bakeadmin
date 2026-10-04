@@ -1,8 +1,71 @@
-# Jienluv2bake — change history (v54 → v300)
+# Jienluv2bake — change history (v54 → v301)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v301, THE DELIVERY RUN CARRIES POINTS (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why.** This is the piece you asked for: the Delivery run carrying Self collection Points.
+
+**★ A POINT IS ONE STOP, AND THAT IS THE WHOLE VERSION.** A courier charges **a base fare plus a
+fee for every extra stop**, so the run screen's oldest rule is __one stop per customer__ — a customer
+who bought three things is one doorstep, not three. A **Self collection Point is the next version
+of the same idea**: four customers collecting at Farlim are **one place the van goes**. A run built
+one-stop-per-customer would send the same driver back to the same shop and **bill you a stop fee
+each time**.
+
+**What you see on the run now.**
+
+- **A Point gets a row of its own**, listing **how many orders are collecting there** — __"2 orders
+  collecting here"__ — and its own address. The customer's name is deliberately **not** on it: the
+  bread is going to Farlim and the customer is meeting it there.
+- **The load line counts STOPS**, so two customers at one Point read **"1 stop · 6 items"**, not
+  two stops. Every line of bread is still counted.
+- **A Point you have not pinned offers "Pin the Point"** right there, because the run cannot price a
+  trip to a place with no coordinates.
+- **A Point and a doorstep on the same run are two stops** — the mixed run you described.
+
+**Three things it is careful about, and each one is money.**
+
+- **⚠️ THE VAN GOES TO THE POINT, NEVER TO THE CUSTOMER'S HOUSE.** A customer who chose to collect
+  at Farlim is **not at Farlim** — and she may still have a doorstep of her own pinned from an
+  earlier delivery. That door is **ignored** for a collection order. Sending a driver to her house
+  with four other people's bread would be the most expensive way to be wrong on this screen.
+- **⚠️ ONE DROP ON THE WIRE, and this is the one that shows up on your bill.** The price request is
+  read back in the test on the **bytes that would leave your phone** — because a trip built
+  one-drop-per-customer is priced for a journey you are not taking. Two customers at one Point:
+  **one drop.**
+- **⚠️ A POINT YOU PAUSE STILL SENDS THE VAN.** Pausing decides what is **offered**, never what an
+  order already promised — the customer was already told to go to Farlim, and their bread still has
+  to get there. And a Point you have **deleted** has no pin to give, so that order falls back to the
+  customer's own door rather than a van sent to coordinates nobody has any more.
+
+**And the double-booking guard still sees everyone.** A Point is treated as already on a trip if
+**any** of its customers is — so a Point can never be quietly swept onto a second van, which is the
+fault you reported in v242, at a place instead of a door.
+
+**★ AND A POINT YOU ADD NOW ACTUALLY REACHES YOUR SHOP.** You reported this while the run was being
+built — __"the point added still not able to appear on store?"__ — and **you were right, and the
+fault was mine.** Your Points travel to the shop inside the **storefront row** the shop reads, and
+**the Points card was not republishing that row.** Every other screen that changes something the
+shop shows — Promo codes, Products, Categories, Settings — ends its save with a republish; the
+Points card only ever saved to your phone. So a Point you added **stayed on your phone and never
+went out**, and your shop went on offering only the Points it had last been told about. The test
+proves it on the **request itself**: adding a Point **publishes**, pausing one **republishes**, and
+**pinning one does not** — because the pin is deliberately never published, so republishing for a
+drag would be a request that changes nothing.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. **A
+run with no Points on it behaves exactly as it always has** — every order that is not collecting at
+a Point keeps a row, and a stop, to itself. The suite is **2,668 tests, all green** — including two
+new ones that fail if a Point change ever stops reaching your shop. Proved live on
+the real Delivery run at a phone width, and on the wire: **two customers collecting at one Point
+price ONE drop, at the Point's own address**, and the mixed run prices the Point and the doorstep as
+two. The Points card was driven at a phone width too — **40 checks, all green** — including the
+three that read the publish request itself, and every one of them was **watched going red** with the
+fault put back before it was called done.
 
 **04 Oct 2026 — engine v300, EVERY POINT GETS A PIN ON THE MAP (no database step, nothing to
 upload — pushing this one is the whole of it).**
@@ -100,6 +163,15 @@ meant, so nothing needs migrating. The suite is 2,650 tests, all green. Proved l
 at a phone width: **20 checks**, including that the kitchen is first and carries no id, that a paused
 Point cannot stay chosen, that with no Points open the shop is unchanged, and that a long Point name
 does not push the page sideways.
+
+**⚠️ 04 Oct 2026 — a correction to this entry.** This entry says your Points travel in the storefront
+row your shop reads, and they do — **but only once your phone has actually republished that row**,
+and the Points card was **not** republishing it. Adding a Point kept it on your phone and **never
+sent it to the shop**, so the shop went on showing only the Points it had last been told about.
+You reported exactly this — __"the point added still not able to appear on store"__ — and it is
+fixed in **v301**: every change to a Point now republishes, which is the same call the Promo codes,
+Products and Categories screens have always made. **Pinning a Point still does not republish**, on
+purpose — the pin is never published at all. Nothing else in this entry changes.
 
 **04 Oct 2026 — engine v298, SELF COLLECTION POINTS — THE CARD (no database step, nothing to
 upload — pushing this one is the whole of it).**

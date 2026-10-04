@@ -40,6 +40,7 @@ import {
   pickupPlace, doorSpotOf, dropAddress, validPlace, strictNumber,
 } from "./courier_place.js";
 import { waNumber, orderLineName } from "./state.js";
+import { pointById } from "./points.js";
 
 // Malaysia has no daylight saving — one offset, all year, since 1982 — so the
 // bakery's clock is a FIXED eight hours ahead of UTC. That is why the conversion
@@ -103,6 +104,28 @@ export function senderOf(state) {
 // is the door, and it is this assignment that carries it all the way to the courier. A door
 // she placed with her own hand still wins; see courier_place.js's own header on doorSpotOf.
 export function stopOf(state, order) {
+  // ★ A COLLECTION AT A SELF COLLECTION POINT IS A DIFFERENT KIND OF STOP (v301).
+  //
+  // Its door is the POINT's own pin, and the person the driver looks for is whoever receives
+  // there — NOT the customer, who is not standing at Farlim at all. Sending a driver to a
+  // customer's house with four other people's bread would be the most expensive possible way
+  // to be wrong on this screen.
+  //
+  // The ORDER ITSELF carries which Point it went to (v299), so no caller has to be told, and
+  // every order without one behaves exactly as it always has. `pointById` deliberately
+  // INCLUDES paused Points: a pause decides what is OFFERED, never what an order already
+  // promised, and the customer was already told where to go.
+  const point = pointById(state, order && order.pointId);
+  if (point) {
+    return {
+      order: order || null,
+      name: String(point.name || "").trim(),
+      phone: waNumber(point.phone),
+      address: String(point.address || "").trim(),
+      place: validPlace(point.place),
+      pointId: point.id,
+    };
+  }
   const place = validPlace(doorSpotOf(state, order));
   return {
     order: order || null,
