@@ -29,7 +29,7 @@ const {
   stopsUnplaced, tripProblem, fmtDistanceKm,
   orderDay, fmtQuote, fmtQuoteLeft, quoteExpired,
   isLink, trackingLine, jobOf, liveJobOf, liveJobProblem, fmtStamp, fmtAgo,
-  freeCancelOf, freeCancelLine, needsVan, stopKeyOf,
+  freeCancelOf, freeCancelLine, needsVan, stopKeyOf, promisedWindowSuffix, windowSuffix,
 } = await import("../admin/js/courier_job.js");
 const { setPickupPlace, setDropPlace } = await import("../admin/js/courier_place.js");
 
@@ -662,4 +662,57 @@ test("every customer at one Point shares ONE stop key, so the count cannot drift
 test("a stop key is safe on an empty or malformed group", () => {
   assert.equal(stopKeyOf(emptyState(), null), "group:");
   assert.equal(stopKeyOf(emptyState(), { orders: [] }), "group:");
+});
+
+// ── v304: WHOSE WINDOW A CUSTOMER IS TOLD ──────────────────────────────────
+// Her choice: the collection window belongs to the PLACE. So an order collecting at a Point is
+// promised the Point's own hours — and NOTHING when she has not set any. The van's arrival window
+// is deliberately never used as a fallback: that is when the bread REACHES the Point, which is
+// her business, and a customer told it would turn up as the van does.
+//
+// The confirmation, the four messages and the customer's track card all read this one function,
+// so they cannot word the same promise three ways.
+
+const POINT_WITH_HOURS = {
+  id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik",
+  receiver: "Aunty Lim", phone: "60123456789", feeRM: 0.5, paused: false,
+  createdAt: "2026-08-12T00:00:00.000Z", collectWindow: "14:00-18:00",
+  place: { lat: 5.4, lng: 100.28, label: "Farlim" },
+};
+const pointState = (points) => emptyState({ points });
+
+test("an order collecting at a Point is told the Point's own hours (v304)", () => {
+  const st = pointState([POINT_WITH_HOURS]);
+  assert.equal(promisedWindowSuffix(st, { fulfillment: "collect", pointId: "pt_farlim" }),
+    ", collect 2-6 pm");
+});
+
+test("⚠️ and NEVER the van's window, which is when the bread gets there (v304)", () => {
+  // The order carries a deliveryWindow because the run that took the bread to the Point stamped
+  // one (v302). The customer must not be told it: it is the van's arrival, not their hours, and
+  // quoting both would be two different times in one message.
+  const st = pointState([POINT_WITH_HOURS]);
+  const onARun = { fulfillment: "collect", pointId: "pt_farlim", deliveryWindow: "10:00-12:00" };
+  assert.equal(promisedWindowSuffix(st, onARun), ", collect 2-6 pm",
+    "the Point's hours win, and the van's window is not mentioned at all");
+});
+
+test("a Point with no hours promises the day and nothing else (v304)", () => {
+  const st = pointState([{ ...POINT_WITH_HOURS, collectWindow: "" }]);
+  const onARun = { fulfillment: "collect", pointId: "pt_farlim", deliveryWindow: "10:00-12:00" };
+  assert.equal(promisedWindowSuffix(st, onARun), "",
+    "nothing rather than the van's window — an unset window is not a licence to promise the van's");
+});
+
+test("every other order is promised the trip's window, exactly as it always was (v304)", () => {
+  const st = pointState([POINT_WITH_HOURS]);
+  assert.equal(promisedWindowSuffix(st, { fulfillment: "courier", deliveryWindow: "14:00-17:00" }),
+    ", 2-5 pm");
+  assert.equal(promisedWindowSuffix(st, { fulfillment: "courier" }), "",
+    "a courier order with no window booked promises no time");
+  // A collection from the KITCHEN has no Point, so it is on the ordinary path too.
+  assert.equal(promisedWindowSuffix(st, { fulfillment: "collect" }), "");
+  // And a Point she has since deleted leaves the order with no hours rather than an error.
+  assert.equal(promisedWindowSuffix(st, { fulfillment: "collect", pointId: "pt_gone" }), "");
+  assert.equal(promisedWindowSuffix(st, null), "");
 });

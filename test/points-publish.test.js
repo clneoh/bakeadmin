@@ -152,6 +152,8 @@ const press = (node) => { for (const f of node._listeners.click || []) f({}); };
 // The publish is the ONLY 2000 ms timer this screen sets — the toast has a
 // 2200 ms one of its own — so counting those counts publishes and nothing else.
 const publishes = (timers) => timers.filter((t) => t.ms === 2000).length;
+// Whatever the card last said to her, read off the toast node itself.
+const said = () => (body.querySelector(".toast") || { textContent: "" }).textContent;
 
 function mount(state) {
   const root = createEl("div");
@@ -246,4 +248,77 @@ test("a screen nothing has changed on publishes nothing", () => {
   } finally {
     globalThis.setTimeout = realSetTimeout;
   }
+});
+
+// ── v304: WHAT THE CARD WRITES ─────────────────────────────────────────────
+// The section above drives the real card to prove it PUBLISHES; this one drives it to prove the
+// two time boxes reach the Point. Same card, same buttons, same shim.
+//
+// The window is stored as the app's ONE packed string (see time_window.js), so the boxes are
+// packed on the way in and unpicked on the way back out — and a Point with no hours must carry
+// NOTHING rather than an empty promise.
+
+// Found by the label she reads, through deepText: a label's words are a TEXT NODE child, so
+// reading `.textContent` off it finds undefined and blames the card.
+const fieldNamed = (card, label) => {
+  const field = walk(card).find((n) => String(n.className || "").split(/\s+/).includes("field")
+    && n.children[0] && deepText(n.children[0]) === label);
+  assert.ok(field, `the card has a "${label}" field`);
+  return field.children[1];
+};
+
+test("the card takes the hours she types and stores them as one window (v304)", () => {
+  const st = liveState([]);
+  const root = mount(st);
+  const add = root.children[0];
+  fieldNamed(add, "Point name").value = "Farlim, Air Itam";
+  fieldNamed(add, "Customers can collect from").value = "14:00";
+  fieldNamed(add, "and until").value = "18:00";
+  press(findButton(add, "Add Point"));
+
+  assert.equal(st.points.length, 1, "the Point landed");
+  assert.equal(st.points[0].collectWindow, "14:00-18:00",
+    "packed into the one value the app stores a window as");
+  assert.ok(/Collect 2-6 pm/.test(deepText(root)), "and the row says it");
+});
+
+test("a Point opened with no hours carries none, and the row says so (v304)", () => {
+  const st = liveState([]);
+  const root = mount(st);
+  const add = root.children[0];
+  fieldNamed(add, "Point name").value = "Farlim, Air Itam";
+  fieldNamed(add, "Customers can collect from").value = "";
+  fieldNamed(add, "and until").value = "";
+  press(findButton(add, "Add Point"));
+  assert.equal(st.points[0].collectWindow, "",
+    "empty means she has not said — never an empty promise, which would read as open all day");
+  assert.ok(/No collection window/.test(deepText(root)), "and the row says the customers get the day only");
+});
+
+test("a window that ends before it starts is refused, in the run screen's own words (v304)", () => {
+  const st = liveState([]);
+  const root = mount(st);
+  const add = root.children[0];
+  fieldNamed(add, "Point name").value = "Farlim, Air Itam";
+  fieldNamed(add, "Customers can collect from").value = "18:00";
+  fieldNamed(add, "and until").value = "14:00";
+  press(findButton(add, "Add Point"));
+  assert.equal(st.points.length, 0, "the Point is not created on a promise that cannot be kept");
+  assert.match(said(), /ends before it starts/,
+    "and the card says why rather than doing nothing");
+});
+
+test("the Edit card opens on the hours already stored, and can clear them (v304)", () => {
+  const st = liveState([{ ...FARLIM, collectWindow: "14:00-18:00" }]);
+  const root = mount(st);
+  press(findButton(cardFor(root, "Farlim, Air Itam"), "Edit"));
+  const popup = document.getElementById("popup-layer");
+  assert.equal(fieldNamed(popup, "Customers can collect from").value, "14:00", "opened on what it holds");
+  assert.equal(fieldNamed(popup, "and until").value, "18:00");
+
+  fieldNamed(popup, "Customers can collect from").value = "";
+  fieldNamed(popup, "and until").value = "";
+  press(findButton(popup, "Update Point"));
+  assert.equal(st.points[0].collectWindow, "", "emptying the boxes takes the hours back off");
+  assert.ok(/No collection window/.test(deepText(root)), "and the row goes quiet about the time");
 });

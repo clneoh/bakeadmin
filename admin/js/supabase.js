@@ -26,7 +26,7 @@ import { usageByCode } from "./promo-usage.js";
 // registry here would close a loop between the two. Everything published about a trip
 // is therefore already ON the record — its courier's name, its phase and its driver are
 // written there when the trip is booked or checked, and this only carries them across.
-import { jobOf, windowSuffix } from "./courier_job.js";
+import { jobOf, promisedWindowSuffix } from "./courier_job.js";
 // The parcel record (v226) — the second KIND of courier. See js/parcel.js.
 import { parcelOf, parcelHanded } from "./parcel.js";
 // The shop's own payload is untrusted input, so the one rule about what a place
@@ -679,10 +679,12 @@ export function trackingSnapshot(state, group) {
     // the customer's card, so a window that lives in it needs no migration, no storefront
     // change and cannot be the thing that breaks publishing for every other order.
     //
-    // windowSuffix is the PUBLISHING gate, not a formatter: it answers "" for a window
-    // that could not be typed (an end before its start), so a half-typed promise in a box
-    // she is still looking at can never reach a customer.
-    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}${windowSuffix(first)}`,
+    // promisedWindowSuffix is the PUBLISHING gate, not a formatter: it answers "" for a
+    // window that could not be typed (an end before its start), so a half-typed promise in
+    // a box she is still looking at can never reach a customer — and for an order being
+    // collected at a Point (v304) it names the POINT's own collection hours rather than the
+    // van's arrival window, which is when the bread gets there and is not the customer's.
+    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}${promisedWindowSuffix(state, first)}`,
     items,
     total,
     customer: String(first.customerName || ""),

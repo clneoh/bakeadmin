@@ -21,8 +21,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint,
+  collectionWindowText,
   orderPointName, pointAddressFor, pointById, pointPhoneText, pointPlace, pointPlaceText,
-  pointProblem, pointsOf, activePoints, publishPoints, setPointPaused, setPointPlace, updatePoint,
+  pointProblem, pointWindow, pointWindowText, pointsOf, activePoints, publishPoints,
+  setPointPaused, setPointPlace, updatePoint,
 } from "../admin/js/points.js";
 
 function state(extra = {}) {
@@ -308,4 +310,63 @@ test("the address a message gives is read LIVE, and only a Point has one", () =>
   deletePoint(st, p.id);
   assert.equal(pointAddressFor(st, order), "",
     "a deleted Point has none to give, and nothing is invented in its place");
+});
+
+// ── v304: WHEN THEY CAN COLLECT ─────────────────────────────────────────────
+// Her choice, from the three offered: the window belongs to the PLACE, typed once on the Point,
+// and every order collecting there is promised it. Not the van's arrival window — that is when
+// the bread REACHES the Point, and a customer told it would turn up as the van does.
+//
+// It is stored as the app's ONE packed window string and read by the same helpers a delivery
+// window is (time_window.js), because a second way of spelling a window is a second way of
+// getting one wrong: "2:00" meaning pm on one screen and am on another.
+
+test("a Point carries a collection window, and it is the app's one window shape (v304)", () => {
+  const p = addPoint(state(), { ...FEE, collectWindow: "14:00-18:00" });
+  assert.equal(p.collectWindow, "14:00-18:00", "stored as the packed value, exactly as a trip's is");
+  assert.equal(pointWindow(p), "14:00-18:00");
+  assert.equal(pointWindowText(p), "2-6 pm", "and said the way she would say it");
+});
+
+test("a Point with no window says so by carrying nothing (v304)", () => {
+  // Empty promises NOTHING rather than promising wide — an unset window must never read as
+  // "open all day", because the customer is then told the day and only the day.
+  const p = addPoint(state(), FEE);
+  assert.equal(p.collectWindow, "");
+  assert.equal(pointWindow(p), "");
+  assert.equal(pointWindowText(p), "");
+  assert.equal(normalizePoint({ name: "X" }).collectWindow, "");
+});
+
+test("a window that could not be typed is NOT a window (v304)", () => {
+  // The same gate a delivery window passes: a half-filled pair, junk, or an end before its
+  // start are all refused, so a promise she is halfway through cannot reach a customer.
+  assert.equal(normalizePoint({ name: "X", collectWindow: "14:00-" }).collectWindow, "");
+  assert.equal(normalizePoint({ name: "X", collectWindow: "rubbish" }).collectWindow, "");
+  assert.equal(normalizePoint({ name: "X", collectWindow: "18:00-14:00" }).collectWindow, "",
+    "an end before its start would tell a customer to come before the bread was there");
+  assert.equal(normalizePoint({ name: "X", collectWindow: "14:00-18:00" }).collectWindow, "14:00-18:00");
+});
+
+test("what a collecting customer is promised, in the one place that says it (v304)", () => {
+  const st = state({ points: [normalizePoint({ ...FEE, id: "pt_f", collectWindow: "14:00-18:00" })] });
+  assert.equal(collectionWindowText(st, { pointId: "pt_f" }), ", collect 2-6 pm");
+  // No window set: nothing at all is promised about the time.
+  st.points = [normalizePoint({ ...FEE, id: "pt_f" })];
+  assert.equal(collectionWindowText(st, { pointId: "pt_f" }), "");
+  // The KITCHEN, and a Point she has since deleted, are both "no window" rather than an error.
+  assert.equal(collectionWindowText(st, { pointId: "" }), "");
+  assert.equal(collectionWindowText(st, { pointId: "pt_gone" }), "");
+  assert.equal(collectionWindowText(st, null), "");
+});
+
+test("an edited Point keeps the window she typed, and can be given one it never had (v304)", async () => {
+  const st = state();
+  const p = addPoint(st, { ...FEE, collectWindow: "14:00-18:00" });
+  // A plain edit with no window in the draft CLEARS it — which is what an emptied pair of boxes
+  // means, and the one case that would otherwise quietly keep hours she has taken away.
+  updatePoint(st, p.id, { ...FEE });
+  assert.equal(pointById(st, p.id).collectWindow, "", "emptying the boxes takes the window off");
+  updatePoint(st, p.id, { ...FEE, collectWindow: "15:00-19:00" });
+  assert.equal(pointWindowText(pointById(st, p.id)), "3-7 pm", "and it can be set again");
 });

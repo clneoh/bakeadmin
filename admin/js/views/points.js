@@ -16,11 +16,13 @@
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
 import { addressSuggester } from "../address_suggest.js";
+import { windowAt, windowParts, windowProblem } from "../time_window.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
 import {
   DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
-  pointPlace, pointPlaceText, pointProblem, pointsOf, setPointPaused, setPointPlace,
+  pointPlace, pointPlaceText, pointProblem, pointWindow, pointWindowText, pointsOf,
+  setPointPaused, setPointPlace,
   updatePoint,
 } from "../points.js";
 
@@ -82,6 +84,19 @@ function buildPointEditor(state, point) {
   const fee = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.10",
     min: "0", value: point ? String(point.feeRM) : String(DEFAULT_FEE_RM), style: "max-width:120px" });
 
+  // ★ WHEN THEY CAN COLLECT (v304). Two time boxes, the same pair the Delivery run fills in for
+  // the van — so a window means one thing in this app and is read by one piece of code.
+  //
+  // ⚠️ SET IT FROM WHEN THE BREAD IS THERE, NOT FROM WHEN THE SHOP OPENS. The van arrives during
+  // the round, so a window that starts at opening time can have a customer standing at the counter
+  // before their order has been delivered. That is her judgement to make — the app does not work
+  // it out, the same way it never works out the fee.
+  const parts = pointWindow(point) ? windowParts(pointWindow(point)) : null;
+  const collectFrom = el("input", { class: "input", type: "time", style: "max-width:150px",
+    value: (parts && parts.from) || "", "aria-label": "Customers can collect from" });
+  const collectTo = el("input", { class: "input", type: "time", style: "max-width:150px",
+    value: (parts && parts.to) || "", "aria-label": "Customers can collect until" });
+
   const collect = () => {
     const draft = {
       id: point?.id || "",
@@ -90,10 +105,17 @@ function buildPointEditor(state, point) {
       receiver: receiver.value,
       phone: phone.value,
       feeRM: fee.value,
+      // ★ WHEN THEY CAN COLLECT (v304) - the two boxes packed into the one value the Point
+      // stores, exactly as a delivery window is (see time_window.js).
+      collectWindow: windowAt(collectFrom.value, collectTo.value),
     };
-    return { draft, error: pointProblem(draft, pointsOf(state)) };
+    // The same two questions the run screen asks, in the same words: the name is the Point's
+    // own floor, and a window that ends before it starts is refused rather than published.
+    const error = pointProblem(draft, pointsOf(state))
+      || windowProblem(collectFrom.value, collectTo.value);
+    return { draft, error };
   };
-  return { name, address, addressSug, receiver, phone, fee, collect };
+  return { name, address, addressSug, receiver, phone, fee, collectFrom, collectTo, collect };
 }
 
 function newPointCard(state, root) {
@@ -109,6 +131,10 @@ function newPointCard(state, root) {
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee,
       el("p", { class: "hint" },
         "What YOU pay whoever receives here, per order. It is not a charge to the customer — collecting is free to them. Start at RM0.50 and change it whenever you like.")),
+    el("div", { class: "field" }, el("label", {}, "Customers can collect from"), ed.collectFrom),
+    el("div", { class: "field" }, el("label", {}, "and until"), ed.collectTo,
+      el("p", { class: "hint" },
+        "Optional. Leave both empty and your customers are told the day and nothing else. Set them and every order collecting here is told these hours — so set them from when the BREAD IS THERE, not from when the shop opens: the van arrives during the round, and a window that starts too early has someone waiting at the counter for an order that has not been delivered.")),
     button("Add Point", () => {
       const { draft, error } = ed.collect();
       if (error) return toast(error);
@@ -127,6 +153,10 @@ function openEditPointPopup(state, point, root) {
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
     el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee),
+    el("div", { class: "field" }, el("label", {}, "Customers can collect from"), ed.collectFrom),
+    el("div", { class: "field" }, el("label", {}, "and until"), ed.collectTo,
+      el("p", { class: "hint" },
+        "Optional. Leave both empty and your customers are told the day and nothing else. Set them from when the BREAD IS THERE, not from when the shop opens.")),
     el("div", { class: "popup-actions" },
       button("Cancel", close, "ghost"),
       button("Update Point", () => {
@@ -174,6 +204,10 @@ function pointCard(state, point, root) {
     // VAN CANNOT BE SENT TO — a courier is given coordinates, never an address. So the line
     // says plainly which of the two it is, and the press opens the same map a customer's
     // doorstep is placed with, because it is the same act.
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      pointWindowText(point)
+        ? `🕑 Collect ${pointWindowText(point)}`
+        : "🕑 No collection window — customers are told the day only."),
     el("p", { class: "card-sub", style: "margin:6px 0 0" },
       pointPlace(point)
         ? `📍 ${pointPlaceText(point)}`

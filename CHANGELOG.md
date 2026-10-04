@@ -1,8 +1,56 @@
-# Jienluv2bake — change history (v54 → v303)
+# Jienluv2bake — change history (v54 → v304)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v304, THE COLLECTION WINDOW (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Why.** This is the piece we left open, and you chose it from three: **the window belongs to the
+PLACE.** You type it once on the Point — __"Farlim: collect 2-6 pm"__ — and every order collecting
+there is promised it. Not the van's arrival window, which is a different thing entirely.
+
+**What you see, on More → Self collection Points.** Every Point's card gains **"Customers can
+collect from"** and **"and until"** — two time boxes, the same pair the Delivery run fills in for
+the van, so a window means one thing in this app and is read by one piece of code. And the row
+itself now says which of the two it is: **🕑 Collect 2-6 pm**, or **🕑 No collection window —
+customers are told the day only.**
+
+**What your customer is told.** The confirmation, the payment reminder and the pickup reminder all
+name the place **and the hours**: __"Self collect at Farlim, Air Itam, collect 2-6 pm."__ Leave both
+boxes empty and they are told the day and nothing else, which is a promise you can keep rather than
+one that reads as open all day.
+
+**⚠️ THE ONE THING TO GET RIGHT, and it is your judgement rather than the app's: SET THE HOURS FROM
+WHEN THE BREAD IS THERE, NOT FROM WHEN THE SHOP OPENS.** The van arrives during the round, so a
+window starting at opening time can have a customer standing at the counter before their order has
+been delivered. The app deliberately does **not** work this out for you — the same way it never
+works out the fee — because a time the app derives is a time it can get wrong.
+
+**⚠️ AND THE VAN'S OWN WINDOW IS NEVER QUOTED TO THEM.** When you book a round, the trip's window is
+stamped on every order it carries — and for a collection that is when the **bread reaches the
+Point**, which is your business, not the customer's. Telling them both would be telling them two
+different times in one message. So a collecting customer gets the place's hours or nothing at all,
+and never the van's.
+
+**A hole that fixing this found, and it was mine.** The **pickup reminder** said only __"Packed and
+ready for pickup on ..."__ and named **no place at all** — so a customer collecting at Farlim was
+told their order was ready and never where to go, while the confirmation, the payment reminder and
+the shipped message all named it. v299 claimed all four later messages named the Point; three of
+them did. It now reads **"Packed and ready to collect from Farlim, Air Itam on ..."**, and a
+collection from your own kitchen keeps the words it has always had.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. A
+Point with no hours behaves exactly as it did yesterday, and every order already placed is
+unaffected. The suite is **2,709 tests, all green**, including eighteen new ones — the model, the
+one place that decides whose window a customer is told, the card's own time boxes, and the three
+messages a collecting customer actually receives, driven through the real builders rather than
+through the helper behind them. **Every one was watched going red** with the fault put back.
+
+**Also in this version, and it is housekeeping you will never see:** the window stopped being the
+courier's own and became a small module both the courier and the Points card read, so **a window
+cannot mean one thing on one screen and another somewhere else**, and its own tests moved with it.
 
 **04 Oct 2026 — engine v303, A POINT YOU SET UP AND HAND OUT BY HAND (no database step, nothing
 to upload — pushing this one is the whole of it).**

@@ -29,6 +29,9 @@
 import { newId, round2, waNumber } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { fmtPlace, validPlace } from "./courier_place.js";
+// The app's ONE window - how a time window is read, packed and said (v304). A LEAF, so this
+// module and courier_job.js (which imports THIS one) can both read it without a cycle.
+import { fmtWindow, validWindow } from "./time_window.js";
 
 // What a new Point's fee per order starts at. Only a starting point — she sets it per
 // Point, and she may multiply it by hand on a big order.
@@ -49,6 +52,13 @@ export function blankPoint() {
     feeRM: DEFAULT_FEE_RM,
     paused: false,
     createdAt: "",
+    // ★ WHEN THEY CAN COLLECT (v304). The place's own hours - "14:00-18:00" - typed once on the
+    // Point, and every order that collects there is promised it.
+    //
+    // ONE packed string, the same shape a delivery window wears and read by the same helpers,
+    // because a second way of spelling a window is a second way of getting one wrong. Empty
+    // means she has not said, and an empty window promises nothing rather than promising wide.
+    collectWindow: "",
     // ★ WHERE IT IS, AS A POINT ON THE MAP (v300) — the same shape a customer's doorstep
     // wears, because a courier is given "5.41405,100.31408" and never an address. A Point
     // without one is a name she can read and a van cannot be sent to, so the trip builder
@@ -83,6 +93,10 @@ export function normalizePoint(src) {
     // malformed, so a hand-edited or half-synced row reads as UNPINNED rather than as a
     // point in the sea off Africa.
     place: validPlace(s.place),
+    // A window that could not be typed is NOT a window - `validWindow` also refuses one that
+    // ends before it starts, so a half-typed promise reads as unset rather than reaching a
+    // customer as "collect 5-2 pm".
+    collectWindow: validWindow(s.collectWindow) ? String(s.collectWindow) : "",
   };
 }
 
@@ -110,6 +124,30 @@ export function setPointPlace(state, id, spot) {
 export function pointPlaceText(point) {
   const p = pointPlace(point);
   return p ? `${fmtPlace(p)}  ·  ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : "";
+}
+
+// ★ WHEN THEY CAN COLLECT HERE (v304): the window she typed once on the Point, as the stored
+// value, or "" when she has not said — which promises nothing rather than promising wide.
+export function pointWindow(point) {
+  const w = String((point && point.collectWindow) || "");
+  return validWindow(w) ? w : "";
+}
+
+// The same window as she would say it — "2-6 pm" — for the Point's own card.
+export function pointWindowText(point) {
+  const w = pointWindow(point);
+  return w ? fmtWindow(w) : "";
+}
+
+// ★ WHAT A COLLECTING CUSTOMER IS PROMISED, and the ONE place that answers it (v304).
+//
+// ", collect 2-6 pm" when the Point has hours, and "" when it does not. **The van's own arrival
+// window is deliberately NOT used as a fallback**: that is when the bread REACHES the Point,
+// which is her business, and a customer told it would turn up as the van does. A place either
+// has collection hours or it promises only the day.
+export function collectionWindowText(state, order) {
+  const text = pointWindowText(pointById(state, order && order.pointId));
+  return text ? `, collect ${text}` : "";
 }
 
 // Every Point she has, cleaned and in the order the card draws them: ACTIVE FIRST, then

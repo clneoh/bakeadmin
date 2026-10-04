@@ -68,10 +68,11 @@ import { courierPayQuestions } from "./orders.js";
 // A parcel recorded on the order (v226) is never swept into a van run — see runDays.
 import { parcelOf } from "../parcel.js";
 import {
-  fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtWindow, liveJobOf, liveJobProblem, loadOf,
+  fmtDistanceKm, fmtQuote, fmtQuoteLeft, liveJobOf, liveJobProblem, loadOf,
   needsVan, quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, stopKeyOf,
-  tripCalledOff, tripOf, tripProblem, windowAt, windowProblem,
+  tripCalledOff, tripOf, tripProblem,
 } from "../courier_job.js";
+import { fmtWindow, windowAt, windowProblem } from "../time_window.js";
 
 // One separate-trip price is one request, and the courier allows two requests a second.
 // Firing eight of them together would be refused as a burst — which would read to her as
