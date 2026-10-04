@@ -21,8 +21,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint,
-  orderPointName, pointAddressFor, pointById, pointPhoneText, pointProblem, pointsOf,
-  activePoints, publishPoints, setPointPaused, updatePoint,
+  orderPointName, pointAddressFor, pointById, pointPhoneText, pointPlace, pointPlaceText,
+  pointProblem, pointsOf, activePoints, publishPoints, setPointPaused, setPointPlace, updatePoint,
 } from "../admin/js/points.js";
 
 function state(extra = {}) {
@@ -168,6 +168,66 @@ test("deleting a Point that is not there removes nothing", () => {
   assert.equal(deletePoint(st, "pt_nope"), false);
   assert.equal(deletePoint(st, ""), false);
   assert.equal(st.points.length, 1);
+});
+
+// ── where a Point IS (v300) ─────────────────────────────────────────────────
+
+test("a Point can be put on the map, and says so", () => {
+  // A courier is given coordinates, never an address — "5.41405,100.31408" is a door and
+  // "Farlim, Air Itam" is a guess about one. So a Point without a pin is a name she can read
+  // and a place a van cannot be sent to, and the card has to say which of the two it is.
+  const st = state();
+  const p = addPoint(st, FEE);
+  assert.equal(pointPlace(p), null, "a new Point starts unpinned");
+  assert.equal(pointPlaceText(p), "");
+
+  setPointPlace(st, p.id, { lat: 5.41405, lng: 100.31408, label: "Farlim, Air Itam" });
+  assert.deepEqual(pointPlace(pointById(st, p.id)),
+    { lat: 5.41405, lng: 100.31408, label: "Farlim, Air Itam" });
+  assert.match(pointPlaceText(pointById(st, p.id)), /^Farlim, Air Itam\s+·\s+5\.41405, 100\.31408$/,
+    "the line says the label AND the numbers, because a label alone cannot be checked");
+});
+
+test("half a pair of coordinates is not a place", () => {
+  // Anything malformed reads as UNPINNED rather than as a point in the sea off Africa. The
+  // app answers null rather than throwing, so a hand-edited or half-synced row can never
+  // send a driver somewhere absurd.
+  const st = state();
+  const p = addPoint(st, FEE);
+  for (const junk of [{ lat: 5.41 }, { lng: 100.31 }, { lat: "x", lng: "y" },
+    { lat: 91, lng: 0 }, { lat: 0, lng: 181 }, null, "nonsense"]) {
+    assert.equal(setPointPlace(st, p.id, junk), null, `${JSON.stringify(junk)} is not a place`);
+    assert.equal(pointPlace(pointById(st, p.id)), null);
+  }
+  assert.equal(normalizePoint({ name: "X", place: { lat: 5.41 } }).place, null,
+    "and a stored half-place is dropped on the way in, not drawn");
+  assert.equal(setPointPlace(st, "pt_nope", { lat: 5, lng: 100 }), null,
+    "pinning a Point that is not there does nothing");
+});
+
+test("⚠️ editing a Point NEVER unpins it", () => {
+  // THE PIN IS NOT A FIELD OF THE FORM. The editor hands over a draft with no `place` on it,
+  // so a correction that did not carry the pin across would silently un-pin the Point — she
+  // fixes a spelling and the van loses its door. The same forgotten-field trap the profile's
+  // four lists teach, in a smaller place.
+  const st = state();
+  const p = addPoint(st, FEE);
+  setPointPlace(st, p.id, { lat: 5.41405, lng: 100.31408, label: "Farlim" });
+  const next = updatePoint(st, p.id, { ...FEE, name: "Farlim — Aunty Lim's shop", feeRM: 1 });
+  assert.equal(next.name, "Farlim — Aunty Lim's shop", "the correction landed");
+  assert.deepEqual(pointPlace(next), { lat: 5.41405, lng: 100.31408, label: "Farlim" },
+    "and the pin is exactly where it was");
+});
+
+test("the pin stays in her app", () => {
+  // The shop is a public page, and a set of coordinates is where a person's shop is. It gets
+  // the name and nothing else — a customer chooses a Point by NAME, and the driver is the
+  // only one who needs the door.
+  const st = state();
+  const p = addPoint(st, FEE);
+  setPointPlace(st, p.id, { lat: 5.41405, lng: 100.31408, label: "Farlim" });
+  assert.deepEqual(Object.keys(publishPoints(st)[0]).sort(), ["id", "name"]);
+  assert.equal(JSON.stringify(publishPoints(st)).includes("100.31408"), false);
 });
 
 // ── what the SHOP is allowed to know (v299) ─────────────────────────────────

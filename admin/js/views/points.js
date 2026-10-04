@@ -15,9 +15,11 @@
 
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
+import { openPlacePicker } from "../place_map.js";
 import {
   DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
-  pointProblem, pointsOf, setPointPaused, updatePoint,
+  pointPlace, pointPlaceText, pointProblem, pointsOf, setPointPaused, setPointPlace,
+  updatePoint,
 } from "../points.js";
 
 export function renderPoints(root, state) {
@@ -144,11 +146,41 @@ function pointCard(state, point, root) {
         [`RM${point.feeRM.toFixed(2)} per order`,
           used ? `${used} order${used === 1 ? "" : "s"}` : "no orders yet"]
           .join(" · "))),
+    // ★ WHERE IT IS (v300). A Point is a name she can read and, until it is pinned, a place a
+    // VAN CANNOT BE SENT TO — a courier is given coordinates, never an address. So the line
+    // says plainly which of the two it is, and the press opens the same map a customer's
+    // doorstep is placed with, because it is the same act.
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      pointPlace(point)
+        ? `📍 ${pointPlaceText(point)}`
+        : "📍 Not pinned yet — a van cannot be sent to a name alone."),
     el("div", { class: "btn-row" },
+      button(pointPlace(point) ? "Move the pin" : "Put the pin on the map",
+        () => openPinPicker(state, point, root), "soft small"),
       button(point.paused ? "Resume" : "Pause",
         () => togglePaused(state, point, root), "ghost small"),
       button("Edit", () => openEditPointPopup(state, point, root), "ghost small"),
       button("Delete", () => confirmDelete(state, point, root), "ghost small")));
+}
+
+// The same picker the bakery's own pickup pin uses, and the same one a customer's doorstep
+// uses — one map, one shape, one thing to learn. The address box is given this Point's own
+// text so the "Look it up" button has something to work from, which is what saves her
+// dragging when she has already typed where it is.
+function openPinPicker(state, point, root) {
+  openPlacePicker({
+    state,
+    title: `${point.name} — where it is`,
+    hint: "This is the door the driver is sent to. Pin it once and every run that carries this Point knows where to go.",
+    address: String(point.address || "").trim(),
+    start: pointPlace(point),
+    onPick: (spot) => {
+      if (!setPointPlace(state, point.id, spot)) return toast("That spot couldn't be saved");
+      save(state);
+      toast(`${point.name} pinned`);
+      renderAll(root, state);
+    },
+  });
 }
 
 function togglePaused(state, point, root) {

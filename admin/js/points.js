@@ -28,6 +28,7 @@
 
 import { newId, round2, waNumber } from "./state.js";
 import { phoneDigits } from "./customers.js";
+import { fmtPlace, validPlace } from "./courier_place.js";
 
 // What a new Point's fee per order starts at. Only a starting point — she sets it per
 // Point, and she may multiply it by hand on a big order.
@@ -48,6 +49,11 @@ export function blankPoint() {
     feeRM: DEFAULT_FEE_RM,
     paused: false,
     createdAt: "",
+    // ★ WHERE IT IS, AS A POINT ON THE MAP (v300) — the same shape a customer's doorstep
+    // wears, because a courier is given "5.41405,100.31408" and never an address. A Point
+    // without one is a name she can read and a van cannot be sent to, so the trip builder
+    // counts it as unplaced exactly as it counts an unpinned customer.
+    place: null,
   };
 }
 
@@ -73,7 +79,37 @@ export function normalizePoint(src) {
     feeRM: fee(s.feeRM),
     paused: s.paused === true,
     createdAt: txt(s.createdAt, 40),
+    // Half a pair of coordinates is not a place: `validPlace` answers null for anything
+    // malformed, so a hand-edited or half-synced row reads as UNPINNED rather than as a
+    // point in the sea off Africa.
+    place: validPlace(s.place),
   };
+}
+
+// Where a Point is, or null while it is still unpinned.
+export function pointPlace(point) {
+  return validPlace(point && point.place);
+}
+
+// Put a Point on the map — the SAME act, and the same map, as placing a customer's door, so
+// there is nothing new to learn and one shape to keep. Returns the Point, or null when there
+// is no such Point or the spot is not a real pair of coordinates.
+export function setPointPlace(state, id, spot) {
+  const want = String(id || "");
+  const row = (state.points || []).find((p) => p && p.id === want);
+  if (!row) return null;
+  const p = validPlace(spot);
+  if (!p) return null;
+  row.place = p;
+  return row;
+}
+
+// A Point's position as she reads it, or a plain admission that it has none. Says the two
+// numbers as well as the label, because a label alone cannot be checked and a wrong pin is
+// only ever noticed by looking at the numbers.
+export function pointPlaceText(point) {
+  const p = pointPlace(point);
+  return p ? `${fmtPlace(p)}  ·  ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : "";
 }
 
 // Every Point she has, cleaned and in the order the card draws them: ACTIVE FIRST, then
@@ -138,8 +174,12 @@ export function updatePoint(state, id, draft) {
   if (at < 0) return null;
   const problem = pointProblem({ ...draft, id: want }, pointsOf(state));
   if (problem) return null;
+  // ⚠️ THE PIN IS NOT A FIELD OF THE FORM, and an edit must not touch it. Carried across
+  // deliberately: the draft the editor hands over has no `place` on it, so without this an
+  // edit would silently UNPIN the Point — she corrects a spelling and the van loses its door.
+  // The same trap the profile's field lists teach, in a smaller place.
   const kept = normalizePoint(rows[at]);
-  const next = normalizePoint({ ...draft, id: want, createdAt: kept.createdAt });
+  const next = normalizePoint({ ...draft, id: want, createdAt: kept.createdAt, place: kept.place });
   rows[at] = next;
   return next;
 }

@@ -1,8 +1,56 @@
-# Jienluv2bake — change history (v54 → v299)
+# Jienluv2bake — change history (v54 → v300)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v300, EVERY POINT GETS A PIN ON THE MAP (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why.** You asked for the Delivery run to carry Points, and said a Point should **"get like what
+customer is getting location pin"**. This is that pin — and it is the piece the run cannot work
+without, which is why it comes first.
+
+**A courier is not given an address. It is given a point.** Lalamove wants
+**"5.41405,100.31408"**, and "Farlim, Air Itam" is a guess about one — the courier itself says so
+when it cannot place an address. So **a Point with no pin is a name you can read and a place a van
+cannot be sent to**, and the run cannot price a trip until every end is a real point.
+
+**What a Point has now, on More → Self collection Points.**
+
+- **A line saying where it is** — **📍 Farlim, Air Itam · 5.41405, 100.31408**. **Both the name and
+  the two numbers**, because a name alone cannot be checked and a pin in the wrong place is only ever
+  noticed by looking at the numbers.
+- **"Put the pin on the map"** under every Point, opening **the same map a customer's doorstep is
+  placed with**. It is the same act, so there is nothing new to learn — and your Point's own address
+  is handed to the lookup, so if you have already typed where it is you may not have to drag anything.
+- **An unpinned Point says so plainly**: __"Not pinned yet — a van cannot be sent to a name
+  alone."__ It never pretends to have a door.
+- Once it is pinned, the press becomes **"Move the pin"**.
+
+**Two things this version is careful about.**
+
+- **⚠️ Correcting a Point never un-pins it.** The pin is not a field of the form — it is placed on a
+  map — so an edit had to be made to carry it across deliberately. Without that, fixing a spelling
+  would have silently taken the door away, and you would have found out when a driver was sent
+  nowhere. There is a test that edits a pinned Point and checks the pin is exactly where it was.
+- **⚠️ The pin never leaves your app.** The shop is still told only the Point's **name** — a
+  customer chooses a Point by name, and the driver is the only one who needs the door.
+
+**And a half-typed pin is not a pin.** Anything malformed — one number and no other, a latitude of
+91 — reads as **unpinned** rather than as a point in the sea. A row half-synced between your phones
+can never send a driver somewhere absurd.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. Points
+you have already defined simply start unpinned. The suite is **2,656 tests, all green**. Proved live
+on the real card at a phone width: **37 checks**, including that an unpinned Point says so, that the
+press opens the map picker, that a pinned Point shows its numbers, and that correcting a Point leaves
+the pin where it was.
+
+**Next, and it is the thing you actually asked for:** the **Delivery run** carrying Points. It is
+its own version because the run screen is the one that spends your money, and it needs changing
+carefully — a Point's orders have to become **one stop** on the trip rather than one stop each, and
+the screen that ticks them has to say so.
 
 **04 Oct 2026 — engine v299, THE CUSTOMER CAN COLLECT FROM A POINT (no database step, nothing to
 upload — pushing this one is the whole of it).**
