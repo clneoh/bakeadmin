@@ -61,7 +61,7 @@ export function bakeryName(state) {
 // `totals` are the closing figures, drawn after a rule of their own.
 export function journalSheet({
   title, subtitle = "", lines = [], totals = [], empty = "", note = "",
-  where = "", bakery = "", printed = "",
+  where = "", bakery = "", from = "", printed = "",
 } = {}) {
   return {
     title: String(title || "Journal"),
@@ -86,8 +86,25 @@ export function journalSheet({
     note: String(note || ""),
     where: String(where || ""),
     bakery: String(bakery || ""),
+    // The bakery's own postal block, for the documents that need a letterhead — an
+    // invoice does, and every other journal passes nothing. It is the SAME text she
+    // typed once for the mailing labels (settings.mailingAddress), so a page and a
+    // parcel can never carry two different addresses for one bakery.
+    from: String(from || ""),
     printed: String(printed || ""),
   };
+}
+
+// The `from` block split into lines, with a first line that only repeats the bakery
+// name dropped. The mailing-label card tells her to make the bakery's name the FIRST
+// line of that block, so a head drawn straight from it would say the name twice. One
+// that opens by repeating it simply does not: the name keeps its own larger line and
+// the block keeps its address.
+export function fromLines(from, bakery = "") {
+  const rows = String(from || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const name = String(bakery || "").trim().toLowerCase();
+  if (name && rows.length && rows[0].toLowerCase() === name) rows.shift();
+  return rows;
 }
 
 // The same sheet as plain text, for the share sheet and the clipboard. Built from the sheet
@@ -95,6 +112,9 @@ export function journalSheet({
 export function buildJournalText(sheet, cur = "RM") {
   const s = journalSheet(sheet);
   const out = [`${s.bakery ? `${s.bakery} — ` : ""}${s.title}`];
+  // The letterhead travels with the text too, so an invoice pasted into a message
+  // still says who it is from and where to find them.
+  out.push(...fromLines(s.from, s.bakery));
   if (s.subtitle) out.push(s.subtitle);
 
   if (!s.lines.length) {
@@ -146,6 +166,7 @@ export function journalSheetEl(sheet, cur = "RM") {
   return el("div", { class: "journal-sheet" },
     el("div", { class: "js-head" },
       s.bakery ? el("p", { class: "js-bakery" }, s.bakery) : null,
+      ...fromLines(s.from, s.bakery).map((line) => el("p", { class: "js-from" }, line)),
       el("h2", { class: "js-title" }, s.title),
       s.subtitle ? el("p", { class: "js-sub" }, s.subtitle) : null),
     s.lines.length
@@ -220,6 +241,12 @@ function sheetPages(s, cur) {
       return;
     }
     if (s.bakery) { put(s.bakery, PDF_MARGIN, { font: "F2", size: 9, color: MUTED }); y -= 16; }
+    // The letterhead, on the same muted small face as the name above it — it is an
+    // address, not a heading, and the title below has to stay the loudest thing here.
+    for (const line of fromLines(s.from, s.bakery)) {
+      put(line, PDF_MARGIN, { size: 8.5, color: MUTED });
+      y -= 11.5;
+    }
     put(s.title, PDF_MARGIN, { font: "F2", size: 18 });
     y -= 24;
     if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }

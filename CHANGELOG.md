@@ -1,8 +1,64 @@
-# Jienluv2bake — change history (v54 → v292)
+# Jienluv2bake — change history (v54 → v293)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v293, AN INVOICE FOR A CUSTOMER (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Why.** Your words: __"And customer need an invoice"__. Asked what it should carry,
+you chose __"One order, one invoice"__ and __"Yes — name, address, a number"__.
+
+**What you see now, on Orders → any order → Invoice** (beside Edit and Note / tracking).
+
+- **A card opens with the invoice on it**, and **Print** and **Share** underneath —
+  the same two presses every other book in the app has. Share hands it over as a
+  **PDF file**, so it goes into WhatsApp as a document the customer can keep.
+- **It carries your real address at the top.** That address already exists — it is
+  the one you typed for the Mailing labels in Settings, the same block that prints
+  as FROM on a parcel. So an invoice and a parcel can never show two different
+  addresses for one bakery, and **there is nothing new to type**.
+- **One order, one invoice.** The number is given the first time you open it and is
+  never given again: open the same order next year and it is the same invoice, with
+  the same number and the same date.
+- **The order's own code prints beside the number** — __Invoice 0007 · Order
+  #A3F9C2__ — which is what a real invoice does, and it means two invoices could
+  never be confused for one another.
+
+**What the paper says.** Your name and address, then **Invoice 0007 · Order #A3F9C2 ·
+the date the order was placed**, then one row per item as **4 × Focaccia** with the
+line total in the money column, the **courier charge** when the customer bears it, the
+**code taken off as a minus row** named after the code, and finally the **Total**.
+
+**Why the figures can never disagree with anything else.** Every figure on the invoice
+is read from the one function your confirmation message, your tracking card and your
+order rows already read, and the item names and prices are the ones **frozen onto the
+order** — so an invoice for an old order never shows a product you have since renamed
+or today's price. An invoice cannot state a sum the rest of the app contradicts.
+
+**The one limit, said plainly rather than hidden.** Your two phones hold one shared
+copy of your business, and a running invoice counter kept in Settings would be
+**overwritten by whichever phone saved last** — numbers would repeat or skip without
+warning. So the number is written **on the order itself**, which is a record of its
+own and cannot be lost. The consequence: **two phones issuing an invoice in the same
+instant could take the same number.** Nothing is lost when that happens — both
+invoices exist, each on its own order — and the order code tells them apart. With one
+baker and two phones it is vanishingly unlikely, and the alternative would be an
+invoice you cannot write without the internet, which is worse for a bakery.
+
+**What is deliberately NOT on it.** Your customer's per-item note is not printed — it
+is a production instruction, not a line item. Say the word if you would rather it were,
+and it is a one-line change.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload,
+no key. Two fields are added to an order **only when you press Invoice on it** — an
+order you never invoice is not touched at all, and no order, product, ingredient or
+price is rewritten. The suite is 2,627 tests, all green. Proved live on the real
+Orders screen at a phone width: 22 checks, including that the Total is the customer's
+own total to the cent, that the number is written on every row of the cart, that
+opening the invoice a second time is the same invoice, that Print really reaches the
+printer, and that your address block never says the bakery's name twice.
 
 **04 Oct 2026 — engine v292, THE SHOP'S OFFERS TURN INSTEAD OF HIDING (no
 database step, nothing to upload — pushing this one is the whole of it).**
