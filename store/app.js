@@ -624,6 +624,21 @@ export function mergeStorefront(base, remote) {
       .map((o) => ({ label: o.label.trim(), from: o.from, to: o.to, colour: o.colour }))
       .sort((a, b) => a.from.localeCompare(b.from));
   }
+  // The Self collection Points she has open (v299). Replaced WHOLESALE, like the occasions and
+  // the promo codes: the app publishes a complete snapshot, so an empty list is a real
+  // instruction — "she has no Points open" — and has to take a Point off a page that is already
+  // showing it.
+  //
+  // ⚠️ ONLY the id and the name arrive. The receiver, their phone, the fee and the address never
+  // leave her app — the shop is public, and the message that tells a customer where to go is
+  // built from HER copy. So the shop validates what it gets down to exactly these two fields,
+  // which is also what makes a malformed row unable to reach the page.
+  if (Array.isArray(remote.points)) {
+    out.points = remote.points
+      .filter((p) => p && typeof p === "object"
+        && String(p.id || "").trim() && String(p.name || "").trim())
+      .map((p) => ({ id: String(p.id).trim(), name: String(p.name).trim() }));
+  }
   if (Array.isArray(remote.products)) {
     const products = remote.products
       .filter((p) => p && typeof p === "object" && String(p.name || "").trim())
@@ -2167,6 +2182,12 @@ export function render() {
             // the standing line and any code already in the box are redrawn here
             // rather than waiting for the customer to touch something.
             if (repaintPromo) repaintPromo();
+            // The Points arrive with this row too, long after the page first drew, so the
+            // Collect-from list is built here rather than waiting for the customer to touch
+            // the fulfilment picker. Before this moment she has none open as far as the page
+            // knows, and the field stays hidden — which is why a shop with no Points is
+            // unchanged.
+            refreshPointList();
             // The codes are in hand NOW, which is the first moment a visit can be judged
             // against them (v288). Called here and nowhere else, so the count can only ever
             // follow the arrival of the list it is checked against — and latched inside, so
@@ -2295,6 +2316,11 @@ export function render() {
       lines,
       total,
       fulfillment: (document.getElementById("fulfillment") || {})._value || "collect",
+      // WHERE a collection order is collected from (v299). The kitchen is the EMPTY id — it is
+      // not a Point and has no record — and the NAME rides beside the id so that deleting the
+      // Point later never rewrites where this order went. A courier order carries neither.
+      pointId: (document.getElementById("fulfillment") || {})._pointId || "",
+      pointName: (document.getElementById("fulfillment") || {})._pointName || "",
       address: document.getElementById("address-input").value.trim(),
       note: document.getElementById("note-input").value.trim(),
       createdAt: new Date().toISOString(),
@@ -2815,8 +2841,66 @@ export async function trackOrder(code) {
   }
 }
 
-// Wire the Self collect / Courier picker. The choice is stored on the wrapper
-// node so the order handler reads it back; courier reveals the address field.
+// The Self collection Points she has open (v299), exactly as the shop was given them. Guarded
+// like the codes next door: the storefront lands asynchronously, so before it does there is
+// nothing to offer and the shop must look exactly as it did before this version.
+function publishedPoints() {
+  return Array.isArray(CONFIG.points) ? CONFIG.points : [];
+}
+
+// Where a Self collect order is collected FROM, as rows a customer picks between.
+//
+// ★ THE KITCHEN IS ALWAYS FIRST AND IS NOT A POINT. It has no record, no fee and no life, and
+// the EMPTY id is exactly how an order says "collect from the bakery" — which is also what
+// every order placed before this version means, so nothing needs migrating.
+//
+// The whole field is hidden while she has no Point open, so a shop that never uses them is
+// byte-for-byte the shop it was.
+function renderPointList(wrap) {
+  const field = document.getElementById("point-field");
+  const list = document.getElementById("point-list");
+  if (!field || !list || !wrap) return;
+  const points = publishedPoints();
+  field.hidden = points.length === 0;
+  if (!points.length) { list.replaceChildren(); return; }
+
+  const choose = (id, name) => {
+    wrap._pointId = id;
+    wrap._pointName = name;
+    for (const b of list.children) {
+      if (b && b.classList) b.classList.toggle("active", (b.dataset.pointId || "") === id);
+    }
+  };
+  const row = (id, name, sub) => el("button", {
+    class: "point-opt", type: "button", "data-point-id": id,
+    onclick: () => choose(id, name),
+  }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub));
+
+  list.replaceChildren(
+    row("", t("ourKitchen"), t("kitchenSub")),
+    ...points.map((p) => row(p.id, p.name, t("pointSub"))));
+
+  // ⚠️ A POINT SHE PAUSED OR DELETED MUST NOT STAY CHOSEN. A customer may have picked it
+  // before she took it off, and the shop cannot then post an order to a place she is no
+  // longer offering — so a choice that is no longer open falls back to the kitchen, which is
+  // always there. Re-applied on every repaint, so the picker and the order cannot disagree.
+  const want = String(wrap._pointId || "");
+  const stillOpen = want && points.some((p) => p.id === want);
+  choose(stillOpen ? want : "", stillOpen ? (points.find((p) => p.id === want) || {}).name || "" : t("ourKitchen"));
+}
+
+function refreshPointList() {
+  const wrap = document.getElementById("fulfillment");
+  const field = document.getElementById("point-field");
+  renderPointList(wrap);
+  // Only a COLLECTION order chooses where, and only when she has a Point open. The empty
+  // field hides itself, so this never leaves a labelled box with nothing in it.
+  if (field) field.hidden = !wrap || wrap._value === "courier" || !publishedPoints().length;
+}
+
+// Wire the Self collect / Courier picker. The choice is stored on the wrapper node so the
+// order handler reads it back; courier reveals the address field, collecting reveals the
+// list of places to collect from.
 function wireFulfillment() {
   const wrap = document.getElementById("fulfillment");
   if (!wrap) return;
@@ -2826,6 +2910,7 @@ function wireFulfillment() {
     for (const b of buttons) b.classList.toggle("active", b.dataset.fulfillment === value);
     const addr = document.getElementById("address-field");
     if (addr) addr.hidden = value !== "courier";
+    refreshPointList();
   };
   for (const b of buttons) b.addEventListener("click", () => apply(b.dataset.fulfillment));
   apply("collect"); // reflect the static HTML's default active button

@@ -617,6 +617,39 @@ test("mergeStorefront keeps codes it can read and drops the ones it cannot", () 
   assert.equal(mergeStorefront({ promoCodes: [{ code: "OLD1" }] }, { name: "X" }).promoCodes[0].code, "OLD1");
 });
 
+// ── v299: the Self collection Points the shop may offer ─────────────────────
+
+test("the shop keeps the Points it can read, and only the two fields it needs", () => {
+  // ⚠️ THE SHOP IS PUBLIC. Only an id and a name are read off the payload; anything else is
+  // dropped here rather than drawn. This is also what makes a malformed row unable to reach
+  // the page — the app validates on its side, and the shop validates again on its own terms.
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik", receiver: "Aunty Lim", feeRM: 0.5 },
+    { id: "pt_2", name: "Chai Leng Park, Prai" },
+  ] });
+  assert.deepEqual(out.points, [
+    { id: "pt_1", name: "Farlim, Air Itam" },
+    { id: "pt_2", name: "Chai Leng Park, Prai" },
+  ], "the receiver, the address and the fee never reach the shop");
+});
+
+test("a Point the shop cannot read is dropped rather than drawn", () => {
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Real" },
+    { id: "", name: "No id" },
+    { id: "pt_3", name: "   " },
+    { name: "No id at all" },
+    "nonsense",
+    null,
+  ] });
+  assert.deepEqual(out.points, [{ id: "pt_1", name: "Real" }]);
+  // A payload that says nothing about Points leaves the key alone.
+  assert.equal(mergeStorefront({ points: [{ id: "pt_x", name: "Kept" }] }, { name: "X" }).points[0].name, "Kept");
+  // And an EMPTY list is a real instruction, not silence — the payload replaces the whole row,
+  // so it has to take a Point off a page that is already showing it.
+  assert.deepEqual(mergeStorefront({ points: [{ id: "pt_x", name: "Gone" }] }, { points: [] }).points, []);
+});
+
 // ── v292: the shop's standing offers, and how they turn ─────────────────────
 //
 // The strip used to `.find()` the FIRST live public code and drop the rest

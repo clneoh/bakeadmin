@@ -20,8 +20,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, normalizePoint, orderPointName,
-  pointById, pointPhoneText, pointProblem, pointsOf, activePoints, setPointPaused, updatePoint,
+  DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint,
+  orderPointName, pointAddressFor, pointById, pointPhoneText, pointProblem, pointsOf,
+  activePoints, publishPoints, setPointPaused, updatePoint,
 } from "../admin/js/points.js";
 
 function state(extra = {}) {
@@ -167,4 +168,84 @@ test("deleting a Point that is not there removes nothing", () => {
   assert.equal(deletePoint(st, "pt_nope"), false);
   assert.equal(deletePoint(st, ""), false);
   assert.equal(st.points.length, 1);
+});
+
+// ── what the SHOP is allowed to know (v299) ─────────────────────────────────
+
+test("the shop is told a Point's name and NOTHING else", () => {
+  // ⚠️ THE SHOP IS A PUBLIC PAGE. The receiver's name, their phone and the fee are hers;
+  // publishing any of them would put a private person's mobile number on a page anyone can
+  // read, and the fee is what she pays out rather than a price. Same rule as the promo
+  // code's holder (v289).
+  const st = state();
+  addPoint(st, FEE);
+  const [published] = publishPoints(st);
+  assert.deepEqual(Object.keys(published).sort(), ["id", "name"]);
+  const blob = JSON.stringify(published);
+  assert.equal(blob.includes("Aunty Lim"), false, "the receiver is never published");
+  assert.equal(blob.includes("60123456789"), false, "nor their phone");
+  assert.equal(blob.includes("Lebuhraya"), false, "nor the address — the message that tells a customer where to go is built from HER copy");
+  assert.equal(blob.includes("0.5"), false, "nor the fee, which is what she pays out");
+});
+
+test("the shop is offered only the Points she has open", () => {
+  const st = state();
+  const a = addPoint(st, { ...FEE, name: "Farlim, Air Itam" }, "2026-10-12T00:00:00.000Z");
+  addPoint(st, { ...FEE, name: "Chai Leng Park, Prai" }, "2026-10-13T00:00:00.000Z");
+  assert.deepEqual(publishPoints(st).map((p) => p.name), ["Farlim, Air Itam", "Chai Leng Park, Prai"]);
+  // Pausing is the whole of what takes a Point off the shop's list.
+  setPointPaused(st, a.id, true);
+  assert.deepEqual(publishPoints(st).map((p) => p.name), ["Chai Leng Park, Prai"],
+    "a paused Point stops being offered the moment she pauses it");
+  // And with none open the shop is sent an empty list rather than nothing at all — the
+  // published payload replaces the whole row, so an absent key would leave yesterday's
+  // Points on a page that is already open.
+  setPointPaused(st, a.id, false);
+  st.points = [];
+  assert.deepEqual(publishPoints(st), []);
+});
+
+// ── how the customer is told (v299) ─────────────────────────────────────────
+
+test("the four messages and the confirmation say the same thing about where to go", () => {
+  // One wording, read by two builders. A customer told "Self collect" in the confirmation and
+  // "Self collect at Farlim" in the reminder would be right to wonder which is true.
+  const st = state();
+  const p = addPoint(st, FEE);
+
+  assert.equal(fulfillmentText(st, { fulfillment: "courier" }), "Courier delivery");
+  // The KITCHEN keeps the words it has always had — an order with no point is what every order
+  // placed before this version is, so nothing it says may change.
+  assert.equal(fulfillmentText(st, { fulfillment: "collect" }), "Self collect");
+  assert.equal(fulfillmentText(st, { fulfillment: "collect", pointId: "" }), "Self collect");
+
+  assert.equal(fulfillmentText(st, { fulfillment: "collect", pointId: p.id, pointName: p.name }),
+    "Self collect at Farlim, Air Itam");
+  // The FROZEN name is what an order is told by, so deleting the Point does not rename where
+  // it went — the same rule the frozen product name and price follow.
+  deletePoint(st, p.id);
+  assert.equal(fulfillmentText(st, { fulfillment: "collect", pointId: p.id, pointName: p.name }),
+    "Self collect at Farlim, Air Itam", "a deleted Point still names where that order went");
+});
+
+test("the address a message gives is read LIVE, and only a Point has one", () => {
+  // The name is frozen; the address is operational. Moving a Point to a new shop tells the
+  // NEXT customer the new place — and a Point she has deleted has no address to give, which
+  // is the honest answer rather than the last one it had.
+  const st = state();
+  const p = addPoint(st, FEE);
+  const order = { fulfillment: "collect", pointId: p.id, pointName: p.name };
+  assert.equal(pointAddressFor(st, order), "Lebuhraya Thean Teik, 11500 Air Itam");
+
+  updatePoint(st, p.id, { ...FEE, address: "Somewhere else, 11500 Air Itam" });
+  assert.equal(pointAddressFor(st, order), "Somewhere else, 11500 Air Itam",
+    "a moved Point tells the next customer the new place");
+
+  assert.equal(pointAddressFor(st, { fulfillment: "collect", pointId: "", pointName: "" }), "",
+    "the kitchen has no address line — collecting there is what the shop already says");
+  assert.equal(pointAddressFor(st, { fulfillment: "courier", pointId: p.id }), "",
+    "and a courier order is given no Point address at all");
+  deletePoint(st, p.id);
+  assert.equal(pointAddressFor(st, order), "",
+    "a deleted Point has none to give, and nothing is invented in its place");
 });

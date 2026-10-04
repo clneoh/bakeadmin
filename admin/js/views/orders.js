@@ -37,6 +37,7 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 import { suggestAddresses } from "../couriers/api.js";
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
+import { orderPointName } from "../points.js";
 // The one spelling a promo code is recognised by (v270). An order's own code is
 // read back through it, so a stray lowercase in some older record cannot make two
 // spellings of one code look like two codes on the row.
@@ -319,7 +320,11 @@ export function packingLabelData(state, group, style = "full") {
   const dateStr = (dateEl && dateEl.date) || first.deliveryDate || "";
   const dateLine = dateStr ? shortDate(dateStr) : "";
   const courier = first.fulfillment === "courier";
-  const method = courier ? "Courier" : "Self collect";
+  // WHICH PLACE, on the label too (v299). A collection from the kitchen reads exactly as it
+  // always has; a collection from a Point names it, because a label that says only "Self
+  // collect" tells whoever is packing the bag nothing about where the bag is going.
+  const pointName = courier ? "" : orderPointName(state, first);
+  const method = courier ? "Courier" : (pointName ? `Self collect · ${pointName}` : "Self collect");
   const customer = String(first.customerName || "").trim();
   const note = String(first.note || "").trim();
   const address = courier ? String(first.address || "").trim() : "";
@@ -3425,6 +3430,11 @@ function orderGroupRow(state, group, root, dateId) {
 
   const status = first.status || "new";
   const courier = first.fulfillment === "courier";
+  // WHERE a collection order goes (v299) — the name frozen on the order, or the live Point
+  // while it still exists. Read ONCE here and reused, so the row and its label cannot
+  // disagree; empty for a courier order, and for a kitchen collection, which is what every
+  // order placed before this version is.
+  const pointName = courier ? "" : orderPointName(state, first);
   // The courier moved this row and has not been put back (v190). Read here rather than
   // lower down, because the Undo press belongs in the row's own button line beside the
   // other things she can do to this order — and because the note under the row and the
@@ -3525,7 +3535,11 @@ function orderGroupRow(state, group, root, dateId) {
   const placedLine = el("div", { class: "li-sub" },
     `Placed ${fmtPlaced(first.createdAt, first.orderDate)}`,
     el("span", { class: `fulfill-tag${courier ? " courier" : ""}` }, courier ? "Courier" : "Self collect"),
-    courier && String(first.address || "").trim() ? el("span", { class: "fulfill-sub" }, String(first.address).trim()) : null);
+    courier && String(first.address || "").trim() ? el("span", { class: "fulfill-sub" }, String(first.address).trim()) : null,
+    // Where a COLLECTION order goes (v299), said on the row the same way a courier's delivery
+    // address is: it is the thing the row is opened to answer. Drawn only when there is a
+    // Point, so every kitchen collection reads byte-for-byte as it did before this version.
+    pointName ? el("span", { class: "fulfill-sub" }, pointName) : null);
   // The parcel she recorded (v226), said on the row itself rather than left to the
   // pop-up: it is the answer to "has this gone?", which is the question the row is
   // looked at for. Drawn only when a parcel exists, so every order that is not one

@@ -105,6 +105,15 @@
           <button type="button" class="seg-btn" data-fulfillment="courier" data-i18n="courier">Courier delivery</button>
         </div>
       </div>
+      <!-- Where a Self collect order is collected FROM (v299). Hidden entirely while she has
+           no Points open, so the shop looks exactly as it did before this version. The rows
+           are built by store/app.js: every word inside is written by JS, so it carries no
+           data-i18n tags and the dictionary's English-must-match-the-markup rule in
+           test/store-i18n.test.js is untouched. -->
+      <div class="field" id="point-field" hidden>
+        <label data-i18n="collectFrom">Collect from</label>
+        <div class="point-list" id="point-list"></div>
+      </div>
       <div class="field" id="address-field" hidden>
         <label for="address-input" data-i18n="addressLabel">Delivery address</label>
         <input id="address-input" class="input" type="text" data-i18n-ph="addressPh" placeholder="Street, area, Penang…" autocomplete="street-address">

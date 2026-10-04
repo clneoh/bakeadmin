@@ -9,6 +9,7 @@
 import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
+import { fulfillmentText } from "./points.js";
 import { trackingLine, windowSuffix } from "./courier_job.js";
 
 // The opening line, in the voice she chose on Settings (2 Oct 2026). WhatsApp
@@ -52,7 +53,9 @@ function basics(state, group, trackUrl) {
   // be sent to a customer.
   const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}${windowSuffix(first)}`;
   const courier = first.fulfillment === "courier";
-  const fulfillment = courier ? "Courier delivery" : "Self collect";
+  // The same ONE wording the confirmation uses (v299), so the four messages and the
+  // confirmation cannot tell a customer two different things about where to go.
+  const fulfillment = fulfillmentText(state, first);
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";
   const qr = String(sf.tngQr || "").trim();

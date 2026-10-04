@@ -18,6 +18,7 @@ import { customerTotal } from "./courier.js";
 // advertise and judge (publishCodes), and how a code a customer typed is spelled
 // by the time it reaches an order (normCode).
 import { normCode, publishCodes } from "./promo.js";
+import { pointById, publishPoints } from "./points.js";
 import { usageByCode } from "./promo-usage.js";
 // The trip on the order, read through the one helper that decides what a half-written
 // record means. NOT the courier registry: this module is imported by the channel that
@@ -448,6 +449,11 @@ function storefrontPayload(state) {
     // personal code is the only way its owner can use it; "personal" means never
     // advertised, never secret. See publishCodes in js/promo.js.
     promoCodes: publishCodes(state, (c) => usage.get(c.code) || { used: 0, given: 0 }),
+    // The Self collection Points the shop may OFFER (v299) — id and name only, and active
+    // ones only. The receiver, their phone, the fee and even the address stay here: the
+    // shop is public, and the message that tells a customer where to go is built from her
+    // own copy. Always sent, even empty, for the same reason the lists above are.
+    points: publishPoints(state),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the
@@ -854,6 +860,22 @@ function importIncoming(state, row) {
   // One storefront cart can contain several items. They share a groupId so the
   // backoffice shows them as a single order (status / badge / inbox count it
   // once) while each item stays its own row for availability math.
+  // WHERE a collection order is collected from (v299).
+  //
+  // ⚠️ THE NAME COMES FROM HER OWN RECORD, NEVER FROM THE PAYLOAD. The shop is a public page
+  // with no login, so a name it sent could be anything at all — this is the same rule the
+  // promo code follows, where the shop's code name is checked against her own list before it
+  // is believed. An id she does not have (a Point deleted while the page was open, or
+  // something hand-posted) falls back to the kitchen, which is what an empty id has always
+  // meant, so nothing needs migrating.
+  //
+  // A point she has since PAUSED is still honoured: pausing decides what is OFFERED, never
+  // what an order already promised — the customer was told where to go. Exactly the rule that
+  // keeps an ended promo code coming off the order it was placed on.
+  //
+  // The name is then FROZEN onto the order, so deleting the Point later cannot rewrite where
+  // this order went.
+  const chosenPoint = data.fulfillment === "courier" ? null : pointById(state, data.pointId);
   const groupId = data.lines.length > 1 ? newId("ordg") : null;
   for (const line of data.lines) {
     if (!line || !line.name) continue;
@@ -883,6 +905,8 @@ function importIncoming(state, row) {
       promo: normCode(data.promo),
       fulfillment: data.fulfillment === "courier" ? "courier" : "collect",
       address: String(data.address || "").trim(),
+      pointId: chosenPoint ? chosenPoint.id : "",
+      pointName: chosenPoint ? chosenPoint.name : "",
       note: String(data.note || "").trim(),
       status: "new",
       source: "storefront",

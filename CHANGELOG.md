@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v298)
+# Jienluv2bake — change history (v54 → v299)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v299, THE CUSTOMER CAN COLLECT FROM A POINT (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why.** v298 gave you the card that defines your Self collection Points. This is the other half:
+**your customers can now choose one**, your order carries which one, and **the customer is told
+where to go**.
+
+**What your customers see, in the shop.**
+
+- **"Collect from"**, under the Self collect / Courier choice. **Your kitchen is first** — it is not
+  a Point and needs no record — and **your open Points follow, in your order.**
+- **The whole thing only appears once you have a Point open.** With none, the shop is
+  **byte-for-byte the shop it was**, which is how you said you would do it: one at a time.
+- **The chosen row takes the brand's orange edge**, the same "this one is on" the buttons already
+  use.
+- **A Point paused or deleted while a customer has it chosen falls back to your kitchen.** The shop
+  cannot post an order to a place you have stopped offering — and the kitchen is always there.
+
+**What your customers are told.** The confirmation, and all four later messages, say
+**"Self collect at Farlim, Air Itam"** and give the **address of the place**. That wording is
+written **once** and read by both message builders, so a customer cannot be told one thing in the
+confirmation and another in the reminder.
+
+**Three things this version is careful about.**
+
+- **⚠️ Only the Point's NAME ever leaves your app.** The receiver's name, their phone, the fee and
+  even the address **stay in your app**. The shop is a public page with no login, and publishing the
+  receiver's number would put a private person's phone on a page anyone can read. The address is
+  withheld for a plainer reason: the message that tells a customer where to go is built from **your**
+  copy.
+- **⚠️ The name on an order comes from YOUR record, never from the page.** The shop is public, so a
+  name it sent could be anything at all; the order is matched against **your own Points** and an id
+  you do not have falls back to the kitchen. This is the same rule the promo codes follow.
+- **⚠️ A Point you PAUSE is still honoured for orders already placed.** Pausing decides what is
+  **offered**, never what an order already promised — the customer was already told where to go.
+  Exactly the rule that keeps an ended promo code coming off the order it was placed on.
+
+**And your own screens say it too.** The order row and the packing label read
+**"Self collect · Farlim, Air Itam"**, so whoever is packing a bag can see where it is going. A
+kitchen collection reads exactly as it always has.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key — the
+Points travel in the storefront row your shop already reads. **Every order already placed is
+unaffected**: an order with no Point IS a collection from your kitchen, which is what it has always
+meant, so nothing needs migrating. The suite is 2,650 tests, all green. Proved live in the real shop
+at a phone width: **20 checks**, including that the kitchen is first and carries no id, that a paused
+Point cannot stay chosen, that with no Points open the shop is unchanged, and that a long Point name
+does not push the page sideways.
 
 **04 Oct 2026 — engine v298, SELF COLLECTION POINTS — THE CARD (no database step, nothing to
 upload — pushing this one is the whole of it).**

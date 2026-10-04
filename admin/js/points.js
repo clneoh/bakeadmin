@@ -170,6 +170,25 @@ export function deletePoint(state, id) {
   return state.points.length < before;
 }
 
+// ── What the SHOP is allowed to know (v299) ─────────────────────────────────
+//
+// ⚠️ THE SHOP IS PUBLIC. It gets the id and the NAME — enough for a customer to choose where
+// to collect — and NOTHING ELSE. **The receiver's name, their phone and the fee are hers.**
+// Publishing them would put a private person's mobile number on a page anyone can read, and
+// the fee is what she pays out, not a price. This is the same rule the promo code's `holder`
+// follows (v289): the name of whoever a thing belongs to is never published.
+//
+// The ADDRESS is not published either, though a customer does need it — because the message
+// that tells them where to go is built from HER OWN copy of the Point, not from the shop's.
+// The shop only has to say which Places there are; the telling is hers.
+//
+// ACTIVE Points only, and always sent even when empty: the published payload replaces the
+// whole row, so an absent key would leave the shop offering yesterday's Points. Same reason
+// the occasions, the categories and the promo codes are sent the same way.
+export function publishPoints(state) {
+  return activePoints(state).map((p) => ({ id: p.id, name: p.name }));
+}
+
 // The name to PRINT for an order that went to a Point: the name frozen on the order when
 // it was placed, falling back to the live Point while it still exists. Never a bare id —
 // an order that says "pt_9f2a" tells the person holding the bags nothing at all.
@@ -178,6 +197,35 @@ export function orderPointName(state, order) {
   if (frozen) return frozen;
   const live = pointById(state, order && order.pointId);
   return live ? live.name : "";
+}
+
+// How an order reaches the customer, in ONE wording (v299). The confirmation and every later
+// message are built by two different builders, and a customer reading "Self collect" in one and
+// "Self collect at Farlim, Air Itam" in the next would be right to wonder which is true — so the
+// sentence is written once, here, and both read it.
+//
+// A collection from the KITCHEN says just "Self collect", because that is what it has always
+// said and what an order with no point means. Only a Point is named.
+export function fulfillmentText(state, order) {
+  if (order && order.fulfillment === "courier") return "Courier delivery";
+  const name = orderPointName(state, order);
+  return name ? `Self collect at ${name}` : "Self collect";
+}
+
+// Where to go, for a collection at a Point: the LIVE Point's address, or "" when it has none or
+// the Point is gone.
+//
+// The NAME travels frozen on the order, but an address is OPERATIONAL — it is read off her live
+// record each time a message is written, so moving a Point to a new shop tells the next customer
+// the new place, and a Point she has deleted simply has none to give. That is the honest split:
+// what was promised is frozen, where it is today is not.
+export function pointAddressFor(state, order) {
+  // A COURIER order has no collection address even if a point id somehow rides on it — a
+  // courier's destination is the customer's own door, and the caller should not have to
+  // remember that for this function to be right.
+  if (!order || order.fulfillment === "courier" || !order.pointId) return "";
+  const live = pointById(state, order.pointId);
+  return live ? live.address : "";
 }
 
 // A number as a driver would dial it. The app stores digits with the country code (see
