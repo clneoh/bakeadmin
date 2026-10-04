@@ -41,7 +41,7 @@ import { orderPointName, pointChoices, setOrderPoint } from "../points.js";
 // order into the two parties EasyParcel wants, and says what is missing. `parcels/api.js` is
 // the one channel to the `parcel` function, where the key lives.
 import { balanceNote, missingFrom, parcelContent, rateLines, receiverFrom, senderFrom } from "../parcels.js";
-import { parcelBalance, parcelBook, parcelRates } from "../parcels/api.js";
+import { parcelBalance, parcelBook, parcelHello, parcelRates } from "../parcels/api.js";
 // The one spelling a promo code is recognised by (v270). An order's own code is
 // read back through it, so a stray lowercase in some older record cannot make two
 // spellings of one code look like two codes on the row.
@@ -2877,6 +2877,48 @@ function parcelApiBlock({ state, group, draft, refresh }) {
   const first = (group && group.orders && group.orders[0]) || null;
   if (!first) return null;
 
+  // ⚠️ THIS BLOCK REPAINTS ITSELF AND NOT THE CARD. `refresh()` rebuilds the WHOLE pop-up, and
+  // this block asks the server something as soon as it is drawn — so calling it here would be a
+  // repaint arriving at an unpredictable moment while she is working further down the same card.
+  // That is not a theory: it stranded the door block's own pending look-up when it was first
+  // written (test/edit-popup-relook.test.js caught it), which is the "a repaint must not move
+  // her" rule at the level of one card. Every other block in this file paints itself for the
+  // same reason — `paintCourier`, `paintParcel`, `paintPoint`.
+  const wrap = el("div", { class: "field" });
+  const paint = () => wrap.replaceChildren(...body());
+
+  // ★ WHETHER IT IS SET UP AT ALL, ASKED ONCE AND SAID PLAINLY (v308).
+  //
+  // ⚠️ WITHOUT THIS THE BLOCK READS AS BROKEN RATHER THAN AS OFF. Every press in it can only
+  // ever answer "EasyParcel is not set up yet", and a press whose only answer is always the same
+  // sentence is the shape this app treats as a bug (feedback-affordances). Her own words when she
+  // decided not to sign up: it should "read as off rather than broken".
+  //
+  // `undefined` means nobody has asked yet, `null` means the question is in flight, and an object
+  // is the answer — so a repaint during the ask cannot ask a second time.
+  if (draft.parcelSetup === undefined) {
+    draft.parcelSetup = null;
+    parcelHello(state).then((out) => {
+      draft.parcelSetup = out.ok ? { env: String(out.env || "demo") } : { reason: String(out.reason || "") };
+      paint();
+    });
+  }
+
+  function body() {
+    if (draft.parcelSetup === null) {
+      return [el("label", {}, "EasyParcel"),
+        el("p", { class: "card-sub", style: "margin:0" }, "Checking whether EasyParcel is set up…")];
+    }
+    // NOT SET UP: no weight box, no price, no Book — nothing that could be pressed and do nothing.
+    // What is left is the one thing worth saying, and it is reassuring rather than apologetic:
+    // posting a parcel by hand is the way this app has always posted one, and it still is.
+    if (draft.parcelSetup.reason) {
+      return [el("label", {}, "EasyParcel"),
+        el("p", { class: "card-sub", style: "margin:0" },
+          "Not set up yet — and nothing here is needed to post a parcel by hand. Record the carrier above and type the consignment number, exactly as before."),
+        el("p", { class: "hint" }, draft.parcelSetup.reason)];
+    }
+
   const rates = Array.isArray(draft.parcelRates) ? draft.parcelRates : null;
   const lines = rateLines(rates);
   const picked = draft.parcelRate || null;
@@ -2903,12 +2945,12 @@ function parcelApiBlock({ state, group, draft, refresh }) {
     if (theirs.length) parts.push(`the customer's ${listWords(theirs)}`);
     return { send, to, missing: parts };
   };
-  const box = () => ({ weightKg: Number(draft.parcelKg) || 0 });
+  const parcelBox = () => ({ weightKg: Number(draft.parcelKg) || 0 });
 
   const payload = () => {
     const { send, to } = parties();
     return {
-      pick: send, send: to, box: box(),
+      pick: send, send: to, box: parcelBox(),
       reference: orderCode(first),
       content: parcelContent(first, state),
       // The value a carrier insures against: what the customer actually paid, through the one
@@ -2919,26 +2961,26 @@ function parcelApiBlock({ state, group, draft, refresh }) {
 
   const checkPrice = async () => {
     const { missing } = parties();
-    if (missing.length) { draft.parcelSaid = `Before a price can be asked for, EasyParcel needs ${listWords(missing)}.`; refresh(); return; }
-    if (!(Number(draft.parcelKg) > 0)) { draft.parcelSaid = "How much does the parcel weigh? EasyParcel prices by weight, so it needs a number."; refresh(); return; }
+    if (missing.length) { draft.parcelSaid = `Before a price can be asked for, EasyParcel needs ${listWords(missing)}.`; paint(); return; }
+    if (!(Number(draft.parcelKg) > 0)) { draft.parcelSaid = "How much does the parcel weigh? EasyParcel prices by weight, so it needs a number."; paint(); return; }
     draft.parcelSaid = "Asking EasyParcel…";
     draft.parcelRates = null;
     draft.parcelRate = null;
-    refresh();
+    paint();
     const out = await parcelRates(state, payload());
-    if (!out.ok) { draft.parcelSaid = out.reason; refresh(); return; }
+    if (!out.ok) { draft.parcelSaid = out.reason; paint(); return; }
     draft.parcelRates = out.rates;
     draft.parcelSaid = "";
-    refresh();
+    paint();
   };
 
   const checkBalance = async () => {
     draft.parcelSaid = "Checking your balance…";
-    refresh();
+    paint();
     const out = await parcelBalance(state);
     draft.parcelSaid = out.ok ? "" : out.reason;
     draft.parcelBalance = out.ok ? out.balanceRM : null;
-    refresh();
+    paint();
   };
 
   const book = (rate) => {
@@ -2985,7 +3027,7 @@ function parcelApiBlock({ state, group, draft, refresh }) {
     const on = picked && picked.courierName === r.courierName && picked.priceRM === r.priceRM;
     return el("button", {
       class: `point-opt${on ? " active" : ""}`, type: "button",
-      onclick: () => { draft.parcelRate = r; refresh(); },
+      onclick: () => { draft.parcelRate = r; paint(); },
     },
       el("span", { class: "point-name" }, `${r.courierName} — RM${r.priceRM.toFixed(2)}`),
       el("span", { class: "point-sub" },
@@ -2996,7 +3038,7 @@ function parcelApiBlock({ state, group, draft, refresh }) {
   const { missing } = parties();
   const balance = Number.isFinite(Number(draft.parcelBalance)) ? Number(draft.parcelBalance) : null;
 
-  return el("div", { class: "field" },
+    return [
     el("label", {}, "EasyParcel"),
     el("p", { class: "hint" },
       "Ask every carrier they use what this parcel costs. Booking pays from your EasyParcel credit — nothing here is required, and posting it by hand still works exactly as before."),
@@ -3013,7 +3055,11 @@ function parcelApiBlock({ state, group, draft, refresh }) {
     picked
       ? el("div", { class: "btn-row" }, button(`Book it — RM${Number(picked.priceRM).toFixed(2)}`, () => book(picked), "primary small"))
       : null,
-    status);
+    status];
+  }
+
+  paint();
+  return wrap;
 }
 
 // One order, one invoice (v293, numbered by the order's own code since v294).

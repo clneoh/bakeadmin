@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v307)
+# Jienluv2bake — change history (v54 → v308)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v308, THE EASYPARCEL BLOCK READS AS OFF, NOT AS BROKEN (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You looked at EasyParcel's top-up offer and found the thing that decides this: **only an
+account topped up by RM500 enjoys integration.** For a bakery that posts the occasional parcel that
+is the wrong money, so **you decided not to sign up** — and you were right. This version is the
+consequence: the EasyParcel block now says so plainly instead of sitting there looking broken.
+
+**What changed.** The block asks the server once, when it opens, whether EasyParcel is set up. If it
+is not, you now get one short paragraph rather than a set of controls that can only ever fail:
+
+  **EasyParcel** — Not set up yet — and nothing here is needed to post a parcel by hand. Record the
+  carrier above and type the consignment number, exactly as before.
+  EasyParcel is not set up yet — its key has not been saved on the server.
+
+**⚠️ AND IT OFFERS NO PRESS AT ALL IN THAT STATE.** No weight box, no "Check the price", no
+"Book it". A button whose only possible answer is the same sentence every time is the shape of a
+dead control, and this app treats a dead control as a bug — so when it is off, it is off.
+
+**The important half is the reassurance, not the apology:** nothing is missing. Posting a parcel by
+hand is how this app has always posted one — record the carrier, type the consignment number — and
+that is completely unchanged. **The API was only ever going to save you the retyping.**
+
+**⚠️ AND A REAL FAULT THIS FOUND, WHICH IS THE PART WORTH KEEPING.** The first attempt had the block
+call the pop-up's own repaint when its answer came back. **That repaint arrived at an unpredictable
+moment while she was working further down the same card — and stranded the door block's own pending
+look-up.** A test caught it (a pin the card had just found was thrown away). **Every other block in
+this app paints ITSELF and leaves the card alone** — `paintCourier`, `paintParcel`, `paintPoint` —
+and this block now does the same. One repaint of the whole card, on the booking, because that one
+changes the tracking box above it.
+
+**Your data is untouched, and there is nothing to run.** No SQL, no upload, no key, no account. No
+order, product, price or bake day is touched. The suite is **2,756 tests, all green**, and the real
+Edit card now runs **29 checks** — including five that can only be answered with the key absent,
+which is how it will be for you.
 
 **04 Oct 2026 — engine v307, THE EASYPARCEL SEAM (no database step in the app — but ONE
 one-time step for you, below).**
