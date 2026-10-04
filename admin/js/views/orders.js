@@ -1700,8 +1700,10 @@ function orderForm(state, dateId, root, selectDate) {
         address,
         addressSug.panel),
       doorSlot,
+      courierKind("parcel"),
       parcelSlot,
       trackingSlot,
+      courierKind("van"),
       charge.el,
       quote,
     ];
@@ -2149,10 +2151,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("p", { class: "hint" },
         "Your kitchen is the default. An order collecting at a Point goes on the Delivery run to that Point, with the fee you set there.")),
     el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
-    // ── one way: posted as a parcel ─────────────────────────────────────────────
-    // Drawn for a courier order, which is what a postal order IS in this app (v226). The
-    // consignment number belongs here and not with the van: it is the number a CARRIER gave her.
-    draft.fulfillment === "courier" ? courierKind("Post a parcel", "Nationwide, a few days") : null,
+    draft.fulfillment === "courier" && !jobOf(first) ? courierKind("parcel") : null,
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
       tracking,
@@ -2161,11 +2160,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // Drawn for a courier order as it always was, and also for a self-collect order that
     // still carries a charge — so a parked charge is never invisible to the only person
     // who can settle it (1 Oct 2026).
-    // ── the other way: sent by van ──────────────────────────────────────────────
-    // The charge and the price are ONE job — what sending a vehicle costs — so they sit under
-    // one heading. Drawn on the same condition the price section is, so the heading can never
-    // announce a block that is not there.
-    showCharge || jobOf(first) ? courierKind("Send a van", "Today, inside Penang") : null,
+    showCharge || jobOf(first) ? courierKind("van") : null,
     parkedCharge ? parkedChargeNote(state, first) : null,
     showCharge ? charge.el : null,
     // Same price section as the Note / tracking box carries, for the same reason that
@@ -2882,14 +2877,33 @@ function listWords(items) {
   return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
-// ★ THE TWO WAYS AN ORDER LEAVES, NAMED (v309). Her report: on one card she could see "Parcel
-// carrier", "EasyParcel", "Courier charge" and "Get a delivery price" with nothing saying which
-// belonged to which — and she read the two the wrong way round, which is the proof.
+// ★ THE TWO WAYS AN ORDER LEAVES, NAMED — AND NAMED IN ONE PLACE (v309, made app-wide in v310).
 //
-// ⚠️ THE NAME SAYS WHAT IT DOES, NEVER "KIND 1" OR "KIND 2". Those are this codebase's own words
+// Her first report: on one card she could see "Parcel carrier", "EasyParcel", "Courier charge" and
+// "Get a delivery price" with nothing saying which belonged to which — and she read the two the
+// wrong way round, which is the proof the card did not say. Her second report: the divider had to
+// be the SAME on every card, not only the one she happened to open.
+//
+// ⚠️ THE WORDS AND THE LOOK LIVE HERE; THE CARDS PLACE IT. That split is deliberate and was
+// learned the hard way: drawing the parcel heading inside `parcelSection` put it BELOW the
+// consignment number on the Edit card — the number is a field the card draws just above the block,
+// so the heading landed in the middle of its own group and orphaned the number. A heading belongs
+// above everything it covers, and only the card knows where its own fields are.
+//
+// So there are three call sites (the Edit card, the Note / tracking card and the ＋ New order
+// card) and ONE definition. What keeps them honest is the harness, which opens all three cards and
+// compares their headings — two headings on each is not the check; the SAME two is.
+//
+// ⚠️ AND THE NAME SAYS WHAT IT DOES, NEVER "KIND 1" OR "KIND 2". Those are this codebase's words
 // for the two kinds of courier and they mean nothing on her screen; what she needs to know is that
 // one of them is a van today and the other is a parcel over a few days.
-function courierKind(name, what) {
+const COURIER_KINDS = {
+  parcel: ["Post a parcel", "Nationwide, a few days"],
+  van: ["Send a van", "Today, inside Penang"],
+};
+
+function courierKind(which) {
+  const [name, what] = COURIER_KINDS[which] || ["", ""];
   return el("h3", { class: "courier-kind" },
     el("span", {}, name),
     el("span", { class: "kind-what" }, what));
@@ -3231,10 +3245,16 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       return el("div", {},
         doorSlot,
         el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
+        // ★ THE SAME TWO HEADINGS AS EVERY OTHER CARD, from ONE definition (v310). This card
+        // carries BOTH kinds too — a parcel carrier and a courier charge — so it gets the same
+        // divide. Her second report was exactly this: consistent over the app, not only on the
+        // card she happened to open.
+        courierOrder && !jobOf(first) ? courierKind("parcel") : null,
         el("div", { class: "field" },
           el("label", {}, "Courier tracking number (optional)"), tracking,
           el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
         parcelSection({ state, group, draft, refresh }),
+        showCharge || jobOf(first) ? courierKind("van") : null,
         parkedCharge ? parkedChargeNote(state, first) : null,
         showCharge ? charge.el : null,
         // The price, folded away until she asks for it (25 Sep 2026). It lives INSIDE

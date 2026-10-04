@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v309)
+# Jienluv2bake — change history (v54 → v310)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v310, THE SAME DIVIDE ON EVERY CARD (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Why.** Your words, right behind v309: __"the drawing of line between parcel and lalamove should be
+consistent over the app"__. You were only half-served — v309 put the two headings on the **Edit**
+card and nowhere else.
+
+**★ THREE CARDS CARRY BOTH KINDS, SO ALL THREE NOW SAY THE SAME TWO THINGS.** The **Edit** card, the
+**Note / tracking** card, and the **＋ New order** card each draw **Post a parcel** over the parcel
+fields and **Send a van** over the van fields — **from one definition**, so the words cannot drift
+apart. **Two headings on each is not the check; the same two is**, and that is exactly what the new
+test compares.
+
+**⚠️ AND THE WAY I GOT IT WRONG FIRST IS WORTH KNOWING, because it is the kind of thing that would
+have looked fine on paper.** I tried putting the heading __inside__ the parcel block, so that no card
+could ever forget it. **That put it BELOW the consignment number on the Edit card** — the number is
+a field the card itself draws just above that block — so the heading landed in the middle of its own
+group and left the number stranded above it. The test caught it. **The words can be shared; the
+position cannot**, because only the card knows where its own fields are.
+
+**Your data is untouched, and there is nothing to run.** No SQL, no upload, no key. No order,
+product, price or bake day is touched, and no field moved on any card. The suite is **2,756 tests,
+all green**, and the real Orders screen now runs **40 checks** — including that each heading sits
+above its own fields in document order, that neither one says "kind 1", and that **all three cards
+show the same two.**
 
 **04 Oct 2026 — engine v309, THE TWO WAYS AN ORDER LEAVES ARE SAID APART (no database step,
 nothing to upload — pushing this one is the whole of it).**
