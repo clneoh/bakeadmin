@@ -36,7 +36,7 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 // pin's lookup uses, so the Google key stays on the server and never touches this page.
 import { suggestAddresses } from "../couriers/api.js";
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
-import { assignInvoiceNo, invoiceCurrency, invoiceNoText, invoiceNumberOf, invoiceSheet } from "../invoice.js";
+import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
 // The one spelling a promo code is recognised by (v270). An order's own code is
 // read back through it, so a stray lowercase in some older record cannot make two
 // spellings of one code look like two codes on the row.
@@ -2852,30 +2852,25 @@ function parcelSection({ state, group, draft, refresh, consignmentWhere = "above
     advisory);
 }
 
-// One order, one invoice (v293). Her words: "And customer need an invoice", and to what
-// it should carry: __"One order, one invoice"__, __"Yes — name, address, a number"__.
+// One order, one invoice (v293, numbered by the order's own code since v294).
 //
 // It is a `journalSheet`, so Print, Share and the PDF into WhatsApp are the same presses
 // every other book in the app already has — and the money is `customerTotal`, the ONE
 // order-money function the confirmation message, the tracking card and the row itself
 // read, so an invoice cannot state a sum those three contradict.
 //
-// THE NUMBER IS GIVEN HERE AND IS NEVER GIVEN AGAIN. `assignInvoiceNo` stamps it on the
-// order the first time this card is opened and returns the number it already had on every
-// opening after that, so a reprint is the same invoice rather than a new one. It is stored
-// ON THE ORDER because an order is its own synced record: a counter in settings would be
-// one record under last-write-wins, and the phone that saved last would silently discard
-// the other phone's count. See js/invoice.js for the whole of that reasoning, including
-// the one limit it does not hide.
+// ★ THE NUMBER IS THE ORDER'S OWN CODE — her words: __"for the invoice, i think we can use
+// the order code as invoice number"__. That is why this function WRITES NOTHING: the v293
+// draft stamped a running number onto the order on first use, and had to carry the caveat
+// that two phones issuing in the same instant could take the same one. There is nothing to
+// assign now, so pressing Invoice touches no record at all, and an invoice for an old order
+// reads the same number it always did because the number was never stored. See js/invoice.js
+// for the whole of that reasoning, and for the trade-off it states rather than hides.
 function openInvoice(state, group) {
   const first = (group && group.orders && group.orders[0]) || null;
   // A press that cannot do its job says so rather than opening an empty page. An order
   // with no items is not an order, and there is nothing on it to invoice.
   if (!first) return toast("This order has nothing on it to invoice");
-
-  const had = invoiceNumberOf(group);
-  const no = had || assignInvoiceNo(state, group);
-  if (!had) { save(state); maybeSync(state); }
 
   const cur = invoiceCurrency(state);
   const sheet = invoiceSheet(state, group, {
@@ -2883,12 +2878,13 @@ function openInvoice(state, group) {
     from: String((state.settings && state.settings.mailingAddress) || ""),
   });
 
-  showPopup(`Invoice ${invoiceNoText(no)}`, (refresh, close) => el("div", {},
+  showPopup(`Invoice #${invoiceNo(group)}`, (refresh, close) => el("div", {},
     // `journalBodyEl` deliberately does not draw a sheet's subtitle — every other journal
-    // leans on the section wording above its card — so the order this invoice belongs to is
-    // said here, on the screen, while the sheet keeps it for the paper and the PDF.
+    // leans on the section wording above its card — so the person this invoice is for, and
+    // the day the order was placed, are said here on the screen, while the sheet keeps the
+    // date for the paper and the PDF.
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      `Order #${orderCode(first)} · ${customerRowName(first) || "no name"}`),
+      `${String(first.customerName || "").trim() || "No name"} · placed ${longDate(first.orderDate || first.createdAt)}`),
     journalBodyEl(sheet, cur),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }

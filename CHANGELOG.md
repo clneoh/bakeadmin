@@ -1,8 +1,53 @@
-# Jienluv2bake — change history (v54 → v293)
+# Jienluv2bake — change history (v54 → v294)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v294, THE INVOICE NUMBER IS THE ORDER'S OWN CODE (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your words, the day v293 shipped: __"for the invoice, i think we can use the
+order code as invoice number"__. You were right, and it turns out to be **simpler and
+safer** than the running number v293 gave you.
+
+**What an invoice is numbered with now.** The order's own code — **Invoice #A3F9C2** —
+which is the same six characters already on that order's row, in the confirmation
+message, in the payment reminder and on the customer's tracking card. **One order, one
+reference, everywhere.**
+
+**Three things that got better, and they are the reason this is a real improvement and
+not just a preference.**
+
+- **No two phones can ever take the same number.** The order code is unique by
+  construction. The running number v293 used had one case where that was not guaranteed,
+  and it had to be explained and accepted.
+- **Pressing Invoice now writes nothing at all.** v293 stamped a number onto the order the
+  first time you opened its invoice. There is no number to stamp now, so the press only
+  reads — nothing on the order moves, and there is nothing to keep in step between your
+  two phones.
+- **There is no number for you to look up.** A reprint is the same invoice because the
+  number was never stored in the first place.
+
+**The trade-off, said plainly rather than discovered later.** The code is **not
+sequential**: nothing on an invoice says how many you have issued, or which of two
+invoices came first. And two different orders could in principle draw the same six
+characters — that is the same risk the order tag has carried everywhere since the shop
+was built, and it is unchanged by this version.
+
+**Please read the v293 entry below with this in mind.** Everything in it still holds
+except the number: the letterhead, the items at the price they were sold at, the courier
+charge, the code taken off, the Total, Print and Share. Where that entry describes a
+running number that goes up one each time, **this entry replaces it.**
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no
+key. This version **removes** the two fields v293 could write onto an order, and writes
+neither of them — an order you invoice is not touched at all, and no order, product,
+ingredient or price is rewritten. The suite is 2,625 tests, all green. Proved live on the
+real Orders screen at a phone width: 21 checks, including that the invoice number is the
+order's own code, that making an invoice writes nothing onto the order, that opening it
+twice is the same invoice, and that the paper carries your letterhead with the bakery's
+name said once.
 
 **04 Oct 2026 — engine v293, AN INVOICE FOR A CUSTOMER (no database step, nothing
 to upload — pushing this one is the whole of it).**
@@ -22,9 +67,14 @@ you chose __"One order, one invoice"__ and __"Yes — name, address, a number"__
 - **One order, one invoice.** The number is given the first time you open it and is
   never given again: open the same order next year and it is the same invoice, with
   the same number and the same date.
+  **__(Superseded by v294, 04 Oct 2026: the number is now the order's own code —
+  Invoice #A3F9C2 — so there is no number to give, nothing is written onto the order,
+  and the two-phone caveat below no longer applies at all. Read the v294 entry at the
+  top of this page.)__**
 - **The order's own code prints beside the number** — __Invoice 0007 · Order
   #A3F9C2__ — which is what a real invoice does, and it means two invoices could
   never be confused for one another.
+  **__(v294: the code is no longer beside the number — it IS the number.)__**
 
 **What the paper says.** Your name and address, then **Invoice 0007 · Order #A3F9C2 ·
 the date the order was placed**, then one row per item as **4 × Focaccia** with the
@@ -46,6 +96,9 @@ instant could take the same number.** Nothing is lost when that happens — both
 invoices exist, each on its own order — and the order code tells them apart. With one
 baker and two phones it is vanishingly unlikely, and the alternative would be an
 invoice you cannot write without the internet, which is worse for a bakery.
+**__(Superseded by v294, 04 Oct 2026: the order's own code IS the number now, so this
+whole limit is gone — there is no counter to share, and pressing Invoice writes nothing
+at all. Read the v294 entry at the top of this page.)__**
 
 **What is deliberately NOT on it.** Your customer's per-item note is not printed — it
 is a production instruction, not a line item. Say the word if you would rather it were,
