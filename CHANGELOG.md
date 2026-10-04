@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v304)
+# Jienluv2bake — change history (v54 → v305)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v305, THE HOURS ON THE RUN ROW (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Why.** Your ask, and it is the one number the Delivery run was missing. The collection hours you
+set on a Point decide **when the bread has to BE THERE and handed over** — so a trip booked for the
+wrong part of the day should be visible on the screen where you spend the money on a van, not
+discovered a day later.
+
+**What you see.** A Point's row on the run now reads:
+
+  **Farlim, Air Itam** — 2 orders collecting here · Lebuhraya Thean Teik · **collect 2-6 pm** ·
+  Focaccia x2 · Focaccia x1 · Focaccia x3
+
+**Where, then when, then what** — the address, then the hours, then the bread.
+
+**And it says nothing when you have not set any.** The card already tells you a Point has no
+collection window; repeating it on every run row would be noise on the screen you read while
+working. A customer's own doorstep never claims hours either — a doorstep is not a place with
+opening times.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. A
+Point with no hours behaves exactly as it did yesterday, a doorstep's row is unchanged, and the
+load line is untouched. The suite is **2,712 tests, all green**, including three new ones, and
+every one was watched going red with the fault put back. **One of them taught something worth
+keeping:** the check that a doorstep never shows hours stayed GREEN under the first fault I tried
+— because reading a null Point already gives nothing — so the fault was not the one I had chosen.
+Re-pointed at the mistake that would really do it, *taking the hours from whatever Point happens
+to be first rather than from this row's*, it turns red by its own name.
 
 **04 Oct 2026 — engine v304, THE COLLECTION WINDOW (no database step, nothing to upload —
 pushing this one is the whole of it).**

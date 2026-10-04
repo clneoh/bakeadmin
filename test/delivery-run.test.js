@@ -223,15 +223,15 @@ function world() {
       { id: "o1", groupId: "g1", deliveryDateId: "d1", fulfillment: "courier",
         status: "paid", createdAt: "2026-09-20T02:00:00.000Z",
         address: "1 Jalan A", whatsapp: "+60 12-111 1111", customerName: "Ain",
-        productId: "p1", qty: 2 },
+        productId: "p1", productName: "Focaccia", qty: 2 },
       { id: "o2", groupId: "g1", deliveryDateId: "d1", fulfillment: "courier",
         status: "paid", createdAt: "2026-09-20T02:00:00.000Z",
         address: "1 Jalan A", whatsapp: "+60 12-111 1111", customerName: "Ain",
-        productId: "p1", qty: 1 },
+        productId: "p1", productName: "Focaccia", qty: 1 },
       { id: "o3", groupId: "g2", deliveryDateId: "d1", fulfillment: "courier",
         status: "paid", createdAt: "2026-09-20T03:00:00.000Z",
         address: "9 Jalan B", whatsapp: "+60 12-222 2222", customerName: "Bala",
-        productId: "p1", qty: 3 },
+        productId: "p1", productName: "Focaccia", qty: 3 },
     ],
     ingredients: [], occasions: [], expenses: [],
   };
@@ -264,7 +264,7 @@ function withThirdCustomer(st) {
   st.orders.push({ id: "o4", groupId: "g3", deliveryDateId: "d1", fulfillment: "courier",
     status: "paid", createdAt: "2026-09-20T04:00:00.000Z",
     address: "5 Jalan C", whatsapp: "+60 12-333 3333", customerName: "Chandra",
-    productId: "p1", qty: 1 });
+    productId: "p1", productName: "Focaccia", qty: 1 });
   st.customers.push({ id: "cus_3", key: keyOf(st.orders[3]), name: "Chandra",
     whatsapp: "+60 12-333 3333", place: { lat: 5.44, lng: 100.35, label: "Chandra's door" } });
   return st;
@@ -1782,4 +1782,51 @@ test("the day's own label counts STOPS, not the orders behind them (v302)", () =
   const t = String(root.textContent).replace(/\s+/g, " ");
   assert.match(t, /1 stop\b/, `the day is one stop — read "${t.slice(0, 200)}"`);
   assert.equal(/courier order/.test(t), false, "and never calls a collection a courier order");
+});
+
+// ── v305: WHEN THEY CAN COLLECT, on the row ─────────────────────────────────
+// Her ask, and it is the one number this screen was missing. The hours she sets on the Point
+// (v304) decide when the bread has to BE THERE and handed over, so a trip booked for the wrong
+// part of the day is visible here rather than a day later — on the screen where she is about to
+// spend money on a van.
+
+test("a Point's row says when they can collect (v305)", () => {
+  const st = worldWithPoint(["g1", "g2"]);
+  st.points[0].collectWindow = "14:00-18:00";
+  stubCourier();
+  const { root } = openRun(st);
+
+  const row = all(root).find((n) => String(n.className).includes("run-row-point"));
+  assert.ok(/collect 2-6 pm/.test(row.textContent),
+    `the hours are on the row — read "${row.textContent}"`);
+  // AFTER the address and BEFORE the bread: where, then when, then what.
+  const said = String(row.textContent).replace(/\s+/g, " ");
+  assert.ok(said.indexOf("Lebuhraya Thean Teik") < said.indexOf("collect 2-6 pm"));
+  assert.ok(said.indexOf("collect 2-6 pm") < said.indexOf("Focaccia"),
+    "when sits between where and what");
+});
+
+test("a Point with no hours set says nothing about the time (v305)", () => {
+  // The card already says she has not set any; repeating it on every run row would be noise on
+  // the screen she reads while working.
+  const st = worldWithPoint(["g1", "g2"]);
+  assert.equal(String(st.points[0].collectWindow || ""), "", "the fixture has none");
+  stubCourier();
+  const { root } = openRun(st);
+  const row = all(root).find((n) => String(n.className).includes("run-row-point"));
+  assert.ok(!/collect \d/.test(row.textContent), `no time claimed — read "${row.textContent}"`);
+});
+
+test("a customer's own doorstep never claims collection hours (v305)", () => {
+  // Only a Point is a place with hours. A doorstep's row is unchanged, and the Point's hours
+  // must not leak onto it because the screen has learned about windows.
+  const st = worldWithPoint(["g1"]);
+  st.points[0].collectWindow = "14:00-18:00";
+  stubCourier();
+  const { root } = openRun(st);
+  const rows = all(root).filter((n) => String(n.className).includes("run-row")
+    && !String(n.className).includes("run-row-point"));
+  assert.equal(rows.length, 1, "Bala's own door is the other row");
+  assert.ok(!/collect \d/.test(rows[0].textContent),
+    `his doorstep has no hours — read "${rows[0].textContent}"`);
 });

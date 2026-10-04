@@ -62,7 +62,7 @@ import {
   fmtPlace, houseNotIn, pickupPlace, roadNotHouse, setDropPlace,
 } from "../courier_place.js";
 import { openPlacePicker } from "../place_map.js";
-import { pointById, pointPlace } from "../points.js";
+import { pointById, pointPlace, pointWindowText } from "../points.js";
 import { openPointPinPicker } from "./points.js";
 import { courierPayQuestions } from "./orders.js";
 // A parcel recorded on the order (v226) is never swept into a van run — see runDays.
@@ -397,12 +397,18 @@ export function renderDeliveryRun(root, state, params) {
       const carried = isPoint
         ? `${r.groups.length} order${r.groups.length === 1 ? "" : "s"} collecting here`
         : "";
+      // ★ WHEN THEY CAN COLLECT, on the row (v305). Her ask, and it is the one number this screen
+      // was missing: the hours she set on the Point (v304) decide when the bread has to be THERE
+      // and handed over, so a trip booked for the wrong part of the day is visible here rather
+      // than a day later. Silent when she has not set any — the card already says so, and a row
+      // that repeats "no hours" on every run is noise on the screen she reads while working.
+      const hours = isPoint ? pointWindowText(point) : "";
       const row = el("div", { class: `run-row${isPoint ? " run-row-point" : ""}` },
         el("label", { class: "run-who" },
           tick,
           el("span", { class: "run-words" },
             el("span", { class: "run-name" }, isPoint ? rowName(state, r) : nameOf(first)),
-            el("span", { class: "run-sub" }, [carried, where, what].filter(Boolean).join(" · ")))),
+            el("span", { class: "run-sub" }, [carried, where, hours ? `collect ${hours}` : "", what].filter(Boolean).join(" · ")))),
         // A Point is pinned on its own card, where the pin belongs to the PLACE — not from
         // here, where the press would look like it pinned this run's version of it.
         isPoint
