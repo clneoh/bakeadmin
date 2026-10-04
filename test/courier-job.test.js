@@ -29,7 +29,7 @@ const {
   stopsUnplaced, tripProblem, fmtDistanceKm,
   orderDay, fmtQuote, fmtQuoteLeft, quoteExpired,
   isLink, trackingLine, jobOf, liveJobOf, liveJobProblem, fmtStamp, fmtAgo,
-  freeCancelOf, freeCancelLine,
+  freeCancelOf, freeCancelLine, needsVan, stopKeyOf,
 } = await import("../admin/js/courier_job.js");
 const { setPickupPlace, setDropPlace } = await import("../admin/js/courier_place.js");
 
@@ -591,4 +591,75 @@ test("an immediate trip is given the rule and not a made-up clock", () => {
 test("nothing readable means no line at all, rather than an empty sentence on the card", () => {
   assert.equal(freeCancelLine({ jobId: "J1", scheduleAt: "whenever" }, { label: "Lalamove", scheduledMs: 1 }), "");
   assert.equal(freeCancelLine(null, { label: "Lalamove", scheduledMs: 1 }), "");
+});
+
+// ── v302: WHO IS ON THE VAN ─────────────────────────────────────────────────
+//
+// Her report, and it was mine: "the point added still not able to appear on store" was the
+// shop half, and this is the other half found while fixing it. A customer who chose to
+// collect at Farlim never reached the run AT ALL. Choosing a Point in the shop leaves the
+// order's `fulfillment` as "collect", and the run screen asked `fulfillment === "courier"` —
+// so every real Point order was dropped before it could become a stop, and the screen said
+// "Nothing to run yet" over a customer waiting for their bread.
+//
+// These two functions are the rule, and they live here so the run screen and the Delivery
+// dates screen's "Run (N)" badge cannot read it two ways again.
+
+const POINT = {
+  id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik",
+  receiver: "Aunty Lim", phone: "60123456789", feeRM: 0.5, paused: false,
+  createdAt: "2026-10-12T00:00:00.000Z", place: { lat: 5.4, lng: 100.28, label: "Farlim" },
+};
+const withPoints = (points, extra = {}) => emptyState({ points, ...extra });
+
+test("an order being COLLECTED at a Point still needs a van — the bread has to get there", () => {
+  const st = withPoints([POINT]);
+  assert.equal(needsVan(st, { id: "o1", fulfillment: "collect", pointId: "pt_farlim" }), true);
+});
+
+test("an order collected from the KITCHEN needs no van at all", () => {
+  // The other half, and the half a careless fix breaks: she hands these over herself, and
+  // sweeping them onto a run would price a vehicle for bread that never leaves the counter.
+  assert.equal(needsVan(emptyState(), { id: "o1", fulfillment: "collect" }), false);
+  assert.equal(needsVan(emptyState(), { id: "o1", fulfillment: "collect", pointId: "" }), false);
+  // And a pointId naming a Point she does not have is the kitchen too — the same fallback the
+  // shop applies, and the same one stopOf makes rather than sending a driver nowhere.
+  assert.equal(needsVan(emptyState(), { id: "o1", fulfillment: "collect", pointId: "pt_gone" }), false);
+});
+
+test("a PAUSED Point still sends the van, and a DELETED one does not", () => {
+  // Pausing decides what is OFFERED, never what an order already promised — the customer was
+  // already told to go to Farlim and their bread still has to get there. A deleted Point has
+  // no pin to give, so that order is the kitchen's again.
+  const paused = withPoints([{ ...POINT, paused: true }]);
+  assert.equal(needsVan(paused, { id: "o1", fulfillment: "collect", pointId: "pt_farlim" }), true);
+  assert.equal(needsVan(withPoints([]), { id: "o1", fulfillment: "collect", pointId: "pt_farlim" }), false);
+});
+
+test("a courier order needs a van whether or not it names a Point", () => {
+  const st = withPoints([POINT]);
+  assert.equal(needsVan(st, { id: "o1", fulfillment: "courier" }), true);
+  assert.equal(needsVan(st, { id: "o1", fulfillment: "courier", pointId: "pt_farlim" }), true);
+  assert.equal(needsVan(st, null), false);
+});
+
+test("every customer at one Point shares ONE stop key, so the count cannot drift", () => {
+  // The key is what the run's rows, its ticked set and the "Run (N)" badge all name a stop by.
+  // Two customers at Farlim are one stop; two customers at their own doors are two.
+  const st = withPoints([POINT]);
+  const ain = { id: "o1", groupId: "g1", fulfillment: "collect", pointId: "pt_farlim" };
+  const bala = { id: "o2", groupId: "g2", fulfillment: "collect", pointId: "pt_farlim" };
+  const chandra = { id: "o3", groupId: "g3", fulfillment: "courier" };
+  assert.equal(stopKeyOf(st, { orders: [ain] }), "point:pt_farlim");
+  assert.equal(stopKeyOf(st, { orders: [bala] }), "point:pt_farlim");
+  assert.equal(stopKeyOf(st, { orders: [ain] }), stopKeyOf(st, { orders: [bala] }),
+    "one Point, one stop, however many customers collect there");
+  assert.notEqual(stopKeyOf(st, { orders: [chandra] }), "point:pt_farlim",
+    "a doorstep is its own stop");
+  assert.notEqual(stopKeyOf(st, { orders: [chandra] }), stopKeyOf(st, { orders: [ain] }));
+});
+
+test("a stop key is safe on an empty or malformed group", () => {
+  assert.equal(stopKeyOf(emptyState(), null), "group:");
+  assert.equal(stopKeyOf(emptyState(), { orders: [] }), "group:");
 });

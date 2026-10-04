@@ -239,6 +239,40 @@ export function orderPointName(state, order) {
   return live ? live.name : "";
 }
 
+// The choices on a "Collect from" picker: the KITCHEN first — which is not a Point and carries
+// the EMPTY id — then her open Points, in her order. The customer's own shop offers the same
+// list in the same order (see store/app.js), so the two screens cannot offer different places.
+//
+// The kitchen's own words are the caller's, because the shop says "Our kitchen" to a customer
+// and this side says it to her.
+export function pointChoices(state, kitchenLabel = "My kitchen") {
+  return [{ id: "", name: kitchenLabel }]
+    .concat(activePoints(state).map((p) => ({ id: p.id, name: p.name })));
+}
+
+// ★ WHERE AN ORDER COLLECTS FROM, and the one place that rule is written (v303).
+//
+// The Point's NAME is FROZEN onto the order the moment the order is given one, so a Point she
+// later renames or deletes leaves that order still saying where it went — the same rule that
+// keeps a sold price and an old product's name on an order, and the same one v299 wrote for the
+// customer's own choice. `orderPointName` reads the frozen name first.
+//
+// ⚠️ CHOOSING THE KITCHEN CLEARS BOTH FIELDS rather than storing an empty id. An order carrying
+// `pointId: ""` would be an order pointing at a Point that exists and has no name, and every
+// reader would have to know to treat that as nothing. The absence of a Point IS the kitchen.
+export function setOrderPoint(state, order, pointId) {
+  if (!order) return "";
+  const point = pointById(state, pointId);
+  if (point) {
+    order.pointId = point.id;
+    order.pointName = point.name;
+    return point.name;
+  }
+  delete order.pointId;
+  delete order.pointName;
+  return "";
+}
+
 // How an order reaches the customer, in ONE wording (v299). The confirmation and every later
 // message are built by two different builders, and a customer reading "Self collect" in one and
 // "Self collect at Farlim, Air Itam" in the next would be right to wonder which is true — so the

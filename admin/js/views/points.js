@@ -15,6 +15,7 @@
 
 import { el, button, emptyState, confirmDialog, showPopup, toast } from "../ui.js";
 import { save } from "../state.js";
+import { addressSuggester } from "../address_suggest.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
 import {
@@ -63,8 +64,17 @@ function renderAll(root, state) {
 function buildPointEditor(state, point) {
   const name = el("input", { class: "input", value: point?.name || "",
     placeholder: "e.g. Farlim, Air Itam" });
+  // ★ THE ADDRESS BOX ASKS GOOGLE AS SHE TYPES, exactly as the order's delivery address box
+  // does (v228, made shared in v303). Her question was __"there is no address auto complete for
+  // collection point?"__ and it was a fair one: this is the box a DRIVER is sent to and the box
+  // the pin is looked up from, so a postcode typed correctly matters here more than anywhere.
+  //
+  // The same helper as the order's box and the same promise: nothing here can block a save —
+  // a failure shows nothing at all, and the box keeps whatever she typed.
+  const addressSug = addressSuggester(state, (text) => { address.value = text; });
   const address = el("textarea", { class: "input", rows: 3, value: point?.address || "",
-    placeholder: "Where it is, for the driver — a street, a shop name, a landmark" });
+    placeholder: "Where it is, for the driver — a street, a shop name, a landmark",
+    oninput: function () { addressSug.typed(this.value); } });
   const receiver = el("input", { class: "input", value: point?.receiver || "",
     placeholder: "e.g. Aunty Lim" });
   const phone = el("input", { class: "input", type: "tel", value: point?.phone || "",
@@ -83,7 +93,7 @@ function buildPointEditor(state, point) {
     };
     return { draft, error: pointProblem(draft, pointsOf(state)) };
   };
-  return { name, address, receiver, phone, fee, collect };
+  return { name, address, addressSug, receiver, phone, fee, collect };
 }
 
 function newPointCard(state, root) {
@@ -91,7 +101,7 @@ function newPointCard(state, root) {
   return el("div", { class: "card" },
     el("h3", { style: "margin:0 0 10px" }, "New Self collection Point"),
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
-    el("div", { class: "field" }, el("label", {}, "Address"), ed.address),
+    el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver,
       el("p", { class: "hint" },
         "The person who hands the bags over when the driver arrives. A courier stop hands to a person, not to a doorstep — so without a name and a number here, the driver has nobody to look for.")),
@@ -113,7 +123,7 @@ function openEditPointPopup(state, point, root) {
   const ed = buildPointEditor(state, point);
   showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
-    el("div", { class: "field" }, el("label", {}, "Address"), ed.address),
+    el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
     el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee),

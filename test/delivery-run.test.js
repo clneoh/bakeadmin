@@ -700,7 +700,20 @@ function worldWithPoint(groupsAtPoint) {
     createdAt: "2026-10-12T00:00:00.000Z",
     place: { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" },
   }];
-  for (const o of st.orders) if (groupsAtPoint.includes(o.groupId)) o.pointId = "pt_farlim";
+  for (const o of st.orders) {
+    if (!groupsAtPoint.includes(o.groupId)) continue;
+    // ⚠️ A REAL POINT ORDER IS `fulfillment: "collect"`, NOT `"courier"`. Choosing a Self
+    // collection Point in the shop never moves the Self collect / Courier choice — only
+    // `pointId` and the frozen name ride along on the order.
+    //
+    // THIS FIXTURE USED TO LEAVE THEM AS COURIER, which is a pairing the shop has never
+    // produced, and that is why it hid a real fault for a whole version: the run screen's own
+    // day filter asked `fulfillment === "courier"`, so every real Point order was dropped
+    // before the row logic ever saw one and the screen said "Nothing to run yet" over a
+    // customer waiting to collect at Farlim. A fixture that cannot happen is not a test.
+    o.fulfillment = "collect";
+    o.pointId = "pt_farlim";
+  }
   return st;
 }
 
@@ -1723,4 +1736,50 @@ test("the booked customer is still priced and loaded with the rest of the day (v
   assert.ok(read.textContent.startsWith("1 stop"), `one door on this run — read "${read.textContent}"`);
   assert.ok(read.textContent.includes("3 items"), "and the focaccia that go to that one door");
   assert.doesNotMatch(read.textContent, /6 items/, "the booked customer's order is not on the van");
+});
+
+// ── v302: A REAL POINT ORDER REACHES THE RUN ────────────────────────────────
+//
+// The tests above all ride `worldWithPoint`, and until v302 that fixture left the Point's
+// orders as `fulfillment: "courier"` — which the SHOP HAS NEVER PRODUCED. Choosing a Point
+// leaves the order "collect" and only adds pointId. So the run screen's day filter, which
+// asked `fulfillment === "courier"`, dropped every real Point order before the rows were
+// built, and the whole of v301's row work was unreachable. The fixture is now honest, and
+// these three tests say what the screen has to do about it.
+
+test("an order COLLECTING at a Point is on the run, not 'nothing to run yet' (v302)", () => {
+  // The exact report, in miniature: a customer chose to collect at Farlim, nobody is having
+  // anything delivered, and the screen must still offer the trip — the bread has to get there.
+  const st = worldWithPoint(["g1", "g2"]);
+  assert.equal(st.orders.every((o) => o.fulfillment === "collect"), true,
+    "the fixture is modelling what the shop really writes");
+  stubCourier();
+  const { root } = openRun(st);
+  assert.equal(/Nothing to run yet/.test(String(root.textContent)), false,
+    "a day of collections at a Point is still a day with something to run");
+  const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
+  assert.equal(ticks.length, 1, "one stop for the Point");
+});
+
+test("a collection from the KITCHEN is still not on the run (v302)", () => {
+  // The half a careless fix breaks. She hands kitchen collections over herself, so sweeping
+  // them onto a van would price a vehicle for bread that never leaves the counter.
+  const st = worldWithPoint(["g1", "g2"]);
+  for (const o of st.orders) { delete o.pointId; }   // collect, but at the kitchen
+  stubCourier();
+  const { root } = openRun(st);
+  assert.match(String(root.textContent), /Nothing to run yet/,
+    "a collection at the kitchen is not a trip");
+});
+
+test("the day's own label counts STOPS, not the orders behind them (v302)", () => {
+  // It read "2 courier orders" over a day carrying nothing but collections at one Point.
+  // A label describing the day she is about to open has to describe it with the number she
+  // is about to see.
+  const st = worldWithPoint(["g1", "g2"]);
+  stubCourier();
+  const { root } = openRun(st);
+  const t = String(root.textContent).replace(/\s+/g, " ");
+  assert.match(t, /1 stop\b/, `the day is one stop — read "${t.slice(0, 200)}"`);
+  assert.equal(/courier order/.test(t), false, "and never calls a collection a courier order");
 });

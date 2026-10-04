@@ -34,10 +34,9 @@ import { courierQuoteSection } from "./courier_quote.js";
 import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOrder } from "../profiles.js";
 // The half-typed address suggestions (v228). Reached through the same channel the
 // pin's lookup uses, so the Google key stays on the server and never touches this page.
-import { suggestAddresses } from "../couriers/api.js";
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
-import { orderPointName } from "../points.js";
+import { orderPointName, pointChoices, setOrderPoint } from "../points.js";
 // The one spelling a promo code is recognised by (v270). An order's own code is
 // read back through it, so a stray lowercase in some older record cannot make two
 // spellings of one code look like two codes on the row.
@@ -1358,94 +1357,7 @@ function suggestedAddress(row, input) {
   return String((row && row.lastAddress) || "").trim();
 }
 
-// ── the address box asks Google as she types (v228) ─────────────────────────
-//
-// v227 fills the delivery address from HER OWN history, which cannot help a customer
-// she has never served — and a NEW customer is precisely the case she wanted help
-// with ("if it is a new customer, i need help to key in the address"). This is the
-// other half: while she types, Google is asked what she might be typing, and she taps
-// a full address with its postcode instead of pecking the whole thing into a phone.
-//
-// NOTHING HERE CAN BLOCK ANYTHING, and that is the load-bearing property. The input's
-// own `oninput` still does `draft.address = this.value` synchronously and
-// unconditionally, exactly as it did before this version existed; this block only gets
-// told about the keystroke afterwards. A failure therefore shows nothing at all, a save
-// never waits on the network, and an order with no signal saves exactly as it always
-// has. Anything this file ever grows that gates a save on a suggestion would be a
-// regression against that, not a feature.
-//
-// A TAP REPLACES THE BOX — the OPPOSITE of v227's rule, deliberately. v227's
-// never-overwrite rule protects a delivery from being moved by a SIDE EFFECT (picking
-// a customer). Here the tap IS the instruction, so the box must become the address she
-// picked.
-const ADDRESS_MIN_CHARS = 4; // mirrors MIN_QUERY in supabase/functions/courier/suggest.ts
-const ADDRESS_WAIT_MS = 400; // the pause after her last keystroke before Google is asked
-
-// The one ask in flight, and it is at MODULE scope on purpose. Both forms are rebuilt
-// while she is typing — the Edit pop-up on a fulfillment change, the New-order card on a
-// sync pull — and each rebuild strands the previous suggester's closure. A closure can
-// still hold a live timer and a live request, and a rebuild is not a reason for either to
-// stop. So every build clears the pending timer and bumps this counter, and every answer
-// checks it before it speaks.
-//
-// IT HOLDS NO DOM, and it must not: `applyPopupEdits` copies draft fields onto the order
-// rows with Object.assign, so anything parked on `draft` would be written onto her orders
-// as a field of its own. A number and a timer id are not draft fields.
-const addrAsk = { gen: 0, timer: 0 };
-
-// Modal-private helper for both address boxes. Returns { panel, typed }.
-function addressSuggester(state, onPick) {
-  // The marker is how a test names THIS panel rather than the customer one above it:
-  // `.sugg-panel` is a shared style worn by three different lists, so it identifies a
-  // look, not a panel.
-  const panel = el("div", { class: "sugg-panel", "data-sugg": "address", hidden: true });
-  let asked = ""; // the one query slot: the last thing actually sent, never a map
-
-  // Supersede everything older the moment this form is built.
-  clearTimeout(addrAsk.timer);
-  addrAsk.timer = 0;
-  addrAsk.gen += 1;
-
-  // Close the list and retire anything in flight. The generation bump is what makes a
-  // late answer DROP its words rather than paint them under her thumb after she has
-  // already moved on — which is the whole reason this is not simply `panel.hidden`.
-  const hide = () => {
-    addrAsk.gen += 1;
-    clearTimeout(addrAsk.timer);
-    addrAsk.timer = 0;
-    panel.hidden = true;
-    panel.replaceChildren();
-  };
-
-  const ask = async (q) => {
-    const mine = ++addrAsk.gen;
-    asked = q; // recorded when SENT, so a repeat of the same words costs no second request
-    const out = await suggestAddresses(state, q);
-    // Superseded while it was in flight — she has typed on, tapped, or the form was
-    // rebuilt. Discard the answer; do not speak it.
-    if (mine !== addrAsk.gen) return;
-    if (!out.ok || !out.places.length) { hide(); return; }
-    panel.replaceChildren(...out.places.map((p) => el("button", {
-      class: "list-item sugg-row", type: "button",
-      onclick: () => { hide(); onPick(p.text); },
-    },
-      el("div", { class: "li-main" },
-        el("div", { class: "li-title" }, el("span", {}, p.text))))));
-    panel.hidden = false;
-  };
-
-  const typed = (text) => {
-    const q = String(text || "").trim();
-    if (q.length < ADDRESS_MIN_CHARS) { hide(); return; }
-    // The same words she paused on last time are already answered. Keep what is
-    // showing rather than spend a request to be told the same thing.
-    if (q === asked) return;
-    hide(); // whatever is on screen belongs to the previous words, so it goes now
-    addrAsk.timer = setTimeout(() => { ask(q); }, ADDRESS_WAIT_MS);
-  };
-
-  return { panel, typed };
-}
+import { addressSuggester } from "../address_suggest.js";
 
 // The manual "＋ Add order" card, always at the top of a delivery date. Takes
 // several items at once — they become ONE customer order (a shared group), the
@@ -1469,6 +1381,9 @@ function orderForm(state, dateId, root, selectDate) {
     customerName: "", whatsapp: "",
     fulfillment: "collect", address: "", note: "", orderDate: todayISO(),
     trackingNo: "", carrierId: "", handedAt: "",
+    // Which Self collection Point this order collects from, or "" for her own kitchen (v303).
+    // A collection is the only thing that can have one, so a switch to Courier clears it.
+    pointId: "",
     items: [{ productId: "", qty: 1, price: null }],
   });
   // The day is the SCREEN's, not the draft's: picking one switches the screen, because
@@ -1503,7 +1418,23 @@ function orderForm(state, dateId, root, selectDate) {
     oninput: function () { draft.whatsapp = this.value; } });
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
-    draft.fulfillment, function () { draft.fulfillment = this.value; paintCourier(); });
+    draft.fulfillment, function () {
+      draft.fulfillment = this.value;
+      // A courier order is not collected anywhere, so switching to Courier drops the Point
+      // rather than leaving one hidden behind a choice she has moved away from (v303).
+      if (this.value === "courier") draft.pointId = "";
+      paintCourier();
+      paintPoint();
+    });
+  // ★ WHERE IT COLLECTS FROM (v303). Her own ＋ New order card is how she records an order
+  // taken over the phone or in a chat, and before this there was NO way to say "this one is
+  // collecting at Farlim" — so a hand-taken order could never be a Point order at all: not
+  // on the run, not in the Point's fee, not named to the customer. The shop has offered the
+  // same list to customers since v299; this is the same list, in the same order, for the
+  // orders that never went through the shop.
+  const pointSel = select(
+    pointChoices(state).map((c) => ({ value: c.id, label: c.name })),
+    draft.pointId, function () { draft.pointId = this.value; });
   // The address box also offers what she might be typing, from Google (v228). A tap
   // writes BOTH the draft (what the other controls read) and the box (what she sees),
   // the same pair the customer suggestion writes.
@@ -1627,14 +1558,16 @@ function orderForm(state, dateId, root, selectDate) {
       shared.trackingNo = draft.trackingNo.trim();
       shared.parcel = { carrierId: draft.carrierId, handedAt: draft.handedAt };
     }
+    // A courier order carries no Point, whatever the picker still holds behind it.
+    const pointId = fulfillment === "courier" ? "" : draft.pointId;
     if (picked.length === 1) {
       // The line's own note rides with it (v236); `noteText` beside it is the
       // ORDER-level note, which is a different thing and stays exactly as it was.
       addNew(state, date, picked[0].productId, picked[0].qty, picked[0].price ?? null,
         customerName, phone, fulfillment, addressText, noteText,
-        lineNoteOf(picked[0].note), placed, shared, root);
+        lineNoteOf(picked[0].note), placed, shared, pointId, root);
     } else {
-      addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, shared, root);
+      addGroupNew(state, date, picked, customerName, phone, fulfillment, addressText, noteText, placed, shared, pointId, root);
     }
   };
 
@@ -1691,6 +1624,19 @@ function orderForm(state, dateId, root, selectDate) {
   // she has just typed — the same rule courier_pay_questions already follows for its own two
   // questions.
   const courierBox = el("div", {});
+  // The mirror of it for a collection (v303): the courier's half unfolds under the Fulfillment
+  // choice, and this does the same for the other choice. Hidden entirely when she has no Point
+  // open — a picker whose only entry is her own kitchen would be a control that does nothing,
+  // which this app treats as a bug.
+  const pointField = el("div", { class: "field", hidden: true },
+    el("label", {}, "Collect from"),
+    pointSel,
+    el("p", { class: "hint" },
+      "Your kitchen is the default. A Self collection Point is somewhere your kitchen is not — and an order collecting at one goes on the Delivery run to that Point, with the fee you set there."));
+  function paintPoint() {
+    pointField.hidden = draft.fulfillment === "courier" || pointChoices(state).length < 2;
+    pointSel.value = draft.pointId;
+  }
   function buildCourierBlock() {
     const parcelSlot = el("div", {});
     const trackingSlot = el("div", {});
@@ -1760,6 +1706,7 @@ function orderForm(state, dateId, root, selectDate) {
     courierBox.replaceChildren(...(draft.fulfillment === "courier" ? buildCourierBlock() : []));
   }
   paintCourier();
+  paintPoint();
 
   // Shut until its title is tapped: the card stands on every delivery day and is not what
   // the screen is for day to day. Inside, the DAY comes first but as a single line, then
@@ -1785,6 +1732,7 @@ function orderForm(state, dateId, root, selectDate) {
     // The courier's half, unfolding under the Fulfillment choice above it (v237) — the
     // address and the suggester's panel with it, which is why the grid no longer holds it.
     courierBox,
+    pointField,
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
     el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
@@ -1902,6 +1850,9 @@ function openEditPopup(state, group, dateId, root) {
     customerName: first.customerName || "",
     whatsapp: waNumber(first.whatsapp || ""),
     fulfillment: first.fulfillment || "collect",
+    // The Point this order collects from, read off its first row — "" is her own kitchen,
+    // which is what an order with no Point has always meant (v303).
+    pointId: first.pointId || "",
     address: first.address || "",
     note: first.note || "",
     trackingNo: first.trackingNo || "",
@@ -1950,7 +1901,17 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // the day calendar below already does.
   const fulfillmentSel = select(
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
-    draft.fulfillment, function () { draft.fulfillment = this.value; refresh(); });
+    draft.fulfillment, function () {
+      draft.fulfillment = this.value;
+      if (this.value === "courier") draft.pointId = "";   // see the New order card (v303)
+      refresh();
+    });
+  // ★ WHERE IT COLLECTS FROM (v303), the same list the ＋ New order card offers and the same
+  // one the shop shows a customer. An order she took over the phone could not be given a Point
+  // at all before this, so it could never be collected anywhere but her own kitchen.
+  const pointSel = select(
+    pointChoices(state).map((c) => ({ value: c.id, label: c.name })),
+    draft.pointId, function () { draft.pointId = this.value; });
   // The same box, the same suggester (v228). This form is rebuilt in place by
   // `refresh()` above, which strands the closure below and starts a fresh one — the
   // module-level counter in addressSuggester is what stops the stranded one speaking.
@@ -2118,6 +2079,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       customerName: customer.value.trim(),
       whatsapp: waNumber(whatsapp.value.trim()),
       fulfillment: fulfillmentSel.value,
+      // Where it collects from, pulled out of `shared` explicitly in applyPopupEdits — like the
+      // charge and the parcel, it is a fact about the ORDER that is written by its own function
+      // and must never be copied onto the rows as a field of its own (v303).
+      pointId: fulfillmentSel.value === "courier" ? "" : draft.pointId,
       address: address.value.trim(),
       note: note.value.trim(),
       trackingNo: tracking.value.trim(),
@@ -2171,6 +2136,13 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       // is never clipped by the Edit pop-up's scrolling body.
       addressSug.panel),
     doorSlot,
+    // Hidden for a courier order and when she has no Point open — a picker whose only entry is
+    // her own kitchen is a control that does nothing (v303).
+    el("div", { class: "field", hidden: draft.fulfillment === "courier" || pointChoices(state).length < 2 },
+      el("label", {}, "Collect from"),
+      pointSel,
+      el("p", { class: "hint" },
+        "Your kitchen is the default. An order collecting at a Point goes on the Delivery run to that Point, with the fee you set there.")),
     el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
@@ -2262,7 +2234,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   // there would be saved onto every row as a field of its own. The parcel (v226) is the
   // second such record, and is destructured here for exactly the same reason — miss this
   // line and every line of a multi-item order gets saved with its own copy of the parcel.
-  const { courier = null, parcel = null, ...fields } = shared;
+  const { courier = null, parcel = null, pointId = "", ...fields } = shared;
   const dest = byId(state.deliveryDates, fields.deliveryDateId) || date;
   if (!dest) return toast("Choose a delivery day");
   // The capacity guard follows the order to its destination. Capacity is derived
@@ -2357,6 +2329,11 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
     // customer. `parcel` is null only for a caller that does not ask for it (and for a
     // collect order, where parcelSection draws nothing), which then leaves it alone.
     if (parcel) writeParcel(state, first, keptRows, parcel);
+    // ★ WHERE THE ORDER COLLECTS FROM (v303). Written for every kept row — the rows kept from
+    // before and the rows she has just added — through the one function that owns the rule,
+    // because choosing her KITCHEN has to CLEAR both fields rather than leave an order pointing
+    // at a Point that exists and has no name.
+    for (const o of keptRows) setOrderPoint(state, o, pointId);
     // Every kept row now sits on the destination day, with deliveryDateId and
     // the deliveryDate snapshot written together (self-heals a split group).
     moveOrderGroup(group, dest);
@@ -2382,7 +2359,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   }
 }
 
-function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, lineNote, orderDate, shared, root) {
+function addNew(state, date, productId, qty, price, customerName, whatsapp, fulfillment, address, note, lineNote, orderDate, shared, pointId, root) {
   const cap = capacityStatus(state, date.id);
   const newTotal = cap.total + qty;
   const st = deliveryStatus(date.date, state.settings);
@@ -2411,6 +2388,9 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
       createdAt: new Date().toISOString(),
     };
     stampOrderLine(row, byId(state.products, productId));
+    // ★ WHERE IT COLLECTS FROM (v303), through the one function that owns the rule, so the
+    // Point's name is frozen onto the order exactly as the shop's own path freezes it.
+    setOrderPoint(state, row, pointId);
     if (Number.isFinite(Number(price))) row.unitPrice = Number(price); // the typed price wins
     // The customer's words for THIS item (v236). Written only when there are
     // words, so a line nobody noted carries no key at all and an order she takes
@@ -2454,7 +2434,7 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
 // list shows one block with one status and the group shares one order code
 // (orderCode uses groupId || id), exactly like a multi-item storefront order.
 // The capacity/backfill checks run against the combined quantity.
-function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, address, note, orderDate, shared, root) {
+function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, address, note, orderDate, shared, pointId, root) {
   const totalQty = items.reduce((s, it) => s + it.qty, 0);
   const cap = capacityStatus(state, date.id);
   const newTotal = cap.total + totalQty;
@@ -2485,6 +2465,9 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
         createdAt,
       };
       stampOrderLine(row, byId(state.products, it.productId));
+      // See addNew — on EVERY row, because a row she edits or re-splits later must not be
+      // the one that forgot where it was going.
+      setOrderPoint(state, row, pointId);
       if (Number.isFinite(Number(it.price))) row.unitPrice = Number(it.price);
       // Per ROW, from that row's own item — a group of three items may have a note
       // on one of them and none on the others, so this can never be a value shared

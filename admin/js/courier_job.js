@@ -103,6 +103,45 @@ export function senderOf(state) {
 // where a driver is actually sent. Where the customer dropped a pin of their own, that pin
 // is the door, and it is this assignment that carries it all the way to the courier. A door
 // she placed with her own hand still wins; see courier_place.js's own header on doorSpotOf.
+// ── WHO IS ON THE VAN ────────────────────────────────────────────────────────
+//
+// ★ TWO KINDS OF ORDER NEED A VEHICLE, and this is the correction v302 makes.
+//
+// One being delivered to a customer's door, and one being collected at a Self collection
+// Point — **the bread still has to REACH the Point, which is the whole reason the Point
+// exists.** An order collected from the KITCHEN needs no vehicle at all: she hands that one
+// over herself, and it has never appeared on a run.
+//
+// ⚠️ ONE FUNCTION, because this rule is asked in TWO places that must agree: the run screen
+// (which decides whether there is anything to run) and the Delivery dates screen's own
+// "Run (N)" button (which decides how many stops it will find). They disagreed for one
+// version — the run screen asked `fulfillment === "courier"`, and choosing a Point in the
+// shop leaves `fulfillment` as `"collect"`. So **every Point order was skipped before the
+// row logic ever saw it**, four customers at Farlim could never be put on a van, and the
+// screen said "Nothing to run yet". A second reading of the same rule is how that happened.
+//
+// A PAUSED Point still sends the van — pausing decides what is OFFERED, never what an order
+// already promised — so this asks `pointById`, never `activePoints`. A DELETED Point resolves
+// to nothing, so that order is treated as a kitchen collection and stays off the run, exactly
+// as `stopOf` falls back rather than sending a driver to coordinates nobody has.
+export function needsVan(state, order) {
+  if (!order) return false;
+  if (order.fulfillment === "courier") return true;
+  return !!pointById(state, order.pointId);
+}
+
+// The identity of the STOP a group sits at, for COUNTING stops — which is what both the run's
+// own rows AND the "Run (N)" badge are counting, and therefore why they have to be one
+// number. **A Self collection Point CARRIES several customers' orders and is ONE stop**; every
+// other group is a stop to itself. Not the same thing as a group key, which identifies a
+// CUSTOMER — and a key read two ways is how a ticked row goes missing.
+export function stopKeyOf(state, group) {
+  const first = (group && group.orders && group.orders[0]) || null;
+  const point = pointById(state, first && first.pointId);
+  if (point) return `point:${point.id}`;
+  return `group:${String((first && (first.groupId || first.id)) || "")}`;
+}
+
 export function stopOf(state, order) {
   // ★ A COLLECTION AT A SELF COLLECTION POINT IS A DIFFERENT KIND OF STOP (v301).
   //

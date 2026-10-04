@@ -69,8 +69,8 @@ import { courierPayQuestions } from "./orders.js";
 import { parcelOf } from "../parcel.js";
 import {
   fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtWindow, liveJobOf, liveJobProblem, loadOf,
-  quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, tripCalledOff, tripOf,
-  tripProblem, windowAt, windowProblem,
+  needsVan, quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, stopKeyOf,
+  tripCalledOff, tripOf, tripProblem, windowAt, windowProblem,
 } from "../courier_job.js";
 
 // One separate-trip price is one request, and the courier allows two requests a second.
@@ -100,7 +100,7 @@ export function renderDeliveryRun(root, state, params) {
       el("div", { class: "card" },
         el("h2", {}, "Delivery run"),
         emptyState("Nothing to run yet",
-          "A run carries several orders on one trip. It needs courier orders on a delivery day — open an order, press Edit, and switch its delivery to courier.")));
+          "A run carries several orders on one trip. It needs an order going out by courier, or one being collected at a Self collection Point, on a delivery day. A collection from your own kitchen is handed over by you, so it never needs a van.")));
     return;
   }
 
@@ -127,10 +127,15 @@ export function renderDeliveryRun(root, state, params) {
   // a booking or a repaint. Only the two boxes below them — the customer list and the
   // prices — are ever redrawn.
 
+  // The day's own label counts STOPS, not people and not order lines — the same count the
+  // list below draws and the same one the Delivery dates screen's "Run (N)" badge shows, so
+  // the day she picks is described with the number she is about to see. It read "2 courier
+  // orders" over a day carrying nothing but collections at a Point (v302).
+  const stopCount = (groups) => new Set(groups.map((g) => stopKeyOf(state, g))).size;
   const daySel = select(
     days.map((d) => ({
       value: d.id,
-      label: `${shortDate(d.date)} — ${d.groups.length} courier order${d.groups.length === 1 ? "" : "s"}`,
+      label: `${shortDate(d.date)} — ${stopCount(d.groups)} stop${stopCount(d.groups) === 1 ? "" : "s"}`,
     })),
     dayId,
     () => { dayId = daySel.value; refreshDay(); },
@@ -180,18 +185,17 @@ export function renderDeliveryRun(root, state, params) {
   function rowsNow() {
     const day = dayRowNow();
     if (!day) return [];
-    const byPoint = new Map();
+    const byStop = new Map();
     const rows = [];
     for (const g of day.groups) {
-      const pid = String(((g.orders[0] || {}).pointId) || "");
-      if (!pid) {
-        rows.push({ key: groupKey(g), pointId: "", groups: [g] });
-        continue;
-      }
-      let row = byPoint.get(pid);
+      // The key comes from `stopKeyOf` and nowhere else. A ticked set, the price's own
+      // identity and the "put this customer on the run" path all name a row by this key, so
+      // a second way of spelling it is a row that is on the trip and not on the screen.
+      const key = stopKeyOf(state, g);
+      let row = byStop.get(key);
       if (!row) {
-        row = { key: `point:${pid}`, pointId: pid, groups: [] };
-        byPoint.set(pid, row);
+        row = { key, pointId: key.startsWith("point:") ? key.slice(6) : "", groups: [] };
+        byStop.set(key, row);
         rows.push(row);
       }
       row.groups.push(g);
@@ -527,7 +531,9 @@ export function renderDeliveryRun(root, state, params) {
     // customer's order edited and re-split later does not keep a trip that is no longer running.
     // Then the customer joins the run, which is the whole point of the press.
     stampTrip(g.orders, tripCalledOff(job), holder.label);
-    ticked.add(groupKey(g));
+    // The same key a row is built with, so a customer collecting at a Point really does join
+    // the run rather than being ticked under a name no row answers to.
+    ticked.add(stopKeyOf(state, g));
     // The standing price describes a list that has just changed, so it is thrown away rather
     // than left standing beside a run it no longer prices.
     priceAgain();
@@ -1155,7 +1161,7 @@ export function renderDeliveryRun(root, state, params) {
     el("div", { class: "card" },
       el("h2", {}, "Delivery run"),
       el("p", { class: "card-sub" },
-        `One vehicle, ${courier.label}'s own fare, several doorsteps. A multi-stop trip is charged as one base fare plus a fee for each extra stop, so the run below is priced as one trip — and can be compared against the same doorsteps sent one at a time, which is the money this screen is for.`),
+        `One vehicle, ${courier.label}'s own fare, several stops. A multi-stop trip is charged as one base fare plus a fee for each extra stop, so the run below is priced as one trip — and can be compared against the same stops sent one at a time, which is the money this screen is for. A stop is a customer's door, or a Self collection Point carrying several customers' orders.`),
       el("div", { class: "field", style: "margin-top:12px" },
         el("label", {}, "The delivery day"), daySel),
       listBox,
@@ -1204,16 +1210,23 @@ export function renderDeliveryRun(root, state, params) {
 
 // ── reading the day ─────────────────────────────────────────────────────
 
-// Every saved delivery day that has at least one courier order on it, soonest first.
+// Every saved delivery day that has at least one order needing a van on it, soonest first.
 //
-// A day with a single courier order is included on purpose: sending one order by courier is
-// an ordinary thing to do, it is priced as an ordinary one-stop trip, and hiding the day
-// would leave her no way to book it from here.
+// A day with a single order is included on purpose: sending one order by courier is an
+// ordinary thing to do, it is priced as an ordinary one-stop trip, and hiding the day would
+// leave her no way to book it from here.
+//
+// ⚠️ `needsVan`, NOT `fulfillment === "courier"` (v302). That test is what made this screen
+// say "Nothing to run yet" while a customer's order sat waiting to be collected at Farlim:
+// choosing a Self collection Point in the shop leaves `fulfillment` as `"collect"`, so every
+// Point order was filtered out HERE, before the row logic below could ever see one. The rule
+// lives in courier_job.js because the Delivery dates screen's own "Run (N)" button asks it
+// too, and two readings of one rule is exactly how they came apart.
 function runDays(state) {
   const byDay = new Map();
   for (const g of groupOrders(state.orders || [])) {
     const first = g.orders[0];
-    if (!first || first.fulfillment !== "courier") continue;
+    if (!needsVan(state, first)) continue;
     // A parcel she posts herself (v226) does NOT go on a van run. It goes to the
     // carrier's counter or pickup, so a run that swept it in would be pricing a
     // vehicle for a box that is already on its way — and the customer, who is being
@@ -1242,14 +1255,10 @@ function defaultDay(days) {
   return ((ahead || days[days.length - 1] || days[0] || {}).id) || "";
 }
 
-// A group's identity for ticking. It is the key `groupOrders` itself groups on — the same
-// key, not a second reading of it derived from the order code — so two rows can never be
-// ticked as one customer, or one customer counted twice on a run.
-function groupKey(g) {
-  const first = g && g.orders && g.orders[0];
-  if (!first) return "";
-  return String(first.groupId || first.id || "");
-}
+// A group's identity for ticking — `stopKeyOf`, in courier_job.js, because the Delivery dates
+// screen's "Run (N)" button counts the same stops and must land on the same number. It groups
+// on the key `groupOrders` itself groups on, not a second reading of it derived from the order
+// code, so two rows can never be ticked as one customer or one customer counted twice.
 
 // WHAT A STOP ROW IS CALLED. A customer's row has always been their name; a Point's row is
 // the Point — and it is read from the LIVE Point rather than off the order, because a Point

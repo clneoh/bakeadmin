@@ -80,6 +80,7 @@ class MockDate extends RealDate {
 globalThis.Date = MockDate;
 
 const { renderOrders } = await import("../admin/js/views/orders.js");
+const { renderPoints } = await import("../admin/js/views/points.js");
 
 // ── the wire ───────────────────────────────────────────────────────────────
 //

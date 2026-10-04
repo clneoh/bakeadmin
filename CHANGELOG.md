@@ -1,8 +1,90 @@
-# Jienluv2bake — change history (v54 → v301)
+# Jienluv2bake — change history (v54 → v303)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**04 Oct 2026 — engine v303, A POINT YOU SET UP AND HAND OUT BY HAND (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Why.** Two things you found while watching v301 and v302 land, and they are the same gap:
+everything about Points worked for a **customer** ordering from your shop, and almost nothing
+worked for an order **you** take.
+
+**1. ＋ New order and Edit now let you say where it collects from.**
+
+Your words: __"how about + new order, and add edit order?"__ You were right, and it is the
+important half — you take a great many orders over the phone and in chats, and until now an order
+you keyed in yourself **could not be a Point order at all.** It could not go on the Delivery run,
+the Point's fee was never counted for it, and the customer was never told where to collect.
+
+- **A "Collect from" picker**, under **Fulfillment** — **My kitchen** first, which is the default
+  and is what every order you have ever taken already means, then your open Points in your order.
+- **It appears only when there is something to choose.** With no Point open, or on a Courier
+  order, it is absent rather than sitting there doing nothing.
+- **The Point's name is frozen onto the order** the moment you take it, so renaming or ending a
+  Point later leaves every order that already went there still saying where it went. The same rule
+  that keeps a sold price on an order.
+- **Choosing your kitchen clears it.** An order collecting from your kitchen carries no Point at
+  all, which is exactly what it has always meant.
+
+**2. A Point's address box now asks Google as you type.**
+
+Your words: __"there is no address auto complete for collection point?"__ — and then the better
+question, __"why not make the point consistent with the customer card?"__ Both fair. The
+suggestion box was written for the order's delivery address and had never been given to this one,
+so the address a **driver** is sent to — and the address the pin is looked up from — was the one
+address you had to peck out in full on a phone.
+
+- **The same behaviour as the order's address box, because it is now literally the same code**,
+  moved into one place so the two boxes cannot drift apart.
+- **Nothing is ever blocked by it:** a lookup that fails shows nothing at all, and whatever you
+  typed is what gets saved.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. An
+order taken before today carries no Point, which is what "collect from my kitchen" has always
+meant, so nothing needs migrating and no order is rewritten. The suite is **2,691 tests, all
+green**, including twelve new ones — nine driving both order cards, and three driving the Point's
+own address box through the real suggestion channel. **Every one of them was watched going red**
+with the fault put back before it was called done.
+
+**04 Oct 2026 — engine v302, AN ORDER COLLECTED AT A POINT REACHES THE RUN (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why, and it is a fault I found while starting the collection window you asked for.** The run was
+not carrying Points at all. Not rarely — **never**, and it said so quietly: a day where customers
+were collecting at Farlim read **"Nothing to run yet"**.
+
+**★ WHAT WAS WRONG.** Choosing a Self collection Point in your shop **never changes the Self collect
+/ Courier choice** — that is by design, a Point IS a collection. So the order is stored as a
+__collection__, and the run screen used that word to decide what needs a vehicle and **skipped every
+collection**. Every Point order was thrown away **before** the row work v301 added could ever see
+one. v301 built the right rows and they were unreachable.
+
+**The rule now, and it is the one that was always meant: a courier order needs a vehicle, and a
+collection AT A POINT needs one too — the bread still has to reach the Point.** A collection from
+**your own kitchen** still needs none, because you hand those over yourself. That half is the one a
+careless fix breaks, and it has its own test.
+
+**What you see now.** A day of collections at Farlim **offers the run**, the day's own line reads
+**"1 stop"** rather than "2 courier orders", and the Delivery dates screen's **Run (N)** button
+appears on that day counting the same stops. **A Point is ONE stop however many customers collect
+there**, so two customers at Farlim still read **1 stop - 6 items**.
+
+**⚠️ AND ONE RULE NOW LIVES IN ONE PLACE, which is why it went wrong.** The run screen and the
+Delivery dates screen's **Run (N)** button both have to answer __"does this order need a van?"__, and
+they each answered it themselves. **Two readings of one rule is how they came apart**, so the rule
+and the stop's own name are now asked of one function in `courier_job.js` and read from there.
+
+**Your data is untouched, and there is nothing to run.** No database step, no upload, no key. An
+ordinary courier day behaves exactly as it always has, and a collection from your kitchen behaves
+exactly as it always has — **a run with no Points on it is unchanged**. The suite is **2,679 tests,
+all green**, including eleven new ones: six on the rule itself, three driving the run screen with a
+**real** Point order, and two on the Run badge. **Every one of them was watched going red** with the
+fault put back — the gate, the kitchen half, the shared stop name and the badge — before it was
+called done. One of them is worth naming: the test fixture itself had been modelling a Point order
+as a courier order, **which the shop has never produced**, and that is the reason nothing caught
+this. **A fixture that cannot happen is not a test.**
 
 **04 Oct 2026 — engine v301, THE DELIVERY RUN CARRIES POINTS (no database step, nothing to
 upload — pushing this one is the whole of it).**
