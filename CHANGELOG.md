@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v318)
+# Jienluv2bake — change history (v54 → v319)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v319, THE FOLLOWING MESSAGE WAS BROKEN ON A TWO-OFFER SHOP (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your report, three words: __"there is no effect."__ **You were right and I had broken it** —
+and the way it was broken is worth reading, because your shop is exactly the case it broke on.
+
+**★ WHAT WAS WRONG.** When a message is replaced, the app has to know WHICH one is leaving so it can
+send it up through the top. It worked that out by counting backwards from the one showing: __the
+previous one__. That was inherited from the old 3D flip, where two panels leaving by opposite doors
+made sense, and it is fine when **three or more** offers are running.
+
+**⚠️ WITH EXACTLY TWO OFFERS, "THE PREVIOUS ONE" IS THE MESSAGE THAT IS ARRIVING.** So the message
+about to come in was parked **above** the window — where the one that had just left sits — and it then
+travelled **back down** into place. **Nothing was ever left waiting below**, so "one message following
+another" could not happen at all. A two-offer strip is not an edge case; it is the ordinary one, and
+it is what yours runs.
+
+**How it hid, and that is the uncomfortable part.** With three offers running it looked perfect, so
+the page I checked and the harness I built both showed the effect working. **And 2,784 tests were
+green while it was broken on your phone.** Nothing was watching the two-offer case, which is the case
+that matters most. **That is now the one the test exists for.**
+
+**★ MEASURED, ON THE REAL SHOP, AT 375, TWO OFFERS:**
+
+| | at rest | after a step |
+|---|---|---|
+| before | `[0, −183]` — **nothing waiting below** | the arriving message came from **above** |
+| **now** | `[0, +183]` — **the next waits below** | it comes **up from below**, following the one leaving |
+
+**And the second half of the fix.** A message that has just left through the top has to be back at the
+bottom to arrive from below next time — and moving it there __with__ an animation would slide it the
+whole way **through the window**, sweeping the message you just read back across the strip in the
+wrong direction. So every waiting message is now put back in its place **instantly, with no
+animation**, before the movement starts. A jump paints only where it lands.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,786 tests, all green** — two of them new, and the one that matters asserts
+the two-offer case by name.
 
 **05 Oct 2026 — engine v318, EACH MESSAGE IS ITS OWN BOX AND THEY SCROLL UP (no database step,
 nothing to upload — pushing this one is the whole of it).**

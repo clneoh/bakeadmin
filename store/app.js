@@ -1335,16 +1335,50 @@ export function render() {
   // when this was a fade, then a flip, then a sideways slide (this one is showing / that one
   // has just gone). Three motions, one set of names, so nothing in this file had to be
   // rewritten and the dot, the pause and the timer are untouched.
+  // ⚠️⚠️ THE LEAVING SLIDE IS THE ONE THAT WAS LIT, NOT "THE PREVIOUS INDEX" (v319).
+  //
+  // This used to derive the outgoing slide arithmetically — `left = (i - 1 + n) % n` — which
+  // came down from the 3D flip, where two panels going out by opposite doors made sense.
+  // **IT IS WRONG THE MOMENT A SHOP RUNS EXACTLY TWO OFFERS.** With n = 2 the "previous index"
+  // IS the arriving slide, so the message about to come in was parked where the message that
+  // had just gone sits — ABOVE the window — and it then travelled back DOWN into place.
+  // Nothing was ever left waiting below, so "one message following another" could not happen
+  // at all. **Measured on the real stylesheet at 375, two offers: at rest `[0, -66]` — nothing
+  // below — and after a step the arriving slide came from -66. With three offers it read
+  // `[0, 66, -66]` and the arriving one came up from below, which is why the fault hid.**
+  //
+  // So there are now two steps, and the second one is the whole fix:
+  //
+  // 1. **PARK EVERY SLIDE EXCEPT THE ONE BEING REPLACED, WITH NO TRANSITION** (`is-parked`).
+  //    Every waiting message is put back to its place below instantly. This is what stops a
+  //    message that has just left through the top from travelling back DOWN through the window
+  //    when its turn comes round again — a jump with the transition off paints only its ends.
+  // 2. **THEN hand out the classes.** The arriving message animates UP from below (her words:
+  //    "when 1st message start to scroll up, the 2nd message is following"), and the one being
+  //    replaced leaves through the top.
+  //
+  // The leaving slide is deliberately NOT parked: it is sitting in the window, and parking it
+  // would send it to the bottom first and then sweep it the whole way up through the window.
   function showSlide(at) {
     codeAt = at;
     const i = Number(at) || 0;
     if (i === litAt && slides.length) return;
+    const was = litAt;          // the slide being replaced — -1 on the very first paint
     litAt = i;
-    const n = slides.length;
-    const left = n > 1 ? (i - 1 + n) % n : -1;
+
     slides.forEach((s, k) => {
+      if (k === was) return;
+      s.classList.add("is-parked");
+      s.classList.remove("is-on", "is-left");
+    });
+    // Force the park to land BEFORE anything is animated, or the two happen in one frame and
+    // the browser animates from wherever the slide happened to be.
+    if (slides[0]) void slides[0].offsetHeight;
+
+    slides.forEach((s, k) => {
+      s.classList.remove("is-parked");
       s.classList.toggle("is-on", k === i);
-      s.classList.toggle("is-left", k === left);
+      s.classList.toggle("is-left", k === was && k !== i);
       // The offers nobody is reading must not be read aloud either. They are stacked
       // behind the lit one, so a screen reader would otherwise take all of them in turn.
       s.setAttribute("aria-hidden", k === i ? "false" : "true");

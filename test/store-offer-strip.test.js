@@ -107,6 +107,49 @@ test("the offers scroll UP, and each message is its own box", () => {
   }
 });
 
+test("with TWO offers the next message waits BELOW — the case that shipped broken", () => {
+  // ⚠️⚠️ THE FAULT THAT SHIPPED IN v318 AND THAT **NO TEST CAUGHT**. Her report was three
+  // words — "there is no effect" — and she was right: the outgoing slide was derived
+  // arithmetically, `left = (i - 1 + n) % n`, which came down from the 3D flip where two
+  // panels going out by opposite doors made sense.
+  //
+  // ⚠️ **WITH n = 2 THAT INDEX IS THE ARRIVING SLIDE.** So the message about to come in was
+  // parked where the one that had just gone sits — ABOVE the window — and it then travelled
+  // back DOWN into place. **Nothing was ever left waiting BELOW**, so "one message following
+  // another" could not happen at all on a shop running exactly two offers, which is hers.
+  //
+  // **MEASURED ON THE REAL STYLESHEET AT 375, before the fix: at rest `[0, -66]` — nothing
+  // below — and after a step the arriving slide came from -66. With three offers it read
+  // `[0, 66, -66]` and the arriving one came up from below, WHICH IS WHY THE FAULT HID.**
+  // **The suite was green the whole time.** A two-offer strip is not an edge case here; it is
+  // the ordinary one, and it is now the case this test exists for.
+  const body = app.slice(app.indexOf("function showSlide"), app.indexOf("function stopTurn"));
+  assert.ok(body.length > 100, "showSlide was not found in app.js");
+  assert.equal(/\(i - 1 \+ n\) % n/.test(body), false,
+    "the outgoing slide is derived arithmetically again — with two offers that makes the ARRIVING message leave through the top");
+  assert.match(body, /const was = litAt/,
+    "the outgoing slide must be the one that was lit a moment ago, not a computed index");
+  assert.match(body, /is-parked/,
+    "every waiting slide must be parked back below before the classes are handed out");
+  assert.match(body, /offsetHeight/,
+    "and that park must be forced to land first, or it and the animation happen in one frame");
+  assert.match(app, /showSlide\(standingNext\(/,
+    "the timer must still move which slide is lit, and nothing else");
+});
+
+test("the parked rule exists, and comes last so it actually wins", () => {
+  // Without it a slide that has just left through the TOP has to travel to the BOTTOM to
+  // arrive from below next time — and moved with a transition it would slide the whole way
+  // THROUGH the window, sweeping the message the customer just read back across the strip.
+  // A jump with the transition off paints only its ends.
+  const park = css.match(/\.promo-slide\.is-parked\s*\{[^}]*\}/);
+  assert.ok(park, "app.css has no .is-parked rule — a message would sweep back through the window");
+  assert.match(park[0], /transition:\s*none/, "the park must not animate");
+  assert.ok(
+    css.lastIndexOf(".promo-slide.is-parked") > css.lastIndexOf(".promo-slide.is-left"),
+    "the parked rule must come AFTER the base and the is-left rules — equal specificity means source order decides, and a park that loses is a park that does nothing");
+});
+
 test("there is one dot per offer, and none for a single offer", () => {
   // Her ask: "there should be 2 dot if there is 2 message, 3 dot if 3 message."
   assert.match(html, /<div id="promo-dots"[^>]*><\/div>/,

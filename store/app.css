@@ -1329,6 +1329,20 @@ button.prod-next.off::after { content: ""; }
    AFTER `.promo-slide` and is more specific than it, so it wins on its own. */
 .promo-slide.is-left { transform: translateY(calc(-100% - 10px)); }
 
+/* ⚠️⚠️ THE PARKED SLIDE, AND IT IS LOAD-BEARING (v319). `showSlide` puts this on every
+   waiting message for one frame before it hands out `is-on` / `is-left`, so each of them
+   lands back in its place BELOW with no transition.
+
+   ⚠️ WITHOUT IT, A MESSAGE TRAVELS BACK THROUGH THE WINDOW. A slide that has just left
+   through the top sits at `-100%`; when its turn comes round again it has to be at `+100%`
+   to arrive from below — and MOVING IT THERE WITH A TRANSITION SLIDES IT THE WHOLE WAY
+   THROUGH THE WINDOW, so the message the customer just read sweeps back across the strip
+   in the wrong direction. A jump with the transition off paints only its ends.
+
+   ⚠️ IT MUST COME LAST, or `.is-on` and `.is-left` (same specificity) would win on source
+   order and the park would not take. */
+.promo-slide.is-parked { transition: none; }
+
 /* One dot per offer, under the box (v297). Her ask: "there should be 2 dot if there is 2
    message, 3 dot if 3 message."
 
