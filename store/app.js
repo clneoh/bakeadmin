@@ -1249,7 +1249,21 @@ export function render() {
   // message — worked out by the browser, at whatever font, language and text size the
   // customer actually has, with no number of ours that can go stale. Turning then only
   // moves which slide is lit, and nothing under the strip moves at all.
-  const TURN_MS = 1500;
+  // ★ 2 SECONDS, HER NUMBER, GIVEN 2026-10-05 (v317). It was 1.5s, chosen back when the line
+  // was mostly a short code, and she reported the result as too fast: __"maybe the scrolling is
+  // too fast and hardly see the results"__.
+  //
+  // ⚠️ **AND IT IS THE STILLNESS THAT WAS TOO SHORT, NOT THE MOVE.** The slide itself takes
+  // 0.4s, which is already the top of the house band (250–400ms for a state change) — slowing
+  // the animation would only make it draggy without buying a second of reading. At 1.5s an
+  // offer sat still for about **1.1s**; at 2s it sits for **1.6s**.
+  //
+  // ⚠️ **MEASURED ON HER OWN SHOP, SO THE CEILING IS ON THE RECORD:** her offers run to **38
+  // words** (the code's line plus her own sentence in the chalk hand), which wants about 11
+  // seconds at a comfortable pace; the short one is 14 words, about 4. **She was shown those
+  // numbers and chose 2 seconds anyway** — her line, her shop. If she says so again, this is
+  // the one number to change, and nothing else needs touching.
+  const TURN_MS = 2000;
 
   let turnTimer = null;
   let liveCodes = [];   // what the strip is turning through right now

@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v316)
+# Jienluv2bake — change history (v54 → v317)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v317, EACH OFFER HOLDS FOR 2 SECONDS (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Why.** Your words, right after the scroll went in: __"maybe the scrolling is too fast and hardly
+see the results."__
+
+**★ YOU WERE RIGHT, AND IT WAS NOT MARGINAL — I measured your own shop before changing anything:**
+
+- your long offer runs to **38 words** (the code's line **plus your own sentence in the chalk hand**)
+  — about **11 seconds** to read at a comfortable pace
+- the short one (__AZQKJ__) is **14 words** — about **4 seconds**
+- each of them was getting **1.5 seconds**, of which **0.4 is the move itself**
+
+So the long one had about **a tenth** of the time it needed, and the short one about a quarter.
+
+**★ BUT THE SCROLL WAS NOT WHAT WAS TOO FAST.** The move is 0.4 of a second, which is already the
+**top of what the house rules allow** (250–400ms for a change like this) — slowing the animation would
+have made it draggy and bought you **not one extra second of reading**. What was too short was the
+**stillness**: 1.1 seconds before, **1.6 seconds now**.
+
+**The pace is 2 seconds an offer — your number.** It was 1.5s, chosen back when the line was mostly a
+short code; your offers have grown since, which is what changed the arithmetic.
+
+**One thing said plainly rather than left for you to find:** 2 seconds is still under the 11 your long
+offer wants, so it will still turn before you have read all of it — and the move now takes a fifth of
+each turn. **Watch it on your phone with two codes running.** If it still turns too soon, **it is one
+number and nothing else needs touching** — say the word and I will put it wherever you like.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,784 tests, all green**, and the test that pins the pace now records that 2 is
+__your__ number, chosen with the arithmetic in front of you.
 
 **05 Oct 2026 — engine v316, THE SHOP'S OFFERS SCROLL INSTEAD OF TURNING (no database step, nothing
 to upload — pushing this one is the whole of it).**
@@ -23,8 +55,8 @@ the scroll. The argument loses.
 
 **★ ONE HONEST TRADE, so it is not a surprise.** During a scroll **two offers are briefly on screen at
 once** — the tail of the one leaving and the head of the one arriving. That is exactly what makes it
-read as a scroll rather than a swap. The flip never showed two, so if a long offer like *"Free
-delivery within Penang on RM200.00 and above — use code FREEDEL"* looks busy mid-move, that is why.
+read as a scroll rather than a swap. The flip never showed two, so if a long offer like __"Free
+delivery within Penang on RM200.00 and above — use code FREEDEL"__ looks busy mid-move, that is why.
 
 **★ AND THE ONE THING THAT MUST NEVER REGRESS WAS RE-MEASURED.** v295's whole point was that the
 strip is exactly as tall as your tallest message and never changes height, because the page under it

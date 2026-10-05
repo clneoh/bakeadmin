@@ -189,9 +189,15 @@ test("nothing draws an offer into a single shared line any more", () => {
     "the old JS-driven fade is gone: the cross-fade is the CSS transition on .promo-slide now");
 });
 
-test("the script rotates by lighting a slide, and the timer is her 1.5 seconds", () => {
-  assert.match(app, /const TURN_MS = 1500;/,
-    "she asked for a flip every 1.5 seconds");
+test("the script rotates by lighting a slide, and the timer is her 2 seconds", () => {
+  // ★ HER NUMBER, AND IT HAS MOVED ONCE. v292 set 1.5s, when the line was mostly a short
+  // code. By v316 her offers had grown — the longest is 38 words, because it carries her own
+  // sentence in the chalk hand as well as the code — and she reported the result as too fast:
+  // "maybe the scrolling is too fast and hardly see the results". **Shown the arithmetic (38
+  // words wants about 11 seconds; 1.5s left about 1.1s of stillness), she chose 2 seconds.**
+  // So 2 it is, and the slowness that remains is her decision rather than our oversight.
+  assert.match(app, /const TURN_MS = 2000;/,
+    "the pace is her 2 seconds an offer");
   assert.match(app, /showSlide\(standingNext\(/,
     "the timer must move which slide is lit, and nothing else");
 });
