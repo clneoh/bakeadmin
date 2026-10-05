@@ -3956,8 +3956,8 @@ function referralOfferEl(state, group, scheme, root, dateId) {
     maybeSync(state);
     updateOrderBadge(state);
     toast(r.created
-      ? `Credits added — apply the ${fmtRM(scheme.friendRM, cur)} off when you confirm`
-      : "Credit was already given");
+      ? `Coupons added — apply the ${fmtRM(scheme.friendRM, cur)} off when you confirm`
+      : "Coupon was already given");
     renderAll(root, state, new URLSearchParams({ date: dateId }));
   };
   const skip = () => {
@@ -3965,47 +3965,59 @@ function referralOfferEl(state, group, scheme, root, dateId) {
     anchorRowId = first.id;
     save(state);
     maybeSync(state);
-    toast("Skipped — no credit for a returning customer");
+    toast("Skipped — no coupon for a returning customer");
     renderAll(root, state, new URLSearchParams({ date: dateId }));
   };
 
   if (handled === "gave") {
-    return refNote(`🎁 Credit given — ${fmtRM(scheme.friendRM, cur)} off ${friendName}'s first order, and ${fmtRM(scheme.referrerRM, cur)} for ${refName}.`);
+    return refNote(`🎁 Coupon given — ${fmtRM(scheme.friendRM, cur)} off ${friendName}'s first order, and a ${fmtRM(scheme.referrerRM, cur)} coupon for ${refName}.`);
   }
   if (handled === "skip") {
-    return refNote("⏭ Marked \"already a customer\" — no credit given.");
+    return refNote("⏭ Marked \"already a customer\" — no coupon given.");
   }
   if (referralFlag(state, group) === "self") {
-    return refNote(`↩️ ${refName} ordered through their own link — no referral credit.`);
+    return refNote(`↩️ ${refName} ordered through their own link — no referral coupon.`);
   }
   if (referralFlag(state, group) === "existing") {
-    return refNote(`👋 ${friendName} came via a link but already ordered before — not a new friend, no credit.`);
+    return refNote(`👋 ${friendName} came via a link but already ordered before — not a new friend, no coupon.`);
   }
   return el("div", { class: "ref-offer", style: "margin-bottom:6px" },
-    refNote(`🎁 New referred customer — ${friendName} gets ${fmtRM(scheme.friendRM, cur)} off their first order, and ${refName} earns ${fmtRM(scheme.referrerRM, cur)}.`),
+    refNote(`🎁 New referred customer — ${friendName} gets ${fmtRM(scheme.friendRM, cur)} off their first order, and ${refName} earns a ${fmtRM(scheme.referrerRM, cur)} coupon.`),
     el("div", { class: "btn-row", style: "margin:0" },
-      button("Give credit", give, "small primary"),
+      button("Give coupon", give, "small primary"),
       button("Skip — already a customer", skip, "ghost small")));
 }
 
-// The person on THIS order has unused credits (a friend's first-order discount,
-// or a referrer reward ready to spend) — offer to apply one. The owner taps it
+// The person on THIS order has unused coupons (a friend's first-order discount,
+// or a referrer reward ready to spend) — offer to apply ONE. The owner taps it
 // after she has taken the RM off in WhatsApp, so the record matches reality.
+//
+// ★ ★ ONE PER ORDER, AND THE LINE NOW SAYS SO (v314). It used to read
+// "RM 3.00 credit available on this order" with a button reading
+// "Apply credit (2)" — one coupon's money beside a count of two, while the press
+// spent exactly one. **Her rule is what settles it:** __"only one coupon apply
+// for each purchase."__ So the amount shown is the one that will actually come
+// off, and the count is named as a count of what is READY, not of what this
+// order can take. This is the same fix as the customer's own card: a coupon is a
+// thing with its own value, never a balance that adds up.
 function referralApplyEl(state, group, root, dateId) {
   const first = group.orders[0];
   const cur = (state.settings && state.settings.currency) || "RM";
   const mine = validCredits(state, waNumber(first.whatsapp));
   if (!mine.length) return null;
   const firstCredit = mine[0];
+  const what = `${fmtRM(firstCredit.amountRM, cur)} coupon`;
   return el("div", { class: "ref-apply", style: "margin-top:2px" },
     el("span", { class: "card-sub", style: "margin:0" },
-      `✨ ${fmtRM(firstCredit.amountRM, cur)} credit available on this order`),
-    button(`Apply credit${mine.length > 1 ? ` (${mine.length})` : ""}`, () => {
+      mine.length > 1
+        ? `✨ ${what} ready for this order — one per order, ${mine.length} more after it`
+        : `✨ ${what} ready for this order`),
+    button(mine.length > 1 ? `Apply coupon (1 of ${mine.length})` : "Apply coupon", () => {
       const used = markOneUsed(state, waNumber(first.whatsapp));
       anchorRowId = first.id;
       save(state);
       maybeSync(state);
-      toast(used ? `${fmtRM(used.amountRM, cur)} credit used — already taken off this order` : "Nothing to apply");
+      toast(used ? `${fmtRM(used.amountRM, cur)} coupon used — already taken off this order` : "Nothing to apply");
       renderAll(root, state, new URLSearchParams({ date: dateId }));
     }, "soft small"));
 }

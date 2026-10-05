@@ -1,0 +1,225 @@
+// test/bring-friend.test.js — bring-a-friend is its own screen under The shop
+// (v314), and the offer is no longer buried in Settings.
+//
+// Her words: __"can be brought to The Shop, rather than in Settings."__ and
+// __"can we make to more seamless with other promo?"__ → **"One place, read as a
+// family"**.
+//
+// ★ THE TWO THINGS THIS HAS TO HOLD:
+//   1. **The move is a MOVE, not a rewrite.** The switch and the three numbers
+//      still write the SAME `settings.referrals` keys, because the shop's `via`
+//      links, the Give-credit press and the reward's "brought in" count all read
+//      them. A screen that looked right and wrote somewhere else would break
+//      three features silently.
+//   2. **Settings no longer carries it**, or the offer has simply been copied and
+//      there are now two places to change one number.
+//
+// ⚠️ The route and the menu row are held by `test/more-menu.test.js`, which walks
+// the app's own route table — this file does not repeat that.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+function createEl(tag) {
+  const node = {
+    tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
+    className: "", style: {}, value: "", checked: false, disabled: false, hidden: false,
+    _listeners: {}, placeholder: "",
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    appendChild(c) { if (c != null) this.children.push(c); return c; },
+    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+    replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
+    addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+    removeEventListener() {},
+    setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; },
+    getAttribute(k) { return this.attrs[k]; },
+    focus() {}, click() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+  };
+  Object.defineProperty(node, "textContent", {
+    get() { return this.children.map((c) => (c.nodeType === 3 ? c.text : c.textContent)).join(""); },
+    set(v) { this.children = v === "" ? [] : [{ nodeType: 3, text: String(v) }]; },
+  });
+  return node;
+}
+globalThis.document = {
+  createElement: createEl,
+  createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
+  getElementById: () => createEl("div"),
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  addEventListener() {},
+  removeEventListener() {},
+  body: createEl("body"),
+};
+globalThis.window = { open() {}, scrollTo() {}, addEventListener() {} };
+globalThis.location = { hash: "#/bring-a-friend", reload() {} };
+globalThis.history = { replaceState() {} };
+const store = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+globalThis.setTimeout = (fn) => { fn(); return 1; };
+globalThis.clearTimeout = () => {};
+
+const { renderReferrals } = await import("../admin/js/views/referrals.js");
+
+const walk = (root, out = []) => {
+  for (const c of root.children || []) { out.push(c); walk(c, out); }
+  return out;
+};
+
+function state(over = {}) {
+  return {
+    settings: { currency: "RM", supabase: {}, referrals: { enabled: false, friendRM: 3, referrerRM: 3, validDays: 90, ...over } },
+    uoms: [], products: [], ingredients: [], orders: [], deliveryDates: [],
+    purchaseOrders: [], customers: [], productCategories: [], suppliers: [], wishList: [],
+  };
+}
+
+function draw(st) {
+  const root = createEl("div");
+  renderReferrals(root, st);
+  return root;
+}
+
+const inputsOf = (root) => walk(root).filter((n) => n.tagName === "INPUT");
+const textsOf = (root) => walk(root).filter((n) => n.nodeType === 1).map((n) => n.textContent).join(" | ");
+
+const fire = (node) => (node._listeners.change || node._listeners.click || []).forEach((f) => f());
+
+// ── ★ THE MOVE WROTE THE SAME KEYS ─────────────────────────────────────────
+
+test("the switch writes settings.referrals.enabled — the same key everything else reads", () => {
+  const st = state();
+  const root = draw(st);
+  const box = inputsOf(root).find((n) => n.attrs.type === "checkbox");
+  assert.ok(box, "the screen draws its on/off switch");
+  box.checked = true;
+  fire(box);
+  assert.equal(st.settings.referrals.enabled, true,
+    "the switch must write the key the shop's via links and Give credit read");
+});
+
+test("the three numbers write the same keys, and a blank duration means never", () => {
+  const st = state();
+  const root = draw(st);
+  const nums = inputsOf(root).filter((n) => n.attrs.type === "number");
+  assert.equal(nums.length, 3, "three boxes: friend's discount, referrer's credit, valid for days");
+
+  nums[0].value = "5"; fire(nums[0]);
+  nums[1].value = "7"; fire(nums[1]);
+  nums[2].value = ""; fire(nums[2]);
+  assert.deepEqual(
+    { friendRM: st.settings.referrals.friendRM, referrerRM: st.settings.referrals.referrerRM, validDays: st.settings.referrals.validDays },
+    { friendRM: 5, referrerRM: 7, validDays: "" },
+    "a blank duration is her choosing NEVER, which is not the same as never having set one");
+});
+
+test("a nonsense number is refused rather than saved", () => {
+  const st = state();
+  const root = draw(st);
+  const nums = inputsOf(root).filter((n) => n.attrs.type === "number");
+  nums[0].value = "0"; fire(nums[0]);
+  assert.equal(st.settings.referrals.friendRM, 3, "0 falls back to the default, never a RM0 offer");
+});
+
+// ── ★ AND THE NUMBERS ARE SHOWN BEING USED ─────────────────────────────────
+
+test("the screen shows the exact sentence the customer forwards, with her numbers in it", () => {
+  // The numbers are the whole reason the card exists — they appear in the message
+  // a customer SENDS ON to their friend. A screen that collected them without
+  // ever showing where they land would let her set a number the app does not use.
+  const root = draw(state({ friendRM: 4, referrerRM: 6, validDays: 30 }));
+  const text = textsOf(root);
+  assert.ok(text.includes("RM 4.00"), `the friend's discount is shown in words (got: ${text.slice(0, 200)})`);
+  assert.ok(text.includes("RM 6.00"), "the referrer's credit is shown in words");
+  assert.ok(text.includes("30 days"), "the credit's life is shown in words");
+});
+
+test("a credit that never runs out says so, rather than saying '0 days'", () => {
+  const text = textsOf(draw(state({ validDays: "" })));
+  assert.ok(text.includes("never runs out"), "blank duration reads as never, not as zero");
+});
+
+// ── ★ THE OFFER IS NOT IN TWO PLACES ───────────────────────────────────────
+
+// ⚠️ COMMENTS ARE STRIPPED FIRST, AND THAT IS THE WHOLE ASSERTION. The first cut
+// of this test looked for the word anywhere in the file and went RED on the note
+// that explains the move — a test reading the documentation instead of the code.
+// What has to be absent is the MACHINERY: the state it writes and the controls
+// that write it.
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+test("Settings no longer carries bring-a-friend — it MOVED, it was not copied", () => {
+  const code = stripComments(readFileSync(new URL("../admin/js/views/settings.js", import.meta.url), "utf8"));
+  assert.equal(/referrals/i.test(code), false,
+    "Settings still reaches into settings.referrals — the offer now has two homes and one number to keep in step");
+  assert.equal(/bring-a-friend/i.test(code), false, "Settings still builds the bring-a-friend card");
+});
+
+// ── ★ THE FAMILY, READ TOGETHER ────────────────────────────────────────────
+
+test("the screen says what the other half is, and points at it", () => {
+  const root = draw(state());
+  const hrefs = walk(root).filter((n) => n.className === "menu-item").map((n) => n.attrs.href);
+  assert.ok(hrefs.includes("#/promo"), "it points at the code half");
+  assert.ok(hrefs.includes("#/customers"), "and at where a customer's own link is copied");
+
+  const text = textsOf(root);
+  assert.ok(text.includes("A link, or a code"),
+    "the family card is the point of the move — it must say what differs between the two");
+  assert.ok(text.includes("travels"), "the distinction is the artefact: a link travels, a code is printed");
+});
+
+test("Promo codes points back, so the two are reachable from each other", () => {
+  const src = readFileSync(new URL("../admin/js/views/promo.js", import.meta.url), "utf8");
+  assert.ok(src.includes('"#/bring-a-friend"'),
+    "the Promo screen no longer offers the other half — the family is one-way");
+});
+
+// ── ★ ONE COUPON PER ORDER (v314) ──────────────────────────────────────────
+//
+// Her reasoning, and the fault it fixes: __"if we state only credit of ringgit,
+// there might be confusion of how much credit to apply, but we can state, only
+// one coupon apply for each purchase."__
+//
+// **THE AMBIGUITY WAS REAL AND IT WAS TWO PLACES.** On a customer's card with two
+// RM3 coupons the chip read "2 ready" while the line beneath it read "you still
+// owe RM3.00 off an order" — because that figure came from the FIRST valid
+// coupon only. On an order the line read "RM3.00 credit available" beside a
+// button reading "Apply credit (2)", and the press spent exactly one. Three
+// numbers, none of them saying how much to take off.
+//
+// The fix is not arithmetic — it is her rule, stated. So every place she applies
+// a coupon must SAY it, and no place may show a running balance.
+
+const srcOf = (p) => stripComments(readFileSync(new URL(`../${p}`, import.meta.url), "utf8"));
+
+test("every place she applies a coupon states the one-per-order rule", () => {
+  for (const [path, where] of [
+    ["admin/js/views/customers.js", "a customer's card"],
+    ["admin/js/views/orders.js", "an order that carries one"],
+    ["admin/js/views/referrals.js", "the scheme screen"],
+    ["admin/js/referrals.js", "the message a customer forwards"],
+  ]) {
+    assert.match(srcOf(path), /one (coupon )?per order/,
+      `${where} does not state the rule — that is where the "how much do I take off?" question comes back`);
+  }
+});
+
+test("no screen turns coupons into a running balance any more", () => {
+  // The old sentence, and the only shape that produced it: one coupon's amount
+  // presented as what the customer is owed in total.
+  assert.doesNotMatch(srcOf("admin/js/views/customers.js"), /you still owe/,
+    "the customer's card is showing an amount due again — a coupon is a thing, never a balance");
+});
+
+test("the customer's card counts what is ready, and says what is not", () => {
+  const code = srcOf("admin/js/views/customers.js");
+  assert.match(code, /ready — one per order/, "the count is named as a count of ready coupons");
+  assert.match(code, /none ready/, "and all-used reads as none ready, not as a zero");
+});

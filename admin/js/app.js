@@ -15,6 +15,7 @@ import { renderProductCategories } from "./views/productCategories.js";
 import { renderParcelCouriers } from "./views/parcelCouriers.js";
 import { renderPoints } from "./views/points.js";
 import { renderPromoCodes } from "./views/promo.js";
+import { renderReferrals } from "./views/referrals.js";
 import { renderOrders } from "./views/orders.js";
 import { renderProducts } from "./views/products.js";
 import { renderIngredients } from "./views/ingredients.js";
@@ -56,6 +57,7 @@ const routes = {
   "/parcel-couriers":{ title: "Parcel couriers", tab: "more", render: renderParcelCouriers },
   "/points":    { title: "Self collection Points", tab: "more", render: renderPoints },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },
+  "/bring-a-friend": { title: "Bring a friend", tab: "more", render: renderReferrals },
   "/run":       { title: "Delivery run", tab: "more", render: renderDeliveryRun },
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },
   "/profit":    { title: "Profit",     tab: "more",      render: renderProfit },

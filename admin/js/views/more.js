@@ -54,6 +54,10 @@ const MENU_GROUPS = [
   ]],
   ["The shop", [
     ["#/promo", "🎟 Promo codes", "Codes your customers type in the shop"],
+    // ⚠️ MOVED OUT OF SETTINGS IN v314. It is a customer offer, not a default,
+    // so it lives with the two it belongs beside. Her words: "can be brought to
+    // The Shop, rather than in Settings."
+    ["#/bring-a-friend", "🔗 Bring a friend", "A customer's own link, and what both of them get"],
     ["#/reviews", "⭐ Reviews", "Approve and remove homepage reviews"],
   ]],
 ];

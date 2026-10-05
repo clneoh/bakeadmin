@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v313)
+# Jienluv2bake — change history (v54 → v314)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v314, BRING-A-FRIEND MOVES TO THE SHOP, AND THE REWARD IS A COUPON (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Two of your own, in one message. First: __"can be brought to The Shop, rather than in
+Settings."__ Second: __"can we make to more seamless with other promo?"__ — and when I asked what
+seamless meant, you chose **"One place, read as a family."**
+
+**What you see now.** **More → The shop** carries three rows instead of two: **Promo codes**,
+**🔗 Bring a friend**, **Reviews**. The scheme itself has not changed at all — same switch, same
+three numbers, same links on a customer's card, same Give-coupon press on an order. It simply lives
+where you would look for a customer offer, instead of beside "defaults, backup, transfer".
+
+**And each half now names the other.** The Bring a friend screen carries a card called **"A link, or
+a code"**, which says the difference in the terms you gave me: a link **costs nothing to issue and
+travels** — forward it and it still works; a code and a label is for a partner who prints brochures.
+Promo codes says the same thing from its side and points back.
+
+**★ BUT THE IMPORTANT PART OF THIS VERSION IS YOUR SECOND SENTENCE.** You said: __"if we state only
+credit of ringgit, there might be confusion of how much credit to apply, but we can state, only one
+coupon apply for each purchase."__ **You were right, and it was worse than you described — it was two
+places, and both of them argued with themselves:**
+
+- On a customer's card holding **two** RM3 coupons, the chip above read **"2 ready"** while the line
+  beneath it read **"unused = you still owe RM 3.00 off an order"** — because that figure was taken
+  from the **first** coupon only. Two numbers, disagreeing, on one line.
+- On an order with two ready, the line read **"RM 3.00 credit available on this order"** beside a
+  button reading **"Apply credit (2)"** — and the press spent exactly **one**. So the screen showed
+  one coupon's money next to a count of two, and did something else again.
+
+**The fix is not arithmetic. It is your rule, written down.** No screen shows a running balance any
+more. The customer's card now reads **"2 ready — one per order"**; the order reads **"RM 3.00 coupon
+ready for this order — one per order, 2 more after it"**; and the message a customer forwards to their
+friend now promises __"a RM 3.00 coupon for a future order — one coupon per order"__ so nobody has to
+guess. The rule is stated in all four places you would meet it.
+
+**★ AND WE NOW CALL IT A COUPON, IN YOUR WORDS.** Eighteen strings changed — Give **coupon**, Apply
+**coupon**, **Coupons**, Add **coupon**, the customer's card, and all three WhatsApp messages
+(English, 中文, Bahasa Malaysia). **Your decision on the two schemes is unchanged and I have kept to
+it: both stay, and the difference between them is what you hand over.** **⚠️ AND ONE THING DELIBERATELY
+DID NOT MOVE WITH THE WORD: the stored name.** Every coupon already given out lives under
+`state.credits`, and renaming that would have orphaned all of them — so the words changed and the
+storage did not. It is a test.
+
+**⚠️ ALSO NOT RENAMED, because they are a different thing entirely: "Insufficient Credit" and the
+EasyParcel wallet line on the parcel block.** That is the parcel money, not your reward.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,783 tests, all green** — and one of the new ones is the v312 route guard,
+which **caught this new screen by name** the moment I briefly took it out of the menu, exactly as it
+was built to.
 
 **05 Oct 2026 — engine v313, THE SMALL GREY LINES ARE READABLE NOW (no database step, nothing to
 upload — pushing this one is the whole of it).**

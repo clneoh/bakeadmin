@@ -532,61 +532,6 @@ export function renderSettings(root, state) {
     el("div", { class: "btn-row" },
       button("Delete all data", () => clearAll(), "danger")));
 
-  // ── Referrals (bring-a-friend) ──────────────────────────────────────────
-  // Scheme numbers behind the "one coupon per NEW friend" offer. Stored in
-  // settings (synced across phones); the Customers screen and the Give credit
-  // buttons on Orders read them from here.
-  const ref = cur.referrals ??= {};
-  const refOn = el("input", { type: "checkbox", checked: ref.enabled === true,
-    onchange: () => {
-      ref.enabled = refOn.checked;
-      save(state);
-      toast(ref.enabled ? "Bring-a-friend on — share buttons appear on Customers" : "Bring-a-friend off");
-    } });
-  const refFriend = el("input", { class: "input", type: "number", inputmode: "decimal", min: 0, step: "1",
-    value: (Number(ref.friendRM) || 3), style: "max-width:110px",
-    onchange: () => {
-      const v = Number(refFriend.value);
-      ref.friendRM = Number.isFinite(v) && v > 0 ? v : 3;
-      refFriend.value = ref.friendRM;
-      save(state); toast("Saved");
-    } });
-  const refReferrer = el("input", { class: "input", type: "number", inputmode: "decimal", min: 0, step: "1",
-    value: (Number(ref.referrerRM) || 3), style: "max-width:110px",
-    onchange: () => {
-      const v = Number(refReferrer.value);
-      ref.referrerRM = Number.isFinite(v) && v > 0 ? v : 3;
-      refReferrer.value = ref.referrerRM;
-      save(state); toast("Saved");
-    } });
-  const refDays = el("input", { class: "input", type: "number", inputmode: "numeric", min: 0,
-    placeholder: "90", value: ref.validDays === "" || ref.validDays == null ? "" : String(ref.validDays),
-    style: "max-width:110px",
-    onchange: () => {
-      const raw = String(refDays.value).trim();
-      if (raw === "") { ref.validDays = ""; }
-      else {
-        const v = Math.floor(Number(raw));
-        ref.validDays = Number.isFinite(v) && v > 0 ? v : "";
-      }
-      refDays.value = ref.validDays === "" ? "" : String(ref.validDays);
-      save(state); toast("Saved");
-    } });
-  const referralsCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, "Referrals (bring-a-friend)"),
-    el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "The deal: a friend who is NEW to you gets money off their first order when they order through a customer's link, and that customer earns a credit. You apply the actual discount yourself when you confirm on WhatsApp."),
-    el("label", { class: "daycheck", style: "display:inline-flex" },
-      refOn, " ", "Show bring-a-friend on Customers & new referred orders"),
-    el("div", { class: "form-grid", style: "margin-top:10px" },
-      el("div", {}, el("label", {}, "Friend's first-order discount (RM)"), refFriend),
-      el("div", {}, el("label", {}, "Referrer's credit (RM)"), refReferrer)),
-    el("div", { class: "field", style: "margin-top:10px" },
-      el("label", {}, "Credit valid for … days (blank = never)"),
-      refDays,
-      el("p", { class: "card-sub", style: "margin:4px 0 0" },
-        "Customer share messages live on More → Customers — open a customer to copy theirs. Give credit appears on a referred order in Orders.")));
-
   // ── Message style (2 Oct 2026) ──────────────────────────────────────────
   // WhatsApp carries no fonts — the letters always come from the customer's own
   // phone — so the only lever over how her words land is WhatsApp's own marks, and
@@ -630,7 +575,11 @@ export function renderSettings(root, state) {
   // The sample-data card is optional — replaceChildren is not el(), and would
   // print a literal "null" at the foot of Settings for every owner who has any
   // product or ingredient, so it is spread only when it exists (19 Sep 2026).
-  root.replaceChildren(daysCard, lockCard, storefrontCard, messageCard, devCard, referralsCard, mailingCard, courierCard, supabaseCard, sharedCard, backupCard, dangerCard,
+  // ⚠️ BRING-A-FRIEND IS NOT HERE ANY MORE (v314). It is a customer offer, not a
+  // default, so it moved beside Promo codes under More → The shop. Her words:
+  // "can be brought to The Shop, rather than in Settings." Nothing about the
+  // scheme changed — the screen is the same card, moved whole.
+  root.replaceChildren(daysCard, lockCard, storefrontCard, messageCard, devCard, mailingCard, courierCard, supabaseCard, sharedCard, backupCard, dangerCard,
     ...(sampleCard ? [sampleCard] : []));
 
   function doImport(e) {

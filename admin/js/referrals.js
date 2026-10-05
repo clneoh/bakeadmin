@@ -19,7 +19,7 @@ import { FOLLOWUP, fmtFollowup } from "./followup-lang.js";
 const DEFAULT_SCHEME = { enabled: false, friendRM: 3, referrerRM: 3, validDays: 90 };
 
 export const ROLE_LABEL = {
-  reward: "Referral credit",
+  reward: "Referral coupon",
   friendOff: "Friend's discount",
 };
 
@@ -80,15 +80,18 @@ export function shareMessage(state, r, origin) {
     && state.settings.storefront.name) || "Jienluv2bake").trim();
   const cur = (state.settings && state.settings.currency) || "RM";
   const validity = scheme.validDays === "" || scheme.validDays == null
-    ? "Your credit never expires."
-    : `Each credit is valid ${scheme.validDays} days from when your friend orders.`;
+    ? "Your coupon never expires."
+    : `Each coupon is valid ${scheme.validDays} days from when your friend orders.`;
 
   const lines = [];
   if (name) lines.push(`Hi ${name}! ${bakery} has a bring-a-friend deal 🍞`);
   else lines.push(`${bakery} has a bring-a-friend deal 🍞`);
   lines.push("");
   lines.push(`• A friend who is NEW to us gets ${fmtRM(scheme.friendRM, cur)} off their FIRST order`);
-  lines.push(`• For every friend who orders, you get ${fmtRM(scheme.referrerRM, cur)} off a future order`);
+  // ★ THE RULE IS STATED WHERE SHE PROMISES IT (v314). Her words: __"we can
+  // state, only one coupon apply for each purchase."__ A friend forwarding this
+  // is the first place the deal is written down, so it is where the rule belongs.
+  lines.push(`• For every friend who orders, you get a ${fmtRM(scheme.referrerRM, cur)} coupon for a future order — one coupon per order`);
   lines.push("");
   lines.push("Your personal link to share:");
   lines.push(link);
