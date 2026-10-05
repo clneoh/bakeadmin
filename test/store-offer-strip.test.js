@@ -41,54 +41,55 @@ test("every offer shares one grid cell, so the strip cannot change height", () =
   assert.ok(slide, "app.css has no .promo-slide rule");
   assert.match(slide[0], /grid-area:\s*1\s*\/\s*1/,
     "every slide must land in the SAME cell — that is the one thing making the tallest message decide the height");
-  assert.match(slide[0], /transition:[^;]*opacity/,
-    "the offer has to fade as well as turn, or a half-turned one reads through the other");
+  assert.match(slide[0], /transition:[^;]*transform/,
+    "the move itself must be a transition on transform");
+  assert.match(css.match(/\.promo-rotor\s*\{[^}]*\}/)[0], /overflow:\s*hidden/,
+    "without clipping, the offers parked off the right-hand edge would be visible beside the strip");
 });
 
-test("the turn is a 3D flip: the two panels go out by OPPOSITE doors", () => {
-  // Her asks, in order: "can the flip be an animation", then "the flip should be 3D flip".
-  // v296 failed the second one: it sent BOTH panels through the same arc (old 0 → −90, new
-  // −90 → 0), which mirrors them the whole way and reads as a vertical squash.
-  const rotor = css.match(/\.promo-rotor\s*\{[^}]*\}/)[0];
-  assert.match(rotor, /perspective:/,
-    "without a perspective on the rotor the turn is flat and reads as a squash, not a flip");
-
+test("the offers SCROLL: out to the left, and the next follows in from the right", () => {
+  // ★ v316. Her words: "the promo code, can it be like scrolling off, and new code follow,
+  // that kind of animation". This replaces the 3D flip of v297 — which was MY choice, argued
+  // for in the CSS on the grounds that sliding one line sideways "reads as a glitch". She is
+  // the one who looks at it, and she asked for the scroll. **Do not restore the flip on the
+  // strength of that argument.**
   const slide = css.match(/\.promo-slide\s*\{[^}]*\}/)[0];
-  assert.match(slide, /transform:\s*rotateX\(90deg\)/,
-    "an offer waiting its turn rests edge-on BELOW the reader");
-  assert.match(slide, /transition:[^;]*transform/,
-    "the turn itself must be a transition on transform");
+  assert.match(slide, /transform:\s*translateX\(100%\)/,
+    "an offer waiting its turn is parked off the RIGHT-hand edge");
+  assert.equal(/rotateX|perspective/.test(slide), false,
+    "the flip is gone — a slide of the strip must not still be turning in 3D");
 
   const lit = css.match(/\.promo-slide\.is-on\s*\{[^}]*\}/);
   assert.ok(lit, "the lit slide has no rule of its own");
-  assert.match(lit[0], /transform:\s*rotateX\(0deg\)/,
-    "the lit offer faces the reader");
+  assert.match(lit[0], /transform:\s*translateX\(0\)/, "the lit offer sits in the middle");
 
-  // ⚠️ THE OPPOSITE DOOR, and the whole of what makes it read as 3D. Remove this rule and
-  // the two panels mirror each other through one arc again — the squash v296 shipped.
+  // ⚠️ THE LEAVING OFFER GOES THE OTHER WAY, and that is the whole of the animation: if it
+  // went back the way it came, the two would cross over one another and read as a swap.
   const left = css.match(/\.promo-slide\.is-left\s*\{[^}]*\}/);
-  assert.ok(left, "nothing sends the replaced offer out the other door — that rule IS the 3D flip");
-  assert.match(left[0], /transform:\s*rotateX\(-90deg\)/,
-    "the offer that has just been replaced must tip AWAY over the top, not back the way it came");
+  assert.ok(left, "nothing sends the replaced offer off to the left — that rule IS the scroll");
+  assert.match(left[0], /transform:\s*translateX\(-100%\)/,
+    "the offer that has just been replaced must travel out to the LEFT");
   assert.equal(left[0].includes("opacity"), false,
-    "the leaving slide must not carry an opacity of its own — it fades on the base rule, fast");
+    "the leaving slide carries no opacity — a scroll shows both, that is what makes it a scroll");
+
+  // ⚠️ AND NEITHER SLIDE FADES. Fading either one puts a half-visible line on screen mid-move,
+  // which is exactly what the old cross-fade fades existed to prevent.
+  assert.equal(/opacity\s*:/.test(slide), false,
+    "the base slide must not fade — the pair travel together and both stay readable");
+  assert.equal(/opacity\s*:/.test(lit[0]), false, "nor must the lit one");
 
   // It has to win over the base rule on its own: more specific, and later in the sheet.
   assert.equal(
     css.lastIndexOf(".promo-slide.is-left") > css.lastIndexOf("\n.promo-slide {"),
     true, "the .is-left rule must come after the base .promo-slide rule");
 
-  // And the two directions still fade at different rates — both panels are on screen at
-  // once, and equal fades would put two half-turned messages up together.
-  const outOpacity = slide.match(/opacity\s+([\d.]+)s/);
-  // `opacity .3s ease .14s` — the easing word sits between the duration and the delay.
-  const inRule = lit[0].match(/opacity\s+([\d.]+)s(?:\s+[a-z-]+)?(?:\s+([\d.]+)s)?/);
-  assert.ok(outOpacity, "the leaving slide has no opacity timing");
-  assert.ok(inRule, "the arriving slide has no opacity timing");
-  assert.equal(Number(inRule[2] || 0) > 0, true,
-    "the arriving slide must DELAY its fade — without the delay both offers are half-visible mid-turn");
-  assert.equal(Number(outOpacity[1]) < Number(inRule[1]), true,
-    "the leaving slide must fade FASTER than the arriving one comes up");
+  // ⚠️ AND THE DURATION STAYS INSIDE THE HOUSE BAND (250–400ms for a page-level state change).
+  for (const [what, body] of [["leaving", slide], ["arriving", lit[0]]]) {
+    const d = Number((body.match(/transition:[^;]*?([\d.]+)s[^;]*transform|transform[^;]*?([\d.]+)s/) || [])
+      .slice(1).find(Boolean));
+    assert.ok(Number.isFinite(d), `the ${what} slide has no duration on its transform`);
+    assert.ok(d >= 0.25 && d <= 0.4, `the ${what} slide's move is ${d}s, outside the 250–400ms band`);
+  }
 });
 
 test("there is one dot per offer, and none for a single offer", () => {

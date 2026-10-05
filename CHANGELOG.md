@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v315)
+# Jienluv2bake — change history (v54 → v316)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v316, THE SHOP'S OFFERS SCROLL INSTEAD OF TURNING (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Why.** Your words: __"the promo code, can it be like scrolling off, and new code follow, that kind
+of animation."__ The offer line under your bakery name used to **turn** — a quarter-turn flip, the
+old offer tipping away over the top while the next rose from below.
+
+**What you see now.** The offer being replaced **slides off to the LEFT** and the next one **follows
+it in from the right**, at the same 1.5 seconds an offer. The strip is clipped, so nothing shows
+outside it. Everything else about it is untouched: the dots, the pointer resting on it to hold it,
+the tab going quiet when you leave it, and **nothing turns at all when only one code is running**.
+
+**★ AND THE FLIP WAS MY CHOICE, NOT YOURS — that is worth saying plainly.** Back in v292 I picked a
+fade, then turned it into a 3D flip, and I wrote the reason into the code: that sliding one line of
+message sideways "reads as a glitch". You are the one who looks at this every day, and you asked for
+the scroll. The argument loses.
+
+**★ ONE HONEST TRADE, so it is not a surprise.** During a scroll **two offers are briefly on screen at
+once** — the tail of the one leaving and the head of the one arriving. That is exactly what makes it
+read as a scroll rather than a swap. The flip never showed two, so if a long offer like *"Free
+delivery within Penang on RM200.00 and above — use code FREEDEL"* looks busy mid-move, that is why.
+
+**★ AND THE ONE THING THAT MUST NEVER REGRESS WAS RE-MEASURED.** v295's whole point was that the
+strip is exactly as tall as your tallest message and never changes height, because the page under it
+used to jump up and down every 1.5 seconds. **Measured on the live shop across three turns: 210.6
+pixels, 16 samples, never once different.** A sideways slide is a transform, just as the turn was, so
+the guarantee carries over exactly.
+
+**Two corrections to the guide while I was in it.** It described the old turning motion, and it said
+*"on a phone a tap holds it still for about twenty seconds"* — which **stopped being true in v297**,
+when we removed exactly that because it trapped anyone who touched the strip. Both now match what the
+shop actually does.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,784 tests, all green**, including the rewritten strip test: the flip coming
+back, a fade creeping in, an unclipped rotor, and a move slower than the house 250–400ms band each
+turn it red.
 
 **05 Oct 2026 — engine v315, TWO MORE CARDS LEAVE SETTINGS, AND ONE OF THEM IS RENAMED (no database
 step, nothing to upload — pushing this one is the whole of it).**

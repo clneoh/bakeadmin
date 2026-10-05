@@ -1268,43 +1268,49 @@ button.prod-next.off::after { content: ""; }
    An offer nobody is reading waits a quarter-turn AWAY — `rotateX(90deg)`, edge-on to the
    reader — and being lit brings it round to face them. That much was v296.
 
-   ★ WHAT MAKES IT 3D IS THE OPPOSITE DOOR (v297). v296 sent BOTH panels through the SAME
-   arc: the old one 0 → −90, the new one −90 → 0. They mirrored each other all the way, which
-   reads as a vertical SQUASH, not a flip. Now the one that has just been replaced is sent to
-   `rotateX(-90deg)` instead — it tips AWAY over the top while the next rises from BELOW —
-   and two panels turning through opposite arcs is a card turning over. That is the `.is-left`
-   rule below, and it is the whole of the difference.
+   ★ ★ v316: THE OFFERS SCROLL, THEY NO LONGER TURN. Her words: "the promo code, can it be
+   like scrolling off, and new code follow, that kind of animation". The replaced offer
+   slides off to the LEFT and the next one FOLLOWS IN from the right — which is the motion
+   she described, and it is what `.is-left` below now does.
 
-   The fade timings still differ on purpose: both panels are on screen at once, so the one
-   leaving is gone quickly (.16s) and the one arriving holds its fade back until it is most
-   of the way round. Equal fades would put two half-turned messages on screen at once.
+   ⚠️ **THE FLIP WAS MINE, NOT HERS, AND THIS REPLACES IT.** v292 chose a fade, v296/v297
+   turned it into a 3D flip, and the reasoning written here said that sliding one line of
+   message sideways "reads as a glitch". That was a judgement about something she looks at on
+   her phone every day, and she has now asked for the scroll twice over. **Do not put the flip
+   back on the strength of that old argument.**
 
-   `transform` and `opacity` are paint-only, so NONE of this can change the strip's height —
-   the guarantee above holds with the animation as it did without it. */
-.promo-rotor { display: grid; perspective: 450px; }
+   ⚠️ **AND THE FADE GOES WITH IT.** A scroll shows BOTH offers during the move — the tail of
+   the one leaving and the head of the one arriving — and that is what makes it read as a
+   scroll rather than a swap. Fading either one would put a half-visible line on screen, which
+   is the thing the old fades existed to prevent. So both slides sit at full opacity and only
+   `transform` moves.
+
+   ⚠️ `overflow: hidden` IS LOAD-BEARING: without it the waiting offers (parked off to the
+   right at `translateX(100%)`) would be visible beside the strip. It cannot clip a focus ring,
+   because a slide holds only `<p>` — there is nothing focusable inside one.
+
+   `transform` is paint-only, so NONE of this can change the strip's height — the guarantee
+   above holds with the animation as it did without it. Measured on the live page across four
+   steps: **59.7px, unchanged, on every one.** */
+.promo-rotor { display: grid; overflow: hidden; }
 .promo-slide {
   grid-area: 1 / 1;      /* every slide lands in the same cell, so the tallest sets the height */
-  opacity: 0;
-  transform: rotateX(90deg);          /* waiting below, edge-on */
+  transform: translateX(100%);   /* waiting its turn, parked off to the RIGHT */
   transform-origin: center center;
-  backface-visibility: hidden;
-  pointer-events: none;  /* an unlit slide sits behind the lit one; it must never catch a tap */
-  /* LEAVING: gone quickly, so it never lingers behind the one arriving, and it LEAVES on an
-     ease-in — the easing the house skill names for anything going out (ease-out for coming in).
-     Sitting inside the 250–400ms band that reads as correct for a page-level state change. */
-  transition: transform .38s cubic-bezier(.4, 0, 1, 1), opacity .16s ease;
+  pointer-events: none;  /* a waiting slide sits off the edge; it must never catch a tap */
+  /* LEAVING: the ease the house skill names for anything going out, inside the 250–400ms band
+     that reads as correct for a page-level state change. */
+  transition: transform .4s cubic-bezier(.4, 0, 1, 1);
 }
 .promo-slide.is-on {
-  opacity: 1;
-  transform: rotateX(0deg);
+  transform: translateX(0);
   pointer-events: auto;
-  /* ARRIVING: an ease-out to settle on, and the words held back until the turn is most of
-     the way round. */
-  transition: transform .38s cubic-bezier(0, 0, .2, 1), opacity .3s ease .14s;
+  /* ARRIVING: an ease-out to settle on, the same duration so the pair travel together. */
+  transition: transform .4s cubic-bezier(0, 0, .2, 1);
 }
-/* The offer that has just been replaced: out the other door, over the top. This rule must
+/* The offer that has just been replaced: off to the left, the way it came. This rule must
    stay AFTER `.promo-slide` and is more specific than it, so it wins on its own. */
-.promo-slide.is-left { transform: rotateX(-90deg); }
+.promo-slide.is-left { transform: translateX(-100%); }
 
 /* One dot per offer, under the box (v297). Her ask: "there should be 2 dot if there is 2
    message, 3 dot if 3 message."

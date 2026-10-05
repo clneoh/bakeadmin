@@ -1311,11 +1311,14 @@ export function render() {
   // never again — this only moves a class, which is what makes the strip's height
   // unmovable: nothing here can change how tall the content is.
   //
-  // ★ THE LEAVING OFFER GOES OUT THE OPPOSITE DOOR (v297). Every other slide waits edge-on
-  // at `rotateX(90deg)` and rises to meet the reader; the one that has just been replaced
-  // is sent to `rotateX(-90deg)` instead. Two panels turning through the SAME arc is a
-  // squash; two turning through opposite arcs is a flip, and this is the whole of what
-  // makes it read as 3D. Her words: "the flip should be 3D flip".
+  // ★ THE LEAVING OFFER GOES THE OTHER WAY (v316). Every other slide waits parked off to the
+  // RIGHT; the one that has just been replaced is sent off to the LEFT instead. The next one
+  // then FOLLOWS IT IN from the right, which is the animation she asked for: "the promo code,
+  // can it be like scrolling off, and new code follow, that kind of animation".
+  //
+  // ⚠️ THE CLASS NAMES DID NOT CHANGE when the flip became a scroll — `is-on` and `is-left`
+  // mean the same two things they always did (this one is showing / that one has just gone).
+  // Only the CSS moves differently, so nothing here needed rewriting.
   function showSlide(at) {
     codeAt = at;
     const i = Number(at) || 0;
@@ -1333,9 +1336,8 @@ export function render() {
     dots.forEach((d, k) => d.classList.toggle("is-on", k === i));
   }
 
-  // Stand the turning down. There is no fade to undo any more — the cross-fade is a CSS
-  // transition on the slides themselves, so a repaint landing mid-turn cannot leave a
-  // blank strip behind.
+  // Stand the turning down. There is no fade to undo any more — the move is a CSS transition
+  // on the slides themselves, so a repaint landing mid-move cannot leave a blank strip behind.
   function stopTurn() {
     if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
   }
