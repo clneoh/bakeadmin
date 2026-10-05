@@ -175,6 +175,128 @@ test("the screen says what the other half is, and points at it", () => {
   assert.ok(text.includes("travels"), "the distinction is the artefact: a link travels, a code is printed");
 });
 
+// ── ★★ v322: THE DISCOUNT ACTUALLY COMES OFF ────────────────────────────────
+//
+// Her report: __"the bring a friend discount used but not really create a discount for that
+// new customer."__ **And she was right.** `giveCredits` wrote the friend a coupon and then
+// **nothing read it** — `customerTotal` knew about promo CODES and nothing else, so the order
+// was priced as though the coupon did not exist, while pressing Apply coupon said *"already
+// taken off this order"* about a figure nothing had ever taken off.
+//
+// It had been built that way on purpose (the scheme's first rule was "the app records what is
+// owed; you apply it yourself"), which stopped being right the moment a CODE came off by
+// itself — the code comes off, names itself in every message and shows its working, and the
+// coupon did none of those.
+//
+// **NOTHING CAUGHT IT, for the whole life of the feature**, because every test asked what the
+// coupon SAID and none asked what it DID.
+
+const { couponOn, giveCredits } = await import("../admin/js/referrals.js");
+const { customerTotal, moneyLines } = await import("../admin/js/courier.js");
+const { orderCode } = await import("../admin/js/state.js");
+
+const P22 = {
+  settings: { currency: "RM", storefront: { name: "Jien Luv 2 Bake" }, referrals: { enabled: true, friendRM: 3, referrerRM: 3, validDays: 90 } },
+  products: [{ id: "p1", name: "Focaccia", price: 15 }],
+  deliveryDates: [{ id: "d18", date: "2026-09-18" }],
+  promoCodes: [], credits: [], customers: [],
+};
+const orderFor = (extra = {}) => ([{
+  id: "ordabc123", groupId: "ordgabc123", deliveryDateId: "d18", deliveryDate: "2026-09-18",
+  fulfillment: "collect", whatsapp: "60123456789",
+  productId: "p1", qty: 2, productName: "Focaccia", unitPrice: 15, status: "new", ...extra,
+}]);
+const friendCoupon = (over = {}) => ({
+  id: "crd1", holder: "60123456789", holderName: "Mei", amountRM: 3, role: "friendOff",
+  earnedAt: "2026-09-01T00:00:00.000Z", expiresAt: "", usedAt: null,
+  orderCode: "A3F9C2", note: "First order", ...over,
+});
+
+test("the friend's coupon comes OFF the total, and the message names it", () => {
+  const st = { ...P22, credits: [], orders: orderFor() };
+  const g = { orders: st.orders };
+  // ⚠️ THE ORDER CODE COMES FROM THE APP ITSELF, never from the fixture — the coupon is tied
+  // to an order by that code, and a fixture that invented one would be testing its own guess.
+  st.credits = [friendCoupon({ orderCode: orderCode(st.orders[0]) })];
+  const parts = customerTotal(st, g);
+  assert.equal(parts.items, 30, "two loaves at RM15");
+  assert.equal(parts.coupon, 3, "★ the RM3 the message promises is actually taken off");
+  assert.equal(parts.total, 27, "and the total she asks for is the lower figure");
+
+  const lines = moneyLines(st, parts).join("\n");
+  assert.match(lines, /Bring-a-friend you were sent: -RM 3\.00/,
+    "the customer can SEE the discount, which is the whole complaint");
+});
+
+test("an order with no coupon at all is priced exactly as before", () => {
+  // The control. Adding a discount to the one money function must not move a single order
+  // that has nothing to do with bring-a-friend.
+  const st = { ...P22, credits: [], orders: orderFor() };
+  const parts = customerTotal(st, { orders: st.orders });
+  assert.equal(parts.coupon, 0, "no coupon, no line");
+  assert.equal(parts.total, 30, "and the plain items total, untouched");
+  assert.doesNotMatch(moneyLines(st, parts).join("\n"), /Bring-a-friend/,
+    "and nothing about a discount is said to a customer who had none");
+});
+
+test("a code on the order wins, and the friend's coupon is NOT spent", () => {
+  // Her rule from v314: one coupon per order. The code is what the customer typed and can
+  // see, so it takes the total — and the friend's coupon must survive for their next order
+  // rather than being quietly burned.
+  const st = { ...P22, credits: [], orders: orderFor({ referredBy: "60199999999", promo: "FRESH10" }) };
+  const r = giveCredits(st, { orders: st.orders }, st.settings.referrals);
+  const friend = r.rows.find((c) => c.role === "friendOff");
+  assert.ok(friend, "the friend's coupon is still written");
+  assert.equal(friend.usedAt, null, "but NOT spent — a code paid for this order, not the coupon");
+});
+
+test("with no code, the friend's coupon is spent the moment it is made", () => {
+  const st = { ...P22, credits: [], orders: orderFor({ referredBy: "60199999999" }) };
+  const r = giveCredits(st, { orders: st.orders }, st.settings.referrals);
+  assert.ok(r.rows, `giveCredits bailed out instead of writing the couple: ${r.reason}`);
+  const friend = r.rows.find((c) => c.role === "friendOff");
+  assert.ok(friend.usedAt, "it comes off THIS order, so it is spent on it");
+  assert.ok(friend.orderCode, "and it records which order it was spent on");
+});
+
+test("the discount cannot leak onto another order", () => {
+  const st = { ...P22, credits: [], orders: orderFor() };
+  const g = { orders: st.orders };
+  const born = couponOn(st, g);
+  // A coupon tied to a DIFFERENT order — the friend's second order, say — must not apply.
+  st.credits = [friendCoupon({ orderCode: born.code === "ZZZZZZ" ? "other" : "ZZZZZZ" })];
+  assert.equal(couponOn(st, g).amount, 0,
+    "a coupon born on another order must never discount this one");
+  assert.equal(customerTotal(st, g).total, 30, "so the total is untouched");
+});
+
+test("giving a coupon republishes the customer's card", () => {
+  // ★ HER REPORT: __"there store front copy still hold the discount in cache."__ The give
+  // path saved and synced — but **it never republished the customer's own card**, and every
+  // OTHER door that changes what a customer sees does. `maybePublishTracking`'s own note says
+  // why that matters: *"a list of doors kept by hand is what let an edit that changed the
+  // items, the price or the address walk straight past it, leaving the customer reading the
+  // order it used to be."* **This door was not on the list**, and giving a coupon is exactly
+  // an edit that changes the price.
+  const src = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
+  const at = src.indexOf("const give = () => {");
+  assert.ok(at > -1, "the give-coupon press was not found");
+  const body = src.slice(at, src.indexOf("const skip = () => {", at));
+  assert.match(body, /maybePublishTracking\(state, group\)/,
+    "giving a coupon changes the order's total — the customer's card must be republished with it");
+});
+
+test("the order says the bring-a-friend discount is already in its total", () => {
+  // The coupon is spent the moment it is given, so it no longer shows as a "ready" coupon
+  // with a press beside it — which would leave the Total RM3 lower with nothing on the order
+  // explaining why. An unexplained figure is the fault this app treats as a bug everywhere.
+  const src = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
+  assert.match(src, /couponOn\(state, group\.orders\)/,
+    "the order does not ask whether a discount is already in its total");
+  assert.match(src, /already off this order's total/,
+    "and nothing on the order says so");
+});
+
 test("Promo codes points back, so the two are reachable from each other", () => {
   const src = readFileSync(new URL("../admin/js/views/promo.js", import.meta.url), "utf8");
   assert.ok(src.includes('"#/bring-a-friend"'),

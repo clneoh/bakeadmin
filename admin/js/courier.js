@@ -36,6 +36,7 @@ import { newId, orderCode, orderLinePrice, fmtRM, groupOrders, round2 } from "./
 import { todayISO } from "./dates.js";
 import { methodLabel } from "./accounts.js";
 import { awardOf, codesOf, findCode, minimumOf, normCode, shortfallOf } from "./promo.js";
+import { couponOn } from "./referrals.js";
 
 // From her own chart of accounts, in her words: "delivery charges". The label IS
 // the stored value, so it must match DEFAULT_CATEGORIES exactly.
@@ -201,13 +202,24 @@ export function customerTotal(state, group) {
   // pay nothing, so an order with a working code never carries both facts at once, and
   // an order with no code at all carries neither.
   const missed = promo.money > 0 ? null : codeNotApplied(state, orders);
+  // ★★ THE FRIEND'S FIRST-ORDER DISCOUNT (v322). Until this existed, the coupon was
+  // recorded and **nothing took it off** — the customer was never actually given the RM3 the
+  // message promised. See `couponOn` for the whole story.
+  //
+  // ⚠️ **ONE COUPON PER ORDER, WHICH IS HER OWN RULE (v314)** — and if a customer typed a
+  // CODE, THE CODE WINS. That is not arbitrary: the code is what they typed and can see, it
+  // is named on their own tracking page, and it is the one they will ask about. The friend's
+  // coupon is NOT spent when that happens (it is written unused — see `giveCredits`), so it
+  // is still theirs to use on the next order.
+  const coupon = promo.money > 0 ? { amount: 0, id: "", code: "" } : couponOn(state, orders);
   // Floored at nothing: a discount larger than the order (a free-delivery code on a
   // collect order has no fee to waive, but a hand-edited code could still overshoot)
   // must never leave her asking for a negative amount.
-  const total = Math.max(0, round2(items + courier - promo.money));
+  const total = Math.max(0, round2(items + courier - promo.money - coupon.amount));
   return {
     items, courier, cod, promo: promo.money, promoCode: promo.code,
     notApplied: missed ? missed.code : "", promoMinimum: missed ? missed.minimum : 0,
+    coupon: coupon.amount, couponId: coupon.id, couponCode: coupon.code,
     total,
   };
 }
@@ -253,6 +265,14 @@ export function moneyLines(state, parts) {
   // there reads as a code that was forgotten rather than one that never applied.
   else if (parts.notApplied) {
     out.push(`Code ${parts.notApplied} not applied: basket below ${fmtRM(parts.promoMinimum, cur)}`);
+  }
+  // ★ THE FRIEND'S FIRST-ORDER DISCOUNT, NAMED LIKE THE CODE ABOVE IT (v322). It is a line
+  // rather than a quieter total because the whole complaint that produced it was that the
+  // customer was promised RM3 off and never saw it taken. **A discount the customer cannot
+  // find in the message is a discount they will ask about**, and the lines above it have to
+  // add up to the Total below — that is the rule this whole function exists for.
+  if (parts.coupon > 0) {
+    out.push(`Bring-a-friend you were sent: -${fmtRM(parts.coupon, cur)}`);
   }
   out.push("");
   out.push(`*Total: ${fmtRM(parts.total, cur)}*`);

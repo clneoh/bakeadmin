@@ -22,7 +22,7 @@ import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
-import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName } from "../referrals.js";
+import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
@@ -3929,6 +3929,15 @@ function referralBlockEl(state, group, root, dateId) {
     const offer = referralOfferEl(state, group, scheme, root, dateId);
     if (offer) parts.push(offer);
   }
+  // ★ THE DISCOUNT ALREADY IN THE TOTAL, SAID OUT LOUD (v322). The friend's coupon is spent
+  // the moment it is given, so it no longer appears as a "ready" coupon with a press beside
+  // it — and the order's Total is RM3 lower with **nothing on the order explaining why**.
+  // An unexplained figure is the fault this app treats as a bug everywhere else, so the
+  // discount names itself here, beside the money it moved.
+  const applied = couponOn(state, group.orders);
+  if (applied.amount > 0) {
+    parts.push(refNote(`🎁 Bring-a-friend — ${fmtRM(applied.amount, cur)} already off this order's total.`));
+  }
   const apply = referralApplyEl(state, group, root, dateId);
   if (apply) parts.push(apply);
   return parts.length ? el("div", { class: "ref-block" }, ...parts) : null;
@@ -3954,9 +3963,18 @@ function referralOfferEl(state, group, scheme, root, dateId) {
     anchorRowId = first.id;
     save(state);
     maybeSync(state);
+    // ★★ AND THE CUSTOMER'S OWN CARD IS REPUBLISHED (v322). `maybePublishTracking` exists so
+    // that **every door which changes what a customer sees calls it** — the code's note says
+    // exactly that, and lists the reason: a hand-kept list of doors is what once left a
+    // customer reading an order that had already been changed. **This door was not on the
+    // list.** Giving a coupon changes the order's Total (the friend's discount now comes off
+    // it), so without this line the customer's tracking page keeps showing the price they
+    // were quoted before the discount existed — which is precisely her report:
+    // __"there store front copy still hold the discount in cache"__.
+    maybePublishTracking(state, group);
     updateOrderBadge(state);
     toast(r.created
-      ? `Coupons added — apply the ${fmtRM(scheme.friendRM, cur)} off when you confirm`
+      ? `Coupon given — the ${fmtRM(scheme.friendRM, cur)} is already off this order`
       : "Coupon was already given");
     renderAll(root, state, new URLSearchParams({ date: dateId }));
   };

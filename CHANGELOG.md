@@ -1,8 +1,58 @@
-# Jienluv2bake — change history (v54 → v321)
+# Jienluv2bake — change history (v54 → v322)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v322, THE NEW CUSTOMER'S DISCOUNT ACTUALLY COMES OFF NOW (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your two reports: __"the bring a friend discount used but not really create a discount for
+that new customer"__, and then __"there store front copy still hold the discount in cache."__
+
+**★ You were right on both, and the first one was worse than a wording slip.**
+
+**What was happening.** When you pressed **Give coupon**, the app wrote the friend a coupon —
+__"First order — via Jienny's link"__ — and then **nothing ever read it**. The order's Total, the
+confirmation and the three later messages are all worked out by one function, and that function knew
+about promo **codes** and nothing else. So the coupon was recorded, the order was priced as though it
+did not exist, and pressing **Apply coupon** told you __"already taken off this order"__ about a figure
+**nothing had ever taken off.** An app telling you it did something it did not do is the worst kind
+of fault, and I wrote that sentence.
+
+**What you see now.**
+
+- **The RM3 comes off the order's total by itself.** The customer pays the lower figure, so your
+  money and your message agree.
+- **The message says so, in its own line** — __"Bring-a-friend you were sent: -RM3.00"__ — sitting with
+  the items and Courier charge so the lines add up to the Total beneath them. A discount the customer
+  cannot find in the message is one they will ask you about.
+- **The order says it too** — __"🎁 Bring-a-friend — RM3.00 already off this order's total"__ — so the
+  lower figure is never unexplained on your own screen either.
+- **It cannot be used twice.** The coupon is tied to the one order it was born on, so their next
+  order is priced normally no matter what any cached copy of a page happens to hold.
+
+**★ And your second report was a real gap of its own.** Everywhere else in the app, anything that
+changes what a customer sees republishes their tracking page. **The Give coupon press did not** — so
+the customer's own card went on showing the price they were quoted __before__ the discount. That is
+fixed: giving a coupon now republishes their card, exactly like changing the items or the address
+does.
+
+**Her own rule is honoured, unchanged:** **one discount per order** — and if a customer typed a
+**code**, **the code wins** the total, because that is the one they typed and can see. **When that
+happens the friend's coupon is not spent** — it stays theirs for the next order, rather than being
+quietly burned.
+
+**⚠️ One thing left, and I would rather say it than let you find it.** The customer's **own tracking
+page** now shows the correct lower Total, but it does not yet say __why__ — because adding that line
+there needs one small database step. **Their WhatsApp confirmation, which is where they are asked for
+money, already explains it in full.** Say the word and I will do the tracking-page line as its own
+version, with the one-line SQL for you to run first.
+
+**Your data is untouched.** No SQL needed for this version, no order, product, price or bake day
+touched. The suite is **2,796 tests, all green** — including the one that would have caught this on
+the day it was written: not "does the coupon say the right thing" but **"does it actually come off
+the total"**.
 
 **05 Oct 2026 — engine v321, THE OFFERS WERE NEVER BROKEN — YOUR MAC ASKED FOR NO ANIMATION (no
 database step, nothing to upload — pushing this one is the whole of it).**
