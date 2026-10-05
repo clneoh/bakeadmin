@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v332)
+# Jienluv2bake — change history (v54 → v333)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v333, THE REMOVE BUTTON I ADDED YESTERDAY DID NOT WORK (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**You asked the question that mattered: __"have you tested it really can delete?"__ — and the answer
+was no.** I had checked that the ✕ was __there__, and that the row opens. **I had never pressed it
+through to a deletion. So I did — and it was broken.**
+
+**What was wrong.** The remove button I put on a search result was wired to a variable name that does
+not exist in that part of the code — the name belongs to the New-orders box next door. Pressing it
+**threw an error and removed nothing at all.** A button that does nothing is the thing this app
+treats as a bug everywhere else, and I had shipped one.
+
+**Now fixed and properly tested — by pressing it.** The test now **presses the ✕, answers the
+confirmation, and checks the order is actually gone**, from **both** doors: the New-orders box and a
+search result. It also fails with the old mistake put back, so it is a real check and not a hopeful one.
+
+**⚠️ And it was worth asking for a second reason:** the New-orders box's own ✕ has been there since
+the box was built and had **only ever been checked for existing** — never pressed. It works, and it is
+now covered too. **Two buttons call the same removal; testing one proves nothing about the other.**
+
+**On v332's other half — nothing was lost.** Opening an orphaned order was working, and still is.
+**No order was ever removed by the broken press**, because a press that throws removes nothing.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,821 tests, all green**.
 
 **05 Oct 2026 — engine v332, AN ORDER WITH NO DELIVERY DAY CAN BE OPENED — AND A SEARCHED ORDER
 REMOVED (no database step, nothing to upload — pushing this one is the whole of it).**

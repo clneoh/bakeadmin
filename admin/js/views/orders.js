@@ -1063,7 +1063,15 @@ function orderFinderEl(state, root, selectDate, body) {
       el("button", {
         class: "inbox-del",
         "aria-label": "Remove order",
-        onclick: () => removeOrder(state, g, root, first.deliveryDateId),
+        // ⚠️⚠️ `group`, NOT `g`. The ✕ was first written with the INBOX's own variable name
+        // — `groupOrders(unread).map((g) => …)` — and this function's parameter is `group`,
+        // so pressing it threw `ReferenceError: g is not defined` and **removed nothing at
+        // all**. It was shipped that way for the length of one push, and it was caught only
+        // because she asked the question that matters:
+        // __"have you tested it really can delete?"__ **A control is not tested until it has
+        // been driven to its outcome.** `test/orders-day-sum.test.js` now presses this
+        // button through the confirmation to an empty order list.
+        onclick: () => removeOrder(state, group, root, first.deliveryDateId),
       }, "✕"));
   };
 
