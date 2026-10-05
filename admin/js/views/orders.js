@@ -500,10 +500,14 @@ function groupSearchText(state, group) {
 }
 
 // Order groups whose every search word shows up somewhere in the order: a name,
-// a code ("#A3F9C2" or just its digits), a WhatsApp number typed with or
-// without dashes/+, an item name, the note, the address or a delivery day. All
-// words must match (so "ain focaccia" narrows to one order). Recency-sorted,
-// most recent first. Pure — the finder box wires this up to the DOM.
+// a code ("#A3F9C2" or "A3F9C2"), a WhatsApp number typed with or without
+// dashes/+, an item name, the note, the address or a delivery day. All words must
+// match (so "ain focaccia" narrows to one order). Recency-sorted, most recent
+// first. Pure — the finder box wires this up to the DOM.
+//
+// ⚠️ THE NUMBER PATH IS FOR NUMBERS (v331). A query WITH A LETTER IN IT is matched as
+// text and nothing else — see the note inside — because a code like "C2FDA5" used to be
+// stripped to "25" and then found every order whose phone number contains it.
 export function matchingGroups(state, query) {
   const tokens = String(query || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!tokens.length) return [];
@@ -511,6 +515,20 @@ export function matchingGroups(state, query) {
     const hay = groupSearchText(state, group);
     return tokens.every((tok) => {
       if (hay.text.includes(tok)) return true;
+      // ★★ THE DIGITS FALLBACK IS FOR A PHONE NUMBER, AND ONLY FOR ONE (v331). Her
+      // report, 5 Oct 2026: __"C2FDA5 why when i type this 17 order found?"__
+      //
+      // ⚠️⚠️ AN ORDER CODE WAS BEING READ AS A LOOSE PAIR OF DIGITS. `C2FDA5` carries two
+      // digits, so stripping the letters gave "25" — and the query then matched **every
+      // order whose WhatsApp number contains "25"**. In a Malaysian book that is most of
+      // them: seventeen, on hers. **A search that returns seventeen when she typed one
+      // code is worse than no search at all, because it hides the one row she asked for.**
+      //
+      // A code never needed this path: `#C2FDA5` is already in the haystack, so the TEXT
+      // check above finds it. The fallback exists for "012-345 6789" — a number typed WITH
+      // separators, which cannot match the stored number character for character. **A query
+      // with a letter in it is not a number.**
+      if (/[a-z]/.test(tok)) return false;
       const digits = tok.replace(/[^0-9]/g, "");
       return digits.length >= 2 && hay.digits.includes(digits);
     });

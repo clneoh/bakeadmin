@@ -366,6 +366,47 @@ test("matchingGroups finds an order by WhatsApp number, messy as typed", () => {
   assert.deepEqual(foundIds(st, "016 555 7777"), ["o_ce7c9b21"], "country-code digits split");
 });
 
+test("★ a code is found AS A CODE — never as a loose pair of digits out of it", () => {
+  // ★★ Her report, 5 Oct 2026: __"C2FDA5 why when i type this 17 order found?"__
+  //
+  // ⚠️⚠️ THE FALLBACK MEANT FOR A PHONE NUMBER TYPED WITH DASHES WAS FIRING ON AN ORDER
+  // CODE. `C2FDA5` has two digits in it, so `tok.replace(/[^0-9]/g, "")` gave "25" — and
+  // the query then matched **every order whose WhatsApp number contains "25"**, which in a
+  // Malaysian mobile book is most of them. Seventeen, on her book.
+  //
+  // The fallback exists for "012-345 6789": a number typed WITH separators, which cannot
+  // match the stored number character for character. **A query with a letter in it is not a
+  // number, and a code is matched by the text path above** — `#C2FDA5` is in the haystack,
+  // so the code never needed the digits path at all.
+  const st = {
+    ...searchState(),
+    // ⚠️ The ORIGINAL two ride along: the phone-number half of this test needs the order
+    // whose number was stored as "012-345 6789", and replacing the list wholesale would
+    // have silently removed the thing that half is checking.
+    orders: [
+      ...searchState().orders,
+      { id: "o_c2fda5", status: "new", deliveryDateId: "d1", deliveryDate: "2026-09-04",
+        productId: "p1", qty: 1, customerName: "Ain", whatsapp: "60111111111",
+        fulfillment: "collect", createdAt: "2026-09-04T10:00:00" },
+      // Numbers that really do contain "25" — the seventeen, in miniature.
+      { id: "o_aaaa1111", status: "new", deliveryDateId: "d1", deliveryDate: "2026-09-04",
+        productId: "p1", qty: 1, customerName: "Bee", whatsapp: "6012255555",
+        fulfillment: "collect", createdAt: "2026-09-01T10:00:00" },
+      { id: "o_bbbb2222", status: "new", deliveryDateId: "d1", deliveryDate: "2026-09-04",
+        productId: "p1", qty: 1, customerName: "Cee", whatsapp: "6012255666",
+        fulfillment: "collect", createdAt: "2026-09-01T11:00:00" },
+    ],
+  };
+  assert.deepEqual(foundIds(st, "C2FDA5"), ["o_c2fda5"],
+    "the code finds the order it names, and only it");
+  assert.deepEqual(foundIds(st, "c2fda5"), ["o_c2fda5"], "in any case");
+  assert.deepEqual(foundIds(st, "#C2FDA5"), ["o_c2fda5"], "and with the hash");
+  // ⚠️ AND THE FALLBACK STILL DOES ITS OWN JOB — a number typed with separators, and the
+  // bare digits of one, both still find their order. The fix must not take that away.
+  assert.deepEqual(foundIds(st, "012-345"), ["o_9f3ba44e"], "a number with separators still finds it");
+  assert.deepEqual(foundIds(st, "12255555"), ["o_aaaa1111"], "and its bare digits do too");
+});
+
 test("matchingGroups finds by item, note, delivery method and delivery day", () => {
   const st = searchState();
   assert.deepEqual(foundIds(st, "focaccia"), ["o_9f3ba44e"]);

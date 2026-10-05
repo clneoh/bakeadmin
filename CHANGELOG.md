@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v330)
+# Jienluv2bake — change history (v54 → v331)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v331, A CODE SEARCH FINDS THAT ORDER AND NO OTHERS (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Your report:** __"C2FDA5 why when i type this 17 order found?"__
+
+**What was wrong.** The search box has a second way of matching, added for a phone number typed
+with dashes or spaces — "__012-345 6789__" cannot match a number stored as "__60123456789__"
+character for character, so the box strips everything that is not a digit and looks for those digits
+in the order's number. **An order code was falling into that same path.** "__C2FDA5__" carries two
+digits in it, so stripping the letters left "__25__" — and the search then found **every order whose
+phone number contains 25**. In a Malaysian book that is most of them: **seventeen, on yours.**
+
+**⚠️ And it is worse than a long list.** The one row you asked for is buried inside it, so a search
+that returns seventeen is a search that has stopped working.
+
+**Now fixed.** **A query with a letter in it is matched as text and nothing else** — and a code never
+needed the number path anyway, because "__#C2FDA5__" is already in what the search reads. **Typing a
+code now finds exactly that order, with or without the `#`, in any case.**
+
+**And the number path still does its own job** — "__012-345__", "__0123456789__", "__60123456789__"
+and "__016 555 7777__" all still find their order, exactly as before. **Both halves are pinned as a
+test**, so neither can be broken by fixing the other.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,818 tests, all green**.
 
 **05 Oct 2026 — engine v330, THE BRING-A-FRIEND DISCOUNT SHOWS IN THE WORKING (no database step,
 nothing to upload — pushing this one is the whole of it).**
