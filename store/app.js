@@ -1285,8 +1285,28 @@ export function render() {
   // the pointer. Her report: "once we put mouse over it or click it, the flip stop… move
   // the mouse outside the window, the flip should be back." The pointer being OVER the
   // strip is the whole of the pause now, so leaving always starts it again.
+  // ⚠️⚠️ A POINTER MAY HOLD THE STRIP **ONLY WHERE A POINTER CAN HOVER** (v320).
+  //
+  // `overStrip` is a LATCH: set on `pointerenter`, cleared on `pointerleave` or
+  // `pointercancel` — and **ON A TOUCH SCREEN NEITHER OF THOSE IS GUARANTEED TO FIRE.** A
+  // finger that lands on the strip sets the latch, and if the matching leave never arrives
+  // the strip is held **for the whole life of the page**: the timer still ticks, `mayTurn()`
+  // says no, and **the offers never change again.** That is indistinguishable from a broken
+  // strip, and it is the one mechanism in here that can stop the turning dead.
+  //
+  // Her report: *"the text never changes at all"* — with two dots showing, so the turning
+  // should have been running.
+  //
+  // The pause exists so a reader can hold the message and finish it. **That only means
+  // anything where a pointer rests**, which is a mouse. On a touch screen there is nothing
+  // to rest, so there is nothing to hold — and the latch is simply not set.
+  function canHover() {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+      && window.matchMedia("(hover: hover)").matches;
+  }
+
   function mayTurn() {
-    return !document.hidden && !overStrip;
+    return !document.hidden && !(overStrip && canHover());
   }
 
   // One offer, as its own slide. Two lines: the app's line, which names the code, and
@@ -1413,17 +1433,49 @@ export function render() {
   }
 
   if (promoToday) {
-    promoToday.addEventListener("pointerenter", () => { overStrip = true; });
-    promoToday.addEventListener("pointerleave", () => { overStrip = false; });
+    // ⚠️ THE LATCH IS ONLY SET WHERE A POINTER CAN HOVER (v320) — see `canHover` above.
+    // On a touch screen these listeners are never attached, so a finger cannot hold the
+    // strip for ever. `matchMedia` is read ONCE here rather than per event: it is a
+    // constant of the device, and a second read could disagree with the first.
+    if (canHover()) {
+      promoToday.addEventListener("pointerenter", () => { overStrip = true; });
+      promoToday.addEventListener("pointerleave", () => { overStrip = false; });
+    }
     // Belt and braces for the exact case she reported — "move the mouse outside the window,
     // the flip should be back". A pointer that leaves the whole document without passing
-    // through the strip's own leave event must not leave the turn held for ever.
+    // through the strip's own leave event must not leave the turn held for ever. These only
+    // ever CLEAR the latch, so they are safe to keep on every device.
     document.addEventListener("pointerleave", () => { overStrip = false; });
     document.addEventListener("pointercancel", () => { overStrip = false; });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) stopTurn();
       else armTurn();
     });
+  }
+
+  // ⚠️ `?debug=offers` — ONE LINE THAT SAYS WHY THE STRIP IS OR IS NOT TURNING.
+  //
+  // IT EXISTS BECAUSE I COULD NOT SEE HER PHONE, and saying "verified" three times without
+  // ever watching it move is how two versions in a row were handed over broken. Every check
+  // I could make was on a browser pane that reports itself HIDDEN, and a hidden tab runs no
+  // animation at all — so my readings could only ever be about where things ENDED UP.
+  //
+  // With this, the next report is a reading rather than a guess. It appears **only** when
+  // the shop's address carries `?debug=offers`, so no customer ever sees it.
+  if (promoToday && (() => {
+    const q = String((typeof location !== "undefined" && location.search) || "");
+    return q.indexOf("debug=offers") > -1;
+  })()) {
+    const node = el("p", { class: "promo-debug" });
+    const paint = () => {
+      node.textContent =
+        `offers ${liveCodes.length} · timer ${turnTimer ? "armed" : "OFF"} · `
+        + `pointer-pause ${overStrip ? "ON" : "off"} · hover ${canHover() ? "yes" : "no"} · `
+        + `tab ${document.hidden ? "hidden" : "visible"} · showing ${codeAt}`;
+    };
+    paint();
+    setInterval(paint, 500);
+    if (promoToday.parentNode) promoToday.parentNode.insertBefore(node, promoToday.nextSibling);
   }
 
   // What the basket comes to right now. The same sum renderBar shows in the bar,

@@ -1357,6 +1357,20 @@ button.prod-next.off::after { content: ""; }
    mistakes the house skill names. */
 .promo-dots { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
 .promo-dots:empty { display: none; }
+
+/* ⚠️ `?debug=offers` ONLY — one line saying why the strip is or is not turning. It is
+   built by the script only when the shop's address carries that flag, so a customer
+   never sees it; the rule exists so that when it IS there it reads as what it is —
+   a reading, not part of the shop. */
+.promo-debug {
+  margin: 6px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #6b5545;
+  text-align: center;
+  word-break: break-word;
+}
 .promo-dot {
   width: 28px; height: 28px;           /* WCAG 2.5.8 floor is 24; this clears it */
   padding: 0; border: 0; background: none; cursor: pointer;

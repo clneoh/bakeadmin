@@ -1,8 +1,47 @@
-# Jienluv2bake — change history (v54 → v319)
+# Jienluv2bake — change history (v54 → v320)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v320, A FINGER CAN NO LONGER STOP THE OFFERS FOR GOOD (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**First, plainly: I owe you an apology on method.** I told you twice that this was fixed, and both
+times I had never actually watched it move. Every check I made was on a browser pane that reports
+itself as **hidden**, and **a hidden tab runs no animation at all** — so all I could ever read was
+where things __ended up__. That is how two versions went to you broken. It will not happen again in
+this particular way, because there is now a way to ask the strip itself (below).
+
+**★ AND I HAVE FOUND THE ONE THING IN THE CODE THAT CAN STOP THE OFFERS FOR GOOD.**
+
+The strip holds still while your pointer rests on it — that was your own ask, so you can finish
+reading a message. The app remembers __"the pointer is on it"__ as a little flag, and it clears that
+flag when the pointer **leaves**. **On a touch screen, that "leaves" may never arrive.** A finger
+landing on the strip sets the flag, and if the matching leave never comes, the strip is held **for
+the whole life of the page**: the timer keeps ticking, everything thinks the pointer is still there,
+**and the messages never change again.** That looks exactly like a broken strip — and it is the only
+mechanism in the code that can stop the turning dead, which matches what you are seeing.
+
+**What changed.** **A pointer can now hold the strip only where a pointer can hover** — that is a
+mouse. **On a phone the strip simply carries on**, because on a touch screen there is nothing to rest
+and so nothing to hold. On your Mac, resting the mouse on it still holds it, exactly as before.
+
+**★ AND A WAY FOR YOU TO ASK IT DIRECTLY.** If the offers are ever not turning again, add
+**`?debug=offers`** to the end of your shop's address, like this:
+
+```
+https://jienluv2bake.com.my/store/?debug=offers
+```
+
+One small line appears under the strip and tells us exactly what is going on — how many offers it can
+see, whether the timer is running, whether it thinks your pointer is resting on it, whether your phone
+can hover at all, and whether the tab is hidden. **No customer ever sees it: it only appears with that
+`?debug=offers` on the link.** Next time, you read it to me and I will know, instead of guessing.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,788 tests, all green**, including two new ones: that a touch can no longer
+hold the strip, and that the debug line exists and can never reach a customer.
 
 **05 Oct 2026 — engine v319, THE FOLLOWING MESSAGE WAS BROKEN ON A TWO-OFFER SHOP (no database step,
 nothing to upload — pushing this one is the whole of it).**

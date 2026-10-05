@@ -150,6 +150,50 @@ test("the parked rule exists, and comes last so it actually wins", () => {
     "the parked rule must come AFTER the base and the is-left rules — equal specificity means source order decides, and a park that loses is a park that does nothing");
 });
 
+test("a finger can no longer hold the strip for ever — the pause needs a pointer that hovers", () => {
+  // ⚠️⚠️ THE LATCH THAT COULD STOP THE TURNING DEAD. `overStrip` is set on `pointerenter`
+  // and cleared only by `pointerleave` or `pointercancel` — and **ON A TOUCH SCREEN NEITHER
+  // IS GUARANTEED TO FIRE.** A finger landing on the strip sets it, and if the matching
+  // leave never arrives the strip is held for the WHOLE LIFE OF THE PAGE: the timer ticks,
+  // `mayTurn()` says no, and the offers never change again. That is indistinguishable from
+  // a broken strip, and it is the only mechanism in here that can stop it dead.
+  //
+  // **Her report was "the text never changes at all", with two dots showing** — so the
+  // turning should have been running. The pause exists so a reader can hold a message and
+  // finish it, which only means anything where a pointer RESTS. On a touch screen there is
+  // nothing to rest, so there is nothing to hold.
+  assert.match(app, /function canHover\(\)/, "there is no hover test — a touch can still latch the strip");
+  assert.match(app, /matchMedia\("\(hover: hover\)"\)/, "the hover test must be the real media query");
+  assert.match(app, /!\(overStrip && canHover\(\)\)/,
+    "mayTurn must ignore the pointer latch entirely where nothing can hover");
+
+  // And the latch must not even be SET there — a test that only guards mayTurn would leave
+  // a permanently true flag waiting for the day someone reads it for something else.
+  const bind = app.slice(app.indexOf('if (promoToday) {'), app.indexOf("document.addEventListener(\"pointerleave\""));
+  assert.match(bind, /if \(canHover\(\)\)/, "the pointerenter listener must be attached only where a pointer can hover");
+  assert.match(bind, /addEventListener\("pointerenter"/, "and it is still attached where hovering is real");
+});
+
+test("`?debug=offers` says why the strip is or is not turning, and only then", () => {
+  // ⚠️ IT EXISTS BECAUSE I HANDED OVER TWO BROKEN VERSIONS SAYING "VERIFIED". Every check I
+  // could make was on a browser pane that reports itself HIDDEN, and a hidden tab runs no
+  // animation — so a reading could only ever be about where things ENDED UP. This makes the
+  // next report a reading instead of a guess.
+  assert.match(app, /debug=offers/, "the debug flag is gone — the next report would be a guess again");
+  assert.match(app, /promo-debug/, "and the line it builds has no class to style it");
+  for (const what of ["offers ", "timer ", "pointer-pause ", "hover ", "tab "]) {
+    assert.ok(app.includes(what), `the debug line no longer reports ${what.trim()}`);
+  }
+  // ⚠️ AND A CUSTOMER MUST NEVER SEE IT: it may only be built when the flag is on the address.
+  // The CODE that tests the address is `q.indexOf("debug=offers")` — the earlier mentions of
+  // the flag are in the comment explaining it, which is why this looks for that call.
+  const at = app.indexOf('indexOf("debug=offers")');
+  assert.ok(at > -1, "nothing tests the address for the flag");
+  const guard = app.lastIndexOf("if (promoToday &&", at);
+  assert.ok(guard > -1 && at - guard < 250, "the debug line is not guarded by the ?debug flag");
+  assert.match(css, /\.promo-debug\s*\{/, "app.css has no .promo-debug rule");
+});
+
 test("there is one dot per offer, and none for a single offer", () => {
   // Her ask: "there should be 2 dot if there is 2 message, 3 dot if 3 message."
   assert.match(html, /<div id="promo-dots"[^>]*><\/div>/,
