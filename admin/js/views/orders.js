@@ -756,29 +756,65 @@ function renderAll(root, state, params) {
   // order and the cloud all mean by a day. When the tap carried a date as well,
   // the record on that date wins, so the panel can never be a different day from
   // the cell that opened it.
-  const dayRecord = () => {
+  const dayRecordFor = (id, iso) => {
     const list = state.deliveryDates || [];
-    if (activeIso) {
-      const exact = list.find((d) => d && d.id === activeId && d.date === activeIso);
+    if (iso) {
+      const exact = list.find((d) => d && d.id === id && d.date === iso);
       if (exact) return exact;
     }
-    return byId(list, activeId);
+    return byId(list, id);
+  };
+
+  // ★ A DAY THAT CANNOT BE DRAWN SAYS SO (v328). Three versions of fixing this from
+  // the outside got nowhere, because the fault is in ONE day's data and nothing on
+  // screen ever said what it was. This is the app's own error surface — the same
+  // one app.js uses when a whole screen crashes — put where the day would have
+  // been, so the reason can be read out and acted on instead of guessed at.
+  const dayFailed = (err, id, iso) => {
+    console.error("Orders: could not draw a day", id, iso, err);
+    const rec = byId(state.deliveryDates || [], id);
+    return el("div", { class: "card" },
+      el("p", { class: "card-title" }, "This day could not be opened"),
+      el("p", { class: "card-sub" }, `${iso || (rec && rec.date) || id} — the app hit an error drawing it.`),
+      el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        "Tell the baker's helper this message: " + String((err && err.message) || err)),
+      el("p", { class: "card-sub", style: "margin:8px 0 0" },
+        "Nothing has been changed. The day is still in your list — this is only about showing it."));
+  };
+
+  const drawDay = (id, iso) => {
+    const date = dayRecordFor(id, iso);
+    if (!date) {
+      return emptyState("Delivery date missing",
+        "This order's delivery date was deleted. Remove it from the New Orders box.");
+    }
+    return dateContent(state, date, root, selectDate);
   };
 
   const renderContent = () => {
-    const date = dayRecord();
-    if (!date) {
-      content.replaceChildren(emptyState("Delivery date missing",
-        "This order's delivery date was deleted. Remove it from the New Orders box."));
-      return;
+    try {
+      content.replaceChildren(drawDay(activeId, activeIso));
+    } catch (err) {
+      content.replaceChildren(dayFailed(err, activeId, activeIso));
     }
-    content.replaceChildren(dateContent(state, date, root, selectDate));
   };
 
   // Switch dates in place instead of navigating: only the order area below the
   // calendar is rebuilt, so the calendar keeps the week she paged it to. The URL
   // still updates (without firing the router) so the current date stays shareable.
   const selectDate = (id, iso) => {
+    // ⚠️⚠️ ALL OR NOTHING, AND THAT IS THE POINT (v328). The day is built BEFORE the
+    // red mark moves. If it cannot be built, the mark does not move and the reason
+    // takes the day's place — because a red square sitting over ANOTHER day's panel
+    // is the one thing this screen must never show, and it is exactly what she has
+    // been looking at for three versions.
+    let node;
+    try {
+      node = drawDay(id, iso);
+    } catch (err) {
+      content.replaceChildren(dayFailed(err, id, iso));
+      return;
+    }
     activeId = id;
     activeIso = iso || "";
     // The day she named, remembered against its id, so every later rebuild of this
@@ -794,7 +830,9 @@ function renderAll(root, state, params) {
       if (!shown.includes(dest.date)) ordersCalView.offset = windowForDay(todayISO(), dest.date);
     }
     topCal.repaint();
-    renderContent();
+    // The day was built above, before anything moved — it is swapped in here, not
+    // built a second time.
+    content.replaceChildren(node);
     if (history && history.replaceState) {
       // ⚠️ THE DAY GOES IN THE ADDRESS AS WELL AS THE ID (v327) — see `activeIso`
       // above for why a rebuild without it opens the wrong day. It is the day she

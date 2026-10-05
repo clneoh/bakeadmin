@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v327)
+# Jienluv2bake — change history (v54 → v328)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v328, THE DAY THAT WILL NOT OPEN NOW SAYS WHY (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Why, and it is an honest one.** You pushed v326, then v327, and told me both times that 7 October
+still would not open. **Two versions of fixing it from the outside got nowhere — and that is on me,
+because I was guessing.** What I could see was the shape of the fault from your recording: the day
+turns red and the panel underneath never changes. What I could not see was **why**, and the reason is
+in that one day's own records, which I cannot look at.
+
+**So this version stops guessing and makes the app speak.**
+
+**The day is now built BEFORE the red mark moves.** If it cannot be built:
+
+- **the red mark does not move** — because a red day sitting over a different day's panel is exactly
+  the fault you have been looking at, and it should never have been possible; and
+- **the reason takes the day's place**, in the app's own words, with a line to read out to me.
+
+**What you will see.** Tap 7 October on the new version and you will get one of two things:
+
+1. **The day opens normally** — a plain square with its heading, its count and its orders. Nothing to
+   do; it is fixed.
+2. **A card headed "This day could not be opened"**, naming the day and ending with
+   **"Tell the baker's helper this message: …"**. **Read that sentence out to me and I will have the
+   answer in one step** instead of another round of guessing.
+
+**Whichever it is, nothing is changed and nothing is lost** — the card says so itself. 7 October stays
+in your list either way, and no order, product, price or bake day is touched.
+
+**If you get the second one, the message is what I need** — not a description of it. The words after
+"this message:" are the whole answer.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,812 tests, all green**.
 
 **05 Oct 2026 — engine v327, THE DAY STAYS PUT WHEN THE SCREEN REBUILDS ITSELF (no database step,
 nothing to upload — pushing this one is the whole of it).**
@@ -39,6 +72,9 @@ one memory.**
 still share an id.
 
 **Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,811 tests, all green**.
+
+**Added 05 Oct 2026, the same day: this did not fix it either.** See v328 above — two rounds of
+fixing from the outside got nowhere, so the app now reports the reason itself.
 
 **05 Oct 2026 — engine v326, A DAY YOU TAP IS THE DAY YOU GET (no database step, nothing to upload —
 pushing this one is the whole of it).**

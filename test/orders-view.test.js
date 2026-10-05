@@ -775,3 +775,45 @@ test("a status change does not send the day back", () => {
   assert.equal(titleNow(), "Thu, 10 Sep 2026",
     "and the screen is still on 10 Sep afterwards — a rebuild must not swap the day out from under her");
 });
+
+test("a day that cannot be drawn says so, and does not move the mark", () => {
+  // ★ v328. Her fault survived two rounds of fixing from the outside — the red
+  // square moved and the panel did not — because the reason was in ONE day's data
+  // and nothing on screen ever named it. So the day is now built BEFORE the mark
+  // moves: if it cannot be built, the mark stays where it was and the reason takes
+  // the day's place. **A red square over another day's panel is the one thing this
+  // screen must never show**, and it is exactly what she has been looking at.
+  const boom = () => { throw new Error("orders.test: this day's orders cannot be read"); };
+  const bad = { id: "o9", deliveryDateId: "d_ten", deliveryDate: "2026-09-10",
+    productId: "p1", qty: 2, customerName: "Uncle Tan", whatsapp: "0162223333", status: "confirmed" };
+  // ⚠️ THE LEVER MATTERS. It must break ONLY the day it is on: the calendar's own
+  // count (`explodeBom`), the inbox and the cloud all read other fields, and a
+  // property they read would fail the whole screen instead of one day. `customerName`
+  // is read by the order ROW alone, which only that day's panel builds.
+  Object.defineProperty(bad, "customerName", { get: boom, enumerable: true, configurable: true });
+
+  const st = {
+    ...STATE,
+    deliveryDates: [{ id: "d7", date: "2026-09-07" }, { id: "d_ten", date: "2026-09-10" }],
+    orders: [bad],
+  };
+  const root = createEl("div");
+  renderOrders(root, st, PARAMS()); // opens on 7 Sep, which is fine
+  const text = () => all(root).map((n) => (n.nodeType === 3 ? n.text : n.textContent)).join("");
+  assert.ok(text().includes("Mon, 7 Sep 2026"), "the screen opens on its normal day");
+
+  const cell = all(root).find((n) => n.dataset && n.dataset.date === "2026-09-10"
+    && n.tagName === "BUTTON");
+  assert.ok(cell, "10 Sep is a delivery day");
+  (cell._listeners.click || []).forEach((f) => f.call(cell));
+
+  assert.ok(text().includes("This day could not be opened"), "the day says it could not be drawn");
+  assert.ok(text().includes("orders.test: this day's orders cannot be read"),
+    "and names the reason, so it can be read out instead of guessed at");
+  assert.ok(text().includes("Nothing has been changed"), "and says her day is still safe");
+  const sel = all(root).filter((n) => String(n.className).includes("cal-cell")
+    && String(n.className).includes("sel")).map((n) => n.dataset.date);
+  assert.deepEqual(sel, ["2026-09-07"],
+    "the red mark did NOT move — a red day sitting over another day's panel is the fault itself");
+  assert.equal(st.deliveryDates.length, 2, "and her days are untouched");
+});
