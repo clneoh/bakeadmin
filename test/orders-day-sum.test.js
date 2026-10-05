@@ -1869,3 +1869,55 @@ test("the Edit card's total has the bring-a-friend discount taken off it", () =>
   assert.equal(valueOf("Total"), "RM 27.00",
     "AND THE TOTAL ITSELF IS AFTER THE DISCOUNT — this is the figure she quotes to a customer");
 });
+
+// ── ★ v332: an order whose day is gone can be opened, and a result can be removed ──
+test("a code search opens its result, and the result can be removed", () => {
+  // ★★ TWO REPORTS, ONE DEAD END. First: __"there is many orphant orders around, can you
+  // clear it for me"__ — an orphan was drawn as a bare row with only a ✕, so the one thing
+  // she could do with it was delete it. Then, minutes later: __"C2FDA5 i search this order,
+  // but no button to delete it"__ — and a search result carried NO controls at all.
+  //
+  // ⚠️ SO BOTH HALVES ARE PINNED HERE THROUGH THE REAL SCREEN: the result carries the same
+  // ✕ the New-orders inbox has always had, and tapping the row opens the order's own Edit
+  // card — where its Delivery day is chosen. Tapping it used to be a toast telling her to
+  // go somewhere that could not help.
+  const st = state();
+  st.orders = [{
+    id: "o_c2fda5", groupId: "o_c2fda5", status: "new",
+    deliveryDateId: "gone", deliveryDate: "2026-09-01", // the day was deleted
+    productId: "p1", qty: 2, unitPrice: 15,
+    customerName: "Uncle Tan", whatsapp: "60162223333",
+    createdAt: "2026-09-01T10:00:00", orderDate: "2026-09-01",
+  }];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const box = all(root).find((n) => n.tagName === "INPUT"
+    && String(n.className).includes("finder-input"));
+  assert.ok(box, "the finder box is on the screen");
+  box.value = "C2FDA5";
+  box._listeners.input[0].call(box);
+
+  const results = all(root).find((n) => String(n.className).includes("finder-results"));
+  const row = all(results).find((n) => String(n.className).includes("inbox-item"));
+  assert.ok(row, `the code finds its order (results: ${JSON.stringify(all(results).map((n) => n.textContent))})`);
+
+  const del = all(row).find((n) => String(n.className).includes("inbox-del"));
+  assert.ok(del, "AND THE RESULT CAN BE REMOVED — the ✕ is there, exactly as on an inbox row");
+
+  // The row itself opens the card rather than doing nothing.
+  const nav = row.children[0];
+  // ⚠️⚠️ THE LAYER IS SHARED BY EVERY TEST IN THIS FILE, and it is not emptied between
+  // them — so a card left by an earlier test made this one pass while the fault was put
+  // back (found by biting it). EMPTIED FIRST, so the only thing that can be read here is
+  // the card THIS tap opened.
+  layers["popup-layer"].replaceChildren();
+  const ev = { preventDefault() {} }; // the handler calls it, as a real click would
+  assert.doesNotThrow(() => (nav._listeners.click || []).forEach((f) => f.call(nav, ev)));
+
+  const pop = layers["popup-layer"];
+  const txt = (n) => String(n && (n.textContent !== undefined ? n.textContent : n.text) || "");
+  assert.ok(txt(pop).includes("Edit order"),
+    "tapping an orphan result opens its own Edit card, where its delivery day is chosen");
+  assert.ok(txt(pop).includes("Save changes"), "with the press that puts it back on a day");
+});

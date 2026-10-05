@@ -161,11 +161,13 @@ test("newOrdersInbox lists every new order with a ✕ remove button, orphans inc
   const rows = inbox.children[2].children; // .inbox-list
   assert.equal(rows.length, 3, "one row per new order group");
 
-  // Orphaned order: no date to open, so it's a plain row — but still removable.
+  // Orphaned order: it CAN be opened now (v332) — its own Edit card, where a day is chosen.
+  // ⚠️ It was a bare `<span>` with only a ✕, which left deleting it as the one thing she
+  // could do with it. Every row is a control; alike rows behave alike.
   const orphanRow = rows[0];
-  assert.equal(orphanRow.children[0].tagName, "SPAN", "orphan row is not a link");
-  assert.equal(orphanRow.children[0].attrs.href, undefined, "orphan row has no href");
-  assert.equal(orphanRow.children[0].children[1].children.length, 1, "no arrow on an orphan row");
+  assert.equal(orphanRow.children[0].tagName, "A", "orphan row is a control, not a bare span");
+  assert.equal(orphanRow.children[0].children[1].children.length, 2,
+    "and it wears the arrow, because it now leads somewhere");
 
   // Normal order: navigates to its delivery date.
   const normalRow = rows[2]; // o1 → d1
@@ -278,11 +280,28 @@ test("the reveal finds the row through the group id when it is tagged with a dif
   assert.equal(row.scrolled.block, "center");
 });
 
-test("an orphaned inbox row offers no tap, and an unfound row is left alone", () => {
-  // The orphan has no date to open, so it renders as a plain span with no click.
+test("★ an orphaned inbox row CAN be tapped, and says so", () => {
+  // ★★ v332, and this test used to pin the opposite: "an orphaned inbox row offers no tap".
+  // That was the dead end. An order whose delivery day was deleted was drawn as a plain
+  // `<span>` with only a ✕ beside it — **so the one thing she could do with it was delete
+  // it**, and if she did not want to delete it she could do nothing at all. Her report:
+  // __"there is many orphant orders around, can you clear it for me"__.
+  //
+  // ⚠️ THE BEHAVIOUR CHANGED ON PURPOSE, so the assertion changed with it rather than
+  // being deleted: **the row now opens the order's own Edit card**, which is where a day
+  // is chosen. Nothing about the ✕ moved — it is still on every row.
   const inbox = newOrdersInbox(inboxState, () => {}, fakeRoot());
   const rows = inbox.children[2].children; // .inbox-list
-  assert.equal(rows[0].children[0]._listeners.click, undefined, "an orphan row cannot be tapped");
+  const orphan = rows[0].children[0];
+  assert.ok(orphan._listeners.click, "an orphan row can be tapped");
+  assert.doesNotThrow(() => tapRow(orphan), "and tapping it does not throw");
+
+  // ⚠️ AND IT SAYS WHAT IT IS. A row with the day simply missing read as an ordinary order
+  // that had lost a field, with no hint that it could be fixed.
+  const sub = rows[0].children[0].children[0].children[1].children[0].text;
+  assert.ok(String(sub).includes("delivery day was removed"),
+    `the row says why it has no day: ${sub}`);
+  assert.ok(String(sub).includes("tap to put it on one"), "and what tapping does");
 
   // A row that the date view did not render (e.g. filtered away) must not throw.
   assert.doesNotThrow(() => tapRow(rows[1].children[0]));

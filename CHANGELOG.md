@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v331)
+# Jienluv2bake — change history (v54 → v332)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v332, AN ORDER WITH NO DELIVERY DAY CAN BE OPENED — AND A SEARCHED ORDER
+REMOVED (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Two of your reports, and they were the same dead end met from two sides.**
+
+**What an "orphan" is.** When you delete a delivery day that still has orders on it, the app asks
+first and promises: **"The orders are kept in your delivery history."** You agreed, so they are kept
+— **but the day they belonged to is gone, and until now that left them stranded.** The row could not be
+opened (no arrow, no jump), so **the one thing you could do with one was delete a real sale** — and if
+you did not want to delete it, you could do nothing at all.
+
+**Both halves are fixed:**
+
+**1 · The row now opens the order.** Tap an orphan in the New-orders inbox, or a search result, and
+its **own Edit card** opens — the one with the **Delivery day** calendar in it. Pick a day, press
+Save changes, and the order is back where it belongs. **Nothing is deleted.** And that row now says
+what it is: __"its delivery day was removed — tap to put it on one"__.
+
+**2 · A search result can be removed.** Your words: __"C2FDA5 i search this order, but no button to
+delete it."__ **A search result had no controls at all** — no arrow, no ✕ — so the one place you go to
+find an order by its code was the one place you could not act on it. **It carries the same ✕ the
+New-orders inbox has always had**, and it still asks before it removes anything.
+
+**You chose this route yourself**, and it is the safe one: **every orphan can be opened, put back on a
+day, or removed one at a time — and nothing leaves your sales or your Profit statement unless you
+remove that one order yourself.**
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,819 tests, all green**.
 
 **05 Oct 2026 — engine v331, A CODE SEARCH FINDS THAT ORDER AND NO OTHERS (no database step, nothing
 to upload — pushing this one is the whole of it).**
