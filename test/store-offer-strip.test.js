@@ -47,36 +47,51 @@ test("every offer shares one grid cell, so the strip cannot change height", () =
     "without clipping, the offers parked off the right-hand edge would be visible beside the strip");
 });
 
-test("the offers SCROLL: out to the left, and the next follows in from the right", () => {
-  // ★ v316. Her words: "the promo code, can it be like scrolling off, and new code follow,
-  // that kind of animation". This replaces the 3D flip of v297 — which was MY choice, argued
-  // for in the CSS on the grounds that sliding one line sideways "reads as a glitch". She is
-  // the one who looks at it, and she asked for the scroll. **Do not restore the flip on the
-  // strength of that argument.**
+test("the offers scroll UP, and each message is its own box", () => {
+  // ★ v318, and her words are the spec: "Maybe you box up each message, when 1st message start
+  // to scroll up, the 2nd message is following, So effectively you see 2 message, one follow by
+  // another, it scroll up, stop 2sec, scroll again until mouse over."
+  //
+  // ⚠️ THREE MOTIONS HAVE COME AND GONE HERE, AND ALL THREE WERE OURS: a fade (v292), a 3D flip
+  // (v296/v297), a sideways slide (v316) — each with CSS reasoning about what "reads as a
+  // glitch". She is the one who looks at this every day. **Do not restore any of them.**
   const slide = css.match(/\.promo-slide\s*\{[^}]*\}/)[0];
-  assert.match(slide, /transform:\s*translateX\(100%\)/,
-    "an offer waiting its turn is parked off the RIGHT-hand edge");
-  assert.equal(/rotateX|perspective/.test(slide), false,
-    "the flip is gone — a slide of the strip must not still be turning in 3D");
+  assert.match(slide, /transform:\s*translateY\(/,
+    "a waiting message is parked BELOW the window — the motion is up, not sideways");
+  assert.equal(/translateX|rotateX|perspective/.test(slide), false,
+    "the sideways slide and the flip are both gone");
 
   const lit = css.match(/\.promo-slide\.is-on\s*\{[^}]*\}/);
   assert.ok(lit, "the lit slide has no rule of its own");
-  assert.match(lit[0], /transform:\s*translateX\(0\)/, "the lit offer sits in the middle");
+  assert.match(lit[0], /transform:\s*translateY\(0\)/, "the showing message sits in the window");
 
-  // ⚠️ THE LEAVING OFFER GOES THE OTHER WAY, and that is the whole of the animation: if it
-  // went back the way it came, the two would cross over one another and read as a swap.
+  // ⚠️ THE MESSAGE GOES UP AND OUT THE TOP. If it went back down the way it came, the two
+  // panels would cross and read as a swap.
   const left = css.match(/\.promo-slide\.is-left\s*\{[^}]*\}/);
-  assert.ok(left, "nothing sends the replaced offer off to the left — that rule IS the scroll");
-  assert.match(left[0], /transform:\s*translateX\(-100%\)/,
-    "the offer that has just been replaced must travel out to the LEFT");
+  assert.ok(left, "nothing sends the replaced message up — that rule IS the scroll");
+  assert.match(left[0], /translateY\(calc\(-100%/, "the replaced message leaves through the TOP");
   assert.equal(left[0].includes("opacity"), false,
-    "the leaving slide carries no opacity — a scroll shows both, that is what makes it a scroll");
+    "the leaving panel carries no opacity — a scroll shows both, that is what makes it a scroll");
+  // ⚠️ AND IT OVERSHOOTS BY A GAP. That gap is what passes between the two panels and is the
+  // whole of what makes it read as one message FOLLOWING another rather than one block sliding.
+  assert.match(left[0], /-100%\s*-\s*\d/, "the leaving panel must clear the window by a gap");
+  assert.match(slide, /100%\s*\+\s*\d/, "and the waiting one must wait a gap below it");
 
-  // ⚠️ AND NEITHER SLIDE FADES. Fading either one puts a half-visible line on screen mid-move,
-  // which is exactly what the old cross-fade fades existed to prevent.
-  assert.equal(/opacity\s*:/.test(slide), false,
-    "the base slide must not fade — the pair travel together and both stay readable");
+  // ⚠️ AND NEITHER PANEL FADES. Fading either puts a half-visible message on screen mid-move,
+  // which is what the old cross-fades existed to prevent.
+  assert.equal(/opacity\s*:/.test(slide), false, "the base panel must not fade");
   assert.equal(/opacity\s*:/.test(lit[0]), false, "nor must the lit one");
+
+  // ★ EACH MESSAGE IS ITS OWN BOX — her first three words were "you box up each message", so the
+  // amber panel moved OFF the strip and onto the slides. Both halves are asserted: the panel has
+  // it, and the strip no longer does, or the box would simply have been drawn twice.
+  for (const [what, re] of [["a background", /background:/], ["a border", /border:/], ["padding", /padding:/]]) {
+    assert.match(slide, re, `each message box needs ${what}`);
+  }
+  const strip = css.match(/\.promo-today\s*\{[^}]*\}/)[0];
+  assert.equal(/background:|border:|padding:/.test(strip), false,
+    "the strip is the WINDOW now — a box drawn on both would be two boxes, and it would add height");
+  assert.match(strip, /color:/, "but it still carries the colour the panels inherit");
 
   // It has to win over the base rule on its own: more specific, and later in the sheet.
   assert.equal(
@@ -87,8 +102,8 @@ test("the offers SCROLL: out to the left, and the next follows in from the right
   for (const [what, body] of [["leaving", slide], ["arriving", lit[0]]]) {
     const d = Number((body.match(/transition:[^;]*?([\d.]+)s[^;]*transform|transform[^;]*?([\d.]+)s/) || [])
       .slice(1).find(Boolean));
-    assert.ok(Number.isFinite(d), `the ${what} slide has no duration on its transform`);
-    assert.ok(d >= 0.25 && d <= 0.4, `the ${what} slide's move is ${d}s, outside the 250–400ms band`);
+    assert.ok(Number.isFinite(d), `the ${what} panel has no duration on its transform`);
+    assert.ok(d >= 0.25 && d <= 0.4, `the ${what} panel's move is ${d}s, outside the 250–400ms band`);
   }
 });
 

@@ -1325,14 +1325,16 @@ export function render() {
   // never again — this only moves a class, which is what makes the strip's height
   // unmovable: nothing here can change how tall the content is.
   //
-  // ★ THE LEAVING OFFER GOES THE OTHER WAY (v316). Every other slide waits parked off to the
-  // RIGHT; the one that has just been replaced is sent off to the LEFT instead. The next one
-  // then FOLLOWS IT IN from the right, which is the animation she asked for: "the promo code,
-  // can it be like scrolling off, and new code follow, that kind of animation".
+  // ★ THE LEAVING MESSAGE GOES UP, AND THE NEXT FOLLOWS IT (v318). Every other slide waits a
+  // full panel BELOW the window; the one that has just been replaced is sent up through the
+  // TOP. Her words, which are the whole spec: __"Maybe you box up each message, when 1st
+  // message start to scroll up, the 2nd message is following, So effectively you see 2
+  // message, one follow by another, it scroll up, stop 2sec, scroll again until mouse over."__
   //
-  // ⚠️ THE CLASS NAMES DID NOT CHANGE when the flip became a scroll — `is-on` and `is-left`
-  // mean the same two things they always did (this one is showing / that one has just gone).
-  // Only the CSS moves differently, so nothing here needed rewriting.
+  // ⚠️ THE CLASS NAMES NEVER CHANGE — `is-on` and `is-left` mean the same two things they did
+  // when this was a fade, then a flip, then a sideways slide (this one is showing / that one
+  // has just gone). Three motions, one set of names, so nothing in this file had to be
+  // rewritten and the dot, the pause and the timer are untouched.
   function showSlide(at) {
     codeAt = at;
     const i = Number(at) || 0;

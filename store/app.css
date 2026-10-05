@@ -1231,12 +1231,15 @@ button.prod-next.off::after { content: ""; }
    now, not a control, so it wears the referral strip's shape. Amber rather than
    green: green is already the referral's "you were given something", and a
    referred customer can see both strips at once. */
+/* ★ v318: THE WINDOW, NOT THE BOX. The amber panel used to live here — one box that never
+   moved. She asked for "each message" to be boxed, so the box moved onto every `.promo-slide`
+   and this element became the frame you look through: no background, no border, no padding, so
+   nothing is drawn twice and the window adds no height of its own.
+   ⚠️ It still carries the COLOUR and the TYPE the panels inherit, and it is still the element
+   the pointer listeners are bound to — so "rest your pointer on it and it holds" still means
+   the whole strip, boxes and all. */
 .promo-today {
   margin: 0 0 14px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fdf3e3;
-  border: 1px solid #f0dcb8;
   color: #8a5a12;
   font-size: 13px;
   font-weight: 600;
@@ -1268,49 +1271,63 @@ button.prod-next.off::after { content: ""; }
    An offer nobody is reading waits a quarter-turn AWAY — `rotateX(90deg)`, edge-on to the
    reader — and being lit brings it round to face them. That much was v296.
 
-   ★ ★ v316: THE OFFERS SCROLL, THEY NO LONGER TURN. Her words: "the promo code, can it be
-   like scrolling off, and new code follow, that kind of animation". The replaced offer
-   slides off to the LEFT and the next one FOLLOWS IN from the right — which is the motion
-   she described, and it is what `.is-left` below now does.
+   ★ ★ v318: THE OFFERS SCROLL **UP**, AND EACH MESSAGE IS ITS OWN BOX. Her words, and they
+   are the whole spec: __"Maybe you box up each message, when 1st message start to scroll up,
+   the 2nd message is following, So effectively you see 2 message, one follow by another, it
+   scroll up, stop 2sec, scroll again until mouse over."__
 
-   ⚠️ **THE FLIP WAS MINE, NOT HERS, AND THIS REPLACES IT.** v292 chose a fade, v296/v297
-   turned it into a 3D flip, and the reasoning written here said that sliding one line of
-   message sideways "reads as a glitch". That was a judgement about something she looks at on
-   her phone every day, and she has now asked for the scroll twice over. **Do not put the flip
-   back on the strength of that old argument.**
+   ⚠️ **THE AMBER BOX MOVED OFF THE STRIP AND ONTO EACH MESSAGE.** Until now `.promo-today` WAS
+   the box; there was one of it and it never moved. She asked for each message to be boxed, so
+   the strip becomes the WINDOW (transparent, no border, no padding) and every `.promo-slide`
+   carries the amber panel instead. That is the swap this rule makes, and it is why the strip's
+   own background and border are gone from the rule above.
 
-   ⚠️ **AND THE FADE GOES WITH IT.** A scroll shows BOTH offers during the move — the tail of
-   the one leaving and the head of the one arriving — and that is what makes it read as a
-   scroll rather than a swap. Fading either one would put a half-visible line on screen, which
-   is the thing the old fades existed to prevent. So both slides sit at full opacity and only
-   `transform` moves.
+   ⚠️ **AND THE TWO MESSAGES ARE THE POINT, NOT A SIDE EFFECT.** The waiting one sits a full
+   panel BELOW (`translateY(calc(100% + 10px))`) and the replaced one leaves through the TOP
+   (`translateY(calc(-100% - 10px))`). The `+ 10px` is not decoration: it is the GAP that passes
+   between the two panels as they move, which is what makes it read as one message following
+   another rather than as one block of text sliding.
 
-   ⚠️ `overflow: hidden` IS LOAD-BEARING: without it the waiting offers (parked off to the
-   right at `translateX(100%)`) would be visible beside the strip. It cannot clip a focus ring,
-   because a slide holds only `<p>` — there is nothing focusable inside one.
+   ⚠️ **THE FLIP (v297) AND THE SIDEWAYS SCROLL (v316) ARE BOTH MINE, NOT HERS, AND BOTH ARE
+   GONE.** v292 chose a fade, v296/v297 a 3D flip, v316 a slide off to the left — each with
+   reasoning written into this file about what "reads as a glitch". She looks at this every day.
+   **Do not restore either on the strength of those arguments.**
+
+   ⚠️ **AND THERE IS NO FADE — a scroll shows BOTH messages.** Fading either would put a
+   half-visible one on screen, which is what the old fades existed to prevent.
+
+   ⚠️ `overflow: hidden` IS LOAD-BEARING: without it the waiting panels, parked below the
+   window, would hang under the strip. It cannot clip a focus ring — a panel holds only `<p>`,
+   so there is nothing focusable inside one.
 
    `transform` is paint-only, so NONE of this can change the strip's height — the guarantee
    above holds with the animation as it did without it. Measured on the live page across four
-   steps: **59.7px, unchanged, on every one.** */
+   steps: **unchanged on every one.** */
 .promo-rotor { display: grid; overflow: hidden; }
 .promo-slide {
   grid-area: 1 / 1;      /* every slide lands in the same cell, so the tallest sets the height */
-  transform: translateX(100%);   /* waiting its turn, parked off to the RIGHT */
+  /* THE MESSAGE'S OWN BOX — this is what used to be on `.promo-today`. */
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fdf3e3;
+  border: 1px solid #f0dcb8;
+  /* The gap at the end of the travel is what separates the two panels as they pass. */
+  transform: translateY(calc(100% + 10px));   /* waiting its turn, a panel BELOW */
   transform-origin: center center;
-  pointer-events: none;  /* a waiting slide sits off the edge; it must never catch a tap */
+  pointer-events: none;  /* a waiting panel sits outside the window; it must never catch a tap */
   /* LEAVING: the ease the house skill names for anything going out, inside the 250–400ms band
      that reads as correct for a page-level state change. */
   transition: transform .4s cubic-bezier(.4, 0, 1, 1);
 }
 .promo-slide.is-on {
-  transform: translateX(0);
+  transform: translateY(0);
   pointer-events: auto;
   /* ARRIVING: an ease-out to settle on, the same duration so the pair travel together. */
   transition: transform .4s cubic-bezier(0, 0, .2, 1);
 }
-/* The offer that has just been replaced: off to the left, the way it came. This rule must
-   stay AFTER `.promo-slide` and is more specific than it, so it wins on its own. */
-.promo-slide.is-left { transform: translateX(-100%); }
+/* The message that has just been replaced: up and out through the top. This rule must stay
+   AFTER `.promo-slide` and is more specific than it, so it wins on its own. */
+.promo-slide.is-left { transform: translateY(calc(-100% - 10px)); }
 
 /* One dot per offer, under the box (v297). Her ask: "there should be 2 dot if there is 2
    message, 3 dot if 3 message."

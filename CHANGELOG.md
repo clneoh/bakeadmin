@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v317)
+# Jienluv2bake — change history (v54 → v318)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v318, EACH MESSAGE IS ITS OWN BOX AND THEY SCROLL UP (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your words, and they were the whole spec: __"Maybe you box up each message, when 1st
+message start to scroll up, the 2nd message is following, So effectively you see 2 message, one
+follow by another, it scroll up, stop 2sec, scroll again until mouse over."__
+
+**What I had wrong.** v316 sent them **sideways** — I read "scrolling off" as off to the side. You
+meant **up**. Both readings of __"box up each message"__ went onto a page side by side, you picked the
+one where **every message is its own box**, and that is what is built.
+
+**What you see now.**
+
+- **Each message is its own amber box.** The box used to belong to the strip — one box that never
+  moved. It has moved onto the messages: the strip is now just the **window** you look through, with
+  no box of its own, so nothing is drawn twice.
+- **They scroll UP.** The message being replaced leaves through the top and the next follows from
+  below, with a **small gap passing between them** as they go — that gap is what makes it read as one
+  message following another rather than one block of text sliding.
+- **Two messages are visible during the move**, which is exactly what you described.
+- **Then it stops for your 2 seconds**, and **rests while your pointer is on it** — unchanged.
+
+**And the rule that keeps your page still survives again.** Measured on the live shop at 375:
+**206.6 pixels, identical at every step.** (It was 210.6 before — four pixels shorter, because the
+box moved off the strip and the strip stopped adding padding of its own.)
+
+**⚠️ AND THREE MOTIONS HAVE NOW COME AND GONE, ALL THREE MINE:** a fade (v292), a 3D flip (v296), a
+sideways slide (v316) — each with reasoning I wrote into the code about what "reads as a glitch". You
+are the one who watches this every day. The code and the test now say so, so none of them quietly
+comes back.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,784 tests, all green**, and the rewritten test holds every part of this: the
+motion is up, each message carries its own box, the strip carries none, the gap between the two, and
+no fading.
 
 **05 Oct 2026 — engine v317, EACH OFFER HOLDS FOR 2 SECONDS (no database step, nothing to upload —
 pushing this one is the whole of it).**
