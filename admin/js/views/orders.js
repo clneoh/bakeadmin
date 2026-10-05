@@ -4021,6 +4021,15 @@ function orderGroupRow(state, group, root, dateId) {
 
 function referralBlockEl(state, group, root, dateId) {
   const first = group.orders[0];
+  // ⚠️⚠️ v329. THIS LINE WAS MISSING AND IT BROKE A WHOLE DAY. `cur` was used at the
+  // bring-a-friend line below but only declared in the TWO FUNCTIONS AFTER THIS ONE
+  // (`referralOfferEl`, `referralApplyEl`) — so an order that actually carried a
+  // bring-a-friend coupon threw `ReferenceError: cur is not defined` while the day's
+  // panel was being built. The calendar square had already been repainted by then, so
+  // the day turned red and the panel underneath kept the previous day: her exact
+  // report, "the day like hang", and it took three versions to see because the throw
+  // is inside ONE day's own data and every day without a coupon was perfectly fine.
+  const cur = (state.settings && state.settings.currency) || "RM";
   const scheme = schemeOf(state);
   if (!scheme.enabled || !first) return null;
   const parts = [];

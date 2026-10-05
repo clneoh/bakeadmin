@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v328)
+# Jienluv2bake — change history (v54 → v329)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v329, THE DAY THAT WOULD NOT OPEN: THE ACTUAL CAUSE, FOUND AND FIXED (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**The message you read out was the whole answer: "cur is not defined".**
+
+**What it was.** When I added the bring-a-friend discount on **v322**, one line that names the
+discount on the order's row used a value called `cur` — **and I never declared it there.** It was
+declared in the two blocks __next to__ it, not in the one that used it. So the moment a day held an
+order that had been given a bring-a-friend coupon, drawing that day's panel **crashed**.
+
+**And that is why it looked like what it looked like.** The calendar square is repainted a moment
+before the panel is built, so a crash while building the panel left **the square red on the day you
+tapped and the panel still showing the day before.** Exactly your recording, and your three words for
+it — **"the day like hang"**.
+
+**⚠️ And it was never about 5 October or 7 October.** It was about **any day holding an order that
+had been given a bring-a-friend coupon.** Only 7 October had one, which is why only 7 October
+refused. **Every day with such an order had the same fault** — and now none of them do.
+
+**I have to be straight with you about the road here.** My first two answers (v326, v327) were
+guesses about your two days sharing an internal id. **They were wrong, and they cost you two pushes.**
+What finally worked was **v328 making the app report the error itself** — one tap and you handed me
+the exact line I could not see from the outside. **That is the lesson I am keeping.**
+
+**What stands from v326 and v327, and it is kept because it is good on its own:** the day you are on
+now travels in the page's address (so a bookmark or a shared link opens the right day), the screen
+remembers which day each id meant, and a day whose records ever do share an id is separated at load,
+losslessly. **None of that was your fault** — but none of it is harmful either, and two of the three
+are small improvements in their own right.
+
+**And v328 stays, and it earned its place:** if a day ever cannot be drawn again, the square will not
+turn red and the reason will name itself on the card, in one line you can read out. **It is the reason
+this fault is fixed at all.**
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,813 tests, all green**.
 
 **05 Oct 2026 — engine v328, THE DAY THAT WILL NOT OPEN NOW SAYS WHY (no database step, nothing to
 upload — pushing this one is the whole of it).**
@@ -36,6 +72,10 @@ in your list either way, and no order, product, price or bake day is touched.
 "this message:" are the whole answer.
 
 **Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,812 tests, all green**.
+
+**Added 05 Oct 2026, the same day: you tapped 7 October and it said "cur is not defined" — and that
+line was the answer. See v329 above: a missing declaration added in v322, crashing the day's panel
+whenever an order had been given a bring-a-friend coupon. This version is what surfaced it.**
 
 **05 Oct 2026 — engine v327, THE DAY STAYS PUT WHEN THE SCREEN REBUILDS ITSELF (no database step,
 nothing to upload — pushing this one is the whole of it).**
@@ -73,8 +113,11 @@ still share an id.
 
 **Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,811 tests, all green**.
 
-**Added 05 Oct 2026, the same day: this did not fix it either.** See v328 above — two rounds of
-fixing from the outside got nowhere, so the app now reports the reason itself.
+**Added 05 Oct 2026, the same day: this did not fix it either, and the cause was never what this
+entry says.** The real fault was v329 — a missing declaration from v322 crashing the day's panel
+whenever an order had been given a bring-a-friend coupon. Read v329 above. **The id-repair and the
+day-in-the-address described here are kept because they are small improvements in their own right,
+not because they were the answer.**
 
 **05 Oct 2026 — engine v326, A DAY YOU TAP IS THE DAY YOU GET (no database step, nothing to upload —
 pushing this one is the whole of it).**
@@ -88,7 +131,7 @@ thirty seconds.**
 mark followed your tap** — it always did. But the panel underneath was looked up a different way:
 by the record's **id**, and that lookup answers with the **first** record holding it. **Two of your
 delivery days are carrying the same id**, so tapping one of them turned the day red and then opened
-the *other* one. Pressing **5 Oct** worked and **9 Oct** worked because they are not the pair —
+the __other__ one. Pressing **5 Oct** worked and **9 Oct** worked because they are not the pair —
 **7 Oct** was the day it happened to.
 
 **Two fixes, and you get both:**

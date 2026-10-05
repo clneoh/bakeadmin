@@ -817,3 +817,41 @@ test("a day that cannot be drawn says so, and does not move the mark", () => {
     "the red mark did NOT move — a red day sitting over another day's panel is the fault itself");
   assert.equal(st.deliveryDates.length, 2, "and her days are untouched");
 });
+
+test("a day whose order was given a bring-a-friend coupon still opens", () => {
+  // ★ v329, AND THIS IS THE FAULT ITSELF. `referralBlockEl` used `cur` in the line
+  // that names the friend's discount, but `cur` was only declared in the two
+  // functions AFTER it — so building the row for an order that carries a
+  // bring-a-friend coupon threw `ReferenceError: cur is not defined`. The calendar
+  // square had already repainted by then, so the day turned red and the panel under
+  // it kept the previous day. Her report, verbatim: "the day like hang".
+  //
+  // ⚠️ IT IS ONE DAY'S OWN DATA, WHICH IS WHY THREE VERSIONS MISSED IT: every day
+  // without a coupon was perfectly fine, and every test fixture was without one.
+  const id = "aa11bb22cc33"; // orderCode takes the last 6 hex → 22CC33
+  const st = {
+    ...STATE,
+    deliveryDates: [{ id: "d7", date: "2026-09-07" }, { id: "d10", date: "2026-09-10" }],
+    orders: [
+      { id, groupId: id, deliveryDateId: "d10", deliveryDate: "2026-09-10", productId: "p1",
+        qty: 2, customerName: "Uncle Tan", whatsapp: "0162223333", status: "confirmed" },
+    ],
+    credits: [{ id: "c1", role: "friendOff", orderCode: "22CC33", holder: "0162223333",
+      amountRM: 3, status: "valid", earnedAt: "2026-09-10" }],
+    settings: { ...STATE.settings, referrals: { enabled: true, friendRM: 3, referrerRM: 3, days: 90 } },
+  };
+  const root = createEl("div");
+  renderOrders(root, st, PARAMS());
+  const text = () => all(root).map((n) => (n.nodeType === 3 ? n.text : n.textContent)).join("");
+
+  const cell = all(root).find((n) => n.dataset && n.dataset.date === "2026-09-10"
+    && n.tagName === "BUTTON");
+  assert.ok(cell, "10 Sep is a delivery day");
+  (cell._listeners.click || []).forEach((f) => f.call(cell));
+
+  assert.equal((all(root).find((n) => String(n.className).includes("card-title"))
+    || { textContent: "" }).textContent, "Thu, 10 Sep 2026",
+    "the day opens — it must not throw while building the order's row");
+  assert.ok(text().includes("Bring-a-friend"), "and the discount names itself on the row");
+  assert.ok(text().includes("RM 3.00"), "with its figure");
+});
