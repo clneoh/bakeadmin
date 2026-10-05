@@ -1,8 +1,81 @@
-# Jienluv2bake — change history (v54 → v322)
+# Jienluv2bake — change history (v54 → v324)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v324, A TRACKED ORDER STOPS OWNING THE PAGE, AND YOU CAN FORGET A STRAY
+CUSTOMER (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Two things you asked for, and they ship together.**
+
+**1 · THE ORDER CODE COMES OFF THE ADDRESS BAR.** Your words: __"when a customer track his order, his
+store version became associated with that order code. Anyway to take it off automatically?"__
+
+The tracking link opens as `/store/?track=CODE`, and **that code used to stay in the address bar.** So
+the next time that page was opened — a bookmark, a history entry, a link re-shared — it landed back
+on **that one order's card** instead of on the shop. **The page belonged to an order rather than to
+the bakery.**
+
+**Now the code comes off the address the moment the card appears, and the card stays up for that
+visit.** The link still does exactly what it is for. The cost, said plainly: **a refresh now lands on
+the shop** rather than on the card — which is the direction you asked for, and their code is in their
+WhatsApp if they want it again.
+
+**⚠️ AND ONE THING THAT WOULD HAVE BROKEN IN SILENCE: `via` is left alone.** That is the friend's
+referral stamp, and a customer can arrive **by** a referral link and **then** track an order —
+stripping the whole address would have quietly broken bring-a-friend for exactly that person. Only
+`track` is removed, and that is a test.
+
+**2 · 🗑 FORGET — for the strays.** Your words: __"i need a button to delete a customer as well, i
+found there is few stray customer."__
+
+**⚠️ READ THIS BIT, because it is why the button is where it is and not everywhere.** Your customer
+book is **built from your orders.** Someone you added by hand has never ordered, so **their row __is__
+the record you typed** — forget it and they are gone, name, number, reward and note, with a question
+that names exactly what goes and says **"nothing else in your book is touched."**
+
+**A customer who HAS ordered cannot be deleted from here, and it is not an oversight.** Their row is
+their **order history**. Removing the record would leave the row standing — it comes straight back
+from the orders — while quietly throwing away their reward, their note and their dog's name. **A
+button that did half of what it said would be worse than no button**, which is your own rule about
+dead controls: two rows that look alike must behave alike. **For two records of one person, use
+Merge** — that is what it is for.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day moved. The suite is **2,804
+tests, all green**.
+
+*(One note: this commit carries two version numbers — v323 and v324 — because the tracking-card line
+and these two were built back to back and both were still uncommitted. The Engine on your More screen
+reads **324**.)*
+
+**05 Oct 2026 — engine v323, THE TRACKING CARD SAYS WHY THE TOTAL IS LOWER (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Why.** You asked for it after the last version: the customer's own tracking page was showing the
+**correct lower total with nothing saying why.**
+
+**What they see now.** On the tracking page, under the items and the courier charge, a line in the
+customer's own language:
+
+**Bring-a-friend you were sent: -RM 3.00**
+
+— sitting where the promo line sits, so the figures above it still add up to the Total below. In
+中文 it reads 朋友推荐优惠：-RM3.00, and in Bahasa Malaysia __Bawa rakan yang menghantar anda: -RM3.00__.
+It is the same sentence your WhatsApp confirmation uses, so the two agree word for word.
+
+**★ And it needed no database step, which is worth explaining because it nearly did.** The obvious
+way was a new column on the tracking table — and the app's own code warns against exactly that:
+__"a missing column kills publishing for EVERY order silently."__ **So it reuses the discount column
+that is already there**, which is honest because **a code and the friend's coupon can never both
+apply** — that column holds __the__ discount on the order, whichever it is.
+
+**The small piece of cleverness, and why it is safe.** The card tells the two apart by the code being
+**absent**: a discount with no code beside it can only be the friend's, because the app refuses to let
+a promo code be labelled without a name. If that ever stopped being true, a code would start wearing
+the friend's words — **so that rule is a test.**
+
+**Your data is untouched.** **No SQL, nothing to upload.** The suite is **2,799 tests, all green**.
 
 **05 Oct 2026 — engine v322, THE NEW CUSTOMER'S DISCOUNT ACTUALLY COMES OFF NOW (no database step,
 nothing to upload — pushing this one is the whole of it).**

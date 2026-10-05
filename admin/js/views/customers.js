@@ -7,7 +7,7 @@
 
 import { navigate } from "../app.js";
 import { customerList, ordersForCustomer, phoneDigits } from "../customers.js";
-import { attachProfiles, customerMatches, customerRowName, mergeCustomers, profileFor, upsertProfile } from "../profiles.js";
+import { attachProfiles, customerMatches, customerRowName, mergeCustomers, profileFor, removeProfile, upsertProfile } from "../profiles.js";
 import { readPhoto } from "../photo.js";
 import { el, button, select, emptyState, showPopup, copyText, toast, confirmDialog } from "../ui.js";
 import { byId, fmtRM, orderLineName, save, waNumber } from "../state.js";
@@ -375,6 +375,31 @@ function profileBlockEl(state, r, refresh, onSaved) {
         editablePerson(r)
           ? button(empty ? "✎ Add details" : "✎ Edit",
               () => editProfilePopup(state, r, () => { refresh(); if (onSaved) onSaved(); }), "ghost small")
+          : null,
+        // ★★ FORGET SOMEONE SHE ADDED BY HAND (v325). Her ask: __"i need a button to delete a
+        // customer as well, i found there is few stray customer"__.
+        //
+        // ⚠️⚠️ **IT IS OFFERED ON A HAND-ADDED ROW ONLY, AND THAT IS NOT A LIMITATION — IT IS THE
+        // DIFFERENCE BETWEEN A PROFILE AND A CUSTOMER.** The book is built from her ORDERS: someone
+        // she typed in has no orders, so **their row IS this record** and removing it removes them.
+        // **A customer who has ordered cannot be deleted from here at all** — their row is their
+        // sales history, and removing the profile would leave the row standing while quietly
+        // throwing away their reward, their note and their dog's name. **A button that did half of
+        // what it says would be worse than no button**, which is her own rule about dead controls:
+        // two rows that look alike must behave alike, and a press that cannot do what it says must
+        // say why rather than sit there looking available.
+        r.manual
+          ? button("🗑 Forget", () => {
+              confirmDialog(
+                `Forget ${r.name || "this person"}? They are in your list because you added them, and they have never ordered — so this removes the name, the number, any reward and any note. Nothing else in your book is touched, and you can add them again any time.`,
+                () => {
+                  removeProfile(state, r._key);
+                  save(state);
+                  toast("Removed from your list");
+                  refresh();
+                  if (onSaved) onSaved();
+                }, { danger: true, yesLabel: "Forget" });
+            }, "ghost small")
           : null)),
     // WHAT THIS ADVOCATE GETS AND WHAT THEY HAVE HAD (v291). It sits UNDER the profile top rather
     // than inside `.profile-who`, because it carries a press and the who-column is a flex child

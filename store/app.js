@@ -2849,7 +2849,14 @@ function moneyEls(row) {
       [moneyText(read.sym, fee)], "track-fee"));
   }
   if (off > 0) {
-    rows.push(moneyRow(t("promoLine"), [code, moneyText(read.sym, off)], "track-promo"));
+    // ★ A DISCOUNT WITH NO CODE IS THE BRING-A-FRIEND ONE (v323). The app refuses to let a
+    // promo code be labelled without a name, so `off > 0 && !code` can only be the friend's
+    // first-order discount — and it gets its own words rather than printing "Promo : -RM3".
+    // Until this the card showed the LOWER TOTAL with nothing saying why, which is the one
+    // thing this app never lets a figure do.
+    rows.push(code
+      ? moneyRow(t("promoLine"), [code, moneyText(read.sym, off)], "track-promo")
+      : moneyRow(t("promoFriend"), [moneyText(read.sym, off)], "track-promo"));
   }
   rows.push(moneyRow(t("trkTotal"), [moneyText(read.sym, read.n)], "track-total"));
   return [
@@ -3496,11 +3503,37 @@ function wireTrack() {
   // The confirmation link opens this page as /store/?track=CODE — prefill and
   // look the order up right away so the customer sees their status instantly.
   if (typeof location !== "undefined" && location.search) {
-    const code = new URLSearchParams(location.search).get("track");
+    const params = new URLSearchParams(location.search);
+    const code = params.get("track");
     if (code) {
       input.value = code.replace(/^#/, "").toUpperCase();
       trackOrder(code);
       revealTrack(); // the link she tapped IS the card she should land on
+      // ★★ AND THE CODE COMES OFF THE ADDRESS BAR (v324). Her report: __"when a customer track
+      // his order, his store version became associated with that order code."__
+      //
+      // The link opens as `/store/?track=CODE` and that code used to STAY there. So the next
+      // time that page was opened — a bookmark, a history entry, a link re-shared — it landed
+      // back on that ONE order's card instead of on the shop, and the customer could not get
+      // to the menu without knowing to strip the address themselves. **The page belonged to an
+      // order rather than to the bakery.**
+      //
+      // ⚠️ **THE CARD ITSELF STAYS UP for this visit** — the link still does what it is for, it
+      // is only the address that is cleaned. The cost is that a REFRESH now lands on the shop
+      // rather than the card, which is the direction she asked for: a customer coming back to
+      // order should get the shop. Their code is in their WhatsApp, and the input box takes it.
+      //
+      // ⚠️ **ONLY `track` IS REMOVED.** The other parameter this page carries is `via`, the
+      // friend's referral stamp, and stripping that would silently break bring-a-friend for
+      // anyone who arrived by a link and then tracked an order.
+      if (typeof history !== "undefined" && history.replaceState) {
+        const rest = new URLSearchParams(location.search);
+        rest.delete("track");
+        const q = rest.toString();
+        try {
+          history.replaceState(null, "", location.pathname + (q ? `?${q}` : "") + location.hash);
+        } catch { /* a browser that refuses is not a reason to fail the lookup */ }
+      }
     }
   }
 }

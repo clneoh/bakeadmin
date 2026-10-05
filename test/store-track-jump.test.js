@@ -110,6 +110,28 @@ test("the glow is ended by the customer reaching the card, not by the clock", ()
     "and nothing is left listening once it has");
 });
 
+test("the order code comes OFF the address bar, and the friend's stamp stays", async () => {
+  // ★ v324. Her report: __"when a customer track his order, his store version became associated
+  // with that order code."__ The link opens `/store/?track=CODE` and that code used to stay in
+  // the address — so the next time that page was opened, from a bookmark or from history, it
+  // landed back on that ONE order's card instead of on the shop. **The page belonged to an
+  // order rather than to the bakery.**
+  //
+  // ⚠️ **AND `via` MUST SURVIVE.** That is the friend's referral stamp, and a customer can
+  // arrive BY a referral link and then track an order — stripping the whole query string
+  // would silently break bring-a-friend for exactly that person.
+  const calls = [];
+  globalThis.history = { replaceState: (a, b, url) => calls.push(url) };
+  globalThis.location = { search: "?track=a3f9c2&via=60123456789", pathname: "/store/", hash: "" };
+
+  await import("../store/app.js?trackclean");
+
+  assert.equal(calls.length, 1, "the address is rewritten exactly once");
+  assert.equal(calls[0].includes("track"), false, "the order code is gone from the address");
+  assert.ok(calls[0].includes("via=60123456789"), `the friend's stamp is kept: ${calls[0]}`);
+  assert.ok(calls[0].startsWith("/store/"), `and the page is still the shop: ${calls[0]}`);
+});
+
 test("a customer who just opens the shop gets no glow", async () => {
   // Clear what the deep link did, then boot the SAME page with no ?track= in the
   // address: the card is a section of the page like any other, and nothing moves.

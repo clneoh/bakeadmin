@@ -194,6 +194,7 @@ test("the screen says what the other half is, and points at it", () => {
 const { couponOn, giveCredits } = await import("../admin/js/referrals.js");
 const { customerTotal, moneyLines } = await import("../admin/js/courier.js");
 const { orderCode } = await import("../admin/js/state.js");
+const { trackingSnapshot } = await import("../admin/js/supabase.js");
 
 const P22 = {
   settings: { currency: "RM", storefront: { name: "Jien Luv 2 Bake" }, referrals: { enabled: true, friendRM: 3, referrerRM: 3, validDays: 90 } },
@@ -297,6 +298,33 @@ test("the order says the bring-a-friend discount is already in its total", () =>
     "and nothing on the order says so");
 });
 
+test("the customer's tracking card carries the discount, with no code on it", () => {
+  // ★ Her third report, and the last piece: the card showed the LOWER TOTAL with nothing
+  // saying why. **It reuses `promo_rm` rather than adding a column, and the app's own note
+  // says why: a column that does not exist yet kills publishing for EVERY order, silently.**
+  // `promo_rm` already means "the discount on this order", and a code and the friend's coupon
+  // can never both apply — so it holds the one discount, whichever it is.
+  const st = { ...P22, credits: [], orders: orderFor() };
+  st.credits = [friendCoupon({ orderCode: orderCode(st.orders[0]) })];
+  const row = trackingSnapshot(st, { orders: st.orders });
+  assert.equal(row.promo_rm, 3, "the card is told the RM3 came off");
+  assert.equal(row.promo_code, null,
+    "and carries NO code — which is exactly what tells the shop to use the bring-a-friend words");
+});
+
+test("a code still publishes as a code, not as the friend's discount", () => {
+  const st = { ...P22, credits: [], orders: orderFor({ promo: "FRESH10" }) };
+  st.promoCodes = [{
+    id: "c1", code: "FRESH10", state: "live", vis: "public", frozen: false,
+    who: { type: "all" }, when: { from: "", to: "" }, basket: { type: "none", amount: 0 },
+    gives: { type: "rm", value: 10, cap: 0 }, often: { type: "unlimited", n: 0, maxRM: 0 },
+    beside: { type: "anything" }, say: "", sayZh: "", sayMs: "", used: 0, given: 0,
+  }];
+  const row = trackingSnapshot(st, { orders: st.orders });
+  assert.equal(row.promo_code, "FRESH10", "the code still names itself on the card");
+  assert.equal(row.promo_rm, 10, "and the discount is unchanged by this version");
+});
+
 test("Promo codes points back, so the two are reachable from each other", () => {
   const src = readFileSync(new URL("../admin/js/views/promo.js", import.meta.url), "utf8");
   assert.ok(src.includes('"#/bring-a-friend"'),
@@ -344,4 +372,24 @@ test("the customer's card counts what is ready, and says what is not", () => {
   const code = srcOf("admin/js/views/customers.js");
   assert.match(code, /ready — one per order/, "the count is named as a count of ready coupons");
   assert.match(code, /none ready/, "and all-used reads as none ready, not as a zero");
+});
+
+// ── ★★ THE FORGET BUTTON IS OFFERED WHERE IT CAN WORK (v325) ─────────────────
+test("Forget is offered on a hand-added person, and never on a customer with orders", () => {
+  // Her own rule about dead controls: **two rows that look alike must behave alike, and a press
+  // that cannot do what it says must say why or not be there at all.** A customer's row is built
+  // from their ORDERS, so a Forget button on one would either do nothing or silently throw away
+  // their reward and note while leaving the row standing. It is offered on `r.manual` only.
+  const src = readFileSync(new URL("../admin/js/views/customers.js", import.meta.url), "utf8");
+  const at = src.indexOf('"🗑 Forget"');
+  assert.ok(at > -1, "the Forget press is gone");
+  assert.match(src.slice(Math.max(0, at - 900), at), /r\.manual\s*\?/,
+    "Forget must be gated on the person having been added by hand");
+  assert.match(src, /removeProfile\(state, r\._key\)/, "and it must remove the record by the row's key");
+  // And the question it asks has to say what goes and what does not — a bare "Are you sure?" is
+  // not something she can weigh.
+  assert.match(src, /never ordered — so this removes the name, the number, any reward and any note/,
+    "the confirmation must name what is removed");
+  assert.match(src, /Nothing else in your book is touched/,
+    "and say plainly what is NOT");
 });
