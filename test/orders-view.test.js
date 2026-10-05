@@ -698,3 +698,80 @@ test("the day you tap is the day you get, even if two days share one id", () => 
   assert.deepEqual(sel, ["2026-09-10"],
     "and the red mark is on that one day, as it was on her screen");
 });
+
+test("the day survives the screen rebuilding itself from the address", () => {
+  // ★ v327, and it is the half v326 missed. v326 made the TAP carry the day's own
+  // date, which is right — but the address it writes carries only the ID, and the
+  // screen rebuilds itself from that address whenever the cloud answers, a pull
+  // lands, or the app regains focus (app.js's onSyncChanged -> render()). On that
+  // rebuild there is no date, only the id, and an id can be shared by two days —
+  // so the panel went back to the other one. Nothing flashes: the rebuild happens
+  // in a microtask, before the browser paints, so the wrong panel is the ONLY
+  // picture she ever sees. That is exactly her recording: the red mark moves and
+  // the panel does not, with the panel's pixels unchanged to the byte.
+  const st = {
+    ...STATE,
+    deliveryDates: [
+      { id: "shared", date: "2026-09-07" },
+      { id: "shared", date: "2026-09-10" },
+      { id: "own", date: "2026-09-07" },
+    ],
+  };
+  const root = createEl("div");
+  const titleNow = () => (all(root).find((n) => String(n.className).includes("card-title"))
+    || { textContent: "(no day card)" }).textContent;
+
+  let address = "";
+  globalThis.history = { replaceState: (a, b, url) => { address = url; } };
+
+  renderOrders(root, st, PARAMS());
+  const cell = all(root).find((n) => n.dataset && n.dataset.date === "2026-09-10"
+    && n.tagName === "BUTTON");
+  (cell._listeners.click || []).forEach((f) => f.call(cell));
+  assert.equal(titleNow(), "Thu, 10 Sep 2026", "the tap opens the day whose cell she pressed");
+
+  // The address the press wrote, read back the way app.js's router reads it.
+  const query = address.split("?")[1] || "";
+  renderOrders(root, st, new URLSearchParams(query));
+  assert.equal(titleNow(), "Thu, 10 Sep 2026",
+    "and a rebuild from that address still shows the day she tapped — the address must carry the day, not only its id");
+});
+
+test("a status change does not send the day back", () => {
+  // ★ v327. Thirteen places inside views/orders.js re-render the screen with the id
+  // they were working on and nothing else — a status change, a save, a day's
+  // availability. Each one is a rebuild with an id and no date, so with a shared id
+  // the panel would open the other day: the same fault, arriving by a different door
+  // and at a moment she would never connect to it. `ordersDayById` is what closes
+  // all thirteen at once.
+  const st = {
+    ...STATE,
+    deliveryDates: [
+      { id: "shared", date: "2026-09-07" },
+      { id: "shared", date: "2026-09-10" },
+      { id: "own", date: "2026-09-07" },
+    ],
+    orders: [
+      { id: "o1", deliveryDateId: "shared", deliveryDate: "2026-09-10", productId: "p1",
+        qty: 2, customerName: "Uncle Tan", whatsapp: "0162223333", status: "new" },
+    ],
+  };
+  const root = createEl("div");
+  const titleNow = () => (all(root).find((n) => String(n.className).includes("card-title"))
+    || { textContent: "(no day card)" }).textContent;
+
+  renderOrders(root, st, PARAMS());
+  const cell = all(root).find((n) => n.dataset && n.dataset.date === "2026-09-10"
+    && n.tagName === "BUTTON");
+  (cell._listeners.click || []).forEach((f) => f.call(cell));
+  assert.equal(titleNow(), "Thu, 10 Sep 2026", "she is on 10 Sep");
+
+  // The row's own status control — setStage re-renders the whole screen with the id.
+  const stSel = all(root).find((n) => n.tagName === "SELECT" && String(n.className).includes("sel-small"));
+  assert.ok(stSel, "the order's status control is on the day she opened");
+  stSel.value = "confirmed";
+  stSel._listeners.change[0]();
+
+  assert.equal(titleNow(), "Thu, 10 Sep 2026",
+    "and the screen is still on 10 Sep afterwards — a rebuild must not swap the day out from under her");
+});

@@ -63,6 +63,18 @@ let anchorRowId = null;
 // at a later week survives a rebuild the baker did not ask for (a sync pull, a
 // status change).
 let ordersCalView = null;
+// ★ WHICH DAY EACH ID MEANT (v327). A delivery day is addressed everywhere by its
+// id, and an id is supposed to name one day — but two records can share one, and
+// when they do, an id alone cannot say which day a screen is on. So the day's own
+// DATE is remembered here the moment a press or an address names it, and every
+// rebuild that brings only an id reads it back.
+//
+// ⚠️⚠️ THIS IS WHAT THE THIRTEEN `renderAll(..., { date: … })` CALLS INSIDE THIS
+// FILE NEED, and it is why they are not each patched: a status change, a save, a
+// day's availability saved — every one of them re-renders the screen with the id
+// it was working on and no date, and with a shared id the panel would open the
+// other day. Remembering the day once, here, covers all of them.
+let ordersDayById = new Map();
 // Whether the ＋ New order card is open. Also module scope, because the card is
 // rebuilt whenever anything around it changes — including when a day is tapped in
 // its own calendar — and folding under her finger at that moment would be mad.
@@ -444,6 +456,7 @@ export function renderOrders(root, state, params) {
   newFormDayView = null; // …and paged to the day that opens
   newOrderDraft = null; // …and with nothing half-typed inside it
   ordersCalView = null; // …and on the week of the day that opens
+  ordersDayById = new Map(); // …and with no day remembered against any id
   installOrderCollapseOutside();
   renderAll(root, state, params);
   // Everything built above goes away with this screen — forget the open cards so
@@ -708,12 +721,25 @@ function renderAll(root, state, params) {
   let activeId = (requested && dates.some((d) => d.id === requested))
     ? requested
     : (dates.find((d) => d.date >= todayISO())?.id || dates[dates.length - 1].id);
-  // ★ v326. The day's own date, carried beside the id from the cell she tapped.
-  // It is what makes the panel below the calendar the day the cell stood for even
-  // if two records ever share an id — see splitSharedDateIds in state.js for the
-  // fault this closes. A screen opened from the URL has no date to carry and
-  // resolves by id, exactly as it always did.
-  let activeIso = requested || "";
+  // ★ v326, widened in v327. The day's own date, carried beside the id from the
+  // cell she tapped — and now carried in the ADDRESS too (`?date=<id>&day=<date>`),
+  // which is the half v326 missed.
+  //
+  // ⚠️⚠️ WHY THE ADDRESS HAS TO CARRY IT. app.js rebuilds this screen from the
+  // address whenever the cloud answers, a pull lands, or the app regains focus
+  // (onSyncChanged -> render() -> parseHash()). On that rebuild there is no tap and
+  // no remembered date — only the address. If the address held the ID alone, and
+  // two delivery days share that id, the panel resolved to the OTHER day: the red
+  // mark stayed on the day she tapped (the calendar is drawn from the day's own
+  // record) and the panel opened the other one. ⚠️ AND NOTHING FLASHES — the
+  // rebuild runs in a microtask, before the browser paints, so the wrong panel is
+  // the only picture she ever sees. That is her recording exactly: 5 Oct loses the
+  // fill, 7 Oct gains it, and the panel's pixels are unchanged to the byte.
+  //
+  // ⚠️ It is read from `day` and NEVER from `date`: `date` is an id, and using it
+  // as a date is what made v326's own fix fall back to the wrong record on any
+  // rebuild. An older address with no `day` still works and resolves by id.
+  let activeIso = params.get("day") || ordersDayById.get(activeId) || "";
 
   if (!ordersCalView) ordersCalView = { offset: null };
   const topCal = deliveryCal({
@@ -755,6 +781,9 @@ function renderAll(root, state, params) {
   const selectDate = (id, iso) => {
     activeId = id;
     activeIso = iso || "";
+    // The day she named, remembered against its id, so every later rebuild of this
+    // screen — the cloud answering, a status change, a save — opens the same day.
+    if (activeIso) ordersDayById.set(id, activeIso);
     // Opening a day the grid is NOT on brings the grid with it — a New-orders row a
     // season away must not leave the calendar showing a week it isn't on. A day
     // already on screen leaves the window exactly where she put it, so opening one
@@ -767,7 +796,12 @@ function renderAll(root, state, params) {
     topCal.repaint();
     renderContent();
     if (history && history.replaceState) {
-      history.replaceState(null, "", `#/orders?date=${id}`);
+      // ⚠️ THE DAY GOES IN THE ADDRESS AS WELL AS THE ID (v327) — see `activeIso`
+      // above for why a rebuild without it opens the wrong day. It is the day she
+      // named, or the one already remembered against this id; never a guess.
+      const day = activeIso || ordersDayById.get(id) || "";
+      const tail = day ? `&day=${day}` : "";
+      history.replaceState(null, "", `#/orders?date=${id}${tail}`);
     }
   };
 

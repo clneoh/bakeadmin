@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v326)
+# Jienluv2bake — change history (v54 → v327)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v327, THE DAY STAYS PUT WHEN THE SCREEN REBUILDS ITSELF (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Why.** You pushed v326 and told me plainly: __"the 7/10 still not working right."__ **You were
+right, and my fix had a hole in it.** I found the hole by writing the test I should have written the
+first time, and it failed with your bug in one line: `expected 'Thu, 10 Sep 2026' / actual 'Mon, 7 Sep
+2026'`.
+
+**What I missed.** v326 made the day you tap travel with the tap — that part was right, and it is why
+the calendar square turns red correctly. But **the address the app writes carried only the day's
+internal id**, and the Orders screen **rebuilds itself from that address** every time the cloud
+answers, a pull lands, or the app regains focus. On that rebuild there is no tap and no remembered
+day — only the address. So the screen came back to the id, the id is shared by two of your days, and
+the panel opened the other one again.
+
+**⚠️ And that is why you never saw it flicker:** the rebuild happens in the same instant as the tap,
+before the phone has drawn anything. **The wrong panel was the only picture that ever reached your
+screen** — which is exactly what your recording showed: the red mark moves, and the panel does not
+change by a single pixel.
+
+**Now fixed twice over:**
+
+**1 · The address carries the day, not only its id** — `#/orders?date=…&day=2026-10-07`. A rebuild
+reads it back and opens the day you tapped. **A bookmark or a link you share now opens the right day
+too.**
+
+**2 · The app remembers which day each id meant, for as long as you are on the screen** — so every
+other rebuild does the same: changing an order's status, saving a day's availability, and anything
+else that redraws the screen. **Thirteen separate places rebuild it; all thirteen are covered by that
+one memory.**
+
+**And this fix does not depend on the v326 repair having run** — it holds whether or not your two days
+still share an id.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,811 tests, all green**.
 
 **05 Oct 2026 — engine v326, A DAY YOU TAP IS THE DAY YOU GET (no database step, nothing to upload —
 pushing this one is the whole of it).**
@@ -38,6 +74,11 @@ an id. What I can say is that the fault it caused is now impossible to repeat fr
 it ever happens again the screen will simply follow your tap.
 
 **Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,809 tests, all green**.
+
+**Added 05 Oct 2026, the same day: this version did not fix it, and v327 is the rest of it.** Making
+the day travel with the tap was right, but the app writes only the day's id into the address and then
+**rebuilds the screen from that address** — and on that rebuild the day was lost again. **v327 carries
+the day in the address and remembers it, and the fault is closed. Read v327 above.**
 
 **05 Oct 2026 — engine v325, THE FRIEND'S NUMBER COMES OFF THE NEW CUSTOMER'S ADDRESS (no database
 step, nothing to upload — pushing this one is the whole of it).**
