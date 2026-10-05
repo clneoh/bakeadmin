@@ -20,7 +20,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -2103,6 +2103,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // saved order's, so this card explains a code that gave nothing exactly as the
     // customer's confirmation will (v276).
     const missed = off > 0 ? null : codeMissed(state, first.promo, itemsTotal);
+    // ★★ THE FRIEND'S DISCOUNT, IN THE TOTAL SHE IS READING (v330). This card worked its
+    // total out from the lines she is typing and left the coupon out of it entirely, so the
+    // Total here was the total BEFORE the discount — a figure she would quote to a customer
+    // and then have to explain. Priced by the same rule `customerTotal` uses for a saved
+    // order, so what she reads while editing and what the message says are one figure.
+    const coupon = off > 0 ? { amount: 0 } : couponAgainst(state, [first], itemsTotal + here - off);
     totalEl.replaceChildren(...(priced.length ? receiptEls(state, {
       items: itemsTotal,
       courier: here,
@@ -2111,7 +2117,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       promoCode: off ? promo.code : "",
       notApplied: missed ? missed.code : "",
       promoMinimum: missed ? missed.minimum : 0,
-      total: Math.max(0, itemsTotal + here - off),
+      coupon: coupon.amount,
+      total: Math.max(0, itemsTotal + here - off - coupon.amount),
     }) : []));
   }
   // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
@@ -3309,6 +3316,10 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // The promo comes off what they owe here exactly as it does in the message they
         // are sent, so the two figures she can read side by side are the same figure.
         const off = promo.money;
+        // And the same discount here (v330) — the two cards list one order's money, so a
+        // discount named on one and missing from the other is the fault this pairing exists
+        // to prevent. Read off the SAVED order, which is what this box is for.
+        const coupon = off > 0 ? { amount: 0 } : couponAgainst(state, group.orders, itemsTotal + theirs - cod - off);
         custTotal.replaceChildren(...receiptEls(state, {
           items: itemsTotal,
           courier: theirs - cod,
@@ -3317,7 +3328,8 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
           promoCode: off ? promo.code : "",
           notApplied: missed ? missed.code : "",
           promoMinimum: missed ? missed.minimum : 0,
-          total: Math.max(0, itemsTotal + theirs - cod - off),
+          coupon: coupon.amount,
+          total: Math.max(0, itemsTotal + theirs - cod - off - coupon.amount),
         }));
       }
       // The charge's questions, built by the shared block so this box and the Edit form

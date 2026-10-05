@@ -191,6 +191,25 @@ export function codeMissed(state, codeName, items) {
 // as groupValue counts her takings — the two differ only by the customer's charge.
 // `promo` is the ringgit taken off, and `promoCode` names it; both are 0/"" when no
 // code applied, so every caller's existing reading of this object still holds.
+// ★★ THE FRIEND'S DISCOUNT, PRICED AGAINST A BASKET (v330). **The ONE rule for how much of
+// a bring-a-friend coupon comes off**, so a caller pricing a DRAFT and `customerTotal`
+// pricing a SAVED order cannot disagree about it — and, before this existed, the two
+// pop-ups simply left the coupon out altogether.
+//
+// Her report, and it was about the total itself and not only the line: __"the discount dnt
+// show in the total adding in edit, probably other place?"__ The Edit card worked its own
+// total out from the lines she was typing, so **the Total she read while editing was the
+// total before the discount** — a figure she would have quoted to a customer.
+//
+// ⚠️ AND IT NEVER TAKES OFF MORE THAN THERE IS. Capped here rather than on the total alone,
+// because the coupon's own figure is what the row, the customer's message, their tracking
+// card and the published row all quote.
+export function couponAgainst(state, orders, takeable) {
+  const hit = couponOn(state, orders);
+  if (!(hit.amount > 0)) return { amount: 0, id: "", code: "" };
+  return { ...hit, amount: Math.min(hit.amount, Math.max(0, round2(takeable || 0))) };
+}
+
 export function customerTotal(state, group) {
   const orders = (group && group.orders) || [];
   const items = basketItems(state, orders);
@@ -211,7 +230,9 @@ export function customerTotal(state, group) {
   // is named on their own tracking page, and it is the one they will ask about. The friend's
   // coupon is NOT spent when that happens (it is written unused — see `giveCredits`), so it
   // is still theirs to use on the next order.
-  const coupon = promo.money > 0 ? { amount: 0, id: "", code: "" } : couponOn(state, orders);
+  const coupon = promo.money > 0
+    ? { amount: 0, id: "", code: "" }
+    : couponAgainst(state, orders, items + courier - promo.money);
   // Floored at nothing: a discount larger than the order (a free-delivery code on a
   // collect order has no fee to waive, but a hand-edited code could still overshoot)
   // must never leave her asking for a negative amount.
@@ -309,6 +330,19 @@ export function receiptRows(state, parts) {
     // customer typed is a fact about this order, and a receipt that simply omits it
     // cannot be told apart from one for an order she never used a code on.
     rows.push({ label: `Promo ${parts.notApplied}`, value: fmtRM(0, cur) });
+  }
+  // ★★ THE FRIEND'S FIRST-ORDER DISCOUNT, IN THE SAME SUM (v330). Her report: __"the
+  // discount dnt show in the total adding in edit, probably other place?"__ — and she was
+  // right about both halves. v322 took the coupon off the Total and named it on the
+  // customer's message, and left it out HERE and on the invoice, so her own receipt read
+  // "Items total RM 30.00" straight down to "Total RM 27.00" with **nothing between them**.
+  //
+  // ⚠️⚠️ THE RULE THIS FUNCTION EXISTS FOR IS THAT THE LINES ABOVE THE RULE ADD UP TO THE
+  // TOTAL BELOW IT. A discount that moves the Total and is not listed breaks that rule as
+  // surely as a wrong figure does — and it is worse, because a wrong figure is at least
+  // visible. **Whatever comes off the total gets a row here.**
+  if (parts.coupon > 0) {
+    rows.push({ label: "Bring-a-friend discount", value: `-${fmtRM(parts.coupon, cur)}` });
   }
   rows.push({ label: "Total", value: fmtRM(parts.total, cur), total: true });
   return rows;

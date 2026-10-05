@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v329)
+# Jienluv2bake — change history (v54 → v330)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v330, THE BRING-A-FRIEND DISCOUNT SHOWS IN THE WORKING (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your report, and you were right about both halves:** __"the discount dnt show in the total adding in
+edit, probably other place?"__
+
+**What was wrong, and it was worse than a missing line.** v322 took the bring-a-friend discount off
+the order's Total and named it on the customer's message — **and left it out of the Edit card and the
+Note / tracking card altogether.** Those two do not read the order's Total; **they work the total out
+themselves** from the lines you are editing. So **the Total on the Edit card was the total BEFORE the
+discount** — and the same figure was missing from your receipt and from the invoice.
+
+**That is the figure you read while editing an order and quote to a customer.** It now reads:
+
+Items total — RM 30.00 · Bring-a-friend discount — -RM 3.00 · Total — RM 27.00.
+
+**Both cards, the receipt and the invoice now show the discount as its own line, right above the
+Total it moves — and the Total itself has it taken off.**
+
+**The other place, answered.** I swept every screen that shows an order's money. The discount was
+already named on the customer's WhatsApp message and on their tracking page. **The Edit card, the
+Note / tracking card, the receipt and the invoice were the ones missing it — and they were the ones
+that list the money as a sum you can check by adding it up.** The two pop-ups now price the discount
+through the same single rule the rest of the app uses, so **a figure she reads while editing and the
+message the customer gets can never be two different figures.**
+
+**⚠️ AND THE SWEEP FOUND A SECOND FAULT, which I have also fixed.** If a coupon was worth more than
+the order — the rare case, and a hand-given one could do it — the receipt said it had taken off the
+whole amount while the Total stopped at zero, **so the lines did not add up and the figure claimed
+more off than the order was worth.** It now takes off only what is really there: **a coupon can never
+make an order cheaper than nothing, and the line and the Total always agree.** That fix reaches the
+customer's message and their tracking page too, because all of them read the one money function.
+
+**And the rule is now a test, not a hope.** The receipt's own check **adds up every line and compares
+it with the Total** — on a plain order, with a code, with a courier charge, with a COD charge and with
+a discount — so **the next time anything comes off an order and is not given a line, the suite goes
+red instead of the number quietly not adding up.** That is the check that found the second fault
+above, within seconds of being written.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,816 tests, all green**.
 
 **05 Oct 2026 — engine v329, THE DAY THAT WOULD NOT OPEN: THE ACTUAL CAUSE, FOUND AND FIXED (no
 database step, nothing to upload — pushing this one is the whole of it).**
