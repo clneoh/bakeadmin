@@ -181,9 +181,18 @@ test("`?debug=offers` says why the strip is or is not turning, and only then", (
   // next report a reading instead of a guess.
   assert.match(app, /debug=offers/, "the debug flag is gone — the next report would be a guess again");
   assert.match(app, /promo-debug/, "and the line it builds has no class to style it");
-  for (const what of ["offers ", "timer ", "pointer-pause ", "hover ", "tab "]) {
+  // ⚠️ Every field the line prints, listed by name, because a reading that silently loses a
+  // term is a reading that sends the next session back to guessing.
+  for (const what of ["offers ", "timer ", "pause ", "hover ", "tab ", "showing ", "lit ",
+                      "cls ", "y ", "h ", "turns "]) {
     assert.ok(app.includes(what), `the debug line no longer reports ${what.trim()}`);
   }
+  // ⚠️ AND IT MUST CATCH A THROW. `showSlide` sets `codeAt` on its FIRST line, so watching
+  // `showing` flip proves only that the callback ran — NOT that the rest completed. A throw
+  // after that line produces exactly the symptom she reported, so the turn is wrapped and
+  // the message is printed rather than vanishing into a phone's console.
+  assert.match(app, /catch \(e\)/, "the turn is not wrapped — a throw would vanish silently");
+  assert.match(app, /lastTurnError/, "and nothing would ever show the message");
   // ⚠️ AND A CUSTOMER MUST NEVER SEE IT: it may only be built when the flag is on the address.
   // The CODE that tests the address is `q.indexOf("debug=offers")` — the earlier mentions of
   // the flag are in the comment explaining it, which is why this looks for that call.
@@ -192,6 +201,40 @@ test("`?debug=offers` says why the strip is or is not turning, and only then", (
   const guard = app.lastIndexOf("if (promoToday &&", at);
   assert.ok(guard > -1 && at - guard < 250, "the debug line is not guarded by the ?debug flag");
   assert.match(css, /\.promo-debug\s*\{/, "app.css has no .promo-debug rule");
+});
+
+test("REDUCE MOTION keeps an effect — the arriving message fades, and nothing is blanked", () => {
+  // ★★ v321, AND A SCREEN RECORDING FOUND IT. `prefers-reduced-motion: reduce` used to be
+  // handled with `transition: none` and nothing else — which removes the *movement*, which is
+  // what the setting asks for, and **also removes the entire effect**, which is not.
+  //
+  // She recorded six seconds of the strip and pulled one turn out frame by frame: the message
+  // changed between two frames a tenth of a second apart, with no intermediate picture. The
+  // offers were changing and nothing was arriving. **And the same media query is on in the
+  // Browser pane, so every check made here agreed with her phone for the wrong reason.**
+  //
+  // The house skill is explicit: under `reduce`, drop the transforms and parallax and allow
+  // **at most a ≤200ms opacity crossfade**. So the panels keep their places and only opacity
+  // moves.
+  const block = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+  const strip = block.slice(block.indexOf(".promo-slide"), block.indexOf(".promo-dot"));
+  assert.match(strip, /\.promo-slide\s*\{[^}]*opacity\s*:\s*0/, "the waiting panel is not hidden");
+  assert.match(strip, /\.promo-slide\.is-on\s*\{[^}]*opacity\s*:\s*1/,
+    "the arriving panel must reach full opacity — named explicitly, because `.promo-slide` alone cannot beat it");
+
+  // ⚠️ AND THE FADE STAYS INSIDE THE HOUSE BAND.
+  const d = Number((strip.match(/transition:\s*opacity\s+([\d.]+)s/) || [])[1]);
+  assert.ok(Number.isFinite(d), "the crossfade has no duration");
+  assert.ok(d <= 0.2, `the crossfade is ${d}s — the skill caps it at 200ms`);
+
+  // ⚠️⚠️ AND THE TRANSFORMS MUST STILL BE APPLIED. Setting them to `none` here stacks every
+  // panel in one place, and if `is-on` ever failed to land the strip would be BLANK — which is
+  // a worse fault than the one being fixed. The first cut of this rule did exactly that.
+  assert.equal(/transform:\s*none/.test(strip), false,
+    "the transforms must stay — the panels keep their places, or a missing class blanks the strip");
+  // And `.is-left` must not be given an opacity here either: it is already off the top.
+  assert.equal(/\.promo-slide\.is-left\s*\{[^}]*opacity/.test(strip), false,
+    "the leaving panel needs no opacity of its own — it is already out of the window");
 });
 
 test("there is one dot per offer, and none for a single offer", () => {

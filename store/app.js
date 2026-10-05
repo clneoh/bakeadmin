@@ -1266,6 +1266,8 @@ export function render() {
   const TURN_MS = 2000;
 
   let turnTimer = null;
+  let turnsDone = 0;        // how many turns have COMPLETED (see armTurn)
+  let lastTurnError = "";   // and the message if one ever threw
   let liveCodes = [];   // what the strip is turning through right now
   let shownCodes = [];  // ...and what it was turning through when it last drew
   let codeAt = 0;       // which of them is on screen
@@ -1419,7 +1421,19 @@ export function render() {
     if (!promoToday || !turnsAtAll(liveCodes.length)) return;
     turnTimer = setInterval(() => {
       if (!mayTurn()) return;
-      showSlide(standingNext(liveCodes.length, codeAt));
+      // ⚠️⚠️ THE TURN IS COUNTED AND ANY THROW IS CAUGHT, AND THAT CLOSES A HOLE IN MY OWN
+      // REASONING. `showSlide` sets `codeAt` on its FIRST line, so watching `showing` flip
+      // proves only that the callback ran — **NOT that the rest of `showSlide` completed.**
+      // A throw after that line produces every symptom she reported: the number changes, the
+      // classes never do, and the words on screen never move. Catching it here means either
+      // it is fine (and `turns` climbs) or the message is printed in the debug line instead
+      // of vanishing into the console of a phone nobody is looking at.
+      try {
+        showSlide(standingNext(liveCodes.length, codeAt));
+        turnsDone += 1;
+      } catch (e) {
+        lastTurnError = String((e && e.message) || e);
+      }
     }, TURN_MS);
   }
 
@@ -1467,11 +1481,30 @@ export function render() {
     return q.indexOf("debug=offers") > -1;
   })()) {
     const node = el("p", { class: "promo-debug" });
+    // ⚠️ WHAT IT PRINTS IS CHOSEN TO SPLIT THE FAULT IN TWO, because her reading already did
+    // that much: **`showing` FLIPS, so `showSlide` IS running and the classes ARE being
+    // toggled — and the text on screen never changes.** So the next question is whether the
+    // panels MOVE (a drawing fault) or never move at all (the transform is being ignored),
+    // and whether the two panels are even the same height (a short panel parked at
+    // `translateY(100%)` of ITSELF only moves its own little height, so it never leaves the
+    // window the tallest panel sized).
+    //
+    // It is deliberately ONE line: she reads it off a phone screen.
     const paint = () => {
+      const cls = slides.map((s) => (s.classList.contains("is-on") ? "on"
+        : s.classList.contains("is-left") ? "left" : "-")).join(",");
+      const y = slides.map((s) => {
+        const m = getComputedStyle(s).transform.match(/-?[\d.]+/g);
+        return m ? Math.round(Number(m[5])) : 0;
+      }).join(",");
+      const tall = slides.map((s) => Math.round(s.getBoundingClientRect().height)).join(",");
+      const box = promoRotor ? Math.round(promoRotor.getBoundingClientRect().height) : 0;
       node.textContent =
-        `offers ${liveCodes.length} · timer ${turnTimer ? "armed" : "OFF"} · `
-        + `pointer-pause ${overStrip ? "ON" : "off"} · hover ${canHover() ? "yes" : "no"} · `
-        + `tab ${document.hidden ? "hidden" : "visible"} · showing ${codeAt}`;
+        `offers ${liveCodes.length} · timer ${turnTimer ? "armed" : "OFF"}`
+        + ` · pause ${overStrip ? "ON" : "off"} · hover ${canHover() ? "yes" : "no"}`
+        + ` · tab ${document.hidden ? "hidden" : "visible"}`
+        + ` · showing ${codeAt} · lit ${litAt} · cls ${cls} · y ${y} · h ${tall} in ${box}`
+        + ` · turns ${turnsDone}${lastTurnError ? ` · ERR ${lastTurnError}` : ""}`;
     };
     paint();
     setInterval(paint, 500);

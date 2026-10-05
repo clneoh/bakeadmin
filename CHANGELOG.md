@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v320)
+# Jienluv2bake — change history (v54 → v321)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v321, THE OFFERS WERE NEVER BROKEN — YOUR MAC ASKED FOR NO ANIMATION (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**★ THE ANSWER, AND IT CAME FROM YOUR RECORDING.** Six seconds of your screen, one turn pulled out
+frame by frame at a tenth of a second: the message changed **between two frames**, with no
+half-way picture in between. The offers were changing the whole time. **What was missing was the
+animation — and the reason is a setting on your Mac.**
+
+**Your Mac has "Reduce motion" turned on.** That is an accessibility setting in *System Settings →
+Accessibility → Display*. When it is on, the app is not allowed to animate, so it was showing you
+each new message **instantly, with nothing to see** — which is exactly what "no effect" looks like.
+The message __was__ changing every 2 seconds; it just arrived with no movement at all.
+
+**★ AND THAT IS WHY I KEPT GETTING IT WRONG — I HAVE TO TELL YOU THIS PROPERLY.** **The very same
+setting is switched on in the browser I test in.** So every check I made was made under your exact
+condition, and every one of them said "correct" — because the app __was__ correct. I was reading where
+things ended up and calling it verified, and the one thing your setting removes is precisely the
+thing I was never able to see. **Four versions went by on that mistake.** I am sorry.
+
+**What changed — and it means you get an effect either way.** The house rules say: when someone asks
+for less movement, take away the **movement**, and allow **a short fade — up to a fifth of a second
+— instead of nothing.** The app was taking away both. Now the new message **fades in over 0.18
+seconds** rather than appearing in a single frame. No travel, no spinning, nothing to make anyone
+dizzy — but you can see it change.
+
+**★ IF YOU WOULD RATHER HAVE THE FULL SLIDE**, where one message scrolls up and the next follows from
+below:
+
+1. Open **System Settings**
+2. Go to **Accessibility** → **Display**
+3. Turn **Reduce motion** off
+
+The offers will then slide exactly as designed. **With it on you now get the fade instead of nothing**,
+so both ways round you will see something.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,789 tests, all green**.
+
+**And one thing said plainly rather than buried:** I still cannot __watch__ the animation from my side.
+What I can say for certain is what the code computes — the panel that arrives is in its place and
+fades from nothing to full — and that the setting which was hiding it is named above. **You are the
+one who can see it, and you have the `?debug=offers` line if anything ever looks wrong again.**
 
 **05 Oct 2026 — engine v320, A FINGER CAN NO LONGER STOP THE OFFERS FOR GOOD (no database step,
 nothing to upload — pushing this one is the whole of it).**

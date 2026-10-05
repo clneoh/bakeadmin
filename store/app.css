@@ -1391,7 +1391,29 @@ button.prod-next.off::after { content: ""; }
 /* The setting is about MOTION, not about information: a customer who asks for less
    movement still gets every offer — it simply arrives facing them, with no turn. */
 @media (prefers-reduced-motion: reduce) {
-  .promo-slide, .promo-slide.is-on { transition: none; }
+  /* ⚠️⚠️ "REDUCE MOTION" MEANS NO *MOVEMENT* — NOT NO *EFFECT* (v321).
+     This used to be `transition: none` and nothing else, which was wrong in a way that took
+     a screen recording to find: the offers still changed, but they changed **INSTANTLY**,
+     with nothing to see at all. She recorded it, and one turn came out as a snap between
+     two frames a tenth of a second apart — and `transition: none` was on MY machine too,
+     which is why every check I made looked fine.
+
+     The house skill is explicit: under `prefers-reduced-motion: reduce`, drop the transforms
+     and parallax, and allow **at most a ≤200ms opacity crossfade**. The panels therefore keep
+     their places and only their OPACITY changes — no travel at all, but the message still
+     visibly arrives rather than blinking. */
+  /* ⚠️⚠️ **THE TRANSFORMS STAY. ONLY THEIR ANIMATION GOES.** The panels keep their places —
+     the waiting ones below, the replaced one above — so the strip cannot be left blank by
+     this rule, and if `is-on` were ever missing the failure is the one it already had rather
+     than a new one. What changes is that the panel ARRIVING fades in over 180ms instead of
+     appearing in a single frame. No travel, and something to see.
+
+     ⚠️ AND THE SPECIFICITY MATTERS: `.promo-slide` alone is (0,1,0) and CANNOT beat the
+     `transition: transform` that `.promo-slide.is-on` (0,2,0) carries — so the arriving
+     panel has to be named here too, or it keeps animating its transform and never fades. */
+  .promo-slide { opacity: 0; transition: opacity .18s ease; }
+  .promo-slide.is-on { opacity: 1; transition: opacity .18s ease; }
+  .promo-slide.is-parked { transition: none; }
   .promo-dot::before { transition: none; }
 }
 /* The bakery's own words, inside the same strip but quieter than the offer and
