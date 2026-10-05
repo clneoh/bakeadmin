@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v324)
+# Jienluv2bake — change history (v54 → v325)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v325, THE FRIEND'S NUMBER COMES OFF THE NEW CUSTOMER'S ADDRESS (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your question, and it was a good one: __"for new customer clicking link from his friend, after
+he place an order have you remove his page linking his friend phone number?"__ **I had not.**
+
+**What was happening.** A referral link is `/store/?via=60123456789` — **the friend's own phone
+number.** The shop reads it once, stamps it onto the order as __"this one came through their link"__, and
+then **the number just stayed there**: in the new customer's address bar, in their browsing history,
+and in anything they copied out of the address to pass on. After the order, it is only a phone number
+being carried around.
+
+**Now it comes off the address the moment the order is placed.**
+
+**⚠️ AND THE MOMENT MATTERS, which is why it is not simply done when the page opens.** A customer can
+arrive by the link and browse for ten minutes before ordering — taking the stamp off on arrival would
+lose the referral altogether. So it goes when **the order really landed**, which is the same branch
+the app already uses to remember the order was placed. **An order that fell back to WhatsApp keeps
+its stamp on purpose** — nothing was recorded, they may try again, and the message they send carries
+it.
+
+**Only `via` is removed.** If the same customer is also looking at an old order, `track` is a separate
+key handled by its own rule, and each removes only itself.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day moved. The suite is **2,805
+tests, all green**.
 
 **05 Oct 2026 — engine v324, A TRACKED ORDER STOPS OWNING THE PAGE, AND YOU CAN FORGET A STRAY
 CUSTOMER (no database step, nothing to upload — pushing this one is the whole of it).**

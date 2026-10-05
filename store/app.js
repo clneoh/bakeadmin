@@ -257,6 +257,37 @@ export function parseVia(search) {
   return waNumber(new URLSearchParams(String(search || "")).get("via"));
 }
 
+// ★★ THE FRIEND'S NUMBER COMES OFF THE ADDRESS ONCE THE ORDER IS PLACED (v325).
+//
+// Her question: __"for new customer clicking link from his friend, after he place an order have
+// you remove his page linking his friend phone number?"__ **No — and it should.** The link is
+// `/store/?via=60123456789`: the FRIEND'S OWN NUMBER, sitting in the new customer's address bar,
+// their history, and anything they copy out of the address to send on. The stamp has done its work
+// the moment the order carries it onto the order record, so from then on it is only a phone number
+// being carried around.
+//
+// ⚠️⚠️ **IT IS REMOVED WHEN THE ORDER IS PLACED, NOT WHEN THE PAGE OPENS, AND THE DIFFERENCE
+// MATTERS.** A customer may arrive by the link and browse for ten minutes before ordering — and
+// taking the stamp off on arrival would lose the referral entirely. The one safe moment is the one
+// `placeOrder` already marks: **the path where the order really landed.** An order that fell back
+// to WhatsApp reached no record at all, so the stamp is LEFT ALONE there — they may try again, and
+// the message they send carries it.
+//
+// ⚠️ **ONLY `via` IS REMOVED.** `track` may be in the address at the same time (a customer who
+// arrived by a link and is also looking at an old order), and each key removes only itself.
+export function forgetVia(hist = (typeof history !== "undefined" ? history : null)) {
+  if (!hist || typeof hist.replaceState !== "function") return false;
+  if (typeof location === "undefined" || !location.search) return false;
+  const rest = new URLSearchParams(location.search);
+  if (!rest.get("via")) return false;
+  rest.delete("via");
+  const q = rest.toString();
+  try {
+    hist.replaceState(null, "", location.pathname + (q ? `?${q}` : "") + (location.hash || ""));
+  } catch { return false; }
+  return true;
+}
+
 function currentVia() {
   return (typeof location !== "undefined" && location.search)
     ? parseVia(location.search) : "";
@@ -2532,6 +2563,11 @@ export function render() {
       // WhatsApp reached no record at all, and counting it would tell the next
       // customer a code had been used when nothing says it had.
       rememberShopOrder(promoApplied);
+      // ★★ AND THE FRIEND'S NUMBER LEAVES THE ADDRESS (v325). It is on the order record now, so
+      // from here it is only a phone number sitting in someone else's address bar. **This is the
+      // one path where the order really landed** — the same reason `rememberShopOrder` is here and
+      // nowhere else — and an order that fell back to WhatsApp keeps its stamp on purpose.
+      forgetVia();
       cart.clear();
       // …and with it every note typed against it, or the next customer's first
       // look at the menu would open with the last person's words sitting in the
