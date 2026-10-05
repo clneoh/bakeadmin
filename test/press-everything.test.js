@@ -310,6 +310,19 @@ const FIXTURE = () => ({
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
+// ⚠️⚠️ A SCREEN CAN FILL ITSELF FROM AN ANSWER, AND THE PASS MUST WAIT FOR IT. `/reviews` asks
+// Supabase for the waiting reviews and draws its Publish / Delete presses only when the reply lands
+// — so a pass that looked the instant the render returned found **an intro card and nothing else**,
+// and reported the screen as having nothing to press. It is a real class here: the reviews, the promo
+// screen's visit counts and the tracking card all arrive that way. One turn of the loop is enough for
+// a stubbed fetch to settle, and it is where the difference between "the screen is empty" and "the
+// screen has not answered yet" is decided.
+// ⚠️ AND IT MUST USE THE *REAL* TIMER. The shim unrefs every timer so a view's interval cannot hold
+// the process open — and an unref'd timer does NOT keep the loop alive, so awaiting one here never
+// resolved: `Promise resolution is still pending but the event loop has already resolved`. The unref
+// is for the app's timers; this one is mine, and it has to count.
+const settle = () => new Promise((r) => realSetTimeout(r, 0));
+
 // ── pressing ─────────────────────────────────────────────────────────────────
 const all = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); if (c && c.nodeType === 1) all(c, out); }
@@ -325,6 +338,7 @@ const labelOf = (n) => {
 // pressing one is not a fault, and this app disables a press it cannot honour on purpose.
 const pressesOn = (root) => all(root).filter((n) => {
   if (n.disabled || n.attrs?.disabled !== undefined) return false;
+  if (isToggling(n)) return true;
   if (isTyping(n)) return true;
   if (n.tagName === "SELECT") return true;
   if (n.tagName === "BUTTON") return true;
@@ -340,16 +354,29 @@ const pressesOn = (root) => all(root).filter((n) => {
 // she caught by hand lived**, so it would have been a pass that missed the very thing it was built
 // for. A text box is pressed by typing a plausible value into it and letting its own handler run.
 const TYPE_TEXT = "C2FDA5"; // an order code: short, and it makes the finder look things up
-const isTyping = (n) => (n.tagName === "INPUT" || n.tagName === "TEXTAREA")
-  && !["checkbox", "radio", "submit", "button", "file", "range", "color", "date", "time", "number"]
-    .includes(String(n.attrs.type || "").toLowerCase());
+const TYPE_NUMBER = "2";
+const inputType = (n) => (n.tagName === "INPUT" ? String(n.attrs.type || "text").toLowerCase() : "");
+const isTyping = (n) => n.tagName === "TEXTAREA" || (n.tagName === "INPUT"
+  && !["checkbox", "radio", "submit", "button", "file", "range", "color"].includes(inputType(n)));
+const isToggling = (n) => n.tagName === "INPUT" && ["checkbox", "radio"].includes(inputType(n));
 
 function press(node) {
+  // ⚠️⚠️ A CHECKBOX IS A PRESS, AND A NUMBER BOX IS A PRESS — the first version of this pass walked
+  // neither, and reported THREE SCREENS AS HAVING NOTHING TO PRESS. They were full of controls; the
+  // pass was blind to the two kinds they are made of. **The bring-a-friend switch, the Purchase
+  // Order's day ticks, the product toggles and every sort of "tick this" in the app is a checkbox**,
+  // and a switch whose handler throws is exactly the fault this file exists to find. (The report said
+  // "nothing to press" rather than passing quietly, which is how it was found.)
+  if (isToggling(node)) {
+    node.checked = !node.checked;
+    for (const f of node._listeners.change || []) f.call(node, { target: node, preventDefault() {} });
+    return "toggle";
+  }
   if (isTyping(node)) {
-    node.value = TYPE_TEXT;
+    node.value = inputType(node) === "number" ? TYPE_NUMBER : TYPE_TEXT;
     for (const f of node._listeners.input || []) f.call(node, { target: node, preventDefault() {} });
     for (const f of node._listeners.change || []) f.call(node, { target: node, preventDefault() {} });
-    return "type";
+    return inputType(node) === "number" ? "number" : "type";
   }
   if (node.tagName === "SELECT") {
     const opts = all(node).filter((o) => o.tagName === "OPTION");
@@ -370,7 +397,7 @@ function press(node) {
 // pass down loudly rather than hang it** — and reaching it is REPORTED, never silent, because a pass
 // that quietly stops walking a screen is the "nothing found" shape this whole file exists to avoid.
 const PER_SCREEN = Number(process.env.PRESS_PER || 200);
-const TOTAL_CAP = Number(process.env.PRESS_TOTAL || 4000);
+const TOTAL_CAP = Number(process.env.PRESS_TOTAL || 20000);
 const skipped = [];
 const failures = [];
 let pressed = 0;
@@ -392,6 +419,7 @@ test("★ every screen renders, and every control on it can be pressed without t
     let first = null;
     try {
       fn(root, clone(FIXTURE()), new URLSearchParams());
+      await settle();
       first = pressesOn(root);
     } catch (err) {
       failures.push([path, "(rendering)", String(err && err.message || err)]);
@@ -415,13 +443,15 @@ test("★ every screen renders, and every control on it can be pressed without t
       let node;
       try {
         fn(fresh, state, new URLSearchParams());
+        await settle();
         node = pressesOn(fresh)[i];
       } catch (err) {
         failures.push([path, `#${i} (re-render)`, String(err && err.message || err)]);
         continue;
       }
       if (!node) continue;
-      const how = isTyping(node) ? "type" : node.tagName === "SELECT" ? "change" : "click";
+      const how = isToggling(node) ? "toggle" : isTyping(node) ? "type"
+        : node.tagName === "SELECT" ? "change" : "click";
       const label = `${node.tagName} "${labelOf(node)}"`;
       try {
         press(node);
@@ -448,7 +478,7 @@ test("★ every screen renders, and every control on it can be pressed without t
         if (!layer || layer.hidden) continue;
         for (const inner of pressesOn(layer)) revealed.add({ node: inner, where: layerId });
       }
-      if (how === "type") {
+      if (how === "type" || how === "number" || how === "toggle") {
         for (const n of pressesOn(fresh)) if (!first.includes(n)) revealed.add({ node: n, where: "revealed" });
       }
       for (const { node: inner, where } of revealed) {

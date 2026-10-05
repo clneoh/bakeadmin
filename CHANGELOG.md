@@ -1,8 +1,39 @@
-# Jienluv2bake — change history (v54 → v334)
+# Jienluv2bake — change history (v54 → v335)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v335, THE SELF-CHECK NOW COVERS EVERY SCREEN (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**I said yesterday that the new check left three screens out. This closes them — and finding out why
+taught me more than the check itself.**
+
+**It was blind to three kinds of control, not three screens:**
+
+**1 · Tick boxes and switches.** The bring-a-friend on/off, the day ticks on the Purchase Order, every
+product toggle. **The check walked straight past them.** A switch whose handler breaks is exactly the
+kind of fault it exists to find.
+
+**2 · Number boxes.** The amount fields, the daily limits, the discounts. Same — skipped.
+
+**3 · ★ Screens that fill themselves in.** The Reviews screen asks the cloud for the waiting reviews
+and draws its Publish and Delete presses **only when the answer arrives.** The check looked the instant
+the screen was drawn, saw an empty card, and reported "nothing to press" — **when what it was really
+looking at was a screen that had not answered yet.** It waits now. **That is the one worth knowing
+about: it is a whole class — the reviews, the promo counts and the tracking card all arrive that way.**
+
+**What it walks now: all twenty-five screens, about 5,800 presses, nothing skipped** — and it still
+costs about four seconds. **And it still catches yesterday's fault**, which I put back to be sure:
+__revealed → BUTTON "✕" … g is not defined__.
+
+**⚠️ And the lesson, which is the same one twice over: my check was reporting on its own blind spots
+and I nearly read it as the app being fine.** It says what it did NOT walk rather than passing
+quietly — and that is the only reason I found any of this.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. **No app code changed** — this is the
+check itself. The suite is **2,822 tests, all green**.
 
 **05 Oct 2026 — engine v334, THE APP NOW CHECKS ITSELF BEFORE IT REACHES YOUR PHONE (no database step,
 nothing to upload — pushing this one is the whole of it).**
