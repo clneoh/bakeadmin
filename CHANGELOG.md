@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v314)
+# Jienluv2bake — change history (v54 → v315)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v315, TWO MORE CARDS LEAVE SETTINGS, AND ONE OF THEM IS RENAMED (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Why.** Your two instructions: __"move Courier(Lalamove) and Mailing labels(courier), both to
+Logistic?"__ and __"move Message Style to the shop"__. Both are the same idea as v314 — a thing
+belongs where its work is, not under "defaults, backup, transfer".
+
+**What moved.**
+
+- **Send a van** is now its own screen under **Logistic** — your own door for the driver, and which
+  Lalamove account this phone is talking to. Same card, same pickup pin, moved whole.
+- **Message style** is now under **The shop**, beside Bring a friend, Promo codes and Reviews. How
+  your words reach a customer is the same subject as the offers and the reviews.
+
+**Two words I did NOT use, and you should know why.** The first choice was to call the new Logistic
+row **"Courier"** — and it would have sat directly above **📦 Parcel couriers**, which means something
+else entirely. A parcel is something you **post**; a van is a trip you **book**. v309 already gave
+those two their own words on the order cards, so the screen is called **Send a van** and the card
+inside still names **Lalamove**, asked from the registry rather than typed here.
+
+**★ AND THE THIRD CARD I DID NOT MOVE — because the name was the real problem, not the address.**
+"Mailing labels (courier)" holds **one address**, and I went and checked what actually reads it.
+**Four things do:**
+
+- the **FROM block on a parcel label**
+- the **door the courier collects from**
+- **the letterhead on every invoice**
+- the **from line on the wish-list email**
+
+So it is not a courier setting at all — it is one address typed once that four screens read. Filed
+under **Logistic**, an invoice with the wrong heading would have sent you looking under deliveries.
+You chose **"Rename it, keep it in Settings"**, and that is what it is now: **🏠 Your address**,
+with the four jobs named in the card itself, and a way to it from the **Send a van** screen so the
+trip is still one tap when it is a delivery you are fixing.
+
+**What Settings keeps:** Delivery settings, App password, **Storefront**, Your address, Website &
+developer, Live availability, Shared data, Backup & safety, Danger zone. **Storefront stays there
+deliberately** — your call, and recorded so no later version proposes moving it again.
+
+**Your data is untouched.** No SQL, no order, product, price or bake day touched, and **no database
+step**. The suite is **2,784 tests, all green** — and the v312 route guard caught **both** new
+screens by name when I briefly took them out of the menu.
 
 **05 Oct 2026 — engine v314, BRING-A-FRIEND MOVES TO THE SHOP, AND THE REWARD IS A COUPON (no
 database step, nothing to upload — pushing this one is the whole of it).**

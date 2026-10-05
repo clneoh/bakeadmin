@@ -327,90 +327,31 @@ export function renderSettings(root, state) {
       el("p", { class: "card-sub", style: "margin:4px 0 0" },
         "The developer link (homepage, order page, About) opens WhatsApp with a ready “Hi!”. The email link stays underneath — the wish-list email still uses it.")));
 
-  // ── Mailing labels (courier) ────────────────────────────────────────────
-  // The FROM block on the Mailing packing label. Held in settings and NOT
-  // published with the storefront — but it is no longer per-phone: v200 put
-  // `mailingAddress` in sync.js's carried list, so it travels to her other
-  // phones like every other setting and is typed once.
+  // ── Your address ────────────────────────────────────────────────────────
+  // ⚠️ THIS CARD WAS CALLED "Mailing labels (courier)", AND THE NAME WAS WRONG (v315).
+  // It holds ONE address, and FOUR things read it: the FROM block on a parcel label,
+  // the bakery's own door in the courier seam, **the letterhead on every invoice**
+  // (v293), and the FROM line on the wish-list email. Called a courier thing, an
+  // invoice with the wrong heading would have had her looking for it under
+  // deliveries. **It stays in Settings** — her decision, given the choice: __"Rename
+  // it, keep it in Settings"__ — because it is a typed-once fact several screens
+  // read, not a setting of any one of them.
+  //
+  // Held in settings and NOT published with the storefront — but it is not per-phone
+  // either: v200 put `mailingAddress` in sync.js's carried list, so it travels to her
+  // other phones like every other setting and is typed once.
   const mailAddr = cur.mailingAddress ??= "";
   const mailBox = el("textarea", { class: "input", rows: 5, value: mailAddr,
     placeholder: "Jienluv2bake\n12, Jalan Bunga Raya\n11600 Pulau Pinang\n016 960 1268",
     onchange: () => { cur.mailingAddress = mailBox.value.trim(); save(state); toast("Saved"); } });
   const mailingCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, "Mailing labels (courier)"),
+    el("h3", { style: "margin:0 0 4px" }, "Your address"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Printed as the FROM block on the Mailing label (shown on courier orders). One line per row — first line your bakery name, then the address, your phone last."),
+      "Your bakery's own address, typed once and used in four places: the FROM block on a parcel label, the door the courier collects from, the letterhead on an invoice, and the from line on the wish-list email. One line per row — first line your bakery name, then the address, your phone last."),
     mailBox,
     el("p", { class: "card-sub", style: "margin:6px 0 0" },
-      "A Mailing label prints FROM = this address, TO = the customer's name, phone and delivery address, and ORDER = the code, date and items. Saved with your settings, so it travels to your other phones — type it once."));
+      "A parcel label prints FROM = this address, TO = the customer's name, phone and address, and ORDER = the code, date and items. An invoice prints it under your bakery's name. Saved with your settings, so it travels to your other phones — type it once."));
 
-  // ── Courier ─────────────────────────────────────────────────────────────
-  // Two facts and no settings. A courier is not given a street address, it is given a
-  // POINT, so this card's whole job is to hold the one point every trip starts from —
-  // the bakery's own door — and to say which courier it is talking to. There is no
-  // API key, no secret and no account login on this card, and there never will be:
-  // those live in the function on the server, because anything shipped to this page
-  // can be read by anyone who opens the page.
-  //
-  // THIS CARD DOES NOT KNOW ITS COURIER'S NAME. It asks the registry, and every word
-  // it says about the courier comes back from the provider's own `label`. That is what
-  // "ready for another courier" means at this end of the app: the day a second courier
-  // is added, this card names it correctly without one character changing here.
-  const who = courierLabel();
-  const courierKey = (activeCourier() || {}).key || "";
-  const pickupLine = el("p", { class: "card-sub", style: "margin:8px 0 0" },
-    "Not pinned yet — every price needs a door to collect from.");
-  const envLine = el("p", { class: "card-sub", style: "margin:10px 0 0" },
-    `Checking which ${who || "courier"} this phone can reach…`);
-
-  function paintPickup() {
-    const p = place.validPlace(cur.pickupPlace);
-    pickupLine.textContent = p
-      ? `Pickup pin: ${place.fmtPlace(p)}  ·  ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
-      : "Not pinned yet — every price needs a door to collect from.";
-  }
-  paintPickup();
-
-  const pinBtn = button("Put the pickup pin on the map", () => {
-    openPlacePicker({
-      state,
-      title: "The bakery's pickup pin",
-      hint: "This is the door the driver collects from. Pin it once — it is kept with your settings and travels to your other phone.",
-      address: String(cur.mailingAddress || "").trim(),
-      start: cur.pickupPlace,
-      onPick: (spot) => {
-        place.setPickupPlace(state, spot);
-        paintPickup();
-        toast("Pickup pin saved");
-      },
-    });
-  }, "primary");
-
-  // Which environment is live is a SECRET on the server, not a build — sandbox and
-  // production are separate hosts with separate keys and separate wallets — so the
-  // honest thing this card can do is ask the server and say the answer. It never sees
-  // the key, and neither does this page.
-  (async () => {
-    const out = await callCourier(state, { action: "account", provider: courierKey });
-    if (dead) return;
-    if (!out.ok) {
-      envLine.textContent = `${who || "The courier"} could not be asked: ${out.reason}`;
-      return;
-    }
-    envLine.textContent = out.env === "production"
-      ? `${who}: LIVE account (production). Bookings here are real and cost real money.`
-      : `${who}: sandbox. Test bookings only — no real driver is sent and no money is spent.`;
-  })();
-
-  const courierCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, who ? `Courier (${who})` : "Courier"),
-    el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      `Prices and bookings come from ${who || "your courier"} through your own account. This card holds the one thing a courier cannot work without: the pickup point, which is the bakery's exact door rather than its address — a driver is routed to a point, and an address he cannot find is a trip nobody can book.`),
-    pickupLine,
-    el("div", { class: "btn-row", style: "margin-top:12px" }, pinBtn),
-    el("p", { class: "card-sub", style: "margin:10px 0 0" },
-      "The API key and secret are kept on the server and are never typed here, never on this page, and never in a message. Each customer's own door gets a pin the first time you quote or book for them, and it is remembered against their number."),
-    envLine);
 
   const fileInput = el("input", { class: "input", type: "file", accept: "application/json,.json", style: "display:none",
     onchange: (e) => doImport(e) });
@@ -532,36 +473,6 @@ export function renderSettings(root, state) {
     el("div", { class: "btn-row" },
       button("Delete all data", () => clearAll(), "danger")));
 
-  // ── Message style (2 Oct 2026) ──────────────────────────────────────────
-  // WhatsApp carries no fonts — the letters always come from the customer's own
-  // phone — so the only lever over how her words land is WhatsApp's own marks, and
-  // leaning the opening line over is the whole of this choice. The note under the
-  // picker is re-worded in place rather than re-rendered, so a save does not throw
-  // her back to the top of Settings.
-  const msNote = el("p", { class: "card-sub", style: "margin:6px 0 0" });
-  const msNoteFor = (style) => (style === "greeting"
-    ? "The opening line arrives leaning over. Everything below it — the order code, the items, the money — is untouched."
-    : "Every message goes out word for word as it does today.");
-  msNote.textContent = msNoteFor(cur.messageStyle);
-
-  const msSelect = el("select", { class: "input",
-    onchange: () => {
-      // Anything that is not exactly "greeting" is Plain — the same reading the
-      // message builders and the importer make, so the three can never disagree.
-      cur.messageStyle = msSelect.value === "greeting" ? "greeting" : "plain";
-      msNote.textContent = msNoteFor(cur.messageStyle);
-      save(state); maybeSync(state); toast("Saved");
-    } },
-    el("option", { value: "plain", selected: cur.messageStyle !== "greeting" },
-      "Plain — exactly what you send today"),
-    el("option", { value: "greeting", selected: cur.messageStyle === "greeting" },
-      "The greeting leans over"));
-
-  const messageCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, "Message style"),
-    el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "How the four WhatsApp messages to a customer open — the confirmation, the payment reminder, \"on its way\" and \"ready\". WhatsApp has no fonts: the letters come from the customer's own phone, and the only marks it carries are bold, italics, strikethrough and monospace. So this leans the opening line over and nothing else moves."),
-    el("div", { class: "field" }, el("label", {}, "Opening line"), msSelect, msNote));
 
   const sampleCard = (!state.products.length && !state.ingredients.length)
     ? el("div", { class: "card" },
@@ -579,7 +490,9 @@ export function renderSettings(root, state) {
   // default, so it moved beside Promo codes under More → The shop. Her words:
   // "can be brought to The Shop, rather than in Settings." Nothing about the
   // scheme changed — the screen is the same card, moved whole.
-  root.replaceChildren(daysCard, lockCard, storefrontCard, messageCard, devCard, mailingCard, courierCard, supabaseCard, sharedCard, backupCard, dangerCard,
+  // Two cards left this row list in v315: the courier's own screen and the message
+  // style now live where their work is (More -> Logistic, and More -> The shop).
+  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard,
     ...(sampleCard ? [sampleCard] : []));
 
   function doImport(e) {

@@ -16,6 +16,8 @@ import { renderParcelCouriers } from "./views/parcelCouriers.js";
 import { renderPoints } from "./views/points.js";
 import { renderPromoCodes } from "./views/promo.js";
 import { renderReferrals } from "./views/referrals.js";
+import { renderSendVan } from "./views/send_van.js";
+import { renderMessageStyle } from "./views/message_style.js";
 import { renderOrders } from "./views/orders.js";
 import { renderProducts } from "./views/products.js";
 import { renderIngredients } from "./views/ingredients.js";
@@ -58,6 +60,8 @@ const routes = {
   "/points":    { title: "Self collection Points", tab: "more", render: renderPoints },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },
   "/bring-a-friend": { title: "Bring a friend", tab: "more", render: renderReferrals },
+  "/send-van":  { title: "Send a van", tab: "more",    render: renderSendVan },
+  "/message-style": { title: "Message style", tab: "more", render: renderMessageStyle },
   "/run":       { title: "Delivery run", tab: "more", render: renderDeliveryRun },
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },
   "/profit":    { title: "Profit",     tab: "more",      render: renderProfit },
