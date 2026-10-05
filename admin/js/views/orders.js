@@ -642,7 +642,10 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
           missedIso = null;
           nameDay(state.occasions, iso, past);
           paint();
-          onPick(dateId);
+          // ★ v326. The day's OWN date goes with the tap, not only its id. The cell
+          // was drawn from this row of `byDate`; handing the date over lets the
+          // screen open the same record this cell stood for, whatever the ids do.
+          onPick(dateId, iso);
         },
       }, num, el("span", { class: "cal-count" }, full ? "FULL" : `${cap.total}/${cap.capacity}`), tip);
     });
@@ -705,6 +708,12 @@ function renderAll(root, state, params) {
   let activeId = (requested && dates.some((d) => d.id === requested))
     ? requested
     : (dates.find((d) => d.date >= todayISO())?.id || dates[dates.length - 1].id);
+  // ★ v326. The day's own date, carried beside the id from the cell she tapped.
+  // It is what makes the panel below the calendar the day the cell stood for even
+  // if two records ever share an id — see splitSharedDateIds in state.js for the
+  // fault this closes. A screen opened from the URL has no date to carry and
+  // resolves by id, exactly as it always did.
+  let activeIso = requested || "";
 
   if (!ordersCalView) ordersCalView = { offset: null };
   const topCal = deliveryCal({
@@ -712,13 +721,26 @@ function renderAll(root, state, params) {
     days: deliveryDayList(state),
     getActiveId: () => activeId,
     view: ordersCalView,
-    onPick: (id) => selectDate(id),
+    onPick: (id, iso) => selectDate(id, iso),
     noteMisses: true,
   });
   const content = el("div", {});
 
+  // WHICH RECORD A DAY IS. By id first — that is what every other screen, every
+  // order and the cloud all mean by a day. When the tap carried a date as well,
+  // the record on that date wins, so the panel can never be a different day from
+  // the cell that opened it.
+  const dayRecord = () => {
+    const list = state.deliveryDates || [];
+    if (activeIso) {
+      const exact = list.find((d) => d && d.id === activeId && d.date === activeIso);
+      if (exact) return exact;
+    }
+    return byId(list, activeId);
+  };
+
   const renderContent = () => {
-    const date = byId(state.deliveryDates, activeId);
+    const date = dayRecord();
     if (!date) {
       content.replaceChildren(emptyState("Delivery date missing",
         "This order's delivery date was deleted. Remove it from the New Orders box."));
@@ -730,8 +752,9 @@ function renderAll(root, state, params) {
   // Switch dates in place instead of navigating: only the order area below the
   // calendar is rebuilt, so the calendar keeps the week she paged it to. The URL
   // still updates (without firing the router) so the current date stays shareable.
-  const selectDate = (id) => {
+  const selectDate = (id, iso) => {
     activeId = id;
+    activeIso = iso || "";
     // Opening a day the grid is NOT on brings the grid with it — a New-orders row a
     // season away must not leave the calendar showing a week it isn't on. A day
     // already on screen leaves the window exactly where she put it, so opening one
@@ -857,7 +880,9 @@ export function newOrdersInbox(state, selectDate, root) {
             // A status filter could hide the row on its own date — clear it, the
             // same way the finder does, so the flash has something to land on.
             orderStatusFilter = "";
-            selectDate(first.deliveryDateId);
+            // The day's own date comes with its id (v326), so a jump from the
+            // inbox lands on the day the order is on.
+            selectDate(first.deliveryDateId, date.date);
             revealOrderRow(root, g);
           },
         }, main, meta);
@@ -971,7 +996,9 @@ function orderFinderEl(state, root, selectDate, body) {
       return;
     }
     orderStatusFilter = "";
-    selectDate(date.id); // renderContent already put the order's row in the DOM
+    // The day's own date rides along with its id (v326), so an order always lands
+    // on the day it is actually on.
+    selectDate(date.id, date.date); // renderContent already put the order's row in the DOM
     revealOrderRow(root, group);
   };
 
@@ -1480,7 +1507,7 @@ function orderForm(state, dateId, root, selectDate) {
     view: newFormDayView || (newFormDayView = { offset: null }),
     // The panel shuts BEFORE the screen switches, so it cannot spring open again under
     // her on the rebuilt card.
-    onPick: (id) => { newFormDayOpen = false; selectDate(id); },
+    onPick: (id, iso) => { newFormDayOpen = false; selectDate(id, iso); },
     noteMisses: true,
   });
 

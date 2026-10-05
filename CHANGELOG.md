@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v325)
+# Jienluv2bake — change history (v54 → v326)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v326, A DAY YOU TAP IS THE DAY YOU GET (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Why.** Your report: __"why the order calander not able to select 7/10/26?"__ and then, exactly:
+__"that day shown 2/12, clicking that date, the date turn red, but the SET day's avaibility not
+changing to 7/10/26."__ **You were right, and your recording showed it happening — four times in
+thirty seconds.**
+
+**What was happening.** Each day in the calendar is drawn from that day's own record, so the **red
+mark followed your tap** — it always did. But the panel underneath was looked up a different way:
+by the record's **id**, and that lookup answers with the **first** record holding it. **Two of your
+delivery days are carrying the same id**, so tapping one of them turned the day red and then opened
+the *other* one. Pressing **5 Oct** worked and **9 Oct** worked because they are not the pair —
+**7 Oct** was the day it happened to.
+
+**Two fixes, and you get both:**
+
+**1 · The panel now opens the day whose cell you tapped** — the day's own date rides along with the
+tap, so the calendar and the panel under it can never be two different days again.
+
+**2 · The two days are given their own ids when the app loads** — nothing is deleted, every day and
+every order and price survives, and **each order follows its own day** (its own saved delivery date
+is what tells the two apart). Your **7 Oct becomes openable, editable and deletable again** — and so
+does anything else the shared id was quietly affecting.
+
+**⚠️ AND IT IS FIXED THE SAME WAY ON EVERY PHONE.** The replacement id is worked out from the old id
+and the date rather than rolled fresh, so both of your phones reach the **same** answer. Two different
+answers would have put the pair back with the next sync.
+
+**How it got that way I cannot say** — I could not find anything in the app that makes two days share
+an id. What I can say is that the fault it caused is now impossible to repeat from your side, and if
+it ever happens again the screen will simply follow your tap.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,809 tests, all green**.
 
 **05 Oct 2026 — engine v325, THE FRIEND'S NUMBER COMES OFF THE NEW CUSTOMER'S ADDRESS (no database
 step, nothing to upload — pushing this one is the whole of it).**

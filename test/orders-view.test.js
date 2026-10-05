@@ -658,3 +658,43 @@ test("an order nobody has priced says nothing, rather than claiming it is worth 
   assert.equal(moneyRows(dayRow(root)).length, 0,
     "an unpriced order is not an order worth RM 0.00 — the row would be the app inventing a figure");
 });
+
+test("the day you tap is the day you get, even if two days share one id", () => {
+  // ★ v326. Her report, 5 Oct 2026: "the order calander not able to select
+  // 7/10/26 … clicking that date, the date turn red, but the SET day's avaibility
+  // not changing to 7/10/26." The cell is drawn from the day's OWN row of the
+  // calendar's `byDate` map, so the red mark followed her tap. The panel under it
+  // was drawn from `byId`, which answers with the FIRST record holding that id —
+  // and when two days share one id, that is a different day. So the screen could
+  // disagree with itself, and nothing said so.
+  //
+  // ⚠️ THE STATE HERE HAS NOT BEEN THROUGH normalize, ON PURPOSE. The load-time
+  // repair in state.js (splitSharedDateIds) is the other half of this fix; this
+  // test is the half that has to hold the instant she taps, on a screen whose
+  // data was loaded before the repair existed.
+  const st = {
+    ...STATE,
+    deliveryDates: [
+      { id: "shared", date: "2026-09-07" }, // holds the id; byId answers with this one
+      { id: "shared", date: "2026-09-10" }, // the day that could never be opened
+      { id: "own", date: "2026-09-07" }, // …which is why 7 Sep's cell is drawn from its own id
+    ],
+  };
+  const root = createEl("div");
+  renderOrders(root, st, PARAMS());
+
+  const titleNow = () => (all(root).find((n) => String(n.className).includes("card-title"))
+    || { textContent: "(no day card)" }).textContent;
+
+  const cell = all(root).find((n) => n.dataset && n.dataset.date === "2026-09-10"
+    && n.tagName === "BUTTON");
+  assert.ok(cell, "10 Sep is a delivery day, so its cell is a button");
+  (cell._listeners.click || []).forEach((f) => f.call(cell));
+
+  assert.equal(titleNow(), "Thu, 10 Sep 2026",
+    "the panel opens the day whose cell she tapped — never the other record holding that id");
+  const sel = all(root).filter((n) => String(n.className).includes("cal-cell")
+    && String(n.className).includes("sel")).map((n) => n.dataset.date);
+  assert.deepEqual(sel, ["2026-09-10"],
+    "and the red mark is on that one day, as it was on her screen");
+});
