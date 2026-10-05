@@ -1,8 +1,43 @@
-# Jienluv2bake — change history (v54 → v333)
+# Jienluv2bake — change history (v54 → v334)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**05 Oct 2026 — engine v334, THE APP NOW CHECKS ITSELF BEFORE IT REACHES YOUR PHONE (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**You asked: __"you work is not checked, how can you improve?"__ — so I built the answer.**
+
+**What it does.** Before every version leaves my hands, the app now **opens all twenty-five of its
+screens one after another, presses every button and link and dropdown on each, and types into every
+text box** — then presses whatever those presses reveal, including a confirmation's Yes. **Anything
+that throws is a failure, and it says which screen, which control, and what it was doing when it
+broke.**
+
+**And the proof it works: I put yesterday's fault back to see whether the check would catch it.** It
+did — and this is what it said:
+
+__/orders · revealed → BUTTON "✕" (after INPUT "Find an order — name, #code, phone…") · g is not
+defined__
+
+**That is yesterday's dead button, named, on the screen it was on, with the press that revealed it and
+the error it threw** — the same fault you found by asking. It is now found automatically, every time.
+
+**⚠️ WHAT IT DOES NOT CHECK, said plainly.** It is not a browser: it cannot see whether a thing __looks__
+right, whether it is in the right place, or whether a motion works — that still needs eyes on the real
+phone. **It catches a control that breaks when used. It cannot tell you a button is ugly, or that a
+number is wrong.** And three screens come up empty to it today (Purchase Order, Bring a friend and
+Reviews) because the test data I feed it does not give them anything to work with — **it says so
+rather than passing quietly, and I will close those three.**
+
+**What it found on its first run, in my own test setup rather than the app:** four faults that were
+the stand-in's, not the app's — which is exactly the class of thing it exists to sort out.
+
+**How fast:** it walks all twenty-five screens and makes about two and a half thousand presses **in
+about one second**, so it runs every time with the rest of the checks and costs you nothing.
+
+**Your data is untouched.** No SQL, no Edge Function, no key. The suite is **2,822 tests, all green**.
 
 **05 Oct 2026 — engine v333, THE REMOVE BUTTON I ADDED YESTERDAY DID NOT WORK (no database step,
 nothing to upload — pushing this one is the whole of it).**
