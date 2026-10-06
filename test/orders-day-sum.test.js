@@ -206,6 +206,62 @@ test("the Edit pop-up shows the tracking number and writes a new one back", () =
   assert.equal(st.orders[0].trackingNo, "JT999 888", "and it reaches the order on save");
 });
 
+// ── ★★ v338: the Edit pop-up REMEMBERS the van's day and window ──────────────
+//
+// Her own words: *"and after we fix the courier delivery date and time in +add order or edit order,
+// the card should remember."* The day she typed comes back when she reopens Edit, so she is never
+// asked for it twice.
+
+const whenField = (pop, label) =>
+  all(pop).find((n) => n.attrs && n.attrs["aria-label"] === label);
+
+test("the Edit pop-up remembers the van's day and window, and saves a change back", () => {
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierDay = "2026-09-11"; // baked Friday 11 Sep, van the next morning
+  st.orders[0].deliveryWindow = "09:00-11:00";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  const day = whenField(pop, "The day the courier delivers");
+  const from = whenField(pop, "The delivery window opens");
+  const to = whenField(pop, "The delivery window closes");
+  assert.ok(day, "the pop-up carries the van's day");
+  assert.equal(day.value, "2026-09-11", "opened on the day already saved — this is the 'remember'");
+  assert.equal(from.value, "09:00", "and the window taken apart into its two boxes");
+  assert.equal(to.value, "11:00");
+
+  day.value = "2026-09-12";
+  day._listeners.input[0]();
+  from.value = "10:00";
+  from._listeners.input[0]();
+  to.value = "12:00";
+  to._listeners.input[0]();
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+  assert.equal(st.orders[0].courierDay, "2026-09-12", "the new day reaches the order");
+  assert.equal(st.orders[0].deliveryWindow, "10:00-12:00", "and the new window with it");
+});
+
+test("⚠️ emptying the van's day in the Edit pop-up takes the key back off (v338)", () => {
+  // An empty box DELETES the key rather than parking an empty one — so an order she has cleared is
+  // the same order it was before she ever set a day, and nothing published grows a blank.
+  const st = state();
+  st.orders[0].fulfillment = "courier";
+  st.orders[0].courierDay = "2026-09-11";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  buttonByText(root, "Edit")._listeners.click[0]();
+  const pop = layers["popup-layer"];
+  const day = whenField(pop, "The day the courier delivers");
+  day.value = "";
+  day._listeners.input[0]();
+  buttonByText(pop, "Save changes")._listeners.click[0]();
+  assert.equal("courierDay" in st.orders[0], false, "the key is gone, not left empty");
+});
+
 // ── v98/v101: Note / tracking / payment — the short way in, without Edit ────
 test("Note / tracking opens just those fields, and save writes them onto the order", () => {
   const st = state();

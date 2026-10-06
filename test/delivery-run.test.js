@@ -618,6 +618,11 @@ test("a run prices ONE drop per customer, however many lines their order holds",
   // two houses. Read on the wire rather than off the trip object, because the wire is
   // where the money is.
   const st = world();
+  // ★ THE DAY SHE TYPED ON THE ORDERS (v338). The driver's collection day comes off the ORDER now,
+  // never off the bake day — so an order with no day on it prices "as soon as possible" and sends no
+  // schedule at all. Seeding it here is what makes the assertion below mean what its own words say:
+  // *"the collection day and time she set, turned into the UTC instant the API wants."*
+  for (const o of st.orders) o.courierDay = "2026-09-26";
   const wire = stubCourier();
   const { root } = openRun(st);
   press(buttonByText(root, "Price this run"));
@@ -1148,6 +1153,9 @@ test("a window typed on the run reaches every customer's card and messages", asy
   assert.ok(snap.delivery.includes("Sat, 26 Sep"), `the day — read "${snap.delivery}"`);
   assert.ok(snap.delivery.includes("Courier"), "carried by courier");
   assert.ok(snap.delivery.includes("1 Jalan A"), "to the right doorstep");
+  // ★ THIS CASE IS ALSO THE v338 REGRESSION GUARD, and deliberately so: these orders carry no
+  // `courierDay`, which is every order already in her records. The card must therefore read exactly
+  // as it did before this version — the window, and no day it was never told.
   assert.ok(snap.delivery.endsWith(", 2-5 pm"),
     "with the window inside it — no new column, no storefront change");
 
@@ -1213,6 +1221,44 @@ test("an untypeable window publishes exactly the promise of no window at all", a
   const said = buildShippedMessage(bad, { orders: bad.orders.slice(2) }, "https://bake.app/track");
   const quiet = buildShippedMessage(bare, { orders: bare.orders.slice(2) }, "https://bake.app/track");
   assert.equal(said.message, quiet.message, "and no half-promise reaches the message either");
+});
+
+test("⚠️ the window rides with the VAN's day, never with the bake day (v338)", () => {
+  // HER CUSTOMER'S OWN CASE, on the last surface still getting it wrong. Baked Saturday 26 Sep; the
+  // van comes the NEXT MORNING. Until this version the customer's card read "Sat, 26 Sep … 2-5 pm" —
+  // a window on a day the van does not come — while the message promised a window with no day at all.
+  //
+  // Written straight onto the orders rather than booked through the run screen: the card and the
+  // messages are built from what an order CARRIES, so this is the same input a booking produces, at a
+  // fraction of the cost — this file sits right on the suite's per-file budget.
+  const st = world();
+  for (const o of st.orders) { o.deliveryWindow = "14:00-17:00"; o.courierDay = "2026-09-27"; }
+
+  const snap = trackingSnapshot(st, { orders: st.orders.slice(0, 2) });
+  assert.ok(snap.delivery.includes("Sat, 26 Sep"), `the bake day is still on the card — read "${snap.delivery}"`);
+  assert.ok(snap.delivery.includes("Sun, 27 Sep"), "and the VAN's own day is there now too");
+  assert.ok(snap.delivery.endsWith(", Sun, 27 Sep, 2-5 pm"),
+    `the window sits with the day the van comes — read "${snap.delivery}"`);
+
+  const shipped = buildShippedMessage(st, { orders: st.orders.slice(2) }, "https://bake.app/track");
+  assert.ok(shipped.message.includes("Baking day: Sat, 26 Sep - Courier delivery"), "the bake day, named as one");
+  assert.ok(shipped.message.includes("Sun, 27 Sep, 2-5 pm"), "and the van's day said with its window");
+
+  // ⚠️ THE ASSERTION THIS VERSION EXISTS FOR. The two days must never be joined into one moment —
+  // which is exactly the sentence her customer read and then queried.
+  assert.equal(/Sat, 26 Sep[^\n]*2-5 pm/.test(shipped.message), false,
+    `the window is never on the bake day's line — read "${shipped.message}"`);
+});
+
+test("a van day with no window names the day and invents no hour (v338)", () => {
+  const st = world();
+  for (const o of st.orders) o.courierDay = "2026-09-27";
+  const snap = trackingSnapshot(st, { orders: st.orders.slice(0, 2) });
+  assert.ok(snap.delivery.endsWith(", Sun, 27 Sep"), `the day alone — read "${snap.delivery}"`);
+  assert.equal(snap.delivery.includes("pm"), false, "and no hour invented for it");
+
+  const shipped = buildShippedMessage(st, { orders: st.orders.slice(2) }, "https://bake.app/track");
+  assert.ok(shipped.message.includes("Sun, 27 Sep"), "the day reaches the message too");
 });
 
 // ── 4. a price belongs to the list it was asked for ───────────────────────

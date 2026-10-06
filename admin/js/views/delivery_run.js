@@ -68,6 +68,7 @@ import { courierPayQuestions } from "./orders.js";
 // A parcel recorded on the order (v226) is never swept into a van run — see runDays.
 import { parcelOf } from "../parcel.js";
 import {
+  courierDayOf,
   fmtDistanceKm, fmtQuote, fmtQuoteLeft, liveJobOf, liveJobProblem, loadOf,
   needsVan, quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, stopKeyOf,
   tripCalledOff, tripOf, tripProblem,
@@ -279,11 +280,29 @@ export function renderDeliveryRun(root, state, params) {
   // The day's customers all on, on the day's first look: the common case is that the whole
   // day goes out in one van, and making her tick eight boxes to say so would be this screen
   // asking her to repeat what she already decided.
+  // ★★ THE VAN'S DAY OFF THE ORDER, NEVER THE BAKE DAY (v338).
+  //
+  // ⚠️⚠️ THIS READ `day.date` — the BAKE day — and that is exactly the fault her customer's confusion
+  // came from: baked Wednesday, van Thursday morning, and the box handed her Wednesday to book against.
+  // Her own rule forbids working it out for her: *"bake plan is just a plan… it is good not to tie our
+  // own hand down."* So it is read from what she already keyed in on the orders on this run, and is
+  // EMPTY when none of them carries one — never a day the app chose. (The TIME box beside it keeps its
+  // default from Settings, which is a default she set herself.)
+  function dayTheVanComes(day) {
+    for (const g of (day ? day.groups : [])) {
+      for (const o of g.orders) {
+        const d = courierDayOf(o);
+        if (d) return d;
+      }
+    }
+    return "";
+  }
+
   function pickTicked() {
     const day = dayRowNow();
     // Every tickable customer on, and a booked one left OFF (v242) — tickableGroups, above.
     ticked = new Set(tickableRows().map((r) => r.key));
-    if (day) pickupDay.value = String(day.date || "");
+    pickupDay.value = dayTheVanComes(day);
   }
 
   // A price describes one list and one journey. Anything that changes either throws the
@@ -1122,8 +1141,14 @@ export function renderDeliveryRun(root, state, params) {
     // The window goes on every LINE of every group, not only the first: the card and
     // the messages read the group's first line today, but a customer's order can be
     // edited and re-split, and a promise living on one row would go with that row.
+    // ★ The day the van comes, as she set it on this screen (v338) — written onto the orders for the
+    // same reason the window is: the customer's card and the five messages read the ORDER, so a day
+    // chosen here and nowhere else would be gone the moment she left the screen. Only when she has
+    // one, so a trip booked without a day leaves every order exactly as it was.
+    const bookedDay = String(pickupDay.value || "").trim();
     for (const g of groups) {
       if (w) for (const o of g.orders) o.deliveryWindow = w;
+      if (bookedDay) for (const o of g.orders) o.courierDay = bookedDay;
       // `alone` only on a run that turned out to carry one doorstep: the courier's link is
       // ONE link for the whole trip, so on any bigger run it is not the customers' to have.
       stampTrip(g.orders, out.job, holder.label, { alone: groups.length === 1 });

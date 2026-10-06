@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v337)
+# Jienluv2bake — change history (v54 → v338)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v338, THE VAN GETS ITS OWN DAY AND TIME (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"and after we fix the courier delivery date and time in +add order or edit order, the
+card should remember"__ — and, about the tracking page: __"the lalamove link should not be there because
+the driver might not be confirming, it only create more confusion if they were to click the link.
+Lalamove link and Delivery: Finding a driver, should not be send at this stage."__
+
+**This finishes the job that began with your customer asking whether his delivery was Wednesday or
+Thursday.**
+
+**1 · The order now carries the van's own day and time, typed by you.** **＋ New order** and **Edit**
+each gain three boxes in the courier half: **Courier delivery date**, and a **delivery window**
+(opens / closes). **They always open EMPTY.** Nothing is ever worked out from the bake day — the bake
+plan is a plan and not a schedule, as you told me in September.
+
+**2 · And they are remembered.** ⚠️ **This is the half that was missing.** Until now an order had
+nowhere to write the day the van comes, so the app assumed the bake day. The day and the window are now
+stored on the order itself, and reopening **Edit** brings both back exactly as you left them. Blanking a
+box takes it back off the order rather than leaving an empty word behind.
+
+**3 · The customer's tracking card stops gluing the van's window to the bake day.** For your case —
+baked Wednesday, van Thursday morning — it used to read `Wed, 7 Oct … 9-11 am`, **a time on a day the van
+does not come.** It now names both days and puts the window with the van's own day; the message line is
+also called **delivery** rather than "pickup window", which is what your run screen has always called
+that value. **An order with no van day on it reads exactly as it always has**, so nothing already in your
+records changed.
+
+**4 · The Lalamove link and "Finding a driver" are not sent at that stage any more.** ⚠️ **Your words,
+and you were right** — a link the driver may never take up only creates confusion. While a booked van is
+still **finding a driver**, the customer's card now says nothing about the trip at all: no link, no
+status. From the moment a driver is on the way, both appear as before. ⛔ **Nothing is thrown away:** the
+order keeps its link and its status, your own screens are unchanged, and only the sending stops. A parcel
+is untouched — its consignment number is exactly what a customer needs.
+
+**5 · The Delivery run no longer hands you the bake day.** Opening a run used to fill the **"day the
+driver collects"** box in for you with the bake day — so for Mr Tan's Thursday van it read **Wednesday**,
+written in as though you had chosen it, and that is the day that would have been booked. It now comes
+from **the day you already typed on the order**, and is empty when you have not typed one. The price box
+inside an order does the same.
+
+⚠️ **One thing deliberately left alone:** the run's **time** box still opens on your own dispatch time
+from Settings. That time is **when the van collects from you**; the time on the order is **when the bread
+reaches the customer** — different by the length of the journey — so seeding one from the other would
+send the van to your kitchen before the bread had left it. If you would rather it opened empty each time,
+that is a one-line change.
+
+**Your data is untouched.** No SQL, no new column, no upload: the day and window ride on the order, and
+the customer's card carries them inside the text it already publishes. The suite is **2,843 tests, all
+green**, and three of the new assertions were bitten — put the old behaviour back and they fail by name.
 
 **06 Oct 2026 — engine v337, THE DAY IS CALLED THE BAKE DAY NOW (no database step, nothing to upload
 — pushing this one is the whole of it).**
