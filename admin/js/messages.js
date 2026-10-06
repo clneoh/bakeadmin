@@ -142,12 +142,16 @@ export function buildPickupReminder(state, group, trackUrl) {
   //
   // The place comes from HER OWN record, frozen onto the order when it was taken, and the KITCHEN
   // keeps the word it has always had — "ready for pickup" IS the kitchen, and it needs no name.
-  const place = b.courier ? "" : orderPointName(state, b.first);
-  msg += b.courier
-    ? `Packed and will be sent for delivery on ${b.date}.\n`
-    : place
-      ? `Packed and ready to collect from ${place} on ${b.date}.\n`
-      : `Packed and ready for pickup on ${b.date}.\n`;
+  // ⚠️ **NO COURIER BRANCH HERE ANY MORE (v344).** One lived here — *"Packed and will be sent for delivery
+  // on <the BAKE day>"* — and it had been **UNREACHABLE since v340**, when the row stopped offering this
+  // reminder to a courier order: a courier customer is told nothing at Packed, because nothing has left the
+  // kitchen, and the message that IS theirs lives at Collected / Shipped. **It also named the bake day,
+  // which is the very thing v337-v343 spent the day removing from every other surface** — so it is deleted
+  // rather than left in place as a trap for whoever reads this file next.
+  const place = orderPointName(state, b.first);
+  msg += place
+    ? `Packed and ready to collect from ${place} on ${b.date}.\n`
+    : `Packed and ready for pickup on ${b.date}.\n`;
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }
