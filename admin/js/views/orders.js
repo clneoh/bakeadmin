@@ -1407,7 +1407,9 @@ function promoTag(order) {
 // that show an order's money (the Edit form and the Note / tracking card) and the
 // customer's own message are all listing the same sum. `parts` is whatever the caller
 // priced — a saved order, or the lines she is typing.
-function receiptEls(state, parts) {
+// ⚠️ EXPORTED (v342) so the Delivery run can draw an order's money with the SAME renderer — see the
+// unfolded order on that screen. Two renderings of one order's figures is two figures that can disagree.
+export function receiptEls(state, parts) {
   const rows = receiptRows(state, parts).map((r) =>
     el("div", { class: "info-row" + (r.total ? " pl-total" : "") },
       el("span", {}, r.note ? `${r.label} — ${r.note}` : r.label),

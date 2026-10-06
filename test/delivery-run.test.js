@@ -193,7 +193,8 @@ const { keyOf } = await import("../admin/js/customers.js");
 // What the CUSTOMER is told they owe — the number that reaches their track card and their
 // messages. Read through the app's own function rather than off the raw key, because the
 // point of every money assertion below is what a customer sees, not what is stored.
-const { customerCourierFee } = await import("../admin/js/courier.js");
+const { customerCourierFee, customerTotal } = await import("../admin/js/courier.js");
+const { fmtRM } = await import("../admin/js/state.js");
 
 // ── the world ─────────────────────────────────────────────────────────────
 
@@ -1629,6 +1630,62 @@ test("a trip whose status has not been read back names the courier and stops the
   assert.match(block.textContent, /Already booked with Lalamove\. Ticking it/);
   assert.doesNotMatch(block.textContent, /—\s*\./, "no dangling dash where the courier's word would be");
   assert.doesNotMatch(block.textContent, /null/, "and nothing reading null");
+});
+
+// ── ★★ v342: the booked row opens the order ──────────────────────────────
+//
+// Her ask: the row whose courier trip is ALREADY ACTIVE should offer a button in its ribbon that drops
+// the order's full detail down, as the Edit card shows it, and get a delivery price. ⚠️ The detail must
+// be a SIBLING of the row, never inside its <label>: everything in that label is a tick, so a press in
+// there would put the customer ON the run instead of opening their order.
+
+const detailOf = (root) => all(root).find((n) => String(n.className).includes("run-detail"));
+
+test("the booked row offers its order, and the detail sits outside the row's label (v342)", () => {
+  const st = bookedBala(world());
+  stubCourier();
+  const { root } = openRun(st);
+
+  const see = buttonByText(bookedBlock(root, "Bala"), "See this order");
+  assert.ok(see, "the ribbon offers a way to look at the order itself");
+  assert.equal(detailOf(root), undefined, "and the detail stays shut until she asks for it");
+
+  press(see);
+  const detail = detailOf(root);
+  assert.ok(detail, "pressing it unfolds the order");
+  const { row } = rowFor(root, "Bala");
+  let node = detail;
+  while (node && node !== row) node = node.parentNode;
+  assert.notEqual(node, row, "the detail is a sibling of the row, never inside its label");
+  assert.ok(buttonByText(bookedBlock(root, "Bala"), "Hide the order"), "and the press now shuts it again");
+});
+
+test("★ the unfolded order shows the customer's own figures, and the van's own day (v342)", () => {
+  const st = bookedBala(world());
+  st.orders[2].courierDay = "2026-09-27"; // the morning after the bake
+  stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(bookedBlock(root, "Bala"), "See this order"));
+
+  const said = detailOf(root).textContent;
+  const theirs = customerTotal(st, { orders: [st.orders[2]] });
+  assert.ok(said.includes(fmtRM(theirs.total, "RM")),
+    `the order's own total, from the one money function — read "${said.slice(0, 220)}"`);
+  assert.ok(said.includes("Sun, 27 Sep"), "and the VAN's own day is named, not only the bake day");
+  assert.ok(said.includes("Sat, 26 Sep"), "with the bake day beside it, as the customer's message has them");
+});
+
+test("the unfolded order survives a repaint (v342)", () => {
+  const st = bookedBala(world());
+  stubCourier();
+  const { root } = openRun(st);
+  press(buttonByText(bookedBlock(root, "Bala"), "See this order"));
+  assert.ok(detailOf(root), "open");
+
+  // Ticking another customer redraws the whole list — which is exactly what would fold this away if its
+  // open state lived in the DOM. It lives beside the ticked set instead, so it is still open after.
+  press(rowFor(root, "Ain").tick);
+  assert.ok(detailOf(root), "and still open after the list was redrawn");
 });
 
 test("the bulk press leaves a booked customer alone, and still flips its own label (v242)", async () => {

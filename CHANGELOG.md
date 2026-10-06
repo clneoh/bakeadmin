@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v341)
+# Jienluv2bake — change history (v54 → v342)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v342, THE RUN'S WARNING OPENS THE ORDER (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"on delivery run, it indicate an order which its lalamove already active, can clicking a
+button inside the red ribbon, drop down its full detail, as what is shown in edit order, get a delivery
+price."__
+
+**Done — and you chose for it to unfold in place, under the row rather than in a pop-up.**
+
+**The button.** A row whose courier trip is already booked wears the warning it always has, and that block
+now carries a second press: **See this order**, beside __"Call off the trip and add to this run"__ rather
+than instead of it. It folds the order out underneath its row; **Hide the order** folds it back.
+
+**What drops down:**
+
+- **who** it is for, and their number;
+- **what** they ordered — each line as it was sold, with the quantity and the price that line went out at;
+- **where** it goes: the address, or the Point it collects from;
+- **when** — the bake day, the day the van comes, and **your pickup time**, each on its own line;
+- **their note**, when they left one;
+- **what it comes to** — the same rows the Edit card and the invoice show;
+- and at the foot, **Get a delivery price**, which asks the courier what that one order would cost.
+
+**⚠️ Not one figure on it is worked out fresh.** The money is drawn by the same renderer, from the same
+money function, that the Edit card, the Note / tracking card, the invoice and — most importantly — the
+customer's own message and tracking page all read. **A summary written only for this screen would have been
+a second figure, and a second figure is one that can disagree with the message you have already sent.** The
+days use the same wording those messages use, so the bake day and the van's day are said apart here exactly
+as they are there.
+
+**Nothing on it can be edited.** This is the screen you work on while a van is out, and every control that
+changes an order already lives in one place — the Edit card this panel deliberately mirrors.
+
+**Your data is untouched.** No SQL, no Edge Function, no upload. The suite is **2,854 tests, all green**,
+and the two rules that protect it were bitten: move the detail inside the row and it fails naming the trap;
+let its open state live in the drawing rather than beside it, and it fails too.
 
 **06 Oct 2026 — engine v341, A PICKUP TIME IS NOT A PROMISE (no database step, nothing to upload —
 pushing this one is the whole of it).**
