@@ -39,7 +39,7 @@
 import {
   pickupPlace, doorSpotOf, dropAddress, validPlace, strictNumber,
 } from "./courier_place.js";
-import { waNumber, orderLineName } from "./state.js";
+import { byId, waNumber, orderLineName } from "./state.js";
 import { collectionWindowText, pointById } from "./points.js";
 // The window's own reading - see time_window.js for why it is a leaf of its own (v304).
 import { fmtWindow, validWindow } from "./time_window.js";
@@ -542,6 +542,32 @@ export function pickupTimeOf(order) {
   const flat = String(order.pickupTime || "").trim();
   if (flat) return flat;
   return String((order.courierWhen || {}).pickup || "").trim();
+}
+
+// ★★ THE DAY A RUN IS ON: THE DAY THE VAN COMES (v343).
+//
+// ⚠️⚠️ HER CORRECTION, in her words: *"the delivery run should not be on bake day only, for the case of
+// 7th bake day order deliver 8th, his order should be appear only on date 8th. SO after his order, other
+// order not specifing specific delivery will be on bake day 6th."*
+//
+// So an order's place on a run is the day she typed on the order — `courierDay` (v338) — and its BAKE day
+// only when she has typed none. The bake day is read the way `messages.js` reads it: the order's own day
+// record first, its frozen snapshot only when that record is gone, so a run and a message cannot name
+// different days.
+//
+// ⚠️ **AND A VAN DAY THAT IS NOT A BAKE DAY GETS A RUN OF ITS OWN** — the run list is no longer a subset
+// of the saved bake days, it is every distinct day a van actually goes out. An order baked the 7th with a
+// van typed as the 8th lands on the 8th's run and on no other.
+//
+// ⚠️ **IT LIVES HERE, BESIDE `needsVan`, FOR THE REASON THAT COMMENT GIVES:** this rule is asked by TWO
+// screens that must agree — the run screen, which decides what a day's run holds, and the Delivery dates
+// screen's own "Run (N)" badge, which decides how many stops it will find. Two readings of one rule is
+// exactly how those two came apart over the Point orders, and it is how they would come apart again.
+export function runDayOf(state, order) {
+  const typed = courierDayOf(order);
+  if (typed) return typed;
+  const rec = byId(state && state.deliveryDates, order && order.deliveryDateId);
+  return String((rec && rec.date) || (order && order.deliveryDate) || "").trim();
 }
 
 // ★★ THE DAY THE VAN COMES, AND THE WINDOW IT COMES IN — said together (v338).

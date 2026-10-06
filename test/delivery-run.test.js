@@ -193,8 +193,7 @@ const { keyOf } = await import("../admin/js/customers.js");
 // What the CUSTOMER is told they owe — the number that reaches their track card and their
 // messages. Read through the app's own function rather than off the raw key, because the
 // point of every money assertion below is what a customer sees, not what is stored.
-const { customerCourierFee, customerTotal } = await import("../admin/js/courier.js");
-const { fmtRM } = await import("../admin/js/state.js");
+const { customerCourierFee } = await import("../admin/js/courier.js");
 
 // ── the world ─────────────────────────────────────────────────────────────
 
@@ -460,9 +459,12 @@ async function settle(rounds = 14) {
 // real one is inside #view, and every press on this screen refuses to act against a node
 // that has been taken off it, so a root with no marker would answer "not connected" and
 // nothing would ever be priced.
-function openRun(st) {
+// ⚠️ `day` DEFAULTS TO `d1`, the fixture's single bake-day record, and may be given as an ID **or a DATE**
+// (v343): a run's day is the day the VAN comes now, so a test whose van day is not the bake day opens the
+// run on that date. The screen accepts both spellings through the `?date=` parameter.
+function openRun(st, day = "d1") {
   const root = Object.assign(createEl("div"), { __root: true });
-  const cleanup = renderDeliveryRun(root, st, new URLSearchParams({ date: "d1" }));
+  const cleanup = renderDeliveryRun(root, st, new URLSearchParams({ date: day }));
   if (typeof cleanup === "function") cleanups.push(cleanup);
   return { root, cleanup };
 }
@@ -1634,58 +1636,120 @@ test("a trip whose status has not been read back names the courier and stops the
 
 // ── ★★ v342: the booked row opens the order ──────────────────────────────
 //
-// Her ask: the row whose courier trip is ALREADY ACTIVE should offer a button in its ribbon that drops
-// the order's full detail down, as the Edit card shows it, and get a delivery price. ⚠️ The detail must
-// be a SIBLING of the row, never inside its <label>: everything in that label is a tick, so a press in
-// there would put the customer ON the run instead of opening their order.
+// Her ask: the row whose courier trip is ALREADY ACTIVE should offer a button in its ribbon that unfolds
+// **the trip's own record** — the courier, its state, when it was booked, the link — with a price. ⚠️ The
+// panel must be a SIBLING of the row, never inside its `<label>`: everything in that label is a tick, so a
+// press in there would put the customer ON the run instead of opening their trip.
+//
+// ⚠️⚠️ **v342 UNFOLDED A SUMMARY OF THE ORDER INSTEAD, and she corrected it:** *"for the v342, you miss
+// underrstood me, what i want is the courier booked details like the one we see after pressing GET A
+// DELIVERY PRICE."* So the panel is now that card, drawn by `courierQuoteSection` — the code that owns it.
 
 const detailOf = (root) => all(root).find((n) => String(n.className).includes("run-detail"));
 
-test("the booked row offers its order, and the detail sits outside the row's label (v342)", () => {
+test("the booked row offers its trip, and the detail sits outside the row's label (v342)", () => {
   const st = bookedBala(world());
   stubCourier();
   const { root } = openRun(st);
 
-  const see = buttonByText(bookedBlock(root, "Bala"), "See this order");
-  assert.ok(see, "the ribbon offers a way to look at the order itself");
-  assert.equal(detailOf(root), undefined, "and the detail stays shut until she asks for it");
+  const see = buttonByText(bookedBlock(root, "Bala"), "See the trip");
+  assert.ok(see, "the ribbon offers a way to look at the trip");
+  assert.equal(detailOf(root), undefined, "and it stays shut until she asks for it");
 
   press(see);
   const detail = detailOf(root);
-  assert.ok(detail, "pressing it unfolds the order");
+  assert.ok(detail, "pressing it unfolds the trip");
   const { row } = rowFor(root, "Bala");
   let node = detail;
   while (node && node !== row) node = node.parentNode;
   assert.notEqual(node, row, "the detail is a sibling of the row, never inside its label");
-  assert.ok(buttonByText(bookedBlock(root, "Bala"), "Hide the order"), "and the press now shuts it again");
+  assert.ok(buttonByText(bookedBlock(root, "Bala"), "Hide the trip"), "and the press now shuts it again");
 });
 
-test("★ the unfolded order shows the customer's own figures, and the van's own day (v342)", () => {
+test("★ the unfolded panel is the courier's own record of the trip (v342, corrected v343)", () => {
   const st = bookedBala(world());
-  st.orders[2].courierDay = "2026-09-27"; // the morning after the bake
   stubCourier();
   const { root } = openRun(st);
-  press(buttonByText(bookedBlock(root, "Bala"), "See this order"));
+  press(buttonByText(bookedBlock(root, "Bala"), "See the trip"));
 
   const said = detailOf(root).textContent;
-  const theirs = customerTotal(st, { orders: [st.orders[2]] });
-  assert.ok(said.includes(fmtRM(theirs.total, "RM")),
-    `the order's own total, from the one money function — read "${said.slice(0, 220)}"`);
-  assert.ok(said.includes("Sun, 27 Sep"), "and the VAN's own day is named, not only the bake day");
-  assert.ok(said.includes("Sat, 26 Sep"), "with the bake day beside it, as the customer's message has them");
+  // ⚠️ NAMED WITHOUT NAMING THE COMPANY — the registry supplies it, which is the rule this screen keeps.
+  assert.match(said, /is booked on this order\./,
+    `the panel says the courier is on this order — read "${said.slice(0, 200)}"`);
+  // The section whose body carries the trip's own card: the vehicle and its price, when it was booked,
+  // where it has got to, the customer's share link, [Check the trip] and [Cancel trip].
+  assert.ok(buttonByText(detailOf(root), "Get a delivery price"),
+    "and the card it lives in — the courier, its state, the booking time and the link");
+  // ⚠️ AND IT IS NOT THE ORDER SUMMARY v342 DREW — her correction, pinned so it cannot come back.
+  assert.equal(/What it comes to/.test(said), false,
+    "the panel is the courier's record, not a second rendering of the order's money");
 });
 
-test("the unfolded order survives a repaint (v342)", () => {
+test("the unfolded trip survives a repaint (v342)", () => {
   const st = bookedBala(world());
   stubCourier();
   const { root } = openRun(st);
-  press(buttonByText(bookedBlock(root, "Bala"), "See this order"));
+  press(buttonByText(bookedBlock(root, "Bala"), "See the trip"));
   assert.ok(detailOf(root), "open");
 
   // Ticking another customer redraws the whole list — which is exactly what would fold this away if its
   // open state lived in the DOM. It lives beside the ticked set instead, so it is still open after.
   press(rowFor(root, "Ain").tick);
   assert.ok(detailOf(root), "and still open after the list was redrawn");
+});
+
+// ── ★★ v343: a run is on the day the VAN comes ───────────────────────────
+//
+// Her correction, in her words: *"the delivery run should not be on bake day only, for the case of 7th
+// bake day order deliver 8th, his order should be appear only on date 8th. SO after his order, other order
+// not specifing specific delivery will be on bake day 6th."*
+//
+// The fixture's only saved bake day is Sat 26 Sep — so Sun 27 Sep is NOT a bake day at all, which is what
+// makes these two cases the whole rule: the van's day carries the order, the bake day does not, and a day
+// that is no bake day still gets a run.
+
+test("⚠️ an order whose van comes the next day is on THAT day's run, and only there (v343)", () => {
+  const st = world();
+  st.orders[2].courierDay = "2026-09-27"; // Bala: baked Sat 26 Sep, van Sun 27 Sep
+  stubCourier();
+
+  const onTheVanDay = openRun(st, "2026-09-27");
+  assert.ok(rowFor(onTheVanDay.root, "Bala").row, "the van's day carries him");
+  assert.match(String(onTheVanDay.root.textContent), /Sun, 27 Sep/, "and the day is named as the van's");
+
+  const onTheBakeDay = openRun(st, "2026-09-26");
+  assert.equal(rowFor(onTheBakeDay.root, "Bala").row, undefined,
+    "and he is NOT on his bake day's run — which is the whole of the correction");
+  assert.ok(rowFor(onTheBakeDay.root, "Ain").row,
+    "while an order with no van day typed stays where it was, on its bake day");
+});
+
+test("a van day that is no bake day still gets a run of its own (v343)", () => {
+  const st = world();
+  for (const o of st.orders) o.courierDay = "2026-09-27";
+  stubCourier();
+  const { root } = openRun(st, "2026-09-27");
+  assert.match(String(root.textContent), /Sun, 27 Sep/, "the day is offered by name");
+  assert.ok(rowFor(root, "Bala").row, "and its run holds the orders whose van comes that day");
+});
+
+test("⚠️ the run's unfolded panel never passes the price-only flag (v343)", async () => {
+  // ⚠️ **A SOURCE GUARD, and it earns its place.** `canBook: false` is right for the ＋ New order card,
+  // which has no order yet — but on THIS screen it silently takes the trip's own card with it (that card
+  // sits under `canBook ? jobBox : null`), which is the one thing she unfolds a booked row to read. Her
+  // words: *"what i want is the courier booked details like the one we see after pressing GET A DELIVERY
+  // PRICE — it shows the courier is on this order, with Check the trip, the status, booked 3:25pm and the
+  // link."* A render test cannot catch its return cheaply — pressing the section fires real quote requests
+  // with the wire's own waits, and this file is at its per-file time budget — so the call site is pinned
+  // here instead, the same way the courier-provider guard pins a name across the engine.
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../admin/js/views/delivery_run.js", import.meta.url), "utf8");
+  // ⚠️ LINE COMMENTS OUT FIRST, deliberately: the notes at that call site NAME the flag in prose — that is
+  // how the next reader learns why it must not be there — and a guard that tripped on its own explanation
+  // would be a guard against explaining anything.
+  const code = src.replace(/^[^\n]*\/\/[^\n]*$/gm, "");
+  assert.equal(/canBook:\s*false/.test(code), false,
+    "the section must stay book-able here, or the trip's own card is never drawn");
 });
 
 test("the bulk press leaves a booked customer alone, and still flips its own label (v242)", async () => {

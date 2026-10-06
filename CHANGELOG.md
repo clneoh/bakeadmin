@@ -1,8 +1,56 @@
-# Jienluv2bake — change history (v54 → v342)
+# Jienluv2bake — change history (v54 → v343)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v343, A RUN IS ON THE DAY THE VAN COMES (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"the delivery run should not be on bake day only, for the case of 7th bake day order
+deliver 8th, his order should be appear only on date 8th. SO after his order, other order not specifing
+specific delivery will be on bake day 6th"__
+
+**1 · A run's day is the day the VAN comes.** It used to be the bake day, always — so an order baked on the
+7th with the van typed as the 8th still sat on the **7th's** run, which is the same confusion the last
+three versions have been unpicking everywhere else. **Now it is the day you typed on the order, and the
+order's bake day only when you have typed none.** Your example, exactly: an order baked the 7th and
+delivered the 8th appears on the **8th's** run and on no other, and an order with nothing typed stays on
+its bake day.
+
+**2 · A van day that is no bake day gets a run of its own** — the "not on bake day only" half. Type a van
+day on a morning you are not baking and it appears in the day list as its own run, with its own stops.
+
+**3 · The run's own field says what it is.** It read __"The bake day"__; it is now **"The day the van runs"**,
+because it is the one control deciding which day's work you are looking at.
+
+**4 · The Run (N) badge on a bake day counts the same way**, so a card promising three stops opens a screen
+holding three. Where the van's day is no bake day there is no badge for it — a van day has no bake-day card
+— but it is still reachable from the run screen's own day list.
+
+**AND YOUR CORRECTION ON v342 IS IN THIS VERSION TOO.**
+
+**Your words:** __"for the v342, you miss underrstood me, what i want is the courier booked details like
+the one we see after pressing GET A DELIVERY PRICE, i shows LALAMOVE is on this order, with check the trip,
+status, bookedz:3:25pm and lalamove link"__
+
+**You were right twice over.** v342 unfolded a summary of the **order** — who it is for, the items, the
+money — which is not what you open a booked row to read. **And the thing you actually wanted was hidden by
+my own caution:** the trip's card lives inside the price section, under a flag I had turned off to be safe,
+so pressing the section's own button drew no trip at all. Two fixes:
+
+- **See this order** is now **See the trip**, and what it unfolds is **the courier's own record of that
+  booking**, saying the courier is on this order, with **Get a delivery price** right there. Open that and
+  the trip's card is waiting — the vehicle, when it was booked, where it has got to, the customer's share
+  link, **Check the trip** and **Cancel trip**.
+- **The order summary is gone**, because it was the wrong thing.
+
+**Nothing on that panel can be edited**, and nothing is asked of the courier until you press — a repaint of
+the screen never spends a quote.
+
+**Your data is untouched.** No SQL, no Edge Function, no upload. The suite is **2,857 tests, all green**,
+with two more rules bitten: key the run by the bake day again and the day test fails by name; put my
+"safe" flag back and the trip card's guard fails.
 
 **06 Oct 2026 — engine v342, THE RUN'S WARNING OPENS THE ORDER (no database step, nothing to upload —
 pushing this one is the whole of it).**

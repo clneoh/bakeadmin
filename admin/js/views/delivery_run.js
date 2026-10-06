@@ -52,12 +52,9 @@
 
 import { button, confirmDialog, el, emptyState, guarded, saidOf, select, toast } from "../ui.js";
 import { shortDate } from "../dates.js";
-import { byId, fmtRM, groupOrders, save } from "../state.js";
-// The invoice's own reading of ONE order line — "2 × Focaccia" and what that line cost — so the unfolded
-// order (v342) lists its items exactly as the invoice and the label do.
-import { invoiceLineAmount, invoiceLineName } from "../invoice.js";
+import { byId, groupOrders, save } from "../state.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
-import { customerTotal, runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
+import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
 import { activeCourier, courierByKey } from "../couriers.js";
 import { geocodeAddress } from "../couriers/api.js";
 import {
@@ -65,19 +62,16 @@ import {
   fmtPlace, houseNotIn, pickupPlace, roadNotHouse, setDropPlace,
 } from "../courier_place.js";
 import { openPlacePicker } from "../place_map.js";
-import { fulfillmentText, pointById, pointPlace, pointWindowText } from "../points.js";
+import { pointById, pointPlace, pointWindowText } from "../points.js";
 import { openPointPinPicker } from "./points.js";
-// `receiptEls` (v342) is the ONE renderer of an order's money — exported from orders.js rather than
-// written again here, so the figure on this screen and the figure in the customer's own message are
-// the same rows drawn the same way. A second summary here would be a second figure that can disagree.
-import { courierPayQuestions, receiptEls } from "./orders.js";
+import { courierPayQuestions } from "./orders.js";
 // The price section, for the unfolded order (v342). This screen prices the whole RUN its own way; this
 // is for asking what ONE already-booked order would cost. No cycle: courier_quote.js does not read this file.
 import { courierQuoteSection } from "./courier_quote.js";
 // A parcel recorded on the order (v226) is never swept into a van run — see runDays.
 import { parcelOf } from "../parcel.js";
 import {
-  courierDayOf, pickupTimeOf, dayLine,
+  courierDayOf, pickupTimeOf, runDayOf,
   fmtDistanceKm, fmtQuote, fmtQuoteLeft, liveJobOf, liveJobProblem, loadOf,
   needsVan, quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, stopKeyOf,
   tripCalledOff, tripOf, tripProblem,
@@ -118,7 +112,12 @@ export function renderDeliveryRun(root, state, params) {
   // The day asked for by whoever sent her here — the button on a delivery day card names
   // the day it was pressed on — falling back to the day she most likely wants.
   const asked = String((params && params.get && params.get("date")) || "").trim();
-  const wantDay = days.some((d) => d.id === asked) ? asked : String((state.settings && state.settings.runDay) || "");
+  // ⚠️ A DAY HERE IS A DATE (v343), and whoever sent her here may name it either way: the Delivery dates
+  // screen hands over a delivery-date ID, and an older bookmark may carry one too. Both are accepted and
+  // resolved to the day the run is on — one lookup, and neither route can silently open the wrong day.
+  const askedRec = byId(state.deliveryDates, asked);
+  const askedDay = askedRec ? String(askedRec.date || "").trim() : asked;
+  const wantDay = days.some((d) => d.id === askedDay) ? askedDay : String((state.settings && state.settings.runDay) || "");
   let dayId = days.some((d) => d.id === wantDay) ? wantDay : defaultDay(days);
 
   // Ticked customers, by group key, and what the price on screen was actually asked for.
@@ -495,7 +494,7 @@ export function renderDeliveryRun(root, state, params) {
       // rule names.
       const open = unfolded === r.key;
       const seeBtn = job
-        ? button(open ? "Hide the order" : "See this order", () => {
+        ? button(open ? "Hide the trip" : "See the trip", () => {
           unfolded = open ? null : r.key;
           paintList();
         }, "ghost small")
@@ -509,7 +508,7 @@ export function renderDeliveryRun(root, state, params) {
       // <label>, for the same reason the block above is: everything in that label is a tick, so a press
       // in there would tick the customer instead of doing what it says. Built fresh on every repaint
       // from `unfolded`, so it is exactly as open, or as shut, as she left it.
-      const detail = job && open ? unfoldedOrder(state, bookedGroup) : null;
+      const detail = job && open ? unfoldedTrip(state, bookedGroup) : null;
       // The two doors on this order, when they disagree, offered under its own row — one
       // line and one press. It is a block of its own rather than a line inside the row
       // because everything in that row sits inside one <label>: a press in there would tick
@@ -1258,7 +1257,11 @@ export function renderDeliveryRun(root, state, params) {
       el("p", { class: "card-sub" },
         `One vehicle, ${courier.label}'s own fare, several stops. A multi-stop trip is charged as one base fare plus a fee for each extra stop, so the run below is priced as one trip — and can be compared against the same stops sent one at a time, which is the money this screen is for. A stop is a customer's door, or a Self collection Point carrying several customers' orders.`),
       el("div", { class: "field", style: "margin-top:12px" },
-        el("label", {}, "The bake day"), daySel),
+        // ⚠️ NOT "the bake day" (v343). This is the day the VAN GOES — the baker's own day when she has
+        // typed one on an order, and that order's bake day when she has not — and it is the one control
+        // that decides which day's work she is looking at. Calling it the bake day is what had a van
+        // booked for the morning after the bake sitting under the wrong date.
+        el("label", {}, "The day the van runs"), daySel),
       listBox,
       loadLine,
       el("div", { class: "field", style: "margin-top:12px" },
@@ -1303,84 +1306,40 @@ export function renderDeliveryRun(root, state, params) {
   return () => clearInterval(beat);
 }
 
-// ★★ ONE ORDER, UNFOLDED UNDER ITS ROW (v342).
+// ★★ THE BOOKED TRIP, UNFOLDED UNDER ITS ROW (v342, corrected v343).
 //
-// Her ask: on the Delivery run, the row whose courier trip is already active should offer a button in its
-// ribbon that drops the order's full detail down, as the Edit card shows it, with a delivery price.
-// ⚠️ Paraphrased on purpose — this file may not name the courier company (see the note in `paintList`).
+// ⚠️⚠️ **HER CORRECTION, paraphrased because this file may not name the courier company:** she asked for
+// the courier's own record of the trip — *"the courier booked details like the one we see after pressing
+// GET A DELIVERY PRICE"* — showing that the courier **is on this order**, with [Check the trip], the
+// trip's status, when it was booked and the customer's link.
 //
-// ⚠️⚠️ **EVERY FIGURE IS REUSED, NEVER WORKED OUT AGAIN.** The money is
-// `receiptEls(state, customerTotal(state, group))` — the very rows the Edit card, the Note / tracking
-// card and the invoice draw, from the ONE money function the confirmation, the four messages and the
-// customer's tracking card all read. The day and the van's own day come from `dayLine`, which is what all
-// five customer messages read. **A summary written fresh here would be a second figure, and a second
-// figure is one that can disagree with the message she has already sent.**
+// **v342 drew a summary of the ORDER instead** — who it is for, the items, the money. That is not what
+// she unfolds a booked row to read, and it was the wrong thing twice over: it was a SECOND rendering of
+// an order's figures, and it buried the one card she wanted.
 //
-// Read-only on purpose: this screen is the one she works on while a van is out, and every control that
-// CHANGES an order already lives in one place — the Edit card this detail mirrors. The one thing it can
-// DO is ask the courier a price, for this order alone (`canBook: false`: this screen books the whole
-// trip, and a second Book press per order would be a second way to spend money).
-function unfoldedOrder(state, group) {
+// **What she wants is already built, by the code that owns it.** `courierQuoteSection` draws the trip's
+// own card (`jobBox`) — the vehicle and its price, when it was booked, where it has got to, the
+// customer's share link, [Check the trip] and [Cancel trip] — so this unfolds THAT, and there is no
+// second copy of anything to keep in step. The price rows are a press away inside it.
+//
+// ⚠️ **`canBook` IS LEFT AT ITS DEFAULT, and v342's `false` is exactly what hid her card:** the whole
+// trip block sits under `canBook ? jobBox : null`. This screen has nothing to fear from booking — a live
+// trip makes the section refuse a second one by itself (`liveJobProblem`, v242) — and nothing is asked of
+// the courier until she presses, so a repaint never spends a quote.
+function unfoldedTrip(state, group) {
   const first = (group && group.orders && group.orders[0]) || null;
   if (!first) return null;
-  const day = dayLine(state, first);
-  const cur = (state.settings && state.settings.currency) || "RM";
-
-  const facts = [
-    el("div", { class: "info-row" },
-      el("span", {}, "Customer"),
-      el("span", { class: "info-val" },
-        [nameOf(first), String(first.whatsapp || "").trim()].filter(Boolean).join(" · "))),
-    el("div", { class: "info-row" },
-      el("span", {}, "Where"),
-      el("span", { class: "info-val" }, fulfillmentText(state, first))),
-  ];
-  if (first.fulfillment === "courier" && String(first.address || "").trim()) {
-    facts.push(el("div", { class: "info-row" },
-      el("span", {}, "Address"), el("span", { class: "info-val" }, String(first.address).trim())));
-  }
-  // The bake day, named as one — the same divide the customer's own message makes, which is the whole
-  // point of v337 and v338. `day.vanTime` already carries the VAN's day and its window together, or is
-  // empty when the app cannot honestly promise one.
-  // ⚠️ READ THE WAY `messages.js` READS IT — the day on the calendar first, the order's own snapshot
-  // only when that record is gone. It is the same two lines that file uses, on purpose: a panel that
-  // named a different bake day from the message the customer holds would be the very fault this screen
-  // is being asked to make visible.
-  const bakeRec = byId(state.deliveryDates, first.deliveryDateId);
-  const bakeDay = String((bakeRec && bakeRec.date) || first.deliveryDate || "").trim();
-  if (bakeDay) {
-    facts.push(el("div", { class: "info-row" },
-      el("span", {}, "Baking day"), el("span", { class: "info-val" }, shortDate(bakeDay))));
-  }
-  if (day.vanTime) {
-    facts.push(el("div", { class: "info-row" },
-      el("span", {}, "Van comes"), el("span", { class: "info-val" }, day.vanTime)));
-  }
-  // The time the van collects from her (v341) — hers, not the customer's, and shown here because this is
-  // where she decides whether the trip in front of her is the right one.
-  const pickup = pickupTimeOf(first);
-  if (pickup) {
-    facts.push(el("div", { class: "info-row" },
-      el("span", {}, "Pickup time"), el("span", { class: "info-val" }, pickup)));
-  }
-  const note = String(first.note || "").trim();
-  if (note) facts.push(el("p", { class: "hint", style: "margin:8px 0 0" }, `Their note: ${note}`));
-
+  // The registry's own name for whoever is carrying it, never a name typed here.
+  const holder = activeCourier();
   return el("div", { class: "pin-offer run-detail" },
-    el("p", { class: "card-sub" }, "This order"),
-    ...facts,
-    el("p", { class: "card-sub", style: "margin:10px 0 4px" }, "What it comes to"),
-    ...group.orders.map((o) => el("div", { class: "info-row" },
-      el("span", {}, invoiceLineName(state, o)),
-      el("span", { class: "info-val" }, fmtRM(invoiceLineAmount(state, o), cur)))),
-    ...receiptEls(state, customerTotal(state, group)),
-    el("div", { style: "margin-top:10px" },
-      courierQuoteSection({
-        state, orders: [first], canBook: false, onUseFee: null,
-        // Nothing here books, so this only ever answers a door the quote itself wrote — saved the moment
-        // it is written rather than on a Save press this screen does not have.
-        onCommit: (o) => { if (o) { save(state); maybeSync(state); } },
-      })));
+    el("p", { class: "card-sub" },
+      `${(holder && holder.label) || "The courier"} is booked on this order.`),
+    courierQuoteSection({
+      state, orders: [first], onUseFee: null,
+      // Nothing here books, so this only ever answers a door the quote itself wrote — saved the moment
+      // it is written rather than on a Save press this screen does not have.
+      onCommit: (o) => { if (o) { save(state); maybeSync(state); } },
+    }));
 }
 
 // ── reading the day ─────────────────────────────────────────────────────
@@ -1408,15 +1367,17 @@ function runDays(state) {
     // told a carrier has it, would then be told a driver is coming. The record lives
     // on the order rather than the day, so the filter belongs here.
     if (parcelOf(first)) continue;
-    const id = String(first.deliveryDateId || "").trim();
-    if (!id) continue;
-    if (!byDay.has(id)) byDay.set(id, []);
-    byDay.get(id).push(g);
+    const day = runDayOf(state, first);
+    if (!day) continue;
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(g);
   }
-  return (state.deliveryDates || [])
-    .filter((d) => d && byDay.has(d.id))
-    .map((d) => ({ id: d.id, date: String(d.date || ""), groups: byDay.get(d.id) }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // ⚠️ `id` AND `date` ARE BOTH THE ISO DATE (v343). A van day that is not a bake day has no delivery-date
+  // record to carry an id, and `dayRowNow` matches on `d.id === dayId`, so the day's own date is what the
+  // whole screen keys on now. The old entry's `id` was the RECORD's; nothing here needs a record any more.
+  return [...byDay.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => ({ id: date, date, groups: byDay.get(date) }));
 }
 
 // The day she most likely wants: the next one that has not gone out yet, else the last day
