@@ -531,7 +531,7 @@ export async function refreshStorefront(state) {
     if (typeof remote.facebook === "string") sf.facebook = remote.facebook;
     if (typeof remote.tngQr === "string") sf.tngQr = remote.tngQr;
     // The developer credit follows the same rule: the published values win, so
-    // the More → About ✉ row and the footers match what customers see.
+    // the More → Settings & this app ✉ rows and the footers match what customers see.
     let dev = state.settings.developer;
     if (!dev || typeof dev !== "object") dev = state.settings.developer = { name: "", emails: [], whatsapp: "" };
     if (typeof remote.developerName === "string" && remote.developerName.trim()) {

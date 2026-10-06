@@ -55,7 +55,7 @@ const routes = {
   "/po":        { title: "Purchase Order", tab: "more", render: renderPO },
   "/history":   { title: "PO History", tab: "more",     render: renderHistory },
   "/customers": { title: "Customers", tab: "customers", render: renderCustomers },
-  "/deliveries":{ title: "Delivery Dates", tab: "more", render: renderDeliveries },
+  "/deliveries":{ title: "Bake days", tab: "more", render: renderDeliveries },
   "/parcel-couriers":{ title: "Parcel couriers", tab: "more", render: renderParcelCouriers },
   "/points":    { title: "Self collection Points", tab: "more", render: renderPoints },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },

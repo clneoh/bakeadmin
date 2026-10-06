@@ -42,7 +42,7 @@ export function renderSettings(root, state) {
   });
 
   const daysCard = el("div", { class: "card" },
-    el("h3", { style: "margin:0 0 4px" }, "Delivery settings"),
+    el("h3", { style: "margin:0 0 4px" }, "Bake day settings"),
     el("div", { class: "form-grid", style: "margin-top:10px" },
       el("div", {},
         el("label", {}, "Capacity / day"),
@@ -51,7 +51,7 @@ export function renderSettings(root, state) {
           "Only used when products have no daily limit — otherwise product limits are added together.")),
       el("div", {}, el("label", {}, "Order cut-off (day before)"), cutoffInput)),
     el("div", { class: "field", style: "margin-top:10px" },
-      el("label", {}, "Delivery days"),
+      el("label", {}, "Bake days"),
       el("div", { class: "daychecks" }, ...dayChecks)));
 
   // ── App password (device-local lock) ────────────────────────────────────
@@ -260,7 +260,7 @@ export function renderSettings(root, state) {
   // ── Website & developer ──────────────────────────────────────────────────
   // Whose site this is and who the wish-list email reaches. Shown as the little
   // "Website by …" credit on the homepage + store footer and as the ✉ row in
-  // More → About. Emails may be several — every one gets the credit link and a
+  // More → Settings & this app. Emails may be several — every one gets the credit link and a
   // copy of the wish-list email. Nothing shows on the pages until a name AND at
   // least one email are set (see mergeStorefront's developer whitelist).
   const dev = cur.developer ??= { name: "", emails: [], whatsapp: "" };
@@ -312,7 +312,7 @@ export function renderSettings(root, state) {
   const devCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Website & developer"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Who the little “Website by …” credit belongs to — shown at the bottom of your homepage and order page, and under More → About. This is also who receives the email when you add a software wish. You can list more than one email — each one gets the credit link and the wish email."),
+      "Who the little “Website by …” credit belongs to — shown at the bottom of your homepage and order page, and beside the developer's own rows at the bottom of More. This is also who receives the email when you add a software wish. You can list more than one email — each one gets the credit link and the wish email."),
     el("div", { class: "field", style: "margin-bottom:0" },
       el("label", {}, "Developer name"),
       devName,
@@ -391,7 +391,7 @@ export function renderSettings(root, state) {
   const supabaseCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Live availability (Supabase)"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Publishes how many slots are left per delivery day to the storefront (\"4 left\" / \"Sold out\"). Updates automatically as orders are added. Setup steps are in the README → Live availability."),
+      "Publishes how many slots are left per bake day to the storefront (\"4 left\" / \"Sold out\"). Updates automatically as orders are added. Setup steps are in the README → Live availability."),
     el("div", { class: "form-grid", style: "margin-top:10px" },
       el("div", {}, el("label", {}, "Supabase URL"), sbUrl),
       el("div", {}, el("label", {}, "Anon public key"), sbKey)),
@@ -447,7 +447,7 @@ export function renderSettings(root, state) {
   const sharedCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Shared data (cloud)"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      "Keeps the same orders, products, ingredients and delivery dates on every phone that signs in. Every change syncs automatically (no need to press anything); the other phone catches up within ~30 seconds. Works offline — edits queue up and push when the connection returns. Uses the Supabase login above."),
+      "Keeps the same orders, products, ingredients and bake days on every phone that signs in. Every change syncs automatically (no need to press anything); the other phone catches up within ~30 seconds. Works offline — edits queue up and push when the connection returns. Uses the Supabase login above."),
     el("label", { class: "daycheck", style: "display:inline-flex" },
       cldOn, " ", "Enable shared data"),
     el("div", { class: "btn-row", style: "margin-top:10px" },

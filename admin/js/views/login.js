@@ -38,7 +38,7 @@ export function renderLogin(root, state, { onSuccess, onOffline } = {}) {
   const card = el("div", { class: "card", style: "margin:24px auto;max-width:440px" },
     el("h3", { style: "margin:0 0 4px" }, "Shared data sign-in"),
     el("p", { class: "card-sub", style: "margin:0 0 14px" },
-      "Sign in to share orders, products and delivery dates across phones. Use your own Supabase login. The URL and anon key are the same ones from the Live availability setup — fill them in once on a new phone."),
+      "Sign in to share orders, products and bake days across phones. Use your own Supabase login. The URL and anon key are the same ones from the Live availability setup — fill them in once on a new phone."),
     el("div", { class: "field" }, el("label", {}, "Supabase URL"), url),
     el("div", { class: "field" }, el("label", {}, "Anon public key"), anonKey),
     el("div", { class: "form-grid" },

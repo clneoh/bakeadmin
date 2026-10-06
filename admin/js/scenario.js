@@ -2019,7 +2019,7 @@ export function scenarioPlanPatch(saved, plan) {
 
   // The pan she is asking the scenario for, and the hands the modules need at
   // once — the two numbers the whole exercise is about.
-  take("target", "Pans you want on a delivery day", r.target, "pans");
+  take("target", "Pans you want on a bake day", r.target, "pans");
   take("people", "Pairs of hands on a bake day", r.people, "pairs");
 
   const mix = byJob.mix;

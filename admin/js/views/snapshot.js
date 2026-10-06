@@ -48,7 +48,7 @@ function body(digest, caption, close) {
     kids.push(section("Orders in this copy"));
     for (const day of dayRows) {
       const head = day.date ? `${shortDate(day.date)} · ${day.orders.length} order${day.orders.length === 1 ? "" : "s"}`
-        : `Not on a delivery date · ${day.orders.length} order${day.orders.length === 1 ? "" : "s"}`;
+        : `Not on a bake day · ${day.orders.length} order${day.orders.length === 1 ? "" : "s"}`;
       kids.push(el("p", { style: "margin:10px 0 2px;font-weight:700;font-size:13.5px;color:var(--ink)" }, head));
       for (const o of day.orders) kids.push(orderRow(o));
     }
@@ -93,7 +93,7 @@ function body(digest, caption, close) {
 
   // ── the rest, in one line ───────────────────────────────────────────────
   const rest = [];
-  if (counts.deliveryDates) rest.push(`${counts.deliveryDates} delivery date${counts.deliveryDates === 1 ? "" : "s"}`);
+  if (counts.deliveryDates) rest.push(`${counts.deliveryDates} bake day${counts.deliveryDates === 1 ? "" : "s"}`);
   if (counts.suppliers) rest.push(`${counts.suppliers} supplier${counts.suppliers === 1 ? "" : "s"}`);
   if (counts.uoms) rest.push(`${counts.uoms} units`);
   if (counts.purchaseOrders) rest.push(`${counts.purchaseOrders} saved order${counts.purchaseOrders === 1 ? "" : "s"}`);

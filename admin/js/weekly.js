@@ -14,7 +14,7 @@ export const WEEKLY_TASKS = [
   { id: "orders", label: "Reply to new orders & WhatsApp" },
   { id: "social", label: "Post on social media (promo plan)" },
   { id: "stock", label: "Check ingredient stock — top up / order" },
-  { id: "dates", label: "Set availability for the next delivery dates" },
+  { id: "dates", label: "Set availability for the next bake days" },
   { id: "menu", label: "Publish the shop menu (if anything changed)" },
   { id: "review", label: "Read This week — what sold, what didn't" },
 ];

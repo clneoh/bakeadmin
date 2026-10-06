@@ -583,7 +583,7 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
   function missNote() {
     if (!missedIso) return null;
     return el("p", { class: "cal-miss" },
-      `${shortDate(missedIso)} is not a delivery day. Add it in More → Delivery Dates.`);
+      `${shortDate(missedIso)} is not a bake day. Add it in More → Bake days.`);
   }
 
   function paint() {
@@ -713,8 +713,8 @@ function windowForDay(today, iso) {
 function renderAll(root, state, params) {
   const dates = [...state.deliveryDates].sort((a, b) => a.date.localeCompare(b.date));
   if (!dates.length) {
-    root.replaceChildren(emptyState("No delivery dates yet",
-      "Add delivery dates first — go to More → Delivery Dates."));
+    root.replaceChildren(emptyState("No bake days yet",
+      "Add bake days first — go to More → Bake Days."));
     return;
   }
   // In-place rebuilds (status change, add, edit, remove) must not let the
@@ -803,8 +803,8 @@ function renderAll(root, state, params) {
   const drawDay = (id, iso) => {
     const date = dayRecordFor(id, iso);
     if (!date) {
-      return emptyState("Delivery date missing",
-        "This order's delivery date was deleted. Remove it from the New Orders box.");
+      return emptyState("Bake day missing",
+        "This order's bake day was deleted. Remove it from the New Orders box.");
     }
     return dateContent(state, date, root, selectDate);
   };
@@ -949,7 +949,7 @@ export function newOrdersInbox(state, selectDate, root) {
     // order that had lost a field, with no way to open it and no hint that it could be
     // fixed. **A dead row must explain itself** (her own rule about controls).
     const sub = orphan
-      ? [first.customerName || "No name", "its delivery day was removed — tap to put it on one"]
+      ? [first.customerName || "No name", "its bake day was removed — tap to put it on one"]
         .filter(Boolean).join(" · ")
       : [first.customerName || "No name", date ? shortDate(date.date) : "",
         `Placed ${fmtPlaced(first.createdAt, first.orderDate)}`]
@@ -1007,7 +1007,7 @@ export function newOrdersInbox(state, selectDate, root) {
     el("h3", { style: "margin:0 0 2px" },
       `📥 ${rows.length} new order${rows.length === 1 ? "" : "s"}`),
     el("p", { class: "card-sub", style: "margin:0 0 6px" },
-      "Tap a row to jump to that order on its delivery date and confirm it."),
+      "Tap a row to jump to that order on its bake day and confirm it."),
     el("div", { class: "inbox-list" }, ...rows));
 }
 
@@ -1032,7 +1032,7 @@ function orderFinderEl(state, root, selectDate, body) {
     const qtyTotal = group.orders.reduce((s, o) => s + o.qty, 0);
     const statusName = (STATUSES.find(([v]) => v === (first.status || "new")) || [])[1];
     const sub = [first.customerName || "No name",
-      date ? shortDate(date.date) : "delivery date removed", statusName]
+      date ? shortDate(date.date) : "bake day removed", statusName]
       .filter(Boolean).join(" · ");
     const main = el("div", { class: "li-main" },
       el("div", { class: "li-title" }, items.join(" + "), orderCodeTag(first),
@@ -1126,8 +1126,8 @@ function orderFinderEl(state, root, selectDate, body) {
       // order and could do nothing with it.
       //
       // The Edit card is the right door and always was: it opens with no day marked, its
-      // **Delivery day** calendar offers the days she is still taking, and its save refuses
-      // until she picks one ("Choose a delivery day"). **So the same tap puts the order
+      // **Bake day** calendar offers the days she is still taking, and its save refuses
+      // until she picks one ("Choose a bake day"). **So the same tap puts the order
       // back on a day, or she removes it from the row's own ✕ — nothing is stuck.**
       openEditPopup(state, group, "", root);
       return;
@@ -1885,7 +1885,7 @@ function orderForm(state, dateId, root, selectDate) {
   // then who ordered them. The courier's fields follow the Fulfillment choice further down.
   const body = el("div", { class: "fold-body", hidden: !newFormOpen },
     el("div", { class: "field", style: "margin-bottom:10px" },
-      el("label", {}, "Delivery day"),
+      el("label", {}, "Bake day"),
       dayLine),
     el("div", { class: "field" },
       el("label", {}, "Items"),
@@ -1952,7 +1952,7 @@ function deliveryDayList(state) {
     .map((d) => ({ id: d.id, date: d.date }));
 }
 
-// The days the Edit-order pop-up's "Delivery day" calendar offers: every day
+// The days the Edit-order pop-up's "Bake day" calendar offers: every day
 // still to come, plus the order's own day even if that has passed (so an order
 // left on an old date still shows where it is).
 function deliveryDayOptions(state, curId) {
@@ -1960,7 +1960,7 @@ function deliveryDayOptions(state, curId) {
   return deliveryDayList(state).filter((d) => d.date >= today || d.id === curId);
 }
 
-// Soft notes under the "Delivery day" select: the window the customer was told,
+// Soft notes under the "Bake day" select: the window the customer was told,
 // whether the new day falls inside it, and anything the new day cannot take.
 // Nothing here blocks the move — the baker always overrides by hand.
 function moveNoteLines(state, group, destId) {
@@ -1978,8 +1978,8 @@ function moveNoteLines(state, group, destId) {
     out.push(`Moving this inside the ${win}-day window — the customer may not expect the change.`);
   }
   const st = deliveryStatus(dest.date, state.settings);
-  if (st.past) out.push("That delivery day is already past.");
-  else if (st.closed) out.push("Orders for that delivery day have already closed.");
+  if (st.past) out.push("That bake day is already past.");
+  else if (st.closed) out.push("Orders for that bake day have already closed.");
   const short = [];
   for (const o of group.orders) {
     const pr = productRemaining(state, dest.id, o.productId, o.id);
@@ -2002,7 +2002,7 @@ function openEditPopup(state, group, dateId, root) {
   if (!first) return;
   const date = byId(state.deliveryDates, dateId) ||
     (first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null);
-  // A missing date record no longer stops the pop-up opening: the "Delivery day"
+  // A missing date record no longer stops the pop-up opening: the "Bake day"
   // calendar is exactly what puts an orphaned order back onto a real day.
 
   // Each line carries the price it is sold at, so the pop-up can show it and she can
@@ -2239,7 +2239,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
-    if (!destId || !byId(state.deliveryDates, destId)) return toast("Choose a delivery day");
+    if (!destId || !byId(state.deliveryDates, destId)) return toast("Choose a bake day");
     // This door refuses a charge with no payer in the same words the Note / tracking card
     // uses — one shared answer, so the two cannot drift apart. See courierControls.problem.
     //
@@ -2298,7 +2298,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // it has always had, and the two screens are allowed to differ.
   return el("div", {},
     el("div", { class: "field", style: "margin-bottom:10px" },
-      el("label", {}, "Delivery day"),
+      el("label", {}, "Bake day"),
       deliveryPick,
       deliveryNotes),
     el("div", { class: "form-grid order-sugg" },
@@ -2416,7 +2416,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   // line and every line of a multi-item order gets saved with its own copy of the parcel.
   const { courier = null, parcel = null, pointId = "", ...fields } = shared;
   const dest = byId(state.deliveryDates, fields.deliveryDateId) || date;
-  if (!dest) return toast("Choose a delivery day");
+  if (!dest) return toast("Choose a bake day");
   // The capacity guard follows the order to its destination. Capacity is derived
   // from deliveryDateId, so the source day frees itself with no bookkeeping, and
   // the destination already counts this order only when it IS the source day.
@@ -3481,7 +3481,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             : showCharge
               ? "The charge box above is parked: this order leaves by self collect, so nothing about it reaches the customer and it is not on the confirmation, the messages or the track card. Clear who paid the courier to take it off the order entirely, or switch the order back to Courier delivery under Edit. "
               : "")
-          + "The tracking number goes onto the customer's track card and into the shipped message. Anything else - the delivery day, the customer, the address, the items - is under Edit."),
+          + "The tracking number goes onto the customer's track card and into the shipped message. Anything else - the bake day, the customer, the address, the items - is under Edit."),
         el("div", { class: "popup-actions" },
           button("Cancel", close, "ghost"),
           button("Save", () => {

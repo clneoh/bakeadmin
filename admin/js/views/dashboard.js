@@ -183,7 +183,7 @@ function comingCard(state, fc) {
             el("span", {}, `${r.booked} booked`),
             el("span", { class: "muted" },
               ` · est. ${money(state, r.rm)}${r.unpriced ? " · some items unpriced" : ""} · ${r.free} free`)))
-      : el("p", { class: "fore-empty" }, "no delivery dates yet");
+      : el("p", { class: "fore-empty" }, "no bake days yet");
     return el("div", {
       class: `fore-row${first ? " tappable" : ""}`,
       onclick: first ? () => navigate(`#/orders?date=${first.id}`) : null,
@@ -397,7 +397,7 @@ function upcomingSection(root, state, fc, total) {
     el("div", { class: "pager-center" },
       el("p", { class: "pager-range" }, rangeLabel(rowStart(week), week.end)),
       el("p", { class: "card-sub" },
-        `${week.dates.length} delivery date${week.dates.length === 1 ? "" : "s"} this week`)),
+        `${week.dates.length} bake day${week.dates.length === 1 ? "" : "s"} this week`)),
     arrowBtn("›", page === pages.length - 1, () => stepWeek(root, state, 1))));
 
   nodes.push(el("div", { class: "week-tiles" },
@@ -447,9 +447,9 @@ function renderInner(root, state) {
           el("h2", { class: "section" }, "Upcoming deliveries"),
           // The days named here are hers, read from Settings — the app used to say
           // "the next Mon/Wed/Fri dates" whatever her pattern was (16 Sep 2026).
-          emptyState("No delivery dates yet",
+          emptyState("No bake days yet",
             `Add the next ${dayListLabel(state.settings.deliveryDays) || "delivery"} dates to start taking orders.`),
-          el("div", {}, button("Generate next delivery dates",
+          el("div", {}, button("Generate next bake days",
             () => generateWeek(state), "block primary")),
         ]),
     ...(past.length ? [pastSection(state, past)] : []),

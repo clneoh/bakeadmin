@@ -130,7 +130,7 @@ test("its title opens and shuts it, and the caret follows", () => {
 test("opened, it reads the day on one line, then the items, then the customer", () => {
   const { root } = build();
   const body = byClass(root, "fold-body");
-  const dayIdx = body.children.findIndex((n) => labelOf(n) === "Delivery day");
+  const dayIdx = body.children.findIndex((n) => labelOf(n) === "Bake day");
   const itemsIdx = body.children.findIndex((n) => labelOf(n) === "Items");
   const customerIdx = body.children.findIndex((n) => labelOf(n) === "Customer");
   const addIdx = body.children.findIndex((n) => String(n.className).includes("block"));

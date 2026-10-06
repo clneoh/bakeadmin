@@ -53,6 +53,11 @@ h1{font-family:Arial,sans-serif;font-size:clamp(46px,7vw,88px);line-height:.92;l
 .size{font-family:Arial,sans-serif;font-size:13px;color:#7a563e;margin-top:3px}
 .price{font-family:Arial,sans-serif;font-size:28px;font-weight:900;color:var(--green);margin:13px 0 8px}
 .product-info p{margin:0;font-size:15px;color:#553a2b}
+/* A bake that is only COMING SOON carries no price, and the 21px of air the price used to
+   hold (13px above it, 8px below) went with it — so the name ran straight into the words.
+   This puts it back, and only where there is no price: the focaccia card has .size and
+   .price between the two, so the sibling rule never matches it. */
+.eyebrow + p{margin-top:21px}
 .feature{grid-column:1/-1}
 .feature .product-card{grid-template-columns:50% 50%}
 .notice-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
@@ -216,7 +221,7 @@ if ("serviceWorker" in navigator) {
         <div class="product-info">
           <div class="eyebrow"><span data-i18n="p1Name">FOCACCIA</span></div>
           <div class="size" data-i18n="p1Size">12" × 9"</div>
-          <div class="price">RM20</div>
+          <div class="price">RM16</div>
           <p data-i18n="p1Desc">Soft on the inside, golden on the outside. Perfect on its own or with your favorite fillings.</p>
         </div>
       </article>
@@ -225,9 +230,8 @@ if ("serviceWorker" in navigator) {
       <article class="product-card">
         <div class="product-photo"><img src="img/italian-pesto-ham.jpg" width="302" height="347" loading="lazy" decoding="async" alt="ITALIAN PESTO HAM"></div>
         <div class="product-info">
-          <div class="eyebrow"><span data-i18n="p2Name">ITALIAN PESTO HAM</span></div>
+          <div class="eyebrow"><span data-i18n="p2Name">ITALIAN PESTO HAM</span> <span class="soon" data-i18n="soon">COMING SOON</span></div>
 
-          <div class="price">RM30</div>
           <p data-i18n-html="p2Desc">Ham • Pesto • Mozzarella<br>Tomato • Arugula<br>Parmesan<br><br>A fresh &amp; flavorful focaccia sandwich with the perfect balance of herby, cheesy &amp; savory.</p>
         </div>
       </article>
@@ -238,7 +242,6 @@ if ("serviceWorker" in navigator) {
         <div class="product-info">
           <div class="eyebrow"><span data-i18n="p3Name">CROISSANT</span> <span class="soon" data-i18n="soon">COMING SOON</span></div>
 
-          <div class="price">RM8</div>
           <p data-i18n="p3Desc">Buttery, flaky and perfectly baked to golden perfection.</p>
         </div>
       </article>
@@ -247,9 +250,8 @@ if ("serviceWorker" in navigator) {
       <article class="product-card">
         <div class="product-photo"><img src="img/mushroom-egg.jpg" width="302" height="291" loading="lazy" decoding="async" alt="MUSHROOM &amp; EGG"></div>
         <div class="product-info">
-          <div class="eyebrow"><span data-i18n="p4Name">MUSHROOM &amp; EGG</span></div>
+          <div class="eyebrow"><span data-i18n="p4Name">MUSHROOM &amp; EGG</span> <span class="soon" data-i18n="soon">COMING SOON</span></div>
 
-          <div class="price">RM16</div>
           <p data-i18n-html="p4Desc">Scrambled Egg • Mushroom<br>Caramelised Onion<br>Mozzarella • Arugula • Pesto<br><br>Hearty, wholesome and full of delicious comfort in every bite.</p>
         </div>
       </article>
@@ -260,7 +262,6 @@ if ("serviceWorker" in navigator) {
         <div class="product-info">
           <div class="eyebrow"><span data-i18n="p5Name">VEGETARIAN PIE</span> <span class="soon" data-i18n="soon">COMING SOON</span></div>
 
-          <div class="price">RM12</div>
           <p data-i18n="p5Desc">Golden pastry filled with a delicious mix of vegetables. Comfort food at its best.</p>
         </div>
       </article>

@@ -299,7 +299,7 @@ test("★ an orphaned inbox row CAN be tapped, and says so", () => {
   // ⚠️ AND IT SAYS WHAT IT IS. A row with the day simply missing read as an ordinary order
   // that had lost a field, with no hint that it could be fixed.
   const sub = rows[0].children[0].children[0].children[1].children[0].text;
-  assert.ok(String(sub).includes("delivery day was removed"),
+  assert.ok(String(sub).includes("bake day was removed"),
     `the row says why it has no day: ${sub}`);
   assert.ok(String(sub).includes("tap to put it on one"), "and what tapping does");
 

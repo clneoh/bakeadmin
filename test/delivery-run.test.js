@@ -1152,10 +1152,13 @@ test("a window typed on the run reaches every customer's card and messages", asy
     "with the window inside it — no new column, no storefront change");
 
   const shipped = buildShippedMessage(st, { orders: st.orders.slice(2) }, "https://bake.app/track");
-  assert.ok(shipped.message.includes("Sat, 26 Sep, 2-5 pm"),
-    "the shipped message promises the window, not just the day");
+  // ⚠️ THE WINDOW IS STILL PROMISED — but on a line of its OWN (v337). It is the VAN's window and
+  // the day above it is the BAKE day, so gluing the two together named a time on the wrong day.
+  assert.ok(shipped.message.includes("Baking day: Sat, 26 Sep - Courier delivery"), "the bake day, named as one");
+  assert.ok(shipped.message.includes("2-5 pm"), "and the window is still promised, not just the day");
   const reminder = buildPaymentReminder(st, { orders: st.orders.slice(0, 2) }, "https://bake.app/track");
-  assert.ok(reminder.message.includes("Sat, 26 Sep, 2-5 pm"), "and so does the payment reminder");
+  assert.ok(reminder.message.includes("Baking day: Sat, 26 Sep - Courier delivery"), "the reminder names the bake day too");
+  assert.ok(reminder.message.includes("2-5 pm"), "and so does the payment reminder carry the window");
 });
 
 test("no window typed leaves every customer with the promise they already had", async () => {

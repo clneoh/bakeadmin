@@ -74,7 +74,7 @@ function renderList(root, state) {
     (b.generatedAt || "").localeCompare(a.generatedAt || ""));
   if (!list.length) {
     root.replaceChildren(emptyState("No purchase orders yet",
-      "Go to the PO tab, pick a delivery date, and generate one."));
+      "Go to the PO tab, pick a bake day, and generate one."));
     return;
   }
   const cards = list.map((po) => {

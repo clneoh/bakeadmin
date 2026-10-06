@@ -21,8 +21,8 @@ import { poTableEl, totalOf } from "./poTable.js";
 export function renderPO(root, state, params) {
   const dates = [...(state.deliveryDates || [])].sort((a, b) => a.date.localeCompare(b.date));
   if (!dates.length) {
-    root.replaceChildren(emptyState("No delivery dates",
-      "Add delivery dates and orders first — then the PO writes itself."));
+    root.replaceChildren(emptyState("No bake days",
+      "Add bake days and orders first — then the PO writes itself."));
     return;
   }
   const initialMetas = dates.map((rec) => metaOf(state, rec));

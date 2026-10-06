@@ -101,7 +101,7 @@ export function renderDeliveryRun(root, state, params) {
       el("div", { class: "card" },
         el("h2", {}, "Delivery run"),
         emptyState("Nothing to run yet",
-          "A run carries several orders on one trip. It needs an order going out by courier, or one being collected at a Self collection Point, on a delivery day. A collection from your own kitchen is handed over by you, so it never needs a van.")));
+          "A run carries several orders on one trip. It needs an order going out by courier, or one being collected at a Self collection Point, on a bake day. A collection from your own kitchen is handed over by you, so it never needs a van.")));
     return;
   }
 
@@ -1170,7 +1170,7 @@ export function renderDeliveryRun(root, state, params) {
       el("p", { class: "card-sub" },
         `One vehicle, ${courier.label}'s own fare, several stops. A multi-stop trip is charged as one base fare plus a fee for each extra stop, so the run below is priced as one trip — and can be compared against the same stops sent one at a time, which is the money this screen is for. A stop is a customer's door, or a Self collection Point carrying several customers' orders.`),
       el("div", { class: "field", style: "margin-top:12px" },
-        el("label", {}, "The delivery day"), daySel),
+        el("label", {}, "The bake day"), daySel),
       listBox,
       loadLine,
       el("div", { class: "field", style: "margin-top:12px" },

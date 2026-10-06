@@ -28,7 +28,7 @@ const MENU_GROUPS = [
   // Four screens that were at rows 7-10, mixed in among the money screens.
   ["Logistic", [
     ["#/run", "🚚 Delivery run", "Several orders, one trip — and what it saves"],
-    ["#/deliveries", "📅 Delivery dates", "Which days you deliver, and who is on each"],
+    ["#/deliveries", "📅 Bake days", "Which days you bake, and who is on each"],
     // ⚠️ **"SEND A VAN", NOT "LALAMOVE" (v315).** ⚠️ AND NOT "COURIER" EITHER —
     // **📦 Parcel couriers** is the row directly above and means the parcels she
     // POSTS. v309 gave the two kinds her own words, and the order cards say them:

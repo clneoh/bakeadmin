@@ -69,7 +69,7 @@ function deleteDate(state, date, ask = true) {
   if (!ask) return removeDate(state, date, count);
   const msg = count
     ? `${date.date} has ${count} order(s) on it. Delete the date? The orders are kept in your delivery history.`
-    : `Delete delivery date ${date.date}?`;
+    : `Delete bake day ${date.date}?`;
   confirmDialog(msg, () => removeDate(state, date, count), { danger: true, yesLabel: "Delete" });
 }
 
@@ -80,7 +80,7 @@ function removeDate(state, date, count) {
   }
   save(state);
   maybeSync(state);
-  toast(count ? "Delivery date deleted — orders kept in history" : "Delivery date removed");
+  toast(count ? "Bake day deleted — orders kept in history" : "Bake day removed");
   renderAll(view(), state);
 }
 
@@ -108,7 +108,7 @@ function addSelected(state) {
   picked.clear();
   save(state);
   maybeSync(state);
-  toast(added ? `Added ${added} delivery date${added === 1 ? "" : "s"}`
+  toast(added ? `Added ${added} bake day${added === 1 ? "" : "s"}`
     : "Those dates were already added");
   renderAll(view(), state);
 }
@@ -148,10 +148,10 @@ function buildAddCard(state) {
   const weeks = monthWeeks(viewMonth.year, viewMonth.month);
   const heading = occMode
     ? el("h3", { style: "margin:0 0 6px" }, "Mark an occasion")
-    : el("h3", { style: "margin:0 0 6px" }, "Add a delivery date");
+    : el("h3", { style: "margin:0 0 6px" }, "Add a bake day");
   const sub = occMode
     ? el("p", { class: "card-sub", style: "margin:0 0 8px" },
-      "A reminder on the calendar — it never adds or changes delivery dates.")
+      "A reminder on the calendar — it never adds or changes bake days.")
     : el("p", { class: "card-sub", style: "margin:0 0 8px" },
       "Tap one or more dates, then Add. Tap an added date again to take it off. Tap a weekday letter — M for Monday — to pick every one of that day in the month at once.");
 
@@ -167,7 +167,7 @@ function buildAddCard(state) {
       el("div", { class: "btn-row", style: "margin-top:8px" },
         button("Generate the next dates", () => generateDates(state), "ghost")),
       el("p", { class: "card-sub", style: "margin:6px 0 0" },
-        `Generate adds the next dates that follow your delivery days${dayListLabel(state.settings.deliveryDays) ? ` — ${dayListLabel(state.settings.deliveryDays)}` : ""}.`)));
+        `Generate adds the next dates that follow your bake days${dayListLabel(state.settings.deliveryDays) ? ` — ${dayListLabel(state.settings.deliveryDays)}` : ""}.`)));
 }
 
 // ── add-dates grid (mode 1) ───────────────────────────────────────────────
@@ -208,7 +208,7 @@ function buildAddGrid(state, weeks) {
       : targets.every((d) => picked.has(d)) ? " on"
         : targets.some((d) => picked.has(d)) ? " part" : "";
     return el("button", { class: `cal-dow dow-pick${mark}`, type: "button",
-      "aria-label": `Pick every ${dayName(col)} shown that is not a delivery date yet`,
+      "aria-label": `Pick every ${dayName(col)} shown that is not a bake day yet`,
       onclick: () => pickWeekday(state, days, col, today, addedMap) }, label);
   });
   const grid = el("div", { class: "cal-grid", style: "touch-action:none" },
@@ -288,7 +288,7 @@ function generateDates(state) {
   viewMonth = { year: first.getFullYear(), month: first.getMonth() };
   save(state);
   maybeSync(state);
-  toast(`Added ${made.length} delivery dates — ${shortDate(made[0])} onwards`);
+  toast(`Added ${made.length} bake days — ${shortDate(made[0])} onwards`);
   renderAll(view(), state);
 }
 
@@ -376,7 +376,7 @@ function occRow(state, occ) {
 function deleteOccasion(state, occ) {
   confirmDialog(
     `Remove the "${occ.label}" mark (${longDate(occ.from)} – ${longDate(occ.to)})?`
-    + " Your delivery dates are untouched.",
+    + " Your bake days are untouched.",
     () => {
       state.occasions = state.occasions.filter((o) => o.id !== occ.id);
       saveMarks(state);

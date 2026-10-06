@@ -1179,7 +1179,7 @@ export function courierQuoteSection({
       timeInput.disabled = !d;
       whenNote.textContent = d
         ? "The time the driver collects. It opens on the app's own dispatch time; changing it here changes this price only — when a trip can really be booked, this becomes a setting of its own."
-        : "This order has no delivery day on it, so this prices collection as soon as possible. Choose a day to schedule it.";
+        : "This order has no bake day on it, so this prices collection as soon as possible. Choose a day to schedule it.";
       if (pricedFor && pricedFor !== whenLabel()) {
         whenNote.textContent += ` The prices below were asked for ${pricedFor}.`;
       }

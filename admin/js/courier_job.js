@@ -523,6 +523,45 @@ export function promisedWindowSuffix(state, order) {
   return windowSuffix(order);
 }
 
+// ★★ THE DAY LINE A CUSTOMER MESSAGE CARRIES, AND WHAT IT MAY HONESTLY PROMISE (v337).
+//
+// ⚠️⚠️ THE FAULT THIS CLOSES, in her words: *"our bake day is Wednesday 7th Oct, customer want a
+// lalamove delivery of Thursday morning 9am... the delivery date i choose is 7th. When we send
+// confirmation message to him he was confused, then asking whether the delivery date is wed or
+// thurday."* **A courier order's `deliveryDateId` is the day it is BAKED, and the message called
+// it "Delivery:"** — so a van booked for Thursday morning was announced as *Delivery: Wed, 7 Oct*.
+//
+// ⚠️ AND THE MESSAGE COULD NOT HAVE BEEN RIGHT: the van is booked AFTER the confirmation goes out,
+// so at that moment the app does not know the delivery day at all — **and was stating one anyway.**
+//
+//   · A COLLECTION — her kitchen or a Point — happens ON the bake day, so `Delivery:` stays: it is
+//     the day they get the bread. Unchanged, window and all.
+//   · A COURIER order is labelled **Baking day**, and **the trip's window is never glued to it** —
+//     that window is the VAN's and may be the next morning, so putting it on the bake-day line
+//     would name a time on the wrong day. It goes on a line of its own, or is promised.
+//
+// The four customer messages read this ONE function, so none of them can word it differently.
+// The van's own line — or the promise that it is coming. Empty for anything that is not a
+// courier order, so a collection's message is byte-for-byte what it always was.
+export function vanLine(day, order) {
+  if (!day || !day.courier) return "";
+  // ⚠️ THE NAME COMES FROM THE BOOKED TRIP, and the word "courier" stands in until there is one.
+  // At the moment a confirmation goes out **no van is booked, so there is no name to give** — which
+  // is the same reason the app cannot know the delivery day yet. Naming the company here by hand is
+  // what `test/courier-provider.test.js` forbids: the seam exists so a second courier can arrive
+  // without editing a screen, and a message that types the brand is that seam with a hole in it.
+  const name = String((order && order.courierJob && order.courierJob.courierName) || "").trim() || "courier";
+  return day.vanTime
+    ? `${name} pickup window: ${day.vanTime}\n`
+    : `Your ${name} delivery time will be confirmed separately.\n`;
+}
+
+export function dayLine(state, order) {
+  const courier = !!order && order.fulfillment === "courier";
+  if (!courier) return { label: "Delivery", window: promisedWindowSuffix(state, order), vanTime: "", courier: false };
+  return { label: "Baking day", window: "", vanTime: windowSuffix(order).replace(/^, /, ""), courier: true };
+}
+
 // What the run actually carries: how many doorsteps, how many items, and which items.
 //
 // The count is per GROUP and not per order row, because a customer who ordered three

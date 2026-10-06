@@ -1,8 +1,62 @@
-# Jienluv2bake — change history (v54 → v336)
+# Jienluv2bake — change history (v54 → v337)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v337, THE DAY IS CALLED THE BAKE DAY NOW (no database step, nothing to upload
+— pushing this one is the whole of it).**
+
+**Your words:** __"our bake day is Wednesday 7th Oct, customer want a lalamove delivery of Thursday
+morning 9am, so we book lalamove for them. The the delivery date i choose is 7th. When we send
+confirmation message to him he was confused, then asking whether the delivery date is wed or thurday."__
+Then __"1st i think we should change the orginal delivery date to bake day"__, and when I asked how far
+the new name should reach — __"Everything you read, screen name too"__.
+
+**Three things were wrong. The first one reached a real customer.**
+
+**1 · The confirmation message called the bake day a delivery.** A courier order's day is **the day you
+bake**; the van goes whenever you book it. So a van booked for **Thursday morning** was announced in the
+message as __Delivery: Wed, 7 Oct__ — that is the sentence your customer read, and it is exactly why he
+asked you whether it was Wednesday or Thursday. **The message now says the two apart:**
+
+- a **courier** order reads __Baking day: Wed, 7 Oct - Courier delivery__, and on its own line __Your
+  courier delivery time will be confirmed separately__ — because at that moment the app does not know
+  the van's window yet, and it was stating one anyway;
+- once you **have** booked the van, its window goes on **its own line** — never glued to the bake day;
+- a **collection** order is unchanged (__Delivery: Wed, 7 Oct__), because your kitchen or a Point is
+  genuinely where and when it changes hands.
+
+**2 · Every screen you read said "delivery date". It says bake day now.** The More row and the screen
+title (**Bake days**), the Home dials' caption, the Orders calendar's answer when you tap a day you do
+not bake on, the Edit card's day picker, the PO's day ticks, "per bake day" on the products, the
+shared-data card, the backup copy, the delete and "Added N" messages, the Settings card — **22 files,
+79 lines.**
+
+**3 · One signpost pointed at a screen that no longer exists.** ⚠️ **Found by building the guard, not by
+looking.** The Orders calendar used to say __"Add it in More → Delivery Dates"__ while the row it was
+sending you to had already been renamed — **a dead end, and no test could see it**, because the message
+and the row were only ever read apart. It now reads **"Add it in More → Bake days"**, and a new test
+reads **every** __More → X__ in the app against the rows and headings that really exist, so the next
+rename cannot leave one behind. **Proved by biting it:** put the old name back and the test names the
+file and the dead signpost; then restored byte-identically (sha256 checked).
+
+**Two things I deliberately did NOT change, and you should know which:**
+
+- **The customer's own words stay.** Your shop page, its calendar, its "Your delivery day: Wed, 16 Sep"
+  line, and the notice rule ("Orders close (days before delivery)") are all unchanged — a stranger reads
+  those, and this rename was about **your** screens.
+- **One money line still says "delivery day"** — *"what is still to collect is counted by delivery day,
+  because that is when you hand it over."* **Deliberate:** on a courier order the money is collected when
+  the van delivers, which is not the bake day. Renaming that word would have made the sentence untrue.
+
+⚠️ **STILL OPEN, and it is the same complaint: the customer's tracking card.** The link in every
+confirmation opens a page that still glues the van's window to the bake day. **Known, not fixed** — it is
+the next piece of this work.
+
+**Your data is untouched.** Nothing was renamed in the cloud: `deliveryDateId`, the day records, the
+`#/deliveries` address and every synced record keep their old internal names — **only the words on
+screen changed.** No SQL, no Edge Function, no redeploy. The suite is **2,826 tests, all green**.
 
 **06 Oct 2026 — engine v336, YOUR OWN REWARD COUPON NOW COMES OFF YOUR ORDER (no database step,
 nothing to upload — pushing this one is the whole of it).**
@@ -744,7 +798,7 @@ pixels, 16 samples, never once different.** A sideways slide is a transform, jus
 the guarantee carries over exactly.
 
 **Two corrections to the guide while I was in it.** It described the old turning motion, and it said
-*"on a phone a tap holds it still for about twenty seconds"* — which **stopped being true in v297**,
+__"on a phone a tap holds it still for about twenty seconds"__ — which **stopped being true in v297**,
 when we removed exactly that because it trapped anyone who touched the strip. Both now match what the
 shop actually does.
 
