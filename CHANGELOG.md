@@ -1,8 +1,53 @@
-# Jienluv2bake — change history (v54 → v338)
+# Jienluv2bake — change history (v54 → v340)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v340, A COURIER ORDER IS TOLD NOTHING AT PACKED (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"to make it simpler, can we do like this, when status changed to PACKED … 2. for
+courier order, we take away the SEND SHIPPED MASSAGE. When status change to SHIP/COLLECT — Send ship
+message button, by that time, courier already collected, lalamove link can be shared, no more
+confusion."__
+
+**Done — and it removes a message that was saying something untrue.** At **Packed** nothing has left your
+kitchen, yet the row offered a courier customer **"Send shipped message"**: __"your order is on its way"__,
+with a share link, before any driver had taken the job. That is the same confusion the tracking card was
+fixed for in v338.
+
+**Packed now offers:**
+
+- **self collect** — **Send pickup reminder**, unchanged. The bread really is ready, and this is what
+  says so and where to fetch it.
+- **courier** — **nothing at all.** There is nothing true to tell them yet.
+
+**Collected / Shipped is where the shipped message lives now** — the one place it is offered, for a van
+order and a posted parcel alike. By the time you mark it there the courier has the order in hand: the
+message is true, its Lalamove link works, and the customer's own tracking page shows that link too.
+
+**Your data is untouched and no screen moved.** No SQL, no Edge Function, no upload. The suite is
+**2,846 tests, all green**, and the new rule was bitten — put the button back at Packed and it fails by
+name.
+
+**06 Oct 2026 — engine v339, BAKE DAYS MOVES TO THE SHOP (no database step, nothing to upload — pushing
+this one is the whole of it).**
+
+**Your words:** __"i think the bake days should not be at logistic, it should be in the Shop."__
+
+**You are right, and the reason is worth writing down.** **Logistic** is the list of ways an order LEAVES
+your kitchen. A bake day is not a journey — it is **the day the shop is open**: the day the storefront's
+own calendar offers a customer, and the only days it will take an order for. So **📅 Bake days** now sits
+under **The shop**, at the top of the group, because which days you are open comes before what you are
+advertising.
+
+**Logistic** keeps the four that belong to it: Delivery run, Send a van, Self collection Points, Parcel
+couriers.
+
+**Nothing else moved, and no address changed** — every bookmark, `#/deliveries` included, still opens the
+same screen. The suite is **2,844 tests, all green**, and the guard that catches a screen going missing in
+a regroup was bitten: take the row out and it fails, naming the screen that can no longer be reached.
 
 **06 Oct 2026 — engine v338, THE VAN GETS ITS OWN DAY AND TIME (no database step, nothing to upload —
 pushing this one is the whole of it).**

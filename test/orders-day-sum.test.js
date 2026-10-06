@@ -262,6 +262,38 @@ test("⚠️ emptying the van's day in the Edit pop-up takes the key back off (v
   assert.equal("courierDay" in st.orders[0], false, "the key is gone, not left empty");
 });
 
+// ── ★★ v340: what Packed offers, and what Collected / Shipped offers ─────────
+//
+// Her decision, and her reasoning: *"for courier order, we take away the SEND SHIPPED MASSAGE. When
+// status change to SHIP/COLLECT — Send ship message button, by that time, courier already collected,
+// lalamove link can be shared, no more confusion."* At Packed nothing has left the kitchen, so there
+// is nothing true to tell a courier customer; a self-collect order is the opposite — the bread really
+// is ready, and the pickup reminder is what says so.
+
+function rowAt(status, fulfillment) {
+  const st = state();
+  st.orders[0].status = status;
+  st.orders[0].fulfillment = fulfillment;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  return root;
+}
+const hasButton = (root, text) => !!buttonByText(root, text);
+
+test("⚠️ Packed says nothing to a courier customer, and still tells a collector (v340)", () => {
+  assert.equal(hasButton(rowAt("ready", "courier"), "Send shipped message"), false,
+    "nothing has left the kitchen at Packed, so nothing may be claimed");
+  assert.equal(hasButton(rowAt("ready", "collect"), "Send pickup reminder"), true,
+    "a self-collect order really is ready, and keeps its reminder");
+});
+
+test("★ Collected / Shipped is where the shipped message lives (v340)", () => {
+  assert.equal(hasButton(rowAt("delivered", "courier"), "Send shipped message"), true,
+    "the courier has it in hand now, so the message is true and its share link is real");
+  assert.equal(hasButton(rowAt("delivered", "collect"), "Send shipped message"), false,
+    "and a self-collect order is never shipped");
+});
+
 // ── v98/v101: Note / tracking / payment — the short way in, without Edit ────
 test("Note / tracking opens just those fields, and save writes them onto the order", () => {
   const st = state();

@@ -3688,10 +3688,10 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
     });
 }
 
-// "Send shipped message" — a courier order that has gone to the courier, carrying
-// the tracking number she typed. Offered at Packed and again at Shipped, since
-// either order of doing things is natural. Disabled without a WhatsApp number,
-// like every other message button on a row.
+// "Send shipped message" — a courier order that HAS GONE to the courier, carrying the tracking
+// number she typed or the trip's own share link. **Offered at Collected / Shipped only (v340):** at
+// Packed nothing has left yet, so the message would be saying something untrue. Disabled without a
+// WhatsApp number, like every other message button on a row.
 function shippedMsgButton(state, group, first, root, dateId) {
   const btn = button("Send shipped message", () =>
     sendOrderWhatsApp(state, group, {
@@ -3711,10 +3711,10 @@ function shippedMsgButton(state, group, first, root, dateId) {
 // the baker (pulsing amber), and the buttons under the status match the stage:
 // Confirmed offers "Send confirmation", Paid offers "Send payment reminder" +
 // "Paid", Baked offers "Print label" (to kit the order as it is packed), and
-// Packed offers the message for how the order leaves: a courier order gets "Send
-// shipped message" (with its tracking number), a self-collect one "Send pickup
-// reminder". The last stage's NAME is the pair Collected / Shipped for both — only
-// which message it offers depends on the method.
+// Packed offers a message to a SELF-COLLECT order only ("Send pickup reminder") —
+// a courier order is told nothing there, because nothing has left yet (v340).
+// The last stage's NAME is the pair Collected / Shipped for both, and that is
+// where the courier gets "Send shipped message", once the courier really has it.
 
 // Courier orders also get a "Mailing" pill (first): FROM = the bakery address
 // typed in Settings → Mailing labels, TO = the customer, ORDER = code/date/items.
@@ -4044,11 +4044,15 @@ function orderGroupRow(state, group, root, dateId) {
     // prints the slip for the bag vanished the moment the order was packed, including
     // for the order still in her hand, with nothing on the row to say where it went.
   } else if (status === "ready") {
-    // How this order leaves decides what she tells the customer: a parcel goes on
-    // its way (with its tracking number), a self-collect order is ready to fetch.
-    if (courier) {
-      actions.push(shippedMsgButton(state, group, first, root, dateId));
-    } else {
+    // ★★ PACKED SAYS NOTHING TO A COURIER CUSTOMER (v340) — her decision, and her reason is the
+    // whole of it: **at Packed no van has come yet**, so "your order is on its way" is not true,
+    // and a share link handed over before a driver has taken the job only confuses (v338 withholds
+    // it from the tracking card for exactly the same reason). There is nothing to tell a courier
+    // customer at this step, so nothing is offered.
+    //
+    // A self-collect order is the opposite case and keeps its button: the bread really IS ready,
+    // and the pickup reminder is what says so and where to fetch it.
+    if (!courier) {
       const pickupBtn = button("Send pickup reminder", () =>
         sendOrderWhatsApp(state, group, { builder: buildPickupReminder, doneMsg: "Pickup reminder drafted — press Send in WhatsApp", root, dateId }),
         "soft small");
@@ -4056,8 +4060,15 @@ function orderGroupRow(state, group, root, dateId) {
       actions.push(pickupBtn);
     }
   } else if (status === "delivered" && courier) {
-    // Already marked Shipped: the message is still offered, because she may have
-    // moved the status first and typed the tracking number afterwards.
+    // ★★ THE SHIPPED MESSAGE'S ONE HOME (v340). By the time she marks the order **Collected /
+    // Shipped** the courier has the order in hand, so the message is true and the trip's own share
+    // link is real — the customer's tracking card can carry it too, with nothing to explain away.
+    //
+    // It covers a PARCEL as well, and for the same reason: a consignment number matters once the
+    // parcel is actually posted, not while it is still on her counter.
+    //
+    // Still offered after the status has already moved, because she may well have moved it first
+    // and typed the tracking number afterwards.
     actions.push(shippedMsgButton(state, group, first, root, dateId));
   }
   // Money can be recorded at ANY stage from Paid onwards, not only while the order sits on
