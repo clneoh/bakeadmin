@@ -22,7 +22,7 @@ is the **pickup time**: when the van collects from you.
   "the day and time the driver collects", so that screen no longer opens on a time the app thought of.
 - **Delivery window (opens / closes)** — kept, and now plainly the **customer's** promise. It is set for
   one of two reasons: a **run with several stops** needs one, or **the customer themselves has told you
-  the hours they are available** — *"from 2 to 5"*, say. Left blank, the message promises to confirm the
+  the hours they are available** — __"from 2 to 5"__, say. Left blank, the message promises to confirm the
   time.
 
 **The pickup time never reaches a customer.** A van collected from your kitchen at nine is at the
