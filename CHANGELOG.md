@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v340)
+# Jienluv2bake — change history (v54 → v341)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**06 Oct 2026 — engine v341, A PICKUP TIME IS NOT A PROMISE (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"for courier lalamove, there is no delivery window open and delivery window closes
+promise, it is more for self collection point, and for delivery run that courier have to go many stop, and
+delivery time have to be a window reasonably. Pickup time is something user should specify."__
+
+**You are right, and this corrects what I built this morning.** A single van delivery is not promised to a
+customer as a window. A window is the right promise only where a van has **many stops** (the run) or where
+a **Point's own hours** are the promise — and both of those already exist. What you fix on a courier order
+is the **pickup time**: when the van collects from you.
+
+**So the courier half of the card now asks both, and they are kept apart:**
+
+- **Pickup time** — new. The time the van collects from **you**. It fills in the **Delivery run's** own
+  "the day and time the driver collects", so that screen no longer opens on a time the app thought of.
+- **Delivery window (opens / closes)** — kept, and now plainly the **customer's** promise. It is set for
+  one of two reasons: a **run with several stops** needs one, or **the customer themselves has told you
+  the hours they are available** — *"from 2 to 5"*, say. Left blank, the message promises to confirm the
+  time.
+
+**The pickup time never reaches a customer.** A van collected from your kitchen at nine is at the
+customer's door later than nine, so nine is not theirs to be told. It is stored on the order, remembered,
+and used by the run — deliberately not published in the confirmation, in the messages or on the tracking
+card. A test pins exactly that, and it was bitten: let it leak and the test fails showing the customer
+being told `, 09:00`.
+
+**All three doors to a courier order ask it** — **＋ New order**, **Edit**, and **Note / tracking** — so
+whichever one you open, the same question is there and the same answer comes back.
+
+**Your data is untouched.** No SQL, no Edge Function, no upload. The suite is **2,851 tests, all green**.
 
 **06 Oct 2026 — engine v340, A COURIER ORDER IS TOLD NOTHING AT PACKED (no database step, nothing to
 upload — pushing this one is the whole of it).**

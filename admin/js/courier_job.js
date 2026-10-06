@@ -529,6 +529,21 @@ export function courierDayOf(order) {
   return String((order.courierWhen || {}).day || "").trim();
 }
 
+// ★ THE TIME THE VAN COLLECTS FROM HER, in the same two shapes (v341).
+//
+// ⚠️ **THIS IS NOT THE CUSTOMER'S PROMISE, AND IT NEVER REACHES ONE.** Her distinction, and it is the
+// right one: *"for courier lalamove, there is no delivery window open and delivery window closes
+// promise… Pickup time is something user should specify."* A pickup time is when the van is at HER
+// door; what a customer is promised is the Point's hours or, on a run with many stops, the window the
+// trip itself carries. So this value feeds the DELIVERY RUN's own collection time and the price box
+// beside it — and `promisedWindowSuffix`, which is what every customer-facing line reads, never sees it.
+export function pickupTimeOf(order) {
+  if (!order) return "";
+  const flat = String(order.pickupTime || "").trim();
+  if (flat) return flat;
+  return String((order.courierWhen || {}).pickup || "").trim();
+}
+
 // ★★ THE DAY THE VAN COMES, AND THE WINDOW IT COMES IN — said together (v338).
 //
 // ⚠️⚠️ UNTIL THIS VERSION AN ORDER CARRIED NO COURIER DAY AT ALL, so a van going the morning after

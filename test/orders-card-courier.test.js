@@ -536,6 +536,8 @@ const whenFrom = (root) =>
   all(root).find((n) => n.attrs && n.attrs["aria-label"] === "The delivery window opens");
 const whenTo = (root) =>
   all(root).find((n) => n.attrs && n.attrs["aria-label"] === "The delivery window closes");
+const whenPickup = (root) =>
+  all(root).find((n) => n.attrs && n.attrs["aria-label"] === "The time the van collects from you");
 
 test("⚠️ the van's day and window open EMPTY — nothing is ever worked out (v338)", () => {
   const st = state();
@@ -567,6 +569,19 @@ test("a day with no window is a legitimate answer, not a mistake (v338)", () => 
   assert.equal(st.orders.length, 1, "the order still goes through");
   assert.equal(st.orders[0].courierDay, "2026-10-08");
   assert.equal("deliveryWindow" in st.orders[0], false, "and carries no empty window key");
+});
+
+test("★ a pickup time typed on the card lands on the order, and is not a customer promise (v341)", () => {
+  // Her correction: *"Pickup time is something user should specify"* — and a pickup time is when the
+  // van is at HER door, not what the customer is told. So it is stored, and it must NOT quietly
+  // become the window the customer's message and track card would publish.
+  const st = state();
+  const root = pickProduct(pickCourier(openCard(st)), 1);
+  type(whenPickup(root), "09:00");
+  addOrder(root);
+  assert.equal(st.orders[0].pickupTime, "09:00", "the time the van collects is remembered");
+  assert.equal("deliveryWindow" in st.orders[0], false,
+    "and it is NOT turned into a window the customer would be told");
 });
 
 test("⚠️ nothing typed leaves no key at all (v338)", () => {

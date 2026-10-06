@@ -48,7 +48,7 @@
 import { button, confirmDialog, el, guarded, keepStill, toast } from "../ui.js";
 import { todayISO } from "../dates.js";
 import {
-  courierDayOf,
+  courierDayOf, pickupTimeOf,
   fmtAgo, fmtDistanceKm, fmtQuote, fmtQuoteLeft, fmtStamp, isLink, jobOf, liveJobOf,
   liveJobProblem, quoteExpired, scheduleAtUTC, tripCalledOff, tripCollected, tripOf,
   tripProblem,
@@ -1167,7 +1167,10 @@ export function courierQuoteSection({
       "aria-label": "The day the driver collects" });
     const timeInput = el("input", {
       class: "input", type: "time",
-      value: String(((state.settings || {}).courier || {}).dispatch || "").trim(),
+      // ★ HER TYPED PICKUP TIME WINS (v341), and her own Settings dispatch time is the fallback —
+      // the same rule as the day box above it. She set that fallback herself; what neither reads is
+      // the bake plan.
+      value: pickupTimeOf(first) || String(((state.settings || {}).courier || {}).dispatch || "").trim(),
       "aria-label": "The time the driver collects",
     });
     const whenNote = el("p", { class: "card-sub", style: "margin:6px 0 0" });

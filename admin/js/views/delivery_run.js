@@ -68,7 +68,7 @@ import { courierPayQuestions } from "./orders.js";
 // A parcel recorded on the order (v226) is never swept into a van run — see runDays.
 import { parcelOf } from "../parcel.js";
 import {
-  courierDayOf,
+  courierDayOf, pickupTimeOf,
   fmtDistanceKm, fmtQuote, fmtQuoteLeft, liveJobOf, liveJobProblem, loadOf,
   needsVan, quoteExpired, runLimitProblem, savingOf, scheduleAtUTC, stampTrip, stopKeyOf,
   tripCalledOff, tripOf, tripProblem,
@@ -298,11 +298,27 @@ export function renderDeliveryRun(root, state, params) {
     return "";
   }
 
+  // ★★ AND THE TIME IT COLLECTS, from the same place (v341). Her distinction, in her words: *"Pickup
+  // time is something user should specify"* — so the time she typed on the order WINS, and her own
+  // Settings dispatch time is the fallback. That fallback is a default she set herself, and her own
+  // note says the pickup box "opens on a hand-typed default and it should stay a hand-typed box"; what
+  // neither the box nor this function ever does is work a time out from the bake plan.
+  function timeTheVanCollects(day) {
+    for (const g of (day ? day.groups : [])) {
+      for (const o of g.orders) {
+        const t = pickupTimeOf(o);
+        if (t) return t;
+      }
+    }
+    return dispatchTime(state);
+  }
+
   function pickTicked() {
     const day = dayRowNow();
     // Every tickable customer on, and a booked one left OFF (v242) — tickableGroups, above.
     ticked = new Set(tickableRows().map((r) => r.key));
     pickupDay.value = dayTheVanComes(day);
+    pickupTime.value = timeTheVanCollects(day);
   }
 
   // A price describes one list and one journey. Anything that changes either throws the
@@ -1146,9 +1162,13 @@ export function renderDeliveryRun(root, state, params) {
     // chosen here and nowhere else would be gone the moment she left the screen. Only when she has
     // one, so a trip booked without a day leaves every order exactly as it was.
     const bookedDay = String(pickupDay.value || "").trim();
+    const bookedTime = String(pickupTime.value || "").trim();
     for (const g of groups) {
       if (w) for (const o of g.orders) o.deliveryWindow = w;
       if (bookedDay) for (const o of g.orders) o.courierDay = bookedDay;
+      // …and the time the van collects (v341), for the same reason: it is HER answer, and an order
+      // that was told it once should still carry it the next time she opens it.
+      if (bookedTime) for (const o of g.orders) o.pickupTime = bookedTime;
       // `alone` only on a run that turned out to carry one doorstep: the courier's link is
       // ONE link for the whole trip, so on any bigger run it is not the customers' to have.
       stampTrip(g.orders, out.job, holder.label, { alone: groups.length === 1 });

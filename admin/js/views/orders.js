@@ -1559,6 +1559,16 @@ function courierWhenFields(box) {
   const day = el("input", { class: "input", type: "date", value: box.day || "",
     "aria-label": "The day the courier delivers",
     oninput: () => { box.day = day.value; } });
+  // ★★ THE PICKUP TIME (v341). Her distinction: *"for courier lalamove, there is no delivery window
+  // open and delivery window closes promise… Pickup time is something user should specify."*
+  // It is the time the van collects FROM HER — the one clock a single van delivery actually fixes —
+  // and it is deliberately NOT a promise to the customer: what a customer is told is a Point's hours,
+  // or the window a run with many stops carries. So it feeds the Delivery run's own collection time
+  // and the price box beside it, and never reaches `promisedWindowSuffix`, which every customer-facing
+  // line reads.
+  const pickup = el("input", { class: "input", type: "time", value: box.pickup || "",
+    "aria-label": "The time the van collects from you",
+    oninput: () => { box.pickup = pickup.value; } });
   const said = el("p", { class: "card-sub", style: "margin:6px 0 0" });
   const from = el("input", { class: "input", type: "time", value: box.from || "",
     "aria-label": "The delivery window opens",
@@ -1571,14 +1581,17 @@ function courierWhenFields(box) {
     const w = windowAt(box.from, box.to);
     said.textContent = bad || (w
       ? `The customer will be told: ${fmtWindow(w)}.`
-      : "Leave the window blank if you do not know it yet — the message then says the time will be confirmed separately.");
+      : "A window is what a customer is PROMISED. Set one when a run has several stops, or when the customer has told you the hours they are available — 'from 2 to 5', say. Leave it blank and the message promises to confirm the time.");
   }
   paint();
   return el("div", { class: "field" },
     el("label", {}, "Courier delivery date"),
     day,
     el("p", { class: "hint" }, "The day the van comes — often the morning after the bake day. Leave it blank until you know it."),
-    el("div", { class: "form-grid", style: "margin-top:10px" },
+    el("label", { style: "margin-top:12px" }, "Pickup time"),
+    pickup,
+    el("p", { class: "hint" }, "The time the van collects from you. This fills in the Delivery run's own collection time."),
+    el("div", { class: "form-grid", style: "margin-top:12px" },
       el("div", {}, el("label", {}, "Delivery window opens"), from),
       el("div", {}, el("label", {}, "Delivery window closes"), to)),
     said);
@@ -1608,7 +1621,7 @@ function orderForm(state, dateId, root, selectDate) {
     // the three boxes are ONE question ("when does the van come?") and that helper reads and writes
     // them together. It is a DRAFT shape only: the order itself carries a flat `courierDay` and the
     // existing packed `deliveryWindow`, so no order gains a nested key.
-    courierWhen: { day: "", from: "", to: "" },
+    courierWhen: { day: "", pickup: "", from: "", to: "" },
     items: [{ productId: "", qty: 1, price: null }],
   });
   // The day is the SCREEN's, not the draft's: picking one switches the screen, because
@@ -1788,6 +1801,9 @@ function orderForm(state, dateId, root, selectDate) {
       const winWhy = windowProblem(draft.courierWhen.from, draft.courierWhen.to);
       if (winWhy) return toast(winWhy);
       shared.courierDay = String(draft.courierWhen.day || "").trim();
+      // When the van collects from her (v341). Not a customer promise — see the comment on
+      // `courierWhenFields` — so it is stored, remembered and used by the run, and published nowhere.
+      shared.pickupTime = String(draft.courierWhen.pickup || "").trim();
       shared.deliveryWindow = windowAt(draft.courierWhen.from, draft.courierWhen.to);
     }
     // A courier order carries no Point, whatever the picker still holds behind it.
@@ -2108,6 +2124,9 @@ function openEditPopup(state, group, dateId, root) {
     // because nothing here is ever worked out from the bake day.
     courierWhen: {
       day: first.courierDay || "",
+      // The time the van collects from her (v341) — read back like the day beside it, so it is
+      // remembered rather than asked for twice. Never derived from anything.
+      pickup: first.pickupTime || "",
       from: (windowParts(first.deliveryWindow) || {}).from || "",
       to: (windowParts(first.deliveryWindow) || {}).to || "",
     },
@@ -2350,6 +2369,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       // (set when there is a value, DELETED when there is not), so an order that never carried one
       // still carries no key after a Save. Nothing here is ever worked out from the bake day.
       courierDay: String(draft.courierWhen.day || "").trim(),
+      // The time the van collects from her (v341), passed on the same rule as the day beside it:
+      // empty means DELETE the key, not park an empty one.
+      pickupTime: String(draft.courierWhen.pickup || "").trim(),
       deliveryWindow: windowAt(draft.courierWhen.from, draft.courierWhen.to),
       // The courier charge rides as one object rather than three loose keys, because its
       // four answers have to be written together: the amount, who bore it, whether the
@@ -2511,7 +2533,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   // for the opposite outcome. They ARE the rows' own fields, so they are written back onto every row
   // BY HAND in the loop below, where an empty box DELETES the key instead of parking an empty one on
   // every line of a group. Left inside `fields`, `Object.assign` would do exactly that.
-  const { courier = null, parcel = null, pointId = "", courierDay = "", deliveryWindow = "", ...fields } = shared;
+  const { courier = null, parcel = null, pointId = "", courierDay = "", deliveryWindow = "", pickupTime = "", ...fields } = shared;
   const dest = byId(state.deliveryDates, fields.deliveryDateId) || date;
   if (!dest) return toast("Choose a bake day");
   // The capacity guard follows the order to its destination. Capacity is derived
@@ -2565,6 +2587,9 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         // order that never carried one is untouched by an unrelated Save.
         if (courierDay) o.courierDay = courierDay; else delete o.courierDay;
         if (deliveryWindow) o.deliveryWindow = deliveryWindow; else delete o.deliveryWindow;
+        // The pickup time (v341) rides the same rule — set when she typed one, DELETED when she
+        // emptied the box, so an order that never carried one still carries none.
+        if (pickupTime) o.pickupTime = pickupTime; else delete o.pickupTime;
         keptRows.push(o);
       } else {
         const row = {
@@ -2584,6 +2609,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
           // two facts as its siblings (v338) — the ones this branch would otherwise drop, because
           // it copies `fields` by hand rather than with Object.assign.
           ...(courierDay ? { courierDay } : {}),
+          ...(pickupTime ? { pickupTime } : {}),
           ...(deliveryWindow ? { deliveryWindow } : {}),
           status: first.status || "new",
           groupId: gid,
@@ -2657,7 +2683,7 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
   //
   // `courierDay` and `deliveryWindow` come off the same object (v338) and ARE the row's own fields:
   // the day the van comes, and the window it comes in.
-  const { courier = null, parcel = null, trackingNo = "", courierDay = "", deliveryWindow = "" } = shared || {};
+  const { courier = null, parcel = null, trackingNo = "", courierDay = "", deliveryWindow = "", pickupTime = "" } = shared || {};
 
   function commit() {
     // The card keeps her draft across a rebuild, so a successful add has to clear it by
@@ -2702,6 +2728,7 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
     // line note and the tracking number above already follow, and the reason every order already in
     // her records is byte-for-byte untouched by this version.
     if (String(courierDay || "").trim()) row.courierDay = String(courierDay).trim();
+    if (String(pickupTime || "").trim()) row.pickupTime = String(pickupTime).trim();
     if (String(deliveryWindow || "").trim()) row.deliveryWindow = String(deliveryWindow).trim();
     writeCourierCharge(state, [row], { orders: [row] }, courier);
     writeParcel(state, row, [row], parcel);
@@ -2738,7 +2765,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
   const st = deliveryStatus(date.date, state.settings);
   // See addNew — and `courierDay`/`deliveryWindow` are read here too (v338), because a group order
   // has ONE van coming to ONE door, so every row of it carries the same day and window.
-  const { courier = null, parcel = null, trackingNo = "", courierDay = "", deliveryWindow = "" } = shared || {};
+  const { courier = null, parcel = null, trackingNo = "", courierDay = "", deliveryWindow = "", pickupTime = "" } = shared || {};
 
   function commit() {
     // See addNew: a completed add starts the card clean.
@@ -2784,6 +2811,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
     // The van's own day and window (v338) — on EVERY row, like the tracking number above, because
     // one van comes to one door however many lines the order has.
     if (String(courierDay || "").trim()) for (const o of rows) o.courierDay = String(courierDay).trim();
+    if (String(pickupTime || "").trim()) for (const o of rows) o.pickupTime = String(pickupTime).trim();
     if (String(deliveryWindow || "").trim()) for (const o of rows) o.deliveryWindow = String(deliveryWindow).trim();
     writeCourierCharge(state, rows, { orders: rows }, courier);
     writeParcel(state, rows[0], rows, parcel);
@@ -3456,6 +3484,11 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
   const draft = {
     note: first.note || "",
     trackingNo: first.trackingNo || "",
+    // The time the van collects from her (v341). This is the THIRD door onto the same record — the
+    // ＋ New order card and the Edit form are the other two — so it asks the same question and
+    // remembers it the same way. Held on the draft because this card repaints (the parcel picker asks
+    // for one), and a repaint must not throw away what she has typed.
+    pickupTime: first.pickupTime || "",
     fulfillment: first.fulfillment || "collect",
     carrierId: (parcelOf(first) || {}).carrierId || "",
     handedAt: (parcelOf(first) || {}).handedAt || "",
@@ -3490,6 +3523,15 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // this box has no fulfilment control of its own — the order's fulfilment is not one
       // of the things this card is for. See the Edit form's block for what they mean.
       const courierOrder = isCourierOrder(first);
+      // ★ The time the van collects from her (v341). Built HERE, after `courierOrder` exists — a
+      // self-collect order has no van to be collected by, so the box is not drawn for one. (Declared
+      // in this order on purpose: `courierOrder` is a `const` further down this body, and reading it
+      // earlier would throw where the card is built — the `cur is not defined` shape of v322.)
+      const pickup = courierOrder
+        ? el("input", { class: "input", type: "time", value: draft.pickupTime,
+          "aria-label": "The time the van collects from you",
+          oninput: () => { draft.pickupTime = pickup.value; } })
+        : null;
       const parkedCharge = !courierOrder && (courierFeeOf(first) > 0 || !!courierPayerOf(first));
       const showCharge = courierOrder || parkedCharge;
       function paintCustTotal() {
@@ -3563,6 +3605,12 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
           el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
         parcelSection({ state, group, draft, refresh }),
         showCharge || jobOf(first) ? courierKind("van") : null,
+        // ★ The time the van collects from her (v341) — the same question the ＋ New order card and
+        // the Edit form ask, in the same place: under the van heading, above the charge.
+        pickup ? el("div", { class: "field" },
+          el("label", {}, "Pickup time"),
+          pickup,
+          el("p", { class: "hint" }, "The time the van collects from you. This fills in the Delivery run's own collection time.")) : null,
         parkedCharge ? parkedChargeNote(state, first) : null,
         showCharge ? charge.el : null,
         // The price, folded away until she asks for it (25 Sep 2026). It lives INSIDE
@@ -3649,9 +3697,15 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             // money nobody has been asked for yet (17 Sep 2026 — the same rule setStage
             // follows).
             const paidAtNow = new Date().toISOString();
+            // The time the van collects from her (v341), read off the BOX like the note and the number
+            // above it. Written only when the box was drawn — this card is opened on a self-collect
+            // order too, and a card with no van on it has no business deleting a key it never asked
+            // about. Emptying it DELETES the key, the same rule the other two cards follow.
+            const pickupTime = pickup ? pickup.value.trim() : "";
             for (const o of group.orders) {
               o.note = note.value.trim();
               o.trackingNo = number;
+              if (pickup) { if (pickupTime) o.pickupTime = pickupTime; else delete o.pickupTime; }
               if (method) {
                 o.paidReceived = true;
                 o.paidMethod = method;
