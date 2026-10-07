@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v345)
+# Jienluv2bake — change history (v54 → v346)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v346, THE SHOP'S SPARE NUMBER WAS SOMEBODY ELSE'S (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**The second half of the soft-launch pass. Nothing you can see changes on any screen you use.**
+
+**What was wrong.** The shop carries a **spare copy** of your settings — the number to message, the menu,
+the delivery days — for the case where the published settings cannot be reached. **The spare copy's
+WhatsApp number was not yours.** It held __60123456789__, which is the example number written in the notes
+above it — a real number, belonging to a stranger.
+
+**You would never have seen it, and that is the problem.** The published settings override the spare copy,
+so the shop has been showing your real number all along — I read the live shop's own settings to be sure.
+**The spare copy is what a customer gets at the one moment it matters: when the published settings cannot
+be reached, which is also the moment an order cannot be placed.** A customer whose order had just failed
+was being handed a stranger's WhatsApp number instead of yours.
+
+**And the price in that spare copy was wrong.** Focaccia sat there at **RM15** while your homepage and the
+live shop both say **RM16**. A customer who landed on the spare copy would have been quoted a figure you do
+not charge. Corrected to RM16.
+
+**What is deliberately NOT changed, and why.** The spare copy's menu keeps **two products**, and one of them
+is a Sandwich the shop does not currently sell. That is left alone on purpose: this file is described in its
+own header as **the starting point** as well as the offline fallback, so its menu is a **sample that shows the
+shape** rather than a live copy of your published one. **If you would rather it listed exactly what you sell
+today — one focaccia — say so and it is a two-line change**, but it changes what four tests in the shop's
+suite use as their fixture, so it is worth doing deliberately rather than as a side effect. The shop's name,
+tagline, delivery days, 6:00PM cut-off and day capacity in that spare copy all **already match what is
+published** — each one was checked against the live shop rather than assumed.
+
+**Nothing else moves.** No SQL, no Edge Function, no upload. Your orders, customers, prices and days are
+untouched, and the shop's live settings are unchanged — this is the spare copy underneath them.
 
 **07 Oct 2026 — engine v345, THE TRACK PAGE STOPPED HANDING OUT EVERY CUSTOMER'S NAME AND ADDRESS
 (⚠️ THERE IS A DATABASE STEP THIS TIME — RUN THE SQL BEFORE YOU PUSH).**

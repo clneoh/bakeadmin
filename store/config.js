@@ -7,7 +7,15 @@
 export const CONFIG = {
   // Her WhatsApp number: country code first, DIGITS ONLY, no "+", no spaces.
   // Malaysia: 012-345 6789 → "60123456789"
-  whatsapp: "60123456789",
+  //
+  // ⚠️ THIS MUST BE HER REAL NUMBER, AND IT WAS NOT (v346). It held the example
+  // number from the notes above — 60123456789, which belongs to somebody else.
+  // This file is only the fallback, so the published settings normally cover it;
+  // but it is the fallback for the WORST moment, because the shop falls back to
+  // it exactly when the published settings cannot be reached, which is also when
+  // the order cannot be placed. A customer was being handed a stranger's
+  // WhatsApp at the one moment she most needed to reach the bakery.
+  whatsapp: "60169601268",
 
   // The name customers see — her bakery name.
   name: "Jienluv2bake",
@@ -39,8 +47,16 @@ export const CONFIG = {
   },
 
   // What's on sale. price is in RM. unit is a short label (loaf / piece / box).
+  //
+  // ⚠️ THE PRICE WAS WRONG (v346). Focaccia sat here at RM15 while the homepage
+  // and the live shop both say RM16 — corrected to match. This file is the
+  // STARTING POINT and the offline fallback, so it is a sample menu rather than a
+  // copy of the published one, and the sample keeps two products to show the
+  // shape. ⚠️ But a sample that names a real product must carry that product's
+  // real price, or a customer who lands on the fallback is quoted a figure she
+  // does not charge.
   products: [
-    { name: "Focaccia", price: 15, unit: "loaf" },
+    { name: "Focaccia", price: 16, unit: "loaf" },
     { name: "Sandwich", price: 8, unit: "piece" },
   ],
 

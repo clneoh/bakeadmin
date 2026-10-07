@@ -72,6 +72,27 @@ function confirmLines() {
   return registry["confirm-msg"].children.map((n) => (n.children[0] ? n.children[0].text : n.textContent));
 }
 
+// ── the spare copy of the shop's settings has to be REAL (v346) ──────────────
+// store/config.js is only a fallback — the published settings override it — so a
+// fault in it is invisible for as long as the cloud answers. It is also what the
+// shop shows at the one moment it matters: when the published settings cannot be
+// reached, which is when an order cannot be placed either. It shipped the notes'
+// own EXAMPLE WhatsApp number, 60123456789, which belongs to a stranger, and a
+// menu with a product and a price the shop does not sell. Neither could be seen
+// on any screen while the cloud was up.
+test("the shop's fallback settings are real, not the notes' examples", () => {
+  assert.notEqual(CONFIG.whatsapp, "60123456789",
+    "the fallback WhatsApp number is her real number, not the example written in the comment above it");
+  assert.match(String(CONFIG.whatsapp), /^60\d{8,10}$/,
+    "and it is a Malaysian number in the shop's own digits-only format");
+  assert.ok(CONFIG.products.length > 0, "and there is a menu to fall back to at all");
+  for (const p of CONFIG.products) {
+    assert.ok(String(p.name || "").trim(), "every fallback product is named");
+    assert.ok(Number.isFinite(p.price) && p.price > 0,
+      `and carries a real price: ${p.name} is ${p.price}`);
+  }
+});
+
 test("buildMessage produces a tidy WhatsApp order", () => {
   const cfg = { name: "Jienluv2bake", products: [{ name: "Focaccia", price: 15 }] };
   const order = {
@@ -1007,7 +1028,8 @@ test("WhatsApp only opens as a fallback when the order could NOT reach the app",
     document.getElementById("whatsapp-input").value = "60123456789";
     await registry["order-btn"].onclick();
     assert.equal(opened.length, 1, "WhatsApp opens only when the app could not be reached");
-    assert.ok(String(opened[0]).startsWith("https://wa.me/60123456789?text="), "falls back to the configured bakery number");
+    assert.ok(String(opened[0]).startsWith(`https://wa.me/${CONFIG.whatsapp}?text=`),
+      "falls back to the configured bakery number");
     assert.ok(decodeURIComponent(opened[0]).includes("New order"), "the message carries the order details");
     assert.equal(registry["order-btn"].disabled, false, "button is usable again so the customer can retry");
   } finally {
