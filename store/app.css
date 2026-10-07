@@ -642,20 +642,33 @@ button.prod-next.off::after { content: ""; }
    ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order.
    ⚠️ THE LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
    starting point. It matches the size the v348 block used. */
-/* The wrapper is the NOTICE ZONE. The words and the panel are both inside it, which is
-   what makes "click away to close" mean what it should: a press on the words, on the
-   paragraphs, or on the WhatsApp link inside the panel is a press INSIDE the notice and
-   leaves it open; only a press outside the wrapper closes it. */
-.order-notice-wrap { position: relative; }
-/* ⚠️ THE PANEL FLOATS; IT DOES NOT PUSH. It is absolutely placed above the line, so
-   opening the notice never moves Place order under the customer's thumb — the bug a
-   growing bar would cause at the exact moment they are about to tap it. */
+/* .order-notice-wrap carries NO styling of its own. It exists to be the ZONE for "click away
+   to close" (see store/app.js): the words are inside it, and the panel — which used to be — is
+   now checked separately, because it has moved out to the bar. */
+
+/* ⚠️ THE PANEL FLOATS ABOVE THE WHOLE BAR (v357), AND IT DOES NOT PUSH.
+   Its parent is .order-bar, which is `position: fixed` and so is the containing block; that
+   makes `bottom: 100%` land the panel's lower edge exactly on the bar's top edge.
+   ⚠️ IT USED TO SIT INSIDE .order-notice-wrap, directly above the words — which put it ON TOP
+   OF THE ROW, and that row is the Place order button. Her words: "can the pop up be open
+   higher not to block the Placae Order button". The button must stay in sight while the
+   notice is read.
+   left/right are 16px because that is the bar's own horizontal padding, so the panel lines up
+   with the button and the words rather than with the bar's outer edges.
+   max-height keeps it on screen on a short phone; it scrolls inside rather than running off the
+   top. ⚠️ The cap is MEASURED from the tallest language, not picked: at 375px wide the notice is
+   English 405px, Chinese 371px, BAHASA MALAYSIA 518px, so a 360px cap was cutting 45px off the
+   Malay one and making a 4-point notice scroll. 520px shows all three whole, and the
+   `calc(100vh - 160px)` term is what stops it running off the top on a short phone (160px covers
+   the bar's own height plus the gap and a little air). */
 .privacy-sheet {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 16px;
+  right: 16px;
   bottom: calc(100% + 6px);
   z-index: 1;
+  max-height: min(520px, calc(100vh - 160px));
+  overflow-y: auto;
   padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--line);

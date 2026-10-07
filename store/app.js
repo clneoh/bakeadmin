@@ -3690,8 +3690,15 @@ if (typeof document !== "undefined" && document.documentElement) {
     // The press that OPENED it must not be the press that closes it: this runs on the
     // document, in the same bubble, after the button's own — and the wrapper test is what
     // lets the button through, because the button is inside the zone.
+    //
+    // ⚠️ "AWAY" IS OUTSIDE BOTH, THE WORDS **AND** THE PANEL. Since v357 the panel is a child
+    // of the BAR rather than of #privacy-zone — it is positioned against the bar so it opens
+    // ABOVE Place order instead of on top of it. Without the second test, a press on the
+    // WhatsApp link inside the panel would count as "away" and shut the notice being read.
     document.addEventListener("click", (e) => {
-      if (isOpen() && !privacyZone.contains(e.target)) setOpen(false);
+      if (isOpen() && !privacyZone.contains(e.target) && !privacySheet.contains(e.target)) {
+        setOpen(false);
+      }
     });
 
     document.addEventListener("keydown", (e) => {

@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v356)
+# Jienluv2bake — change history (v54 → v357)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v357, THE NOTICE OPENS ABOVE THE BUTTON, NOT ON TOP OF IT (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"can the pop up be open higher not to block the Placae Order button"__
+
+**What changed, and it is where the panel hangs from.** The panel opened directly above the *line*
+it belongs to — which put it **on top of the row**, and that row is **Place order**. It now opens
+above the **whole bar**:
+
+- its parent is the **bar** rather than the words, so it hangs off the bar's top edge;
+- **Place order stays in sight** while the notice is read — which matters most at the moment a
+  customer is deciding whether to tap it;
+- and it still **floats** — the bar does not grow, so the button does not move either.
+
+**One thing this made me change, and it would have been a bug.** "Click away to close" was decided
+by asking whether the press landed outside the *words* wrapper. The panel is no longer inside that
+wrapper, so **a press on the WhatsApp link inside the panel would have counted as "away"** and shut
+the notice the customer was reading. "Away" now means outside **both** the words and the panel.
+
+**It also gained a ceiling, measured rather than picked.** At 375px wide the notice is English
+405px, Chinese 371px, **Bahasa Malaysia 518px** — so the panel fits all three whole instead of
+scrolling, and a viewport term stops it running off the top on a short phone.
+
+**AND ONE THING TO KNOW ABOUT THE v356 COMMIT YOU PUSHED.** It contains the first half of this
+change by accident — the markup that moves the panel, without the code that goes with it — because
+the edit was already on disk when the commit was made. **In that pushed state the notice closed
+itself whenever you tapped anything inside it, including the WhatsApp number**: the "click away"
+test still believed the panel was part of the words. Nothing else broke, and this version is the
+fix.
+
+**⚠️ FOR NEXT TIME:** say so when you are about to commit, or commit *before* asking for the next
+change. My edits land on disk as I make them, and a commit made in between sweeps up whatever is
+half-finished.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**.
 
 **07 Oct 2026 — engine v356, THE NOTICE NOW SAYS HOW LONG THE DETAILS ARE KEPT (no database step,
 nothing to upload — pushing this one is the whole of it).**
