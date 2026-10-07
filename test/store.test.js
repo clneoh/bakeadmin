@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 // Minimal DOM shim so store/app.js can render at import time.
 //
@@ -756,12 +757,31 @@ test("mergeStorefront sorts occasions by start date and trims the label", () => 
   assert.deepEqual(out.occasions.map((o) => o.from), ["2026-09-16", "2026-10-31"]);
 });
 
-// PostgREST returns ONLY the columns named in `select`, and a stub that answers
+// A lookup returns ONLY the columns its column list names, and a stub that answers
 // with the whole row regardless is exactly how a missing column hides: the card
 // draws a field the real server would never have sent. Every track stub goes
 // through this so the column list is part of what is being tested (19 Sep 2026).
+//
+// ⚠️ THE LIST MOVED IN v345, AND SO DID THE THING THAT READS IT. The lookup used to
+// be a PostgREST select and this read the `select=` out of the URL. It is now the
+// `track_order` function in supabase/tracking.sql, because a `using (true)` read
+// policy on the table handed every customer's name and delivery address to anyone
+// holding the (public) anon key. A function returns only what its `returns table`
+// names, so the column list is read out of the SQL file instead — and it is still
+// part of what is being tested, for exactly the same reason as before.
+const trackCols = (() => {
+  const sql = readFileSync(new URL("../supabase/tracking.sql", import.meta.url), "utf8");
+  const declared = sql.slice(sql.indexOf("returns table"), sql.indexOf("language sql"));
+  return new Set([...declared.matchAll(/^\s*([a-z_]+)\s+(?:text|boolean|numeric|timestamptz)/gm)]
+    .map((m) => m[1]));
+})();
+
 const onlySelected = (url, row) => {
-  const sel = /[?&]select=([^&]*)/.exec(String(url))?.[1];
+  const href = String(url);
+  if (href.includes("/rest/v1/rpc/track_order")) {
+    return Object.fromEntries(Object.entries(row).filter(([k]) => trackCols.has(k)));
+  }
+  const sel = /[?&]select=([^&]*)/.exec(href)?.[1];
   if (!sel || sel === "*") return row;
   const keep = decodeURIComponent(sel).split(",").map((s) => s.trim());
   return Object.fromEntries(Object.entries(row).filter(([k]) => keep.includes(k)));
@@ -784,10 +804,10 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
     assert.equal(urls.length, 2, "every lookup hits the network — nothing is cached");
     assert.equal(urls[0].opts.cache, "no-store", "cache: no-store so status is always fresh");
     assert.equal(urls[1].opts.cache, "no-store");
-    assert.ok(String(urls[0].url).includes("confirmed_sent,paid_received"),
+    assert.ok(trackCols.has("confirmed_sent") && trackCols.has("paid_received"),
       "the lookup fetches the stage flags so the map matches the app's");
-    assert.ok(/[?&]select=[^&]*\btracking_no\b/.test(String(urls[0].url)),
-      "and asks for tracking_no by name — PostgREST sends only the columns listed, so a number the baker typed is invisible to the card until this names it");
+    assert.ok(trackCols.has("tracking_no"),
+      "and asks for tracking_no by name — the lookup sends only the columns listed, so a number the baker typed is invisible to the card until this names it");
   } finally {
     globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   }
@@ -1122,9 +1142,9 @@ test("a courier charge the customer bears is named on the card, and the lookup a
   };
   try {
     await trackOrder("A3F9C2");
-    assert.ok(/[?&]select=[^&]*\bcourier_fee\b/.test(urls[0]),
-      "the lookup names courier_fee — PostgREST sends only the columns listed, so the charge the baker typed is invisible to the card until this asks for it");
-    assert.ok(/[?&]select=[^&]*\bcustomer\b/.test(urls[0]),
+    assert.ok(trackCols.has("courier_fee"),
+      "the lookup names courier_fee — it sends only the columns listed, so the charge the baker typed is invisible to the card until this asks for it");
+    assert.ok(trackCols.has("customer"),
       "and customer, for the same reason: the name was in the row all along and the card never received it");
     const fee = deepByClass(box, "track-fee");
     assert.ok(fee, "the charge is named on its own line, above the total that includes it");
@@ -1169,8 +1189,8 @@ test("a Courier COD charge tells the customer to pay the courier, not the baker"
   };
   try {
     await trackOrder("A3F9C2");
-    assert.ok(/[?&]select=[^&]*\bcourier_cod\b/.test(urls[0]),
-      "the lookup names courier_cod — PostgREST sends only the columns listed, so the card can never know the charge is COD until this asks for it, and would word it as money owed to the baker");
+    assert.ok(trackCols.has("courier_cod"),
+      "the lookup names courier_cod — it sends only the columns listed, so the card can never know the charge is COD until this asks for it, and would word it as money owed to the baker");
     const fee = deepByClass(box, "track-fee");
     assert.ok(fee, "the charge is still named in full — the customer has to know what the courier will ask for");
     assert.equal(rowLabel(fee), "Courier charge — COD, pay the courier on delivery",

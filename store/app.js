@@ -3013,19 +3013,27 @@ export async function trackOrder(code) {
     // after the baker updates it) always gets the current status, never a
     // cached one from the phone's HTTP cache.
     //
-    // PostgREST returns ONLY the columns named in `select`, and paintTrack draws
-    // the courier's number, the courier's charge and whether that charge is COD —
-    // so tracking_no, customer, courier_fee and courier_cod all have to be asked for
-    // here or the customer's half of v97/v98 and of the courier charge is dead: the
-    // row carries the column, the card just never receives it (19 Sep 2026).
+    // ⚠️ THE LOOKUP IS A FUNCTION, NOT A TABLE READ (v345, 7 Oct 2026). It used to
+    // be a PostgREST select on order_tracking, and that table was readable by
+    // ANYONE: the anon key is public by design, and a `using (true)` read policy
+    // meant a single request returned every customer's name and delivery address
+    // — the shop asked for one code, but nothing enforced it. RLS cannot express
+    // "only if you know the code", because a policy sees a row and never the
+    // question. So the match moved into supabase/tracking.sql's `track_order`
+    // function, which returns ONE row and is the only door left on that table.
     //
-    // The five courier_* trip columns are on the same footing (v190): a column the
-    // backoffice publishes and this list does not name is a line the customer's card
-    // can never draw, and it fails silently — the row would arrive complete and the
-    // card would simply be missing a section, with nothing anywhere saying why.
-    const res = await fetch(
-      `${base}/rest/v1/order_tracking?select=status,confirmed_sent,paid_received,delivery,items,total,tracking_no,courier_fee,courier_cod,promo_code,promo_rm,customer,updated_at,courier_name,courier_phase,courier_driver,courier_plate,courier_phone&code=eq.${clean}&limit=1`,
-      { headers: { apikey: sb.anonKey }, cache: "no-store" });
+    // ⚠️ AND THE COLUMN LIST MOVED WITH IT — it is now the `returns table (...)`
+    // in that function, and it is still load-bearing for the same reason it
+    // always was: PostgREST returns only what that list names, and a column the
+    // backoffice publishes which the list omits is a line this card can never
+    // draw, failing silently with nothing anywhere saying why. test/store-trip
+    // reads the SQL file to prove every column the card needs is named there.
+    const res = await fetch(`${base}/rest/v1/rpc/track_order`, {
+      method: "POST",
+      headers: { apikey: sb.anonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: clean }),
+      cache: "no-store",
+    });
     const rows = res.ok ? await res.json() : null;
     const row = Array.isArray(rows) && rows[0];
     lastTrack = row ? { kind: "row", code: clean, row } : { kind: "notfound", code: clean };

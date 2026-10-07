@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v344)
+# Jienluv2bake — change history (v54 → v345)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v345, THE TRACK PAGE STOPPED HANDING OUT EVERY CUSTOMER'S NAME AND ADDRESS
+(⚠️ THERE IS A DATABASE STEP THIS TIME — RUN THE SQL BEFORE YOU PUSH).**
+
+**Your words:** __"what housekeeping needed before i soft launch the app"__
+
+**This one is not housekeeping. It is the answer to your question, and it was the first thing found.**
+
+**What was wrong.** Your order-tracking table — the one the customer's "Track your order" card reads
+from — carried a read rule that said __every row is public__. Not "a customer may read their own order":
+**every row, to anyone who asked.** The key that reads it is public on purpose — it has to be, it ships
+inside the shop's own page — so a stranger who opened your shop and looked at its source could ask for
+**the whole table at once and receive every customer's name and delivery address**, along with the
+courier driver's name and phone number, which sit on the same row.
+
+**Your shop only ever asked for one order**, by its code, and that part was built correctly. But **asking
+is not enforcing.** Nothing stopped a caller from simply not asking for one — and the page you wrote
+cannot be the thing that protects the data, because anyone can write a different page.
+
+**Why it could not be fixed with a rule.** A database read rule can look at a **row**, but it can never
+look at **what the caller came to ask for** — and "only if you know the code" is a statement about the
+question, not about the row. So the read has moved into a small **function**: it takes the code, matches
+it, and returns **one row**. The table itself is now readable by **nobody**. There is one door left, and
+it only opens on an order whose code you already have.
+
+**⚠️ HOW TO DEPLOY THIS ONE — the order matters.** This is the first version in a while with a real
+database step:
+
+1. **Run supabase/tracking.sql in Supabase first** (Dashboard → SQL → New query → Run). It is safe to
+   re-run — it creates the function and drops the old public rule. **This is the half that actually
+   closes the door.**
+2. **Then push.** The shop's half switches over to the function.
+
+**Between the two, tracking will not work** — so do them one after the other rather than leaving a gap.
+**Nobody is affected while you do it**: the shop has never been shown to an outsider, which is exactly
+why this is the right week to change it.
+
+**What you will and will not see.** Nothing on your own screens changes at all, and the customer's card
+looks and reads exactly as it did — same status, same delivery line, same courier details, same money.
+The only difference is that the row reaches the card through the function instead of off the table.
+
+**Nothing else is touched.** Your orders, customers, prices and days are untouched. No Edge Function
+needs uploading. The suite is **2,858 tests, all green**, and the new guards were **bitten**: put the old
+public rule back and a test fails by name saying the table is public again; take a column out of the
+function's list and the card's own tests fail, because the card really does go without it.
+
+**And the changelog's own asterisks are corrected in the same pass.** Seven places in this document —
+the newest being v344's own entry, at the top — wrote emphasis with a single asterisk, which the PDF
+prints **literally** rather than as bold. Found by reading the built PDF back, not by looking at the
+markdown, which is why it survived. **Fourteen marks in seven places, now bold.** The words are
+unchanged; only how they print.
 
 **07 Oct 2026 — engine v344, HOUSEKEEPING: A DEAD LINE REMOVED (no database step, nothing to upload —
 pushing this one is the whole of it).**
@@ -10,8 +61,8 @@ pushing this one is the whole of it).**
 **Nothing you can see has changed**, and this entry is here so the version list stays complete rather than
 leaving a gap.
 
-**What went:** the pickup reminder still held a line that said *"Packed and will be sent for delivery on
-<the bake day>"*. **It could not be reached by any order** — it has been dead since v340, when you decided a
+**What went:** the pickup reminder still held a line that said __"Packed and will be sent for delivery on
+<the bake day>"__. **It could not be reached by any order** — it has been dead since v340, when you decided a
 courier customer should be told nothing at Packed at all — and it also named the **bake** day, which is the
 thing v337 to v343 spent a day and a half taking off every other surface. **It is deleted, so it cannot
 mislead anyone reading the code later, and a test now holds the rule it belonged to:** the pickup reminder
@@ -276,8 +327,8 @@ file and the dead signpost; then restored byte-identically (sha256 checked).
 - **The customer's own words stay.** Your shop page, its calendar, its "Your delivery day: Wed, 16 Sep"
   line, and the notice rule ("Orders close (days before delivery)") are all unchanged — a stranger reads
   those, and this rename was about **your** screens.
-- **One money line still says "delivery day"** — *"what is still to collect is counted by delivery day,
-  because that is when you hand it over."* **Deliberate:** on a courier order the money is collected when
+- **One money line still says "delivery day"** — __"what is still to collect is counted by delivery day,
+  because that is when you hand it over."__ **Deliberate:** on a courier order the money is collected when
   the van delivers, which is not the bake day. Renaming that word would have made the sentence untrue.
 
 ⚠️ **STILL OPEN, and it is the same complaint: the customer's tracking card.** The link in every
@@ -300,16 +351,16 @@ read:
 - **The friend's** — RM3 off __their__ first order. That is the one I fixed in v322.
 - **Yours** — the RM3 you earn for bringing someone in. **Nothing ever took that one off anything.**
 
-**So when you pressed "Apply coupon" on your own order**: the coupon was used up, the app said *"already
-taken off this order"* — **and the price did not move.** The coupon was spent and gave you nothing.
+**So when you pressed "Apply coupon" on your own order**: the coupon was used up, the app said __"already
+taken off this order"__ — **and the price did not move.** The coupon was spent and gave you nothing.
 
 **Why the two behave differently, and it is a real difference.** The friend's coupon is earned and
 spent **on the same order**, so the order is written on it. Yours is earned on **the friend's** order
 and spent on **one of yours, later** — so the order number written on it is the wrong one to look for.
 **The app was looking for the friend's kind of coupon and never for yours.**
 
-**Now fixed.** Pressing **Apply coupon** on your own order marks the coupon *and records which order you
-spent it on* — so the money function can find it, and **the Total comes off.** Your receipt and the
+**Now fixed.** Pressing **Apply coupon** on your own order marks the coupon __and records which order you
+spent it on__ — so the money function can find it, and **the Total comes off.** Your receipt and the
 customer's message also now call it a **bring-a-friend reward** rather than "the one you were sent",
 because it is your own coupon on your own order.
 
@@ -728,9 +779,9 @@ Merge** — that is what it is for.
 **Your data is untouched.** No SQL, no order, product, price or bake day moved. The suite is **2,804
 tests, all green**.
 
-*(One note: this commit carries two version numbers — v323 and v324 — because the tracking-card line
+__(One note: this commit carries two version numbers — v323 and v324 — because the tracking-card line
 and these two were built back to back and both were still uncommitted. The Engine on your More screen
-reads **324**.)*
+reads **324**.)__
 
 **05 Oct 2026 — engine v323, THE TRACKING CARD SAYS WHY THE TOTAL IS LOWER (no database step, nothing
 to upload — pushing this one is the whole of it).**
@@ -818,8 +869,8 @@ frame by frame at a tenth of a second: the message changed **between two frames*
 half-way picture in between. The offers were changing the whole time. **What was missing was the
 animation — and the reason is a setting on your Mac.**
 
-**Your Mac has "Reduce motion" turned on.** That is an accessibility setting in *System Settings →
-Accessibility → Display*. When it is on, the app is not allowed to animate, so it was showing you
+**Your Mac has "Reduce motion" turned on.** That is an accessibility setting in __System Settings →
+Accessibility → Display__. When it is on, the app is not allowed to animate, so it was showing you
 each new message **instantly, with nothing to see** — which is exactly what "no effect" looks like.
 The message __was__ changing every 2 seconds; it just arrived with no movement at all.
 
@@ -1508,8 +1559,8 @@ load line is untouched. The suite is **2,712 tests, all green**, including three
 every one was watched going red with the fault put back. **One of them taught something worth
 keeping:** the check that a doorstep never shows hours stayed GREEN under the first fault I tried
 — because reading a null Point already gives nothing — so the fault was not the one I had chosen.
-Re-pointed at the mistake that would really do it, *taking the hours from whatever Point happens
-to be first rather than from this row's*, it turns red by its own name.
+Re-pointed at the mistake that would really do it, __taking the hours from whatever Point happens
+to be first rather than from this row's__, it turns red by its own name.
 
 **04 Oct 2026 — engine v304, THE COLLECTION WINDOW (no database step, nothing to upload —
 pushing this one is the whole of it).**

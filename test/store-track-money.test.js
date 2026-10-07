@@ -94,7 +94,10 @@ globalThis.location = { search: "" };
 const TRACK_ROW = { row: null };
 globalThis.fetch = async (url) => {
   const href = String(url);
-  if (href.includes("/rest/v1/order_tracking")) {
+  // v345: the tracking lookup is a function, not a table read — the table stopped
+  // being readable by the public. A stub left on the old URL would answer nothing
+  // and every money assertion below would pass against an empty card.
+  if (href.includes("/rest/v1/rpc/track_order")) {
     return { ok: true, json: async () => (TRACK_ROW.row ? [TRACK_ROW.row] : []) };
   }
   return { ok: true, json: async () => [] };
