@@ -63,7 +63,14 @@ export function receiptStatus(order) {
   if (n) return receiptLabel(order);
   // ⚠️ NO NUMBER IS NOT AN ERROR, AND NOT A BLANK. There are two honest reasons for it
   // and they read differently, so neither is guessed at.
+  //
+  // ★★ AND THE PAID LINE BLAMES THE NUMBER, NEVER THE ORDER (v365). It used to read "this
+  // order has not reached the bakery's records", which was wrong twice over: the order is
+  // right here on the screen, and the case it was written for — a receipt drawn before this
+  // feature existed — has nothing to do with the records at all. What has not happened is
+  // the DRAWING of a number, and that is what it now says. It is reached only when a claim
+  // was just attempted and failed, so the advice it gives is the one that works: try again.
   return order.paidReceived
-    ? "No receipt number yet — this order has not reached the bakery's records. Open this again once the phone is back online."
+    ? "No receipt number yet — the number could not be drawn from the bakery's records. Open this invoice again once the phone is back online."
     : "No receipt number yet — a receipt number is issued when the money is recorded as received.";
 }

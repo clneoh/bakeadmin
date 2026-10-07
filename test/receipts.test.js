@@ -63,10 +63,17 @@ test("the receipt line carries BOTH numbers, because each does a different job",
 });
 
 test("no number is not a blank — it says WHY, and the two reasons read differently", () => {
-  // Paid but unclaimed: the claim has not reached the bakery's records. This is the state a
-  // phone with no signal leaves behind, and she has to be able to tell it from the other one.
+  // Paid but unclaimed: the number could not be DRAWN from the bakery's records. This is the
+  // state a phone with no signal leaves behind, and she has to be able to tell it from the
+  // other one.
   const paid = receiptStatus({ paidReceived: true });
-  assert.match(paid, /has not reached the bakery's records/);
+  assert.match(paid, /the number could not be drawn from the bakery's records/);
+  // ⚠️ AND IT MUST NOT BLAME THE ORDER (v365). It used to read "this order has not reached
+  // the bakery's records", which is false in the ordinary case — the order is right there on
+  // the screen — and doubly false for an order paid before the feature existed. The thing
+  // that has not happened is the drawing of the NUMBER.
+  assert.equal(/order has not reached/.test(paid), false,
+    `the paid line blames the order rather than the number: "${paid}"`);
   // Not paid at all: a receipt number is for money received, so there is nothing to be late.
   const unpaid = receiptStatus({ paidReceived: false });
   assert.match(unpaid, /issued when the money is recorded/);

@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v364)
+# Jienluv2bake — change history (v54 → v365)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v365, A REMOVED ORDER'S RECEIPT NUMBER IS NOW SAID OUT LOUD (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"what happen with old order before today"__ and __"i happen to enter a new order and pay
+on it then delete the order, whay happen, it took inv 001, then i go back to aged order and click inv, it
+then took inv002, even the 1st inv already deleted?"__
+
+**★ FIRST: what you saw is CORRECT, and it is the whole point of a numbered series.** A receipt number is
+issued the moment you record the money — not when the order is taken, and not when the paper is printed.
+Removing the order afterwards does not give the number back, because re-using a serial would put **two
+different sales under one number**, which is the one thing a numbered series exists to prevent. So
+**#000001 stays in your receipt records as a void receipt, and the next receipt takes #000002.** That is
+what an auditor wants to see. Nothing is broken and nothing is lost.
+
+**⚠️ WHAT WAS WRONG IS THAT NOTHING TOLD YOU.** Removing a paid, numbered order asked a bare
+__"Remove order ...?"__ and said nothing about the number — so the one thing on that screen you cannot undo
+was the one thing the screen did not mention. **Now, when the order you are removing has a receipt number,
+the question names it and says what happens:** that the number was issued when the payment was recorded,
+that removing the order does **NOT** cancel it, that it stays in your receipt records, and that the next
+receipt takes the next number. **An order with no receipt number is removed exactly as before, with no
+mention of receipts** — a warning shown where it does not apply is noise, and noise is what makes a real
+one unreadable.
+
+**★ AND SECOND: what happens to an order paid before receipts were numbered.** Nothing was backfilled and
+nothing will be — those orders simply sit **outside the series**, which is not a gap in it. They are
+already handled, and here is the whole of it: **an old paid order gets its number the first time you press
+Invoice.** But its unnumbered note was **wrong**, and this release fixes the wording. It used to read
+__"this order has not reached the bakery's records"__, which is false twice over — the order is right
+there on the screen, and for an order paid before the feature existed the records have nothing to do with
+it. The thing that has not happened is the **drawing of the number**, so that is what it now says, and the
+advice it gives is the one that works: open the invoice again once the phone is back online.
+
+**Still open, and said rather than hidden:** there is **no screen that shows you the receipt register** —
+the void receipt from a removed order is recorded in your Supabase project but you cannot look at it from
+the app. Worth building before you pass RM150,000; ask when you want it.
+
+**No SQL, no Edge Function, no upload.** The suite is **2,900 tests, all green** (up two), and all three
+new rules were **bitten**: put the old wording back and one test fails by name; make the remove question
+forget the number and one fails; show the receipt sentence on an order that never had a number and one
+fails.
 
 **08 Oct 2026 — engine v364, THE APP NOW SAYS SO WHEN A SHOP ORDER IS WAITING (no database step, nothing
 to upload — pushing this one is the whole of it).**
