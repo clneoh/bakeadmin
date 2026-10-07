@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v352)
+# Jienluv2bake — change history (v54 → v353)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v353, THE NOTICE SAYS "WE USE", NOT "WE COLLECT" — AND STOPS CLAIMING NOBODY
+ELSE SEES YOUR DETAILS (no database step, nothing to upload — pushing this one is the whole of
+it).**
+
+**Your words:** __"as asian, we are sensitive to when you said you collect, that mean you keep it,
+can we say like 'We use your name....... that the only'"__
+
+**1 · "Collect" is gone from the whole panel.** The first point opened *"We collect your name, your
+WhatsApp number and, for a delivery, your address and door pin."* — and "collect" is data-protection
+jargon that lands, in this part of the world, as *"they are taking it and keeping it."* It now opens
+on **use** and carries your own limit:
+
+- **was:** We collect your name, your WhatsApp number and, for a delivery, your address and door pin.
+  We use them only to make your order, get it to you, and contact you about it.
+- **now:** We use your name and your WhatsApp number **only** to make your order, get it to you,
+  and talk to you about it. For a delivery we also need your address and the pin on your door.
+
+**Nothing legal was lost.** The Act wants the notice to **name the data** and **say why it is used**
+— it does not require the word "collect". The name, the number, the address and the pin are all still
+named, and so is the purpose. (What would understate it is dropping the *naming* too — "we use your
+details" — and that is the line to keep.)
+
+**2 · And the second point was not true.** It read *"The driver is given what they need to deliver.
+Nobody else sees your details, and we never sell them."* **Three other parties were seeing them**, all
+of them traceable in the code:
+
+- **the courier** is given the customer's **name, phone number and address** to book the trip
+  (`admin/js/courier_job.js`);
+- **the alert that pings your phone** carries the customer's **name, WhatsApp number, items, delivery
+  day, total, note — and for a delivery, their address** — as plain text through a push service
+  (`supabase/order_alerts.sql`);
+- **WhatsApp** carries the confirmation and the payment QR to them.
+
+So it now says who, in plain words and with **no company name in it** — which is the **class** of
+third parties the Act asks you to state:
+
+> To bring your order to you, the driver is given your name, number and address. Your confirmation
+> reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees them,
+> and we never sell them.
+
+**In all three languages**, as the guidance asks. The heading, the Act line and the contact number are
+untouched.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**.
 
 **07 Oct 2026 — engine v352, THE NOTICE LINK IS NO LONGER RED, AND IT OPENS ON A CLICK (no database
 step, nothing to upload — pushing this one is the whole of it).**

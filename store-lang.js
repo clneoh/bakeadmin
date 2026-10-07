@@ -70,15 +70,21 @@ const en = {
   // NUMBER IS NOT HERE — store/app.js fills it in from the bakery's own setting, so
   // this sentence must end where the number begins.
   // v350 — the notice moved to the ORDER BAR: one line under Place order, and this
-  // panel behind it. The four facts are word-for-word what v348 wrote; only the
-  // heading, the opener and the closing line moved. privacyLead is GONE: the Act no
+  // panel behind it. ⚠️ TWO OF THE FOUR FACTS WERE REWRITTEN AT v353: "we COLLECT your
+  // name..." became "we USE your name... only to...", because "collect" reads to an Asian
+  // ear as "we take it and keep it" (her words: "we are sensitive to when you said you
+  // collect, that mean you keep it"). And "Nobody else sees your details" was simply NOT
+  // TRUE - the driver gets the name, number and address, and the alert that pings her
+  // phone carries them too. Both now name the CLASS of people who handle an order, which
+  // is what s.7 asks for, with no company name in it.
+  // privacyLead is GONE: the Act no
   // longer opens the notice (the Commissioner's own template does not open with the
   // law, and neither do the large platforms) — it closes it instead, on privacyDate.
   privacyLine: "By ordering you agree to our",
   privacyLink: "privacy notice.",
   privacyHead: "How we use your details",
-  privacyWhat: "We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.",
-  privacyWho: "The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.",
+  privacyWhat: "We use your name and your WhatsApp number only to make your order, get it to you, and talk to you about it. For a delivery we also need your address and the pin on your door.",
+  privacyWho: "To bring your order to you, the driver is given your name, number and address. Your confirmation reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees them, and we never sell them.",
   privacyKeep: "They stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.",
   privacyContact: "Ask us any time to see, correct or delete what we hold — WhatsApp",
   privacyDate: "Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.",
@@ -334,8 +340,8 @@ const zh = {
   privacyLine: "下单即表示你同意我们的",
   privacyLink: "个人资料声明。",
   privacyHead: "我们如何使用你的资料",
-  privacyWhat: "我们会收集你的姓名、WhatsApp 号码；如果选择送货，也会收集地址和门口定位。这些资料只用来制作和递送你的订单，以及就订单与你联络。",
-  privacyWho: "司机会收到送货所需的资料，除此之外没有人会看到，我们也绝不会出售你的资料。",
+  privacyWhat: "你的姓名和 WhatsApp 号码，我们只用来制作你的订单、把它送到你手上，以及就订单与你联络。如果选择送货，我们也需要你的地址和门口定位。",
+  privacyWho: "为了把订单送到你手上，司机会收到你的姓名、号码和地址。确认讯息通过 WhatsApp 发给你，订单通知则会传到我们的手机。除此之外没有人会看到，我们也绝不会出售。",
   privacyKeep: "资料保存在我们的订单记录里，存放在安全的云端服务，以及我们自己的手机中（有密码保护）。你可以要求我们删除，我们会删除——但税务局规定必须保留的销售记录除外。",
   privacyContact: "随时可以要求查阅、更正或删除我们持有的资料 —— WhatsApp",
   privacyDate: "依据《2010 年个人资料保护法令》（Act 709）。最后更新：2026 年 10 月 7 日。",
@@ -522,8 +528,8 @@ const ms = {
   privacyLine: "Dengan menempah, anda bersetuju dengan",
   privacyLink: "notis privasi.",
   privacyHead: "Bagaimana kami menggunakan maklumat anda",
-  privacyWhat: "Kami mengumpul nama anda, nombor WhatsApp anda, dan — jika dihantar — alamat serta pin pintu anda. Kami menggunakannya hanya untuk membuat tempahan anda, menghantarnya kepada anda, dan menghubungi anda mengenainya.",
-  privacyWho: "Penghantar diberi apa yang perlu untuk menghantar. Tiada sesiapa lain melihat maklumat anda, dan kami tidak pernah menjualnya.",
+  privacyWhat: "Kami menggunakan nama anda dan nombor WhatsApp anda hanya untuk membuat tempahan anda, menghantarnya kepada anda, dan menghubungi anda mengenainya. Jika dihantar, kami juga perlukan alamat dan pin pintu anda.",
+  privacyWho: "Untuk menghantar tempahan anda, penghantar diberi nama, nombor dan alamat anda. Pengesahan sampai kepada anda melalui WhatsApp, dan notis tempahan masuk ke telefon kami. Tiada sesiapa lain melihatnya, dan kami tidak pernah menjualnya.",
   privacyKeep: "Ia disimpan dalam buku tempahan kami, di perkhidmatan awan yang selamat dan dalam telefon kami sendiri di belakang PIN. Beritahu kami untuk memadamkannya dan kami akan padam, kecuali rekod jualan yang dikehendaki oleh pihak cukai.",
   privacyContact: "Beritahu kami bila-bila masa untuk melihat, membetulkan atau memadam apa yang kami simpan — WhatsApp",
   privacyDate: "Di bawah Akta Perlindungan Data Peribadi 2010 (Akta 709). Kemas kini terakhir: 7 Oktober 2026.",
