@@ -1,8 +1,37 @@
-# Jienluv2bake — change history (v54 → v354)
+# Jienluv2bake — change history (v54 → v355)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v355, THE FIRST LINE SAYS "YOUR DATA" (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"use data instead of particular"__
+
+**What changed, and it is one phrase.** The opening line of the notice named the items it was talking
+about. It does not any more:
+
+- **was:** We use **your name and your WhatsApp number** only to make your order, get it to you, and
+  talk to you about it.
+- **now:** We use **your data** only to make your order, get it to you, and talk to you about it.
+
+**⚠️ AND THE NOTICE STILL NAMES EVERYTHING, which is why this is safe.** The Act asks the notice to
+name the personal data involved — and it does, twice over, in the same panel:
+
+- the **address** and the **pin on the door** are named in the second half of that very line;
+- the **name, number and address** are named again in the next point — *"the driver is given your
+  name, number and address"*.
+
+So nothing went unnamed; only the first sentence stopped repeating the list. **That check is the one
+to make again if this line is ever shortened further** — a notice that names nothing is a different
+thing from a notice whose naming sits one line down.
+
+**In all three languages.** 中文 says 你的资料, Bahasa Malaysia says data anda. The heading, the Act
+line and the contact number are untouched.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**.
 
 **07 Oct 2026 — engine v354, THE NOTICE SAYS "YOUR DETAILS" AGAIN (no database step, nothing to
 upload — pushing this one is the whole of it).**
