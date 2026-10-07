@@ -239,6 +239,23 @@ export function waNumber(n) {
   return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
 }
 
+// The same number, written the way a person reads it: +60 16-960 1268 (v348).
+// Used by the shop's privacy notice, which has to print contact details rather
+// than only build a link. The Malaysian mobile grouping — country code, then the
+// two-digit prefix, then the subscriber number in two groups — which is how the
+// homepage writes it too. Anything that is not an 11-digit Malaysian number is
+// shown as a plain +digits rather than grouped wrongly.
+export function phoneText(n) {
+  // Normalised through waNumber first, so a number typed with a local leading 0
+  // is read the same way the link would build it.
+  const d = waNumber(n);
+  if (!d) return "";
+  if (d.length === 11 && d.startsWith("60")) {
+    return `+${d.slice(0, 2)} ${d.slice(2, 4)}-${d.slice(4, 7)} ${d.slice(7)}`;
+  }
+  return `+${d}`;
+}
+
 // Bring the customer to the day they have just been given: the delivery calendar
 // above the menu, where the chosen day is written out in words. The same idea as
 // the backoffice jumping to an order it was just told about.
@@ -1184,6 +1201,20 @@ export function renderStatic(cfg) {
     const policyText = document.getElementById("policy-text");
     if (policyText) policyText.textContent = value;
     policyBox.hidden = !value;
+  }
+
+  // The contact number on the privacy notice (v348). The sentence around it is
+  // translated with the rest of the page; the NUMBER is not translated, and it is
+  // read from the same setting the order button builds its link from — so changing
+  // it in Settings -> Storefront changes it here as well, and the notice can never
+  // print a number that has been left behind. Hidden if there is no number at all,
+  // which is better than a link to nowhere.
+  const privacyWa = document.getElementById("privacy-wa");
+  if (privacyWa) {
+    const shown = phoneText(cfg && cfg.whatsapp);
+    privacyWa.textContent = shown;
+    privacyWa.href = shown ? `https://wa.me/${waNumber(cfg.whatsapp)}` : "";
+    privacyWa.hidden = !shown;
   }
 
   renderDevFoot(cfg);

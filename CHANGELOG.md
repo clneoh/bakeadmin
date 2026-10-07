@@ -1,8 +1,61 @@
-# Jienluv2bake — change history (v54 → v347)
+# Jienluv2bake — change history (v54 → v348)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v348, THE SHOP NOW TELLS CUSTOMERS HOW THEIR DETAILS ARE USED (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"the privacy notice"__ — and then __"make it a small one in store?"__
+
+**What was missing.** The shop asks a customer for their **name, their WhatsApp number, and for a
+delivery their address and the pin on their door** — and until now it said almost nothing about what it
+does with any of it. One line under the phone field said "we'll never spam you", and that was the whole
+of it. **A customer was handing over their details with no notice at all.**
+
+**What is there now.** A **small notice at the point of collection** — inside the card where the details
+are typed, not tucked away at the foot of the page. **It is written in English, Chinese and Bahasa
+Malaysia**, so a customer reads it in the language they are ordering in. It says:
+
+- **what is collected** — name, WhatsApp number, and for a delivery the address and door pin;
+- **why** — to make the order, get it to you, and talk to you about it;
+- **who sees it** — the driver gets what they need to deliver, nobody else, and it is never sold;
+- **how long** — kept with the order book; ask to delete and it goes, apart from the sales record the
+  tax office requires;
+- **how it is held** — a secure cloud service and your own phones, behind a PIN;
+- **your rights** — ask any time to see, correct or delete it, with **your WhatsApp number**;
+- **when it was last reviewed** — dated, which the guidance asks for.
+
+**★ It is a notice, never a gate. There is no tick box and nothing in it can refuse an order.** A rule
+that blocked a sale you would take by hand is the one thing this app does not do — a customer who taps
+send before reading is still a customer.
+
+**★ And the contact number is deliberately NOT typed into the three translations.** The sentence is
+translated; the number comes from the **same setting the order button builds its link from**, so
+changing it in Settings → Storefront moves both together. A number written by hand into a translated
+string would look right today and be wrong the first time you changed it — and a test now holds that.
+
+**Why this is the shape it is.** Malaysia's PDPA requires a **written notice** of what is done with
+personal data, and the Notice and Choice principle is about a customer being able to make a choice
+**before** they send it — which is why the notice sits beside the fields rather than in a policy page
+they would never scroll to. **The penalty for not having one is up to RM300,000 or two years, or both.**
+The Commissioner's guidance also asks for the notice in **both English and Bahasa Malaysia** — this one
+is in both, and in Chinese as well, because your shop already speaks three languages.
+
+**Two things worth your own eye, and neither is a defect:**
+
+1. **The guidance suggests naming the person in charge of data questions.** This notice names the
+   **bakery** and gives your **WhatsApp number**, not your personal name. Putting your own name on the
+   shop page is your decision, not mine — say the word and it goes in.
+2. **The Chinese and Bahasa are mine.** I wrote them plainly and a test holds that all three languages
+   are really translated, but **have someone you trust read the Chinese and Bahasa once** before a
+   stranger does. If you would rather write them yourself, they are six short strings.
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The suite
+is **2,862 tests, all green**, and the three new guards were **bitten**: leave a language in English and a
+test fails by name; type a number into the translated sentence and two fail; break the number's grouping
+and one fails.
 
 **07 Oct 2026 — engine v347, THE SHOP'S SPARE MENU NOW LISTS ONLY WHAT YOU SELL (no database step, nothing
 to upload — pushing this one is the whole of it).**

@@ -629,6 +629,49 @@ button.prod-next.off::after { content: ""; }
   white-space: pre-line;
 }
 
+/* The small privacy notice at the point of collection (v348). ⚠️ DELIBERATELY QUIET,
+   NOT HIDDEN. It has to be readable where the customer is typing — the PDPA wants them
+   able to make a choice before they send their details — but it must not read as a
+   warning or a wall of small print in front of an order. So: a hairline rule above it
+   to say "this is the small print", muted type, and a little air.
+   ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order. */
+.privacy {
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid #e7dccb;
+}
+.privacy-head {
+  margin: 0 0 7px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #8a7a68;
+}
+.privacy-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #7a6a5c;
+}
+.privacy-list li { margin: 0 0 5px; }
+.privacy-list li:last-child { margin-bottom: 0; }
+/* The number, not a word — so it carries the ink and a tap target worth having. */
+.privacy-wa {
+  color: var(--terra, #c4552f);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 3px 0;
+}
+.privacy-date {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: #9b8b7b;
+}
+
 /* Notice shown when a live refresh had to fix the customer's order — e.g. an
    item sold out (or only a few left) after they added it. Sits above the menu. */
 .menu-note {

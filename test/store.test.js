@@ -59,7 +59,7 @@ globalThis.window = { open() {} };
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, waNumber, parseVia, render } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, waNumber, phoneText, parseVia, render } = await import("../store/app.js");
 const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 // v270: the shop's own line and its refusals, kept as pure functions so they are
@@ -71,6 +71,22 @@ const { STORE } = await import("../store-lang.js");
 function confirmLines() {
   return registry["confirm-msg"].children.map((n) => (n.children[0] ? n.children[0].text : n.textContent));
 }
+
+// ── the privacy notice's contact number (v348) ───────────────────────────────
+// The notice prints a number rather than only building a link, and the number is
+// read from the same setting the order button uses. This is the formatting step:
+// a mis-grouped Malaysian number is the kind of thing that looks like a typo in a
+// document whose entire job is to look trustworthy.
+test("the privacy notice's number is written the way a person reads it", () => {
+  assert.equal(phoneText("60169601268"), "+60 16-960 1268");
+  assert.equal(phoneText("0169601268"), "+60 16-960 1268", "a local number is read the same way");
+  assert.equal(phoneText("+60 16-960 1268"), "+60 16-960 1268", "and one already written out is unchanged");
+  assert.equal(phoneText(""), "", "no number set means nothing to show");
+  assert.equal(phoneText(null), "");
+  // Anything that is not an 11-digit Malaysian number is shown plainly rather than
+  // grouped into a shape it does not have.
+  assert.equal(phoneText("+1 415 555 0100"), "+14155550100");
+});
 
 // ── the spare copy of the shop's settings has to be REAL (v346) ──────────────
 // store/config.js is only a fallback — the published settings override it — so a

@@ -153,6 +153,37 @@ test("the suggestion box is translated in all three languages", () => {
   assert.notEqual(STORE.ms.fbPh, STORE.en.fbPh, "Bahasa Malaysia is translated, not left in English");
 });
 
+// The small privacy notice at the point of collection (v348). The PDPA asks for the
+// notice in BAHASA MALAYSIA as well as English, and a customer who reads the notice
+// in the language they ordered in is the whole point of it — a language left in
+// English would sit inside an otherwise translated card and read as boilerplate
+// nobody wrote for them.
+test("the privacy notice is written in all three languages", () => {
+  const keys = ["privacyHead", "privacyWhat", "privacyWho", "privacyKeep", "privacyContact", "privacyDate"];
+  for (const l of LANGS) {
+    for (const key of keys) {
+      assert.ok(typeof STORE[l][key] === "string" && STORE[l][key].trim(), `${l}.${key} is present`);
+    }
+  }
+  for (const l of LANGS.slice(1)) {
+    for (const key of keys) {
+      assert.notEqual(STORE[l][key], STORE.en[key], `${l}.${key} is translated, not left in English`);
+    }
+  }
+});
+
+// ⚠️ AND THE NOTICE CARRIES NO NUMBER. The sentence ends where the number begins, and
+// store/app.js fills that from the SAME setting the order button builds its link from —
+// so changing the number in Settings → Storefront moves both together, and a number
+// typed into a translated string could never be left behind. A number in here would
+// look correct today and be wrong the first time she changes it.
+test("the privacy notice leaves the contact number to the app", () => {
+  for (const l of LANGS) {
+    assert.equal(/\d{6,}/.test(STORE[l].privacyContact), false,
+      `${l}.privacyContact carries no number — store/app.js fills it from the settings`);
+  }
+});
+
 test("the promo line is translated, not left in English", () => {
   // The line is only ever read by a customer, and only on an order that carried a code,
   // so a language left in English would sit inside an otherwise translated card and read

@@ -63,6 +63,18 @@ const en = {
   whatsappNo: "WhatsApp number",
   whatsPh: "e.g. 012-345 6789",
   waSub: "We use this to confirm your order and send your payment QR — we'll never spam you.",
+
+  // The small privacy notice under the customer's details (v348). The PDPA wants a
+  // customer to be able to make a choice BEFORE sending their details, so the notice
+  // sits at the point of collection and not only in a policy page. ⚠️ THE CONTACT
+  // NUMBER IS NOT HERE — store/app.js fills it in from the bakery's own setting, so
+  // this sentence must end where the number begins.
+  privacyHead: "Your details",
+  privacyWhat: "We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.",
+  privacyWho: "The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.",
+  privacyKeep: "They stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.",
+  privacyContact: "Ask us any time to see, correct or delete what we hold — WhatsApp",
+  privacyDate: "Last reviewed: 7 October 2026.",
   howGet: "How will you get your order?",
   selfCollect: "Self collect",
   courier: "Courier delivery",
@@ -311,6 +323,13 @@ const zh = {
   whatsappNo: "WhatsApp 号码",
   whatsPh: "例如：012-345 6789",
   waSub: "我们会用这个号码确认订单和发送付款二维码，不会拿来 spam 你。",
+
+  privacyHead: "你的资料",
+  privacyWhat: "我们会收集你的姓名、WhatsApp 号码；如果选择送货，也会收集地址和门口定位。这些资料只用来制作和递送你的订单，以及就订单与你联络。",
+  privacyWho: "司机会收到送货所需的资料，除此之外没有人会看到，我们也绝不会出售你的资料。",
+  privacyKeep: "资料保存在我们的订单记录里，存放在安全的云端服务，以及我们自己的手机中（有密码保护）。你可以要求我们删除，我们会删除——但税务局规定必须保留的销售记录除外。",
+  privacyContact: "随时可以要求查阅、更正或删除我们持有的资料 —— WhatsApp",
+  privacyDate: "最后更新：2026 年 10 月 7 日。",
   howGet: "你希望怎样取货？",
   selfCollect: "自取",
   courier: "外送",
@@ -490,6 +509,13 @@ const ms = {
   whatsappNo: "Nombor WhatsApp",
   whatsPh: "cth. 012-345 6789",
   waSub: "Kami guna nombor ini untuk sahkan tempahan dan hantar QR pembayaran — kami tidak akan spam anda.",
+
+  privacyHead: "Maklumat anda",
+  privacyWhat: "Kami mengumpul nama anda, nombor WhatsApp anda, dan — jika dihantar — alamat serta pin pintu anda. Kami menggunakannya hanya untuk membuat tempahan anda, menghantarnya kepada anda, dan menghubungi anda mengenainya.",
+  privacyWho: "Penghantar diberi apa yang perlu untuk menghantar. Tiada sesiapa lain melihat maklumat anda, dan kami tidak pernah menjualnya.",
+  privacyKeep: "Ia disimpan dalam buku tempahan kami, di perkhidmatan awan yang selamat dan dalam telefon kami sendiri di belakang PIN. Beritahu kami untuk memadamkannya dan kami akan padam, kecuali rekod jualan yang dikehendaki oleh pihak cukai.",
+  privacyContact: "Beritahu kami bila-bila masa untuk melihat, membetulkan atau memadam apa yang kami simpan — WhatsApp",
+  privacyDate: "Kemas kini terakhir: 7 Oktober 2026.",
   howGet: "Macam mana anda mahu ambil tempahan?",
   selfCollect: "Ambil sendiri",
   courier: "Penghantaran kurier",
