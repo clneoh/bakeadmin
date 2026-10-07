@@ -1217,18 +1217,48 @@ export function renderStatic(cfg) {
     privacyWa.hidden = !shown;
   }
 
-  // The one control the notice needs (v350): the press under Place order that opens
-  // the panel, and closes it again. It carries aria-expanded so the button says its
-  // own state out loud, and it opens IN PLACE — the Commissioner's guide warns that a
-  // notice behind too many links is one nobody reads, so the facts must not live on a
-  // page of their own. Bound once: the wiring is set up with the rest of the page.
+  // The notice under Place order (v350; hover added v351). She asked for it to behave like
+  // a tooltip — "no need to press, it show like a tooltips, move mouse away it colapses" —
+  // and hover alone would leave the notice UNREACHABLE ON A PHONE, which is where this shop
+  // is ordered from. So both paths drive the same panel: the pointer opens it on a laptop,
+  // a tap opens it on a phone. Keyboard gets it too — focus opens, Escape closes — which is
+  // what WCAG 1.4.13 asks of hover content: dismissable, hoverable, and persistent while
+  // the pointer or focus is on it.
+  //
+  // ⚠️ THE ZONE IS THE WRAPPER, NOT THE WORDS. The panel lives inside the same wrapper, so
+  // travelling from the words up onto the panel never leaves the zone. A panel that closed
+  // on the way across could never be read at all.
+  const privacyZone = document.getElementById("privacy-zone");
   const privacyOpen = document.getElementById("privacy-open");
   const privacySheet = document.getElementById("privacy-sheet");
-  if (privacyOpen && privacySheet) {
-    privacyOpen.addEventListener("click", () => {
-      const open = privacyOpen.getAttribute("aria-expanded") === "true";
-      privacyOpen.setAttribute("aria-expanded", open ? "false" : "true");
-      privacySheet.hidden = open;
+  if (privacyZone && privacyOpen && privacySheet) {
+    const setOpen = (open) => {
+      privacySheet.hidden = !open;
+      privacyOpen.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    const isOpen = () => privacyOpen.getAttribute("aria-expanded") === "true";
+
+    // A tap or a click ALSO focuses the button first (mousedown -> focus -> click), so a
+    // focus-open would be undone by the click's toggle in the same gesture — the panel
+    // would flash open and shut. A pointer-down in the last moment therefore suppresses
+    // the focus-open, and the click alone decides.
+    let pointerJustDown = false;
+    privacyZone.addEventListener("pointerdown", () => {
+      pointerJustDown = true;
+      setTimeout(() => { pointerJustDown = false; }, 500);
+    });
+
+    privacyZone.addEventListener("mouseenter", () => setOpen(true));
+    privacyZone.addEventListener("mouseleave", () => setOpen(false));
+    privacyOpen.addEventListener("focus", () => { if (!pointerJustDown) setOpen(true); });
+    privacyOpen.addEventListener("click", () => setOpen(!isOpen()));
+    privacyZone.addEventListener("focusout", (e) => {
+      // Close only when focus has really LEFT the zone: moving between the words and a
+      // link inside the panel must not shut it under a keyboard user.
+      if (!privacyZone.contains(e.relatedTarget)) setOpen(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && isOpen()) setOpen(false);
     });
   }
 

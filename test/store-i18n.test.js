@@ -291,6 +291,6 @@ test("the privacy line opens the panel it names, and is not set too small to rea
 
   const spacer = css.match(/\.bar-spacer\s*\{\s*height:\s*([\d.]+)px/);
   assert.ok(spacer, ".bar-spacer sets its own height");
-  assert.ok(Number(spacer[1]) >= 136,
-    `the spacer clears the tallest language's closed bar (measured 136px in Bahasa Malaysia, it is ${spacer[1]}px)`);
+  assert.ok(Number(spacer[1]) >= 118,
+    `the spacer clears the TALLEST language on the NARROWEST screen (measured 118px: Bahasa Malaysia at 320px, where the line wraps to two — it is ${spacer[1]}px)`);
 });

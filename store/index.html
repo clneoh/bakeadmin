@@ -178,26 +178,6 @@
 
   <div class="bar-spacer"></div>
   <div class="order-bar">
-    <!-- THE PANEL THE LINE OPENS (v350). It rises ABOVE the bar rather than being a
-         page of its own, so the notice is one press from the button and never
-         "hidden behind a link" — the shop's own guide says a notice behind too many
-         links is a notice nobody reads. Built closed, and opened by the press below.
-
-         ⚠️ THE CONTACT NUMBER IS NOT IN THE STRINGS. The sentence is translated with
-         the rest of the page; the number is filled by store/app.js from the same
-         setting the order button builds its link from, so the two can never disagree.
-         ⚠️ IT IS A NOTICE, NEVER A GATE: nothing in here can refuse an order. -->
-    <div class="privacy-sheet" id="privacy-sheet" hidden>
-      <p class="privacy-sheet-head" data-i18n="privacyHead">How we use your details</p>
-      <ul class="privacy-sheet-list">
-        <li data-i18n="privacyWhat">We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.</li>
-        <li data-i18n="privacyWho">The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.</li>
-        <li data-i18n="privacyKeep">They stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.</li>
-        <li><span data-i18n="privacyContact">Ask us any time to see, correct or delete what we hold — WhatsApp</span> <a id="privacy-wa" class="privacy-wa" href="" hidden></a></li>
-      </ul>
-      <p class="privacy-sheet-fine" data-i18n="privacyDate">Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.</p>
-    </div>
-
     <div class="order-bar-row">
       <div class="order-summary">
         <span id="bar-count" class="bar-count">0 items</span>
@@ -206,17 +186,46 @@
       <button id="order-btn" class="btn primary" disabled>Place order</button>
     </div>
 
-    <!-- ONE LINE, UNDER THE BUTTON (v350). The position the large platforms use, and
-         the reason she asked for the block to move: it states the promise plainly and
-         the four facts are one press away, on the same screen.
+    <!-- THE NOTICE, ONE LINE UNDER THE BUTTON (v350; reworked v351).
+         She asked for "we use your details only to bake and deliver" OUT, which left
+         "privacy notice" twice back to back — "…our privacy notice. Privacy notice".
+         So the words IN the sentence are now the trigger, the way Amazon's own checkout
+         does it: nothing repeats and nothing is added.
 
-         ⚠️ THIS LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so it may not shrink into
-         unreadable small print — the same guide warns against a font "so small the
-         customer will not read it". 12.5px is the floor here, not a starting point. -->
-    <p class="order-notice">
-      <span data-i18n="privacyLine">By ordering you agree to our privacy notice — we use your details only to bake and deliver.</span>
-      <button id="privacy-open" class="privacy-link" type="button" aria-expanded="false" aria-controls="privacy-sheet" data-i18n="privacyLink">Privacy notice</button>
-    </p>
+         ⚠️ IT OPENS ON HOVER *AND* ON A TAP, AND THE TAP IS NOT OPTIONAL. Her words:
+         "no need to press, it show like a tooltips, move mouse away it colapses". Hover
+         is right on a laptop — and it does not exist on a phone, which is where this
+         shop is ordered from. With hover alone the notice would be unreachable for every
+         customer who matters, so both paths drive the same panel, plus keyboard focus
+         and Escape (WCAG 1.4.13: hover content must be hoverable and dismissable).
+
+         ⚠️ THE PANEL FLOATS ABOVE THE LINE rather than pushing the bar taller, so
+         opening it never moves Place order under the customer's thumb. It sits INSIDE
+         this wrapper so the pointer can travel from the words on to the panel without
+         the panel closing on the way across.
+
+         ⚠️ THE CONTACT NUMBER IS NOT IN THE STRINGS. The sentence is translated with the
+         rest of the page; the number is filled by store/app.js from the same setting the
+         order button builds its link from, so the two can never disagree.
+         ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order.
+         ⚠️ THIS LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
+         starting point — the guide warns against a font the customer will not read. -->
+    <div class="order-notice-wrap" id="privacy-zone">
+      <div class="privacy-sheet" id="privacy-sheet" hidden>
+        <p class="privacy-sheet-head" data-i18n="privacyHead">How we use your details</p>
+        <ul class="privacy-sheet-list">
+          <li data-i18n="privacyWhat">We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.</li>
+          <li data-i18n="privacyWho">The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.</li>
+          <li data-i18n="privacyKeep">They stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.</li>
+          <li><span data-i18n="privacyContact">Ask us any time to see, correct or delete what we hold — WhatsApp</span> <a id="privacy-wa" class="privacy-wa" href="" hidden></a></li>
+        </ul>
+        <p class="privacy-sheet-fine" data-i18n="privacyDate">Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.</p>
+      </div>
+      <!-- The sentence is split around the press, so the press carries the closing full
+           stop: it is a full stop in English and Bahasa Malaysia and a 。 in Chinese, and
+           a punctuation mark left in the markup would be wrong in one of the three. -->
+      <p class="order-notice"><span data-i18n="privacyLine">By ordering you agree to our</span> <button id="privacy-open" class="privacy-link" type="button" aria-expanded="false" aria-controls="privacy-sheet" data-i18n="privacyLink">privacy notice.</button></p>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>

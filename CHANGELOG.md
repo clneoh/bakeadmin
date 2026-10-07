@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v350)
+# Jienluv2bake — change history (v54 → v351)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v351, THE NOTICE OPENS ON HOVER (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"i want to delete this 'we use your details only to bake and deliver'"__ — and
+then __"no need to press, it show like a tooltips, move mouse away it colapses."__
+
+**Two changes, and the second one reshaped it.**
+
+**1 · That phrase is gone.** The line is now just the agreement:
+
+> By ordering you agree to our privacy notice.
+
+Which left **"privacy notice" twice back to back** — "…our privacy notice. Privacy notice". So
+**the words IN the sentence are now the trigger**, the way Amazon's own checkout does it: nothing
+repeats, and nothing was added.
+
+**2 · It opens on HOVER, and it collapses when the pointer moves away.** That is what you asked
+for. **⚠️ But hover does not exist on a phone, and this shop is ordered from phones** — so the tap
+is kept, and it is not optional: a tap opens it and a tap closes it there. The keyboard works too
+— tab to it and focus opens it, Escape closes it — which is what the accessibility rules ask of
+anything that appears on hover. **Four ways in, one panel.**
+
+**⚠️ And the panel no longer pushes the bar taller.** It floats above the line now, so opening the
+notice **never moves Place order**. Until this version, showing the notice grew the bar and lifted
+the button away from the customer's thumb at the exact moment they were reaching for it.
+
+**⚠️ The bar got shorter, and the spacer had to be re-measured from two directions, not one.**
+Dropping the phrase made the closed bar smaller — at 375px wide: English 100px, Chinese 101px,
+Bahasa Malaysia 100px. **But at 320px wide Bahasa Malaysia wraps to a second line and reaches
+118px.** So the spacer is set from the tallest language **on the narrowest screen**: **126px**.
+Set from the 375px reading, it would have hidden the last row of the shop on a small phone.
+
+**Nothing else about the notice changed.** The same four facts, the same contact number read from
+Settings → Storefront, the same Act and the same reviewed date — and the same rule: **a notice,
+never a gate.**
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,863
+tests, all green**, and the spacer test was **bitten**: cut to 90px it failed by its own message
+naming the 320px measurement, and the file was restored byte-identical afterwards.
 
 **07 Oct 2026 — engine v350, THE NOTICE MOVED TO THE BUTTON (no database step, nothing to upload —
 pushing this one is the whole of it).**
@@ -14,6 +54,12 @@ sitting in the middle of the details card (v348, v349). You said it read as too 
 **one quiet line under Place order**, and the four facts open from a panel behind it:
 
 > By ordering you agree to our privacy notice — we use your details only to bake and deliver.  Privacy notice
+
+__Lifted at v351:__ that is not the line any more. **"we use your details only to bake and
+deliver" is gone** (your call), and the separate **Privacy notice** press went with it — the words
+**"privacy notice" in the sentence** are the trigger now, so nothing repeats. It also opens on
+**hover** and collapses when the pointer leaves, and the panel **floats** instead of pushing the
+bar taller. The heights in the paragraph below are v350's and were re-measured at v351.
 
 **Why the button.** That is where the large platforms put theirs — Amazon's whole consent line at the
 till is ten words — and it is the one place on the page a customer is already reading before they

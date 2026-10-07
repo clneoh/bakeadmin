@@ -642,10 +642,25 @@ button.prod-next.off::after { content: ""; }
    ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order.
    ⚠️ THE LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
    starting point. It matches the size the v348 block used. */
+/* The wrapper is the HOVER ZONE (v351). The words and the panel are both inside it, so
+   the pointer can travel from one to the other without the panel closing on the way —
+   without that, a panel that closes on mouse-out is a panel nobody can read, and WCAG
+   1.4.13 asks for hover content to be hoverable as well as dismissable. */
+.order-notice-wrap { position: relative; }
+/* ⚠️ THE PANEL FLOATS; IT DOES NOT PUSH. It is absolutely placed above the line, so
+   opening the notice never moves Place order under the customer's thumb — the bug a
+   growing bar would cause at the exact moment they are about to tap it. */
 .privacy-sheet {
-  padding: 0 0 12px;
-  margin: 0 0 10px;
-  border-bottom: 1px solid var(--line);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 1;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
 }
 .privacy-sheet-head {
   margin: 0 0 7px;
@@ -1267,13 +1282,20 @@ button.prod-next.off::after { content: ""; }
 .order-bar .btn:active { transform: translateY(1px) scale(.99); }
 .order-bar .btn[disabled] { opacity: .55; box-shadow: none; cursor: default; }
 
-/* ⚠️ MEASURED, NOT GUESSED (v350). The bar is fixed over the page, so this is the
-   only thing stopping its height from swallowing the last row of the shop. It was
-   78px for a one-row bar; the notice line makes it two rows, and the TALLEST of the
-   three languages sets the number — measured at 375x812: English 118px, Chinese
-   119px, BAHASA MALAYSIA 136px (its line wraps one line longer than English's), plus
-   a hair of headroom. Set from the longest, never from English. */
-.bar-spacer { height: 140px; }
+/* ⚠️ MEASURED, NOT GUESSED. The bar is fixed over the page, so this is the only thing
+   stopping its height from swallowing the last row of the shop. It was 78px for the old
+   one-row bar. The notice line made it two rows, and two things set the number, not one:
+
+     · the TALLEST LANGUAGE, and
+     · the NARROWEST SCREEN.
+
+   Measured on the closed bar: at 375px wide English 100 / Chinese 101 / Bahasa Malaysia
+   100; at **320px wide Bahasa Malaysia wraps to a second line and reaches 118** — the
+   tallest of the six readings. So 118 is the floor and 126 gives it headroom. Set from
+   English at 375px (100) the bar would cover the last row of the shop for a customer on
+   a small phone reading in Bahasa Malaysia. ⚠️ The panel does NOT count here: it floats
+   (see .privacy-sheet), so opening the notice does not change this height at all. */
+.bar-spacer { height: 126px; }
 
 .confirm-msg {
   margin: 0 0 14px;

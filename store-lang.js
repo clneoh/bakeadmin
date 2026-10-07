@@ -74,8 +74,8 @@ const en = {
   // heading, the opener and the closing line moved. privacyLead is GONE: the Act no
   // longer opens the notice (the Commissioner's own template does not open with the
   // law, and neither do the large platforms) — it closes it instead, on privacyDate.
-  privacyLine: "By ordering you agree to our privacy notice — we use your details only to bake and deliver.",
-  privacyLink: "Privacy notice",
+  privacyLine: "By ordering you agree to our",
+  privacyLink: "privacy notice.",
   privacyHead: "How we use your details",
   privacyWhat: "We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.",
   privacyWho: "The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.",
@@ -331,8 +331,8 @@ const zh = {
   whatsPh: "例如：012-345 6789",
   waSub: "我们会用这个号码确认订单和发送付款二维码，不会拿来 spam 你。",
 
-  privacyLine: "下单即表示你同意我们的个人资料声明 —— 你的资料只用来烘焙和递送这份订单。",
-  privacyLink: "个人资料声明",
+  privacyLine: "下单即表示你同意我们的",
+  privacyLink: "个人资料声明。",
   privacyHead: "我们如何使用你的资料",
   privacyWhat: "我们会收集你的姓名、WhatsApp 号码；如果选择送货，也会收集地址和门口定位。这些资料只用来制作和递送你的订单，以及就订单与你联络。",
   privacyWho: "司机会收到送货所需的资料，除此之外没有人会看到，我们也绝不会出售你的资料。",
@@ -519,8 +519,8 @@ const ms = {
   whatsPh: "cth. 012-345 6789",
   waSub: "Kami guna nombor ini untuk sahkan tempahan dan hantar QR pembayaran — kami tidak akan spam anda.",
 
-  privacyLine: "Dengan menempah, anda bersetuju dengan notis privasi kami — maklumat anda hanya digunakan untuk membakar dan menghantar tempahan anda.",
-  privacyLink: "Notis privasi",
+  privacyLine: "Dengan menempah, anda bersetuju dengan",
+  privacyLink: "notis privasi.",
   privacyHead: "Bagaimana kami menggunakan maklumat anda",
   privacyWhat: "Kami mengumpul nama anda, nombor WhatsApp anda, dan — jika dihantar — alamat serta pin pintu anda. Kami menggunakannya hanya untuk membuat tempahan anda, menghantarnya kepada anda, dan menghubungi anda mengenainya.",
   privacyWho: "Penghantar diberi apa yang perlu untuk menghantar. Tiada sesiapa lain melihat maklumat anda, dan kami tidak pernah menjualnya.",
