@@ -1,8 +1,79 @@
-# Jienluv2bake — change history (v54 → v359)
+# Jienluv2bake — change history (v54 → v360)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v360, EVERY RECEIPT NOW HAS ITS OWN SERIAL NUMBER (⚠️ THERE IS A DATABASE STEP
+THIS TIME — RUN THE SQL BEFORE YOU PUSH).**
+
+**Your words:** __"i want to get ready for anual sales more that rm150k"__ — and then __"system will need
+to be prepare for refund"__.
+
+**What this is for.** Above **RM150,000 of gross takings in a twelve-month period**, a business must
+issue **serially numbered receipts** (Income Tax Act 1967, s.82(1)(b)). Your orders already carry their
+own code, but a code is not a **series** — it is deliberately not sequential, and it says nothing about
+whether any receipt is missing. **This gives every paid order its own serial, from a run that cannot
+contain a gap.**
+
+**Where the number comes from — and why it could not simply be counted.** A run of receipt numbers is a
+**shared counter**, and this app has never kept one on a phone, on purpose: you and your sister both take
+payments, and a counter living on one phone would either clash with the other's or leave a hole. **A hole
+in a receipt sequence is exactly what an auditor asks about.** So the counter lives in your database,
+where a number can be handed out exactly once.
+
+**★ The number belongs to the ORDER, not to the press.** It is claimed **once**, when you record the
+money as received — and every later read returns the same number and consumes nothing:
+
+| what you do | what happens |
+|---|---|
+| Press **Paid · Cash** or **Paid · TNG** | the order claims its number |
+| Print the receipt | the same number |
+| Print it again | the same number |
+| Open it on your other phone | the same number |
+
+**So pressing Paid twice, or printing ten copies, cannot burn numbers or leave gaps.** An accidental
+press is harmless by design.
+
+**And you were right to ask for refunds.** A refund **marks** the receipt and **keeps its number** — it is
+never deleted or re-used, because money that was taken and given back is still money that moved, and a
+receipt that vanished would leave the very gap this exists to prevent. The paper reads **"Receipt #000123
+— refunded"**.
+
+**Where you see it.** On **Invoice**, under the customer's name: **Receipt #000123 · Order #A3F9C2** —
+both numbers, because each does a different job: **the serial proves the sequence, and the order code is
+what finds the order again.** The printed sheet carries the serial under its title as well.
+
+**⚠️ What it says when there is no number yet, and this matters.** It never prints a blank, and never
+invents a zero:
+
+- **paid, but the number has not been claimed** — __"No receipt number yet — this order has not reached the
+  bakery's records."__ (This is what a phone with no signal leaves behind; open the receipt again and it
+  claims it.)
+- **not paid** — __"a receipt number is issued when the money is recorded as received."__
+
+**⚠️ HOW TO DEPLOY THIS ONE.**
+
+1. **Run supabase/receipts.sql in Supabase first** (Dashboard → SQL → New query → Run). It is safe to run
+   twice.
+2. **Then push.**
+
+**If you push first nothing breaks** — the number is simply not claimed, and the receipt says so — but
+orders paid before the SQL is run would sit without a number until you open each receipt. **Running the
+SQL first avoids that.**
+
+**One thing still to come, and it is on purpose: there is no refund BUTTON yet.** The number survives a
+refund and the paper can say so, which is what "prepared for refund" means — but nothing in the app
+records one yet. That is its own piece of work.
+
+**⚠️ And one thing about your shop's own words.** Your Policies text on the shop says orders are **not
+refundable**. Prepared for a refund or not, that is what a customer reads today — worth a look when you
+next open Settings → Storefront.
+
+**No Edge Function.** The suite is **2,878 tests, all green**, and the four load-bearing rules were
+**bitten**: remove the guard that stops an unpaid order claiming a number and a test fails by name; remove
+the "already has one" shortcut and another fails; stop padding the serial and four fail; make a refund
+wipe the number and one fails.
 
 **07 Oct 2026 — engine v359, THE VAN'S PRICE NO LONGER ASKS YOU THE SAME TWO QUESTIONS TWICE (no
 database step, nothing to upload — pushing this one is the whole of it).**

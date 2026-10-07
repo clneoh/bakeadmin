@@ -821,6 +821,94 @@ export function forgetPublishedCards() {
   published.clear();
 }
 
+// ── the receipt number (v360) ───────────────────────────────────────────────
+//
+// ⚠️ THE NUMBER COMES FROM THE DATABASE AND FROM NOWHERE ELSE. `supabase/receipts.sql`
+// holds the counter and an IDEMPOTENT function: an order that already has a number gets
+// that number back and consumes nothing. So calling this twice — a second press of Paid,
+// the other phone, opening the receipt again — is safe by construction, and cannot leave
+// the gap in the sequence that a local counter would.
+//
+// ⚠️ AND IT NEVER BLOCKS HER. A claim that cannot be made (no signal, the SQL not yet
+// run) simply returns false and leaves the order unnumbered. The Paid press has already
+// been saved by then, and the next claim — opening the receipt — tries again. That is
+// also what makes the deploy safe: the app works before the SQL is run and after it.
+//
+// Returns true when the order now genuinely holds a number.
+export async function claimReceipt(state, order) {
+  if (!order) return false;
+  // ⚠️⚠️ A RECEIPT IS FOR MONEY RECEIVED, AND THIS IS WHERE THAT IS ENFORCED. An order that
+  // has not been paid must never draw a number: that would put a serial on a receipt the
+  // books do not have, and every number after it would be one ahead of a sale that never
+  // happened. **The guard lives HERE and not only on the screen that calls it** — v358's
+  // lesson, and the case it covers is a second phone or a future caller, which no
+  // screen-level check can reach.
+  if (!order.paidReceived) return false;
+  // Already numbered: nothing to ask the server for. This is the ordinary path on every
+  // press after the first, and it is why a reprint costs no network at all.
+  if (Number(order.receiptNo) > 0) return true;
+  const c = cfg(state);
+  if (!ready(c)) return false;
+  const code = String(orderCode(order) || "").trim();
+  if (!code) return false;
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return false; }
+  }
+  try {
+    const res = await fetch(`${c.url}/rest/v1/rpc/claim_receipt_number`, {
+      method: "POST",
+      headers: {
+        apikey: c.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_order_code: code }),
+    });
+    if (!res || !res.ok) return false;
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : null;
+    const n = Number(row && row.number);
+    if (!Number.isFinite(n) || n <= 0) return false;
+    order.receiptNo = n;
+    // ⚠️ A REFUND IS CARRIED BACK TOO, and it only ever ADDS a mark. The server decides
+    // whether this order has been refunded; a phone that has never seen the refund learns
+    // about it here rather than by assuming the order is clean.
+    if (row.refunded_at) order.receiptRefundedAt = String(row.refunded_at);
+    return true;
+  } catch { return false; }
+}
+
+// Mark one order's receipt refunded. ⚠️ IT MARKS, IT NEVER DELETES — the number stays
+// spent for ever, or the sequence shows a gap where money really moved.
+export async function refundReceipt(state, order) {
+  if (!order) return false;
+  const c = cfg(state);
+  if (!ready(c)) return false;
+  const code = String(orderCode(order) || "").trim();
+  if (!code) return false;
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return false; }
+  }
+  try {
+    const res = await fetch(`${c.url}/rest/v1/rpc/refund_receipt`, {
+      method: "POST",
+      headers: {
+        apikey: c.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_order_code: code }),
+    });
+    if (!res || !res.ok) return false;
+    order.receiptRefundedAt = new Date().toISOString();
+    return true;
+  } catch { return false; }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Order intake — customer orders placed on the storefront land in the
 // backoffice order list automatically. The storefront inserts a row; this

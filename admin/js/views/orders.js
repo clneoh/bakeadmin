@@ -19,7 +19,8 @@ import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineNa
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
+import { claimReceipt, maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
+import { receiptLine, receiptStatus } from "../receipts.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
@@ -3445,16 +3446,37 @@ function parcelApiBlock({ state, group, draft, refresh }) {
 // assign now, so pressing Invoice touches no record at all, and an invoice for an old order
 // reads the same number it always did because the number was never stored. See js/invoice.js
 // for the whole of that reasoning, and for the trade-off it states rather than hides.
-function openInvoice(state, group) {
+async function openInvoice(state, group) {
   const first = (group && group.orders && group.orders[0]) || null;
   // A press that cannot do its job says so rather than opening an empty page. An order
   // with no items is not an order, and there is nothing on it to invoice.
   if (!first) return toast("This order has nothing on it to invoice");
 
+  // ★★ THE SECOND CHANCE TO CLAIM THE NUMBER (v360). The first is the Paid press, and it
+  // can fail — no signal, or the SQL not yet run. This is the moment it matters, because
+  // she is about to hand the paper over. ⚠️ AND ONLY FOR AN ORDER ALREADY PAID: a receipt
+  // number is for money received, so an unpaid order must not draw one from the sequence.
+  if (first.paidReceived && !(Number(first.receiptNo) > 0)) {
+    if (await claimReceipt(state, first)) {
+      const n = Number(first.receiptNo);
+      for (const o of group.orders) {
+        o.receiptNo = n;
+        if (first.receiptRefundedAt) o.receiptRefundedAt = first.receiptRefundedAt;
+      }
+      save(state);
+      maybeSync(state);
+    }
+  }
+
   const cur = invoiceCurrency(state);
   const sheet = invoiceSheet(state, group, {
     bakery: bakeryName(state),
     from: String((state.settings && state.settings.mailingAddress) || ""),
+    // The serial, and the order code beside it — the first proves the sequence, the second
+    // finds the order. Empty on an order that has no number yet, so the paper says why
+    // rather than inventing one.
+    receipt: receiptLine(first, invoiceNo(group)),
+    receiptStatus: receiptStatus(first),
   });
 
   showPopup(`Invoice #${invoiceNo(group)}`, (refresh, close) => el("div", {},
@@ -3464,6 +3486,11 @@ function openInvoice(state, group) {
     // date for the paper and the PDF.
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       `${String(first.customerName || "").trim() || "No name"} · placed ${longDate(first.orderDate || first.createdAt)}`),
+    // ★ THE RECEIPT'S SERIAL ON SCREEN TOO (v360), so what she reads here is what the paper
+    // says. ⚠️ AND WHEN THERE IS NO NUMBER IT SAYS WHY — never a blank, and never a made-up
+    // zero, which would be the app inventing a receipt the books do not have.
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      receiptLine(first, invoiceNo(group)) || receiptStatus(first)),
     journalBodyEl(sheet, cur),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
@@ -4506,6 +4533,28 @@ function markPaid(state, group, root, dateId, method) {
   publishTracking(state, group); // Paid now green on the customer's track card too
   toast(method === "cash" ? "Paid — cash received" : "Paid — TNG received");
   renderAll(root, state, new URLSearchParams({ date: dateId }));
+
+  // ★★ AND THE RECEIPT GETS ITS NUMBER (v360). This is the moment — a receipt is for money
+  // received, so it is issued when the money is recorded and not when the order was taken,
+  // and never when the paper is printed.
+  //
+  // ⚠️ NOT AWAITED, on purpose. The press must feel instant, and the number is not needed
+  // for anything she is looking at: a claim that cannot be made — no signal, or the SQL not
+  // yet run — leaves the order unnumbered and is simply tried again when the receipt is
+  // opened. That is also what makes this safe to deploy in either order.
+  const first = firstOf(group);
+  claimReceipt(state, first).then((got) => {
+    if (!got) return;
+    // Stamped on EVERY row of the sale, not just the first, so any row read on its own
+    // still knows the number — the same rule `courierDay` and `pickupTime` follow.
+    const n = Number(first.receiptNo);
+    for (const o of group.orders) {
+      o.receiptNo = n;
+      if (first.receiptRefundedAt) o.receiptRefundedAt = first.receiptRefundedAt;
+    }
+    save(state);
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  });
 }
 
 function firstOf(group) {
