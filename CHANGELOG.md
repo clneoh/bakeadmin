@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v355)
+# Jienluv2bake — change history (v54 → v356)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v356, THE NOTICE NOW SAYS HOW LONG THE DETAILS ARE KEPT (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"add how long we keep them? What is the suiatble answer?"__
+
+**Two clocks, not one — and that is the answer.** The third point never said how long anything was
+kept, which is one of the things a notice is asked to state. It does now:
+
+> Your details stay with your order in our order book, on a secure cloud service and on our own
+> phones behind a PIN. **We keep the sales record for seven years, as the tax office asks** — but
+> your name, number and address are not part of that record, so ask us any time and we will delete
+> them.
+
+**Why seven years, and why it is not seven years for everything.** Seven is the Malaysian figure,
+checked rather than guessed: LHDN's own wording is "Dokumen percukaian mesti disimpan paling kurang
+7 tahun" — tax documents must be kept **at least** 7 years — and it comes from **s.82 of the Income
+Tax Act 1967**. But a sales record is **money and dates**. A customer's name, number, address and
+door pin are **not needed for it**, so they do not have to ride along for seven years, and the
+notice now says as much. That is a better answer than one blanket period, and a truer one.
+
+**AND THE HONEST NOTE, recorded so it is not discovered later:** there is **no control anywhere in
+the app that deletes an order or a customer's details**. The only deletes in it are old calendar
+rows, imported incoming orders, and reviews. So *"ask us any time and we will delete them"* is a
+promise **you keep by hand**, in Supabase — not by pressing anything. If it should become a button
+— a "forget this customer" that clears the name, number, address and pin while leaving the sale in
+the figures — that can be built.
+
+**In all three languages.** 中文 and Bahasa Malaysia both carry the seven years and the distinction
+between the record and the details.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**.
 
 **07 Oct 2026 — engine v355, THE FIRST LINE SAYS "YOUR DATA" (no database step, nothing to upload —
 pushing this one is the whole of it).**

@@ -211,20 +211,29 @@
          ⚠️ THIS LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
          starting point — the guide warns against a font the customer will not read. -->
     <div class="order-notice-wrap" id="privacy-zone">
-      <div class="privacy-sheet" id="privacy-sheet" hidden>
-        <p class="privacy-sheet-head" data-i18n="privacyHead">How we use your details</p>
-        <ul class="privacy-sheet-list">
-          <li data-i18n="privacyWhat">We use your data only to make your order, get it to you, and talk to you about it. For a delivery we also need your address and the pin on your door.</li>
-          <li data-i18n="privacyWho">To bring your order to you, the driver is given your name, number and address. Your confirmation reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees your details, and we never sell them.</li>
-          <li data-i18n="privacyKeep">Your details stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.</li>
-          <li><span data-i18n="privacyContact">Ask us any time to see, correct or delete what we hold — WhatsApp</span> <a id="privacy-wa" class="privacy-wa" href="" hidden></a></li>
-        </ul>
-        <p class="privacy-sheet-fine" data-i18n="privacyDate">Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.</p>
-      </div>
       <!-- The sentence is split around the press, so the press carries the closing full
            stop: it is a full stop in English and Bahasa Malaysia and a 。 in Chinese, and
            a punctuation mark left in the markup would be wrong in one of the three. -->
       <p class="order-notice"><span data-i18n="privacyLine">By ordering you agree to our</span> <button id="privacy-open" class="privacy-link" type="button" aria-expanded="false" aria-controls="privacy-sheet" data-i18n="privacyLink">privacy notice.</button></p>
+    </div>
+
+    <!-- ⚠️ THE PANEL IS A CHILD OF THE BAR, NOT OF THE NOTICE LINE (v357).
+         It used to sit inside the wrapper just above the words, which put it directly on top
+         of the row — and that row IS the Place order button. Her words: "can the pop up be
+         open higher not to block the Placae Order button". Out here it positions against the
+         BAR itself, so it opens above the whole bar and the button stays in sight while the
+         notice is read.
+         ⚠️ It is no longer inside #privacy-zone, so the click-away test had to learn about it
+         — see store/app.js, where "away" means outside the words AND outside this panel. -->
+    <div class="privacy-sheet" id="privacy-sheet" hidden>
+      <p class="privacy-sheet-head" data-i18n="privacyHead">How we use your details</p>
+      <ul class="privacy-sheet-list">
+        <li data-i18n="privacyWhat">We use your data only to make your order, get it to you, and talk to you about it. For a delivery we also need your address and the pin on your door.</li>
+        <li data-i18n="privacyWho">To bring your order to you, the driver is given your name, number and address. Your confirmation reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees your details, and we never sell them.</li>
+        <li data-i18n="privacyKeep">Your details stay with your order in our order book, on a secure cloud service and on our own phones behind a PIN. We keep the sales record for seven years, as the tax office asks — but your name, number and address are not part of that record, so ask us any time and we will delete them.</li>
+        <li><span data-i18n="privacyContact">Ask us any time to see, correct or delete what we hold — WhatsApp</span> <a id="privacy-wa" class="privacy-wa" href="" hidden></a></li>
+      </ul>
+      <p class="privacy-sheet-fine" data-i18n="privacyDate">Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.</p>
     </div>
   </div>
 
