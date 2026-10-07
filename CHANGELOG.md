@@ -1,8 +1,96 @@
-# Jienluv2bake — change history (v54 → v365)
+# Jienluv2bake — change history (v54 → v367)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v367, CLEARING OUT THE COUPONS THAT ARE ON NO ORDER (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Your words:** __"not sure, i think for now you can remove all coupon first"__ — said about a stale
+**Apply coupon** on an aged order.
+
+**★ WHERE IT IS: More → Bring a friend → Clearing up → "Coupons not on any order".** It says how many
+are sitting there, how many still work, and what they are worth together, and a press clears them.
+
+**⚠️⚠️ AND IT DELIBERATELY DOES NOT REMOVE __ALL__ COUPONS. THIS IS THE IMPORTANT HALF.** A coupon that
+is already coming off an order **IS** the discount on that order's Total — so deleting it would **put the
+price of an order you have already promised back UP**, from a cleanup screen, with nothing on screen
+saying so. That is not a cleanup; it is a fault wearing a cleanup's clothes. So this clears **only the
+coupons that are on no order at all**, which is exactly the set causing a stale **Apply coupon** to
+appear — and the card says so, in your own words: __"Coupons already coming off an order are NOT
+touched, so no order's Total changes."__
+
+**What it removes and what it keeps.** A coupon the app can currently find on a live order is kept, by
+the app's own definition of "on an order" — the same function that prices the order, so the two can
+never drift apart. Everything else goes: an unspent reward, a friend's discount whose order was
+removed, a coupon you added by hand and never used.
+
+**⚠️ AND IT ASKS FIRST, NAME BY NAME.** The question says how many, what they are worth, that a customer
+holding one will no longer have it honoured by the app, and that it cannot be undone from here — and
+the press is dressed as a dangerous one, under its own heading, away from the boxes you use every week.
+**With nothing to clear it is quietly inert and says so** rather than offering to remove nothing.
+
+**⚠️ AND THAT IS ALL THIS VERSION IS.** It is a cleanup, not a diagnosis: I could not reproduce your
+coupon on an aged order, and I will not guess at a fix. The clearing takes the stray coupon away so it
+stops misleading you, and the question of HOW two screens came to disagree is still open, waiting on one
+fact from you.
+
+**No SQL, no upload.** The suite is **2,923 tests, all green** (up nine). Two bites on the rules, both
+fired and restored byte-identically — the naive "remove everything" (which fails the test that proves an
+order's price does not move) and "nothing is ever recognised as on an order"; plus one on the screen
+itself, removing the question so the press acted silently — and the view test **caught a real bug of mine
+before it shipped**: a variable in that file named `cur` means the settings object, not the currency, so
+the confirm printed __"worth [object Object] 3.00"__.
+
+**08 Oct 2026 — engine v366, THE RECEIPT REGISTER — and a hole in the run closed (⚠️ ONE SQL STEP
+FIRST, see the top of the entry).**
+
+**Your words:** __"build the receipt register screen"__ — asked for the day after you removed a paid
+order and watched #000001 stay spent.
+
+**★ WHERE IT IS: More → Money → 🧾 Receipt register.** It is the whole run of receipt numbers, oldest
+first, one line each: the number, the order's code and customer, the moment it was issued, and a
+**refunded** chip where there is one. **Receipts #000001 to #0000NN — N issued** heads it, and under it
+comes the one sentence that matters: whether the run is unbroken.
+
+**⚠️⚠️ AND IT FOUND A REAL HOLE — ONE YOU WOULD NEVER HAVE SEEN ANY OTHER WAY.** The claiming function
+draws a number with `nextval` __before__ it knows whether the row will land. If your two phones ever asked
+for the same order's number in the same instant, the second one drew a number, the row was refused, and
+**that number was simply lost** — a missing receipt in a run whose entire legal purpose is to have no
+missing receipts. v360 wrote that down as a known trade. **It did not have to be one, and it is now
+closed:** the function takes a lock on the ORDER CODE first, so one order cannot be claimed twice at once,
+and no number can be drawn and then dropped. **This is why the receipt register exists** — nobody could
+have spotted that from an order screen, or from a total.
+
+**⚠️ THE ONE STEP, AND IT MUST BE DONE BEFORE YOU PUSH: run `supabase/receipts.sql` in your Supabase SQL
+editor again.** It replaces the claiming function. It is safe to re-run and changes nothing already
+recorded — every number already issued keeps its number. Until it is run, the register still works and
+nothing is broken; only the lock is missing.
+
+**★ A MISSING NUMBER NOW WEARS A BANNER OF ITS OWN,** naming the numbers, and says plainly that they
+cannot be filled in afterwards — a missing number is one the sequence drew and never issued, and using it
+would put two receipts on one number. **A clean run does not wear that banner**, because a warning shown
+where it does not apply is noise.
+
+**★ AND THE VOID RECEIPTS ARE VISIBLE AT LAST.** A number whose order is no longer in this phone's orders
+is shown with its number intact and marked __"not in this phone's orders"__ — the case you found by removing
+a paid order. The screen says the receipt stands, the money moved, and the number stays spent. It is
+worded as **what was seen on this phone**, not as a verdict: the register is shared, your orders are not,
+and a phone that has not finished syncing must not be told it has a hole it does not have.
+
+**⚠️ AND IT IS READ-ONLY, WITH NO CACHE.** There is no button on it that changes a number — a register you
+can edit is not a register — and it re-reads every time it is opened, so it can never show you yesterday's
+run while a receipt was issued this morning. **If it cannot be read, it says so and says nothing was
+changed**; it never draws an empty register, because an empty run and an unreachable one mean opposite
+things and this is the one screen where that mistake would matter.
+
+**⚠️ AND IT READS STRAIGHT FROM THE TABLE THAT ALREADY EXISTS — no new Supabase step for the screen
+itself.** The read permission has been in `receipts.sql` since v360. The only new SQL is the lock above.
+
+**Measured:** the suite is **2,914 tests, all green** (up fourteen). Five bites, all fired and restored
+byte-identically: an unreadable register drawn as an empty one; the gap banner removed; the void-receipt
+note removed; missing numbers before the first row not reported; a failed read reported as a success.
 
 **08 Oct 2026 — engine v365, A REMOVED ORDER'S RECEIPT NUMBER IS NOW SAID OUT LOUD (no database step,
 nothing to upload — pushing this one is the whole of it).**
