@@ -19,7 +19,7 @@ import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineNa
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, unrefundReceipt } from "../supabase.js";
+import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLine, receiptStatus } from "../receipts.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
@@ -714,6 +714,27 @@ function windowForDay(today, iso) {
   return deliveryWindow(today, iso ? [iso] : []).home;
 }
 
+// ★★ ORDERS THE SHOP TOOK THAT THIS APP COULD NOT READ (v364).
+//
+// ⚠️⚠️ THE WHOLE POINT IS THAT IT SAYS SO. A stuck order retries every 30 seconds and, before
+// this, **appeared on no screen at all** — the customer waits and the baker is never told. v363
+// removed the cause it could; this removes the blindness whatever the cause.
+//
+// ⚠️ It names the REASON, not a code, and it says the two things she needs: nothing is lost, and
+// what to do about it.
+function stuckOrdersEl() {
+  const stuck = stuckOrders();
+  if (!stuck.length) return null;
+  const one = stuck.length === 1;
+  return el("div", { class: "intake-note" },
+    el("p", {},
+      el("b", {}, one ? "1 order from the shop is waiting" : `${stuck.length} orders from the shop are waiting`),
+      one ? " and could not be read — " : " and could not be read:"),
+    ...stuck.slice(0, 3).map((s) => el("p", {}, `· ${s.reason}`)),
+    stuck.length > 3 ? el("p", {}, `· and ${stuck.length - 3} more`) : null,
+    el("p", {}, "Nothing is lost: it stays in the queue and is tried again every 30 seconds. Add what it names under Products and it will come in on its own."));
+}
+
 function renderAll(root, state, params) {
   const dates = [...state.deliveryDates].sort((a, b) => a.date.localeCompare(b.date));
   if (!dates.length) {
@@ -871,6 +892,12 @@ function renderAll(root, state, params) {
   // else (New-orders inbox, the delivery calendar, that date's orders) in one
   // container. While a search is active the container hides so only matches show.
   const body = el("div", {});
+  // ★★ AN ORDER THE SHOP TOOK THAT THIS APP COULD NOT READ (v364). It goes ABOVE the inbox,
+  // because it is about an order that never reached the inbox at all — and it is drawn from a
+  // module-level observation of the queue rather than from `state`, so nothing about her data
+  // moved and no cloud field was added.
+  const stuckNote = stuckOrdersEl();
+  if (stuckNote) body.append(stuckNote);
   if (inbox) body.append(inbox);
   body.append(topCal.el, content);
   const finder = orderFinderEl(state, root, selectDate, body);

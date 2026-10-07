@@ -1,10 +1,50 @@
-# Jienluv2bake — change history (v54 → v363)
+# Jienluv2bake — change history (v54 → v364)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
-**07 Oct 2026 — engine v363, AN ORDER IS NO LONGER THROWN AWAY OVER ONE ITEM YOU NO LONGER SELL (no
+**08 Oct 2026 — engine v364, THE APP NOW SAYS SO WHEN A SHOP ORDER IS WAITING (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Your words:** __"build"__ — the half that was still missing after v363.
+
+**The half that was missing was not the fault, it was the SILENCE.** A shop order the app could not
+read is left waiting in the queue on purpose, and it retries every 30 seconds — **but it appeared on no
+screen at all.** The customer waits, and **nothing anywhere told you.** v363 removed one cause of that;
+**this removes the blindness, whatever the cause.**
+
+**What changed.** On the **Orders** screen, above the New-orders inbox, a small amber note now appears
+whenever the shop has sent an order this app cannot read. It says **how many**, **what each one is for**,
+and the two things you need:
+
+> **1 order from the shop is waiting and could not be read —**
+> · it is for Pizza, which is not in your Products
+> Nothing is lost: it stays in the queue and is tried again every 30 seconds. Add what it names under
+> Products and it will come in on its own.
+
+**⚠️ And it tells you the honest reason, in words — never a code.** The three it can give: no bake day on
+it / nothing on it / it is for something not in your Products.
+
+**★ AND IT CLEARS ITSELF.** The moment the order can be read, the note goes. **A warning that cannot
+clear is worse than no warning at all**, so the screen now watches for the notice appearing __and__
+disappearing — before this it only repainted when something was __imported__, which would have meant the
+note never appeared when it mattered and never left when it stopped mattering.
+
+**⚠️ One deliberate piece of stubbornness: if the queue cannot be reached, the note STAYS.** "Nothing is
+waiting" is a positive claim, and it must never be made on a request that never came back — the same rule
+the label's open count follows. A failed check leaves the last honest answer standing rather than
+replacing it with a comfortable one.
+
+**⚠️ And nothing of yours was touched to do it.** The note is a memory of the last poll, not a setting —
+nothing was added to your data, nothing synced, and **no new field went near the cloud** (which is the
+thing that quietly breaks publishing for every order).
+
+**No SQL, no Edge Function, no upload.** The suite is **2,898 tests, all green**, and all three halves
+were **bitten**: stop drawing the note and one test fails by name; let an unreachable queue clear it and
+three fail; skip a stuck row without remembering it and three fail.
+
+**08 Oct 2026 — engine v363, AN ORDER IS NO LONGER THROWN AWAY OVER ONE ITEM YOU NO LONGER SELL (no
 database step, nothing to upload — pushing this one is the whole of it).**
 
 **Your words:** __"build the import fix now"__ — after the other shop sent word of it the same night.

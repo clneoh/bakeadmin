@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, whyUnimportable } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -631,6 +631,70 @@ test("pullIncoming imports storefront orders, marks and deletes the rows", async
     globalThis.fetch = realFetch;
     if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
   }
+});
+
+// ── ★★ v364: AN ORDER THE INTAKE COULD NOT READ MUST NOT BE INVISIBLE ───────
+const intakeState = () => {
+  const st = makeState();
+  st.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  st.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  return st;
+};
+const intakeFetch = (rows, { unreachable = false } = {}) => async (url, opts) => {
+  const u = String(url);
+  if (u.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+  if (u.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) {
+    if (unreachable) throw new Error("no signal");
+    return { ok: true, json: async () => rows };
+  }
+  return { ok: true, json: async () => rows, text: async () => "" };
+};
+
+test("whyUnimportable says WHY in words she can act on, never a code", () => {
+  const st = intakeState();
+  assert.match(whyUnimportable(st, { lines: [{ name: "Focaccia" }] }), /no bake day/);
+  assert.match(whyUnimportable(st, { date: "2026-10-09", lines: [] }), /nothing on it/);
+  assert.equal(whyUnimportable(st, { date: "2026-10-09", lines: [{ name: "Pizza" }] }),
+    "it is for Pizza, which is not in your Products");
+  assert.equal(whyUnimportable(st, { date: "2026-10-09", lines: [{ name: "Pizza" }, { name: "Cake" }] }),
+    "it is for Pizza, Cake, which are not in your Products");
+});
+
+test("★ an order the intake could not read is REMEMBERED, and a later good read clears it", async () => {
+  // ⚠️⚠️ THE WHOLE FAULT IS THE SILENCE: a stuck row retried for ever and appeared on no screen.
+  forgetStuckOrders();
+  const st = intakeState();
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = intakeFetch([{ id: "stuck-1", data: JSON.stringify({ customer: "Ain", date: "2026-10-09", lines: [{ name: "Pizza", qty: 1 }] }) }]);
+    await pullIncoming(st);
+    assert.equal(stuckOrders().length, 1, "★ it is remembered rather than vanishing");
+    assert.match(stuckOrders()[0].reason, /Pizza/);
+
+    // The next poll with nothing waiting clears it — a warning that cannot clear is worse than none.
+    globalThis.fetch = intakeFetch([]);
+    await pullIncoming(st);
+    assert.equal(stuckOrders().length, 0, "and it clears when the queue is clear");
+  } finally { globalThis.fetch = realFetch; forgetStuckOrders(); }
+});
+
+test("⚠️ but an UNREACHABLE queue leaves the list exactly as it was", async () => {
+  // ⚠️⚠️ A ZERO HERE WOULD BE A POSITIVE CLAIM — "nothing is waiting" — MADE ON A REQUEST THAT NEVER
+  // CAME BACK. The same rule the promo label's open count follows. So every early return leaves the
+  // list alone, and only a read that SUCCEEDED replaces it.
+  forgetStuckOrders();
+  const st = intakeState();
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = intakeFetch([{ id: "stuck-1", data: JSON.stringify({ date: "2026-10-09", lines: [{ name: "Pizza", qty: 1 }] }) }]);
+    await pullIncoming(st);
+    assert.equal(stuckOrders().length, 1, "one is waiting");
+
+    globalThis.fetch = intakeFetch([], { unreachable: true });
+    const r = await pullIncoming(st);
+    assert.equal(r.ok, false, "the read failed");
+    assert.equal(stuckOrders().length, 1, "★ AND THE WARNING STANDS — it is not cleared by a failure");
+  } finally { globalThis.fetch = realFetch; forgetStuckOrders(); }
 });
 
 // ── ★★ v363: ONE LINE SHE NO LONGER SELLS MUST NOT THROW THE ORDER AWAY ──────

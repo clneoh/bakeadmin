@@ -86,7 +86,7 @@ globalThis.Date = MockDate;
 const { renderOrders } = await import("../admin/js/views/orders.js");
 const { effectiveCapacity } = await import("../admin/js/bom.js");
 const { orderCode, orderLinePrice } = await import("../admin/js/state.js");
-const { forgetPublishedCards } = await import("../admin/js/supabase.js");
+const { forgetPublishedCards, pullIncoming, forgetStuckOrders } = await import("../admin/js/supabase.js");
 
 // Focaccia sells every day; the Saturday loaf is marked Saturdays only, and the
 // day on screen (Thu 10 Sep) is not one of them. One order is already booked.
@@ -2217,6 +2217,56 @@ test("★ applying a coupon does not offer the button again, and a second press 
   assert.equal(untouched[0].appliedTo || "", "",
     "and it was not stamped onto this order — the guard stopped it before anything was written");
   assert.equal(totalNow(), "RM 33.00", "the total does not move twice for one coupon");
+});
+
+// ── ★★ v364: a shop order the app could not read is SAID on this screen ─────
+test("★ an order the shop took that the app could not read is SAID on the Orders screen", async () => {
+  // ★★ THE FAULT WAS THE SILENCE, NOT THE SKIP. A stuck row retried every 30 seconds and appeared
+  // on NO screen at all — the customer waited and the baker was never told. This drives the real
+  // producer (`pullIncoming` against a stubbed queue) and then renders the real screen, so what is
+  // asserted is what she would actually be looking at.
+  forgetStuckOrders();
+  const st = state();
+  st.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  st.products = [{ id: "p1", name: "Focaccia", active: true, price: 15 }];
+  const row = {
+    id: "stuck-1",
+    data: JSON.stringify({ customer: "Ain", date: "2026-10-09",
+      lines: [{ name: "Pizza", qty: 1, price: 10 }] }),
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (u.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    return { ok: true, json: async () => [row], text: async () => "" };
+  };
+  try {
+    await pullIncoming(st);
+    const root = createEl("div");
+    renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+    const text = all(root).map(txtOf).join(" ");
+
+    assert.match(text, /1 order from the shop is waiting/, "★ THE ORDERS SCREEN SAYS SO");
+    assert.match(text, /Pizza/, "and it NAMES what the order is for");
+    assert.match(text, /not in your Products/, "and says why it could not be read");
+    assert.match(text, /Nothing is lost/, "and tells her nothing is lost");
+    // ⚠️ AND IT IS THE ONLY THING THAT CHANGED — a plain screen must not grow a warning.
+  } finally {
+    globalThis.fetch = realFetch;
+    forgetStuckOrders();
+  }
+});
+
+test("and a screen with nothing stuck says nothing at all", () => {
+  // ⚠️ The other half: a notice that appears when there is nothing to say is worse than no notice.
+  forgetStuckOrders();
+  const st = state();
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  const text = all(root).map(txtOf).join(" ");
+  assert.equal(/from the shop is waiting/.test(text), false, "no notice when nothing is stuck");
+  assert.equal(byClass(root, "intake-note"), undefined, "and the block is not drawn at all");
 });
 
 // ── ★★ v361: the Refund press, driven to its outcome ─────────────────────────

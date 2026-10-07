@@ -974,6 +974,42 @@ export function unmatchedLinesNote(lines, cur = "RM") {
   return `${lines.length === 1 ? "1 item" : `${lines.length} items`} the shop sold ${lines.length === 1 ? "is" : "are"} not in Products, so ${lines.length === 1 ? "it is" : "they are"} NOT on this order and NOT in its total: ${said.join(", ")}. Add ${lines.length === 1 ? "it" : "them"} under Products, then add ${lines.length === 1 ? "its" : "their"} money by hand.`;
 }
 
+// ★★ WHAT THE INTAKE COULD NOT READ (v364).
+//
+// ⚠️⚠️ THE FAULT BEING FIXED HERE IS THE SILENCE, NOT THE SKIP. `pullIncoming` leaves an
+// unimportable row at `status='new'` ON PURPOSE — it retries rather than being claimed and lost —
+// but that also meant **nothing anywhere said a customer's order was waiting.** v363 removed the
+// cause it could; this removes the blindness, whatever the cause.
+//
+// 🗒️ IT IS NOT KEPT ON `state`, AND THAT IS DELIBERATE. A new top-level field would have to be
+// added to every publish/merge list or be dropped in silence (v199), and it would sync to the cloud
+// a fact that is only true of THIS phone's last poll. The queue is re-read every 30 seconds, so
+// memory is the honest place for it.
+let stuckIncoming = [];
+
+export function stuckOrders() {
+  return stuckIncoming;
+}
+
+// For a test seam, the way `forgetPublishedCards` is.
+export function forgetStuckOrders() {
+  stuckIncoming = [];
+}
+
+// Why a row could not be read, in words she can act on. ⚠️ NEVER a code and never a shrug — the one
+// thing this whole feature exists to stop is something happening and not being said.
+export function whyUnimportable(state, data) {
+  if (!data || !data.date) return "it arrived with no bake day on it";
+  if (!Array.isArray(data.lines) || !data.lines.length) return "it arrived with nothing on it";
+  const unknown = data.lines
+    .filter((l) => l && l.name
+      && !state.products.some((p) => p.active !== false
+        && String(p.name).trim().toLowerCase() === String(l.name).trim().toLowerCase()))
+    .map((l) => String(l.name).trim());
+  if (!unknown.length) return "it could not be read";
+  return `it is for ${unknown.join(", ")}, which ${unknown.length === 1 ? "is" : "are"} not in your Products`;
+}
+
 export async function pullIncoming(state) {
   const c = cfg(state);
   if (!ready(c)) return { ok: false, imported: [] };
@@ -995,13 +1031,21 @@ export async function pullIncoming(state) {
     if (!res.ok) return { ok: false, imported: [] };
     const rows = await res.json().catch(() => []);
     const imported = [];
+    // ★ AND EVERY ROW THAT COULD NOT BE READ IS KEPT, IN WORDS (v364) — see `stuckOrders`.
+    const stuck = [];
     for (const row of rows) {
       if (!row || !row.id) continue;
       let data;
-      try { data = JSON.parse(row.data); } catch { continue; }
+      try { data = JSON.parse(row.data); } catch {
+        stuck.push({ id: row.id, reason: "it arrived in a form this app could not read" });
+        continue;
+      }
       // Unimportable rows (unknown product, missing date) stay status=new so
       // they keep retrying instead of being claimed and lost.
-      if (!importable(state, data)) continue;
+      if (!importable(state, data)) {
+        stuck.push({ id: row.id, reason: whyUnimportable(state, data) });
+        continue;
+      }
       // Claim first: the PATCH filters status=eq.new, so only one phone can
       // flip it to imported. A row another phone already claimed matches 0
       // rows and is skipped — the fix for orders appearing as "new" twice.
@@ -1025,7 +1069,12 @@ export async function pullIncoming(state) {
       }).catch(() => {});
     }
     if (imported.length) save(state);
-    return { ok: true, imported };
+    // ⚠️ THE LIST IS REPLACED ONLY ON A READ THAT SUCCEEDED. Every early return above — no cloud
+    // configured, no token, the queue unreachable — leaves it EXACTLY as it was, because on those
+    // paths the queue's state is UNKNOWN. Clearing it would be a claim that nothing is waiting,
+    // made on a request that never came back. (The same rule the promo label's open count follows.)
+    stuckIncoming = stuck;
+    return { ok: true, imported, stuck };
   } catch {
     return { ok: false, imported: [] };
   }
