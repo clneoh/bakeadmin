@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v353)
+# Jienluv2bake — change history (v54 → v354)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v354, THE NOTICE SAYS "YOUR DETAILS" AGAIN (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"you din use the details?"__ — and then __"your details"__
+
+**What changed, and it is two words back.** When v353 stopped the notice claiming *"nobody else sees
+your details"* — which was **not true** — the phrase "your details" went with it, and the panel ended
+up saying *"Nobody else sees them"* and *"They stay in our order book"*. You asked for it back:
+
+- **was:** …Nobody else sees **them**, and we never sell them.
+- **now:** …Nobody else sees **your details**, and we never sell them.
+- **was:** **They** stay in our order book…
+- **now:** **Your details** stay in our order book…
+
+**And it is honest again, because the sentence before it now does the work.** v353 put the people who
+actually handle an order in front of it — the driver, the alert, WhatsApp — so *"nobody **else**"*
+means what a reader takes it to mean. Standing alone before v353 it was simply false; now it is a
+closing reassurance with the truth already said one line up.
+
+**In all three languages.** 中文 says 你的资料, Bahasa Malaysia says maklumat anda.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**.
 
 **07 Oct 2026 — engine v353, THE NOTICE SAYS "WE USE", NOT "WE COLLECT" — AND STOPS CLAIMING NOBODY
 ELSE SEES YOUR DETAILS (no database step, nothing to upload — pushing this one is the whole of
