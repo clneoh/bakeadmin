@@ -933,14 +933,45 @@ export async function unrefundReceipt(state, order) {
 // isn't imported twice.
 // ────────────────────────────────────────────────────────────────────────────
 
-// Whether an incoming order can be imported: it needs a date and every line
-// must match an active backoffice product. Rows that fail this are left alone
-// (status stays "new") so the owner can add the product and the order retries.
+// Whether an incoming order can be imported: it needs a date, and AT LEAST ONE line must match an
+// active backoffice product. Rows that fail this are left alone (status stays "new") so the owner
+// can add the product and the order retries.
+//
+// ★★★ `.some`, NOT `.every` (v363), AND THIS ONE COST A CUSTOMER AN ORDER. ⚠️⚠️ `importable`
+// decides whether a row is CLAIMED at all, and `pullIncoming` **leaves an unimportable row at
+// `status = 'new'` — retrying for ever, and telling nobody.** So `.every` meant that **ONE line
+// the shop had sold which this app no longer knows** — a product she paused, renamed or deleted
+// while a customer's page was still open — **threw away the WHOLE order, including the lines she
+// does still sell.** The shop's own counts had already moved, so the two sides disagreed with a
+// customer's order in between.
+//
+// ⚠️ FOUND FROM THE MUNCHIES SESSION'S BRIDGE NOTE, 2026-10-08 — the same fault in code both apps
+// share. **On their side it produced a real, invisible, unserved order that sat unclaimed for a
+// day.**
+//
+// ★ SO: an order with AT LEAST ONE line she still sells is imported, and the lines that did not
+// match are written onto it by `importIncoming` rather than vanishing. **An order in which she
+// sells NOTHING still waits** — that is the honest refusal, because there is nothing to make it
+// out of, and it is exactly the case the retry loop exists for.
 export function importable(state, data) {
   if (!data || !data.date || !Array.isArray(data.lines) || !data.lines.length) return false;
-  return data.lines.every((line) => line && line.name
+  return data.lines.some((line) => line && line.name
     && state.products.some((p) => p.active !== false
       && String(p.name).trim().toLowerCase() === String(line.name).trim().toLowerCase()));
+}
+
+// The sentence written onto an order whose shop lines this app could not match. ⚠️ IT CARRIES THE
+// PRICE AND THE QUANTITY, and neither is decoration: **the app adds up from the LINE ROWS it
+// holds, and a dropped line has no row** — so an order imported this way is SHORT by exactly
+// these lines, and a note that named only the item would leave her looking at a total the
+// customer never paid. Say what the shop charged, so the money can be added by hand.
+export function unmatchedLinesNote(lines, cur = "RM") {
+  const said = lines.map((l) => {
+    const price = Number(l.price);
+    const each = Number.isFinite(price) && price > 0 ? ` at ${fmtRM(price, cur)} each` : " (no price was sent)";
+    return `${l.name} ×${l.qty}${each}`;
+  });
+  return `${lines.length === 1 ? "1 item" : `${lines.length} items`} the shop sold ${lines.length === 1 ? "is" : "are"} not in Products, so ${lines.length === 1 ? "it is" : "they are"} NOT on this order and NOT in its total: ${said.join(", ")}. Add ${lines.length === 1 ? "it" : "them"} under Products, then add ${lines.length === 1 ? "its" : "their"} money by hand.`;
 }
 
 export async function pullIncoming(state) {
@@ -1038,13 +1069,25 @@ function importIncoming(state, row) {
   // this order went.
   const chosenPoint = data.fulfillment === "courier" ? null : pointById(state, data.pointId);
   const groupId = data.lines.length > 1 ? newId("ordg") : null;
+  // ⚠️ NOT `dropped`. `const dropped = validPlace(data.place)` already lives lower in THIS SAME
+  // BLOCK, and a second `const dropped` up here is a TDZ ReferenceError — which `pullIncoming`'s
+  // bare `catch {}` would SWALLOW, so the crash would surface only as `{ok:false}` and read as a
+  // refusal. (That trap came with the munchies session's version of this fix; it is real here.)
+  const droppedLines = [];
   for (const line of data.lines) {
     if (!line || !line.name) continue;
     const qty = Math.max(1, Number(line.qty) || 1);
     const product = state.products.find(
       (p) => p.active !== false
         && String(p.name).trim().toLowerCase() === String(line.name).trim().toLowerCase());
-    if (!product) continue;
+    if (!product) {
+      // ★★ NOT DROPPED IN SILENCE (v363). The shop sold this line; she may have paused, renamed
+      // or deleted the product while the customer's page was still open. It cannot become an
+      // order ROW — there is no product to make one out of — **but it must not vanish, because
+      // this order's total is built from its rows and these lines are now missing from it.**
+      droppedLines.push({ name: String(line.name).trim(), qty, price: line.price });
+      continue;
+    }
     const order = {
       id: newId("ord"),
       deliveryDateId: del.id,
@@ -1108,6 +1151,18 @@ function importIncoming(state, row) {
     });
     state.orders.push(order);
     created.push(order.id);
+  }
+  // ★ AND WHAT DID NOT MATCH IS SAID OUT LOUD (v363) — written onto the FIRST order this cart
+  // created, so the warning sits on the order she will actually open rather than on a row nobody
+  // looks at. ⚠️ IT CARRIES THE PRICE, because the app totals from the rows it holds: without the
+  // figure she would be looking at a total the customer never paid, with nothing to correct it
+  // against. Kept on its own line so the customer's own note is still readable beside it.
+  if (created.length && droppedLines.length) {
+    const first = state.orders.find((o) => o.id === created[0]);
+    if (first) {
+      const said = unmatchedLinesNote(droppedLines, (state.settings && state.settings.currency) || "RM");
+      first.note = [first.note, said].filter(Boolean).join("\n");
+    }
   }
   return created.length ? created : null;
 }

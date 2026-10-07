@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -631,6 +631,64 @@ test("pullIncoming imports storefront orders, marks and deletes the rows", async
     globalThis.fetch = realFetch;
     if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
   }
+});
+
+// ── ★★ v363: ONE LINE SHE NO LONGER SELLS MUST NOT THROW THE ORDER AWAY ──────
+test("★ an order with a line she no longer sells is STILL imported, and says which line is missing", async () => {
+  // ★★ FROM THE MUNCHIES BRIDGE NOTE, 2026-10-08. `importable` used `.every`, so **ONE line the
+  // shop had sold which this app no longer knows** — a product she paused, renamed or deleted
+  // while a customer's page was still open — **refused the WHOLE order, including the lines she
+  // does still sell.** And `pullIncoming` leaves a refused row at `status='new'`: it retries for
+  // ever and **tells nobody.** On the other shop that was a real, invisible, unserved order.
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", active: true },
+    { id: "prd_2", name: "Sandwich", active: false }, // ← she PAUSED it after the page was open
+  ];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = {
+    id: "abc-999",
+    data: JSON.stringify({
+      customer: "Ain", date: "2026-09-04", total: 38,
+      lines: [{ name: "Focaccia", qty: 2, price: 15 }, { name: "Sandwich", qty: 1, price: 8 }],
+    }),
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/incoming_orders") && !(opts && opts.method)) return { ok: true, json: async () => [row] };
+    if (url.includes("/rest/v1/incoming_orders") && (opts && opts.method === "PATCH")) return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.deepEqual(r.imported, ["abc-999"], "★ THE ORDER IS TAKEN — not thrown away over one line");
+    assert.equal(state.orders.length, 1, "only the line she still sells becomes a row");
+    assert.equal(state.orders[0].qty, 2);
+    const note = state.orders[0].note;
+    assert.match(note, /Sandwich ×1/, "★ the missing line is NAMED, with its quantity");
+    // ⚠️ AND ITS PRICE IS NOT DECORATION: the order's total is built from the rows it holds, so
+    // without the figure she is looking at a total the customer never paid.
+    assert.match(note, /RM\s?8\.00/, "★ AND ITS PRICE — the total is short and this is what corrects it");
+    assert.match(note, /NOT in its total/, "and the note says the total is short");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
+test("★★ but an order she sells NOTHING of still WAITS rather than being claimed and lost", () => {
+  // ⚠️ THE HONEST REFUSAL, AND IT IS WHY THE FIX IS `some` AND NOT "always import". There is
+  // nothing to make this order out of, so it stays `status='new'` and retries — which is exactly
+  // what the retry loop exists for. Claiming it would leave an empty order and hide the problem.
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  assert.equal(importable(state, { date: "2026-09-04", lines: [{ name: "Pizza", qty: 1 }] }), false,
+    "★ nothing she sells → the order WAITS");
+  assert.equal(importable(state, { date: "2026-09-04", lines: [{ name: "Focaccia", qty: 1 }, { name: "Pizza", qty: 1 }] }), true,
+    "★ and one line she HAS is enough to take the whole order");
+  assert.equal(importable(state, { date: "2026-09-04", lines: [] }), false, "an empty cart is not an order");
+  assert.equal(importable(state, { lines: [{ name: "Focaccia", qty: 1 }] }), false, "and a date is still required");
 });
 
 test("pullIncoming groups a multi-item storefront order under one groupId", async () => {

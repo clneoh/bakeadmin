@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v362)
+# Jienluv2bake — change history (v54 → v363)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v363, AN ORDER IS NO LONGER THROWN AWAY OVER ONE ITEM YOU NO LONGER SELL (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"build the import fix now"__ — after the other shop sent word of it the same night.
+
+**⚠️⚠️ THIS IS THE ONE THAT WAS LOSING A CUSTOMER'S ORDER, AND LOSING IT SILENTLY.**
+
+**What was wrong.** When an order comes in from the shop, your app checks it against your products
+before taking it — **and it demanded that EVERY line match.** So **one line the shop had sold which your
+app no longer knows** — a product you **paused, renamed or deleted while a customer's page was still
+open** — **threw away the whole order, including the items you DO still sell.**
+
+**And the throw-away was silent and permanent.** A refused order is left waiting in the queue, retrying
+for ever, **and nothing on any screen says a word.** On the other shop this produced a real order that
+sat unserved for a day while the shop's own counts had already moved — the two sides disagreeing, with a
+customer's order in between.
+
+**What changed.** **One item you still sell is now enough to take the whole order.** The lines that
+could not be matched are **written onto the order's own note**, naming **the item, the quantity, and the
+price the shop charged** — because your order total is added up from the lines it holds, so **without
+the figure you would be looking at a total the customer never paid.**
+
+**⚠️ And the honest refusal is kept.** An order where you sell **nothing at all** still waits rather than
+being taken — there is nothing to make it out of, and taking it would leave an empty order and hide the
+problem.
+
+**⚠️ ONE THING STILL NEEDS YOU, AND IT IS THE POINT OF ALL THIS: the fix stops FUTURE orders being lost.
+It cannot find the ones already lost.** Run this in **Supabase → SQL Editor**:
+
+    select created_at, (data::jsonb)->>'date' as day, (data::jsonb)->'lines' as items
+    from public.incoming_orders where status = 'new' order by created_at desc;
+
+**Any row older than a day or two is a customer who has been waiting.** Their order is sitting in your
+database and never reached your app. Tell me what it returns and I will take it from there.
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The
+suite is **2,893 tests, all green**, and all three halves were **bitten**: put `.every` back and two
+tests fail by name; stop collecting the unmatched lines and one fails; stop writing the note and one
+fails.
+
+**⚠️ And v362 went in first, in its own commit** — so this one stands on its own. **The Engine on your
+More screen reads 363.**
 
 **07 Oct 2026 — engine v362, A DAY'S ORDER COUNT COULD READ SHORT, AND NOTHING WENT RED (no database
 step, nothing to upload — pushing this one is the whole of it).**
