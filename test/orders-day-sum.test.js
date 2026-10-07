@@ -2154,3 +2154,67 @@ test("★ Apply coupon on a bring-a-friend reward really takes it off the order"
   assert.equal(spent.appliedTo, orderCode(st.orders[0]),
     "and it is stamped with the order it was spent on, which is how the money function finds it");
 });
+
+// ── ★★ v358: ONE ORDER, ONE COUPON — AND THE SCREEN MUST NOT INVITE A SECOND ──
+test("★ applying a coupon does not offer the button again, and a second press spends nothing", () => {
+  // ★★ HER REPORT: applying a coupon *"feels like taking two time but actually one coupon apply"*.
+  // She described it on a page that used the app's own code: after ONE press the row read
+  // "RM3.00 already off this order's total" **and** "RM3.00 coupon ready for this order" **and**
+  // offered the Apply button again — three lines that contradict each other, so the only honest
+  // reading was that the press had not taken. Pressing again then spent the NEXT coupon, stamped
+  // it on the SAME order, and moved no money, because `couponOn` can only ever find one.
+  const st = state();
+  st.products[0].price = 18;
+  st.orders[0].unitPrice = 18;
+  st.orders[0].whatsapp = "60123456789";
+  st.orders[0].customerName = "Aunty Bee";
+  st.orders[0].status = "confirmed";
+  st.settings.referrals = { enabled: true, friendRM: 3, referrerRM: 3, days: 90 };
+  // TWO rewards, which is the ordinary case for someone who has brought in two friends — and the
+  // only shape in which a second press can spend anything.
+  st.credits = [
+    { id: "cr_1", role: "reward", holder: "60123456789", amountRM: 3,
+      earnedAt: "2026-09-01", expiresAt: "", usedAt: null, orderCode: "ZZZZZZ" },
+    { id: "cr_2", role: "reward", holder: "60123456789", amountRM: 3,
+      earnedAt: "2026-09-02", expiresAt: "", usedAt: null, orderCode: "YYYYYY" },
+  ];
+
+  const isApply = (n) => n.tagName === "BUTTON" && txtOf(n).includes("Apply coupon");
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  const totalNow = () => {
+    const row = all(root).find((n) => String(n.className).includes("li-money"));
+    return row ? txtOf(all(row).find((n) => String(n.className).includes("info-val"))) : "(no total)";
+  };
+  assert.equal(totalNow(), "RM 36.00", "two focaccia before anything");
+
+  const apply = all(root).find(isApply);
+  assert.ok(apply, "her reward is offered on the order as an Apply coupon press");
+  // ⚠️ HELD ONTO ON PURPOSE. This is the second phone: a screen drawn BEFORE the coupon was
+  // applied, with its own button still on it. The guard has to hold against that, because no
+  // screen-level fix can reach a phone that has not repainted yet.
+  apply._listeners.click[0]();
+
+  assert.equal(totalNow(), "RM 33.00", "the press moves the figure");
+  assert.equal(st.credits.filter((c) => c.usedAt).length, 1, "exactly one coupon is spent");
+
+  // The screen as it is drawn now.
+  const fresh = createEl("div");
+  renderOrders(fresh, st, new URLSearchParams({ date: "d10" }));
+  assert.equal(all(fresh).some(isApply), false,
+    "★ THE BUTTON IS GONE once the order has its coupon — it must not offer itself again");
+
+  // And the stale screen presses anyway.
+  apply._listeners.click[0]();
+
+  assert.equal(st.credits.filter((c) => c.usedAt).length, 1,
+    "★ AND THE GUARD HOLDS: the second press spends nothing — no coupon burnt for nothing");
+  // ⚠️ FOUND BY ID, NOT BY NAME. `markOneUsed` spends whichever coupon is oldest by expiry, so
+  // naming "cr_2" here asserted about the wrong one the first time this test ran — the guard had
+  // held and the test still went red. Ask which is UNSPENT instead of which one was picked.
+  const untouched = st.credits.filter((c) => !c.usedAt);
+  assert.equal(untouched.length, 1, "exactly one coupon is left unspent");
+  assert.equal(untouched[0].appliedTo || "", "",
+    "and it was not stamped onto this order — the guard stopped it before anything was written");
+  assert.equal(totalNow(), "RM 33.00", "the total does not move twice for one coupon");
+});

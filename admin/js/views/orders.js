@@ -4396,6 +4396,14 @@ function referralOfferEl(state, group, scheme, root, dateId) {
 function referralApplyEl(state, group, root, dateId) {
   const first = group.orders[0];
   const cur = (state.settings && state.settings.currency) || "RM";
+  // ★★ NOT OFFERED ONCE THE ORDER HAS ITS COUPON (v358). It used to be, and the row then read
+  // "RM8.00 already off this order's total" and "RM8.00 coupon ready for this order" and an
+  // Apply button, all three at once — so the one honest reading was that the press had not
+  // taken, and pressing again was the obvious next move. Her report: applying a coupon
+  // *"feels like taking two time but actually one coupon apply"*. **Everything this block has
+  // to say is already said by the line above it**, which names the coupon and the money it
+  // moved; a second offer underneath it was only ever an invitation to burn another coupon.
+  if (couponOn(state, group.orders).amount > 0) return null;
   const mine = validCredits(state, waNumber(first.whatsapp));
   if (!mine.length) return null;
   const firstCredit = mine[0];
@@ -4410,11 +4418,19 @@ function referralApplyEl(state, group, root, dateId) {
       // NOTHING — `couponOn` could not tell which of her orders a spent reward belonged to, so
       // this press burned the coupon and moved no money. The toast below has been promising
       // "already taken off this order" since v322; from here it is true.
+      // ⚠️ THREE ANSWERS, NOT TWO (v358). A null from markOneUsed now means either "this holder
+      // has no coupons left" or "this order already has one" — different facts, and saying
+      // "Nothing to apply" for both would hide the second. The guard is a backstop: the button
+      // is no longer drawn on an order that has its coupon, but a second phone holding a stale
+      // screen can still reach it.
+      const already = couponOn(state, group.orders).amount > 0;
       const used = markOneUsed(state, waNumber(first.whatsapp), new Date().toISOString(), orderCode(first));
       anchorRowId = first.id;
       save(state);
       maybeSync(state);
-      toast(used ? `${fmtRM(used.amountRM, cur)} coupon used — already taken off this order` : "Nothing to apply");
+      toast(used
+        ? `${fmtRM(used.amountRM, cur)} coupon used — already taken off this order`
+        : already ? "This order already has its coupon" : "Nothing to apply");
       renderAll(root, state, new URLSearchParams({ date: dateId }));
     }, "soft small"));
 }

@@ -1,15 +1,67 @@
-# Jienluv2bake — change history (v54 → v357)
+# Jienluv2bake — change history (v54 → v358)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v358, APPLYING A COUPON NO LONGER LOOKS LIKE IT DID NOT TAKE (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"imention about coupon applying that feels like taking two time but actually one
+coupon apply"__ — and, when I asked you to pick which of four things it was, __"some problem, i dont know
+how to discribe"__.
+
+**★ SO I STOPPED ASKING AND SHOWED YOU.** A page was built that runs **the app's own coupon code**, with
+the order row drawn exactly as your screen draws it, a row of live figures underneath, and nothing
+pretend. You pressed it, and said: **"yes that's it"**.
+
+**What was wrong — two halves of one fault.**
+
+**1 · The screen did not look like it had taken.** After ONE press the order row said three things at
+once:
+
+- __"🎁 Bring-a-friend — RM8.00 already off this order's total."__
+- __"✨ RM8.00 coupon ready for this order"__
+- and it offered the **Apply coupon** button again.
+
+**Two of those contradict the first.** One says the coupon is off; the next says it is still __ready__ and
+hands you the button. So the only honest reading of that screen was __my press did not work__ — and pressing
+again was the obvious next move. Your words for it were exactly right: **it feels like it takes two times.**
+
+**2 · And pressing again burnt a coupon for nothing.** The second press spent the **next** coupon, stamped
+it on the **same** order, and moved **no money at all** — because an order can only ever take one coupon
+off. The page said it plainly: __"2 coupons were spent. RM8.00 came off the order. The other 1 went
+nowhere."__
+
+**What changed.**
+
+- **The button is gone once the order has its coupon.** Everything that block had to say is already said
+  by the line above it, which names the coupon and the money it moved. **The row now reads as applied,
+  because it is.**
+- **And the engine refuses it too.** Marking a coupon used now checks whether that order already has one
+  and **refuses**. That half is deliberately not about the screen: **a second phone holding a screen drawn
+  before the press can still press**, and no screen-level fix can reach a phone that has not repainted.
+- **Three answers, not two.** A refusal used to say __"Nothing to apply"__, which was a lie when the truth
+  was __"this order already has its coupon"__ — they now read differently.
+
+**★ PROVED BY DRIVING IT, NOT BY READING IT.** With the fix in, the page shows: one press → the button
+gone, one coupon spent, RM8.00 off; then the hidden button forced from a stale screen → **the guard held,
+still one coupon, still RM8.00 off.** Four new tests, and **both halves were bitten** — take the engine
+guard out and two tests fail by name; let the screen offer the button again and one fails.
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The suite
+is **2,866 tests, all green**.
+
+**⚠️ ONE THING TO DECIDE, AND IT IS YOURS.** If any order already had two coupons spent on it, those
+coupons are spent and gave you nothing. They can be found and put back — say the word and I will go
+looking. Nothing is changed until you ask.
 
 **07 Oct 2026 — engine v357, THE NOTICE OPENS ABOVE THE BUTTON, NOT ON TOP OF IT (no database step,
 nothing to upload — pushing this one is the whole of it).**
 
 **Your words:** __"can the pop up be open higher not to block the Placae Order button"__
 
-**What changed, and it is where the panel hangs from.** The panel opened directly above the *line*
+**What changed, and it is where the panel hangs from.** The panel opened directly above the __line__
 it belongs to — which put it **on top of the row**, and that row is **Place order**. It now opens
 above the **whole bar**:
 
@@ -19,7 +71,7 @@ above the **whole bar**:
 - and it still **floats** — the bar does not grow, so the button does not move either.
 
 **One thing this made me change, and it would have been a bug.** "Click away to close" was decided
-by asking whether the press landed outside the *words* wrapper. The panel is no longer inside that
+by asking whether the press landed outside the __words__ wrapper. The panel is no longer inside that
 wrapper, so **a press on the WhatsApp link inside the panel would have counted as "away"** and shut
 the notice the customer was reading. "Away" now means outside **both** the words and the panel.
 
@@ -34,7 +86,7 @@ itself whenever you tapped anything inside it, including the WhatsApp number**: 
 test still believed the panel was part of the words. Nothing else broke, and this version is the
 fix.
 
-**⚠️ FOR NEXT TIME:** say so when you are about to commit, or commit *before* asking for the next
+**⚠️ FOR NEXT TIME:** say so when you are about to commit, or commit __before__ asking for the next
 change. My edits land on disk as I make them, and a commit made in between sweeps up whatever is
 half-finished.
 
@@ -63,7 +115,7 @@ notice now says as much. That is a better answer than one blanket period, and a 
 
 **AND THE HONEST NOTE, recorded so it is not discovered later:** there is **no control anywhere in
 the app that deletes an order or a customer's details**. The only deletes in it are old calendar
-rows, imported incoming orders, and reviews. So *"ask us any time and we will delete them"* is a
+rows, imported incoming orders, and reviews. So __"ask us any time and we will delete them"__ is a
 promise **you keep by hand**, in Supabase — not by pressing anything. If it should become a button
 — a "forget this customer" that clears the name, number, address and pin while leaving the sale in
 the figures — that can be built.
@@ -90,8 +142,8 @@ about. It does not any more:
 name the personal data involved — and it does, twice over, in the same panel:
 
 - the **address** and the **pin on the door** are named in the second half of that very line;
-- the **name, number and address** are named again in the next point — *"the driver is given your
-  name, number and address"*.
+- the **name, number and address** are named again in the next point — __"the driver is given your
+  name, number and address"__.
 
 So nothing went unnamed; only the first sentence stopped repeating the list. **That check is the one
 to make again if this line is ever shortened further** — a notice that names nothing is a different
@@ -108,9 +160,9 @@ upload — pushing this one is the whole of it).**
 
 **Your words:** __"you din use the details?"__ — and then __"your details"__
 
-**What changed, and it is two words back.** When v353 stopped the notice claiming *"nobody else sees
-your details"* — which was **not true** — the phrase "your details" went with it, and the panel ended
-up saying *"Nobody else sees them"* and *"They stay in our order book"*. You asked for it back:
+**What changed, and it is two words back.** When v353 stopped the notice claiming __"nobody else sees
+your details"__ — which was **not true** — the phrase "your details" went with it, and the panel ended
+up saying __"Nobody else sees them"__ and __"They stay in our order book"__. You asked for it back:
 
 - **was:** …Nobody else sees **them**, and we never sell them.
 - **now:** …Nobody else sees **your details**, and we never sell them.
@@ -118,7 +170,7 @@ up saying *"Nobody else sees them"* and *"They stay in our order book"*. You ask
 - **now:** **Your details** stay in our order book…
 
 **And it is honest again, because the sentence before it now does the work.** v353 put the people who
-actually handle an order in front of it — the driver, the alert, WhatsApp — so *"nobody **else**"*
+actually handle an order in front of it — the driver, the alert, WhatsApp — so __"nobody **else**"__
 means what a reader takes it to mean. Standing alone before v353 it was simply false; now it is a
 closing reassurance with the truth already said one line up.
 
@@ -134,9 +186,9 @@ it).**
 **Your words:** __"as asian, we are sensitive to when you said you collect, that mean you keep it,
 can we say like 'We use your name....... that the only'"__
 
-**1 · "Collect" is gone from the whole panel.** The first point opened *"We collect your name, your
-WhatsApp number and, for a delivery, your address and door pin."* — and "collect" is data-protection
-jargon that lands, in this part of the world, as *"they are taking it and keeping it."* It now opens
+**1 · "Collect" is gone from the whole panel.** The first point opened __"We collect your name, your
+WhatsApp number and, for a delivery, your address and door pin."__ — and "collect" is data-protection
+jargon that lands, in this part of the world, as __"they are taking it and keeping it."__ It now opens
 on **use** and carries your own limit:
 
 - **was:** We collect your name, your WhatsApp number and, for a delivery, your address and door pin.
@@ -146,11 +198,11 @@ on **use** and carries your own limit:
 
 **Nothing legal was lost.** The Act wants the notice to **name the data** and **say why it is used**
 — it does not require the word "collect". The name, the number, the address and the pin are all still
-named, and so is the purpose. (What would understate it is dropping the *naming* too — "we use your
+named, and so is the purpose. (What would understate it is dropping the __naming__ too — "we use your
 details" — and that is the line to keep.)
 
-**2 · And the second point was not true.** It read *"The driver is given what they need to deliver.
-Nobody else sees your details, and we never sell them."* **Three other parties were seeing them**, all
+**2 · And the second point was not true.** It read __"The driver is given what they need to deliver.
+Nobody else sees your details, and we never sell them."__ **Three other parties were seeing them**, all
 of them traceable in the code:
 
 - **the courier** is given the customer's **name, phone number and address** to book the trip
@@ -210,7 +262,7 @@ step.**
 
 **3 · And it fixes a bug I shipped in v350 — the press did nothing on a freshly loaded shop.**
 When the notice moved under the button (v350), its press was wired up inside a function that **runs
-again on every render and on every language switch**. Binding a *toggle* there means binding it
+again on every render and on every language switch**. Binding a __toggle__ there means binding it
 again each time it runs, and **two bindings cancel each other out**: pressing the words did
 **nothing** on a shop that had just loaded, and opened the notice only after a language switch had
 made the number of bindings odd.
