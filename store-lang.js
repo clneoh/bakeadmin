@@ -69,13 +69,19 @@ const en = {
   // sits at the point of collection and not only in a policy page. ⚠️ THE CONTACT
   // NUMBER IS NOT HERE — store/app.js fills it in from the bakery's own setting, so
   // this sentence must end where the number begins.
-  privacyHead: "Personal Data Protection Notice",
-  privacyLead: "Under the Personal Data Protection Act 2010, we must tell you how we use the details you send us. Here is all of it:",
+  // v350 — the notice moved to the ORDER BAR: one line under Place order, and this
+  // panel behind it. The four facts are word-for-word what v348 wrote; only the
+  // heading, the opener and the closing line moved. privacyLead is GONE: the Act no
+  // longer opens the notice (the Commissioner's own template does not open with the
+  // law, and neither do the large platforms) — it closes it instead, on privacyDate.
+  privacyLine: "By ordering you agree to our privacy notice — we use your details only to bake and deliver.",
+  privacyLink: "Privacy notice",
+  privacyHead: "How we use your details",
   privacyWhat: "We collect your name, your WhatsApp number and, for a delivery, your address and door pin. We use them only to make your order, get it to you, and contact you about it.",
   privacyWho: "The driver is given what they need to deliver. Nobody else sees your details, and we never sell them.",
   privacyKeep: "They stay in our order book, held on a secure cloud service and on our own phones behind a PIN. Ask us to delete them and we will, apart from the sales record the tax office requires.",
   privacyContact: "Ask us any time to see, correct or delete what we hold — WhatsApp",
-  privacyDate: "Last reviewed: 7 October 2026.",
+  privacyDate: "Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.",
   howGet: "How will you get your order?",
   selfCollect: "Self collect",
   courier: "Courier delivery",
@@ -325,13 +331,14 @@ const zh = {
   whatsPh: "例如：012-345 6789",
   waSub: "我们会用这个号码确认订单和发送付款二维码，不会拿来 spam 你。",
 
-  privacyHead: "个人资料保护声明",
-  privacyLead: "根据《2010 年个人资料保护法令》，我们必须告知你，我们如何使用你提供的资料。以下是全部内容：",
+  privacyLine: "下单即表示你同意我们的个人资料声明 —— 你的资料只用来烘焙和递送这份订单。",
+  privacyLink: "个人资料声明",
+  privacyHead: "我们如何使用你的资料",
   privacyWhat: "我们会收集你的姓名、WhatsApp 号码；如果选择送货，也会收集地址和门口定位。这些资料只用来制作和递送你的订单，以及就订单与你联络。",
   privacyWho: "司机会收到送货所需的资料，除此之外没有人会看到，我们也绝不会出售你的资料。",
   privacyKeep: "资料保存在我们的订单记录里，存放在安全的云端服务，以及我们自己的手机中（有密码保护）。你可以要求我们删除，我们会删除——但税务局规定必须保留的销售记录除外。",
   privacyContact: "随时可以要求查阅、更正或删除我们持有的资料 —— WhatsApp",
-  privacyDate: "最后更新：2026 年 10 月 7 日。",
+  privacyDate: "依据《2010 年个人资料保护法令》（Act 709）。最后更新：2026 年 10 月 7 日。",
   howGet: "你希望怎样取货？",
   selfCollect: "自取",
   courier: "外送",
@@ -512,13 +519,14 @@ const ms = {
   whatsPh: "cth. 012-345 6789",
   waSub: "Kami guna nombor ini untuk sahkan tempahan dan hantar QR pembayaran — kami tidak akan spam anda.",
 
-  privacyHead: "Notis Perlindungan Data Peribadi",
-  privacyLead: "Di bawah Akta Perlindungan Data Peribadi 2010, kami perlu memberitahu anda bagaimana kami menggunakan maklumat yang anda berikan. Inilah semuanya:",
+  privacyLine: "Dengan menempah, anda bersetuju dengan notis privasi kami — maklumat anda hanya digunakan untuk membakar dan menghantar tempahan anda.",
+  privacyLink: "Notis privasi",
+  privacyHead: "Bagaimana kami menggunakan maklumat anda",
   privacyWhat: "Kami mengumpul nama anda, nombor WhatsApp anda, dan — jika dihantar — alamat serta pin pintu anda. Kami menggunakannya hanya untuk membuat tempahan anda, menghantarnya kepada anda, dan menghubungi anda mengenainya.",
   privacyWho: "Penghantar diberi apa yang perlu untuk menghantar. Tiada sesiapa lain melihat maklumat anda, dan kami tidak pernah menjualnya.",
   privacyKeep: "Ia disimpan dalam buku tempahan kami, di perkhidmatan awan yang selamat dan dalam telefon kami sendiri di belakang PIN. Beritahu kami untuk memadamkannya dan kami akan padam, kecuali rekod jualan yang dikehendaki oleh pihak cukai.",
   privacyContact: "Beritahu kami bila-bila masa untuk melihat, membetulkan atau memadam apa yang kami simpan — WhatsApp",
-  privacyDate: "Kemas kini terakhir: 7 Oktober 2026.",
+  privacyDate: "Di bawah Akta Perlindungan Data Peribadi 2010 (Akta 709). Kemas kini terakhir: 7 Oktober 2026.",
   howGet: "Macam mana anda mahu ambil tempahan?",
   selfCollect: "Ambil sendiri",
   courier: "Penghantaran kurier",

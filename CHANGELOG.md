@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v349)
+# Jienluv2bake — change history (v54 → v350)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v350, THE NOTICE MOVED TO THE BUTTON (no database step, nothing to upload —
+pushing this one is the whole of it).**
+
+**Your words:** __"i think the warning is too obvious"__ — and then __"we just choose one."__
+
+**What changed, and it is WHERE the notice lives rather than what it says.** The notice was a block
+sitting in the middle of the details card (v348, v349). You said it read as too obvious, so it is now
+**one quiet line under Place order**, and the four facts open from a panel behind it:
+
+> By ordering you agree to our privacy notice — we use your details only to bake and deliver.  Privacy notice
+
+**Why the button.** That is where the large platforms put theirs — Amazon's whole consent line at the
+till is ten words — and it is the one place on the page a customer is already reading before they
+commit. **The panel opens in place, never on a page of its own**, because the Commissioner's own guide
+says a notice "hidden behind too many links" is a notice nobody reads.
+
+**And the law now CLOSES the notice instead of opening it.** The heading was **"Personal Data
+Protection Notice"** and the first line was **"Under the Personal Data Protection Act 2010, we must tell
+you how we use the details you send us."** Both are gone. Malaysia's own template for small businesses
+opens in plain words — "We take your personal data seriously" — and naming the Act first made the
+notice read as a legal document rather than something written for a customer. **The Act is still there**,
+and so is the reviewed date, in the line at the foot of the panel:
+
+> Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.
+
+**⚠️ The line is 12.5px and must not get smaller.** It is now the ONLY place the notice is given, and
+the same guide warns against a font "so small that it results in the data subject not reading" it. It is
+the same size the old block used. In all three languages, as before.
+
+**⚠️ And the bar got taller, which costs a little of every screen.** The bar is fixed to the bottom, so
+its height is paid on every page. Measured at 375×812: **English 118px, Chinese 119px, Bahasa Malaysia
+136px** — its line wraps one line longer than English's — against **78px** for the old one-row bar. The
+spacer under the page, which is what stops the bar covering the last row of the shop, is set from the
+**longest** language: **140px**. Set from English's 118px, it would have hidden the last row of the shop
+from every customer reading in Bahasa Malaysia.
+
+**Nothing else about the notice changed.** The same four points, the same contact number read from
+Settings → Storefront, and the same rule: **a notice, never a gate** — no tick box, and nothing in it
+can refuse an order.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed at all — your orders,
+customers, prices and days are untouched. The suite is **2,863 tests, all green**, and the new one was
+**bitten three times**: the line set to 11px, the spacer cut to 90px, and the panel renamed so the press
+named a panel that was not there — each failed by its own message, and both files were restored
+byte-identical afterwards (checked by sha).
 
 **07 Oct 2026 — engine v349, THE NOTICE NOW NAMES THE LAW IT IS GIVEN UNDER (no database step, nothing to
 upload — pushing this one is the whole of it).**
@@ -14,6 +60,12 @@ upload — pushing this one is the whole of it).**
 - The heading was **"Your details"**. It is now **"Personal Data Protection Notice"**.
 - Under it sits a new first line: **"Under the Personal Data Protection Act 2010, we must tell you how we
   use the details you send us. Here is all of it:"**
+
+__Lifted at v350:__ both of those are gone. The notice now sits under **Place order**, not in the
+details card, and it **closes** with the Act rather than opening with it — the heading is **"How we use
+your details"** and the Act moved to the foot of the panel. Naming the law first was your own call at
+v349 and it was right at the time; what changed is that it made the notice read as too obvious in the
+middle of the form. **The Act is still named, and the date is still recorded** — only the order moved.
 
 **Why it reads better this way, and it is not only polish.** A heading like "Your details" describes the
 section a customer is standing in. **"Personal Data Protection Notice" says what the block IS** — a notice,

@@ -1217,6 +1217,21 @@ export function renderStatic(cfg) {
     privacyWa.hidden = !shown;
   }
 
+  // The one control the notice needs (v350): the press under Place order that opens
+  // the panel, and closes it again. It carries aria-expanded so the button says its
+  // own state out loud, and it opens IN PLACE — the Commissioner's guide warns that a
+  // notice behind too many links is one nobody reads, so the facts must not live on a
+  // page of their own. Bound once: the wiring is set up with the rest of the page.
+  const privacyOpen = document.getElementById("privacy-open");
+  const privacySheet = document.getElementById("privacy-sheet");
+  if (privacyOpen && privacySheet) {
+    privacyOpen.addEventListener("click", () => {
+      const open = privacyOpen.getAttribute("aria-expanded") === "true";
+      privacyOpen.setAttribute("aria-expanded", open ? "false" : "true");
+      privacySheet.hidden = open;
+    });
+  }
+
   renderDevFoot(cfg);
   renderFeedback(cfg);
 }
