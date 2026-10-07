@@ -75,7 +75,7 @@ test("no number is not a blank — it says WHY, and the two reasons read differe
 });
 
 test("a refund is marked, and the number stays", () => {
-  const o = { paidReceived: true, receiptNo: 7, receiptRefundedAt: "2026-10-07T00:00:00.000Z" };
+  const o = { paidReceived: true, receiptNo: 7, refundedAt: "2026-10-07T00:00:00.000Z" };
   assert.equal(isRefunded(o), true);
   assert.equal(receiptStatus(o), "Receipt #000007 — refunded");
   // ⚠️ THE NUMBER IS STILL THERE. Deleting it would leave the gap the sequence exists to prevent.
@@ -143,7 +143,7 @@ test("a refund comes back as a MARK, and only ever adds one", async () => {
 
   await claimReceipt(st, order);
   assert.equal(order.receiptNo, 9);
-  assert.equal(order.receiptRefundedAt, "2026-10-07T00:00:00.000Z",
+  assert.equal(order.refundedAt, "2026-10-07T00:00:00.000Z",
     "a phone that has never seen the refund learns about it here");
 });
 

@@ -109,14 +109,43 @@ begin
 end;
 $$;
 
+-- ── take the refund mark back off ──────────────────────────────────────────
+-- ⚠️ THIS IS THE ONLY WAY A MARK COMES OFF, AND IT BRINGS NOTHING BACK TO LIFE. It clears
+-- `refunded_at` on a receipt that stays in the run, with its number — which is a press she
+-- can undo if she refunded the wrong order, and not a way to erase a sale. The NUMBER is
+-- never touched by it, here or anywhere: a receipt that vanished would leave the gap the
+-- whole table exists to prevent.
+create or replace function public.unrefund_receipt(p_order_code text)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text := upper(trim(coalesce(p_order_code, '')));
+  v_num  bigint;
+begin
+  if v_code = '' then
+    return null;
+  end if;
+  update receipt_numbers
+     set refunded_at = null
+   where order_code = v_code
+   returning number into v_num;
+  return v_num;
+end;
+$$;
+
 -- ── who may call these ──────────────────────────────────────────────────────
 -- ⚠️ THE BACKOFFICE ONLY, AND ONLY SIGNED IN. These are the bakery's own books: the
 -- public shop must never be able to draw a receipt number, or anyone who read the
 -- shop's page could burn through the sequence.
 revoke all on function public.claim_receipt_number(text) from public;
 revoke all on function public.refund_receipt(text) from public;
+revoke all on function public.unrefund_receipt(text) from public;
 grant execute on function public.claim_receipt_number(text) to authenticated;
 grant execute on function public.refund_receipt(text) to authenticated;
+grant execute on function public.unrefund_receipt(text) to authenticated;
 
 -- The register reads this table directly, and it is the backoffice's own book.
 alter table receipt_numbers enable row level security;

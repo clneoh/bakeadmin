@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue, isCollected } from "../money.js";
+import { dayMoney, groupValue, isCollected, isRefunded } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -19,7 +19,7 @@ import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineNa
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { claimReceipt, maybePublishTracking, maybeSync, publishTracking } from "../supabase.js";
+import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, unrefundReceipt } from "../supabase.js";
 import { receiptLine, receiptStatus } from "../receipts.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
@@ -4166,6 +4166,17 @@ function orderGroupRow(state, group, root, dateId) {
       button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
       button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
   }
+  // ★★ THE REFUND (v361). Offered only once the money is IN — there is nothing to give back
+  // until it has arrived — and it sits with the paid buttons because it is the same subject:
+  // the money on this order.
+  //
+  // ⚠️ IT IS NOT ONE OF A PAIR OF QUICK PRESSES like Paid · Cash / Paid · TNG. Giving money
+  // back is not a stage to nudge; it asks first, and the question says the amount.
+  if (isCollected(group)) {
+    actions.push(first.refundedAt
+      ? button("Undo refund", () => undoRefundOrder(state, group, first, { root, dateId }), "ghost small")
+      : button("Refund", () => refundOrder(state, group, first, { root, dateId }), "ghost small"));
+  }
   // Print label, from Baked onwards rather than only while the order sits on Baked (v268).
   // The slip goes out with the bag — a label that tore, or one printed before she had
   // finished packing, needs a second one, and the order it belongs to is often still in
@@ -4271,10 +4282,14 @@ function orderGroupRow(state, group, root, dateId) {
       // back to Not recorded — still dressed the row as paid while every other screen said
       // it owed money. A method with the money not in is a note about HOW it will come,
       // and that belongs in the pop-up, not on a row that reads as settled.
-      first.paidMethod && isCollected(group)
-        ? el("span", { class: `paid-tag${first.paidMethod === "tng" ? " tng" : ""}` },
-            first.paidMethod === "cash" ? "Cash" : "TNG")
-        : null,
+      // ★ A REFUNDED ORDER WEARS ITS OWN TAG, AND NOT THE CASH / TNG ONE (v361). It was paid,
+      // and it is not money she has any more — so the row must not go on reading as settled.
+      isRefunded(group)
+        ? el("span", { class: "paid-tag refunded" }, "Refunded")
+        : first.paidMethod && isCollected(group)
+          ? el("span", { class: `paid-tag${first.paidMethod === "tng" ? " tng" : ""}` },
+              first.paidMethod === "cash" ? "Cash" : "TNG")
+          : null,
       // The courier's charge, in the paid-tag's family so it reads as one more thing
       // about this order: neutral when the customer bore it (it costs her nothing),
       // amber when it came out of her own pocket and is already off her profit.
@@ -4559,6 +4574,68 @@ function markPaid(state, group, root, dateId, method) {
 
 function firstOf(group) {
   return ((group && group.orders) || [])[0];
+}
+
+// ── giving the money back (v361) ────────────────────────────────────────────
+//
+// ⚠️⚠️ WHAT A REFUND DOES TO THE BOOKS, because this is money and it has to be said plainly:
+// **the sale stops counting.** A refunded order is neither takings nor owed — the money came
+// in and went back out — so every money total skips it (`money.isRefunded`, read by the Money
+// screen and by Profit). **It is NOT recorded as an expense as well:** the sale is gone, and
+// subtracting the refund a second time would take it off her profit twice.
+//
+// ⚠️ AND THE RECEIPT KEEPS ITS NUMBER. It is MARKED, never renumbered and never deleted —
+// the money really moved, and a receipt that vanished would leave exactly the gap in the
+// sequence that the numbering exists to prevent.
+function refundOrder(state, group, first, { root, dateId } = {}) {
+  const cur = (state.settings && state.settings.currency) || "RM";
+  const what = fmtRM(customerTotal(state, group).total, cur);
+  confirmDialog(`Refund ${what} on this order?`, async () => {
+    const at = new Date().toISOString();
+    for (const o of group.orders) o.refundedAt = at;
+    anchorRowId = first.id;
+    save(state);
+    maybeSync(state);
+    // The register's own mark, best-effort and never blocking: if it cannot be made, the
+    // order still reads as refunded here, and the mark arrives from the server the next time
+    // the receipt is opened.
+    // ⚠️ THE ORDER'S OWN MARK IS NOT BEST-EFFORT; THE REGISTER'S IS. The money really has gone
+    // back — that is a thing she did, not a thing this app decided — so the sale stops counting
+    // the moment she confirms, whatever the register says. But a register that was never told
+    // would print an UNMARKED receipt for a refunded sale, and that disagreement is hers to
+    // know about: it is said on her screen rather than carried in silence.
+    const marked = await refundReceipt(state, first);
+    save(state);
+    toast(marked
+      ? `${what} refunded — off your takings, and the receipt is marked, not renumbered`
+      : `${what} refunded and off your takings — but the receipt could NOT be marked in the register. Run supabase/receipts.sql, then open this order's Invoice.`);
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  });
+}
+
+// Undo a refund made on the wrong order. ⚠️ IT PUTS THE SALE BACK AND THE RECEIPT'S MARK WITH
+// IT — and the number was never touched by either, so nothing about the sequence moves.
+function undoRefundOrder(state, group, first, { root, dateId } = {}) {
+  confirmDialog("Put this order back to paid? The refund comes off, and its receipt stops being marked.", async () => {
+    // ⚠️⚠️ AND THIS ONE REFUSES RATHER THAN HALF-DOING IT. An order put back to paid on this
+    // phone while the register still says refunded is a disagreement between her books and her
+    // paper — the one outcome this feature exists to avoid — so if the register cannot be told,
+    // NOTHING changes and she is told why.
+    //
+    // ⚠️ ONLY WHEN THERE IS A REGISTER TO DISAGREE WITH. An order with no receipt number has
+    // never been near it (nothing claimed, or the SQL not yet run), so the local undo IS the
+    // whole story and refusing would be a gate for no reason.
+    if (Number(first.receiptNo) > 0 && !(await unrefundReceipt(state, first))) {
+      toast("Could not reach the receipts register, so nothing has changed. Run supabase/receipts.sql, then try again.");
+      return;
+    }
+    for (const o of group.orders) delete o.refundedAt;
+    anchorRowId = first.id;
+    save(state);
+    maybeSync(state);
+    toast("Refund undone — the order counts as paid again");
+    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  });
 }
 
 function removeOrder(state, group, root, dateId) {

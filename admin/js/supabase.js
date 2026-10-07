@@ -875,14 +875,16 @@ export async function claimReceipt(state, order) {
     // ⚠️ A REFUND IS CARRIED BACK TOO, and it only ever ADDS a mark. The server decides
     // whether this order has been refunded; a phone that has never seen the refund learns
     // about it here rather than by assuming the order is clean.
-    if (row.refunded_at) order.receiptRefundedAt = String(row.refunded_at);
+    if (row.refunded_at) order.refundedAt = String(row.refunded_at);
     return true;
   } catch { return false; }
 }
 
-// Mark one order's receipt refunded. ⚠️ IT MARKS, IT NEVER DELETES — the number stays
-// spent for ever, or the sequence shows a gap where money really moved.
-export async function refundReceipt(state, order) {
+// One call to one receipt function, and the same two answers for both: it worked, or it did
+// not. ⚠️ KEEPING THE TWO IN ONE PLACE IS NOT TIDINESS. A refund and the undoing of it must
+// send the same body and read the same reply; two copies of that are two chances to drift,
+// and the thing that would drift is her books.
+async function receiptRpc(state, order, fn) {
   if (!order) return false;
   const c = cfg(state);
   if (!ready(c)) return false;
@@ -894,7 +896,7 @@ export async function refundReceipt(state, order) {
     catch { return false; }
   }
   try {
-    const res = await fetch(`${c.url}/rest/v1/rpc/refund_receipt`, {
+    const res = await fetch(`${c.url}/rest/v1/rpc/${fn}`, {
       method: "POST",
       headers: {
         apikey: c.anonKey,
@@ -903,10 +905,25 @@ export async function refundReceipt(state, order) {
       },
       body: JSON.stringify({ p_order_code: code }),
     });
-    if (!res || !res.ok) return false;
-    order.receiptRefundedAt = new Date().toISOString();
-    return true;
+    return !!(res && res.ok);
   } catch { return false; }
+}
+
+// Mark one order's receipt refunded. ⚠️ IT MARKS, IT NEVER DELETES — the number stays
+// spent for ever, or the sequence shows a gap where money really moved.
+export async function refundReceipt(state, order) {
+  if (!(await receiptRpc(state, order, "refund_receipt"))) return false;
+  order.refundedAt = new Date().toISOString();
+  return true;
+}
+
+// Take the mark back off — for a refund made on the wrong order. ⚠️ IT CLEARS A MARK AND
+// NOTHING ELSE: the number stays, because a receipt that vanished would leave the gap the
+// whole table exists to prevent.
+export async function unrefundReceipt(state, order) {
+  if (!(await receiptRpc(state, order, "unrefund_receipt"))) return false;
+  delete order.refundedAt;
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

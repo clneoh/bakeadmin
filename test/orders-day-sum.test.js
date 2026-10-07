@@ -2218,3 +2218,92 @@ test("★ applying a coupon does not offer the button again, and a second press 
     "and it was not stamped onto this order — the guard stopped it before anything was written");
   assert.equal(totalNow(), "RM 33.00", "the total does not move twice for one coupon");
 });
+
+// ── ★★ v361: the Refund press, driven to its outcome ─────────────────────────
+test("★ Refund is offered on a paid order, asks FIRST, and leaves the row saying Refunded", () => {
+  const st = state();
+  st.orders[0].status = "paid";
+  st.orders[0].paidReceived = true;
+  st.orders[0].paidMethod = "cash";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const buttonNamed = (node, label) =>
+    all(node).find((n) => n.tagName === "BUTTON" && txtOf(n) === label);
+  const press = (node, label) => {
+    const b = buttonNamed(node, label);
+    assert.ok(b, `no button on this screen reads "${label}"`);
+    b._listeners.click[0]();
+  };
+
+  assert.ok(buttonNamed(root, "Refund"), "★ a paid order offers the refund press");
+  // ⚠️ NOTHING IS OFFERED BEFORE THE MONEY IS IN. There is nothing to give back until it has
+  // arrived, and the press must not be sitting there inviting a mistake.
+  const unpaid = state();
+  unpaid.orders[0].status = "confirmed";
+  unpaid.orders[0].paidReceived = false;
+  const unpaidRoot = createEl("div");
+  renderOrders(unpaidRoot, unpaid, new URLSearchParams({ date: "d10" }));
+  assert.equal(buttonNamed(unpaidRoot, "Refund"), undefined, "an unpaid order offers no refund");
+
+  press(root, "Refund");
+
+  // ⚠️⚠️ IT ASKS FIRST, AND THIS IS THE ASSERTION THAT MATTERS. Giving money back is not a
+  // stage to nudge like Paid · Cash; a press that refunded in one tap on a row people tap all
+  // day would be the worst control in the app.
+  assert.equal(st.orders[0].refundedAt, undefined, "★ NOTHING is refunded until she confirms");
+
+  const layer = document.getElementById("confirm-layer");
+  press(layer, "Confirm");
+
+  assert.ok(st.orders[0].refundedAt, "the order is marked refunded");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  assert.ok(all(root).some((n) => txtOf(n) === "Refunded"),
+    "★ and the row says so — it must not go on reading as Cash");
+  assert.ok(buttonNamed(root, "Undo refund"), "and the way back is offered");
+});
+
+test("★ Undo refund REFUSES rather than half-doing it when the register cannot be reached", async () => {
+  // ⚠️⚠️ THE DISAGREEMENT THIS PREVENTS. An order put back to paid on this phone while the
+  // register still says refunded is her books and her paper telling two different stories — the
+  // exact outcome this feature exists to avoid. So when the register cannot be told, NOTHING
+  // changes and she is told why.
+  const st = state();
+  st.orders[0].status = "paid";
+  st.orders[0].paidReceived = true;
+  st.orders[0].paidMethod = "cash";
+  st.orders[0].refundedAt = "2026-10-06T00:00:00.000Z";
+  // ⚠️ IT HAS A RECEIPT NUMBER, so there IS a register to disagree with. Without one the local
+  // undo is the whole story and refusing would be a gate for no reason — see the test below.
+  st.orders[0].receiptNo = 123;
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const named = (node, label) => all(node).find((n) => n.tagName === "BUTTON" && txtOf(n) === label);
+  named(root, "Undo refund")._listeners.click[0]();
+  named(document.getElementById("confirm-layer"), "Confirm")._listeners.click[0]();
+  // The handler awaits the register before it decides, so let the microtasks run.
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.ok(st.orders[0].refundedAt,
+    "★ NOTHING changed — the register could not be told, so the order stays refunded");
+});
+
+test("but an order that never got a receipt number can be undone freely — there is no register to disagree with", async () => {
+  const st = state();
+  st.orders[0].status = "paid";
+  st.orders[0].paidReceived = true;
+  st.orders[0].paidMethod = "cash";
+  st.orders[0].refundedAt = "2026-10-06T00:00:00.000Z";
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+
+  const named = (node, label) => all(node).find((n) => n.tagName === "BUTTON" && txtOf(n) === label);
+  named(root, "Undo refund")._listeners.click[0]();
+  named(document.getElementById("confirm-layer"), "Confirm")._listeners.click[0]();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(st.orders[0].refundedAt, undefined, "the local undo is the whole story here");
+});

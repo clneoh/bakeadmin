@@ -47,10 +47,11 @@ export function receiptLine(order, code) {
 
 // A refund NEVER takes the number away. The receipt keeps it and is marked, because the
 // money did move — a receipt that vanished would leave exactly the gap the sequence
-// exists to prevent. Nothing sets this yet; the column and the wording are here so the
-// day a refund is recorded, the paper already knows how to say it.
+// exists to prevent. ⚠️ ONE FIELD, `refundedAt`, and it lives on the ORDER: the money going
+// back is a fact about the sale, and the receipt's mark is the same fact recorded in the
+// register. Two fields would be two things to keep in step.
 export function isRefunded(order) {
-  return !!(order && order.receiptRefundedAt);
+  return !!(order && order.refundedAt);
 }
 
 // What the paper says about the number, in every state it can be in — including the two

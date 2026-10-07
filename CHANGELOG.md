@@ -1,8 +1,72 @@
-# Jienluv2bake — change history (v54 → v360)
+# Jienluv2bake — change history (v54 → v361)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v361, THE REFUND BUTTON (⚠️ RE-RUN supabase/receipts.sql BEFORE YOU PUSH).**
+
+**Your words:** __"yes build the refund button"__.
+
+**Where it is.** On a **paid** order's row, beside the money buttons: **Refund**. It appears only
+once the money is in — there is nothing to give back until it has arrived — and **it asks first**, naming
+the amount. **Giving money back is not a stage to nudge like Paid · Cash**, so it is never one tap on a
+row you press all day. Say no and nothing has happened.
+
+**★ And when you confirm, two things move together:**
+
+1. **The order is marked refunded**, and its row wears a **Refunded** tag instead of Cash / TNG.
+2. **The sale stops counting.** A refunded order is **neither takings nor owed** — the money came in and
+   went back out — so it is skipped by **the Money screen, every journal and Profit**. Put plainly: it
+   is not money you have, and it is not money anybody owes, and the app does not make you choose.
+
+**⚠️ And it is deliberately NOT also written down as an expense.** The sale is gone; subtracting the
+refund a second time would take it off your profit twice. **One event, one effect.**
+
+**★ The receipt keeps its serial number.** It is **marked**, never renumbered and never deleted — money
+that moved is money that moved, and **a receipt that vanished would leave exactly the gap in the sequence
+that numbering exists to prevent.** The paper reads __"Receipt #000123 — refunded"__.
+
+**★ And you can undo it.** A **Refund** pressed on the wrong order offers **Undo refund** — the order goes
+back to paid and the receipt stops being marked. **The number is never touched by either press**, so
+nothing about the sequence moves in either direction.
+
+**⚠️ And when the receipts register cannot be reached, UNDO REFUSES RATHER THAN HALF-DOING IT.** An order
+put back to paid on your phone while the register still says refunded is **your books and your paper
+telling two different stories** — so if the register cannot be told, **nothing changes**, and the message
+says why.
+
+**⚠️ THAT IS THE ONE THAT MATTERS TO YOU TODAY — and it is why running the NEW script matters.** The undo
+needs `unrefund_receipt`, which is only in the **current** `supabase/receipts.sql`. On the older one:
+**refunds still work** (that function was already there), and the sale still stops counting — but **Undo
+will refuse, and say so**, rather than leave the register disagreeing. **Paste the current file into a new
+query and run that.**
+
+**And a refund itself is never blocked by the register.** The money really has gone back — that is a thing
+you did, not a thing the app decided — so the sale stops counting the moment you confirm, whatever the
+register says. **If the register could not be marked, the message tells you so**, because an unmarked
+receipt for a refunded sale is something you need to know about rather than discover on paper.
+
+**⚠️ HOW TO DEPLOY THIS ONE.**
+
+1. **Re-run supabase/receipts.sql in Supabase** (Dashboard → SQL → New query → Run). It is safe to run
+   again, and it now also carries the function that takes a refund mark back off.
+2. **Then push.**
+
+**If you push first nothing breaks** — the refund still marks the order and still comes off your takings —
+but the receipt would not be marked in the register until the SQL is run.
+
+**No Edge Function.** The suite is **2,885 tests, all green**, and every load-bearing rule was **bitten**:
+stop the till skipping a refund and two tests fail by name; count a refunded sale in Profit again and two
+fail; let the trading journal count it and one fails; offer Refund on an unpaid order and one fails; make
+the refund skip its question and one fails.
+
+**⚠️ Two things worth your eye, and both are honest limits rather than defects:**
+
+- **The customer's track card still shows a refunded order as it was.** The card is theirs, and what it
+  says about a refund is a decision yet to be made.
+- **Your shop's Policies text still says orders are not refundable.** Now that you can refund from the
+  app, that line is worth another look.
 
 **07 Oct 2026 — engine v360, EVERY RECEIPT NOW HAS ITS OWN SERIAL NUMBER (⚠️ THERE IS A DATABASE STEP
 THIS TIME — RUN THE SQL BEFORE YOU PUSH).**
