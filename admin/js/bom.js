@@ -47,7 +47,14 @@ export function explodeBom(state, deliveryDateId) {
       warnings.push(`Order for a deleted product (${order.qty} pcs) was skipped.`);
       continue;
     }
-    if (!Array.isArray(product.recipe)) continue;
+    // ⚠️ AND THIS HALF WAS SILENT (v362). A product with no `recipe` array is skipped — which is
+    // right for COSTING, there is nothing to explode — but it said nothing, so the order simply
+    // vanished from the costing totals with no line anywhere to say a product cannot be costed.
+    // **The deleted-product branch right above has always warned; this one never did.** Say it.
+    if (!Array.isArray(product.recipe)) {
+      warnings.push(`${product.name} has no recipe, so its ${order.qty} pcs are not costed.`);
+      continue;
+    }
     totalUnits += order.qty;
     const cycleWarnings = [];
     const perUnit = demandMap(state, product.id, memo, new Set(), cycleWarnings);
@@ -648,7 +655,20 @@ export function saveDayAdjustments(state, deliveryDateId, adjustments) {
 }
 
 export function capacityStatus(state, deliveryDateId) {
-  const { totalUnits } = explodeBom(state, deliveryDateId);
+  // ★★★ COUNTED FROM THE ORDERS, NOT FROM `explodeBom` (v362). ⚠️⚠️ THIS WAS READING THE
+  // COSTING PATH, AND THE COSTING PATH SKIPS ORDERS. `explodeBom` `continue`s past an order
+  // whose product has been deleted, and **past one whose product carries no `recipe` array —
+  // SILENTLY, with no warning at all.** So a day the baker had really booked could read SHORT on
+  // its own calendar chip, with **nothing on any screen going red**, while the shop and the slot
+  // counts (which read the orders) went on saying it was booked. **A count that disagrees with
+  // itself is worse than no count.**
+  //
+  // ⚠️ FOUND FROM THE MUNCHIES SESSION'S BRIDGE NOTE, 2026-10-07 — the same fault, in the same
+  // shared file, from her report there: *"the 9th at shore show qty and the app shown qty are
+  // different."* **They are ahead of this repo on nothing else; this one travelled the other way.**
+  //
+  // ★ AND THE RIGHT COUNTER WAS ALREADY IN THIS FILE, four lines below the wrong one.
+  const totalUnits = totalUnitsOnDate(state, deliveryDateId);
   const rec = byId(state.deliveryDates, deliveryDateId);
   const cap = effectiveCapacity(state, rec && rec.date);
   const remaining = cap - totalUnits;

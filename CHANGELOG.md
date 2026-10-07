@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v361)
+# Jienluv2bake — change history (v54 → v362)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v362, A DAY'S ORDER COUNT COULD READ SHORT, AND NOTHING WENT RED (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Where this came from, because it was not you who found it: your other shop did.** munchies reported
+that a day showed one quantity to a customer and a different one in the app, and its session traced it to
+**code the two shops share**. They left a note for this side. **The note was right — the same fault was
+here, in the same file.**
+
+**What was wrong.** A day's booked count is asked for on the calendar's own chip, in the week view and on
+the dashboard. It was being read from **the costing routine** — the one that works out how much flour a
+day needs.
+
+**⚠️ And that routine SKIPS ORDERS.** It passes over an order whose product has been **deleted**, and —
+**silently, with no warning anywhere** — over one whose product **has no recipe** yet. Which is right for
+costing: there is nothing to explode. **But it is wrong for counting.**
+
+**So a day you had really sold could count LOW, or count as EMPTY**, while the shop and the
+"Only N left" numbers — which read the orders — went on saying it was booked. **Two numbers about one day,
+disagreeing, with nothing on any screen going red.**
+
+**What changed, and it is one line.** The correct counter was **already in the same file, four lines below
+the wrong one** — it counts the orders and nothing else. The day's own count now reads that.
+**And the silent skip speaks up:** a product with no recipe now says so, so a line that cannot be costed
+is a line you are told about rather than one that quietly disappears from the totals.
+
+**Nothing you see changes on a day where every product has a recipe** — which is every day so far, in all
+likelihood, because the fault needs a product with no recipe or one you have deleted. **That is exactly why
+it went unnoticed: it only bites on the days that are already unusual.**
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The suite
+is **2,891 tests, all green**, and both halves were **bitten**: make the day read the costing routine again
+and two tests fail by name; make the recipe-less skip quiet again and one fails.
+
+**★ And the note it came from is written down properly** — the two shops keep a shared bridge note, and
+this side has now answered it.
 
 **07 Oct 2026 — engine v361, THE REFUND BUTTON (⚠️ RE-RUN supabase/receipts.sql BEFORE YOU PUSH).**
 
