@@ -192,17 +192,17 @@
          So the words IN the sentence are now the trigger, the way Amazon's own checkout
          does it: nothing repeats and nothing is added.
 
-         ⚠️ IT OPENS ON HOVER *AND* ON A TAP, AND THE TAP IS NOT OPTIONAL. Her words:
-         "no need to press, it show like a tooltips, move mouse away it colapses". Hover
-         is right on a laptop — and it does not exist on a phone, which is where this
-         shop is ordered from. With hover alone the notice would be unreachable for every
-         customer who matters, so both paths drive the same panel, plus keyboard focus
-         and Escape (WCAG 1.4.13: hover content must be hoverable and dismissable).
+         ⚠️ IT OPENS ON A CLICK, AND CLOSES WHEN YOU CLICK AWAY. Her words: "make it
+         expend only when i click on it, away, colapse." It opened on HOVER for one
+         version (v351) and she changed it the same day. **A press behaves the same on a
+         laptop and on a phone** — which hover never could, because hover does not exist
+         on a touchscreen and this shop is ordered from phones. The trigger is a real
+         <button>, so Enter and Space work, and Escape closes it.
 
          ⚠️ THE PANEL FLOATS ABOVE THE LINE rather than pushing the bar taller, so
          opening it never moves Place order under the customer's thumb. It sits INSIDE
-         this wrapper so the pointer can travel from the words on to the panel without
-         the panel closing on the way across.
+         this wrapper because "away" means OUTSIDE THE NOTICE — a press on the WhatsApp
+         link inside the panel must not close it.
 
          ⚠️ THE CONTACT NUMBER IS NOT IN THE STRINGS. The sentence is translated with the
          rest of the page; the number is filled by store/app.js from the same setting the

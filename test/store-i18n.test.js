@@ -294,3 +294,29 @@ test("the privacy line opens the panel it names, and is not set too small to rea
   assert.ok(Number(spacer[1]) >= 118,
     `the spacer clears the TALLEST language on the NARROWEST screen (measured 118px: Bahasa Malaysia at 320px, where the line wraps to two — it is ${spacer[1]}px)`);
 });
+
+// ⚠️ renderStatic() RUNS AGAIN ON EVERY RENDER AND ON EVERY LANGUAGE SWITCH — its own
+// comment says so (store/app.js ~L944, "renderStatic() runs again on every language
+// switch"). A listener bound inside it is therefore bound AGAIN each time it runs, and that
+// is harmless for a handler that SETS a state — but fatal for one that TOGGLES it: two
+// bindings cancel out and the control reads as DEAD.
+//
+// That is exactly what shipped in v350 and v351. Pressing the words under Place order did
+// NOTHING on a freshly loaded shop, and opened the notice after one language switch. It got
+// past every check because one press was driven, not two, and because the parity at that
+// moment happened to be odd. Driving the press twice in a row is what exposes it.
+//
+// So this is an invariant, and it is broad on purpose: renderStatic must bind NO event
+// listener at all. Anything the shop needs bound belongs at module scope, where the language
+// pills are bound, because the bar's markup is static HTML that is never replaced.
+test("renderStatic binds no event listeners, because it runs more than once", () => {
+  const src = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  const at = src.indexOf("export function renderStatic(");
+  assert.ok(at > -1, "renderStatic exists in store/app.js");
+  const rest = src.slice(at + 1);
+  const nextExport = rest.search(/\nexport (function|const|let) /);
+  const body = nextExport > -1 ? rest.slice(0, nextExport) : rest;
+  const binds = body.match(/addEventListener\(/g) || [];
+  assert.equal(binds.length, 0,
+    `renderStatic() binds ${binds.length} listener(s). It runs again on every render and every language switch, so a binding there is a binding REPEATED — and a TOGGLE bound twice cancels itself out, so the control looks dead on a fresh page and works after a language switch. Bind once at module scope instead.`);
+});

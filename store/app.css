@@ -642,10 +642,10 @@ button.prod-next.off::after { content: ""; }
    ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order.
    ⚠️ THE LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
    starting point. It matches the size the v348 block used. */
-/* The wrapper is the HOVER ZONE (v351). The words and the panel are both inside it, so
-   the pointer can travel from one to the other without the panel closing on the way —
-   without that, a panel that closes on mouse-out is a panel nobody can read, and WCAG
-   1.4.13 asks for hover content to be hoverable as well as dismissable. */
+/* The wrapper is the NOTICE ZONE. The words and the panel are both inside it, which is
+   what makes "click away to close" mean what it should: a press on the words, on the
+   paragraphs, or on the WhatsApp link inside the panel is a press INSIDE the notice and
+   leaves it open; only a press outside the wrapper closes it. */
 .order-notice-wrap { position: relative; }
 /* ⚠️ THE PANEL FLOATS; IT DOES NOT PUSH. It is absolutely placed above the line, so
    opening the notice never moves Place order under the customer's thumb — the bug a
@@ -705,13 +705,19 @@ button.prod-next.off::after { content: ""; }
   line-height: 1.45;
   color: #8a7a68;
 }
+/* ⚠️ NOT THE TERRACOTTA. It carries `--brown-dark` until v352, which read as a RED link
+   sitting under a sentence of grey small print — she asked for the underline to stay and
+   the red to go. `inherit` takes the colour of the line it lives in, so the trigger can
+   never drift away from the small print around it, in any language or on any background.
+   The affordance is the underline and the weight; the hover thickens it rather than
+   changing colour, so nothing here goes red again. */
 .privacy-link {
   appearance: none;
   background: none;
   border: 0;
   font: inherit;
   font-size: inherit;
-  color: var(--brown-dark, #a84322);
+  color: inherit;
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -722,6 +728,13 @@ button.prod-next.off::after { content: ""; }
   margin: -6px -4px;
   min-height: 24px;
 }
+/* A press that shows nothing when it is hovered reads as a dead control, and the colour
+   is no longer the tell — so the underline carries it, and thickens on hover. */
+.privacy-link:hover { text-decoration-thickness: 2px; }
+/* ⚠️ IT HAD NO FOCUS RING OF ITS OWN until v352, and with `appearance:none; border:0` it
+   was relying on whatever the browser felt like drawing. Same shape as the shop's other
+   focus ring (.promo-dot), in the small print's own colour rather than the terracotta. */
+.privacy-link:focus-visible { outline: 2px solid #8a7a68; outline-offset: 2px; }
 
 /* Notice shown when a live refresh had to fix the customer's order — e.g. an
    item sold out (or only a few left) after they added it. Sits above the menu. */

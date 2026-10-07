@@ -1217,50 +1217,10 @@ export function renderStatic(cfg) {
     privacyWa.hidden = !shown;
   }
 
-  // The notice under Place order (v350; hover added v351). She asked for it to behave like
-  // a tooltip — "no need to press, it show like a tooltips, move mouse away it colapses" —
-  // and hover alone would leave the notice UNREACHABLE ON A PHONE, which is where this shop
-  // is ordered from. So both paths drive the same panel: the pointer opens it on a laptop,
-  // a tap opens it on a phone. Keyboard gets it too — focus opens, Escape closes — which is
-  // what WCAG 1.4.13 asks of hover content: dismissable, hoverable, and persistent while
-  // the pointer or focus is on it.
-  //
-  // ⚠️ THE ZONE IS THE WRAPPER, NOT THE WORDS. The panel lives inside the same wrapper, so
-  // travelling from the words up onto the panel never leaves the zone. A panel that closed
-  // on the way across could never be read at all.
-  const privacyZone = document.getElementById("privacy-zone");
-  const privacyOpen = document.getElementById("privacy-open");
-  const privacySheet = document.getElementById("privacy-sheet");
-  if (privacyZone && privacyOpen && privacySheet) {
-    const setOpen = (open) => {
-      privacySheet.hidden = !open;
-      privacyOpen.setAttribute("aria-expanded", open ? "true" : "false");
-    };
-    const isOpen = () => privacyOpen.getAttribute("aria-expanded") === "true";
-
-    // A tap or a click ALSO focuses the button first (mousedown -> focus -> click), so a
-    // focus-open would be undone by the click's toggle in the same gesture — the panel
-    // would flash open and shut. A pointer-down in the last moment therefore suppresses
-    // the focus-open, and the click alone decides.
-    let pointerJustDown = false;
-    privacyZone.addEventListener("pointerdown", () => {
-      pointerJustDown = true;
-      setTimeout(() => { pointerJustDown = false; }, 500);
-    });
-
-    privacyZone.addEventListener("mouseenter", () => setOpen(true));
-    privacyZone.addEventListener("mouseleave", () => setOpen(false));
-    privacyOpen.addEventListener("focus", () => { if (!pointerJustDown) setOpen(true); });
-    privacyOpen.addEventListener("click", () => setOpen(!isOpen()));
-    privacyZone.addEventListener("focusout", (e) => {
-      // Close only when focus has really LEFT the zone: moving between the words and a
-      // link inside the panel must not shut it under a keyboard user.
-      if (!privacyZone.contains(e.relatedTarget)) setOpen(false);
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && isOpen()) setOpen(false);
-    });
-  }
+  // ⚠️ THE NOTICE'S PRESS IS NOT WIRED HERE — see the foot of this file. renderStatic()
+  // runs AGAIN on every render and on every language switch, and a TOGGLE bound in here is
+  // bound once more each time: one press then flipped the panel an even number of times and
+  // the control looked dead. It is bound once, at module scope, with the language pills.
 
   renderDevFoot(cfg);
   renderFeedback(cfg);
@@ -3693,4 +3653,49 @@ if (typeof document !== "undefined" && document.documentElement) {
   applyTo(document, STORE, loadLang());
   paintPillsHook(loadLang());
   pills.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+
+  // ---------------------------------------------------------------------------------
+  // THE PRIVACY NOTICE UNDER PLACE ORDER — bound ONCE, here, and nowhere else.
+  //
+  // ⚠️ IT MUST NOT LIVE IN renderStatic(). That function runs again on every render and on
+  // every language switch (its own comment says so, line ~944), so a TOGGLE bound inside it
+  // is bound every time it runs. An even number of bindings cancel out and the press looks
+  // DEAD; an odd number works. That is exactly what shipped in v350 and v351: pressing the
+  // words did nothing on a freshly loaded shop and opened it after one language switch.
+  // Anything wired here must be wired once, because the bar's markup is static HTML that is
+  // never replaced — one binding lasts the life of the page.
+  //
+  // It opens on a CLICK and closes when the customer clicks AWAY (her words, v352: "make it
+  // expend only when i click on it, away, colapse"). It opened on hover for one version and
+  // she changed it the same day — and a press is the better behaviour anyway, because hover
+  // does not exist on a touchscreen, so a hover-opened notice needed a second, hidden path
+  // to work at all on the phones this shop is ordered from.
+  //
+  // ⚠️ "AWAY" MEANS OUTSIDE THE NOTICE, not outside the words. The panel lives in the same
+  // wrapper, so a press on the paragraphs or on the WhatsApp link inside it leaves it open;
+  // only a press outside the wrapper closes it.
+  // ---------------------------------------------------------------------------------
+  const privacyZone = document.getElementById("privacy-zone");
+  const privacyOpen = document.getElementById("privacy-open");
+  const privacySheet = document.getElementById("privacy-sheet");
+  if (privacyZone && privacyOpen && privacySheet) {
+    const setOpen = (o) => {
+      privacySheet.hidden = !o;
+      privacyOpen.setAttribute("aria-expanded", o ? "true" : "false");
+    };
+    const isOpen = () => privacyOpen.getAttribute("aria-expanded") === "true";
+
+    privacyOpen.addEventListener("click", () => setOpen(!isOpen()));
+
+    // The press that OPENED it must not be the press that closes it: this runs on the
+    // document, in the same bubble, after the button's own — and the wrapper test is what
+    // lets the button through, because the button is inside the zone.
+    document.addEventListener("click", (e) => {
+      if (isOpen() && !privacyZone.contains(e.target)) setOpen(false);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && isOpen()) setOpen(false);
+    });
+  }
 }

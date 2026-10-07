@@ -1,8 +1,59 @@
-# Jienluv2bake — change history (v54 → v351)
+# Jienluv2bake — change history (v54 → v352)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v352, THE NOTICE LINK IS NO LONGER RED, AND IT OPENS ON A CLICK (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"privacy notice, can be underline, but dont put red color."__ — and then __"make it
+expend only when i click on it, away, colapse."__
+
+**1 · The link is no longer red.** The words **privacy notice** in the line under Place order are what
+opens the notice. They were underlined **and coloured in the app's terracotta**, which — sitting under
+a sentence of grey small print — read as a red link. They now take **the small print's own colour**, so
+the two can never drift apart:
+
+- **the underline stays** — it is what says the words are pressable;
+- **the weight stays** — bold, exactly as before;
+- **on hover the underline thickens** rather than changing colour, so nothing here goes red again;
+- **and it gained a focus ring it never had.** `appearance:none` with no border left it relying on
+  whatever the browser felt like drawing when a keyboard reached it. It now carries the shop's own
+  ring, in the small print's colour.
+
+**Why the colour mattered more than it sounds.** The line is the only place the notice is given, and it
+sits inches from a big terracotta PLACE ORDER button. A red link under grey type pulls the eye to the
+legal small print and away from the button.
+
+**2 · It opens on a CLICK now, not on hover, and it closes when you click away.** That is what you
+asked for — it had opened on hover for one version (v351) and you changed it the same day. **It is
+also the better behaviour, and not only because you asked:** hover does not exist on a touchscreen, so
+a hover-opened notice needed a second, hidden path to be usable on the phones this shop is ordered
+from. **One press that behaves the same on a laptop and on a phone has no second path to keep in
+step.**
+
+- **Clicking anywhere outside the notice closes it** — including a click on the shop around it.
+- **A click INSIDE it does not close it**, so the WhatsApp number in the panel still works and the
+  paragraphs stay put while they are being read.
+- **The keyboard works the same way**: Enter or Space on the words opens and closes it, and Escape
+  closes it.
+
+**3 · And it fixes a bug I shipped in v350 — the press did nothing on a freshly loaded shop.**
+When the notice moved under the button (v350), its press was wired up inside a function that **runs
+again on every render and on every language switch**. Binding a *toggle* there means binding it
+again each time it runs, and **two bindings cancel each other out**: pressing the words did
+**nothing** on a shop that had just loaded, and opened the notice only after a language switch had
+made the number of bindings odd.
+
+**Driving the press once — which is what I did when I checked v350 and v351 — passed by luck.**
+Pressing it **twice in a row** is what exposes it, and that is what found it today. The wiring now
+lives at module scope, bound once, beside the language pills.
+
+**No SQL, no Edge Function, no upload.** Nothing in the backoffice changed. The suite is **2,864
+tests, all green**, and the new one is an **invariant** rather than an example: **`renderStatic` must
+bind no event listener at all**, because anything toggled there is toggled twice. It was bitten by
+putting a single binding back inside that function, and the file was restored byte-identical.
 
 **07 Oct 2026 — engine v351, THE NOTICE OPENS ON HOVER (no database step, nothing to upload —
 pushing this one is the whole of it).**
