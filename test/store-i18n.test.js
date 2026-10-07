@@ -159,7 +159,7 @@ test("the suggestion box is translated in all three languages", () => {
 // English would sit inside an otherwise translated card and read as boilerplate
 // nobody wrote for them.
 test("the privacy notice is written in all three languages", () => {
-  const keys = ["privacyHead", "privacyWhat", "privacyWho", "privacyKeep", "privacyContact", "privacyDate"];
+  const keys = ["privacyHead", "privacyLead", "privacyWhat", "privacyWho", "privacyKeep", "privacyContact", "privacyDate"];
   for (const l of LANGS) {
     for (const key of keys) {
       assert.ok(typeof STORE[l][key] === "string" && STORE[l][key].trim(), `${l}.${key} is present`);

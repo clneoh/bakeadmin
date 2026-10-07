@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v348)
+# Jienluv2bake — change history (v54 → v349)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v349, THE NOTICE NOW NAMES THE LAW IT IS GIVEN UNDER (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"can you change the word to something more professional like Under privacy act XXX"__
+
+**What changed.** v348 added the notice; this changes what it is CALLED and opens it by naming the law.
+
+- The heading was **"Your details"**. It is now **"Personal Data Protection Notice"**.
+- Under it sits a new first line: **"Under the Personal Data Protection Act 2010, we must tell you how we
+  use the details you send us. Here is all of it:"**
+
+**Why it reads better this way, and it is not only polish.** A heading like "Your details" describes the
+section a customer is standing in. **"Personal Data Protection Notice" says what the block IS** — a notice,
+given under a law — and naming the Act tells a customer this is something the bakery **has to** say, not
+something it has chosen to say. That is the difference between house rules and a notice.
+
+**The Act is the Personal Data Protection Act 2010 (Act 709)** — the same Act whose section 7 is where the
+duty to give this notice comes from.
+
+**In all three languages**, which is what the guidance asks for:
+
+- **English:** Personal Data Protection Notice
+- **中文:** 个人资料保护声明
+- **Bahasa Malaysia:** Notis Perlindungan Data Peribadi
+
+**Nothing else about the notice changed.** The same four points, the same date, and the same rule about the
+contact number: the sentence is translated, the number is read from your Storefront setting. **It is still a
+notice and never a gate** — no tick box, and nothing in it can refuse an order.
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The suite is
+**2,862 tests, all green**, and the new line was **bitten**: take it out of one language and **three tests
+fail by name**, because the languages must all carry the same keys.
 
 **07 Oct 2026 — engine v348, THE SHOP NOW TELLS CUSTOMERS HOW THEIR DETAILS ARE USED (no database step,
 nothing to upload — pushing this one is the whole of it).**

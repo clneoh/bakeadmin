@@ -656,6 +656,15 @@ button.prod-next.off::after { content: ""; }
   line-height: 1.5;
   color: #7a6a5c;
 }
+/* The line naming the Act (v349). Sits between the heading and the list, in the same
+   muted type as the list so the whole block reads as one notice — it is the sentence
+   that says what this is, not another item in it. */
+.privacy-lead {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #7a6a5c;
+}
 .privacy-list li { margin: 0 0 5px; }
 .privacy-list li:last-child { margin-bottom: 0; }
 /* The number, not a word — so it carries the ink and a tap target worth having. */
