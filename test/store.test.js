@@ -172,7 +172,9 @@ test("isOpen keeps a later day open and treats a missing cutoff as always open",
 test("store render() fills the page without crashing", () => {
   assert.ok(registry["name"]);
   assert.equal(registry["name"].textContent, "Jienluv2bake");
-  assert.ok(registry["menu"].children.length >= 2); // one card per product
+  // One card per product — read off the config rather than asserted against a
+  // number that meant "the sample menu happened to hold two" (v347).
+  assert.equal(registry["menu"].children.length, CONFIG.products.length);
   assert.equal(registry["dates"].children.length, 1); // just the calendar
 
   // Feature off (no availability) → every delivery day is open, so the calendar
@@ -409,32 +411,37 @@ test("the next customer does not inherit the last one's front door", async () =>
 });
 
 test("the receipt carries the strictest change/cancel window of the whole basket", async () => {
-  const card = registry["menu"].children[0];
-  card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+  // ⚠️ The two products and their two windows are the TEST's own fixture (v347) —
+  // the fallback menu can no longer supply them, and never promised to.
+  await withProducts(
+    [
+      { name: "Focaccia", price: 16, unit: "loaf", cancelDays: 3 },
+      { name: "Sandwich", price: 8, unit: "piece", cancelDays: 1 },
+    ],
+    async () => {
+      const card = registry["menu"].children[0];
+      const plus = () => card.children.find((c) => c.className === "card-body")
+        .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+      plus();
 
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, opts) => (opts && opts.method === "POST" ? { ok: true } : { ok: true, json: async () => [] });
-  const saved = CONFIG.products.map((p) => p.cancelDays);
-  try {
-    // Two products, two different windows: the customer reads the strictest (3).
-    CONFIG.products.forEach((p) => { p.cancelDays = p.name === "Focaccia" ? 3 : 1; });
-    document.getElementById("whatsapp-input").value = "60123456789";
-    await registry["order-btn"].onclick();
-    const line = confirmLines().find((t) => /change or cancel/i.test(t));
-    assert.ok(line, "the receipt states a change/cancel window");
-    assert.match(line, /up to 3 days before delivery/, "the strictest window wins");
-    assert.match(line, /not refundable/i, "and the no-refund rule that goes with it");
+      globalThis.fetch = async (url, opts) => (opts && opts.method === "POST" ? { ok: true } : { ok: true, json: async () => [] });
 
-    // Nothing stated anywhere → no window line at all.
-    CONFIG.products.forEach((p) => { delete p.cancelDays; });
-    card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0](); // basket refilled
-    await registry["order-btn"].onclick();
-    assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
-      "no product states a window → the receipt says nothing");
-  } finally {
-    CONFIG.products.forEach((p, i) => { if (saved[i] === undefined) delete p.cancelDays; else p.cancelDays = saved[i]; });
-    globalThis.fetch = realFetch;
-  }
+      // Two products in the basket, two different windows: the customer reads the
+      // strictest (3), not the loosest.
+      document.getElementById("whatsapp-input").value = "60123456789";
+      await registry["order-btn"].onclick();
+      const line = confirmLines().find((t) => /change or cancel/i.test(t));
+      assert.ok(line, "the receipt states a change/cancel window");
+      assert.match(line, /up to 3 days before delivery/, "the strictest window wins");
+      assert.match(line, /not refundable/i, "and the no-refund rule that goes with it");
+
+      // Nothing stated anywhere → no window line at all.
+      CONFIG.products.forEach((p) => { delete p.cancelDays; });
+      plus(); // basket refilled
+      await registry["order-btn"].onclick();
+      assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
+        "no product states a window → the receipt says nothing");
+    });
 });
 
 test("parseVia normalises the ?via= digits on a referral link", () => {
@@ -1356,21 +1363,40 @@ const pressPlus = (card) => plusOf(card)._listeners.click[0]();
 const tapNote = (card) => noteAdd(card)._listeners.click[0]();
 const typeNote = (box, text) => { box.value = text; box._listeners.input[0].call(box); };
 
-// One product switched on for a note, rendered, driven, and put back exactly as it
-// was. `render()` is the real page render, so the second call rebuilds the menu and
-// gives each test a cart of its own.
-async function withNotedProduct(fn) {
-  const p = CONFIG.products[0];
+// ⚠️ A TEST THAT NEEDS SEVERAL PRODUCTS DECLARES THEM ITSELF (v347).
+//
+// The shop's fallback menu now lists exactly what is sold — one focaccia — because
+// her decision was to trim it (see store/config.js). It used to hold a two-product
+// SAMPLE, and these tests had been borrowing it: one wanted "two products with
+// different change/cancel windows", another wanted "a product the baker never
+// switched on". Neither was ever a guarantee — one of the borrowed products was a
+// Sandwich the shop does not sell.
+//
+// withProducts() renders the menu the test actually needs, and puts the real one
+// back afterwards. `render()` is the real page render, so the final call rebuilds
+// the menu and gives the next test a clean page.
+async function withProducts(list, fn) {
+  const real = CONFIG.products;
   const realFetch = globalThis.fetch;
-  p.askNote = true;
+  CONFIG.products = list;
   render();
   try {
-    return await fn(p, realFetch);
+    return await fn(list);
   } finally {
-    delete p.askNote;
+    CONFIG.products = real;
     globalThis.fetch = realFetch;
     render();
   }
+}
+
+// One product switched on for a note, a SECOND one that is not, rendered, driven,
+// and both put back exactly as they were.
+async function withNotedProduct(fn) {
+  const base = CONFIG.products[0];
+  return withProducts(
+    [{ ...base, askNote: true }, { name: "A second item", price: 5, unit: "piece" }],
+    (list) => fn(list[0]),
+  );
 }
 
 test("the note link appears only once the item is in the basket, and opens the box on a tap", async () => {

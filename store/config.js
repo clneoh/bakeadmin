@@ -48,16 +48,20 @@ export const CONFIG = {
 
   // What's on sale. price is in RM. unit is a short label (loaf / piece / box).
   //
-  // ⚠️ THE PRICE WAS WRONG (v346). Focaccia sat here at RM15 while the homepage
-  // and the live shop both say RM16 — corrected to match. This file is the
-  // STARTING POINT and the offline fallback, so it is a sample menu rather than a
-  // copy of the published one, and the sample keeps two products to show the
-  // shape. ⚠️ But a sample that names a real product must carry that product's
-  // real price, or a customer who lands on the fallback is quoted a figure she
-  // does not charge.
+  // ⚠️ THIS LISTS ONLY WHAT SHE ACTUALLY SELLS (v347, her decision: "trim it to
+  // what i sell"). It used to carry a SAMPLE of two products — a Focaccia at RM15
+  // and a Sandwich the shop does not sell — on the argument that this file is a
+  // starting point. But it is also the OFFLINE FALLBACK: what a customer sees
+  // when the published settings cannot be reached, which is also when the order
+  // cannot be placed. A fallback that offers a product nobody can order is worse
+  // than a shorter one, so this now mirrors the published menu exactly — one
+  // focaccia, RM16 a loaf, as Settings → Storefront has it (checked 7 Oct 2026).
+  //
+  // ⚠️ KEEP THIS IN STEP WITH WHAT IS PUBLISHED. It is the one thing here that
+  // can drift silently, because the published settings cover it while the cloud
+  // answers.
   products: [
-    { name: "Focaccia", price: 16, unit: "loaf" },
-    { name: "Sandwich", price: 8, unit: "piece" },
+    { name: 'Focaccia 9"x12" abt 850g', price: 16, unit: "loaf" },
   ],
 
   // Optional social links, shown under the order button. Leave "" to hide.

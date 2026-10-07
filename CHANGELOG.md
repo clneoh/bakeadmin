@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v346)
+# Jienluv2bake — change history (v54 → v347)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v347, THE SHOP'S SPARE MENU NOW LISTS ONLY WHAT YOU SELL (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Your words:** __"trim it to what i sell"__
+
+**What changed.** v346 fixed the shop's **spare copy** of your settings — the one it uses when the published
+settings cannot be reached. It left one thing alone deliberately and told you why: the spare copy's **menu**
+still carried two products, one of them a **Sandwich you do not sell**. You have now said to trim it, so it
+lists **exactly what you sell: one focaccia, RM16 a loaf** — the same name, price and unit that Settings →
+Storefront publishes.
+
+**Why this is worth a version rather than a shrug.** That spare copy is what a customer sees at the one
+moment it matters: when the published settings cannot be reached, which is also when their order cannot be
+placed. **A menu that offers something nobody can order is worse than a shorter one** — the customer picks
+the Sandwich, the order arrives, and you have to refuse it or improvise in front of the person you were
+trying to keep.
+
+**★ And this is what v346 warned about: it cost more than two lines, because four tests had been borrowing
+the sample menu as their own fixture.** They were not testing the menu — they were testing **behaviour that
+needs two products**:
+
+- one wanted **two products with different change/cancel windows** so the receipt could be checked for the
+  strictest;
+- one wanted **a product the baker had not switched on** so it could prove no note is offered;
+- one wanted **per-product availability stamps** on two products in one day;
+- one wanted to **fill a basket from two products and deplete them differently** on the next poll.
+
+**Each of those now writes down the menu it needs instead of borrowing yours.** That is a better test: a
+test that reaches into your live settings for its fixture goes wrong the moment you change what you sell,
+which is exactly what happened here. **One test had been asserting the old placeholder number itself**, and
+another spelled out `RM15.00` six times; both now read the figure off the config, so they cannot go stale
+silently again. A test helper that swaps a menu in and puts it back was added and **bitten**: with it
+disabled, six tests fail by name.
+
+**Nothing you see changes**, and nothing about your published menu moves — this is the spare copy
+underneath it. **No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are
+untouched. The suite is **2,859 tests, all green**.
 
 **07 Oct 2026 — engine v346, THE SHOP'S SPARE NUMBER WAS SOMEBODY ELSE'S (no database step, nothing to
 upload — pushing this one is the whole of it).**

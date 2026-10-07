@@ -52,6 +52,18 @@ globalThis.Date = MockDate;
 const { CONFIG } = await import("../store/config.js");
 const { rollingWeeks } = await import("../store/calendar.js");
 
+// ⚠️ THIS FILE'S MENU IS ITS OWN FIXTURE, AND IT IS DECLARED BEFORE THE PAGE
+// RENDERS (v347). Every test here is about PER-PRODUCT availability — two
+// products carrying different sold-out stamps on the same day — so it needs two
+// products, and until v347 it borrowed them from the shop's fallback menu. That
+// fallback now lists exactly what is sold (one focaccia, her decision), so the two
+// this file reasons about are written down here instead. ⚠️ The names must match
+// the `product` field in prodRows below — that is how the stamps are matched up.
+CONFIG.products = [
+  { name: "Focaccia", price: 16, unit: "loaf" },
+  { name: "Sandwich", price: 8, unit: "piece" },
+];
+
 // Replicate the storefront's upcoming-dates + date-key logic so the stub rows
 // match exactly the days the page renders.
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
