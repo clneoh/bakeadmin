@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v358)
+# Jienluv2bake — change history (v54 → v359)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**07 Oct 2026 — engine v359, THE VAN'S PRICE NO LONGER ASKS YOU THE SAME TWO QUESTIONS TWICE (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"in a edit order, after send a van, we entre pickup time, pressing get a price, again
+it ask for pickup time again?"__ — and then your own answer to what to do about it: __"why not remove the
+one inside get a price. the logic is i entered all details that is relevent, i just want a price."__
+
+**You were right on both counts, and your reasoning is better than mine was.**
+
+**What was wrong.** Choosing a van on an Edit order drew the **same two facts twice**, in two pairs of
+boxes that did not talk to each other:
+
+- the order's own **Courier delivery date** and **Pickup time**;
+- and, inside **Get a delivery price**, a second pair — **The day the driver collects** and **The time the
+  driver collects**.
+
+You filled in the order's. The price half was still holding the value it had taken **when the screen was
+drawn** — before you typed — so it looked like it was asking you again. **And it wasn't only confusing:**
+the price was asked for using **that** box's value, so a van could be priced for your Settings dispatch
+time and then come at a different hour.
+
+**What changed.** **The two boxes inside Get a delivery price are gone.** The price simply reads the
+order's own **Courier delivery date** and **Pickup time** — the same two you typed — and the line above
+the button says where they come from. As you put it: you enter all the details that are relevant, and you
+want a price.
+
+**★ The value is read when you press the button, not when the screen was drawn.** That is the whole
+repair: what is priced and what the van will collect at can no longer drift apart.
+
+**⚠️ And the half worth knowing about, because it is about money:** booking still books **the trip that was
+priced**, so changing the order's date or pickup time **after** a price does not move a booking. The line
+under the button now says exactly that, in those words.
+
+**No SQL, no Edge Function, no upload.** Your orders, customers, prices and days are untouched. The suite
+is **2,867 tests, all green**, and both halves were **bitten** — make the price read the Settings time
+instead of yours and the test fails by name; put a box back into that half and it fails by name too.
+
+**⚠️ One thing I cannot check for you, and always your side of the line:** the admin app sits behind your
+PIN and I am not allowed to open it, so **nobody has looked at this screen with a human eye**. What is
+proven is that the two boxes are gone and the price is asked for your own time. **Open an Edit order with
+a van and check it reads the way you want.**
 
 **07 Oct 2026 — engine v358, APPLYING A COUPON NO LONGER LOOKS LIKE IT DID NOT TAKE (no database step,
 nothing to upload — pushing this one is the whole of it).**
