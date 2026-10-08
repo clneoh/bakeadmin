@@ -1,8 +1,68 @@
-# Jienluv2bake — change history (v54 → v369)
+# Jienluv2bake — change history (v54 → v370)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v370, A REFUND YOU CAN CHOOSE: HOW MUCH, AND WHAT (⚠️ ONE SQL STEP FIRST, see
+the top of the entry).**
+
+**Your words:** __"refund should not be a full without choice to how much to refund, what to refund"__ —
+and when asked which shape, you picked **tick the items, then adjust the figure**.
+
+**★ WHAT THE REFUND PRESS DOES NOW.** It opens a card instead of a two-line question:
+
+> **Refund this order?**
+> Which came back?
+> ☑ Focaccia ×1 of 2 ......... RM 16.00
+> ☐ Sourdough ................ RM 18.00
+> ☑ Courier charge ........... RM 8.00
+> Ticked so far .............. RM 24.00
+> **How much back?** [ RM 24.00 ]  ← adjust it if you want to
+> Why (optional) [ ]
+> [ Cancel ]  [ Refund ]
+
+**Tick what came back and the figure fills itself in.** Then type over it if you want to — a rounded
+figure, goodwill, or just the postage. **Once you have typed, the figure is yours** and moving the ticks
+will not overwrite it. On a line of two, a **quantity** appears so you can return one of them.
+
+**⚠️ IT WILL NOT LET YOU GIVE BACK MORE THAN THEY PAID.** That sounds obvious and it is the whole reason
+for the next paragraph: the limit is **what the customer actually handed over**, not what the bread was
+priced at.
+
+**⚠️⚠️ AND THAT FORCED A SECOND FIX, WHICH IS THE IMPORTANT PART OF THIS VERSION.** Your takings were
+counted at the goods' **full price, with the discount still in them** — so a RM16 order with a RM3 coupon
+read as RM16 in the till even though the customer handed over RM13. **While a refund took the whole
+order, that did not show**, because the order was simply skipped. **The moment a refund can be a part of
+an order, it stops cancelling** — and a full refund of a discounted order would have left a phantom RM3
+sitting in your takings.
+
+**You chose "count what the customer actually paid", knowing it would move your past figures.** So a
+discounted order now counts at what came in, and **a full refund of one reaches nothing** — where it
+would have left the discount behind.
+
+**⚠️ WHAT MOVES IN YOUR PAST FIGURES, said plainly:** any order that carried a **bring-a-friend coupon
+or a promo code** now counts at what the customer paid rather than the bread's full price. Orders with no
+discount are **unchanged to the cent**. Money, Profit, the week's figures on Home, and each customer's
+lifetime spend all move together, so the screens still agree with each other.
+
+**★ AND A REFUND IS VISIBLE IN THE JOURNAL.** Tap **Sales** on Profit and the refund and the discount
+appear as their own lines, so the rows still add up to the figure above them — the one thing this app
+calls a bug in every book it draws.
+
+**⚠️ THE ONE STEP, AND IT MUST BE DONE BEFORE YOU PUSH: run `supabase/receipts.sql` in your Supabase SQL
+editor again.** It adds a column and replaces three functions. **Without it, a partial refund on one
+phone would arrive on your other phone as a full one** — the same order reading RM5 back on one handset
+and RM22 on the other. It is safe to re-run and changes nothing already recorded.
+
+**⚠️ WHAT I DELIBERATELY DID NOT DO.** A promo code's **usage count** is untouched: a code still counts
+as used, and still counts what it gave away, even on an order that has since been refunded. Re-opening a
+spent code because bread came back would surprise you, and it is a different question from this one —
+say so if you want it changed.
+
+**No new Supabase step beyond that one file.** The suite is **2,990 tests, all green**, including all
+five refund tests from v361 **unchanged** — which is what proves a refund you made before today still
+reads exactly as it did.
 
 **08 Oct 2026 — engine v369, THE ACCENT COLOURS NOW CLEAR THE SAME FLOOR AS EVERYTHING ELSE (no
 database step, nothing to upload — pushing this one is the whole of it).**

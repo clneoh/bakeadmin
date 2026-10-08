@@ -4,7 +4,8 @@
 // (orders/units/approx total spend), their favourite product, and when they
 // last ordered/delivered — enough for a history pop-up and a marketing list.
 
-import { byId, orderCode, orderLinePrice, round2, waNumber } from "./state.js";
+import { byId, groupOrders, orderCode, orderLinePrice, round2, waNumber } from "./state.js";
+import { groupValue, orderNet } from "./money.js";
 
 // The delivery date for an order. New orders snapshot their delivery date, so
 // history survives a delivery date being deleted; older orders fall back to
@@ -103,6 +104,18 @@ export function customerList(state, sort = "recent", filter = "all", today = "")
     // orders with no order date at all, keep the later row in `state.orders`.
     const addr = String(o.address || "").trim();
     if (addr && (!row.addrOn || od >= row.addrOn)) { row.addrOn = od; row.lastAddress = addr; }
+  }
+
+  // ★ WHAT THEY ACTUALLY SPENT, NOT WHAT THE BREAD WAS PRICED AT (v370). The loop above
+  // accumulated every line at its FACE price, row by row — which counts a discount the customer
+  // never paid, and counts a refunded order as though the money stayed. The correction is applied
+  // **once per ORDER**, because a refund is one amount stamped on every row of it: doing this per
+  // row would subtract the same refund once per item.
+  for (const g of groupOrders(state.orders || [])) {
+    const first = (g.orders || [])[0];
+    if (!first) continue;
+    const row = map.get(keyOf(first));
+    if (row) row.spend += orderNet(state, g) - groupValue(state, g);
   }
 
   let rows = [...map.values()];

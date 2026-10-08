@@ -15,13 +15,13 @@ import { availSummary, sellOpen } from "../../../availability.js";
 // same pair the shop applies, from the one module both sides read, so a note can
 // never be longer on this side than the box that collected it allowed.
 import { lineNoteOf, LINE_NOTE_MAX } from "../../../storefront-fields.js";
-import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
+import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLine, receiptNoOf, receiptStatus } from "../receipts.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
@@ -3488,7 +3488,6 @@ async function openInvoice(state, group) {
       const n = Number(first.receiptNo);
       for (const o of group.orders) {
         o.receiptNo = n;
-        if (first.receiptRefundedAt) o.receiptRefundedAt = first.receiptRefundedAt;
       }
       save(state);
       maybeSync(state);
@@ -4592,7 +4591,6 @@ function markPaid(state, group, root, dateId, method) {
     const n = Number(first.receiptNo);
     for (const o of group.orders) {
       o.receiptNo = n;
-      if (first.receiptRefundedAt) o.receiptRefundedAt = first.receiptRefundedAt;
     }
     save(state);
     renderAll(root, state, new URLSearchParams({ date: dateId }));
@@ -4616,27 +4614,134 @@ function firstOf(group) {
 // sequence that the numbering exists to prevent.
 function refundOrder(state, group, first, { root, dateId } = {}) {
   const cur = (state.settings && state.settings.currency) || "RM";
-  const what = fmtRM(customerTotal(state, group).total, cur);
-  confirmDialog(`Refund ${what} on this order?`, async () => {
-    const at = new Date().toISOString();
-    for (const o of group.orders) o.refundedAt = at;
-    anchorRowId = first.id;
-    save(state);
-    maybeSync(state);
-    // The register's own mark, best-effort and never blocking: if it cannot be made, the
-    // order still reads as refunded here, and the mark arrives from the server the next time
-    // the receipt is opened.
-    // ⚠️ THE ORDER'S OWN MARK IS NOT BEST-EFFORT; THE REGISTER'S IS. The money really has gone
-    // back — that is a thing she did, not a thing this app decided — so the sale stops counting
-    // the moment she confirms, whatever the register says. But a register that was never told
-    // would print an UNMARKED receipt for a refunded sale, and that disagreement is hers to
-    // know about: it is said on her screen rather than carried in silence.
-    const marked = await refundReceipt(state, first);
-    save(state);
-    toast(marked
-      ? `${what} refunded — off your takings, and the receipt is marked, not renumbered`
-      : `${what} refunded and off your takings — but the receipt could NOT be marked in the register. Run supabase/receipts.sql, then open this order's Invoice.`);
-    renderAll(root, state, new URLSearchParams({ date: dateId }));
+  // ⚠️⚠️ THE CAP IS WHAT THE CUSTOMER ACTUALLY PAID — never the goods' face price. A coupon or a
+  // promo code means they handed over less than the bread was priced at, and handing back the
+  // discount as cash would be paying out money she never received (v370).
+  const cap = round2(customerTotal(state, group).total);
+
+  const lines = group.orders.map((o) => ({
+    id: o.id, qty: Number(o.qty) || 0, price: orderLinePrice(state, o), name: orderLineName(state, o),
+  }));
+  const charge = round2(customerCourierFee(first) || 0);
+
+  const ticks = new Map();
+  let courierWanted = false;
+  let typed = false; // has she taken the figure over? until then it follows the ticks
+  let boxEl = null;
+  let sumEl = null;
+
+  const tickedTotal = () => round2(
+    lines.reduce((s, l) => s + (ticks.get(l.id) || 0) * (l.price == null ? 0 : l.price), 0)
+    + (courierWanted ? charge : 0));
+
+  // The box follows the ticks until she types in it, and after that it is hers — which is the whole
+  // of what she picked: tick what came back to get the number right, then change it if she wants.
+  const sync = () => {
+    for (const r of lines.map((l) => l._ui).filter(Boolean)) {
+      const on = ticks.has(r.line.id);
+      const q = ticks.get(r.line.id) || 0;
+      r.box.checked = on;
+      r.amt.textContent = fmtRM(q * (r.line.price == null ? 0 : r.line.price), cur);
+      if (r.qtyBox) { r.qtyBox.value = String(on ? q : r.line.qty); r.qtyBox.disabled = !on; }
+    }
+    if (courierUI) {
+      courierUI.box.checked = courierWanted;
+      courierUI.amt.textContent = fmtRM(courierWanted ? charge : 0, cur);
+    }
+    const total = tickedTotal();
+    if (sumEl) sumEl.textContent = fmtRM(total, cur);
+    if (boxEl && !typed) boxEl.value = String(total);
+    return total;
+  };
+  let courierUI = null;
+
+  showPopup(el("div", { class: "popup-title-row" }, "Refund this order?"), (refresh, close) => {
+    void refresh;
+    const rows = lines.map((line) => {
+      const amt = el("span", { class: "refund-amt" }, "");
+      const qtyBox = line.qty > 1
+        ? el("input", { class: "input refund-qty", type: "number", inputmode: "numeric",
+            min: "1", max: String(line.qty),
+            oninput: () => {
+              const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
+              ticks.set(line.id, v);
+              sync();
+            } })
+        : null;
+      const box = el("input", { type: "checkbox", onchange: () => {
+        if (box.checked) ticks.set(line.id, line.qty || 1); else ticks.delete(line.id);
+        sync();
+      } });
+      line._ui = { line, box, amt, qtyBox };
+      return el("div", { class: "refund-line" },
+        el("label", { class: "refund-row" }, box,
+          el("span", { class: "refund-what" }, `${line.name}${line.qty > 1 ? ` ×${line.qty}` : ""}`),
+          amt),
+        qtyBox);
+    });
+
+    if (charge > 0) {
+      const amt = el("span", { class: "refund-amt" }, "");
+      const box = el("input", { type: "checkbox", onchange: () => { courierWanted = box.checked; sync(); } });
+      courierUI = { box, amt };
+      rows.push(el("label", { class: "refund-row" }, box,
+        el("span", { class: "refund-what" }, "Courier charge"), amt));
+    }
+
+    sumEl = el("b", {}, "");
+    boxEl = el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
+      oninput: () => { typed = true; } });
+    const note = el("input", { class: "input", placeholder: "Optional" });
+
+    const body = el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 8px" }, "Which came back?"),
+      rows.length ? el("div", { class: "refund-list" }, ...rows)
+        : el("p", { class: "card-sub" }, "This order has nothing on it to refund."),
+      el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        `The customer paid ${fmtRM(cap, cur)}${cap < round2(groupValue(state, group)) ? ", less the discount" : ""} — you cannot give back more than that.`),
+      el("div", { class: "refund-sum" }, el("span", {}, "Ticked so far"), sumEl),
+      el("div", { class: "field" }, el("label", {}, "How much back?"), boxEl),
+      el("div", { class: "field" }, el("label", {}, "Why (optional)"), note),
+      el("div", { class: "popup-actions" },
+        button("Cancel", close, "ghost"),
+        button("Refund", async () => {
+          const value = round2(Number(boxEl.value));
+          if (!String(boxEl.value).trim() || !Number.isFinite(value) || value <= 0) {
+            return toast("Type how much to give back");
+          }
+          if (value > cap) {
+            return toast(`That is more than the customer paid — ${fmtRM(cap, cur)} at most`);
+          }
+          const at = new Date().toISOString();
+          const items = [...ticks.entries()].map(([id, qty]) => ({ id, qty }));
+          const why = note.value.trim();
+          for (const o of group.orders) {
+            o.refundedAt = at;
+            o.refundAmountRM = value;
+            if (items.length) o.refundItems = items; else delete o.refundItems;
+            if (why) o.refundNote = why; else delete o.refundNote;
+          }
+          anchorRowId = first.id;
+          save(state);
+          maybeSync(state);
+          // The register's own mark, best-effort and never blocking: if it cannot be made, the
+          // order still reads as refunded here, and the mark arrives from the server the next time
+          // the receipt is opened.
+          // ⚠️ THE ORDER'S OWN MARK IS NOT BEST-EFFORT; THE REGISTER'S IS. The money really has gone
+          // back — that is a thing she did, not a thing this app decided — so the sale stops counting
+          // the moment she confirms, whatever the register says. But a register that was never told
+          // would print an UNMARKED receipt for a refunded sale, and that disagreement is hers to
+          // know about: it is said on her screen rather than carried in silence.
+          const marked = await refundReceipt(state, first, value);
+          save(state);
+          close();
+          toast(marked
+            ? `${fmtRM(value, cur)} refunded — off your takings, and the receipt is marked, not renumbered`
+            : `${fmtRM(value, cur)} refunded and off your takings — but the receipt could NOT be marked in the register. Run supabase/receipts.sql, then open this order's Invoice.`);
+          renderAll(root, state, new URLSearchParams({ date: dateId }));
+        }, "primary")));
+    sync();
+    return body;
   });
 }
 
@@ -4656,7 +4761,16 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
       toast("Could not reach the receipts register, so nothing has changed. Run supabase/receipts.sql, then try again.");
       return;
     }
-    for (const o of group.orders) delete o.refundedAt;
+    // ★ AND IT TAKES THE AMOUNT WITH IT (v370). Leaving the amount behind while clearing the mark
+    // would leave an order that reads as paid and still carries the money it gave back — and
+    // `refundOf` answers an amount before it looks at the mark, so the books would keep counting a
+    // refund she has just undone.
+    for (const o of group.orders) {
+      delete o.refundedAt;
+      delete o.refundAmountRM;
+      delete o.refundItems;
+      delete o.refundNote;
+    }
     anchorRowId = first.id;
     save(state);
     maybeSync(state);

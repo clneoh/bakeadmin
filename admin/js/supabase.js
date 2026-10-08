@@ -875,7 +875,15 @@ export async function claimReceipt(state, order) {
     // ⚠️ A REFUND IS CARRIED BACK TOO, and it only ever ADDS a mark. The server decides
     // whether this order has been refunded; a phone that has never seen the refund learns
     // about it here rather than by assuming the order is clean.
-    if (row.refunded_at) order.refundedAt = String(row.refunded_at);
+    //
+    // ★ AND IT CARRIES HOW MUCH (v370), so the second phone learns the SIZE of the refund and not
+    // merely that one happened. ⚠️ A register row written before v370 has no amount, which reads as
+    // "the whole order" — exactly what the old boolean meant, so an old refund still lands right.
+    if (row.refunded_at) {
+      order.refundedAt = String(row.refunded_at);
+      const was = Number(row.refunded_amount);
+      if (Number.isFinite(was) && was > 0) order.refundAmountRM = was;
+    }
     return true;
   } catch { return false; }
 }
@@ -903,7 +911,7 @@ export async function pullReceiptRegister(state) {
 
   try {
     const res = await fetch(
-      `${c.url}/rest/v1/receipt_numbers?select=number,order_code,issued_at,refunded_at&order=number.asc`,
+      `${c.url}/rest/v1/receipt_numbers?select=number,order_code,issued_at,refunded_at,refunded_amount&order=number.asc`,
       { headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` } });
     if (!res || !res.ok) return { ok: false, rows: [] };
     const rows = await res.json().catch(() => null);
@@ -916,7 +924,7 @@ export async function pullReceiptRegister(state) {
 // not. ⚠️ KEEPING THE TWO IN ONE PLACE IS NOT TIDINESS. A refund and the undoing of it must
 // send the same body and read the same reply; two copies of that are two chances to drift,
 // and the thing that would drift is her books.
-async function receiptRpc(state, order, fn) {
+async function receiptRpc(state, order, fn, extra = {}) {
   if (!order) return false;
   const c = cfg(state);
   if (!ready(c)) return false;
@@ -935,7 +943,7 @@ async function receiptRpc(state, order, fn) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ p_order_code: code }),
+      body: JSON.stringify({ p_order_code: code, ...extra }),
     });
     return !!(res && res.ok);
   } catch { return false; }
@@ -943,8 +951,15 @@ async function receiptRpc(state, order, fn) {
 
 // Mark one order's receipt refunded. ⚠️ IT MARKS, IT NEVER DELETES — the number stays
 // spent for ever, or the sequence shows a gap where money really moved.
-export async function refundReceipt(state, order) {
-  if (!(await receiptRpc(state, order, "refund_receipt"))) return false;
+//
+// ★ AND IT CARRIES THE AMOUNT (v370), because a refund can be a part of an order now. ⚠️ WITHOUT
+// THIS THE TWO PHONES DISAGREE: `claimReceipt` copies a refund back off the register, and one that
+// carried no amount would land on the other phone as a FULL refund — the same order reading as
+// RM5 back on one handset and RM22 on the other.
+export async function refundReceipt(state, order, amount = null) {
+  const value = Number(amount);
+  const sent = Number.isFinite(value) && value > 0 ? { p_amount: value } : {};
+  if (!(await receiptRpc(state, order, "refund_receipt", sent))) return false;
   order.refundedAt = new Date().toISOString();
   return true;
 }

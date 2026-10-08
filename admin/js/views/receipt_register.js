@@ -33,6 +33,8 @@ function stamp(iso) {
 export function renderReceiptRegister(root, state) {
   let dead = false;
 
+  const cur = (state.settings && state.settings.currency) || "RM";
+
   const draw = (reg, note) => {
     if (dead) return;
     const head = el("h2", { class: "section" }, "Receipt register");
@@ -76,7 +78,10 @@ export function renderReceiptRegister(root, state) {
             ? `${String(r.order.customerName || "").trim() || "—"} · Order #${r.code}`
             : `Order #${r.code} — not in this phone's orders`),
         el("span", { class: "reg-when" }, stamp(r.issuedAt)),
-        r.refundedAt ? el("span", { class: "reg-tag" }, "refunded") : null));
+        // ★ AND HOW MUCH (v370) — read from the register, so it shows even for a receipt whose
+        // order is not on this phone.
+        r.refundedAt ? el("span", { class: "reg-tag" },
+          r.refundedAmount > 0 ? `refunded ${cur} ${r.refundedAmount.toFixed(2)}` : "refunded") : null));
 
     const gapTxt = reg.gaps.map((n) => `#${String(n).padStart(6, "0")}`).join(", ");
 

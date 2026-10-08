@@ -212,6 +212,29 @@ body { min-height: 100vh; }
   line-height: 1.45;
 }
 
+/* ---------- The refund card (v370) ----------
+   Tick what came back, then change the figure if she wants to. Everything is one tap target
+   wide, and the amount is drawn as a column so the ticks and the money line up to be read
+   against each other — which is the whole point of ticking rather than typing. */
+.refund-list { border-top: 1px solid var(--line); }
+.refund-line { border-bottom: 1px solid var(--line); }
+.refund-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 2px; min-height: 44px; cursor: pointer;
+}
+.refund-row input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; accent-color: var(--brown); }
+.refund-what { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+.refund-amt { flex: 0 0 auto; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+/* A quantity only appears on a row she can return PART of, and only once it is ticked —
+   a control that cannot do anything yet is a control that reads as broken. */
+.refund-qty { max-width: 90px; margin: 0 0 10px 30px; }
+.refund-qty:disabled { opacity: .45; }
+.refund-sum {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--line);
+  font-size: 14px;
+}
+
 /* ---------- Hero (Home) ---------- */
 .hero {
   position: relative;
