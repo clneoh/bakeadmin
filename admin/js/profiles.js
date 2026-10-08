@@ -128,7 +128,12 @@ export function forgetCustomer(state, rowKey) {
   // The groups to re-publish, so the caller can blank their public track cards.
   const groups = [...new Set(rows.map((o) => o.groupId || o.id).filter(Boolean))];
 
-  return { orders: rows.length, credits, name, key, groups, rowKey };
+  // ⚠️⚠️ THE COUNT IS **ORDERS**, NOT ROWS — and this was wrong until she looked at it on screen. A
+  // two-item order is TWO ROWS and ONE order, so reporting `rows.length` told her "2 orders" while the
+  // card behind the question read "1 order · 3 units". **A number that contradicts the screen it is
+  // sitting on is worse than no number**, and this is the sentence she weighs before an act that cannot
+  // be undone.
+  return { orders: groups.length, rows: rows.length, credits, name, key, groups, rowKey };
 }
 
 // ── name + WhatsApp: one saved copy, written through to the orders ──────────

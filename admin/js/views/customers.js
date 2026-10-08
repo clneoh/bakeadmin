@@ -76,7 +76,11 @@ function openChat(r) {
 // privacy notice has been promising customers all along.
 function forgetPress(state, r, refresh, onSaved) {
   const rows = (state.orders || []).filter((o) => o && (o.redactedKey || keyOf(o)) === r._key);
-  const n = rows.length;
+  // ⚠️⚠️ THE COUNT IS **ORDERS**, NOT ROWS — and this was wrong until she read it on screen. A two-item
+  // order is TWO ROWS and ONE order, so `rows.length` told her "2 orders" while the card she was looking
+  // at read "1 order · 3 units". **A number that contradicts the screen it sits on is worse than no
+  // number**, and this is the sentence she weighs before an act that cannot be undone.
+  const n = groupOrders(rows).length;
   const who = r.name || "this person";
 
   // ⚠️ TWO WORDINGS, because they are two different acts. Someone she typed in by hand has no sales to

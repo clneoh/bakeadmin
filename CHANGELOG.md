@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v374)
+# Jienluv2bake — change history (v54 → v375)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v375, THE FORGET QUESTION WAS COUNTING ITEMS, NOT ORDERS (no database step,
+nothing to upload — pushing this one is the whole of it).**
+
+**★ FOUND BY LOOKING AT IT, NOT BY TESTING IT — and that is the point.** Asked to confirm the new Forget
+press on screen, the question read **"…from 2 orders"** for a customer whose own card, right behind it,
+read **"1 order · 3 units"**. The two items were two **rows** of **one** order, and the count was counting
+rows.
+
+**⚠️ A NUMBER THAT CONTRADICTS THE SCREEN IT SITS ON IS WORSE THAN NO NUMBER** — and this is the sentence
+you weigh before an act that cannot be undone. It now counts **orders**, so the question and the card
+agree.
+
+**⚠️ AND THE TESTS WERE GREEN WHILE IT WAS WRONG.** The suite asserted the number, the number was the row
+count, and the row count was what the code returned — so everything agreed with itself and nothing agreed
+with you. **The live look is what caught it**, which is why it is worth doing even when every test passes.
+
+**No SQL, no upload.** The suite is **3,027 tests, all green**, and the fix is bitten: count rows again and
+the test fails by name.
 
 **08 Oct 2026 — engine v374, A REFERENCE ON THE CONSOLIDATED INVOICE, AND A REAL "FORGET ME" (no database
 step, nothing to upload — pushing this one is the whole of it).**

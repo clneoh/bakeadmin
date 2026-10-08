@@ -678,7 +678,10 @@ test("★★ forgetting an ordering customer keeps their history as ONE row, not
   assert.equal(customerList(st).length, 2, "two customers to begin with");
 
   const done = forgetCustomer(st, keyOf(st.orders[0]));
-  assert.equal(done.orders, 2, "both of their order rows were redacted");
+  // ⚠️ ONE ORDER — a two-item order is two ROWS and one order, and the card behind the question says
+  // "1 order". Reporting the row count said "2 orders" and contradicted the screen she was reading.
+  assert.equal(done.orders, 1, `the count said ${done.orders} orders for a one-order customer`);
+  assert.equal(done.rows, 2, "both of their order rows were redacted");
 
   const book = customerList(st);
   assert.equal(book.length, 2, `the book fragmented into ${book.length} rows`);
