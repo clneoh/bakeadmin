@@ -481,3 +481,23 @@ test("★★ a COLUMN row lines up on the screen AND on the paper, from one set 
     assert.ok(text.includes(v), `the shared message lost "${v}"`);
   }
 });
+
+test("★★ a line with NO FIGURE prints an em dash, never a confident RM 0.00", () => {
+  // v378. A receipt that was issued and whose order has since been REMOVED has no amount — **the money for
+  // it never existed** — and printing "RM 0.00" beside it would put a figure in a filed document that
+  // nobody ever paid. Every renderer draws its amount through ONE function, so this is proved once.
+  const s = sheetOf({
+    lines: [{ what: "5 Oct · #AAAA01 · #000001 · order removed", amount: null,
+      cols: ["5 Oct", "#AAAA01", "#000001", "order removed", "—"] }],
+    totals: [],
+  });
+  const figures = (node) => walk(node).filter((n) => String(n.className).includes("info-val"))
+    .map((n) => n.textContent).join(" ").trim();
+  assert.equal(figures(journalBodyEl(s)), "—", "the screen printed a figure nobody paid");
+  assert.equal(figures(journalSheetEl(s)), "—", "the paper printed a figure nobody paid");
+  assert.ok(buildJournalText(s).includes("—"), "the shared message lost the blank");
+
+  // ⚠️ AND A REAL ZERO IS STILL A ZERO — this must not quietly turn every 0.00 into a dash.
+  const z = sheetOf({ lines: [{ what: "a free loaf", amount: 0 }], totals: [] });
+  assert.equal(figures(journalBodyEl(z)), "RM 0.00", "a genuine nothing was blanked");
+});

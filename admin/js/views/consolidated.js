@@ -11,6 +11,7 @@
 
 import { el, button, select } from "../ui.js";
 import { journalBodyEl, journalButtons } from "../journal.js";
+import { pullReceiptRegister } from "../supabase.js";
 import { consolidatedSheet } from "../consolidated.js";
 import { customerList } from "../customers.js";
 import { addDays, todayISO } from "../dates.js";
@@ -20,6 +21,9 @@ import { addDays, todayISO } from "../dates.js";
 let kind = "month";
 let anchor = "";
 let customerKey = "";
+// ⚠️ The receipt register, once read. `null` MEANS "NOT READ" and the builder treats it as such —
+// an empty array would claim there are no void numbers, which is a different statement entirely.
+let register = null;
 
 const SCOPES = [["all", "All"], ["day", "A day"], ["week", "A week"], ["month", "A month"]];
 
@@ -39,7 +43,7 @@ export function renderConsolidated(root, state, params) {
   void params;
 
   const paint = () => {
-    const sheet = consolidatedSheet(state, { kind, anchor, customerKey });
+    const sheet = consolidatedSheet(state, { kind, anchor, customerKey, register });
     const span = sheet.span;
     const people = customerList(state);
     // Nothing after today to invoice, so the forward step is refused at the current period — the same
@@ -77,11 +81,22 @@ export function renderConsolidated(root, state, params) {
         el("div", { class: "btn-row", style: "margin-top:12px" }, ...journalButtons(sheet, cur))));
   };
 
+  // ★ DRAWN FROM HER OWN ORDERS FIRST, THEN THE REGISTER LANDS (v378). The document is local and must
+  // never make her wait for the network to see her own sales; the void numbers are the only part that
+  // needs reading, so they arrive a moment later and the page is redrawn.
+  register = null;
+  let dead = false;
   paint();
+  pullReceiptRegister(state).then((r) => {
+    if (dead) return;
+    register = r.ok ? r.rows : null;
+    paint();
+  }).catch(() => { if (!dead) { register = null; paint(); } });
+
   // ⚠️ AND THE WIDTH IS GIVEN BACK when she leaves. The router calls this before drawing the next
   // screen, so no other page inherits the wider cap — a page that widened the app and did not put it
   // back would quietly change every screen after it.
-  return () => { if (view && view.classList) view.classList.remove("view-wide"); };
+  return () => { dead = true; if (view && view.classList) view.classList.remove("view-wide"); };
 }
 
 // One step back or forward, in whatever unit is showing.

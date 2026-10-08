@@ -17,6 +17,12 @@ const { consolidatedSheet, periodSpan, orderInvoice } =
   await import("../admin/js/consolidated.js");
 const { invoiceSheet } = await import("../admin/js/invoice.js");
 const { groupOrders, orderCode } = await import("../admin/js/state.js");
+const { journalBodyEl, journalSheetEl, journalSheet: sheetOf } = await import("../admin/js/journal.js");
+
+// Every figure a sheet draws, joined — so one assertion can say what ALL of them are.
+const walk = (n, out = []) => { for (const c of (n && n.children) || []) { out.push(c); walk(c, out); } return out; };
+const stripMoney = (node) => walk(node).filter((n) => String(n.className).includes("info-val"))
+  .map((n) => n.textContent).join(" ").trim();
 
 const D = (d) => `2026-10-${String(d).padStart(2, "0")}`; // October 2026
 
@@ -407,4 +413,100 @@ test("★★ a PAID order with no invoice number is SAID to be paid — the misr
     `the page lets a paid order read as unpaid: "${sheet.note}"`);
   assert.match(sheet.note, /Still to collect from these orders: RM 16\.00/,
     "only the genuinely unpaid one should be owed");
+});
+
+// ── ★★ v378: THE NUMBERS THAT BELONG TO NO ORDER ─────────────────────────────
+//
+// Her question, reading her own printout: __"why inv 0001 dont show? it should showing the reason"__.
+// The page listed 0002, 0003 … with no word about 0001, which reads as a document with a hole in it —
+// and a gap in a receipt run is exactly what an auditor asks about.
+//
+// ⚠️⚠️ THE REASON IT WAS MISSING: this page is built from her ORDERS, and 0001's order was removed, so
+// there was never a row to draw it from. **The numbers do not live on her orders; they live in the
+// receipt register** — which is why the page now reads it.
+
+const reg = (number, code, issued = "2026-10-06T04:00:00.000Z") =>
+  ({ number, order_code: code, issued_at: issued, refunded_at: null });
+
+test("★★ a number whose order is GONE gets its own line, in its own place in the run", () => {
+  const st = state();
+  st.orders = [
+    row({ groupId: "g052a1b", deliveryDate: D(5), receiptNo: 2, customerName: "Aunty Bee" }),
+    row({ groupId: "gF4470C", deliveryDate: D(7), receiptNo: 3, customerName: "Mei Ling" }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8),
+    register: [reg(1, "AAAA01"), reg(2, "052A1B"), reg(3, "F4470C")] });
+
+  const rows = sheet.lines.filter((l) => !l.head);
+  assert.equal(rows.length, 3, `a void number is still missing from the page: ${rows.length} rows`);
+  // ⚠️ AND IT SORTS INTO THE RUN BY ITS NUMBER — first, because 0001 is first.
+  assert.deepEqual(rows.map((r) => r.cols[2]), ["#000001", "#000002", "#000003"]);
+  assert.match(rows[0].cols[3], /order removed/, `the void line does not say why: "${rows[0].cols[3]}"`);
+  // ⚠️⚠️ AND IT CARRIES NO AMOUNT AT ALL. The money for it never existed, and "RM 0.00" beside it would
+  // put a figure in a filed document that nobody ever paid.
+  assert.equal(rows[0].amount, null, "a void number was given a figure");
+  // ⚠️ THE INVARIANT, NOT A NUMBER I WORKED OUT BY HAND — my first two attempts at this both got the
+  // arithmetic wrong, which is a good sign it should not be in the test at all. **The Total is the sum of
+  // the SALES on the page, and the void number adds nothing to it.**
+  const sales = rows.filter((r) => !/journal-void/.test(r.cls || ""));
+  const sum = sales.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+  assert.equal(sheet.totals[0].amount, Math.round(sum * 100) / 100,
+    `the void number was added into the total (sales sum ${sum}, total ${sheet.totals[0].amount})`);
+  assert.match(sheet.note, /1 number on this page belongs to an order that has since been removed/);
+});
+
+test("★ a number whose order still exists is NOT called void — even outside this period", () => {
+  // ⚠️ "REMOVED" IS JUDGED AGAINST **EVERY** ORDER SHE HAS. An order that merely falls outside the
+  // window she is looking at is elsewhere, not gone — and calling it removed would put a false statement
+  // on a filed page.
+  // ⚠️⚠️ THE ORDER IS DELIVERED IN SEPTEMBER BUT ITS NUMBER WAS ISSUED IN OCTOBER — which is the ordinary
+  // case, and it is the ONLY data that can tell the two answers apart. The first version of this test had
+  // the old order's receipt issued in AUGUST too, so the period filter hid it either way and the bite
+  // (judge against this period's orders instead of all of them) did not disturb it at all.
+  // **A test whose data cannot separate the right answer from the wrong one proves nothing about either.**
+  const st = state();
+  // ⚠️⚠️ THE CODES COME FROM `orderCode` ITSELF, NEVER BY HAND. An order code is the last six HEX
+  // characters of the group id, so "gOLDMAN" is really **"DA"** — and a hand-written "OLDMAN" in the
+  // register matches nothing, which made this test fail for a reason that had nothing to do with what it
+  // is testing. **The app's own function is the only honest source of the app's own identifiers.**
+  const oct = row({ groupId: "g052a1b", deliveryDate: D(5), receiptNo: 2 });
+  const sept = row({ groupId: "gOLDMAN", deliveryDate: "2026-09-30", receiptNo: 1 });
+  st.orders = [oct, sept];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8),
+    register: [reg(1, orderCode(sept), "2026-10-02T04:00:00.000Z"), reg(2, orderCode(oct))] });
+  const rows = sheet.lines.filter((l) => !l.head);
+  assert.equal(rows.length, 1, "an order from another month was drawn on this page");
+  assert.equal(rows.some((r) => /journal-void/.test(r.cls || "")), false,
+    "an order that still exists was called removed");
+  assert.equal(/removed/.test(sheet.note), false, "the note invented a removed order");
+});
+
+test("★ a void number is held to the PERIOD it was issued in", () => {
+  const st = state();
+  st.orders = [row({ groupId: "g052a1b", deliveryDate: D(5), receiptNo: 9 })];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8),
+    register: [reg(1, "GONE01", "2026-09-30T04:00:00.000Z"), reg(9, "052A1B", D(5) + "T04:00:00.000Z")] });
+  const rows = sheet.lines.filter((l) => !l.head);
+  assert.equal(rows.some((r) => /journal-void/.test(r.cls || "")), false,
+    "a September void was drawn on October's page");
+  // And "Everything" does hold it.
+  const all = consolidatedSheet(st, { kind: "all", anchor: D(8),
+    register: [reg(1, "GONE01", "2026-09-30T04:00:00.000Z"), reg(9, "052A1B", D(5) + "T04:00:00.000Z")] });
+  assert.equal(all.lines.filter((l) => !l.head).some((r) => /journal-void/.test(r.cls || "")), true,
+    "All left the void out");
+});
+
+test("★★ a register that could NOT be read is SAID, not drawn as a register with nothing in it", () => {
+  // ⚠️ THE RULE THE RECEIPT REGISTER SCREEN ALREADY FOLLOWS (v366): a filing page that is quietly short is
+  // worse than one that admits it could not check. `null` means NOT READ — an empty array would claim
+  // there are no void numbers, which is a different statement entirely.
+  const st = state();
+  st.orders = [row({ groupId: "g052a1b", deliveryDate: D(5), receiptNo: 2 })];
+  const notRead = consolidatedSheet(st, { kind: "month", anchor: D(8), register: null });
+  assert.match(notRead.note, /receipt register could not be read/,
+    `an unread register left the page silently short: "${notRead.note}"`);
+  // And with the register READ but holding nothing extra, nothing is claimed.
+  const readEmpty = consolidatedSheet(st, { kind: "month", anchor: D(8), register: [reg(2, "052A1B")] });
+  assert.equal(/could not be read/.test(readEmpty.note), false, "a register that WAS read was called unread");
+  assert.equal(/removed/.test(readEmpty.note), false, "a clean run invented a removed order");
 });

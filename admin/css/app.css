@@ -259,6 +259,10 @@ body { min-height: 100vh; }
 .journal-cols .j-col-3 { flex: 1 1 0; min-width: 0; }
 .journal-cols .j-col-4 { flex: 1 1 0; min-width: 0; }
 .journal-cols > .info-val { flex: 0 0 auto; white-space: nowrap; }
+/* A VOID NUMBER — issued, and belonging to an order that has since been removed (v378). Drawn
+   muted so it reads as a cancelled number on the page rather than as a sale, and it carries no
+   figure at all, because the money for it never existed. */
+.journal-cols.journal-void { color: var(--muted); }
 
 /* ⚠️ FIVE COLUMNS DO NOT FIT ACROSS A PHONE AT FULL SIZE — and something has to give, so it is the
    TYPE, not any of the columns. At 375px the fixed columns and the money eat the row and the name is

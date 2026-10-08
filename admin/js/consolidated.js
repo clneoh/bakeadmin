@@ -107,7 +107,7 @@ export function orderInvoice(state, group) {
 //
 // `kind` is "day" | "week" | "month"; `anchor` is any ISO date inside the period you want; and
 // `customerKey` is a `keyOf` value to keep to ONE customer, or "" for everybody.
-export function consolidatedSheet(state, { kind = "month", anchor = "", customerKey = "" } = {}) {
+export function consolidatedSheet(state, { kind = "month", anchor = "", customerKey = "", register = null } = {}) {
   const cur = (state.settings && state.settings.currency) || "RM";
   const span = periodSpan(kind, anchor);
   const byKey = new Map(customerList(state).map((r) => [r._key, r]));
@@ -200,6 +200,36 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       unnumberedPaid: !receiptNoOf(first) && isCollected(g),
     };
   });
+  // ★★ AND THE NUMBERS THAT BELONG TO NO ORDER SHE STILL HAS (v378). Her question, reading the printout:
+  // __"why inv 0001 dont show? it should showing the reason"__ — and she is right. The page listed
+  // 0002, 0003 … with no word about 0001, which reads as a document with a hole in it; **a gap in a receipt
+  // run is exactly what an auditor asks about.**
+  //
+  // ⚠️⚠️ THE REASON IT WAS MISSING: this page is built from her ORDERS, and 0001's order was removed — so
+  // there was never a row to draw it from. **The numbers do not live on her orders; they live in the
+  // receipt register**, which is why this now reads it.
+  //
+  // ⚠️ "REMOVED" IS JUDGED AGAINST **EVERY** ORDER SHE HAS, not against this period's — a number whose
+  // order exists but simply falls outside the window she is looking at is NOT void, it is elsewhere.
+  //
+  // ⚠️ AND A VOID LINE CARRIES NO AMOUNT AT ALL — not zero. The money for it never existed, and printing
+  // "RM 0.00" beside it would put a figure in a filed document that nobody ever paid.
+  const have = new Set((state.orders || []).map((o) => orderCode(o)));
+  const through = (iso) => localDay(iso);
+  if (Array.isArray(register)) {
+    for (const r of register) {
+      const code = String((r && r.order_code) || "").trim().toUpperCase();
+      const no = receiptNoOf({ receiptNo: r && r.number });
+      if (!code || !no || have.has(code)) continue;
+      const day = through(r.issued_at);
+      if (kind !== "all" && (day < span.from || day > span.to)) continue;
+      filing.push({
+        date: day, code, invoice: `#${no}`, customer: "—", items: "order removed",
+        amount: null, owed: false, unnumberedPaid: false, void: true,
+      });
+    }
+  }
+
   filing.sort((a, z) => {
     if (a.invoice && z.invoice) return a.invoice.localeCompare(z.invoice);
     if (a.invoice !== z.invoice) return a.invoice ? -1 : 1;
@@ -220,6 +250,7 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     lines.push({
       // ⚠️ `cols` IS THE LAYOUT AND `what` IS THE SAME FACTS IN A LINE — so the shared text and the PDF,
       // which read `what`, say everything the screen's columns say. One set of values, two arrangements.
+      cls: r.void ? "journal-void" : "",
       cols: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.items, r.customer],
       what: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.items, r.customer].join(" · "),
       amount: r.amount,
@@ -238,6 +269,16 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     // ★★ "none yet" IS ABOUT THE NUMBER, NOT ABOUT THE MONEY — and the page has to say so, or a paid
     // order with no serial reads as an unpaid one. **Her own screen showed four "none yet" rows with only
     // one of them still to collect**, which is exactly how that misreading starts.
+    const voids = filing.filter((r) => r.void).length;
+    if (voids) {
+      said.push(`${voids} number${voids === 1 ? " on this page belongs" : "s on this page belong"} to an order that has since been removed — the number was issued when the money was recorded and is never given back, so it stays spent. More → Money → Receipt register shows every number ever issued.`);
+    }
+    // ⚠️ AND WHEN THE REGISTER COULD NOT BE READ, THE PAGE SAYS SO. It cannot know whether a number
+    // is missing without asking, and a filing page that is quietly short is worse than one that
+    // admits it could not check — the same rule the Receipt register screen follows (v366).
+    if (register === null) {
+      said.push("The receipt register could not be read, so any number belonging to an order that has been removed is NOT shown here. Open this page again with the internet on.");
+    }
     if (unnumberedPaid) {
       said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. Open each order's Invoice and it takes the next number.`);
     }
@@ -282,6 +323,17 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     note: said.join(" "),
   };
 }
+
+// ⚠️ THE DAY ON **HER** CLOCK, not the one the server wrote. `issued_at` is a UTC instant, so slicing
+// its first ten characters would put a number issued at 2am in Penang onto the PREVIOUS day — and
+// for a period boundary that is the difference between the number being in this month's filing or
+// not. `paidOf` in money.js makes the same conversion for the same reason.
+const localDay = (iso) => {
+  const d = new Date(String(iso || ""));
+  if (Number.isNaN(d.getTime())) return String(iso || "").slice(0, 10);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
 // "2 Oct" — a document wants the day, not the year, because the period names it.
 const shortDay = (iso) => longDate(String(iso || "").slice(0, 10)).replace(/,? \d{4}$/, "");

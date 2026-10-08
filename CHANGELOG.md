@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v377)
+# Jienluv2bake — change history (v54 → v378)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v378, THE FILING PAGE NOW SAYS WHY A NUMBER IS MISSING (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words, reading your own printout:** __"why inv 0001 dont show? it should showing the reason"__ — and it should. The page listed 0002, 0003 and said nothing about 0001, which reads as a document with a hole in it — and **a gap in a receipt run is exactly what an auditor asks about.**
+
+**⚠️ WHY IT WAS MISSING.** That page is built from your **orders**, and 0001's order was removed — so there was never an order to draw a line from. **The numbers do not live on your orders; they live in the receipt register.** The page now reads it.
+
+**A number belonging to no order gets its own line, in its own place in the run:**
+
+```
+Date    Order     Invoice    What            Customer   Amount
+5 Oct   #AAAA01   #000001    order removed   —          —
+5 Oct   #052A1B   #000002    Focaccia ×2     Aunty Bee  RM 32.00
+```
+
+**⚠️⚠️ AND IT CARRIES NO AMOUNT AT ALL — not RM 0.00.** The money for it never existed, and a figure beside it would be a number in a filed document that nobody ever paid. It is drawn muted, so it reads as a cancelled number rather than as a sale, and **it adds nothing to the Total.**
+
+**⚠️ THREE THINGS IT IS CAREFUL ABOUT:**
+- **"Removed" is judged against EVERY order you have**, never against the period you are looking at. An order that is simply in another month is elsewhere, not gone — and calling it removed would put a false statement on a page you file.
+- **A void number belongs to the period it was ISSUED in**, on your own clock — a number issued at 2am in Penang is not pushed back onto the previous day, which at a month boundary is the difference between it being in this month's filing or not.
+- **If the register cannot be read, the page SAYS SO** rather than being quietly short: __"any number belonging to an order that has been removed is NOT shown here."__ A filing page that is quietly short is worse than one that admits it could not check.
+
+**⚠️ SO THIS PAGE NOW NEEDS THE INTERNET TO BE COMPLETE.** It draws your own orders first, so you never wait to see your own sales — the removed numbers arrive a moment later and the page redraws. With no connection it is still a complete list of your **sales**; only the removed numbers are absent, and it says that they might be.
+
+**No SQL, no upload.** The suite is **3,038 tests, all green**.
 
 **08 Oct 2026 — engine v377, THE FILING PAGE LEARNS TO SAY WHAT WAS ORDERED, AND TO USE A DESKTOP
 (no database step, nothing to upload — pushing this one is the whole of it).**

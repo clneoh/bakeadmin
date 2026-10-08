@@ -37,7 +37,12 @@ const printedOf = (s) => s.printed || longDate(todayISO());
 // the sheet has to say which convention it is using or the paper would read differently from
 // the screen it came from. `dir` is empty for every other journal, which leaves the amount as
 // the statement writes it.
-const money = (amount, dir, cur) => `${dir === "out" ? "−" : ""}${fmtRM(amount, cur)}`;
+// ⚠️⚠️ A LINE WITH NO FIGURE AT ALL IS NOT A ZERO (v378). A receipt that was issued and whose order has
+// since been removed has **no amount — the money for it never existed** — and printing "RM 0.00" beside
+// it would put a figure in a filed document that nobody ever paid. `money(null, …)` answers an em dash,
+// and **every renderer that draws an amount goes through this one function**, so the screen, the paper,
+// the shared message and the PDF blank it the same way rather than four times over.
+const money = (amount, dir, cur) => (amount == null ? "—" : `${dir === "out" ? "−" : ""}${fmtRM(amount, cur)}`);
 
 // The one column width a plain-text sheet pads both its rows and its totals to, read off
 // everything that shares the column. Capped, so one very long line cannot push every figure off
@@ -74,7 +79,7 @@ export function journalSheet({
     receiptNote: String(receiptNote || ""),
     lines: (lines || []).map((l) => ({
       what: String(l && l.what != null ? l.what : ""),
-      amount: Number(l && l.amount) || 0,
+      amount: (l && l.amount == null) ? null : (Number(l && l.amount) || 0),
       cls: (l && l.cls) || "",
       // "out" when the money left, "" when it arrived or when the amount is already signed.
       dir: (l && l.dir) || "",
