@@ -22,6 +22,7 @@ import { isCollected, isRefunded, refundOf } from "./money.js";
 import { orderDay, monthSpan } from "./profit.js";
 import { weekStartISO } from "./weekly.js";
 import { customerList, keyOf } from "./customers.js";
+import { receiptNoOf } from "./receipts.js";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -146,40 +147,75 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   // Bucketed by the person on the order. ⚠️ A WALK-IN WITH NO NAME AND NO NUMBER KEYS TO ITS OWN
   // ORDER ID (`keyOf`), so grouping by that key alone would give every nameless order a heading of
   // its own — a page of one-line "customers". They share ONE bucket instead.
-  const buckets = new Map();
-  for (const g of keep) {
+  // ★★ ONE FLAT LIST, IN INVOICE-NUMBER ORDER (v376). Her words: __"can we have a column for order no.
+  // and a column for invoice no, sort it to inv will allow us to printout for filing purpose"__ — and
+  // asked how the page should be laid out for filing she chose the flat list over keeping the
+  // per-customer grouping.
+  //
+  // ⚠️ SO THE GROUPING AND ITS SUBTOTALS ARE GONE, and that is what she picked when shown both. The
+  // per-customer statement is still one press away — the WHOSE ORDERS box narrows the page to one person
+  // and the Total at the foot becomes theirs — so nothing was lost that the filter cannot do.
+  //
+  // ⚠️⚠️ THE INVOICE NUMBER IS THE **RECEIPT SERIAL** the app already issues when money is recorded
+  // (`#000001`…), NOT a new series. It is a real, unbroken, never-re-used sequence, which is exactly what
+  // a filing folder is read against — and it needs no counter of its own, no SQL, and no rules guessed at.
+  // The ORDER code stays beside it because it is what finds the order again.
+  //
+  // ⚠️ AN ORDER NOT YET RECORDED AS PAID HAS NO SERIAL — a receipt is for money received — so the page
+  // keeps it, says "no invoice yet" in the column, and **sorts it to the END** where it cannot be mistaken
+  // for part of the numbered run.
+  const filing = keep.map((g) => {
     const first = (g.orders || [])[0];
     const row = byKey.get(keyOf(first));
     const name = row && row.name && row.name !== "(no name)" ? row.name : "";
-    const shown = name || waNumber(first.whatsapp);
-    const key = shown ? keyOf(first) : "__unnamed__";
-    if (!buckets.has(key)) buckets.set(key, { label: shown || "No name", groups: [] });
-    buckets.get(key).groups.push(g);
-  }
+    // ⚠️ THE SAME LABEL RULE THE CUSTOMER BOOK USES, including the one the grouping needed: a walk-in
+    // with no name and no number has no person to name, and says so once rather than being blank.
+    const customer = name || waNumber(first.whatsapp) || "No name";
+    return {
+      date: orderDay(state, first),
+      code: orderCode(first),
+      // ⚠️ "none yet" AND NOT A LONGER SENTENCE. The Invoice column is sized for a SERIAL, because that
+      // is what it holds every other day of the week; a long phrase in the one row that has none would
+      // either widen the column for every row or be cut off mid-word.
+      invoice: receiptNoOf(first) ? `#${receiptNoOf(first)}` : "",
+      customer,
+      amount: orderInvoice(state, g),
+      // ⚠️ OWED IS STILL "NOT COLLECTED", NOT "HAS NO INVOICE NUMBER". They are usually the same, but a
+      // PAID order can be unnumbered — the receipts step not yet run, or the phone offline — and reading
+      // that as owed would invent money a customer does not owe.
+      owed: !isCollected(g),
+      // ⚠️⚠️ THE ITEM NAMES ARE NOT ON THIS PAGE ANY MORE — her own drawn layout is Date · Order ·
+      // Invoice · Customer · Amount, and the detail lives on the order's own invoice, one order code
+      // away. **But the item column was also where an unpriced line said "no price", and a row of
+      // nothing-anybody-could-price now prints a confident RM 0.00 with nothing to warn her.** So the
+      // warning moves to the note, where Profit already says the same thing about its own journal.
+      unpriced: (g.orders || []).some((o) => orderLinePrice(state, o) == null),
+    };
+  });
+  filing.sort((a, z) => {
+    if (a.invoice && z.invoice) return a.invoice.localeCompare(z.invoice);
+    if (a.invoice !== z.invoice) return a.invoice ? -1 : 1;
+    return String(a.date).localeCompare(String(z.date));
+  });
 
   const lines = [];
   let total = 0;
   let owed = 0;
-  const many = buckets.size > 1;
-
-  for (const b of buckets.values()) {
-    b.groups.sort((a, z) => String(orderDay(state, a.orders[0])).localeCompare(String(orderDay(state, z.orders[0]))));
-    // A heading is only worth drawing when there is more than one person on the page — a heading over
-    // the only list says nothing, and a subtotal that equals the total reads as a mistake.
-    if (many) lines.push({ what: b.label.toUpperCase(), heading: true });
-    let sub = 0;
-    for (const g of b.groups) {
-      const first = (g.orders || [])[0];
-      const amount = orderInvoice(state, g);
-      sub = round2(sub + amount);
-      total = round2(total + amount);
-      if (!isCollected(g)) owed = round2(owed + amount);
-      lines.push({
-        what: `${shortDay(orderDay(state, first))}  #${orderCode(first)}  ${itemsLine(state, g)}`,
-        amount,
-      });
-    }
-    if (many) lines.push({ what: `${b.label} subtotal`, amount: sub, cls: "pl-total" });
+  let unpriced = 0;
+  if (filing.length) {
+    lines.push({ head: true, cols: ["Date", "Order", "Invoice", "Customer"], what: "Date · Order · Invoice · Customer" });
+  }
+  for (const r of filing) {
+    total = round2(total + r.amount);
+    if (r.owed) owed = round2(owed + r.amount);
+    if (r.unpriced) unpriced += 1;
+    lines.push({
+      // ⚠️ `cols` IS THE LAYOUT AND `what` IS THE SAME FACTS IN A LINE — so the shared text and the PDF,
+      // which read `what`, say everything the screen's columns say. One set of values, two arrangements.
+      cols: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.customer],
+      what: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.customer].join(" · "),
+      amount: r.amount,
+    });
   }
 
   const said = [];
@@ -188,9 +224,14 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
       : kind === "all" ? "Nothing has been sold yet." : "Nothing was sold in this period.");
   } else {
-    said.push(`Every order is listed on the day it is FOR — the bake day.`);
+    said.push(`Every order is listed on the day it is FOR — the bake day. In invoice-number order.`);
     if (owed > 0) said.push(`Still to collect from these orders: ${cur} ${owed.toFixed(2)}.`);
     else said.push("Every order in this period has been paid.");
+    // ⚠️ SAID HERE BECAUSE THE ITEM COLUMN IS GONE: a row nothing could price adds RM 0.00 to the
+    // Total, and nothing on the line itself would tell her why.
+    if (unpriced) {
+      said.push(`${unpriced} order${unpriced === 1 ? " has" : "s have"} an item with no price and ${unpriced === 1 ? "counts" : "count"} as nothing — check that product's price.`);
+    }
   }
   if (refundedOut) {
     said.push(`${refundedOut} order${refundedOut === 1 ? " was" : "s were"} refunded in full and ${refundedOut === 1 ? "is" : "are"} not listed above.`);

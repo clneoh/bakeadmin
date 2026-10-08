@@ -82,6 +82,19 @@ export function journalSheet({
       // running costs begin; the screen can lean on the section wording above the card, and a
       // page cannot. A heading carries no figure, so it is never padded into a money column.
       heading: !!(l && l.heading),
+      // ★★ COLUMNS, BESIDE THE AMOUNT (v376). Her ask, for the consolidated invoice: __"can we have a
+      // column for order no. and a column for invoice no, sort it to inv will allow us to printout for
+      // filing purpose"__. A filing page needs the serial to line up under the serial — a composed
+      // sentence cannot be read down a column, which is exactly what filing is.
+      //
+      // ⚠️ IT IS **EXTRA**, NOT INSTEAD: `what` is still built from the same cells, so a renderer that
+      // does not know about `cols` (the shared text, the PDF) prints the same facts in a line and never
+      // a blank. **No renderer may show a different value** — only a different arrangement of them.
+      cols: Array.isArray(l && l.cols) ? l.cols.map((c) => String(c == null ? "" : c)) : null,
+      // ★ A COLUMN HEADER (v376). Unlabelled columns are not a filing page — she has to be able to see
+      // WHICH column is the invoice number. It is the same cells in a header dress, so the names sit
+      // over the values they name rather than in a sentence above them.
+      head: !!(l && l.head),
     })),
     totals: (totals || []).map((t) => ({
       label: String(t && t.label != null ? t.label : ""),
@@ -150,6 +163,29 @@ export function buildJournalText(sheet, cur = "RM") {
 // pop-up of its own — the Money screen draws one both ways. Reading the sheet rather than the
 // books a second time is what makes "the paper says what the screen says" true by
 // construction instead of by care.
+// ★ ONE LINE, DRAWN THE SAME EVERYWHERE (v376). The screen and the paper had grown to be identical
+// line-for-line after v372 taught them both about headings, so they are ONE function now — which is what
+// stops them drifting apart the next time either is touched. A row with `cols` is drawn as a column row;
+// one without is the words-and-figure row every journal has always had.
+function sheetLineEl(l, cur) {
+  if (l.heading) return el("p", { class: "js-section" }, l.what);
+  // A header row names the columns and carries no figure — the money column is left empty rather than
+  // filled with a zero nobody meant.
+  if (l.head && l.cols) {
+    return el("div", { class: "info-row journal-line journal-cols journal-cols-head" },
+      ...l.cols.map((c, i) => el("span", { class: `j-col j-col-${i}` }, c)));
+  }
+  const cls = `info-row journal-line${l.cols ? " journal-cols" : ""}${l.cls ? ` ${l.cls}` : ""}`;
+  if (l.cols) {
+    return el("div", { class: cls },
+      ...l.cols.map((c, i) => el("span", { class: `j-col j-col-${i}` }, c)),
+      el("span", { class: "info-val" }, money(l.amount, l.dir, cur)));
+  }
+  return el("div", { class: cls },
+    el("span", { class: "j-what" }, l.what),
+    el("span", { class: "info-val" }, money(l.amount, l.dir, cur)));
+}
+
 export function journalBodyEl(sheet, cur = "RM") {
   const s = journalSheet(sheet);
   // ★★ A HEADING AND A SUBTOTAL LOOK THE SAME HERE AS THEY DO ON PAPER (v372).
@@ -166,11 +202,7 @@ export function journalBodyEl(sheet, cur = "RM") {
   // bolded on paper and plain on screen.
   return el("div", {},
     s.lines.length
-      ? el("div", {}, ...s.lines.map((l) => (l.heading
-          ? el("p", { class: "js-section" }, l.what)
-          : el("div", { class: `info-row journal-line${l.cls ? ` ${l.cls}` : ""}` },
-              el("span", { class: "j-what" }, l.what),
-              el("span", { class: "info-val" }, money(l.amount, l.dir, cur))))))
+      ? el("div", {}, ...s.lines.map((l) => sheetLineEl(l, cur)))
       : el("p", { class: "card-sub" }, s.empty),
     ...s.totals.map((t) => el("div", { class: `info-row ${t.cls}` },
       el("span", {}, t.label),
@@ -194,11 +226,7 @@ export function journalSheetEl(sheet, cur = "RM") {
       s.receipt ? el("p", { class: "js-receipt" }, s.receipt) : null,
       !s.receipt && s.receiptNote ? el("p", { class: "js-receipt note" }, s.receiptNote) : null),
     s.lines.length
-      ? el("div", { class: "js-rows" }, ...s.lines.map((l) => (l.heading
-          ? el("p", { class: "js-section" }, l.what)
-          : el("div", { class: `info-row journal-line${l.cls ? ` ${l.cls}` : ""}` },
-              el("span", { class: "j-what" }, l.what),
-              el("span", { class: "info-val" }, money(l.amount, l.dir, cur))))))
+      ? el("div", { class: "js-rows" }, ...s.lines.map((l) => sheetLineEl(l, cur)))
       : el("p", { class: "card-sub" }, s.empty),
     ...s.totals.map((t) => el("div", { class: `info-row ${t.cls}` },
       el("span", {}, t.label),

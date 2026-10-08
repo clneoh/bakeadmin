@@ -1,8 +1,52 @@
-# Jienluv2bake — change history (v54 → v375)
+# Jienluv2bake — change history (v54 → v376)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v376, THE CONSOLIDATED INVOICE IS NOW A FILING LIST (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"in the consolidated invoice, can we have a column for order no. and a column for
+invoice no, sort it to inv will allow us to printout for filing purpose"__.
+
+**★★ AND THE INVOICE NUMBER YOU WANTED ALREADY EXISTED.** The app has been issuing one since v360 — the
+receipt serial, `#000001`, `#000002`, … — the moment you record money. **It is a real, unbroken,
+never-re-used series, which is exactly what a filing folder is read against.** So this needs no new
+numbering, no counter and no SQL. The **order code** sits beside it because that is what finds the order
+again.
+
+**The page now reads:**
+
+```
+Date    Order    Invoice     Customer      Amount
+5 Oct   #C2FDA5  #000001     Aunty Bee     RM 32.00
+5 Oct   #A1B2C3  #000002     Mei Ling      RM 18.00
+20 Oct  #D4E5F6  #000003     Aunty Bee     RM 36.00
+20 Oct  #998877  none yet    Uncle Tan     RM 16.00
+```
+
+**In invoice-number order, under a header that names each column.** An order you have **not recorded as
+paid has no serial** — a receipt is for money received — so it keeps its place on the page, says
+**none yet**, and **sorts to the end** where it cannot be mistaken for part of the numbered run.
+
+**⚠️ TWO THINGS THIS DELIBERATELY TOOK AWAY, both because you chose the flat layout when shown both:**
+- **The per-customer grouping and its subtotals are gone.** The per-customer statement is still one press
+  away — the **Whose orders?** box narrows the page to one person and the Total at the foot becomes
+  theirs.
+- **The item column is gone.** The layout you drew is Date · Order · Invoice · Customer · Amount, and the
+  detail lives on the order's own invoice, one order code away. **⚠️ And the "no price" warning moved with
+  it** — an order nothing can price still adds RM 0.00 to the Total, so the note now says how many those
+  are and to check the product's price, rather than leaving a confident nothing unexplained.
+
+**⚠️ AND THE PHONE NEEDED THREE TRIES, FOUND ONLY BY LOOKING.** The columns were sized from arithmetic
+twice and got it wrong twice — the first pass squeezed the **Customer** column to **0 pixels** (a header
+reading "Custo…" and no name on any row), and the second cut the **Invoice number itself** to "#0000…".
+**On a page whose whole purpose is filing, an unreadable serial is the one thing that must not happen.**
+The columns are now sized for the serial first, with the type one step smaller on a phone — and **the
+printed page is unaffected**, because A4 is far wider and none of it is cut there.
+
+**No SQL, no upload.** The suite is **3,031 tests, all green**.
 
 **08 Oct 2026 — engine v375, THE FORGET QUESTION WAS COUNTING ITEMS, NOT ORDERS (no database step,
 nothing to upload — pushing this one is the whole of it).**

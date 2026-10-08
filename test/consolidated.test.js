@@ -157,7 +157,7 @@ test("★ a part-refunded order shows its net; a fully refunded one is OFF the r
   ];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
   assert.equal(sheet.totals[0].amount, 11, "RM16 less the RM5 given back is RM11");
-  assert.equal(sheet.lines.filter((l) => !l.heading && !l.cls).length, 1, "the refunded order is still listed");
+  assert.equal(sheet.lines.filter((l) => !l.heading && !l.head && !l.cls).length, 1, "the refunded order is still listed");
   assert.match(sheet.note, /1 order was refunded in full/,
     `a fully refunded order left the page in silence: "${sheet.note}"`);
 });
@@ -183,12 +183,15 @@ test("★ one row per ORDER, never per item — a discount is a fact about the w
     row({ groupId: "g1", deliveryDate: D(5), id: "b", productId: "p2", unitPrice: 18 }),
   ];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  const rows = sheet.lines.filter((l) => !l.heading && !l.cls);
+  const rows = sheet.lines.filter((l) => !l.heading && !l.head && !l.cls);
   assert.equal(rows.length, 1, `two item rows of ONE order became ${rows.length} lines`);
   assert.equal(sheet.totals[0].amount, 34);
 });
 
-test("★ the per-customer subtotals ADD UP to the grand total", () => {
+test("★★ every row ADDS UP to the Total beneath it — the filing list has no subtotals to hide behind", () => {
+  // ⚠️ THIS TEST USED TO CHECK THE PER-CUSTOMER SUBTOTALS. v376 replaced the grouping with one flat
+  // filing list — her choice, shown both — so the invariant that survives is the one that always
+  // mattered: **the rows add up to the figure under them.**
   const st = state();
   st.orders = [
     row({ groupId: "g1", deliveryDate: D(5) }),
@@ -196,26 +199,32 @@ test("★ the per-customer subtotals ADD UP to the grand total", () => {
     row({ groupId: "g3", deliveryDate: D(7), productId: "p2", unitPrice: 18 }),
   ];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  const subs = sheet.lines.filter((l) => l.cls && /total/.test(l.cls));
-  assert.equal(subs.length, 2, "two customers, two subtotals");
-  const sum = subs.reduce((s, l) => s + l.amount, 0);
-  assert.equal(sum, sheet.totals[0].amount, "★ the subtotals do not add up to the total beneath them");
-  assert.ok(sheet.lines.some((l) => l.heading), "there are no customer headings over the rows");
+  const rows = sheet.lines.filter((l) => !l.head && !l.heading);
+  const sum = rows.reduce((s, l) => s + l.amount, 0);
+  assert.equal(Math.round(sum * 100) / 100, sheet.totals[0].amount,
+    "★ the rows do not add up to the total beneath them");
+  assert.equal(sheet.lines.some((l) => l.heading), false, "a customer heading survived the flat list");
 });
 
-test("★ a heading carries NO figure, and a subtotal carries the class paper rules on", () => {
+test("★★ the filing page leads with a HEADER row naming its columns, and carries no figure", () => {
+  // ⚠️ UNLABELLED COLUMNS ARE NOT A FILING PAGE — she has to be able to see WHICH column is the invoice
+  // number. And a header must never carry money: a zero in the amount column would read as a real row.
   const st = state();
   st.orders = [row({ groupId: "g1" }), row({ groupId: "g2", customerName: "Mei Ling", whatsapp: "60222222222" })];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  const head = sheet.lines.find((l) => l.heading);
-  assert.equal(head.amount, undefined, "a heading came with money on it");
-  const sub = sheet.lines.find((l) => l.cls);
-  assert.match(sub.cls, /total/, "a subtotal without a total class is plain on paper and in the PDF");
+  const head = sheet.lines.find((l) => l.head);
+  assert.ok(head, "the filing list has no header row");
+  assert.deepEqual(head.cols, ["Date", "Order", "Invoice", "Customer"]);
+  assert.equal(head.amount, undefined, "the header row came with money on it");
+  // And every row under it carries the same FOUR columns, so the header names them all.
+  for (const l of sheet.lines.filter((x) => !x.head)) {
+    assert.equal(l.cols.length, head.cols.length, `a row has ${l.cols.length} columns under a ${head.cols.length}-column header`);
+  }
 });
 
-test("★ a walk-in with no name and no number shares ONE heading", () => {
-  // ⚠️ `keyOf` keys such an order to its own ID, so grouping by that alone gives every nameless order
-  // a heading of its own — a page of one-line "customers".
+test("★ a walk-in with no name and no number is NAMED, not left blank", () => {
+  // ⚠️ THE GROUPING IS GONE (v376), so this is about the CUSTOMER COLUMN now: a nameless order must
+  // still say something in it rather than leaving a gap where a person belongs.
   const st = state();
   st.orders = [
     row({ groupId: "g1", customerName: "", whatsapp: "" }),
@@ -223,9 +232,11 @@ test("★ a walk-in with no name and no number shares ONE heading", () => {
     row({ groupId: "g3", customerName: "Aunty Bee", whatsapp: "60111111111" }),
   ];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  const heads = sheet.lines.filter((l) => l.heading);
-  assert.equal(heads.length, 2, `expected two headings (No name + Aunty Bee), got ${heads.length}`);
-  assert.ok(heads.some((h) => h.what === "NO NAME"));
+  const rows = sheet.lines.filter((l) => !l.head);
+  const blank = rows.filter((l) => !String(l.cols[3] || "").trim());
+  assert.deepEqual(blank, [], "a row left the customer column empty where a person belongs");
+  assert.equal(rows.filter((l) => l.cols[3] === "No name").length, 2, "the walk-ins are not named");
+  assert.equal(rows.some((l) => l.cols[3] === "Aunty Bee"), true, "the named customer is missing");
 });
 
 test("one customer can be picked out of the period", () => {
@@ -266,7 +277,7 @@ test("★★ ALL means ALL — no window for an order to fall outside of", () =>
   assert.equal(sheet.span.label, "Everything");
   assert.equal(sheet.totals[0].amount, 48,
     `"All" left something out — it holds ${sheet.totals[0].amount}, not RM48`);
-  assert.equal(sheet.lines.filter((l) => !l.heading && !l.cls).length, 3);
+  assert.equal(sheet.lines.filter((l) => !l.heading && !l.head && !l.cls).length, 3);
 });
 
 test("a period still excludes what is outside it — ALL does not weaken the other scopes", () => {
@@ -307,11 +318,72 @@ test("a period with nothing in it says so rather than drawing an empty page", ()
   assert.match(sheet.empty, /Nothing was sold in this period/);
 });
 
-test("a line nothing can price is MARKED, not printed as a confident nothing", () => {
+test("★ an order nothing can price is SAID, not printed as a confident nothing", () => {
+  // ⚠️ THE ITEM COLUMN IS GONE (v376) — her own drawn layout is Date · Order · Invoice · Customer ·
+  // Amount — and that column was also where an unpriced line said "no price". A row nothing could price
+  // adds RM 0.00 to the Total with nothing on the line to explain it, so the warning MOVED to the note
+  // rather than being dropped with the column. Profit says the same thing about its own journal.
   const st = state();
   st.products[0].price = "";
   st.orders = [row({ groupId: "g1", unitPrice: "" })];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  const line = sheet.lines.find((l) => !l.heading);
-  assert.match(line.what, /no price/, `an unpriced loaf reads as a lie: "${line.what}"`);
+  assert.match(sheet.note, /1 order has an item with no price/,
+    `an unpriced order reads as a lie: "${sheet.note}"`);
+  assert.equal(sheet.totals[0].amount, 0, "the unpriced order was counted as money anyway");
+});
+
+// ── ★★ v376: THE FILING LIST ─────────────────────────────────────────────────
+//
+// Her words: __"can we have a column for order no. and a column for invoice no, sort it to inv will allow
+// us to printout for filing purpose"__ — and shown two layouts, she picked the flat list over keeping the
+// per-customer grouping.
+//
+// ⚠️⚠️ THE "INVOICE NUMBER" IS THE **RECEIPT SERIAL** THE APP ALREADY ISSUES (`#000001`…), not a new
+// series. It is a real, unbroken, never-re-used sequence — which is what a filing folder is read against —
+// and it needs no counter, no SQL and no rules guessed at. The order code sits beside it because that is
+// what finds the order again.
+
+test("★★ the filing list runs in INVOICE-NUMBER order, with the unnumbered at the END", () => {
+  const st = state();
+  // ⚠️⚠️ THE DATES RUN **OPPOSITE** TO THE SERIALS, DELIBERATELY. The first version of this test had them
+  // ascending together, so sorting by date and sorting by invoice number gave the SAME list — and the bite
+  // (sort by date again) did not disturb it at all. **A test whose data cannot tell the two answers apart
+  // proves nothing about either.** And the unnumbered order carries the EARLIEST date, so a date sort would
+  // put it first rather than last, which is the other half of what is being pinned.
+  st.orders = [
+    row({ groupId: "g1", deliveryDate: D(9), receiptNo: 1, customerName: "A" }),
+    row({ groupId: "g9", deliveryDate: D(1), customerName: "Z" }),          // not paid yet — no serial
+    row({ groupId: "g3", deliveryDate: D(7), receiptNo: 3, customerName: "C" }),
+    row({ groupId: "g2", deliveryDate: D(8), receiptNo: 2, customerName: "B" }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  const rows = sheet.lines.filter((l) => !l.head);
+  assert.deepEqual(rows.map((r) => r.cols[2]),
+    ["#000001", "#000002", "#000003", "none yet"],
+    "★ the filing list is not in invoice order, or an unnumbered order is sitting inside the run");
+  // ⚠️ AND THE ENTRY GATE IS ON THE LINE, NOT SORTED BY ACCIDENT — the header is first.
+  assert.ok(sheet.lines[0].head, "the header row is not at the top of the filing list");
+});
+
+test("★★ the two numbers are the ORDER's own code and its own receipt serial", () => {
+  const st = state();
+  st.orders = [row({ groupId: "g1", receiptNo: 7 })];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  const r = sheet.lines.find((l) => !l.head);
+  assert.equal(r.cols[1], `#${orderCode(st.orders[0])}`, "the Order column is not the order's own code");
+  assert.equal(r.cols[2], "#000007", "the Invoice column is not the order's own receipt serial");
+  // ⚠️ AND THE SAME FACTS ARE IN `what`, so the shared text and the PDF — which read `what` — say
+  // everything the screen's columns say. One set of values, two arrangements.
+  for (const cell of r.cols) assert.ok(r.what.includes(cell), `"${cell}" is missing from the line text`);
+});
+
+test("★ an unnumbered order still counts toward the Total, and is called out as owed", () => {
+  const st = state();
+  st.orders = [
+    row({ groupId: "g1", receiptNo: 1, paidReceived: true }),
+    row({ groupId: "g2", customerName: "Mei Ling", whatsapp: "60222222222", paidReceived: false, status: "confirmed" }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  assert.equal(sheet.totals[0].amount, 32, "the unnumbered order was left out of the money");
+  assert.match(sheet.note, /Still to collect from these orders: RM 16\.00/);
 });

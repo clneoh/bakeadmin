@@ -446,3 +446,38 @@ test("a second Print press reuses the first press's own layer", () => {
     delete globalThis.window;
   }
 });
+
+test("★★ a COLUMN row lines up on the screen AND on the paper, from one set of values", () => {
+  // v376: the consolidated invoice became a filing list — Date · Order · Invoice · Customer — and a filing
+  // page is read DOWN a column, which a composed sentence cannot be. ⚠️ `cols` is EXTRA, not instead:
+  // `what` still carries every one of the same values, so the shared text and the PDF say the same things.
+  const s = sheetOf({
+    lines: [
+      { head: true, cols: ["Date", "Order", "Invoice", "Customer"], what: "Date · Order · Invoice · Customer" },
+      { cols: ["5 Oct", "#C2FDA5", "#000001", "Aunty Bee"],
+        what: "5 Oct · #C2FDA5 · #000001 · Aunty Bee", amount: 32 },
+    ],
+    totals: [{ label: "Total", amount: 32 }],
+  });
+
+  const cells = (node) => walk(node)
+    .filter((n) => /(^|\s)j-col(\s|$)|j-col-\d/.test(String(n.className)))
+    .map((n) => n.textContent);
+
+  assert.deepEqual(cells(journalBodyEl(s)),
+    ["Date", "Order", "Invoice", "Customer", "5 Oct", "#C2FDA5", "#000001", "Aunty Bee"],
+    "the screen did not draw the columns");
+  assert.deepEqual(cells(journalSheetEl(s)), cells(journalBodyEl(s)),
+    "★ the paper and the screen list different columns for the same document");
+
+  // ⚠️ A HEADER CARRIES NO FIGURE. A zero in the money column would read as a real row.
+  const headRow = walk(journalBodyEl(s)).find((n) => String(n.className).includes("journal-cols-head"));
+  assert.ok(headRow, "no header row was drawn");
+  assert.equal(headRow.children.length, 4, "the header row grew a money cell");
+
+  // ⚠️ AND THE SHARED TEXT CARRIES THE SAME FACTS — a renderer that cannot align columns must not lose one.
+  const text = buildJournalText(s);
+  for (const v of ["#C2FDA5", "#000001", "Aunty Bee"]) {
+    assert.ok(text.includes(v), `the shared message lost "${v}"`);
+  }
+});
