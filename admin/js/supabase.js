@@ -765,11 +765,14 @@ function cardContent(row) {
 // after a reload always writes, and the most it can cost is one redundant write.
 const published = new Map();
 
+// ⚠️ IT RETURNS WHETHER IT WORKED (v374). It used to swallow the answer whole, which was fine while
+// every caller was a best-effort refresh — but the delete control has to be able to say **"their name
+// is still on the shop's public card"** rather than claim a promise it did not keep.
 async function pushTracking(c, row, content) {
   let token = cachedToken();
   if (!token) {
     try { token = await login(c.url, c.anonKey, c.email, c.password); }
-    catch { return; }
+    catch { return false; }
   }
   try {
     const res = await fetch(`${c.url}/rest/v1/order_tracking?on_conflict=code`, {
@@ -785,8 +788,9 @@ async function pushTracking(c, row, content) {
     // Remembered only for a write the server took. A publish that failed — a column
     // missing because a SQL script has not been run, a phone with no signal — must be
     // tried again by the next save rather than counted as done (19 Sep 2026).
-    if (res && res.ok) published.set(row.code, content);
-  } catch { /* best-effort */ }
+    if (res && res.ok) { published.set(row.code, content); return true; }
+    return false;
+  } catch { return false; }
 }
 
 // Push one order's tracking row to Supabase so the customer can look it up on
@@ -795,9 +799,13 @@ async function pushTracking(c, row, content) {
 // app's; best-effort and silent — a publish failure must never block the baker.
 export async function publishTracking(state, group) {
   const c = cfg(state);
-  if (!ready(c) || !group || !group.orders || !group.orders.length) return;
+  // ⚠️ AN EMPTY GROUP IS NOTHING TO PUBLISH, so it is not a failure. But a cloud that is not configured
+  // IS reported as one — a card published while sharing was on is still out there, and "I could not
+  // clear it" is the honest answer rather than silence.
+  if (!group || !group.orders || !group.orders.length) return true;
+  if (!ready(c)) return false;
   const row = trackingSnapshot(state, group);
-  await pushTracking(c, row, cardContent(row));
+  return pushTracking(c, row, cardContent(row));
 }
 
 // Publish only when the card's own content actually moved. Every door that can change

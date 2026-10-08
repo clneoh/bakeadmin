@@ -66,12 +66,20 @@ export function customerList(state, sort = "recent", filter = "all", today = "")
   const products = state.products || [];
   const map = new Map();
   for (const o of state.orders) {
-    const key = keyOf(o);
+    // ★★ A REDACTED ORDER KEEPS ITS OWN HISTORY TOGETHER (v374). Once a customer's name and number are
+    // cleared, `keyOf` falls back to the ORDER ID — so without this their sales would explode into one
+    // "no name" customer per ITEM, and a per-customer statement could never be produced for them again,
+    // which is the opposite of the promise that the sales record is kept. `redactedKey` is random and
+    // non-reversible and is shared by every order of that person, so their history stays ONE row.
+    const key = o.redactedKey || keyOf(o);
     let row = map.get(key);
     if (!row) {
       row = {
         _key: key,
-        name: (o.customerName || "").trim() || "(no name)",
+        // ⚠️ "Details removed" IS NOT "(no name)". One means a person whose details were deleted at
+        // their own request and whose sales are kept; the other means somebody never gave a name. A row
+        // that read "(no name)" would look like an unfinished order rather than an answered request.
+        name: o.redactedKey ? "Details removed" : (o.customerName || "").trim() || "(no name)",
         whatsapp: (o.whatsapp || "").trim(),
         seenOrders: new Set(), // distinct storefront orders (groupId || id)
         units: 0,
@@ -114,7 +122,10 @@ export function customerList(state, sort = "recent", filter = "all", today = "")
   for (const g of groupOrders(state.orders || [])) {
     const first = (g.orders || [])[0];
     if (!first) continue;
-    const row = map.get(keyOf(first));
+    // ⚠️ THE SAME KEYING AS THE LOOP ABOVE, or a redacted person's spend correction would miss its row
+    // entirely and their lifetime spend would silently read at FACE value — the discount and the refund
+    // quietly back in the figure.
+    const row = map.get(first.redactedKey || keyOf(first));
     if (row) row.spend += orderNet(state, g) - groupValue(state, g);
   }
 

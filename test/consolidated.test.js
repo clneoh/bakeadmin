@@ -67,6 +67,56 @@ test("★ the week is the SUNDAY one, and the sheet says which basis it counts o
   assert.match(consolidatedSheet(st, { kind: "month", anchor: D(8) }).subtitle, /by bake day/);
 });
 
+// ── the document's own reference (v374) ──────────────────────────────────────
+
+test("★★ the reference identifies the DOCUMENT and comes out the same every time", () => {
+  // ⚠️⚠️ IT IS DERIVED, NOT COUNTED. Re-printing October's statement must carry the same reference — a
+  // counter would turn one statement into two documents for the same money the second time she opened it.
+  const st = state();
+  st.orders = [row({ groupId: "g1", deliveryDate: D(5) })];
+  const a = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  const b = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  assert.equal(a.ref, b.ref, "opening the same document twice produced two references");
+  assert.equal(a.ref, "CI-MONTH-2026-10");
+  // And it is ON the document, in the line every copy carries.
+  assert.match(a.subtitle, /^CI-MONTH-2026-10 · /, `the reference is not on the document: ${a.subtitle}`);
+});
+
+test("★★ a Sunday's DAY invoice never shares a number with that WEEK's", () => {
+  // ⚠️ THE COLLISION THAT WOULD HAVE SHIPPED. `weekStartISO` is the Sunday, so a day document for 4 Oct
+  // and the week document for the week starting 4 Oct both came out "CI-2026-10-04" — one day in seven,
+  // two different documents under one number.
+  const st = state();
+  const day = consolidatedSheet(st, { kind: "day", anchor: "2026-10-04" });
+  const week = consolidatedSheet(st, { kind: "week", anchor: "2026-10-04" });
+  assert.notEqual(day.ref, week.ref, `a day and a week share the reference ${day.ref}`);
+  assert.equal(day.ref, "CI-DAY-2026-10-04");
+  assert.equal(week.ref, "CI-WEEK-2026-10-04");
+});
+
+test("★★ a customer-scoped document never shares a number with the whole month's", () => {
+  // ⚠️ The other collision: a customer keyed by NAME has no phone number to put in the reference, so it
+  // fell back to the month's all-customer one — two documents, one number.
+  const st = state();
+  st.orders = [row({ groupId: "g1", deliveryDate: D(5) })];
+  const whole = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  const named = consolidatedSheet(st, { kind: "month", anchor: D(8), customerKey: "60111111111" });
+  assert.notEqual(named.ref, whole.ref, `a customer's invoice shares the month's reference ${named.ref}`);
+  assert.match(named.ref, /^CI-MONTH-2026-10-/, `the customer is not in the reference: ${named.ref}`);
+  // Stable for that person, and different for another.
+  const other = consolidatedSheet(st, { kind: "month", anchor: D(8), customerKey: "60222222222" });
+  assert.equal(consolidatedSheet(st, { kind: "month", anchor: D(8), customerKey: "60111111111" }).ref, named.ref);
+  assert.notEqual(other.ref, named.ref, "two customers share a reference in the same month");
+});
+
+test("every scope names itself, so no two kinds of document can collide", () => {
+  const st = state();
+  const refs = ["all", "day", "week", "month"]
+    .map((kind) => consolidatedSheet(st, { kind, anchor: D(5) }).ref);
+  assert.deepEqual(refs, ["CI-ALL", "CI-DAY-2026-10-05", "CI-WEEK-2026-10-04", "CI-MONTH-2026-10"]);
+  assert.equal(new Set(refs).size, refs.length, "two scopes produced the same reference");
+});
+
 // ── the money ────────────────────────────────────────────────────────────────
 
 test("★★ the total EQUALS THE SUM OF THE INDIVIDUAL INVOICES — the courier charge is in both", () => {

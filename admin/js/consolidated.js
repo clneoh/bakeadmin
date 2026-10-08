@@ -54,6 +54,36 @@ export function periodSpan(kind, anchor) {
   return { from: day, to: day, label: longDate(day) };
 }
 
+// ★★ THE DOCUMENT'S OWN REFERENCE (v374). Until this, the consolidated invoice carried NO number at all —
+// every other thing she hands out has one (an order has a code, a receipt has a serial).
+//
+// ⚠️⚠️ IT IS DERIVED FROM THE SCOPE, NOT COUNTED, AND THAT IS THE WHOLE DESIGN. **Re-printing October's
+// statement must carry the same reference.** A counter would make one statement into two different
+// documents for the same money the second time she opened it — which is precisely what a numbered series
+// exists to prevent.
+//
+// ⚠️ AND THE SCOPE IS NAMED IN IT, because two real collisions were found before it shipped:
+//   • `weekStartISO` is the SUNDAY, so a DAY invoice for that Sunday and the WEEK invoice for that week
+//     both came out "CI-2026-10-04" — the same number for two different documents, one day in seven.
+//   • a customer keyed by NAME (no number) fell back to the month's all-customer reference.
+// Naming the scope fixes the first; the second is fixed by every customer-scoped document carrying a
+// suffix, so it can never equal a whole-scope one.
+export function invoiceRef(kind, span, customerKey = "") {
+  const scope = { all: "ALL", day: "DAY", week: "WEEK", month: "MONTH" }[kind] || "ALL";
+  const period = kind === "all" ? "" : kind === "month" ? String(span.from).slice(0, 7) : String(span.from);
+  const who = customerKey ? `-${refSuffix(customerKey)}` : "";
+  return ["CI", scope, period].filter(Boolean).join("-") + who;
+}
+
+// A short, stable, non-secret tag for one person — the same key always gives the same six characters, so
+// the reference is reproducible without putting a phone number on the document.
+function refSuffix(key) {
+  let h = 0;
+  const s = String(key || "");
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h.toString(36).slice(-6).padStart(6, "0");
+}
+
 // The line under an order: what was in it, named as the order FROZE it, so a product she has since
 // renamed or deleted still reads as what was actually sold.
 function itemsLine(state, group) {
@@ -171,12 +201,23 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     said.push(`${noDay} order${noDay === 1 ? " has" : "s have"} no bake day on ${noDay === 1 ? "it" : "them"} and ${noDay === 1 ? "is" : "are"} not listed — give ${noDay === 1 ? "it" : "them"} a day and ${noDay === 1 ? "it" : "they"} will appear here.`);
   }
 
+  // The document's own number, worked out once so the field and the subtitle cannot disagree.
+  const ref = invoiceRef(kind, span, customerKey);
+
   return {
     // The window itself, so the screen's stepper and its heading are the SAME answer as the
     // document's own subtitle rather than a second call that could be given different inputs.
     span,
+    // ⚠️ THE REFERENCE LEADS THE SUBTITLE, which is the one line drawn on the screen, on the paper, in
+    // the shared text AND in the PDF — so the document number is on every copy of it or on none.
+    ref,
     title: "Consolidated invoice",
-    subtitle: `${span.label} · ${customerKey ? byKey.get(customerKey)?.name || "One customer" : "all customers"} · by bake day`,
+    subtitle: [
+      ref,
+      kind === "all" ? "" : span.label,
+      customerKey ? byKey.get(customerKey)?.name || "One customer" : "all customers",
+      "by bake day",
+    ].filter(Boolean).join(" · "),
     lines,
     totals: keep.length
       ? [{ label: `Total — ${span.label}`, amount: total }]

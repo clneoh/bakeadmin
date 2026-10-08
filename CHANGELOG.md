@@ -1,8 +1,74 @@
-# Jienluv2bake — change history (v54 → v373)
+# Jienluv2bake — change history (v54 → v374)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v374, A REFERENCE ON THE CONSOLIDATED INVOICE, AND A REAL "FORGET ME" (no database
+step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"build the invoice number and the delete control"__ — the two things I put to you as
+**the ones a business gets ASKED for**.
+
+**★ THE CONSOLIDATED INVOICE NOW CARRIES ITS OWN REFERENCE:** `CI-MONTH-2026-10`, `CI-WEEK-2026-10-04`,
+`CI-DAY-2026-10-05`, `CI-ALL`, and a short tag when it is one customer's. It leads the line under the
+title, so it is on the screen, on the paper, in the shared message and in the PDF.
+
+**⚠️ IT IS DERIVED FROM THE DOCUMENT, NOT COUNTED — and that is the whole design.** **Re-printing
+October's statement must carry the same reference.** A counter would turn one statement into two
+different documents for the same money the second time you opened it.
+
+**⚠️ AND IT IS A REFERENCE, NOT A TAX SERIES, SAID PLAINLY.** A unique, sequential invoice series is what
+an e-invoice filing asks for, and **the rules for that are not something I will guess at.** Your
+per-order invoice number is still the order's own code, deliberately, since v293. This makes the document
+**referenceable**; the series question stays open until those rules are checked.
+
+**★★ AND THE "FORGET" PRESS NOW WORKS FOR EVERYONE — WHICH IS A PROMISE YOU WERE ALREADY MAKING.** Your
+privacy notice tells customers the sales record is kept and **their details are deleted on request**. Until
+now that was done **by hand in Supabase**, because the press was deliberately withheld from anyone who had
+ever ordered: deleting their record alone would have thrown away their reward and their note while leaving
+their name standing on every sale — **and a button that does half of what it says is worse than no button.**
+**That is no longer the case, because the orders are cleaned too.** So the press is offered on every
+customer, and it does the whole of what it says.
+
+**What it removes:** their name, number, address, any dropped pin, any note and any line note, from every
+order of theirs — plus their coupons and hand-outs, and their name off anyone else's records.
+
+**What it keeps — and this is the point:** **the sales record.** The amounts and the dates stay, and their
+orders stay together as **one row reading "Details removed"**, so your takings, your register, Profit and a
+per-customer statement all read exactly as they did before.
+
+**⚠️ THREE THINGS IT DELIBERATELY DOES NOT TOUCH, EACH FOR A REASON:**
+- **A coupon that is already coming off an order.** Only their __unspent__ coupons go, because a spent one IS
+  the discount on a promised order — removing it would put that order's price back up.
+- **The "referred by" number on their order.** That is the **referrer's** number, not theirs — clearing it
+  would change your referral counts and make the Give-coupon press vanish.
+- **The sales record itself.**
+
+**⚠️ AND IT NAMES WHAT IT CANNOT REACH**, because a promise kept only as far as the app is not the promise:
+your **dated cloud backups** (until they age out), any **backup file you have downloaded**, the copy in your
+**Supabase project** (until the next sync), and any **courier booking**, which sent their name, phone and
+address to the courier's own servers and cannot be recalled. The confirmation says all of this before you
+press it.
+
+**⚠️ THE ONE THING A CONTROL CANNOT CLEAR, and it is yours to run.** The shop sends the customer's name,
+number and address into your Supabase project with every order, and that raw copy is kept for orders that
+never imported cleanly. To see whether any are there:
+
+```sql
+select id, created_at, status, data
+from public.incoming_orders
+where status = 'new'
+order by created_at;
+```
+
+To blank one, with the id from that list:
+
+```sql
+update public.incoming_orders set data = '{}' where id = '<paste the id>';
+```
+
+**No SQL for the app itself.** The suite is **3,027 tests, all green**.
 
 **08 Oct 2026 — engine v373, AN "ALL" SCOPE ON THE CONSOLIDATED INVOICE (no database step, nothing to
 upload — pushing this one is the whole of it).**
