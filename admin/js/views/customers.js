@@ -10,7 +10,7 @@ import { customerList, keyOf, ordersForCustomer, phoneDigits } from "../customer
 import { attachProfiles, customerMatches, customerRowName, forgetCustomer, mergeCustomers, profileFor, removeProfile, upsertProfile } from "../profiles.js";
 import { readPhoto } from "../photo.js";
 import { el, button, select, emptyState, showPopup, copyText, toast, confirmDialog } from "../ui.js";
-import { byId, fmtRM, groupOrders, orderLineName, save, waNumber } from "../state.js";
+import { byId, fmtRM, groupOrders, orderHref, orderLineName, save, waNumber } from "../state.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { maybeSync, publishTracking } from "../supabase.js";
 import {
@@ -711,7 +711,12 @@ function openHistory(state, r, onSaved) {
             : emptyState("No order history", "This customer's orders were removed."))
         : el("div", {},
             el("p", { class: "card-sub", style: "margin:12px 0 2px" }, "Order history — newest first"),
-            ...blocks.map((b) => historyBlock(state, b)))),
+            ...blocks.map((b) => historyBlock(state, b, () => {
+              // ⚠️ CLOSE, THEN GO. See historyBlock: the card would otherwise ride over the
+              // Orders screen and the press would read as having done nothing.
+              close();
+              navigate(orderHref(b.code));
+            })))),
     { wide: true });
 }
 
@@ -891,7 +896,7 @@ function addCreditRow(state, r, ui, refresh) {
     button("Add coupon", saveCredit, "primary small"));
 }
 
-function historyBlock(state, b) {
+function historyBlock(state, b, onOpen) {
   const placed = dateLine(b.orderDate);
   const del = dateLine(b.deliveryDate);
   const when = !placed && !del ? ""
@@ -900,12 +905,21 @@ function historyBlock(state, b) {
   const courier = b.fulfillment === "courier";
   return el("div", { class: "hist-ord" },
     el("div", { class: "li-row" },
-      // ⚠️ NOT A DOOR (v381), AND THAT IS DELIBERATE. Everywhere else an order number now opens
-      // the order; here it stays a plain code, because **this screen has no test harness** — a
-      // customer's history is drawn inside a pop-up — and a control that cannot be driven to its
-      // outcome is a control nobody knows works. It is a one-line change the day that harness
-      // exists; until then, no untested press.
-      el("span", { class: "hist-code" }, `#${b.code}`),
+      // ★★ THE ORDER NUMBER OPENS THE ORDER (v382). Her words: __"make the customer history one a
+      // door too"__. ⚠️ It was left plain at v381 **because this screen had no test harness and a
+      // press nobody has driven to its outcome is a press nobody knows works** — so the harness
+      // was written first (`test/customer-history-door.test.js`) and the door added second.
+      //
+      // ⚠️⚠️ `onOpen` IS REQUIRED, NOT OPTIONAL, and there is no fallback to a plain span. A guard
+      // for a caller that does not exist is a branch no test can reach — a bite proved exactly that
+      // when this was written with one — and the only caller is openHistory below.
+      //
+      // ⚠️⚠️ AND IT HAS TO CLOSE THE CARD IT IS SITTING IN. This is the one site of the four that
+      // lives INSIDE a pop-up: the Orders screen would render underneath while the customer's card
+      // stayed on top of it, so the press would look like it had done nothing. `onOpen` closes
+      // first, then navigates — the same close-then-act order the 💬 Chat press beside it uses.
+      el("a", { class: "hist-code ord-open", href: orderHref(b.code),
+        onclick: (ev) => { ev.preventDefault(); onOpen(); } }, `#${b.code}`),
       el("span", { class: `fulfill-tag${courier ? " courier" : ""}` }, courier ? "Courier" : "Self collect"),
       el("span", { class: "qty-chip" }, STATUS_LABEL[b.status] || b.status)),
     when ? el("p", { class: "card-sub", style: "margin:2px 0 6px" }, when) : null,

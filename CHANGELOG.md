@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v381)
+# Jienluv2bake — change history (v54 → v382)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v382, A CUSTOMER'S ORDER HISTORY IS A DOOR TOO (no database step, no SQL — pushing this one is the whole of it).**
+
+**Your words:** __"make the customer history one a door too"__.
+
+**★ OPEN A CUSTOMER AND PRESS AN ORDER NUMBER IN THEIR HISTORY.** It opens that order's card on its own bake day, exactly as the Receipt register and the filing page do — and each row carries its own order, so a history of three orders is three different doors.
+
+**⚠️ AND THIS ONE CLOSES THE CUSTOMER'S CARD AS IT GOES.** This is the only one of the four that sits inside a card rather than on a screen of its own: without that, the Orders screen would open underneath while the customer's card stayed on top of it, and the press would look as though it had done nothing. I proved that on a real screen rather than assuming it.
+
+**⚠️ THIS WAS LEFT OUT ON PURPOSE LAST TIME, AND THE REASON IS WORTH ONE LINE.** A press that cannot be driven to its outcome is a press nobody knows works, and this card had no test of its own — so at v381 it stayed plain text rather than shipping something I could not prove. **The test came first this time, then the door.**
+
+**No database step and no SQL.** The suite is **3,079 tests, all green** (4 new). Each new assertion was proved by putting the fault back: the door removed, the card left open over the order it opened, and every row given the same order. ⚠️ **Two of my own bites were malformed and said so** — one changed nothing, the other broke the file — and reworking them found a branch in the code that no caller could ever reach, which is gone.
 
 **08 Oct 2026 — engine v381, AN ORDER NUMBER IS NOW A DOOR: PRESS IT AND THE ORDER OPENS (no database step, no SQL — pushing this one is the whole of it).**
 
