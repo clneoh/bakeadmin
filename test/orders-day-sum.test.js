@@ -2453,6 +2453,39 @@ test("★★ the refund card: ticking fills the amount, typing over it wins, and
   assert.ok(buttonNamed(root, "Undo refund"), "and the way back is offered");
 });
 
+test("★★ the refund card shows WHAT WAS CHARGED, discount and all — her ask", () => {
+  // Her words: __"can the refund also show the original charges amount as well??"__
+  //
+  // ⚠️ AND IT IS THE SAME RENDERER THE INVOICE AND THE CUSTOMER'S MESSAGES USE (`receiptEls`), not
+  // a second sum drawn on this card. Two renderings of one order's money is two figures that can
+  // disagree — and the one she decides a refund against is the last place that should happen.
+  //
+  // ⚠️ THE DISCOUNT ROW IS THE POINT OF IT: items less the coupon IS the money that came in, which
+  // is why the cap below is RM29 and not the RM32 the bread was priced at.
+  const st = state();
+  st.orders[0].status = "paid";
+  st.orders[0].paidReceived = true;
+  st.orders[0].paidMethod = "cash";
+  st.orders[0].unitPrice = 16; // two of them: RM32
+  st.credits = [{
+    id: "c1", holder: "60111111111", amountRM: 3, role: "friendOff",
+    earnedAt: "2026-09-01T00:00:00.000Z", expiresAt: "", usedAt: null,
+    orderCode: orderCode(st.orders[0]),
+  }];
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  all(root).find((n) => n.tagName === "BUTTON" && txtOf(n) === "Refund")._listeners.click[0]();
+
+  const said = txtOf(layers["popup-layer"]);
+  assert.match(said, /What was charged/, "the card does not show what was charged at all");
+  assert.match(said, /Items total/, "the goods are not listed");
+  assert.match(said, /RM 32\.00/, `the goods' figure is missing: "${said.slice(0, 200)}"`);
+  assert.match(said, /Bring-a-friend discount/, "the discount is not listed — the cap then looks arbitrary");
+  assert.match(said, /Total/, "no total to read the charges against");
+  // ★ AND THE CAP IS THE DISCOUNTED FIGURE, said on the box it limits.
+  assert.match(said, /up to RM 29\.00/, `the cap is wrong or unsaid: "${said.slice(0, 240)}"`);
+});
+
 test("★ the refund card refuses an amount of nothing, and one bigger than they paid", () => {
   const st = state();
   st.orders[0].status = "paid";

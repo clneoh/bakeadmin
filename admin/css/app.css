@@ -216,6 +216,13 @@ body { min-height: 100vh; }
    Tick what came back, then change the figure if she wants to. Everything is one tap target
    wide, and the amount is drawn as a column so the ticks and the money line up to be read
    against each other — which is the whole point of ticking rather than typing. */
+/* What was charged, drawn in the same band the app already uses for "How it adds up" —
+   an order's own money, so it reads as a quoted fact rather than as something this card made up. */
+.refund-bill {
+  background: var(--strip);
+  border-radius: 10px;
+  padding: 8px 11px;
+}
 .refund-list { border-top: 1px solid var(--line); }
 .refund-line { border-bottom: 1px solid var(--line); }
 .refund-row {

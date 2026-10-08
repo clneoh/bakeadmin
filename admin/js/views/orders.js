@@ -4617,7 +4617,8 @@ function refundOrder(state, group, first, { root, dateId } = {}) {
   // ⚠️⚠️ THE CAP IS WHAT THE CUSTOMER ACTUALLY PAID — never the goods' face price. A coupon or a
   // promo code means they handed over less than the bread was priced at, and handing back the
   // discount as cash would be paying out money she never received (v370).
-  const cap = round2(customerTotal(state, group).total);
+  const bill = customerTotal(state, group);
+  const cap = round2(bill.total);
 
   const lines = group.orders.map((o) => ({
     id: o.id, qty: Number(o.qty) || 0, price: orderLinePrice(state, o), name: orderLineName(state, o),
@@ -4694,13 +4695,21 @@ function refundOrder(state, group, first, { root, dateId } = {}) {
     const note = el("input", { class: "input", placeholder: "Optional" });
 
     const body = el("div", {},
-      el("p", { class: "card-sub", style: "margin:0 0 8px" }, "Which came back?"),
+      // ★ WHAT WAS CHARGED, ON THE CARD THAT GIVES IT BACK (v370, her ask). The same rows the
+      // invoice and the customer's own messages are built from — `receiptEls` is the ONE renderer
+      // for an order's money — so the figures she decides against here are the figures the
+      // customer was quoted, by construction rather than by both happening to be right.
+      // ⚠️ It lists the DISCOUNTS as their own rows too, which is what makes the cap make sense:
+      // items less a coupon is the money that actually came in.
+      el("p", { class: "card-sub", style: "margin:0 0 6px" }, "What was charged"),
+      el("div", { class: "refund-bill" }, ...receiptEls(state, bill)),
+      el("p", { class: "card-sub", style: "margin:12px 0 8px" }, "Which came back?"),
       rows.length ? el("div", { class: "refund-list" }, ...rows)
         : el("p", { class: "card-sub" }, "This order has nothing on it to refund."),
-      el("p", { class: "card-sub", style: "margin:10px 0 0" },
-        `The customer paid ${fmtRM(cap, cur)}${cap < round2(groupValue(state, group)) ? ", less the discount" : ""} — you cannot give back more than that.`),
       el("div", { class: "refund-sum" }, el("span", {}, "Ticked so far"), sumEl),
-      el("div", { class: "field" }, el("label", {}, "How much back?"), boxEl),
+      // ⚠️ THE CAP IS SAID ON THE BOX ITSELF, not in a paragraph above it — the limit belongs
+      // beside the thing it limits, and it is the money the customer actually handed over.
+      el("div", { class: "field" }, el("label", {}, `How much back? (up to ${fmtRM(cap, cur)})`), boxEl),
       el("div", { class: "field" }, el("label", {}, "Why (optional)"), note),
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),

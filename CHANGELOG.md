@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v370)
+# Jienluv2bake — change history (v54 → v371)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v371, THE REFUND CARD NOW SHOWS WHAT WAS CHARGED (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"can the refund also show the original charges amount as well??"__
+
+**★ AND IT CAN, because the app already knows them.** The refund card now opens with the order's own
+receipt — **Items total · Courier charge · any Promo · any Bring-a-friend discount · Total** — drawn in
+the same soft band the rest of the app uses for "How it adds up", and **above** the tick list so you
+decide against the real figures rather than from memory.
+
+**⚠️ AND IT IS THE SAME RENDERER THE INVOICE AND THE CUSTOMER'S OWN MESSAGES USE, not a second sum drawn
+on this card.** Two renderings of one order's money is two figures that can disagree — and the screen
+you decide a refund against is the last place that should happen. So what the customer was quoted and
+what you refund against cannot drift apart.
+
+**★ THE DISCOUNT ROW IS THE POINT OF IT.** Items less the coupon **is** the money that came in — which
+is what makes the limit at the bottom of the card make sense. On a RM32 order carrying a RM3 coupon the
+box now reads **"How much back? (up to RM 29.00)"**, and you can see why.
+
+**No SQL, no upload.** The suite is **2,991 tests, all green**, and the new assertion was bitten: take
+the charges off the card and the test fails by name.
 
 **08 Oct 2026 — engine v370, A REFUND YOU CAN CHOOSE: HOW MUCH, AND WHAT (⚠️ ONE SQL STEP FIRST, see
 the top of the entry).**
