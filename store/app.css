@@ -300,7 +300,7 @@ html, body {
   pointer-events: none;
   animation: today-glow 2.6s ease-in-out infinite;
 }
-.cal-cell.today:not(.sel):not(.avail) .cal-num { color: var(--brown); font-weight: 700; }
+.cal-cell.today:not(.sel):not(.avail) .cal-num { color: var(--brown-dark); font-weight: 700; }
 @keyframes today-glow {
   0%, 100% { box-shadow: 0 0 5px 2px rgba(196, 85, 47, .16); }
   50% { box-shadow: 0 0 11px 5px rgba(196, 85, 47, .30); }
@@ -570,7 +570,7 @@ html, body {
   text-underline-offset: 3px;
   cursor: pointer;
 }
-.line-note-add:active { color: var(--brown); }
+.line-note-add:active { color: var(--brown-dark); }
 .line-note {
   width: 100%;
   font-size: 13px;
@@ -698,11 +698,11 @@ button.prod-next.off::after { content: ""; }
   margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.45;
-  color: #9b8b7b;
+  color: var(--muted);
 }
 /* The number, not a word — so it carries the ink and a tap target worth having. */
 .privacy-wa {
-  color: var(--terra, #c4552f);
+  color: var(--brown-dark);
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
@@ -716,7 +716,7 @@ button.prod-next.off::after { content: ""; }
   text-align: center;
   font-size: 12.5px;
   line-height: 1.45;
-  color: #8a7a68;
+  color: var(--muted);
 }
 /* ⚠️ NOT THE TERRACOTTA. It carries `--brown-dark` until v352, which read as a RED link
    sitting under a sentence of grey small print — she asked for the underline to stay and
@@ -747,7 +747,7 @@ button.prod-next.off::after { content: ""; }
 /* ⚠️ IT HAD NO FOCUS RING OF ITS OWN until v352, and with `appearance:none; border:0` it
    was relying on whatever the browser felt like drawing. Same shape as the shop's other
    focus ring (.promo-dot), in the small print's own colour rather than the terracotta. */
-.privacy-link:focus-visible { outline: 2px solid #8a7a68; outline-offset: 2px; }
+.privacy-link:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 
 /* Notice shown when a live refresh had to fix the customer's order — e.g. an
    item sold out (or only a few left) after they added it. Sits above the menu. */
@@ -1029,18 +1029,18 @@ button.prod-next.off::after { content: ""; }
    skipped. The step keeps its place so the line reads like every other order's, but it wears
    an X and is never green while the money is outstanding (17 Sep 2026). */
 .tj-step.skipped .tj-node { background: #fbe7d8; box-shadow: inset 0 0 0 2px #c9641f; }
-.tj-cross { color: #c9641f; font-size: 11px; font-weight: 800; line-height: 1; }
-.tj-step.skipped .tj-label { color: #a86536; }
+.tj-cross { color: var(--amber); font-size: 11px; font-weight: 800; line-height: 1; }
+.tj-step.skipped .tj-label { color: var(--muted); }
 .tj-label {
   margin-top: 6px;
   font-size: 9.5px;
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
-  color: #a2968b;
+  color: var(--muted);
 }
 .tj-step.done .tj-label { color: #2f6f46; }
-.tj-step.now .tj-label { color: #c9641f; font-weight: 800; }
+.tj-step.now .tj-label { color: var(--amber); font-weight: 800; }
 .track-details { margin-top: 2px; }
 .track-code { margin: 0 0 4px; font-weight: 700; }
 .track-result p { margin: 2px 0; }
@@ -1257,7 +1257,7 @@ button.prod-next.off::after { content: ""; }
   color: var(--brown-dark);
   font-weight: 600;
 }
-.fb-say.fb-bad { color: var(--brown); }
+.fb-say.fb-bad { color: var(--brown-dark); }
 
 /* ---------- Sticky order bar ---------- */
 /* The bar is TWO ROWS since v350: the total and the button, then one line of small
@@ -1606,7 +1606,7 @@ button.prod-next.off::after { content: ""; }
    shortfall they can see. It is drawn quiet rather than dimmed to nothing, so it still reads. */
 .point-opt.short { background: var(--bg); border-style: dashed; }
 .point-opt.short .point-name { color: var(--muted); }
-.point-opt.short .point-sub { color: var(--brown); }
+.point-opt.short .point-sub { color: var(--brown-dark); }
 
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .point-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -1637,7 +1637,7 @@ button.prod-next.off::after { content: ""; }
    not — the same yes/no pairing the referral strip and the suggestion box use,
    so "no" reads as "no" at a glance instead of having to be read out. */
 .promo-say.good { color: #2f6b2f; font-weight: 600; }
-.promo-say.bad { color: var(--brown); }
+.promo-say.bad { color: var(--brown-dark); }
 
 /* Removing a code is a quiet undo, not a second action, so it is a text link at
    the same 36px target as the per-item note's. */

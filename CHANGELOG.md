@@ -1,8 +1,72 @@
-# Jienluv2bake — change history (v54 → v368)
+# Jienluv2bake — change history (v54 → v369)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v369, THE ACCENT COLOURS NOW CLEAR THE SAME FLOOR AS EVERYTHING ELSE (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"build the contrast fix, brand colour stays"__.
+
+**★ HOW IT WAS FOUND.** By measuring every screen in a real browser for the first time — the same
+access you granted so I could look rather than guess. The app set itself a **4.5:1 floor** in v313 and
+applied it to the small grey lines. **That fix covered one colour only.** Everything else — the amber,
+the green, the red — had never been measured where it actually sits.
+
+**★ WHAT WAS UNDER THE FLOOR, and what each one measures now:**
+
+| where | before | now |
+|---|---|---|
+| Ingredients' empty-state line (amber on amber) | 3.78 | **4.96** |
+| Promo's "point of no return" badge (white on amber) | 4.23 | **4.91** |
+| The **engine pill**, a valid promo chip, a "Cool" chip | 4.29 | **4.83** |
+| The Production "mixer" chip, a Scenario note | 4.31 | **4.55** |
+| The "Email the full wish list" link | 4.41 | **5.92** |
+
+**⚠️⚠️ AND THE WORST OF IT WAS NOT IN THE BACKOFFICE AT ALL — IT WAS IN YOUR SHOP.** The shop had
+written **its own greys** rather than using the shared one, and three of them were genuinely hard to
+read on a phone:
+
+| where | before | now |
+|---|---|---|
+| The customer's own **tracking page** step labels, at 9.5px | 2.40 | **5.40** |
+| The line naming the Act, closing the **privacy notice** | 3.24 | **5.40** |
+| The small line under **Place order** — the privacy panel's own trigger | 4.08 | **5.40** |
+
+**⚠️ ALL THREE ARE THINGS YOU RULED MUST BE READABLE, and the notice is the one you were most
+particular about.** They had drifted because a colour written by hand cannot be seen by a test that
+checks a shared colour — which is exactly the fault v313 set out to end, surviving in the one file it
+did not cover.
+
+**★ AND ON YOUR INSTRUCTION THE BRAND TERRACOTTA DID NOT MOVE.** White on it measures **4.48:1**, just
+under the floor — and that is now the **only** pair left under it, deliberately. **The fix was not to
+change your colour; it was to stop using it for TEXT.** Eighteen places were drawing text in the brand
+fill colour; they now use the darker terracotta the app had already been using for text in about
+twenty-five other places. So the brand is untouched and the words are darker.
+
+**⚠️ AND ONE THING I FOUND THAT WAS NEVER A STYLE CHOICE AT ALL.** The WhatsApp number inside the
+privacy panel asked for a colour called `--terra` — **which does not exist in the shop.** It fell back
+to the brand fill colour (4.41:1) and read as if someone had chosen it. It now draws the brand text
+colour (5.92:1), and a test refuses any stylesheet here that reads a colour belonging to another
+document.
+
+**⚠️ WHAT I DELIBERATELY DID NOT TOUCH, and why — a faint colour is sometimes the point.** A delivery
+day already gone, a sold-out product's title, the board's eight person-colours, the review stars, and
+the printed label sheet all sit below the floor **on purpose**: they are states and marks, not sentences,
+and the note written at v313 warns specifically against re-deriving the past-day colour. **None of them
+was changed.** If any of them reads badly to you on the phone, say so and I will treat it as a fault
+rather than a style.
+
+**⚠️ ONE THING I COULD NOT MEASURE, SAID RATHER THAN GUESSED.** The inactive language chips (中文, BM)
+sit on the shop's **gradient** header, and a gradient cannot be measured the way a flat colour can. My
+first pass reported them as unreadable and **that number was wrong** — my own instrument, not your app.
+They need your eyes: if the small 中文 looks washed out against the brown, tell me and I will deal with
+it directly.
+
+**Measured:** every screen re-measured live after the change — **the backoffice now has nothing below
+the floor on any of the 26 screens**, and the shop's privacy notice reads 5.40 where it read 3.24. The
+suite is **2,980 tests, all green**. Five bites, all restored byte-identically.
 
 **08 Oct 2026 — engine v368, EVERY SCREEN NOW BUILDS ITSELF ON EVERY CHANGE (no database step, nothing
 to upload — pushing this one is the whole of it).**
