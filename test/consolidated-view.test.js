@@ -90,6 +90,30 @@ test("★ the screen builds, and shows the period's own total", () => {
   assert.ok(walk(root).some((b) => b.tagName === "BUTTON" && txt(b).trim() === "Share"), "no Share press");
 });
 
+test("★★ the ALL pill is above the three, and carries no stepping arrows", () => {
+  // Her words: __"pls add a selection ALL, on top of A DAy, A week, a month"__.
+  const st = state();
+  const root = createEl("div");
+  renderConsolidated(root, st);
+  const pills = walk(root)
+    .filter((n) => n.tagName === "BUTTON" && ["All", "A day", "A week", "A month"].includes(txt(n).trim()))
+    .map((n) => txt(n).trim());
+  assert.deepEqual(pills, ["All", "A day", "A week", "A month"],
+    `the scopes are not in the order she asked for: ${pills.join(" / ")}`);
+
+  press(root, "All");
+  // Everything, not just this month.
+  assert.match(txt(root), /Everything/, "the All scope does not say what it is showing");
+  // ⚠️ AND NO DEAD ARROWS. There is nothing to step on "All", and a press that cannot do anything
+  // reads as a broken screen — the app's own rule for a control with nothing to do.
+  const arrows = walk(root).filter((n) => n.tagName === "BUTTON" && ["‹", "›"].includes(txt(n).trim()));
+  assert.equal(arrows.length, 0, "the All scope still offers stepping arrows");
+  // And the other scopes still have theirs.
+  press(root, "A month");
+  assert.ok(walk(root).some((n) => n.tagName === "BUTTON" && txt(n).trim() === "‹"),
+    "stepping disappeared from the periods that need it");
+});
+
 test("★★ the period pill really re-scopes the document", () => {
   const st = state();
   const root = createEl("div");

@@ -34,6 +34,12 @@ const MONTHS = ["January", "February", "March", "April", "May", "June",
 // delivery runs). Using the wrong one would make "week" mean two things on two screens.
 export function periodSpan(kind, anchor) {
   const day = String(anchor || "").slice(0, 10);
+  // ★ ALL OF IT (v373). Her words: __"pls add a selection ALL, on top of A DAy, A week, a month"__.
+  // ⚠️ An empty `from`/`to` is not "a period from nothing to nothing" — `consolidatedSheet` reads
+  // `kind === "all"` and skips the range test entirely. Giving it a SENTINEL range instead would
+  // have been a second rule about what a date is, and the day the sentinel was wrong the document
+  // would have gone quietly short.
+  if (kind === "all") return { from: "", to: "", label: "Everything" };
   if (kind === "week") {
     const from = weekStartISO(day);
     const to = addDays(from, 6);
@@ -93,7 +99,9 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     // that says what it left out.
     const day = orderDay(state, first);
     if (!day) { noDay += 1; continue; }
-    if (day < span.from || day > span.to) continue;
+    // ⚠️ "Everything" has no window to fall outside of — the range is skipped rather than widened,
+    // so an order can never be left out of the one scope that means ALL of it.
+    if (kind !== "all" && (day < span.from || day > span.to)) continue;
     // A sale refunded IN FULL is off the invoice entirely; it is counted below and said in the note.
     //
     // ⚠️⚠️ AND **ONLY A REFUND** EARNS THAT SKIP — never a zero. An order whose product carries no
@@ -147,8 +155,8 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   const said = [];
   if (!keep.length) {
     said.push(customerKey
-      ? "This customer has nothing in this period."
-      : "Nothing was sold in this period.");
+      ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
+      : kind === "all" ? "Nothing has been sold yet." : "Nothing was sold in this period.");
   } else {
     said.push(`Every order is listed on the day it is FOR — the bake day.`);
     if (owed > 0) said.push(`Still to collect from these orders: ${cur} ${owed.toFixed(2)}.`);
@@ -158,7 +166,9 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     said.push(`${refundedOut} order${refundedOut === 1 ? " was" : "s were"} refunded in full and ${refundedOut === 1 ? "is" : "are"} not listed above.`);
   }
   if (noDay) {
-    said.push(`${noDay} order${noDay === 1 ? " has" : "s have"} no bake day on ${noDay === 1 ? "it" : "them"} and cannot belong to any period — give ${noDay === 1 ? "it" : "them"} a day and ${noDay === 1 ? "it" : "they"} will appear here.`);
+    // ⚠️ WORDED FOR EVERY SCOPE, "Everything" INCLUDED. "cannot belong to any period" read oddly on
+    // the one scope that is not a period at all.
+    said.push(`${noDay} order${noDay === 1 ? " has" : "s have"} no bake day on ${noDay === 1 ? "it" : "them"} and ${noDay === 1 ? "is" : "are"} not listed — give ${noDay === 1 ? "it" : "them"} a day and ${noDay === 1 ? "it" : "they"} will appear here.`);
   }
 
   return {
@@ -171,9 +181,13 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     totals: keep.length
       ? [{ label: `Total — ${span.label}`, amount: total }]
       : [],
+    // ⚠️ "Pick another period" is nonsense on the scope that is not a period — and this is the one
+    // sentence a screen with nothing on it has to say for itself.
     empty: customerKey
-      ? "This customer has nothing in this period. Pick another period, or another customer."
-      : "Nothing was sold in this period. Pick another period.",
+      ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
+      : kind === "all"
+        ? "Nothing has been sold yet."
+        : "Nothing was sold in this period. Pick another period.",
     note: said.join(" "),
   };
 }

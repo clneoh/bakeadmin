@@ -204,6 +204,42 @@ test("★ an order with no bake day is counted and SAID, never merely dropped", 
     `the document is quietly short: "${sheet.note}"`);
 });
 
+test("★★ ALL means ALL — no window for an order to fall outside of", () => {
+  // Her words: __"pls add a selection ALL, on top of A DAy, A week, a month"__.
+  const st = state();
+  st.orders = [
+    row({ groupId: "g1", deliveryDate: D(5) }),
+    row({ groupId: "g2", deliveryDate: "2026-09-30", customerName: "Mei Ling", whatsapp: "60222222222" }),
+    row({ groupId: "g3", deliveryDate: "2025-01-02", customerName: "Old order", whatsapp: "60333333333" }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "all", anchor: D(8) });
+  assert.equal(sheet.span.label, "Everything");
+  assert.equal(sheet.totals[0].amount, 48,
+    `"All" left something out — it holds ${sheet.totals[0].amount}, not RM48`);
+  assert.equal(sheet.lines.filter((l) => !l.heading && !l.cls).length, 3);
+});
+
+test("a period still excludes what is outside it — ALL does not weaken the other scopes", () => {
+  // ⚠️ The range is SKIPPED for "all", never widened for everybody — otherwise the month would stop
+  // being a month and every scope would quietly become "everything".
+  const st = state();
+  st.orders = [
+    row({ groupId: "g1", deliveryDate: D(5) }),
+    row({ groupId: "g2", deliveryDate: "2026-09-30", customerName: "Mei Ling", whatsapp: "60222222222" }),
+  ];
+  assert.equal(consolidatedSheet(st, { kind: "month", anchor: D(8) }).totals[0].amount, 16);
+  assert.equal(consolidatedSheet(st, { kind: "week", anchor: D(8) }).totals[0].amount, 16);
+  assert.equal(consolidatedSheet(st, { kind: "all", anchor: D(8) }).totals[0].amount, 32);
+});
+
+test("with nothing sold at all, ALL says so without offering another period", () => {
+  const st = state();
+  const sheet = consolidatedSheet(st, { kind: "all", anchor: D(8) });
+  assert.match(sheet.empty, /Nothing has been sold yet/);
+  assert.equal(/another period/.test(sheet.empty), false,
+    '"another period" is nonsense on the scope that is not a period');
+});
+
 test("an order outside the period is simply not in it, and is not complained about", () => {
   const st = state();
   st.orders = [row({ groupId: "g1", deliveryDate: D(5) }), row({ groupId: "g2", deliveryDate: "2026-09-30" })];

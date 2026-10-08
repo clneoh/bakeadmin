@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v372)
+# Jienluv2bake — change history (v54 → v373)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v373, AN "ALL" SCOPE ON THE CONSOLIDATED INVOICE (no database step, nothing to
+upload — pushing this one is the whole of it).**
+
+**Your words:** __"pls add a selection ALL, on top of A DAy, A week, a month"__.
+
+**★ THERE IS NOW A FOURTH SCOPE, AND IT COMES FIRST: All · A day · A week · A month.** **All** is
+everything she has ever sold, with no window on it at all — so a customer's whole history is one
+document, and so is her own record of the lot.
+
+**⚠️ AND IT CARRIES NO STEPPING ARROWS.** There is nothing to step when you are looking at everything, and
+a press that cannot do anything reads as a broken screen — so the row keeps the word **Everything**,
+which still says what is on the page, and simply has no arrows on it. The three periods keep theirs.
+
+**⚠️ "ALL" IS NOT "A VERY WIDE PERIOD".** It does not widen the window; it removes the window. **The
+three periods are untouched** — a month is still exactly a month, and a test pins that so a later change
+cannot quietly turn every scope into everything.
+
+**⚠️ AND ITS EMPTY STATE DOES NOT OFFER ANOTHER PERIOD**, because it is not a period. With nothing sold
+at all it says **"Nothing has been sold yet."**
+
+**No SQL, no upload.** The suite is **3,016 tests, all green**, and the new rules were bitten — widen
+the range instead of skipping it, draw the arrows anyway, or move All back to the end of the row, and
+each fails by name.
 
 **08 Oct 2026 — engine v372, ONE INVOICE OVER A PERIOD — A DAY, A WEEK, A MONTH, OR ONE CUSTOMER (no
 database step, nothing to upload — pushing this one is the whole of it).**

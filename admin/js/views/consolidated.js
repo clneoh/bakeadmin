@@ -21,6 +21,8 @@ let kind = "month";
 let anchor = "";
 let customerKey = "";
 
+const SCOPES = [["all", "All"], ["day", "A day"], ["week", "A week"], ["month", "A month"]];
+
 const PILL = (on) => (on ? "soft small" : "ghost small");
 
 export function renderConsolidated(root, state) {
@@ -40,13 +42,15 @@ export function renderConsolidated(root, state) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, "What to cover"),
         el("div", { class: "btn-row" },
-          button("A day", () => { kind = "day"; paint(); }, PILL(kind === "day")),
-          button("A week", () => { kind = "week"; paint(); }, PILL(kind === "week")),
-          button("A month", () => { kind = "month"; paint(); }, PILL(kind === "month"))),
+          ...SCOPES.map(([k, label]) => button(label, () => { kind = k; paint(); }, PILL(kind === k)))),
+        // ⚠️ NO ARROWS ON "ALL", BECAUSE THERE IS NOTHING TO STEP. A press that cannot do anything
+        // reads as a broken screen (the app's own rule), so the row keeps its label — which still
+        // says what is being looked at — and simply has no arrows on it.
         el("div", { class: "cal-head" },
-          button("‹", () => { step(-1); paint(); }, "ghost small cal-nav"),
+          kind === "all" ? null : button("‹", () => { step(-1); paint(); }, "ghost small cal-nav"),
           el("span", { class: "cal-title" }, span.label),
-          (() => { const b = button("›", () => { step(1); paint(); }, "ghost small cal-nav"); if (!canNext) b.disabled = true; return b; })()),
+          kind === "all" ? null
+            : (() => { const b = button("›", () => { step(1); paint(); }, "ghost small cal-nav"); if (!canNext) b.disabled = true; return b; })()),
         el("div", { class: "field" }, el("label", {}, "Whose orders?"),
           select(
             [{ value: "", label: "All customers" },
@@ -69,6 +73,10 @@ export function renderConsolidated(root, state) {
 
 // One step back or forward, in whatever unit is showing.
 function step(delta) {
+  // ⚠️ A GUARD, NOT A HABIT. The arrows are not drawn on "All", so this is unreachable from the
+  // screen — but without it an unknown kind would silently take the MONTH branch and move a date
+  // nobody asked to move. A fall-through that guesses is how a later change goes wrong quietly.
+  if (kind === "all") return;
   if (kind === "day") { anchor = addDays(anchor, delta); return; }
   if (kind === "week") { anchor = addDays(anchor, delta * 7); return; }
   const d = new Date(`${anchor}T00:00:00`);
