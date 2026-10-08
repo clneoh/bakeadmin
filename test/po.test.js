@@ -78,7 +78,23 @@ globalThis.localStorage = {
   setItem: (k, v) => store.set(k, String(v)),
   removeItem: (k) => store.delete(k),
 };
-globalThis.location = { hash: "" };
+// ⚠️⚠️ `location.hash` IS BACKED BY A VARIABLE AND ITS WRITES ARE COUNTED (v388). Setting
+// `location.hash` is what FIRES the app's hashchange and therefore its router; `history.replaceState`
+// is what does NOT. The two must be told apart by a test, and a plain `{ hash: "" }` object — which
+// cannot say whether anyone wrote to it — cannot tell them apart.
+let hashValue = "";
+const hashWrites = [];
+globalThis.location = {
+  get hash() { return hashValue; },
+  set hash(v) { hashValue = String(v); hashWrites.push(hashValue); },
+};
+// ⚠️ AND A BARE `history` REFERENCE THROWS IN NODE, so this is not optional: without it every path
+// that reaches the line is a ReferenceError rather than a pass. The rest of this suite shims it for
+// exactly this reason; this file did not need it until the PO stopped navigating to change its URL.
+const replacedUrls = [];
+globalThis.history = {
+  replaceState(_s, _t, url) { replacedUrls.push(String(url == null ? "" : url)); },
+};
 // ⚠️ NO `window` EXISTED HERE BEFORE, because nothing this suite rendered had ever called one — the
 // fixture had no suppliers, so the Copy/Message buttons never drew. The per-shop Print does need it,
 // and the spy is what lets a test prove the press really ASKED the browser to print rather than
@@ -287,6 +303,56 @@ test("ticking an extra day updates the combined list and grand total live", () =
   assert.ok(all.includes("2 units planned across 2 bake days · Sourdough ×2"),
     "day B's 500 g joined the combined need");
   assert.ok(all.includes("RM 6.00"), "grand total now covers both days");
+});
+
+// ★★⚠️ TICKING A DAY MUST NOT FIRE THE ROUTER (v388). Her words: __"the po page when click, the page
+// jump, rerender"__.
+//
+// ⚠️⚠️ THE FAULT IS NOT VISIBLE IN THE RENDERED TEXT — after a tick the list is correct either way.
+// What differed was HOW the address got written: `location.hash = …` fires the app's hashchange, the
+// router empties #view, rebuilds the whole screen and leaves the document scrolled to the top, so a
+// tick near the bottom of a long day list threw her back up the page. So this test asserts on the
+// ADDRESS MECHANISM, which is the thing that actually broke — asserting on the list would have passed
+// over the fault and pinned nothing.
+test("⚠️ ticking a day writes the address instead of navigating — so the screen is never torn down", () => {
+  const state = freshState();
+  const root = render(state, `dates=del_a`);
+
+  hashWrites.length = 0;   // the initial render is allowed to be wherever it is; the TICK is what matters
+  replacedUrls.length = 0;
+
+  const r = rows(root);
+  r[1].children[0].checked = true;
+  fireChange(r[1].children[0]);   // tick day B
+
+  assert.equal(hashWrites.length, 0,
+    "a tick must NOT assign location.hash — that fires hashchange and the router wipes the screen");
+  assert.equal(replacedUrls.length, 1,
+    "a tick must rewrite the address exactly once, so a shared or reopened PO still knows its days");
+  assert.equal(replacedUrls[0], `#/po?dates=del_a,del_b`,
+    "the address names exactly the ticked days");
+
+  // ⚠️ AND THE LIST STILL UPDATED — the point of the fix is that she keeps her place, not that the
+  // screen stopped working.
+  assert.ok(nodeTexts(root).includes("RM 6.00"), "the combined total still redrew in place");
+});
+
+// ⚠️ UNTICKING EVERYTHING still has to write the address, and it has to be an EMPTY ?dates= rather
+// than a bare #/po — a bare one silently re-defaults to every day, which is the trap the original
+// comment named. The mechanism changed; that rule did not.
+test("⚠️ unticking every day writes an empty ?dates=, never a bare #/po that would re-default", () => {
+  const state = freshState();
+  const root = render(state);          // opens with both days ticked
+  replacedUrls.length = 0;
+
+  for (const row of rows(root)) {
+    const box = row.children[0];
+    if (box.checked) { box.checked = false; fireChange(box); }
+  }
+
+  assert.equal(replacedUrls.at(-1), "#/po?dates=",
+    "the last write must be an explicitly empty list, not #/po");
+  assert.ok(!replacedUrls.includes("#/po"), "a bare #/po would silently re-tick every day");
 });
 
 test("tapping an \"orders changed\" day reveals the new order and its extra need", () => {

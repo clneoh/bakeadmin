@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v387)
+# Jienluv2bake — change history (v54 → v388)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v388, THE PO PAGE STOPS JUMPING TO THE TOP WHEN YOU TICK A DAY (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the po page when click, the page jump, rerender"__.
+
+**⚠️ WHAT WAS HAPPENING.** On the shopping-list screen, every time you ticked or unticked a bake day, the whole page threw itself back to the top and rebuilt itself. On a short list you would barely notice; on a long one — your nineteen days — ticking anything near the bottom dumped you back at the top, and you had to scroll all the way down again to tick the next one.
+
+**★ WHY IT DID THAT.** Ticking a day did two things: it redrew the list, and it wrote the day into the address bar so the link could be shared or reopened later. ⚠️ It wrote that address the way a browser reads as **"go to this page"** — which told the app to navigate, so the app obeyed: it emptied the screen, rebuilt the whole thing, and left you at the top. The list was right afterwards either way; **what changed was where you were standing.**
+
+**★ SO IT NOW WRITES THE ADDRESS WITHOUT LEAVING THE PAGE.** The address still shows exactly the days you have ticked — so a saved or shared PO still reopens on the right days — and pressing a tick no longer moves you at all. **You keep your place.**
+
+**⚠️ AND THE TWO THINGS THAT LOOK ALIKE IN THE CODE ARE NOT.** Writing the address, and navigating to an address, take one line each and produce a nearly identical URL — which is exactly why this was easy to get wrong and invisible in a screenshot. The tick now uses the same mechanism the **Orders** screen already uses for the same reason. A test now tells the two apart, because the screen **looks correct either way** — a test that only checked the list would have passed straight over the fault.
+
+**Measured, on the real page:** ticking with the document scrolled to 2,500px left it at **0** before the fix, and it stays at 0 once the screen rebuilds — so it was not a flicker you could scroll away from. ⚠️ And the line in the app that looked like the culprit, `scrollTop = 0`, **was doing nothing at all**: that element is not the thing that scrolls. Emptying the page was what moved you.
+
+**No database step.** The suite is **3,121 tests, all green** (2 new). Every new rule was proved by putting the fault back: the tick navigating again, the address naming the wrong days, the address left blank where it should say "none", the list not redrawn, and the address written twice.
 
 **08 Oct 2026 — engine v387, TAKE ONE SHOP'S LIST TO THAT SHOP (no database step — pushing this one is the whole of it).**
 
