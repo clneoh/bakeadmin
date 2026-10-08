@@ -1,7 +1,7 @@
 // views/orders.js — per-delivery-date order intake (manual, warn-not-block).
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
-import { capacityStatus, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
+import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
 import { dayMoney, groupValue, isCollected, isRefunded } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
@@ -1470,6 +1470,64 @@ function priceForProduct(state, productId) {
   return Number.isFinite(price) ? price : null;
 }
 
+// The recipe cost of ONE unit right now — what a line's cost is when she has not
+// adjusted it. The same figure `costOf` freezes onto an order the moment it is
+// taken, so the box, the frozen value and the books all read from one place.
+function recipeCostFor(state, productId) {
+  const p = byId(state.products, productId);
+  return p ? costOf(state, p) : 0;
+}
+
+// ★ THE COST BOX (v380). Her words: "yes, freeze the cost onto the order" and
+// "and allow me to adjust it," — so this sits beside the price on a line and
+// does for the cost what the price box already does for the price.
+//
+// ⚠️ BLANK MEANS "THE RECIPE", and the placeholder always shows what the recipe
+// says right now. So the box never lies about the number the books are using,
+// and a line she has not touched reads as the recipe's own figure.
+//
+// ⚠️ THE UNDO IS BUILT WITH THE BOX, not rendered from `line.cost`, and that is
+// deliberate. Rendering it conditionally would mean the whole pop-up had to be
+// rebuilt on every KEYSTROKE for it to appear — and a rebuild mid-typing takes
+// the focus out of the box she is typing in. So the press is always there beside
+// a line whose recipe prices to something, and it says the recipe's own figure,
+// which is worth reading whether or not she has typed over it. It closes over
+// the box element, so pressing it empties the box on the spot.
+function lineCostControls(line, on, recipeCost, cur) {
+  // ⚠️ THE WORD "Cost" IS ON SCREEN, unlike the price box, which gets away with a
+  // bare "RM" beside a stepper. Two figure boxes on one line and one of them
+  // unlabelled is how a cost gets typed into the price. The "each" names the unit.
+  const label = el("span", { class: "line-cost-label" }, "Cost each");
+  const box = el("input", { class: "input line-cost", type: "number", inputmode: "decimal",
+    min: "0", step: "0.01",
+    placeholder: recipeCost > 0 ? fmtRM(recipeCost, cur) : cur,
+    "aria-label": `Cost each (${cur}) — what the recipe says, unless you type over it`,
+    value: line.cost == null ? "" : String(line.cost),
+    oninput: function () {
+      line.cost = this.value === "" ? null : Number(this.value);
+      // ⚠️ THE UNDO FOLLOWS THE BOX, and it is the one thing that differs from the
+      // price beside it. An empty box already means "use the recipe", so a press
+      // offering to go back to the recipe would DO NOTHING — and a tap that does
+      // nothing reads as a fault. So it is hidden while the box is empty and appears
+      // the moment she types. ⚠️ Toggled on the element rather than re-drawn from
+      // `line.cost`, because re-drawing means rebuilding the rows on every keystroke,
+      // which takes the focus out of the box she is typing in.
+      reset.hidden = this.value === "";
+      on();
+    } });
+  // ⚠️ AN ADJUSTMENT WITH NO WAY BACK IS A TRAP — the same reason a Restore had to
+  // be reversible. ⚠️ A product whose recipe prices to nothing gets NO press at all:
+  // it has no figure to offer, and a button naming "RM 0.00" would invent one.
+  if (!(recipeCost > 0)) return [label, box];
+  const recipe = fmtRM(recipeCost, cur);
+  const reset = el("button", { class: "line-cost-reset", type: "button",
+    hidden: line.cost == null,
+    "aria-label": `Use the recipe cost, ${recipe}`,
+    onclick: () => { line.cost = null; box.value = ""; reset.hidden = true; on(); } },
+    `Recipe: ${recipe}`);
+  return [label, box, reset];
+}
+
 // The day's till, under its capacity meter (16 Sep 2026): what came in as cash,
 // what came in by transfer, and how many orders are still to collect — the line she
 // checks her purse and her phone against at the end of a delivery day. Nothing shows
@@ -2124,6 +2182,12 @@ function openEditPopup(state, group, dateId, root) {
   const lines = group.orders.map((o) => ({
     id: o.id, productId: o.productId || "", qty: o.qty,
     price: orderLinePrice(state, o),
+    // This line's COST (v380) — the frozen one when the order carries it, and
+    // null when it does not, which is what makes the box open blank and follow
+    // the recipe. Seeded from `unitCost` itself rather than through `costOf`, so
+    // opening the pop-up can never invent a cost the order does not have.
+    cost: (o.unitCost == null || o.unitCost === "" || !Number.isFinite(Number(o.unitCost)))
+      ? null : Number(o.unitCost),
     // This line's own note (v236), held on the draft so a repaint re-reads it and
     // she can change it here as well as in the New-order card. Line-level, so it
     // is edited per row and never travels in the shared fields below.
@@ -2323,6 +2387,13 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         // A swapped line takes the new product's price — the old one's would be a
         // price for something she is no longer selling.
         line.price = priceForProduct(state, line.productId);
+        // ★ AND ITS COST (v380), on the same rule and for the same reason: the old
+        // product's recipe is not the new product's recipe. ⚠️ A recipe that prices
+        // to nothing leaves the box BLANK rather than showing a 0, because blank is
+        // what "follow the recipe" has always meant here — and a visible 0 in a box
+        // she never typed into would freeze a figure she never agreed to.
+        const rc = recipeCostFor(state, line.productId);
+        line.cost = rc > 0 ? rc : null;
         refresh();
       }, "Product…");
     const qtySpan = el("span", { class: "stepper-val" }, String(line.qty));
@@ -2338,6 +2409,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
           value: line.lineNote || "",
           oninput: function () { line.lineNote = this.value; } })
       : null;
+    // The cost box (v380) sits BESIDE the price, on the same controls row, and only
+    // on this pop-up. The New-order card deliberately does not carry one: the cost
+    // is frozen from the recipe the moment she adds the order anyway, and the card
+    // is where a customer is on the phone — a costing box there would be a second
+    // number to think about during a sale. She adjusts it here, afterwards.
+    const recipeCost = recipeCostFor(state, line.productId);
     return el("div", { class: "add-item" },
       prodSel,
       el("div", { class: "add-item-ctl" },
@@ -2348,6 +2425,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         linePriceBox(line, paintTotal),
         el("button", { class: "inbox-del", "aria-label": "Remove item",
           onclick: () => { lines.splice(i, 1); refresh(); } }, "✕")),
+      el("div", { class: "add-item-ctl" },
+        // Blank means "the recipe", so this line reads as the recipe's own figure
+        // until she types over it. ⚠️ Typing does NOT rebuild the rows — the same
+        // rule the price box follows — so the focus stays in the box.
+        lineCostControls(line, paintTotal, recipeCost, state.settings.currency)),
       lineNoteBox);
   };
 
@@ -2513,6 +2595,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       el("label", {}, "Items"),
       el("p", { class: "card-sub", style: "margin:0 0 6px" },
         "The price beside each item is what THIS order is sold at. Change it here and the confirmation, every later message and the customer's total follow it — your menu price is untouched."),
+      // ★ AND THE COST, SAID OUT LOUD (v380). Two figures on one line need to be
+      // told apart in words or the second one gets typed into the first. The
+      // "Recipe:" figure beside the box is what her recipe says it costs TODAY.
+      el("p", { class: "hint", style: "margin:6px 0 0" },
+        "Cost each is what that loaf cost you to bake. It is frozen onto this order when you take it, so changing an ingredient price later never rewrites an order already sold. Type over it if this batch cost you more, or press Recipe to go back to what the recipe says."),
       rowsEl,
       button("＋ Add another item", () => { lines.push({ productId: "", qty: 1, price: null }); refresh(); }, "ghost"),
       totalEl),
@@ -2596,14 +2683,34 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
         Object.assign(o, fields);
         if (gid) o.groupId = gid;
         // Only a line swapped to a different product re-prices; leaving a line
-        // alone keeps the price it was sold at.
-        if (before !== o.productId) stampOrderLine(o, byId(state.products, o.productId));
+        // alone keeps the price it was sold at. ★ AND RE-COSTS (v380) — a different
+        // product has a different recipe, so the frozen cost is re-stamped exactly
+        // as the price is. Leaving the old figure on it would be the same
+        // stale-number fault in a new place.
+        if (before !== o.productId) {
+          // ⚠️ A product with no recipe stamps nothing (the stamp refuses a zero), and
+          // the OLD product's cost is cleared by the cost box's own read-back below —
+          // `line.cost` was set to null when she picked the new product, and a blank
+          // box DELETES the key. That is the same path the price takes (`delete
+          // o.unitPrice`), so the "no value" case has one owner rather than two.
+          stampOrderLine(o, byId(state.products, o.productId), recipeCostFor(state, o.productId));
+        }
         // …and the price box has the last word either way (16 Sep 2026): what she
         // typed is what this order is sold at. A blank box leaves the line following
         // the product, as an unpriced line always has.
         const typed = l.price == null ? NaN : Number(l.price);
         if (Number.isFinite(typed) && typed >= 0) o.unitPrice = typed;
         else delete o.unitPrice;
+        // ★★ THE COST BOX HAS THE LAST WORD THE SAME WAY (v380). What she typed is
+        // what this line cost her; a blank box DELETES the frozen cost, so the line
+        // goes back to following the recipe — which is what her "Recipe:" press does.
+        //
+        // ⚠️ AND A TYPED ZERO IS HONOURED, unlike the automatic stamp, which refuses
+        // one: here a person has said it, so "this cost me nothing" is a fact, while
+        // an un-stamped line's 0 cannot be told from a recipe nobody has built yet.
+        const typedCost = l.cost == null ? NaN : Number(l.cost);
+        if (Number.isFinite(typedCost) && typedCost >= 0) o.unitCost = typedCost;
+        else delete o.unitCost;
         // This line's own note (v236). Written here rather than through `fields`, which
         // the Object.assign above copies onto EVERY row of the group — a line's note
         // riding there would give all three items the same words, the same trap the
@@ -2645,8 +2752,13 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
           groupId: gid,
           createdAt: new Date().toISOString(),
         };
-        stampOrderLine(row, byId(state.products, row.productId));
+        stampOrderLine(row, byId(state.products, row.productId), recipeCostFor(state, row.productId));
         if (Number.isFinite(Number(l.price))) row.unitPrice = Number(l.price);
+        // The cost box's answer for a line added HERE (v380), on the same rule the
+        // kept rows above use — including a typed zero, which is hers to state.
+        if (l.cost != null && Number.isFinite(Number(l.cost)) && Number(l.cost) >= 0) {
+          row.unitCost = Number(l.cost);
+        }
         // This new line's note, written per row like the kept ones above (v236).
         const newLineNote = lineNoteOf(l.lineNote);
         if (newLineNote) row.lineNote = newLineNote;
@@ -2734,7 +2846,7 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
       status: "new",
       createdAt: new Date().toISOString(),
     };
-    stampOrderLine(row, byId(state.products, productId));
+    stampOrderLine(row, byId(state.products, productId), recipeCostFor(state, productId));
     // ★ WHERE IT COLLECTS FROM (v303), through the one function that owns the rule, so the
     // Point's name is frozen onto the order exactly as the shop's own path freezes it.
     setOrderPoint(state, row, pointId);
@@ -2820,7 +2932,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
         groupId,
         createdAt,
       };
-      stampOrderLine(row, byId(state.products, it.productId));
+      stampOrderLine(row, byId(state.products, it.productId), recipeCostFor(state, it.productId));
       // See addNew — on EVERY row, because a row she edits or re-splits later must not be
       // the one that forgot where it was going.
       setOrderPoint(state, row, pointId);

@@ -24,6 +24,10 @@ let customerKey = "";
 // ⚠️ The receipt register, once read. `null` MEANS "NOT READ" and the builder treats it as such —
 // an empty array would claim there are no void numbers, which is a different statement entirely.
 let register = null;
+// ★ HOW THE PAGE IS SORTED (v379). ⚠️⚠️ **INVOICE ORDER IS THE DEFAULT AND THE POINT OF THE PAGE** —
+// this is a filing document, read against the serial. Sorting is something she CHOOSES, and a
+// second press on the same heading turns it round.
+let sort = { by: "invoice", dir: "asc" };
 
 const SCOPES = [["all", "All"], ["day", "A day"], ["week", "A week"], ["month", "A month"]];
 
@@ -43,7 +47,7 @@ export function renderConsolidated(root, state, params) {
   void params;
 
   const paint = () => {
-    const sheet = consolidatedSheet(state, { kind, anchor, customerKey, register });
+    const sheet = consolidatedSheet(state, { kind, anchor, customerKey, register, sort });
     const span = sheet.span;
     const people = customerList(state);
     // Nothing after today to invoice, so the forward step is refused at the current period — the same
@@ -74,7 +78,7 @@ export function renderConsolidated(root, state, params) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, sheet.title),
         el("p", { class: "card-sub", style: "margin:0 0 8px" }, sheet.subtitle),
-        journalBodyEl(sheet, cur),
+        wireSort(journalBodyEl(sheet, cur), paint),
         // ⚠️ The buttons come from the SHARED pair, so Print and Share (and the PDF inside Share)
         // are the same ones every other book in the app wears — and a change to how a page reaches
         // paper reaches this one too, without anyone remembering to come back here.
@@ -110,4 +114,43 @@ function step(delta) {
   const d = new Date(`${anchor}T00:00:00`);
   d.setMonth(d.getMonth() + delta, 1);
   anchor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+// ★★ PRESS A COLUMN TITLE AND THE PAGE SORTS BY IT (v379). Her words: __"can you allow me to sort the
+// column by its title"__.
+//
+// ⚠️⚠️ IT WIRES **THE SHEET'S OWN HEADER ROW** rather than drawing a second one on the screen. A pressable
+// header of its own would be a second rendering of the same headings — and the day the two drifted, the
+// screen would promise a sort the paper did not have. One header, one place it is written.
+//
+// ⚠️ AND IT DOES NOTHING AT ALL IF THE ROW IS NOT THERE — the paper and the shared message read the same
+// sheet, and a header that is only sometimes present must not be a crash.
+const SORT_COLUMNS = ["date", "order", "invoice", "what", "customer"];
+
+function wireSort(body, paint) {
+  const head = body && body.querySelector ? body.querySelector(".journal-cols-head") : null;
+  if (!head) return body;
+  // ⚠️⚠️ `children` IS THE RIGHT COLLECTION — in a real DOM it holds ELEMENTS ONLY, which is the five
+  // heading cells. **But this loop must not ASSUME that.** The press-everything test's stand-in keeps
+  // text nodes in `children` the way a browser keeps them in `childNodes`, and its press threw
+  // `cell.addEventListener is not a function` — a fault in MY loop, not in the page. **A heading cell
+  // that cannot take a listener is simply not wired; it must never bring the screen down.**
+  [...(head.children || [])].forEach((cell, i) => {
+    const by = SORT_COLUMNS[i];
+    if (!by || !cell || typeof cell.addEventListener !== "function") return;
+    // ⚠️ THE MARKER SAYS WHICH COLUMN IS SORTING AND WHICH WAY — without it she cannot tell a page that
+    // has been sorted from one that has not, and the heading is the only place that can say.
+    if (sort.by === by) {
+      cell.textContent = `${String(cell.textContent).replace(/ [▲▼]$/, "")} ${sort.dir === "asc" ? "▲" : "▼"}`;
+    }
+    cell.className = `${cell.className} sortable`;
+    // ⚠️ A SECOND PRESS ON THE SAME HEADING TURNS IT ROUND; a press on a different one starts ascending.
+    cell.addEventListener("click", () => {
+      sort = sort.by === by
+        ? { by, dir: sort.dir === "asc" ? "desc" : "asc" }
+        : { by, dir: "asc" };
+      paint();
+    });
+  });
+  return body;
 }

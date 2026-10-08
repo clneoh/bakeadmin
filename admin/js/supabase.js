@@ -10,7 +10,7 @@ import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
-import { effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
+import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
 import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
@@ -1249,10 +1249,15 @@ function importIncoming(state, row) {
     // Freeze what the shop sold it as, at the price the shop charged. The
     // storefront sends its own name/price with the line; fall back to the
     // product only when the line didn't carry one.
+    //
+    // ★ AND ITS COST (v380), taken from HER OWN recipe rather than from anything
+    // in the payload. ⚠️ The cost is deliberately NOT read off the customer's
+    // message, however it is spelled: what a loaf costs her is her business and
+    // the shop has no version of it to send.
     stampOrderLine(order, {
       name: product.name,
       price: line.price != null && line.price !== "" ? line.price : product.price,
-    });
+    }, costOf(state, product));
     state.orders.push(order);
     created.push(order.id);
   }

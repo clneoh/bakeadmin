@@ -34,10 +34,27 @@ export function orderDay(state, o) {
 
 const inRange = (iso, from, to) => !!iso && iso >= from && iso <= to;
 
-// What one sold line cost to bake, from its recipe.
-export function lineCost(state, o) {
+// What ONE unit of a sold line cost to bake — the frozen cost when the order
+// carries one, else the live recipe. ★★ THE FREEZE (v380), and the exact mirror
+// of `orderLinePrice` in state.js, so a sale's cost is as fixed as its price.
+//
+// ⚠️ WHY IT MATTERS: `costOf` bottoms out in `effectiveUnitCost`, which reads
+// TODAY's supplier prices. Without this, editing one ingredient price rewrote
+// every past month's cost of sales — her words: "when i change the ingredient
+// cost, for age orders, will its COS change?" (yes, it did).
+export function orderLineCost(state, o) {
+  const frozen = o && o.unitCost;
+  if (frozen != null && frozen !== "" && Number.isFinite(Number(frozen))) return Number(frozen);
   const p = byId(state.products, o && o.productId);
-  return (Number(o && o.qty) || 0) * (p ? costOf(state, p) : 0);
+  return p ? costOf(state, p) : 0;
+}
+
+// What one sold line cost to bake, in total. ⚠️ THE ONLY READER of an order's
+// cost in the whole app — `costOf` appears in no view — so freezing it here
+// freezes the profit statement, its journal's cost column and every future
+// report at once.
+export function lineCost(state, o) {
+  return (Number(o && o.qty) || 0) * orderLineCost(state, o);
 }
 
 // The profit and loss account for a stretch of days.

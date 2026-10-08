@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v378)
+# Jienluv2bake — change history (v54 → v380)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v380, THE COST OF A LOAF IS FROZEN ONTO THE ORDER, SO AN OLD MONTH STOPS MOVING (no database step, and no SQL — pushing this one is the whole of it).**
+
+**Your question was:** __"when i change the ingredient cost, for age orders, will its COS change?"__ — and the answer was **yes**, and that was the fault. Every figure on your Profit screen worked the cost out again, from scratch, out of **today's** ingredient prices. So correcting one flour price quietly rewrote every month you had already closed. **Your words: __"yes, freeze the cost onto the order"__ and __"and allow me to adjust it,"__.**
+
+**★ SO THE COST IS NOW FROZEN ONTO THE ORDER, THE SAME WAY THE PRICE ALREADY WAS.** An order remembers what it was sold for and it now remembers what it cost you to bake, taken at the moment you take the order. **Change an ingredient price tomorrow and last month's profit does not move.** The price half of that has been there since v70; this is the other half.
+
+**⚠️⚠️ AND NO FIGURE ANYWHERE CHANGES ON THE DAY THIS SHIPS.** What it writes onto your orders is exactly what they were already showing — the live recipe is where the books were reading the number from a moment before. I measured this rather than assuming it: **sales, cost of sales and gross profit came out identical either side of the freeze, for the day, the month and the year** (I proved it on a seeded set of orders carrying both a single recipe and a four-loaf set built from another product).
+
+**⚠️⚠️ AND ONE THING I WILL NOT PRETEND ABOUT.** The figure locked onto an order from an earlier month is **today's recipe cost — not what that order cost you at the time**. The app has never recorded what a loaf cost on the day it was baked, and there is nothing truer to write. So the Profit screen now says so under Gross profit, in plain words, rather than letting a pinned number look like a history it is not.
+
+**★ AND YOU CAN ADJUST IT.** Open any order and press **Edit**: under the price on each line there is now a **Cost each** box. It opens on what the recipe says, and you can type over it — for a batch that cost you more than the recipe says, or a one-off. Beside it, while you are using a figure of your own, a press reads **Recipe: RM 4.10** and puts yours back to the recipe. **The word "Cost each" is printed on screen**, because two number boxes on one line and one of them unlabelled is how a cost gets typed into a price. A line whose recipe is still empty shows no cost at all until you build one.
+
+**⚠️ THE COST NEVER REACHES YOUR CUSTOMER.** It rides on the order, and the customer's own track card is built field by field rather than copied from the order — so what a loaf costs you stays yours. That is pinned by a test of its own, because your margin is not something a customer or a competitor should be able to read off a tracking page.
+
+**⚠️ AN ORDER YOU HAVE NOT COSTED STILL MOVES WITH THE RECIPE.** A line with no frozen cost, and a line whose own cost you have cleared, goes on following your ingredient prices exactly as it always did. This is a freeze on the sales you have made, not a freeze on the app.
+
+**⚠️ AND A REFUND STILL DOES NOT REFUND THE COST.** The ingredients went into the bread whether or not the bread came back, which is the rule your books have always used and this version does not touch.
+
+**No database step, no SQL, no upload.** The suite is **3,062 tests, all green** (18 new). Each new assertion was proved by putting the fault back and watching it fail by its own name — the frozen cost ignored, a zero locked onto a line, the catch-up overwriting a figure you had adjusted by hand, the cost leaking onto the customer's card, and the undo going missing or doing nothing. **The Profit screen's own note was rewritten too**: it used to tell you that editing a price moves months that have already closed, and that sentence is no longer true.
+
+**⚠️ THIS COMMIT ALSO CARRIES v379** (the sortable filing page) — it was never committed, and both versions ride the same files.
+
+**08 Oct 2026 — engine v379, PRESS A COLUMN TITLE AND THE FILING PAGE SORTS BY IT (no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"can you allow me to sort the column by its title"__.
+
+**Press any heading — Date, Order, Invoice, What, Customer — and the page sorts by it. Press the same one again and it turns round.** A small arrow beside the heading says which column is sorting and which way, so a page that has been sorted never looks like one that has not.
+
+**⚠️⚠️ AND IT STILL OPENS IN INVOICE ORDER, BECAUSE THAT IS WHAT THE PAGE IS FOR.** It is a filing document, read against the serial, and a page that opened in some other order would have to be re-sorted before it could be filed. Sorting is something you choose; Invoice is where it starts and one press takes you back to it.
+
+**⚠️ AND TWO ROWS THAT TIE STILL READ IN INVOICE ORDER UNDERNEATH.** Sort by Customer and two orders from the same person keep their filing order within that name, rather than shuffling between two draws — a page that reorders itself when nothing has changed reads as a bug.
+
+**⚠️ THE HEADINGS ARE THE SHEET'S OWN.** The sort is wired onto the header row the document already draws, rather than a second set of headings put on the screen for the purpose — so the paper and the screen can never come to promise different things. **On paper the headings are ordinary text**, as they should be.
+
+**No SQL, no upload.** The suite is **3,042 tests, all green**.
 
 **08 Oct 2026 — engine v378, THE FILING PAGE NOW SAYS WHY A NUMBER IS MISSING (no database step, nothing to upload — pushing this one is the whole of it).**
 
@@ -51,8 +87,8 @@ while only **one** of them was still to collect. **"none yet" means there is no 
 not mean the money is missing** — and three of those four were paid long ago, before you started issuing
 receipt numbers. The page now says so:
 
-> 1 of these has no invoice number yet but is already PAID — they came before the numbering started. Open
-> each order's Invoice and it takes the next number.
+1 of these has no invoice number yet but is already PAID — they came before the numbering started. Open
+each order's Invoice and it takes the next number.
 
 **★ THAT LAST SENTENCE IS ALSO THE FIX FOR THEM.** Those orders can be numbered: **open each one's
 Invoice** and it claims the next serial, exactly as designed in v360.
@@ -296,15 +332,15 @@ and when asked which shape, you picked **tick the items, then adjust the figure*
 
 **★ WHAT THE REFUND PRESS DOES NOW.** It opens a card instead of a two-line question:
 
-> **Refund this order?**
-> Which came back?
-> ☑ Focaccia ×1 of 2 ......... RM 16.00
-> ☐ Sourdough ................ RM 18.00
-> ☑ Courier charge ........... RM 8.00
-> Ticked so far .............. RM 24.00
-> **How much back?** [ RM 24.00 ]  ← adjust it if you want to
-> Why (optional) [ ]
-> [ Cancel ]  [ Refund ]
+**Refund this order?**
+Which came back?
+☑ Focaccia ×1 of 2 ......... RM 16.00
+☐ Sourdough ................ RM 18.00
+☑ Courier charge ........... RM 8.00
+Ticked so far .............. RM 24.00
+**How much back?** [ RM 24.00 ]  ← adjust it if you want to
+Why (optional) [ ]
+[ Cancel ]  [ Refund ]
 
 **Tick what came back and the figure fills itself in.** Then type over it if you want to — a rounded
 figure, goodwill, or just the postage. **Once you have typed, the figure is yours** and moving the ticks
@@ -592,10 +628,10 @@ screen at all.** The customer waits, and **nothing anywhere told you.** v363 rem
 whenever the shop has sent an order this app cannot read. It says **how many**, **what each one is for**,
 and the two things you need:
 
-> **1 order from the shop is waiting and could not be read —**
-> · it is for Pizza, which is not in your Products
-> Nothing is lost: it stays in the queue and is tried again every 30 seconds. Add what it names under
-> Products and it will come in on its own.
+**1 order from the shop is waiting and could not be read —**
+· it is for Pizza, which is not in your Products
+Nothing is lost: it stays in the queue and is tried again every 30 seconds. Add what it names under
+Products and it will come in on its own.
 
 **⚠️ And it tells you the honest reason, in words — never a code.** The three it can give: no bake day on
 it / nothing on it / it is for something not in your Products.
@@ -971,10 +1007,10 @@ nothing to upload — pushing this one is the whole of it).**
 **Two clocks, not one — and that is the answer.** The third point never said how long anything was
 kept, which is one of the things a notice is asked to state. It does now:
 
-> Your details stay with your order in our order book, on a secure cloud service and on our own
-> phones behind a PIN. **We keep the sales record for seven years, as the tax office asks** — but
-> your name, number and address are not part of that record, so ask us any time and we will delete
-> them.
+Your details stay with your order in our order book, on a secure cloud service and on our own
+phones behind a PIN. **We keep the sales record for seven years, as the tax office asks** — but
+your name, number and address are not part of that record, so ask us any time and we will delete
+them.
 
 **Why seven years, and why it is not seven years for everything.** Seven is the Malaysian figure,
 checked rather than guessed: LHDN's own wording is "Dokumen percukaian mesti disimpan paling kurang
@@ -1085,9 +1121,9 @@ of them traceable in the code:
 So it now says who, in plain words and with **no company name in it** — which is the **class** of
 third parties the Act asks you to state:
 
-> To bring your order to you, the driver is given your name, number and address. Your confirmation
-> reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees them,
-> and we never sell them.
+To bring your order to you, the driver is given your name, number and address. Your confirmation
+reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees them,
+and we never sell them.
 
 **In all three languages**, as the guidance asks. The heading, the Act line and the contact number are
 untouched.
@@ -1156,7 +1192,7 @@ then __"no need to press, it show like a tooltips, move mouse away it colapses."
 
 **1 · That phrase is gone.** The line is now just the agreement:
 
-> By ordering you agree to our privacy notice.
+By ordering you agree to our privacy notice.
 
 Which left **"privacy notice" twice back to back** — "…our privacy notice. Privacy notice". So
 **the words IN the sentence are now the trigger**, the way Amazon's own checkout does it: nothing
@@ -1195,7 +1231,7 @@ pushing this one is the whole of it).**
 sitting in the middle of the details card (v348, v349). You said it read as too obvious, so it is now
 **one quiet line under Place order**, and the four facts open from a panel behind it:
 
-> By ordering you agree to our privacy notice — we use your details only to bake and deliver.  Privacy notice
+By ordering you agree to our privacy notice — we use your details only to bake and deliver.  Privacy notice
 
 __Lifted at v351:__ that is not the line any more. **"we use your details only to bake and
 deliver" is gone** (your call), and the separate **Privacy notice** press went with it — the words
@@ -1215,7 +1251,7 @@ opens in plain words — "We take your personal data seriously" — and naming t
 notice read as a legal document rather than something written for a customer. **The Act is still there**,
 and so is the reviewed date, in the line at the foot of the panel:
 
-> Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.
+Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.
 
 **⚠️ The line is 12.5px and must not get smaller.** It is now the ONLY place the notice is given, and
 the same guide warns against a font "so small that it results in the data subject not reading" it. It is
@@ -4074,6 +4110,15 @@ Every pop-up looks as it did; the two new buttons sit under the last line of eac
 **03 Oct 2026 — engine v281, THE STATEMENT SAYS WHAT KIND OF COST IT IS SHOWING
 (no database step, nothing to upload — pushing this one is the whole of it).**
 
+**⚠️ 08 Oct 2026 — THE CLAIM BELOW WAS TRUE WHEN IT WAS WRITTEN AND IS NOT ANY
+MORE.** Read it with v380. The note on the screen used to say the cost was read
+fresh, so editing a recipe or a price moved past months too; **from v380 the cost
+is frozen onto each order as you take it, so a closed month no longer moves.** The
+note has been rewritten to say what it does now, and to admit plainly that an order
+taken before v380 was pinned at the cost it was already showing rather than at what
+it really cost that day. Everything else in this entry still stands: it is a recipe
+cost, not money you spent, and the Money screen is still where the cash is.
+
 **Why.** You asked whether Cost of sales is really your recipe's ingredient cost
 — the theoretical figure — rather than money you had spent. It is, and the screen
 did not say so where the figure is. It only said a part of it in the small print
@@ -4087,6 +4132,11 @@ inside the statement, in the same quiet grey as the other notes:
   recorded, read as they stand today — so editing a recipe or a price moves past
   months too. It is not what you actually spent. Gross profit is therefore a guide
   to your pricing, not your bank balance — the Money screen is where the cash is."**
+
+  ⚠️ **This is the wording as it stood in v281.** Since v380 the same line reads
+  that the cost is frozen onto each order as you take it, so a later change does
+  not rewrite a sale already made, and that orders taken before v380 were pinned at
+  the cost they were already showing.
 
 Two things that follow from it, now said on the screen rather than left for you
 to work out:
@@ -12902,9 +12952,9 @@ through the oven and back round again. Numbers side by side don't tell you what 
 bars. It is the bake day written down the page, one step under the next with a numbered dot and
 a line running between them, so your eye follows it like a recipe:
 
-> 🥣 Weighing in and loading the mixer → 🧊 Retard overnight in the chiller → 👋 Wash, oil and
-> fill → 👋 Weighing the dough out into pans → 👋 Dimple and top → 🔥 The oven swap and bake →
-> 👋 Cooling and packing → ✅ The day.
+🥣 Weighing in and loading the mixer → 🧊 Retard overnight in the chiller → 👋 Wash, oil and
+fill → 👋 Weighing the dough out into pans → 👋 Dimple and top → 🔥 The oven swap and bake →
+👋 Cooling and packing → ✅ The day.
 
 Each step carries its own cost: the hand steps say **minutes a pan**, the chiller, the oven and
 the pans going round say **pans an hour**, and a step you have not timed says **"not timed yet"**
@@ -13529,7 +13579,7 @@ did not line up, and a missing step is itself a thing to puzzle over.
 step keeps its place in the line, and it wears an **X** — amber, deliberate — instead of a tick, and
 it never turns green while the money is outstanding:
 
-> New ✓  ·  Confirmed ✓  ·  **Paid ✕**  ·  Baked ✓  ·  Packed ✓  ·  Collected / Shipped ●
+New ✓  ·  Confirmed ✓  ·  **Paid ✕**  ·  Baked ✓  ·  Packed ✓  ·  Collected / Shipped ●
 
 Press **Paid · Cash** or **Paid · TNG** when she hands the money over — at whatever stage the order
 has reached — and **the X becomes the tick**: the ordinary green ✓, in the same spot, with the
@@ -13663,8 +13713,8 @@ out) are always there. The pockets were the only books that could go missing.
 **The Books line.** Under the two money cards there is now a second line beside __Categories & ways
 to pay__:
 
-> **Books**
-> Every way you pay · 5 books, each opening into its own rows  ［ Open ］
+**Books**
+Every way you pay · 5 books, each opening into its own rows  ［ Open ］
 
 **Open** lists **every** way you pay — Cash, TNG, Loan, Personal Pocket Kean, Personal Pocket Suan,
 and anything you add later — each with what moved by it in the stretch on screen, each opening into

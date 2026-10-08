@@ -107,7 +107,7 @@ export function orderInvoice(state, group) {
 //
 // `kind` is "day" | "week" | "month"; `anchor` is any ISO date inside the period you want; and
 // `customerKey` is a `keyOf` value to keep to ONE customer, or "" for everybody.
-export function consolidatedSheet(state, { kind = "month", anchor = "", customerKey = "", register = null } = {}) {
+export function consolidatedSheet(state, { kind = "month", anchor = "", customerKey = "", register = null, sort = null } = {}) {
   const cur = (state.settings && state.settings.currency) || "RM";
   const span = periodSpan(kind, anchor);
   const byKey = new Map(customerList(state).map((r) => [r._key, r]));
@@ -230,10 +230,37 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     }
   }
 
-  filing.sort((a, z) => {
+  // ★★ AND THE PAGE CAN BE SORTED BY ANY OF ITS COLUMNS (v379). Her words: __"can you allow me to sort
+  // the column by its title"__ — press a column heading and the page sorts by it; press it again and it
+  // turns round.
+  //
+  // ⚠️⚠️ **INVOICE ORDER STAYS THE DEFAULT, AND THAT IS THE POINT OF THE PAGE.** This is a filing
+  // document: the run is read against the serial, and a page that opened in some other order would have
+  // to be re-sorted before it could be filed. Sorting is something she CHOOSES.
+  //
+  // ⚠️ AND A TIE FALLS BACK TO INVOICE ORDER, so two rows sharing a customer or a date still read in
+  // filing order underneath whatever she picked — and never shuffle between two draws.
+  const { by = "invoice", dir = "asc" } = sort || {};
+  const filingOrder = (a, z) => {
     if (a.invoice && z.invoice) return a.invoice.localeCompare(z.invoice);
     if (a.invoice !== z.invoice) return a.invoice ? -1 : 1;
     return String(a.date).localeCompare(String(z.date));
+  };
+  // ⚠️ `sortKey`, NOT `keyOf` — that name is already the CUSTOMER key imported from customers.js, and
+  // shadowing it here broke every caller above that uses it (a TDZ error at the top of this function).
+  const sortKey = {
+    // A HIGH CHARACTER, so an order with NO number sorts last under its own name too — the same place
+    // the default puts it.
+    invoice: (r) => r.invoice || "￿",
+    date: (r) => String(r.date || ""),
+    order: (r) => String(r.code || ""),
+    what: (r) => String(r.items || ""),
+    customer: (r) => String(r.customer || ""),
+  }[by];
+  filing.sort((a, z) => {
+    if (!sortKey) return filingOrder(a, z);
+    const c = sortKey(a).localeCompare(sortKey(z));
+    return (dir === "desc" ? -c : c) || filingOrder(a, z);
   });
 
   const lines = [];

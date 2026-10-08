@@ -510,3 +510,82 @@ test("★★ a register that could NOT be read is SAID, not drawn as a register 
   assert.equal(/could not be read/.test(readEmpty.note), false, "a register that WAS read was called unread");
   assert.equal(/removed/.test(readEmpty.note), false, "a clean run invented a removed order");
 });
+
+// ── ★★ v379: PRESS A COLUMN TITLE AND THE PAGE SORTS BY IT ───────────────────
+//
+// Her words: __"can you allow me to sort the column by its title"__.
+//
+// ⚠️⚠️ **INVOICE ORDER IS THE DEFAULT AND THE POINT OF THE PAGE** — it is a filing document, read against
+// the serial — so sorting is something she CHOOSES, never something the page does on its own.
+
+// Four orders chosen so that EVERY column gives a DIFFERENT order from the others. ⚠️ With data where two
+// columns happen to agree, a test cannot tell the sort from the default — which is the mistake that made
+// two earlier tests of mine prove nothing.
+const sortable = () => {
+  const st = state();
+  // ⚠️⚠️ A SEPARATE PHONE NUMBER FOR EACH — the base `row()` gives every order the SAME one, so `keyOf`
+  // made all four ONE customer and the customer column read identically on every line. **The sort then
+  // could not be told from the default, and this test failed for a reason that had nothing to do with
+  // sorting.** (The third time this session that test DATA, not logic, was the fault.)
+  const mk = (gid, date, name, phone, receipt) => row({
+    groupId: gid, deliveryDate: date, customerName: name, whatsapp: phone, receiptNo: receipt,
+  });
+  st.orders = [
+    mk("gC1", D(20), "Zoe", "60111111111", 3),
+    mk("gA1", D(5), "Bob", "60222222222", 1),
+    mk("gD1", D(9), "Ann", "60333333333", 4),
+    mk("gB1", D(7), "Yusof", "60444444444", 2),
+  ];
+  return st;
+};
+const codes = (sheet) => sheet.lines.filter((l) => !l.head).map((r) => r.cols[1]);
+const customers = (sheet) => sheet.lines.filter((l) => !l.head).map((r) => r.cols[4]);
+
+test("★★ every column can be sorted by, and each gives a DIFFERENT order", () => {
+  const st = sortable();
+  const at = (by, dir = "asc") => consolidatedSheet(st, { kind: "month", anchor: D(8), sort: { by, dir } });
+
+  // ⚠️ AND THE DEFAULT IS STILL THE INVOICE RUN — the filing order.
+  assert.deepEqual(codes(at("invoice")), ["#A1", "#B1", "#C1", "#D1"],
+    "the page no longer opens in invoice order, which is what it is FOR");
+  assert.deepEqual(codes(at("date")), ["#A1", "#B1", "#D1", "#C1"], "sorting by date did nothing");
+  assert.deepEqual(codes(at("order")), ["#A1", "#B1", "#C1", "#D1"]);
+  assert.deepEqual(customers(at("customer")), ["Ann", "Bob", "Yusof", "Zoe"], "sorting by customer did nothing");
+});
+
+test("★★ pressing the same title again turns it round", () => {
+  const st = sortable();
+  const up = consolidatedSheet(st, { kind: "month", anchor: D(8), sort: { by: "customer", dir: "asc" } });
+  const down = consolidatedSheet(st, { kind: "month", anchor: D(8), sort: { by: "customer", dir: "desc" } });
+  assert.deepEqual(customers(up), ["Ann", "Bob", "Yusof", "Zoe"]);
+  assert.deepEqual(customers(down), ["Zoe", "Yusof", "Bob", "Ann"], "a second press did not turn it round");
+  // And the money follows the rows rather than staying behind.
+  const sum = (sheet) => sheet.lines.filter((l) => !l.head).reduce((t, r) => t + (Number(r.amount) || 0), 0);
+  assert.equal(sum(up), sum(down), "the total changed when the order changed");
+});
+
+test("★ two rows that tie under a column still read in invoice order underneath", () => {
+  // ⚠️ WITHOUT A TIE-BREAK they would shuffle between two draws, and a page that reorders itself when
+  // nothing changed reads as a bug.
+  const st = state();
+  st.orders = [
+    row({ groupId: "gC1", deliveryDate: D(6), customerName: "Ann", receiptNo: 3 }),
+    row({ groupId: "gA1", deliveryDate: D(6), customerName: "Ann", receiptNo: 1 }),
+    row({ groupId: "gB1", deliveryDate: D(6), customerName: "Ann", receiptNo: 2 }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8), sort: { by: "date", dir: "asc" } });
+  assert.deepEqual(codes(sheet), ["#A1", "#B1", "#C1"],
+    "three rows sharing a date did not fall back to the invoice run");
+});
+
+test("★ an un-numbered order stays LAST when sorting by the invoice column", () => {
+  const st = state();
+  st.orders = [
+    row({ groupId: "gB1", deliveryDate: D(6), receiptNo: 2 }),
+    row({ groupId: "gA1", deliveryDate: D(4), customerName: "No Number Here" }),
+    row({ groupId: "gC1", deliveryDate: D(7), receiptNo: 3 }),
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8), sort: { by: "invoice", dir: "asc" } });
+  assert.deepEqual(sheet.lines.filter((l) => !l.head).map((r) => r.cols[2]),
+    ["#000002", "#000003", "none yet"], "an un-numbered order was sorted into the numbered run");
+});
