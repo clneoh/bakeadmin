@@ -65,6 +65,7 @@ globalThis.localStorage = {
 };
 
 import { renderIngredients, priceSheet } from "../admin/js/views/ingredients.js";
+import { stockLogOf } from "../admin/js/stock.js";
 
 // A state with just enough to render the Ingredients master: a weight unit to
 // cook in, no suppliers/products, and no ingredients yet.
@@ -200,6 +201,17 @@ test("typing 1.5 kg in the popup stores 1500 base grams and the card rereads it"
   assert.equal(textOf(qty), "1.5 kg", "the card now shows the friendly amount");
   const strip2 = walk(root).find((n) => n.nodeType === 1 && String(n.className).includes("stockline"));
   assert.ok(String(strip2.className).includes("has-stock"), "the strip flips to the has-stock style");
+
+  // ★★ AND THE SAME PRESS WRITES THE STOCK JOURNAL (v385). Her words: __"why only show when there is
+  // price movement, qty movement cannot?"__ — a stocktake is a quantity movement like any other, so it
+  // is recorded through the SAME control this test already drives. ⚠️ Asserted on the ROW, not merely
+  // that a log grew: its reason, its signed amount, and the words naming both figures.
+  const log = stockLogOf(ing);
+  assert.equal(log.length, 1, "the stocktake wrote no stock row");
+  assert.equal(log[0].why, "stocktake");
+  assert.equal(log[0].delta, 1500, "the row does not carry what actually changed");
+  assert.match(log[0].what, /1\.5 kg/,
+    "the row does not say what the amount was set to — a bare number would not explain the figure");
 });
 
 // --- "Not something I buy" (v110) -------------------------------------------

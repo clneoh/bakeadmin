@@ -178,6 +178,7 @@ function domShim() {
 }
 const { todayISO } = await import("../admin/js/dates.js");
 const { renderMoney } = await import("../admin/js/views/money.js");
+const { stockLogOf } = await import("../admin/js/stock.js");
 const screen = domShim();
 const allOf = (node, out = []) => {
   for (const c of node.children || []) { out.push(c); allOf(c, out); }
@@ -735,6 +736,29 @@ test("Day one writes the tin, the phone and the shelf in one go", (t) => {
   assert.equal(st.ingredients[1].onHand, 5000, "and 5 kg is stored as 5000 base grams");
   assert.equal(st.ingredients.find((i) => i.id === "i3").onHand, undefined,
     "an ingredient with no box is left exactly as it was");
+
+  // ★★ AND DAY ONE WRITES THE STOCK JOURNAL (v385). It is the first thing that ever puts a number on
+  // the shelf, so without a row here the journal would begin mid-story and the earliest balance would
+  // have no explanation. ⚠️ Her words: __"plan the stock journal too"__ — and the row must carry the
+  // amount that ARRIVED, in base units, with a reason of its own.
+  // ⚠️⚠️ TWO KINDS OF ROW, AND THE DIFFERENCE IS THE POINT. `i2` (Strong flour) had NOTHING on the
+  // shelf, so its row is the whole amount. `i1` (Almonds) already had 250 g, so its row is only the
+  // CHANGE — 600 − 250. **A journal that recorded the amount TYPED rather than the amount that MOVED
+  // would say 600 here, and its rows would stop adding up to the figure on the shelf.**
+  const flourLog = stockLogOf(st.ingredients.find((i) => i.id === "i2"));
+  assert.equal(flourLog.length, 1, "Day one wrote no stock row for the flour");
+  assert.equal(flourLog[0].why, "dayone");
+  assert.equal(flourLog[0].delta, 5000, "a shelf that was empty should record the whole amount arriving");
+  assert.match(flourLog[0].what, /Day one/, "the row does not say where the amount came from");
+
+  const almondLog = stockLogOf(st.ingredients.find((i) => i.id === "i1"));
+  assert.equal(almondLog.length, 1, "Day one wrote no stock row for the almonds");
+  assert.equal(almondLog[0].delta, 350,
+    "⚠️ a shelf that already had 250 g must record only the 350 that actually arrived");
+  // ⚠️ AND ONLY FOR THE INGREDIENTS SHE FILLED IN — a box left blank is not a movement, so the
+  // ingredient with no box must have no row at all.
+  assert.equal(stockLogOf(st.ingredients.find((i) => i.id === "i3")).length, 0,
+    "Day one wrote a row for an ingredient whose box was left blank");
 });
 
 test("Day one leaves everything alone when the boxes are blank, and says so", (t) => {
