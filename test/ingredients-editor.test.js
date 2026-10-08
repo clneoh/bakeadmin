@@ -293,29 +293,90 @@ test("the Journal press is offered only once a price has actually moved", () => 
   assert.ok(journalBtn(render(state)), "and once it has moved, the journal is there");
 });
 
-test("the price journal lists the moves oldest first, with the price now at the top", () => {
+test("the PRICE section lists the moves oldest first, with the price now at the top", () => {
+  // ⚠️ EXTENDED AT v385, not replaced. The sheet used to hold the price journal alone; it now holds a
+  // PRICE section and a STOCK one — her words: __"why only show when there is price movement, qty
+  // movement cannot?"__ So the same assertions are made one line further in, past the heading, and
+  // what they were protecting — oldest first, each row carrying the price it moved TO and what it was
+  // before — is unchanged.
   const state = freshState();
   state.suppliers = [{ id: "s_mydin", name: "Mydin", active: true }];
   const sheet = priceSheet(state, journalledIng());
 
-  assert.equal(sheet.lines.length, 2, "one row per move, and nothing else — no purchases");
-  assert.ok(sheet.lines[0].what.startsWith("12 Sep 2026"),
+  assert.equal(sheet.lines[0].heading, true, "the price rows need a heading now that a second section exists");
+  assert.equal(sheet.lines[0].what, "Price");
+  const priceRows = sheet.lines.filter((l) => !l.heading);
+  assert.equal(priceRows.length, 2, "one row per move, and nothing else — no purchases, and no stock");
+  assert.ok(priceRows[0].what.startsWith("12 Sep 2026"),
     "oldest first, so the page reads as a history rather than a feed");
-  assert.equal(sheet.lines[0].amount, 25.5, "each row carries the price it moved TO");
-  assert.equal(sheet.lines[1].amount, 27.5);
-  assert.ok(sheet.lines[0].what.includes("was RM 24.00"),
+  assert.equal(priceRows[0].amount, 25.5, "each row carries the price it moved TO");
+  assert.equal(priceRows[1].amount, 27.5);
+  assert.ok(priceRows[0].what.includes("was RM 24.00"),
     "and says what it was before, which is the whole point of a price journal");
   assert.match(sheet.subtitle, /Price now: RM 27\.50 per 3000g pack · Mydin/,
     "the price she is actually on, at the top — the half a movement list alone would lose");
   assert.equal(sheet.totals.length, 0, "a price history has no total to add up");
 });
 
-test("an ingredient that has never moved a price draws the sheet's empty line, not a blank page", () => {
+test("an ingredient that has never moved and never stocked draws the empty line, not a blank page", () => {
+  // ⚠️ The empty line now covers BOTH logs, so an ingredient with neither is still told plainly what
+  // is missing rather than shown a page with nothing on it.
   const state = freshState();
-  const sheet = priceSheet(state, journalledIng({ priceLog: [] }));
-  assert.equal(sheet.lines.length, 0);
-  assert.match(sheet.empty, /No price change recorded yet/);
+  const sheet = priceSheet(state, journalledIng({ priceLog: [], stockLog: [] }));
+  assert.equal(sheet.lines.length, 0, "no rows AND no headings — a heading over nothing is a fault");
+  assert.match(sheet.empty, /Nothing recorded for this ingredient yet/);
   assert.match(sheet.subtitle, /Price now:/);
+});
+
+test("★★⚠️ the STOCK section carries its quantity as a QUANTITY, never dressed as money", () => {
+  // ⚠️⚠️ THE RULE THAT MATTERS MOST ON THIS SHEET. `amount` is formatted by `money()` in the screen,
+  // the paper, the shared text and the PDF alike — so 500 grams in it would print as "RM 500.00". The
+  // quantity goes in `cols` (a real aligned column on screen) and into `what` (the sentence the paper
+  // reads), and the money cell is left EMPTY, which draws as an em dash.
+  const state = freshState();
+  const sheet = priceSheet(state, journalledIng({ stockLog: [
+    { at: "2026-10-05", delta: -500, why: "baked", what: "Baked — Rosemary Focaccia ×2", ref: "o1" },
+    { at: "2026-10-01", delta: 5000, why: "bought", what: "Bought — 1 Oct 2026 list", ref: "po_2" },
+  ] }));
+
+  const stockRows = sheet.lines.filter((l) => !l.heading && l.amount === null);
+  assert.equal(stockRows.length, 2, "one row per stock movement");
+  const heading = sheet.lines.find((l) => l.heading && l.what === "Stock");
+  assert.ok(heading, "the stock rows are under a heading of their own");
+
+  // ⚠️⚠️ ONE SENTENCE, NOT A COLUMN ROW — and that is a LESSON, not a preference. The first version
+  // used `cols`, which the journal draws as aligned columns; **on a phone that was unreadable**,
+  // because `.journal-cols` widths are fixed for the FILING page's five columns, so a four-column
+  // stock row came out as "1 Oct..." and "Stockta..." — cut off. **A test asserting a cell's TEXT
+  // cannot see a column that truncates it.** So the row is one wrapping sentence, which is also
+  // exactly what the paper and the PDF print.
+  // Oldest first, like the price rows — a book reads as a history.
+  assert.equal(stockRows[0].cols, null, "⚠️ a stock row went back to fixed columns, which truncate on a phone");
+  assert.match(stockRows[0].what, /\+5 kg$/, "the amount that came in, with its unit, at the end of the row");
+  assert.match(stockRows[1].what, /−500 g$/, "and the amount that went out, signed");
+  assert.match(stockRows[1].what, /Baked — Rosemary Focaccia ×2/,
+    "and WHAT moved it — a bare number would not answer 'where did my flour go'");
+  for (const r of stockRows) {
+    assert.equal(r.amount, null,
+      "⚠️⚠️ a stock row put a figure in the MONEY column — grams would print as ringgit");
+    assert.ok(!/RM/.test(r.what), "⚠️ a stock row's words carry a money figure");
+  }
+  assert.equal(sheet.lines[0].heading, true, "the price section still leads the page");
+});
+
+test("★ the press is offered when EITHER journal has something in it", () => {
+  // ⚠️ Her complaint in so many words: __"i dont see a journal button, maybe there is never price
+  // movement"__. The press used to need a PRICE move, so an ingredient whose stock moved every week
+  // and whose price had never changed offered nothing at all.
+  const state = freshState();
+  state.ingredients.push({ id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", costPerUnit: 0.001,
+    stockLog: [{ at: "2026-10-05", delta: -500, why: "baked", what: "Baked — Focaccia ×2", ref: "o1" }] });
+  const cardOf = (root) => walk(root).find((n) =>
+    String(n.className).includes("card") && textOf(n).includes("Strong flour"));
+  const journalBtn = (root) => walk(cardOf(root))
+    .find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Journal");
+  assert.ok(journalBtn(render(state)),
+    "⚠️ no Journal press for an ingredient that has moved stock but never moved price");
 });
 
 test("opening the journal shows the price now on the SCREEN, not only on the page", () => {

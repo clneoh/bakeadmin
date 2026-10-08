@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v384)
+# Jienluv2bake — change history (v54 → v385)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v385, THE JOURNAL NOW SAYS WHERE YOUR STOCK WENT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i dont see a journal button, maybe there is never price movement, but why only show when there is price movement, qty movement cannot?"__ — and the honest answer was worse than you expected: **quantity movements were never recorded at all.**
+
+**⚠️ WHAT WAS WRONG.** Five things move your stock, and every one of them simply overwrote the number on the shelf: baking takes the recipe off, un-baking puts it back, Bought adds what you bought, a stocktake sets the real amount, and Day one sets your starting stock. **None of them was written down.** So the moment you asked "why is my flour at 2 kg?", the app could only reply "that is the number".
+
+**★ NOW IT ANSWERS.** The Journal press on an ingredient opens **two parts**: PRICE, exactly as before, and **STOCK** — every movement with the date, what moved and how much, and **what caused it**:
+
+```
+1 Oct 2026 · Stocktake — 4.5 kg to 2 kg · −2.5 kg
+6 Oct 2026 · Bought — 6 Oct 2026 list · +5 kg
+8 Oct 2026 · Baked — Rosemary Focaccia ×2 · −500 g
+```
+
+**★ AND THE TWO FIGURES ARE AT THE TOP**: the price your recipes use, and the amount on the shelf. A list of movements without the figure it explains leaves you doing the sum.
+
+**★★ THE ROWS ADD UP TO THE NUMBER, AND THAT IS THE WHOLE POINT OF A JOURNAL.** I checked it rather than assuming it: over a run of day one → bake → buy → bake → un-bake → stocktake, the rows summed to exactly the figure on the shelf. ⚠️ That needed care, because **stock never goes below zero** — so a bake against an empty shelf moves nothing, and a row claiming it moved the recipe's 250 g would have made the journal stop explaining its own number.
+
+**★ AND THE PRESS NO LONGER HIDES.** It used to need a PRICE move, so an ingredient whose price had never changed offered nothing at all even if its stock moved every week — which is exactly what you hit. It now appears when **either** part has something in it.
+
+**⚠️ STOCK ROWS SHOW A DASH WHERE MONEY WOULD BE.** A stock movement is not money, and the journal's figure column is formatted as ringgit everywhere — so 500 g would have printed as "RM 500.00". The dash is the app's existing way of saying there is no figure in that row, and it is true. **Grams dressed as ringgit would be worse.**
+
+**⚠️ ONE THING I CHANGED AFTER LOOKING AT IT, NOT AFTER A TEST.** The first version drew the stock rows as aligned columns. On a phone that was **unreadable** — the column widths are set for the filing page's five columns, so a stock row came out as "1 Oct..." and "Stockta...", the very words you need, cut off. A test asserting a cell's text cannot see a column that truncates it. The rows are one sentence each now, which is also exactly what prints on paper.
+
+**⚠️ IT STARTS EMPTY, AND NOTHING BEFORE IT CAN BE RECOVERED.** Every movement that has already happened is gone; there is no way to rebuild it. The journal records from today and I will not invent a history that never existed.
+
+**⚠️ AND THE LOG IS CAPPED AT 50 MOVEMENTS PER INGREDIENT**, so the very oldest fall off. I measured the cost rather than guessing: **with every one of thirty ingredients filled to the cap, that is 149 KB — under 3% of what a phone allows the app.** With the ten ingredients that actually bake, it is about 49 KB.
+
+**No database step.** The log rides on the ingredient, the same way the price log has since v285, so pushing this one is the whole of it. The suite is **3,115 tests, all green** (13 new). Every new rule was proved by putting the fault back: baking logging the recipe's amount instead of what the shelf gave up, baking and stocktaking writing no row at all, a row no longer naming the order or the list, Bought logging the planned packs, a stocktake logging the amount typed rather than the change, a movement of nothing written as a row, the cap removed, the stock section dropped, a stock row's grams put in the money column, and the press made to need a price move again.
 
 **08 Oct 2026 — engine v384, A REVIEW'S PICTURE IS PRIVATE UNTIL YOU PUBLISH IT (a database step you run once, then push).**
 
