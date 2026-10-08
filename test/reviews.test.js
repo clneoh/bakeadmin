@@ -180,3 +180,47 @@ test("uploadPhoto returns '' for an invalid file or a failed upload", async () =
   globalThis.fetch = async () => { throw new Error("offline"); };
   try { assert.equal(await uploadPhoto({ type: "image/webp", size: 10 }), ""); } finally { globalThis.fetch = realFetch; }
 });
+
+// ── ★★ a review cannot arrive already PUBLISHED (v383) ────────────────────────
+// Her words: __"run the reviews sql and build it properly"__ — after the 2026-09-25 report of ~16,000
+// Supabase databases left publicly readable, I audited this app's own policies and found one real gap:
+// **an anonymous visitor could publish their own review**, skipping her moderation. These two tests
+// are a pair on purpose — the first is the rule the database must keep, the second is the promise that
+// tightening it cannot break the real form.
+//
+// ⚠️ A TEXT GUARD, AND SAID PLAINLY: it cannot prove how the live database behaves — only SQL run
+// against the project can (there is a query for that in the changelog entry). What it CAN do is stop
+// this exact clause being loosened back to `true` by a future edit, which is how it got there.
+
+const { readFileSync } = await import("node:fs");
+// ⚠️ SQL COMMENTS COME OUT FIRST, and that is not tidiness. The file explains itself in `--` lines, and
+// one of those lines contained a semicolon — which ended the "policy" the first version of this guard
+// captured, so it read half a clause and failed over a policy that was correct. A `;` inside a comment
+// must never be able to break a check on the CODE.
+const reviewsSql = readFileSync(new URL("../supabase/reviews.sql", import.meta.url), "utf8")
+  .split("\n").map((l) => l.replace(/--.*$/, "")).join("\n");
+
+test("★★ the anon insert policy pins `published` to false", () => {
+  const policy = /create policy "customer leaves a review"[\s\S]*?;/.exec(reviewsSql);
+  assert.ok(policy, "the customer's insert policy is gone from supabase/reviews.sql");
+  assert.match(policy[0], /for insert to anon/, "the policy no longer names the anonymous role it guards");
+  assert.match(policy[0], /with check \(published = false\)/,
+    "⚠️⚠️ the anon insert is unchecked again — anyone could publish their own review, unmoderated");
+  assert.doesNotMatch(policy[0], /with check \(true\)/,
+    "⚠️⚠️ `with check (true)` lets a visitor set published:true themselves");
+});
+
+test("★ and the real form never sends `published`, so the tighter rule cannot break it", () => {
+  // ⚠️ THIS IS WHAT MAKES THE SQL SAFE TO RUN. The homepage's own submit sends five fields and no
+  // more, so the column default (false) applies and every genuine review still lands unpublished.
+  // If a future edit started sending `published`, the tighter policy would reject the whole insert
+  // and the form would break silently on her homepage — which is exactly what this pins.
+  const src = readFileSync(new URL("../reviews.js", import.meta.url), "utf8");
+  const body = /submitReview\(data\)[\s\S]*?body: JSON\.stringify\(\[([\s\S]*?)\]\s*\)/.exec(src);
+  assert.ok(body, "submitReview's insert body could not be read — has it been restructured?");
+  const fields = [...body[1].matchAll(/^\s*([a-z_]+):/gm)].map((m) => m[1]).sort();
+  assert.deepEqual(fields, ["lang", "message", "name", "photo", "stars"],
+    `the homepage now posts: ${fields.join(", ")} — a field outside the policy's reach would be refused`);
+  assert.doesNotMatch(body[1], /published/,
+    "⚠️⚠️ the form sends `published`, which the tightened policy refuses — the homepage would break");
+});

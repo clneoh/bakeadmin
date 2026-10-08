@@ -10,6 +10,21 @@
 --   Published reviews are readable by anyone (the homepage shows them);
 --   unpublished rows are invisible to the public, which keeps spam private.
 --
+-- ⚠️⚠️ 08 Oct 2026 — THE INSERT POLICY NOW ENFORCES THAT, AND UNTIL THEN IT DID
+--   NOT. The paragraph above was true of the COLUMN DEFAULT (`published=false`)
+--   and NOT of what an anonymous visitor was ALLOWED TO SEND: the policy was
+--   `with check (true)`, and there is no trigger on this table anywhere, so
+--   anyone with the public anon key (it is in the homepage's own script) could
+--   POST `{"published": true, ...}` straight to the REST API and **publish their
+--   own review**, skipping the moderation step entirely — and the "public reads
+--   published reviews" policy below would then serve it on the homepage.
+--   ⚠️ NOT a data leak — no customer data is exposed by it — but it defeated the
+--   approve-first design this table exists for. The fix is one clause:
+--   `with check (published = false)`, so a new row cannot arrive already live.
+--   ⚠️ Safe for the real form: `reviews.js` `submitReview` sends only name,
+--   stars, message, lang and photo (guarded by a test), so the default applies
+--   and every genuine review still lands unpublished as it always did.
+--
 --   name/message are trimmed on insert by the app; the check constraints are a
 --   backstop. stars is 1–5. lang is the review language — 'en' (English),
 --   'zh' (Chinese/Mandarin) or 'ms' (Bahasa Malaysia).
@@ -32,7 +47,9 @@ alter table reviews enable row level security;
 drop policy if exists "customer leaves a review" on reviews;
 create policy "customer leaves a review" on reviews
   for insert to anon
-  with check (true);
+  -- ⚠️⚠️ `published = false`, NOT `true`. A visitor may ADD a review; a visitor may
+  -- not arrive with one already published. See the note at the top of this file.
+  with check (published = false);
 
 drop policy if exists "public reads published reviews" on reviews;
 create policy "public reads published reviews" on reviews

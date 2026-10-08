@@ -1,8 +1,57 @@
-# Jienluv2bake — change history (v54 → v382)
+# Jienluv2bake — change history (v54 → v383)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v383, A PHONE THAT IS BEHIND NOW UPDATES ITSELF BEFORE THE PASSWORD SCREEN (no database step for this part — pushing it is the whole of it).**
+
+**Your question:** __"how come some app user after keying in pin, but login to an old version app?"__
+
+**★ THE APP HAS ALWAYS KNOWN, AND YOU COULD NEVER SEE IT.** When the app opens it checks which build your website is serving, and if this phone is behind it puts an amber strip on screen reading **New version ready**, naming both builds. That check runs deliberately before the password screen — a comment in the code says so: __"so a phone sitting on the lock or sign-in screen still learns it is behind."__
+
+**⚠️⚠️ AND THE PASSWORD SCREEN WAS STANDING ON TOP OF IT.** The strip sat at layer 25; the password screen is a full-screen opaque panel at layer 80. So the one message that says this phone is behind was being painted **underneath** the screen the person was looking at. I measured it on a real screen: asking what a tap at the centre of that warning actually reaches, the browser answered **the Unlock button**. So someone typed the password, went straight into yesterday's app, and never saw the warning that would have told them.
+
+**★ SO IT RELOADS ITSELF FIRST, BEFORE THE PASSWORD.** If the phone is behind when the app opens, it reloads into the current build **before** the password screen appears. You type your password **once** and you are already on the newest build. You never land in the old one at all.
+
+**⚠️ WHY BEFORE THE PASSWORD RATHER THAN AFTER IT.** A reset after the PIN was your idea, and the instinct was right — but it has one trap: **the app locks on every open**, so a reload after the password would bring the password back and make everyone type it **twice, every time**, and the only way round that is to remember the unlock across the reload, which weakens the lock. Doing it first costs nothing and **leaves the lock exactly as it was.** Your password is still asked for once per open, as before.
+
+**⚠️⚠️ AND IT CANNOT TRAP A PHONE IN A LOOP.** It reloads **once per build** and then gives up. That matters, because a website genuinely stuck on an old file — a wedged deployment, a proxy handing out a stale copy — would otherwise reload for ever and the phone would never reach a password screen again. After one attempt it stops, and the strip explains why.
+
+**⚠️ AND THE STRIP NOW SITS ABOVE THE PASSWORD SCREEN.** Layer 90, over the 80 of the password panel — so even in the stuck case you can see it and press **Update now** before typing anything. It is only ever drawn when the phone is actually behind; the rest of the time it is hidden and costs nothing. This is the same amber bar, doing at last what it always said it did.
+
+**⚠️ ONE RISK I INTRODUCED AND CLOSED IN THE SAME BREATH.** The check now runs on the way in, before the password screen — so a request that hung would have left a phone with no password screen, no app and nothing to press, which is a worse fault than the one being fixed. **The check has a deadline**: after 2.5 seconds it gives up, says nothing, and the app carries on exactly as before. A test drives a request that never answers and proves the app still opens.
+
+**No new database step** for this part. The suite is **3,089 tests, all green** (8 new). Every new rule was proved by putting the fault back: the anti-loop rule dropped, the attempt not recorded, the reload never firing, the deadline removed, the strip sunk back under the password screen, **the reload deleted from the boot**, and **the reload moved to after the password** — the last two being the wiring itself, which nothing covered until the bites found it.
+
+**08 Oct 2026 — A ONE-LINE DATABASE FIX: A REVIEW CAN NO LONGER ARRIVE ALREADY PUBLISHED (a database step you run once — there is NO new app version, because nothing in the app changed).**
+
+**How this came up.** You asked how secure Supabase is after the September report of about 16,000 databases left open to the public. That report was misconfiguration by those owners, not a break-in — so I went through every one of your own access rules and checked. **Your customer tables are all correctly locked** (only your signed-in app can read them) and **nothing was exposed**. But the sweep found one real hole, in your reviews.
+
+**⚠️ WHAT WAS WRONG.** Your reviews are meant to be approve-first: a customer posts, and nothing appears on the homepage until you press Publish. The row did start unpublished — but the rule only set the STARTING value, and it did not stop a visitor from sending their review already marked as published. Anyone with the shop's public key (it is in the homepage's own script, as it must be) could post a review straight to your database with that flag on, **skipping you entirely**, and it would go live on the homepage.
+
+**⚠️ WHAT IT WAS NOT.** Not a leak. Nobody could read your orders, your customers' names, numbers, addresses, your backups or your receipts through it — I checked each of those and they all refused an anonymous reader. What it broke was your approval step: a spammer, or a competitor, could have put words on your homepage without you ever seeing them.
+
+**What to run.** In the Supabase SQL editor, run `supabase/reviews.sql` **again** — the whole file. It is written to be safe to re-run, so this is one paste and Run. The one changed line is the rule on who may add a review; it now also requires the review to arrive unpublished.
+
+**How to confirm it took.** Run this and read the single cell it returns:
+
+```
+select exists (
+  select 1 from pg_policy
+  where polrelid = 'public.reviews'::regclass
+    and polname = 'customer leaves a review'
+    and pg_get_expr(polwithcheck, polrelid) like '%published = false%'
+) as insert_is_locked;
+```
+
+**You want `true`.** Anything else and the fix did not land.
+
+**⚠️ YOUR HOMEPAGE FORM IS UNAFFECTED, AND THAT IS PROVEN RATHER THAN HOPED.** The form sends five things — the name, the stars, the words, the language and the photo — and never the published flag, so every genuine review still arrives unpublished exactly as it always did. A test now pins both halves: that the rule requires an unpublished review, and that the form never sends that flag (so a later edit cannot quietly break your homepage).
+
+**⚠️ ONE THING I DID NOT CHANGE, SAID HONESTLY.** A photo attached to a review sits in a bucket marked public, so a picture is reachable by anyone who knows its link the moment it uploads, before you approve the review. Its name is a timestamp plus six random characters, so it is not something anyone would find by accident — but the rule that says only approved photos are readable is doing less than it looks. The proper fix is a private bucket and timed links, which changes how the homepage and your admin card load the picture. **Say the word and I will plan it**; I have not sneaked it into this change.
+
+**No new app version.** Nothing in the app changed, so `version.js` still reads 382 and no phone will be told to update for this. The suite is **3,081 tests, all green** (2 new), and both new checks were proved by putting the fault back: the rule loosened again, the rule removed, the rule pointed at the wrong role, and the homepage form made to send the flag.
 
 **08 Oct 2026 — engine v382, A CUSTOMER'S ORDER HISTORY IS A DOOR TOO (no database step, no SQL — pushing this one is the whole of it).**
 
