@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v380)
+# Jienluv2bake — change history (v54 → v381)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v381, AN ORDER NUMBER IS NOW A DOOR: PRESS IT AND THE ORDER OPENS (no database step, no SQL — pushing this one is the whole of it).**
+
+**Your words:** __"can make the order number clickable to bring us to the order so i can admen it, or look at it detail"__.
+
+**★ PRESS AN ORDER NUMBER AND THAT ORDER'S OWN CARD COMES UP.** On the **Receipt register** (More → Money) and on the **Consolidated invoice**, the order code — #A3F9C2 — is now a press. It takes you to the order's own bake day, brings its row to the middle of the screen and lights it, and opens the order's card over it: price, Cost each, notes, the lot. Close the card and you are on the right day with the row still lit.
+
+**⚠️ THE RECEIPT REGISTER USED TO TELL YOU TO GO AND SEARCH THE CODE YOURSELF.** That sentence is gone with the press that replaces it. ⚠️ **But a receipt whose order is not on this phone still has plain text and no press** — there is nothing to open, and a press that landed on the Orders screen and opened nothing is exactly the kind of control this app treats as a fault.
+
+**⚠️ AND NOTHING CHANGES ABOUT WHAT THE REGISTER IS.** It is still read-only: no press on that screen touches a number, and the run of numbers stays untouchable — including by you on a bad evening. A door to the order is not a door to the register.
+
+**⚠️ ON PAPER IT IS STILL PLAIN TEXT.** The filing page's Order column is pressable on the screen and ordinary text on the sheet that goes to the printer — a filing page is read on paper, and a link printed in the middle of one is meaningless. It is also **why the paper and the screen cannot drift**: both are drawn from one description of the page, and only the screen layer is allowed to add the press.
+
+**⚠️ A NUMBER WHOSE ORDER WAS REMOVED HAS NO DOOR AT ALL.** Those rows are the whole reason the removed numbers are on the page — there is no order to open. They keep their number and stay plain text.
+
+**⚠️ ON THE ORDER'S OWN ROW, AND IN A CUSTOMER'S HISTORY, THE CODE STAYS A PLAIN TAG** — and both are deliberate. On the row, it is the label of the thing you are already looking at, with Edit beside it. ⚠️ In a customer's history it is left alone for a blunter reason: **that screen has no test of its own**, and a press nobody has driven to its outcome is a press nobody knows works. Say the word and I will build the test and make it a door too.
+
+**⚠️ AND THE CARD CANNOT COME BACK ON ITS OWN.** Once the link has been followed, the address is put back to the day's own address, so the rebuild that happens when the cloud answers, when you save, or when you come back to the app does not reopen the card in your face. I proved that one on a real screen rather than assuming it.
+
+**No database step and no SQL** — the link is an address in the app, nothing more. The suite is **3,075 tests, all green** (13 new). Each new assertion was proved by putting the fault back and watching it fail by its own name — the link ignored, the address not put back, the row not lit, an unknown code landing in silence, an orphaned order refused, the register's press removed, a void number given a door, and the printed sheet made pressable. ⚠️ **Two of my own assertions were caught being weak by those bites**: one checked that a __wrong__ claim was gone without checking the __right__ one was made, and one asserted the register's links were all order doors using a check that is TRUE of an empty list — so it would have passed if every door had vanished. Both are fixed.
 
 **08 Oct 2026 — engine v380, THE COST OF A LOAF IS FROZEN ONTO THE ORDER, SO AN OLD MONTH STOPS MOVING (no database step, and no SQL — pushing this one is the whole of it).**
 

@@ -10,6 +10,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+// The shim's nodes carry a `_classes` Set behind a `className` accessor rather than a real
+// classList, so the two query helpers read it the same way the accessor writes it.
+const hasClass = (n, c) => String((n && n.className) || "").split(/\s+/).includes(c);
+
 function createEl(tag) {
   const node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
@@ -23,7 +27,21 @@ function createEl(tag) {
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k] ?? null; },
     focus() {}, click() {}, remove() {},
-    querySelector: () => null, querySelectorAll: () => [],
+    // ⚠️⚠️ A WORKING `querySelector`, AND IT WAS NOT BEFORE. The screen wires TWO things onto the
+    // built sheet after it is drawn — the sortable headings (v379) and the order-number doors
+    // (v381) — and both find their cells with a class query. A shim answering null made both
+    // silently unreachable, so a press that never got wired could not fail a test here.
+    querySelector(sel) {
+      const cls = /^\.([\w-]+)$/.exec(String(sel));
+      if (cls) return walk(this).find((n) => hasClass(n, cls[1])) || null;
+      const data = /^\[data-([\w-]+)="(.+)"\]$/.exec(String(sel));
+      if (data) return walk(this).find((n) => n.dataset && n.dataset[data[1]] === data[2]) || null;
+      return null;
+    },
+    querySelectorAll(sel) {
+      const cls = /^\.([\w-]+)$/.exec(String(sel));
+      return cls ? walk(this).filter((n) => hasClass(n, cls[1])) : [];
+    },
   };
   Object.defineProperty(node, "className", {
     get() { return [...node._classes].join(" "); },
@@ -55,8 +73,14 @@ globalThis.document = {
   body,
 };
 globalThis.window = { innerWidth: 375, innerHeight: 812, print() {} };
+// ⚠️ The view navigates with `location.hash` directly (the choice history.js documents), so the
+// address has to exist for an order-number press to be provable at all.
+globalThis.location = { hash: "" };
 
 const { renderConsolidated } = await import("../admin/js/views/consolidated.js");
+const { orderCode } = await import("../admin/js/state.js");
+const { consolidatedSheet } = await import("../admin/js/consolidated.js");
+const { journalSheetEl } = await import("../admin/js/journal.js");
 void createEl;
 
 const walk = (n, out = []) => { for (const c of n.children || []) { out.push(c); walk(c, out); } return out; };
@@ -82,9 +106,12 @@ function state() {
     settings: { currency: "RM" },
     products: [{ id: "p1", name: "Focaccia", price: 16 }],
     deliveryDates: [], credits: [], expenses: [], deposits: [], ingredients: [], categories: [],
+    // ⚠️ THE GROUP IDS ARE HEX ON PURPOSE. `orderCode` strips every character that is not one,
+    // so a "g1"/"g2" pair would give both orders the code "1" and "2" — and a test that the
+    // press carries the RIGHT order would pass while proving nothing (the v378 lesson).
     orders: [
-      order({ groupId: "g1", deliveryDate: OCT(5) }),
-      order({ groupId: "g2", deliveryDate: OCT(20), customerName: "Mei Ling", whatsapp: "60222222222" }),
+      order({ groupId: "beef01", deliveryDate: OCT(5) }),
+      order({ groupId: "cafe02", deliveryDate: OCT(20), customerName: "Mei Ling", whatsapp: "60222222222" }),
     ],
   };
 }
@@ -205,4 +232,123 @@ test("★★ the page WIDENS itself on a desktop, and gives the width back when 
   cleanup();
   assert.equal(viewEl.classList.contains("view-wide"), false,
     "★ the width was not given back, so the next screen she opens is the wrong size");
+});
+
+// ── ★★ the order number is a door (v381) ──────────────────────────────────────────────
+// Her words: __"can make the order number clickable to bring us to the order so i can admen it,
+// or look at it detail"__.
+
+test("★★ every filing row's order number opens that order", () => {
+  // ⚠️⚠️ THE SCOPE AND THE CUSTOMER ARE BOTH MODULE STATE, KEPT BETWEEN VISITS on purpose — stepping
+  // away and coming back should not re-scope the document she was reading. It also means the tests
+  // above have left BOTH narrowed (a day, and one customer), so this one names its own view rather
+  // than assuming a default. Setting only the period would still show one order and read as a
+  // missing press.
+  const st = state();
+  const root = createEl("div");
+  renderConsolidated(root, st);
+  const sel = walk(root).find((n) => n.tagName === "SELECT");
+  assert.ok(sel, "the page has no customer picker to reset");
+  sel.value = "";
+  sel._listeners.change[0].call(sel);
+  press(root, "All"); // every order, whatever the earlier tests left behind
+
+  const links = walk(root).filter((n) => n.tagName === "A" && hasClass(n, "ord-open"));
+  const orderCells = walk(root)
+    .filter((n) => hasClass(n, "j-col-1"))
+    .map((n) => JSON.stringify(String(n.textContent)));
+  assert.equal(links.length, 2,
+    `the filing list's order numbers are not pressable — the order cells hold ${orderCells.join(", ")}`);
+
+  // ⚠️ EACH LINK CARRIES ITS OWN ORDER, proved against the codes the fixture's own ids make.
+  // A page where both rows opened the same order would pass a count of two.
+  const want = st.orders.map((o) => `#/orders?order=${orderCode(o)}`);
+  assert.deepEqual(links.map((a) => a.attrs.href).sort(), want.sort(),
+    "a filing row links somewhere other than the order it names");
+  assert.equal(links.every((a) => String(a.textContent).startsWith("#")), true,
+    "the press does not read as the order number");
+
+  globalThis.location.hash = "#/more/consolidated";
+  links[0]._listeners.click[0]({ preventDefault() {} });
+  assert.equal(globalThis.location.hash, links[0].attrs.href, "pressing it went nowhere");
+});
+
+test("★ the sortable headings still work now that the body is wired too", () => {
+  // ⚠️ TWO PASSES OVER THE SAME BUILT SHEET — sort (v379) then doors (v381). This pins that the
+  // second did not undo the first: a wiring pass that rebuilt a row would drop the heading's
+  // listener, and the page would quietly stop sorting.
+  const st = state();
+  const root = createEl("div");
+  renderConsolidated(root, st);
+
+  const headNow = () => walk(root).find((n) => hasClass(n, "journal-cols-head"));
+  assert.ok(headNow(), "the sheet's own header row is not on the screen");
+  assert.equal(headNow().children.filter((c) => hasClass(c, "sortable")).length, 5,
+    "not every heading is sortable");
+
+  const order = headNow().children.filter((c) => hasClass(c, "sortable"))[1];
+  assert.ok(order._listeners.click && order._listeners.click.length, "the Order heading lost its press");
+  order._listeners.click[0]();
+
+  // ⚠️⚠️ RE-FOUND AFTER THE PRESS, NEVER THE NODE THAT WAS PRESSED. `paint()` replaces the whole
+  // card, so the cell she pressed is detached the moment it is pressed — and the arrow is written
+  // when the heading is WIRED, which is on the next render. Asserting on the pressed node would
+  // read a dead element and fail over a screen that is working (v333's rule: a control is proved
+  // at its OUTCOME, which means looking at what the repaint drew).
+  const after = headNow().children.filter((c) => hasClass(c, "sortable"))[1];
+  assert.match(String(after.textContent), /[▲▼]/, "the heading does not say which way it is sorting");
+  assert.match(String(after.textContent), /▲/, "the first press on a heading should sort it ascending");
+});
+
+test("⚠️ the PRINTED sheet carries no link at all", () => {
+  // ⚠️⚠️ THE WHOLE POINT OF WIRING THE SCREEN AND NOT THE SHEET. `journalBodyEl` (screen) and
+  // `journalSheetEl` (paper) draw one document from one `sheetLineEl`; a link written into that
+  // shared builder would put a live link in the middle of a filing sheet — meaningless on paper,
+  // and a second rendering of the document besides.
+  // ⚠️ BUILT FROM THE SHEET ITSELF, not walked off the live screen: the print layer is not in the
+  // DOM until Print is pressed, so a walk of the screen would find no sheet and this test would pass
+  // over nothing at all — the vacuous shape this project has shipped twice.
+  const st = state();
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: "2026-10", customerKey: "" });
+  const paper = journalSheetEl(sheet, "RM");
+
+  assert.ok(walk(paper).some((n) => n.nodeType === 3 && /#/.test(String(n.text))),
+    "the printed sheet carries no order numbers at all — so it proves nothing about links");
+  assert.equal(walk(paper).filter((n) => n.tagName === "A").length, 0,
+    "a link reached the sheet that goes to the printer");
+  assert.equal(walk(paper).filter((n) => hasClass(n, "ord-open")).length, 0,
+    "an order door reached the printed sheet");
+});
+
+
+test("⚠️ a number whose order was REMOVED is not a door — there is nothing to open", () => {
+  // ⚠️⚠️ THE ONE ROW ON THIS PAGE A DOOR MUST NOT APPEAR ON. A void line is a receipt whose order
+  // was removed — which is the whole reason it is on the page — and its cell still holds a
+  // perfectly good-looking code ("#000001"). A press there could only land on the Orders screen
+  // and open nothing, which is the control this app treats as a bug. The row is read off its own
+  // `journal-void` class, put there by the builder for exactly that row.
+  const st = state();
+  st.settings.supabase = { enabled: true, url: "https://proj.supabase.co", anonKey: "anon",
+    email: "a@b.c", password: "p" };
+  const store = new Map([["bakeadmin.supabase",
+    JSON.stringify({ access_token: "tok", expires_at: Date.now() + 3600000 })]]);
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true,
+    json: async () => [{ number: 1, order_code: "DEAD01", issued_at: "2026-10-05T02:00:00.000Z",
+      refunded_at: null, refunded_amount: 0 }] });
+
+  const root = createEl("div");
+  renderConsolidated(root, st);
+  return new Promise((r) => setTimeout(r, 0)).then(() => {
+    const said = txt(root);
+    assert.match(said, /#DEAD01/, "the removed number is not on the page at all — so this proves nothing");
+    const voidRow = walk(root).find((n) => hasClass(n, "journal-void"));
+    assert.ok(voidRow, "the void row lost its own class, so nothing can tell it apart");
+    assert.equal(walk(voidRow).filter((n) => n.tagName === "A").length, 0,
+      "a door was drawn on a number whose order does not exist");
+    assert.equal(walk(root).filter((n) => n.tagName === "A" && hasClass(n, "ord-open")).length, 2,
+      "the orders that DO exist lost their doors");
+  }).finally(() => { globalThis.fetch = real; });
 });

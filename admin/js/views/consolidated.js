@@ -15,6 +15,11 @@ import { pullReceiptRegister } from "../supabase.js";
 import { consolidatedSheet } from "../consolidated.js";
 import { customerList } from "../customers.js";
 import { addDays, todayISO } from "../dates.js";
+import { orderHref } from "../state.js";
+
+// ⚠️ `location.hash` DIRECTLY, the same choice history.js documents: it keeps this view
+// testable under Node, where no router is running.
+const navigate = (hash) => { location.hash = hash; };
 
 // ⚠️ KEPT BETWEEN VISITS, like Profit's month. Stepping away and coming back should not silently
 // re-scope the document she was just reading.
@@ -78,7 +83,7 @@ export function renderConsolidated(root, state, params) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, sheet.title),
         el("p", { class: "card-sub", style: "margin:0 0 8px" }, sheet.subtitle),
-        wireSort(journalBodyEl(sheet, cur), paint),
+        wireOpen(wireSort(journalBodyEl(sheet, cur), paint)),
         // ⚠️ The buttons come from the SHARED pair, so Print and Share (and the PDF inside Share)
         // are the same ones every other book in the app wears — and a change to how a page reaches
         // paper reaches this one too, without anyone remembering to come back here.
@@ -126,6 +131,55 @@ function step(delta) {
 // ⚠️ AND IT DOES NOTHING AT ALL IF THE ROW IS NOT THERE — the paper and the shared message read the same
 // sheet, and a header that is only sometimes present must not be a crash.
 const SORT_COLUMNS = ["date", "order", "invoice", "what", "customer"];
+// Which of those five cells holds the order number — read off the same list the sort is built
+// from, so a column inserted later cannot leave the press on the wrong one.
+const ORDER_COL = SORT_COLUMNS.indexOf("order");
+
+// ★★ AND THE ORDER NUMBER IS A DOOR ON THIS PAGE TOO (v381). Her words: __"can make the order
+// number clickable to bring us to the order so i can admen it, or look at it detail"__.
+//
+// ⚠️⚠️ THIS IS A SCREEN-ONLY PASS, exactly like `wireSort` beside it, and that is the whole
+// design. `journalBodyEl` builds ONE document that the screen, the paper and the shared file all
+// read — so a link written into `sheetLineEl` would put a live link in the middle of a printed
+// filing sheet, which is nonsense on paper and a second rendering of the document besides. The
+// sheet is built untouched; this walks it afterwards and only the screen gets a door.
+//
+// ⚠️ IT REPLACES THE CELL'S CONTENTS RATHER THAN ITSELF, so the grid's own column widths — which
+// took three tries to get right at v376 — are not disturbed by adding a press.
+//
+// ⚠️⚠️ **EVERY FACT IS READ OFF THE ROW IT IS DECORATING**, and there is no pairing of one list
+// against another anywhere in here. The first draft paired `sheet.lines` with the rows by
+// position, and it silently wired NOTHING: the filing lines never carried a `code` field (they
+// carry `cols`), so the guard dropped every row. Reading the code out of the cell the link will
+// sit in means the two can never disagree — **the press opens exactly the number printed under
+// it** — and it is why this takes no `sheet` at all.
+function wireOpen(body) {
+  if (!body || typeof body.querySelectorAll !== "function") return body;
+  for (const row of [...body.querySelectorAll(".journal-cols")]) {
+    const cls = String((row && row.className) || "");
+    // The header row names the columns; it is not an order.
+    if (cls.includes("journal-cols-head")) continue;
+    // ⚠️ A VOID ROW HAS NO ORDER TO OPEN — its order was removed, which is the whole reason it
+    // is on the page. It keeps its number and stays plain text. (`cls` is the row's own class,
+    // put there by the builder for the void line, so nothing has to be passed in to know.)
+    if (cls.includes("journal-void")) continue;
+    const cell = row.querySelector ? row.querySelector(`.j-col-${ORDER_COL}`) : null;
+    if (!cell || typeof cell.replaceChildren !== "function") continue;
+    const printed = String(cell.textContent || "").trim();
+    // ⚠️ THE CELL MUST HOLD A CODE, and if it does not this row is left alone rather than guessed at.
+    // ⚠️⚠️ AND IT IS A GUARD AGAINST THE COLUMNS SHIFTING, NOT A PATH ANY CURRENT DATA REACHES —
+    // said plainly because a bite proved it: every filing row today carries a code (a row with no
+    // id gets orderCode's "??????", which is still a code), so no test can exercise this line. It
+    // earns its place by making the press depend on what the cell SAYS rather than on the column's
+    // position: move a column and the worst that happens is a number stops being pressable, never
+    // that a customer's name becomes a link to somebody's order.
+    if (!/^#[0-9A-Za-z]+$/.test(printed)) continue;
+    const href = orderHref(printed.slice(1));
+    cell.replaceChildren(el("a", { class: "ord-open", href,
+      onclick: (ev) => { ev.preventDefault(); navigate(href); } }, printed));
+  }
+  return body;
+}
 
 function wireSort(body, paint) {
   const head = body && body.querySelector ? body.querySelector(".journal-cols-head") : null;

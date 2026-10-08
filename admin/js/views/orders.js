@@ -913,6 +913,47 @@ function renderAll(root, state, params) {
   }
   if (delta) scroller().scrollTop += delta;
   anchorRowId = null;
+
+  // ★★ AN ORDER NUMBER ANYWHERE IN THE APP IS NOW A DOOR (v381). Her words: __"can make the
+  // order number clickable to bring us to the order so i can admen it, or look at it detail"__.
+  //
+  // ⚠️⚠️ AND THE PARAM IS CONSUMED FIRST, which is not tidiness. `render()` re-runs this whole
+  // screen on every hashchange, on every cloud answer, and after every save — **including the
+  // Edit card's own Save**. Left in the address, the card would reopen for ever: she would
+  // close it, the screen would rebuild, and it would be back in her face. It is replaced with
+  // the day's own address, which is the one `selectDate` writes.
+  const openCode = String(params.get("order") || "").trim().toUpperCase();
+  if (openCode) {
+    // ⚠️ CONSUMED BEFORE THE LOOKUP, NOT AFTER. On the path where the order is found, `selectDate`
+    // rewrites the address anyway — so this looks redundant, and it is not: **on the NOT-FOUND path
+    // nothing else rewrites it**, and a code left sitting in the address would say "not on this
+    // phone" again on every rebuild the app does, for ever. (A bite proved exactly that: removing
+    // this line broke no test until the not-found case was asserted.)
+    if (history && history.replaceState) {
+      const day = activeIso || ordersDayById.get(activeId) || "";
+      history.replaceState(null, "", `#/orders?date=${activeId}${day ? `&day=${day}` : ""}`);
+    }
+    const group = groupOrders(state.orders || [])
+      .find((g) => g.orders[0] && orderCode(g.orders[0]) === openCode);
+    if (!group) {
+      // ⚠️ NOT FOUND IS SAID OUT LOUD. A press that lands on the Orders screen and opens
+      // nothing is the control that does not do what it says — the very thing this feature
+      // exists to stop being. (The register offers no press for an order that is not on this
+      // phone, so this is the stale-code case: a link kept, or the order removed since.)
+      toast(`Order #${openCode} is not on this phone`);
+    } else {
+      const first = group.orders[0];
+      // The day opens FIRST, so the card has the order's own day behind it — and only a day
+      // that still EXISTS, because selecting a deleted one would draw the "bake day missing"
+      // panel underneath the card and read as a fault.
+      const rec = first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null;
+      if (rec) selectDate(rec.id, rec.date);
+      revealOrderRow(root, group);
+      // ⚠️ "" WHEN THE DAY IS GONE — the same door v332 opened for the inbox, so an order
+      // whose bake day was deleted can still be reached and given one back.
+      openEditPopup(state, group, rec ? rec.id : "", root);
+    }
+  }
 }
 
 // What ends a revealed row's glow: the baker getting to the row.

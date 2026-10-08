@@ -900,6 +900,11 @@ function historyBlock(state, b) {
   const courier = b.fulfillment === "courier";
   return el("div", { class: "hist-ord" },
     el("div", { class: "li-row" },
+      // ⚠️ NOT A DOOR (v381), AND THAT IS DELIBERATE. Everywhere else an order number now opens
+      // the order; here it stays a plain code, because **this screen has no test harness** — a
+      // customer's history is drawn inside a pop-up — and a control that cannot be driven to its
+      // outcome is a control nobody knows works. It is a one-line change the day that harness
+      // exists; until then, no untested press.
       el("span", { class: "hist-code" }, `#${b.code}`),
       el("span", { class: `fulfill-tag${courier ? " courier" : ""}` }, courier ? "Courier" : "Self collect"),
       el("span", { class: "qty-chip" }, STATUS_LABEL[b.status] || b.status)),

@@ -2412,6 +2412,33 @@ option.tone-off { color: var(--muted); }
 .hist-line { font-size: 14px; padding: 2px 0; }
 .hist-code { font-weight: 800; color: var(--brown-dark); letter-spacing: .02em; }
 
+/* ★ AN ORDER NUMBER YOU CAN PRESS (v381). Her words: __"can make the order number clickable to
+   bring us to the order so i can admen it, or look at it detail"__.
+
+   ⚠️ IT KEEPS THE CODE'S OWN COLOUR AND WEIGHT and takes a dotted underline, rather than turning
+   into a generic link. The code is the thing she matches a WhatsApp message against — a number
+   that changed colour the moment it became pressable would be harder to recognise, not easier.
+   The underline is what says pressable; nothing else about the figure moves.
+
+   ⚠️⚠️ THE TOUCH TARGET IS WON WITH A NEGATIVE MARGIN, NOT BY GROWING THE BOX. A code is 11-13px of
+   text, well under the 36px a finger needs, so the pressable area is padded out vertically and
+   pulled back by the same amount: the element gets a 37px target while its LAYOUT BOX is unchanged.
+   That matters most in the filing page's order column, whose width took three attempts to get
+   right at v376 (a phone once cut the code to "#052...") — padding that grew the cell would start
+   eating the code again, and a half code is no code. Overlapping the row above and below costs
+   nothing here, because none of those rows is itself pressable. */
+.ord-open {
+  display: inline-block;
+  padding: 12px 0;
+  margin: -12px 0;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ord-open:hover { text-decoration-style: solid; }
+
 /* "Set day's availability" pop-up (per-delivery-date product adjustments) */
 .day-adj-rows { display: flex; flex-direction: column; gap: 8px; }
 .day-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;

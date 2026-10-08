@@ -804,6 +804,20 @@ export function orderCode(order) {
   return hex || "??????";
 }
 
+// ★★ THE ADDRESS THAT OPENS ONE ORDER (v381). Her words: __"can make the order number
+// clickable to bring us to the order so i can admen it, or look at it detail"__.
+//
+// ⚠️ ONE DEFINITION, IN ONE PLACE, because the whole feature rests on the link and the
+// screen that honours it agreeing. Written here rather than in each view so a mistyped
+// parameter name cannot make a press land on the Orders screen and quietly do nothing —
+// which is exactly the control the register refused to draw in v366.
+//
+// ⚠️ It is a real `#` address, not just a handler: it can be long-pressed, copied, or
+// pasted back in, and it survives a reload — a deep link, not a trick.
+export function orderHref(code) {
+  return `#/orders?order=${encodeURIComponent(String(code || "").trim().toUpperCase())}`;
+}
+
 export { normalize };
 
 // Normalize a customer's WhatsApp number to the digits-only international form
