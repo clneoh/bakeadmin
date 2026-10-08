@@ -214,7 +214,7 @@ test("★★ the filing page leads with a HEADER row naming its columns, and car
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
   const head = sheet.lines.find((l) => l.head);
   assert.ok(head, "the filing list has no header row");
-  assert.deepEqual(head.cols, ["Date", "Order", "Invoice", "Customer"]);
+  assert.deepEqual(head.cols, ["Date", "Order", "Invoice", "What", "Customer"]);
   assert.equal(head.amount, undefined, "the header row came with money on it");
   // And every row under it carries the same FOUR columns, so the header names them all.
   for (const l of sheet.lines.filter((x) => !x.head)) {
@@ -233,10 +233,10 @@ test("★ a walk-in with no name and no number is NAMED, not left blank", () => 
   ];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
   const rows = sheet.lines.filter((l) => !l.head);
-  const blank = rows.filter((l) => !String(l.cols[3] || "").trim());
+  const blank = rows.filter((l) => !String(l.cols[4] || "").trim());
   assert.deepEqual(blank, [], "a row left the customer column empty where a person belongs");
-  assert.equal(rows.filter((l) => l.cols[3] === "No name").length, 2, "the walk-ins are not named");
-  assert.equal(rows.some((l) => l.cols[3] === "Aunty Bee"), true, "the named customer is missing");
+  assert.equal(rows.filter((l) => l.cols[4] === "No name").length, 2, "the walk-ins are not named");
+  assert.equal(rows.some((l) => l.cols[4] === "Aunty Bee"), true, "the named customer is missing");
 });
 
 test("one customer can be picked out of the period", () => {
@@ -318,17 +318,18 @@ test("a period with nothing in it says so rather than drawing an empty page", ()
   assert.match(sheet.empty, /Nothing was sold in this period/);
 });
 
-test("★ an order nothing can price is SAID, not printed as a confident nothing", () => {
-  // ⚠️ THE ITEM COLUMN IS GONE (v376) — her own drawn layout is Date · Order · Invoice · Customer ·
-  // Amount — and that column was also where an unpriced line said "no price". A row nothing could price
-  // adds RM 0.00 to the Total with nothing on the line to explain it, so the warning MOVED to the note
-  // rather than being dropped with the column. Profit says the same thing about its own journal.
+test("★ an order nothing can price is MARKED on its own line, not printed as a confident nothing", () => {
+  // ⚠️ THIS TEST MOVED AND MOVED BACK. When the item column went (v376) the "no price" mark had nowhere
+  // to live and moved into the note; when her own data showed her the page could not say WHAT an order
+  // WAS — __"why no description?"__ — the column came back (v377) and **the mark went back with it**,
+  // onto the line it belongs to, the way every other screen in the app does it.
   const st = state();
   st.products[0].price = "";
   st.orders = [row({ groupId: "g1", unitPrice: "" })];
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
-  assert.match(sheet.note, /1 order has an item with no price/,
-    `an unpriced order reads as a lie: "${sheet.note}"`);
+  const line = sheet.lines.find((l) => !l.head);
+  assert.match(line.cols[3], /no price/, `an unpriced loaf reads as a lie: "${line.cols[3]}"`);
+  assert.match(line.what, /no price/, "and the line text — what the PDF and the message read — lost it too");
   assert.equal(sheet.totals[0].amount, 0, "the unpriced order was counted as money anyway");
 });
 
@@ -386,4 +387,24 @@ test("★ an unnumbered order still counts toward the Total, and is called out a
   const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
   assert.equal(sheet.totals[0].amount, 32, "the unnumbered order was left out of the money");
   assert.match(sheet.note, /Still to collect from these orders: RM 16\.00/);
+});
+
+test("★★ a PAID order with no invoice number is SAID to be paid — the misreading her own data showed", () => {
+  // ⚠️⚠️ HER OWN SCREEN SHOWED THIS: four rows reading "none yet" with only one of them still to
+  // collect. **"none yet" says there is no NUMBER; it does not say the money is missing** — and three of
+  // those four were paid, just never numbered, because they came before the receipts step existed.
+  // A column that reads as "unpaid" while meaning "un-numbered" is the fault this app calls a bug.
+  const st = state();
+  st.orders = [
+    row({ groupId: "g1", receiptNo: 1, paidReceived: true }),                  // numbered
+    row({ groupId: "g2", customerName: "Mei Ling", whatsapp: "60222222222",
+      paidReceived: true }),                                                   // PAID, un-numbered
+    row({ groupId: "g3", customerName: "Uncle Tan", whatsapp: "60333333333",
+      paidReceived: false, status: "confirmed" }),                             // not paid
+  ];
+  const sheet = consolidatedSheet(st, { kind: "month", anchor: D(8) });
+  assert.match(sheet.note, /1 of these has no invoice number yet but is already PAID/,
+    `the page lets a paid order read as unpaid: "${sheet.note}"`);
+  assert.match(sheet.note, /Still to collect from these orders: RM 16\.00/,
+    "only the genuinely unpaid one should be owed");
 });

@@ -36,10 +36,20 @@ function createEl(tag) {
   return node;
 }
 const body = createEl("body");
+// ⚠️ A PERSISTENT `#view`, so the view's own class change can be seen at all. A shim that answered
+// null here would make the width code unreachable and leave it untested.
+const viewEl = createEl("div");
+viewEl.classList = {
+  _s: new Set(),
+  add(c) { this._s.add(c); },
+  remove(c) { this._s.delete(c); },
+  contains(c) { return this._s.has(c); },
+  toggle() {},
+};
 globalThis.document = {
   createElement: createEl,
   createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
-  getElementById: (id) => (id === "body" ? body : null),
+  getElementById: (id) => (id === "view" ? viewEl : id === "body" ? body : null),
   querySelector: () => null, querySelectorAll: () => [],
   addEventListener() {}, removeEventListener() {},
   body,
@@ -47,6 +57,7 @@ globalThis.document = {
 globalThis.window = { innerWidth: 375, innerHeight: 812, print() {} };
 
 const { renderConsolidated } = await import("../admin/js/views/consolidated.js");
+void createEl;
 
 const walk = (n, out = []) => { for (const c of n.children || []) { out.push(c); walk(c, out); } return out; };
 const txt = (n) => walk(n).map((x) => (x.nodeType === 3 ? x.text : "")).join(" ").replace(/\s+/g, " ");
@@ -177,4 +188,21 @@ test("a customer with nothing in the period is told so, not shown a blank card",
   renderConsolidated(root2, st2);
   assert.match(txt(root2), /This customer has nothing in this period/,
     "a customer with an empty period is told the bakery sold nothing at all");
+});
+
+test("★★ the page WIDENS itself on a desktop, and gives the width back when she leaves", () => {
+  // ⚠️ THE WHOLE BACKOFFICE IS CAPPED AT 540px — a phone column, on every screen at every size. Her
+  // words: __"that page can be optimise for desktop brouwser"__, and she is right: a filing page is
+  // read and printed at a desk. **The cap is lifted for this view ALONE**, and a page that widened the
+  // app without putting it back would quietly change every screen she opened next.
+  const st = state();
+  const root = createEl("div");
+  const cleanup = renderConsolidated(root, st);
+  assert.equal(viewEl.classList.contains("view-wide"), true,
+    "the filing page did not widen — it is still a phone column on a desktop");
+  assert.equal(typeof cleanup, "function",
+    "★ the view returns no cleanup, so the wider cap would follow her to every other screen");
+  cleanup();
+  assert.equal(viewEl.classList.contains("view-wide"), false,
+    "★ the width was not given back, so the next screen she opens is the wrong size");
 });

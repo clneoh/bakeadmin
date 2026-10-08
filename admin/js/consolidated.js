@@ -179,17 +179,25 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       // either widen the column for every row or be cut off mid-word.
       invoice: receiptNoOf(first) ? `#${receiptNoOf(first)}` : "",
       customer,
+      // ★ WHAT WAS ORDERED, BACK ON THE PAGE (v377). Her words, looking at her own data: __"why no
+      // description?"__ — and she is right. A filing list that cannot tell her what an order WAS is a list
+      // of numbers; the item names are how she recognises the order she is about to file against.
+      //
+      // ⚠️ AND IT IS THE ONE PLACE AN UNPRICED LINE CAN SAY SO. With this column absent the page could only
+      // warn in the note; with it back, the mark travels with the line it belongs to, as it does on every
+      // other screen. `itemsLine` is the same helper it always was.
+      items: itemsLine(state, g),
       amount: orderInvoice(state, g),
       // ⚠️ OWED IS STILL "NOT COLLECTED", NOT "HAS NO INVOICE NUMBER". They are usually the same, but a
       // PAID order can be unnumbered — the receipts step not yet run, or the phone offline — and reading
       // that as owed would invent money a customer does not owe.
       owed: !isCollected(g),
-      // ⚠️⚠️ THE ITEM NAMES ARE NOT ON THIS PAGE ANY MORE — her own drawn layout is Date · Order ·
-      // Invoice · Customer · Amount, and the detail lives on the order's own invoice, one order code
-      // away. **But the item column was also where an unpriced line said "no price", and a row of
-      // nothing-anybody-could-price now prints a confident RM 0.00 with nothing to warn her.** So the
-      // warning moves to the note, where Profit already says the same thing about its own journal.
-      unpriced: (g.orders || []).some((o) => orderLinePrice(state, o) == null),
+      // ★ WHETHER IT IS UNNUMBERED **AND ALREADY PAID** — the two are different facts and the page has to
+      // be able to tell them apart. Her own screen showed it: four rows reading "none yet" with only one
+      // of them still to collect. **"none yet" says there is no NUMBER; it does not say the money is
+      // missing**, and a column that reads as the second while meaning the first is the fault this app
+      // calls a bug everywhere else.
+      unnumberedPaid: !receiptNoOf(first) && isCollected(g),
     };
   });
   filing.sort((a, z) => {
@@ -201,19 +209,19 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   const lines = [];
   let total = 0;
   let owed = 0;
-  let unpriced = 0;
+  let unnumberedPaid = 0;
   if (filing.length) {
-    lines.push({ head: true, cols: ["Date", "Order", "Invoice", "Customer"], what: "Date · Order · Invoice · Customer" });
+    lines.push({ head: true, cols: ["Date", "Order", "Invoice", "What", "Customer"], what: "Date · Order · Invoice · What · Customer" });
   }
   for (const r of filing) {
     total = round2(total + r.amount);
     if (r.owed) owed = round2(owed + r.amount);
-    if (r.unpriced) unpriced += 1;
+    if (r.unnumberedPaid) unnumberedPaid += 1;
     lines.push({
       // ⚠️ `cols` IS THE LAYOUT AND `what` IS THE SAME FACTS IN A LINE — so the shared text and the PDF,
       // which read `what`, say everything the screen's columns say. One set of values, two arrangements.
-      cols: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.customer],
-      what: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.customer].join(" · "),
+      cols: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.items, r.customer],
+      what: [shortDay(r.date), `#${r.code}`, r.invoice || "none yet", r.items, r.customer].join(" · "),
       amount: r.amount,
     });
   }
@@ -227,10 +235,11 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     said.push(`Every order is listed on the day it is FOR — the bake day. In invoice-number order.`);
     if (owed > 0) said.push(`Still to collect from these orders: ${cur} ${owed.toFixed(2)}.`);
     else said.push("Every order in this period has been paid.");
-    // ⚠️ SAID HERE BECAUSE THE ITEM COLUMN IS GONE: a row nothing could price adds RM 0.00 to the
-    // Total, and nothing on the line itself would tell her why.
-    if (unpriced) {
-      said.push(`${unpriced} order${unpriced === 1 ? " has" : "s have"} an item with no price and ${unpriced === 1 ? "counts" : "count"} as nothing — check that product's price.`);
+    // ★★ "none yet" IS ABOUT THE NUMBER, NOT ABOUT THE MONEY — and the page has to say so, or a paid
+    // order with no serial reads as an unpaid one. **Her own screen showed four "none yet" rows with only
+    // one of them still to collect**, which is exactly how that misreading starts.
+    if (unnumberedPaid) {
+      said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. Open each order's Invoice and it takes the next number.`);
     }
   }
   if (refundedOut) {

@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v376)
+# Jienluv2bake — change history (v54 → v377)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v377, THE FILING PAGE LEARNS TO SAY WHAT WAS ORDERED, AND TO USE A DESKTOP
+(no database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words, looking at your own October list:** __"why no description?"__ — and you were right. The page
+listed numbers without saying **what** any of the orders were, and the item names are how you recognise the
+order you are about to file against. **So the WHAT column is back**, and the page now reads:
+
+```
+Date    Order     Invoice    What           Customer             Amount
+5 Oct   #052A1B   #000002   Focaccia ×2    Ms Yeap Lian Sioh    RM 39.90
+7 Oct   #F4470C   #000003   Sourdough ×3   Mr Tan Eng Boo       RM 105.00
+2 Oct   #E3C190   none yet   Focaccia ×2    Neoh Choo Leong      RM 32.00
+```
+
+**⚠️ AND IT BROUGHT BACK THE "no price" MARK with it** — a line nothing can price says so on its own row
+again, the way every other screen does, instead of only being mentioned in the note underneath.
+
+**★ AND YOUR DATA SHOWED A SECOND THING THE PAGE WAS GETTING WRONG.** Four of your rows read **none yet**
+while only **one** of them was still to collect. **"none yet" means there is no invoice NUMBER — it does
+not mean the money is missing** — and three of those four were paid long ago, before you started issuing
+receipt numbers. The page now says so:
+
+> 1 of these has no invoice number yet but is already PAID — they came before the numbering started. Open
+> each order's Invoice and it takes the next number.
+
+**★ THAT LAST SENTENCE IS ALSO THE FIX FOR THEM.** Those orders can be numbered: **open each one's
+Invoice** and it claims the next serial, exactly as designed in v360.
+
+**★ AND THE PAGE NOW WIDENS ON A DESKTOP.** Your words: __"that page can be optimise for desktop
+brouwser"__. ⚠️ **The whole backoffice is capped at a 540-pixel phone column, on every screen at every
+size** — right for the screens you tap through, wrong for a filing page you read and print at a desk.
+**The cap is lifted for this page alone**, and put back the moment you leave it, so no other screen moves.
+
+**⚠️ A4 IS FINE, AND THE PAPER IS PROTECTED FROM THE PHONE.** The printed sheet is already capped at
+**180mm** — A4's text width — and every one of the six columns has room inside it. The smaller type the
+phone uses is now written `screen and`, so **paper can never inherit it**; it stayed off paper by
+arithmetic before, and a rule that only stays right by arithmetic is one margin change away from shrinking
+a document you are filing.
+
+**No SQL, no upload.** The suite is **3,033 tests, all green**.
 
 **08 Oct 2026 — engine v376, THE CONSOLIDATED INVOICE IS NOW A FILING LIST (no database step, nothing to
 upload — pushing this one is the whole of it).**

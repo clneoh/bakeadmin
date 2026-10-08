@@ -25,9 +25,18 @@ const SCOPES = [["all", "All"], ["day", "A day"], ["week", "A week"], ["month", 
 
 const PILL = (on) => (on ? "soft small" : "ghost small");
 
-export function renderConsolidated(root, state) {
+export function renderConsolidated(root, state, params) {
   const cur = (state.settings && state.settings.currency) || "RM";
   if (!anchor) anchor = todayISO();
+
+  // ★★ THIS ONE PAGE IS WIDER ON A DESKTOP (v377). Her words: __"that page can be optimise for desktop
+  // brouwser"__. ⚠️ **The whole backoffice is capped at 540px — a phone column, on every screen, at every
+  // size** (`.view`, app.css) — which is right for the screens she taps through but wrong for a FILING
+  // page she reads and prints at a desk. **The cap is lifted for this view only**, and lifted by a class
+  // it removes again when she leaves: widening `.view` itself would move every other screen in the app.
+  const view = document.getElementById("view");
+  if (view && view.classList) view.classList.add("view-wide");
+  void params;
 
   const paint = () => {
     const sheet = consolidatedSheet(state, { kind, anchor, customerKey });
@@ -69,6 +78,10 @@ export function renderConsolidated(root, state) {
   };
 
   paint();
+  // ⚠️ AND THE WIDTH IS GIVEN BACK when she leaves. The router calls this before drawing the next
+  // screen, so no other page inherits the wider cap — a page that widened the app and did not put it
+  // back would quietly change every screen after it.
+  return () => { if (view && view.classList) view.classList.remove("view-wide"); };
 }
 
 // One step back or forward, in whatever unit is showing.

@@ -219,6 +219,11 @@ body { min-height: 100vh; }
    stays on the right where every other row in the app puts it. The invoice number carries the
    weight, because it is the one being filed against. */
 .journal-cols { gap: 5px; }
+/* ⚠️⚠️ A FILING PAGE IS READ AT A DESK, and the backoffice is capped at a PHONE column (540px) on
+   every screen at every size. Her words: __"that page can be optimise for desktop brouwser"__.
+   The cap is lifted for this view ALONE — the class is added and removed by the consolidated view
+   itself, so no other screen moves. */
+.view.view-wide { max-width: 900px; }
 .journal-cols .j-col {
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
@@ -235,14 +240,24 @@ body { min-height: 100vh; }
    "20 …" while the customer's few spare pixels bought nothing. Everything here is a trade at 375px;
    the SERIAL is the one column that may never be the one to lose. */
 .journal-cols .j-col-0 { width: 3.5em; color: var(--muted); }
-.journal-cols .j-col-1 { width: 3.9em; color: var(--muted); }
+/* ⚠️⚠️ THE ORDER COLUMN IS SIZED SO THE CODE FITS, AND THE FIRST PASS DID NOT. At 3.9em a phone cut it
+   to "#052…" — and the order code is *what finds the order again*, so half a code is no code. A
+   7-character code ("#F447AB") needs about 60px, which is what this is. */
+.journal-cols .j-col-1 { width: 4.6em; color: var(--muted); }
 /* ⚠️⚠️ THE INVOICE COLUMN IS SIZED SO ITS NUMBER IS NEVER CUT. The second attempt at this gave it 4.3em
    and a phone rendered "#0000…" — on a page whose entire purpose is filing, **a serial you cannot read
    is the one thing that must not happen.** The shorter phrase in the empty case ("none yet") is why it
    can be this narrow and still hold every number. */
 .journal-cols .j-col-2 { width: 4.9em; font-weight: 700; color: var(--brown-dark); }
-/* The last column takes what is left, so a long name shortens rather than pushing the money off. */
-.journal-cols .j-col-3 { flex: 1 1 auto; min-width: 0; }
+/* ⚠️⚠️ SIX COLUMNS, AND THE TWO WORD COLUMNS SHARE WHAT IS LEFT. Her ask, looking at her own data:
+   __"why no description?"__ — a filing list that cannot say what an order WAS is a list of numbers.
+   **The three number columns are FIXED and the two word columns FLEX**, so on a narrow screen it is the
+   words that shorten and never the serial, the order code or the date — those are what filing is read
+   against, and a cut serial is the one thing that must not happen on a filing page.
+   ⚠️ They share the leftover EQUALLY: her item names ("Sourdough ×3, Focaccia ×2") and her customer
+   names ("Ms Yeap Lian Sioh") are both long, and giving either more would only cut the other harder. */
+.journal-cols .j-col-3 { flex: 1 1 0; min-width: 0; }
+.journal-cols .j-col-4 { flex: 1 1 0; min-width: 0; }
 .journal-cols > .info-val { flex: 0 0 auto; white-space: nowrap; }
 
 /* ⚠️ FIVE COLUMNS DO NOT FIT ACROSS A PHONE AT FULL SIZE — and something has to give, so it is the
@@ -251,8 +266,12 @@ body { min-height: 100vh; }
    page is unaffected** — A4 is ~794 CSS px wide, so this query never matches on paper, and the columns
    there have room for everything. Measuring rather than reasoning is what found this: the first two
    attempts looked correct in the arithmetic and cut the SERIAL in half on the phone. */
-@media (max-width: 480px) {
-  /* ⚠️ `.info-row.journal-cols`, NOT `.journal-cols` — and the extra class is the whole point. `.info-row`
+@media screen and (max-width: 480px) {
+  /* ⚠️ `screen AND`, so PAPER CAN NEVER INHERIT THE PHONE'S TYPE SIZE. A4 is about 680 CSS px wide
+     inside the sheet's own 180mm cap, so this would not have matched in print anyway — but a rule
+     that only stays off paper by arithmetic is one page-margin change away from shrinking a
+     document she is filing.
+     ⚠️ AND `.info-row.journal-cols`, NOT `.journal-cols` — the extra class is the whole point. `.info-row`
      sets the 14px this is trying to override, at the SAME single-class specificity, and the plain selector
      lost to whichever came last. **Naming both classes makes it win by weight rather than by position.** */
   .info-row.journal-cols { font-size: 13px; }
