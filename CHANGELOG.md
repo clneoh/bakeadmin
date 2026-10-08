@@ -1,8 +1,50 @@
-# Jienluv2bake — change history (v54 → v383)
+# Jienluv2bake — change history (v54 → v384)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v384, A REVIEW'S PICTURE IS PRIVATE UNTIL YOU PUBLISH IT (a database step you run once, then push).**
+
+**Your words:** __"plan the photo fix too"__, then, asked how far, __"Gate it properly, and harden."__
+
+**⚠️ WHAT WAS WRONG.** A customer's picture went straight into a part of your storage marked PUBLIC, so it could be fetched by anyone who had its link **the moment it uploaded — before you had approved the review.** The rule on that folder said only approved pictures were readable; it was not true, and had not been from the day it was written. ⚠️ **And neither folder had a size or a file-type limit at all**, so anyone with your shop's public key could have used your storage as free hosting for any file of any size.
+
+**★ THE PICTURE IS NOW PRIVATE UNTIL YOU SAY YES.** It is uploaded into a part of your storage that **no anonymous reader can reach — not even with the exact link.** When you press **Publish**, the app moves the picture across to the part your homepage reads, in the same breath as publishing it. Nothing unapproved is on the internet at all.
+
+**⚠️⚠️ AND THE OBVIOUS FIX DOES NOT WORK, WHICH IS WHY IT IS TWO STEPS.** A picture on a page cannot carry a key — an image tag sends no password. So the homepage can never read a private file, however the rules are written. The only ways to keep a plain picture working and make unapproved ones unreachable are to **move the file at the moment you approve it** (what this does) or to hand out links that expire. Moving it was the choice, because an expiring link would break a picture that had been fine for a year.
+
+**⚠️ IF THE MOVE FAILS, THE REVIEW IS NOT PUBLISHED, AND THE CARD TELLS YOU WHY.** The other way round — publishing and hoping — would put a review on your homepage with its picture missing, and you would have approved something you could not see the whole of. The review simply stays waiting.
+
+**⚠️ AND TAKING A REVIEW DOWN NOW REALLY TAKES IT DOWN.** Hiding it stopped the homepage showing it, but the file itself stayed reachable by anyone who had kept the link. Taking it down now deletes the public copy as well — and because the private original is untouched, publishing it again brings the same picture back **without asking the customer for it twice.** ⚠️ If the picture cannot be deleted, the review still comes down and you are told the file is still there: a review you cannot take down is a worse fault than a file left behind.
+
+**⚠️ AND IN YOUR OWN REVIEWS CARD, A PICTURE THAT CANNOT BE SHOWN SAYS SO** rather than leaving a blank where a photo should be. That card exists so you can judge the picture before you publish it — a silent blank would read as "no photo" and you could publish something you never saw.
+
+**⚠️ AND BOTH FOLDERS NOW REFUSE ANYTHING BUT A PICTURE, AND ANYTHING OVER 2 MB.** That is the hardening, and it is worth having whatever else happens. Your shop shrinks a photo to a small JPEG before it uploads, so the 2 MB ceiling never turns a real one away.
+
+**What to run, and in this order.** In the Supabase SQL editor, run `supabase/reviews.sql` **again, the whole file** — it is safe to re-run — and **then push this**. Run it first because it is what creates the private folder: until it exists, a new review simply posts without its picture (the form is built to carry on), and the moment you push, every phone moves to the new behaviour by itself.
+
+**⚠️ ONE THING THIS DOES NOT REACH, SAID PLAINLY.** A picture already uploaded sits in the public folder today, and moving a file between folders is not something SQL can do safely. Published ones are fine and stay exactly as they are. **An existing UNPUBLISHED review with a picture is already public and stays public until it is dealt with.** So before running the SQL, count them:
+
+```
+select count(*) from reviews where not published and photo <> '';
+```
+
+**If that says 0, there is nothing to do.** If it says more, tell me the number and I will tidy them into the private folder from your app — there is no way to do it from SQL alone.
+
+**⚠️ AND A SECOND SMALL STEP, TO CONFIRM THE MOVE.** After running the SQL, this should return `true` — proving the public folder no longer accepts an anonymous upload, which is the one line everything else rests on:
+
+```
+select exists (
+  select 1 from pg_policies
+  where schemaname = 'storage' and tablename = 'objects'
+    and policyname = 'customer uploads a review photo'
+    and with_check like '%review-photos-pending%'
+    and with_check not like '%''review-photos''%'
+) as uploads_are_private;
+```
+
+**The suite is 3,102 tests, all green** (13 new). Every new rule was proved by putting the fault back: the upload sent to the public folder again, the upload handing back a public address, a failed move publishing anyway, the picture's address left out of the publish, a take-down leaving the file up, a take-down forgetting the private name, a refused delete swallowed, the delete helper ready to delete anything, the card never asking for a link, the fallback removed, the anonymous upload put back on the public folder, the private folder declared public, `do update` weakened to `do nothing`, the limits dropped, and the public read widened to the private folder. ⚠️ **One of those bites found a weak check of my own**: it matched the __name__ of the limits column, which still appears when the value is empty, so it passed with no limits set at all.
 
 **08 Oct 2026 — engine v383, A PHONE THAT IS BEHIND NOW UPDATES ITSELF BEFORE THE PASSWORD SCREEN (no database step for this part — pushing it is the whole of it).**
 
