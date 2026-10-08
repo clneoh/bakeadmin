@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v367)
+# Jienluv2bake — change history (v54 → v368)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v368, EVERY SCREEN NOW BUILDS ITSELF ON EVERY CHANGE (no database step, nothing
+to upload — pushing this one is the whole of it).**
+
+**Your words:** __"if you can build check list why not check yourself"__ — and you were right to ask.
+
+**★ WHAT I CAN AND CANNOT DO, SAID PLAINLY.** Opening your admin app in a browser has been refused to
+this session, and that refusal is not mine to work around — so **the one thing I cannot do here is LOOK at
+a screen.** But almost everything a checklist would ask a person to do — does it open, does it crash,
+does it draw anything at all — I can do by building the real screen and pressing it. **So I have, for
+every one of them.**
+
+**★ ALL 26 SCREENS, TWICE EACH, ON EVERY CHANGE.** Every screen in the app — Home, Orders, Products,
+Customers, More, and all twenty-one behind it — is now built for real **on a fresh install** and again
+**with real data in it**, and two things are asked of each: that it does not crash, and that it **draws
+something**. A screen that opens blank and a screen that opens empty look identical to you and mean
+opposite things, and now neither can ship unnoticed.
+
+**⚠️ AND THE LIST OF SCREENS IS THE APP'S OWN, NOT MINE.** The test reads `app.js`'s route table and
+fails by name if a screen exists in the app but is not covered — so a screen added later cannot quietly
+miss the pass. A checklist I wrote by hand would have drifted the first time we added a screen.
+
+**⚠️ WHAT THIS DOES NOT PROVE, AND SAYING SO IS PART OF IT: it proves a screen CONSTRUCTS, not that it
+LOOKS right.** Spacing, contrast, whether a button is reachable by a thumb, whether the words are ones
+you would use, whether it is what you MEANT — none of that is visible to a machine. Those still want
+your eyes on a phone, and this release does not pretend otherwise.
+
+**★ AND IT IMMEDIATELY EARNED ITS KEEP — TWICE OVER.** First, the very first run "failed" three screens,
+and **all three failures were the test's own fault, not the app's** (a stand-in that answered "not found"
+for things a real page would have found, and an element with no style object). That is worth knowing: a
+harness that cannot express what a screen does invents faults, which is as useless as one that hides
+them — so the stand-in was made capable, and it now THROWS on a selector it does not understand rather
+than quietly finding nothing. Second, it was then **bitten twice to prove it works**: the exact bug that
+nearly shipped on v367 (a screen that lost one import and would have crashed on your phone) and a screen
+made to draw nothing at all. Both failed by name, both restored byte-identically.
+
+**Measured:** the suite is **2,976 tests, all green** (up fifty-three). **No SQL, no upload.**
 
 **08 Oct 2026 — engine v367, CLEARING OUT THE COUPONS THAT ARE ON NO ORDER (no database step, nothing
 to upload — pushing this one is the whole of it).**
