@@ -30,6 +30,7 @@ import { renderMore } from "./views/more.js";
 import { renderMoney } from "./views/money.js";
 import { renderProfit } from "./views/profit.js";
 import { renderReceiptRegister } from "./views/receipt_register.js";
+import { renderConsolidated } from "./views/consolidated.js";
 import { renderProduction } from "./views/production.js";
 import { renderDeliveryRun } from "./views/delivery_run.js";
 import { renderScenario } from "./views/scenario.js";
@@ -67,6 +68,7 @@ const routes = {
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },
   "/profit":    { title: "Profit",     tab: "more",      render: renderProfit },
   "/receipts":  { title: "Receipt register", tab: "more", render: renderReceiptRegister },
+  "/consolidated": { title: "Consolidated invoice", tab: "more", render: renderConsolidated },
   "/production":{ title: "Production line", tab: "more", render: renderProduction },
   "/scenario":  { title: "Scenario planner", tab: "more", render: renderScenario },
   "/units":     { title: "Units",      tab: "more",      render: renderUnits },

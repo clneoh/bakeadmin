@@ -212,6 +212,21 @@ body { min-height: 100vh; }
   line-height: 1.45;
 }
 
+/* ---------- A section heading inside a journal (v372) ----------
+   `.js-section` has always existed for the PRINTED sheet; the screen only needed it the day a
+   document first carried a heading (the consolidated invoice, whose rows are grouped by customer).
+   ⚠️ The screen and the paper share the class name on purpose: one document must not be two
+   documents depending on whether it is being read or printed. */
+.js-section {
+  margin: 12px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.js-section:first-child { margin-top: 0; }
+
 /* ---------- The refund card (v370) ----------
    Tick what came back, then change the figure if she wants to. Everything is one tap target
    wide, and the amount is drawn as a column so the ticks and the money line up to be read

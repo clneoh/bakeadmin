@@ -1,8 +1,51 @@
-# Jienluv2bake — change history (v54 → v371)
+# Jienluv2bake — change history (v54 → v372)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v372, ONE INVOICE OVER A PERIOD — A DAY, A WEEK, A MONTH, OR ONE CUSTOMER (no
+database step, nothing to upload — pushing this one is the whole of it).**
+
+**Your words:** __"i need a month consolidated invoice printing page, selectable individual, daily,
+monthly"__ — and asked what one document should cover: __"per day, per week, per month, per customer as
+well"__.
+
+**★ WHERE IT IS: More → Money → 📑 Consolidated invoice.** Pick **A day · A week · A month**, step back
+and forward with **‹ ›**, and pick **whose orders** — everybody, or one customer off the list. The
+document lists every order in that scope, grouped under each customer with a subtotal, and ends on one
+Total. **Print** and **Share** are the same two presses every other book in the app wears, so the PDF
+that goes to WhatsApp is the page you were reading.
+
+**★ IT IS AN INVOICE, WHICH IS A DIFFERENT NUMBER FROM YOUR TAKINGS — ON PURPOSE.** Your takings leave
+out the courier charge, because that money is passed to the courier and was never yours. An invoice
+includes it, because the customer was billed it. **So this document uses the invoice's own figure, not
+the takings figure** — otherwise it would disagree with the sum of your own individual invoices by every
+courier charge in the period, which is the one thing a consolidated invoice must not do.
+
+**⚠️ AND IT FOUND A REAL FAULT IN THE SHARED SHEET RENDERER.** Every document the app prints has always
+supported a **heading** and a **subtotal** — the paper, the shared text and the PDF honour them. **The
+screen did not.** So a heading would have shown on your phone as __"AUNTY BEE RM 0.00"__ while printing
+correctly underneath it. It was invisible until a document first had a heading in it, which is this one.
+Fixed, and proven: the same sheet now draws the same rows on the screen, on the paper and in the message.
+
+**⚠️ FOUR THINGS IT SAYS RATHER THAN HIDING:**
+
+- **An order with no bake day** cannot belong to any period. It is **counted and named** at the foot of
+  the document rather than quietly left out.
+- **An order refunded in full** is off the rows and **said** in the same line — a document that is
+  quietly short is worse than one that admits it.
+- **A line nothing can price** is marked **"no price"**, not printed as a confident RM 0.00.
+- **A walk-in with no name and no number** — every one of those used to be its own "customer" on a
+  list. They now share one heading.
+
+**⚠️ AND THE WORD "WEEK" MEANS THE SUNDAY WEEK HERE, COUNTED BY BAKE DAY.** The app has two weeks: the
+Sunday one the Home screen names (__"Week of Sun, 4 Oct"__) and the Monday one the delivery runs use. This
+document uses the Sunday week, counts everything by **the day the order is FOR**, and **says so on the
+paper**. That is also why its figure will not match the week's figure on Home — Home counts orders by the
+day they were **placed**. Both are right; they answer different questions.
+
+**No SQL, no upload.** The suite is **3,012 tests, all green** (up twenty-one).
 
 **08 Oct 2026 — engine v371, THE REFUND CARD NOW SHOWS WHAT WAS CHARGED (no database step, nothing to
 upload — pushing this one is the whole of it).**

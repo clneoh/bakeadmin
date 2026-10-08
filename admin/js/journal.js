@@ -152,11 +152,25 @@ export function buildJournalText(sheet, cur = "RM") {
 // construction instead of by care.
 export function journalBodyEl(sheet, cur = "RM") {
   const s = journalSheet(sheet);
+  // ★★ A HEADING AND A SUBTOTAL LOOK THE SAME HERE AS THEY DO ON PAPER (v372).
+  //
+  // ⚠️⚠️ THIS IS NOT TIDINESS. `journalSheetEl` — the paper — has always honoured `heading` and
+  // `cls`, and so do the shared text and the PDF. This renderer mapped EVERY line to one plain
+  // row, so a section heading came out as **"AUNTY BEE   RM 0.00"** on the screen while printing
+  // correctly underneath it — two renderings of one document telling her different things, which
+  // is the exact fault this file exists to prevent. It only showed up when a document first had
+  // a heading in it (the consolidated invoice, v372); every journal before that was flat.
+  //
+  // ⚠️ The `cls` goes on the row UNCHANGED, because the paper and the PDF decide a subtotal by
+  // MATCHING `cls` for "total" — a subtotal that reached the screen without it would be ruled and
+  // bolded on paper and plain on screen.
   return el("div", {},
     s.lines.length
-      ? el("div", {}, ...s.lines.map((l) => el("div", { class: "info-row journal-line" },
-          el("span", { class: "j-what" }, l.what),
-          el("span", { class: "info-val" }, money(l.amount, l.dir, cur)))))
+      ? el("div", {}, ...s.lines.map((l) => (l.heading
+          ? el("p", { class: "js-section" }, l.what)
+          : el("div", { class: `info-row journal-line${l.cls ? ` ${l.cls}` : ""}` },
+              el("span", { class: "j-what" }, l.what),
+              el("span", { class: "info-val" }, money(l.amount, l.dir, cur))))))
       : el("p", { class: "card-sub" }, s.empty),
     ...s.totals.map((t) => el("div", { class: `info-row ${t.cls}` },
       el("span", {}, t.label),
@@ -271,10 +285,22 @@ function sheetPages(s, cur) {
 
   // One row: its words, wrapped into the column the money leaves free, with the figure on the
   // first line and right-aligned. `ruleAbove` draws the line that separates a subtotal.
-  const row = (what, figure, { font = "F1", size = 10, ruleAbove = 0 } = {}) => {
+  // ⚠️ ONE MEASUREMENT, USED TWICE (v372). The wrapping and the height of a row are worked out
+  // here and nowhere else, because a HEADING has to look ahead and reserve room for the row that
+  // follows it. Measuring that row a second way would be two answers to "how tall is this line",
+  // and the day they drifted the heading would guard a space that is not the space it needed.
+  const rowPlan = (what, figure, { font = "F1", size = 10, ruleAbove = 0 } = {}) => {
     const figureW = figure ? textWidth(figure, { font, size }) : 0;
     const chunks = wrapText(what, Math.max(60, PDF_RIGHT - PDF_MARGIN - figureW - 16), { font, size });
-    need((ruleAbove ? ruleAbove + 7 : 0) + chunks.length * PDF_LEAD);
+    return { chunks, figureW, height: (ruleAbove ? ruleAbove + 7 : 0) + chunks.length * PDF_LEAD };
+  };
+
+  // One row: its words, wrapped into the column the money leaves free, with the figure on the
+  // first line and right-aligned. `ruleAbove` draws the line that separates a subtotal.
+  const row = (what, figure, opts = {}) => {
+    const { font = "F1", size = 10, ruleAbove = 0 } = opts;
+    const { chunks, figureW, height } = rowPlan(what, figure, opts);
+    need(height);
     if (ruleAbove) { y -= ruleAbove; rule(0.6); y -= 7; }
     chunks.forEach((chunk, i) => {
       put(chunk, PDF_MARGIN, { font, size });
@@ -291,7 +317,16 @@ function sheetPages(s, cur) {
   } else {
     s.lines.forEach((l, i) => {
       if (l.heading) {
-        need(26);
+        // ⚠️ IT KEEPS ITS FIRST ROW WITH IT (v372). Reserving only the heading's own height let a
+        // customer's name sit alone at the foot of a page with every one of their orders overleaf
+        // — a heading with nothing under it, which reads as a mistake rather than as a page break.
+        const next = s.lines[i + 1];
+        const follow = next && !next.heading
+          ? rowPlan(next.what, money(next.amount, next.dir, cur), {
+              font: next.cls && /total|net/.test(next.cls) ? "F2" : "F1", ruleAbove: 6,
+            }).height
+          : 0;
+        need(26 + follow);
         y -= 9;
         put(l.what, PDF_MARGIN, { font: "F2", size: 10 });
         y -= 15;

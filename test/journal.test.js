@@ -75,7 +75,7 @@ function domShim() {
 }
 const screen = domShim();
 
-const { journalSheet, buildJournalText, journalSheetEl, shareJournal, printJournal,
+const { journalSheet, buildJournalText, journalSheetEl, journalBodyEl, shareJournal, printJournal,
   journalButtons, bakeryName } = await import("../admin/js/journal.js");
 const { fmtRM } = await import("../admin/js/state.js");
 
@@ -154,6 +154,38 @@ test("a heading is a heading — its own words and no money column", () => {
   const section = walk(journalSheetEl(s)).find((n) => String(n.className).includes("js-section"));
   assert.equal(section.textContent, "Running costs");
   assert.equal(section.children.length, 1, "a heading carries no value node to hold a figure");
+
+  // ★★ AND THE SCREEN TOO (v372). ⚠️⚠️ THIS HALF WENT UNTESTED FOR AS LONG AS HEADINGS HAVE EXISTED.
+  // The paper honoured them; `journalBodyEl` mapped EVERY line to a plain row, so on the phone a
+  // heading read **"Running costs   RM 0.00"** while printing correctly underneath it on paper. One
+  // document, two answers — precisely the disagreement this file exists to make impossible. It only
+  // surfaced when a document first had a heading in it, which was the consolidated invoice.
+  const onScreen = journalBodyEl(s);
+  const shown = walk(onScreen).find((n) => String(n.className).includes("js-section"));
+  assert.ok(shown, "★ the screen drew the heading as a money row instead of a heading");
+  assert.equal(shown.textContent, "Running costs");
+  assert.equal(shown.children.length, 1, "a heading on the screen carries a value node");
+  const rows = moneyRows(onScreen).map(([w]) => w);
+  assert.equal(rows.includes("Running costs"), false,
+    `★ the screen listed a heading as money: ${rows.join(" / ")}`);
+  // And the rows it SHOULD show are still all there.
+  assert.deepEqual(rows, ["Sales", "Packaging", "Total expenses"]);
+});
+
+test("★ a subtotal carries its class to the screen, because paper and PDF rule on that class", () => {
+  // ⚠️ The printed sheet and the hand-written PDF decide a subtotal by MATCHING `cls` for "total".
+  // A subtotal that reached the screen WITHOUT its class would be ruled and bolded on paper and
+  // plain on the phone — the same document reading two ways.
+  const s = sheetOf({ lines: [
+    { what: "Aunty Bee", heading: true },
+    { what: "2 Oct · Focaccia ×2", amount: 16 },
+    { what: "Aunty Bee subtotal", amount: 16, cls: "pl-total" },
+  ] });
+  const sub = walk(journalBodyEl(s)).find((n) => String(n.className).includes("pl-total"));
+  assert.ok(sub, "the screen dropped the subtotal's class");
+  assert.equal(sub.children[1].textContent, fmtRM(16), "the subtotal's figure did not survive the screen");
+  assert.ok(walk(journalSheetEl(s)).some((n) => String(n.className).includes("pl-total")),
+    "the paper and the screen no longer agree that this row is a subtotal");
 });
 
 test("a note of more than one paragraph prints as more than one paragraph", () => {
