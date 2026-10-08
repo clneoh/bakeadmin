@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v385)
+# Jienluv2bake — change history (v54 → v386)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v386, IT IS CALLED THE STOCK CARD NOW, AND IT IS ON EVERY INGREDIENT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i want stock card"__ — after __"cannot find it"__ twice.
+
+**⚠️ AND YOU WERE RIGHT, AND I WAS WRONG.** The thing you were asking for **already existed** — it is what v385 built. It was just **called "Journal"** and **hidden until something had moved**, so on most of your ingredients there was nothing to press at all. **A card you cannot find is a card that does not exist**, and that is what I had given you.
+
+**★ SO IT IS CALLED STOCK CARD, AND IT IS ON EVERY INGREDIENT.** Not just the ones with history — every single one. Open an ingredient and the press is there.
+
+**★ AND STOCK COMES FIRST ON IT.** It used to lead with the price. You asked for a **stock** card, so the shelf is the first thing on it: the amount on hand at the top, then **STOCK** — every movement with the date, what moved and how much, and **what moved it** — and the price history below that.
+
+**⚠️ AND AN EMPTY CARD NOW SAYS WHAT IT IS FOR.** It used to be hidden because an empty page reads as a fault. Instead of hiding it, the card says plainly that it fills up as the ingredient moves — baking takes the recipe off, un-baking puts it back, Bought adds what you bought, a stocktake or Day one sets the real amount. **So an ingredient you have never baked with still tells you what its card is for**, rather than offering nothing.
+
+**⚠️ ONE THING I FIXED AFTER LOOKING AT IT.** On an empty card the explanation appeared **twice** — once in the empty message, once in the note at the foot — which is a wall to wade through. The note is for a card with rows, where it explains the columns. An empty card now explains itself once.
+
+**No database step.** The suite is **3,115 tests, all green**. Every new rule was proved by putting the fault back: the press hidden again until something moved, the press called Journal again, the price section moved back to the top, the empty card turned back into a bare one-liner, the card's own title losing your word for it, and the foot note put back on an empty card.
+
+**⚠️ TWO OF THOSE BITES MISSED THE FIRST TIME, AND THAT FOUND TWO REAL GAPS IN MY TESTS.** The section-order rule had only ever been checked on a card with **one** section — so swapping the two sections changed nothing it could see. **A rule about the order of two things cannot be proved with one of them missing.** And the card's own printed title was not checked at all. Both are now pinned properly.
 
 **08 Oct 2026 — engine v385, THE JOURNAL NOW SAYS WHERE YOUR STOCK WENT (no database step — pushing this one is the whole of it).**
 

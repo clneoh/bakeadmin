@@ -333,20 +333,24 @@ function ingredientCard(state, ing, root) {
         usedBy.length ? el("p", { class: "po-breakdown" }, `Used in: ${usedBy.join(", ")}`) : null),
       el("div", { class: "li-right" },
         button("Edit", () => openEditIngredientPopup(state, ing, root), "ghost small"),
-        // Her ask, 3 Oct 2026: *"ingredient price journaled … So an ingredient need a
-        // journals."* ⚠️ Offered only once there is something in it — a Journal press that opened
-        // an empty page would read as a fault rather than as nothing having happened.
-        // ★ AND SINCE v385 THAT IS **EITHER** LOG. Her words: __"i dont see a journal button, maybe
-        // there is never price movement"__ — the press was hidden for an ingredient that had never
-        // changed price, even if its stock moved several times a week. A journal that carries both
-        // is rarely empty, which is what stops it disappearing.
-        (priceLogOf(ing).length || stockLogOf(ing).length)
-          ? button("Journal", () => openPriceJournal(state, ing), "ghost small")
-          : null,
+        // ★★ IT IS CALLED **STOCK CARD**, AND IT IS ALWAYS THERE (v386). Her words, after a hunt:
+        // __"i want stock card"__ — and she had already said __"cannot find it"__ twice before that.
+        //
+        // ⚠️⚠️ WHAT WAS WRONG WAS THE WORD AND THE HIDING, NOT THE FEATURE. The record she was asking
+        // for was built at v385 and sat behind a press labelled **"Journal"** — a word that does not
+        // appear anywhere in her kitchen — and it was **hidden entirely** until something moved, so
+        // most of her ingredients offered nothing at all to press. **A card she cannot find is a card
+        // that does not exist.**
+        //
+        // ⚠️ So it is on EVERY ingredient now, and it says what will fill it when it is empty. That is
+        // the opposite of the v285 rule it replaces — which hid the press because "an empty page would
+        // read as a fault" — and the difference is that the page is no longer empty of WORDS: it names
+        // the card and says what will appear on it.
+        button("Stock card", () => openStockCard(state, ing), "ghost small"),
         button(usedBy.length ? "Hide" : "Delete", () => deleteIngredient(state, ing, usedBy.length > 0, root), "ghost small"))));
 }
 
-// ── The ingredient's price journal (v285) ────────────────────────────────────
+// ── The ingredient's STOCK CARD (v285 as a price journal, v385 stock added, v386 named) ───
 //
 // Only the MOVEMENTS are listed — her choice: *"only when the price moves, plus today"*.
 // Buying the same thing at the same price again is stock, not news, so it is not here.
@@ -364,7 +368,7 @@ function priceNowText(state, ing) {
     : "no price on file yet";
 }
 
-export function priceSheet(state, ing) {
+export function stockCardSheet(state, ing) {
   const cur = state.settings.currency || "RM";
   // Oldest first, so the page reads as a history rather than a feed. The log itself is newest
   // first, which is right for a record and wrong for a book.
@@ -400,18 +404,29 @@ export function priceSheet(state, ing) {
 
   // ⚠️ A SECTION APPEARS ONLY WHEN IT HAS ROWS. A heading over nothing reads as a fault, and with
   // headings always present the sheet's own "nothing recorded yet" line could never show again.
+  // ★★ AND **STOCK LEADS** (v386). Her words: __"i want stock card"__. This is a stock card first —
+  // the amount on the shelf and where it went — and the price story is the second half of the same
+  // page. Reading the price section first would bury the thing she opened it for.
   const lines = [
-    ...(priceLines.length ? [{ heading: true, what: "Price" }, ...priceLines] : []),
     ...(stockLines.length ? [{ heading: true, what: "Stock" }, ...stockLines] : []),
+    ...(priceLines.length ? [{ heading: true, what: "Price" }, ...priceLines] : []),
   ];
 
   return journalSheet({
-    title: `${ing.name} — journal`,
-    subtitle: `Price now: ${priceNowText(state, ing)} · On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)}`,
+    title: `${ing.name} — stock card`,
+    subtitle: `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`,
     lines,
     totals: [],
-    empty: "Nothing recorded for this ingredient yet — no price change and no stock movement.",
-    note: "Price: every time this ingredient's cost moved — what it moved to, and what it was before. Buying the same thing again at the same price is not a change, so it is not listed. Stock: every time the amount on your shelf moved, and what moved it — baking takes the recipe off, un-baking puts it back, Bought adds what you bought, and a stocktake or Day one sets the real amount. The price your recipes and costs use, and the amount on the shelf, are the two figures at the top.",
+    // ⚠️ A CARD THAT IS EMPTY STILL HAS TO SAY WHAT IT IS FOR — see the note on the press above. This
+    // is the one line that replaces the hiding rule: it names the card and says what will fill it.
+    empty: "Nothing on this card yet. It fills up as this ingredient moves: baking takes the recipe off your shelf, un-baking puts it back, Bought adds what you bought, and a stocktake or Day one sets the real amount. A price change goes on it too. So the first time you bake with this, or buy it, or count it, a line appears here.",
+    // ⚠️ ONE EXPLANATION, NOT TWO. The `empty` line and this note say overlapping things, so on an
+    // empty card both together read as a wall she has to wade through — found by looking at it. The
+    // note is for a card that HAS rows, where it explains the columns; an empty card is explained by
+    // its own sentence.
+    note: lines.length
+      ? "Stock: every time the amount on your shelf moved, and what moved it — baking takes the recipe off, un-baking puts it back, Bought adds what you bought, and a stocktake or Day one sets the real amount. Price: every time this ingredient's cost moved — what it moved to, and what it was before. Buying the same thing again at the same price is not a change, so it is not listed. The amount on the shelf and the price your recipes use are the two figures at the top."
+      : "",
     where: "Ingredients",
     bakery: bakeryName(state),
   });
@@ -424,10 +439,10 @@ function stockDeltaText(state, ing, delta) {
   return `${n < 0 ? "−" : "+"}${fmtStockAmount(state, ing, Math.abs(n))}`;
 }
 
-function openPriceJournal(state, ing) {
+function openStockCard(state, ing) {
   const cur = state.settings.currency || "RM";
-  const sheet = priceSheet(state, ing);
-  showPopup(el("div", { class: "popup-title-row" }, `${ing.name} — journal`),
+  const sheet = stockCardSheet(state, ing);
+  showPopup(el("div", { class: "popup-title-row" }, `${ing.name} — stock card`),
     () => el("div", {},
       // THE TWO FIGURES NOW, ON SCREEN AND NOT ONLY ON PAPER. `journalBodyEl` deliberately does not
       // draw a sheet's subtitle — every other journal leans on the section wording above its
@@ -435,7 +450,7 @@ function openPriceJournal(state, ing) {
       // half a movement list cannot carry by itself. ⚠️ Both figures, because a stock section
       // without the amount on the shelf would leave the reader doing the sum.
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `Price now: ${priceNowText(state, ing)} · On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)}`),
+        `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`),
       journalBodyEl(sheet, cur),
       el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }

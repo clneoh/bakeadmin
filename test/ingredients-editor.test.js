@@ -64,7 +64,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-import { renderIngredients, priceSheet } from "../admin/js/views/ingredients.js";
+import { renderIngredients, stockCardSheet } from "../admin/js/views/ingredients.js";
 import { stockLogOf } from "../admin/js/stock.js";
 
 // A state with just enough to render the Ingredients master: a weight unit to
@@ -290,19 +290,30 @@ function journalledIng(over = {}) {
   };
 }
 
-test("the Journal press is offered only once a price has actually moved", () => {
+test("★★ it is called STOCK CARD and it is on EVERY ingredient", () => {
+  // ⚠️⚠️ THIS TEST SAID THE OPPOSITE UNTIL v386, AND IT WAS RIGHT AT THE TIME: the press was hidden
+  // until something had moved, because an empty page would read as a fault. **Her words ended that —
+  // __"i want stock card"__, after two rounds of __"cannot find it"__.** The record she wanted existed;
+  // it was called "Journal" and hidden behind a condition. **A card she cannot find is a card that does
+  // not exist.** ⚠️ The behaviour changed on purpose, so the assertion changed with it rather than
+  // being deleted — and it now pins the opposite, which is the whole point of v386.
   const state = freshState();
   state.ingredients.push({ id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", costPerUnit: 0.001 });
   const cardOf = (root) => walk(root).find((n) =>
     String(n.className).includes("card") && textOf(n).includes("Strong flour"));
-  const journalBtn = (root) => walk(cardOf(root))
-    .find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Journal");
+  const cardPress = (root) => walk(cardOf(root))
+    .find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Stock card");
 
-  assert.ok(!journalBtn(render(state)),
-    "an ingredient whose price has never moved has no journal, so it offers none");
+  assert.ok(cardPress(render(state)),
+    "⚠️ an ingredient with no history of any kind still offers no Stock card — the hunt she was sent on");
 
   state.ingredients[0].priceLog = journalledIng().priceLog;
-  assert.ok(journalBtn(render(state)), "and once it has moved, the journal is there");
+  assert.ok(cardPress(render(state)), "and it is still there once something has happened");
+
+  // ⚠️ AND THE OLD WORD IS GONE. "Journal" is not a word in her kitchen, and leaving both would be two
+  // names for one card.
+  assert.equal(walk(cardOf(render(state))).some((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Journal"),
+    false, "⚠️ an old Journal press was left beside the Stock card");
 });
 
 test("the PRICE section lists the moves oldest first, with the price now at the top", () => {
@@ -313,7 +324,7 @@ test("the PRICE section lists the moves oldest first, with the price now at the 
   // before — is unchanged.
   const state = freshState();
   state.suppliers = [{ id: "s_mydin", name: "Mydin", active: true }];
-  const sheet = priceSheet(state, journalledIng());
+  const sheet = stockCardSheet(state, journalledIng());
 
   assert.equal(sheet.lines[0].heading, true, "the price rows need a heading now that a second section exists");
   assert.equal(sheet.lines[0].what, "Price");
@@ -334,10 +345,19 @@ test("an ingredient that has never moved and never stocked draws the empty line,
   // ⚠️ The empty line now covers BOTH logs, so an ingredient with neither is still told plainly what
   // is missing rather than shown a page with nothing on it.
   const state = freshState();
-  const sheet = priceSheet(state, journalledIng({ priceLog: [], stockLog: [] }));
+  const sheet = stockCardSheet(state, journalledIng({ priceLog: [], stockLog: [] }));
   assert.equal(sheet.lines.length, 0, "no rows AND no headings — a heading over nothing is a fault");
-  assert.match(sheet.empty, /Nothing recorded for this ingredient yet/);
-  assert.match(sheet.subtitle, /Price now:/);
+  // ⚠️ IT NAMES THE CARD AND SAYS WHAT WILL FILL IT — that line is what replaces the hiding rule
+  // (v386). An empty card that says nothing reads as a fault; one that says what it is for reads as a
+  // card waiting, which is what it is.
+  assert.match(sheet.empty, /Nothing on this card yet/);
+  assert.match(sheet.empty, /the first time you bake with this/i,
+    "the empty card does not tell her what will fill it");
+  assert.match(sheet.subtitle, /On hand:/, "⚠️ a stock card must lead with the amount on the shelf");
+  // ⚠️ AND AN EMPTY CARD EXPLAINS ITSELF ONCE, NOT TWICE — found by LOOKING at it. The empty sentence
+  // and the footer note say overlapping things, so both together are a wall she has to wade through.
+  // A card with rows keeps the note, where it explains the columns.
+  assert.equal(sheet.note, "", "an empty card still carries the footer note, so it says the same thing twice");
 });
 
 test("★★⚠️ the STOCK section carries its quantity as a QUANTITY, never dressed as money", () => {
@@ -346,7 +366,7 @@ test("★★⚠️ the STOCK section carries its quantity as a QUANTITY, never d
   // quantity goes in `cols` (a real aligned column on screen) and into `what` (the sentence the paper
   // reads), and the money cell is left EMPTY, which draws as an em dash.
   const state = freshState();
-  const sheet = priceSheet(state, journalledIng({ stockLog: [
+  const sheet = stockCardSheet(state, journalledIng({ stockLog: [
     { at: "2026-10-05", delta: -500, why: "baked", what: "Baked — Rosemary Focaccia ×2", ref: "o1" },
     { at: "2026-10-01", delta: 5000, why: "bought", what: "Bought — 1 Oct 2026 list", ref: "po_2" },
   ] }));
@@ -376,19 +396,30 @@ test("★★⚠️ the STOCK section carries its quantity as a QUANTITY, never d
   assert.equal(sheet.lines[0].heading, true, "the price section still leads the page");
 });
 
-test("★ the press is offered when EITHER journal has something in it", () => {
-  // ⚠️ Her complaint in so many words: __"i dont see a journal button, maybe there is never price
-  // movement"__. The press used to need a PRICE move, so an ingredient whose stock moved every week
-  // and whose price had never changed offered nothing at all.
+test("★★ an ingredient whose PRICE never moved still gets a real card — and STOCK leads it", () => {
+  // ⚠️ The press itself is now on everything (the test above), so what this pins is the CONTENTS: an
+  // ingredient whose price has never changed still has a card worth opening, because its stock moved.
+  // ★★ AND **STOCK LEADS** (v386) — she asked for a stock CARD, so the shelf is the first thing on it.
   const state = freshState();
   state.ingredients.push({ id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", costPerUnit: 0.001,
     stockLog: [{ at: "2026-10-05", delta: -500, why: "baked", what: "Baked — Focaccia ×2", ref: "o1" }] });
-  const cardOf = (root) => walk(root).find((n) =>
-    String(n.className).includes("card") && textOf(n).includes("Strong flour"));
-  const journalBtn = (root) => walk(cardOf(root))
-    .find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Journal");
-  assert.ok(journalBtn(render(state)),
-    "⚠️ no Journal press for an ingredient that has moved stock but never moved price");
+  const sheet = stockCardSheet(state, state.ingredients[0]);
+  assert.equal(sheet.lines[0].heading, true);
+  assert.equal(sheet.lines[0].what, "Stock",
+    "⚠️ the price section is leading a card she opened for stock");
+  assert.equal(sheet.lines.filter((l) => l.heading).length, 1,
+    "a Price heading over no price rows reads as a fault");
+  assert.match(sheet.subtitle, /On hand: 0 g/, "the card does not say what is on the shelf");
+
+  // ★★ AND WITH **BOTH** SECTIONS PRESENT, STOCK STILL LEADS. ⚠️ A bite found this gap: the test above
+  // has only a stock log, so swapping the two sections changed nothing it could see. **A rule about the
+  // ORDER of two things cannot be proved with one of them missing.**
+  const both = stockCardSheet(state, { ...state.ingredients[0],
+    priceLog: [{ at: "2026-09-12", supplierName: "Mydin", qty: 3000, uomName: "g", price: 25.5, was: 24, source: "po" }] });
+  const headings = both.lines.filter((l) => l.heading).map((l) => l.what);
+  assert.deepEqual(headings, ["Stock", "Price"],
+    "⚠️ a stock card must lead with Stock even when it carries a price history too");
+  assert.match(both.title, /stock card/, "the card does not carry her own name for it");
 });
 
 test("opening the journal shows the price now on the SCREEN, not only on the page", () => {
@@ -402,9 +433,12 @@ test("opening the journal shows the price now on the SCREEN, not only on the pag
 
   const root = render(state);
   const card = walk(root).find((n) => String(n.className).includes("card") && textOf(n).includes("Strong flour"));
-  fire(walk(card).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Journal"));
+  fire(walk(card).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Stock card"));
 
   const layer = registry["popup-layer"];
+  assert.match(textOf(layer), /stock card/, "the card does not carry her own name for it");
+  assert.match(textOf(layer), /On hand: [^·]+· Price now:/,
+    "⚠️ the card leads with the PRICE on a card she opened for STOCK");
   assert.match(textOf(layer), /Price now: RM 27\.50 per 3000g pack · Mydin/,
     "the price she is on is on the card");
   assert.ok(textOf(layer).includes("was RM 25.50"), "and so is what it moved from");
