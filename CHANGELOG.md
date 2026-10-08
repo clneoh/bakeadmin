@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v386)
+# Jienluv2bake — change history (v54 → v387)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**08 Oct 2026 — engine v387, TAKE ONE SHOP'S LIST TO THAT SHOP (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"now the PO, lump together all supplier in one po is not practical"__ — and, asked which problem you meant, __"i want a separate list per shop"__.
+
+**⚠️ AND WHAT I FOUND FIRST, BEFORE CHANGING ANYTHING: THE PO ALREADY SPLIT BY SHOP.** Each shop had its own section, its own heading, its own subtotal, and its own **Copy order** and **Message supplier** buttons. I rendered a three-shop run and looked at it rather than assuming. **So the one exit still shared was the printer** — Print gave you every shop on one sheet — **and that was the whole of your complaint.**
+
+**★ SO EACH SHOP'S LIST NOW PRINTS ON ITS OWN.** Every shop's heading carries a third button, **Print this shop**. Press it and **that shop's list — and nothing else — goes to the printer**: the other shops' sections are left off the sheet, and **so is the run's total**, because the whole run's figure is not Mydin's figure and each shop's own subtotal is already on its heading. Take Mydin's page to Mydin, print Yen Grocer's on Friday, and hand each shop its own list.
+
+**⚠️ AND THE DAY'S ORDINARY PRINT IS UNTOUCHED.** The Print button at the foot still prints every shop together, for the run you do in one go. ⚠️ That one matters more than it sounds: the printing code leaves a marker on the page for the instant it is printing, and **a marker left behind would have blanked your ordinary PO print** — later, somewhere else, with nothing on screen to say why. It comes off two ways, on the print finishing and on a timer, and a test now drives the press and checks it is gone. Nothing in this app tested that before.
+
+**No database step.** The suite is **3,119 tests, all green** (4 new). Every new rule was proved by putting the fault back: the per-shop press removed, the marker never cleaned up, the browser never asked to print, the other shops not hidden, the run's total printed on a one-shop sheet, the hiding rule left unscoped, and the shops merged back into one section.
+
+**⚠️ AND ONE OF THOSE FOUND A HOLE OF MINE.** Merging the shops back into a single section broke no test at all — the buttons were still there and the hiding rule still matched nothing, so everything looked fine. **The one-section-per-shop structure IS the feature**, and nothing was checking it. It is pinned now.
+
+**⚠️ ONE THING I DELIBERATELY DID NOT DO.** A saved list is still **one** record, not three. Its lines already remember which shop each came from, and History already shows them grouped. Splitting the SAVE would change your PO history, the day's \"saved\" memory and the Bought press that adds stock — and you chose the __document__ problem. **If you want to tick off one shop as bought and leave the others for the next trip, that is a different job and I will ask you before touching it.**
 
 **08 Oct 2026 — engine v386, IT IS CALLED THE STOCK CARD NOW, AND IT IS ON EVERY INGREDIENT (no database step — pushing this one is the whole of it).**
 
