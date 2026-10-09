@@ -18,7 +18,7 @@ export function totalOf(items) {
 // items = bom items already enriched by priceItems() (or a saved snapshot which
 // carries the same fields). Older saved snapshots lack pack fields — when every
 // line is loose the table renders exactly as before, no supplier headers.
-export function poTableEl(state, items, { interactive = false, dateTitle = "" } = {}) {
+export function poTableEl(state, items, { interactive = false, dateTitle = "", shopActions = null } = {}) {
   const list = items || [];
   const groups = groupItemsBySupplier(list);
   const plain = groups.length === 1 && !groups[0].supplier;
@@ -35,16 +35,21 @@ export function poTableEl(state, items, { interactive = false, dateTitle = "" } 
   // what turns "print just this shop" into a single CSS rule instead of a SECOND rendering of the
   // table, which is the thing that would drift from the screen.
   const bodies = [];
-  if (plain) {
+  if (plain && !shopActions) {
     // ⚠️ ONE GROUP WITH NO SUPPLIER — a list of loose estimates. There is no shop to separate, so it
     // stays a single section and offers no per-shop press (see `groupHeaderRow`).
+    //
+    // ⚠️ BUT ONLY WHEN THERE IS NOTHING TO PUT ON IT (v389). With no header row there is NOWHERE to
+    // put a per-shop control, and this is the one case where the whole list IS one shop — so when the
+    // caller supplies `shopActions` the header comes back and it falls through to the loop below.
+    // **One shape, no special case: every list has at least one shop section carrying its controls.**
     const only = el("tbody");
     for (const it of list) only.appendChild(rowFor(state, it, currency));
     bodies.push(only);
   } else {
     for (const g of groups) {
       const body = el("tbody");
-      body.appendChild(groupHeaderRow(g, { interactive, dateTitle, currency }));
+      body.appendChild(groupHeaderRow(g, { interactive, dateTitle, currency, shopActions }));
       for (const it of g.items) body.appendChild(rowFor(state, it, currency));
       bodies.push(body);
     }
@@ -92,7 +97,7 @@ function printOneShop(row) {
   if (typeof window !== "undefined" && typeof window.print === "function") window.print();
 }
 
-function groupHeaderRow(g, { interactive, dateTitle, currency }) {
+function groupHeaderRow(g, { interactive, dateTitle, currency, shopActions = null }) {
   const name = el("span", { class: `po-sup-name${g.supplier ? "" : " muted"}` },
     g.supplier || "No supplier price (estimate)");
   const side = el("span", { class: "po-sup-side" });
@@ -122,6 +127,18 @@ function groupHeaderRow(g, { interactive, dateTitle, currency }) {
     // heading, beside that shop's Copy and Message, because it is the third way this shop's list
     // leaves — the app already had two of the three.
     side.appendChild(button("🖨 Print this shop", () => printOneShop(row), "ghost small"));
+  }
+  // ★★ THE PER-SHOP CONTROLS ON A SAVED LIST (v389). Her words: __"it should allow individual supplier
+  // bought and after pay only push into stock"__.
+  //
+  // ⚠️⚠️ NOT GATED ON `interactive`, and that is the whole point of a separate option rather than a
+  // fourth press in the block above. **PO History renders this table with `interactive:false`** — it is
+  // a record, not a working list, and a test pins that it offers no per-shop Print — yet History is
+  // exactly the screen where a saved list gets bought. So the caller supplies its own controls, and
+  // they are called for the loose "no supplier price" group (`g.supplier` empty) as well: that group is
+  // a real shopping need and it carries `addBase` like any other.
+  if (typeof shopActions === "function") {
+    for (const node of shopActions(g) || []) if (node) side.appendChild(node);
   }
   return row;
 }

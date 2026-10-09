@@ -82,15 +82,53 @@ function orderLabel(state, order) {
   return `${p ? p.name : "a product that is gone"} ×${Number(order && order.qty) || 1}`;
 }
 
-// What a shopping list is called in a stock row: its own day, the way the PO history names it.
-function listLabel(po) {
+// The day a shopping list is for, as a person reads it. ⚠️ Split out of `listLabel` so a row can
+// name a SHOP and still say which day's list it came off (v389) without the word "list" in the
+// middle of the sentence.
+function listDay(po) {
   const day = (Array.isArray(po && po.dates) && po.dates.length && po.dates[0] && po.dates[0].date)
     || (po && po.deliveryDate) || "";
-  return day ? `${longDate(day)} list` : "shopping list";
+  return day ? longDate(day) : "";
+}
+
+// What a shopping list is called in a stock row: its own day, the way the PO history names it.
+function listLabel(po) {
+  const day = listDay(po);
+  return day ? `${day} list` : "shopping list";
 }
 
 export function stockOf(state, ingredient) {
   return Math.max(0, Number(ingredient && ingredient.onHand) || 0);
+}
+
+// ★★ WHAT A ROW WOULD DO IF IT WERE REMOVED, WITHOUT DOING IT (v390).
+//
+// Her words: __"certain listed i might want to delete after testing"__. A stock card line IS a
+// movement, so **removing the line and reversing the movement are the same act** — delete a test Bought
+// and the packs it added come back off the shelf. The two must not be allowed to drift apart, because a
+// card whose rows no longer explain the figure is the thing v385 built this record to prevent.
+//
+// ⚠️ IT IS SPLIT OUT FROM `undoStockRow` SO THE CONFIRM CAN SAY THE NUMBER IN ADVANCE. A one-way change
+// to her shelf, described for ever afterwards as "it was 7.5 kg", is not something a phone tap should
+// discover.
+export function stockRowUndo(ingredient, entry) {
+  if (!ingredient || !entry) return null;
+  const log = stockLogOf(ingredient);
+  if (log.indexOf(entry) < 0) return null;
+  const was = Number(ingredient.onHand) || 0;
+  // ⚠️ STOCK NEVER GOES BELOW ZERO, so a reversal that would is CLAMPED — and the caller must show the
+  // clamped figure, because that is the number her shelf will really hold.
+  const now = round2(Math.max(0, was - (Number(entry.delta) || 0)));
+  return { was, now, moved: round2(now - was) };
+}
+
+// Take that line off the card and put its movement back, in one step.
+export function undoStockRow(ingredient, entry) {
+  const plan = stockRowUndo(ingredient, entry);
+  if (!plan) return null;
+  ingredient.onHand = plan.now;
+  stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
+  return plan;
 }
 
 // The base multiplier for a recipe line whose unit name may or may not exist in
@@ -184,22 +222,41 @@ export function adjustForStatus(state, orders, nextStatus, statusOrder = []) {
 
 // "Bought" on a saved PO adds its actually-bought amounts to stock. Returns the
 // [[ingredient, base], …] that moved, for the success toast.
-export function applyBought(state, po) {
+//
+// ★★ A SHOP AT A TIME (v389). Her words: __"it push all ingredient into stock immediately, before i
+// enter how much to pay and by what method … it should allow individual supplier bought and after pay
+// only push into stock"__.
+//
+// ⚠️⚠️ `items` IS THE SHOP'S OWN LINES, NOT THE WHOLE LIST. The caller (`views/history.js`) passes one
+// supplier group, so a press can no longer claim she bought from every shop on the run. ⚠️ AND IT
+// MOVED BEHIND THE PAY BOX: this is now called from the pop-up's Save (and its Skip), never from the
+// press that opened it — so closing that box without choosing leaves the shelf exactly as it was.
+// **That ordering is the whole fix.**
+//
+// ⚠️ `shopLabel` NAMES THE SHOP ON THE ROW, and is OPTIONAL ON PURPOSE. When it is absent the row
+// reads exactly as it did before (`Bought — 12 Oct 2026 list`), which is what the pre-v389 callers and
+// their tests still expect; the loose "no supplier price" group passes "" and gets that older wording
+// back, because there is no shop to name.
+export function applyBought(state, po, items = null, shopLabel = "") {
+  const list = items || (po && po.items) || [];
   const perIngredient = new Map();
-  for (const it of (po && po.items) || []) {
+  for (const it of list) {
     const addBase = Number(it && it.addBase) || 0;
     if (!(addBase > 0)) continue;
     perIngredient.set(it.ingredientId, (perIngredient.get(it.ingredientId) || 0) + addBase);
   }
   const added = [];
-  const label = listLabel(po);
+  const day = listDay(po);
+  const label = shopLabel
+    ? (day ? `Bought — ${shopLabel} (${day})` : `Bought — ${shopLabel}`)
+    : `Bought — ${listLabel(po)}`;
   for (const [ingredientId, base] of perIngredient) {
     const ing = byId(state.ingredients || [], ingredientId);
     if (!ing) continue;
     ing.onHand = round2((Number(ing.onHand) || 0) + base);
     // ⚠️ `base` IS `addBase` — WHAT SHE ACTUALLY BOUGHT, which the Bought flow lets her change from
     // what the list asked for. So the row says what came into the kitchen, not what was planned.
-    logStock(ing, { delta: base, why: "bought", what: `Bought — ${label}`, ref: (po && po.id) || "" });
+    logStock(ing, { delta: base, why: "bought", what: label, ref: (po && po.id) || "" });
     added.push([ing, base]);
   }
   return added;

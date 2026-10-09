@@ -8,8 +8,8 @@ import { el, button, select, emptyState, confirmDialog, showPopup, toast } from 
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { fmtStockAmount, priceEntryLabels, belowReserve, chosenSupplier, trimNum } from "../purchasing.js";
 import { logPriceMoves, priceLogOf } from "../prices.js";
-import { setStock, stockLogOf } from "../stock.js";
-import { longDate } from "../dates.js";
+import { setStock, stockLogOf, stockRowUndo, undoStockRow } from "../stock.js";
+import { dayMonth, longDate } from "../dates.js";
 import { bakeryName, journalBodyEl, journalButtons, journalSheet } from "../journal.js";
 
 export function renderIngredients(root, state) {
@@ -368,7 +368,7 @@ function priceNowText(state, ing) {
     : "no price on file yet";
 }
 
-export function stockCardSheet(state, ing) {
+export function stockCardSheet(state, ing, refresh = null) {
   const cur = state.settings.currency || "RM";
   // Oldest first, so the page reads as a history rather than a feed. The log itself is newest
   // first, which is right for a record and wrong for a book.
@@ -398,9 +398,33 @@ export function stockCardSheet(state, ing) {
   // on a phone, and it is exactly what the paper and the PDF will print, because they read `what`.
   // The amount goes LAST so the shape matches the price rows above it: date · what happened · figure.
   const stockLines = stockLogOf(ing).slice().reverse().map((e) => ({
+    // ★★ COLUMNS, AND A FIGURE THAT IS NOT MONEY (v390). Her words: __"a stock card should be as clear
+    // as a table with row and column"__. The three cells are When / What happened / Change, and the
+    // change goes in its own cell through `val` — ⚠️ NOT through `amount`, which `money()` would print
+    // as ringgit, so 500 grams would read "RM 500.00". **Dashes are honest; grams dressed as ringgit
+    // are not** (v385), and a separate cell is how the number leaves the sentence without becoming a
+    // price.
+    cols: [dayMonth(e.at), e.what],
+    val: stockDeltaText(state, ing, e.delta),
+    // ⚠️ `what` IS STILL BUILT. The paper, the shared text and the PDF read it, and the columns are an
+    // ARRANGEMENT of the same facts rather than a different set of them — the rule `journalSheet` sets
+    // for `cols`, kept here.
     what: `${longDate(e.at)} · ${e.what} · ${stockDeltaText(state, ing, e.delta)}`,
     amount: null,
+    // ★ AND THE LINE CAN BE TAKEN OFF THE CARD (v390). ⚠️⚠️ THIS RETURNS A BUTTON; IT DOES NOT DO THE
+    // DELETING. The renderer calls `action()` once per row while DRAWING the card, so a function that
+    // performed the removal would open a confirm for every line the moment the card was opened —
+    // found by looking at the rendered screen, where the button was missing and nothing had asked.
+    // ⚠️ `refresh` rebuilds the whole card, because the amount at the top moves with the row.
+    action: typeof refresh === "function"
+      ? () => button("✕", () => stockRowDelete(state, ing, e, refresh), "ghost small")
+      : null,
   }));
+
+  // ⚠️ A TABLE NEEDS ITS HEADINGS, or the columns are three unexplained stacks of text. ⚠️ AND THE
+  // HEADER ROW CARRIES NO FIGURE OF ITS OWN BEYOND NAMING THE LAST COLUMN, so `val` is a NAME here.
+  const STOCK_HEAD = { head: true, cols: ["When", "What happened"], val: "Change",
+    what: "When · What happened · Change" };
 
   // ⚠️ A SECTION APPEARS ONLY WHEN IT HAS ROWS. A heading over nothing reads as a fault, and with
   // headings always present the sheet's own "nothing recorded yet" line could never show again.
@@ -408,7 +432,7 @@ export function stockCardSheet(state, ing) {
   // the amount on the shelf and where it went — and the price story is the second half of the same
   // page. Reading the price section first would bury the thing she opened it for.
   const lines = [
-    ...(stockLines.length ? [{ heading: true, what: "Stock" }, ...stockLines] : []),
+    ...(stockLines.length ? [{ heading: true, what: "Stock" }, STOCK_HEAD, ...stockLines] : []),
     ...(priceLines.length ? [{ heading: true, what: "Price" }, ...priceLines] : []),
   ];
 
@@ -439,20 +463,58 @@ function stockDeltaText(state, ing, delta) {
   return `${n < 0 ? "−" : "+"}${fmtStockAmount(state, ing, Math.abs(n))}`;
 }
 
+// ★★ TAKE ONE LINE OFF THE CARD (v390). Her words: __"certain listed i might want to delete after
+// testing"__.
+//
+// ⚠️⚠️ A LINE ON THIS CARD IS A MOVEMENT, SO THE TWO GO TOGETHER — the row leaves the card AND its
+// amount comes back off the shelf. Reversing only the list would leave her shelf holding packs she had
+// just deleted the record of, and reversing only the shelf would leave a card whose rows no longer
+// explain the figure it sits under. **They are one act, and this is the one place that does it.**
+//
+// ⚠️ AND THE CONFIRM SAYS THE NUMBER FIRST. `stockRowUndo` works out what the shelf would hold
+// WITHOUT doing it, so she is told the figure before she commits — a one-way change to her stock is
+// not something a phone tap should discover afterwards. ⚠️ Stock never goes below zero, so a reversal
+// that would is clamped, and this is exactly why the clamp is named in advance rather than met later.
+function stockRowDelete(state, ing, entry, refresh) {
+  const plan = stockRowUndo(ing, entry);
+  if (!plan) return;
+  confirmDialog(
+    `Remove this line from the card? Your ${ing.name} is ${fmtStockAmount(state, ing, plan.was)} now, and taking this movement back leaves ${fmtStockAmount(state, ing, plan.now)}. This cannot be undone.`,
+    () => {
+      undoStockRow(ing, entry);
+      save(state);
+      toast(`${ing.name} is now ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)}`);
+      refresh();
+    },
+    { danger: true, yesLabel: "Remove" });
+}
+
 function openStockCard(state, ing) {
   const cur = state.settings.currency || "RM";
-  const sheet = stockCardSheet(state, ing);
+  // ⚠️ THE SHEET IS BUILT INSIDE `makeBody`, NOT BEFORE IT. Removing a line moves the amount at the
+  // top of the card as well as the list under it, so a sheet built once and merely re-shown would draw
+  // the old figure — and `refresh` is what re-runs this.
   showPopup(el("div", { class: "popup-title-row" }, `${ing.name} — stock card`),
-    () => el("div", {},
-      // THE TWO FIGURES NOW, ON SCREEN AND NOT ONLY ON PAPER. `journalBodyEl` deliberately does not
-      // draw a sheet's subtitle — every other journal leans on the section wording above its
-      // card — but her answer was "only when the price moves, PLUS TODAY", and "today" is the
-      // half a movement list cannot carry by itself. ⚠️ Both figures, because a stock section
-      // without the amount on the shelf would leave the reader doing the sum.
-      el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`),
-      journalBodyEl(sheet, cur),
-      el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
+    (refresh) => {
+      const sheet = stockCardSheet(state, ing, refresh);
+      // ⚠️ `stock-journal` IS THE COLUMN SHAPE'S OWN SCOPE, and it is on the CALLER's wrapper rather
+      // than baked into the renderer: the journal's column widths are measured for the filing page's
+      // five columns, and this card's three need different ones. A scope named here moves this card
+      // and nothing else.
+      return el("div", { class: "stock-journal" },
+        // THE TWO FIGURES NOW, ON SCREEN AND NOT ONLY ON PAPER. `journalBodyEl` deliberately does not
+        // draw a sheet's subtitle — every other journal leans on the section wording above its
+        // card — but her answer was "only when the price moves, PLUS TODAY", and "today" is the
+        // half a movement list cannot carry by itself. ⚠️ Both figures, because a stock section
+        // without the amount on the shelf would leave the reader doing the sum.
+        el("p", { class: "card-sub", style: "margin:0 0 10px" },
+          `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`),
+        journalBodyEl(sheet, cur),
+        el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur)));
+    },
+    // Her words: __"can optimise for desktop as well"__ — a table is the one thing that gets better
+    // with width, so this card asks for a wider column on a big screen. See app.css.
+    { className: "stock-card" });
 }
 
 // Set how much of an ingredient is on the shelf ("On hand"), or the level she

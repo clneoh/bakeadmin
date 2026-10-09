@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   stockOf, consumeOrder, addBackOrder, adjustForStatus, applyBought,
   stockLogOf, logStock, setStock, STOCK_LOG_CAP,
+  stockRowUndo, undoStockRow,
 } from "../admin/js/stock.js";
 
 const JOURNEY = ["new", "confirmed", "paid", "baking", "ready", "delivered"];
@@ -189,6 +190,30 @@ test("★ buying writes a row naming the list, for what she ACTUALLY bought", ()
   assert.equal(log[0].ref, "po_9");
 });
 
+// ★★ AND WHEN THE BUYING WAS ONE SHOP, THE ROW NAMES THE SHOP (v389).
+//
+// ⚠️⚠️ THIS IS THE ROW SHE WILL ACTUALLY READ when she asks where a pack came from. A run is several
+// shops on one day, so three rows all reading "Bought — 12 Oct 2026 list" would answer nothing at all.
+// The day is kept in brackets so the row still says which LIST it came off.
+test("★★ buying one shop writes a row naming that shop, and still says which day's list", () => {
+  const ing = flour(0);
+  const st = baseState([ing], [bread()]);
+  const items = [{ ingredientId: "ing_f", addBase: 5000 }];
+  applyBought(st, { id: "po_9", deliveryDate: "2026-10-12", items }, items, "Mydin");
+  assert.match(stockLogOf(ing)[0].what, /Bought — Mydin \(12 Oct 2026\)/,
+    "the row does not name the SHOP — a run's shops would read identically on the stock card");
+});
+
+// ⚠️ AND A NAMELESS SHOP KEEPS THE OLDER WORDING rather than leaving a gap in the sentence. The loose
+// "no supplier price" group goes through exactly this path, and it must not read "Bought —  (12 Oct)".
+test("⚠️ a nameless shop keeps the older wording rather than a gap in the sentence", () => {
+  const ing = flour(0);
+  const st = baseState([ing], [bread()]);
+  const items = [{ ingredientId: "ing_f", addBase: 5000 }];
+  applyBought(st, { id: "po_9", deliveryDate: "2026-10-12", items }, items, "");
+  assert.match(stockLogOf(ing)[0].what, /Bought — 12 Oct 2026 list/);
+});
+
 test("⚠️ a movement of NOTHING is not written — a row saying zero moved is noise", () => {
   const ing = flour(0);
   assert.equal(logStock(ing, { delta: 0, why: "baked", what: "Baked — nothing" }), null);
@@ -198,6 +223,46 @@ test("⚠️ a movement of NOTHING is not written — a row saying zero moved is
   const st = baseState([ing], [bread()]);
   consumeOrder(st, order(1));
   assert.equal(stockLogOf(ing).length, 0, "the journal recorded a movement that did not happen");
+});
+
+// ── ★★ taking a mistaken line back off the card (v390) ───────────────────────
+// Her words: __"certain listed i might want to delete after testing"__.
+
+test("★★⚠️ removing a card line puts its movement back — the row and the shelf move together", () => {
+  // ⚠️⚠️ A LINE ON THIS CARD IS A MOVEMENT, so removing the line and reversing the movement are ONE
+  // act. Reversing only the list would leave her shelf holding packs she had just deleted the record
+  // of; reversing only the shelf would leave a card whose rows no longer explain the figure above them.
+  const ing = flour(7500);
+  logStock(ing, { at: "2026-10-08", delta: 8000, why: "bought", what: "Bought — Mydin" });
+  logStock(ing, { at: "2026-10-09", delta: -500, why: "baked", what: "Baked — Sourdough ×2" });
+  const bake = stockLogOf(ing)[0]; // newest first, so this is the bake
+
+  const plan = stockRowUndo(ing, bake);
+  assert.equal(plan.was, 7500, "the plan does not say where the shelf was");
+  assert.equal(plan.now, 8000, "undoing a bake that took 500 g must put the 500 g back");
+
+  undoStockRow(ing, bake);
+  assert.equal(ing.onHand, 8000, "the shelf did not move with the row");
+  assert.equal(stockLogOf(ing).length, 1, "the row was not taken off the card");
+  assert.equal(stockLogOf(ing)[0].why, "bought", "the wrong row came off");
+});
+
+test("⚠️ a removal that would take stock below zero is CLAMPED, and the plan says so in advance", () => {
+  // ⚠️ Stock never goes below zero, so taking back a +8 kg buy against a 7.5 kg shelf cannot leave
+  // −0.5 kg. ⚠️⚠️ THE PLAN MUST REPORT THE CLAMPED FIGURE, because the confirm shows it to her BEFORE
+  // she commits — a one-way change to her stock is not something a tap should discover afterwards.
+  const ing = flour(7500);
+  logStock(ing, { at: "2026-10-08", delta: 8000, why: "bought", what: "Bought — Mydin" });
+  const plan = stockRowUndo(ing, stockLogOf(ing)[0]);
+  assert.equal(plan.now, 0, "the plan offered a figure her shelf can never hold");
+});
+
+test("⚠️ a row that is not on the card cannot be removed through it", () => {
+  const ing = flour(1000);
+  assert.equal(stockRowUndo(ing, { at: "2026-01-01", delta: 5, why: "bought", what: "x" }), null,
+    "a stale row object was allowed to move her stock");
+  assert.equal(undoStockRow(ing, null), null);
+  assert.equal(ing.onHand, 1000, "and her shelf is untouched");
 });
 
 test("★ the log is capped, newest first, and the OLDEST rows fall off", () => {

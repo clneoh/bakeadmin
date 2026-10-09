@@ -17,7 +17,10 @@ import { setStock } from "../stock.js";
 import { fmtStockAmount } from "../purchasing.js";
 import { dateField } from "../datepicker.js";
 import { journalSheet, journalBodyEl, journalButtons, bakeryName } from "../journal.js";
-import { longDate, todayISO, weekdayName } from "../dates.js";
+// ⚠️ `dayMonth` MOVED TO dates.js AT v390 rather than being written a second time for the stock
+// card's When column. Two private copies of the same short date is how two screens end up showing one
+// day differently, which is the fault the shared `journalSheet` exists to prevent.
+import { dayMonth, longDate, todayISO, weekdayName } from "../dates.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
 
 // Which stretch is showing. Module scope, like the other screens' own pickers, so a
@@ -33,10 +36,6 @@ function isoOf(d) {
 }
 
 // "14 Sep" — the date without the year, for a range line or an expense row.
-function dayMonth(iso) {
-  return longDate(iso).slice(0, -5);
-}
-
 // The stretch a choice covers, always ending today: a week or a month still running
 // is counted up to now, not to a day in the future.
 function spanFor(which) {

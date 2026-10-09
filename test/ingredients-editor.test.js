@@ -363,37 +363,83 @@ test("an ingredient that has never moved and never stocked draws the empty line,
 test("★★⚠️ the STOCK section carries its quantity as a QUANTITY, never dressed as money", () => {
   // ⚠️⚠️ THE RULE THAT MATTERS MOST ON THIS SHEET. `amount` is formatted by `money()` in the screen,
   // the paper, the shared text and the PDF alike — so 500 grams in it would print as "RM 500.00". The
-  // quantity goes in `cols` (a real aligned column on screen) and into `what` (the sentence the paper
-  // reads), and the money cell is left EMPTY, which draws as an em dash.
+  // quantity goes in its own `val` CELL, the money cell is left EMPTY (`amount: null`, which draws as
+  // an em dash), and `what` still spells the whole thing out as a sentence for the paper and the PDF.
   const state = freshState();
   const sheet = stockCardSheet(state, journalledIng({ stockLog: [
     { at: "2026-10-05", delta: -500, why: "baked", what: "Baked — Rosemary Focaccia ×2", ref: "o1" },
     { at: "2026-10-01", delta: 5000, why: "bought", what: "Bought — 1 Oct 2026 list", ref: "po_2" },
   ] }));
 
-  const stockRows = sheet.lines.filter((l) => !l.heading && l.amount === null);
+  const stockRows = sheet.lines.filter((l) => !l.heading && !l.head && l.amount === null);
   assert.equal(stockRows.length, 2, "one row per stock movement");
   const heading = sheet.lines.find((l) => l.heading && l.what === "Stock");
   assert.ok(heading, "the stock rows are under a heading of their own");
 
-  // ⚠️⚠️ ONE SENTENCE, NOT A COLUMN ROW — and that is a LESSON, not a preference. The first version
-  // used `cols`, which the journal draws as aligned columns; **on a phone that was unreadable**,
-  // because `.journal-cols` widths are fixed for the FILING page's five columns, so a four-column
-  // stock row came out as "1 Oct..." and "Stockta..." — cut off. **A test asserting a cell's TEXT
-  // cannot see a column that truncates it.** So the row is one wrapping sentence, which is also
-  // exactly what the paper and the PDF print.
+  // ★★ THESE ROWS WERE ONE COMPOSED SENTENCE UNTIL v390, AND THAT IS WHAT CHANGED. ⚠️ NOT a change of
+  // mind about the lesson behind it — a fix to the CAUSE.
+  //
+  // v385 tried the journal's `cols` first and **a phone rendered it unreadable**: `.journal-cols`
+  // widths are fixed for the FILING page's five columns (a 3.5em date, a 4.6em order code), so a stock
+  // row came out "1 Oct…" and "Stockta…" — cut off. **A test asserting a cell's TEXT cannot see a
+  // column that truncates it**, so the fix then was to avoid columns altogether.
+  //
+  // Her words, at v390: __"a stock card should be as clear as a table with row and column"__. The card
+  // now carries its OWN column scope (`.stock-journal` in app.css), sized for its own three columns,
+  // with the middle one WRAPPING rather than ellipsising — so a column row is honest here in a way it
+  // could not be at v385. ⚠️ `what` is still built, so the paper, the shared text and the PDF print
+  // exactly what they printed before: **arranged differently, never a different value.**
   // Oldest first, like the price rows — a book reads as a history.
-  assert.equal(stockRows[0].cols, null, "⚠️ a stock row went back to fixed columns, which truncate on a phone");
-  assert.match(stockRows[0].what, /\+5 kg$/, "the amount that came in, with its unit, at the end of the row");
-  assert.match(stockRows[1].what, /−500 g$/, "and the amount that went out, signed");
-  assert.match(stockRows[1].what, /Baked — Rosemary Focaccia ×2/,
+  assert.deepEqual(stockRows[0].cols, ["1 Oct", "Bought — 1 Oct 2026 list"],
+    "the date and the reason are cells of their own — the table she asked for");
+  assert.equal(stockRows[0].val, "+5 kg",
+    "⚠️ the amount has a cell of its own, and is a QUANTITY there — not money");
+  assert.equal(stockRows[1].val, "−500 g", "signed, with the typographic minus so a column lines up");
+  assert.match(stockRows[1].cols[1], /Baked — Rosemary Focaccia ×2/,
     "and WHAT moved it — a bare number would not answer 'where did my flour go'");
   for (const r of stockRows) {
     assert.equal(r.amount, null,
       "⚠️⚠️ a stock row put a figure in the MONEY column — grams would print as ringgit");
-    assert.ok(!/RM/.test(r.what), "⚠️ a stock row's words carry a money figure");
+    assert.ok(!/RM/.test(r.val) && !/RM/.test(r.what), "⚠️ a stock row's figures carry money");
+    assert.ok(/·/.test(r.what),
+      "⚠️ the sentence the PAPER reads went missing — `cols` is an arrangement, never a replacement");
   }
-  assert.equal(sheet.lines[0].heading, true, "the price section still leads the page");
+  // ⚠️ AND THE COLUMNS ARE NAMED — three stacks of text are not a table.
+  const head = sheet.lines.find((l) => l.head);
+  assert.deepEqual(head.cols, ["When", "What happened"], "the first two columns are not named");
+  assert.equal(head.val, "Change", "and the third is not named");
+  assert.equal(sheet.lines[0].heading, true, "the stock section still leads the page");
+});
+
+test("★★⚠️ a stock row BUILDS its ✕ when the card is drawn — it does not delete anything", () => {
+  // ⚠️⚠️ FOUND BY LOOKING AT THE RENDERED SCREEN, NOT BY A TEST, and nothing here would have caught it:
+  // the row's `action` was wired straight to the delete, so **drawing the card called it once per row**
+  // — opening a confirm over every line the moment she opened the card, and leaving no button on any
+  // row at all. A function that performs its effect when it is *built* cannot be caught by asserting the
+  // sheet's data, which is why this asserts on what the row's `action` RETURNS.
+  const state = freshState();
+  const ing = journalledIng({ onHand: 7500, stockLog: [
+    { at: "2026-10-01", delta: 8000, why: "bought", what: "Bought — 1 Oct 2026 list", ref: "po_2" },
+  ] });
+  const sheet = stockCardSheet(state, ing, () => {});
+  const row = sheet.lines.find((l) => !l.heading && !l.head);
+  assert.equal(typeof row.action, "function", "a stock row carries no way to take it off the card");
+  const node = row.action();
+  assert.equal(node.tagName, "BUTTON", "⚠️⚠️ the row's action RAN instead of building a control");
+  assert.equal(ing.onHand, 7500, "⚠️⚠️ DRAWING the card moved her stock");
+});
+
+test("⚠️ and a card drawn WITHOUT a way to redraw offers no ✕ at all", () => {
+  // ⚠️ The paper and the PDF read the same sheet through a renderer that passes no `actions`, and the
+  // printed card must carry no press. A row built with no `refresh` therefore carries no action — so a
+  // printed sheet cannot show a ✕ even by accident.
+  const state = freshState();
+  const ing = journalledIng({ stockLog: [
+    { at: "2026-10-01", delta: 8000, why: "bought", what: "Bought — 1 Oct 2026 list", ref: "po_2" },
+  ] });
+  const sheet = stockCardSheet(state, ing); // no refresh — the paper's path
+  const row = sheet.lines.find((l) => !l.heading && !l.head);
+  assert.equal(row.action, null, "a card with no way to redraw still offered a control");
 });
 
 test("★★ an ingredient whose PRICE never moved still gets a real card — and STOCK leads it", () => {

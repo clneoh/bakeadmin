@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v388)
+# Jienluv2bake — change history (v54 → v390)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v390, THE STOCK CARD IS A REAL TABLE, AND YOU CAN TAKE A MISTAKEN LINE OFF IT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"a stock card should be as clear as a table with row and column"__ · __"certain listed i might want to delete after testing"__ · __"can optimise for desktop as well"__
+
+**★ THE STOCK LIST IS NOW THREE COLUMNS WITH HEADINGS: WHEN · WHAT HAPPENED · CHANGE.** Every movement reads straight down its own column, the way your other tables do:
+
+__WHEN   WHAT HAPPENED                     CHANGE__
+__9 Oct   Baked — Rosemary Focaccia ×2      −500 g__
+__8 Oct   Bought — Mydin (8 Oct 2026)        +8 kg__
+
+**⚠️ AND THIS IS A DELIBERATE REVERSAL, WITH THE REASON RECORDED.** At v385 the stock rows were tried as columns and **a phone rendered them unreadable** — the column widths in the app are set for the filing page's five columns, so a stock row came out as "1 Oct…" and "Stockta…", cut off. The fix then was to write each row as one sentence instead. **That avoided the cause rather than fixing it.** The stock card now has **its own column widths and no others** — so this card is sized for these three columns and the filing page is untouched — and the middle column **wraps onto a second line instead of being cut**. A long line now reads "Baked — Rosemary Focaccia" and "×2" underneath it, rather than losing its end.
+
+**★ AND EACH STOCK LINE CAN BE TAKEN OFF THE CARD.** A small ✕ sits at the end of every stock row. Press it and you are asked first, and **you are told both figures before you agree**: your flour is 7.5 kg now, and taking this movement back leaves 8 kg. ⚠️ **Removing the line and reversing the movement are one act** — delete a test Bought and the packs it added come back off your shelf. Doing only one of the two would either leave your shelf holding packs you had just deleted the record of, or leave a card whose rows no longer explain the figure at the top. ⚠️ And stock never goes below zero, so if a reversal would, **the confirm says the lower figure before you commit** rather than surprising you after.
+
+**⚠️ IT CANNOT BE UNDONE, which is why it asks.** The list is the record of what happened, so a line taken off is taken off.
+
+**★ AND IT IS BIGGER ON A BIG SCREEN.** Her words: __"can optimise for desktop as well"__. On a wide screen this card opens at 760px instead of being held to the phone column the rest of the app uses — a table is the one thing that gets better with width, and on a desktop every row now sits on a single line. **On your phone nothing changes**; the card keeps the width it has always had.
+
+**⚠️ ONE THING I FOUND BY LOOKING AT THE RENDERED CARD, NOT BY A TEST.** The ✕ button was wired straight to the delete, so **drawing the card ran the delete once per row** — it would have opened a confirm over every line the moment you opened the card, and left no button on any row. Nothing in the test suite could see it, because a function that does its work when it is __built__ looks identical in the data. It has its own test now.
+
+**No database step.** The suite is **3,139 tests, all green** (7 new). Every new rule was proved by putting the fault back: the ✕ running instead of building, a ✕ offered on the printed sheet, the line's own figure dropped from the paper and the message, the removal leaving the shelf alone, and a reversal not clamped at zero.
+
+**⚠️ NOTE ON THE COMMIT.** This release and the one before it (v389 — pay for a shop and only then does its stock go in) touch some of the same files, so they land in ONE commit. Both are described above and below.
+
+**09 Oct 2026 — engine v389, YOU PAY FOR A SHOP AND ONLY THEN DOES ITS STOCK GO IN (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the po when bought pressed, it push all ingredient into stock immediately, before i enter how much to pay and by what method, it should not like that, it is a lump sum total, it should allow individual supplier bought and after pay only push into stock"__
+
+**⚠️ WHAT WAS HAPPENING, AND IT WAS WORSE THAN AN ORDERING.** Pressing **Bought** on a saved list put **every ingredient on the whole list** into your stock first, and __then__ opened the "What did you pay?" box. So the shelf moved before you had said what you paid or how — and if you closed that box and walked away, **the stock was already written and no money had been recorded at all**. And because a shopping list is one lump across every shop, that single press claimed you had bought from **all** of them — Mydin, Yen Grocer and the rest — even if you only went to one.
+
+**★ SO IT IS ONE SHOP AT A TIME, AND THE SHELF WAITS FOR YOUR ANSWER.** Every shop's heading on a saved list now carries its own **Bought** press. Press it and it asks what **that shop** cost — and **only when you answer does that shop's packs go into your stock**. Close the box without answering and **nothing has happened at all**: no stock, no money, nothing to unpick.
+
+**★ AND EACH SHOP RECORDS ITS OWN MONEY.** What you type becomes its own money-out row, and the row now names the shop — so three shops on one day read as three rows you can tell apart, in your Money screen and in the per-method journal, rather than three identical "Shopping run (PO)" lines.
+
+**★ AND YOU CAN SAY "NOT BUYING".** A shop you did not buy from — out of stock, or cheaper elsewhere — can be marked **Not buying**. Nothing comes into stock and nothing is recorded, and the list can then **finish** instead of sitting open for ever waiting on a shop you have decided against. **That press asks you first**, because unlike Bought it takes effect straight away and cannot be taken back; a stray finger on a phone must not settle a shop for good.
+
+**★ AND THE STOCK CARD SAYS WHICH SHOP.** A bought row used to read __Bought — 12 Oct 2026 list__; it now reads __Bought — Mydin (12 Oct 2026)__, because with several shops on one day the old wording would have been three identical lines that answered nothing.
+
+**⚠️ AND ONE SENTENCE THAT HAD BECOME UNTRUE IS GONE.** The card used to say, once you had bought, __"these packs were added to your stock"__ — which is simply false when a shop was skipped or not yet bought. It now tells you where the run actually stands: what is still to buy by name, or, when everything has landed, how many shops were bought and how many you passed on.
+
+**⚠️ ONE THING I FOUND BY LOOKING AT THE FINISHED SCREEN, NOT BY A TEST.** Bought is now **safe to mis-tap** — it opens a box that must be answered, so a stray finger changes nothing. Not buying was not, so it asks first.
+
+**⚠️ AND YOUR OLD SAVED LISTS ARE UNTOUCHED.** A list you bought before this version was one flag for the whole thing, so it is read as every shop on it having been bought — it shows what happened and offers you no press that would put the same packs on your shelf a second time. Amending a list is now offered until the first shop lands, bought **or** passed on, because an edit rewrites the whole list and one shop's packs are already on the shelf.
+
+**No database step.** The suite is **3,132 tests, all green** (11 new). Every new rule was proved by putting the fault back: the stock push moved back onto the press, the press buying the whole run again, the money row losing the shop's name, the pay box pre-filling one shop with the whole run's cost, a shop with nothing to buy still offering a press, an old bought list offering to buy again, "Not buying" putting stock in, the note claiming everything was added, the stock row losing the shop's name, the table never drawing the presses, a list of loose estimates losing its press, and the confirm on "Not buying" removed.
 
 **09 Oct 2026 — engine v388, THE PO PAGE STOPS JUMPING TO THE TOP WHEN YOU TICK A DAY (no database step — pushing this one is the whole of it).**
 
