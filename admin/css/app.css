@@ -867,6 +867,14 @@ h3.cat-head-tail { color: var(--muted); font-weight: 600; }
    because wrapping only engages when the content would otherwise overflow. */
 .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .btn-row .btn { flex: 1; }
+/* ⚠️ THREE PRESSES ON ONE ROW, SIZED BY THEIR OWN LABELS (v395). `.btn-row .btn { flex: 1 }` splits the
+   width EQUALLY, which is right for two or three short words — and wrong for this row, whose labels are
+   sentences: at 375px "+ Put money in" and "+ Pay back a pocket" each folded onto three lines. Growing
+   from the CONTENT width instead lets each keep its words on one line and wrap the row when it must.
+   ⚠️ `min-width` is left at its default `auto` on purpose: shrinking below the content is exactly the
+   folding this rule exists to stop. Found by LOOKING, not by a test — nothing in the suite has a layout
+   engine, so this is guarded only by the changelog and this comment. */
+.money-in-actions .btn { flex: 1 1 auto; }
 
 /* ---------- Forms ---------- */
 .field { margin-bottom: 12px; }

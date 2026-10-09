@@ -1,8 +1,76 @@
-# Jienluv2bake — change history (v54 → v393)
+# Jienluv2bake — change history (v54 → v397)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v397, WHEN YOU PAY FOR SOMETHING WITH YOUR OWN MONEY (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"When i enter an expenses, like buying equipment, should i allow to credit investment account?"__
+
+**★ A MIXER BOUGHT WITH YOUR OWN MONEY IS NOW YOUR CHOICE, ON THE EXPENSE ITSELF.** When the way you paid is one of your own pockets, the expense form asks **"Whose money paid for it?"** with two answers:
+
+- **The bakery owes me** — what the app has always done. That pocket's line shows the bakery owes it back, and **Pay back a pocket** settles it when the till has the money.
+- **It is my investment** — the money stays in the bakery. It counts as money you have **put in**, and **nothing is owed back to you** for it.
+
+**⚠️⚠️ AND THE TWO CAN NEVER BOTH CLAIM THE SAME RINGGIT.** If that money is your investment, the pocket **stops** saying the bakery owes it — otherwise the same RM500 would be counted twice, once as a debt to you and once as money you had put in, and you would appear to be owed money you had already invested. A row that is an investment is therefore left out of the pocket's line entirely, while an ordinary one still shows the debt exactly as before.
+
+**⚠️ AND IT IS NOT ASKED WHEN THE TILL PAID.** Paying from Cash or TNG is the bakery's own money — neither owed back nor invested — so the question only appears for a pocket.
+
+**09 Oct 2026 — engine v396, YOUR INVESTMENT, AS AN ACCOUNT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"SO investment is an account, a source of money, we are able to generate investment account.?"__ — and, asked whether it should show money taken back out as well, __"yes, with taken back out too"__.
+
+**★ THERE IS A CARD CALLED YOUR INVESTMENT ON THE MONEY SCREEN.** It reads what you have **put in**, what you have **taken back**, and what is **still in the bakery** — and pressing **Open** shows every row behind those figures, as a book you can Print or Share like all the others:
+
+__put in RM 800.00 · taken back RM 50.00 · still in RM 750.00__
+
+**⚠️ AND IT IS DELIBERATELY NOT TIED TO THE TODAY / THIS WEEK / THIS MONTH BUTTONS.** Every other figure on that screen answers "what moved this week". This one answers **"where do I stand with the bakery"** — a **balance**, which only means anything counted from the beginning. A week's version would say you were RM200 in on a week you had taken RM900 out.
+
+**⚠️ TWO KINDS OF ROW ARE LEFT OUT OF IT, and both would have made the balance a lie.** They are rows the app writes itself under your withdrawals category — which is what keeps them off your Profit statement, and which is exactly why they would otherwise be read as your money leaving:
+
+- **Money moved between your own pots** never left the business. Counting a transfer would say you had taken out money you had merely moved from TNG to Cash.
+- **A pocket being paid back** is the till settling a debt it already owed. That is not you putting money in afresh.
+
+**⚠️ AND IT FOLLOWS YOUR WORD, NOT A FIXED ONE.** It counts money taken out **by category class**, so if you rename "My own withdrawal" to anything you like, the account still counts it — a rename must never quietly stop a figure from working.
+
+**⚠️ NOTE ON THE COMMIT.** This release and the one above it share the same version and changelog files, so they land in ONE commit. Both are described here.
+
+**No database step.** The suite is **3,163 tests, all green** (7 new). Every new rule was proved by putting the fault back: the pocket still claiming the investment as owed, what you paid for yourself not counted as invested, the question asked when the till paid, the choice not saved on the row, money between your own pots counted on both sides of the balance, the transfer counted as money taken out, and a renamed withdrawal category no longer counting.
+
+**09 Oct 2026 — engine v395, MOVING MONEY BETWEEN YOUR OWN POTS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"if its for sometimes we want to transfer money from tnG to cash, or to bank"__
+
+**⚠️⚠️ THIS IS NOT MONEY IN, AND COUNTING IT AS MONEY IN WOULD HAVE BEEN WRONG.** Putting money in says money of your own **entered** the business, and it adds to the Money screen's Cash in and TNG in. TNG to Cash is the **same money moving** — nothing entered and nothing left. Filing it as a money-in would have **counted your own RM200 twice** and inflated the figures you read your takings from.
+
+**★ SO THERE IS A NEW ⇄ TRANSFER PRESS**, beside **Put money in** on the Money screen. Pick the pot it comes **out of**, the pot it goes **into**, how much, and the day — and it writes **both sides at once**:
+
+- the pot it came from goes **down**
+- the pot it went to goes **up**
+- **the Net does not move at all**, because nothing entered or left the business
+
+**⚠️ WHY BOTH SIDES IN ONE PRESS.** Doing the two halves by hand is how a busy morning goes wrong — the same reason **Pay back a pocket** writes its two rows together. ⚠️ And the outgoing half is filed under your own **withdrawals** category on purpose: an ordinary category would put __moving your own money__ on your Profit statement as a **cost of trading**, and it is not a cost of anything.
+
+**⚠️ TWO POTS ARE NEEDED TO TRANSFER.** The press only appears when you have at least two ways to pay, and the form will not let you send money from a pot to itself.
+
+**09 Oct 2026 — engine v394, A "FROM" FIELD ON PUT MONEY IN (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"should have additional field : from xxx"__ — and, asked whether it should be typed or picked, __"Which pot it came from — picked"__.
+
+**★ PUT MONEY IN NOW ASKS WHERE IT CAME FROM.** A third list, yours to shape like the other two: **My own pocket** and **Savings** to start with, with a **＋ New source** chip, and every pot yours to rename or remove on the same lists screen.
+
+**⚠️ IT IS A DIFFERENT QUESTION FROM "PAID IN AS", AND THE FORM KEEPS THEM APART.** __Paid in as__ is Cash, TNG, Loan — **how** the money went in. __From__ is your own pocket, savings, a person — **where** it came from. Money can come out of savings and still go in as cash, so both are asked, and the row carries both.
+
+**⚠️ AND IT REPLACES A PHRASE THAT COULD NOT BE RIGHT.** A money-in row has always read **"From my pocket"** whatever your money actually came from. It now reads **"From Savings"**, or whatever you called it — and a row written before this version still says exactly what it always said.
+
+**★ AND THE WORD IS YOURS: THIS IS AN INVESTMENT.** Her question — __"can i say put money in is an investment"__ — and yes, so the form now says so. ⚠️ **What was NOT taken is the other half of that question**: taking money out is **not** called a profit distribution, because that is only true in a month the bakery actually made a profit. In a month you made a loss it is still a **withdrawal**, and a label claiming more than your books can back is exactly what this app refuses to print. That category is yours to rename whenever you like, and renaming it moves what you have already recorded.
+
+**⚠️ AND THE LISTS CARD IS NAMED FOR ALL THREE NOW.** It read __Categories & ways to pay__ — which stopped being true the moment a third list joined them, and a heading missing one of the things under it is how you fail to find that thing.
+
+**⚠️ NOTE ON THE COMMIT.** This release and the one above it share the same version and changelog files, so they land in ONE commit. Both are described here.
+
+**No database step.** The suite is **3,156 tests, all green** (6 new). Every new rule was proved by putting the fault back: the transfer writing only one side, the transfer filing itself as a cost, the sources list never carried to her other phone, renaming a source leaving her recorded rows on the old name, and the pot she picks not being saved onto the row.
 
 **09 Oct 2026 — engine v393, UNDO ONE SHOP'S BOUGHT (no database step — pushing this one is the whole of it).**
 
