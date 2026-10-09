@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v390)
+# Jienluv2bake — change history (v54 → v391)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v391, DELETING A SHOPPING LIST NOW TELLS YOU WHAT IT LEAVES BEHIND (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"when we delete a po, money paid dont reverse out?"__
+
+**★ YOU WERE RIGHT, AND THE ANSWER IS THAT NOTHING SAID SO.** Deleting a saved shopping list has never touched the money you recorded through it. Each **Bought** press writes its own money row tagged to that list, and nothing removes those rows when the list goes — so deleting a list you had bought on left its money sitting on your books, with the list gone. ⚠️ And since v389 a run over three shops writes three rows, so one delete could leave three of them behind.
+
+**★ SO THE DELETE BOX NOW SAYS WHAT IT LEAVES.** If there is money behind that list, the box names the exact figure before you agree:
+
+__"…The RM 61.40 you recorded on it stays on your books, and its packs stay on your stock — remove the money on the Money screen if you want it gone."__
+
+**⚠️⚠️ AND THE MONEY STAYS ON PURPOSE — you chose it, and it is the right call.** ⚠️ **Tidying a document must not rewrite your books.** Money that left your purse is a fact about your business, in exactly the way the packs on your shelf are — and your stock has never reversed on a delete either, for the same reason (and because a bake may have used those packs since). **What was wrong was only that the box stayed silent**, so the money looked like it vanished along with the list. A consequence you have to find out about afterwards is the fault; naming it first is the fix. The row is still yours to remove: the Money screen has its own ✕ on it.
+
+**⚠️ AND IT IS NAMED ONLY WHEN THERE IS MONEY.** A list nobody has bought from prints exactly the sentence it always did — a warning about RM 0.00 on every ordinary delete would be noise you learn to skip.
+
+**No database step.** The suite is **3,141 tests, all green** (2 new). Both new rules were proved by putting the fault back: the money sentence removed, and the delete quietly wiping the money rows. ⚠️ And the second of those is the one that matters — **nothing had ever asserted that deleting a list leaves her accounts alone.**
 
 **09 Oct 2026 — engine v390, THE STOCK CARD IS A REAL TABLE, AND YOU CAN TAKE A MISTAKEN LINE OFF IT (no database step — pushing this one is the whole of it).**
 

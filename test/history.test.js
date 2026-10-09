@@ -238,6 +238,56 @@ test("deleting the only saved list for a day marks that day not-yet-shopped agai
 // A snapshot item as priceItems would have written it for a supplier-priced
 // ingredient with no on-hand: 3000 g of Flour to buy, so a Bought tap should
 // put 3000 g (in base units) onto the shelf.
+// ── ★★ deleting a list does NOT take the money with it (v391) ────────────────
+//
+// Her words: __"when we delete a po, money paid dont reverse out?"__ — a fair question, and the honest
+// answer was that **nothing said so**. Deleting a saved list has never touched the money recorded
+// through it, and has never touched the packs either; what was wrong was only that the box stayed
+// silent, so the money appeared to vanish along with the list.
+
+test("★★⚠️ deleting a bought list SAYS the money stays — and does not quietly take it", () => {
+  const state = freshState();
+  const po = addPO(state, "p1", ["del_a"]);
+  po.items = [boughtItem()];
+  // ⚠️ TWO ROWS, because since v389 a run over two shops writes one each — so this is the SUM.
+  state.expenses = [
+    { id: "exp1", date: "2026-10-09", amount: 48.9, category: "Ingredients & shopping",
+      method: "TNG", poId: "p1", note: "Mydin" },
+    { id: "exp2", date: "2026-10-09", amount: 12.5, category: "Ingredients & shopping",
+      method: "TNG", poId: "p1", note: "Yen Grocer" },
+    { id: "exp9", date: "2026-10-09", amount: 99, category: "Delivery & fuel", method: "Cash",
+      poId: "some_other_po", note: "" },
+  ];
+
+  const root = mountHistory(state, "po=p1");
+  fireClick(findBtn(root, "Delete"));
+
+  const layer = registry["confirm-layer"];
+  assert.ok(textOf(layer).includes("RM 61.40"),
+    "⚠️ the box does not name the money this list wrote — both shops, summed");
+  assert.ok(textOf(layer).includes("stays on your books"),
+    "⚠️ it does not say the money stays, which is how the money looked like it vanished with the list");
+
+  fireClick(findBtn(layer, "Delete"));
+  assert.equal(state.purchaseOrders.length, 0, "the list should be gone");
+  assert.equal(state.expenses.length, 3,
+    "⚠️⚠️ deleting the list removed money from her books — tidying a document rewrote her accounts");
+  const left = state.expenses.filter((e) => e.poId === "p1")
+    .reduce((n, e) => n + e.amount, 0);
+  assert.equal(left, 61.4, "⚠️ the two rows it wrote should still add up to what she paid");
+});
+
+test("⚠️ an ordinary list nobody bought from says nothing about money", () => {
+  // ⚠️ A warning about RM 0.00 on every delete is noise she learns to skip — and a warning she skips is
+  // a warning that is not there. The sentence is added only when there is money behind it.
+  const state = freshState();
+  addPO(state, "p1", ["del_a"]);
+  const root = mountHistory(state, "po=p1");
+  fireClick(findBtn(root, "Delete"));
+  assert.ok(!textOf(registry["confirm-layer"]).includes("stays on your books"),
+    "an ordinary delete was given a money warning for a list with no money on it");
+});
+
 function boughtItem() {
   return {
     ingredientId: "ing_f", ingredientName: "Flour", unit: "g", totalQty: 3000,

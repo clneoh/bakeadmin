@@ -12,7 +12,7 @@
 
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { el, button, emptyState, showPopup, toast, confirmDialog } from "../ui.js";
-import { byId, fmtRM, newId, save } from "../state.js";
+import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import { poTableEl, totalOf } from "./poTable.js";
 import { amendItem, fmtStockAmount, groupItemsBySupplier, newBuyLine, trimNum } from "../purchasing.js";
@@ -288,6 +288,14 @@ function openPayBox(state, po, group, root) {
       }, "primary"))));
 }
 
+// The money recorded THROUGH this list — every expense the Bought press wrote, each tagged `poId`.
+// ⚠️ Since v389 a run writes ONE ROW PER SHOP, so this is a sum and not a single figure.
+function paidOnList(state, po) {
+  return round2((state.expenses || [])
+    .filter((e) => e && e.poId === po.id)
+    .reduce((n, e) => n + (Number(e.amount) || 0), 0));
+}
+
 // What the card says about where the run stands — and it must never claim more than happened.
 function boughtNote(po) {
   const p = listProgress(po);
@@ -311,6 +319,7 @@ function renderDetail(root, state, po) {
   const dates = poDateStrs(po);
   const multi = dates.length > 1;
   const prog = listProgress(po);
+  const paid = paidOnList(state, po);
   // A saved list is a RECORD (v387 pins that it offers no per-shop Print), so the table is not
   // `interactive` — the Bought controls are supplied separately and sit on each shop's heading.
   const table = poTableEl(state, po.items || [], {
@@ -354,7 +363,23 @@ function renderDetail(root, state, po) {
       // new since. An existing test asserts this button survives, and the arithmetic agrees with it.
       button("Regenerate", () => navigate(regenerateTarget(po)), "soft"),
       button("Delete", () => confirmDialog(
-        `Delete this saved shopping list? It covers ${dates.length} day${dates.length === 1 ? "" : "s"} and can't be brought back. The covered day${dates.length === 1 ? "" : "s"} will count as not-yet-shopped again and return to the PO tick list.`,
+        // ★★ AND IT NAMES THE MONEY THAT STAYS (v391). Her words: __"when we delete a po, money paid
+        // dont reverse out?"__ — a fair question, and the answer was that nothing said so. Deleting a
+        // list has never touched the money recorded through it (each Bought row carries the list's
+        // `poId`, and nothing prunes it), and it has never touched the packs either.
+        //
+        // ⚠️⚠️ THE MONEY STAYS ON PURPOSE, and she chose it: money that left her purse is a fact about
+        // her business, exactly as the packs on her shelf are. **Tidying a document must not rewrite her
+        // books** — and the row is hers to remove on the Money screen, which has its own ✕. ⚠️ What was
+        // wrong was only that the box said NOTHING, so the money appeared to vanish while the list went.
+        // A consequence she has to discover afterwards is the fault; naming it first is the fix.
+        //
+        // ⚠️ NAMED ONLY WHEN THERE IS SOME. A list nobody has bought from prints the sentence it always
+        // did — a warning about RM 0.00 on every ordinary delete would be noise she learns to skip.
+        `Delete this saved shopping list? It covers ${dates.length} day${dates.length === 1 ? "" : "s"} and can't be brought back. The covered day${dates.length === 1 ? "" : "s"} will count as not-yet-shopped again and return to the PO tick list.`
+        + (paid > 0
+            ? ` The ${fmtRM(paid, state.settings.currency)} you recorded on it stays on your books, and its packs stay on your stock — remove the money on the Money screen if you want it gone.`
+            : ""),
         () => {
           state.purchaseOrders = (state.purchaseOrders || []).filter((p) => p.id !== po.id);
           toast("PO deleted");
