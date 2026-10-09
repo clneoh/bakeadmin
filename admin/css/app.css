@@ -857,7 +857,15 @@ h3.cat-head-tail { color: var(--muted); font-weight: 600; }
 .btn.small { font-size: 13px; padding: 8px 13px; min-height: 36px; border-radius: 11px; }
 .btn[disabled] { opacity: .5; }
 
-.btn-row { display: flex; gap: 10px; margin-top: 12px; }
+/* ⚠️⚠️ IT WRAPS, AND IT MUST (v392). Her words: __"i cant find the delete button"__ — she was right.
+   This row had NO `flex-wrap`, so it defaulted to `nowrap`, and a flex item cannot shrink below the
+   width of the word inside it: on a 360px phone a PO's five buttons (Back · Amend · Print · Regenerate
+   · Delete) measured **403px across, on a 360px screen** — the page overflowed by 108px and **Delete
+   sat ENTIRELY off the right edge**, reachable only by scrolling sideways, which is not something
+   anyone does on a phone. A row of buttons that does not fit belongs on the next line.
+   ⚠️ It changes nothing where the row ALREADY fits — every other screen measures the same as before,
+   because wrapping only engages when the content would otherwise overflow. */
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .btn-row .btn { flex: 1; }
 
 /* ---------- Forms ---------- */

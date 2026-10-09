@@ -16,7 +16,7 @@ import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import { poTableEl, totalOf } from "./poTable.js";
 import { amendItem, fmtStockAmount, groupItemsBySupplier, newBuyLine, trimNum } from "../purchasing.js";
-import { applyBought } from "../stock.js";
+import { applyBought, shopUndoPlan, undoShopBought } from "../stock.js";
 import { methodsOf } from "../accounts.js";
 import { recordPriceMove } from "../prices.js";
 // The Paid-by pills, one list for the whole app (js/accounts.js) — a shopping run can
@@ -192,10 +192,27 @@ function shopControls(state, po, group, root) {
   const key = shopKeyOf(group);
   const rec = shopRecord(po, key);
   if (rec) {
-    return [el("span", { class: `po-shop-done${rec.skipped ? " skipped" : ""}` },
+    const label = el("span", { class: `po-shop-done${rec.skipped ? " skipped" : ""}` },
       rec.skipped
         ? `Not buying${rec.at ? ` ${fmtTime(rec.at)}` : ""}`
-        : `Bought ✓${rec.at ? ` ${fmtTime(rec.at)}` : ""}`)];
+        : `Bought ✓${rec.at ? ` ${fmtTime(rec.at)}` : ""}`);
+    // ★★ A BOUGHT SHOP CAN BE TAKEN BACK (v393). Her words: __"that delete is for deleting the whole
+    // po, what if i only want to delete one bought only"__ — and, on what to call it, __"call it undo is
+    // more appropriate than delete"__.
+    //
+    // ⚠️ **UNDO, NOT DELETE, AND THAT IS THE WHOLE POINT OF THE WORD.** It puts back both halves of what
+    // the press did — the packs come off the shelf and the money comes off her books — and a name that
+    // promises less than the act is how a control gets pressed by mistake.
+    //
+    // ⚠️⚠️ NOT ON A LEGACY-BOUGHT SHOP. A list bought before v389 carries the whole thing as one flag
+    // and may have no money row at all, so there is nothing here that can be put back with confidence —
+    // and this app does not invent a reversal it cannot account for (the v385 rule for the journal).
+    // ⚠️ AND NOT ON A SKIPPED SHOP: "Not buying" moved nothing, and she chose it as the press that asks
+    // first and then stays put.
+    if (!rec.skipped && !rec.legacy) {
+      return [label, button("Undo", () => openShopUndo(state, po, group, root), "ghost small")];
+    }
+    return [label];
   }
   return [
     button("Bought ✓", () => openPayBox(state, po, group, root), "primary small"),
@@ -216,6 +233,55 @@ function shopControls(state, po, group, root) {
       },
       { danger: true, yesLabel: "Not buying" }), "ghost small"),
   ];
+}
+
+// The money rows the Bought press wrote for ONE shop. ⚠️ Matched on the pair it was WRITTEN with —
+// the list's `poId` and the shop's own name in `note` — which is exactly how `openPayBox` writes them.
+// ⚠️ That pair is also what makes this safe on an OLD row written before v393, so a shop she bought
+// last week can still be undone today.
+function shopMoneyRows(state, po, shop) {
+  return (state.expenses || [])
+    .filter((e) => e && e.poId === po.id && String(e.note || "") === shop);
+}
+
+// ★★ UNDO ONE SHOP'S "BOUGHT" (v393).
+//
+// ⚠️⚠️ IT PUTS BACK BOTH HALVES, AND THE CONFIRM NAMES EVERY FIGURE FIRST. The packs come off the
+// shelf and the money comes off her books, in one press — and she is told what her stock will hold and
+// what will leave her books BEFORE she agrees, because a one-way change is not something a tap should
+// discover afterwards. Stock never goes below zero, so a reversal that would is clamped — and the
+// clamped figure is the one the confirm shows.
+function openShopUndo(state, po, group, root) {
+  const key = shopKeyOf(group);
+  const shop = group.supplier || "";
+  const cur = state.settings.currency;
+  const moves = shopUndoPlan(state, group.items);
+  const rows = shopMoneyRows(state, po, shop);
+  const money = round2(rows.reduce((n, e) => n + (Number(e.amount) || 0), 0));
+
+  const stockText = moves.map((m) =>
+    `${m.ing.name} ${fmtStockAmount(state, m.ing, m.was)} to ${fmtStockAmount(state, m.ing, m.now)}`);
+
+  confirmDialog(
+    `Undo ${shop || "this shop"}? The packs it added come back off your stock and the money comes off your books.`
+    + (stockText.length ? ` Your stock: ${stockText.join(", ")}.` : "")
+    + (money > 0 ? ` ${fmtRM(money, cur)} comes off your books.` : "")
+    + " This cannot be undone.",
+    () => {
+      const day = poDateStrs(po)[0] ? longDate(poDateStrs(po)[0]) : "";
+      // ⚠️ THE STOCK REVERSAL IS WRITTEN DOWN as well as done — the card must go on explaining the
+      // figure it sits under (v385). The money row is REMOVED rather than reversed, because the books
+      // are a list of what happened, not a journal of changes.
+      undoShopBought(state, moves, { shopLabel: shop, day, ref: po.id });
+      if (rows.length) state.expenses = (state.expenses || []).filter((e) => !rows.includes(e));
+      if (po.boughtShops && typeof po.boughtShops === "object") delete po.boughtShops[key];
+      settleBought(po);
+      save(state);
+      maybeSync(state);
+      toast(`${shop || "That shop"} undone${money > 0 ? ` — ${fmtRM(money, cur)} off your books` : ""}`);
+      renderDetail(root, state, po);
+    },
+    { danger: true, yesLabel: "Undo" });
 }
 
 // "What did you pay?" — for ONE shop, and the shelf moves only when she answers it.

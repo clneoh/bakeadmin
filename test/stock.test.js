@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import {
   stockOf, consumeOrder, addBackOrder, adjustForStatus, applyBought,
   stockLogOf, logStock, setStock, STOCK_LOG_CAP,
-  stockRowUndo, undoStockRow,
+  stockRowUndo, undoStockRow, shopUndoPlan, undoShopBought,
 } from "../admin/js/stock.js";
 
 const JOURNEY = ["new", "confirmed", "paid", "baking", "ready", "delivered"];
@@ -263,6 +263,56 @@ test("⚠️ a row that is not on the card cannot be removed through it", () => 
     "a stale row object was allowed to move her stock");
   assert.equal(undoStockRow(ing, null), null);
   assert.equal(ing.onHand, 1000, "and her shelf is untouched");
+});
+
+// ── ★★ undoing one shop's Bought (v393) ──────────────────────────────────────
+// Her words: __"that delete is for deleting the whole po, what if i only want to delete one bought
+// only"__ — and, on what to call it, __"call it undo is more appropriate than delete"__.
+
+test("★★ undoing a shop's Bought takes ITS packs back off, and writes the reversal down", () => {
+  const f = flour(8000);
+  const b = butter(500);
+  const st = baseState([f, b], []);
+  const items = [
+    { ingredientId: "ing_f", addBase: 8000 },
+    { ingredientId: "ing_b", addBase: 500 },
+  ];
+
+  const plan = shopUndoPlan(st, items);
+  assert.equal(plan.length, 2, "the plan does not cover every line the shop added");
+  assert.deepEqual(plan.map((m) => m.now), [0, 0], "the plan does not say where each shelf lands");
+
+  undoShopBought(st, plan, { shopLabel: "Mydin", day: "9 Oct 2026", ref: "po1" });
+  assert.equal(f.onHand, 0, "the flour did not come back off the shelf");
+  assert.equal(b.onHand, 0, "the butter did not come back off the shelf");
+
+  // ⚠️⚠️ THE CARD MUST STILL EXPLAIN THE FIGURE. A reversal that moved the shelf and left no row would
+  // break the one rule this journal exists to keep (v385) — which is why un-baking writes a row too.
+  assert.equal(stockLogOf(f).length, 1, "the reversal was not written down");
+  assert.equal(stockLogOf(f)[0].delta, -8000, "the row does not carry what came back off, signed");
+  assert.equal(stockLogOf(f)[0].why, "unbought");
+  assert.match(stockLogOf(f)[0].what, /Un-bought — Mydin \(9 Oct 2026\)/,
+    "the row does not name the shop the packs went back to");
+});
+
+test("⚠️ a reversal that would take stock below zero is CLAMPED, and the row says what really moved", () => {
+  // ⚠️ A bake may have used these packs since the shop was bought. Stock never goes below zero, so the
+  // reversal stops there — ⚠️⚠️ and the row records the MEASURED change, never the shop's figure, or the
+  // journal would go on claiming a movement that never happened.
+  const ing = flour(1000);
+  const st = baseState([ing], []);
+  const plan = shopUndoPlan(st, [{ ingredientId: "ing_f", addBase: 8000 }]);
+  assert.equal(plan[0].now, 0, "the plan offered a figure her shelf can never hold");
+  undoShopBought(st, plan, { shopLabel: "Mydin", ref: "po1" });
+  assert.equal(ing.onHand, 0);
+  assert.equal(stockLogOf(ing)[0].delta, -1000, "⚠️ the row claims more came off than did");
+});
+
+test("⚠️ a shop whose lines the shelf already covered plans no movement at all", () => {
+  const ing = flour(500);
+  const st = baseState([ing], []);
+  assert.deepEqual(shopUndoPlan(st, [{ ingredientId: "ing_f", addBase: 0 }]), [],
+    "an undo of nothing was planned as a movement");
 });
 
 test("★ the log is capped, newest first, and the OLDEST rows fall off", () => {

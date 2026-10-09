@@ -238,6 +238,97 @@ test("deleting the only saved list for a day marks that day not-yet-shopped agai
 // A snapshot item as priceItems would have written it for a supplier-priced
 // ingredient with no on-hand: 3000 g of Flour to buy, so a Bought tap should
 // put 3000 g (in base units) onto the shelf.
+// ── ★★ undoing ONE SHOP's Bought (v393) ──────────────────────────────────────
+//
+// Her words: __"that delete is for deleting the whole po, what if i only want to delete one bought
+// only"__ — and, on what to call it, __"call it undo is more appropriate than delete"__.
+
+test("★★ a bought shop carries an Undo, and it puts BOTH halves back", () => {
+  const state = freshState();
+  const po = addPO(state, "p1", ["del_a"]);
+  po.items = [boughtItem()];
+  po.bought = true;
+  po.boughtAt = "2026-10-09T03:42:00.000Z";
+  po.boughtShops = { Mydin: { at: "2026-10-09T03:42:00.000Z" } };
+  state.ingredients[0].onHand = 3000; // the packs the Bought press added
+  state.expenses = [{ id: "e1", date: "2026-10-09", amount: 48.9,
+    category: "Ingredients & shopping", method: "TNG", poId: "p1", note: "Mydin" }];
+
+  const root = mountHistory(state, "po=p1");
+  assert.ok(shopBtn(root, "Mydin", "Undo"),
+    "⚠️ a shop she has bought offers her no way back — the gap she reported");
+
+  fireClick(shopBtn(root, "Mydin", "Undo"));
+  const layer = registry["confirm-layer"];
+  assert.ok(textOf(layer).includes("48.90"),
+    "⚠️ the confirm does not name the money it is about to take off her books");
+  assert.ok(textOf(layer).includes("Flour"),
+    "⚠️ the confirm does not say what is about to happen to her stock");
+
+  fireClick(findBtn(layer, "Undo"));
+  assert.equal(state.ingredients[0].onHand, 0, "the packs did not come back off the shelf");
+  assert.equal(state.expenses.length, 0, "⚠️ the money stayed on her books after an undo");
+  assert.equal(po.boughtShops.Mydin, undefined, "the shop is still marked bought");
+  assert.equal(po.bought, false, "the list still reads as finished");
+  assert.ok(shopBtn(root, "Mydin", "Bought ✓"), "the shop cannot be bought again");
+  // ⚠️ AND THE REVERSAL IS ON THE CARD, so the journal still explains the figure it sits under.
+  assert.match((state.ingredients[0].stockLog || []).map((e) => e.what).join(" "), /Un-bought — Mydin/,
+    "the stock card was not told what moved");
+});
+
+test("⚠️ undoing ONE shop leaves the OTHER shops bought and their stock alone", () => {
+  const state = freshState();
+  const po = twoShopPO(state);
+  po.boughtShops = { Mydin: { at: "2026-10-09T03:42:00.000Z" },
+    "Yen Grocer": { at: "2026-10-09T03:43:00.000Z" } };
+  state.ingredients[0].onHand = 3000;
+  state.ingredients.find((i) => i.id === "ing_s").onHand = 2000;
+  state.expenses = [
+    { id: "e1", date: "2026-10-09", amount: 48.9, category: "Ingredients & shopping",
+      method: "TNG", poId: "p1", note: "Mydin" },
+    { id: "e2", date: "2026-10-09", amount: 12.5, category: "Ingredients & shopping",
+      method: "TNG", poId: "p1", note: "Yen Grocer" },
+  ];
+
+  const root = mountHistory(state, "po=p1");
+  fireClick(shopBtn(root, "Mydin", "Undo"));
+  fireClick(findBtn(registry["confirm-layer"], "Undo"));
+
+  const sugar = state.ingredients.find((i) => i.id === "ing_s");
+  assert.equal(state.ingredients[0].onHand, 0, "Mydin's packs did not come back off");
+  assert.equal(sugar.onHand, 2000, "⚠️⚠️ undoing Mydin took YEN GROCER's stock with it");
+  assert.deepEqual(state.expenses.map((e) => e.note), ["Yen Grocer"],
+    "⚠️ the wrong shop's money came off her books");
+  assert.ok(po.boughtShops["Yen Grocer"], "the other shop was un-bought as well");
+  assert.equal(po.bought, false, "the list is finished again");
+});
+
+test("⚠️ an OLD already-bought list offers no Undo — nothing can be put back with confidence", () => {
+  // ⚠️ A list bought before v389 carries the whole thing as one flag and may have no money row at all.
+  // This app does not invent a reversal it cannot account for.
+  const state = freshState();
+  const po = addPO(state, "p1", ["del_a"]);
+  po.items = [boughtItem()];
+  po.bought = true; // the pre-v389 shape: one flag, no boughtShops
+  po.boughtAt = "2026-10-03T02:00:00.000Z";
+
+  const root = mountHistory(state, "po=p1");
+  assert.equal(shopBtn(root, "Mydin", "Undo"), undefined,
+    "⚠️ an undo was offered over a record the app cannot fully account for");
+});
+
+test("⚠️ a shop marked Not buying offers no Undo — it moved nothing, and she chose it as final", () => {
+  const state = freshState();
+  const po = addPO(state, "p1", ["del_a"]);
+  po.items = [boughtItem()];
+  po.boughtShops = { Mydin: { at: "2026-10-09T03:42:00.000Z", skipped: true } };
+
+  const root = mountHistory(state, "po=p1");
+  assert.equal(shopBtn(root, "Mydin", "Undo"), undefined,
+    "an undo was offered on a shop that never moved anything");
+  assert.ok(textOf(root).includes("Not buying"), "and it still says what she decided");
+});
+
 // ── ★★ deleting a list does NOT take the money with it (v391) ────────────────
 //
 // Her words: __"when we delete a po, money paid dont reverse out?"__ — a fair question, and the honest

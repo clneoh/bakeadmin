@@ -1,8 +1,52 @@
-# Jienluv2bake — change history (v54 → v391)
+# Jienluv2bake — change history (v54 → v393)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v393, UNDO ONE SHOP'S BOUGHT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"that delete is for deleting the whole po, what if i only want to delete one bought only"__ — and, on what to call it, __"call it undo is more appropriate than delete"__.
+
+**★ YOU FOUND A REAL GAP, AND IT WAS MINE.** Once a shop was marked bought its packs were on your shelf and its money was on your books, and there was **no way back** — only the list's Delete, which removes everything. I built **Not buying** so that press asks first and cannot be taken back, and I left **Bought** just as one-way without ever giving you the way out.
+
+**★ SO A BOUGHT SHOP NOW CARRIES AN UNDO.** Beside __Bought ✓ 9 Oct, 11:42__ there is an **Undo** press. Press it and you are asked first, with the figures in front of you:
+
+__"Undo Mydin? The packs it added come back off your stock and the money comes off your books. Your stock: Strong flour 7.5 kg to 0 kg, Butter 400 g to 0 g. RM 48.90 comes off your books. This cannot be undone."__
+
+**⚠️⚠️ AND IT IS CALLED UNDO RATHER THAN DELETE, WHICH IS YOUR POINT AND A GOOD ONE.** A delete removes a record; **an undo puts something back the way it was** — and this reverses **both halves** of what the press did. **A name that promises less than the act is how a control gets pressed by mistake.**
+
+**⚠️ IT REVERSES BOTH HALVES IN ONE PRESS, WHICH IS WHAT YOU CHOSE.** The packs come back off your shelf **and** that shop's money row comes off your books. Undoing a shop you did not mean to buy should leave no trace of it, and leaving the money behind would make the undo only half true.
+
+**⚠️ AND IT ONLY TOUCHES THAT ONE SHOP.** Undo Mydin and Yen Grocer stays bought, its stock untouched and its money where it is. **Nothing else on the list moves.**
+
+**★ AND THE STOCK CARD IS TOLD.** The packs coming back off are written onto the card as their own line — __Un-bought — Mydin (9 Oct 2026)__ beside the __Bought — Mydin (9 Oct 2026)__ it cancels — so the card goes on explaining the figure at the top of it rather than quietly disagreeing with it.
+
+**⚠️ AND STOCK NEVER GOES BELOW ZERO, SO THE UNDO TELLS YOU THE NUMBER FIRST.** A bake may have used those packs since you bought them; if taking them back would go below nothing, the reversal stops at zero and **the box names that lower figure before you agree**, not after.
+
+**⚠️ TWO LISTS DELIBERATELY DO NOT OFFER IT.** A list you bought **before v389** carries the whole thing as one flag and may have no money row at all, so there is nothing there that can be put back with confidence — and this app does not invent a reversal it cannot account for. And a shop you marked **Not buying** moved nothing in the first place; that press stays as it was, asking first and then staying put.
+
+**⚠️ NOTE ON THE COMMIT.** This release and the one before it (v392 — the buttons that were running off the side of the screen) touch the same version and changelog files, so they land in ONE commit. Both are described here.
+
+**No database step.** The suite is **3,150 tests, all green** (7 new). Every new rule was proved by putting the fault back: the Undo press removed, the money left on her books, the stock not reversed, the reversal written down nowhere, the clamp dropped, the undo taking the other shop with it, and the Undo offered on the two lists that must not have it.
+
+**09 Oct 2026 — engine v392, THE BUTTONS THAT WERE RUNNING OFF THE SIDE OF THE SCREEN (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i cant find the delete button"__
+
+**★ YOU WERE RIGHT, AND IT WAS NOT YOUR PHONE.** The row of buttons at the top of a saved shopping list — Back, Amend, Print, Regenerate, Delete — **did not wrap onto a second line.** ⚠️ And a button cannot squeeze itself narrower than the word inside it, so once "Regenerate" had taken its share there was nothing left to give, and everything after it was simply pushed off the right-hand edge of the screen. On a 360px phone — a very common one — that row measured **403px across on a 360px screen**: the page ran 108px wider than the phone, and **Delete sat entirely off the edge**, reachable only by sliding the whole page sideways, which nobody would think to do.
+
+**⚠️ AND IT WAS THE SAME ON EVERY SCREEN WITH A ROW OF BUTTONS.** This was never about the shopping list; it was the shape every row of buttons in this app is built from. Any screen where the buttons were too many or too wide for your phone had its last one off the edge.
+
+**★ SO THEY NOW WRAP.** Too many buttons for the width and the extras drop onto the next line, at their full size, instead of leaving the screen. On your phone the shopping list now reads **Back · Amend · Print** on one line with **Regenerate · Delete** beneath it — with Delete on a line of its own, which for a button that removes something is no bad thing.
+
+**⚠️ AND NOTHING ELSE MOVED.** The wrapping only engages where the buttons would otherwise overflow, so every screen where the row already fitted measures exactly as it did before.
+
+**⚠️ AND I HAVE WRITTEN DOWN WHAT THIS COST.** No test in this app could have caught it: there is no layout engine in the test suite, so a row that runs off the screen looks identical to one that fits. What is pinned now is the **rule itself** — the button row declares that it wraps, and a test reads the stylesheet and fails if that is ever removed. ⚠️ **A fault nothing can measure is a fault that comes back.**
+
+**⚠️ AND ONE THING I GOT WRONG MYSELF.** In the instructions I gave you for testing v391 I said to press Delete "at the bottom" of the list. It is at the **top**. That is on me, not on you — you went looking where I told you to look.
+
+**No database step.** The suite is **3,143 tests, all green** (1 new). The rule was proved by putting the fault back: the wrapping removed from the stylesheet, and the guard failing by its own message.
 
 **09 Oct 2026 — engine v391, DELETING A SHOPPING LIST NOW TELLS YOU WHAT IT LEAVES BEHIND (no database step — pushing this one is the whole of it).**
 

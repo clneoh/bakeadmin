@@ -131,6 +131,57 @@ export function undoStockRow(ingredient, entry) {
   return plan;
 }
 
+// ── ★★ UNDOING A WHOLE SHOP'S "BOUGHT" (v393) ─────────────────────────────────
+//
+// Her words: __"that delete is for deleting the whole po, what if i only want to delete one bought
+// only"__ — and, asked what it should do with the money, __"call it undo is more appropriate than
+// delete"__.
+//
+// ⚠️⚠️ IT IS CALLED **UNDO**, AND THAT IS NOT A COSMETIC CHOICE. A "delete" removes a record; an
+// **undo** puts something back the way it was — and this reverses BOTH halves of what the Bought press
+// did: the packs come off the shelf and the money comes off her books. **A name that promises less than
+// the act is how a control gets pressed by mistake.**
+//
+// ⚠️ IT IS TWO STEPS ON PURPOSE, exactly as `stockRowUndo`/`undoStockRow` are: the plan is computed
+// WITHOUT doing it, so the confirm can name every figure before she commits. A one-way change to her
+// shelf is not something a phone tap should discover afterwards.
+export function shopUndoPlan(state, items) {
+  const perIngredient = new Map();
+  for (const it of items || []) {
+    const addBase = Number(it && it.addBase) || 0;
+    if (!(addBase > 0)) continue;
+    perIngredient.set(it.ingredientId, (perIngredient.get(it.ingredientId) || 0) + addBase);
+  }
+  const moves = [];
+  for (const [ingredientId, base] of perIngredient) {
+    const ing = byId(state.ingredients || [], ingredientId);
+    if (!ing) continue;
+    const was = Number(ing.onHand) || 0;
+    // ⚠️ STOCK NEVER GOES BELOW ZERO — a bake may have used these packs since the shop was bought, so a
+    // reversal that would is CLAMPED, and the caller shows her the clamped figure in advance.
+    const now = round2(Math.max(0, was - base));
+    moves.push({ ing, was, now, delta: round2(now - was) });
+  }
+  return moves;
+}
+
+// ★ AND THE REVERSAL IS WRITTEN DOWN, not just done. ⚠️ The stock card must go on explaining the
+// figure it sits under: a movement that changed `onHand` and left no row would break the one rule this
+// journal exists to keep (v385). So an undo writes its own row — "Un-bought — Mydin (9 Oct)" beside the
+// "Bought — Mydin (9 Oct)" it cancels — the same way un-baking writes its own row beside a bake.
+// ⚠️ The delta is the MEASURED change, never the shop's figure, because the clamp above may have
+// stopped it short — a row claiming more than moved would not add up.
+export function undoShopBought(state, moves, { shopLabel = "", day = "", ref = "" } = {}) {
+  const label = shopLabel
+    ? (day ? `Un-bought — ${shopLabel} (${day})` : `Un-bought — ${shopLabel}`)
+    : "Un-bought — shopping list";
+  for (const m of moves || []) {
+    m.ing.onHand = m.now;
+    logStock(m.ing, { delta: m.delta, why: "unbought", what: label, ref });
+  }
+  return moves || [];
+}
+
 // The base multiplier for a recipe line whose unit name may or may not exist in
 // the Units list — fall back to the ingredient's own cooking unit. A unit found
 // by name is only honoured when it shares the ingredient's cooking family: now
