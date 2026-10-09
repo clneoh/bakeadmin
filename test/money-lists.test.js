@@ -359,3 +359,26 @@ test("★★ the expense form asks whose money paid — and only when a POCKET d
   assert.equal(state.expenses.length, 1);
   assert.equal(state.expenses[0].invested, true, "⚠️ the choice she made was not saved on the row");
 });
+
+test("★★ a withdrawal asks WHOSE investment it comes out of — an ordinary cost does not", () => {
+  // ⚠️ Only a withdrawal reduces somebody's share of the bakery. An ordinary cost is not anyone's money
+  // going back to them, so the question must not be put to it.
+  const state = freshState();
+  const root = mount(state);
+  fire(byText(root, "＋ Add an expense"));
+  const layer = registry["popup-layer"];
+  walk(layer).find((n) => n.tagName === "INPUT" && n.attrs["aria-label"] === "Amount").value = "300";
+
+  assert.equal(byText(layer, "My own pocket"), undefined,
+    "⚠️ an ordinary cost is being asked whose investment it comes out of");
+
+  fire(byText(layer, "My own withdrawal"));
+  assert.ok(byText(layer, "My own pocket"),
+    "⚠️ taking her own money out asks nothing about whose it is — no owner's balance can be right");
+
+  fire(byText(layer, "Savings"));
+  fire(byText(layer, "Save"));
+  assert.equal(state.expenses.length, 1);
+  assert.equal(state.expenses[0].source, "Savings",
+    "⚠️ the owner she picked was not saved on the withdrawal");
+});

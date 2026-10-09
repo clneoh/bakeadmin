@@ -8,7 +8,7 @@ import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween, otherMethods, pocketOwed } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
-import { categoriesOf, categoryLabels, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, pocketMethods, purseMethods, sourcesOf } from "../accounts.js";
+import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, pocketMethods, purseMethods, sourcesOf } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 // An ingredient's own unit, resolved exactly as the Ingredients screen resolves it, so a
 // stock count typed here lands as the same number of grams the On-hand line shows.
@@ -418,6 +418,12 @@ function openExpenseForm(state, redraw) {
   // neither owed nor invested, so this question is asked only when the way she paid is one of her own
   // pockets — and the row leaves it alone entirely for cash and TNG.
   let mine = "owed";
+  // ★★ WHOSE INVESTMENT MONEY COMES OUT OF (v398). Her question: __"investment can be from few owner,
+  // how to differentiate"__ — and she chose that money going out names its owner too, **because without
+  // it a per-owner balance is impossible**: the app would know what Kean put in and never what Kean had
+  // taken back. ⚠️ Only asked when the category is one of her WITHDRAWALS; an ordinary cost is not
+  // anybody's money going back to them.
+  let whose = sourcesOf(state)[0] || "";
   const note = el("input", { class: "input", placeholder: "e.g. Mydin run, 2 boxes", value: "" });
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
@@ -425,7 +431,11 @@ function openExpenseForm(state, redraw) {
   showPopup(el("div", { class: "popup-title-row" }, "Add an expense"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "What did you spend?"), amount),
     el("div", { class: "field" }, el("label", {}, "What for"),
-      adding === "category" ? null : pillRow(categoryLabels(state), category, (c) => { category = c; },
+      // ⚠️ IT REDRAWS TOO (v398), for the same reason the ways to pay now do: **the question below is
+      // asked only for a WITHDRAWAL**, so the form has to re-look when the category changes or the
+      // "whose investment" row would never appear until something else happened to redraw.
+      adding === "category" ? null : pillRow(categoryLabels(state), category,
+        (c) => { category = c; refresh(); },
         { addKind: "category", state, onAdded: () => { adding = "category"; refresh(); } }),
       adding === "category"
         ? entryForm(state, { kind: "category", onDone: (label) => {
@@ -464,6 +474,15 @@ function openExpenseForm(state, redraw) {
               ? `${method} paid for this out of your own money, and it stays in the bakery — it counts as money you have PUT IN, and nothing is owed back to you for it.`
               : `${method} paid for this out of your own money, so the bakery owes it back to you. Pay back a pocket settles it when the till has the money.`))
       : null,
+    // ★★ WHOSE INVESTMENT IS THIS COMING OUT OF (v398). ⚠️ Asked only for a WITHDRAWAL — the category
+    // she takes her own money back under — because that is the only kind of expense that reduces what
+    // somebody has in the bakery. An ordinary cost is not anybody's money going back to them.
+    classOfCategory(state, category) === "drawing"
+      ? el("div", { class: "field" }, el("label", {}, "Whose investment does this come out of?"),
+          pillRow(sourcesOf(state), whose, (s) => { whose = s; }, {}),
+          el("p", { class: "card-sub", style: "margin:6px 0 0" },
+            "So each owner's share of the bakery reads on its own — what they have put in, and what they have taken back."))
+      : null,
     el("div", { class: "field" }, el("label", {}, "The day you paid it"), datePick),
     el("div", { class: "field" }, el("label", {}, "A note (optional)"), note),
     el("div", { class: "popup-actions" },
@@ -478,7 +497,10 @@ function openExpenseForm(state, redraw) {
           method, note: note.value.trim(),
           // ⚠️ ONLY EVER SET FOR A POCKET, and only when she said so — an ordinary expense row is built
           // exactly as it always was, so nothing about her existing books moves.
-          ...(isOther(method) && mine === "invested" ? { invested: true } : {}) });
+          ...(isOther(method) && mine === "invested" ? { invested: true } : {}),
+          // ⚠️ AND WHOSE MONEY WENT BACK OUT, on a withdrawal only (v398) — a row with no owner named
+          // lands in the account's own unnamed bucket rather than being guessed at.
+          ...(classOfCategory(state, category) === "drawing" && whose ? { source: whose } : {}) });
         save(state);
         maybeSync(state);
         toast(`Money out: ${fmtRM(value, state.settings.currency)}`);
@@ -761,21 +783,35 @@ function openTransferForm(state, redraw) {
 function investmentSheet(state) {
   const cur = state.settings.currency || "RM";
   const inv = investmentOf(state);
+  // ⚠️ A SOURCE WITH NO NAME IS STILL SHOWN. Money that went out of the bakery has to be visible
+  // somewhere — an unnamed owner is a fact about her books, not something to quietly drop.
+  const nameOf = (s) => s || "Not named";
+  const several = inv.bySource.length > 1;
+
+  // ★★ ONE SECTION PER OWNER (v398). Her question: __"investment can be from few owner, how to
+  // differentiate"__. ⚠️ Each owner's own rows sit under their own heading, closing on **their** balance
+  // — so "what does Kean still have in the bakery" is answered without doing arithmetic across the page.
+  const lines = [];
+  for (const b of inv.bySource) {
+    if (several) lines.push({ heading: true, what: nameOf(b.source) });
+    for (const r of inv.rows.filter((x) => x.source === b.source)) {
+      lines.push({ what: `${dayMonth(r.date)} · ${r.what}`, amount: r.amount,
+        dir: r.dir === "in" ? "" : "out" });
+    }
+    if (several) lines.push({ what: `${nameOf(b.source)} still in`, amount: b.stillIn, cls: "pl-total" });
+  }
+
   return journalSheet({
     title: "Your investment",
     subtitle: `${fmtRM(inv.putIn, cur)} put in · ${fmtRM(inv.takenBack, cur)} taken back · all time`,
-    lines: inv.rows.map((r) => ({
-      what: `${dayMonth(r.date)} · ${r.what}`,
-      amount: r.amount,
-      dir: r.dir === "in" ? "" : "out",
-    })),
+    lines,
     totals: [
-      { label: "You put in", amount: inv.putIn, cls: "pl-total" },
-      { label: "You took back", amount: -inv.takenBack, cls: "pl-total" },
+      { label: "Put in", amount: inv.putIn, cls: "pl-total" },
+      { label: "Taken back", amount: -inv.takenBack, cls: "pl-total" },
       { label: "Still in the bakery", amount: inv.stillIn, cls: "pl-net" },
     ],
     empty: "Nothing yet. Put money in of your own, and every ringgit that has gone into the bakery is listed here.",
-    note: "Every ringgit of your own that has gone into the bakery, and every ringgit you have taken back out, counted from the beginning — this is a balance, so it is not tied to the Today / This week / This month buttons above. Money you put in that has already been spent on flour is still counted as in the bakery: it is your money, and it bought stock rather than leaving. ⚠️ Money moved between your own pots is NOT counted either way — it never left the business.",
+    note: "Every ringgit of your own that has gone into the bakery, and every ringgit you have taken back out, counted from the beginning — this is a balance, so it is not tied to the Today / This week / This month buttons above. Money you put in that has already been spent on flour is still counted as in the bakery: it is your money, and it bought stock rather than leaving. Named after where each lot came from, so one owner's share reads on its own. Money moved between your own pots is NOT counted either way — it never left the business.",
     where: "More → Money",
     bakery: bakeryName(state),
   });

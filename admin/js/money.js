@@ -382,16 +382,30 @@ export function journalFor(state, method, from, to) {
 //     merely moved from TNG to Cash.
 //   • a PAYBACK's deposit (marked `repay`) is the till settling with a pocket that paid for something.
 //     That is not her putting money in afresh — it is money the business already owed.
+// ★★ AND IT IS KEPT PER OWNER (v398). Her question: __"investment can be from few owner, how to
+// differentiate"__ — jienluv2bake is a trade mark of a company with more than one owner, so "what have
+// I put in" is the wrong question; **"what has EACH of us put in, and taken back"** is the right one.
+//
+// ⭐ THE SOURCES LIST ALREADY ANSWERS IT. A source does not have to be a place — she names them, so
+// they can be **Kean**, **Suan**, **Impressive Direction**. What was missing was that the account kept
+// one total, and that a withdrawal said nothing about whose money it was.
+//
+// ⚠️ SO EVERY ROW IS BUCKETED BY SOURCE, and a row with none is kept in its own bucket rather than
+// dropped — **money that went out has to be visible somewhere**, and an unnamed owner is a fact about
+// her books, not a rounding error.
 export function investmentOf(state) {
-  const rows = [];
-  let putIn = 0;
-  let takenBack = 0;
+  const buckets = new Map(); // "" is the bucket for money with no owner named on it
+  const bump = (source, side, amount) => {
+    const key = String(source == null ? "" : source);
+    if (!buckets.has(key)) buckets.set(key, { source: key, putIn: 0, takenBack: 0 });
+    buckets.get(key)[side] += amount;
+  };
+
   for (const d of state.deposits || []) {
     if (!d || d.repay || d.transfer) continue;
     const amount = Number(d.amount) || 0;
     if (!amount) continue;
-    putIn += amount;
-    rows.push({ date: String(d.date || "").slice(0, 10), what: "You put in", amount, dir: "in" });
+    bump(d.source, "putIn", amount);
   }
   for (const e of state.expenses || []) {
     if (!e || e.transfer) continue;
@@ -401,25 +415,53 @@ export function investmentOf(state) {
     // buying equipment, should i allow to credit investment account?"__ — and, asked how the app should
     // tell the two apart, she chose to say so ON THE EXPENSE ITSELF. A row she marked that way is money
     // that went into the business and stayed there: it is money SHE PUT IN, and it is not owed back.
-    if (e.invested) {
-      putIn += amount;
-      rows.push({ date: String(e.date || "").slice(0, 10), what: "You paid for something yourself",
-        amount, dir: "in" });
-      continue;
-    }
+    if (e.invested) { bump(e.source, "putIn", amount); continue; }
     // ⚠️ BY CATEGORY CLASS, not by the word — she can rename her withdrawal category to anything she
     // likes, and the class is what says it is her own money rather than a cost of trading.
     if (classOfCategory(state, e.category) !== "drawing") continue;
-    takenBack += amount;
-    rows.push({ date: String(e.date || "").slice(0, 10), what: "You took out", amount, dir: "out" });
+    bump(e.source, "takenBack", amount);
+  }
+
+  const bySource = [...buckets.values()]
+    .map((b) => ({ ...b, putIn: round2(b.putIn), takenBack: round2(b.takenBack),
+      stillIn: round2(b.putIn - b.takenBack) }))
+    .sort((a, b) => (a.source || "￿").localeCompare(b.source || "￿"));
+
+  const total = (k) => round2(bySource.reduce((n, b) => n + b[k], 0));
+  return {
+    putIn: total("putIn"),
+    takenBack: total("takenBack"),
+    stillIn: round2(total("putIn") - total("takenBack")),
+    bySource,
+    // ⚠️ AND THE ROWS, for the book — in date order, each carrying whose money it was.
+    rows: buildInvestmentRows(state),
+  };
+}
+
+function buildInvestmentRows(state) {
+  const rows = [];
+  for (const d of state.deposits || []) {
+    if (!d || d.repay || d.transfer) continue;
+    const amount = Number(d.amount) || 0;
+    if (!amount) continue;
+    rows.push({ date: String(d.date || "").slice(0, 10), what: "Put in", amount, dir: "in",
+      source: String(d.source == null ? "" : d.source) });
+  }
+  for (const e of state.expenses || []) {
+    if (!e || e.transfer) continue;
+    const amount = Number(e.amount) || 0;
+    if (!amount) continue;
+    if (e.invested) {
+      rows.push({ date: String(e.date || "").slice(0, 10), what: "Paid for something yourself",
+        amount, dir: "in", source: String(e.source == null ? "" : e.source) });
+      continue;
+    }
+    if (classOfCategory(state, e.category) !== "drawing") continue;
+    rows.push({ date: String(e.date || "").slice(0, 10), what: "Took out", amount, dir: "out",
+      source: String(e.source == null ? "" : e.source) });
   }
   rows.sort((a, b) => a.date.localeCompare(b.date));
-  return {
-    putIn: round2(putIn),
-    takenBack: round2(takenBack),
-    stillIn: round2(putIn - takenBack),
-    rows,
-  };
+  return rows;
 }
 
 export function pocketOwed(state, method, from, to) {

@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v397)
+# Jienluv2bake — change history (v54 → v398)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v398, MORE THAN ONE OWNER (no database step — pushing this one is the whole of it).**
+
+**Your question:** __"investment can be from few owner, how to differentiate"__ — and, asked whether money going out should name its owner too, you chose yes.
+
+**★ EACH OWNER NOW HAS THEIR OWN SHARE, ON ITS OWN.** The Your investment account keeps a section per owner — their own rows, and **their own balance** at the foot of it:
+
+__IMPRESSIVE DIRECTION__
+__3 Oct · Put in               RM 2000.00__
+__Impressive Direction still in RM 2000.00__
+
+__KEAN__
+__1 Oct · Put in               RM 1000.00__
+__5 Oct · Took out              −RM 300.00__
+__Kean still in                 RM 700.00__
+
+...closing on the totals for everybody together.
+
+**★ AND YOU ALREADY HAD THE LIST FOR IT.** An owner is just a name on the **From** list — the one you shape yourself — so it can be **Kean**, **Suan**, **Impressive Direction**, or a pot like **Savings**. Nothing new to learn: the same list feeds both halves.
+
+**★ AND MONEY GOING OUT NAMES ITS OWNER TOO.** When you record a **withdrawal**, the form now asks **"Whose investment does this come out of?"** ⚠️ **Without that, one owner's balance is impossible** — the app would know what Kean had put in and never what Kean had taken back, so it could only ever show what each owner paid in and one combined figure for what went out.
+
+**⚠️ AND THAT QUESTION IS ASKED OF A WITHDRAWAL ONLY.** An ordinary cost — packaging, rent — is not anybody's money going back to them, so it is never asked to pick an owner.
+
+**⚠️ AND MONEY WITH NO OWNER NAMED IS STILL SHOWN.** A withdrawal recorded before you had named owners, or one you simply did not attribute, is kept in a section of its own called **Not named**. It is a fact about your books, and quietly dropping it would make the owners' shares add up to more than the total — **which is exactly the kind of figure that looks right and is not.**
+
+**No database step.** The suite is **3,166 tests, all green** (4 new). Every new rule was proved by putting the fault back: the account keeping one total instead of a line per owner, money with no owner silently dropped, the owner question put to an ordinary cost, and the owner not saved onto the withdrawal — ⚠️ **that last one was found by one of the new tests, and the fault was real: the form asked, and then threw the answer away.**
 
 **09 Oct 2026 — engine v397, WHEN YOU PAY FOR SOMETHING WITH YOUR OWN MONEY (no database step — pushing this one is the whole of it).**
 

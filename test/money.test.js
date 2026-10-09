@@ -1168,3 +1168,42 @@ test("★★⚠️ a pocket payment she marked as her INVESTMENT is not also a d
   assert.equal(inv.stillIn, 500, "and nothing was taken back out");
   assert.equal(inv.rows.length, 1, "the row behind it is missing");
 });
+
+// ── ★★ more than one owner (v398) ─────────────────────────────────────────────
+// Her question: __"investment can be from few owner, how to differentiate"__ — and she chose that money
+// going out names its owner too, because without it a per-owner balance is impossible.
+
+test("★★ each owner's share is kept on its own", () => {
+  const st = state();
+  st.settings.sources = ["Kean", "Impressive Direction"];
+  st.deposits = [
+    { id: "d1", date: "2026-09-01", amount: 1000, method: "Cash", source: "Kean" },
+    { id: "d2", date: "2026-09-02", amount: 2000, method: "TNG", source: "Impressive Direction" },
+  ];
+  st.expenses = [
+    { id: "e1", date: "2026-09-10", amount: 300, category: "My own withdrawal",
+      method: "Cash", source: "Kean" },
+  ];
+  const inv = investmentOf(st);
+  const kean = inv.bySource.find((b) => b.source === "Kean");
+  const id_ = inv.bySource.find((b) => b.source === "Impressive Direction");
+  assert.equal(kean.putIn, 1000, "Kean's own money in is not kept separate");
+  assert.equal(kean.takenBack, 300, "⚠️ what Kean took back is not counted against Kean");
+  assert.equal(kean.stillIn, 700, "⚠️ so one owner's balance cannot be read");
+  assert.equal(id_.stillIn, 2000, "and the other owner's share is untouched");
+  assert.equal(inv.stillIn, 2700, "the total must still be the sum of the owners");
+});
+
+test("⚠️ money with no owner named is SHOWN, not quietly dropped", () => {
+  // ⚠️ A withdrawal recorded before an owner was named — or one she simply did not attribute — is a
+  // fact about her books. Hiding it would make the owners' shares add up to more than the total.
+  const st = state();
+  st.deposits = [{ id: "d1", date: "2026-09-01", amount: 500, method: "Cash", source: "Kean" }];
+  st.expenses = [{ id: "e1", date: "2026-09-10", amount: 100,
+    category: "My own withdrawal", method: "Cash" }];
+  const inv = investmentOf(st);
+  const unnamed = inv.bySource.find((b) => b.source === "");
+  assert.ok(unnamed, "⚠️ the unattributed money vanished from the account");
+  assert.equal(unnamed.takenBack, 100);
+  assert.equal(inv.stillIn, 400, "⚠️ and the total no longer adds up");
+});
