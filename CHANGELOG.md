@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v400)
+# Jienluv2bake — change history (v54 → v401)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v401, A SHOPPING LIST YOU CAN WRITE YOURSELF (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"I want to add a manual PO issuing, the rest of the po process follow what we already have for po processing. I think a thing only different is it dont tie to specific bake date"__ — and, asked what goes on it, __"Just pick products to bake"__ with __"then i can use the amend to adjust the details"__.
+
+**★ THE PO SCREEN HAS A NEW PRESS: WRITE A LIST BY HAND.** Pick the products and how many, and the app works the ingredients out of your recipes and prices them in whole packs from your cheapest supplier — **exactly as a bake day's list does**. Nothing here is on a bake day.
+
+**★ AND THE WHOLE REST OF THE PROCESS IS UNCHANGED, because it is the same machinery.** The saved list appears in PO history like any other, with the same per-shop groups, the same **Buy / Not buying**, the same **Undo**, the same **Print this shop**, the same **Amend** for adjusting any detail afterwards, and the same stock and money behaviour when you buy from it.
+
+**⚠️⚠️ AND THIS IS THE PART THAT MATTERS: SAVING IT NEVER MARKS A BAKE DAY AS SHOPPED.** A normal list remembers which bake days it covers; this one **records no day at all** — so it can never tick a day off your list, and deleting it can never un-tick one. **That is the entire difference**, and it is an absence rather than a rule, which means there is nothing anywhere that can forget it.
+
+**⚠️ AND A FORGOTTEN CORNER I FOUND WHILE BUILDING IT.** With **no bake days** at all, that screen used to stop at one sentence — so the new press would have been **invisible exactly when it is most useful**. A list that needs no bake day has to be reachable when there are none. The empty screen now offers it too.
+
+**⚠️ AND TWO FAULTS MY OWN CHECKS CAUGHT, WHICH IS WHY THEY ARE NOT IN THIS RELEASE.** The press first referenced something that did not exist where it was drawn — **the smoke harness that presses every control on every screen found it**, and no rendering test could have. And the product picker's answer was being read from the wrong place, so **choosing a product changed the picker on screen and did nothing at all** — found by driving it, not by reading it.
+
+**No database step.** The suite is **3,172 tests, all green** (2 new). Both new rules were proved by putting the fault back: the hand-written list recording a day list, and a list genuinely claiming both bake days and ticking them off.
 
 **09 Oct 2026 — engine v400, THE BUTTON SAYS BUY, AND IT BECOMES BOUGHT (no database step — pushing this one is the whole of it).**
 
