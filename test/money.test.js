@@ -233,6 +233,44 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
     "but it is named, on its own line, rather than quietly dropped");
 });
 
+// ── ★★ and a shopping run's money can be taken off her books (v391) ──────────
+//
+// ⚠️⚠️ WHY THIS TEST EXISTS. The v391 Delete box, on a saved PO, now TELLS her she can remove that
+// money on the Money screen ("remove the money on the Money screen if you want it gone"). ⚠️ **A box
+// that points her at a control nobody has ever driven is a promise the app has not kept** — and
+// nothing in this suite had ever pressed the ✕ on an expense at all. It is not enough that the ✕
+// exists; what matters is that pressing it takes the right row off and leaves the rest alone.
+const fireClick = (node) => (node._listeners.click || []).forEach((f) => f());
+
+test("★★⚠️ a shopping run's money row carries a ✕, and pressing it takes THAT row off", () => {
+  const today = todayISO();
+  const st = state();
+  st.expenses = [
+    { id: "e1", date: today, amount: 48.9, category: "Ingredients & shopping",
+      method: "TNG", poId: "po1", note: "Mydin" },
+    { id: "e2", date: today, amount: 12.5, category: "Ingredients & shopping",
+      method: "TNG", poId: "po1", note: "Yen Grocer" },
+  ];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const rowOf = (note) => allOf(root).find((n) => String(n.className).includes("info-row")
+    && n.textContent.includes("Shopping run") && n.textContent.includes(note));
+  assert.ok(rowOf("Mydin") && rowOf("Yen Grocer"),
+    "the money a shopping run wrote is not listed on her Money screen at all");
+  assert.equal(allOf(root).filter((n) => n.textContent === "✕").length, 2,
+    "⚠️ a shopping-run row carries no way to remove it — which is what the v391 Delete box points her at");
+
+  fireClick(allOf(rowOf("Mydin")).find((n) => n.textContent === "✕"));
+  const layer = screen["confirm-layer"];
+  assert.ok(layer.textContent.includes("RM 48.90"),
+    "the confirm does not name the figure it is about to take off her books");
+
+  fireClick(allOf(layer).find((n) => n.tagName === "BUTTON" && n.textContent === "Delete"));
+  assert.deepEqual(st.expenses.map((e) => e.note), ["Yen Grocer"],
+    "⚠️ the wrong row came off her books — or none did");
+});
+
 test("money taken just after midnight belongs to that day, not the day before", () => {
   // 16:30 UTC on the 16th is half past midnight on the 17th in Malaysia, where she
   // is. The day the money landed is HER day. (This suite runs on her machine, so
