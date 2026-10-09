@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v398)
+# Jienluv2bake — change history (v54 → v399)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v399, YOU ARRANGE YOUR OWN INGREDIENTS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"can you give me a handle to reorganise the ingredient card?"__ — and asked what you wanted to move, __"the order of the cards"__.
+
+**★ EVERY INGREDIENT NOW HAS A GRIP.** The little dotted grip on the left of the card is the same one your **Products** screen has always had — this screen had simply never been given it. Hold it and move the card up or down, and your ingredients sit in **your** order: by aisle, by how often you use them, flour first. Nothing else about the card changed.
+
+**★ AND THE ORDER IS YOURS FOR GOOD.** It is written onto the ingredients themselves rather than being a position in a list, ⚠️ because **your two phones sync whole records**. A position in a list would never travel between them: you would arrange your shelf on one phone and the other would keep the old order. Written onto the record, both phones agree.
+
+**⚠️ AND NOTHING MOVED UNDER YOU.** An ingredient you have never dragged has no order set, so it keeps exactly the place it had — **the list reads the same the moment you update as it did yesterday.** And an ingredient you add afterwards goes to the **end**, without disturbing anything you have arranged.
+
+**⚠️ ONE THING I GOT WRONG AND HAD TO FIND BY LOOKING.** The class that marks a card as draggable was already in use elsewhere in the app for something quite different, so your ingredient cards silently picked up a four-column grid and the text was squashed into a column about a third as wide as it should be. **Every test passed** — the test suite has no layout engine, so a squashed card and a correct one look identical to it. It only showed up on a real screen at phone width.
+
+**⚠️ AND THE CARD IS NOW ROOMIER THAN IT WAS.** Adding the grip took 21 pixels off the words and 25 off the buttons, which made "Keep at least" fold onto **three lines** for two words. So on this card the buttons now move onto their own line and the name and the two strips get the full width — measured back to **one line** each. ⚠️ The change is scoped to the ingredient card only, so **no other screen in the app moves.**
+
+**⚠️ AND AN OLD OVERFLOW IS GONE WITH IT.** The card was already running about 19 pixels wider than a phone before any of this; measuring it is how the class mix-up was found in the first place. It now fits with **nothing** hanging off the edge.
+
+**No database step.** The suite is **3,168 tests, all green** (2 new). Both new rules were proved by putting the fault back: the list drawn in storage order instead of yours, and a hidden ingredient drawn as one of the rows you arrange.
 
 **09 Oct 2026 — engine v398, MORE THAN ONE OWNER (no database step — pushing this one is the whole of it).**
 
