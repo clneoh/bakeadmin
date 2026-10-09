@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v399)
+# Jienluv2bake — change history (v54 → v400)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**09 Oct 2026 — engine v400, THE BUTTON SAYS BUY, AND IT BECOMES BOUGHT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"can the button initially say buy, after buy it become bought?"__ — and yes, that is exactly what it does now.
+
+**★ A SHOP YOU HAVE NOT BOUGHT FROM SAYS BUY. ONCE YOU HAVE, IT SAYS BOUGHT.** Press **Buy**, answer what you paid, and the press is replaced by the record — __Bought ✓ 9 Oct, 11:42__ — with **Undo** beside it:
+
+__Mydin · RM 96.00 · [Buy] [Not buying]__
+__Yen Grocer · RM 34.00 · Bought ✓ 9 Oct, 11:42 · [Undo]__
+
+**⚠️ AND THE TICK MEANS SOMETHING NOW.** "Bought ✓" was doing two jobs, and only one of them well. On the **press** the past tense plus a tick read as __already done__ — but since v389 pressing it only opens "What did you pay?", and **nothing moves until you answer**. The tick belongs to the record, where it is true: __Bought ✓ 11:42__ can only appear once the packs really are on your shelf.
+
+**★ AND THE TWO PRESSES ARE NOW A PAIR.** **Buy** and **Not buying** are the two answers to one question — did you buy at this shop? Before, the row mixed a verdict with a decision ("Bought ✓ / Not buying"), which read as though one had already been settled.
+
+**⚠️ AND NOTHING ELSE MOVED.** The record still says **Bought**, the stock card still says __Bought — Mydin (12 Oct)__, and the card still counts __Bought 1 of 2 shops — still to buy: Mydin__. Only the press changed its word.
+
+**⚠️ ONE THING YOU MIGHT WANT TO CHANGE TOO.** The shopping list's table has a column headed **BUY** (the quantity to buy) and now a **Buy** button sits beside that shop's name. They are different things — a heading against a button — but if the two reads as confusing on your phone, say so and I will rename one.
+
+**No database step.** The suite is **3,170 tests, all green** (2 new). Both new rules were proved by putting the fault back: the press reverted to "Bought ✓", the record word removed, and the pair broken by renaming one of them.
 
 **09 Oct 2026 — engine v399, YOU ARRANGE YOUR OWN INGREDIENTS (no database step — pushing this one is the whole of it).**
 
