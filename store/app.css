@@ -30,7 +30,16 @@
      mid-blink.** ⭐ `flashRow` READS THESE TWO rather than carrying a number of its own, so the
      flashing and the moment it stops cannot drift apart. ⚠️ Three blinks used to be impossible to ask
      for: the timer said 1200 and a three-blink flash is 1500. */
-  --flash-blink: 500ms;   /* how long ONE red blink lasts */
+  /* ⚠️⚠️ AND THESE TWO ARE THE ONLY THINGS TO CHANGE WHEN THE FLASH FEELS WRONG. Her words, twice:
+     __"the red is too short time"__ and then, after the first longer setting, __"still too short"__.
+     ⭐ At 500ms the red was on for only **215ms** of each blink; at 900ms it was ~590ms — **and she
+     said still too short, so the eye wants more than half a second to take a line in and use it.**
+     ⚠️ It is **1125ms of red per blink now, five times the original.**
+     ⭐ **The timer follows, because `flashRow` reads these** — a one-line change, nothing to drift. */
+  /* ⚠️⚠️ AND THIS IS HER OWN CYCLE, WRITTEN OUT: **1500ms = 1000ms of red + 500ms of pale**, which is
+     __"on 1sec, off 0.5sec"__ to the millisecond. Her words, three times over: __"the red is too short
+     time"__, __"still too short"__, and then the number itself. */
+  --flash-blink: 1500ms;  /* how long ONE red blink lasts: 1s on + 0.5s off */
   --flash-blinks: 3;      /* how many of them there are */
   --brown-soft: #fbe7dc;
   --shadow: 0 2px 12px rgba(120, 66, 32, .08);
@@ -1804,8 +1813,19 @@ button.prod-next.off::after { content: ""; }
    literal always interpolates**, and these two are pinned against the tokens by a test so the words
    and the numbers cannot drift apart. */
 @keyframes point-flash-word {
-  0%, 100% { color: #7b6552; }   /* --muted */
-  12%, 55% { color: #c0392b; }   /* --red */
+  /* ★★ THE CYCLE, IN HER OWN NUMBERS (v428). Her words: __"on 1sec, off 0.5sec cycle"__ — ⭐ so the
+     blink length is 1500ms and the two stretches are cut from it:
+       · `0%, 67%`   — the RED, held for **1005ms**, which is her one second
+       · `70%, 100%` — the pale, **450ms**, which is her half second
+     ⚠️ AND THE 3% BETWEEN THEM IS A CROSSFADE, NOT SLACK: a truly square edge at this size reads as a
+     rendering glitch rather than a light going on and off. **45ms is fast enough to feel like a switch
+     and slow enough not to strobe.**
+     ⚠️⚠️ THE RED IS NOT FADED IN — the cycle OPENS on it. "On for a second" means it is already on
+     when it starts, and a fade-up would spend part of her second arriving.
+     ⚠️ The pale stretch is not decoration: **a line that simply STAYS red is a colour change; a line
+     that BLINKS is something happening.** */
+  0%, 67% { color: #c0392b; }     /* --red, held for a full second */
+  70%, 100% { color: #7b6552; }   /* --muted, the half-second off */
 }
 .point-opt.off.flash .point-days,
 .point-opt.short.flash .point-sub {

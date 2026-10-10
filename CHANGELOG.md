@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v427)
+# Jienluv2bake — change history (v54 → v428)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v428, THE RED IS HELD LONGER (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the red is too short time"__ — and then, after the first increase: **__"still too short"__**
+
+**What it was.** ⚠️ The red was on for only **215 milliseconds** of each blink — the window was 43% of a half-second — which is **a flicker rather than a warning.** ⭐ **You cannot read a word in a fifth of a second**, so the flash was drawing your eye to the line and taking the line away before you could use it.
+
+**⚠️ AND YOUR SECOND TELLING IS THE ONE THAT TAUGHT ME THE SIZE OF IT.** I raised it to 0.9 seconds a blink — nearly three times as long — and **you said still too short.** ⭐ **So the eye wants more than half a second to take a line in AND use it.**
+
+**★ AND THEN YOU GAVE ME THE TIMING ITSELF: __"on 1sec, off 0.5sec cycle"__ — so that is exactly what it does.** The red is held for **one second**, then the line goes pale for **half a second**, and it repeats three times. ⭐ **Measured on your own shop, sampling one cycle:** red at 0.2s and at 0.9s, pale at 1.1s and 1.4s, and red again at 1.6s — **her cycle, to the millisecond.**
+⚠️ **And the test now carries YOUR figures rather than a floor I chose** — a full second of red, and an OFF stretch of half a second. ⚠️ It also pins that the red **ends before the pale begins**: the two must not overlap, and the thin crossfade between them is deliberate, because a truly square edge at this size reads as a rendering glitch rather than a light going on and off.
+⭐ **And the cycle OPENS on the red** — "on for a second" means it is already on when it starts, and a fade-up would spend part of your second arriving.
+
+**★ AND IT WAS A ONE-LINE CHANGE, WHICH IS THE POINT.** ⚠️ Because v427 made the screen **ask the stylesheet** how long the flash is, the timer followed on its own — **no number to update in a second place, and nothing to drift.**
+
+**Measured: the suite is 3,281 tests, all green. Three bites**, all fired by their own message, the stylesheet restored byte-identically. **Verified on your own shop page**, sampling a single blink at five points: the line is **red from just inside the start to just before the end, and pale on either side of it.**
+
+⚠️ **AND ONE THING YOU SHOULD KNOW: this version is not on your shop yet.** I checked what is deployed, and **v427 is what is live there** — `500ms` with the narrow window, which is the very flash you called too short. ⭐ **So when you looked and it was still too short, you were looking at the one you had already told me about.** The change is in the files, waiting to be pushed.
+
+**No database step.** Pushing this one is the whole of it.
+
 
 **10 Oct 2026 — engine v427, THE WARNING BLINKS RED THREE TIMES (no database step — pushing this one is the whole of it).**
 

@@ -2304,10 +2304,42 @@ test("★★ a parked place greys its WORDING, not its background (v425)", () =>
   // its name was on the element, and the colour never moved. ⭐ That freedom is exactly what lets the
   // numbers drift away from the words, so this is the check that stops it.
   const token = (n) => (css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
-  assert.equal((css.match(/@keyframes point-flash-word \{\s*0%, 100% \{ color: (#[0-9a-fA-F]{6})/) || [])[1],
-    token("muted"), "⚠️ the flash starts and ends on --muted's own value");
-  assert.equal((css.match(/12%, 55% \{ color: (#[0-9a-fA-F]{6})/) || [])[1],
+  // ⚠️ THE CYCLE **ENDS** ON `--muted`'s OWN VALUE — that is what keeps the line from snapping back
+  // when the animation lets go. ⚠️ It does not START on it: her cycle OPENS on the red, because "on
+  // for a second" means it is already on when it begins.
+  assert.equal((css.match(/\d+%, 100% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
+    token("muted"), "⚠️ the flash ends on the colour the line actually rests at, or it snaps");
+  assert.equal((css.match(/@keyframes point-flash-word \{[\s\S]{0,900}?0%, \d+% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
+    token("red"), "⚠️ and it OPENS on the red — 'on for a second' means already on");
+  assert.equal((css.match(/\d+%, \d+% \{ color: (#[0-9a-fA-F]{6}); \}\s*\/\* --red/) || [])[1],
     token("red"), "⚠️ and flashes --red's own value");
+
+  // ⚠️⚠️ AND THE ASSERTION THAT MATTERS IS HOW MANY MILLISECONDS OF RED THERE ARE — not the duration,
+  // not the window, but the product of the two. Her words, TWICE: __"the red is too short time"__, and
+  // then __"still too short"__ after the first increase. ⭐ **Measured as the customer gets it:**
+  // 215ms first, then ~590ms, and both were too short. ⚠️ **The eye wants more than half a second to
+  // take a line in AND use it** — so this asserts a full second per blink, and a later tidy that
+  // softens either number fails here rather than on her phone.
+  // ⭐ The pale gap between blinks is deliberate and must stay: **a line that simply stays red is a
+  // colour change; a line that BLINKS is something happening.**
+  // ⭐⭐ AND THE TWO STRETCHES ARE HER NUMBERS, NOT MINE: __"on 1sec, off 0.5sec cycle"__. ⚠️ She has
+  // now told me this three times — *"the red is too short time"*, *"still too short"*, and then the
+  // timing itself — so the TEST carries her figures rather than a floor of my choosing.
+  const blinkMs = Number((css.match(/--flash-blink:\s*(\d+)ms/) || [])[1]);
+  const win = (css.match(/(\d+)%,\s*(\d+)% \{ color: #[0-9a-fA-F]{6}; \}\s*\/\* --red/) || []);
+  const pale = (css.match(/(\d+)%, 100% \{ color: #[0-9a-fA-F]{6}; \}\s*\/\* --muted/) || []);
+  const onAt = Number(win[1]), offAt = Number(win[2]);
+  const redMs = Math.round(blinkMs * (offAt - onAt) / 100);
+  const paleMs = pale.length ? Math.round(blinkMs * (100 - Number(pale[1])) / 100) : 0;
+
+  assert.ok(redMs >= 1000,
+    `⚠️⚠️ ${redMs}ms of red per blink — she asked for a full second, and you cannot read a word in less`);
+  assert.ok(paleMs >= 400 && paleMs <= 600,
+    `⚠️ the OFF stretch is ${paleMs}ms — she asked for half a second, and the gap is what makes it a `
+    + `BLINK rather than a colour change`);
+  assert.equal(offAt < Number(pale[1]), true,
+    "⚠️ the red really does end before the pale starts — the crossfade between them is deliberate, but "
+    + "the two stretches must not overlap");
 });
 
 test("★★ the number of blinks and the timer come from ONE place (v427)", () => {
