@@ -52,6 +52,7 @@
 
 import { button, confirmDialog, el, emptyState, guarded, saidOf, select, toast } from "../ui.js";
 import { shortDate } from "../dates.js";
+import { routesOf, routesOfPoint } from "../deliveryRoutes.js";
 import { byId, groupOrders, save } from "../state.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
 import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
@@ -396,7 +397,7 @@ export function renderDeliveryRun(root, state, params) {
     // flatMap, NOT map: each row hands back `[row, ...tail]` — the row itself plus any blocks
     // that belong under it — and a plain map would leave those as nested arrays, which the DOM
     // then converts with String() into the words "[object HTMLElement]".
-    const rows = rowsNow().flatMap((r) => {
+    const built = rowsNow().map((r) => {
       // ★ A POINT ROW IS A PLACE, NOT A PERSON (v301). Its door is the Point's own pin, the
       // name on the row is the Point's, and the customer's own name and delivery address have
       // nothing to do with it — the bread is going to Farlim, and the customer is meeting it
@@ -456,12 +457,19 @@ export function renderDeliveryRun(root, state, params) {
       // than a day later. Silent when she has not set any — the card already says so, and a row
       // that repeats "no hours" on every run is noise on the screen she reads while working.
       const hours = isPoint ? pointWindowText(point) : "";
+      // ★★ AND THE OTHER ROUTES IT IS ALSO ON (v419). ⚠️ Named, never a second row — see the grouping
+      // below for why one stop is one row on this screen. It reads as a fact about the stop, so the
+      // heading it sits under is never mistaken for the only van that could take it.
+      const alsoOn = isPoint
+        ? routesOfPoint(state, point).slice(1).map((x) => x.name).filter(Boolean)
+        : [];
       const row = el("div", { class: `run-row${isPoint ? " run-row-point" : ""}` },
         el("label", { class: "run-who" },
           tick,
           el("span", { class: "run-words" },
             el("span", { class: "run-name" }, isPoint ? rowName(state, r) : nameOf(first)),
-            el("span", { class: "run-sub" }, [carried, where, hours ? `collect ${hours}` : "", what].filter(Boolean).join(" · ")))),
+            el("span", { class: "run-sub" }, [carried, where, hours ? `collect ${hours}` : "",
+              alsoOn.length ? `also on ${alsoOn.join(", ")}` : "", what].filter(Boolean).join(" · ")))),
         // A Point is pinned on its own card, where the pin belongs to the PLACE — not from
         // here, where the press would look like it pinned this run's version of it.
         isPoint
@@ -542,8 +550,46 @@ export function renderDeliveryRun(root, state, params) {
                 // which no lookup wrote, so there is nothing to carry.
                 () => keepPin(first, offer.place, theirs, theirs ? "" : doorRoadOf(state, first)),
                 "ghost small"))));
-      return [row, ...tail];
+      return { r, parts: [row, ...tail] };
     });
+
+    // ★★ AND THE DAY'S STOPS ARE GROUPED BY ROUTE (v419). Her words: __"now i need few delivery
+    // routes, for one day delivery run day"__ — the whole point of a route is that **one van does
+    // one small, smooth run**, so a day of stops read as one flat list tells her nothing about which
+    // stops belong together.
+    //
+    // ⚠️⚠️ A STOP IS STILL EXACTLY ONE ROW, and a Place on two routes draws UNDER ITS FIRST ONE with
+    // the others NAMED on its own row. Drawing it under both would put one stop on the screen twice
+    // — **and this screen's whole design rests on "a row is one stop"** (see `rowsNow`): every tick,
+    // every price and the double-booking guard name a row by `stopKeyOf`, so a second copy of the
+    // same key is a row she can tick in one place and not see ticked in the other. ⚠️ A redraw on
+    // every tick is not the repair for that: this list is repainted wholesale, and the tick handler
+    // deliberately does not repaint it.
+    //
+    // ⚠️ A STOP ON NO ROUTE COMES FIRST, with no heading — the same choice the shop makes for a
+    // Point no area carries, and for the same reason: it is a real stop a van is going to, and
+    // burying it under her headings helps nobody. Its row is byte-for-byte what it always was.
+    //
+    // ⚠️⚠️ the HEADING IS NOT A ROW AND CARRIES NO ID AT ALL. Tick state, prices and the guard all
+    // read the MODEL (`rowsNow()`), never the DOM — but a heading that LOOKED like a row is exactly
+    // the v415 fault, where the area headings were handed `active` because they carried no id. So
+    // it carries none rather than an empty one, and it is not a `.run-row`.
+    const firstRouteOf = new Map(built.map(({ r }) => {
+      const point = r.pointId ? pointById(state, r.pointId) : null;
+      const on = point ? routesOfPoint(state, point) : [];
+      return [r.key, on.length ? on[0].id : ""];
+    }));
+    const rows = [];
+    for (const b of built) if (!firstRouteOf.get(b.r.key)) rows.push(...b.parts);
+    for (const route of routesOf(state)) {
+      const mine = built.filter((b) => firstRouteOf.get(b.r.key) === route.id);
+      // A route with no stop on this day draws nothing at all — a heading over an empty run would
+      // read as a van that went out with nothing on it.
+      if (!mine.length) continue;
+      rows.push(el("div", { class: "run-route" },
+        `${route.name} · ${mine.length} stop${mine.length === 1 ? "" : "s"}`));
+      for (const b of mine) rows.push(...b.parts);
+    }
 
     listBox.replaceChildren(
       el("div", { class: "run-head" }, headTitle, headBtn),

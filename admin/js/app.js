@@ -16,6 +16,7 @@ import { renderProductCategories } from "./views/productCategories.js";
 import { renderParcelCouriers } from "./views/parcelCouriers.js";
 import { renderPoints } from "./views/points.js";
 import { renderPointAreas } from "./views/pointAreas.js";
+import { renderDeliveryRoutes } from "./views/deliveryRoutes.js";
 import { renderPromoCodes } from "./views/promo.js";
 import { renderReferrals } from "./views/referrals.js";
 import { renderSendVan } from "./views/send_van.js";
@@ -66,6 +67,11 @@ const routes = {
   // two jobs, and because the Points screen had to keep its shape (its own tests drive its first
   // child as the New-Point card). It is the Categories screen's twin, which is what she asked for.
   "/point-areas": { title: "Collection areas", tab: "more", render: renderPointAreas },
+  // ★★ THE VAN ROUTES (v419). Her words: __"now i need few delivery routes, for one day delivery run
+  // day"__. ⚠️ THE PATH AND THE TITLE BOTH SAY "DELIVERY", and that is not decoration: **"route" is
+  // already this app's word for a hash route** — the table this line sits in is `const routes` — so a
+  // bare `#/routes` would name two different things and a search would answer both.
+  "/delivery-routes": { title: "Delivery routes", tab: "more", render: renderDeliveryRoutes },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },
   "/bring-a-friend": { title: "Bring a friend", tab: "more", render: renderReferrals },
   // ★ THE NAME IS HERS (v402). Her words: __"instead of send a van, change the term to Location pin for

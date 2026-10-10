@@ -45,6 +45,11 @@ const MENU_GROUPS = [
     ["#/points", "📍 Self collection Points", "The places your customers collect from instead of your kitchen"],
     ["#/point-areas", "🗂 Collection areas",
       "The headings those places sit under — Penang Island, Prai — so a customer finds his own area first"],
+    // ★★ THE VAN ROUTES (v419). Her words: __"now i need few delivery routes, for one day delivery
+    // run day"__. ⚠️ THE MARK AND THE LINE NAME WHAT IT IS FOR, not just what it holds: a route is
+    // ONE van's run round a few nearby Places — not a region, which is what the areas row above is.
+    ["#/delivery-routes", "🗺 Delivery routes",
+      "The vans' runs — which Places each one visits, so a run day groups its stops by route"],
     ["#/parcel-couriers", "📦 Parcel couriers", "Posting dry goods yourself — J&T, Ninja Van, Line Clear"],
   ]],
   // The three she named, together, under the name of the screen they belong to.

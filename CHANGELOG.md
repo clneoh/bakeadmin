@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v418)
+# Jienluv2bake — change history (v54 → v419)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v419, DELIVERY ROUTES, AND THE DAYS A PLACE IS SERVED (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"now i need few delivery routes, for one day delivery run day. so point will carry its route info, and day of the week choices, day of the week can be any day, up to 7 days, configurable. No of route configurable"__
+
+**And your four answers, every one of which changed the shape of it:**
+
+- Where the days live — __"we don control by route, we control by point"__
+
+- Whether the shop should filter by them — __"every point listed in store, just that if that point only for friday, then mention it"__
+
+- Whether a Place could be on several routes — __"a point might belong to 2 or more routes"__
+
+- And what that means for its days — __"say one point that is on 2 or 3 routes, that it get more day probably"__
+
+**So there are three small things here, not one big one.**
+
+**1. Delivery routes — a new screen under More, in the Logistic group.** A route is one van's run round a few nearby Places. ⚠️ It is deliberately NOT the same thing as an area: an area is a geography a customer finds himself in (Penang Island, Sg Ara), and a route is the handful of doorsteps one driver does in one go. You make as many as you have vans, name them what you like, rename one, delete one, and drag them into your own order.
+
+**2. A Place carries its routes, and the days it is served.** Open any Self collection Point and you now see **Delivery routes** — tick one, or several if more than one van serves it — and **Which days this Place is served**, where you can tick any day up to all seven. ⚠️ Which Places make a smooth run is your call: nothing in the app measures a distance, suggests a grouping, or stops you putting one Place on two routes. ⚠️ And the day list lives on the POINT, never on the route, so there is exactly one place a day is ever typed.
+
+**3. The shop lists every Place exactly as it does now — and a Place served on only some days SAYS SO.** Your words again: __"every point listed in store, just that if that point only for friday, then mention it."__ So nothing is hidden, greyed or filtered: Farlim still sits under Sg Ara with the others, and under its name it now reads **Only available on Fri**. ⭐ And that line costs no new word in any language — it borrows the sentence the shop already uses for a product that is not on every day, so it reads correctly in English, Chinese and Bahasa Malaysia from today.
+
+**On the delivery run, the day's stops are grouped by route** — a heading like **Route A · 3 stops** over the Places that van is going to, so you can tick one van's work and book it. ⚠️ A Place on two routes is still ONE row: it draws under its first route and names the other on its own line, because on that screen **a row is one stop** and every tick and every price rests on that. ⚠️ A stop on no route comes first, with no heading over it, the same way an unfiled Place draws at the top of the shop.
+
+**★ And nothing of yours moved.** A Place you have not touched is served every bake day and is on no route, and it publishes **byte-for-byte** the row it published yesterday — I read the live payload back: of your four Places, only Farlim carried anything new, and the other three came out unchanged to the character.
+
+**No database step.** The suite is **3,267 tests, all green** (21 new). **Nine bites, all fired by their own message** — and two of them caught real faults: ⚠️ a `null` in a half-synced day list was silently becoming **Sunday**, in the app and again in the shop's own copy of the same check. Also pinned: a route named on one phone reaches the other, and a rename can no longer put a Place on no route or open it every day of the week.
+
+
 
 **10 Oct 2026 — engine v418, THE HANDLE NOW MOVES THE DROP-DOWNS TOO (no database step — pushing this one is the whole of it).**
 

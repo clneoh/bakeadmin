@@ -194,6 +194,25 @@ test("computeRecords: parcel courier rows ride the sync", () => {
   assert.deepEqual(carriers[1].data, { id: "pc_ninja", name: "Ninja Van", note: "counter at Prangin Mall" });
 });
 
+// The vans a Place is served by (v419). ⚠️ THE SAME TRAP THE CARRIER ROWS ABOVE GUARD AGAINST: a
+// list left out of `LISTS` is silently device-local — and the fault is nastier here than for a
+// carrier, because a Place carries a route's ID and not its name, so a route that never synced
+// leaves the other phone holding an id that resolves to nothing.
+test("computeRecords: delivery route rows ride the sync", () => {
+  const st = baseState();
+  st.deliveryRoutes = [
+    { id: "rt_a", name: "Route A", sort: 0 },
+    { id: "rt_b", name: "Route B", sort: 1 },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const routes = rows.filter((r) => r.kind === "deliveryRoutes");
+  assert.equal(routes.length, 2, "both routes reach the cloud");
+  assert.deepEqual(routes[0].data, { id: "rt_a", name: "Route A", sort: 0 },
+    "the row goes whole — no field whitelist to fall out of date");
+  assert.deepEqual(routes[1].data, { id: "rt_b", name: "Route B", sort: 1 });
+});
+
 test("mergeRows: a carrier added on one phone arrives on the phone that lacked it", () => {
   const { store, restore } = installStorage();
   try {

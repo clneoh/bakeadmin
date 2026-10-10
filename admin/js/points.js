@@ -116,7 +116,66 @@ export function blankPoint() {
     // be left with no way to find his bread. ⚠️ A test pins that, because suppressing it is the
     // tempting change and it is the one that strands somebody.
     showAddress: false,
+    // ★★ THE VAN ROUTES THIS PLACE IS SERVED BY (v419). Her words: __"so point will carry its
+    // route info"__ — and, told a Place could be on more than one, __"a point might belong to 2 or
+    // more routes"__.
+    //
+    // ⚠️ AN ARRAY, unlike `areaId` above, and that is her answer rather than an oversight: an area
+    // is a geography and *"a place is one place"*, but a Place can genuinely be visited by more
+    // than one van. ⚠️ AND THE ORDER MEANS NOTHING here — unlike a product's `categories`, where the
+    // tick order decides which heading it is listed under. Nothing reads position; see
+    // js/deliveryRoutes.js. An id naming a route that has since been DELETED is dropped on the way
+    // OUT (`routesOfPoint`), never here: a Place must lose nothing because a route went.
+    routeIds: [],
+    // ★★ THE DAYS THIS PLACE IS SERVED (v419). Her words: __"day of the week choices, day of the
+    // week can be any day, up to 7 days, configurable"__.
+    //
+    // ⚠️⚠️ EMPTY MEANS "EVERY BAKE DAY", AND THAT IS THE WHOLE SAFETY OF THIS FIELD. A Place she has
+    // not touched keeps behaving exactly as it does today and PUBLISHES NOTHING, so the shop page is
+    // byte-for-byte what it was — the same care `description` (v412) and `showAddress` (v410) take.
+    // **All seven ticked collapses to the same thing**, here and on the shop alike: "every day" and
+    // "no limit" are one answer, not two. See `servedEveryDay` below.
+    //
+    // ⚠️ JS `getDay()` NUMBERS (0 = Sunday … 6 = Saturday) — the numbering `settings.deliveryDays`
+    // and availability.js already use, so a day is spelled one way in this app.
+    //
+    // ⚠️⚠️ IT RESTRICTS THIS PLACE ONLY AND NEVER GENERATES A DATE. Her standing rule: only
+    // More → Bake days and Home put dates on her calendar.
+    days: [],
   };
+}
+
+// ⚠️ A DAY IS A JS `getDay()` NUMBER, 0–6, and anything else is DROPPED rather than clamped to a
+// day she never chose — the care `validWindow` and `validPlace` take with a window and a pin.
+// Deduped and sorted, so one day is spelled one way whichever screen wrote it.
+function normalizeDays(v) {
+  const seen = [];
+  for (const raw of Array.isArray(v) ? v : []) {
+    // ⚠️⚠️ `null`, `undefined` AND `""` ARE NOT ZERO, AND THIS TEST HAS TO COME **BEFORE** `Number()`
+    // — `Number(null)` and `Number("")` are both 0, so a hole or an empty field in a half-synced array
+    // would silently become **SUNDAY**: a day she never chose, on the one field whose empty value
+    // means "every day". ⭐ Caught by a test, not by reading. It is the same trap `normalizePoint`
+    // documents for `sort` (*"`Number(null)` and `Number('')` are both 0"*), in a place where the
+    // wrong answer is a promise to a customer about a day the shop is shut.
+    if (raw === null || raw === undefined || raw === "") continue;
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 0 && n <= 6 && !seen.includes(n)) seen.push(n);
+  }
+  return seen.sort((a, b) => a - b);
+}
+
+// ★★ IS THIS PLACE SERVED ON EVERY DAY? (v419) — **EMPTY AND ALL-SEVEN ARE THE SAME ANSWER**, and
+// that is the whole safety of the field: "no days ticked" and "every day ticked" both mean NO
+// RESTRICTION, so neither publishes a line and both read "Every day" on the card. She should never
+// have to know which of the two the app considers the normal one.
+export function servedEveryDay(point) {
+  const days = normalizeDays(point && point.days);
+  return days.length === 0 || days.length === 7;
+}
+
+// The days a Place is served, cleaned — the one reader every screen and the publish go through.
+export function pointDays(point) {
+  return normalizeDays(point && point.days);
 }
 
 // One stored row, cleaned. Anything malformed clamps rather than throwing, so a
@@ -125,6 +184,15 @@ export function normalizePoint(src) {
   const b = blankPoint();
   const s = src && typeof src === "object" ? src : {};
   const txt = (v, max) => String(v == null ? "" : v).trim().slice(0, max);
+  // ⚠️ An id that is not a string is dropped, the same clamp `areaId` applies on its own line.
+  const idList = (v) => {
+    const seen = [];
+    for (const raw of Array.isArray(v) ? v : []) {
+      const id = typeof raw === "string" ? raw.trim() : "";
+      if (id && !seen.includes(id)) seen.push(id);
+    }
+    return seen;
+  };
   const fee = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? round2(n) : b.feeRM;
@@ -164,6 +232,11 @@ export function normalizePoint(src) {
     // reads as NOT shown, which is what every Point has always meant — no address has ever been
     // published, so an absent switch must publish exactly what this app published yesterday.
     showAddress: s.showAddress === true,
+    // ⚠️ THE ROUTES THIS PLACE IS ON, and THE DAYS IT IS SERVED (v419). Unlike `sort` below, an
+    // EMPTY ARRAY IS A REAL ANSWER for both — "on no route", "served every day" — so both belong in
+    // the literal above and are never omitted: a screen reads `.length` on them.
+    routeIds: idList(s.routeIds),
+    days: normalizeDays(s.days),
   };
   // ⚠️⚠️ `sort` IS WRITTEN ONLY WHEN SHE HAS ONE, and it is NOT in the literal above on purpose.
   // ⭐ The rank of an ABSENT sort is "last", so a Point she has never dragged keeps the order it
@@ -383,6 +456,11 @@ export function updatePoint(state, id, draft) {
     showAddress: has("showAddress") ? draft.showAddress : kept.showAddress,
     sort: has("sort") ? draft.sort : kept.sort,
     description: has("description") ? draft.description : kept.description,
+    // ⚠️⚠️ AND NEITHER ARE HER ROUTES OR THE DAYS THIS PLACE IS SERVED (v419) — the same trap, and it
+    // lands the same way: the editor carries both, so the screen is fine, but any other caller
+    // handing over `{ ...FEE }` would put the Place on NO route and open it EVERY day of the week.
+    routeIds: has("routeIds") ? draft.routeIds : kept.routeIds,
+    days: has("days") ? draft.days : kept.days,
   });
   rows[at] = next;
   // ⚠️ SAME RULE AS `addPoint`: marking this one as the kitchen un-marks whichever held it, and
@@ -475,6 +553,12 @@ export function publishPoints(state, points) {
     // published yesterday and the shop falls back to its standard sentence.
     const words = String((p && p.description) || "").trim().slice(0, DESC_MAX);
     if (words) row.description = words;
+    // ★★ AND THE DAYS THIS PLACE IS SERVED (v419), on exactly the same spelling as the address and
+    // the description: **written only when she has actually restricted them**. A Place served every
+    // day — whether she ticked none or all seven — publishes byte-for-byte the row it published
+    // yesterday, which is what keeps a page nobody asked about exactly as it was. ⚠️ Routes are
+    // NEVER published: a customer has no business knowing her vans.
+    if (!servedEveryDay(p)) row.days = pointDays(p);
     return row;
   });
 }

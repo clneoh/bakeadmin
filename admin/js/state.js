@@ -195,6 +195,14 @@ export function defaultState() {
     // Island" as somewhere to collect. One record each, so an area built on one phone syncs on
     // its own. See js/pointAreas.js.
     pointAreas: [],
+    // The VAN ROUTES those Points are served by (v419): {id, name, sort} — a flat list she grows,
+    // not a tree. Her words: "now i need few delivery routes, for one day delivery run day".
+    //
+    // ⚠️ A ROUTE CARRIES NO DAYS. Her words: "we don control by route, we control by point" — the
+    // days live on the POINT (`point.days`), so there is exactly one place a day is ever typed.
+    // ⚠️ AND MEMBERSHIP IS SEVERAL: "a point might belong to 2 or more routes", so a Point carries
+    // `routeIds`, an ARRAY — unlike `areaId`, which is one id. See js/deliveryRoutes.js.
+    deliveryRoutes: [],
     // Promo codes she hands out — one row per code, carrying the six rule
     // families and the offer (see js/promo.js for the engine and the shape). A
     // list she grows, like the credits ledger above, not a setting.
@@ -435,6 +443,7 @@ function normalize(s) {
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
     points: Array.isArray(s.points) ? s.points : [],
     pointAreas: Array.isArray(s.pointAreas) ? s.pointAreas : [],
+    deliveryRoutes: Array.isArray(s.deliveryRoutes) ? s.deliveryRoutes : [],
     // Guarded like every other list she owns. The rows themselves are cleaned by
     // js/promo.js on every read, so a half-synced or hand-edited record can never
     // reach a screen or the shop un-clamped.

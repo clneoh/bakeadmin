@@ -758,6 +758,64 @@ test("the Point's row says what it is, and how much it is carrying", async () =>
   assert.equal(row.textContent.includes("Ain"), false, "no customer's name on a Point's row");
 });
 
+// Two Points on two routes, plus an unrouted doorstep — the shape a day's run takes once she has
+// vans. ⚠️ FARLIM IS ON BOTH ROUTES, and its FIRST is Route A, so it must draw under A and name B.
+function worldOnRoutes() {
+  const st = world();
+  for (const o of st.orders) {
+    o.fulfillment = "collect";
+    o.pointId = o.groupId === "g2" ? "pt_prai" : "pt_farlim";
+  }
+  st.deliveryRoutes = [
+    { id: "rt_a", name: "Route A", sort: 0 },
+    { id: "rt_b", name: "Route B", sort: 1 },
+  ];
+  st.points = [
+    { id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik, 11500 Air Itam",
+      receiver: "Aunty Lim", phone: "60123456789", feeRM: 0.5, paused: false,
+      createdAt: "2026-10-12T00:00:00.000Z", routeIds: ["rt_b", "rt_a"],
+      place: { lat: 5.4, lng: 100.28, label: "Farlim, Air Itam" } },
+    { id: "pt_prai", name: "Chai Leng Park", address: "9 Jalan Ria",
+      receiver: "Aunty Lim", phone: "60123456789", feeRM: 0.5, paused: false,
+      createdAt: "2026-10-11T00:00:00.000Z", routeIds: ["rt_b"],
+      place: { lat: 5.38, lng: 100.39, label: "Chai Leng Park" } },
+  ];
+  return st;
+}
+
+test("★★ a day's stops are grouped by the route they are on (v419)", async () => {
+  // Her words: __"now i need few delivery routes, for one day delivery run day"__ — the whole point
+  // of a route is that one van does one small, smooth run, so a day read as one flat list tells her
+  // nothing about which stops belong together.
+  const st = withThirdCustomer(worldOnRoutes());
+  stubCourier();
+  const { root } = openRun(st);
+
+  const heads = all(root).filter((n) => String(n.className).includes("run-route"))
+    .map((n) => n.textContent);
+  assert.deepEqual(heads, ["Route A · 1 stop", "Route B · 1 stop"],
+    "⚠️ HER route order, and a heading only for a route that actually has a stop today — a heading "
+    + "over an empty run would read as a van that went out carrying nothing");
+
+  const drawn = all(root).filter((n) => String(n.className).includes("run-row"));
+  assert.equal(drawn.length, 3, "three stops, three rows");
+  assert.ok(drawn[0].textContent.includes("Chandra"),
+    "⚠️ the stop on NO route leads, with no heading over it — it is a real doorstep a van is going "
+    + "to, and burying it under her routes would help nobody");
+
+  // ⚠️⚠️ AND A PLACE ON TWO ROUTES IS STILL ONE ROW. It draws under its FIRST route and NAMES the
+  // other, because a second row would put one stop on the screen twice — and "a row is one stop" is
+  // what every tick, every price and the double-booking guard on this screen rests on.
+  const farlim = drawn.find((r) => r.textContent.includes("Farlim"));
+  assert.match(farlim.textContent, /also on Route B/,
+    "the second route is NAMED on the row, so the heading it sits under is never mistaken for the only van");
+  const prai = drawn.find((r) => r.textContent.includes("Chai Leng Park"));
+  assert.equal(/also on/.test(prai.textContent), false, "a Place on one route says nothing extra");
+
+  const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
+  assert.equal(ticks.length, 3, "⚠️ and ONE tick per stop, never one per appearance");
+});
+
 test("a Point and a doorstep are two stops, and neither is counted twice", async () => {
   // The mixed run she actually wants: a Point carrying one customer, and another customer
   // whose own door the van goes to. Two stops — and if the Point's customer were counted

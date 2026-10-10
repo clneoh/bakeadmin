@@ -44,6 +44,7 @@ const LISTS = {
   // no registration (records travel whole, as JSON), but this is a list of its own — so an area
   // built on one phone reaches the other only because of this line.
   pointAreas: "pointAreas", // the collection AREA tree that groups the Points (v410)
+  deliveryRoutes: "deliveryRoutes", // the VAN routes a Point is served by (v419) — a route named on one phone has to exist on the other, or the Points screen offers a different list of vans on every device
   occasions: "occasions", // delivery-calendar reminder marks
   // A promo code made on one phone has to exist on the other, or a card she
   // prints and hands out works on the phone that made it and nowhere else.

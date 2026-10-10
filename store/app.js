@@ -787,6 +787,28 @@ export function mergeStorefront(base, remote) {
         // written a description for publishes byte-for-byte what it published yesterday.
         const words = String(p.description == null ? "" : p.description).trim().slice(0, 120);
         if (words) row.description = words;
+        // ★★ AND THE DAYS THIS PLACE IS SERVED (v419). ⚠️⚠️ WITHOUT THIS THE DAYS DIE HERE, one step
+        // after `publishPoints` sends them: **a field a sender publishes and a receiver does not keep
+        // is a field that was never sent**, and this list is rebuilt from a whitelist, so every new
+        // key needs naming in BOTH places.
+        // ⚠️ RE-VALIDATED ON THE SHOP'S OWN TERMS, not trusted: a weekday is a whole number 0–6 and
+        // nothing else, deduped and sorted, so a hand-edited or half-synced payload cannot make this
+        // page say a day that does not exist. ⚠️ AND ONLY A REAL RESTRICTION IS KEPT — an empty list,
+        // or all seven days, publishes byte-for-byte the row it published yesterday.
+        if (Array.isArray(p.days)) {
+          const days = [];
+          for (const raw of p.days) {
+            // ⚠️⚠️ `null`, `undefined` AND `""` ARE NOT ZERO, and this test comes BEFORE `Number()`
+            // for that reason — `Number(null)` is 0, so a hole in a half-synced array would become
+            // **SUNDAY**: a promise to a customer about a day she never chose. The same trap
+            // `normalizeDays` documents on the admin side, and it was in BOTH copies.
+            if (raw === null || raw === undefined || raw === "") continue;
+            const n = Number(raw);
+            if (Number.isInteger(n) && n >= 0 && n <= 6 && !days.includes(n)) days.push(n);
+          }
+          days.sort((a, b) => a - b);
+          if (days.length && days.length < 7) row.days = days;
+        }
         return row;
       });
   }
@@ -3335,6 +3357,28 @@ function publishedPoints() {
 //
 // The whole field is hidden while she has no Point open, so a shop that never uses them is
 // byte-for-byte the shop it was.
+// ★★ THE DAYS A PLACE IS SERVED, SAID IN THE CUSTOMER'S OWN LANGUAGE (v419).
+//
+// Her words: __"every point listed in store, just that if that point only for friday, then mention
+// it"__. ⚠️⚠️ **NOTHING IS FILTERED, GREYED OR HIDDEN** — every Place draws exactly where it drew
+// before, and this only ADDS a line to the ones she has restricted. ⚠️ And it adds a line to exactly
+// the Places that published a `days`, so a page nobody has touched is byte-for-byte what it was.
+//
+// ⚠️ NO NEW STRING IN ANY LANGUAGE, AND THAT IS DELIBERATE. It reuses **`closedWeekday` ("Only
+// available on %1")**, which is already translated in all three languages and already joined by
+// `listJoin` in the page's own — so the dictionary, its key-parity test and its placeholder test are
+// all untouched by this version.
+// ⭐ THE COUPLING IS REAL AND INTENDED: that string is also the product card's own "only available
+// on" line. Both mean the same one thing — *this is not on offer every day* — so a change to one
+// MUST be a change to both, and a second copy of the sentence is exactly how the two would come to
+// say different things.
+function pointDaysLine(p) {
+  const days = Array.isArray(p && p.days) ? p.days : [];
+  if (!days.length) return "";
+  const names = days.map((n) => dayName(Number(n))).filter(Boolean);
+  return names.length ? sub(t("closedWeekday"), listJoin(names)) : "";
+}
+
 function renderPointList(wrap, total = 0) {
   const list = document.getElementById("point-list");
   if (!list || !wrap) return;
@@ -3392,7 +3436,7 @@ function renderPointList(wrap, total = 0) {
   // The rule is HERS, typed on her own Point, so the shop honours it rather than merely stating
   // it: this is not the app's own rule being turned into a gate, which is the thing her standing
   // instruction forbids.
-  const row = (id, name, sub, { short = false, address = "" } = {}) => {
+  const row = (id, name, sub, { short = false, address = "", days = "" } = {}) => {
     const b = el("button", {
       class: `point-opt${short ? " short" : ""}`, type: "button", "data-point-id": id,
       onclick: () => {
@@ -3407,7 +3451,14 @@ function renderPointList(wrap, total = 0) {
     // "we message the exact spot"), and the address is a fact she has chosen to publish, so the two
     // reading as one sentence would make the switch look like it had changed her words too.
     // ⚠️ Absent for every Point she has not ticked, so nothing on this page changes for them.
-    address ? el("span", { class: "point-sub point-addr" }, address) : null);
+    address ? el("span", { class: "point-sub point-addr" }, address) : null,
+    // ★★ AND WHICH DAYS IT IS SERVED (v419). Her words: __"every point listed in store, just that if
+    // that point only for friday, then mention it"__. ⚠️⚠️ **A LINE OF ITS OWN, NOT FOLDED INTO THE
+    // ONE ABOVE** — the same reason the address got its own line at v410: the description says what
+    // the place IS ("where we bake"), and "only available on Fri" is a fact about WHEN, so reading
+    // as one sentence would make her own words look as if they said it.
+    // ⚠️ Absent for every Place she has not restricted, so nothing on this page moves for them.
+    days ? el("span", { class: "point-sub point-days" }, days) : null);
     return b;
   };
 
@@ -3498,7 +3549,7 @@ function renderPointList(wrap, total = 0) {
     out.push(row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
         : (own || (p.isKitchen === true ? t("kitchenSub") : t("pointSub"))),
-      { short, address: String(p.address || "") }));
+      { short, address: String(p.address || ""), days: pointDaysLine(p) }));
   });
   list.replaceChildren(...out);
 

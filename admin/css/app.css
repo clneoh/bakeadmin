@@ -672,6 +672,16 @@ body { min-height: 100vh; }
 }
 .cat-pick input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
 
+/* The seven day boxes on a Self collection Point (v419) — tick the days this Place is served.
+   Mon first, wrapping, each a whole 36px row to tap like `.cat-pick` above.
+
+   ⚠️ A NEW CLASS, NOT the `.daycheck`/`.daychecks` pair the Settings screen uses: those two have
+   NO styling of their own at all, so borrowing them would inherit nothing today and — worse —
+   any rule later added for one screen would silently move the other. */
+.day-pick { display: flex; flex-wrap: wrap; gap: 0 14px; }
+.day-pick label { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; }
+.day-pick input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
+
 /* The picture beside a product's name in the products list, so she can see at a
    glance which ones still need one. The same standard 120 x 120 SQUARE window as
    the shop's card (.menu-thumb in store/app.css) and the editor (.thumb-box
@@ -5001,6 +5011,20 @@ tr.po-covered td { color: var(--muted); }
    "Put it on the map" press is a sibling OUTSIDE that label so tapping it pins a door
    rather than ticking a customer. */
 .run-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+/* The route heading over a group of stops (v419) — "Route A · 3 stops".
+   ⚠️ A HEADING, NOT A ROW: it carries no id and is not a `.run-row`, so nothing that ticks, prices
+   or counts a stop can find it. Deliberately plain for the same reason — a heading that LOOKED
+   pressable would read as a control that does nothing. */
+.run-route {
+  margin: 14px 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--brown-dark);
+  text-transform: uppercase;
+}
 .run-head-title { font-weight: 600; font-size: 14px; }
 .run-row {
   display: flex;

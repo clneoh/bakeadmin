@@ -20,10 +20,12 @@ import { windowAt, windowParts, windowProblem } from "../time_window.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
 import { flattenTree, groupPointsByArea, movePointInArea } from "../pointAreas.js";
+import { routeNamesOf, routesOf } from "../deliveryRoutes.js";
+import { dayListLabel, dayName } from "../dates.js";
 import {
-  DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
+  DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointDays, pointPhoneText,
   pointMinOrder, pointPlace, pointPlaceText, pointProblem, pointWindow, pointWindowText, pointsOf,
-  setPointPaused, setPointPlace,
+  servedEveryDay, setPointPaused, setPointPlace,
   updatePoint,
 } from "../points.js";
 
@@ -153,6 +155,70 @@ function buildPointEditor(state, point) {
       "Tick this and your public shop page prints the address under the Point, so a customer can see "
       + "where it is before they order. Leave it off and the page shows the name only. "
       + "⚠️ It does not change the message you send: a customer who has ordered is always told where to collect."));
+
+  // ★★ THE ROUTES THAT SERVE THIS PLACE (v419). Her words: __"so point will carry its route
+  // info"__ — and, told a Place could be on more than one, __"a point might belong to 2 or more
+  // routes"__.
+  //
+  // ⚠️ TICK BOXES, NOT A DROP-DOWN, and that is the whole reason for the choice: the control has to
+  // be able to say **two of them**. It is the same control the Products screen already uses to file
+  // one product under several headings, for the same reason, and the same `.cat-pick` row.
+  // ⚠️⚠️ AND UNLIKE THAT ONE, THE TICK ORDER MEANS NOTHING. A product is listed under its FIRST
+  // ticked heading; a Place on two routes is simply on two routes, so nothing here reads position —
+  // see deliveryRoutes.js.
+  // ⚠️ AND IT IS HER PLANNING, IN HER WORDS: __"which i will manually plan"__. Nothing here measures
+  // a distance, suggests a grouping, or refuses a Place two routes that are far apart.
+  const routeRows = routesOf(state);
+  const routeTicked = (Array.isArray(point?.routeIds) ? point.routeIds : []).map(String)
+    .filter((id) => routeRows.some((r) => r.id === id));
+  const routePicker = routeRows.length
+    ? el("div", {}, ...routeRows.map((r) => {
+        const cb = el("input", { type: "checkbox", checked: routeTicked.includes(r.id) });
+        cb.addEventListener("change", () => {
+          const at = routeTicked.indexOf(r.id);
+          if (cb.checked && at < 0) routeTicked.push(r.id);
+          if (!cb.checked && at >= 0) routeTicked.splice(at, 1);
+        });
+        return el("label", { class: "cat-pick" }, cb, el("span", {}, String(r.name || "")));
+      }))
+    : el("p", { class: "card-sub", style: "margin:0" },
+        "No routes yet. Make them under More → Delivery routes, then put this Place on one.");
+
+  // ★★ THE DAYS THIS PLACE IS SERVED (v419). Her words: __"day of the week choices, day of the week
+  // can be any day, up to 7 days, configurable"__.
+  //
+  // ⚠️⚠️ EVERYTHING CLEAR MEANS EVERY BAKE DAY, and the hint below SAYS SO rather than leaving her to
+  // work it out: a Place she has not touched keeps behaving exactly as it does today, and an empty
+  // row she cannot read is the shape of fault she reports. ⚠️ And all seven ticked is the same
+  // answer as none — "every day" and "no limit" are one thing, so neither publishes a line.
+  // ⚠️ MONDAY FIRST, the same order the Bake day settings already use, so a week reads the same way
+  // on both screens.
+  const dayTicked = (Array.isArray(point?.days) ? point.days : []).map(Number)
+    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+  const dayPicker = el("div", { class: "day-pick" },
+    ...[1, 2, 3, 4, 5, 6, 0].map((n) => {
+      const cb = el("input", { type: "checkbox", checked: dayTicked.includes(n) });
+      cb.addEventListener("change", () => {
+        const at = dayTicked.indexOf(n);
+        if (cb.checked && at < 0) dayTicked.push(n);
+        if (!cb.checked && at >= 0) dayTicked.splice(at, 1);
+      });
+      return el("label", {}, cb, el("span", {}, dayName(n)));
+    }));
+
+  const routeField = el("div", { class: "field" },
+    el("label", {}, "Delivery routes"),
+    routePicker,
+    el("p", { class: "hint" },
+      "Which van's run this Place is on. Tick one, or several if more than one route serves it. "
+      + "Routes are made under More → Delivery routes, and which Places make a smooth run is your call."));
+
+  const daysField = el("div", { class: "field" },
+    el("label", {}, "Which days this Place is served"),
+    dayPicker,
+    el("p", { class: "hint" },
+      "Tick the days a customer can collect here. Leave them ALL clear for every bake day — which is "
+      + "how every Place behaves today. ⚠️ Ticking all seven says the same thing as ticking none."));
   const receiver = el("input", { class: "input", value: point?.receiver || "",
     placeholder: "e.g. Aunty Lim" });
   const phone = el("input", { class: "input", type: "tel", value: point?.phone || "",
@@ -231,6 +297,12 @@ function buildPointEditor(state, point) {
       areaId: area.value || "",
       showAddress: showAddr.checked,
       description: description.value,
+      // ★★ WHICH ROUTES SERVE IT AND WHICH DAYS IT IS SERVED (v419). Both on the draft, so
+      // `addPoint`/`updatePoint` write them — and ⚠️ `updatePoint` carries them across when a
+      // caller's draft leaves them out, which is what stops a rename from putting the Place on no
+      // route and opening it every day of the week.
+      routeIds: [...routeTicked],
+      days: [...dayTicked],
     };
     // The same two questions the run screen asks, in the same words: the name is the Point's
     // own floor, and a window that ends before it starts is refused rather than published.
@@ -238,7 +310,8 @@ function buildPointEditor(state, point) {
       || windowProblem(collectFrom.value, collectTo.value);
     return { draft, error };
   };
-  return { name, area, description, address, addressSug, showAddrField, receiver, phone, fee, minOn,
+  return { name, area, description, address, addressSug, showAddrField, routeField, daysField,
+    receiver, phone, fee, minOn,
     minField, collectFrom, collectTo, kitchenField, collect };
 }
 
@@ -252,6 +325,8 @@ function newPointCard(state, root) {
         "Which part of your list this Point belongs under — Penang Island, Prai. Build the areas "
         + "under More, then Collection areas. Leave it as no area and it sits at the top of your "
         + "list until you file it.")),
+    ed.routeField,
+    ed.daysField,
     el("div", { class: "field" }, el("label", {}, "What customers read"), ed.description,
       el("p", { class: "hint" },
         "The line under this Point's name on your shop. Leave it empty and customers are read the "
@@ -287,6 +362,8 @@ function openEditPointPopup(state, point, root) {
   showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
     el("div", { class: "field" }, el("label", {}, "Area"), ed.area),
+    ed.routeField,
+    ed.daysField,
     el("div", { class: "field" }, el("label", {}, "What customers read"), ed.description),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
     ed.showAddrField,
@@ -325,6 +402,9 @@ function pointCard(state, point, root) {
   const used = usedBy(state, point);
   const phone = pointPhoneText(point.phone);
   const who = [point.receiver || null, phone || null].filter(Boolean).join(" · ");
+  // ⚠️ READ THROUGH THE MODEL, so an id naming a route that has since been deleted simply drops out
+  // rather than printing a blank name — a Place never breaks because a route went.
+  const routeNames = routeNamesOf(state, point);
 
   // ★★ SHE ARRANGES HER OWN POINTS (v410). Her words: __"design the handle too"__ — the same grip
   // the Categories, Products and Ingredients screens carry, from the same rule in app.css, driven
@@ -363,6 +443,19 @@ function pointCard(state, point, root) {
       pointPlace(point)
         ? `📍 ${pointPlaceText(point)}`
         : "📍 Not pinned yet — a van cannot be sent to a name alone."),
+    // ★★ WHICH ROUTES AND WHICH DAYS (v419), on the card so she reads both WITHOUT opening the
+    // editor — the same reason the kitchen chip went on the folded head at v406: a list she has to
+    // open row by row is not a list she can read.
+    // ⚠️ "EVERY BAKE DAY" IS SAID OUT LOUD rather than left blank, because "no days ticked" means
+    // both "unrestricted" and, to a reader, "not set yet" — and those are not the same thing to her.
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      routeNames.length
+        ? `🚚 ${routeNames.join(" · ")}`
+        : "🚚 On no route yet."),
+    el("p", { class: "card-sub", style: "margin:6px 0 0" },
+      servedEveryDay(point)
+        ? "🗓 Served every bake day."
+        : `🗓 ${dayListLabel(pointDays(point))} only.`),
     // The presses go on a LINE OF THEIR OWN under the details, not squeezed into the card's right
     // edge. Three is one more than that edge holds on a phone — Pause and Edit fitted and Delete
     // wrapped under them, which read as two rows that look alike and behave differently.

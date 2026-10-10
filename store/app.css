@@ -1737,6 +1737,10 @@ button.prod-next.off::after { content: ""; }
 /* ⚠️ THE ADDRESS IS SHOWN ONLY ON THE POINTS SHE TICKED, and it keeps the description's size and
    colour rather than being set apart — it is one more fact about the place, not a warning. */
 .point-addr { margin-top: 1px; }
+/* The days a Place is served (v419) — "Only available on Fri". A line of its own under the
+   description, for the same reason the address got one: it is a fact about WHEN, and folding it
+   into her own sentence would make her words look as if they said it. */
+.point-days { margin-top: 1px; }
 
 .promo-box { margin: 0 0 16px; }
 .promo-box .field { margin-bottom: 0; }

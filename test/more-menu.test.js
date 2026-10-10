@@ -201,8 +201,11 @@ test("'Logistic' is her own word for the delivery set, and carries all five", ()
   // **the headings belong beside the places they head**, not in a group of their own, or she has
   // to remember which of two screens the line she is looking at lives on.
   const logistic = groupsOf(drawMore()).find((g) => g.name === "Logistic");
+  // ⚠️ AND THE VAN ROUTES JOINED THEM (v419), directly under the places they carry. Her words:
+  // __"now i need few delivery routes, for one day delivery run day"__ — a route is one van's run
+  // round a few nearby Places, so it belongs beside the Points it holds and the run that uses it.
   assert.deepEqual(logistic.hrefs,
-    ["#/run", "#/send-van", "#/points", "#/point-areas", "#/parcel-couriers"],
+    ["#/run", "#/send-van", "#/points", "#/point-areas", "#/delivery-routes", "#/parcel-couriers"],
     "an order leaving the kitchen is one job — every way it leaves is under Logistic");
 });
 

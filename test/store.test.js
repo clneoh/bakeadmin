@@ -2101,6 +2101,65 @@ test("the shop keeps a Point's description, and adds it to nothing else (v412)",
   assert.equal("description" in out.points[2], false, "and an absent one gains no key");
 });
 
+test("the shop keeps a Point's days, and keeps ONLY a real restriction (v419)", () => {
+  // ⚠️ THE PUBLISH/MERGE PAIR AGAIN — the fourth key through the same door, and the fault it guards
+  // is always the same one: **a field a sender publishes and a receiver drops was never sent.**
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Fridays only", days: [5] },
+    { id: "pt_2", name: "Open always" },
+    { id: "pt_3", name: "Nothing ticked", days: [] },
+    { id: "pt_4", name: "All seven", days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: "pt_5", name: "Junk", days: [5, 5, 9, -1, "x", null] },
+    { id: "pt_6", name: "Not a list", days: "Friday" },
+  ] });
+  const by = (id) => out.points.find((p) => p.id === id);
+  assert.deepEqual(by("pt_1").days, [5], "a real restriction arrives");
+  assert.equal("days" in by("pt_2"), false, "no days at all: no key — byte-for-byte yesterday's row");
+  assert.equal("days" in by("pt_3"), false, "⚠️ nothing ticked is EVERY day, so it is not a restriction");
+  assert.equal("days" in by("pt_4"), false,
+    "⚠️ and all seven is the SAME answer as none — a line saying 'every day' would say nothing");
+  assert.deepEqual(by("pt_5").days, [5],
+    "⚠️ re-validated on the shop's OWN terms: deduped, sorted, and 9, -1, 'x' AND null dropped — "
+    + "⚠️⚠️ null is NOT zero, or a hole in a half-synced array would promise Sunday");
+  assert.equal("days" in by("pt_6"), false, "a string is not a list of days");
+});
+
+test("★★ a Place served on only some days SAYS SO — and every Place still draws (v419)", () => {
+  // Her words: __"every point listed in store, just that if that point only for friday, then
+  // mention it"__. ⚠️⚠️ SO NOTHING IS HIDDEN, GREYED OR FILTERED — the list is the same length, every
+  // Place is exactly where it was, and the restricted one simply carries ONE MORE LINE.
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [
+      { id: "pt_k", name: "Sg Ara", minOrderRM: 0, isKitchen: true },
+      { id: "pt_a", name: "Fridays only", minOrderRM: 0, days: [5] },
+      { id: "pt_b", name: "Open always", minOrderRM: 0 },
+      { id: "pt_c", name: "Two days", minOrderRM: 0, days: [1, 3] },
+    ];
+    render();
+    const list = document.getElementById("point-list");
+    // ⚠️ Read off `children`, because this shim has no element-level `querySelectorAll`.
+    const rows = list.children.filter((b) => String(b.className).includes("point-opt"));
+    const daysOf = (nm) => {
+      const b = rows.find((r) => r.children[0] && r.children[0].children[0]
+        && r.children[0].children[0].text === nm);
+      if (!b) return "(no such row)";
+      const span = (b.children || []).find((c) => String(c.className || "").includes("point-days"));
+      return span ? String(span.children[0].text) : "";
+    };
+    assert.equal(rows.length, 4, "⚠️⚠️ every Place is still listed — nothing was filtered away");
+    assert.equal(daysOf("Fridays only"), "Only available on Fri", "the single day is named");
+    assert.equal(daysOf("Two days"), "Only available on Mon and Wed",
+      "and a pair is joined the way a person says it, not as a raw list of numbers");
+    assert.equal(daysOf("Open always"), "",
+      "⚠️ and NO line at all for a Place she has not restricted, so the page she never touched is unchanged");
+    assert.equal(daysOf("Sg Ara"), "", "the kitchen's own row is untouched by this too");
+  } finally {
+    CONFIG.points = realP;
+    render();
+  }
+});
+
 test("★★ the courier's address arrives with the courier, not as a box under it (v412)", () => {
   // Her words: __"courier delivery and address should be one piece"__ — the mirror of the places in
   // the collect card. ⚠️ And the two are ONE state: only one card may be open, so the field of the
