@@ -10,7 +10,7 @@ import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
 import { fulfillmentText, orderPointName } from "./points.js";
-import { dayLine, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
+import { courierDayOf, dayLine, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
 
 // The opening line, in the voice she chose on Settings (2 Oct 2026). WhatsApp
 // carries no fonts at all — the letters always come from the customer's own phone
@@ -149,9 +149,20 @@ export function buildPickupReminder(state, group, trackUrl) {
   // which is the very thing v337-v343 spent the day removing from every other surface** — so it is deleted
   // rather than left in place as a trap for whoever reads this file next.
   const place = orderPointName(state, b.first);
+  // ★★ AND IT IS THE DAY THE BREAD IS ACTUALLY THERE (v429).
+  //
+  // ⚠️⚠️ **A POINT ORDER CAN CARRY A COURIER DAY** — the Delivery run writes one when the van is
+  // booked — so a run that reaches the Point **the morning after the bake** was telling the customer
+  // to collect on the wrong day. ⭐ **That is a customer standing outside a shop that has no bread**,
+  // and it is the most serious of this version's faults: the rest are a word on a screen or a label.
+  // ⚠️ The bake day remains the FALLBACK, which is exactly right for every order collected straight
+  // from the kitchen — and for the common case, a Point order whose run day she has not booked yet,
+  // **this message is byte-for-byte what it was.**
+  const vanDay = courierDayOf(b.first);
+  const readyOn = vanDay ? shortDate(vanDay) : b.date;
   msg += place
-    ? `Packed and ready to collect from ${place} on ${b.date}.\n`
-    : `Packed and ready for pickup on ${b.date}.\n`;
+    ? `Packed and ready to collect from ${place} on ${readyOn}.\n`
+    : `Packed and ready for pickup on ${readyOn}.\n`;
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }

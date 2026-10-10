@@ -27,7 +27,7 @@ import { usageByCode } from "./promo-usage.js";
 // registry here would close a loop between the two. Everything published about a trip
 // is therefore already ON the record — its courier's name, its phase and its driver are
 // written there when the trip is booked or checked, and this only carries them across.
-import { jobOf, promisedWindowSuffix, courierDeliveryText } from "./courier_job.js";
+import { courierDayOf, jobOf, promisedWindowSuffix, courierDeliveryText } from "./courier_job.js";
 // The parcel record (v226) — the second KIND of courier. See js/parcel.js.
 import { parcelOf, parcelHanded } from "./parcel.js";
 // The shop's own payload is untrusted input, so the one rule about what a place
@@ -756,7 +756,13 @@ export function trackingSnapshot(state, group) {
     // is a time on a day the van never comes. `courierDeliveryText` words the van's day and window
     // together, or the window alone when no day has been typed — **byte-for-byte what this line
     // produced before, so every order that carries no courier day is untouched.**
-    delivery: `${date ? shortDate(date) : ""} · ${fulfillment}${address}${whenText}`,
+    // ★★ AND THE FIRST DATE ON THIS CARD IS LABELLED (v429). ⚠️⚠️ It read **"Sat 26 Sep · Courier …"**
+    // — the BAKE day immediately in front of the word *Courier*, which is **the exact shape that
+    // produced the original "is it Wednesday or Thursday?" confusion.** The card carried BOTH days
+    // (the van's day and window ride `whenText`) and **named neither**.
+    // ⭐ A COLLECTION KEEPS THE BARE DATE: for a collection the bake day IS the day they get their
+    // bread, and the word "Delivery" on that line is honest.
+    delivery: `${date ? (courierDayOf(first) ? `Bake ${shortDate(date)}` : shortDate(date)) : ""} · ${fulfillment}${address}${whenText}`,
     items,
     total,
     customer: String(first.customerName || ""),

@@ -245,7 +245,13 @@ begin
       'Name: '     || who,
       'WhatsApp: ' || wa,
       'Items: '    || items,
-      'Delivery: ' || day_txt || ' - ' || how,
+      -- ★★ "BAKE DAY", NOT "DELIVERY" (v429). ⚠️ This line called the BAKE day the DELIVERY day, and
+      -- it is the surface that primed the baker herself to believe they were the same thing.
+      -- ⚠️⚠️ AND IT CANNOT NAME THE DELIVERY DAY: the van is booked AFTER the order arrives, so at
+      -- this instant there is no courier day to give — the same reason the confirmation states none
+      -- (see courier_job.js). ⭐ Naming the day honestly is the whole of the fix here; naming a
+      -- delivery day it does not know would be worse than the fault.
+      'Bake day: ' || day_txt || ' - ' || how,
       'Total: '    || total,
       'Note: '     || note,
       case when j ->> 'fulfillment' = 'courier'

@@ -898,7 +898,10 @@ function addCreditRow(state, r, ui, refresh) {
 
 function historyBlock(state, b, onOpen) {
   const placed = dateLine(b.orderDate);
-  const del = dateLine(b.deliveryDate);
+  // ★★ AND "DELIVER" IS THE DAY IT ARRIVES (v429) — the van's own day when there is one, because
+  // this line is the one that says the word *deliver*. ⚠️ It falls back to the bake day, which for a
+  // collection IS the day they get their bread.
+  const del = dateLine(b.courierDay || b.deliveryDate);
   const when = !placed && !del ? ""
     : b.deliveryDate ? (placed === del ? `Deliver ${del}` : `Placed ${placed} · deliver ${del}`)
     : `Ordered ${placed}`;

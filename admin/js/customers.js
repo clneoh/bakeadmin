@@ -6,6 +6,9 @@
 
 import { byId, groupOrders, orderCode, orderLinePrice, round2, waNumber } from "./state.js";
 import { groupValue, orderNet } from "./money.js";
+// ⚠️ THE VAN'S OWN DAY (v429) — the same reader every other surface uses, never a second reading
+// of "which day does the van go". See courier_job.js.
+import { courierDayOf } from "./courier_job.js";
 
 // The delivery date for an order. New orders snapshot their delivery date, so
 // history survives a delivery date being deleted; older orders fall back to
@@ -102,7 +105,12 @@ export function customerList(state, sort = "recent", filter = "all", today = "")
     if (product) {
       row.productQty.set(product.name, (row.productQty.get(product.name) || 0) + (Number(o.qty) || 0));
     }
-    const d = deliveryDateOf(state, o);
+    // ★★ "LAST DELIVERY" MEANS THE DAY IT WAS DELIVERED, NOT THE DAY IT WAS BAKED (v429). ⚠️ This
+    // fed three surfaces at once — the row's own line ("delivered Wed 7 Oct"), the CSV column
+    // HEADED "Last delivery", and the recency sort — and all three were naming the bake day while
+    // the van went the next morning. ⚠️ BY DESIGN it still falls back to the bake day, because a
+    // collection IS delivered on its bake day and the van's day is empty until she types it.
+    const d = courierDayOf(o) || deliveryDateOf(state, o);
     const od = orderDateOf(o);
     if (d && (!row.last || d > row.last)) row.last = d;
     if (od && (!row.lastOrdered || od > row.lastOrdered)) row.lastOrdered = od;
@@ -238,6 +246,10 @@ export function ordersForCustomer(state, row) {
         code: orderCode(o),
         orderDate: orderDateOf(o),
         deliveryDate: deliveryDateOf(state, o),
+        // ★★ AND THE VAN'S OWN DAY, WHICH CAN BE A DIFFERENT DAY (v429). ⚠️ ADDED rather than
+        // swapped: `deliveryDate` is what the history is SORTED by and it stays the bake day, so the
+        // list is still arranged by the day's work. This is what the words "deliver" read.
+        courierDay: courierDayOf(o),
         status: String(o.status || "new"),
         fulfillment: o.fulfillment === "courier" ? "courier" : "collect",
         lines: [],

@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v428)
+# Jienluv2bake — change history (v54 → v429)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v429, THE BAKE DAY IS NOT THE DELIVERY DAY — IN SEVEN PLACES, NOT ONE (SQL STEP — the order-alert function must be run again, then push).**
+
+**Your words:** __"when i entered a specific delivery date favour by customer over bake date, the print label still took the bake day?"__ — and then, when I started looking: **__"pls check throughoutly"__**
+
+**You were right, and it was seven places. I checked every surface an order's date reaches a person.**
+
+**1. THE LABEL NEVER READ THE DELIVERY DATE AT ALL.** It built its date from the bake day and nothing else — in **every** style that prints one. ⚠️ And the **mailing** label — the one that goes **on the outside of the parcel** — literally read **"Deliver ..."** followed by the bake day, so a box baked Friday and sent Saturday was addressed **"Deliver Fri 4 Sep"**.
+
+**★ AND YOU CHOSE THE SHAPE: BOTH, EACH NAMED.** A van order with its own day now reads **`Bake Fri 4 Sep · Van Sat 5 Sep`**, so whoever packs a bag sees **when to make it and when it leaves**. ⚠️ **With no delivery day typed the label is byte-for-byte what it always was** — a day you have not decided cannot be named. ⚠️ And a **parcel** label's "Deliver" is the day it **arrives**.
+
+**2. ⚠️⚠️ AND ONE OF THE SEVEN WAS A CUSTOMER STANDING OUTSIDE A CLOSED SHOP.** The **pickup reminder** told a customer to collect **on the bake day** — but **a Place order's bread still arrives by van**, and the run writes the van's day onto it. So a run that reached the shop the morning after the bake told the customer to come **on the wrong day**. That one is fixed; the rest are a word on a screen or a label.
+
+**3. THE OTHER FIVE.** The **customer history** row said *"deliver"* followed by the bake day. The **CSV column headed "Last delivery"** carried the bake day. The **Track your order** card printed the bake day **unlabelled, immediately before the words "Courier delivery"** — which is the exact shape that caused the original *"is it Wednesday or Thursday?"*. The order card said **"Delivering"** followed by the bake day, while a **"Courier delivery date"** box sat directly under it. And **your own phone alert** said **"Delivery:"** followed by the bake day — which is how the two came to look like one thing.
+
+**⚠️⚠️ 4. AND ONE OF THEM CANNOT BE FIXED WITH A DATE, WHICH IS THE PART WORTH KNOWING.** The phone alert fires **the moment an order lands** — and **the van is booked afterwards**, so at that instant **there is no delivery day to name.** ⭐ So that one does not gain a date; it **stops calling the bake day the delivery day** and says **"Bake day"**. ⚠️ **Naming a delivery day it cannot know would be worse than the fault** — the same reason the confirmation has never stated one.
+
+**★ 5. AND WHAT WAS ALREADY RIGHT, WHICH IS MOST OF IT.** The four customer messages read one seam (`courier_job.js`) built for this exact fault in an earlier version: a van order's line is labelled **"Baking day"** and the van's day gets a line of its own. The Delivery run, the run badge on Bake days, and the courier booking all read the van's day. **Those were not touched** — touching them would have been the regression.
+
+**Measured: the suite is 3,285 tests, all green (4 new). Five bites, all fired by their own message**, every file restored byte-identically. ⚠️ **And the no-delivery-day case is asserted byte-for-byte**: the common order, whose van day you have not filled in yet, prints exactly as it did before.
+
+**⚠️ THE SQL STEP.** The alert message lives in `supabase/order_alerts.sql`, which runs in the database — **so this one is not shipped by pushing alone.** Run that file again in Supabase, then push.
+
+**No database step for the app itself** — everything else is app code.
+
 
 **10 Oct 2026 — engine v428, THE RED IS HELD LONGER (no database step — pushing this one is the whole of it).**
 

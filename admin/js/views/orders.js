@@ -28,7 +28,7 @@ import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referre
 import { adjustForStatus } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
-import { fmtStamp, jobOf } from "../courier_job.js";
+import { courierDayOf, fmtStamp, jobOf } from "../courier_job.js";
 // The app's ONE time window (v304): how it is read, packed, checked and said. The van's window on an
 // order asks the same questions as the run screen's, so it asks the same functions.
 import { fmtWindow, windowAt, windowParts, windowProblem } from "../time_window.js";
@@ -339,9 +339,33 @@ export function packingLabelData(state, group, style = "full") {
   const orders = (group && group.orders) || [];
   const first = orders[0] || {};
   const dateEl = first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null;
-  const dateStr = (dateEl && dateEl.date) || first.deliveryDate || "";
-  const dateLine = dateStr ? shortDate(dateStr) : "";
+  const bakeStr = (dateEl && dateEl.date) || first.deliveryDate || "";
+  const bakeDay = bakeStr ? shortDate(bakeStr) : "";
   const courier = first.fulfillment === "courier";
+  // ★★ AND THE VAN'S OWN DAY, WHICH IS A DIFFERENT DAY (v429).
+  //
+  // Her report: __"when i entered a specific delivery date favour by customer over bake date, the
+  // print label still took the bake day?"__ — ⚠️ **and she was right: this model never looked at
+  // `courierDay` at all.** The label is what somebody packs a bag from, so it was naming the day the
+  // bread is MADE while a van took it away the next morning.
+  //
+  // ⭐ **AND SHE CHOSE THE SHAPE: BOTH, EACH NAMED** — *"so whoever packs a bag sees when to make it
+  // and when it leaves."* So a van order with its own day reads **`Bake Wed 7 Oct · Van Thu 8 Oct`**.
+  //
+  // ⚠️⚠️ WITH NO VAN DAY TYPED THIS IS BYTE-FOR-BYTE WHAT IT WAS. A delivery day she has not decided
+  // cannot be named — the rule `courierDayOf` states about itself — so the common case (a courier
+  // order whose van day she has not filled in yet) prints exactly as it always has.
+  // ⚠️⚠️ THE TEST IS "DOES A VAN BRING THIS", NOT `fulfillment === "courier"` — AND THOSE ARE NOT THE
+  // SAME QUESTION. ⭐ **A Self-collect-at-a-Point order keeps `fulfillment: "collect"` while its
+  // bread still arrives BY VAN**, and the Delivery run writes a courier day onto it when the trip is
+  // booked. ⚠️ So a Point order reaches the shop the morning after the bake, and the bag waiting
+  // there was labelled with the bake day. **The presence of the day IS the answer**, exactly as
+  // `courierDayOf` says of itself: nothing here is ever derived from the bake day.
+  const vanRaw = courierDayOf(first);
+  const vanDay = vanRaw ? shortDate(vanRaw) : "";
+  const dateLine = vanDay
+    ? [bakeDay && `Bake ${bakeDay}`, `Van ${vanDay}`].filter(Boolean).join(" · ")
+    : bakeDay;
   // WHICH PLACE, on the label too (v299). A collection from the kitchen reads exactly as it
   // always has; a collection from a Point names it, because a label that says only "Self
   // collect" tells whoever is packing the bag nothing about where the bag is going.
@@ -379,7 +403,12 @@ export function packingLabelData(state, group, style = "full") {
     if (phone) rows.push(["mail-line", phone]);
     for (const ln of recipientAddress) rows.push(["mail-line", ln]);
     rows.push(["mail-sec", "ORDER"]);
-    rows.push(["mail-line", [code, dateLine && `Deliver ${dateLine}`].filter(Boolean).join(" · ")]);
+    // ⚠️ AND ON A PARCEL, "DELIVER" IS THE DAY IT ARRIVES — NOT THE DAY IT IS BAKED (v429). ⚠️ This
+    // printed the BAKE day on the OUTSIDE of the box, so a parcel baked Wednesday and sent Thursday
+    // was addressed **"Deliver Wed 7 Oct"**. ⭐ The van's day is when it gets there, so that is what
+    // this says; with no van day typed it falls back to the bake day, exactly as before.
+    const arrives = vanDay || bakeDay;
+    rows.push(["mail-line", [code, arrives && `Deliver ${arrives}`].filter(Boolean).join(" · ")]);
     for (const o of orders) rows.push(sheetItemRow(state, o, "mail-line"));
     const mailNote = sheetNoteRow(note, "mail-line");
     if (mailNote) rows.push(mailNote);
@@ -1975,7 +2004,10 @@ function orderForm(state, dateId, root, selectDate) {
   function paintDay() {
     dayBtn.setAttribute("aria-expanded", newFormDayOpen ? "true" : "false");
     dayBtn.replaceChildren(
-      el("span", { class: "datepick-val" }, `Delivering ${shortDate(date.date)}`),
+      // ⚠️ "BAKING", NOT "DELIVERING" (v429). ⚠️ The box was labelled "Bake day" and sat directly
+      // above a **"Courier delivery date"** box, so the card said the bake day was the delivery and
+      // offered a separate delivery date two lines down. **The card contradicted itself.**
+      el("span", { class: "datepick-val" }, `Baking ${shortDate(date.date)}`),
       el("span", { class: "datepick-ico", "aria-hidden": "true" },
         newFormDayOpen ? "· close" : "· change"));
     // replaceChildren is not el(): it prints a bare null as the text "null" on her screen,

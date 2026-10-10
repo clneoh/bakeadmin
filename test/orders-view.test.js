@@ -145,7 +145,12 @@ test("opened, it reads the day on one line, then the items, then the customer", 
   const dayLine = body.children[0].children[1];
   assert.ok(String(dayLine.className).includes("datepick"), "the day is the one-line control");
   const dayBtn = dayLine.children[0];
-  assert.match(dayBtn.textContent, /^Delivering /, "and it names the day already chosen");
+  // ⚠️⚠️ AND THE WORD IS "BAKING", NOT "DELIVERING" (v429). ⚠️ The button names the BAKE day and sits
+  // directly above a box headed **"Courier delivery date"** — so the card said the bake day was the
+  // delivery and offered a separate delivery date two lines down. **Her report, and the card was
+  // contradicting itself.** ⭐ Moved in the same edit as the wording, because an absence-assertion
+  // left on the old word is a vacuous one.
+  assert.match(dayBtn.textContent, /^Baking /, "and it names the day already chosen — as the BAKE day");
   assert.equal(dayBtn.attrs["aria-expanded"], "false", "shut at first");
   assert.equal(dayLine.children[1].children.length, 0, "with nothing drawn under it");
   assert.equal(all(body).some((n) => String(n.className).includes("cal-wrap")), false,
