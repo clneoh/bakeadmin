@@ -60,16 +60,23 @@ function renderAll(root, state) {
     ...(pastSection ? [pastSection] : []));
 }
 
-// `ask` is for the calendar's own untick: taking back a date she just added is
-// the reverse of the tap that added it, so it happens on the spot — but a date
-// that already has orders on it is a different matter and still asks (as the
-// Del button always has).
-function deleteDate(state, date, ask = true) {
+// Removing a bake day ALWAYS asks (v404). ⚠️ The `ask` flag is gone rather than defaulted: her report was
+// that a tap on the calendar took a day away with no confirmation, and **a flag that can be passed
+// `false` from one call site is how that comes back** — the next person adds a caller, passes `false`
+// for a good local reason, and the fault is on her screen again. Nothing calls it that way now, so
+// there is nothing to keep it for.
+// ⚠️ The message says what happens to the orders when there are any: they are KEPT, and the date is
+// un-set from the day rather than the order being touched.
+function deleteDate(state, date) {
   const count = state.orders.filter((o) => o.deliveryDateId === date.id).length;
-  if (!ask) return removeDate(state, date, count);
+  // ⚠️ THE DAY IS NAMED THE WAY SHE READS IT ("Tue, 13 Oct"), not as the ISO string it is stored in.
+  // ⚠️⚠️ THIS MATTERS MORE THAN IT LOOKS ON A CONFIRMATION: a question that names the day in a form she
+  // has to decode is one she has to stop and think about — **and a confirmation she has to think about is
+  // one she learns to dismiss.** It was `2026-10-13` until v404.
+  const day = longDate(date.date);
   const msg = count
-    ? `${date.date} has ${count} order(s) on it. Delete the date? The orders are kept in your delivery history.`
-    : `Delete bake day ${date.date}?`;
+    ? `${day} has ${count} order(s) on it. Delete the date? The orders are kept in your delivery history.`
+    : `Delete bake day ${day}?`;
   confirmDialog(msg, () => removeDate(state, date, count), { danger: true, yesLabel: "Delete" });
 }
 
@@ -320,17 +327,24 @@ function dayCell(state, date, today, addedMap, pickable) {
   const inner = cellInner(added || sol, added, dayNum);
   const tip = tipEl(state.occasions, date, past);
   if (tip) inner.push(tip);
-  // A day already one of her delivery dates: tapping it takes it back off, the same
-  // gesture that put it on — the calendar is the one place she both adds and removes
-  // them, so the Upcoming list below no longer has to exist. A day that also carries
-  // an occasion mark still names itself on the way out: this tap names the day AND
-  // does its usual job, exactly as a tap does on the Orders calendar. A date already
-  // gone keeps its green pill but is not tappable — past dates are managed in the
-  // Past dates group, where nothing on the calendar can be changed by accident.
+  // A day already one of her delivery dates: tapping it takes it back off — the calendar is the one
+  // place she both adds and removes them, so the Upcoming list below no longer has to exist. A day that
+  // also carries an occasion mark still names itself on the way out: this tap names the day AND does its
+  // usual job, exactly as a tap does on the Orders calendar. A date already gone keeps its green pill but
+  // is not tappable — past dates are managed in the Past dates group, where nothing on the calendar can
+  // be changed by accident.
+  //
+  // ⚠️⚠️ AND IT NOW ALWAYS ASKS — HER WORD (v404). Her report: __"it is just a click to take away baking
+  // day, it should be with confirmation"__. It used to pass `onIt` as the ask flag, so **a green day with
+  // no orders on it vanished on a single tap** — on a MONTH GRID, which is the one screen in this app
+  // where a stray thumb is most likely, and which scrolls under the finger. ⭐ The old reasoning was
+  // written down here in so many words — *"taking back a date she just added is the reverse of the tap
+  // that added it, so it happens on the spot"* — **and she has overruled it**, so it is replaced rather
+  // than left standing as a description of behaviour that no longer happens.
+  // ⚠️ A date that carries orders already asked; now so does one that does not.
   if (added && !past) {
-    const onIt = state.orders.some((o) => o.deliveryDateId === addedTo.id);
     return el("button", { class: `${cls} tappable`,
-      onclick: () => { nameDay(state.occasions, date, past); deleteDate(state, addedTo, onIt); } }, ...inner);
+      onclick: () => { nameDay(state.occasions, date, past); deleteDate(state, addedTo); } }, ...inner);
   }
   if (added || past) {
     return el("span", { class: cls }, ...inner);

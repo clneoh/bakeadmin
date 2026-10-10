@@ -274,7 +274,17 @@ function quiet() {
   fireDoc("pointerdown", {});
 }
 
-test("a holiday that IS a delivery date is named AND taken back off by the same tap", () => {
+// ⚠️⚠️ REWRITTEN AT v404, NOT DELETED — and the OLD behaviour it pinned is worth remembering, because it
+// was deliberate and she overruled it. It read: **"the tap takes the date back off — the calendar is where
+// she both adds and removes"**, and a green day carrying no orders came off on ONE tap, with the reasoning
+// written into the code: *"taking back a date she just added is the reverse of the tap that added it, so it
+// happens on the spot."*
+// ⚠️ **Her report: __"it is just a click to take away baking day, it should be with confirmation"__** —
+// and the calendar is a MONTH GRID that scrolls under the thumb, which is the worst place in this app for
+// a control that acts on one stray touch. **The tap now always asks**, for a day with orders and for a day
+// without, so this is the case that CHANGED and the one below (a day holding orders) is the case that
+// already agreed with her.
+test("a holiday that IS a delivery date is named on the tap, and the date only goes when she confirms", () => {
   quiet();
   const root = createEl("div");
   const state = DSTATE();
@@ -283,10 +293,18 @@ test("a holiday that IS a delivery date is named AND taken back off by the same 
   const day = gridCell(root, 16);
   assert.equal(day.tagName, "BUTTON", "a delivery day can be tapped");
   assert.ok(day.className.includes("added"), "and is drawn as one of her delivery dates");
+
   fire(day);
+  const layer = registry["confirm-layer"];
+  assert.ok(layer.children.length, "⚠️ a bare tap removed a bake day with no question asked");
+  assert.deepEqual(state.deliveryDates.map((d) => d.id), ["d16", "d20"],
+    "⚠️⚠️ and nothing may be removed while she is being asked");
+
+  const yes = walk(layer).find((n) => n.tagName === "BUTTON" && (n.children[0] || {}).text === "Delete");
+  fire(yes);
   redraw(root, state);
   assert.deepEqual(state.deliveryDates.map((d) => d.id), ["d20"],
-    "the tap takes the date back off — the calendar is where she both adds and removes");
+    "confirming takes it off — the calendar is still where she both adds and removes");
   assert.equal(tipIn(gridCell(root, 16)).hidden, false,
     "and a marked day still names itself on the way out");
   assert.ok(gridCell(root, 20).className.includes("tappable"),
@@ -310,6 +328,18 @@ test("taking a date off asks first when that day already holds orders", () => {
   assert.ok(layer.children.length, "a question is put to her rather than a silent removal");
   assert.deepEqual(state.deliveryDates.map((d) => d.id), ["d16", "d20"],
     "and nothing is removed while she is being asked");
+  // ⚠️ AND THE QUESTION CARRIES THE REASSURANCE, not just the danger. Deleting a bake day that holds
+  // orders sounds like it might delete the ORDERS — and it does not: they are kept, and the date is
+  // un-set from the day. **A confirmation that leaves her guessing at the worst is one she learns to
+  // cancel**, which is the same as having no confirmation at all.
+  // ⚠️ READ AS `children[0].text`, the way every assertion in this file reads text: this shim's
+  // `textContent` is a plain string field, so it is always empty and an assertion against it would
+  // pass or fail for no reason at all.
+  const question = walk(layer).find((n) => String(n.className).includes("confirm-text")).children[0].text;
+  assert.match(question, /has 1 order\(s\) on it/,
+    "⚠️ the question does not say the day has orders on it");
+  assert.match(question, /kept in your delivery history/,
+    "⚠️ the question does not say the orders are KEPT — so it reads as though the orders go too");
 
   const yes = walk(layer).find((n) => n.tagName === "BUTTON" && (n.children[0] || {}).text === "Delete");
   fire(yes);

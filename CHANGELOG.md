@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v403)
+# Jienluv2bake — change history (v54 → v404)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v404, TAKING A BAKE DAY OFF NOW ASKS FIRST (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"it is just a click to take away baking day, it should be with confirmation"__
+
+**★ IT ASKS NOW — EVERY TIME.** On the **Bake days** calendar, tapping a green day that carried **no orders** took the day away **on the spot**, with no question. It now asks, exactly as it already did for a day that has orders on it.
+
+**⚠️ AND THE HOLIDAYS MADE IT WORSE THAN IT SOUNDS.** Tapping a marked day does two things — it names the day AND removes it — so a tap meant to do one did both. Now the naming still happens, and **the day only goes when you confirm.**
+
+**⚠️ AND THE OLD BEHAVIOUR WAS DELIBERATE, WHICH IS WHY IT IS WORTH SAYING PLAINLY.** The code said so in its own words: __"taking back a date she just added is the reverse of the tap that added it, so it happens on the spot."__ **That was a reasonable rule and it was wrong**, because the calendar is a **month grid that scrolls under your thumb** — the one screen in this app where a control that acts on a single stray touch does real damage. **Your call overrules it, and the old reasoning is replaced in the code rather than left standing.**
+
+**★ AND THE QUESTION NAMES THE DAY THE WAY YOU READ IT.** It used to name it in the form the app stores dates in — __"Delete bake day 2026-10-13?"__ — which you have to decode. It now reads **"Delete bake day 13 Oct 2026?"**. ⚠️ A confirmation you have to stop and work out is one you learn to dismiss, which is the same as having none.
+
+**⚠️ AND ONE THING IT DELIBERATELY DOES NOT DO.** The question for a day that holds orders says so, and says what happens to them: __"…has 1 order(s) on it. Delete the date? **The orders are kept in your delivery history**."__ Without that, the question reads as though deleting the day deletes the orders — and a confirmation that leaves you guessing at the worst is one you cancel out of habit.
+
+**⚠️ NOTE ON THE COMMIT.** This release touches none of the files in the test-only commit before it (`fd23de0`, the word "null" guard). They are separate on purpose.
+
+**No database step.** The suite is **3,178 tests, all green** (2 new assertions). Every new rule was proved by putting the fault back: the tap removing the day with no question, and the reassurance about the orders dropped from the message.
 
 **10 Oct 2026 — engine v403, MONEY AND PROFIT CAN LOOK AT ANY DAY, WEEK OR MONTH (no database step — pushing this one is the whole of it).**
 
