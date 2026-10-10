@@ -356,23 +356,23 @@ test("both ways to get an order say what they are, in every language", () => {
     "it says the total shown is the bread's, which is the only true thing the page can promise");
   assert.match(STORE.en.selfCollectSub, /no delivery charge/i,
     "and collecting says the one thing that makes it worth walking for");
-  // ⚠️ AND WHEN, IN HER OWN TERMS — her words: __"order can be collected late on the bake day, a
-  // message will be send to you when your order is ready if you chose self collect"__. A customer
-  // collecting had two questions, not one: what it costs, and WHEN to come.
-  assert.match(STORE.en.selfCollectSub, /any time on your bake day/i,
-    "collecting says the whole bake day is available, which is what she answered");
-  assert.match(STORE.en.selfCollectSub, /once your order is ready/i,
-    "and that the ready message is what tells them to come");
-  // ⚠️⚠️ AND IT MUST STILL NAME THE PLACE. A customer collecting may have NO Point to choose from
-  // at all — the collect-from list is empty and hidden while she has none published — so this line
-  // is the only place the shop can say where to come. Dropping it would leave the same fault this
-  // whole version repairs: a customer told to collect and not told where.
-  assert.match(STORE.en.selfCollectSub, /message you the exact place/i,
-    "and the place is named, because with no Point published this line is the only place that can");
-  // ⚠️ BUT IT NAMES NO CLOCK. A pickup time is not a promise (v340) — the bread is ready when it
-  // is ready, and the only thing that can say so is the message.
+  // ★★ AND WHERE **AND** WHEN, IN HER OWN WORDS (v417). Her words: __"You come to us - no delivery
+  // charges. We message you the exact collection point, and time window for collection., it is
+  // normally late afternoon on the bake day."__ ⚠️ A customer collecting had two questions, not one:
+  // what it costs, and where and when to come.
+  assert.match(STORE.en.selfCollectSub, /exact collection point/i,
+    "the place is named — with no Point published this line is the only place that can say where");
+  assert.match(STORE.en.selfCollectSub, /time window for collection/i, "and so is the window");
+  assert.match(STORE.en.selfCollectSub, /late afternoon on the bake day/i,
+    "and the usual shape of the day is told, which is what she asked for");
+  // ⚠️⚠️ BUT "NORMALLY" IS DOING REAL WORK AND MUST STAY. A pickup time is not a promise (v340):
+  // the window is hers to set per Point, so the page describes the usual bake day rather than
+  // committing to a clock — **take the word out and the sentence becomes a promise the app cannot
+  // keep.** ⚠️ And no hour is named anywhere in it.
+  assert.match(STORE.en.selfCollectSub, /normally/i,
+    "the last sentence is hedged — without it the page would be promising a time");
   assert.ok(!/\b\d{1,2}(:\d{2})?\s*(am|pm)\b/i.test(STORE.en.selfCollectSub),
-    "no hour is promised on the page — the ready message is the only thing that announces it");
+    "no hour is promised on the page — the window she sets is what announces it");
 });
 
 test("the shop calls that day a BAKE day, in all three languages", () => {

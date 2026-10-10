@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v416)
+# Jienluv2bake — change history (v54 → v417)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v417, WHAT SELF COLLECT ACTUALLY SAYS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"You come to us - no delivery charges. We message you the exact collection point, and time window for collection., it is normally late afternoon on the bake day."__
+
+**★ THAT IS NOW THE LINE, WORD FOR WORD — in all three languages.**
+
+__Self collect__
+
+You come to us — no delivery charges. We message you the exact collection point and the time window for collection. It is normally late afternoon on the bake day.
+
+⚠️ **It answers BOTH questions a collecting customer has**, and it answers them in your terms: **where** — *"the exact collection point"* — and **when** — *"the time window for collection"*, which used to be missing entirely.
+
+**⚠️⚠️ AND "NORMALLY" IS DOING REAL WORK, SO IT STAYS.** ⭐ The window is **yours to set, per Point** — and a pickup time is not a promise. **Take that one word out and the sentence turns into a commitment the page cannot keep.** A test now pins it, with that reasoning beside it.
+
+**⚠️ AND A BLEMISH IN THIS VERY DOCUMENT IS FIXED.** ⭐ **Twenty-seven stray asterisks were printing across these pages** — every entry that had been written with a single `*like this*` came out with the marks on the page, because the PDF's markdown reader only knows `__…__` for italics. **It converts the pair now, and the count is down to one — the asterisk inside a real SQL `count(*)`, which is meant to be there.** ⚠️ Older entries are repaired by it too, which is why this PDF has more changed pages than the entry above would suggest.
+
+**No database step.** The suite is **3,242 tests, all green**. Three bites, all fired — including the words going back to the old line, and __"normally"__ being removed.
 
 **10 Oct 2026 — engine v416, NEITHER WAY IS PICKED FOR HIM (no database step — pushing this one is the whole of it).**
 

@@ -145,7 +145,12 @@ const en = {
   // Point chosen at all** — the collect-from list is empty and hidden while she has none published,
   // and `#point-field` is not shown. So this line is the only place the shop can say where to come,
   // and it says it the only way that is always true: she messages it.
-  selfCollectSub: "You come to us — no delivery charge. We message you the exact place, and once your order is ready you can collect any time on your bake day.",
+  // ⚠️ HER WORDS, TIDIED (v417). __"You come to us - no delivery charges. We message you the exact
+  // collection point, and time window for collection., it is normally late afternoon on the bake day."__
+  // ⭐ "NORMALLY" IS DOING REAL WORK IN THAT LAST SENTENCE and must stay: **a pickup time is not a
+  // promise** (v340), and the time window the page names is hers to set per Point, so the app
+  // describes the usual shape of a bake day rather than committing to a clock.
+  selfCollectSub: "You come to us — no delivery charges. We message you the exact collection point and the time window for collection. It is normally late afternoon on the bake day.",
   courier: "Courier delivery",
   courierSub: "A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.",
   // v299 — where a Self collect order is collected FROM. Written once for the kitchen and
@@ -419,7 +424,7 @@ const zh = {
   fulfilAskTitle: "请选择取货方式。",
   fulfilAskBody: "请在上面点选「自取」或「外送」— 我们才知道要为你准备好，还是送到你家。",
   selfCollect: "自取",
-  selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切地点，面包做好后，烘焙日当天任何时间都可以来取。",
+  selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切的取货点和取货时段，通常是烘焙日的傍晚。",
   courier: "外送",
   courierSub: "我们安排骑手送到你家。运费会在 WhatsApp 上告诉你 — 页面上显示的总额只是面包的钱。",
   ourKitchen: "我们的厨房",
@@ -612,7 +617,7 @@ const ms = {
   fulfilAskTitle: "Sila beritahu bagaimana anda mahu ambil tempahan.",
   fulfilAskBody: "Tekan Ambil sendiri atau Penghantaran kurier di atas — itu caranya kami tahu sama ada perlu disediakan untuk anda atau dihantar ke pintu anda.",
   selfCollect: "Ambil sendiri",
-  selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan lokasi yang tepat, dan sebaik sahaja tempahan anda siap, anda boleh ambil pada bila-bila masa pada hari membakar.",
+  selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan titik ambilan dan waktu ambilan yang tepat; biasanya lewat petang pada hari membakar.",
   courier: "Penghantaran kurier",
   courierSub: "Kami hantar penghantar ke pintu anda. Sebarang caj penghantaran dimaklumkan di WhatsApp — jumlah yang dipaparkan ialah untuk roti sahaja.",
   ourKitchen: "Dapur kami",
