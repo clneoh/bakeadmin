@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v423)
+# Jienluv2bake — change history (v54 → v424)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v424, THE WORDS FLASH AND NOT THE ROW — AND A STUCK MARK I SHIPPED YESTERDAY (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i mean just flash the word Only available on Wed, Friday"__
+
+**1. THE WORDS, NOT THE ROW — and your "just" was the instruction.** v423 pulsed the whole row. ⚠️ You meant **the line**: the row is already greyed and dashed to say *not this one*, and what a customer needs told is **when it IS open.** So **Only available on Wed and Fri** now blinks — dims and comes back, once, in about a second — and nothing else on the page changes at all.
+
+⚠️ **ONLY THE LINE THAT CARRIES THE REASON**, and the two parked reasons carry it in different places: a place not served today says it on its own line, while one his basket has not reached says it on the **description** line, because that sentence replaced the description. ⚠️ Blinking the description for *both* would flash a sentence that says nothing about why he cannot pick it — the opposite of pointing at the warning.
+
+**⚠️⚠️ 2. AND IT CAUGHT A FAULT I HAD SHIPPED IN v423 — and this is the part worth your attention.** v423 took the mark off the row on the **animation's own end event**. ⚠️ But for a reader whose device asks for **less movement**, the stylesheet switches the animation **off** — **and an animation that never runs never ends.** So the ring would have stayed on that place **for good**, and tapping a second one would have left the first one lit as well. ⭐ **The reader it would have hit is the one who asked for less movement, which is exactly where nobody thinks to look.** The mark now comes off on a **timer**, which always fires.
+
+⚠️ **It was found by reading the rule back, not by anyone hitting it** — and v423 was already pushed, so the fault was live for a few hours on a device set that way. ⚠️ The reader who asked for less movement still gets the warning drawn to his eye: the line simply **holds bold** instead of blinking.
+
+**Measured: the suite is 3,279 tests, all green (2 new). Three bites**, all fired by their own message, every file restored byte-identically. **Verified live at 375px:** the row reads **Only available on Wed and Fri**, that line's opacity goes **1 down to 0.2** while nothing else moves, **the scroll position and the row's height are both identical**, and the mark is gone once the timer finishes.
+
+**No database step.** Pushing this one is the whole of it.
+
+
 
 **10 Oct 2026 — engine v423, A PLACE HE CANNOT PICK NOW FLASHES INSTEAD OF MOVING THE PAGE (no database step — pushing this one is the whole of it).**
 

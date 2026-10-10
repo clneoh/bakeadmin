@@ -2244,6 +2244,43 @@ test("★★ tapping a parked place FLASHES its own warning, and the page does n
   } finally { restore(); }
 });
 
+test("★★ the flash is on the WORDS, not on the row (v424)", () => {
+  // Her words, the second and sharper telling: __"i mean just flash the word Only available on Wed,
+  // Friday"__. ⚠️ **HER "JUST" IS THE INSTRUCTION.** The row is already greyed and dashed to say *not
+  // this one*; what the customer actually needs told is **WHEN it is open**, so the line carrying that
+  // is what blinks. ⚠️ v423 pulsed the whole row, and this is her correction of it.
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  assert.match(css, /\.point-opt\.off\.flash \.point-days/,
+    "a place not served today flashes the line that carries the days");
+  assert.match(css, /\.point-opt\.short\.flash \.point-sub/,
+    "⚠️ and a place his basket has not reached flashes the line that carries ITS reason — which is the "
+    + "description line, because that sentence REPLACED the description");
+  assert.ok(!/^\.point-opt\.flash \{/m.test(css),
+    "⚠️ and the row itself no longer pulses as a whole — that was the first reading, corrected");
+  assert.match(css, /@keyframes point-flash-word/,
+    "⚠️ and it is OPACITY only: no movement, no size, no position, so the words stay exactly where "
+    + "they are on the line he is reading");
+});
+
+test("★★ the mark comes off on a TIMER — `animation: none` never fires `animationend` (v424)", () => {
+  // ⚠️⚠️ A FAULT FIXED, FOUND BY READING THE RULE BACK. v423 set `animation: none` under
+  // `prefers-reduced-motion: reduce` and removed the class on `animationend` — **and an animation that
+  // never runs never ends.** The mark stayed on that row for good, and a second place tapped left the
+  // first one lit as well. ⭐ The reader it would have hit is the one who asked for less movement, and
+  // nobody would have thought to look there.
+  const src = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  const at = src.indexOf("const flashRow =");
+  const fn = src.slice(at, at + 1800);
+  assert.match(fn, /setTimeout\(/, "⚠️ the class is removed on a timer, which always fires");
+  assert.ok(!/addEventListener\("animationend"/.test(fn),
+    "⚠️⚠️ and NOT on `animationend` — it never fires when the stylesheet sets animation: none");
+  // ⚠️ `assert.match` FIRST, and it is not belt-and-braces: `indexOf(x) < indexOf(y)` is TRUE when x is
+  // ABSENT (-1 is less than any position), so the order check alone would pass with the clear deleted.
+  assert.match(fn, /clearTimeout\(/, "the previous timer is cleared");
+  assert.ok(fn.indexOf("clearTimeout") < fn.indexOf("setTimeout"),
+    "⚠️ and cleared BEFORE the new one is set, so a quick second tap is not un-flashed by the first");
+});
+
 test("★ the flash can fire AGAIN — removing and re-adding a class is not enough on its own (v423)", () => {
   // ⚠️⚠️ A BROWSER COALESCES "remove the class, add it back" IN ONE BREATH INTO NO CHANGE AT ALL, so
   // without a forced reflow between them the **SECOND tap on the same place would flash nothing** —

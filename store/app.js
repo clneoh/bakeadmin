@@ -3492,11 +3492,19 @@ function renderPointList(wrap, total = 0) {
     // coalesces "remove then add" into no change at all and a SECOND tap flashes nothing.
     void b.offsetWidth;
     b.classList.add("flash");
-    if (typeof b.addEventListener === "function") {
-      b.addEventListener("animationend", () => b.classList.remove("flash"), { once: true });
-    } else {
+    // ⚠️⚠️ THE CLASS COMES OFF ON A TIMER, NOT ON `animationend` — and that is a FAULT FIXED, not a
+    // preference (v424). ⚠️ Under `prefers-reduced-motion: reduce` the stylesheet sets
+    // `animation: none`, and **an animation that never runs never fires `animationend`** — so the mark
+    // stayed on that row FOR GOOD, and tapping a second place left the first one lit as well. It was
+    // shipped that way in v423 and found by reading the rule back rather than by anyone hitting it:
+    // **the reader it would have hit is the one who asked for less movement.** ⭐ A timer always fires.
+    // ⚠️ And the previous timer is cleared first, so a quick second tap cannot have the FIRST tap's
+    // timer pull the class off the flash it has only just started.
+    if (typeof b._flashTimer !== "undefined") clearTimeout(b._flashTimer);
+    b._flashTimer = setTimeout(() => {
       b.classList.remove("flash");
-    }
+      b._flashTimer = undefined;
+    }, 1200);
   };
 
   const row = (id, name, sub, { short = false, off = false, address = "", days = "" } = {}) => {

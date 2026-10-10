@@ -1715,25 +1715,34 @@ button.prod-next.off::after { content: ""; }
 .point-opt.off .point-name { color: var(--muted); }
 .point-opt.off .point-sub { color: var(--brown-dark); }
 
-/* ★★ THE FLASH ON A PARKED PLACE (v423). Her words: __"when customer click on unavailable point,
-   just flash the warning Only available on, xxx. The screen jump is not desired"__.
-   ⚠️ IT REPLACES A PAGE JUMP WITH A PULSE ON THE ROW HE TOUCHED, so it has to be calm and short: a
-   place he cannot pick is not a mistake he has made, and nothing here should read as an error.
-   ⚠️ `box-shadow`, NOT `border-width`, and that is the whole craft of it — a border that thickened
-   would grow the row by a pixel or two for a second and nudge everything under it, **which is a
-   smaller version of the very jump this replaces.** A shadow draws outside the box and moves nothing.
-   ⚠️ And the colour is the row's own border colour, so the pulse reads as THIS row being pointed at
-   rather than as a new kind of message arriving. */
-@keyframes point-flash {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 85, 47, 0); }
-  12%, 55% { box-shadow: 0 0 0 3px rgba(196, 85, 47, .45); }
+/* ★★ THE FLASH ON A PARKED PLACE (v423; REFINED AT v424). Her words — the second, sharper telling:
+   __"i mean just flash the word Only available on Wed, Friday"__.
+   ⚠️⚠️ SO IT IS THE WORDS THAT FLASH, NOT THE ROW. Her "just" IS the instruction: the row is already
+   greyed and dashed to say *not this one*, and what he actually needs told is WHEN it IS open — so the
+   LINE CARRYING THAT goes dark and back, and nothing else on the page changes at all.
+   ⚠️ ONLY THE LINE THAT CARRIES THE REASON, and the two parked reasons carry it in different places:
+   a place not served today says it on its own `.point-days` line, while a place his basket has not
+   reached says it ON the `.point-sub` line, because that sentence REPLACED the description.
+   ⚠️⚠️ Flashing `.point-sub` for BOTH would blink a place's ordinary description — a sentence that
+   says nothing about why he cannot pick it — which is the opposite of pointing at the warning.
+   ⚠️ A BLINK, NOT A JUMP: opacity only. No movement, no size, no position, so the words stay exactly
+   where they are on the line he is reading. ⭐ Measured: the page's scroll position and the row's
+   height are both identical before and after the tap. */
+@keyframes point-flash-word {
+  0%, 100% { opacity: 1; }
+  15%, 50% { opacity: .2; }
 }
-.point-opt.flash { animation: point-flash 1.1s ease-out 1; }
-/* ⚠️ AND FOR A READER WHO HAS ASKED FOR LESS MOVEMENT, the same cue with no animation at all — the
-   outline simply holds while the class is on. A flash is a courtesy, never the only way to know
-   something: the warning line is on the row either way. */
+.point-opt.off.flash .point-days,
+.point-opt.short.flash .point-sub { animation: point-flash-word 1.1s ease-out 1; }
+/* ⚠️ AND FOR A READER WHO HAS ASKED FOR LESS MOVEMENT, the same line is simply made to STAND OUT while
+   the class is on — a blink is precisely what that setting is about, and the warning is on the row
+   either way. ⚠️⚠️ AND NOTE WHAT THIS RULE DOES *NOT* RELY ON: the class now comes off on a TIMER
+   (see `flashRow`), not on `animationend` — because **`animation: none` means no animation runs, and
+   an animation that never runs never ends.** v423 relied on the event and a reduced-motion reader was
+   left with the mark stuck on that row for good. */
 @media (prefers-reduced-motion: reduce) {
-  .point-opt.flash { animation: none; box-shadow: 0 0 0 3px rgba(196, 85, 47, .45); }
+  .point-opt.off.flash .point-days,
+  .point-opt.short.flash .point-sub { animation: none; font-weight: 700; }
 }
 
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
