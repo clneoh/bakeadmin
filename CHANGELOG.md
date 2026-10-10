@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v411)
+# Jienluv2bake — change history (v54 → v412)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v412, BOTH WAYS FOLD, THE HOLE IS GONE, AND A POINT CAN SAY ITS OWN WORDS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i want the self collect card at store to be folded as default"__ · __"even after i expend it, there should not be hole"__ · __"courier delivery and address should be one piece"__ · __"make the point description custmable in point card"__
+
+**★ BOTH WAYS NOW ARRIVE FOLDED.** On your shop, a customer sees **"Self collect"** and **"Courier delivery"** as two short cards, each with its own small caret — and nothing else until they tap one. Tapping a card **chooses that way and opens it**; tapping it again puts it away. ⚠️ **Only one can be open at a time**, so the fields of the way the customer did NOT take are never standing open under it.
+
+**★ AND THE ADDRESS IS PART OF THE COURIER CHOICE, THE SAME WAY THE PLACES ARE PART OF COLLECTING.** ⭐ That was the mirror I had missed: at v410 I moved the places *into* the Self collect card and left the delivery address sitting below the whole picker as a separate box. ⚠️ Her words — __"courier delivery and address should be one piece"__ — are the same rule twice, so it is now the same code twice.
+
+**★★ AND THE HOLE IS GONE.** __"even after i expend it, there should not be hole"__ — ⚠️ **and it was exactly that.** The picker sits **inside the white "Your details" form**, and I had given each card the same white: so an opened card was **white on white — a void with thin outlines floating in it**, which is precisely what a hole looks like. The cards now take the page's own colour, so an open one is a panel. ⚠️ **Found by measuring the two backgrounds side by side, which I should have done the first time you said the word "hole".**
+
+**★★ AND A POINT CAN SAY ITS OWN WORDS.** A new box on the Point card — **"What customers read"** — and whatever you type there is the line under that Point's name on your shop. ⚠️ **Leave it empty and nothing changes at all**: the standard sentence stands in, and the box's grey hint IS that sentence, so you can see what a customer would read before you write anything. ⭐ **Your words outrank even the kitchen's own line**, because they are about your own front door. ⚠️ A Point with a smallest basket the basket has not reached still says WHY on its own line — that is the one thing you can act on and your description cannot know it.
+
+**★ AND ONE MORE OLD WRONG THING, FOUND WHILE LOOKING FOR SOMETHING ELSE.** After an order is placed the shop resets itself to Self collect for the next customer — and it was doing that **by hand**, writing the highlight onto the words rather than onto the card. It had been wrong since v410 moved the edge to the card, so **a second order from the same phone lit the wrong element and left the fold wherever the last customer left it.** It now goes through the one place that owns that decision.
+
+**No database step.** The suite is **3,237 tests, all green** (6 new). **12 bites, all fired by their own message** — ⚠️ **and two of them proved my own new assertions were too weak and had to be tightened**: one only checked that the address came *after* the courier card opened, which a box moved out below the picker satisfies perfectly; the other, earlier, checked a redraw against a card list it had just built instead of the one on the page.
+
+**Still owed:** the Chinese and Malay versions of the new sentences are **mine, not a native speaker's**.
 
 **10 Oct 2026 — engine v411, A POINT CARD ARRIVES FOLDED — AND A LAYOUT FAULT I SHIPPED IN v410 (no database step — pushing this one is the whole of it).**
 

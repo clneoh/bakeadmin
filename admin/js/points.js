@@ -41,6 +41,11 @@ export const DEFAULT_FEE_RM = 0.5;
 const NAME_MAX = 60;
 const ADDRESS_MAX = 200;
 const PHONE_MAX = 30;
+// ★★ HER OWN DESCRIPTION OF A POINT (v412). Her words: __"make the point description custmable in
+// point card"__. ⚠️ A LINE, NOT AN ESSAY: it is read on a phone under the Point's name, and the
+// standard sentence it replaces is about eighty characters. Two hundred would wrap to four lines on
+// a 320px screen and push the places a customer is choosing between off the fold.
+const DESC_MAX = 120;
 
 export function blankPoint() {
   return {
@@ -86,6 +91,13 @@ export function blankPoint() {
     // ⚠️ NO PIN IS REQUIRED, for the kitchen or for any other Point: `pointProblem` has only ever asked
     // for a NAME, because a pin is what a VAN is given and a customer collecting walks to an address.
     isKitchen: false,
+    // ★★ WHAT CUSTOMERS READ UNDER ITS NAME (v412). Her words: __"make the point description
+    // custmable in point card"__.
+    //
+    // ⚠️⚠️ IT IS PUBLIC BY ITS OWN NATURE — that is what it is for — so it needs no switch beside it
+    // the way the address does. **An empty one publishes nothing at all**, and the shop falls back to
+    // the standard sentence, so a Point she has not written one for reads exactly as it does today.
+    description: "",
     // ★★ THE AREA THIS POINT SITS UNDER (v410). ONE id, not an array — a place is one place.
     // "" means no area, which is not "nothing": it is the group the shop draws FIRST, and where a
     // Point lands when its area is deleted, so it is never hidden. See js/pointAreas.js.
@@ -121,6 +133,7 @@ export function normalizePoint(src) {
     id: String(s.id || ""),
     name: txt(s.name, NAME_MAX),
     address: txt(s.address, ADDRESS_MAX),
+    description: txt(s.description, DESC_MAX),
     receiver: txt(s.receiver, NAME_MAX),
     // Stored the way every other number in this app is stored — the digits — so it can be
     // dialled, linked and compared without a second spelling of the same person. A value
@@ -335,18 +348,19 @@ export function updatePoint(state, id, draft) {
   // edit would silently UNPIN the Point — she corrects a spelling and the van loses its door.
   // The same trap the profile's field lists teach, in a smaller place.
   const kept = normalizePoint(rows[at]);
-  // ⚠️⚠️ AND NEITHER IS HER AREA, HER ORDER, OR THE ADDRESS SWITCH (v410). Exactly the same trap,
-  // three more fields, and this one is silent in a nastier way: the editor DOES carry all three, so
+  // ⚠️⚠️ AND NEITHER ARE HER AREA, HER ORDER, THE ADDRESS SWITCH OR HER OWN DESCRIPTION (v410, v412).
+  // Exactly the same trap, and it is silent in a nastier way: the editor DOES carry all of them, so
   // the screen is fine — but every test and every other caller that hands over a draft of just the
-  // form's own fields (`{ ...FEE }`) would have its `areaId` reset to "", its `sort` thrown away and
-  // its address switch turned OFF, which would take an address off her shop without her touching it.
-  // Carried when the draft does not mention the key, so a caller that means to set one still can.
+  // form's own fields (`{ ...FEE }`) would have its `areaId` reset to "", its `sort` thrown away, its
+  // address switch turned OFF and **her own words about the place deleted**, none of which she asked
+  // for. Carried when the draft does not mention the key, so a caller that means to set one still can.
   const has = (k) => Object.prototype.hasOwnProperty.call(draft || {}, k);
   const next = normalizePoint({
     ...draft, id: want, createdAt: kept.createdAt, place: kept.place,
     areaId: has("areaId") ? draft.areaId : kept.areaId,
     showAddress: has("showAddress") ? draft.showAddress : kept.showAddress,
     sort: has("sort") ? draft.sort : kept.sort,
+    description: has("description") ? draft.description : kept.description,
   });
   rows[at] = next;
   // ⚠️ SAME RULE AS `addPoint`: marking this one as the kitchen un-marks whichever held it, and
@@ -434,6 +448,11 @@ export function publishPoints(state, points) {
     const row = { id: p.id, name: p.name, minOrderRM: pointMinOrder(p), isKitchen: p.isKitchen === true };
     const street = String((p && p.address) || "").trim();
     if (p && p.showAddress === true && street) row.address = street;
+    // ★★ AND HER OWN DESCRIPTION (v412), on exactly the same spelling: **written only when she has
+    // actually written one**, so a Point she has not filled in publishes byte-for-byte the row it
+    // published yesterday and the shop falls back to its standard sentence.
+    const words = String((p && p.description) || "").trim().slice(0, DESC_MAX);
+    if (words) row.description = words;
     return row;
   });
 }

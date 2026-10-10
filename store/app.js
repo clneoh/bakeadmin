@@ -776,6 +776,12 @@ export function mergeStorefront(base, remote) {
           const street = String(p.address == null ? "" : p.address).trim().slice(0, 200);
           if (street) row.address = street;
         }
+        // ★★ AND HER OWN WORDS ABOUT THE PLACE (v412). ⚠️ It is public by its own nature — that is
+        // what it is for — so there is no switch beside it, unlike the address. ⚠️ **AND IT IS
+        // WRITTEN ONLY WHEN THERE IS ONE**, the same spelling as the two above: a Point she has not
+        // written a description for publishes byte-for-byte what it published yesterday.
+        const words = String(p.description == null ? "" : p.description).trim().slice(0, 120);
+        if (words) row.description = words;
         return row;
       });
   }
@@ -2816,13 +2822,13 @@ export function render() {
       promoApplied = ""; promoRefusal = null;
       if (promoInput) promoInput.value = "";
       // Reset the delivery method to self collect for the next customer.
+      // ⚠️⚠️ THROUGH THE SAME SEAM EVERYTHING ELSE USES (v412). This used to write `_value` and the
+      // `active` class BY HAND — and it had been wrong since v410 put the edge on the CARD rather
+      // than the press, so a second order from the same phone would light the wrong element and leave
+      // the fold wherever the last customer left it. ⭐ **A second way to set one thing is a second
+      // thing to keep right**, so it calls the one the picker already owns.
       const fulEl = document.getElementById("fulfillment");
-      if (fulEl) {
-        fulEl._value = "collect";
-        for (const b of (fulEl.querySelectorAll ? fulEl.querySelectorAll(".seg-btn") : [])) {
-          b.classList.toggle("active", b.dataset.fulfillment === "collect");
-        }
-      }
+      if (fulEl && typeof fulEl._applyFulfillment === "function") fulEl._applyFulfillment("collect");
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
@@ -3305,6 +3311,9 @@ function renderPointList(wrap, total = 0) {
   // ⚠️ NO FIELD TO HIDE ANY MORE (v410): the list lives INSIDE the Self collect card, so an empty
   // one draws nothing rather than hiding a labelled box — and a card holding no places simply
   // reads as its two lines, which is the shop she had before she opened any Points.
+  // ⚠️ AND THE CARD'S OWN FOLD IS NOT DECIDED HERE (v412) — `refreshPointList` owns it, because it
+  // is about the METHOD and this function is about the places. Two places deciding one thing is how
+  // they come to disagree.
   if (!points.length) { list.replaceChildren(); return; }
   // The Point she marked as the kitchen, if she has one. ⚠️ Read from the published list rather
   // than assumed: an older storefront payload predates the flag and simply has no marked kitchen,
@@ -3431,9 +3440,18 @@ function renderPointList(wrap, total = 0) {
         ...(a.depth ? { style: `--depth:${a.depth}` } : {}),
       }, a.name));
     }
+    // ★★ HER OWN WORDS COME FIRST (v412). Her words: __"make the point description custmable in
+    // point card"__ — so the line under a Point is hers when she has written one, and the shop's own
+    // sentence when she has not. ⭐ **The standard line is the FALLBACK, not the default**: a Point
+    // she has said nothing about reads exactly as it does today, so this cannot change a page by
+    // being added. ⚠️ And her words replace the KITCHEN's line too — she outranks the app's own
+    // wording about her own front door.
+    // ⚠️ A SHORT BASKET still speaks for itself: a Point the basket has not reached says WHY on its
+    // own line, because that is the one thing she can act on and her description cannot know it.
+    const own = String(p.description || "").trim();
     out.push(row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
-        : (p.isKitchen === true ? t("kitchenSub") : t("pointSub")),
+        : (own || (p.isKitchen === true ? t("kitchenSub") : t("pointSub"))),
       { short, address: String(p.address || "") }));
   });
   list.replaceChildren(...out);
@@ -3460,11 +3478,40 @@ function renderPointList(wrap, total = 0) {
 
 function refreshPointList(total = 0) {
   const wrap = document.getElementById("fulfillment");
+  const list = document.getElementById("point-list");
   renderPointList(wrap, total);
-  // ⚠️ NOTHING TO HIDE (v410). The places are part of the Self collect card, and they are drawn
-  // there whether or not it is the chosen card — because they are what collecting OFFERS, and a
-  // customer comparing the two ways should be able to see what each one gives them without tapping.
-  // An empty list draws nothing, so a shop with no Points is unchanged.
+  // ★★ AND THE CARD SHOWS ITS PLACES ONLY WHILE IT IS OPEN (v412). Her words: __"i want the self
+  // collect card at store to be folded as default"__, and __"when it expend the unselected with a
+  // white background is like a hole, and like confusing"__ — ⚠️ **which is exactly what an open
+  // card full of white place rows does while the customer has already chosen the courier.**
+  // ⚠️ `_open` is on the wrapper so a repaint cannot lose it, and it starts as NOTHING, so the shop
+  // a customer opens shows two lines and nothing else until they act.
+  // ⚠️⚠️ AND "THIS CARD IS THE CHOSEN ONE" IS PART OF THE SAME FACT, not a rule the tap has to
+  // remember. Her hole was an open card of white rows in the way the customer did NOT take — and a
+  // fold only the tap enforced would come back the first time anything else repainted the page.
+  // **A state that must never occur is kept out of the DRAWING rather than out of the one way in.**
+  // ⭐ AND SINCE v412 BOTH CARDS WORK THIS WAY — the places inside the collect card and the address
+  // inside the courier's are one rule, because they are one thing: what a choice needs is part of
+  // the choice. Her words: __"courier delivery and address should be one piece"__.
+  const open = wrap ? wrap._open : null;
+  const chosen = wrap ? wrap._value : "collect";
+  if (list) list.hidden = open !== "collect" || chosen !== "collect" || !publishedPoints().length;
+  const addr = document.getElementById("address-field");
+  if (addr) addr.hidden = open !== "courier" || chosen !== "courier";
+  paintCarets();
+}
+
+// A caret is the ONLY hint that there is anything behind a line, so the one place that decides the
+// folds turns both of them over — beside the thing each describes.
+function paintCarets() {
+  const wrap = document.getElementById("fulfillment");
+  const open = wrap ? wrap._open : null;
+  const set = (id, way) => {
+    const caret = document.getElementById(id);
+    if (caret) caret.textContent = open === way ? "▾" : "▸";
+  };
+  set("collect-caret", "collect");
+  set("courier-caret", "courier");
 }
 
 // Wire the Self collect / Courier picker. The choice is stored on the wrapper node so the
@@ -3474,25 +3521,53 @@ function wireFulfillment() {
   const wrap = document.getElementById("fulfillment");
   if (!wrap) return;
   const buttons = (wrap.querySelectorAll && wrap.querySelectorAll(".seg-btn")) || [];
+  // ★★ BOTH CARDS FOLD, AND `_open` IS WHICH ONE IS UNFOLDED — "collect", "courier" or null for
+  // neither (v412). Her words: __"i want the self collect card at store to be folded as default"__,
+  // and then __"courier delivery and address should be one piece"__ — ⭐ **one state, because only one
+  // card may be open at a time**: choosing a way is what opens it, and the other closes behind it, so
+  // the fields of the way the customer did NOT take are never standing open.
+  if (wrap._open !== null && wrap._open !== "collect" && wrap._open !== "courier") wrap._open = null;
   const apply = (value) => {
     wrap._value = value;
-    // ⚠️ THE EDGE GOES ON THE CARD, NOT THE PRESS (v410) — the card is the choice AND the places
-    // under it, and a border around only the words would draw a line between one decision and the
-    // thing it decides. See .seg-opt in app.css.
+    // ⚠️ THE OTHER CARD SHUTS. ⭐ This is the "hole" she described: an open card full of white rows —
+    // or an address box — in the way the customer has already turned down.
+    if (wrap._open && wrap._open !== value) wrap._open = null;
+    // ⚠️ THE EDGE GOES ON THE CARD, NOT THE PRESS (v410) — the card is the choice AND what it needs
+    // (the places, or the address), and a border around only the words would draw a line between one
+    // decision and the thing it decides. See .seg-opt in app.css.
     for (const b of buttons) {
       const card = b.closest ? b.closest(".seg-opt") : null;
       if (card) card.classList.toggle("active", b.dataset.fulfillment === value);
       else b.classList.toggle("active", b.dataset.fulfillment === value);
     }
-    const addr = document.getElementById("address-field");
-    if (addr) addr.hidden = value !== "courier";
     refreshPointList();
   };
   // What a tap on a PLACE calls — see renderPointList. Kept here because this is where the method
   // actually lives, and the list must not grow a second copy of that rule.
   wrap._pickCollect = () => apply("collect");
-  for (const b of buttons) b.addEventListener("click", () => apply(b.dataset.fulfillment));
+  // And what the AFTER-ORDER RESET calls, so putting the shop back to self collect goes through the
+  // same seam as every other change — see the order handler.
+  wrap._applyFulfillment = apply;
+  for (const b of buttons) {
+    b.addEventListener("click", () => {
+      const want = b.dataset.fulfillment;
+      // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way
+      // already chosen therefore opens and shuts what it holds rather than doing nothing — **the
+      // second tap is how a customer puts it away again**, which is the state she asked to arrive in.
+      if (wrap._value === want) {
+        wrap._open = wrap._open === want ? null : want;
+        refreshPointList();
+        return;
+      }
+      // ⚠️ AND ANY OTHER TAP CHOOSES THAT WAY **AND OPENS IT** — picking one is exactly when the
+      // customer needs what it asks for, so opening it is not a second favour.
+      wrap._open = want;
+      apply(want);
+    });
+  }
   apply("collect"); // reflect the static HTML's default active button
+  wrap._open = null; // ⭐ and arrive with BOTH cards folded, whatever the default way is
+  refreshPointList();
 }
 
 // ── The customer's own door pin (v197) ─────────────────────────────────────

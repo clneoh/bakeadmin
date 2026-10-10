@@ -832,10 +832,16 @@ button.prod-next.off::after { content: ""; }
    ⚠️ The edge therefore went on the WRAPPER rather than on the press: the places a customer can
    collect from are part of choosing to collect, and a border around only the words would draw a
    line between one decision and the thing it decides. */
+/* ⚠️⚠️ NOT `--surface` (v412). Her words: __"even after i expend it, there should not be hole"__ —
+   and the hole was this. **The picker sits INSIDE the white "Your details" card**, so a
+   `--surface` card here is white on white: its own edge is the only thing visible, its place rows
+   are white too, and an expanded card is a **white void with thin outlines floating in it.** ⭐ The
+   page's own background colour instead, so an unopened card reads as a soft well on the card, and
+   the white place rows sit ON something rather than in nothing. */
 .seg-opt {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--bg);
   overflow: hidden;
 }
 /* The chosen one takes the brand's orange edge — the same "this one is on" the promo box and the
@@ -858,6 +864,22 @@ button.prod-next.off::after { content: ""; }
   -webkit-tap-highlight-color: transparent;
 }
 .seg-opt.active .seg-name { color: var(--brown-dark); }
+/* ★★ THE SELF-COLLECT CARD FOLDS, AND THE CARET IS THE WHOLE HINT (v412). Her words: __"i want the
+   self collect card at store to be folded as default"__, and __"when it expend the unselected with a
+   white background is like a hole, and like confusing"__ — ⚠️ which is exactly what an open card full
+   of white place rows does while it is NOT the chosen way: it reads as a white hole in the page at
+   the moment the customer has already decided against it. */
+.seg-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.seg-caret { flex: 0 0 auto; color: var(--muted); font-size: 13px; }
+/* ⚠️ THE FOLDED LIST TAKES NO ROOM. `hidden` on the element itself, so a shop with no places draws
+   exactly the card it drew before — the rule is keyed on the attribute rather than on `:empty`
+   because an EMPTY list and a FOLDED one are different things and only one of them is hidden. */
+#point-list[hidden] { display: none; }
 /* ⚠️ 12px is the FLOOR for the explanation, not a starting point — the whole fault being
    repaired is a line the customer did not read. */
 .seg-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
@@ -867,13 +889,21 @@ button.prod-next.off::after { content: ""; }
    one choice: the name and its line first, and the places under a hairline. An empty list draws
    nothing at all (store/app.js leaves it empty when she has no Points), which is why the hairline
    lives on the rows rather than on the container. */
-.point-list:not(:empty) {
+.point-list {
   padding: 0 10px 10px;
   border-top: 1px solid var(--line);
   margin-top: 2px;
   padding-top: 8px;
 }
-.seg-opt.active .point-list:not(:empty) { border-top-color: var(--brown-soft); }
+.seg-opt.active .point-list { border-top-color: var(--brown-soft); }
+/* ★★ AND THE COURIER'S ADDRESS SITS IN ITS CARD THE SAME WAY (v412). Her words: __"courier delivery
+   and address should be one piece"__ — ⭐ the exact mirror of the places inside the collect card, and
+   **the same reasoning: the thing a choice needs is PART of the choice, not a field that appears
+   under it.** ⚠️ The rules are deliberately the same shape as `.point-list`, because two panels doing
+   the same job differently is how the next one gets built wrong. */
+.addr-body { padding: 8px 10px 10px; border-top: 1px solid var(--line); margin-top: 2px; }
+.seg-opt.active .addr-body { border-top-color: var(--brown-soft); }
+.addr-body[hidden] { display: none; }
 
 /* ---------- The door pin (optional) ---------- */
 /* Two controls side by side, because the two customers are different people: one is

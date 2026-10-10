@@ -115,6 +115,14 @@ function buildPointEditor(state, point) {
   // rule the Categories screen keeps: reading a sideways drop as "move it somewhere else" is a
   // rule you have to be taught, and this box is the one place the move is written down.
   const area = areaPicker(state, point ? (point.areaId || "") : "");
+  // ★★ HER OWN DESCRIPTION (v412). Her words: __"make the point description custmable in point
+  // card"__ — the line customers read under the Point's name on the shop.
+  //
+  // ⚠️ THE PLACEHOLDER IS THE STANDARD SENTENCE ITSELF, so an empty box says what the page will say
+  // instead. **A blank field whose placeholder is "Optional" would leave her guessing what a customer
+  // sees when she types nothing**, and the answer is a real sentence she can borrow from.
+  const description = el("input", { class: "input", value: point?.description || "",
+    placeholder: "Self collection Point — we message the exact spot and time once your order is confirmed" });
   // ★ THE ADDRESS BOX ASKS GOOGLE AS SHE TYPES, exactly as the order's delivery address box
   // does (v228, made shared in v303). Her question was __"there is no address auto complete for
   // collection point?"__ and it was a fair one: this is the box a DRIVER is sent to and the box
@@ -222,6 +230,7 @@ function buildPointEditor(state, point) {
       // (see points.js), which is what stops an edit to the NAME from un-filing the Point.
       areaId: area.value || "",
       showAddress: showAddr.checked,
+      description: description.value,
     };
     // The same two questions the run screen asks, in the same words: the name is the Point's
     // own floor, and a window that ends before it starts is refused rather than published.
@@ -229,8 +238,8 @@ function buildPointEditor(state, point) {
       || windowProblem(collectFrom.value, collectTo.value);
     return { draft, error };
   };
-  return { name, area, address, addressSug, showAddrField, receiver, phone, fee, minOn, minField,
-    collectFrom, collectTo, kitchenField, collect };
+  return { name, area, description, address, addressSug, showAddrField, receiver, phone, fee, minOn,
+    minField, collectFrom, collectTo, kitchenField, collect };
 }
 
 function newPointCard(state, root) {
@@ -243,6 +252,10 @@ function newPointCard(state, root) {
         "Which part of your list this Point belongs under — Penang Island, Prai. Build the areas "
         + "under More, then Collection areas. Leave it as no area and it sits at the top of your "
         + "list until you file it.")),
+    el("div", { class: "field" }, el("label", {}, "What customers read"), ed.description,
+      el("p", { class: "hint" },
+        "The line under this Point's name on your shop. Leave it empty and customers are read the "
+        + "standard sentence in the grey box — anything you type here replaces it.")),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
     ed.showAddrField,
     ed.kitchenField,
@@ -274,6 +287,7 @@ function openEditPointPopup(state, point, root) {
   showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
     el("div", { class: "field" }, el("label", {}, "Area"), ed.area),
+    el("div", { class: "field" }, el("label", {}, "What customers read"), ed.description),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
     ed.showAddrField,
     ed.kitchenField,
@@ -328,6 +342,10 @@ function pointCard(state, point, root) {
   const open = openPoints.has(point.id);
   const caret = el("span", { class: "fold-caret" }, open ? "▾" : "▸");
   const body = el("div", { class: "fold-body", hidden: !open },
+    // ★★ HER OWN WORDS, SHOWN BACK TO HER (v412) — quoted, so she can see at a glance that this is
+    // what a customer reads rather than a note to herself. ⚠️ Omitted when there are none: an empty
+    // pair of quotation marks would read as a place she had left blank on purpose.
+    point.description ? el("p", { class: "card-sub" }, `“${point.description}”`) : null,
     point.address ? el("p", { class: "card-sub" }, point.address) : null,
     // ★ WHERE IT IS (v300). A Point is a name she can read and, until it is pinned, a place a
     // VAN CANNOT BE SENT TO — a courier is given coordinates, never an address. So the line

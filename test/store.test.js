@@ -2016,13 +2016,19 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
     // places away, so asserting it before the tap is what makes the assertion the one that fires.
     // (Written the other way round, a fault that re-hid the list failed the tap assertion instead
     // and this one was never reached — a test whose guard is not the line it is named for.)
+    // ⚠️ CHOOSING THE COURIER FOLDS THE CARD (v412) — the places are still BUILT, they are simply
+    // not shown. ⭐ That is what her "hole" was: white place rows sitting open in a card the
+    // customer had already decided against. This assertion used to read the opposite way, and the
+    // change is deliberate and hers.
     document.getElementById("fulfillment")._value = "courier";
     render();
     assert.ok(document.getElementById("point-list").children.length >= 2,
-      "⚠️ choosing courier does not take the places away — a customer comparing the two ways must "
-      + "be able to see what each offers without tapping back and forth");
+      "the places are still built, so opening the card again costs nothing");
+    assert.equal(document.getElementById("point-list").hidden, true,
+      "but choosing the courier folds the card shut");
     document.getElementById("fulfillment")._value = "collect";
     document.getElementById("fulfillment")._pointId = "";
+    document.getElementById("fulfillment")._open = "collect";
     render();
     const places = document.getElementById("point-list").children;
     assert.ok(places.length >= 2, "the places are drawn inside the collect card");
@@ -2045,6 +2051,148 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
       "and it is still true after a repaint");
   } finally {
     CONFIG.points = realP;
+    render();
+  }
+});
+
+// ── v412: the Self collect card arrives folded ───────────────────────────────
+
+test("★★ the Self collect card arrives FOLDED, and its own line is the handle", () => {
+  // Her words: __"i want the self collect card at store to be folded as default"__, and __"when it
+  // expend the unselected with a white background is like a hole, and like confusing"__ — ⚠️ which is
+  // exactly what an open card full of white place rows does while the customer has already chosen
+  // the courier. It reads as a white hole punched in the page at the moment they went the other way.
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [
+      { id: "pt_k", name: "Our place", minOrderRM: 0, isKitchen: true },
+      { id: "pt_f", name: "Farlim, Air Itam", minOrderRM: 0 },
+    ];
+    // ⚠️ RESET WHAT THE LAST TEST LEFT. The shim's `#fulfillment` is one element for the whole file
+    // and `wireFulfillment` ran once, at import — so the method and the fold are carried over unless
+    // this test says otherwise. Setting them here is the test being explicit, not the code being wrong.
+    document.getElementById("fulfillment")._value = "collect";
+    document.getElementById("fulfillment")._open = null;
+    render();
+    const wrap = document.getElementById("fulfillment");
+    const list = document.getElementById("point-list");
+    const caret = () => document.getElementById("collect-caret").textContent;
+
+    assert.equal(list.hidden, true, "⚠️ it ARRIVES SHUT — that is the whole request");
+    assert.equal(caret(), "▸", "and the caret points at what is behind it");
+    assert.equal(wrap._value, "collect", "while still being the way it is set to — a customer need do nothing");
+
+    // ⚠️ ONEPENING IT IS WHAT THE CUSTOMER'S TAP DOES — driven here through the same state that tap
+    // sets, because ⚠️ **this shim carries no static markup, so it cannot reach the line a customer
+    // presses.** The WIRING is therefore verified by looking at the page (and the markup rules that
+    // it starts shut and wears a caret live in store-i18n.test.js); what is proved HERE is what the
+    // screen does with the state the tap produces.
+    wrap._open = "collect";
+    render();
+    assert.equal(list.hidden, false, "an open card shows its places");
+    assert.equal(caret(), "▾", "and the caret turns over");
+
+    wrap._open = null;
+    render();
+    assert.equal(list.hidden, true, "and a shut one shows none");
+
+    // ⭐⭐ AND THE COURIER SHUTS IT WHATEVER THE FLAG SAYS. This is the "hole" itself — an open card
+    // full of white rows in the way the customer did NOT take — and it is kept out of the DRAWING
+    // rather than out of the one tap that sets it, so no repaint can bring it back.
+    wrap._open = "collect";
+    wrap._value = "courier";
+    render();
+    assert.equal(list.hidden, true,
+      "choosing the courier means nothing white is left standing open, however the fold was left");
+  } finally {
+    CONFIG.points = realP;
+    document.getElementById("fulfillment")._open = null;
+    render();
+  }
+});
+
+test("★★ a Point's own description replaces the shop's standard line", () => {
+  // Her words: __"make the point description custmable in point card"__. ⭐ **The standard sentence
+  // is the FALLBACK, not the default** — so a Point she has said nothing about reads exactly as it
+  // does today and adding this cannot change a page by itself.
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [
+      { id: "pt_a", name: "With words", minOrderRM: 0, description: "Aunty Lim's shop, beside the coffee shop" },
+      { id: "pt_b", name: "Without words", minOrderRM: 0 },
+      { id: "pt_c", name: "The kitchen", minOrderRM: 0, isKitchen: true },
+      { id: "pt_d", name: "Kitchen with words", minOrderRM: 0, isKitchen: false, description: "Where we bake, behind the school" },
+    ];
+    render();
+    const list = document.getElementById("point-list");
+    // ⚠️ Read off `children`, because this shim has no element-level `querySelectorAll`.
+    const subs = list.children
+      .filter((b) => String(b.className).includes("point-opt"))
+      .map((b) => ({ name: b.children[0].children[0].text, sub: b.children[1].children[0].text }));
+    const subFor = (nm) => (subs.find((s) => s.name === nm) || {}).sub;
+    assert.equal(subFor("With words"), "Aunty Lim's shop, beside the coffee shop",
+      "her words are what a customer reads");
+    assert.match(subFor("Without words"), /Self collection Point/,
+      "and the standard sentence stands in where she has written none");
+    assert.match(subFor("The kitchen"), /where we bake/,
+      "the marked kitchen keeps its own line too, until she writes one");
+    assert.match(subFor("Kitchen with words"), /behind the school/,
+      "⚠️ and her words outrank even the kitchen's — she wrote them about her own front door");
+  } finally {
+    CONFIG.points = realP;
+    render();
+  }
+});
+
+test("the shop keeps a Point's description, and adds it to nothing else (v412)", () => {
+  // ⚠️ THE PUBLISH/MERGE PAIR AGAIN. A field a sender publishes and a receiver drops was never sent —
+  // the fault that shipped at v406 and again at v407, and this is the third key through the same door.
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Written", description: "  Aunty Lim's shop  " },
+    { id: "pt_2", name: "Blank", description: "   " },
+    { id: "pt_3", name: "None" },
+  ] });
+  assert.equal(out.points[0].description, "Aunty Lim's shop", "trimmed, and kept");
+  assert.equal("description" in out.points[1], false, "a blank one arrives as nothing");
+  assert.equal("description" in out.points[2], false, "and an absent one gains no key");
+});
+
+test("★★ the courier's address arrives with the courier, not as a box under it (v412)", () => {
+  // Her words: __"courier delivery and address should be one piece"__ — the mirror of the places in
+  // the collect card. ⚠️ And the two are ONE state: only one card may be open, so the field of the
+  // way the customer did NOT take is never standing open under it.
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [{ id: "pt_k", name: "Our place", minOrderRM: 0, isKitchen: true }];
+    const wrap = document.getElementById("fulfillment");
+    const addr = document.getElementById("address-field");
+    const list = document.getElementById("point-list");
+    const caret = (which) => document.getElementById(which + "-caret").textContent;
+
+    wrap._value = "collect";
+    wrap._open = null;
+    render();
+    assert.equal(addr.hidden, true, "⚠️ on arrival the address is shut in the courier card");
+    assert.equal(caret("courier"), "▸", "and the courier says so");
+
+    wrap._open = "courier";
+    wrap._value = "courier";
+    render();
+    assert.equal(addr.hidden, false, "opening the courier card shows its address");
+    assert.equal(caret("courier"), "▾", "the caret turns over");
+    assert.equal(list.hidden, true, "⭐ and the collect card's places are shut behind it");
+
+    // ⚠️ AND THE REVERSE — the two can never both be open, which is what "one piece" means here.
+    wrap._open = "collect";
+    wrap._value = "collect";
+    render();
+    assert.equal(list.hidden, false, "the collect card opens");
+    assert.equal(addr.hidden, true, "and the courier's address shuts with it");
+    assert.equal(caret("courier"), "▸");
+  } finally {
+    CONFIG.points = realP;
+    document.getElementById("fulfillment")._open = null;
+    document.getElementById("fulfillment")._value = "collect";
     render();
   }
 });

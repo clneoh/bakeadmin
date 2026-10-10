@@ -136,7 +136,14 @@
         <div class="seg" id="fulfillment">
           <div class="seg-opt active" data-opt="collect">
             <button type="button" class="seg-btn" data-fulfillment="collect">
-              <span class="seg-name" data-i18n="selfCollect">Self collect</span>
+              <span class="seg-head-row">
+                <span class="seg-name" data-i18n="selfCollect">Self collect</span>
+                <!-- ★★ AND THE CARD SAYS IT OPENS (v412). Her words: __"i want the self collect card at
+                     store to be folded as default"__. The caret is the whole of the hint that there is
+                     anything behind it, so it is drawn from the first paint and store/app.js turns it
+                     over when the card opens. -->
+                <span class="seg-caret" id="collect-caret">▸</span>
+              </span>
               <span class="seg-sub" data-i18n="selfCollectSub">You come to us — no delivery charge. We message you the exact place, and once your order is ready you can collect any time on your bake day.</span>
             </button>
             <!-- ★★ THE PLACES ARE PART OF THE CHOICE, NOT A BOX THAT APPEARS UNDER IT (v410). Her
@@ -151,13 +158,40 @@
                  dictionary's English-must-match-the-markup rule in test/store-i18n.test.js is
                  untouched. Empty until store/app.js fills it, so a shop with no places is byte for
                  byte the shop it was. -->
-            <div class="point-list" id="point-list"></div>
+            <div class="point-list" id="point-list" hidden></div>
           </div>
           <div class="seg-opt" data-opt="courier">
             <button type="button" class="seg-btn" data-fulfillment="courier">
-              <span class="seg-name" data-i18n="courier">Courier delivery</span>
+              <span class="seg-head-row">
+                <span class="seg-name" data-i18n="courier">Courier delivery</span>
+                <span class="seg-caret" id="courier-caret">▸</span>
+              </span>
               <span class="seg-sub" data-i18n="courierSub">A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.</span>
             </button>
+            <div class="field addr-body" id="address-field" hidden>
+              <label for="address-input" data-i18n="addressLabel">Delivery address</label>
+              <input id="address-input" class="input" type="text" data-i18n-ph="addressPh" placeholder="Street, area, Penang…" autocomplete="street-address">
+              <!-- Where the addresses the lookup found appear (v202). Emptied and hidden by
+                   store/app.js; every word inside it is written by JS, so it carries no
+                   data-i18n tags and the dictionary's English-must-match-the-markup rule in
+                   test/store-i18n.test.js is untouched. -->
+              <div class="addr-list" id="addr-list" hidden></div>
+              <p class="card-sub pin-hint" data-i18n="pinHint">Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.</p>
+              <div class="pin-row">
+                <button type="button" id="pin-here" class="pin-btn" data-i18n="pinHere">Use my location</button>
+                <button type="button" id="pin-map" class="pin-btn" data-i18n="pinOnMap">Pin on the map</button>
+              </div>
+              <p class="card-sub pin-status" id="pin-status" hidden></p>
+              <div class="pin-box" id="pin-box" hidden>
+                <p class="card-sub pin-note" id="pin-loading" data-i18n="pinLoading">Loading the map…</p>
+                <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map where the courier should stop, or drag the pin.</p>
+                <div class="pin-hold" id="pin-hold"></div>
+                <div class="pin-actions">
+                  <button type="button" id="pin-keep" class="track-btn" data-i18n="pinKeep">Keep this spot</button>
+                  <button type="button" id="pin-cancel" class="pin-btn" data-i18n="pinCancel">Cancel</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -165,30 +199,6 @@
            labelled box that appeared the moment Self collect was chosen — a second question under
            the first, which is exactly what she said should not be in the interface. The places it
            held now live inside the Self collect card itself, above. -->
-      <div class="field" id="address-field" hidden>
-        <label for="address-input" data-i18n="addressLabel">Delivery address</label>
-        <input id="address-input" class="input" type="text" data-i18n-ph="addressPh" placeholder="Street, area, Penang…" autocomplete="street-address">
-        <!-- Where the addresses the lookup found appear (v202). Emptied and hidden by
-             store/app.js; every word inside it is written by JS, so it carries no
-             data-i18n tags and the dictionary's English-must-match-the-markup rule in
-             test/store-i18n.test.js is untouched. -->
-        <div class="addr-list" id="addr-list" hidden></div>
-        <p class="card-sub pin-hint" data-i18n="pinHint">Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.</p>
-        <div class="pin-row">
-          <button type="button" id="pin-here" class="pin-btn" data-i18n="pinHere">Use my location</button>
-          <button type="button" id="pin-map" class="pin-btn" data-i18n="pinOnMap">Pin on the map</button>
-        </div>
-        <p class="card-sub pin-status" id="pin-status" hidden></p>
-        <div class="pin-box" id="pin-box" hidden>
-          <p class="card-sub pin-note" id="pin-loading" data-i18n="pinLoading">Loading the map…</p>
-          <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map where the courier should stop, or drag the pin.</p>
-          <div class="pin-hold" id="pin-hold"></div>
-          <div class="pin-actions">
-            <button type="button" id="pin-keep" class="track-btn" data-i18n="pinKeep">Keep this spot</button>
-            <button type="button" id="pin-cancel" class="pin-btn" data-i18n="pinCancel">Cancel</button>
-          </div>
-        </div>
-      </div>
       <div class="field" style="margin-bottom:0">
         <label for="note-input" data-i18n="noteLabel">Notes for Collection/Delivery (optional)</label>
         <input id="note-input" class="input note-input" type="text" data-i18n-ph="notePh" placeholder="Gate code, landmark, what to look for…" autocomplete="off">

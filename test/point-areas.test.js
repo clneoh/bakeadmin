@@ -332,3 +332,43 @@ test("★★ the address is published ONLY when she has switched it on, and only
   assert.equal(blob.includes("Aunty Lim"), false, "the receiver is never published");
   assert.equal(blob.includes("60123456789"), false, "nor their phone");
 });
+
+// ── v412: her own description of a Point ────────────────────────────────────
+
+test("★★ her own words are published, and nothing is published when she has written none", () => {
+  // Her words: __"make the point description custmable in point card"__ — the line a customer reads
+  // under the Point's name.
+  const st = state();
+  const written = pointInto(st, "", "Written", { description: "Aunty Lim's shop, beside the coffee shop" });
+  const blank = pointInto(st, "", "Blank", { description: "   " });
+  const none = pointInto(st, "", "None");
+  const rows = publishPoints(st);
+  const by = (id) => rows.find((r) => r.id === id);
+
+  assert.equal(by(written.id).description, "Aunty Lim's shop, beside the coffee shop",
+    "her own words are what a customer reads — they ride the published row");
+  // ⚠️⚠️ WRITTEN ONLY WHEN THERE IS ONE, the same spelling as the address and the kitchen flag:
+  // **a Point she has said nothing about publishes byte-for-byte the row it published yesterday**,
+  // and the shop falls back to its own sentence. A whitespace-only box is NO description.
+  assert.equal("description" in by(blank.id), false, "a blank box publishes nothing");
+  assert.equal("description" in by(none.id), false, "and neither does one she never touched");
+  assert.deepEqual(Object.keys(by(none.id)).sort(), ["id", "isKitchen", "minOrderRM", "name"],
+    "⚠️ the row an untouched Point publishes is exactly the row this app has always published");
+  // Her words are her data — never trimmed into something else, but capped so a paragraph cannot
+  // push the places a customer is choosing between off the fold.
+  assert.equal(normalizePoint({ name: "A", description: "x".repeat(500) }).description.length, 120);
+});
+
+test("★ an edit that does not mention her description does not delete it", () => {
+  // ⚠️ THE SAME CARRY TRAP AS THE AREA, THE ORDER AND THE ADDRESS SWITCH — and this one loses HER
+  // OWN WORDS, which she would notice on her shop before she noticed them missing from a form.
+  const st = state();
+  const p = pointInto(st, "", "Sg Ara", { description: "Aunty Lim's shop" });
+  const after = updatePoint(st, p.id, { name: "Sg Ara — renamed", address: p.address,
+    receiver: p.receiver, phone: p.phone, feeRM: p.feeRM });
+  assert.equal(after.name, "Sg Ara — renamed", "the correction landed");
+  assert.equal(after.description, "Aunty Lim's shop", "and her own words survived it");
+  // And a caller that MEANS to set it still can — including clearing it.
+  assert.equal(updatePoint(st, p.id, { name: "Sg Ara", description: "" }).description, "",
+    "a draft that names it can empty it");
+});

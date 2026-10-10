@@ -447,7 +447,10 @@ test("★★ the places are part of the Self collect choice, not a box under it 
   // ⚠️ NO TEST CAN SEE THIS. It is a shape, and the shop's own test shim carries no static markup —
   // so **the rule is pinned against the page itself**, which is the same approach v392 took when a
   // button row measured 403px on a 360px phone and no assertion could have caught it.
-  const seg = html.slice(html.indexOf('id="fulfillment"'), html.indexOf('id="address-field"'));
+  // ⚠️ THE SLICE ENDS AT THE NOTE FIELD, not at `address-field` any more — since v412 the address
+  // is INSIDE this picker, so slicing to it would cut the picker in half and every position read
+  // below would be measured against a truncated block.
+  const seg = html.slice(html.indexOf('id="fulfillment"'), html.indexOf('id="note-input"'));
   assert.ok(seg.length > 0, "the fulfilment picker is on the page");
 
   // ⚠️ ONE CARD PER WAY, with the press inside it — that is what lets the edge go round the place
@@ -471,6 +474,18 @@ test("★★ the places are part of the Self collect choice, not a box under it 
   assert.ok(atList > atCollect && atList < atCourier,
     `⚠️ the place list sits INSIDE the collect card — one piece (collect@${atCollect}, list@${atList}, courier@${atCourier})`);
 
+  // ★★ AND IT ARRIVES FOLDED (v412). Her words: __"i want the self collect card at store to be
+  // folded as default"__. ⚠️ The list is hidden IN THE MARKUP, so the very first paint — before a
+  // byte of script has run — is the folded card and never flashes the open one. ⚠️ And the caret is
+  // the whole of the hint that there is anything behind it, so it is authored in too.
+  assert.match(seg, /<div class="point-list" id="point-list" hidden>/,
+    "the places are shut in the markup itself, not shut by the script a moment later");
+  assert.match(seg, /class="seg-caret" id="collect-caret">▸</,
+    "and the caret points at what is behind it from the first paint");
+  const css2 = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  assert.match(css2, /#point-list\[hidden\]\s*\{\s*display:\s*none/,
+    "a folded list takes no room at all");
+
   // ⚠️ AND THE SEPARATE FIELD IS GONE — no labelled box that appears, and no dead string left in
   // the dictionary for it to fall back on.
   assert.equal(seg.includes('id="point-field"'), false, "the appearing field is not in the page");
@@ -486,4 +501,50 @@ test("★★ the places are part of the Self collect choice, not a box under it 
   assert.match(css, /\.seg-opt\.active\s*\{/, "the chosen card wears the edge");
   assert.equal(/\.seg-btn\.active\s*\{/.test(css), false,
     "and the press inside it does not — one edge, on the card");
+});
+
+test("★★ the address is part of the Courier choice, the same way the places are (v412)", () => {
+  // Her words: __"courier delivery and address should be one piece"__ — ⭐ the exact mirror of the
+  // places inside the collect card, and the same reasoning: **the thing a choice needs is PART of the
+  // choice, not a field that appears under it.** ⚠️ Same approach as the test above: it is a SHAPE,
+  // and the shop's own test shim carries no static markup, so the rule is pinned against the page.
+  const seg = html.slice(html.indexOf('id="fulfillment"'), html.indexOf('id="note-input"'));
+
+  const atCourier = seg.indexOf('data-opt="courier"');
+  const atAddr = seg.indexOf('id="address-field"');
+  // ⚠️⚠️ BOUNDED AT BOTH ENDS, and the upper one is the whole point. `atAddr > atCourier` alone
+  // says only that it comes after the courier card OPENS — ⭐ **and a box moved out to sit BELOW the
+  // picker satisfies that**, which is the very fault being repaired. (Written that way at first, and
+  // the bite proved it: moving the address out entirely left the test green.) The bound is the
+  // comment that stands where the picker's closing tag is, so anything after it is outside.
+  // ⚠️⚠️ THE BOUND IS THE CARD'S OWN CLOSING TAG, not the end of the picker, and that is the whole
+  // correction: an address moved to sit AFTER the courier card but still inside the picker satisfied
+  // a picker-wide bound — ⭐ **the bite proved it, twice.** The card closes with a `</div>` at ten
+  // spaces, which is the first one at that depth after the card opens. This file's indentation is
+  // deliberate and stable, and a rule with no engine behind it has to read the shape it can see.
+  const cardEnd = seg.indexOf("\n          </div>", atCourier);
+  assert.ok(atCourier >= 0 && cardEnd > atCourier, "the courier card's own bounds were found");
+  assert.ok(atAddr > atCourier && atAddr < cardEnd,
+    `⚠️ the address box is INSIDE the courier card — one piece, not a box below it (courier@${atCourier}, address@${atAddr}, card ends@${cardEnd})`);
+
+  // ★ AND THE COURIER CARD SAYS IT OPENS, exactly as the collect one does — two cards doing the same
+  // job must not look like two different kinds of thing.
+  assert.match(seg, /class="seg-caret" id="courier-caret">▸</,
+    "the courier line carries a caret too");
+  assert.match(seg, /<div class="field addr-body" id="address-field" hidden>/,
+    "and the address starts shut with it");
+
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  assert.match(css, /\.addr-body\s*\{\s*padding:/,
+    "the address panel is styled like the place list, not as a second kind of panel");
+
+  // ⚠️⚠️ AND THE CARD IS NOT WHITE — PINNED AS A RULE, BECAUSE NO TEST CAN SEE LAYOUT. Her words:
+  // __"even after i expend it, there should not be hole"__. ⭐ The hole was the picker sitting INSIDE
+  // the white "Your details" form with `--surface` of its own: white on white, so an opened card was
+  // **a void with thin outlines floating in it.** ⚠️ The same approach v392 took when a button row
+  // measured 403px on a 360px phone — the assertion is on the RULE, and the look is checked by eye.
+  assert.match(css, /\.seg-opt\s*\{[^}]*background:\s*var\(--bg\)/,
+    "the card takes the page's own surface, so an open one is a panel and not a hole");
+  assert.equal(/\.seg-opt\s*\{[^}]*background:\s*var\(--surface\)/.test(css), false,
+    "and never the white the form behind it is made of");
 });
