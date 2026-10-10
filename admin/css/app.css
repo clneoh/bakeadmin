@@ -609,6 +609,15 @@ body { min-height: 100vh; }
    `.card` and is NOT draggable, cannot move. */
 .point-row { display: flex; align-items: flex-start; gap: 8px; }
 .point-row > .point-row-body { flex: 1 1 auto; min-width: 0; }
+/* ⚠️⚠️ AND ITS PRESSES ARE SIZED BY THEIR OWN LABELS, NOT SPLIT EQUALLY (v411). `.btn-row .btn` is
+   `flex: 1`, which shares the width evenly — right for three short words, wrong for this row, whose
+   first label is the sentence "Put the pin on the map". ⚠️ **AND THE CARD'S BODY IS NARROWER THAN THE
+   CARD** because the drag grip takes 44px off it, so a row that fitted before v410 now folds that
+   label onto FIVE lines. ⭐ The same fix the Put-money-in row already carries (v395), for the same
+   reason: growing from the CONTENT width lets each button keep its words and wraps the row instead.
+   ⚠️ Scoped to `.point-row` so no other screen moves — nothing in the suite has a layout engine, so
+   this is guarded only by this comment and by looking at the card. */
+.point-row .btn-row .btn { flex: 1 1 auto; }
 /* The row in the air: lifted, and over the rows it is passing. `.card` rather
    than either row's own class because both lists lift the same way and the
    helper in ui.js puts the class on both. A pop-up head also carries `dragging`

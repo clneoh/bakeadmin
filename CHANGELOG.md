@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v410)
+# Jienluv2bake — change history (v54 → v411)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v411, A POINT CARD ARRIVES FOLDED — AND A LAYOUT FAULT I SHIPPED IN v410 (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"can the point fold up by default?"__ · __"why the point card are in such orientation?"__
+
+**⚠️⚠️ FIRST, THE ONE YOU SPOTTED, WHICH WAS MY FAULT AND SHIPPED IN v410.** __"why the point card are in such orientation?"__ — because I broke it. Adding the drag grip made each card a row with the grip on the left, and **the wrapper I put round the words only caught the first block of them.** The three detail lines — the minimum, the collection window, the pin — and the four buttons were left as **brothers of that wrapper inside a flex row**, so every one of them became a column standing side by side: **the text was squeezed to 12 pixels wide** and the card read as a stack of slivers. ⚠️ **Every test passed**, because nothing in this suite has a layout engine — and I checked the SHOP page in a browser but only ever drove this screen by reading its text. **You saw it and I had not.** It is fixed: one wrapper round the whole body.
+
+⚠️ **AND THE SAME FAULT HAD A SECOND HALF.** The card's body is 44px narrower than the card, because the grip takes that off it — so the four buttons, which were fine before, no longer fitted, and **"Put the pin on the map" folded onto five lines.** Fixed with the same rule your Money screen already carries for exactly this: buttons sized by their own labels, and the row wraps when it has to.
+
+**★ AND THE CARDS FOLD, WHICH IS WHAT YOU ASKED FOR.** A Point card now arrives **shut** — the name, its chips and a caret — with everything else one tap away. ⚠️ **A folded card still tells you what you need without opening it:** who hands the bags over, what the Point costs you per order, and how many orders have gone there. **A list of names alone would be a list you had to open row by row.** ⭐ And what you open **stays open across a redraw**, so pausing or editing one Point does not snap the card shut under you.
+
+⭐ **The whole Points screen went from 2868 pixels to 2144** on a phone — with the same four Points and the same headings.
+
+**No database step.** The suite is **3,230 tests, all green** (1 new). Three bites, all fired by their own message — ⚠️ **including one that found an assertion of mine proving nothing:** my "stays open after a redraw" check rendered into a *second* card list and left the first one alone, so it passed whatever the code did. It now redraws the same list.
+
+**Still owed:** the Chinese and Malay versions of the new sentences are **mine, not a native speaker's**.
 
 **10 Oct 2026 — engine v410, YOUR COLLECTION POINTS GROUP BY AREA, THEY CAN BE DRAGGED, AND EACH ONE DECIDES WHETHER ITS ADDRESS SHOWS (no database step — pushing this one is the whole of it).**
 

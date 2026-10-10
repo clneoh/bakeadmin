@@ -44,6 +44,12 @@ function saveAndPublish(state) {
   maybeSyncStorefront(state);
 }
 
+// Which Point cards she has opened (v411). ⚠️ KEPT FOR THE LIFE OF THE SCREEN, because every change
+// on this screen repaints the whole list — pause one Point, edit another, drag a row — and a card
+// that snapped shut the moment she used it would be worse than one that never opened.
+// ⚠️ By ID, not by position: the list reorders under the drag, so an index would open the wrong card.
+const openPoints = new Set();
+
 function renderAll(root, state) {
   // ⚠️ A REDRAW MUST NOT MOVE HER. Adding, editing, dragging or deleting a row repaints this list,
   // and coming back to the top of a long tree would lose her place mid-drag.
@@ -311,30 +317,18 @@ function pointCard(state, point, root) {
   // by the same helper in ui.js.
   const handle = el("span", { class: "point-handle", title: "Drag to reorder", "aria-hidden": "true" }, "⠿");
 
-  // The three presses go on a LINE OF THEIR OWN under the details, not squeezed into the
-  // card's right edge. Three is one more than that edge holds on a phone — Pause and Edit
-  // fitted and Delete wrapped under them, which read as two rows that look alike and behave
-  // differently. This is also the shape she approved in the drawing.
-  const row = el("div", { class: "card point-row", dataset: { id: point.id } },
-    handle,
-    el("div", { class: "point-row-body" },
-      el("p", { class: "card-title" },
-        point.name,
-        // ★★ AND THE CARD SAYS WHICH ONE IS THE KITCHEN (v406). ⚠️ The switch lives in the EDIT card —
-        // one press away — so the list itself has to show the answer, or she has to open every Point to
-        // find out which is which. **Only one can carry it**, which is what makes it worth reading here.
-        point.isKitchen === true
-          ? el("span", { class: "st-chip valid", style: "margin-left:6px" }, "🏠 The kitchen")
-          : null,
-        el("span", { class: `st-chip ${point.paused ? "paused" : "valid"}` },
-          point.paused ? "Paused" : "Active")),
-      el("p", { class: "card-sub" },
-        who || "Nobody named to receive here yet"),
-      point.address ? el("p", { class: "card-sub" }, point.address) : null,
-      el("p", { class: "card-sub" },
-        [`RM${point.feeRM.toFixed(2)} per order`,
-          used ? `${used} order${used === 1 ? "" : "s"}` : "no orders yet"]
-          .join(" · "))),
+  // ★★ AND A POINT CARD ARRIVES FOLDED (v411). Her words: __"can the point fold up by default?"__
+  // — with an area or two above them, a screen of fully-opened Points is a long scroll with the
+  // list she came to read buried in it. The title and its chips stay; the rest is one tap away.
+  //
+  // ⚠️ THE GRIP STAYS OUTSIDE THE HEAD, so dragging a row never opens it — the head is the press.
+  // ⚠️ AND WHAT IS OPEN IS REMEMBERED ACROSS A REDRAW (`openPoints`), because pausing or editing
+  // one row repaints the whole list: without this, the card she was working in would snap shut
+  // under her the moment she used it.
+  const open = openPoints.has(point.id);
+  const caret = el("span", { class: "fold-caret" }, open ? "▾" : "▸");
+  const body = el("div", { class: "fold-body", hidden: !open },
+    point.address ? el("p", { class: "card-sub" }, point.address) : null,
     // ★ WHERE IT IS (v300). A Point is a name she can read and, until it is pinned, a place a
     // VAN CANNOT BE SENT TO — a courier is given coordinates, never an address. So the line
     // says plainly which of the two it is, and the press opens the same map a customer's
@@ -351,6 +345,9 @@ function pointCard(state, point, root) {
       pointPlace(point)
         ? `📍 ${pointPlaceText(point)}`
         : "📍 Not pinned yet — a van cannot be sent to a name alone."),
+    // The presses go on a LINE OF THEIR OWN under the details, not squeezed into the card's right
+    // edge. Three is one more than that edge holds on a phone — Pause and Edit fitted and Delete
+    // wrapped under them, which read as two rows that look alike and behave differently.
     el("div", { class: "btn-row" },
       button(pointPlace(point) ? "Move the pin" : "Put the pin on the map",
         () => openPinPicker(state, point, root), "soft small"),
@@ -358,6 +355,38 @@ function pointCard(state, point, root) {
         () => togglePaused(state, point, root), "ghost small"),
       button("Edit", () => openEditPointPopup(state, point, root), "ghost small"),
       button("Delete", () => confirmDelete(state, point, root), "ghost small")));
+
+  // ⚠️ THE HEAD CARRIES THE NAME AND THE CHIPS, and what she most needs at a glance without opening
+  // anything: who hands the bags over, what the Point costs her per order, and how many orders have
+  // gone there. **A folded list that showed only names would be a list she had to open row by row.**
+  const head = el("button", { class: "fold-head", type: "button" },
+    el("span", {},
+      point.name,
+      // ★★ AND THE CARD SAYS WHICH ONE IS THE KITCHEN (v406). ⚠️ The switch lives in the EDIT card —
+      // one press away — so the list itself has to show the answer, or she has to open every Point to
+      // find out which is which. **Only one can carry it**, which is what makes it worth reading here.
+      point.isKitchen === true
+        ? el("span", { class: "st-chip valid", style: "margin-left:6px" }, "🏠 The kitchen")
+        : null,
+      el("span", { class: `st-chip ${point.paused ? "paused" : "valid"}` },
+        point.paused ? "Paused" : "Active")),
+    caret);
+  head.addEventListener("click", () => {
+    const nowOpen = !openPoints.has(point.id);
+    if (nowOpen) openPoints.add(point.id); else openPoints.delete(point.id);
+    body.hidden = !nowOpen;
+    caret.textContent = nowOpen ? "▾" : "▸";
+  });
+
+  const row = el("div", { class: "card point-row", dataset: { id: point.id } },
+    handle,
+    el("div", { class: "point-row-body" },
+      head,
+      el("p", { class: "card-sub" },
+        [who || "Nobody named to receive here yet",
+          `RM${point.feeRM.toFixed(2)} per order`,
+          used ? `${used} order${used === 1 ? "" : "s"}` : "no orders yet"].join(" · ")),
+      body));
 
   // ★★ AND THE DRAG ITSELF (v410). ⚠️ THE ORDER IS WRITTEN ONTO THE POINTS — never an index and
   // never the array position — because `sync.js` carries whole records keyed by id, so a row's
