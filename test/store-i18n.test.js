@@ -431,6 +431,15 @@ test("the note field names BOTH ways of getting an order (v408)", () => {
   // is coming to fetch it, and a placeholder is read more than a label is.
   assert.ok(!/delivery time/i.test(STORE.en.notePh),
     "the placeholder no longer asks a collecting customer for a delivery time");
+  // ⚠️⚠️ AND IT SHOWS A TIME, WHICH IS WHAT SHE ASKED FOR (v414). Her words: __"the e.g message in
+  // store for Notes for collection/delivery, change it to 'collect 6pm /prefer deliver 6 to 8pm'"__.
+  // ⭐ Pinned as the INTENT rather than as her exact words, so a better example can still be written:
+  // **a time is the thing BOTH ways of getting an order want, where a gate code is only one of
+  // them.** ⚠️ And an example beats a description of the category — this is the box she reads
+  // before she messages them, so it should look like something she would recognise.
+  assert.match(STORE.en.notePh, /\b\d{1,2}(:\d{2})?\s*(pm|am)\b/i,
+    "the hint shows a time — the one thing a collecting customer and a delivered one both type");
+  assert.ok(!/gate code/i.test(STORE.en.notePh), "and not a gate code, which is only one way's business");
 
   // Authored into the page itself, not only the dictionary — the label is on screen before the
   // script ever runs.
@@ -568,4 +577,28 @@ test("★★ the address is part of the Courier choice, the same way the places 
     "an unchosen place is framed too — every row must read as one OF the choices");
   assert.equal(/\.point-opt\s*\{[^}]*border:\s*1px solid var\(--line\)/.test(css), false,
     "and not with a hairline the card's own colour swallows");
+});
+
+test("★★ 'Use my location' is gone from the shop, in all three languages (v414)", () => {
+  // Her words: __"i think we should take out 'use my location' button totally"__.
+  // ⚠️ PINNED, because a control that was deliberately removed is exactly the kind of thing a later
+  // tidy-up restores by accident — and the STRINGS are the half that rots invisibly.
+  assert.equal(html.includes('id="pin-here"'), false, "the button is not on the page");
+  assert.equal("pinHere" in STORE.en, false, "and its words are gone from the dictionary");
+  for (const l of ["zh", "ms"]) assert.equal("pinHere" in STORE[l], false, `${l} does not carry it either`);
+
+  // ⚠️ AND EVERY SENTENCE ONLY THAT BUTTON COULD PRODUCE GOES WITH IT — a permission sheet refused,
+  // a fix that timed out, a browser with no location at all, a fix too vague to trust. **A string
+  // with no control behind it is a sentence that can only rot**, and one of them reaching a screen
+  // again would be a message about a button that is not there.
+  for (const k of ["pinLocating", "pinDenied", "pinTimeout", "pinNoGeo", "pinUnavailable", "pinVague"]) {
+    assert.equal(k in STORE.en, false, `${k} is dead with the button that produced it`);
+  }
+
+  // ⚠️ BUT THE PIN ITSELF IS UNTOUCHED — the map press is the way that remains, and skipping it is
+  // still the normal case.
+  assert.match(html, /id="pin-map"/, "the map press is still there");
+  assert.equal("pinOnMap" in STORE.en, true, "and still says what it does");
+  assert.equal("pinKeep" in STORE.en, true, "the box it opens still has its Keep");
+  assert.match(html, /data-i18n="pinHint"/, "and the hint still tells a customer they may skip it");
 });

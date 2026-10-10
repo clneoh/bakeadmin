@@ -372,98 +372,10 @@ function refill() {
     .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
 }
 
-test("the pin the customer marks rides on a courier order, and never on a self-collect one", async () => {
-  refill();
-  const realFetch = globalThis.fetch;
-  const realGeo = navigator.geolocation;
-  let posted = null;
-  globalThis.fetch = async (url, opts) => {
-    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
-    return { ok: true, json: async () => [] };
-  };
-  try {
-    document.getElementById("whatsapp-input").value = "60123456789";
-    document.getElementById("address-input").value = "Block C, Sri Bunga Condo";
-    // "Use my location" — the customer standing at the guard house, which is the one
-    // path the preview pane cannot test (a permission sheet only a real phone has).
-    navigator.geolocation = {
-      getCurrentPosition: (ok) => ok({ coords: { latitude: 5.41991234, longitude: 100.33116789, accuracy: 12 } }),
-    };
-    registry["pin-here"]._listeners.click[0]();
-    await flush();
-    assert.match(registry["pin-status"].textContent, /Pin set/, "the customer is told the pin is on");
-    assert.equal(registry["pin-status"].hidden, false);
-
-    // COURIER: the pin travels with the order, tidied to six decimals, named with the
-    // customer's OWN typed address (v205 — never the geocoder's name for that spot,
-    // which is a fragment), and nothing else the phone reported travels with it.
-    document.getElementById("fulfillment")._value = "courier";
-    await registry["order-btn"].onclick();
-    assert.ok(posted, "the order went through");
-    assert.deepEqual(posted.place, {
-      lat: 5.419912, lng: 100.331168, label: "Block C, Sri Bunga Condo",
-    });
-    assert.equal(posted.place.label, posted.address,
-      "the pin's words are the customer's own address, so her screen cannot name one place twice");
-    assert.deepEqual(Object.keys(posted.place).sort(), ["label", "lat", "lng"],
-      "no accuracy, no timestamp — the bakery is told where, named the customer's way, and nothing more");
-
-    // SELF COLLECT: the same customer pins again and then chooses to come and get it.
-    // Nothing is being delivered, so no door is posted. (A placed order empties the
-    // cart, the number and the method, so the next one starts them over — which is
-    // exactly what the next customer does too.)
-    document.getElementById("whatsapp-input").value = "60123456789";
-    registry["pin-here"]._listeners.click[0]();
-    await flush();
-    document.getElementById("fulfillment")._value = "collect";
-    refill();
-    posted = null;
-    await registry["order-btn"].onclick();
-    assert.ok(posted, "the self-collect order went through");
-    assert.equal("place" in posted, false, "a self-collect order carries no door");
-  } finally {
-    globalThis.fetch = realFetch;
-    if (realGeo === undefined) delete navigator.geolocation; else navigator.geolocation = realGeo;
-  }
-});
-
-test("the next customer does not inherit the last one's front door", async () => {
-  refill();
-  const realFetch = globalThis.fetch;
-  const realGeo = navigator.geolocation;
-  let posted = null;
-  globalThis.fetch = async (url, opts) => {
-    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
-    return { ok: true, json: async () => [] };
-  };
-  try {
-    document.getElementById("whatsapp-input").value = "60123456789";
-    navigator.geolocation = {
-      getCurrentPosition: (ok) => ok({ coords: { latitude: 5.42, longitude: 100.33 } }),
-    };
-    document.getElementById("fulfillment")._value = "courier";
-    registry["pin-here"]._listeners.click[0]();
-    await flush();
-    assert.equal(registry["pin-status"].hidden, false);
-    await registry["order-btn"].onclick();
-    assert.deepEqual(posted.place, { lat: 5.42, lng: 100.33 });
-    // An order empties the cart, the number and the delivery method for whoever comes
-    // next. The pin has to go with them, or the phone handed across the counter sends
-    // the NEXT order to the last customer's door.
-    assert.equal(registry["pin-status"].hidden, true, "the pin line is cleared with the order");
-    document.getElementById("whatsapp-input").value = "60123456789";
-    document.getElementById("fulfillment")._value = "courier";
-    refill();
-    posted = null;
-    await registry["order-btn"].onclick();
-    assert.ok(posted, "the second order went through");
-    assert.equal("place" in posted, false, "a courier order nobody pinned carries no door");
-  } finally {
-    globalThis.fetch = realFetch;
-    if (realGeo === undefined) delete navigator.geolocation; else navigator.geolocation = realGeo;
-  }
-});
-
+// ⚠️ TWO PIN TESTS WERE HERE AND MOVED TO test/store-address.test.js (v414). They placed a pin by
+// pressing "Use my location", which no longer exists — and every one of their assertions was about
+// what the ORDER carries, not about that button. They are driven through the MAP there now, which
+// is the path a customer still has, and that file owns the Leaflet stub the map needs.
 test("the receipt carries the strictest change/cancel window of the whole basket", async () => {
   // ⚠️ The two products and their two windows are the TEST's own fixture (v347) —
   // the fallback menu can no longer supply them, and never promised to.

@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v413)
+# Jienluv2bake — change history (v54 → v414)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v414, "USE MY LOCATION" IS GONE, AND THE NOTE BOX SHOWS A TIME (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i think we should take out 'use my location' button totally"__ · __"the e.g message in store for Notes for collection/delivery, change it to 'collect 6pm /prefer deliver 6 to 8pm'"__
+
+**★ "USE MY LOCATION" IS OFF THE PAGE — the button, everything behind it, and every sentence it could produce.** ⭐ **The map press beside it does the same job better: a customer can SEE the door he is choosing and move it, where a phone's own guess at where he is standing cannot be checked at all.** The typed address and the map are the two ways that remain, and skipping both is still fine — the driver goes to the address he typed.
+
+⚠️ **AND THE SENTENCES WENT WITH IT**, because a string with no control behind it can only rot: __"Finding you…"__, __"Location sharing is off for this site"__, __"Finding your location took too long"__, __"This browser can't share a location"__, __"Your location couldn't be found just now"__, and the warning about a spot that is only accurate to so many metres — **all six, in all three languages**, so nothing can ever print a message about a button that is not there.
+
+**★ AND THE NOTE BOX NOW SHOWS A REAL EXAMPLE.** __"collect 6pm / prefer deliver 6 to 8pm"__ in the empty box under **Notes for Collection/Delivery** — ⚠️ **where it used to say "Gate code, landmark, what to look for", which describes ONE of the two ways an order leaves.** A time is what both of them want, and an example she would recognise beats a description of the category. Translated into all three.
+
+⚠️ **AND TWO OF YOUR TESTS MOVED RATHER THAN BEING THROWN AWAY.** The pin's own tests placed a pin by pressing the button that just came out — and **not one of their assertions was about that button: they are about what the ORDER carries**, including the rule that the next customer does not inherit the last one's front door. They are driven through the **map** now, in the file that already has a map to drive, with every assertion word for word as it was.
+
+**No database step.** The suite is **3,238 tests, all green**. ⚠️ **And I broke one of my own files while testing this and had to restore it from the last commit** — a script of mine opened a file for writing before it had finished reading what it needed, which empties the file the instant it opens. **Nothing was lost, the file was restored, and the whole suite was re-run to prove it** — but it is written down, because a testing script that can damage a file is a testing script that needs to be built differently.
 
 **10 Oct 2026 — engine v413, THE PLACE YOU PICKED IS NOW THE ONE YOU CAN SEE (no database step — pushing this one is the whole of it).**
 

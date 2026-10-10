@@ -698,3 +698,98 @@ test("the order carries the address the row wrote, with the pin named by that sa
     globalThis.fetch = realFetch;
   }
 });
+
+// ── v414: the pin, now that "Use my location" is gone ───────────────────────
+//
+// ⚠️ THESE TWO TESTS MOVED HERE FROM store.test.js (v414). They placed a pin by pressing "Use my
+// location" — the one way to do it that no longer exists — and **none of their assertions was about
+// that button: they are about what the ORDER carries.** ⭐ So they are driven through the MAP, which
+// is the path that survives and the one a customer actually has, and this file is where they belong
+// because it owns the Leaflet stub. ⚠️ The assertions below are word for word what they were.
+
+function refillBasket() {
+  registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+}
+
+test("★ the pin the customer marks rides on a courier order, and never on a self-collect one", async (t) => {
+  begin(t);
+  refillBasket();
+  const realFetch = globalThis.fetch;
+  let posted = null;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    el("whatsapp-input").value = "60123456789";
+    el("address-input").value = "Block C, Sri Bunga Condo";
+    // ⭐ The customer puts the pin ON THE MAP at the guard house — the way that remains.
+    fire(el("pin-map"), "click");
+    await flush();
+    rec.maps[0].handlers.click({ latlng: { lat: 5.41991234, lng: 100.33116789 } });
+    await flush();
+    assert.equal(el("pin-status").textContent, STORE.en.pinSet, "the customer is told the pin is on");
+    assert.equal(el("pin-status").hidden, false);
+
+    // COURIER: the pin travels with the order, tidied to six decimals, named with the customer's
+    // OWN typed address (v205 — never the geocoder's name for that spot, which is a fragment), and
+    // nothing else the phone reported travels with it.
+    el("fulfillment")._value = "courier";
+    await el("order-btn").onclick();
+    assert.ok(posted, "the order went through");
+    assert.deepEqual(posted.place, { lat: 5.419912, lng: 100.331168, label: "Block C, Sri Bunga Condo" });
+    assert.equal(posted.place.label, posted.address,
+      "the pin's words are the customer's own address, so her screen cannot name one place twice");
+    assert.deepEqual(Object.keys(posted.place).sort(), ["label", "lat", "lng"],
+      "no accuracy, no timestamp — the bakery is told where, named the customer's way, and nothing more");
+
+    // SELF COLLECT: the same customer then chooses to come and get it. Nothing is being delivered,
+    // so no door is posted.
+    el("whatsapp-input").value = "60123456789";
+    el("fulfillment")._value = "collect";
+    refillBasket();
+    posted = null;
+    await el("order-btn").onclick();
+    assert.ok(posted, "the self-collect order went through");
+    assert.equal("place" in posted, false, "a self-collect order carries no door");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("the next customer does not inherit the last one's front door", async (t) => {
+  begin(t);
+  refillBasket();
+  const realFetch = globalThis.fetch;
+  let posted = null;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    el("whatsapp-input").value = "60123456789";
+    el("fulfillment")._value = "courier";
+    fire(el("pin-map"), "click");
+    await flush();
+    rec.maps[0].handlers.click({ latlng: { lat: 5.42, lng: 100.33 } });
+    await flush();
+    assert.equal(el("pin-status").hidden, false);
+    await el("order-btn").onclick();
+    assert.deepEqual(posted.place, { lat: 5.42, lng: 100.33 });
+    // An order empties the cart, the number and the delivery method for whoever comes next. The pin
+    // has to go with them, or the phone handed across the counter sends the NEXT order to the last
+    // customer's door.
+    assert.equal(el("pin-status").hidden, true, "the pin line is cleared with the order");
+    el("whatsapp-input").value = "60123456789";
+    el("fulfillment")._value = "courier";
+    refillBasket();
+    posted = null;
+    await el("order-btn").onclick();
+    assert.ok(posted, "the second order went through");
+    assert.equal("place" in posted, false, "a courier order nobody pinned carries no door");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

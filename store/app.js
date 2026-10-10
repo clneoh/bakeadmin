@@ -10,7 +10,7 @@ import { normRules } from "../availability.js";
 import { isThumb, lineNoteOf, LINE_NOTE_MAX } from "../storefront-fields.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
-import { addressFromRow, askGeo, fixVerdict, lookupQuery, placeForOrder, validPin } from "./geo.js";
+import { addressFromRow, lookupQuery, placeForOrder, validPin } from "./geo.js";
 import { showPinMap } from "./pin_map.js";
 import { createLookup } from "./lookup.js";
 import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
@@ -3686,40 +3686,10 @@ function openPinBox() {
   });
 }
 
-// "Use my location" — the customer standing at their own door. Every way this can
-// end has its own sentence, because "nothing happened" is the one answer a customer
-// cannot act on. The vague-fix case is NOT a refusal: it keeps the pin (she confirms
-// every pin anyway) and says how far off it might be, so the customer can fix it.
-async function useMyLocation() {
-  const btn = document.getElementById("pin-here");
-  if (btn) btn.disabled = true;
-  paintPin("pinLocating");
-  const geo = (typeof navigator !== "undefined" && navigator.geolocation) || null;
-  const out = await askGeo(geo);
-  if (btn) btn.disabled = false;
-  if (!out.ok) {
-    paintPin(out.why === "denied" ? "pinDenied"
-      : out.why === "timeout" ? "pinTimeout"
-        : out.why === "unsupported" ? "pinNoGeo"
-          : "pinUnavailable");
-    return;
-  }
-  doorPin = { lat: out.lat, lng: out.lng };
-  // A fix from the phone is a door the customer is standing at, not an answer to
-  // anything typed, so it is theirs and no edit to the address box can call it into
-  // question (dropListPin only ever acts on a pin a suggestion row put there).
-  pinOrigin = null;
-  const vague = fixVerdict(out.accuracyM);
-  paintPin(vague ? "pinVague" : null, vague ? vague.accuracyM : null);
-  if (pinMap) pinMap.goTo(doorPin); // the map is open — bring it to where they are
-}
-
 function wirePin() {
-  const here = document.getElementById("pin-here");
   const mapBtn = document.getElementById("pin-map");
   const keep = document.getElementById("pin-keep");
   const cancel = document.getElementById("pin-cancel");
-  if (here) here.addEventListener("click", useMyLocation);
   if (mapBtn) mapBtn.addEventListener("click", openPinBox);
   if (keep) keep.addEventListener("click", () => closePinBox(true));
   if (cancel) cancel.addEventListener("click", () => closePinBox(false));
