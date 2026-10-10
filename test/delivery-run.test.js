@@ -792,7 +792,7 @@ test("★★ a day's stops are grouped by the route they are on (v419)", async (
   const { root } = openRun(st);
 
   const heads = all(root).filter((n) => String(n.className).includes("run-route"))
-    .map((n) => n.textContent);
+    .map(headLabel);
   assert.deepEqual(heads, ["Route A · 1 stop", "Route B · 1 stop"],
     "⚠️ HER route order, and a heading only for a route that actually has a stop today — a heading "
     + "over an empty run would read as a van that went out carrying nothing");
@@ -815,6 +815,55 @@ test("★★ a day's stops are grouped by the route they are on (v419)", async (
   const ticks = all(root).filter((n) => n.tagName === "INPUT" && String(n.className).includes("run-tick"));
   assert.equal(ticks.length, 3, "⚠️ and ONE tick per stop, never one per appearance");
 });
+
+test("★★ a whole route is taken in ONE press, and it touches nothing else (v421)", async () => {
+  // Her words: __"my question if the day should call 3 route and 2 doors, how to go about?"__ — and,
+  // shown that day drawn, she chose a press beside each route heading. ⚠️ **Without it a three-route
+  // day is ticked stop by stop for each van**, and the only bulk press is "Untick them all", which is
+  // for the whole day rather than for one route.
+  const st = withThirdCustomer(worldOnRoutes());
+  st.orders.find((o) => o.customerName === "Chandra").routeId = "rt_b";
+  stubCourier();
+  const { root } = openRun(st);
+
+  const headText = () => (all(root).find((n) => String(n.className).includes("run-head-title")) || {}).textContent;
+  // ⚠️ The press is found THROUGH its own heading, never by position — a list of look-alike buttons
+  // read by index is a test that passes on the wrong one.
+  const routePress = (name) => {
+    const head = all(root).find((n) => String(n.className).includes("run-route")
+      && (n.textContent || "").startsWith(name));
+    assert.ok(head, `the ${name} heading was drawn`);
+    return all(head).find((n) => n.tagName === "BUTTON");
+  };
+
+  // Ain is Route A; Bala and Chandra are Route B — three stops, all on as the day opens.
+  assert.match(headText(), /3 of 3/, "the day arrives with every stop on it");
+  assert.equal(all(root).filter((n) => n.tagName === "BUTTON" && n.textContent === "Untick this route").length, 2,
+    "⚠️ and BOTH presses already read 'Untick this route', because both routes are wholly on");
+
+  // ── take Route A's block off ──────────────────────────────────────────────
+  routePress("Route A")._listeners.click[0]();
+  assert.match(headText(), /2 of 3/, "⚠️ ONLY Route A came off — two stops are still on the run");
+  assert.equal(routePress("Route A").textContent, "Take this route",
+    "⚠️ and the press turned over, so it says what it will DO next");
+
+  // ── and put it back ───────────────────────────────────────────────────────
+  routePress("Route A")._listeners.click[0]();
+  assert.match(headText(), /3 of 3/, "and back it comes");
+  assert.equal(routePress("Route A").textContent, "Untick this route", "the press turned over again");
+
+  // ── Route B is its own block, untouched by any of that ────────────────────
+  routePress("Route B")._listeners.click[0]();
+  assert.match(headText(), /1 of 3/, "Route B's two stops came off, and Route A's one stayed");
+});
+
+// ⚠️ A HEADING'S LABEL, NOT ITS WHOLE `textContent` (v421). The heading now carries its own press —
+// the **Take this route** button — so `textContent` returns the name and the button's words run
+// together: `"Route A · 1 stopTake this route"`. ⭐ **Reading the first span is what the heading SAYS;
+// reading the whole node is what it CONTAINS**, and those stopped being the same thing the moment it
+// gained a control. Two tests failed on exactly that when the press went in, which is the check doing
+// its job rather than an inconvenience.
+const headLabel = (n) => String(((n && n.children && n.children[0]) || {}).textContent || "");
 
 // The route tag on one row, read off the row it belongs to rather than by position.
 const tagFor = (root, name) => {
@@ -845,7 +894,7 @@ test("★★ a doorstep TUGGED into a route draws under it — and one left out 
   chandra.routeId = "rt_b";
   opened = openRun(st);
   const heads = all(opened.root).filter((n) => String(n.className).includes("run-route"))
-    .map((n) => n.textContent);
+    .map(headLabel);
   assert.deepEqual(heads, ["Route A · 1 stop", "Route B · 2 stops"],
     "⚠️ it is counted into the route it was tugged into, and the other route is untouched");
   assert.equal(tagFor(opened.root, "Chandra"), "Route B ▾", "and its tag now names that route");
@@ -856,7 +905,7 @@ test("★★ a doorstep TUGGED into a route draws under it — and one left out 
   const rowEl = flat.find((n) => String(n.className).includes("run-row")
     && (n.textContent || "").includes("Chandra"));
   const headEl = flat.find((n) => String(n.className).includes("run-route")
-    && n.textContent.startsWith("Route B"));
+    && headLabel(n).startsWith("Route B"));
   assert.ok(headEl && rowEl, "both the heading and the row were drawn");
   assert.ok(flat.indexOf(headEl) < flat.indexOf(rowEl),
     "⚠️ the row is drawn UNDER Route B's heading, not above it");

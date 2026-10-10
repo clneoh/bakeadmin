@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v421)
+# Jienluv2bake — change history (v54 → v422)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v422, A WHOLE ROUTE IS TAKEN IN ONE PRESS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"my question if the day should call 3 route and 2 doors, how to go about?"__
+
+**And the honest answer to it was: badly.** Three routes on one day meant ticking stops by hand for **each van**, and the only bulk press there was — **Untick them all** — is for the **whole day**, not for one route. So a three-van day was three rounds of careful ticking, on the screen where you spend the money.
+
+**★ So every route heading now carries its own press.** It reads **ROUTE A · 2 STOPS** with **Take this route** on the right, and the press ticks everything on that route. ⚠️ **It turns over to "Untick this route" the moment the whole route is on**, so it always says what it will do next rather than what you did last — the same spelling the day's own press already uses.
+
+**⚠️ AND IT TAKES ONLY ITS OWN ROUTE.** ⭐ A stop you TUGGED into two routes is drawn under its **first** one, and it is taken with that one — **the block IS the route**, so the press and the block under it can never disagree about what a route holds. ⚠️ And the prices go back to unasked when the tick list moves, exactly as one row's own tick makes them: **a price for a list you have since changed describes a journey you are no longer taking.**
+
+**This is that day, end to end — three headings, each with its own press, and two doors of their own:**
+
+```
+Fri, 16 Oct - 6 stops
+
+Farid's house          x2      <- a doorstep, on no route
+Gina's house           x1      <- a doorstep, on no route
+
+ROUTE A - 2 STOPS      [ Take this route ]
+  Sg Ara
+  Farlim, Air Itam
+
+ROUTE B - 1 STOP       [ Take this route ]
+  Chai Leng Park, Prai
+
+ROUTE C - 1 STOP       [ Take this route ]
+  Bukit Mertajam
+```
+
+**So a van is now one press, three times over** — press Take this route, price it, book it, and go on to the next. The two doors stay where they are, at the top, until you tug them onto a route.
+
+**Measured: the suite is 3,276 tests, all green (1 new). Three bites** — the press being there at all, it taking only its own route, and it turning over — **all fired by their own message**, every file restored byte-identically. ⚠️ And putting the press on a heading **broke two older tests**, which is the check doing its job: a heading's `textContent` had always been its own words, and it now contains a button's too. They read the heading's **label** from today.
+
+**No database step.** Pushing this one is the whole of it.
+
+
 
 **10 Oct 2026 — engine v421, TUG A CUSTOMER'S DOORSTEP INTO A ROUTE, AND ONE WRONG CHINESE SENTENCE (no database step — pushing this one is the whole of it).**
 

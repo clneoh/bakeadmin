@@ -5016,6 +5016,14 @@ tr.po-covered td { color: var(--muted); }
    or counts a stop can find it. Deliberately plain for the same reason — a heading that LOOKED
    pressable would read as a control that does nothing. */
 .run-route {
+  /* ⚠️ A FLEX LINE, because the heading now carries its own press (v421) — the name on the left and
+     "Take this route" on the right. `wrap` so a long route name and the press can never fight over a
+     360px screen. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
   margin: 14px 0 2px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
@@ -5024,6 +5032,14 @@ tr.po-covered td { color: var(--muted); }
   letter-spacing: .02em;
   color: var(--brown-dark);
   text-transform: uppercase;
+}
+/* ⚠️ AND THE PRESS INSIDE IT IS NOT SHOUTED. A button inherits its parent's typography, so without
+   this the words "Take this route" would print in upper case at 12px bold, and read as a LABEL on the
+   heading rather than as something to press. */
+.run-route .btn {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
 }
 .run-head-title { font-weight: 600; font-size: 14px; }
 /* The route tag on a doorstep row (v421) — AND THE TAG IS THE PRESS.

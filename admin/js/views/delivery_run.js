@@ -608,8 +608,12 @@ export function renderDeliveryRun(root, state, params) {
       // A route with no stop on this day draws nothing at all — a heading over an empty run would
       // read as a van that went out with nothing on it.
       if (!mine.length) continue;
+      // ★★ THE HEADING CARRIES THE PRESS (v421) — the route's name and its count on the left, and
+      // "Take this route" on the right. ⚠️ STILL NOT A ROW: it has no id, no `data-id` and is not a
+      // `.run-row`, so nothing that ticks, prices or counts a stop can mistake it for one.
       rows.push(el("div", { class: "run-route" },
-        `${route.name} · ${mine.length} stop${mine.length === 1 ? "" : "s"}`));
+        el("span", {}, `${route.name} · ${mine.length} stop${mine.length === 1 ? "" : "s"}`),
+        takeRouteButton(mine.map((b) => b.r.key))));
       for (const b of mine) rows.push(...b.parts);
     }
 
@@ -641,6 +645,32 @@ export function renderDeliveryRun(root, state, params) {
       ? `On ${route.name} — tap to tug it into another route`
       : "Tug this doorstep into a route";
     return b;
+  }
+
+  // ★★ TAKE A WHOLE ROUTE IN ONE PRESS (v421). Her words: __"my question if the day should call 3
+  // route and 2 doors, how to go about?"__ — and, shown that day drawn, she chose a press beside each
+  // route heading rather than a tick on the heading itself.
+  //
+  // ⚠️⚠️ THE KEYS COME FROM THE VERY MAP THE GROUPING USED (`firstRouteOf`), so the press and the block
+  // underneath it can never disagree about which stops a route holds. ⭐ A stop TUGGED into two routes
+  // is drawn under its FIRST one — so it is taken with that one, because **the block IS the route.**
+  //
+  // ⚠️⚠️ IT REBUILDS THE LIST, UNLIKE A ROW'S OWN TICK. A row's tick flips its own box in the browser
+  // and only the money lines need repainting; this one changes MANY boxes at once, and every one of
+  // them has to show it. ⚠️ And the prices go inert for the same reason one row's tick makes them —
+  // **a price asked for a list she has since changed describes a journey she is no longer taking.**
+  // ⚠️ It says what it will DO, and turns over when the whole route is already on — the same
+  // spelling the day's own press uses ("Tick them all" / "Untick them all").
+  function takeRouteButton(keys) {
+    const allOn = keys.length > 0 && keys.every((k) => ticked.has(k));
+    return button(allOn ? "Untick this route" : "Take this route", () => {
+      for (const k of keys) { if (allOn) ticked.delete(k); else ticked.add(k); }
+      compare = {};
+      paintList();
+      paintLoad();
+      paintPay();
+      paintPrices();
+    }, "ghost small");
   }
 
   // WHY THIS ROW IS NOT TICKED, in words (v242). The courier is named, and so is its own word
