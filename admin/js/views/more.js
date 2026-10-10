@@ -37,7 +37,11 @@ const MENU_GROUPS = [
     // POSTS. v309 gave the two kinds her own words, and the order cards say them:
     // **Post a parcel** / **Send a van**. The screen inside names Lalamove, and
     // asks the registry rather than knowing, so a second courier needs no change here.
-    ["#/send-van", "🚚 Send a van", "Your own door for the driver, and the van service that collects from it"],
+    // ★ THE NAME AND THE MARK ARE HERS (v402). ⚠️ The 🚚 said "trip"; this screen holds the PIN — the
+    // one point a trip starts from — so the mark is the pin, and the line names what the screen actually
+    // does rather than only the courier half of it.
+    ["#/send-van", "📍 Location pin for Kitchen",
+      "Your kitchen's own door, the pin every trip starts from, and the van service that collects there"],
     ["#/points", "📍 Self collection Points", "The places your customers collect from instead of your kitchen"],
     ["#/parcel-couriers", "📦 Parcel couriers", "Posting dry goods yourself — J&T, Ninja Van, Line Clear"],
   ]],

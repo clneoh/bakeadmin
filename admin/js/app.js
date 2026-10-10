@@ -63,7 +63,11 @@ const routes = {
   "/points":    { title: "Self collection Points", tab: "more", render: renderPoints },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },
   "/bring-a-friend": { title: "Bring a friend", tab: "more", render: renderReferrals },
-  "/send-van":  { title: "Send a van", tab: "more",    render: renderSendVan },
+  // ★ THE NAME IS HERS (v402). Her words: __"instead of send a van, change the term to Location pin for
+  // Kitchen"__. ⚠️ **THE PATH IS DELIBERATELY UNCHANGED** — `#/send-van` is an address she may have
+  // bookmarked or reached from another screen, and the app has never moved an address when it renamed
+  // something. Only the words she reads change.
+  "/send-van":  { title: "Location pin for Kitchen", tab: "more",    render: renderSendVan },
   "/message-style": { title: "Message style", tab: "more", render: renderMessageStyle },
   "/run":       { title: "Delivery run", tab: "more", render: renderDeliveryRun },
   "/money":     { title: "Money",      tab: "more",      render: renderMoney },

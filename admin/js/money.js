@@ -19,6 +19,7 @@
 // HAS come in stays at the items — that pass-through charge is not her takings — which
 // is why customerTotal() rather than groupValue() is read here and nowhere else.
 import { fmtRM, groupOrders, orderCode, orderLinePrice, round2 } from "./state.js";
+import { isWithin } from "./dates.js";
 import { classOfCategory, isCash, isOther, isTng, methodLabel, methodRank } from "./accounts.js";
 import { customerTotal } from "./courier.js";
 
@@ -29,7 +30,8 @@ const STAGES = ["new", "confirmed", "paid", "baking", "ready", "delivered"];
 const PAID_STAGE = STAGES.indexOf("paid");
 
 const firstOf = (g) => ((g && g.orders) || [])[0] || {};
-const isWithin = (iso, from, to) => !!iso && iso >= from && iso <= to;
+// ⚠️ THE RANGE RULE LIVES IN dates.js NOW (v403) — three modules had written it out separately
+// and only one of them was fixed when "All" arrived. See `isWithin`.
 
 // What one customer order is worth: every row of its group, at the price it was sold
 // at — so a price she changed on the order is the price counted here.

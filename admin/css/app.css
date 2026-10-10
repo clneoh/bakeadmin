@@ -893,6 +893,13 @@ h3.cat-head-tail { color: var(--muted); font-weight: 600; }
    engine, so this is guarded only by the changelog and this comment. */
 .money-in-actions .btn { flex: 1 1 auto; }
 
+/* ★★ THE RANGE STEPPER (v403) — which day/week/month is showing, with the arrows either side of it, the
+   shape the Consolidated invoice and the Profit statement already use. ⚠️ The label is centred and given
+   the room to say a whole window ("Sun 4 – Sat 10 Oct"), because the window it names is the only place
+   on this screen that says WHICH week the figures below are for. */
+.range-stepper { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 2px; }
+.range-stepper .range-label { font-size: 13px; font-weight: 600; color: var(--brown-dark); text-align: center; }
+
 /* ---------- Forms ---------- */
 .field { margin-bottom: 12px; }
 .field label {

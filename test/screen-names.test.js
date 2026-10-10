@@ -79,3 +79,37 @@ test("every 'More → X' signpost names a screen that exists", () => {
   assert.deepEqual(bad, [],
     "a signpost sends her to a screen name the app does not have");
 });
+
+test("★★ ONE screen, ONE name — the Kitchen pin is called the same thing everywhere (v402)", () => {
+  // Her words: __"instead of send a van, change the term to Location pin for Kitchen"__ — and asked
+  // whether the ORDER CARD's "Send a van" should change too, she chose **the screen only**.
+  //
+  // ⚠️⚠️ THIS SCREEN'S NAME LIVES IN THREE PLACES, and the file it is renamed in is NOT the file that
+  // draws the menu. Rename one and not the others and she gets **two names for one screen** — the menu
+  // row saying one thing, the title bar another and the page heading a third — with every test still
+  // green, because nothing read the three together. That is the same class of fault this whole file
+  // exists for: a signpost and its destination only ever read APART.
+  const app = readFileSync(join(JS, "app.js"), "utf8");
+  const more = readFileSync(join(JS, "views/more.js"), "utf8");
+  const view = readFileSync(join(JS, "views", "send_van.js"), "utf8");
+
+  const route = app.match(/"\/send-van":\s*\{\s*title:\s*"([^"]+)"/);
+  assert.ok(route, "the /send-van route has gone");
+  const row = more.match(/\["#\/send-van",\s*"([^"]+)"/);
+  assert.ok(row, "the More row for the Kitchen pin has gone");
+  const heading = view.match(/el\("h2",\s*\{\s*class:\s*"section"\s*\},\s*"([^"]+)"\)/);
+  assert.ok(heading, "the screen no longer draws a heading of its own");
+
+  const strip = (s) => s.replace(/^[^\p{L}]+/u, "").trim(); // drop the emoji prefix
+  const names = [route[1], strip(row[1]), heading[1]];
+  assert.deepEqual(new Set(names).size, 1,
+    `⚠️ the Kitchen pin screen has ${new Set(names).size} different names: ${JSON.stringify(names)}`);
+
+  // ⚠️ AND THE ADDRESS DOES NOT MOVE WHEN A NAME DOES. `#/send-van` is one she may have bookmarked or
+  // arrived at from another screen, and this app has never moved an address for a rename.
+  assert.ok(more.includes('"#/send-van"'), "⚠️ the route path was changed along with the name");
+
+  // ⚠️ AND THE ORDER CARDS KEEP THEIR OWN WORD — that is how an order LEAVES, which is a different job.
+  const orders = readFileSync(join(JS, "views", "orders.js"), "utf8");
+  assert.ok(orders.includes('["Send a van"'), "⚠️ the order card's delivery method was renamed too");
+});

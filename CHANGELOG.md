@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v401)
+# Jienluv2bake — change history (v54 → v403)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v403, MONEY AND PROFIT CAN LOOK AT ANY DAY, WEEK OR MONTH (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"At money, we have 3 choice to look at the money, today, this week, this month. I need something more vasatile, like what we have for invoice. I fact there is several place same nature that we should improves, pls search it"__ — and then __"same thing for Profit"__.
+
+**★ MONEY NOW ASKS TWO QUESTIONS, LIKE THE INVOICE DOES.** Four choices — **A day · A week · A month · All** — and then **‹ › arrows** to step to the one you want, with the window named above them:
+
+__[A day] [A week] [A month] [All]__
+__‹    Week of 4 Oct – 10 Oct    ›__
+
+**⚠️ THE OLD THREE COULD NOT DO THIS.** They picked the __kind__ of window and stopped there — "This week" was always the current week, and **last week was unreachable**. There was no way to look at a week that had already finished.
+
+**★ AND PROFIT GOT THE SAME CHOOSER.** It used to be a month at a time, so a week's profit was a question you could not ask. Now it has the same four choices and the same arrows. **Three screens now share one builder**, so a week means the same seven days on the invoice, on Money and on Profit — they cannot drift apart.
+
+**⚠️⚠️ AND YOUR APP HAD THREE DIFFERENT DEFINITIONS OF "A WEEK", AND MONEY WAS THE ODD ONE OUT.** Home's "This week" and the invoice both start on **Sunday**; Money started on **Monday**. So two screens offered something called "this week" covering **different days**. Asked which to use you chose **Sunday, to match the rest** — ⚠️ **and this DOES move today's figures**: your week now starts a day earlier, so Sunday's takings are inside "This week" where they were not before.
+
+**⚠️ AND MONEY STILL COUNTS UP TO TODAY.** A week or a month **still running** is counted to now, never into the future — a till has no takings from a day that has not happened. A period that has **already finished** is shown whole, because every day of it really did. The invoice shows whole periods instead, which is right for a document about what you supplied.
+
+**⚠️⚠️ AND THE SEARCH FOUND A FAULT I HAD ALREADY HALF-FIXED — WHICH IS WHY IT IS WORTH TELLING YOU ABOUT.** "All" means __no dates at all__, and the code that checks whether a day is inside a window **silently matched nothing** when handed no dates: `"2026-10-01" <= ""` is **false**, so an unbounded window excluded everything. **Profit's "All" read Sales RM 0.00 beside a month of real orders, and Money read every figure as zero — with no error anywhere.** ⚠️ That comparison had been written out **three separate times**, in three files, and fixing one left the other two broken. **It now lives in one place.** Found by opening the screens and looking at the figures, not by any test.
+
+**⚠️ AND WHAT THE SEARCH FOUND, since you asked.** Only **two** things were pinned to "now": **Money** (now fixed) and the **Customers** filter's "Ordered in the last 30 days". Everything else — Profit, Bake days, Products' availability, the Orders calendar, Home's delivery weeks — could already step. Home's "This week", "Coming 4 weeks" and promo's "last 28 days" are fixed __cards__ rather than choosers, which is a different thing. **Customers' 30-day filter is left alone** — say the word if you want it changed too.
+
+**⚠️ NOTE ON THE COMMIT.** This release and the one before it (v402 — the van screen becoming the kitchen pin) share the same version and changelog files, so they land in ONE commit. Both are described here.
+
+**No database step.** The suite is **3,177 tests, all green** (4 new). Every new rule was proved by putting the fault back: the range rule reverting to the plain comparison (breaking "All" on both screens), Money's week going back to Monday, and Profit's "All" reading zero.
+
+**10 Oct 2026 — engine v402, THE VAN SCREEN IS NOW THE KITCHEN PIN (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"instead of send a van, change the term to Location pin for Kitchen"__
+
+**★ SO IT IS CALLED THAT NOW.** On **More → Logistic** the row reads **📍 Location pin for Kitchen**, with the line __"Your kitchen's own door, the pin every trip starts from, and the van service that collects there"__. The mark changed from the van to the pin, because the pin is what that screen actually holds.
+
+**⚠️ AND THE REASON IS THE POINT.** That screen was named after the van — v309's reasoning was __"naming this screen after the van keeps one word for one idea"__, because an order card's **Send a van** is one of the two ways an order LEAVES. **The idea it was keeping one word for was the wrong one.** This screen does not send anything: it holds **the one point every trip starts from — your own door** — and the van is one of the things that uses it.
+
+**⚠️ AND THE ORDER CARDS KEEP SAYING "Send a van".** You were asked which one to rename and chose the screen alone, which is the right call: on an order card those words name **how the order leaves**, and "Location pin for Kitchen" would be the place rather than the trip. **The two are now named for their own jobs rather than matching each other.**
+
+**⚠️ AND NO ADDRESS MOVED.** The screen still lives at the same place in the app — a rename has never moved a link, and the guide's own rule is that every address is what it always was, so nothing you bookmarked stops working. Only the words changed.
+
+**⚠️ AND THE NAME LIVES IN THREE PLACES**, which is a trap worth knowing about: the menu row, the title at the top, and the heading on the screen itself. Renaming one and missing another would have left you with **two names for one screen**. A test now reads all three together and fails if they disagree — the same rule that already checks every "More → something" signpost against the screens that really exist.
+
+**No database step.** The suite is **3,173 tests, all green** (1 new). The rule was proved by putting the fault back four ways: the menu row keeping the old name, the title keeping it, the address moved along with the name, and the order card renamed as well.
 
 **09 Oct 2026 — engine v401, A SHOPPING LIST YOU CAN WRITE YOURSELF (no database step — pushing this one is the whole of it).**
 
