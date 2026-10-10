@@ -16,6 +16,7 @@ import { explodeBomDates, explodePicks, ordersFingerprint, effectiveCapacity, da
 import { el, button, emptyState, toast, select, showPopup } from "../ui.js";
 import { byId, save, newId } from "../state.js";
 import { priceItems, notPurchasedNames, fmtQtyText } from "../purchasing.js";
+import { orderedProducts } from "../productCategories.js";
 import { poTableEl, totalOf } from "./poTable.js";
 
 export function renderPO(root, state, params) {
@@ -426,7 +427,9 @@ function emptyPreview(state, chosen, needsReview) {
 // `priceItems`. The per-shop groups, Buy / Not buying, Undo, the stock push, the money row, Print and
 // **Amend** are all the machinery that already exists.
 function openManualPO(state, root) {
-  const products = (state.products || []).filter((p) => p && p.active !== false && Array.isArray(p.recipe));
+  // ★★ IN HER ORDER (v418) — see `orderedProducts`. The picker used to list the raw array, so a
+  // reorder made with the handle never reached it.
+  const products = orderedProducts(state, (state.products || []).filter((p) => p && p.active !== false && Array.isArray(p.recipe)));
   if (!products.length) return toast("Add a product with a recipe first");
   let picks = []; // [{ productId, qty }]
 

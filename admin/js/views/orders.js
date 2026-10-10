@@ -16,6 +16,7 @@ import { availSummary, sellOpen } from "../../../availability.js";
 // never be longer on this side than the box that collected it allowed.
 import { lineNoteOf, LINE_NOTE_MAX } from "../../../storefront-fields.js";
 import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
+import { orderedProducts } from "../productCategories.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
@@ -40,7 +41,8 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 // pin's lookup uses, so the Google key stays on the server and never touches this page.
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
-import { orderPointName, pointChoices, setOrderPoint } from "../points.js";
+import { orderPointName, setOrderPoint } from "../points.js";
+import { pointChoices } from "../pointAreas.js";
 // ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
 // order into the two parties EasyParcel wants, and says what is missing. `parcels/api.js` is
 // the one channel to the `parcel` function, where the key lives.
@@ -1412,7 +1414,10 @@ export function productOptions(state, dateId, excludeOrderId = null) {
   // Drafts are never for sale yet, so they have no orders — keep them out of
   // the backoffice picker too. Hidden products stay (marked below) so an order
   // for something temporarily off the menu can still be added or edited.
-  return state.products
+  // ★★ IN HER ORDER, NOT THE ARRAY'S (v418). ⚠️ `state.products` is the order the RECORDS sit in, and
+  // a drag writes `sort` / `productOrder` — so without this the picker ignored every reorder she made
+  // with the handle. See `orderedProducts`.
+  return orderedProducts(state, state.products)
     .filter((p) => p.draft !== true)
     .map((p) => {
       const hidden = p.active === false;

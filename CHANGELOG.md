@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v417)
+# Jienluv2bake — change history (v54 → v418)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v418, THE HANDLE NOW MOVES THE DROP-DOWNS TOO (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"after i reposition with the handle, the drop drop list have to organise is my preference, pls check all"__
+
+**⚠️⚠️ YOU WERE RIGHT, AND IT WAS WORSE THAN ONE LIST — IT WAS EVERY PICKER FED BY A DRAGGED LIST.** ⭐ I checked all five screens that drag — **Ingredients, Products, Categories, Points, Areas** — and every drop-down they feed was listing the **raw record order**, with one exception. ⚠️ A drag writes a `sort` field (and an order inside a heading); **it never touches the array**, so the handle rearranged the shelf and left every picker as it was.
+
+**Four were wrong. All four are fixed:**
+
+- **Collect from** on an order card — the one you reach for most. ⚠️⚠️ **And this one needed more than a sort**: your order is **per area**, so sorting one flat list just interleaves the areas — a Point you put first under *Sg Ara* would sit level with one first under *Prai*, and **neither of them is first.** ⭐ So the picker now reads **the same grouped order the Points screen draws** — your areas in your order, each with its Places — and the Places list moved into the file that owns the grouping, so a picker and the shelf it feeds cannot disagree.
+- **The product box on an order card** — now in the order your Products screen shows them.
+- **An ingredient box inside a product's recipe** — now in your Ingredients order.
+- **The product box on a manual shopping list** — same order as the order card's.
+
+**★ And two were already right, and are now pinned so they cannot quietly break:** the **Area** box on a Point and the **Sits under** box on a category both read the tree, which has always carried your order.
+
+⚠️ **I also checked the two things this does NOT apply to.** **Suppliers, Units and Parcel couriers have no handle** — nothing to follow — and **the shop** already drew your order from v410.
+
+**No database step.** The suite is **3,246 tests, all green** (4 new). **Six bites, all fired by their own message** — and two of them proved a helper correct but wired to nothing, ⚠️ **which is why the rule is pinned in the source for the two pickers no test can open.** ⭐ And one caught a half-fix of mine: I had made the picker follow your `sort` **flat**, and reading the live app showed it **interleaving your areas** — so it reads the grouped order instead.
 
 **10 Oct 2026 — engine v417, WHAT SELF COLLECT ACTUALLY SAYS (no database step — pushing this one is the whole of it).**
 

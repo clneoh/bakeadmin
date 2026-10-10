@@ -22,10 +22,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  childrenOf, flattenTree, groupPointsByArea, moveArea, movePointInArea, orderedInArea, parentOf,
-  pathTo, pointCountInArea, pointsInArea, publishPointAreas, shopPointOrder, subtreeIds,
+  childrenOf, flattenTree, groupPointsByArea, moveArea, movePointInArea, parentOf,
+  pathTo, pointChoices, pointCountInArea, pointsInArea, publishPointAreas, shopPointOrder, subtreeIds,
 } from "../admin/js/pointAreas.js";
-import { addPoint, blankPoint, normalizePoint, publishPoints, updatePoint } from "../admin/js/points.js";
+import { activePoints, addPoint, blankPoint, normalizePoint, orderedInArea, publishPoints, updatePoint } from "../admin/js/points.js";
 
 function state(extra = {}) {
   return { orders: [], points: [], pointAreas: [], ...extra };
@@ -371,4 +371,44 @@ test("★ an edit that does not mention her description does not delete it", () 
   // And a caller that MEANS to set it still can — including clearing it.
   assert.equal(updatePoint(st, p.id, { name: "Sg Ara", description: "" }).description, "",
     "a draft that names it can empty it");
+});
+
+// ── v418: her order reaches the PICKERS, not only the screens ───────────────
+
+test("★★ a Place she dragged is in HER order in the Collect-from picker too", () => {
+  // Her words: __"after i reposition with the handle, the drop drop list have to organise is my
+  // preference"__. ⚠️⚠️ The Points SCREEN drew her order and the SHOP drew her order, but
+  // `activePoints` — **which the Collect-from picker on every order card reads** — still sorted by
+  // when each Point was opened. **So the handle moved the list and left every drop-down as it was.**
+  const st = state({ pointAreas: AREAS });
+  // ⚠️ A PIN EACH, because a Point with no pin is never OFFERED to a customer (v406's rule) and
+  // `pointChoices` would filter every one of these out — leaving nothing to assert an order on.
+  const pin = { lat: 5.41405, lng: 100.31408, label: "Farlim" };
+  const a = pointInto(st, "", "First opened", { createdAt: "2026-10-01T00:00:00.000Z", place: pin });
+  const b = pointInto(st, "", "Second opened", { createdAt: "2026-10-02T00:00:00.000Z", place: pin });
+  const c = pointInto(st, "", "Third opened", { createdAt: "2026-10-03T00:00:00.000Z", place: pin });
+
+  // Their arrival order is the order they were opened in.
+  assert.deepEqual(activePoints(st).map((p) => p.name),
+    ["First opened", "Second opened", "Third opened"], "nothing has a sort yet, so nothing moves");
+
+  // She drags the LAST one to the top.
+  st.points = movePointInArea(st.points, c.id, 0, [a.id, b.id, c.id]);
+  assert.deepEqual(activePoints(st).map((p) => p.name),
+    ["Third opened", "First opened", "Second opened"], "and the picker follows her hand");
+  assert.deepEqual(pointChoices(st).map((c2) => c2.name).slice(1),
+    ["Third opened", "First opened", "Second opened"],
+    "⚠️ the picker she actually chooses from — the kitchen row sits first, then her order");
+
+  // ⚠️⚠️ AND IT IS **HER GROUPED** ORDER, NOT A FLAT SORT OF THE WHOLE LIST. ⭐ `sort` is PER GROUP,
+  // so sorting the flat array just interleaves the groups — a Point dragged to the top of Sg Ara ties
+  // with one at the top of Prai, and **neither of them is "first".** ⭐ Her preference is the order the
+  // Points SCREEN draws, which is the grouped one, so the picker reads the same function it does.
+  const st2 = state({ pointAreas: AREAS });
+  const loose = pointInto(st2, "", "Not filed", { createdAt: "2026-10-01T00:00:00.000Z", place: pin });
+  const prai = pointInto(st2, "pa_prai", "Prai shop", { createdAt: "2026-10-02T00:00:00.000Z", place: pin });
+  const sgara = pointInto(st2, "pa_sgara", "Sg Ara shop", { createdAt: "2026-10-03T00:00:00.000Z", place: pin });
+  assert.deepEqual(pointChoices(st2).map((c2) => c2.name).slice(1),
+    ["Not filed", "Sg Ara shop", "Prai shop"],
+    "⚠️ her areas in her order, each with its Points — the unfiled first, as the screen draws them");
 });

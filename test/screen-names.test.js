@@ -113,3 +113,44 @@ test("★★ ONE screen, ONE name — the Kitchen pin is called the same thing e
   const orders = readFileSync(join(JS, "views", "orders.js"), "utf8");
   assert.ok(orders.includes('["Send a van"'), "⚠️ the order card's delivery method was renamed too");
 });
+
+// ── v418: her DRAG has to reach the drop-downs, not only the screens ────────
+//
+// Her words: __"after i reposition with the handle, the drop drop list have to organise is my
+// preference, pls check all"__. ⚠️⚠️ **Five screens drag — Ingredients, Products, Categories, Points,
+// Areas — and every PICKER fed by one of them listed the raw record array instead.** A drag writes
+// `sort` (and `productOrder` inside a heading), never the array, so **the handle moved the shelf and
+// left every drop-down as it was.**
+//
+// ⚠️ THE RULE IS PINNED IN THE SOURCE because two of the three product pickers live inside pop-ups no
+// test in this suite can open. ⭐ **And the fault here is not "a helper is wrong", it is "a screen was
+// never wired to it"** — which is exactly what a source rule catches and a unit test cannot. (The
+// same reasoning `points-publish.test.js` gives for counting publishes rather than trusting that a
+// call exists.)
+test("★★ every picker that offers a dragged list reads HER order, not the array's", () => {
+  const read = (p) => readFileSync(new URL(`../admin/js/${p}`, import.meta.url), "utf8");
+
+  const orders = read("views/orders.js");
+  assert.match(orders, /orderedProducts\(state, state\.products\)/,
+    "the order card's product picker — the one she reaches for most");
+
+  const products = read("views/products.js");
+  assert.match(products, /let ingOpts = tailOrder\(state\.ingredients\.filter/,
+    "a product's recipe ingredient picker");
+
+  const po = read("views/po.js");
+  assert.match(po, /orderedProducts\(state, \(state\.products/,
+    "the manual shopping list's picker");
+
+  // ⚠️ AND THE PLACES — the Collect-from picker on an order card reads `activePoints`, so THAT is
+  // where her Point drag has to arrive.
+  const points = read("points.js");
+  assert.match(points, /return orderedInArea\(pointsOf\(state\)\.map\(kitchenExempt\)/,
+    "the Collect-from picker");
+
+  // ⭐ AND THE TWO THAT WERE ALREADY RIGHT, asserted so a later tidy cannot quietly undo them: the
+  // areas picker and the category picker both read `flattenTree`, which has always carried `sort`.
+  assert.match(read("views/points.js"), /areaPicker\(state,/, "the Point editor's Area box");
+  assert.match(read("views/productCategories.js"), /flattenTree\(state\.productCategories\)/,
+    "a category's Sits under box");
+});

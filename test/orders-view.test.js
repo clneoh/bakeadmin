@@ -64,6 +64,7 @@ class MockDate extends RealDate {
 globalThis.Date = MockDate;
 
 const { renderOrders, productOptions } = await import("../admin/js/views/orders.js");
+const { orderedProducts, groupByCategory } = await import("../admin/js/productCategories.js");
 
 const STATE = {
   deliveryDates: [
@@ -888,4 +889,48 @@ test("the note field names BOTH ways an order can leave (v408)", () => {
     "no admin label calls that box a delivery note any more");
   assert.equal((src.match(/Notes for Collection\/Delivery/g) || []).length, 3,
     "and all three cards — New order, Edit, Note / tracking — carry the new words");
+});
+
+test("★★ a product she dragged is in HER order in the pickers too (v418)", () => {
+  // Her words: __"after i reposition with the handle, the drop drop list have to organise is my
+  // preference"__. ⚠️⚠️ The Products SCREEN drew her order, and the SHOP drew her order — but the
+  // drop-downs that OFFER a product listed `state.products` raw, **which is the order the records
+  // happen to sit in and not the order a drag writes.** The handle moved the shelves and left every
+  // picker as it was.
+  //
+  // ⚠️ `orderedProducts` is the ONE rule all three pickers read (the order card, a product's recipe,
+  // and the manual shopping list), so this is where it is judged.
+  const st = {
+    products: [
+      { id: "p1", name: "Focaccia", active: true, recipe: [], unit: "pc", sort: 2 },
+      { id: "p2", name: "Sandwich", active: true, recipe: [], unit: "pc", sort: 0 },
+      { id: "p3", name: "Brownie", active: true, recipe: [], unit: "pc", sort: 1 },
+    ],
+    productCategories: [],
+  };
+  assert.deepEqual(orderedProducts(st, st.products).map((p) => p.name),
+    ["Sandwich", "Brownie", "Focaccia"], "the tail order she set with the grip, not the array's");
+
+  // ⭐ AND THE TWO ARE THE SAME ORDER — the screen draws `groupByCategory` and this flattens it, so a
+  // picker and the shelf it feeds can never disagree.
+  const drawn = groupByCategory(st, st.products).flatMap((g) => g.products).map((p) => p.name);
+  assert.deepEqual(orderedProducts(st, st.products).map((p) => p.name), drawn);
+});
+
+test("★★ and the order card's own product picker reads it (v418)", () => {
+  // ⚠️ The rule above is only worth having if the picker USES it — **a helper proven right and a
+  // screen never wired to it is exactly the fault the publish tests were written for.**
+  const st = {
+    products: [
+      { id: "p1", name: "Focaccia", active: true, recipe: [], unit: "pc", sort: 2 },
+      { id: "p2", name: "Sandwich", active: true, recipe: [], unit: "pc", sort: 0 },
+      { id: "p3", name: "Brownie", active: true, recipe: [], unit: "pc", sort: 1 },
+    ],
+    productCategories: [],
+    deliveryDates: [{ id: "d1", date: "2026-10-12" }],
+    orders: [],
+  };
+  assert.deepEqual(productOptions(st, "d1").map((o) => o.label),
+    ["Sandwich", "Brownie", "Focaccia"],
+    "the order card's picker offers them in the order she put them in");
 });

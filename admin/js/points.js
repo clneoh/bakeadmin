@@ -296,8 +296,30 @@ export function pointsOf(state) {
 // for now", and applied to her own kitchen that would leave a customer with nowhere to collect at all.
 // ⚠️ Read through `kitchenExempt`, so "never paused" is a fact about the kitchen rather than a rule each
 // reader has to remember.
+// ★★ HER ORDER, EVERYWHERE A LIST OF POINTS IS DRAWN (v418). ⚠️⚠️ **IT LIVES HERE RATHER THAN IN
+// pointAreas.js BECAUSE THIS IS WHERE IT IS NEEDED AND NOTHING HERE MAY IMPORT THAT FILE** — the
+// areas module imports `activePoints` from this one, so a `sort` rule living over there could not be
+// read back without a cycle. ⭐ **A rule one module cannot reach is a rule the other will copy.**
+//
+// ⚠️ A Point she has never dragged has NO `sort` at all and keeps the order it arrived in — how this
+// list was drawn before it could be dragged, so **nothing moves under her on the day it arrives.**
+// ⭐ The rank of an absent sort is MAX_SAFE_INTEGER rather than 0, because `Number(null)` and
+// `Number("")` are BOTH 0 — an empty field would otherwise rank first and jump above one she had
+// deliberately dragged to the top. Ties keep their arrival order, because Array.sort is stable.
+export function orderedInArea(points) {
+  const list = Array.isArray(points) ? points.slice() : [];
+  const rank = (p) => (p && Number.isFinite(Number(p.sort)) && p.sort !== null && p.sort !== ""
+    ? Number(p.sort) : Number.MAX_SAFE_INTEGER);
+  if (!list.some((p) => rank(p) !== Number.MAX_SAFE_INTEGER)) return list;
+  return list.sort((a, b) => rank(a) - rank(b));
+}
+
 export function activePoints(state) {
-  return pointsOf(state).map(kitchenExempt).filter((p) => !p.paused);
+  // ⚠️⚠️ AND THIS IS THE LIST EVERY DROP-DOWN OF PLACES READS — the Collect-from picker on an order
+  // card above all. ⭐ **A drag she has made with the grip has to be the order she sees in the
+  // pickers too**, or the handle is a decoration: her words were __"after i reposition with the
+  // handle, the drop drop list have to organise is my preference"__.
+  return orderedInArea(pointsOf(state).map(kitchenExempt).filter((p) => !p.paused));
 }
 
 export function pointById(state, id) {
@@ -496,32 +518,9 @@ export function kitchenPoint(state) {
   return (state.points || []).find((p) => p && p.isKitchen === true) || null;
 }
 
-// ★★ WHAT A CUSTOMER MAY COLLECT FROM (v406).
-//
-// ⚠️⚠️ THE SYNTHETIC `"My kitchen"` ROW IS NOW A FALLBACK, NOT THE KITCHEN ITSELF. Until v406 the
-// kitchen was **the absence of a Point**, so this function had to invent a row for it — and her words
-// were __"I want all self collection thru collection point, not from the kitchen"__: **every collection
-// is a Point, including the one that happens to be her kitchen.**
-// ⚠️ The fallback STAYS for the day she has not marked one, and that is deliberate rather than
-// tidiness: an app with no kitchen marked and no Points must still let a customer collect, and an order
-// already carrying no `pointId` — every order taken before today — must go on meaning the kitchen.
-export function pointChoices(state, kitchenLabel = "My kitchen") {
-  const kitchen = kitchenPoint(state);
-  // ★★ A POINT NEEDS A PIN — EXCEPT THE KITCHEN (v406). Her words: __"a point need a pin"__, right after
-  // __"NO pin is needed if it is kitchen"__. ⚠️ **A Point without one is a name and nothing else**: the
-  // customer is being told where to walk, and a name is not somewhere to walk to. The KITCHEN is the one
-  // exception and it is her own door — she is not going to pin her own kitchen, and a customer collecting
-  // there is given the bakery's own address.
-  //
-  // ⚠️⚠️ THE GATE IS HERE, not at creation, and that is not a softness: **a new Point cannot have a pin
-  // when it is made** — the map press lives on its card afterwards (`Put the pin on the map`) — so
-  // requiring one to SAVE would make a new Point unsaveable. What must be true is that **a customer is
-  // never offered one without a location**, which is what this decides. The Point's own card says the
-  // same thing in words: *"Not pinned yet — a van cannot be sent to a name alone."*
-  const usable = activePoints(state).filter((p) => p.isKitchen === true || !!pointPlace(p));
-  const rows = kitchen ? usable : [{ id: "", name: kitchenLabel }].concat(usable);
-  return rows.map((p) => ({ id: p.id || "", name: p.name }));
-}
+// ⚠️ `pointChoices` MOVED TO pointAreas.js (v418) — **it is a GROUPED list and the grouping
+// lives there**, so its order can follow hers. A copy here could not reach the areas module
+// without a cycle. See the note on `activePoints` above for the flat answer.
 
 // ★ WHERE AN ORDER COLLECTS FROM, and the one place that rule is written (v303).
 //

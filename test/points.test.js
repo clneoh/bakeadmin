@@ -25,14 +25,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint,
-  collectionWindowText,
-  orderPointName, pointAddressFor, pointById, pointPhoneText, pointPlace, pointPlaceText,
-  pointMinOrder, pointProblem, pointShortfall, pointWindow, pointWindowText, pointsOf,
-  activePoints, publishPoints,
-  setPointPaused, setPointPlace, updatePoint,
-  markKitchen, kitchenPoint, kitchenExempt, pointChoices,
+  DEFAULT_FEE_RM, addPoint, blankPoint, deletePoint, fulfillmentText, normalizePoint, collectionWindowText, orderPointName, pointAddressFor, pointById, pointPhoneText, pointPlace, pointPlaceText, pointMinOrder, pointProblem, pointShortfall, pointWindow, pointWindowText, pointsOf, activePoints, publishPoints, setPointPaused, setPointPlace, updatePoint, markKitchen, kitchenPoint, kitchenExempt,
 } from "../admin/js/points.js";
+import { pointChoices } from "../admin/js/pointAreas.js";
 
 function state(extra = {}) {
   return { orders: [], points: [], ...extra };

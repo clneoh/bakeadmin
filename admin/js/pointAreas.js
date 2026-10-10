@@ -35,7 +35,7 @@
 // group, **including the unfiled group (`areaId: ""`)** — so one field on the Point covers both
 // and there is only ever one mechanism to keep right.
 
-import { activePoints } from "./points.js";
+import { activePoints, kitchenPoint, orderedInArea, pointPlace } from "./points.js";
 
 const byId = (list, id) => (list || []).find((c) => c && c.id === id) || null;
 
@@ -127,26 +127,6 @@ export function moveArea(list, id, parentId, toIndex) {
   });
 }
 
-// ── The order of the Points inside one group ────────────────────────────────
-//
-// A Point she has never dragged has NO `sort` at all, and keeps the order it arrived in — which
-// is exactly how this list was drawn before it could be dragged, so **nothing moves under her on
-// the day this arrives**. That is the same rule productCategories.js's `tailOrder` keeps, and for
-// the same reason.
-//
-// ⚠️ The rank of an absent `sort` is MAX_SAFE_INTEGER rather than 0, because `Number(null)` and
-// `Number("")` are BOTH 0 — a Point with an empty field would otherwise rank first and jump above
-// one she had deliberately dragged to the top.
-export function orderedInArea(points) {
-  const list = Array.isArray(points) ? points.slice() : [];
-  const rank = (p) => (p && Number.isFinite(Number(p.sort)) && p.sort !== null && p.sort !== ""
-    ? Number(p.sort) : Number.MAX_SAFE_INTEGER);
-  if (!list.some((p) => rank(p) !== Number.MAX_SAFE_INTEGER)) return list;
-  // Ties keep the order they arrived in: Array.sort is stable, so rows she has not dragged stay
-  // where they were rather than shuffling among themselves.
-  return list.sort((a, b) => rank(a) - rank(b));
-}
-
 // Move one Point to `toIndex` among `currentIds`, writing the whole order onto the Points
 // themselves. Written in FULL rather than as an index, because a Point added, filed or deleted
 // elsewhere must not silently shift every other row.
@@ -224,6 +204,34 @@ export function groupPointsByArea(state, points) {
     out.push({ area, depth, points: orderedInArea(list.filter((p) => p && (p.areaId || "") === area.id)) });
   }
   return out;
+}
+
+// ★★ WHAT A CUSTOMER MAY COLLECT FROM (v406) — **AND IT IS IN HER ORDER (v418)**.
+//
+// ⚠️⚠️ IT USED TO LIVE IN points.js AND READ `activePoints`, WHICH IS A FLAT LIST. Her words were
+// __"after i reposition with the handle, the drop drop list have to organise is my preference"__ —
+// ⚠️ **and a flat list cannot answer that here at all: `sort` is PER GROUP**, so sorting the flat
+// array just interleaves the groups (a Point she dragged to the top of Sg Ara ties with one at the
+// top of Prai, and neither is "first"). ⭐ **Her preference is the order the Points SCREEN draws**,
+// which is the grouped one — so this is the same `groupPointsByArea` the screen and the shop read,
+// flattened. **One order, three readers, and a picker that cannot disagree with the shelf it feeds.**
+//
+// ⚠️⚠️ THE SYNTHETIC `"My kitchen"` ROW IS A FALLBACK, NOT THE KITCHEN ITSELF. Until v406 the kitchen
+// was **the absence of a Point**, so this had to invent a row for it — and her words were __"I want
+// all self collection thru collection point, not from the kitchen"__. ⚠️ The fallback STAYS: an app
+// with no kitchen marked must still let a customer collect, and an order carrying no `pointId` —
+// every order taken before today — must go on meaning the kitchen.
+export function pointChoices(state, kitchenLabel = "My kitchen") {
+  const kitchen = kitchenPoint(state);
+  // ★★ A POINT NEEDS A PIN — EXCEPT THE KITCHEN (v406). Her words: __"a point need a pin"__, right
+  // after __"NO pin is needed if it is kitchen"__. ⚠️ **A Point without one is a name and nothing
+  // else**, and a name is not somewhere to walk to. ⚠️⚠️ **THE GATE IS HERE, not at creation:** a new
+  // Point cannot have a pin when it is made, so requiring one to SAVE would make a new Point
+  // unsaveable. What must be true is that **a customer is never offered one without a location.**
+  const usable = activePoints(state).filter((p) => p.isKitchen === true || !!pointPlace(p));
+  const ordered = groupPointsByArea(state, usable).flatMap((g) => g.points);
+  const rows = kitchen ? ordered : [{ id: "", name: kitchenLabel }].concat(ordered);
+  return rows.map((p) => ({ id: p.id || "", name: p.name }));
 }
 
 // The Points in the order the SHOP draws them: the unfiled block first, then each area in her
