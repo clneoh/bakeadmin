@@ -2210,9 +2210,12 @@ test("★ the day flips which place is parked, and ONLY that (v420)", () => {
   } finally { restore(); }
 });
 
-test("★★ tapping a parked place says why and does NOT choose it (v420)", () => {
-  // ⚠️ NOTHING HERE IS A DEAD CONTROL: the row is still pressable, and the press explains rather
-  // than doing nothing — the rule the smallest basket already follows.
+test("★★ tapping a parked place FLASHES its own warning, and the page does not move (v423)", () => {
+  // Her words: __"when customer click on unavailable point, just flash the warning Only available on,
+  // xxx. The screen jump is not desired"__.
+  // ⚠️⚠️ THE JUMP WAS `showConfirm`'s OWN `scrollIntoView` — right for the ORDER guards, where he has
+  // pressed Place order and must be told why not, and **wrong for a place he merely touched**: the
+  // page leapt away from the list he was reading.
   const restore = withBakeDay(5, [
     { id: "pt_mon", name: "Monday place", minOrderRM: 0, days: [1] },
   ]);
@@ -2222,13 +2225,42 @@ test("★★ tapping a parked place says why and does NOT choose it (v420)", () 
     const row = ROW_NAMED(POINT_ROWS(list), "Monday place");
     row._listeners.click[0]();
     assert.equal(wrap._pointId, "", "⚠️ the tap did not choose a place he cannot collect from");
-    const box = document.getElementById("confirm-msg");
-    assert.equal(box.hidden, false, "and it said something rather than nothing");
-    assert.equal(box.children[0].children[0].text, "Monday place", "the place is named");
-    assert.equal(box.children[1].children[0].text, "Only available on Mon",
-      "⚠️ and the reason is the SAME sentence the row already carries underneath — no new wording, "
-      + "and no way for the row and the tap to say different things");
+    assert.ok(String(row.className).includes("flash"), "⚠️ the row flashed instead");
+
+    // ⭐ AND THE WARNING HE NEEDS IS ALREADY ON THE ROW — nothing new is said, and nothing is said
+    // twice: the same line he can read before he taps is the line the tap points him at.
+    const days = [...(row.children || [])].find((c) => String(c.className || "").includes("point-days"));
+    assert.ok(days, "the row carries its own reason");
+    assert.equal(String(days.children[0].text), "Only available on Mon", "and it says so");
+
+    // ⚠️ AND THE BOX THAT SCROLLED THE PAGE IS NOT USED AT ALL. The visible effect is "the page did
+    // not move", and a unit test cannot see a scroll — so what IS pinned is the door it would have
+    // gone through, in the source. (The same reasoning `screen-names.test.js` gives for its pins.)
+    const src = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+    assert.match(src, /if \(closed\) \{ flashRow\(b\); return; \}/,
+      "⚠️⚠️ a parked place goes to the FLASH — it never reaches the confirm box");
+    assert.ok(!/if \(closed\) \{ showConfirm/.test(src),
+      "⚠️ and the old page-moving path is gone, not merely unused");
   } finally { restore(); }
+});
+
+test("★ the flash can fire AGAIN — removing and re-adding a class is not enough on its own (v423)", () => {
+  // ⚠️⚠️ A BROWSER COALESCES "remove the class, add it back" IN ONE BREATH INTO NO CHANGE AT ALL, so
+  // without a forced reflow between them the **SECOND tap on the same place would flash nothing** —
+  // and a courtesy that works once and then silently stops is worse than none.
+  //
+  // ⚠️ THE REFLOW IS NOT OBSERVABLE FROM A TEST — it is the browser's own timing, and this shim has no
+  // layout at all — so the fact is pinned where it lives, in the source, with the reason beside it.
+  // ⭐ And the shim would let a reader believe the flash works twice: it fires no `animationend`, so
+  // the class never comes off and a behavioural test would pass with the reflow deleted.
+  const src = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  assert.match(src, /void b\.offsetWidth;/,
+    "⚠️⚠️ the forced reflow is what makes a second tap flash — reading a layout property is the only "
+    + "way to make the browser apply the removed class before the new one goes on");
+  const flash = src.slice(src.indexOf("const flashRow ="), src.indexOf("const flashRow =") + 700);
+  assert.ok(flash.indexOf("classList.remove") < flash.indexOf("offsetWidth")
+    && flash.indexOf("offsetWidth") < flash.indexOf("classList.add"),
+    "⚠️ and it sits BETWEEN the remove and the add, which is the only place it works");
 });
 
 test("★★ a place chosen for one day, on a day it is not served, falls back to the kitchen (v420)", () => {

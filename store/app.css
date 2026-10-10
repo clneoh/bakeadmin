@@ -1715,6 +1715,27 @@ button.prod-next.off::after { content: ""; }
 .point-opt.off .point-name { color: var(--muted); }
 .point-opt.off .point-sub { color: var(--brown-dark); }
 
+/* ★★ THE FLASH ON A PARKED PLACE (v423). Her words: __"when customer click on unavailable point,
+   just flash the warning Only available on, xxx. The screen jump is not desired"__.
+   ⚠️ IT REPLACES A PAGE JUMP WITH A PULSE ON THE ROW HE TOUCHED, so it has to be calm and short: a
+   place he cannot pick is not a mistake he has made, and nothing here should read as an error.
+   ⚠️ `box-shadow`, NOT `border-width`, and that is the whole craft of it — a border that thickened
+   would grow the row by a pixel or two for a second and nudge everything under it, **which is a
+   smaller version of the very jump this replaces.** A shadow draws outside the box and moves nothing.
+   ⚠️ And the colour is the row's own border colour, so the pulse reads as THIS row being pointed at
+   rather than as a new kind of message arriving. */
+@keyframes point-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 85, 47, 0); }
+  12%, 55% { box-shadow: 0 0 0 3px rgba(196, 85, 47, .45); }
+}
+.point-opt.flash { animation: point-flash 1.1s ease-out 1; }
+/* ⚠️ AND FOR A READER WHO HAS ASKED FOR LESS MOVEMENT, the same cue with no animation at all — the
+   outline simply holds while the class is on. A flash is a courtesy, never the only way to know
+   something: the warning line is on the row either way. */
+@media (prefers-reduced-motion: reduce) {
+  .point-opt.flash { animation: none; box-shadow: 0 0 0 3px rgba(196, 85, 47, .45); }
+}
+
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .point-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 /* ★★ THE AREA HEADING OVER A GROUP OF PLACES (v410). Her words: __"top level is Penang Island &

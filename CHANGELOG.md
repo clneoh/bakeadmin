@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v422)
+# Jienluv2bake — change history (v54 → v423)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v423, A PLACE HE CANNOT PICK NOW FLASHES INSTEAD OF MOVING THE PAGE (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"when customer click on unavailable point, just flash the warning Only available on, xxx. The screen jump is not desired"__
+
+**What it was.** Tapping a greyed place opened the message box further up the page — ⚠️ **and that box scrolls itself into the middle of the screen every single time it is shown.** So the page **leapt away from the list he was reading**, at the exact moment he was reading it. ⚠️ It was never this screen's decision: the scroll is inside the box, and it is right for the **order guards**, where he has pressed Place order and has to be told why not.
+
+**★ Now the row itself pulses for about a second, and nothing moves.** ⭐ **And nothing new is said, because the warning is already on the row** — **Only available on Fri** for a place not served that day, and the smallest-basket sentence for one his basket has not reached. The tap draws his eye to the line he already had, which is the whole of what he needs. ⚠️ **The box is still there for the order guards, untouched.** It is simply no longer used for a place he merely touched.
+
+**⚠️ THE PULSE IS A SHADOW, NOT A THICKER BORDER, and that is the whole craft of it.** A border that thickened would grow the row by a couple of pixels for a second and nudge everything under it — **a smaller version of the very jump this replaces.** ⚠️ Measured live at 375px: the scroll position is **identical** before and after the tap, and the row's height does not change by a single pixel.
+
+**⚠️ AND BOTH PARKED REASONS FLASH** — a place not served today, and one his basket has not reached — because **two rows that look alike must behave alike**, and only one of them moving the page would be the fault this app treats as a bug. ⭐ And for a reader whose device asks for less movement, the pulse becomes a still outline rather than nothing at all.
+
+**Measured: the suite is 3,277 tests, all green (2 new). Three bites, all fired by their own message**, every file restored byte-identically. ⚠️ **AND PUTTING THIS IN BROKE A TEST THAT HAD NOTHING TO DO WITH IT**: the offer strip's reduce-motion check found its block **by position**, so a second reduce-motion block moved its subject out from under it — it finds it **by content** from today. ⭐ **A test that finds its subject by position breaks when an unrelated rule is appended.**
+
+**No database step.** Pushing this one is the whole of it.
+
+
 
 **10 Oct 2026 — engine v422, A WHOLE ROUTE IS TAKEN IN ONE PRESS (no database step — pushing this one is the whole of it).**
 

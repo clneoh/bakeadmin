@@ -3469,7 +3469,37 @@ function renderPointList(wrap, total = 0) {
   // The rule is HERS, typed on her own Point, so the shop honours it rather than merely stating
   // it: this is not the app's own rule being turned into a gate, which is the thing her standing
   // instruction forbids.
-  const row = (id, name, sub, { short = false, off = false, why = "", address = "", days = "" } = {}) => {
+  // ★★ AND A TAP ON A PARKED PLACE MAKES ITS OWN WARNING FLASH — IT DOES NOT MOVE THE PAGE (v423).
+  //
+  // Her words: __"when customer click on unavailable point, just flash the warning Only available on,
+  // xxx. The screen jump is not desired"__.
+  //
+  // ⚠️⚠️ THE JUMP WAS `showConfirm`'s OWN `scrollIntoView`, and it was never this screen's decision:
+  // `showConfirm` scrolls the box into the middle of the view every time it is called, which is right
+  // for the ORDER guards (he pressed Place order and has to be told why not) and **wrong for a place
+  // he merely touched** — the page leapt away from the list he was reading. ⭐ So a parked place no
+  // longer opens the box at all.
+  //
+  // ⭐ AND NOTHING NEW IS SAID, OR NEEDED: **the warning is already on the row** — "Only available on
+  // Fri" for a place not served that day, and the smallest-basket sentence for one his basket has not
+  // reached. The tap draws his eye to the line he already has, which is the whole of what he needs.
+  // ⚠️ **BOTH PARKED REASONS FLASH**, because two rows that look alike must behave alike
+  // ([[feedback-affordances]]) — only one of them moving the page would be the fault she calls a bug.
+  const flashRow = (b) => {
+    if (!b || !b.classList) return;
+    b.classList.remove("flash");
+    // ⚠️ READING `offsetWidth` FORCES A REFLOW, and it is the whole trick: without it the browser
+    // coalesces "remove then add" into no change at all and a SECOND tap flashes nothing.
+    void b.offsetWidth;
+    b.classList.add("flash");
+    if (typeof b.addEventListener === "function") {
+      b.addEventListener("animationend", () => b.classList.remove("flash"), { once: true });
+    } else {
+      b.classList.remove("flash");
+    }
+  };
+
+  const row = (id, name, sub, { short = false, off = false, address = "", days = "" } = {}) => {
     // ⚠️ `short` AND `off` MEAN THE SAME THING TO A TAP — this place is on the page, and it is not
     // open to you right now — so both wear the same PARKED look and both explain themselves rather
     // than doing nothing. ⚠️ They are two classes with one set of rules rather than one class doing
@@ -3478,8 +3508,7 @@ function renderPointList(wrap, total = 0) {
     const b = el("button", {
       class: `point-opt${closed ? (off ? " off" : " short") : ""}`, type: "button", "data-point-id": id,
       onclick: () => {
-        if (closed) { showConfirm([el("p", { class: "confirm-title" }, name),
-          el("p", { class: "confirm-body" }, why || sub)], "warn"); return; }
+        if (closed) { flashRow(b); return; }
         pickCollect();
         choose(id, name);
       },
@@ -3592,10 +3621,10 @@ function renderPointList(wrap, total = 0) {
     out.push(row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
         : (own || (p.isKitchen === true ? t("kitchenSub") : t("pointSub"))),
-      // ⚠️ `why` IS THE SENTENCE THE TAP WILL READ OUT, and for an unserved place it is the SAME
-      // line the row already carries underneath — so the page can never say one thing on the row and
-      // another on the tap.
-      { short, off, why: off ? daysLine : "", address: String(p.address || ""), days: daysLine }));
+      // ⚠️ NO `why` ANY MORE (v423): the tap used to read the reason OUT in a box of its own, and it
+      // now flashes the line the row already carries instead — so there is one place a reason is
+      // said, and the page can never say one thing on the row and another on the tap.
+      { short, off, address: String(p.address || ""), days: daysLine }));
   });
   list.replaceChildren(...out);
 
