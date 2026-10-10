@@ -1655,14 +1655,30 @@ button.prod-next.off::after { content: ""; }
    a thumb's target, because on a phone this is the last thing a customer taps before
    paying. */
 .point-list { display: grid; gap: 8px; }
+/* ★★ THE CHOSEN PLACE IS THE ONE THAT STANDS OUT (v413), NOT THE OTHERS.
+   ⚠️⚠️ IT WAS THE OTHER WAY ROUND, AND THAT WAS THE "HOLE" AND THE CONFUSION TOGETHER. Every row was
+   `--surface` (white) and the chosen one was `--brown-soft` — so inside a card that is ITSELF
+   `--brown-soft`, **the chosen place dissolved into the card while every place the customer had NOT
+   chosen stood out as a bright white slab.** Her words: __"you see the white, that is a hole when
+   the self collect card unfold. It confuse user of actually which is the selected"__ — ⭐ **a customer
+   reads the loudest row as the selected one, and it was pointing at the wrong place.**
+   ⭐ So the flat row is the resting state and the filled one is the choice: **the selected place is
+   the only thing wearing a panel.** */
+/* ⚠️⚠️ AND THE UNCHOSEN ONES KEEP A FRAME YOU CAN ACTUALLY SEE (v413). Her words: __"can the
+   unselected be frame as well with a very thin frame, so it is clear that custoerr is selecting from
+   only 2 available choices"__ — and the frame was already there, which is the point: **`--line` is
+   `#f0e2d2`, a cream chosen to sit on WHITE, and on the card's `#fbe7dc` it is invisible.** ⭐ So an
+   unchosen place read as a bare line of text rather than as the other thing you may pick. A
+   translucent brand brown instead, so every row is visibly ONE OF the choices — ⚠️ hairline-thin and
+   still quieter than the chosen one, which keeps the 2px edge and the panel. */
 .point-opt {
   display: block;
   width: 100%;
   text-align: left;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(196, 85, 47, .38);
   border-radius: 12px;
-  background: var(--surface);
+  background: transparent;
   font: inherit;
   cursor: pointer;
 }
@@ -1670,7 +1686,7 @@ button.prod-next.off::after { content: ""; }
   border-color: var(--brown);
   border-width: 2px;
   padding: 9px 11px;
-  background: var(--brown-soft);
+  background: var(--surface);
 }
 /* A Point whose smallest basket this basket has not reached (v306). PARKED, NOT HIDDEN: it
    stays on the page with the reason in its own line, because a choice that vanished below RM30

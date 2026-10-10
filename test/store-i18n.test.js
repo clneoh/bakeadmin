@@ -547,4 +547,25 @@ test("★★ the address is part of the Courier choice, the same way the places 
     "the card takes the page's own surface, so an open one is a panel and not a hole");
   assert.equal(/\.seg-opt\s*\{[^}]*background:\s*var\(--surface\)/.test(css), false,
     "and never the white the form behind it is made of");
+
+  // ⚠️⚠️ AND THE CHOSEN PLACE IS THE ONE THAT STANDS OUT — THE INVERSE OF HOW IT WAS.
+  // Her words, with a picture: __"you see the white, that is a hole when the self collect card
+  // unfold. It confuse user of actually which is the selected"__. ⭐ **Every row was white and only
+  // the chosen one was tinted — and the card is tinted too — so the chosen place dissolved into the
+  // card while every place the customer had NOT chosen stood out as a bright white slab.** A
+  // customer reads the loudest row as the selected one, and it was pointing at the wrong place.
+  // ⚠️ PINNED AS A RULE, because no test in this suite can see a colour.
+  assert.match(css, /\.point-opt\.active\s*\{[^}]*background:\s*var\(--surface\)/,
+    "the CHOSEN place wears the panel — the loudest row must be the one the customer picked");
+  assert.match(css, /\.point-opt\s*\{[^}]*background:\s*transparent/,
+    "and every other place sits flat on the card, so none of them can be mistaken for it");
+  // ⚠️⚠️ AND AN UNCHOSEN PLACE STILL WEARS A FRAME YOU CAN SEE. Her words: __"can the unselected be
+  // frame as well with a very thin frame, so it is clear that custoerr is selecting from only 2
+  // available choices"__. ⭐ **The frame was already there — `--line` is a cream picked to sit on
+  // WHITE, and on the card's own tint it is invisible**, so an unchosen place read as bare text
+  // rather than as the other thing you may pick.
+  assert.match(css, /\.point-opt\s*\{[^}]*border:\s*1px solid rgba\(/,
+    "an unchosen place is framed too — every row must read as one OF the choices");
+  assert.equal(/\.point-opt\s*\{[^}]*border:\s*1px solid var\(--line\)/.test(css), false,
+    "and not with a hairline the card's own colour swallows");
 });

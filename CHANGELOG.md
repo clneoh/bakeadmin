@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v412)
+# Jienluv2bake — change history (v54 → v413)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v413, THE PLACE YOU PICKED IS NOW THE ONE YOU CAN SEE (no database step — pushing this one is the whole of it).**
+
+**Your words, with the picture:** __"you see the white, that is a hole when the self collect card unfold. It confuse user of actually which is the selected"__
+
+**⚠️⚠️ THE COLOURS WERE THE WRONG WAY ROUND, AND THAT WAS THE WHOLE FAULT.** Every place row was drawn **white**, and only the **chosen** one was tinted — ⚠️ **and the card itself is tinted.** So inside an opened card, **the place you had picked dissolved into the background, while every place you had NOT picked stood out as a bright white slab.**
+
+⭐ **A customer reads the loudest row as the selected one — and it was pointing at the wrong place.** That is exactly what you described: the white is the hole, and it is what "confuse user of actually which is the selected".
+
+**★ IT IS THE OTHER WAY ROUND NOW.** The **chosen place is the one wearing the panel** — white, with the orange edge — and every other place sits flat on the card. Nothing on that list is louder than the one you picked.
+
+**★ AND EVERY OTHER PLACE STILL KEEPS ITS OWN THIN FRAME.** __"can the unselected be frame as well with a very thin frame, so it is clear that custoerr is selecting from only 2 available choices"__ — ⚠️ **and the frame was already there, which is the point:** the line colour is a **cream chosen to sit on white**, so on the card's own tint it was invisible and an unchosen place read as bare text rather than as the other thing you may pick. It is a soft brown hairline now, so **every row reads as one OF the choices** while the picked one stays the loudest.
+
+**⚠️ AND I OWE YOU A NOTE ABOUT HOW LONG THIS TOOK.** You said the word "hole" **three times**. I fixed one real thing (the card taking the form's white) and reasoned about the colours twice from numbers — and **the moment you sent the picture it was obvious in one look.** ⭐ **A picture from your phone costs you nothing and would have saved all of that; I should have asked the first time.** That is written down now.
+
+**No database step.** The suite is **3,237 tests, all green**. One bite, fired by its own message, and the rule is **pinned in the stylesheet** because nothing in this suite can see a colour.
 
 **10 Oct 2026 — engine v412, BOTH WAYS FOLD, THE HOLE IS GONE, AND A POINT CAN SAY ITS OWN WORDS (no database step — pushing this one is the whole of it).**
 
@@ -12,7 +28,9 @@ always tell which build a phone is running.
 
 **★ AND THE ADDRESS IS PART OF THE COURIER CHOICE, THE SAME WAY THE PLACES ARE PART OF COLLECTING.** ⭐ That was the mirror I had missed: at v410 I moved the places *into* the Self collect card and left the delivery address sitting below the whole picker as a separate box. ⚠️ Her words — __"courier delivery and address should be one piece"__ — are the same rule twice, so it is now the same code twice.
 
-**★★ AND THE HOLE IS GONE.** __"even after i expend it, there should not be hole"__ — ⚠️ **and it was exactly that.** The picker sits **inside the white "Your details" form**, and I had given each card the same white: so an opened card was **white on white — a void with thin outlines floating in it**, which is precisely what a hole looks like. The cards now take the page's own colour, so an open one is a panel. ⚠️ **Found by measuring the two backgrounds side by side, which I should have done the first time you said the word "hole".**
+**★ AND THE CARD NO LONGER TAKES THE FORM'S OWN WHITE.** __"even after i expend it, there should not be hole"__ — the picker sits inside the white "Your details" form and each card had the same white, so an opened card was **white on white: a void with thin outlines floating in it**. The cards now take the page's own colour, so an open one is a panel.
+
+⚠️⚠️ **AND THE HOLE WAS NOT ACTUALLY GONE — SEE v413.** That was only half of it, and **not the half that mattered**: the colours of the place rows themselves were the wrong way round, which is what made a customer unable to tell which place he had picked. It is fixed in the next entry, and it took a picture from her to see.
 
 **★★ AND A POINT CAN SAY ITS OWN WORDS.** A new box on the Point card — **"What customers read"** — and whatever you type there is the line under that Point's name on your shop. ⚠️ **Leave it empty and nothing changes at all**: the standard sentence stands in, and the box's grey hint IS that sentence, so you can see what a customer would read before you write anything. ⭐ **Your words outrank even the kitchen's own line**, because they are about your own front door. ⚠️ A Point with a smallest basket the basket has not reached still says WHY on its own line — that is the one thing you can act on and your description cannot know it.
 
