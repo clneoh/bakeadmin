@@ -120,12 +120,11 @@ test("published config overrides the header and menu at runtime", async () => {
   assert.equal(registry["name"].textContent, "Jienluv2bake Cakes");
   assert.equal(registry["tagline"].textContent, "Cakes & more, Penang");
   assert.equal(registry["delivery-days"].textContent, "Tue, Thu");
-  // ⚠️⚠️ UNCHANGED ON THE ORDINARY PAGE, AND THAT IS THE RULE (v405). "6pm" is plainly better than
-  // "18:00", but she asked to see the page before it launches, so **the readable clock is behind the
-  // trial flag with everything else.** A change that leaked out here would make "what am I comparing?"
-  // unanswerable — and this is the page her customers are already using.
-  // ⚠️ The tests below this one are what pin the trial side of it.
-  assert.equal(registry["cutoff"].textContent, "15:00 the day before");
+  // ⚠️ CHANGED AT v406, ON PURPOSE, AND IT WAS "15:00 the day before" UNTIL NOW. Her words: __"Make the
+  // trial an official one now"__ — so the readable clock is no longer behind a flag. ⚠️ **18:00 is the
+  // form her admin stores and it is right there; on a customer's page it is a small puzzle**, and a small
+  // puzzle is where her first customer went wrong.
+  assert.equal(registry["cutoff"].textContent, "3pm the day before");
   assert.equal(registry["social"].children.length, 1, "only Instagram links (facebook blank)");
 });
 
@@ -554,16 +553,19 @@ test("a visit that cannot be recorded is swallowed, never thrown into the page",
 // day and the select courier instead of self collect… Checking with the customer confirm that he
 // actually want the bread today, not knowing order close 6pm one day before."__
 
-test("★★⚠️ the ordinary page changes NOTHING — that is the whole promise of the trial", () => {
-  // ⚠️⚠️ THIS IS THE RULE SHE WAS GIVEN AND THE ONE THAT MATTERS: **the trial URL shows the proposed
-  // page, and every other address shows exactly what is on screen today.** She asked to see it before
-  // it launches, and this is the page her customers are already ordering from. ⚠️ A change that leaked
-  // out here would make "what am I comparing?" unanswerable.
-  // ⚠️ This test file's page has no `?trial=1`, so it IS the ordinary customer's page.
+// ⚠️⚠️ REWRITTEN AT v406, AND THE OLD VERSION IS WORTH REMEMBERING: it asserted the OPPOSITE — that the
+// answer box was hidden and the clock still said 18:00, because the whole page was behind a `?trial=1`
+// flag she had asked for (__"can it be a page for me to test before launch?"__). ⚠️ Then: __"Make the
+// trial an official one now"__ — so the flag is **gone**, not left switched on, because **a flag that is
+// permanently true is a branch nobody will ever test the other half of.**
+// ⚠️ This file's page carries no URL flag at all, so it IS the ordinary customer's page — which is the
+// point: there is no longer a special one.
+test("★★ the page a customer gets IS the new one — the trial flag is gone, not switched on", () => {
   const box = registry["day-answer"];
-  assert.equal(box.hidden, true, "⚠️ the answer box is showing on the ordinary page");
-  assert.equal(registry["cutoff"].textContent, "15:00 the day before",
-    "⚠️ the readable clock leaked out of the trial — the ordinary page must be untouched");
+  assert.ok(box, "the answer box has gone from the page altogether");
+  assert.notEqual(box.hidden, true, "⚠️ the answer box is hidden on the only page there now is");
+  assert.equal(registry["cutoff"].textContent, "3pm the day before",
+    "⚠️ the readable clock is not on the page a customer is given");
 });
 
 test("★★ '6pm', not '18:00' — the clock the way a person says it", () => {

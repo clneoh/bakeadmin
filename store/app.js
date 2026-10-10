@@ -594,11 +594,9 @@ function dayBefore(d) {
 // one he is looking at; the heading tells him, and the green edge says it before he reads.
 //   • nothing open for today  → "Today's bake has closed" / the next day he can have it / the deadline
 //   • still time to order     → "You're in time"        / the same two lines
-function paintDayAnswer(cfg, trial, cutoffSay) {
+function paintDayAnswer(cfg, cutoffSay) {
   const box = document.getElementById("day-answer");
   if (!box) return;
-  // ⚠️ HIDDEN UNLESS THE TRIAL IS ON, so a customer cannot meet a wording she has not judged yet.
-  if (!trial) { box.hidden = true; return; }
 
   const next = nextOpenDay(cfg);
   const lede = document.getElementById("steps-lede");
@@ -1242,29 +1240,19 @@ export function renderStatic(cfg) {
   document.title = `${t("titleWord")} · ${cfg.name}`;
   document.getElementById("name").textContent = cfg.name;
   document.getElementById("tagline").textContent = cfg.tagline;
-  // ★★ THE TRIAL FLAG (v405). Her words: __"can it be a page for me to test before launch?"__ —
-  // `?trial=1` turns the new wording ON for whoever opens that address, and **everyone else sees the
-  // page exactly as it is today.** ⚠️ It is a URL flag rather than a second copy of the shop on purpose:
-  // a copy would be a second shop to keep in step with this one, and it would put an unlaunched ordering
-  // page at a guessable address — **your notes already have one public `/test/` you have been meaning to
-  // deal with, and this must not become the second.**
-  const TRIAL = typeof location !== "undefined" && /[?&]trial=1(?:&|$)/.test(location.search);
-  if (document.body) document.body.classList.toggle("trial", TRIAL);
-
-  // ⚠️⚠️ THE READABLE CLOCK IS BEHIND THE FLAG TOO, AND THAT IS THE WHOLE POINT OF HAVING ONE.
-  // "6pm" is plainly better than "18:00" — but she asked to see the page BEFORE it launches, so the
-  // rule is one clean rule: **the trial URL shows the proposed page, and every other address shows
-  // exactly what is on screen today.** A change that leaked out here would make "what am I comparing?"
-  // unanswerable, and this is the page her customers are already using.
-  // ⚠️ BOTH PLACES THE CUT-OFF APPEARS take the same form, so the strip at the top and the "Order by"
-  // row can never say it two ways.
-  const cutoffSay = TRIAL ? cutoffText(cfg.cutoff) : cfg.cutoff;
+  // ★★ IT IS OFFICIAL (v406). Her words: __"Make the trial an official one now"__ — so the `?trial=1`
+  // flag is GONE rather than left on. ⚠️ **A flag that is permanently true is not a flag, it is a branch
+  // nobody will ever test the other half of** — and it would have gone on saying "this is provisional"
+  // about a page that is not.
+  // ⚠️ BOTH PLACES THE CUT-OFF APPEARS take the same readable form, so the strip at the top and the
+  // "Order by" row can never say it two ways.
+  const cutoffSay = cutoffText(cfg.cutoff);
   document.getElementById("eyebrow").textContent = sub(t("madeToOrder"), cutoffSay);
 
   const days = cfg.deliveryDays.map((n) => dayName(n)).join(", ");
   document.getElementById("delivery-days").textContent = days;
   document.getElementById("cutoff").textContent = sub(t("beforeVal"), cutoffSay);
-  paintDayAnswer(cfg, TRIAL, cutoffSay);
+  paintDayAnswer(cfg, cutoffSay);
 
   const social = document.getElementById("social");
   const links = [];
@@ -1887,6 +1875,9 @@ export function render() {
           ? { name: active.dataset.lineNote, at: active.selectionStart } : null;
         renderMenu();
         renderBar();
+        // ⚠️ AND AFTER A QUANTITY CHANGE TOO — step 2 turns green the moment the basket stops being
+        // empty, which happens here and not in `rerender`.
+        paintSteps();
         if (!typing) return;
         const again = Array.from(menu.querySelectorAll("input.line-note"))
           .find((n) => n.dataset.lineNote === typing.name);
@@ -2411,6 +2402,39 @@ export function render() {
   // Recompute the dates + rebuild the calendar and menu. Called on first paint
   // and again when the availability data or the published storefront config
   // arrives — arrival order doesn't matter because both funnel through here.
+  // ★★ THE CIRCLES TURN GREEN AS THE CUSTOMER FINISHES (v406).
+  //
+  // ⚠️⚠️ HER WORDS, AFTER THE TRIAL WENT OUT: __"the 1,2,3 turn green after customer done with it"__.
+  // **I had drawn the green state and never wired it** — the rule was in `app.css` from the first day and
+  // nothing ever set the class, so the circles stayed terracotta through the whole order. ⭐ A step marker
+  // that never moves is decoration, and decoration is what this was supposed to replace.
+  //
+  // ⚠️ EACH STEP IS DONE BY SOMETHING THE CUSTOMER DID, not by a screen being reached: a day is chosen, a
+  // basket has something in it, and their name and number are filled in. ⚠️ The third turns green as they
+  // finish typing it — which is the moment before they press Place order, which is exactly when a nervous
+  // customer wants to be told they have done everything.
+  function paintSteps() {
+    const nameEl = document.getElementById("name-input");
+    const waEl = document.getElementById("whatsapp-input");
+    const done = [
+      !!selected,
+      cart.size > 0,
+      !!(nameEl && String(nameEl.value || "").trim()) && !!(waEl && String(waEl.value || "").trim()),
+    ];
+    for (let i = 0; i < done.length; i++) {
+      const head = document.getElementById(`step${i + 1}`);
+      if (head && head.classList) head.classList.toggle("done", done[i]);
+    }
+  }
+  // ⚠️ AND THE THIRD STEP IS TYPED, NOT TAPPED, so it needs listeners of its own — nothing else on this
+  // page fires while a customer fills their name in. ⚠️ They live here, beside the rule they serve,
+  // rather than down in the form's own wiring: a listener added in one place for a rule that lives in
+  // another is how the two drift.
+  for (const id of ["name-input", "whatsapp-input"]) {
+    const field = document.getElementById(id);
+    if (field && field.addEventListener) field.addEventListener("input", paintSteps);
+  }
+
   const rerender = () => {
     dates = resolveDates(upcomingDates(CONFIG), dayRows, dateKey(new Date()))
       .filter((d) => isOpen(CONFIG, d));
@@ -2420,6 +2444,10 @@ export function render() {
     reconcileCart();
     buildCalendar();
     renderMenu();
+    // ⚠️ LAST, and here rather than anywhere else, because EVERYTHING funnels through `rerender`: the day
+    // tapped, the menu rebuilt, the 30-second refresh, the availability arriving. One call site covers
+    // them all, and the one that is missed is the one that leaves a circle green on a day that has gone.
+    paintSteps();
   };
 
   rerender();

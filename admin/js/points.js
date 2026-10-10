@@ -70,6 +70,22 @@ export function blankPoint() {
     // without one is a name she can read and a van cannot be sent to, so the trip builder
     // counts it as unplaced exactly as it counts an unpinned customer.
     place: null,
+    // ★★ IS THIS THE KITCHEN? (v406). Her words: __"I want all self collection thru collection point,
+    // not from the kitchen"__ and __"at self collection point, add a switch whether that collection is
+    // a kitchen. Allow only one collection point as kitchen for the time being. NO pin is needed if it
+    // is kitchen"__.
+    //
+    // ⚠️⚠️ THIS CHANGES WHAT THE KITCHEN IS. Until now the kitchen was **the ABSENCE of a Point** —
+    // `setOrderPoint` says so in its own words: *"the absence of a Point IS the kitchen"*, and an order
+    // collecting from her answered with both fields empty. ⭐ **She is right that it is a place like any
+    // other**, and the model was the only thing that said otherwise: it has a name, an address and hours,
+    // and `pointChoices` had to invent a `"My kitchen"` row to make it pickable.
+    //
+    // ⚠️⚠️ A MARKED KITCHEN IS EXCLUSIVE, and the setter below is the only thing that marks one — so
+    // "only one" is a fact about the code rather than a rule three call sites have to remember.
+    // ⚠️ NO PIN IS REQUIRED, for the kitchen or for any other Point: `pointProblem` has only ever asked
+    // for a NAME, because a pin is what a VAN is given and a customer collecting walks to an address.
+    isKitchen: false,
   };
 }
 
@@ -106,7 +122,30 @@ export function normalizePoint(src) {
     // A minimum is money, so it is rounded like every other figure in this app, and anything
     // that is not a positive number is NO minimum rather than a broken one.
     minOrderRM: minMoney(s.minOrderRM),
+    // ⚠️ STRICTLY `=== true`, like `paused` above: anything half-synced or hand-edited reads as NOT the
+    // kitchen rather than as a second kitchen. ⚠️ And `markKitchen` below is what makes it exclusive, so
+    // a stored row that somehow carries two is read as neither being special until she says again.
+    isKitchen: s.isKitchen === true,
   };
+}
+
+// ★★ WHAT THE KITCHEN MUST NOT INHERIT (v406).
+//
+// ⚠️⚠️ THIS FILE'S OWN HEADER ARGUED AGAINST WHAT SHE HAS NOW ASKED FOR, and it was right to:
+// *"THE KITCHEN IS NOT A POINT… **a Point that quietly became the kitchen would inherit a fee she does
+// not owe and a life she cannot end.**"* A Point carries a **fee** (what she pays whoever receives),
+// a **minimum order**, and a **Pause**.
+//
+// ⭐ Her words: __"I want all self collection thru collection point, not from the kitchen"__ and
+// __"at self collection point, add a switch whether that collection is a kitchen"__ — **so the kitchen
+// becomes a Point for the customer's sake, so it can be picked like any other place.**
+// ⚠️ **What the old note protected must not be lost in that**, so the kitchen is read as FREE, with NO
+// MINIMUM and NEVER PAUSED, whatever is stored on the row. It is her own front door: there is nobody to
+// pay, nothing to reach before you may come, and it cannot be switched off — **it is the one place that
+// must always exist**, because it is where the bread is.
+export function kitchenExempt(row) {
+  if (!row || row.isKitchen !== true) return row;
+  return { ...row, feeRM: 0, minOrderRM: 0, paused: false };
 }
 
 // A smallest basket, cleaned: a positive amount of money, or 0 for "no minimum". Kept beside
@@ -165,8 +204,12 @@ export function pointWindowText(point) {
 // measured against what the CUSTOMER's basket comes to before the order is posted, and it is
 // published to the shop so the shop can say so rather than quietly taking an order she did not
 // want. It is NOT a rule this app works out — she types it, per Point, and most Points have none.
+// ⚠️ And the KITCHEN has no minimum, whatever is stored on the row: "a basket of at least RM30 before you
+// may come to my front door" is not a thing she would ever mean. Read through `kitchenExempt`, so the one
+// place that decides this is the one place that says what the kitchen is.
 export function pointMinOrder(point) {
-  return minMoney(point && point.minOrderRM);
+  const p = kitchenExempt(point);
+  return minMoney(p && p.minOrderRM);
 }
 
 // Is this basket big enough for this Point? Returns the shortfall in ringgit, 0 when the basket
@@ -202,8 +245,13 @@ export function pointsOf(state) {
 
 // The Points the SHOP may offer — the active ones. A paused Point is off the list, and
 // that is the whole of what pausing buys her.
+// ⚠️⚠️ A PAUSED KITCHEN IS STILL ACTIVE (v406), and that is not a nicety — **it is the one place that
+// must always exist, because it is where the bread is.** Pausing a Point means "stop offering this one
+// for now", and applied to her own kitchen that would leave a customer with nowhere to collect at all.
+// ⚠️ Read through `kitchenExempt`, so "never paused" is a fact about the kitchen rather than a rule each
+// reader has to remember.
 export function activePoints(state) {
-  return pointsOf(state).filter((p) => !p.paused);
+  return pointsOf(state).map(kitchenExempt).filter((p) => !p.paused);
 }
 
 export function pointById(state, id) {
@@ -233,6 +281,9 @@ export function addPoint(state, draft, now = new Date().toISOString()) {
   if (pointProblem(draft, pointsOf(state))) return null;
   const row = normalizePoint({ ...draft, id: newId("pt"), createdAt: now });
   (state.points ||= []).push(row);
+  // ⚠️ IF SHE OPENED THIS ONE AS THE KITCHEN, THE ONE THAT WAS THE KITCHEN STOPS BEING IT — in the same
+  // call, so there is no moment where two are. `markKitchen` is the only thing that sets the flag.
+  if (row.isKitchen) markKitchen(state, row.id);
   return row;
 }
 
@@ -253,6 +304,11 @@ export function updatePoint(state, id, draft) {
   const kept = normalizePoint(rows[at]);
   const next = normalizePoint({ ...draft, id: want, createdAt: kept.createdAt, place: kept.place });
   rows[at] = next;
+  // ⚠️ SAME RULE AS `addPoint`: marking this one as the kitchen un-marks whichever held it, and
+  // ⚠️ SWITCHING IT OFF HERE CLEARS THIS ONE AND LEAVES NO KITCHEN MARKED AT ALL — which is a real state
+  // she may want (no Point is the kitchen, so `pointChoices` falls back to "My kitchen"), not an error.
+  if (next.isKitchen) markKitchen(state, next.id);
+  else if (kept.isKitchen) markKitchen(state, null);
   return next;
 }
 
@@ -323,9 +379,54 @@ export function orderPointName(state, order) {
 //
 // The kitchen's own words are the caller's, because the shop says "Our kitchen" to a customer
 // and this side says it to her.
+// ★★ MARK ONE POINT AS THE KITCHEN, AND ONLY EVER ONE (v406).
+//
+// ⚠️⚠️ THE EXCLUSIVITY LIVES HERE AND NOWHERE ELSE. Her words: __"Allow only one collection point as
+// kitchen for the time being"__ — and the way to be sure of that is **not** to check a flag in three
+// call sites, it is to have one function that is the only thing able to set it. Marking one clears the
+// rest in the same breath, so "only one" cannot be forgotten by whoever writes the next screen.
+// ⚠️ Passing `null` clears the mark, which is how she un-marks a kitchen without deleting the place.
+export function markKitchen(state, id) {
+  const want = String(id || "");
+  let hit = null;
+  for (const p of state.points || []) {
+    if (!p) continue;
+    p.isKitchen = !!want && p.id === want;
+    if (p.isKitchen) hit = p;
+  }
+  return hit;
+}
+
+// The Point she has marked as the kitchen, or null if she has not marked one.
+export function kitchenPoint(state) {
+  return (state.points || []).find((p) => p && p.isKitchen === true) || null;
+}
+
+// ★★ WHAT A CUSTOMER MAY COLLECT FROM (v406).
+//
+// ⚠️⚠️ THE SYNTHETIC `"My kitchen"` ROW IS NOW A FALLBACK, NOT THE KITCHEN ITSELF. Until v406 the
+// kitchen was **the absence of a Point**, so this function had to invent a row for it — and her words
+// were __"I want all self collection thru collection point, not from the kitchen"__: **every collection
+// is a Point, including the one that happens to be her kitchen.**
+// ⚠️ The fallback STAYS for the day she has not marked one, and that is deliberate rather than
+// tidiness: an app with no kitchen marked and no Points must still let a customer collect, and an order
+// already carrying no `pointId` — every order taken before today — must go on meaning the kitchen.
 export function pointChoices(state, kitchenLabel = "My kitchen") {
-  return [{ id: "", name: kitchenLabel }]
-    .concat(activePoints(state).map((p) => ({ id: p.id, name: p.name })));
+  const kitchen = kitchenPoint(state);
+  // ★★ A POINT NEEDS A PIN — EXCEPT THE KITCHEN (v406). Her words: __"a point need a pin"__, right after
+  // __"NO pin is needed if it is kitchen"__. ⚠️ **A Point without one is a name and nothing else**: the
+  // customer is being told where to walk, and a name is not somewhere to walk to. The KITCHEN is the one
+  // exception and it is her own door — she is not going to pin her own kitchen, and a customer collecting
+  // there is given the bakery's own address.
+  //
+  // ⚠️⚠️ THE GATE IS HERE, not at creation, and that is not a softness: **a new Point cannot have a pin
+  // when it is made** — the map press lives on its card afterwards (`Put the pin on the map`) — so
+  // requiring one to SAVE would make a new Point unsaveable. What must be true is that **a customer is
+  // never offered one without a location**, which is what this decides. The Point's own card says the
+  // same thing in words: *"Not pinned yet — a van cannot be sent to a name alone."*
+  const usable = activePoints(state).filter((p) => p.isKitchen === true || !!pointPlace(p));
+  const rows = kitchen ? usable : [{ id: "", name: kitchenLabel }].concat(usable);
+  return rows.map((p) => ({ id: p.id || "", name: p.name }));
 }
 
 // ★ WHERE AN ORDER COLLECTS FROM, and the one place that rule is written (v303).

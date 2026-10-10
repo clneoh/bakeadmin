@@ -1699,9 +1699,5 @@ button.prod-next.off::after { content: ""; }
   display: flex; align-items: center; justify-content: center; line-height: 1; }
 /* A step she has finished: the circle turns green, so "where am I" is answered without reading a word. */
 .step-head.done .step-num { background: #3b7449; }
-/* ⚠️ AND NONE OF IT EXISTS UNTIL SHE TURNS THE TRIAL ON: with the flag off the page is byte-for-byte
-   what it is today, which is what makes this safe to push before she has judged the wording. */
-body:not(.trial) .answer,
-body:not(.trial) .steps-lede,
-body:not(.trial) .step-num { display: none; }
-body:not(.trial) .step-head { display: block; margin: 0; }
+/* ⚠️ THE TRIAL GUARD THAT USED TO SIT HERE WENT WHEN THE FLAG DID (v406) — it read
+   `body:not(.trial) … { display: none }` for the answer box, the lede and the step circles. */

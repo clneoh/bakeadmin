@@ -117,6 +117,20 @@ function buildPointEditor(state, point) {
   const collectTo = el("input", { class: "input", type: "time", style: "max-width:150px",
     value: (parts && parts.to) || "", "aria-label": "Customers can collect until" });
 
+  // ★★ THE KITCHEN SWITCH (v406). Her words: __"at self collection point, add a switch whether that
+  // collection is a kitchen. Allow only one collection point as kitchen for the time being. NO pin is
+  // needed if it is kitchen"__.
+  //
+  // ⚠️ A real tick box with a visible label, not a small press — it is a statement about one of the
+  // places on this screen, and she has to be able to see at a glance which one carries it.
+  const kitchen = el("input", { type: "checkbox", checked: point ? point.isKitchen === true : false });
+  const kitchenField = el("div", { class: "field" },
+    el("label", { style: "display:flex;align-items:center;gap:8px;font-weight:600" },
+      kitchen, "This is the kitchen"),
+    el("p", { class: "hint" },
+      "Your own kitchen, as a place customers can collect from. It needs no pin — they are given your "
+      + "address instead. Only one Point can be the kitchen; ticking this unticks whichever held it."));
+
   const collect = () => {
     const draft = {
       id: point?.id || "",
@@ -125,6 +139,10 @@ function buildPointEditor(state, point) {
       receiver: receiver.value,
       phone: phone.value,
       feeRM: fee.value,
+      // ★★ IS THIS THE KITCHEN? (v406). ⚠️ Carried on the draft and acted on by `addPoint`/`updatePoint`,
+      // which call `markKitchen` — so **the exclusivity is not this screen's to keep.** A switch that has
+      // to remember to clear the others is a switch that forgets.
+      isKitchen: kitchen.checked,
       // ★ WHEN THEY CAN COLLECT (v304) - the two boxes packed into the one value the Point
       // stores, exactly as a delivery window is (see time_window.js).
       collectWindow: windowAt(collectFrom.value, collectTo.value),
@@ -139,7 +157,7 @@ function buildPointEditor(state, point) {
     return { draft, error };
   };
   return { name, address, addressSug, receiver, phone, fee, minOn, minField,
-    collectFrom, collectTo, collect };
+    collectFrom, collectTo, kitchenField, collect };
 }
 
 function newPointCard(state, root) {
@@ -148,6 +166,7 @@ function newPointCard(state, root) {
     el("h3", { style: "margin:0 0 10px" }, "New Self collection Point"),
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
+    ed.kitchenField,
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver,
       el("p", { class: "hint" },
         "The person who hands the bags over when the driver arrives. A courier stop hands to a person, not to a doorstep — so without a name and a number here, the driver has nobody to look for.")),
@@ -176,6 +195,7 @@ function openEditPointPopup(state, point, root) {
   showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
+    ed.kitchenField,
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
     el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
     el("div", { class: "field" }, el("label", {}, "Fee per order (RM)"), ed.fee),
@@ -219,6 +239,12 @@ function pointCard(state, point, root) {
     el("div", { style: "min-width:0" },
       el("p", { class: "card-title" },
         point.name,
+        // ★★ AND THE CARD SAYS WHICH ONE IS THE KITCHEN (v406). ⚠️ The switch lives in the EDIT card —
+        // one press away — so the list itself has to show the answer, or she has to open every Point to
+        // find out which is which. **Only one can carry it**, which is what makes it worth reading here.
+        point.isKitchen === true
+          ? el("span", { class: "st-chip valid", style: "margin-left:6px" }, "🏠 The kitchen")
+          : null,
         el("span", { class: `st-chip ${point.paused ? "paused" : "valid"}` },
           point.paused ? "Paused" : "Active")),
       el("p", { class: "card-sub" },

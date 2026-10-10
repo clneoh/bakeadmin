@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v405)
+# Jienluv2bake — change history (v54 → v406)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v406, THE THREE STEPS TURN GREEN, AND YOUR KITCHEN IS A COLLECTION POINT (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the 1,2,3 turn green after customer done with it"__ · __"I want all self collection thru collection point, not from the kitchen"__ · __"at self collection point, add a switch whether that collection is a kitchen. Allow only one collection point as kitchen for the time being. NO pin is needed if it is kitchen"__ · __"a point need a pin"__ · __"Make the trial an official one now"__
+
+**★ THE TRIAL IS OFFICIAL.** The shop page a customer opens **is** the new one — no address flag, nothing to opt into. ⚠️ **The flag is gone rather than left switched on**, because a flag that is permanently true is a branch nobody will ever test the other half of. **The self collect / courier lines are still not in it** — that is still the next piece.
+
+**★ THE 1, 2, 3 TURN GREEN AS THEY ARE DONE.** A day chosen, something in the basket, name and number filled in — each circle goes green the moment it is true, so __where am I__ is answered without reading anything.
+
+**⚠️ AND THAT WAS MY FAULT, SO IT IS WORTH SAYING.** The green state was **drawn** in the first version and **never wired** — nothing ever set it, so the circles stayed the same colour through the whole order. **A step marker that never moves is decoration**, which is exactly what it was meant to replace.
+
+**★ AND YOUR KITCHEN IS NOW A COLLECTION POINT.** The **New Self collection Point** card and the **Edit** card each carry a tick box — **"This is the kitchen"** — and **ticking it unticks whichever Point held it**, so only one ever can. ⚠️ **A Point marked that way needs NO pin**: you are not going to pin your own front door, and a customer collecting there is given your address. The Point's card shows **🏠 The kitchen** so you can see at a glance which one it is.
+
+**⚠️⚠️ AND ONE DELIBERATE RULE OF YOURS HAS BEEN OVERRULED — SO WHAT IT WAS PROTECTING IS KEPT.** The Points file said, in its own words: __"THE KITCHEN IS NOT A POINT… **a Point that quietly became the kitchen would inherit a fee she does not owe and a life she cannot end.**"__ ⚠️ **That was written for good reason and it is real**: a Point carries a fee (what you pay whoever receives), a smallest-basket rule, and a **Pause**. **So your kitchen is read as FREE, with NO minimum, and it can never be paused** — whatever is stored on the row. ⚠️ It is the one place that must always exist, because it is where the bread is.
+
+**★ AND A POINT DOES NEED A PIN — THE KITCHEN IS THE ONLY ONE THAT DOES NOT.** A Point without one is a name and nothing else, and a customer is being told where to **walk**. ⚠️ **The rule is kept at the doorway rather than at the Save button**, and that is deliberate: a new Point cannot have a pin when it is made — the map press is on its card afterwards — so requiring one to save would make a new Point unsaveable. A Point with no pin is simply **not offered to a customer** until you put it on the map.
+
+**⚠️ AND NOTHING OLD IS BROKEN.** A Point is only the kitchen if you tick it. **Until you do, a customer is still offered "My kitchen" exactly as before** — and every order taken before today, which carries no Point of its own, still means the kitchen.
+
+**No database step.** The suite is **3,186 tests, all green** (9 new). Every new rule was proved by putting the fault back: the green never wired, a second Point made the kitchen at once, a Point with no pin offered to a customer, and the kitchen inheriting a fee and a Pause.
 
 **10 Oct 2026 — engine v405, THE SHOP NOW ANSWERS THE CUSTOMER'S QUESTION (trial only — see the link below).**
 
