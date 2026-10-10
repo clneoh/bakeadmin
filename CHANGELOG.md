@@ -1,8 +1,23 @@
-# Jienluv2bake — change history (v54 → v426)
+# Jienluv2bake — change history (v54 → v427)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v427, THE WARNING BLINKS RED THREE TIMES (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"can you flash the red twice or trice"__
+
+**It blinks three times now**, half a second each — a second and a half in all.
+
+**⚠️ AND ASKING FOR MORE BLINKS EXPOSED A COUPLING WORTH KNOWING ABOUT.** ⭐ **How long the flashing runs lived in the stylesheet, and the moment the mark comes off lived in the screen's own timer — two numbers, in two files, describing one fact.** ⚠️⚠️ And they could only ever disagree in ONE direction, because **the timer is the thing that fires while the animation is switched off** — which is exactly what a reader who has asked for less movement gets. ⭐ **Three blinks is 1500ms and the timer said 1200** — so asking for three would have **cut the flash off in the middle of the second one**, and it would have looked like the app ignoring what you asked for.
+
+**So the screen now ASKS the stylesheet how long the flash is** rather than carrying a number of its own, and a test pins that it asks — the two numbers can no longer drift apart. ⚠️ And the arithmetic allows for the **last** blink finishing rather than being clipped.
+
+**Measured: the suite is 3,281 tests, all green (1 new). Three bites**, all fired by their own message, both files restored byte-identically. **Verified on your own shop page:** the animation reports **three iterations of half a second**, and the line is red when caught mid-blink.
+
+**No database step.** Pushing this one is the whole of it.
+
 
 **10 Oct 2026 — engine v426, THE WARNING FLASHES RED — AND TWO WORDS FROM YOU FOUND A NUMBER I HAD GOT WRONG (no database step — pushing this one is the whole of it).**
 

@@ -2310,6 +2310,30 @@ test("★★ a parked place greys its WORDING, not its background (v425)", () =>
     token("red"), "⚠️ and flashes --red's own value");
 });
 
+test("★★ the number of blinks and the timer come from ONE place (v427)", () => {
+  // Her words: __"can you flash the red twice or trice"__ — ⚠️ **and asking for MORE blinks is exactly
+  // what exposed the coupling.** How long the flashing runs lives in the stylesheet; the moment the
+  // mark comes OFF lives in `flashRow`'s timer. ⚠️⚠️ **If they disagree the flash is cut off
+  // mid-blink** — and it could only ever have been wrong in that direction, because the timer is the
+  // thing that fires while `animation: none` fires nothing at all.
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  const js = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+
+  assert.match(css, /--flash-blink:\s*\d+ms;/, "how long ONE red blink lasts");
+  assert.match(css, /--flash-blinks:\s*\d+;/, "and how many of them there are");
+  assert.match(css, /animation: point-flash-word var\(--flash-blink\) ease-out var\(--flash-blinks\)/,
+    "⚠️ the animation takes BOTH numbers from those tokens");
+
+  // ⚠️ AND THE TIMER ASKS RATHER THAN GUESSING. A hard-coded 1200 cut a three-blink flash off in the
+  // middle of its second — which is the fault this pins shut.
+  assert.match(js, /getPropertyValue\("--flash-blink"\)/, "⚠️ the timer reads the blink length");
+  assert.match(js, /getPropertyValue\("--flash-blinks"\)/, "⚠️ and the count");
+  assert.match(js, /return each \* many \+ 200;/,
+    "⚠️ the total is the blinks times their length, plus a margin so the LAST one finishes");
+  assert.ok(!/\}, 1200\);/.test(js),
+    "⚠️⚠️ the timer carries no number of its own — that number IS the drift");
+});
+
 test("★★ the flash is on the WORDS, not on the row (v424)", () => {
   // Her words, the second and sharper telling: __"i mean just flash the word Only available on Wed,
   // Friday"__. ⚠️ **HER "JUST" IS THE INSTRUCTION.** The row is already greyed and dashed to say *not

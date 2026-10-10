@@ -22,6 +22,16 @@
      ⚠️ AND IT CLEARS THE APP'S OWN BAR: **5.35:1** on the card, over the 4.5 every accent here is held
      to (v369) — a flash nobody can read is not a warning. */
   --red: #c0392b;
+  /* ★★ HOW THE RED WARNING FLASHES, IN ONE PLACE (v427). Her words: __"can you flash the red twice or
+     trice"__.
+     ⚠️⚠️ THESE TWO AND THE TIMER IN `flashRow` ARE ONE FACT, SPLIT ACROSS TWO FILES. The mark comes
+     off on a TIMER — not on the animation's end event, because `animation: none` (which is what a
+     reduced-motion reader gets) never fires one — so **a flash longer than the timer would be cut off
+     mid-blink.** ⭐ `flashRow` READS THESE TWO rather than carrying a number of its own, so the
+     flashing and the moment it stops cannot drift apart. ⚠️ Three blinks used to be impossible to ask
+     for: the timer said 1200 and a three-blink flash is 1500. */
+  --flash-blink: 500ms;   /* how long ONE red blink lasts */
+  --flash-blinks: 3;      /* how many of them there are */
   --brown-soft: #fbe7dc;
   --shadow: 0 2px 12px rgba(120, 66, 32, .08);
   --shadow-lg: 0 12px 30px rgba(120, 66, 32, .18);
@@ -1798,7 +1808,11 @@ button.prod-next.off::after { content: ""; }
   12%, 55% { color: #c0392b; }   /* --red */
 }
 .point-opt.off.flash .point-days,
-.point-opt.short.flash .point-sub { animation: point-flash-word 1.1s ease-out 1; }
+.point-opt.short.flash .point-sub {
+  /* ⚠️ BOTH NUMBERS COME FROM THE TOKENS ABOVE, so the count and the length of the whole flash are
+     read in one place — by this rule and by `flashRow`'s timer. */
+  animation: point-flash-word var(--flash-blink) ease-out var(--flash-blinks);
+}
 /* ⚠️ AND FOR A READER WHO HAS ASKED FOR LESS MOVEMENT, the same line is simply made to STAND OUT while
    the class is on — a blink is precisely what that setting is about, and the warning is on the row
    either way. ⚠️⚠️ AND NOTE WHAT THIS RULE DOES *NOT* RELY ON: the class now comes off on a TIMER

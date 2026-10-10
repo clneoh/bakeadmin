@@ -3485,6 +3485,28 @@ function renderPointList(wrap, total = 0) {
   // reached. The tap draws his eye to the line he already has, which is the whole of what he needs.
   // ⚠️ **BOTH PARKED REASONS FLASH**, because two rows that look alike must behave alike
   // ([[feedback-affordances]]) — only one of them moving the page would be the fault she calls a bug.
+  // ★★ HOW LONG THE FLASH LASTS IS ASKED OF THE STYLESHEET, NOT WRITTEN HERE (v427).
+  //
+  // Her words: __"can you flash the red twice or trice"__ — ⚠️ and asking for MORE blinks is exactly
+  // what exposed the coupling: how long the flashing runs lives in `--flash-blink` and
+  // `--flash-blinks` (store/app.css), while the moment the mark comes OFF lives in this timer.
+  // ⚠️⚠️ IF THEY DISAGREE THE FLASH IS CUT OFF MID-BLINK — and it could only ever have been wrong in
+  // that direction, because the timer is the thing that fires while `animation: none` fires nothing.
+  // ⭐ So the arithmetic is read from the page rather than repeated here, and a test pins that this
+  // function still asks. ⚠️ The 200 is a margin so the last blink finishes rather than being clipped.
+  const flashMs = () => {
+    try {
+      if (typeof getComputedStyle !== "function" || typeof document === "undefined") return 1200;
+      const cs = getComputedStyle(document.documentElement);
+      const each = parseFloat(cs.getPropertyValue("--flash-blink"));
+      const many = parseFloat(cs.getPropertyValue("--flash-blinks"));
+      if (!(each > 0) || !(many > 0)) return 1200;
+      return each * many + 200;
+    } catch {
+      return 1200;
+    }
+  };
+
   const flashRow = (b) => {
     if (!b || !b.classList) return;
     b.classList.remove("flash");
@@ -3504,7 +3526,7 @@ function renderPointList(wrap, total = 0) {
     b._flashTimer = setTimeout(() => {
       b.classList.remove("flash");
       b._flashTimer = undefined;
-    }, 1200);
+    }, flashMs());
   };
 
   const row = (id, name, sub, { short = false, off = false, address = "", days = "" } = {}) => {
