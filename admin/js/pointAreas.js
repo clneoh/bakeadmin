@@ -35,7 +35,7 @@
 // group, **including the unfiled group (`areaId: ""`)** — so one field on the Point covers both
 // and there is only ever one mechanism to keep right.
 
-import { activePoints, kitchenPoint, orderedInArea, pointPlace } from "./points.js";
+import { activePoints, kitchenPoint, orderedInArea } from "./points.js";
 
 const byId = (list, id) => (list || []).find((c) => c && c.id === id) || null;
 
@@ -223,13 +223,26 @@ export function groupPointsByArea(state, points) {
 // every order taken before today — must go on meaning the kitchen.
 export function pointChoices(state, kitchenLabel = "My kitchen") {
   const kitchen = kitchenPoint(state);
-  // ★★ A POINT NEEDS A PIN — EXCEPT THE KITCHEN (v406). Her words: __"a point need a pin"__, right
-  // after __"NO pin is needed if it is kitchen"__. ⚠️ **A Point without one is a name and nothing
-  // else**, and a name is not somewhere to walk to. ⚠️⚠️ **THE GATE IS HERE, not at creation:** a new
-  // Point cannot have a pin when it is made, so requiring one to SAVE would make a new Point
-  // unsaveable. What must be true is that **a customer is never offered one without a location.**
-  const usable = activePoints(state).filter((p) => p.isKitchen === true || !!pointPlace(p));
-  const ordered = groupPointsByArea(state, usable).flatMap((g) => g.points);
+  // ★★ THIS IS THE LIST **SHE** PICKS FROM ON HER OWN ORDER CARDS.
+  //
+  // ⚠️⚠️ IT CARRIED A PIN GATE UNTIL v420 AND THE GATE WAS IN ENTIRELY THE WRONG PLACE. Her report:
+  // __"the point i setup is not available for selection in +order, edit order and other"__ — and she
+  // was right. v406 put `p.isKitchen === true || !!pointPlace(p)` here believing this was the list a
+  // **customer** picks from. ⭐ **It is not: this function is called from ONE file — `views/orders.js`
+  // — and from nowhere else.** The shop builds its own list from the published Points
+  // (`shopPointOrder`) and has never called this one.
+  //
+  // ⚠️⚠️ SO THE GATE DID THE EXACT OPPOSITE OF WHAT IT WAS WRITTEN FOR. It hid her own Places from
+  // HER OWN screens, while the customer's page went on offering every one of them — and it broke her
+  // standing rule with it: **nothing may block or hide a sale she takes by hand.** She could not even
+  // record an order collecting at a Point she had just made. ⭐ Her own words at v419 were *"every
+  // point listed in store"*, and now both lists agree.
+  //
+  // ⚠️ AND THE PIN WAS NEVER THE RIGHT TEST ANYWAY. A pin is what a **VAN** is given. A customer
+  // walking to a place is told its **ADDRESS**, which is a different field — `pointAddressFor` reads
+  // that, and a Point can have one without a pin. The pin's real home is where it already is: the run
+  // screen says __"this Point is not pinned yet"__ and offers **Pin the Point** beside it.
+  const ordered = groupPointsByArea(state, activePoints(state)).flatMap((g) => g.points);
   const rows = kitchen ? ordered : [{ id: "", name: kitchenLabel }].concat(ordered);
   return rows.map((p) => ({ id: p.id || "", name: p.name }));
 }

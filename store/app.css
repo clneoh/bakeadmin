@@ -1706,6 +1706,14 @@ button.prod-next.off::after { content: ""; }
 .point-opt.short { background: var(--bg); border-style: dashed; }
 .point-opt.short .point-name { color: var(--muted); }
 .point-opt.short .point-sub { color: var(--brown-dark); }
+/* The SAME PARKED LOOK for a place that is not served on the bake day he has chosen (v420).
+   ⚠️ Deliberately identical to `.short` above, and written out rather than shared, so the
+   stylesheet names BOTH reasons a place can be listed-but-not-open. They are one look on purpose:
+   to a customer, "this place will not take your basket" and "this place is not open that day" are
+   the same fact — you cannot collect here — and two different looks would invent a difference. */
+.point-opt.off { background: var(--bg); border-style: dashed; }
+.point-opt.off .point-name { color: var(--muted); }
+.point-opt.off .point-sub { color: var(--brown-dark); }
 
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .point-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }

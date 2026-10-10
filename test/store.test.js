@@ -2160,6 +2160,95 @@ test("★★ a Place served on only some days SAYS SO — and every Place still 
   }
 });
 
+// ⚠️ THE BAKE DAY IS DRIVEN THROUGH `deliveryDays`, and the page always opens on the FIRST open day
+// from tomorrow — so one weekday means the page is ALWAYS showing that weekday, whatever today is.
+function withBakeDay(day, points) {
+  const realP = CONFIG.points, realDays = CONFIG.deliveryDays;
+  CONFIG.deliveryDays = [day];
+  CONFIG.points = points;
+  render();
+  return () => { CONFIG.points = realP; CONFIG.deliveryDays = realDays; render(); };
+}
+
+const POINT_ROWS = (list) => list.children.filter((b) => String(b.className).includes("point-opt"));
+const ROW_NAMED = (rows, nm) => rows.find((r) => r.children[0] && r.children[0].children[0]
+  && r.children[0].children[0].text === nm);
+
+test("★★ a Place not served on the chosen bake day is PARKED — and still listed (v420)", () => {
+  // Her words: __"selecting a bake day the point is not active will grey out that point"__. ⚠️⚠️ IT
+  // GREYS, IT DOES NOT DISAPPEAR — the same park-don't-hide rule her smallest basket already keeps,
+  // and the same look, because to a customer both say one thing: you cannot collect here.
+  const restore = withBakeDay(5, [ // 5 = Friday, so the day this page is showing is a Friday
+    { id: "pt_k", name: "Sg Ara", minOrderRM: 0, isKitchen: true },
+    { id: "pt_fri", name: "Friday place", minOrderRM: 0, days: [5] },
+    { id: "pt_mon", name: "Monday place", minOrderRM: 0, days: [1] },
+    { id: "pt_any", name: "Any day place", minOrderRM: 0 },
+  ]);
+  try {
+    const rows = POINT_ROWS(document.getElementById("point-list"));
+    assert.equal(rows.length, 4, "⚠️⚠️ EVERY place is still on the page — nothing was removed");
+    const off = (nm) => String(ROW_NAMED(rows, nm).className).includes("off");
+    assert.equal(off("Friday place"), false, "the place served on the day he picked is open");
+    assert.equal(off("Monday place"), true, "⚠️ and the one that is not is parked");
+    assert.equal(off("Any day place"), false,
+      "⚠️⚠️ A PLACE WITH NO DAYS AT ALL IS SERVED EVERY DAY — a missing key is NOT 'never', and "
+      + "getting that backwards would take every unrestricted Place off the page");
+    assert.equal(off("Sg Ara"), false, "nor is the marked kitchen ever parked");
+  } finally { restore(); }
+});
+
+test("★ the day flips which place is parked, and ONLY that (v420)", () => {
+  const restore = withBakeDay(1, [ // 1 = Monday this time
+    { id: "pt_fri", name: "Friday place", minOrderRM: 0, days: [5] },
+    { id: "pt_mon", name: "Monday place", minOrderRM: 0, days: [1] },
+  ]);
+  try {
+    const rows = POINT_ROWS(document.getElementById("point-list"));
+    const off = (nm) => String(ROW_NAMED(rows, nm).className).includes("off");
+    assert.equal(off("Monday place"), false, "on a Monday the Monday place is the open one");
+    assert.equal(off("Friday place"), true, "and the Friday place is the parked one");
+  } finally { restore(); }
+});
+
+test("★★ tapping a parked place says why and does NOT choose it (v420)", () => {
+  // ⚠️ NOTHING HERE IS A DEAD CONTROL: the row is still pressable, and the press explains rather
+  // than doing nothing — the rule the smallest basket already follows.
+  const restore = withBakeDay(5, [
+    { id: "pt_mon", name: "Monday place", minOrderRM: 0, days: [1] },
+  ]);
+  try {
+    const list = document.getElementById("point-list");
+    const wrap = document.getElementById("fulfillment");
+    const row = ROW_NAMED(POINT_ROWS(list), "Monday place");
+    row._listeners.click[0]();
+    assert.equal(wrap._pointId, "", "⚠️ the tap did not choose a place he cannot collect from");
+    const box = document.getElementById("confirm-msg");
+    assert.equal(box.hidden, false, "and it said something rather than nothing");
+    assert.equal(box.children[0].children[0].text, "Monday place", "the place is named");
+    assert.equal(box.children[1].children[0].text, "Only available on Mon",
+      "⚠️ and the reason is the SAME sentence the row already carries underneath — no new wording, "
+      + "and no way for the row and the tap to say different things");
+  } finally { restore(); }
+});
+
+test("★★ a place chosen for one day, on a day it is not served, falls back to the kitchen (v420)", () => {
+  // ⚠️ THE DAY CAN MOVE UNDERNEATH A CHOICE ALREADY MADE — he picks a place on the Friday the page
+  // opened on, then moves to a Wednesday. ⭐ It is the THIRD reason a place can stop being open —
+  // paused, basket too small, and now not served today — and all three fall back the same way,
+  // because the shop cannot post an order to a place the customer cannot go to.
+  const restore = withBakeDay(5, [
+    { id: "pt_mon", name: "Monday place", minOrderRM: 0, days: [1] },
+  ]);
+  try {
+    const wrap = document.getElementById("fulfillment");
+    wrap._pointId = "pt_mon";     // as if he had chosen it before the day moved
+    wrap._pointName = "Monday place";
+    render();
+    assert.equal(wrap._pointId, "",
+      "⚠️ the choice is dropped rather than kept — the kitchen is always there");
+  } finally { restore(); }
+});
+
 test("★★ the courier's address arrives with the courier, not as a box under it (v412)", () => {
   // Her words: __"courier delivery and address should be one piece"__ — the mirror of the places in
   // the collect card. ⚠️ And the two are ONE state: only one card may be open, so the field of the

@@ -508,29 +508,38 @@ test("★★ marking a kitchen is EXCLUSIVE — one call, and only one Point can
   assert.equal(kitchenPoint(st), null, "the mark could not be taken off");
 });
 
-test("★★⚠️ a Point needs a PIN to be offered — the KITCHEN does not", () => {
-  // ⚠️ Her words, in order: __"NO pin is needed if it is kitchen"__ and then __"a point need a pin"__ —
-  // so the rule is the ordinary Point. ⚠️ **A Point without one is a name and nothing else**, and a
-  // customer is being told where to WALK.
-  // ⚠️⚠️ AND THE GATE IS HERE AND NOT AT CREATION, because a new Point CANNOT have a pin when it is made
-  // — the map press lives on its card afterwards — so requiring one to save would make it unsaveable.
+test("★★⚠️ HER OWN PICKER OFFERS EVERY PLACE SHE HAS MADE — a pin is not asked for (v420)", () => {
+  // ⚠️⚠️ THIS TEST USED TO READ THE OPPOSITE WAY, and what it asserted was true of the wrong list.
+  // v406 put a PIN gate inside `pointChoices` believing it was the list a CUSTOMER picks from. ⭐ It
+  // is not — it is called from ONE file, `views/orders.js`, and from nowhere else, while the shop
+  // builds its own list from the published Points (`shopPointOrder`).
+  // **So the gate hid her own Places from HER OWN screens while the customer's page went on offering
+  // every one of them.** Her report: __"the point i setup is not available for selection in +order,
+  // edit order and other"__.
+  // ⚠️ And it broke her standing rule with it: nothing may block or hide a sale she takes by hand —
+  // she could not even record an order collecting at a Place she had just made.
   const st = state();
   addPoint(st, { ...FEE, name: "Unpinned" });
-  const pinned = addPoint(st, { ...FEE, name: "Pinned", place: SPOT });
+  addPoint(st, { ...FEE, name: "Pinned", place: SPOT });
   const offered = pointChoices(st).map((c) => c.name);
-  assert.ok(offered.includes("Pinned"), "a pinned Point was not offered");
-  assert.ok(!offered.includes("Unpinned"),
-    "⚠️⚠️ a Point with no pin was offered to a customer — a name is not somewhere to walk to");
-  assert.equal(pinned.name, "Pinned");
+  assert.ok(offered.includes("Pinned"), "a pinned Place is offered");
+  assert.ok(offered.includes("Unpinned"),
+    "⚠️⚠️ and so is one with no pin — a pin is what a VAN is given, and a customer walking to a Place "
+    + "is told its ADDRESS, which is a different field this Place can have without one");
 });
 
-test("⚠️ the kitchen is offered WITHOUT a pin, and it is the only one that may be", () => {
+test("⚠️ and the pin is still enforced where it actually belongs: a Place with no pin cannot be sent a van", () => {
+  // ⭐ THE RULE WAS NOT DROPPED, IT WAS PUT BACK WHERE IT LIVES. A Point with no pin is a name a van
+  // cannot be sent to — the delivery run says exactly that and offers to fix it, __"this Point is not
+  // pinned yet"__ / **Pin the Point** (see views/delivery_run.js).
+  // ⚠️ And `pointPlace` still refuses a HALF-typed one, so a Place can never be a point in the sea.
   const st = state();
-  const k = addPoint(st, { ...FEE, name: "My kitchen", feeRM: 0 });
-  markKitchen(st, k.id);
-  const offered = pointChoices(st).map((c) => c.name);
-  assert.ok(offered.includes("My kitchen"),
-    "⚠️ the kitchen was not offered — she is not going to pin her own front door");
+  const loose = addPoint(st, { ...FEE, name: "Unpinned" });
+  const pinned = addPoint(st, { ...FEE, name: "Pinned", place: SPOT });
+  assert.equal(pointPlace(loose), null, "no pin reads as no pin");
+  assert.ok(pointPlace(pinned), "and a real one reads back");
+  assert.equal(pointPlace({ place: { lat: 91, lng: 100 } }), null,
+    "⚠️ and one number with no other is NOT a place");
 });
 
 test("★★⚠️ a MARKED kitchen stops the invented \"My kitchen\" row — every collection is a Point", () => {

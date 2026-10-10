@@ -2557,6 +2557,18 @@ export function render() {
     // tapped, the menu rebuilt, the 30-second refresh, the availability arriving. One call site covers
     // them all, and the one that is missed is the one that leaves a circle green on a day that has gone.
     paintSteps();
+    // ★★ AND THE COLLECT-FROM LIST IS READ ON THE DAY JUST SETTLED (v420). Her words: __"selecting a
+    // bake day the point is not active will grey out that point"__.
+    //
+    // ⚠️⚠️ IT GOES HERE, AT THE END, AND NOT BESIDE THE OTHER `refreshPointList` CALLS. `selected` is
+    // not final until `buildCalendar` has run — it can be cleared when the day the customer had is
+    // sold out or has closed — so a list drawn earlier would be judged against YESTERDAY'S day and
+    // grey the wrong places. ⭐ **`renderBar` is called rather than `refreshPointList` because the
+    // basket total the list is also judged against lives there**, and calling the list directly with
+    // no total would quietly read every place with a smallest basket as too small.
+    const fulfil = document.getElementById("fulfillment");
+    if (fulfil) fulfil._day = selected;
+    renderBar();
   };
 
   rerender();
@@ -3379,6 +3391,27 @@ function pointDaysLine(p) {
   return names.length ? sub(t("closedWeekday"), listJoin(names)) : "";
 }
 
+// The weekday of a "YYYY-MM-DD" key, or null when the page has not settled on a day yet.
+function weekdayOf(iso) {
+  const s = String(iso || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d.getDay();
+}
+
+// ★★ IS THIS PLACE SERVED ON THAT DAY? (v420). Her words: __"selecting a bake day the point is not
+// active will grey out that point"__.
+//
+// ⚠️⚠️ A MISSING `days` MEANS EVERY DAY, NOT NO DAY — the admin only publishes the key when she has
+// actually restricted the place, so a Place she has never touched, an older published payload and a
+// page that has not settled on a day yet ALL answer "yes". Getting this the wrong way round would
+// take every unrestricted Place off the page, which is the opposite of what she asked for.
+function servedOn(p, dayNum) {
+  const days = Array.isArray(p && p.days) ? p.days.map(Number) : [];
+  if (!days.length || dayNum === null) return true;
+  return days.includes(dayNum);
+}
+
 function renderPointList(wrap, total = 0) {
   const list = document.getElementById("point-list");
   if (!list || !wrap) return;
@@ -3436,12 +3469,17 @@ function renderPointList(wrap, total = 0) {
   // The rule is HERS, typed on her own Point, so the shop honours it rather than merely stating
   // it: this is not the app's own rule being turned into a gate, which is the thing her standing
   // instruction forbids.
-  const row = (id, name, sub, { short = false, address = "", days = "" } = {}) => {
+  const row = (id, name, sub, { short = false, off = false, why = "", address = "", days = "" } = {}) => {
+    // ⚠️ `short` AND `off` MEAN THE SAME THING TO A TAP — this place is on the page, and it is not
+    // open to you right now — so both wear the same PARKED look and both explain themselves rather
+    // than doing nothing. ⚠️ They are two classes with one set of rules rather than one class doing
+    // two jobs, so the stylesheet can say which is which.
+    const closed = short || off;
     const b = el("button", {
-      class: `point-opt${short ? " short" : ""}`, type: "button", "data-point-id": id,
+      class: `point-opt${closed ? (off ? " off" : " short") : ""}`, type: "button", "data-point-id": id,
       onclick: () => {
-        if (short) { showConfirm([el("p", { class: "confirm-title" }, name),
-          el("p", { class: "confirm-body" }, sub)], "warn"); return; }
+        if (closed) { showConfirm([el("p", { class: "confirm-title" }, name),
+          el("p", { class: "confirm-body" }, why || sub)], "warn"); return; }
         pickCollect();
         choose(id, name);
       },
@@ -3462,10 +3500,14 @@ function renderPointList(wrap, total = 0) {
     return b;
   };
 
+  // ★★ THE BAKE DAY THIS LIST IS BEING READ ON (v420). ⚠️⚠️ NOTHING IS TAKEN OFF THE PAGE — the
+  // place is still listed, still named, still in its own area; it simply cannot be PICKED on a day
+  // it is not served, and it says why in the same sentence it already carries underneath.
+  const dayNum = weekdayOf(wrap && wrap._day);
   const basket = Number(total) || 0;
   const judged = points.map((p) => {
     const need = pointShortfall(p, basket);
-    return { p, short: need > 0, need };
+    return { p, short: need > 0, need, off: !servedOn(p, dayNum) };
   });
 
   // ⚠️ THE INVENTED KITCHEN ROW IS OMITTED WHEN SHE HAS MARKED ONE (v407) — the marked Point is
@@ -3528,7 +3570,7 @@ function renderPointList(wrap, total = 0) {
 
   const out = [];
   if (!kit) out.push(row("", t("ourKitchen"), t("kitchenSub")));
-  judged.forEach(({ p, short, need }, i) => {
+  judged.forEach(({ p, short, need, off }, i) => {
     // ⚠️ Ancestors first: the rows are in tree order, so an outer heading is pushed before the
     // inner one it contains.
     for (const a of headAt.get(i) || []) {
@@ -3546,10 +3588,14 @@ function renderPointList(wrap, total = 0) {
     // ⚠️ A SHORT BASKET still speaks for itself: a Point the basket has not reached says WHY on its
     // own line, because that is the one thing she can act on and her description cannot know it.
     const own = String(p.description || "").trim();
+    const daysLine = pointDaysLine(p);
     out.push(row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
         : (own || (p.isKitchen === true ? t("kitchenSub") : t("pointSub"))),
-      { short, address: String(p.address || ""), days: pointDaysLine(p) }));
+      // ⚠️ `why` IS THE SENTENCE THE TAP WILL READ OUT, and for an unserved place it is the SAME
+      // line the row already carries underneath — so the page can never say one thing on the row and
+      // another on the tap.
+      { short, off, why: off ? daysLine : "", address: String(p.address || ""), days: daysLine }));
   });
   list.replaceChildren(...out);
 
@@ -3559,9 +3605,12 @@ function renderPointList(wrap, total = 0) {
   // always there. Re-applied on every repaint, so the picker and the order cannot disagree.
   const want = String(wrap._pointId || "");
   // ⚠️ AND A CHOICE THAT IS NO LONGER OPEN FALLS AWAY — including one whose SMALLEST BASKET the
-  // basket has dropped below. A customer who chose Farlim at RM40 and then removed an item is not
-  // left holding a Point he can no longer use, and the Point itself says why on its own line.
-  const open = judged.find((j) => j.p.id === want && !j.short);
+  // basket has dropped below, ⚠️ AND ONE HE IS NO LONGER ABLE TO PICK BECAUSE HE MOVED THE BAKE DAY
+  // (v420). A customer who chose Farlim and then switched to a Wednesday when Farlim is a Friday
+  // place is not left holding somewhere he cannot collect — the same rule, on the third reason a
+  // place can stop being open. ⭐ And it is the reason the day is re-read on every repaint rather
+  // than only when the list is tapped: **the day can change underneath a choice already made.**
+  const open = judged.find((j) => j.p.id === want && !j.short && !j.off);
   // ★★ AND NOTHING IS CHOSEN UNTIL HE TAPS ONE (v415). Her words: __"the self collect have to have
   // message follow, click to choose point, without click it should not highlight"__.
   //

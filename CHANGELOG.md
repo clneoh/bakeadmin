@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v419)
+# Jienluv2bake — change history (v54 → v420)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v420, YOUR OWN PLACES COME BACK TO YOUR ORDER CARDS, AND A PLACE NOT SERVED TODAY IS GREYED (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the point i setup is not available for selection in +order, edit order and other"__ — and __"selecting a bake day the point is not active will grey out that point"__
+
+**⚠️⚠️ FIRST, THE FAULT, AND YOU WERE RIGHT — YOUR OWN PLACES WERE BEING HIDDEN FROM YOUR OWN SCREENS.**
+
+The **Collect from** picker on the **+ New order** card, the **Edit** card and the order screens only ever offered your kitchen — never the Places you had made. ⚠️ It has been that way since v406, and the reason is worth writing down: a rule was put in the one place that builds that picker, on the belief that it was the list a **CUSTOMER** chooses from. ⭐ **It is not.** That list is built in one file, `views/orders.js`, and the shop builds its own from the published Places — so the rule was in the wrong place and did the exact opposite of what it was written for: it hid your Places from you, while the customer's page went on offering every one of them.
+
+⚠️ **And it put a gate where you have told me never to put one**: nothing may block or hide a sale you take by hand — you could not even key in an order collecting at a Place you had just opened.
+
+**What it was testing for was wrong too.** The rule asked a Place for its **pin**, and refused it without one. ⚠️ **A pin is for both ends** — the van that has to be given coordinates, and the customer being shown where the place is — **but a Place has to work without one.** You put it plainly: __"a pin can be for both, and i will put in one later, without pin it should still function"__. ⭐ And it does: a Place is offered, chooseable and orderable with no pin at all. The pin is needed only at the moment a **van** is actually booked, which is the courier's own requirement — and that is where it is enforced, on the **Delivery run**, which says __"this Point is not pinned yet"__ and offers **Pin the Point** beside it. Nothing was dropped — it went back to its own home.
+
+**★ Verified on your own account, at 375px:** the **Collect from** box on a New order now reads **My kitchen · Bukit Mertajam · Farlim, Air Itam · Georgetown · Chai Leng Park, Prai** — all four of your Places, not one of which is pinned.
+
+**★ SECOND, THE GREY-OUT YOU ASKED FOR.** Once a customer has his bake day chosen, every Place that is not served that day is **drawn dashed and greyed**, and tapping it says why rather than doing nothing: **Chai Leng Park, Prai — Only available on Mon.** ⚠️ **Nothing is taken off the page** — the Place is still listed, still named, still under its own area. Greying is not hiding, and it is not a gate.
+
+**⚠️ A choice already made falls back to your kitchen.** If he picks a Place and then moves to a day that Place is not served on, the choice is released rather than kept. ⭐ That is the **third** reason a Place can stop being open — paused, basket too small, and now not served that day — and all three behave the same way.
+
+**★ Nothing else moved.** A Place with no days ticked is served every day, so it is never greyed. And it costs no new wording in any language: the reason a tapped Place gives is **the very same sentence the row already carries underneath it**.
+
+**Measured: the suite is 3,271 tests, all green. Six bites, all fired by their own message**, every file restored byte-identically — ⚠️ one for the pin gate coming back, and one for the likeliest way to get the grey-out wrong: reading a missing day list as **"never served"** instead of **"every day"**, which would have taken every untroubled Place off your shop page in one go.
+
+**No database step.** Pushing this one is the whole of it.
 
 **10 Oct 2026 — engine v419, DELIVERY ROUTES, AND THE DAYS A PLACE IS SERVED (no database step — pushing this one is the whole of it).**
 

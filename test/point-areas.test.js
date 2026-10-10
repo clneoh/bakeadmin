@@ -381,12 +381,13 @@ test("★★ a Place she dragged is in HER order in the Collect-from picker too"
   // `activePoints` — **which the Collect-from picker on every order card reads** — still sorted by
   // when each Point was opened. **So the handle moved the list and left every drop-down as it was.**
   const st = state({ pointAreas: AREAS });
-  // ⚠️ A PIN EACH, because a Point with no pin is never OFFERED to a customer (v406's rule) and
-  // `pointChoices` would filter every one of these out — leaving nothing to assert an order on.
-  const pin = { lat: 5.41405, lng: 100.31408, label: "Farlim" };
-  const a = pointInto(st, "", "First opened", { createdAt: "2026-10-01T00:00:00.000Z", place: pin });
-  const b = pointInto(st, "", "Second opened", { createdAt: "2026-10-02T00:00:00.000Z", place: pin });
-  const c = pointInto(st, "", "Third opened", { createdAt: "2026-10-03T00:00:00.000Z", place: pin });
+  // ⚠️ NO PINS HERE, AND THAT IS THE POINT OF THE FIXTURE (v420). These used to carry one each only
+  // because `pointChoices` filtered out every unpinned Point — **the gate that hid her own Places
+  // from HER OWN screens.** A fixture that has to work around the thing under test is not a fixture;
+  // these are the plain Places she actually makes, and the picker has to take them.
+  const a = pointInto(st, "", "First opened", { createdAt: "2026-10-01T00:00:00.000Z" });
+  const b = pointInto(st, "", "Second opened", { createdAt: "2026-10-02T00:00:00.000Z" });
+  const c = pointInto(st, "", "Third opened", { createdAt: "2026-10-03T00:00:00.000Z" });
 
   // Their arrival order is the order they were opened in.
   assert.deepEqual(activePoints(st).map((p) => p.name),
@@ -405,9 +406,9 @@ test("★★ a Place she dragged is in HER order in the Collect-from picker too"
   // with one at the top of Prai, and **neither of them is "first".** ⭐ Her preference is the order the
   // Points SCREEN draws, which is the grouped one, so the picker reads the same function it does.
   const st2 = state({ pointAreas: AREAS });
-  const loose = pointInto(st2, "", "Not filed", { createdAt: "2026-10-01T00:00:00.000Z", place: pin });
-  const prai = pointInto(st2, "pa_prai", "Prai shop", { createdAt: "2026-10-02T00:00:00.000Z", place: pin });
-  const sgara = pointInto(st2, "pa_sgara", "Sg Ara shop", { createdAt: "2026-10-03T00:00:00.000Z", place: pin });
+  const loose = pointInto(st2, "", "Not filed", { createdAt: "2026-10-01T00:00:00.000Z" });
+  const prai = pointInto(st2, "pa_prai", "Prai shop", { createdAt: "2026-10-02T00:00:00.000Z" });
+  const sgara = pointInto(st2, "pa_sgara", "Sg Ara shop", { createdAt: "2026-10-03T00:00:00.000Z" });
   assert.deepEqual(pointChoices(st2).map((c2) => c2.name).slice(1),
     ["Not filed", "Sg Ara shop", "Prai shop"],
     "⚠️ her areas in her order, each with its Points — the unfiled first, as the screen draws them");
