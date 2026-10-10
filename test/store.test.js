@@ -1785,6 +1785,15 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     render();
     assert.deepEqual(rows(), ["Farlim, Air Itam"],
       "marking a kitchen lists it once, under her own name, and drops the invented row");
+    // ★★ AND IT WEARS THE KITCHEN'S OWN LINE (v408). ⚠️ v407 dropped the invented row without
+    // giving the real one its words, so her own kitchen read "Self collection Point — we message
+    // the exact spot…" — true, and useless: a customer collecting AT THE BAKERY was told exactly
+    // what he would be told about a friend's shop. ⭐ Found by LOOKING at her live shop.
+    const kitchenSub = registry["point-list"].children[0].children[1].children[0].text;
+    assert.match(kitchenSub, /where we bake/i,
+      `the kitchen says it is the kitchen — it read: ${JSON.stringify(kitchenSub)}`);
+    assert.ok(!/Self collection Point/i.test(kitchenSub),
+      "and not the line every other place wears");
 
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true },
       { id: "pt_2", name: "Chai Leng Park, Prai", minOrderRM: 0 }];

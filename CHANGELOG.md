@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v408)
+# Jienluv2bake — change history (v54 → v409)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v409, YOUR KITCHEN NOW SAYS IT IS YOUR KITCHEN (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"yes, fix the kitchen line"__
+
+**★ YOUR KITCHEN WEARS THE KITCHEN'S OWN LINE AGAIN.** ⚠️ **v407 dropped the invented "Our kitchen" row — correctly — and never gave the real one its words**, so your kitchen went on reading __"Self collection Point — we message the exact spot and time once your order is confirmed"__: **true, and useless.** It told a customer collecting **at the bakery** exactly what it would tell him about a friend's shop. It now says __"Sungai Ara, Bayan Lepas — where we bake"__, which is what the row it replaced used to say.
+
+⚠️ **And it was found by LOOKING at your live shop, not by a test.** The two lines were **identical in every fixture I had** — because a test fixture is not a bakery. Your shop is where **Sg Ara is marked as the kitchen**, so it was there to be seen. ⭐ That is twice in two days that opening the real page found something the suite could not.
+
+**No database step.** The suite is **3,194 tests, all green**. One bite, fired: put a Point's line back on the kitchen and the test fails by its own message — __"the kitchen says it is the kitchen — it read: 'Self collection Point — we message the exact spot…'"__.
+
+⚠️ **AND ONE THING WORTH KNOWING, BECAUSE IT NEARLY MISSED YOU.** This fix was finished **before** you pushed v408 — and the push went out from the edit that was already saved, **leaving this one sitting uncommitted behind it.** Nothing was lost: it is this release, and it is the reason this is a version of its own rather than part of v408. ⭐ **If a fix ever seems to have gone missing, that is the first thing to check** — a push between two of my messages can leave the newest change unwritten to GitHub while the message above it goes up.
 
 **10 Oct 2026 — engine v408, THE NOTE FIELD NAMES BOTH WAYS, AND A CODE IS SAID AGAIN AT THE BUTTON (no database step — pushing this one is the whole of it).**
 

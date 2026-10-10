@@ -3315,10 +3315,20 @@ function renderPointList(wrap, total = 0) {
   // ⚠️ THE INVENTED KITCHEN ROW IS OMITTED WHEN SHE HAS MARKED ONE (v407) — the marked Point is
   // already in `judged`, under the name she gave it, so adding this one would offer the same
   // place twice. One row per place, always.
+  //
+  // ⚠️⚠️ AND THE MARKED KITCHEN WEARS THE KITCHEN'S OWN LINE, NOT A POINT'S (v408). v407 dropped
+  // the invented row without giving the real one its words, so her own kitchen went on reading
+  // __"Self collection Point — we message the exact spot…"__ — **true, and useless**: it told a
+  // customer collecting AT THE BAKERY exactly what it would tell him about a friend's shop.
+  // ⭐ Found by LOOKING at her live shop, where the kitchen is a Point called Sg Ara.
+  // ⚠️ The KITCHEN'S line and the POINT's line are different facts and this is the one place the
+  // two are chosen between; a Point's smallest basket is the only other thing that ever replaces
+  // a sub, and the kitchen has none (see kitchenExempt), so the two can never both apply.
   list.replaceChildren(
     ...(kit ? [] : [row("", t("ourKitchen"), t("kitchenSub"))]),
     ...judged.map(({ p, short, need }) => row(p.id, p.name,
-      short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2)) : t("pointSub"), { short })));
+      short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
+        : (p.isKitchen === true ? t("kitchenSub") : t("pointSub")), { short })));
 
   // ⚠️ A POINT SHE PAUSED OR DELETED MUST NOT STAY CHOSEN. A customer may have picked it
   // before she took it off, and the shop cannot then post an order to a place she is no
