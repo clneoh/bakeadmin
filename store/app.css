@@ -1713,6 +1713,16 @@ button.prod-next.off::after { content: ""; }
   color: var(--brown-dark);
 }
 .point-area + .point-opt { margin-top: 6px; }
+/* ★★ THE INSTRUCTION OVER THE PLACES (v415). It stands exactly where the highlight used to sit the
+   moment the card opened, so the card still SAYS something — it simply stops claiming a choice
+   nobody made. Quiet and small, the same voice as a Point's own description, because it is help
+   rather than a warning. */
+.point-pick {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: var(--brown-dark);
+}
+.point-pick[hidden] { display: none; }
 /* ⚠️ THE ADDRESS IS SHOWN ONLY ON THE POINTS SHE TICKED, and it keeps the description's size and
    colour rather than being set apart — it is one more fact about the place, not a warning. */
 .point-addr { margin-top: 1px; }

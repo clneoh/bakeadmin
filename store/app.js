@@ -67,6 +67,11 @@ let repaintForLang = null;
 // looking at the top of the page would otherwise never see the offer. Null until
 // render() has run.
 let repaintPromo = null;
+// ★★ AND THE STEP CIRCLES, the same seam and for the same reason (v415). `paintSteps` lives inside
+// render(), where everything that changes a step funnels — the day tapped, the menu rebuilt, the 30s
+// refresh — and **a fulfilment choice is the one thing that changes a step from OUTSIDE it.** The
+// picker is wired at module scope, so it cannot reach the function; this is the handle it uses.
+let paintStepsForFulfillment = null;
 
 /* ── Counting a label being opened (v288) ──────────────────────────────────────
    A label's QR — and the link she copies into WhatsApp — land here carrying `?promo=CODE`.
@@ -2487,10 +2492,19 @@ export function render() {
   function paintSteps() {
     const nameEl = document.getElementById("name-input");
     const waEl = document.getElementById("whatsapp-input");
+    // ★★ AND THE THIRD STEP IS NOT DONE UNTIL HE HAS SAID HOW HE IS GETTING IT (v415). Her words:
+    // __"only by clicking either self collect or delivery, the number 3 change color"__.
+    // ⚠️⚠️ IT CANNOT BE READ OFF THE METHOD ITSELF — that is set to Self collect the moment the page
+    // loads, so a rule that asked "is a method chosen" would be true before a customer had touched
+    // anything. ⭐ **What it asks is whether HE chose**, which is the same distinction the places
+    // above now keep: **the page does not credit him with a choice he did not make.**
+    const fulfilled = document.getElementById("fulfillment");
     const done = [
       !!selected,
       cart.size > 0,
-      !!(nameEl && String(nameEl.value || "").trim()) && !!(waEl && String(waEl.value || "").trim()),
+      !!(fulfilled && fulfilled._picked === true)
+        && !!(nameEl && String(nameEl.value || "").trim())
+        && !!(waEl && String(waEl.value || "").trim()),
     ];
     for (let i = 0; i < done.length; i++) {
       const head = document.getElementById(`step${i + 1}`);
@@ -2505,6 +2519,8 @@ export function render() {
     const field = document.getElementById(id);
     if (field && field.addEventListener) field.addEventListener("input", paintSteps);
   }
+  // ⭐ The handle the fulfilment picker uses — see `paintStepsForFulfillment` beside `repaintPromo`.
+  paintStepsForFulfillment = paintSteps;
 
   const rerender = () => {
     dates = resolveDates(upcomingDates(CONFIG), dayRows, dateKey(new Date()))
@@ -2828,7 +2844,7 @@ export function render() {
       // the fold wherever the last customer left it. ⭐ **A second way to set one thing is a second
       // thing to keep right**, so it calls the one the picker already owns.
       const fulEl = document.getElementById("fulfillment");
-      if (fulEl && typeof fulEl._applyFulfillment === "function") fulEl._applyFulfillment("collect");
+      if (fulEl && typeof fulEl._resetFulfillment === "function") fulEl._resetFulfillment();
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
@@ -3324,8 +3340,23 @@ function renderPointList(wrap, total = 0) {
     wrap._pointId = id;
     wrap._pointName = name;
     for (const b of list.children) {
-      if (b && b.classList) b.classList.toggle("active", (b.dataset.pointId || "") === id);
+      // ⚠️⚠️ ONLY THE PLACES. ⭐ **The area HEADINGS are children of this list too, and they carry no
+      // `data-point-id`** — so `(b.dataset.pointId || "") === ""` matched THEM every time nothing was
+      // chosen, and the headings were handed the "active" class on a card with no place picked. ⚠️
+      // It drew nothing wrong (`.point-area` has no active style), which is exactly why it lived
+      // from v410 unnoticed — **a wrong class with no styling is a wrong class nobody sees.** A row
+      // is a row because it HAS an id.
+      if (!b || !b.classList || !b.dataset || b.dataset.pointId === undefined) continue;
+      b.classList.toggle("active", b.dataset.pointId === id);
     }
+    // ★★ AND THE INSTRUCTION GOES THE MOMENT HE PICKS ONE — HERE, not only in the repaint (v415).
+    // ⚠️⚠️ THIS IS THE ONLY PLACE THAT KNOWS A PLACE WAS JUST CHOSEN, and `refreshPointList` does NOT
+    // run when the method is already correct — **which is exactly the tap this line is for**: a page
+    // that opened on Self collect, where tapping a place changes nothing about the method and so
+    // repaints nothing. Without this the line stayed under his thumb telling him to do what he had
+    // just done. ⭐ Found by asserting it, which is the only way this one was ever going to show.
+    const note = document.getElementById("point-pick");
+    if (note) note.hidden = !!id;
   };
   // ★★ TAPPING A PLACE **IS** CHOOSING TO COLLECT (v410), which is what her "one piece" means:
   // there is no longer a world where the customer has picked self collect but no place, or has a
@@ -3461,19 +3492,25 @@ function renderPointList(wrap, total = 0) {
   // longer offering — so a choice that is no longer open falls back to the kitchen, which is
   // always there. Re-applied on every repaint, so the picker and the order cannot disagree.
   const want = String(wrap._pointId || "");
-  // ⚠️ AND A CHOICE THAT IS NO LONGER OPEN FALLS BACK — now including one whose SMALLEST BASKET
-  // the basket has dropped below. A customer who chose Farlim at RM40 and then removed an item is
-  // not left holding a Point they can no longer use: the picker goes back to the kitchen and the
-  // Point says why. Re-applied on every repaint, so the picker and the order cannot disagree.
+  // ⚠️ AND A CHOICE THAT IS NO LONGER OPEN FALLS AWAY — including one whose SMALLEST BASKET the
+  // basket has dropped below. A customer who chose Farlim at RM40 and then removed an item is not
+  // left holding a Point he can no longer use, and the Point itself says why on its own line.
   const open = judged.find((j) => j.p.id === want && !j.short);
-  // ⚠️⚠️ AND "THE KITCHEN" IS NOW WHICHEVER PLACE THAT IS (v407): the Point she marked, or — when
-  // she has marked none — the invented row carrying the EMPTY id, which is how every order placed
-  // before v406 says it too. ⭐ Without this, marking a kitchen left the picker with **nothing
-  // chosen at all**: the invented row it always fell back to is gone, so a customer would see a
-  // list of places with none of them on, and the order would go to whichever one happened to be
-  // stored. The fallback must always name a place that is actually on the page.
-  const home = kit ? { id: kit.id, name: kit.name } : { id: "", name: t("ourKitchen") };
-  choose(open ? want : home.id, open ? open.p.name : home.name);
+  // ★★ AND NOTHING IS CHOSEN UNTIL HE TAPS ONE (v415). Her words: __"the self collect have to have
+  // message follow, click to choose point, without click it should not highlight"__.
+  //
+  // ⚠️⚠️ IT USED TO ARRIVE WITH A PLACE ALREADY LIT — the kitchen, or the Point she marked as one —
+  // and that is what her v413 picture was about: **a place wearing the panel reads as a place the
+  // customer has PICKED**, and he has picked nothing. ⭐ So the picker opens on a plain list with an
+  // instruction over it, **and the highlight only ever means a real tap.**
+  //
+  // ⚠️ AN ORDER PLACED WITHOUT CHOOSING IS UNCHANGED AND STILL WORKS: `_pointId` stays the EMPTY id,
+  // which is exactly how every order has said "collect from the bakery" since long before there were
+  // Points — and the card already tells him the place is messaged to him. ⭐ Nothing is refused and
+  // nothing is blocked: **this is a page that stops pretending, not a page that asks a new
+  // question** (her standing rule — never a gate).
+  // ⚠️ A CHOICE THAT IS STILL OPEN IS RE-APPLIED, so a repaint cannot lose the one he did make.
+  choose(open ? want : "", open ? open.p.name : "");
 }
 
 function refreshPointList(total = 0) {
@@ -3496,6 +3533,13 @@ function refreshPointList(total = 0) {
   const open = wrap ? wrap._open : null;
   const chosen = wrap ? wrap._value : "collect";
   if (list) list.hidden = open !== "collect" || chosen !== "collect" || !publishedPoints().length;
+  // ★★ AND THE INSTRUCTION STANDS EXACTLY WHERE THE HIGHLIGHT USED TO (v415) — over the places,
+  // while the card is open and NOTHING is picked. ⚠️ It goes the moment he taps one, which is the
+  // rule the address list already keeps: **a page must not go on telling him to do something he has
+  // just done.** ⚠️ It is authored in the markup with its own `data-i18n`, so its three languages
+  // come from the dictionary and nothing here writes a word of it.
+  const pickNote = document.getElementById("point-pick");
+  if (pickNote) pickNote.hidden = !list || list.hidden || !!wrap._pointId;
   const addr = document.getElementById("address-field");
   if (addr) addr.hidden = open !== "courier" || chosen !== "courier";
   paintCarets();
@@ -3548,9 +3592,19 @@ function wireFulfillment() {
   // And what the AFTER-ORDER RESET calls, so putting the shop back to self collect goes through the
   // same seam as every other change — see the order handler.
   wrap._applyFulfillment = apply;
+  // ⚠️ AND THE AFTER-ORDER RESET CLEARS THE PICK TOO, which is a different thing from setting the
+  // method back: `_picked` is set in the TAP handler, and the reset does not go through a tap — so
+  // without this a second order from the same phone would open with step 3 already green, crediting
+  // the next customer with the last one's choice.
+  wrap._resetFulfillment = () => { wrap._picked = false; apply("collect"); };
   for (const b of buttons) {
     b.addEventListener("click", () => {
       const want = b.dataset.fulfillment;
+      // ★★ AND THIS IS THE TAP THAT SETTLES IT (v415) — both for the places above and for the third
+      // step circle. ⚠️ `_value` already says "collect" before anyone has touched the page, so **the
+      // only honest record of a customer's choice is a press**, and this is where one happens.
+      wrap._picked = true;
+      if (paintStepsForFulfillment) paintStepsForFulfillment();
       // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way
       // already chosen therefore opens and shuts what it holds rather than doing nothing — **the
       // second tap is how a customer puts it away again**, which is the state she asked to arrive in.

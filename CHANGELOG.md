@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v414)
+# Jienluv2bake — change history (v54 → v415)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v415, NOTHING IS CHOSEN UNTIL THE CUSTOMER CHOOSES (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the self collect have to have message follow, click to choose point, without click it should not highlight"__ · __"only by clicking either self collect or delivery, the number 3 change color"__
+
+**★★ BOTH OF YOUR POINTS ARE THE SAME RULE, AND IT IS A GOOD ONE: THE PAGE DOES NOT CREDIT HIM WITH A CHOICE HE DID NOT MAKE.**
+
+**★ NO PLACE IS HIGHLIGHTED UNTIL HE TAPS ONE.** ⚠️ The card used to open with a place **already lit** — the kitchen, or the Point you marked as one — and that is exactly what your v413 picture was showing me: **a place wearing the panel reads as a place the customer PICKED, and he has picked nothing.** It opens plain now, and the highlight only ever means a real tap.
+
+**★ AND A LINE STANDS WHERE THE HIGHLIGHT USED TO:** __"Tap the place you will collect from."__ ⚠️ Without it the card would open on a list of names with nothing saying any of them is a thing to press. **It goes the moment he taps one** — a page must not go on telling him to do something he has just done.
+
+**★ AND THE 1 · 2 · 3 CIRCLE TURNS GREEN ONLY WHEN HE SAYS HOW HE IS GETTING IT.** ⚠️⚠️ **This one could not simply ask "is a way chosen"**, because the page sets that to Self collect the moment it loads — so the rule would have been true before a customer had touched anything. **It asks whether HE chose**, which is the only honest thing to ask. A name and a number on their own are no longer enough.
+
+⚠️ **AND AN ORDER PLACED WITHOUT CHOOSING STILL WORKS, EXACTLY AS IT ALWAYS HAS.** The empty place means "collect from the bakery", which is how every order has said it since long before there were Points, and the card already tells him the exact place is messaged to him. ⭐ **This is a page that stops pretending, not a page that asks a new question** — nothing is refused and nothing is blocked.
+
+**⚠️⚠️ AND TWO OLD FAULTS CAME OUT OF BUILDING IT.**
+
+1. ⚠️ **Tapping a place while already collecting left the instruction under his thumb** — the obvious place to clear it is the repaint, and **the repaint does not run when the way is already correct**, which is exactly that tap. Found by asserting it, which was the only way it was ever going to show.
+2. ⚠️ **The area HEADINGS were being handed the highlight.** They sit in the same list as the places and carry no id, so "nothing is chosen" matched **them** too — **and it drew nothing wrong, because nothing styles a heading as active.** It had been there since v410 and only appeared when the browser was read directly. ⭐ **A wrong class with no styling is a wrong class nobody sees.**
+
+**★ AND THE THREE CIRCLES ARE TESTED NOW, WHICH THEY NEVER WERE.** ⚠️ They turn green through `classList`, and the shop's own test stub had an inert `classList` — so **a rule the customer watches change was being held up by the changelog alone.** The stub is real now, and nothing else moved: all 75 of the shop's existing tests passed with it.
+
+**No database step.** The suite is **3,240 tests, all green** (2 new, and the two faults each proved by putting them back).
 
 **10 Oct 2026 — engine v414, "USE MY LOCATION" IS GONE, AND THE NOTE BOX SHOWS A TIME (no database step — pushing this one is the whole of it).**
 

@@ -13,17 +13,27 @@ import { readFileSync } from "node:fs";
 // handed over as a null. The assertion at the foot of the order test below is what holds
 // it; a forgiving shim here could not see it at all.
 function createEl(tag) {
-  return {
+  // ⚠️⚠️ `classList` IS REAL NOW (v415). It was inert for a long time and that had a cost: the
+  // STEP CIRCLES turn green by `classList.toggle("done", …)` and nothing else, so **the shop's own
+  // three steps had never been tested at all** — and a rule the customer watches change was being
+  // held up only by the changelog. ⭐ A shim that cannot express what the view does cannot test it.
+  // ⚠️ Backed by `className`, so an assertion can read either and they cannot disagree.
+  let node = null;
+  const classes = () => String((node && node.className) || "").split(/\s+/).filter(Boolean);
+  const setClasses = (a) => { if (node) node.className = a.join(" "); };
+  node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
     scrollTop: 0, _listeners: {},
-    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    // ⚠️ `classList` IS STILL A NO-OP AND `closest` IS NOT (v410), which looks inconsistent and is
-    // deliberate. `closest` is not decoration here: the fulfilment picker puts the "this one is on"
-    // edge on the CARD that holds the press rather than on the press, so **a shim without it would
-    // exercise the fallback path and leave the real one untested**. `classList` stays inert because
-    // every assertion in this file reads a className the view WROTE, which is truer than a
-    // hand-rolled set would be.
+    classList: {
+      add(c) { const a = classes(); if (!a.includes(c)) { a.push(c); setClasses(a); } },
+      remove(c) { setClasses(classes().filter((x) => x !== c)); },
+      toggle(c, on) {
+        const want = on === undefined ? !classes().includes(c) : !!on;
+        if (want) node.classList.add(c); else node.classList.remove(c);
+      },
+      contains(c) { return classes().includes(c); },
+    },
     parentElement: null,
     appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
     append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
@@ -59,6 +69,7 @@ function createEl(tag) {
     getAttribute(k) { return this.attrs[k]; },
     focus() {}, click() {},
   };
+  return node;
 }
 
 // Every text node under `node` that would print as the word null or undefined — the whole
@@ -1712,8 +1723,13 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     // ⚠️ WHAT IS ASSERTED IS WHAT THE ORDER CARRIES, not the highlight. The chosen place rides on
     // the wrapper as `_pointId`/`_pointName` and `order()` reads it straight back, so that pair is
     // the outcome; the `active` class is decoration, and this shim's `classList` is a no-op.
-    assert.equal(registry["fulfillment"]._pointId, "", "the invented kitchen is the EMPTY id");
-    assert.equal(registry["fulfillment"]._pointName, "Our kitchen");
+    // ⚠️⚠️ AND NOTHING IS CHOSEN ON ARRIVAL (v415), which is a change of behaviour and hers: this
+    // used to assert that the invented kitchen arrived already chosen. Her words: __"click to choose
+    // point, without click it should not highlight"__ — ⭐ **a place wearing the panel reads as a
+    // place the customer PICKED, and he has picked nothing.** ⚠️ The EMPTY id is still what the
+    // ORDER means by "the bakery", so an order placed without a tap goes exactly where it always did.
+    assert.equal(registry["fulfillment"]._pointId, "", "nothing is chosen until he taps one");
+    assert.equal(registry["fulfillment"]._pointName, "", "and no name is claimed for him either");
 
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true }];
     render();
@@ -1735,14 +1751,30 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     assert.deepEqual(rows(), ["Farlim, Air Itam", "Chai Leng Park, Prai"],
       "and the other Points are still offered beside it");
 
-    // ⚠️ A MARKED KITCHEN MUST STILL BE THE PLACE THE ORDER GOES TO. The invented row is what the
-    // picker used to fall back to, so dropping it without a replacement would leave a list of
-    // places with **none of them chosen** — and the order would go to whichever id happened to be
-    // stored, which is the fault this whole edit exists to prevent.
-    assert.equal(registry["fulfillment"]._pointId, "pt_1",
-      "the kitchen is the place that is chosen, not an empty id nothing on the page carries");
-    assert.equal(registry["fulfillment"]._pointName, "Farlim, Air Itam",
-      "and the order is told its name, so deleting the Point later cannot rewrite where it went");
+    // ⚠️⚠️ AND NOTHING IS CHOSEN ON ARRIVAL (v415) — THIS ASSERTION USED TO SAY THE OPPOSITE.
+    // Her words: __"click to choose point, without click it should not highlight"__, and the reason
+    // is the one her v413 picture showed: **a place wearing the panel reads as a place the customer
+    // PICKED, and he has picked nothing.** ⭐ So the marked kitchen is offered like any other place
+    // and lit only when he taps it.
+    assert.equal(registry["fulfillment"]._pointId, "", "nothing is chosen until he taps one");
+    assert.equal(registry["fulfillment"]._pointName, "", "and no name is claimed for him either");
+    const lit = registry["point-list"].children.filter((b) => String(b.className).includes("active"));
+    assert.equal(lit.length, 0, "no row is wearing the highlight");
+
+    // ⭐ AND AN ORDER PLACED WITHOUT CHOOSING STILL WORKS, exactly as it always has: the EMPTY id is
+    // how every order has said "collect from the bakery" since long before there were Points. This
+    // is a page that stops pretending, not one that asks a new question.
+    assert.equal(registry["point-list"].children.length, 2, "both places are still offered");
+    // ⚠️ And the card says what to do instead of pretending — the line that stands where the
+    // highlight used to. It is inside the folded body, so it shows with the card.
+    document.getElementById("fulfillment")._open = "collect";
+    render();
+    assert.equal(registry["point-pick"].hidden, false,
+      "the card tells him the list is a thing to press");
+    registry["point-list"].children[0]._listeners.click[0]();
+    assert.equal(registry["point-pick"].hidden, true,
+      "and stops saying it the moment he does — a page must not nag about what he just did");
+    assert.equal(registry["fulfillment"]._pointId, "pt_1", "the tap is what chooses it");
   } finally {
     CONFIG.points = real;
     render();
@@ -2105,6 +2137,109 @@ test("★★ the courier's address arrives with the courier, not as a box under 
     CONFIG.points = realP;
     document.getElementById("fulfillment")._open = null;
     document.getElementById("fulfillment")._value = "collect";
+    render();
+  }
+});
+
+// ── v415: nothing is chosen until he chooses ────────────────────────────────
+
+test("★★ step 3 turns green only after he says HOW he is getting it", () => {
+  // Her words: __"only by clicking either self collect or delivery, the number 3 change color"__.
+  // ⚠️⚠️ IT CANNOT BE READ OFF THE METHOD ITSELF — `_value` is set to Self collect the moment the
+  // page loads, so a rule asking "is a method chosen" is TRUE before a customer has touched
+  // anything. ⭐ **What it asks is whether HE chose**, and the only honest record of that is a press.
+  //
+  // ⚠️ `_picked` is driven here rather than a real tap, because this shim carries no static markup
+  // and so cannot reach the button — ⭐ **that half is verified by looking at the page and by the
+  // markup rules in store-i18n.test.js.** What is proved here is what the rule does with it.
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [{ id: "pt_k", name: "Our place", minOrderRM: 0, isKitchen: true }];
+    const wrap = document.getElementById("fulfillment");
+    const type = (id, v) => {
+      const el = registry[id];
+      el.value = v;
+      for (const f of (el._listeners.input || [])) f();
+    };
+    const done3 = () => String(registry["step3"].className).split(/\s+/).includes("done");
+
+    wrap._picked = false;
+    render();
+    type("name-input", "Aunty Bee");
+    type("whatsapp-input", "60123456789");
+    assert.equal(wrap._value, "collect",
+      "⚠️ the method is already set — which is exactly why it cannot be the thing that is asked");
+    assert.equal(done3(), false,
+      "a name and a number are NOT enough: he has not said how he is getting his bread");
+
+    wrap._picked = true;
+    render();
+    assert.equal(done3(), true, "⭑ the choice, and only the choice, turns the third circle green");
+
+    // ⚠️ AND IT IS STILL HIS NAME AND NUMBER THAT CARRY THE REST — the new condition sits BESIDE
+    // them, not instead of them, so a page with neither is not green for having picked a way.
+    wrap._picked = true;
+    document.getElementById("name-input").value = "";
+    render();
+    assert.equal(done3(), false, "picking a way with no name is still not done");
+  } finally {
+    CONFIG.points = realP;
+    document.getElementById("fulfillment")._picked = false;
+    document.getElementById("name-input").value = "";
+    document.getElementById("whatsapp-input").value = "";
+    render();
+  }
+});
+
+test("★ nothing is lit on the places until a tap, and the card says what to do", () => {
+  // Her words: __"click to choose point, without click it should not highlight"__ — ⭐ and this is
+  // the rule her v413 picture was really about: **a place wearing the panel reads as a place the
+  // customer picked, and he has picked nothing.**
+  const realP = CONFIG.points;
+  const realA = CONFIG.pointAreas;
+  try {
+    CONFIG.points = [{ id: "pt_k", name: "Our place", minOrderRM: 0, isKitchen: true },
+      { id: "pt_f", name: "Farlim, Air Itam", minOrderRM: 0 }];
+    // ⚠️ AN AREA IS IN THE FIXTURE ON PURPOSE. ⭐ The headings are children of this list too and
+    // carry no `data-point-id`, so `choose("")` used to match them and hand them the "active" class
+    // — ⚠️ **a wrong class with no styling, which drew nothing and lived from v410 unnoticed.** A
+    // fixture with no areas has no headings, so it could not have caught it.
+    CONFIG.pointAreas = [{ name: "Penang Island", depth: 0, points: ["pt_f"] }];
+    const wrap = document.getElementById("fulfillment");
+    wrap._value = "collect";
+    wrap._pointId = "";
+    wrap._open = "collect";
+    render();
+
+    const rows = registry["point-list"].children;
+    assert.ok(rows.some((b) => String(b.className).includes("point-area")), "a heading is on the list");
+    assert.equal(rows.filter((b) => String(b.className).includes("active")).length, 0,
+      "⚠️ and NOTHING is lit — not a place, and not a heading either");
+    // ⚠️ THE HEADING IS NAMED ON ITS OWN LINE, and that is not redundant: the count above passed
+    // against a heading that had been given the highlight, because the class it was handed is one
+    // nothing styles. ⭐ **A wrong class with no styling is a wrong class nobody sees** — it lived
+    // from v410 until the browser was read directly (litHeadings: 2), so it gets its own assertion.
+    const heading = rows.find((b) => String(b.className).includes("point-area"));
+    assert.equal(String(heading.className).includes("active"), false,
+      "the heading is a signpost, not a place — it can never carry the highlight");
+    assert.equal(registry["point-pick"].hidden, false,
+      "the card says the list is a thing to press instead");
+
+    // ⚠️ Found by CLASS, not by position — the list holds headings as well as places, so an index
+    // is a guess about how many of each there are. (The same mistake has cost this file twice.)
+    const places = rows.filter((b) => String(b.className).includes("point-opt"));
+    assert.ok(places.length >= 2, "both places are offered");
+    const farlim = places.find((b) => String(b.className).includes("active") === false
+      && b.children[0].children[0].text.includes("Farlim"));
+    farlim._listeners.click[0]();
+    assert.equal(wrap._pointId, "pt_f", "the tap chooses it");
+    assert.equal(registry["point-pick"].hidden, true,
+      "and the instruction goes — a page must not nag about what he just did");
+  } finally {
+    CONFIG.points = realP;
+    CONFIG.pointAreas = realA;
+    document.getElementById("fulfillment")._pointId = "";
+    document.getElementById("fulfillment")._open = null;
     render();
   }
 });
