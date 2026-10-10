@@ -405,3 +405,35 @@ test("the shop calls that day a BAKE day, in all three languages", () => {
   assert.match(html, /data-i18n="sPickDay"[^>]*>Pick a bake day</,
     "and step 1 is 'Pick a bake day'");
 });
+
+test("the note field names BOTH ways of getting an order (v408)", () => {
+  // ★★ Her words: __"change the Delivery Notes(optional) to Notes for Collection/Delivery"__.
+  // ⚠️ It is the THIRD time the same fault has been repaired on this page and the second time she
+  // has caught it herself: a label named ONE of the two ways to get an order, so the customer it
+  // misled was the one COLLECTING — who read "Delivery note" and skipped the box that asks for the
+  // gate code or the landmark, which is the thing that actually gets them their bread.
+  //
+  // ⚠️ THE RULE IS PINNED OVER EVERY LANGUAGE, because the fault is in the WORD and a word can
+  // come back one dictionary at a time.
+  assert.match(STORE.en.noteLabel, /Collection\/Delivery/,
+    "the English label names both ways");
+  assert.ok(!/^Delivery note/i.test(STORE.en.noteLabel),
+    "and no longer names only one of them");
+  for (const l of ["zh", "ms"]) {
+    assert.ok(STORE[l].noteLabel && STORE[l].noteLabel !== STORE.en.noteLabel,
+      `${l} has its own wording, not the English one`);
+  }
+  assert.deepEqual(
+    Object.entries(STORE.en).filter(([, v]) => typeof v === "string" && /^Delivery note/i.test(v)).map(([k]) => k),
+    [], "no English string calls it a delivery note any more");
+
+  // ⚠️ AND THE PLACEHOLDER MOVED WITH IT: "delivery time" is the wrong thing to ask a customer who
+  // is coming to fetch it, and a placeholder is read more than a label is.
+  assert.ok(!/delivery time/i.test(STORE.en.notePh),
+    "the placeholder no longer asks a collecting customer for a delivery time");
+
+  // Authored into the page itself, not only the dictionary — the label is on screen before the
+  // script ever runs.
+  assert.match(html, /data-i18n="noteLabel"[^>]*>Notes for Collection\/Delivery \(optional\)</,
+    "and the markup carries the new label");
+});

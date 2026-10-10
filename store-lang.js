@@ -19,6 +19,22 @@ const en = {
   promoPh: "e.g. FRESH10",
   promoApply: "Use it",
   promoRemove: "Remove the code",
+  // ★★ SAID AGAIN AT THE BUTTON, NOT ONLY AT THE CODE BOX (v408). Her words: __"If there is promo
+  // coupon attached, say it on top of Place Order, word like: Your promo coupon will be attached
+  // together to the order for validation, actual payable will be confirm by Whatsapp."__
+  //
+  // ⭐ SHE IS RIGHT THAT THE PLACE MATTERS, and the page already half-said it: the line under the
+  // code box reads __"We'll take it off when we confirm your order"__, which is true and **up the
+  // page**. At the bottom, the customer is looking at ONE figure — the total on the bar — and that
+  // figure is the GOODS, before the code (see renderBar). This is the moment they are about to
+  // commit, and the moment the promise needs repeating.
+  //
+  // ⚠️ %1 IS THE CODE ITSELF, named back to them, because "your code" is abstract on a page they
+  // may have been reading for ten minutes.
+  // ⚠️ IT PROMISES NO FIGURE. The discount she can honour is hers to decide at the confirmation
+  // (a code can be one-per-customer, or first-order only — see promoAcceptedUsed/First), so the
+  // line says the amount is CONFIRMED, never that it is already correct.
+  promoBar: "Code %1 goes with your order. We'll check it and confirm the final amount on WhatsApp.",
   // The standing line at the top of the shop. It NAMES the code, because typing
   // it is what puts it on the order — the shop never takes the money off itself.
   promoToday: "Today: %1 — use code %2",
@@ -170,8 +186,14 @@ const en = {
   addrPick: "Tap the one that matches your address.",
   addrNone: "We couldn't find that address. Tap the map and put the pin on your door instead.",
   addrFailed: "The address lookup isn't available right now. Tap the map and put the pin on your door instead.",
-  noteLabel: "Delivery note (optional)",
-  notePh: "Gate code, landmark, delivery time…",
+  // ★ IT IS A NOTE FOR EITHER WAY (v408). Her words: __"change the Delivery Notes(optional) to
+  // Notes for Collection/Delivery"__. ⚠️ Same fault as the bake day and the two bare words: the
+  // label named ONE of the two things the field is for, so a customer collecting his own bread
+  // read "Delivery note" and skipped a box that asks him for the thing that actually gets him
+  // his bread — the gate code, the landmark. ⚠️ The PLACEHOLDER moved with it for the same
+  // reason: "delivery time" is wrong for the person who is coming to fetch it.
+  noteLabel: "Notes for Collection/Delivery (optional)",
+  notePh: "Gate code, landmark, what to look for…",
   // The note a customer can add to ONE item (v236). The link is what they tap
   // to open the box; the placeholder is the example that shows them what kind
   // of thing belongs in it.
@@ -342,6 +364,7 @@ const zh = {
   promoPh: "例如 FRESH10",
   promoApply: "使用",
   promoRemove: "移除优惠码",
+  promoBar: "优惠码 %1 会一起送到。我们会核对，并在 WhatsApp 上确认最终金额。",
   promoToday: "今日优惠：%1 — 输入优惠码 %2",
   promoAccepted: "%1 — 已套用优惠码 %2，我们确认订单时会为你扣减。",
   promoAcceptedUsed: "%1 — 已套用优惠码 %2。此码每人限用一次，我们确认订单时会为你核实。",
@@ -422,8 +445,8 @@ const zh = {
   addrPick: "点选最接近你地址的一项。",
   addrNone: "找不到这个地址。请直接在地图上把标记放到你家门口。",
   addrFailed: "地址查询暂时无法使用。请直接在地图上把标记放到你家门口。",
-  noteLabel: "送货备注（可选）",
-  notePh: "门禁密码、地标、送货时间…",
+  noteLabel: "取货／送货备注（可选）",
+  notePh: "门禁密码、地标、方便辨认的东西…",
   addNoteLink: "＋ 添加备注",
   lineNotePh: "例如：不要坚果、写上「生日快乐」",
   sTrack: "查询订单",
@@ -540,6 +563,7 @@ const ms = {
   promoPh: "cth. FRESH10",
   promoApply: "Guna",
   promoRemove: "Buang kod",
+  promoBar: "Kod %1 disertakan dengan pesanan anda. Kami akan semak dan sahkan jumlah akhir di WhatsApp.",
   promoToday: "Hari ini: %1 — guna kod %2",
   promoAccepted: "%1 — kod %2 telah digunakan. Kami akan tolakkan apabila kami sahkan tempahan anda.",
   promoAcceptedUsed: "%1 — kod %2 telah digunakan. Satu sahaja setiap pelanggan, jadi kami akan sahkan apabila kami ambil tempahan anda.",
@@ -618,8 +642,8 @@ const ms = {
   addrPick: "Ketik yang paling hampir dengan alamat anda.",
   addrNone: "Alamat itu tidak ditemui. Ketik peta dan letakkan tanda pada pintu anda.",
   addrFailed: "Pencarian alamat tidak tersedia buat masa ini. Ketik peta dan letakkan tanda pada pintu anda.",
-  noteLabel: "Nota penghantaran (pilihan)",
-  notePh: "Kod pintu, mercu tanda, masa penghantaran…",
+  noteLabel: "Nota untuk ambilan/penghantaran (pilihan)",
+  notePh: "Kod pintu, mercu tanda, apa yang perlu dicari…",
   addNoteLink: "＋ Tambah nota",
   lineNotePh: "cth. tanpa kacang, tulis “Selamat Hari Jadi”",
   sTrack: "Semak tempahan anda",

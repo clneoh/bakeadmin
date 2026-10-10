@@ -178,8 +178,8 @@
         </div>
       </div>
       <div class="field" style="margin-bottom:0">
-        <label for="note-input" data-i18n="noteLabel">Delivery note (optional)</label>
-        <input id="note-input" class="input note-input" type="text" data-i18n-ph="notePh" placeholder="Gate code, landmark, delivery time…" autocomplete="off">
+        <label for="note-input" data-i18n="noteLabel">Notes for Collection/Delivery (optional)</label>
+        <input id="note-input" class="input note-input" type="text" data-i18n-ph="notePh" placeholder="Gate code, landmark, what to look for…" autocomplete="off">
       </div>
 
       <!-- HOW HER CUSTOMERS' DETAILS ARE USED now lives in the ORDER BAR, one quiet
@@ -215,8 +215,17 @@
     <div id="fb-foot" class="fb-foot" hidden></div>
   </main>
 
-  <div class="bar-spacer"></div>
+  <div class="bar-spacer" id="bar-spacer"></div>
   <div class="order-bar">
+    <!-- ★★ THE CODE IS SAID AGAIN HERE, WHERE THE MONEY IS (v408). Her words: __"If there is promo
+         coupon attached, say it on top of Place Order"__. The line under the code box already says
+         the code will be taken off at the confirmation — and it is UP THE PAGE, out of sight by the
+         time a customer reaches the button. This is the moment they commit, and the moment the
+         figure they are looking at (the goods total on the bar, which is BEFORE the code) needs
+         explaining. Filled by store/app.js and hidden unless a code is actually on the order, so
+         an ordinary order's bar is byte-for-byte the bar it has always been.
+         ⚠️ IT IS A STATEMENT, NEVER A GATE: it never blocks the button and never changes a total. -->
+    <p class="promo-bar" id="promo-bar" hidden></p>
     <div class="order-bar-row">
       <div class="order-summary">
         <span id="bar-count" class="bar-count">0 items</span>

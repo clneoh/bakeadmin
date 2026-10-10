@@ -9,6 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 function createEl(tag) {
   const node = {
@@ -859,4 +860,32 @@ test("a day whose order was given a bring-a-friend coupon still opens", () => {
     "the day opens — it must not throw while building the order's row");
   assert.ok(text().includes("Bring-a-friend"), "and the discount names itself on the row");
   assert.ok(text().includes("RM 3.00"), "with its figure");
+});
+
+test("the note field names BOTH ways an order can leave (v408)", () => {
+  // ★★ Her words: __"change the Delivery Notes(optional) to Notes for Collection/Delivery"__.
+  // ⚠️ It is the same fault as the shop's "Delivery note" and as v407's "delivery day": the label
+  // named ONE of the two ways an order leaves, and the person it misreads is the one COLLECTING —
+  // they skip a box that asks for the gate code or the landmark, which is what actually gets them
+  // their bread.
+  //
+  // ⚠️ She asked for this on the SHOP. It is changed here too because **it is the same field with
+  // the same label on a card that takes both kinds of order**, and two screens disagreeing about
+  // what one box is for is how the next confusion starts.
+  const { root } = build();
+  byClass(root, "fold-head")._listeners.click[0](); // the card arrives folded
+  const labels = all(root).filter((n) => n.tagName === "LABEL")
+    .map((n) => n.children[0] && n.children[0].text);
+  assert.ok(labels.includes("Notes for Collection/Delivery (optional)"),
+    `the note field names both ways — labels on the card: ${JSON.stringify(labels)}`);
+
+  // ⚠️ AND THE SAME LABEL LIVES IN TWO MORE CARDS THIS FILE CANNOT REACH — the Edit pop-up and the
+  // Note / tracking pop-up — so the rule is taken over the SOURCE as well. **A word comes back one
+  // call site at a time**, and pinning only the one card a test happens to open is how the other
+  // two would quietly keep the old words.
+  const src = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
+  assert.deepEqual(src.match(/"Delivery note[^"]*"/g) || [], [],
+    "no admin label calls that box a delivery note any more");
+  assert.equal((src.match(/Notes for Collection\/Delivery/g) || []).length, 3,
+    "and all three cards — New order, Edit, Note / tracking — carry the new words");
 });

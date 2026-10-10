@@ -2117,7 +2117,7 @@ function orderForm(state, dateId, root, selectDate) {
     pointField,
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Order date = when it was placed (defaults to today). WhatsApp is kept in your delivery history for marketing follow-ups."),
-    el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
+    el("div", { class: "field" }, el("label", {}, "Notes for Collection/Delivery (optional)"), note),
     button("＋ Place Order", submit, "block primary"));
 
   const caret = el("span", { class: "fold-caret" }, newFormOpen ? "▾" : "▸");
@@ -2583,7 +2583,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       pointSel,
       el("p", { class: "hint" },
         "Your kitchen is the default. An order collecting at a Point goes on the Delivery run to that Point, with the fee you set there.")),
-    el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
+    el("div", { class: "field" }, el("label", {}, "Notes for Collection/Delivery (optional)"), note),
     draft.fulfillment === "courier" && !jobOf(first) ? courierKind("parcel") : null,
     el("div", { class: "field" },
       el("label", {}, "Courier tracking number (optional)"),
@@ -3802,7 +3802,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       const doorSlot = el("div", {});
       return el("div", {},
         doorSlot,
-        el("div", { class: "field" }, el("label", {}, "Delivery note (optional)"), note),
+        el("div", { class: "field" }, el("label", {}, "Notes for Collection/Delivery (optional)"), note),
         // ★ THE SAME TWO HEADINGS AS EVERY OTHER CARD, from ONE definition (v310). This card
         // carries BOTH kinds too — a parcel carrier and a courier charge — so it gets the same
         // divide. Her second report was exactly this: consistent over the app, not only on the

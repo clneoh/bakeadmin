@@ -1362,6 +1362,9 @@ export function render() {
   const promoRotor = document.getElementById("promo-rotor");
   const promoDots = document.getElementById("promo-dots");
   const promoClear = document.getElementById("promo-clear");
+  // ★ The same fact, said again where the money is (v408) — and the spacer that has to grow
+  // with it. See paintPromo.
+  const promoBar = document.getElementById("promo-bar");
 
   // ── The standing offers, and how they turn (v292; the jump fixed in v295) ──
   //
@@ -1801,6 +1804,25 @@ export function render() {
     else if (got && got.offer) say(got.key, "good", offerWords(got.offer), got.code);
     else if (promoRefusal) say(promoRefusal.key, "bad", ...refusalArgs(promoRefusal));
     if (promoClear) promoClear.hidden = !promoApplied;
+    // ★★ AND THE SAME FACT IS SAID AGAIN AT THE BUTTON (v408). Her words: __"If there is promo
+    // coupon attached, say it on top of Place Order"__.
+    //
+    // ⭐ The line under the code box already says the code will come off at the confirmation, and
+    // it is UP THE PAGE. Here the customer is looking at ONE figure — the total on the bar, which
+    // is the GOODS and is never discounted (see renderBar) — and this is the moment they commit.
+    // ⚠️ THE CODE IS NAMED BACK TO THEM, because "your code" is abstract ten minutes into a page.
+    // ⚠️ IT IS HIDDEN UNLESS A CODE IS ACTUALLY ON THE ORDER, so an ordinary order's bar is the
+    // bar it has always been, and nothing is added to its height.
+    if (promoBar) {
+      promoBar.hidden = !promoApplied;
+      promoBar.textContent = promoApplied ? sub(t("promoBar"), promoApplied) : "";
+    }
+    // ⚠️⚠️ AND THE SPACER THAT STOPS THE FIXED BAR EATING THE PAGE MUST GROW WITH IT. `.bar-spacer`
+    // is a measured 126px — right for the bar's TWO rows, and wrong the moment a third appears.
+    // ⭐ Measured HERE rather than guessed again, because the third row's height is not one number:
+    // it depends on the language and on the width, which is exactly how the 126px reading was
+    // arrived at (see app.css) and exactly the sort of reading that goes stale in silence.
+    syncBarSpacer();
   }
 
   function applyTyped() {
@@ -2592,6 +2614,27 @@ export function render() {
     // item watches Farlim become choosable — and one who removes one watches it say why not.
     refreshPointList(total);
     return total;
+  }
+
+  // Keep `.bar-spacer` at the closed bar's REAL height (v408). Hoisted for the same reason
+  // renderBar is: the first repaint happens before this line is reached textually.
+  //
+  // ⚠️ THE FIXED BAR IS A COST PAID ON EVERY SCREEN, and the spacer is the only thing stopping it
+  // swallowing the last row of the shop. app.css carries a MEASURED 126px for the two-row bar and
+  // a note on how it was taken; the promo line makes a third row, on one order in however many,
+  // and its height is not a number — it is a sentence that wraps differently in English, Chinese
+  // and Bahasa Malaysia, and differently again at 320px. ⭐ So it is read off the element rather
+  // than measured by hand a second time.
+  //
+  // ⚠️ THE CLOSED HEIGHT IS THE WHOLE HEIGHT: the privacy panel is `position: absolute` (see
+  // app.css), so opening it does not change `offsetHeight` and cannot make the spacer jump.
+  // ⚠️ It only ever WRITES a height; a browser that gives no reading leaves the CSS floor as it
+  // is, so nothing can end up with a zero-height spacer.
+  function syncBarSpacer() {
+    const bar = document.querySelector && document.querySelector(".order-bar");
+    const spacer = document.getElementById("bar-spacer");
+    if (!bar || !spacer || !bar.offsetHeight) return;
+    spacer.style.height = `${bar.offsetHeight}px`;
   }
 
   const orderBtn = document.getElementById("order-btn");

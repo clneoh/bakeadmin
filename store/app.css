@@ -1331,6 +1331,19 @@ button.prod-next.off::after { content: ""; }
    (see .privacy-sheet), so opening the notice does not change this height at all. */
 .bar-spacer { height: 126px; }
 
+/* ★ THE CODE, SAID AGAIN ABOVE THE BUTTON (v408). It only exists on an order that actually
+   carries a code, so an ordinary bar is unchanged. Small print, the same weight and colour as
+   the notice under the button — it is the same kind of thing: a fact the customer needs, never
+   a control. ⚠️ 12px is the floor, not a starting point: the line's whole job is to be read
+   before the button is pressed, and it is the second thing on this page to be set that small. */
+.promo-bar {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--brown-dark);
+}
+.promo-bar b { font-weight: 700; }
+
 .confirm-msg {
   margin: 0 0 14px;
   padding: 12px 14px;

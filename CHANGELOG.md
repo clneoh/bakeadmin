@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v407)
+# Jienluv2bake — change history (v54 → v408)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v408, THE NOTE FIELD NAMES BOTH WAYS, AND A CODE IS SAID AGAIN AT THE BUTTON (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"change the Delivery Notes(optional) to Notes for Collection/Delivery"__ · __"If there is promo coupon attached, say it on top of Place Order, word like: Your promo coupon will be attached together to the order for validation, actual payable will be confirm by Whatsapp. You can better the phrase"__
+
+**★ THE NOTE FIELD IS NOW "Notes for Collection/Delivery (optional)."** ⚠️ **The same fault a third time, and the second one you caught yourself:** the label named **one** of the two ways an order leaves. A customer collecting his own bread read __"Delivery note"__ and skipped a box that asks him for the **gate code or the landmark** — the thing that actually gets him his bread. **The placeholder moved with it** ("delivery time" is the wrong question to ask someone who is coming to fetch it).
+
+⚠️ **And I changed the same label on THREE of your own cards too** — **New order**, **Edit**, and **Note / tracking**. It is the same field, with the same words, on cards that take both kinds of order, and **two screens disagreeing about what one box is for is how the next confusion starts.** If you meant the shop only, say so and I will put yours back.
+
+**★ AND A CODE IS NOW SAID AGAIN, RIGHT ABOVE PLACE ORDER:**
+
+__Code FRESH10 goes with your order. We'll check it and confirm the final amount on WhatsApp.__
+
+**⚠️ Your phrasing, tidied — and one word of it matters.** You said __"attached together to the order for validation, actual payable will be confirm by Whatsapp."__ **That is exactly right, and the page already half-said it** — the line under the code box reads __"We'll take it off when we confirm your order"__ — **but that is up the page.** By the time a customer reaches the button it is off the screen, and they are looking at **one** figure: the total on the bar, **which is the goods and never has the code taken off it.** So the promise is repeated where the money is.
+
+**⚠️ THE LINE NAMES YOUR CODE BACK TO THEM** — __"Code FRESH10 goes with your order"__ — because "your code" is abstract ten minutes into a page. ⚠️ **And it promises no figure**, which is deliberate: whether the discount holds is yours to decide at the confirmation (a code can be one-per-customer, or first-order only), so the line says the amount is **confirmed**, never that it is already correct.
+
+**⚠️ It only appears when a code is actually on the order.** An ordinary order's bar is the bar it has always been, byte for byte — hidden and empty, adding nothing to its height.
+
+**★ AND THE FIXED BAR NO LONGER RELIES ON A NUMBER MEASURED BY HAND.** The bar is stuck to the bottom of the screen, and `.bar-spacer` is the only thing stopping it swallowing the last row of the shop. That spacer was a **measured 126px** — right for a two-row bar, and **wrong the moment a third row appears.** It is now read off the bar itself on every repaint. ⚠️ **Proved on the worst case, at 320px wide in Bahasa Malaysia, with a code on:** the bar reaches **179px** and the spacer follows it exactly — **the old fixed 126px would have left 53px of the page hidden behind the bar.**
+
+**No database step.** The suite is **3,194 tests, all green** (3 new). Nine bites, all fired — the line never shown, the code never named, a ringgit figure promised, the label drifting back in the shop, in the markup and in your admin cards, and the placeholder going back to "delivery time". ⚠️ **Two of them were caught by an older test first, so they were rewritten until only the new rule could catch them** — and one found that **my admin label change was not pinned by anything at all**, so a test was written for it.
+
+**Still owed, and named so it is not forgotten:** the Chinese and Malay versions of the new sentences are **mine, not a native speaker's** — your circle should read them.
 
 **10 Oct 2026 — engine v407, THE TWO WAYS TO GET YOUR BREAD NOW SAY WHAT THEY ARE, AND THE DAY IS CALLED A BAKE DAY (no database step — pushing this one is the whole of it).**
 

@@ -1805,3 +1805,50 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     render();
   }
 });
+
+// ── v408: the code is said again above Place order ──────────────────────────
+
+test("a code on the order is said again above Place order", () => {
+  // ★★ Her words: __"If there is promo coupon attached, say it on top of Place Order, word like:
+  // Your promo coupon will be attached together to the order for validation, actual payable will be
+  // confirm by Whatsapp."__ ⭐ The page already said it ONCE, up at the code box ("We'll take it off
+  // when we confirm your order") — and by the time a customer reaches the button, that is off the
+  // screen. Here they are looking at ONE figure, the goods total on the bar, and this is the moment
+  // they commit.
+  //
+  // ⚠️ Driven through the REAL controls — the box, "Use it", "Remove the code" — because the point
+  // is that a customer who types a code sees this line, and one who never does never sees it.
+  const realCodes = CONFIG.promoCodes;
+  const bar = () => registry["promo-bar"];
+  const plus = () => registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+  try {
+    // ⚠️ AN ORDINARY BAR IS UNTOUCHED — hidden, and empty rather than holding a stale sentence.
+    assert.equal(bar().hidden, true, "no code on the order means no line on the bar");
+    assert.equal(bar().textContent, "", "and nothing left in it to appear on the next repaint");
+
+    CONFIG.promoCodes = mergeStorefront({}, {
+      promoCodes: [{ code: "FRESH10", gives: { type: "rm", value: 10 } }],
+    }).promoCodes;
+    plus(); // something in the basket, so the code has a total to judge against
+    registry["promo-input"].value = "FRESH10";
+    registry["promo-apply"]._listeners.click[0]();
+
+    assert.equal(bar().hidden, false, "a code on the order puts the line up where the money is");
+    assert.match(bar().textContent, /FRESH10/, "and the code is named back to them, not just 'your code'");
+    assert.match(bar().textContent, /confirm the final amount on WhatsApp/i,
+      "the amount is CONFIRMED with them — never stated as already correct");
+    // ⚠️ It promises no FIGURE. Whether the discount holds is hers to decide at the confirmation
+    // (a code can be one-per-customer, or first-order only), so a number here would be a promise
+    // the page cannot keep.
+    assert.ok(!/RM\s*[\d.]/.test(bar().textContent), "no ringgit figure is promised on the bar");
+
+    registry["promo-clear"]._listeners.click[0]();
+    assert.equal(bar().hidden, true, "removing the code takes the line away again");
+  } finally {
+    CONFIG.promoCodes = realCodes;
+    registry["promo-input"].value = "";
+    render();
+  }
+});
