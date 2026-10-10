@@ -75,19 +75,37 @@
       </div>
     </div>
 
+    <!-- ★★ THE ANSWER, NOT THE RULE (v405). Her customer's order went wrong because the page stated
+         the RULES ("delivery days Mon/Wed/Fri", "order by 18:00 the day before") and left him to work
+         out what they meant for him. It now says the answer out loud, and the rules stay underneath
+         for anyone who wants them. Filled by app.js; hidden entirely unless the trial flag is on. -->
+    <div id="day-answer" class="answer" hidden>
+      <p class="answer-kicker" id="answer-kicker"></p>
+      <p class="answer-big" id="answer-big"></p>
+      <p class="answer-sub" id="answer-sub"></p>
+    </div>
+
     <section class="card info">
       <p class="info-row"><strong data-i18n="deliveryDays">Delivery days</strong><span id="delivery-days" class="info-val"></span></p>
       <p class="info-row"><strong data-i18n="orderBy">Order by</strong><span id="cutoff" class="info-val"></span></p>
     </section>
 
-    <h2 class="section" data-i18n="sPickDay">Pick a delivery day</h2>
+    <!-- ★★ THE THREE STEPS (v405). Her words: __"first you might mention that it is a 3 step ordering
+         process, name the 1st by 1 in a circle, big one"__. ⚠️ The lede promises it ENDS, which is the
+         part a nervous customer wants; the circles say which one they are on. -->
+    <p class="steps-lede" id="steps-lede" hidden></p>
+
+    <div class="step-head" id="step1"><span class="step-num">1</span>
+      <h2 class="section" data-i18n="sPickDay">Pick a delivery day</h2></div>
     <div id="dates"></div>
 
-    <h2 class="section" data-i18n="sWhat">What would you like?</h2>
+    <div class="step-head" id="step2"><span class="step-num">2</span>
+      <h2 class="section" data-i18n="sWhat">What would you like?</h2></div>
     <div id="menu-note" class="menu-note" hidden></div>
     <div id="menu" class="menu"></div>
 
-    <h2 class="section" data-i18n="sYourDetails">Your details</h2>
+    <div class="step-head" id="step3"><span class="step-num">3</span>
+      <h2 class="section" data-i18n="sYourDetails">Your details</h2></div>
     <div class="card">
       <div class="field">
         <label for="name-input" data-i18n="yourName">Your name</label>

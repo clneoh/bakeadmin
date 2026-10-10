@@ -558,6 +558,68 @@ export function isOpen(cfg, d, now = new Date()) {
   return now.getTime() < deadline.getTime();
 }
 
+// ★★ "6PM", NOT "18:00" (v405). ⚠️ A stranger reads a clock the way they speak. 18:00 is the form the
+// baker's admin stores and it is right THERE; on the customer's page it is a small puzzle, and the
+// whole finding of this version is that small puzzles are where a nervous customer goes wrong.
+// ⚠️ ONLY THE DISPLAY CHANGES — `cfg.cutoff` stays "18:00" everywhere it is compared.
+export function cutoffText(cutoff) {
+  const parts = String(cutoff || "").split(":");
+  const hh = Number(parts[0]);
+  const mm = Number(parts[1]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return String(cutoff || "");
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  const ampm = hh < 12 ? "am" : "pm";
+  // ⚠️ ON THE HOUR LOSES THE ":00" — "6pm" is how a person says it, and "6:00pm" is how a form does.
+  return mm === 0 ? `${h12}${ampm}` : `${h12}:${String(mm).padStart(2, "0")}${ampm}`;
+}
+
+// ★★ THE NEXT DAY SHE CAN ACTUALLY HAVE BREAD (v405). ⚠️ `upcomingDates` already starts at TOMORROW and
+// lists only delivery days, and `isOpen` already knows the cut-off — so this is the two of them, in
+// order, and nothing new is decided here. ⭐ It is the ANSWER to the question the page used to leave the
+// customer to work out for himself.
+export function nextOpenDay(cfg, now = new Date()) {
+  return upcomingDates(cfg).find((d) => isOpen(cfg, d, now)) || null;
+}
+
+// The day before `d`, which is the day the order has to be in by.
+function dayBefore(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+}
+
+// ★★ THE TWO SENTENCES THE PAGE NEVER SAID (v405). ⚠️⚠️ THIS IS THE WHOLE FIX. A customer wanted bread
+// TODAY, the page let him pick a day that looked fine, and nothing anywhere told him today was
+// impossible — he found out when the baker checked with him.
+//
+// ⚠️ TWO STATES, THE SAME WORDS, ONE DIFFERENT FIRST LINE. A customer must never have to work out which
+// one he is looking at; the heading tells him, and the green edge says it before he reads.
+//   • nothing open for today  → "Today's bake has closed" / the next day he can have it / the deadline
+//   • still time to order     → "You're in time"        / the same two lines
+function paintDayAnswer(cfg, trial, cutoffSay) {
+  const box = document.getElementById("day-answer");
+  if (!box) return;
+  // ⚠️ HIDDEN UNLESS THE TRIAL IS ON, so a customer cannot meet a wording she has not judged yet.
+  if (!trial) { box.hidden = true; return; }
+
+  const next = nextOpenDay(cfg);
+  const lede = document.getElementById("steps-lede");
+  if (lede) {
+    lede.hidden = false;
+    lede.textContent = t("stepsLede");
+  }
+  if (!next) { box.hidden = true; return; } // no day open at all — say nothing rather than guess
+
+  const by = dayBefore(next);
+  // ⚠️ "TODAY'S BAKE HAS CLOSED" IS ONLY TRUE WHEN TODAY IS NOT ONE OF HER DAYS, and it is the case he
+  // hit — but a page that says it on a Tuesday when the bakery bakes Tuesday would be wrong. So the
+  // heading follows the fact, not the clock.
+  const todayOpen = isOpen(cfg, new Date(new Date().setHours(0, 0, 0, 0)));
+  box.hidden = false;
+  box.classList.toggle("ok", todayOpen);
+  document.getElementById("answer-kicker").textContent = t(todayOpen ? "ansInTime" : "ansClosed");
+  document.getElementById("answer-big").textContent = sub(t("ansNext"), fmtDay(next));
+  document.getElementById("answer-sub").textContent = sub(t("ansBy"), fmtDay(by), cutoffSay);
+}
+
 export function fmtDay(d) {
   const lang = loadLang();
   if (lang === "zh") return `${MONTHS_ZH[d.getMonth()]}${d.getDate()}日 ${DAYS_ZH[d.getDay()]}`;
@@ -1180,11 +1242,29 @@ export function renderStatic(cfg) {
   document.title = `${t("titleWord")} · ${cfg.name}`;
   document.getElementById("name").textContent = cfg.name;
   document.getElementById("tagline").textContent = cfg.tagline;
-  document.getElementById("eyebrow").textContent = sub(t("madeToOrder"), cfg.cutoff);
+  // ★★ THE TRIAL FLAG (v405). Her words: __"can it be a page for me to test before launch?"__ —
+  // `?trial=1` turns the new wording ON for whoever opens that address, and **everyone else sees the
+  // page exactly as it is today.** ⚠️ It is a URL flag rather than a second copy of the shop on purpose:
+  // a copy would be a second shop to keep in step with this one, and it would put an unlaunched ordering
+  // page at a guessable address — **your notes already have one public `/test/` you have been meaning to
+  // deal with, and this must not become the second.**
+  const TRIAL = typeof location !== "undefined" && /[?&]trial=1(?:&|$)/.test(location.search);
+  if (document.body) document.body.classList.toggle("trial", TRIAL);
+
+  // ⚠️⚠️ THE READABLE CLOCK IS BEHIND THE FLAG TOO, AND THAT IS THE WHOLE POINT OF HAVING ONE.
+  // "6pm" is plainly better than "18:00" — but she asked to see the page BEFORE it launches, so the
+  // rule is one clean rule: **the trial URL shows the proposed page, and every other address shows
+  // exactly what is on screen today.** A change that leaked out here would make "what am I comparing?"
+  // unanswerable, and this is the page her customers are already using.
+  // ⚠️ BOTH PLACES THE CUT-OFF APPEARS take the same form, so the strip at the top and the "Order by"
+  // row can never say it two ways.
+  const cutoffSay = TRIAL ? cutoffText(cfg.cutoff) : cfg.cutoff;
+  document.getElementById("eyebrow").textContent = sub(t("madeToOrder"), cutoffSay);
 
   const days = cfg.deliveryDays.map((n) => dayName(n)).join(", ");
   document.getElementById("delivery-days").textContent = days;
-  document.getElementById("cutoff").textContent = sub(t("beforeVal"), cfg.cutoff);
+  document.getElementById("cutoff").textContent = sub(t("beforeVal"), cutoffSay);
+  paintDayAnswer(cfg, TRIAL, cutoffSay);
 
   const social = document.getElementById("social");
   const links = [];

@@ -86,8 +86,8 @@ globalThis.fetch = async (url) => {
   return { ok: true, json: async () => [] }; // availability + product_availability
 };
 
-const { mergeStorefront, placeOrder, labelOpenToCount, labelOpenCounter, postLabelOpen } =
-  await import("../store/app.js");
+const { mergeStorefront, placeOrder, labelOpenToCount, labelOpenCounter, postLabelOpen,
+  cutoffText, nextOpenDay } = await import("../store/app.js");
 const { CONFIG } = await import("../store/config.js");
 
 const settle = async () => {
@@ -120,6 +120,11 @@ test("published config overrides the header and menu at runtime", async () => {
   assert.equal(registry["name"].textContent, "Jienluv2bake Cakes");
   assert.equal(registry["tagline"].textContent, "Cakes & more, Penang");
   assert.equal(registry["delivery-days"].textContent, "Tue, Thu");
+  // ⚠️⚠️ UNCHANGED ON THE ORDINARY PAGE, AND THAT IS THE RULE (v405). "6pm" is plainly better than
+  // "18:00", but she asked to see the page before it launches, so **the readable clock is behind the
+  // trial flag with everything else.** A change that leaked out here would make "what am I comparing?"
+  // unanswerable — and this is the page her customers are already using.
+  // ⚠️ The tests below this one are what pin the trial side of it.
   assert.equal(registry["cutoff"].textContent, "15:00 the day before");
   assert.equal(registry["social"].children.length, 1, "only Instagram links (facebook blank)");
 });
@@ -542,4 +547,57 @@ test("a visit that cannot be recorded is swallowed, never thrown into the page",
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// ── ★★ the trial flag, and the readable clock (v405) ──────────────────────────
+// Her report, after her FIRST customer ordered without her help: __"End up they enter a wrong baking
+// day and the select courier instead of self collect… Checking with the customer confirm that he
+// actually want the bread today, not knowing order close 6pm one day before."__
+
+test("★★⚠️ the ordinary page changes NOTHING — that is the whole promise of the trial", () => {
+  // ⚠️⚠️ THIS IS THE RULE SHE WAS GIVEN AND THE ONE THAT MATTERS: **the trial URL shows the proposed
+  // page, and every other address shows exactly what is on screen today.** She asked to see it before
+  // it launches, and this is the page her customers are already ordering from. ⚠️ A change that leaked
+  // out here would make "what am I comparing?" unanswerable.
+  // ⚠️ This test file's page has no `?trial=1`, so it IS the ordinary customer's page.
+  const box = registry["day-answer"];
+  assert.equal(box.hidden, true, "⚠️ the answer box is showing on the ordinary page");
+  assert.equal(registry["cutoff"].textContent, "15:00 the day before",
+    "⚠️ the readable clock leaked out of the trial — the ordinary page must be untouched");
+});
+
+test("★★ '6pm', not '18:00' — the clock the way a person says it", () => {
+  // ⚠️ 18:00 is the form the baker's admin STORES and it is right there; on the customer's page it is a
+  // small puzzle, and a small puzzle is where a nervous customer goes wrong.
+  assert.equal(cutoffText("18:00"), "6pm");
+  assert.equal(cutoffText("15:00"), "3pm");
+  assert.equal(cutoffText("09:30"), "9:30am");
+  assert.equal(cutoffText("00:00"), "12am", "midnight is 12am, not 0am");
+  assert.equal(cutoffText("12:00"), "12pm", "and noon is 12pm, not 0pm");
+  // ⚠️ A cut-off she never set is passed through rather than invented.
+  assert.equal(cutoffText(""), "");
+});
+
+test("★★ the next day a customer can ACTUALLY have bread is the answer, not the rule", () => {
+  // ⚠️ `upcomingDates` already starts at TOMORROW and lists only her delivery days, and `isOpen` already
+  // knows the cut-off — so this is the two of them and nothing new is decided. ⭐ It is the answer to the
+  // question the page used to leave the customer to work out for himself, in his head, on a phone.
+  const cfg = { deliveryDays: [1, 3, 5], cutoff: "18:00", upcomingCount: 8 };
+  // Friday 9 Oct 2026, 10am — today is not a delivery day, and Monday is still open (its deadline is
+  // 6pm Sunday), so the next day is Monday.
+  const next = nextOpenDay(cfg, new Date(2026, 9, 9, 10, 0));
+  assert.ok(next, "no next day was found at all");
+  assert.equal(next.getDay(), 1, "the next day is not one of her delivery days");
+
+  // ⚠️⚠️ AND THE CUT-OFF IS THE POINT — THIS IS THE ASSERTION THAT HAS TEETH, AND THE FIRST VERSION OF
+  // THIS TEST DID NOT.
+  // It said only that the answer is never today-or-past, which `upcomingDates` guarantees ON ITS OWN
+  // (it starts at tomorrow) — **so deleting the `isOpen` filter entirely left the test green.** A bite
+  // proved it. ⭐ What actually needs pinning is the rule that bit her customer: **on MONDAY ITSELF, as
+  // far as a customer is concerned, Monday is already gone — its deadline was 6pm the night before.**
+  // So the answer he is given must be WEDNESDAY.
+  const onMonday = nextOpenDay(cfg, new Date(2026, 9, 12, 10, 0)); // Mon 12 Oct, 10am
+  assert.equal(onMonday.getDate(), 14,
+    "⚠️ on the delivery day itself the answer is still that day — its 6pm deadline was the night before");
+  assert.equal(onMonday.getDay(), 3, "and Wednesday is the next day she bakes");
 });

@@ -55,6 +55,18 @@ const en = {
   orderBy: "Order by",
   beforeVal: "%1 the day before",
   madeToOrder: "Made to order · closes %1 the day before",
+
+  // ★★ THE ANSWER, AND THE THREE STEPS (v405). ⚠️ ENGLISH ONLY SO FAR, AND THAT IS DELIBERATE: these
+  // are behind the `?trial=1` flag while she judges the wording, and `pick()` falls back to English
+  // rather than blanking, so a 中文 or BM visitor meets a real sentence rather than a hole. **They must
+  // be translated before the flag comes off** — a Chinese customer reading English is a downgrade, and
+  // the two below are the first thing anyone reads on the page.
+  ansClosed: "Today's bake has closed",
+  ansInTime: "You're in time",
+  ansNext: "The next day you can have bread is %1.",
+  ansBy: "Order before %2 on %1, and it's yours.",
+  stepsLede: "You'll do three things — and then we take over.",
+
   sPickDay: "Pick a delivery day",
   sWhat: "What would you like?",
   sYourDetails: "Your details",
@@ -327,6 +339,14 @@ const zh = {
   deliveryDays: "派送日",
   orderBy: "下单截止",
   beforeVal: "烘焙日前一天 %1 前",
+  // ⚠️⚠️ MY OWN TRANSLATION, NOT A NATIVE ONE — the first thing anyone reads on the page, so it wants
+  // a Chinese-speaking pair of eyes before the trial flag comes off. (Her internal circle testing the
+  // trial link is exactly who should check it.)
+  ansClosed: "今天的烘焙已经截单",
+  ansInTime: "还来得及",
+  ansNext: "下一次可以取面包的日子是 %1。",
+  ansBy: "在 %1 %2 之前下单，就是你的了。",
+  stepsLede: "你只需做三件事 — 剩下的交给我们。",
   madeToOrder: "按订单新鲜制作 · %1 截单（烘焙日前一天）",
   sPickDay: "选择派送日",
   sWhat: "想吃什么？",
@@ -515,6 +535,12 @@ const ms = {
   deliveryDays: "Hari penghantaran",
   orderBy: "Tempahan ditutup",
   beforeVal: "%1 sehari sebelumnya",
+  // ⚠️ Same note as the Chinese above: mine, not a native speaker's, and worth checking before launch.
+  ansClosed: "Bakaran hari ini sudah tutup",
+  ansInTime: "Anda masih sempat",
+  ansNext: "Hari seterusnya anda boleh dapat roti ialah %1.",
+  ansBy: "Pesan sebelum %2 pada %1, dan ia milik anda.",
+  stepsLede: "Anda buat tiga perkara — selebihnya kami uruskan.",
   madeToOrder: "Dibuat mengikut tempahan · tutup %1 sehari sebelum",
   sPickDay: "Pilih hari penghantaran",
   sWhat: "Apa yang anda mahu?",

@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v404)
+# Jienluv2bake — change history (v54 → v405)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v405, THE SHOP NOW ANSWERS THE CUSTOMER'S QUESTION (trial only — see the link below).**
+
+**Why.** Your first customer ordered without your help, and it went wrong three ways — a wrong day, courier instead of collecting, and underneath both of them: **he wanted bread today and did not know ordering closes the day before.**
+
+**⚠️⚠️ AND THE PAGE'S OWN FAULT WAS THAT IT STATED THE RULES AND NEVER THE ANSWER.** "Delivery days Mon, Wed, Fri" and "Order by 18:00 the day before" are both true, and neither tells a stranger whether HE can have bread, or when the earliest he can get it is. He had to add up today's date, three weekdays, the clock and "the day before" **in his head, on a phone, while not being confident online.** So he picked a day that looked fine and it was wrong.
+
+**★ SO THE PAGE NOW SAYS IT OUT LOUD, ABOVE EVERYTHING ELSE:**
+
+> __TODAY'S BAKE HAS CLOSED__
+> **The next day you can have bread is Mon, 12 Oct.**
+> Order before 6pm on Sun, 11 Oct, and it's yours.
+
+When there is still time the same box opens __"You're in time"__ and turns green. **The rules stay underneath for anyone who wants them** — nothing has been taken away.
+
+**★ AND IT TELLS YOU THERE ARE THREE THINGS TO DO.** One line — __"You'll do three things — and then we take over"__ — and then a big numbered circle on each part: **1 Pick a delivery day · 2 What would you like · 3 Your details.** ⚠️ **The circle turns green as each one is done**, so __where am I__ is answered without reading anything. ⚠️ That sentence is doing real work for a nervous customer: **it promises the page ends.**
+
+**★ AND IT SAYS 6pm, NOT 18:00.** 18:00 is how your admin stores it and that is right there; on a customer's page it is a small puzzle, and a small puzzle is exactly where he went wrong.
+
+**⚠️⚠️ AND NONE OF IT IS LIVE. IT IS AT A TRIAL ADDRESS, ON YOUR WORD:**
+
+`https://jienluv2bake.com.my/store/?trial=1`
+
+⚠️ **Open that address and you see the proposed page; open the ordinary shop address and you see exactly what is there today.** Everything above — the answer box, the three steps, 6pm — is behind that one flag. **Send the trial address to your circle.** ⭐ It is a flag rather than a second copy of the shop on purpose: a copy would be a second shop to keep in step with this one, and it would put an unlaunched ordering page at a guessable address — **you already have one public `/test/` you have been meaning to deal with, and this must not become the second.**
+
+**⚠️⚠️ ONE THING TO KNOW BEFORE YOU SEND IT, AND IT IS THE ONLY RISK HERE.** The trial page is your REAL shop with different words on it, so **an order placed from that address is a REAL order** — it lands in your Orders and takes a receipt number. If your circle should place throwaway orders, tell me and I will mark them so you can spot and delete them.
+
+**⚠️ AND TWO THINGS NOT DONE YET.** The self collect / courier lines — the other half of what went wrong — are **not in this**; you chose to see this first. And the Chinese and Malay versions of the new sentences are **mine, not a native speaker's** — `pick()` falls back to English rather than blanking, so nobody meets a hole, but a Chinese customer reading English is a downgrade and it wants a pair of eyes before the flag comes off. **Your circle is exactly who should check it.**
+
+**No database step.** The suite is **3,181 tests, all green** (4 new). Every new rule was proved by putting the fault back: the ordinary page showing the trial box, the clock reverting to 18:00, and the cut-off being ignored when working out the next day — ⚠️ **that last bite found my own test was too weak to catch it, and it was rewritten before it was trusted.**
 
 **10 Oct 2026 — engine v404, TAKING A BAKE DAY OFF NOW ASKS FIRST (no database step — pushing this one is the whole of it).**
 

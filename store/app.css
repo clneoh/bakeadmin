@@ -1660,3 +1660,48 @@ button.prod-next.off::after { content: ""; }
    own rule for [hidden], so without this the Remove link is drawn on a page where
    no code has been used — a control offering to remove nothing. */
 .promo-clear[hidden] { display: none; }
+
+/* ★★ THE ANSWER, AND THE THREE STEPS (v405) ──────────────────────────────────────────────────────
+   Her report, after her first customer ordered alone: __"End up they enter a wrong baking day and the
+   select courier instead of self collect… Checking with the customer confirm that he actually want the
+   bread today, not knowing order close 6pm one day before."__
+
+   ⚠️⚠️ THE PAGE STATED THE RULES AND NEVER THE ANSWER. "Delivery days Mon, Wed, Fri" and "Order by
+   18:00 the day before" are both true and neither tells a stranger whether HE can have bread, or when
+   the earliest he can get it is. He had to combine today's date, three weekdays, the clock and "the day
+   before" — in his head, on a phone, while not being confident online. So he picked a day that looked
+   fine and it was wrong.
+
+   ⚠️ EVERYTHING HERE IS UNDER `body.trial` UNTIL SHE HAS TRIED IT ON HER OWN PHONE. The markup ships
+   but the box stays `hidden`, so a customer cannot see a half-judged wording. */
+
+/* The answer box — a card with a coloured edge, so it reads as the page speaking to him rather than as
+   one more panel of small print. */
+.answer { background: var(--surface); border: 1px solid var(--brown); border-left: 4px solid var(--brown);
+  border-radius: var(--radius); padding: 13px 15px; margin-bottom: 12px; }
+.answer-kicker { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700;
+  color: var(--brown-dark); margin: 0 0 4px; }
+.answer-big { font-family: var(--serif); font-size: 17px; margin: 0 0 4px; line-height: 1.32; }
+.answer-sub { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.45; }
+/* ⚠️ GREEN WHEN THERE IS STILL TIME, the same green the backoffice uses for a settled thing. The two
+   states are the SAME words with a different first line, so a customer never has to work out which one
+   they are looking at. */
+.answer.ok { border-color: #3b7449; border-left-color: #3b7449; }
+.answer.ok .answer-kicker { color: #3b7449; }
+
+/* The three steps. ⚠️ BIG AND FILLED ON PURPOSE — a step number is read at a glance or not at all, and
+   a small grey numeral beside a heading is decoration rather than a signpost. */
+.steps-lede { font-size: 13.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
+.step-head { display: flex; align-items: center; gap: 10px; margin: 18px 0 8px; }
+.step-head .section { margin: 0; }
+.step-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--brown); color: #fff; font-weight: 700; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; line-height: 1; }
+/* A step she has finished: the circle turns green, so "where am I" is answered without reading a word. */
+.step-head.done .step-num { background: #3b7449; }
+/* ⚠️ AND NONE OF IT EXISTS UNTIL SHE TURNS THE TRIAL ON: with the flag off the page is byte-for-byte
+   what it is today, which is what makes this safe to push before she has judged the wording. */
+body:not(.trial) .answer,
+body:not(.trial) .steps-lede,
+body:not(.trial) .step-num { display: none; }
+body:not(.trial) .step-head { display: block; margin: 0; }
