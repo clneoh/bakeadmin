@@ -13,6 +13,15 @@
   --line: #f0e2d2;
   --brown: #c4552f;
   --brown-dark: #a84322;
+  /* ★★ THE SHOP'S ONE RED (v426). Her words: __"can you flash the only available on friday in red
+     color?"__
+     ⚠️⚠️ THE SHOP HAD NO RED AT ALL BEFORE THIS, and that is why it needs its own token rather than a
+     borrowed colour: **the whole page is terracotta** (`--brown` #c4552f, `--brown-dark` #a84322), so a
+     "red" that is really a warmer terracotta would flash and read as the brand colour arriving — the
+     opposite of standing out. ⭐ This is a genuinely redder red at the same weight as the rest.
+     ⚠️ AND IT CLEARS THE APP'S OWN BAR: **5.35:1** on the card, over the 4.5 every accent here is held
+     to (v369) — a flash nobody can read is not a warning. */
+  --red: #c0392b;
   --brown-soft: #fbe7dc;
   --shadow: 0 2px 12px rgba(120, 66, 32, .08);
   --shadow-lg: 0 12px 30px rgba(120, 66, 32, .18);
@@ -1736,10 +1745,23 @@ button.prod-next.off::after { content: ""; }
    ⚠️ `:not(.point-days)` IS LOAD-BEARING: the days line wears `.point-sub point-days` too, so a plain
    `.point-sub` rule would fade the very line this is keeping readable. The `:not()` also outranks the
    plain rule on its own, so the outcome does not depend on the order these appear in. */
+/* ⚠️⚠️ THE REASON LINE CARRIES NO FADE AT ALL, AND THAT IS A CORRECTION, NOT AN OMISSION (v426).
+   Her words: __"it is abit too fade"__.
+   ⚠️ v425 FADED THIS LINE BY 70% ON TOP OF ITS COLOUR — **AND ITS COLOUR IS ALREADY THE FADED ONE.**
+   It inherits `--muted` from `.point-sub`, so the row's warning was **2.94:1**, not the 5.21 I wrote
+   down: **I measured the colour and then applied a second fade over it, and the two compound.**
+   ⭐ **`--muted` at full strength IS 5.40:1** — over the 4.5 this app holds its accents to, and the
+   right answer was simply to stop folding it twice. **She found it by reading the page.**
+   ⚠️ `opacity: 1` is written out rather than left to inheritance so the intent is on the page: an
+   element that must NOT be faded says so. */
 .point-opt.off .point-days,
 .point-opt.short .point-days,
-.point-opt.short .point-sub { opacity: .7; }
+.point-opt.short .point-sub { opacity: 1; }
 
+/* ⚠️ AND THE NAME AND THE ORDINARY DESCRIPTION still fade hard — that IS her "obviously pale", and
+   they are not the thing the customer has to read. ⚠️ The name is `--ink` at 42% = **2.40:1**; the
+   description is `--muted` at 42%, which is very faint indeed — deliberately, because it is the
+   sentence that says what the place IS rather than why he cannot pick it. */
 .point-opt.off .point-name,
 .point-opt.short .point-name,
 .point-opt.off .point-sub:not(.point-days) { opacity: .42; }
@@ -1757,13 +1779,23 @@ button.prod-next.off::after { content: ""; }
    ⚠️ A BLINK, NOT A JUMP: opacity only. No movement, no size, no position, so the words stay exactly
    where they are on the line he is reading. ⭐ Measured: the page's scroll position and the row's
    height are both identical before and after the tap. */
-/* ⚠️ `0%, 100%` IS `.7`, NOT `1`, AND THAT IS NOT A TYPO (v425): the line it animates now RESTS at
-   .7, and a keyframe that ended at full strength would flash, then **snap back** the moment the
-   animation let go. ⭐ The two numbers have to agree — if the resting opacity above ever changes,
-   this must change with it. */
+/* ★★ THE FLASH IS RED (v426). Her words: __"can you flash the only available on friday in red
+   color?"__ — so the line no longer dims and returns: **it turns red and comes back.**
+   ⚠️⚠️ `0%, 100%` IS `var(--muted)`, AND THAT IS THE WHOLE CRAFT OF IT. The line it animates INHERITS
+   its colour from `.point-sub`, which is `--muted` — so a keyframe that ended on any other value
+   would flash red and then **snap** the moment the animation let go. ⭐ **The end value has to be the
+   resting value**, and the resting value here is a colour, not `1`.
+   ⚠️ AND THE FADE FROM v425 IS UNTOUCHED: this animates `color` only, so the line keeps its 70%
+   opacity throughout — the row stays as pale as she chose, and the red is what moves. */
+/* ⚠️⚠️ THE TWO COLOURS ARE WRITTEN OUT, AND THAT IS NOT LAZINESS (v426). They began as
+   `var(--muted)` and `var(--red)` — and the red **never arrived**: the animation ran, its name was on
+   the element, and the computed colour did not move. An unregistered custom property is substituted
+   as tokens, and a `var()`-to-`var()` pair is not something every engine will interpolate. ⭐ **A
+   literal always interpolates**, and these two are pinned against the tokens by a test so the words
+   and the numbers cannot drift apart. */
 @keyframes point-flash-word {
-  0%, 100% { opacity: .7; }
-  15%, 50% { opacity: .15; }
+  0%, 100% { color: #7b6552; }   /* --muted */
+  12%, 55% { color: #c0392b; }   /* --red */
 }
 .point-opt.off.flash .point-days,
 .point-opt.short.flash .point-sub { animation: point-flash-word 1.1s ease-out 1; }
@@ -1775,7 +1807,7 @@ button.prod-next.off::after { content: ""; }
    left with the mark stuck on that row for good. */
 @media (prefers-reduced-motion: reduce) {
   .point-opt.off.flash .point-days,
-  .point-opt.short.flash .point-sub { animation: none; font-weight: 700; }
+  .point-opt.short.flash .point-sub { animation: none; color: var(--red); font-weight: 700; }
 }
 
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }

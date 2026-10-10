@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v425)
+# Jienluv2bake — change history (v54 → v426)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v426, THE WARNING FLASHES RED — AND TWO WORDS FROM YOU FOUND A NUMBER I HAD GOT WRONG (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"can you flash the only available on friday in red color?"__ — and then, reading it back: **__"it is abit too fade"__**
+
+**1. THE WARNING NOW FLASHES RED.** ⚠️ **The shop had no red at all before this** — and that is why it needed its own rather than a borrowed one: **the whole page is terracotta**, so a "red" taken from the palette would have flashed and read as the **brand colour arriving**, which is the opposite of standing out. ⭐ It has its own red, and it clears the app's own bar at **5.35:1** — a flash nobody can read is not a warning.
+
+**⚠️⚠️ 2. AND YOUR SECOND SENTENCE FOUND A NUMBER I HAD WRONG — IN A VERSION ALREADY PUSHED.** ⚠️ v425 faded the warning line by 70% **on top of a colour that is already the faded tone.** So the warning was at **2.94:1**, not the **5.21** I wrote down. ⭐ **I measured the colour and then folded a second fade over it, and the two compound.** ⚠️ **Both the changelog and the guide said 5.21, and both were wrong.** ⭐ The line now carries **no fade at all** — `--muted` at full strength is **5.40:1**, which was the right answer all along. ⚠️ A dated correction is written **inside the v425 entry**, so the wrong number does not sit in your history looking authoritative. **The name and the ordinary description still fade hard**, exactly as you chose — that part was right.
+
+**⚠️ 3. AND ONE THING DID NOT WORK, WRITTEN DOWN RATHER THAN HIDDEN.** The first red animated **`var(--muted)` to `var(--red)`** — and **the red never arrived**: the animation ran, its name was on the element, and the colour did not move an inch. ⭐ The two colours are written out as plain values now, and a test ties them back to the tokens so they cannot drift apart. **A `var()`-to-`var()` pair is not something every engine will blend.**
+
+**Measured: the suite is 3,280 tests, all green. Three bites**, all fired by their own message, the stylesheet restored byte-identically. **Verified on your OWN shop page**, where a Friday-only place is already parked: the line reads **Only available on Fri**, it turns **red** while it flashes, it comes back, **the page does not move**, and the line sits at full strength instead of the double fade.
+
+**No database step.** Pushing this one is the whole of it.
+
+
 
 **10 Oct 2026 — engine v425, A PLACE YOU CANNOT PICK IS FADED TO THE EYE — AND THE ONE LINE THAT SAYS WHEN IT IS OPEN STAYS READABLE (no database step — pushing this one is the whole of it).**
 
@@ -14,6 +30,8 @@ always tell which build a phone is running.
 
 - **The name and the description go to 42%** — measured against the card, that is **2.40:1**: unmistakably pale. ⚠️ They are not the thing the customer has to read.
 - **The line carrying the reason goes to 70%** — **5.21:1**, against normal text's 13.45:1. Clearly paler than an ordinary row, **and still comfortably readable** — because **a reason nobody can read is not a reason.**
+
+⚠️⚠️ **CORRECTION, added with v426: THAT "5.21" WAS WRONG, AND THE 70% WAS WRONG WITH IT.** That line's own colour is **already `--muted`**, the faded tone — so folding a further 70% over it gave an effective **2.94:1**, not 5.21. ⭐ **I measured the colour and then applied a second fade on top of it, and the two compound.** The line now carries **no fade at all**: `--muted` at full strength is **5.40:1**, which is what this should always have said. ⚠️ **You caught it by reading the page** — *"it is abit too fade"*. The name and the ordinary description still fade hard, exactly as you chose.
 
 ⚠️ **AND THE REASON IS NOT THE SAME LINE IN BOTH CASES**, which is the fiddly part: a place not served today says it on its own line, while a place his basket has not reached says it on the **description** line, because that sentence replaced the description. ⚠️ Both keep the readable fade, and the rule that fades a description is written to leave the reason line alone.
 

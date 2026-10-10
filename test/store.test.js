@@ -2271,19 +2271,43 @@ test("★★ a parked place greys its WORDING, not its background (v425)", () =>
     "⚠️ the NAME fades hard — 42% is 2.40:1, unmistakably pale");
   assert.match(css, /\.point-opt\.off \.point-sub:not\(\.point-days\)[\s\S]{0,80}opacity:\s*\.42/,
     "⚠️ and so does the ordinary description");
-  assert.match(css, /\.point-opt\.off \.point-days,[\s\S]{0,200}opacity:\s*\.7/,
-    "⚠️ but the line carrying the REASON only goes to 70% — 5.21:1 against normal text's 13.45:1, so "
-    + "it is clearly paler and still readable, because a reason nobody can read is not a reason");
+  // ⚠️⚠️ AND THE LINE CARRYING THE REASON MUST **NOT** BE FADED — a correction to this very test
+  // (v426). It used to assert 70% here, and 70% was WRONG: that line's colour is ALREADY `--muted`,
+  // inherited from `.point-sub`, so folding a 70% opacity over it gave **2.94:1** — not the 5.21 the
+  // comment claimed. ⭐ **I measured the colour and then applied a second fade over it, and the two
+  // compound.** `--muted` at FULL strength is **5.40:1**, over the bar this app holds its accents to,
+  // and her words were __"it is abit too fade"__. **She found it by reading the page.**
+  assert.match(css, /\.point-opt\.off \.point-days,[\s\S]{0,160}opacity:\s*1;/,
+    "⚠️⚠️ the reason line must NOT be faded a second time — its own colour is already the faded tone");
 
   // ⚠️⚠️ `:not(.point-days)` IS LOAD-BEARING, not tidiness: the days line wears `.point-sub
   // point-days` too, so a plain `.point-sub` rule at 42% would fade the very line being kept readable.
   assert.match(css, /\.point-opt\.off \.point-sub:not\(\.point-days\)/,
     "⚠️ the description rule must EXCLUDE the days line, which is also a .point-sub");
 
-  // ⚠️ AND THE FLASH HAS TO AGREE WITH THE RESTING VALUE. The animation ends at its own `100%`, and if
-  // that were 1 the line would flash and then SNAP BACK to .7 the moment the animation let go.
-  assert.match(css, /@keyframes point-flash-word \{\s*0%, 100% \{ opacity: \.7; \}/,
-    "⚠️ the flash ends where the line rests, or it blips");
+  // ⚠️⚠️ AND THE FLASH ENDS ON THE LINE'S RESTING COLOUR, WHICH IS THE WHOLE CRAFT OF IT (v426). Her
+  // ask was __"can you flash the only available on friday in red color?"__ ⚠️ The line INHERITS its
+  // colour from `.point-sub`, which is `--muted` — so a keyframe ending on anything else would flash
+  // red and then SNAP the moment the animation let go.
+  assert.match(css, /--red:\s*#c0392b/i,
+    "⚠️ the shop's own red — the whole page is terracotta, so a borrowed 'red' would arrive looking "
+    + "like the brand colour rather than standing out");
+  // ⚠️⚠️ AND THE FLASH TOUCHES THE COLOUR ONLY. If it animated `opacity` too it would compound with
+  // the fade again — which is exactly the mistake corrected just above, and the one that put a
+  // warning at 2.94:1 in the first place.
+  assert.ok(!/@keyframes point-flash-word \{[\s\S]{0,160}opacity/.test(css),
+    "⚠️ the flash animates the COLOUR and nothing else — an opacity in here would fold a second fade "
+    + "onto a line whose colour is already the faded tone");
+
+  // ⚠️⚠️ AND THE KEYFRAME'S TWO COLOURS ARE WRITTEN OUT, SO THEY HAVE TO BE TIED BACK TO THE TOKENS.
+  // They are literals because a `var()`-to-`var()` pair **did not interpolate** — the animation ran,
+  // its name was on the element, and the colour never moved. ⭐ That freedom is exactly what lets the
+  // numbers drift away from the words, so this is the check that stops it.
+  const token = (n) => (css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
+  assert.equal((css.match(/@keyframes point-flash-word \{\s*0%, 100% \{ color: (#[0-9a-fA-F]{6})/) || [])[1],
+    token("muted"), "⚠️ the flash starts and ends on --muted's own value");
+  assert.equal((css.match(/12%, 55% \{ color: (#[0-9a-fA-F]{6})/) || [])[1],
+    token("red"), "⚠️ and flashes --red's own value");
 });
 
 test("★★ the flash is on the WORDS, not on the row (v424)", () => {
