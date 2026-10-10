@@ -5,7 +5,7 @@
 // last ordered/delivered — enough for a history pop-up and a marketing list.
 
 import { byId, groupOrders, orderCode, orderLinePrice, round2, waNumber } from "./state.js";
-import { groupValue, orderNet } from "./money.js";
+import { groupValue, moneyTagOf, orderNet } from "./money.js";
 // ⚠️ THE VAN'S OWN DAY (v429) — the same reader every other surface uses, never a second reading
 // of "which day does the van go". See courier_job.js.
 import { courierDayOf } from "./courier_job.js";
@@ -232,7 +232,7 @@ function bestOf(qtyByProduct) {
 // A customer's history as ONE block per storefront order, newest-placed first,
 // for the history pop-up. Multi-item orders keep their lines together under a
 // shared code (groupId || id), exactly as the Orders screen shows them.
-// Each block: { code, orderDate, deliveryDate, status, fulfillment, lines }.
+// Each block: { code, orderDate, deliveryDate, courierDay, status, moneyTag, fulfillment, lines }.
 export function ordersForCustomer(state, row) {
   const key = row && row._key;
   if (!key) return [];
@@ -258,6 +258,12 @@ export function ordersForCustomer(state, row) {
     }
     b.lines.push(o);
   }
+  // ★★ AND WHAT THE MONEY ON IT IS (v430). Her report: __"at Peggy's customer card, has that her
+  // order is paid, but it is not??"__ — ⚠️ the chip was drawn from `status` alone, so it said
+  // **Paid** over an order whose money had never come in. The word is computed HERE, where the
+  // whole group is in hand, because the answer needs the money flags and the refund mark rather
+  // than the single row the view is holding — and so that nothing downstream re-derives it.
+  for (const b of blocks.values()) b.moneyTag = moneyTagOf({ orders: b.lines });
   const out = [...blocks.values()];
   out.sort((a, b) =>
     (b.orderDate || "").localeCompare(a.orderDate || "") ||

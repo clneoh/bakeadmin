@@ -2308,6 +2308,11 @@ option.tone-off { color: var(--muted); }
   border-radius: 999px;
 }
 .paid-tag.tng { color: var(--brown-dark); background: var(--brown-soft); }
+/* ★ "Not paid" — the order has reached the paying stage and the money is still out (v430).
+   ⚠️ AMBER, NOT RED: red on this card would read as an error, and this is a "still to do", the
+   same register the app already gives money that has not come in (`.paid-tag.courier.mine`).
+   Contrast on --amber-bg measures 4.96:1, clear of the 4.5 the app holds itself to. */
+.paid-tag.owed { color: var(--amber); background: var(--amber-bg); }
 /* The courier's charge, in the paid-tag's family so a row reads as one more fact
    about the order rather than a new kind of thing. Quiet when the customer bore it
    — that charge costs her nothing — and amber when it came out of her own pocket,

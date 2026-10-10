@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v429)
+# Jienluv2bake — change history (v54 → v430)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**11 Oct 2026 — engine v430, "PAID" ON A CUSTOMER'S CARD NOW MEANS THE MONEY IS ACTUALLY IN (no database step).**
+
+**Your words:** __"look like there is a discrepancy for Peggy's order, at Peggy's customer card, has that her order is paid, but it is not??"__ — and then: **__"pls check any other discrepancy"__**
+
+**You were right. I built Peggy's exact case and the card said "Paid".** The test that catches it fails on that very sentence.
+
+**1. THE APP KEEPS TWO FACTS APART, AND ONE SCREEN WAS READING ONLY ONE OF THEM.** **"Paid" is the stage the order has reached** — it is what the dropdown moves. **Whether the money arrived is a separate record**, and it is only written when you press **Paid · Cash** or **Paid · TNG**. Peggy's card was printing the stage word by itself, so it said **Paid** over money nobody had handed over.
+
+**2. ★ EVERY OTHER SCREEN ALREADY READ BOTH.** The Orders list's Cash / TNG tag, the day's till, the invoice, the receipt and the customer's own **Track your order** page all read the money record as well as the stage. That is why only this one card disagreed with everything else — and it is why nothing else needed changing.
+
+**3. ★ I CHECKED FOR OTHERS, AS YOU ASKED. THERE WAS ONE MORE, AND I LEFT IT ALONE.** The **View** on a backup copy also prints the stage word — but that screen is a list of **what a saved copy contains**, so there the stage is the right thing to say. Everything else was already right.
+
+**4. THE SHAPE YOU PICKED, FROM THE SHEET.** The stage chip stays exactly where it was, and the money gets a chip of its own beside it:
+
+- **Not paid** — amber — while the money is still out (the stage reached paying, or went past it)
+- **Cash** or **TNG** — once it is in, the same words the Orders list already uses
+- **Refunded** — if the money came in and went back out
+
+**★ SO A ROW NOW READS `#CAFE02 · Self collect · Delivered · Not paid`** — the one you would chase: the bread has gone, the money has not come.
+
+**5. ⚠️ AND NOTHING OF YOURS MOVED.** An order from before this record existed carries no flag at all, and it reads exactly as it always did — no chip appears on it. An order that has not reached the paying stage gets no chip either. Only the orders that really are owed something changed.
+
+**Measured:** tests **3,285 → 3,294**. **No database step.**
+
+**⚠️ STILL OUTSTANDING FROM v429, AND IT DOES NOT SHIP BY PUSHING:** the order-alert SQL (`supabase/order_alerts.sql`) must be **run again in Supabase**, or your phone alert keeps the old word.
 
 **10 Oct 2026 — engine v429, THE BAKE DAY IS NOT THE DELIVERY DAY — IN SEVEN PLACES, NOT ONE (SQL STEP — the order-alert function must be run again, then push).**
 

@@ -36,6 +36,18 @@ const STATUS_LABEL = {
   baking: "Baked", ready: "Packed", delivered: "Delivered",
 };
 
+// The tone for the money chip (v430). The words come from `moneyTagOf`; only WHICH colour they
+// wear is decided here. ⚠️ THE CLASSES ARE THE ONES THE ORDERS LIST ALREADY USES — `tng`, the
+// quiet `cash` default, and `refunded` — so a chip cannot come out one colour on this card and
+// another on the row it is the same fact about. `owed` is the only new one: the amber the app
+// already spends on money that is not in (see `.paid-tag.courier.mine`).
+function moneyTone(word) {
+  if (word === "Not paid") return " owed";
+  if (word === "Refunded") return " refunded";
+  if (word === "TNG") return " tng";
+  return "";
+}
+
 // Picked-for-messaging set and the compose text live for this screen so a
 // filter change or a re-render never drops a selection mid-compose.
 let picked = new Set();
@@ -924,7 +936,19 @@ function historyBlock(state, b, onOpen) {
       el("a", { class: "hist-code ord-open", href: orderHref(b.code),
         onclick: (ev) => { ev.preventDefault(); onOpen(); } }, `#${b.code}`),
       el("span", { class: `fulfill-tag${courier ? " courier" : ""}` }, courier ? "Courier" : "Self collect"),
-      el("span", { class: "qty-chip" }, STATUS_LABEL[b.status] || b.status)),
+      el("span", { class: "qty-chip" }, STATUS_LABEL[b.status] || b.status),
+      // ★★ AND WHAT THE MONEY IS, BESIDE THE STAGE IT REACHED (v430). Her report: __"at Peggy's
+      // customer card, has that her order is paid, but it is not??"__ — ⚠️⚠️ **and she was right.**
+      // The chip above reads `status`, which only says the order got as far as paying; whether the
+      // money arrived is a separate flag, so this row said **Paid** over money nobody had handed
+      // over while the Orders list, the till, the invoice and the customer's own track page all
+      // said otherwise. The word comes from `moneyTagOf` — the same rule those screens read.
+      //
+      // ⚠️ NOTHING IS DRAWN WHEN THE WORD IS EMPTY, so a settled order, an order with no method
+      // recorded and an order that has not reached paying are all byte-for-byte what they were.
+      b.moneyTag
+        ? el("span", { class: `paid-tag${moneyTone(b.moneyTag)}` }, b.moneyTag)
+        : null),
     when ? el("p", { class: "card-sub", style: "margin:2px 0 6px" }, when) : null,
     ...b.lines.map((o) => el("div", { class: "hist-line" }, `${productName(state, o)} ×${o.qty}`)));
 }
