@@ -254,6 +254,10 @@ test("placing a pack order sends the pool pieces separately from its line", asyn
   const nameInput = (registry["name-input"] ||= createEl("input"));
   waInput.value = "60123456789";
   nameInput.value = "Ain";
+  // ⚠️ AND HOW HE GETS IT, because since v416 **the page no longer answers that for him** — pressing
+  // Place order without a way chosen stops and points at the two cards. This test is about the POOL,
+  // so it picks one and gets on with it.
+  registry["fulfillment"]._value = "collect";
   registry["order-btn"].onclick();
   await flush();
   await flush();

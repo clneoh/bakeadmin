@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v415)
+# Jienluv2bake — change history (v54 → v416)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v416, NEITHER WAY IS PICKED FOR HIM (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"you need a 'click to choose' after the title, and self collect should not be default"__ · __"for delivery as well"__
+
+**★★ NEITHER SELF COLLECT NOR COURIER IS CHOSEN ANY MORE.** ⚠️ **The card used to open with Self collect already edged** — which is the page answering its own question, and the very thing you were looking at. **It now opens with both plain and its own small arrow, and the edge only ever means a real tap** — the same rule the places got in v415, applied to the question above them.
+
+**★ AND THE QUESTION NOW SAYS IT IS ONE TO ANSWER:** __"Tap to choose one."__ ⚠️ With neither card edged, the two of them read as **two descriptions** rather than two things to pick — so that line stands under **"How will you get your order?"** until he picks one, and goes the moment he does.
+
+**⚠️⚠️ AND A CONSEQUENCE THAT NEEDED A DECISION: WHAT IF HE NEVER PICKS?** An order has to carry whether a rider is coming or the bread is being kept back, so there is **no honest default to fall back on**. ⚠️ **Pressing Place order with neither chosen now asks** — "Please say how you will get your order. Tap Self collect or Courier delivery above" — ⭐ **which is the same stop the page already makes for a missing WhatsApp number, and for the same reason: it is the one thing the order cannot do without.**
+
+**★ THE BUTTON IS NEVER DISABLED.** ⚠️ It stays live and pressing it **points at the two cards** — your standing rule, that no website rule may hide or block a sale. **This is a question, not a switched-off control.**
+
+**No database step.** The suite is **3,242 tests, all green** (2 new). Every new rule proved by putting the fault back — including one that found **my own assertion was not testing arrival at all** (it set the value itself first, so it would have passed with Self collect still the default), and the rule was pinned in the markup instead.
 
 **10 Oct 2026 — engine v415, NOTHING IS CHOSEN UNTIL THE CUSTOMER CHOOSES (no database step — pushing this one is the whole of it).**
 

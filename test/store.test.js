@@ -2243,3 +2243,67 @@ test("★ nothing is lit on the places until a tap, and the card says what to do
     render();
   }
 });
+
+// ── v416: neither way is chosen for him ─────────────────────────────────────
+
+test("★★ neither way is chosen on arrival, and the question says it is one to answer", () => {
+  // Her words: __"you need a 'click to choose' after the title, and self collect should not be
+  // default"__, and then __"for delivery as well"__. ⚠️ **A page that opens with one of them edged
+  // has answered its own question** — the same fault the places had at v415.
+  const wrap = document.getElementById("fulfillment");
+  const prompt = registry["fulfil-pick"];
+  try {
+    wrap._value = "";
+    render();
+    assert.equal(wrap._value, "", "nothing is chosen");
+    assert.equal(prompt.hidden, false, "so the question carries a line saying it is one to answer");
+
+    wrap._value = "collect";
+    render();
+    assert.equal(prompt.hidden, true, "and the line goes the moment he picks one");
+
+    wrap._value = "courier";
+    render();
+    assert.equal(prompt.hidden, true, "whichever one he picks");
+  } finally {
+    wrap._value = "";
+    render();
+  }
+});
+
+test("★★ he cannot order without saying how he gets it — and the page points at the two cards", async () => {
+  // ⚠️⚠️ THERE IS NO HONEST DEFAULT FOR THIS ONE: an order has to carry whether a rider is coming or
+  // the bread is being kept back, which is exactly why she asked for neither to be picked for him.
+  // ⭐ AND IT FOLLOWS THE PAGE'S OWN PRECEDENT — the same stop a missing WhatsApp number already
+  // gets — **and the button is never disabled**, because no site rule may hide or block a sale.
+  refill();
+  document.getElementById("whatsapp-input").value = "60123456789";
+  const wrap = document.getElementById("fulfillment");
+  try {
+    wrap._value = "";
+    await registry["order-btn"].onclick();
+    const said = confirmLines().join(" | ");
+    assert.match(said, /say how you will get your order/i, "the page asks him rather than assuming");
+    assert.match(said, /Self collect or Courier delivery/, "and names the two things to pick from");
+    assert.equal(registry["order-btn"].disabled, false,
+      "⭐ the button is LIVE — this is a question, not a control that has been switched off");
+
+    // ⚠️ AND WITH A WAY CHOSEN IT GOES STRAIGHT THROUGH — the stop is about the answer, not a wall.
+    wrap._value = "collect";
+    const realFetch = globalThis.fetch;
+    let posted = null;
+    globalThis.fetch = async (url, opts) => {
+      if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
+      return { ok: true, json: async () => [] };
+    };
+    try {
+      await registry["order-btn"].onclick();
+      assert.ok(posted, "the order went through once he had said how he gets it");
+      assert.equal(posted.fulfillment, "collect", "carrying the way he picked");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  } finally {
+    wrap._value = "";
+  }
+});

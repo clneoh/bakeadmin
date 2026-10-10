@@ -2719,6 +2719,21 @@ export function render() {
       ], "warn");
       return;
     }
+    // ★★ AND HE CANNOT ORDER WITHOUT SAYING HOW HE GETS IT (v416). ⚠️⚠️ THE ONE THING AN ORDER MUST
+    // CARRY IS WHETHER A RIDER IS COMING OR THE BREAD IS TO BE KEPT BACK — so with neither card
+    // picked there is no honest default to fall back on, which is exactly why she asked for it.
+    // ⚠️ **THE BUTTON IS NEVER DISABLED** (her standing rule — a site rule must not hide or block a
+    // sale): it stays live and pressing it POINTS AT THE TWO CARDS, **which is the same thing the
+    // page already does for a missing WhatsApp number.**
+    const fulfilEl = document.getElementById("fulfillment");
+    if (fulfilEl && !fulfilEl._value) {
+      if (fulfilEl.scrollIntoView) fulfilEl.scrollIntoView({ block: "center" });
+      showConfirm([
+        el("p", { class: "confirm-title" }, t("fulfilAskTitle")),
+        el("p", { class: "confirm-body" }, t("fulfilAskBody")),
+      ], "warn");
+      return;
+    }
     // Cutoff guard: a customer may have the page open across the deadline, so
     // re-check the selected day at the moment they tap Place order.
     if (!isOpen(CONFIG, new Date(`${selected}T00:00:00`))) {
@@ -3540,6 +3555,12 @@ function refreshPointList(total = 0) {
   // come from the dictionary and nothing here writes a word of it.
   const pickNote = document.getElementById("point-pick");
   if (pickNote) pickNote.hidden = !list || list.hidden || !!wrap._pointId;
+  // ★★ AND THE PROMPT UNDER THE QUESTION STANDS WHILE NEITHER WAY IS CHOSEN (v416). ⚠️ With no card
+  // edged, the two of them read as two DESCRIPTIONS rather than as two things to pick — so the
+  // prompt covers the question, not one of the answers, which is why it is up there and not inside
+  // a card. ⚠️ It goes the moment he picks one, the same rule the places follow.
+  const prompt = document.getElementById("fulfil-pick");
+  if (prompt) prompt.hidden = !!chosen;
   const addr = document.getElementById("address-field");
   if (addr) addr.hidden = open !== "courier" || chosen !== "courier";
   paintCarets();
@@ -3619,7 +3640,10 @@ function wireFulfillment() {
       apply(want);
     });
   }
-  apply("collect"); // reflect the static HTML's default active button
+  // ★★ AND NEITHER WAY IS CHOSEN (v416). Her words: __"self collect should not be default"__, and
+  // then __"for delivery as well"__ — ⚠️ **a page that opens with one of them edged is a page that
+  // has answered its own question**, which is the same fault the places had at v415.
+  apply("");
   wrap._open = null; // ⭐ and arrive with BOTH cards folded, whatever the default way is
   refreshPointList();
 }

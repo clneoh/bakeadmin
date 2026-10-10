@@ -124,6 +124,11 @@ const en = {
   privacyContact: "Ask us any time to see, correct or delete what we hold — WhatsApp",
   privacyDate: "Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.",
   howGet: "How will you get your order?",
+  // ★★ THE PROMPT UNDER THE QUESTION, AND THE STOP IF HE NEVER ANSWERS (v416). Her words:
+  // __"you need a 'click to choose' after the title, and self collect should not be default"__.
+  fulfilPick: "Tap to choose one.",
+  fulfilAskTitle: "Please say how you will get your order.",
+  fulfilAskBody: "Tap Self collect or Courier delivery above — that is how we know whether to have it ready for you or send it to your door.",
   selfCollect: "Self collect",
   // ★★ EACH WAY SAYS WHAT IT IS (v407). Her customer chose a courier when he wanted to
   // collect: the page named both ways and explained neither. ⚠️ BOTH LINES ARE TRUE BEFORE
@@ -410,6 +415,9 @@ const zh = {
   privacyContact: "随时可以要求查阅、更正或删除我们持有的资料 —— WhatsApp",
   privacyDate: "依据《2010 年个人资料保护法令》（Act 709）。最后更新：2026 年 10 月 7 日。",
   howGet: "你希望怎样取货？",
+  fulfilPick: "请点选一个。",
+  fulfilAskTitle: "请选择取货方式。",
+  fulfilAskBody: "请在上面点选「自取」或「外送」— 我们才知道要为你准备好，还是送到你家。",
   selfCollect: "自取",
   selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切地点，面包做好后，烘焙日当天任何时间都可以来取。",
   courier: "外送",
@@ -600,6 +608,9 @@ const ms = {
   privacyContact: "Beritahu kami bila-bila masa untuk melihat, membetulkan atau memadam apa yang kami simpan — WhatsApp",
   privacyDate: "Di bawah Akta Perlindungan Data Peribadi 2010 (Akta 709). Kemas kini terakhir: 7 Oktober 2026.",
   howGet: "Macam mana anda mahu ambil tempahan?",
+  fulfilPick: "Tekan untuk pilih satu.",
+  fulfilAskTitle: "Sila beritahu bagaimana anda mahu ambil tempahan.",
+  fulfilAskBody: "Tekan Ambil sendiri atau Penghantaran kurier di atas — itu caranya kami tahu sama ada perlu disediakan untuk anda atau dihantar ke pintu anda.",
   selfCollect: "Ambil sendiri",
   selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan lokasi yang tepat, dan sebaik sahaja tempahan anda siap, anda boleh ambil pada bila-bila masa pada hari membakar.",
   courier: "Penghantaran kurier",

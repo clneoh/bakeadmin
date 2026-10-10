@@ -471,8 +471,21 @@ test("★★ the places are part of the Self collect choice, not a box under it 
   // lights as the choice is browser-only: this test shim carries no static markup, so `closest` has
   // nothing to walk. That half is verified by looking, and it is why the rule below is pinned at
   // all — see the note about v392 in this file's sibling, store.test.js.)
-  assert.match(seg, /<div class="seg-opt active" data-opt="collect">/,
-    "the self-collect card is the one wearing the edge on arrival");
+  // ⚠️⚠️ AND **NEITHER** CARD WEARS THE EDGE ON ARRIVAL (v416). Her words: __"self collect should
+  // not be default"__, and then __"for delivery as well"__. ⚠️ This assertion used to say the
+  // opposite, and the change is hers: **a page that opens with one of them edged has answered its
+  // own question.** ⭐ The prompt under the title is what stands in its place.
+  assert.equal(/class="seg-opt active"/.test(seg), false,
+    "no card is the chosen one before the customer has chosen");
+  // ⚠️ AND EACH CARD IS THERE WITH NO EDGE OF ITS OWN — asserted card by card, because a single
+  // `active` slipped back onto one of them is the whole fault and the absence check above would
+  // still pass if BOTH were edged. (⚠️ Same reason the picker's list is asserted row by row.)
+  assert.match(seg, /<div class="seg-opt" data-opt="collect">/, "self collect is not the default");
+  assert.match(seg, /<div class="seg-opt" data-opt="courier">/, "and neither is delivery");
+  // ⚠️ Asserted against the PAGE, not `seg` — the line sits ABOVE the picker, under the question,
+  // so it is outside a slice that starts at `id="fulfillment"`.
+  assert.match(html, /id="fulfil-pick"[^>]*>Tap to choose one\.</,
+    "and the question carries a line saying it is one to answer");
   // ⚠️ AND THE PLACES ARE INSIDE IT — bounded by POSITION, because the list must be after the
   // collect card opens AND before the courier card does. A lazy `[\s\S]*?` from the collect card
   // would also match a list sitting inside the COURIER card further down, which is the fault this

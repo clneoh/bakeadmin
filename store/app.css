@@ -876,6 +876,17 @@ button.prod-next.off::after { content: ""; }
   gap: 8px;
 }
 .seg-caret { flex: 0 0 auto; color: var(--muted); font-size: 13px; }
+/* ★★ THE LINE UNDER THE QUESTION (v416). Her words: __"you need a 'click to choose' after the
+   title"__. ⚠️ With NEITHER card edged, the two of them read as two descriptions rather than as two
+   things to pick — so this says what they are. Same voice as the instruction over the places, because
+   it is the same kind of help. */
+.seg-prompt {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brown-dark);
+}
+.seg-prompt[hidden] { display: none; }
 /* ⚠️ THE FOLDED LIST TAKES NO ROOM. `hidden` on the element itself, so a shop with no places draws
    exactly the card it drew before — the rule is keyed on the attribute rather than on `:empty`
    because an EMPTY list and a FOLDED one are different things and only one of them is hidden. */
