@@ -52,7 +52,8 @@
 
 import { button, confirmDialog, el, emptyState, guarded, saidOf, select, toast } from "../ui.js";
 import { shortDate } from "../dates.js";
-import { routesOf, routesOfPoint } from "../deliveryRoutes.js";
+import { routeById, routesOf, routesOfPoint } from "../deliveryRoutes.js";
+import { openRoutePicker } from "./deliveryRoutes.js";
 import { byId, groupOrders, save } from "../state.js";
 import { maybePublishTracking, maybeSync } from "../supabase.js";
 import { runChargeAmounts, splitEven, writeCourierCharge } from "../courier.js";
@@ -397,6 +398,8 @@ export function renderDeliveryRun(root, state, params) {
     // flatMap, NOT map: each row hands back `[row, ...tail]` — the row itself plus any blocks
     // that belong under it — and a plain map would leave those as nested arrays, which the DOM
     // then converts with String() into the words "[object HTMLElement]".
+    // Read once, because the grouping and the rows must agree about whether she has any route at all.
+    const routeList = routesOf(state);
     const built = rowsNow().map((r) => {
       // ★ A POINT ROW IS A PLACE, NOT A PERSON (v301). Its door is the Point's own pin, the
       // name on the row is the Point's, and the customer's own name and delivery address have
@@ -474,7 +477,18 @@ export function renderDeliveryRun(root, state, params) {
         // here, where the press would look like it pinned this run's version of it.
         isPoint
           ? (place ? null : button("Pin the Point", () => openPointPinPicker(state, point, () => { paintList(); paintLoad(); }), "ghost small"))
-          : (place ? null : button("Put it on the map", () => pinDoorstep(first), "ghost small")));
+          : (place ? null : button("Put it on the map", () => pinDoorstep(first), "ghost small")),
+        // ★★ AND THE TUG, AS A TAG (v421). Her words: __"not to belong but i manually tug into a
+        // route"__ — and, choosing the shape, a **tag that is the press**.
+        // ⚠️ A DOORSTEP ONLY: a Place's routes are a standing arrangement she sets on the Place's own
+        // card, and offering the same press here for a Place would be a second door to one room — the
+        // fault `points.js` names about the pin.
+        // ⚠️⚠️ AND IT IS OFFERED EVEN WHEN SHE HAS NO ROUTE AT ALL (v421, her correction). It used to
+        // wait until a route existed — ⭐ **which hid the way in behind the thing it makes**: from a run
+        // day with no routes there was nothing to press, and nothing said so. Her words: __"if there is
+        // no collection point route, i would choose to create manual route, tag doors into same manual
+        // route"__ — so the press is always there, and with no routes it offers to make one.
+        (!isPoint) ? routeTag(state, r, () => { paintList(); paintLoad(); }) : null);
       // ALREADY ON A TRIP (v242). Her report: a customer whose courier booking is already made
       // must never be swept onto a second van. The block sits OUTSIDE the row's <label> for the
       // same reason the door offer below does — a press in there would tick the customer rather
@@ -576,12 +590,20 @@ export function renderDeliveryRun(root, state, params) {
     // it carries none rather than an empty one, and it is not a `.run-row`.
     const firstRouteOf = new Map(built.map(({ r }) => {
       const point = r.pointId ? pointById(state, r.pointId) : null;
-      const on = point ? routesOfPoint(state, point) : [];
-      return [r.key, on.length ? on[0].id : ""];
+      if (point) {
+        const on = routesOfPoint(state, point);
+        return [r.key, on.length ? on[0].id : ""];
+      }
+      // ★★ A CUSTOMER'S OWN DOORSTEP, TUGGED IN BY HAND (v421). Her words: __"not to belong but i
+      // manually tug into a route"__ — so this is read off the ORDER, for this run, and not off the
+      // customer. ⚠️ An id naming a route she has since DELETED falls back to no route, so the
+      // doorstep draws at the top as it always did rather than under a heading that is gone.
+      const id = String((r.groups[0] && r.groups[0].orders[0] && r.groups[0].orders[0].routeId) || "");
+      return [r.key, routeById(state, id) ? id : ""];
     }));
     const rows = [];
     for (const b of built) if (!firstRouteOf.get(b.r.key)) rows.push(...b.parts);
-    for (const route of routesOf(state)) {
+    for (const route of routeList) {
       const mine = built.filter((b) => firstRouteOf.get(b.r.key) === route.id);
       // A route with no stop on this day draws nothing at all — a heading over an empty run would
       // read as a van that went out with nothing on it.
@@ -596,6 +618,29 @@ export function renderDeliveryRun(root, state, params) {
       ...rows.filter(Boolean),
     );
     paintHead();
+  }
+
+  // ★★ THE ROUTE TAG ON A DOORSTEP — **THE TAG IS THE PRESS** (v421). Her words: __"not to belong but
+  // i manually tug into a route"__, and, offered a tag or words, she chose the tag.
+  //
+  // ⚠️ IT HAS TO READ AS PRESSABLE, and that is why it is a `<button>` wearing its own class rather
+  // than the `.st-chip` the Point cards use — **a chip is a LABEL**, and a label that looked like a
+  // control is the shape of fault this app treats as a bug ([[feedback_affordances]]). The title says
+  // what the press does, so a tag she has not met before still explains itself.
+  //
+  // ⚠️ `+ Route` when it is on none — the same shape as the row's other presses, and it says what the
+  // press will do rather than only what the state is. ⚠️ And the row is a flex line with NO wrap, so
+  // this stays deliberately small: it is the third thing on a doorstep row that also offers to place
+  // the door, and a wide control here would squeeze the name it sits beside.
+  function routeTag(state, r, after) {
+    const id = String((r.groups[0] && r.groups[0].orders[0] && r.groups[0].orders[0].routeId) || "");
+    const route = routeById(state, id);
+    const b = button(route ? `${route.name} ▾` : "+ Route",
+      () => openRoutePicker(state, r.groups[0], after), "route-tag");
+    b.title = route
+      ? `On ${route.name} — tap to tug it into another route`
+      : "Tug this doorstep into a route";
+    return b;
   }
 
   // WHY THIS ROW IS NOT TICKED, in words (v242). The courier is named, and so is its own word

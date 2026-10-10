@@ -5026,6 +5026,22 @@ tr.po-covered td { color: var(--muted); }
   text-transform: uppercase;
 }
 .run-head-title { font-weight: 600; font-size: 14px; }
+/* The route tag on a doorstep row (v421) — AND THE TAG IS THE PRESS.
+   ⚠️ Its own class rather than the Point cards' `.st-chip`, because a CHIP IS A LABEL: this one has
+   to look like something you can press, and a label that looked like a control is the fault this app
+   treats as a bug. ⚠️ Kept small and `nowrap` on purpose: `.run-row` is a flex line with NO wrap, so
+   a wide control here would squeeze the name it sits beside — the v411 fault. */
+.btn.route-tag {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--brown-dark);
+  white-space: nowrap;
+}
 .run-row {
   display: flex;
   align-items: center;

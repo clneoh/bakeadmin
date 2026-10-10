@@ -371,7 +371,13 @@ const zh = {
   promoPh: "例如 FRESH10",
   promoApply: "使用",
   promoRemove: "移除优惠码",
-  promoBar: "优惠码 %1 会一起送到。我们会核对，并在 WhatsApp 上确认最终金额。",
+  // ⚠️⚠️ IT READ "优惠码 %1 会一起送到" UNTIL v421 — *"Code %1 will be delivered together"* — and
+  // **A CODE IS NOT DELIVERED ANYWHERE.** ⭐ Found by reading every string I had written in 中文 and
+  // BM rather than trusting them: the English says the code GOES WITH the order, and 「送到」 says it
+  // is SHIPPED, which is a different fact and a confusing one on an order page. 「附在订单上」 is
+  // *attached to the order*, which is what the English means.
+  // ⚠️ The `%1` and the WhatsApp sentence are untouched — only the verb was wrong.
+  promoBar: "优惠码 %1 会附在你的订单上。我们会核对，并在 WhatsApp 上确认最终金额。",
   promoToday: "今日优惠：%1 — 输入优惠码 %2",
   promoAccepted: "%1 — 已套用优惠码 %2，我们确认订单时会为你扣减。",
   promoAcceptedUsed: "%1 — 已套用优惠码 %2。此码每人限用一次，我们确认订单时会为你核实。",

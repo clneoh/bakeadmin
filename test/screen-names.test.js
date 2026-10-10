@@ -154,3 +154,27 @@ test("★★ every picker that offers a dragged list reads HER order, not the ar
   assert.match(read("views/productCategories.js"), /flattenTree\(state\.productCategories\)/,
     "a category's Sits under box");
 });
+
+// ★★ AND THE TUG ON A RUN DAY, PINNED FOR THE SAME REASON (v421). The tug lives in a POP-UP, and the
+// pop-up is also where a route is MADE — so both facts are wiring, and neither can be driven by a
+// test in this suite (this file's own note above, and `delivery-run.test.js`'s shim has no pop-up at
+// all). ⚠️ **And the first version of this got it wrong in a way no sheet test could see: the press
+// was offered only once a route existed, so from a run day with none there was NO WAY IN.**
+test("★★ every doorstep offers the tug, and the tug can MAKE a route (v421)", () => {
+  const read = (p) => readFileSync(new URL(`../admin/js/${p}`, import.meta.url), "utf8");
+
+  const run = read("views/delivery_run.js");
+  assert.match(run, /\(!isPoint\) \? routeTag\(state, r,/,
+    "the doorstep's tug tag is offered on every doorstep row");
+  assert.ok(!/\(!isPoint && routeList\.length\)/.test(run),
+    "⚠️⚠️ and it is NOT gated on her already having a route — that gate hid the way in behind the "
+    + "thing it makes, which is the dead end she reported");
+
+  const routes = read("views/deliveryRoutes.js");
+  assert.match(routes, /addRoute\(state, \{ name: nameBox\.value \}\)/,
+    "the pop-up really makes the route she names");
+  assert.match(routes, /pick\(row\.id\)/,
+    "and tugs this doorstep onto it in the same press");
+  assert.match(routes, /const routes = routesOf\(state\);\n\s*const nameBox/,
+    "⚠️ reading the list as the pop-up is DRAWN, so the name box and the list cannot disagree");
+});

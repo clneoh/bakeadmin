@@ -24,6 +24,7 @@
 
 import { el, button, emptyState, confirmDialog, showPopup, toast, wireRowReorder } from "../ui.js";
 import { save } from "../state.js";
+import { maybeSync } from "../supabase.js";
 import { addRoute, moveRoute, pointsOnRoute, routeNameProblem, routesOf, updateRoute } from "../deliveryRoutes.js";
 
 export function renderDeliveryRoutes(root, state) {
@@ -58,6 +59,81 @@ function renderAll(root, state) {
         + "one or several each, on the Self collection Points screen. The delivery run then groups a day's stops "
         + "by the route they are on.")]));
   if (y && typeof window !== "undefined") window.scrollTo(0, y);
+}
+
+// ★★ TUGGING ONE CUSTOMER'S DOORSTEP INTO A ROUTE, BY HAND, FOR THAT DAY (v421).
+//
+// Her words: __"how do i tug in any other point to a route already named for that day?"__ — and then,
+// correcting what she meant, twice: __"not any other point but any other customer delivery?"__ and
+// __"not to belong but i manually tug into a route"__.
+//
+// ⭐⭐ **"TUG", AND NOT "BELONG", AND THE DIFFERENCE IS THE WHOLE DESIGN.** ⚠️ She is describing an
+// ACTION she takes on a run day — pull this doorstep into this van's group — **not a standing
+// attribute** of a customer or an order. ⭐ **So the control below says "tug" and nothing else**, and
+// the field it writes is read back the same way: where a doorstep sits on TODAY'S run.
+//
+// ⚠️⚠️ THAT IS WHY IT LIVES ON THE **ORDER** AND NOT ON THE CUSTOMER. Her own phrase was *"for that
+// day"*: a route written onto a customer's own record would be a PERMANENT change made by a passing
+// arrangement, and **nothing of hers is rewritten by a plan.** ⭐ A PLACE is the opposite case — a
+// standing arrangement — which is why a Place's routes live on the Place, where v419 put them.
+// **One idea, two homes, and the difference is hers.**
+//
+// ⚠️ AND IT IS WRITTEN TO EVERY LINE OF THE GROUP, because a cart is ONE doorstep: a group whose lines
+// disagreed about their route would draw under two headings and be priced as two stops.
+// ⚠️ Clearing it writes `""` rather than removing the key, matching how every other cleared field on an
+// order is stored — a doorstep never tugged and one tugged back out read exactly the same.
+export function openRoutePicker(state, group, after) {
+  const lines = (group && group.orders) || [];
+  const current = () => String((lines[0] && lines[0].routeId) || "");
+  const pick = (id) => {
+    for (const o of lines) o.routeId = id;
+    save(state);
+    maybeSync(state);
+    if (after) after();
+  };
+  showPopup(el("div", { class: "popup-title-row" }, "Tug this doorstep into a route"), (refresh, close) => {
+    // Read inside, so the list is the one that is true at the moment the pop-up is drawn.
+    const routes = routesOf(state);
+    const nameBox = el("input", { class: "input", placeholder: "e.g. Route C" });
+    return el("div", {},
+      el("p", { class: "card-sub" },
+        "This groups the doorstep with the Places one van is doing, for this day. It does not put it "
+        + "on a van for you — you still tick the run as you always have."),
+      routes.length
+        ? el("div", { class: "btn-row" },
+            ...routes.map((r) => button(
+              r.id === current() ? `${r.name} — already on it` : r.name,
+              () => { pick(r.id); close(); },
+              r.id === current() ? "soft" : "ghost")),
+            current() ? button("Take it back out", () => { pick(""); close(); }, "ghost") : null)
+        // ★★ AND WHEN SHE HAS NO ROUTE AT ALL, THE SAME POP-UP MAKES ONE (v421). Her words: __"if there
+        // is no collection point route, i would choose to create manual route, tag doors into same
+        // manual route"__.
+        // ⚠️⚠️ WITHOUT THIS THE TAG WAS A DEAD END: the press appeared only once she already had a
+        // route, so from a run day with none there was NO WAY IN — a control she cannot reach is the
+        // fault this app calls a bug, and **the way in was hidden behind the thing it makes.**
+        : el("p", { class: "card-sub", style: "margin:0" },
+            "No routes yet. Give one a name here and this doorstep goes straight onto it."),
+      el("div", { class: "field" },
+        el("label", {}, routes.length ? "Or make a new one" : "Route name"),
+        nameBox,
+        el("p", { class: "hint" },
+          // ⚠️ NO WARNING GLYPH HERE. It is reassurance, not a caution — a route made on a run day is
+          // the SAME LIST as the rest, so it can carry Places too and it is there again next week. A
+          // warning mark in front of a good fact is a mark that stops meaning anything.
+          "A route made here is an ordinary route, on the same list as the rest — so it can carry "
+          + "Places too, and it is there again next week.")),
+      el("div", { class: "btn-row" },
+        button("Make it and tug this doorstep in", () => {
+          const problem = routeNameProblem(state, nameBox.value, "");
+          if (problem) return toast(problem);
+          const row = addRoute(state, { name: nameBox.value });
+          if (!row) return toast("That route could not be made");
+          pick(row.id);
+          toast(`${row.name} made, and this doorstep is on it`);
+          close();
+        }, "primary")));
+  }, { wide: true });
 }
 
 function buildRouteEditor(state, route) {

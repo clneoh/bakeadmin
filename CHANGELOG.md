@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v420)
+# Jienluv2bake — change history (v54 → v421)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v421, TUG A CUSTOMER'S DOORSTEP INTO A ROUTE, AND ONE WRONG CHINESE SENTENCE (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"how do i tug in any other point to a route already named for that day?"__ — and then, twice, correcting what you meant: __"not any other point but any other customer delivery?"__ and __"not to belong but i manually tug into a route"__
+
+**1. A CUSTOMER'S OWN DOORSTEP CAN BE TUGGED INTO A ROUTE.** ⚠️ Until now a route held **Places only**: a customer's delivery always drew at the **top** of a run day, with no heading over it. Now every doorstep carries a small **tag** — **Route A ▾** when it is on one, **+ Route** when it is not — and **the tag is the press**: tap it and pick the route.
+
+**★★ AND "TUG", NOT "BELONG", IS THE WHOLE DESIGN.** ⚠️ Your own words were *"for that day"*, and you corrected me when I wrote it up as a thing a doorstep *belongs* to. **So it is not a membership: it is an action you take on a run day**, which is exactly why the app remembers it **on the order** and **never on the customer**. ⚠️ A route written onto a customer's own record would be a **permanent** change made by a passing arrangement — and nothing of yours is rewritten by a plan. ⭐ A **Place** is the opposite case, which is why a Place's routes live on the Place. **One idea, two homes, and the difference is yours.**
+
+**2. AND A ROUTE CAN BE MADE THERE AND THEN, WHICH IS THE WHOLE POINT.** ⚠️ My first cut showed the tag **only once you already had a route** — and you told me why that is a dead end: __"if there is no collection point route, i would choose to create manual route, tag doors into same manual route"__. ⭐ **So the tag is on every doorstep always, and with no routes it offers to make one.** Name it, press once, and this doorstep is on it; every other door is then two presses — the tag again, and the same route. ⚠️ **A route made on a run day is an ordinary route**: the same list as the rest, so it can carry Places too and it is there again next week. There is no second kind of route to learn. ⚠️ And a doorstep whose route you have since **deleted** goes back to the top, exactly as an unrouted one does — **nothing is lost when a route goes.**
+
+**3. AND ONE MANDARIN SENTENCE WAS WRONG, AND IT WAS MINE.** ⚠️ The promo line on your shop told a Mandarin reader, in so many words, that **the code would be "delivered" along with the order**. ⭐ **A code is not delivered anywhere** — it is *attached to the order* — and it now says that instead. Found by reading every string I had written in Mandarin and Bahasa rather than trusting them.
+
+**4. AND THIS HISTORY CAN NOW PRINT CHINESE — IT COULD NOT BEFORE, AND FIVE ENTRIES HAD ALREADY LOST WORDS TO THAT.** ⚠️ While trying to quote the Mandarin sentence I had just fixed, it came out of this document as a **gap**. The cause was one line in its builder that deleted every character outside the Latin alphabet. ⚠️ **It had been erasing real content for months**: **v407**'s bake-day wording, **v355**'s and **v354**'s privacy-notice wording, **v349**'s notice **TITLE** (which survived only as a bare dash), and **v323**'s bring-a-friend offer. ⭐ **All five read properly now, and this line is the proof of it:** 烘焙日 · 你的资料 · 个人资料保护声明 · 朋友推荐优惠. ⚠️ The document's own look has not changed — every line without Chinese is set exactly as it was.
+
+**5. AND THE REST OF THE WORDING CHECK GOES TO YOUR CIRCLE, NOT TO ME.** ⚠️ The shop uses **two different pairs of words** for the same two things — one pair for collecting, another for delivery — and Bahasa shows the same split. **I added to the mixture**, so some of that drift is mine. ⭐ Both pairs are understood in Malaysia, but a page that switches between them for one thing reads as two different things — the same fault you caught with "delivery day". **Which pair a Malaysian Mandarin and a Bahasa reader would rather see is their call, not mine, and I will not guess it.** ⭐ **The sheet I have made for them has every sentence a customer can see, in all three languages** — it is a page of your own, not part of the app.
+
+**Measured: the suite is 3,275 tests, all green. Sixteen bites across v420 and v421, all fired by their own message**, every file restored byte-identically. **Verified by looking**, at 375px: the unrouted doorstep leads with **+ Route**, the tugged one sits under **ROUTE A · 1 STOP** with **Route A ▾**, the row is not squeezed — and on a run day with **no routes at all**, both doorsteps offer **+ Route** and the press opens a pop-up that makes the route and puts the doorstep on it in one go.
+
+**No database step.** Pushing this one is the whole of it.
+
+
 
 **10 Oct 2026 — engine v420, YOUR OWN PLACES COME BACK TO YOUR ORDER CARDS, AND A PLACE NOT SERVED TODAY IS GREYED (no database step — pushing this one is the whole of it).**
 
