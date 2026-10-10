@@ -25,7 +25,7 @@ import { pointMinOrder, pointShortfall } from "../admin/js/points.js";
 import { codeNameOk, evaluate, findCode, minimumOf, normCode, normalizeCode, offerOf, shortfallOf, stoppedBy, worthOf } from "../admin/js/promo.js";
 
 // Day/month short names per site language. English is today's authoring default;
-// fmtDay and the "Delivery days" info card read by the visitor's language so a
+// fmtDay and the "Bake days" info card read by the visitor's language so a
 // calendar cell or that row shows in 中文/BM too.
 const DAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -754,8 +754,20 @@ export function mergeStorefront(base, remote) {
         && String(p.id || "").trim() && String(p.name || "").trim())
       .map((p) => {
         const min = Number(p.minOrderRM);
-        return { id: String(p.id).trim(), name: String(p.name).trim(),
+        const row = { id: String(p.id).trim(), name: String(p.name).trim(),
           minOrderRM: Number.isFinite(min) && min > 0 ? min : 0 };
+        // ★★ IS THIS THE BAKERY'S OWN KITCHEN? (v407). ⚠️⚠️ WITHOUT THIS LINE THE FLAG DIES HERE,
+        // one step after `publishPoints` sends it — the shop would go on inventing its own
+        // "Our kitchen" row and a customer would see her kitchen twice, which is the whole fault
+        // this pair of edits repairs. **A field a sender publishes and a receiver does not keep is
+        // a field that was never sent**, and this list is rebuilt from a whitelist, so every new
+        // key needs naming in BOTH places.
+        // ⚠️ WRITTEN ONLY WHEN TRUE, the house's "absent means nothing" spelling (see the referral
+        // stamp and the promo code above): an ordinary Point's payload stays byte-for-byte what it
+        // has always been, and `p.isKitchen === true` reads an absent key as "not the kitchen" —
+        // which is exactly right, and is also what an older published payload means.
+        if (p.isKitchen === true) row.isKitchen = true;
+        return row;
       });
   }
   if (Array.isArray(remote.products)) {
@@ -3197,9 +3209,18 @@ function publishedPoints() {
 
 // Where a Self collect order is collected FROM, as rows a customer picks between.
 //
-// ★ THE KITCHEN IS ALWAYS FIRST AND IS NOT A POINT. It has no record, no fee and no life, and
-// the EMPTY id is exactly how an order says "collect from the bakery" — which is also what
-// every order placed before this version means, so nothing needs migrating.
+// ★★ THE KITCHEN IS FIRST — AND IS NOW ONLY INVENTED WHEN SHE HAS NOT MARKED ONE (v407).
+// ⚠️⚠️ THIS ROW USED TO BE UNCONDITIONAL, and since v406 that printed her kitchen TWICE: the
+// kitchen is a Point she marks, `publishPoints` sends it like any other, and this line then
+// added a second row for the same place above it — two choices, one place, under two different
+// names. Her words at v406: __"I want all self collection thru collection point, not from the
+// kitchen"__ — **every collection is a Point, including the one that is her kitchen.**
+//
+// ⭐ SO THE INVENTED ROW IS A FALLBACK, which is the job it was always meant to do: it stands in
+// for the kitchen only while no Point is marked as one. Two reasons it must not simply be
+// deleted, and both are orders rather than tidiness: an app with no kitchen marked and no Points
+// must still let a customer collect at all, and **every order taken before v406 carries no
+// `pointId` — the EMPTY id IS the kitchen**, so the row that posts that empty id has to survive.
 //
 // The whole field is hidden while she has no Point open, so a shop that never uses them is
 // byte-for-byte the shop it was.
@@ -3210,6 +3231,10 @@ function renderPointList(wrap, total = 0) {
   const points = publishedPoints();
   field.hidden = points.length === 0;
   if (!points.length) { list.replaceChildren(); return; }
+  // The Point she marked as the kitchen, if she has one. ⚠️ Read from the published list rather
+  // than assumed: an older storefront payload predates the flag and simply has no marked kitchen,
+  // which is exactly the fallback case below.
+  const kit = points.find((p) => p && p.isKitchen === true) || null;
 
   const choose = (id, name) => {
     wrap._pointId = id;
@@ -3244,8 +3269,11 @@ function renderPointList(wrap, total = 0) {
     return { p, short: need > 0, need };
   });
 
+  // ⚠️ THE INVENTED KITCHEN ROW IS OMITTED WHEN SHE HAS MARKED ONE (v407) — the marked Point is
+  // already in `judged`, under the name she gave it, so adding this one would offer the same
+  // place twice. One row per place, always.
   list.replaceChildren(
-    row("", t("ourKitchen"), t("kitchenSub")),
+    ...(kit ? [] : [row("", t("ourKitchen"), t("kitchenSub"))]),
     ...judged.map(({ p, short, need }) => row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2)) : t("pointSub"), { short })));
 
@@ -3259,7 +3287,14 @@ function renderPointList(wrap, total = 0) {
   // not left holding a Point they can no longer use: the picker goes back to the kitchen and the
   // Point says why. Re-applied on every repaint, so the picker and the order cannot disagree.
   const open = judged.find((j) => j.p.id === want && !j.short);
-  choose(open ? want : "", open ? open.p.name : t("ourKitchen"));
+  // ⚠️⚠️ AND "THE KITCHEN" IS NOW WHICHEVER PLACE THAT IS (v407): the Point she marked, or — when
+  // she has marked none — the invented row carrying the EMPTY id, which is how every order placed
+  // before v406 says it too. ⭐ Without this, marking a kitchen left the picker with **nothing
+  // chosen at all**: the invented row it always fell back to is gone, so a customer would see a
+  // list of places with none of them on, and the order would go to whichever one happened to be
+  // stored. The fallback must always name a place that is actually on the page.
+  const home = kit ? { id: kit.id, name: kit.name } : { id: "", name: t("ourKitchen") };
+  choose(open ? want : home.id, open ? open.p.name : home.name);
 }
 
 function refreshPointList(total = 0) {

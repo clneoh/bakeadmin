@@ -51,7 +51,14 @@ const en = {
   // Appended only when the code has an end date, so the standing line says when
   // the offer runs out instead of the customer finding out at the box.
   promoUntil: "%1, until %2",
-  deliveryDays: "Delivery days",
+  // ★ IT IS THE BAKE DAY, NOT THE DELIVERY DAY (v407). Her words: "from the store i can see the
+  // bake day is term as delivery day, that might be what confusing. Change it to bake day".
+  // ⚠️ SHE IS RIGHT, AND IT WAS THE SAME FAULT AS THE TWO BARE WORDS BELOW: the page named the
+  // day after the thing that HAPPENS to it for some customers, and a customer collecting his own
+  // bread read "delivery day" and did not recognise the day he was choosing. **It is the day the
+  // bread is baked** — that is true of every order however it leaves, which is exactly why it is
+  // the better word. Every string that named that day has moved with it.
+  deliveryDays: "Bake days",
   orderBy: "Order by",
   beforeVal: "%1 the day before",
   madeToOrder: "Made to order · closes %1 the day before",
@@ -67,7 +74,7 @@ const en = {
   ansBy: "Order before %2 on %1, and it's yours.",
   stepsLede: "You'll do three things — and then we take over.",
 
-  sPickDay: "Pick a delivery day",
+  sPickDay: "Pick a bake day",
   sWhat: "What would you like?",
   sYourDetails: "Your details",
   yourName: "Your name",
@@ -102,7 +109,24 @@ const en = {
   privacyDate: "Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.",
   howGet: "How will you get your order?",
   selfCollect: "Self collect",
+  // ★★ EACH WAY SAYS WHAT IT IS (v407). Her customer chose a courier when he wanted to
+  // collect: the page named both ways and explained neither. ⚠️ BOTH LINES ARE TRUE BEFORE
+  // ANYTHING IS TAPPED, so he can compare without tapping.
+  // ⚠️ The courier line promises NO amount, because the shop has none — she quotes carriage
+  // by hand. What it can say honestly is that the total on this page is the bread's, which is
+  // the thing a customer would otherwise assume wrongly.
+  // ⚠️ AND IT SAYS WHEN, IN HER OWN TERMS (v407). Her words: __"order can be collected late on the
+  // bake day, a message will be send to you when your order is ready if you chose self collect"__.
+  // ⭐ A customer collecting had two questions, not one: what does it cost (nothing), and WHEN do
+  // I come. ⚠️ The answer is deliberately the MESSAGE rather than a clock — a pickup time is not a
+  // promise (v340), and the bread is only ready when it is ready.
+  // ⚠️ AND IT STILL NAMES THE PLACE, which is not decoration: **a customer collecting may have NO
+  // Point chosen at all** — the collect-from list is empty and hidden while she has none published,
+  // and `#point-field` is not shown. So this line is the only place the shop can say where to come,
+  // and it says it the only way that is always true: she messages it.
+  selfCollectSub: "You come to us — no delivery charge. We message you the exact place, and once your order is ready you can collect any time on your bake day.",
   courier: "Courier delivery",
+  courierSub: "A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.",
   // v299 — where a Self collect order is collected FROM. Written once for the kitchen and
   // once for a Point; the Point's own NAME is her data and is never translated.
   collectFrom: "Collect from",
@@ -165,9 +189,9 @@ const en = {
   sending: "Sending…",
   soldOut: "Sold out",
   onlyLeft: "Only %1 left",
-  noDates: "No upcoming delivery dates right now — check back soon.",
-  noOpenDates: "All upcoming deliveries are full right now — check back soon.",
-  calChosen: "Your delivery day: %1",
+  noDates: "No upcoming bake days right now — check back soon.",
+  noOpenDates: "All upcoming bake days are full right now — check back soon.",
+  calChosen: "Your bake day: %1",
   calPrev: "Earlier weeks",
   calNext: "Later weeks",
 
@@ -176,9 +200,9 @@ const en = {
   // pool.js as data, so the sentence is built here in the visitor's language —
   // including the date, which must not arrive as an English weekday. The advice
   // is separate from the clause because the basket notes quote the clause alone.
-  closedFrom: "Only available for delivery from %1",
-  closedTo: "Only available for delivery up to %1",
-  closedClose: "Orders close %1 days before delivery",
+  closedFrom: "Only available for bake days from %1",
+  closedTo: "Only available for bake days up to %1",
+  closedClose: "Orders close %1 days before your bake day",
   closedCloseAdvice: " — pick a later date",
   // The baker's marked sell days, when the chosen delivery date is not one of
   // them. %1 is a weekday list the page joins in this language ("Mon, Wed and
@@ -196,7 +220,7 @@ const en = {
   sentenceEnd: ".",
   // Shown where the menu would be when every product is marked off today's
   // delivery date — an empty space reads like a broken page.
-  noMenuToday: "Nothing is on the menu for this day. Please pick another delivery day.",
+  noMenuToday: "Nothing is on the menu for this day. Please pick another bake day.",
   // The last heading on the menu, over the products the baker has not filed
   // under any category. Nothing is ever hidden for want of filing, so the
   // heading is plainly a place rather than a warning.
@@ -210,15 +234,15 @@ const en = {
   // baker's stated window — shown, never enforced) and the same window on the
   // order receipt, where it carries the no-refund rule. One day needs its own
   // key so English never reads "1 days".
-  cancelNote: "Change or cancel up to %1 days before delivery.",
-  cancelNoteOne: "Change or cancel up to 1 day before delivery.",
-  orderCancelNote: "Change or cancel up to %1 days before delivery. Payments are not refundable — your order can be moved to another day.",
-  orderCancelNoteOne: "Change or cancel up to 1 day before delivery. Payments are not refundable — your order can be moved to another day.",
+  cancelNote: "Change or cancel up to %1 days before your bake day.",
+  cancelNoteOne: "Change or cancel up to 1 day before your bake day.",
+  orderCancelNote: "Change or cancel up to %1 days before your bake day. Payments are not refundable — your order can be moved to another day.",
+  orderCancelNoteOne: "Change or cancel up to 1 day before your bake day. Payments are not refundable — your order can be moved to another day.",
 
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
   confirmClosedTitle: "That day's orders are closed.",
-  confirmClosedBody: "Orders for this day close at %1 the day before — please pick a new delivery day.",
+  confirmClosedBody: "Orders for this day close at %1 the day before — please pick a new bake day.",
   confirmChangedTitle: "Your order changed just now.",
   confirmChangedBody: "Something sold out while you were ordering — we've fixed your cart to match what's left.",
   confirmChangedSub: "Please review your order and tap Place order again.",
@@ -336,7 +360,7 @@ const zh = {
   promoOffPercentCap: "%1，最多 %2",
   promoOnMin: "满 %2 可享 %1",
   promoUntil: "%1，%2 截止",
-  deliveryDays: "派送日",
+  deliveryDays: "烘焙日",
   orderBy: "下单截止",
   beforeVal: "烘焙日前一天 %1 前",
   // ⚠️⚠️ MY OWN TRANSLATION, NOT A NATIVE ONE — the first thing anyone reads on the page, so it wants
@@ -348,7 +372,7 @@ const zh = {
   ansBy: "在 %1 %2 之前下单，就是你的了。",
   stepsLede: "你只需做三件事 — 剩下的交给我们。",
   madeToOrder: "按订单新鲜制作 · %1 截单（烘焙日前一天）",
-  sPickDay: "选择派送日",
+  sPickDay: "选择烘焙日",
   sWhat: "想吃什么？",
   sYourDetails: "你的资料",
   yourName: "你的名字",
@@ -367,7 +391,9 @@ const zh = {
   privacyDate: "依据《2010 年个人资料保护法令》（Act 709）。最后更新：2026 年 10 月 7 日。",
   howGet: "你希望怎样取货？",
   selfCollect: "自取",
+  selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切地点，面包做好后，烘焙日当天任何时间都可以来取。",
   courier: "外送",
+  courierSub: "我们安排骑手送到你家。运费会在 WhatsApp 上告诉你 — 页面上显示的总额只是面包的钱。",
   collectFrom: "去哪里取",
   ourKitchen: "我们的厨房",
   kitchenSub: "Sungai Ara, Bayan Lepas — 我们烘焙的地方",
@@ -412,14 +438,14 @@ const zh = {
   sending: "正在发送…",
   soldOut: "已售完",
   onlyLeft: "仅剩 %1 份",
-  noDates: "目前没有可预订的派送日 — 请稍后再来。",
+  noDates: "目前没有可预订的烘焙日 — 请稍后再来。",
   noOpenDates: "近期派送均已满 — 请稍后再来。",
-  calChosen: "你的派送日：%1",
+  calChosen: "你的烘焙日：%1",
   calPrev: "前一周",
   calNext: "下一周",
 
-  closedFrom: "只接受 %1 起的派送日订单",
-  closedTo: "只接受 %1 或之前的派送日订单",
+  closedFrom: "只接受 %1 起的烘焙日订单",
+  closedTo: "只接受 %1 或之前的烘焙日订单",
   closedClose: "需在烘焙日前 %1 天下单",
   closedCloseAdvice: " — 请另选较后的日期",
   closedWeekday: "只限 %1 供应",
@@ -428,22 +454,22 @@ const zh = {
   nextAvailable: "下次可预订：%1",
   nextAvailableLeft: "下次可预订：%1 · 剩 %2 份",
   sentenceEnd: "。",
-  noMenuToday: "这一天没有商品在菜单上，请另选一个派送日。",
+  noMenuToday: "这一天没有商品在菜单上，请另选一个烘焙日。",
   moreItems: "更多商品",
   fixSoldOut: "%1 刚刚售完 — 已从你的订单中移除。",
   fixPoolClamp: "%1：现在配合订单其余部分只装得下 %2 份 — 已把你的 %3 改为 %2。",
   fixClamp: "%1：现在只剩 %2 份 — 已把你的 %3 改为 %2。",
   fixClosed: "%1：%2 — 已移除。",
 
-  cancelNote: "可在派送日前 %1 天更改或取消。",
-  cancelNoteOne: "可在派送日前 1 天更改或取消。",
-  orderCancelNote: "派送日前 %1 天可以更改或取消。不退款 — 订单可以换到其他派送日。",
-  orderCancelNoteOne: "派送日前 1 天可以更改或取消。不退款 — 订单可以换到其他派送日。",
+  cancelNote: "可在烘焙日前 %1 天更改或取消。",
+  cancelNoteOne: "可在烘焙日前 1 天更改或取消。",
+  orderCancelNote: "烘焙日前 %1 天可以更改或取消。不退款 — 订单可以换到其他烘焙日。",
+  orderCancelNoteOne: "烘焙日前 1 天可以更改或取消。不退款 — 订单可以换到其他烘焙日。",
 
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
   confirmClosedTitle: "该日的订单已截止。",
-  confirmClosedBody: "此日的订单需在烘焙日前一天 %1 前下单 — 请另选一个派送日。",
+  confirmClosedBody: "此日的订单需在烘焙日前一天 %1 前下单 — 请另选一个烘焙日。",
   confirmChangedTitle: "你的订单刚刚有变动。",
   confirmChangedBody: "下单期间有商品售完了 — 我们已根据剩余数量更新你的购物车。",
   confirmChangedSub: "请确认后再按「提交订单」。",
@@ -532,7 +558,7 @@ const ms = {
   promoOffPercentCap: "%1, sehingga %2",
   promoOnMin: "%1 untuk %2 ke atas",
   promoUntil: "%1, sehingga %2",
-  deliveryDays: "Hari penghantaran",
+  deliveryDays: "Hari membakar",
   orderBy: "Tempahan ditutup",
   beforeVal: "%1 sehari sebelumnya",
   // ⚠️ Same note as the Chinese above: mine, not a native speaker's, and worth checking before launch.
@@ -542,7 +568,7 @@ const ms = {
   ansBy: "Pesan sebelum %2 pada %1, dan ia milik anda.",
   stepsLede: "Anda buat tiga perkara — selebihnya kami uruskan.",
   madeToOrder: "Dibuat mengikut tempahan · tutup %1 sehari sebelum",
-  sPickDay: "Pilih hari penghantaran",
+  sPickDay: "Pilih hari membakar",
   sWhat: "Apa yang anda mahu?",
   sYourDetails: "Maklumat anda",
   yourName: "Nama anda",
@@ -561,7 +587,9 @@ const ms = {
   privacyDate: "Di bawah Akta Perlindungan Data Peribadi 2010 (Akta 709). Kemas kini terakhir: 7 Oktober 2026.",
   howGet: "Macam mana anda mahu ambil tempahan?",
   selfCollect: "Ambil sendiri",
+  selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan lokasi yang tepat, dan sebaik sahaja tempahan anda siap, anda boleh ambil pada bila-bila masa pada hari membakar.",
   courier: "Penghantaran kurier",
+  courierSub: "Kami hantar penghantar ke pintu anda. Sebarang caj penghantaran dimaklumkan di WhatsApp — jumlah yang dipaparkan ialah untuk roti sahaja.",
   collectFrom: "Ambil dari mana",
   ourKitchen: "Dapur kami",
   kitchenSub: "Sungai Ara, Bayan Lepas — tempat kami membakar",
@@ -606,15 +634,15 @@ const ms = {
   sending: "Sedang dihantar…",
   soldOut: "Habis",
   onlyLeft: "Tinggal %1 sahaja",
-  noDates: "Tiada tarikh penghantaran buat masa ini — sila datang lagi nanti.",
-  noOpenDates: "Semua penghantaran akan datang penuh buat masa ini — sila datang lagi nanti.",
-  calChosen: "Hari penghantaran anda: %1",
+  noDates: "Tiada hari membakar buat masa ini — sila datang lagi nanti.",
+  noOpenDates: "Semua hari membakar akan datang penuh buat masa ini — sila datang lagi nanti.",
+  calChosen: "Hari membakar anda: %1",
   calPrev: "Minggu sebelumnya",
   calNext: "Minggu seterusnya",
 
-  closedFrom: "Hanya tersedia untuk penghantaran dari %1",
-  closedTo: "Hanya tersedia untuk penghantaran sehingga %1",
-  closedClose: "Tempahan ditutup %1 hari sebelum penghantaran",
+  closedFrom: "Hanya tersedia untuk hari membakar dari %1",
+  closedTo: "Hanya tersedia untuk hari membakar sehingga %1",
+  closedClose: "Tempahan ditutup %1 hari sebelum hari membakar",
   closedCloseAdvice: " — sila pilih tarikh yang lebih lewat",
   closedWeekday: "Hanya tersedia pada %1",
   closedUnmarked: "Tidak dijual pada hari ini",
@@ -622,22 +650,22 @@ const ms = {
   nextAvailable: "Seterusnya tersedia: %1",
   nextAvailableLeft: "Seterusnya tersedia: %1 · tinggal %2",
   sentenceEnd: ".",
-  noMenuToday: "Tiada apa-apa pada menu untuk hari ini. Sila pilih hari penghantaran yang lain.",
+  noMenuToday: "Tiada apa-apa pada menu untuk hari ini. Sila pilih hari membakar yang lain.",
   moreItems: "Lebih banyak item",
   fixSoldOut: "%1 baru habis — kami keluarkan dari tempahan anda.",
   fixPoolClamp: "%1: hanya %2 boleh dimuatkan bersama baki tempahan anda — kami sudah tukar %3 anda kepada %2.",
   fixClamp: "%1: tinggal %2 sahaja sekarang — kami sudah tukar %3 anda kepada %2.",
   fixClosed: "%1: %2 — kami sudah keluarkan.",
 
-  cancelNote: "Tukar atau batal sehingga %1 hari sebelum penghantaran.",
-  cancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum penghantaran.",
-  orderCancelNote: "Tukar atau batal sehingga %1 hari sebelum penghantaran. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
-  orderCancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum penghantaran. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
+  cancelNote: "Tukar atau batal sehingga %1 hari sebelum hari membakar.",
+  cancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum hari membakar.",
+  orderCancelNote: "Tukar atau batal sehingga %1 hari sebelum hari membakar. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
+  orderCancelNoteOne: "Tukar atau batal sehingga 1 hari sebelum hari membakar. Bayaran tidak dikembalikan — tempahan boleh dipindah ke hari lain.",
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan tempahan dan hantar QR pembayaran anda.",
   confirmClosedTitle: "Tempahan untuk hari itu sudah ditutup.",
-  confirmClosedBody: "Tempahan untuk hari ini ditutup pada %1 sehari sebelum — sila pilih tarikh penghantaran yang lain.",
+  confirmClosedBody: "Tempahan untuk hari ini ditutup pada %1 sehari sebelum — sila pilih hari membakar yang lain.",
   confirmChangedTitle: "Tempahan anda baru sahaja berubah.",
   confirmChangedBody: "Ada barang yang habis semasa anda menempah — kami sudah kemas kini troli anda ikut apa yang tinggal.",
   confirmChangedSub: "Sila semak tempahan anda dan tekan Hantar tempahan sekali lagi.",

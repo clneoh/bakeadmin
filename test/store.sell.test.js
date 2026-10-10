@@ -132,7 +132,7 @@ test("a product not sold on the chosen day is not on the menu at all", async () 
 
   const brownie = cardNotes("Brownie Box");
   assert.equal(brownie.length, 1, "the advance-notice note stays: that product IS sold that day");
-  assert.match(brownie[0], /5 days before delivery/);
+  assert.match(brownie[0], /5 days before your bake day/);
   assert.match(brownie[0], /later/, "and it says what to do about it");
   assert.deepEqual(cardNotes("Sandwich"), [], "a product with no rules reads plainly");
 });
@@ -204,7 +204,7 @@ test("a kept product that cannot be ordered today keeps its Sold out stamp and g
 
   const notes = cardNotes("Brownie Box");
   assert.equal(notes.length, 2);
-  assert.match(notes[0], /5 days before delivery/, "the notice it already carried");
+  assert.match(notes[0], /5 days before your bake day/, "the notice it already carried");
   assert.match(notes[0], /later/, "…and its advice");
   assert.equal(notes[1], "Next available: Mon, 7 Sep",
     "the one line the switch buys: the next day the notice is met");

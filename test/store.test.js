@@ -23,7 +23,17 @@ function createEl(tag) {
     replaceChildren(...cs) { this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) })); },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
-    setAttribute(k, v) { this.attrs[k] = String(v); },
+    // ⚠️ THE REAL DOM KEEPS `dataset` AND `data-*` ATTRIBUTES IN STEP, and this shim did not
+    // (v407): `el()` writes `data-point-id` with setAttribute, so `b.dataset.pointId` — which is
+    // how the shop marks the chosen collect-from row — read `undefined` here and would never have
+    // matched in a test. **A shim that cannot express what the view does cannot test it**, and the
+    // gap was in the shim rather than in the view. Anything that is not a `data-` attribute is
+    // left exactly as it was.
+    setAttribute(k, v) {
+      this.attrs[k] = String(v);
+      const m = /^data-([a-z0-9-]+)$/.exec(k);
+      if (m) this.dataset[m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = String(v);
+    },
     getAttribute(k) { return this.attrs[k]; },
     focus() {}, click() {},
   };
@@ -204,8 +214,14 @@ test("store render() fills the page without crashing", () => {
   assert.ok(!grid.children.some((c) => c.className.includes("cal-cell avail") && c.className.includes("full")),
     "nothing is sold out with availability off");
   const chosen = cal.children.find((c) => c.className === "cal-chosen");
-  assert.ok(chosen.children[0].text.startsWith("Your delivery day: "));
-  // "First OPEN", not simply "first": a delivery day whose cutoff has gone by is
+  // ★ IT IS THE BAKE DAY, NOT THE DELIVERY DAY (v407). ⚠️ This line pinned the old word for two
+  // versions, so it is asserted against the dictionary rather than a second copy of the English:
+  // the page and this test cannot drift apart again.
+  assert.ok(chosen.children[0].text.startsWith(`${STORE.en.calChosen.split("%1")[0].trim()} `),
+    "the calendar names the chosen day in the shop's own words");
+  assert.ok(!/delivery day/i.test(chosen.children[0].text),
+    "and never calls it a delivery day — a customer collecting his own bread did not recognise the day");
+  // "First OPEN", not simply "first": a bake day whose cutoff has gone by is
   // dropped from the customer's calendar entirely, so the day named is the first
   // one still orderable. Asking isOpen the same question the shop asks keeps this
   // true whatever hour the suite happens to run at — at 21:17 on the day before a
@@ -448,7 +464,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
       await registry["order-btn"].onclick();
       const line = confirmLines().find((t) => /change or cancel/i.test(t));
       assert.ok(line, "the receipt states a change/cancel window");
-      assert.match(line, /up to 3 days before delivery/, "the strictest window wins");
+      assert.match(line, /up to 3 days before your bake day/, "the strictest window wins");
       assert.match(line, /not refundable/i, "and the no-refund rule that goes with it");
 
       // Nothing stated anywhere → no window line at all.
@@ -681,6 +697,24 @@ test("the shop keeps the Points it can read, and only the fields it needs", () =
     { id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 30 },
     { id: "pt_2", name: "Chai Leng Park, Prai", minOrderRM: 0 },
   ], "the receiver, the address and the fee never reach the shop");
+});
+
+test("the shop keeps the kitchen flag, and adds it to nothing else (v407)", () => {
+  // ★★ A FIELD A SENDER PUBLISHES AND A RECEIVER DOES NOT KEEP IS A FIELD THAT WAS NEVER SENT.
+  // ⚠️ `publishPoints` sends `isKitchen` and this whitelist would have thrown it away one step
+  // later — the shop would go on inventing its own "Our kitchen" row and a customer would see the
+  // kitchen twice, which is the exact fault the pair of edits repairs. Every new key needs naming
+  // in BOTH places, and this is the second one.
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Farlim, Air Itam", isKitchen: true },
+    { id: "pt_2", name: "Chai Leng Park, Prai" },
+  ] });
+  assert.equal(out.points[0].isKitchen, true, "the marked kitchen arrives marked");
+  // ⚠️ WRITTEN ONLY WHEN TRUE, the house's "absent means nothing" spelling: an ordinary Point's
+  // payload stays byte-for-byte what it has always been, so this cannot change a page by itself.
+  assert.equal("isKitchen" in out.points[1], false, "an ordinary Point gains no key at all");
+  assert.equal(out.points[1].isKitchen, undefined,
+    "and an absent key reads as 'not the kitchen', which is also what an older payload means");
 });
 
 test("a smallest basket the shop cannot read is NO minimum, never a guess (v306)", () => {
@@ -1715,5 +1749,59 @@ test("every promo line the shop can print is written in all three languages", ()
       if (lang === "en") continue;
       assert.notEqual(STORE[lang][k], STORE.en[k], `${k} was left untranslated in ${lang}`);
     }
+  }
+});
+
+// ── v407: her kitchen is offered once, not once per name ────────────────────
+
+test("the shop offers her kitchen ONCE — as itself, or as the fallback, never both", () => {
+  // ★★ v406 made the kitchen a Point she marks ("I want all self collection thru collection
+  // point, not from the kitchen"). ⚠️⚠️ THE SHOP WAS NOT TOLD, so it went on printing its own
+  // invented "Our kitchen" row above the list — and **the moment she marked a kitchen, a customer
+  // saw the same place twice**: once invented, once under the name she gave it, as two choices
+  // that looked like two different places. The flag now travels (see publishPoints and
+  // mergeStorefront), and the invented row is the FALLBACK it was always meant to be.
+  //
+  // ⚠️ It is not tidiness: `render()` is the real page render, and this reads the real rows the
+  // shop draws. The row's own name is what a customer taps, so it is what is asserted.
+  const real = CONFIG.points;
+  // ⚠️ Read through the text NODES rather than `.textContent`: this shim's text nodes are plain
+  // `{nodeType:3, text}` records with no `textContent` of their own, so a `.textContent` read here
+  // would return "" for every row and the whole test would pass against nothing at all.
+  const textOf = (n) => (n.nodeType === 3 ? n.text : (n.children || []).map(textOf).join(""));
+  const rows = () => registry["point-list"].children.map((r) => r.children[0].children[0].text);
+  try {
+    CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0 }];
+    render();
+    assert.deepEqual(rows(), ["Our kitchen", "Farlim, Air Itam"],
+      "with no kitchen marked, the invented row is kept — it is how the bakery has always been collectable");
+    // ⚠️ WHAT IS ASSERTED IS WHAT THE ORDER CARRIES, not the highlight. The chosen place rides on
+    // the wrapper as `_pointId`/`_pointName` and `order()` reads it straight back, so that pair is
+    // the outcome; the `active` class is decoration, and this shim's `classList` is a no-op.
+    assert.equal(registry["fulfillment"]._pointId, "", "the invented kitchen is the EMPTY id");
+    assert.equal(registry["fulfillment"]._pointName, "Our kitchen");
+
+    CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true }];
+    render();
+    assert.deepEqual(rows(), ["Farlim, Air Itam"],
+      "marking a kitchen lists it once, under her own name, and drops the invented row");
+
+    CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true },
+      { id: "pt_2", name: "Chai Leng Park, Prai", minOrderRM: 0 }];
+    render();
+    assert.deepEqual(rows(), ["Farlim, Air Itam", "Chai Leng Park, Prai"],
+      "and the other Points are still offered beside it");
+
+    // ⚠️ A MARKED KITCHEN MUST STILL BE THE PLACE THE ORDER GOES TO. The invented row is what the
+    // picker used to fall back to, so dropping it without a replacement would leave a list of
+    // places with **none of them chosen** — and the order would go to whichever id happened to be
+    // stored, which is the fault this whole edit exists to prevent.
+    assert.equal(registry["fulfillment"]._pointId, "pt_1",
+      "the kitchen is the place that is chosen, not an empty id nothing on the page carries");
+    assert.equal(registry["fulfillment"]._pointName, "Farlim, Air Itam",
+      "and the order is told its name, so deleting the Point later cannot rewrite where it went");
+  } finally {
+    CONFIG.points = real;
+    render();
   }
 });

@@ -320,3 +320,88 @@ test("renderStatic binds no event listeners, because it runs more than once", ()
   assert.equal(binds.length, 0,
     `renderStatic() binds ${binds.length} listener(s). It runs again on every render and every language switch, so a binding there is a binding REPEATED — and a TOGGLE bound twice cancels itself out, so the control looks dead on a fresh page and works after a language switch. Bind once at module scope instead.`);
 });
+
+// ── v407: the two ways to get your bread, and what the day is called ────────
+
+test("both ways to get an order say what they are, in every language", () => {
+  // ★★ HER CUSTOMER ORDERED A COURIER WHEN HE WANTED TO COLLECT. The page named both ways and
+  // explained neither — two bare words in a segmented control, and nothing anywhere saying what
+  // either one meant or what it would cost him. Her words: __"imagine that you are totally new,
+  // and you want to order from this baker, and you are not so good at online ordering"__.
+  //
+  // ⚠️ THE RULE IS PINNED RATHER THAN THE LAYOUT, because no test can see a phone: what must be
+  // true is that **each way carries its own line of explanation**, and that the line is translated
+  // rather than English-only on a page that offers 中文 and BM.
+  const rows = [...html.matchAll(/<button\b[^>]*data-fulfillment="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g)];
+  assert.equal(rows.length, 2, "the shop offers exactly two ways to get an order");
+  for (const [, value, inner] of rows) {
+    assert.match(inner, /class="seg-name"/, `${value}: the way is named`);
+    assert.match(inner, /class="seg-sub"/, `${value}: and it says what it means`);
+  }
+  // ⚠️ NEITHER IS EVER DISABLED. This is a description, never a gate — her standing rule.
+  for (const [full] of rows) {
+    assert.ok(!/\sdisabled\b/.test(full), "neither way can ever be disabled");
+  }
+  // Both lines exist in all three languages. The key-set test above proves the sets match, so
+  // this is the narrower claim: these two KEYS are the ones the page actually uses.
+  for (const k of ["selfCollectSub", "courierSub"]) {
+    assert.ok(STORE.en[k] && STORE.zh[k] && STORE.ms[k], `${k} reads in EN, 中文 and BM`);
+  }
+  // ⚠️ AND THE COURIER LINE NAMES NO AMOUNT, because the shop genuinely has none — she quotes
+  // carriage by hand (see judgeCtx). A price here would be a number nothing can honour.
+  assert.ok(!/RM\s*[\d.]/.test(STORE.en.courierSub),
+    "the courier line promises no price — the shop does not have one");
+  // ⚠️ What it says instead is the thing a customer would otherwise assume wrongly.
+  assert.match(STORE.en.courierSub, /bread only/i,
+    "it says the total shown is the bread's, which is the only true thing the page can promise");
+  assert.match(STORE.en.selfCollectSub, /no delivery charge/i,
+    "and collecting says the one thing that makes it worth walking for");
+  // ⚠️ AND WHEN, IN HER OWN TERMS — her words: __"order can be collected late on the bake day, a
+  // message will be send to you when your order is ready if you chose self collect"__. A customer
+  // collecting had two questions, not one: what it costs, and WHEN to come.
+  assert.match(STORE.en.selfCollectSub, /any time on your bake day/i,
+    "collecting says the whole bake day is available, which is what she answered");
+  assert.match(STORE.en.selfCollectSub, /once your order is ready/i,
+    "and that the ready message is what tells them to come");
+  // ⚠️⚠️ AND IT MUST STILL NAME THE PLACE. A customer collecting may have NO Point to choose from
+  // at all — the collect-from list is empty and hidden while she has none published — so this line
+  // is the only place the shop can say where to come. Dropping it would leave the same fault this
+  // whole version repairs: a customer told to collect and not told where.
+  assert.match(STORE.en.selfCollectSub, /message you the exact place/i,
+    "and the place is named, because with no Point published this line is the only place that can");
+  // ⚠️ BUT IT NAMES NO CLOCK. A pickup time is not a promise (v340) — the bread is ready when it
+  // is ready, and the only thing that can say so is the message.
+  assert.ok(!/\b\d{1,2}(:\d{2})?\s*(am|pm)\b/i.test(STORE.en.selfCollectSub),
+    "no hour is promised on the page — the ready message is the only thing that announces it");
+});
+
+test("the shop calls that day a BAKE day, in all three languages", () => {
+  // ★★ Her words: __"from the store i can see the bake day is term as delivery day, that might be
+  // what confusing. Change it to bake day"__ and then, naming the heading itself: __"it should be
+  // 1. pick a bake day"__.
+  //
+  // ⚠️⚠️ IT WAS THE SAME FAULT AS THE TWO BARE WORDS BESIDE IT. "Delivery day" names the day after
+  // the thing that happens to it for SOME customers, and the one person it misled was the one
+  // COLLECTING his own bread — he did not recognise the day he was choosing. **It is the day the
+  // bread is baked**, which is true of every order however it leaves.
+  //
+  // ⚠️ This is pinned as a rule over the whole dictionary rather than one string at a time, because
+  // the wording was spread across twelve of them and a thirteenth added later would quietly bring
+  // the confusion back.
+  const offenders = (lang, re) => Object.entries(STORE[lang])
+    .filter(([, v]) => typeof v === "string" && re.test(v))
+    .map(([k]) => k);
+  assert.deepEqual(offenders("en", /delivery day/i), [],
+    "no English string calls the chosen day a delivery day");
+  assert.deepEqual(offenders("zh", /派送日/), [],
+    "nor does the Chinese — it says 烘焙日");
+  assert.deepEqual(offenders("ms", /hari penghantaran/i), [],
+    "nor the Bahasa Malaysia — it says hari membakar");
+
+  // And the two places a customer meets the day FIRST carry the new word in the markup itself,
+  // not only in the dictionary, so the page is right before the script ever runs.
+  assert.match(html, /data-i18n="deliveryDays"[^>]*>Bake days</,
+    "the info row under the answer reads 'Bake days'");
+  assert.match(html, /data-i18n="sPickDay"[^>]*>Pick a bake day</,
+    "and step 1 is 'Pick a bake day'");
+});

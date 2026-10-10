@@ -189,7 +189,7 @@ test("value pack is gated on a near delivery date and freed on a far one", async
   assert.equal(stepperOf(nearPack).children[2].disabled, true);
   assert.ok(bodyOf(nearPack).children[2] && bodyOf(nearPack).children[2].className.includes("prod-note"),
     "gated pack carries the advance-order note");
-  assert.match(bodyOf(nearPack).children[2].children[0].text, /close 14 days before delivery/i);
+  assert.match(bodyOf(nearPack).children[2].children[0].text, /close 14 days before your bake day/i);
   // The base single is unaffected on the same day.
   assert.equal(stampOf(cardOf("Focaccia")), "Only 12 left");
 
@@ -210,7 +210,7 @@ test("a product's change/cancel window is drawn on its card, and absent when bla
   const sandwich = cardOf("Sandwich");
   const note = cancelNote(sandwich);
   assert.ok(note, "a product stating a window carries the cancel note");
-  assert.match(note.children[0].text, /Change or cancel up to 2 days before delivery/);
+  assert.match(note.children[0].text, /Change or cancel up to 2 days before your bake day/);
   // A product that states no window shows nothing.
   assert.equal(cancelNote(cardOf("Focaccia")), undefined, "no window stated → no cancel note");
 });

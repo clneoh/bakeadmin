@@ -195,11 +195,14 @@ test("no data change means no repaint — and a hidden tab stops polling", async
   document.visibilityState = "visible";
 });
 
-test("the calendar draws every delivery day and names the chosen one", () => {
+test("the calendar draws every bake day and names the chosen one", () => {
   assert.equal(cell(2).children[0].children[0].text, "2");
   assert.equal(cell(4).children[0].children[0].text, "4");
   assert.equal(cell(7).children[0].children[0].text, "7");
-  assert.equal(chosenText(), `Your delivery day: ${fmtDay(dates[2])}`);
+  // ★ "Your BAKE day", not "Your delivery day" (v407). ⚠️ The old wording named the day after
+  // what happens to it for SOME orders, and the customer it misled was the one COLLECTING his own
+  // bread — he did not recognise the day he was choosing.
+  assert.equal(chosenText(), `Your bake day: ${fmtDay(dates[2])}`);
 });
 
 test("a refresh that depletes an ordered item fixes the cart, bar and tells the customer", async () => {

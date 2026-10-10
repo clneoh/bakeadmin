@@ -360,7 +360,19 @@ export function publishPoints(state) {
   // opposite of private: it is exactly what the customer has to know before they choose, and
   // without it the shop could only take an order the Point does not want. It is sent as a plain
   // number, 0 for "no minimum", so the shop never has to read a missing key as a rule.
-  return activePoints(state).map((p) => ({ id: p.id, name: p.name, minOrderRM: pointMinOrder(p) }));
+  //
+  // ★★ AND `isKitchen` IS PUBLISHED NOW TOO (v407), which is a narrower thing than it looks.
+  // ⚠️⚠️ IT IS NOT A FACT ABOUT HER, IT IS A FACT ABOUT THE PAGE. Since v406 the kitchen IS a Point
+  // she marks, but the shop had no way to know which one — so it went on printing its OWN
+  // "Our kitchen" row above the list, and **the moment she marked a kitchen a customer saw her
+  // kitchen twice**: once invented, once under the name she gave it, as two different choices that
+  // looked like two different places. ⭐ A boolean saying "this is the bakery's own kitchen" is
+  // exactly as public as the name it sits beside, and it is the smallest thing that lets the shop
+  // stop inventing a row — see store/app.js, where the invented row is now the FALLBACK for the
+  // day she has not marked one, which is the job it was always meant to do.
+  return activePoints(state).map((p) => ({
+    id: p.id, name: p.name, minOrderRM: pointMinOrder(p), isKitchen: p.isKitchen === true,
+  }));
 }
 
 // The name to PRINT for an order that went to a Point: the name frozen on the order when

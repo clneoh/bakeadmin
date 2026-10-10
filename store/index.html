@@ -86,7 +86,7 @@
     </div>
 
     <section class="card info">
-      <p class="info-row"><strong data-i18n="deliveryDays">Delivery days</strong><span id="delivery-days" class="info-val"></span></p>
+      <p class="info-row"><strong data-i18n="deliveryDays">Bake days</strong><span id="delivery-days" class="info-val"></span></p>
       <p class="info-row"><strong data-i18n="orderBy">Order by</strong><span id="cutoff" class="info-val"></span></p>
     </section>
 
@@ -96,7 +96,7 @@
     <p class="steps-lede" id="steps-lede"></p>
 
     <div class="step-head" id="step1"><span class="step-num">1</span>
-      <h2 class="section" data-i18n="sPickDay">Pick a delivery day</h2></div>
+      <h2 class="section" data-i18n="sPickDay">Pick a bake day</h2></div>
     <div id="dates"></div>
 
     <div class="step-head" id="step2"><span class="step-num">2</span>
@@ -116,11 +116,32 @@
         <input id="whatsapp-input" class="input" type="tel" inputmode="tel" data-i18n-ph="whatsPh" placeholder="e.g. 012-345 6789" autocomplete="tel" required>
         <p class="card-sub" style="margin:4px 0 0" data-i18n="waSub">We use this to confirm your order and send your payment QR — we'll never spam you.</p>
       </div>
+      <!-- ★★ EACH WAY SAYS WHAT IT IS (v407). Her customer ordered a courier when he wanted to
+           collect, and nothing on the page told him the difference — two bare words, "Self
+           collect" and "Courier delivery", left him to guess what he was choosing and what it
+           would cost him. Her words: "imagine that you are totally new, and you want to order
+           from this baker, and you are not so good at online ordering".
+
+           ⚠️ SO THEY ARE ROWS, NOT A TWO-WORD TOGGLE: one full-width row per way, a bold name
+           over a plain line — the same shape as the collect-from list directly below, because it
+           is the same kind of question and this is a shop a nervous person has to read.
+           ⚠️ BOTH LINES ARE TRUE BEFORE ANYTHING IS TAPPED, which is the whole point: he can
+           compare without tapping, and cannot tap his way into a choice he did not understand.
+           ⚠️ THE COURIER LINE PROMISES NO AMOUNT, because the shop genuinely has none — she
+           quotes carriage by hand afterwards (`judgeCtx` says the same, in its own words). What
+           it can say honestly is that the total under this page is the bread's.
+           ⚠️ NEITHER ROW IS EVER DISABLED. This is a description, never a gate. -->
       <div class="field">
         <label data-i18n="howGet">How will you get your order?</label>
         <div class="seg" id="fulfillment">
-          <button type="button" class="seg-btn active" data-fulfillment="collect" data-i18n="selfCollect">Self collect</button>
-          <button type="button" class="seg-btn" data-fulfillment="courier" data-i18n="courier">Courier delivery</button>
+          <button type="button" class="seg-btn active" data-fulfillment="collect">
+            <span class="seg-name" data-i18n="selfCollect">Self collect</span>
+            <span class="seg-sub" data-i18n="selfCollectSub">You come to us — no delivery charge. We message you the exact place, and once your order is ready you can collect any time on your bake day.</span>
+          </button>
+          <button type="button" class="seg-btn" data-fulfillment="courier">
+            <span class="seg-name" data-i18n="courier">Courier delivery</span>
+            <span class="seg-sub" data-i18n="courierSub">A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.</span>
+          </button>
         </div>
       </div>
       <!-- Where a Self collect order is collected FROM (v299). Hidden entirely while she has

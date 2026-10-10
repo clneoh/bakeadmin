@@ -203,7 +203,7 @@ test("live availability renders: full day struck out, first open day chosen, per
 
   // One line under the grid names the day they are getting, and one names the
   // full day in this month rather than leaving them to spot the strikethrough.
-  assert.equal(c.chosen.children[0].text, `Your delivery day: ${fmtDay(dates[1])}`);
+  assert.equal(c.chosen.children[0].text, `Your bake day: ${fmtDay(dates[1])}`);
   assert.equal(c.notes.length, 1);
   assert.equal(c.notes[0].children[0].text, "Sold out: 2 Sep");
 
@@ -242,7 +242,7 @@ test("tapping another open day moves the marker and swaps the product stamps", (
   const c = calendar();
   assert.ok(cell(7).className.includes("sel"), "the tapped day is now the chosen one");
   assert.ok(cell(4).className.includes("avail") && !cell(4).className.includes("sel"), "the previous day is released");
-  assert.equal(c.chosen.children[0].text, `Your delivery day: ${fmtDay(dates[2])}`);
+  assert.equal(c.chosen.children[0].text, `Your bake day: ${fmtDay(dates[2])}`);
 
   const cards = registry["menu"].children;
   assert.equal(bodyOf(cards[0]).children[0].children[1].children[0].text, "Only 9 left");

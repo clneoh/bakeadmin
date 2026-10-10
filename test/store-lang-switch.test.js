@@ -130,9 +130,10 @@ test("switching to 中文 repaints in place and keeps the basket", () => {
   assert.equal(litPill(), pills[1], "the 中文 pill is now lit");
   assert.equal(document.documentElement.lang, "zh", "the page declares its language");
   assert.equal(localStorage.getItem("siteLang"), "zh", "the choice is remembered on the device");
-  assert.match(chosenDayText(), /月/, "the chosen delivery day reads in Chinese (month name)");
+  assert.match(chosenDayText(), /月/, "the chosen day reads in Chinese (month name)");
   assert.match(chosenDayText(), /日/, "…and the day");
-  assert.ok(chosenDayText().startsWith("你的派送日："), "…under a Chinese label");
+  assert.ok(chosenDayText().startsWith("你的烘焙日："),
+    "…under a Chinese label, and it is the BAKE day — 派送日 named it after what happens to it for some customers, which is not what it is (v407)");
   assert.equal(fetchCount, before, "the switch re-reads nothing over the network");
 });
 

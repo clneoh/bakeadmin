@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v406)
+# Jienluv2bake — change history (v54 → v407)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v407, THE TWO WAYS TO GET YOUR BREAD NOW SAY WHAT THEY ARE, AND THE DAY IS CALLED A BAKE DAY (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"do the self collect and courier lines"__ · __"from the store i can see the bake day is term as delivery day, that might be what confusing. Change it to bake day"__ · __"it should be 1. pick a bake day"__ · __"order can be collected late on the bake day, a message will be send to you when your order is ready"__
+
+**★ SO THE TWO WAYS NOW SAY WHAT THEY ARE, BEFORE YOU TAP EITHER ONE.** The picker was two bare words side by side — __Self collect__ and __Courier delivery__ — and nothing on the page said what either one meant or what it would cost. ⚠️ **That is the other half of what went wrong for your customer**: he chose a courier when he wanted to collect, and the page had given him nothing to choose with.
+
+**It is now one full-width row per way, a bold name over a plain line:**
+
+- **Self collect** — __"You come to us — no delivery charge. We message you the exact place, and once your order is ready you can collect any time on your bake day."__
+- **Courier delivery** — __"A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only."__
+
+**⚠️ BOTH LINES ARE TRUE BEFORE ANYTHING IS TAPPED.** That is the whole of it: he can compare the two without tapping, and cannot tap his way into a choice he did not understand. When he does tap one, it takes the orange edge the collect-from rows already use, so which one is on is never a guess.
+
+**★ AND COLLECTING NOW ANSWERS THE SECOND QUESTION: WHEN?** Your words — __"order can be collected late on the bake day, a message will be send to you when your order is ready"__. ⚠️ **The answer is the message, never a clock** — a pickup time is not a promise (v340), and the bread is ready when it is ready. ⚠️⚠️ **And it still names the place, which is not decoration**: while you have no Self collection Point open, **the collect-from list is empty and hidden**, and that line is the **only** place the shop can tell a customer where to come.
+
+**★ AND THE DAY IS NOW CALLED A BAKE DAY — IN ALL THREE LANGUAGES.** ⚠️ **Your catch, and it was the same fault as the two bare words.** The page said __"Delivery days Mon, Wed, Fri"__ and __"1 Pick a delivery day"__ — naming the day after the thing that happens to it **for some customers**. The one person it misled was the one **collecting his own bread**: he did not recognise the day he was choosing. **It is the day the bread is baked**, which is true of every order however it leaves.
+
+**So it is a bake day everywhere a customer meets it** — the row under the answer, the heading **1 Pick a bake day**, the line on the calendar, __"Your bake day: Fri, 9 Oct"__, the notes that say when a product cannot be ordered, and the change/cancel window. **English, Mandarin and Bahasa Malaysia together** — 烘焙日 and __hari membakar__.
+
+**⚠️⚠️ AND I FOUND A REAL FAULT OF MINE WHILE DOING THIS, SO IT IS FIXED HERE.** v406 made your kitchen **a collection Point you tick** — but **the shop was never told**, so it went on printing its own invented __"Our kitchen"__ row above the list. **The moment you ticked a kitchen, a customer would have seen your kitchen TWICE**: once invented, once under the name you gave it, as two choices that look like two different places.
+
+**Now the flag travels** (your app publishes it, the shop keeps it) and **the invented row is the fallback it was always meant to be** — it stands in for your kitchen only while you have not ticked one. ⚠️ **It cannot simply be deleted**: an order taken before v406 carries no Point at all, and that empty id **is** the kitchen, so the row that posts it has to stay.
+
+**No database step.** The suite is **3,191 tests, all green** (5 new). Every new rule was proved by putting the fault back: the invented kitchen row returning, a ticked kitchen leaving nothing chosen, the flag dropped on arrival at the shop, a row losing its explanation, and the day drifting back to "delivery day" — ⚠️ **two of those bites were caught by an older test first, so they were rewritten until only the new rule could catch them.**
+
+**Still owed, and named so it is not forgotten:** the Chinese and Malay versions of the new sentences are **mine, not a native speaker's** — your circle should read them (the page is already live).
 
 **10 Oct 2026 — engine v406, THE THREE STEPS TURN GREEN, AND YOUR KITCHEN IS A COLLECTION POINT (no database step — pushing this one is the whole of it).**
 
@@ -32,9 +59,13 @@ always tell which build a phone is running.
 
 **★ SO THE PAGE NOW SAYS IT OUT LOUD, ABOVE EVERYTHING ELSE:**
 
-> __TODAY'S BAKE HAS CLOSED__
-> **The next day you can have bread is Mon, 12 Oct.**
-> Order before 6pm on Sun, 11 Oct, and it's yours.
+⚠️ For a future session: `build_changelog.py` reads a `>` at the start of a line as ordinary text, so this printed a bare `>` down the page. Written out plainly now.
+
+__TODAY'S BAKE HAS CLOSED__
+
+**The next day you can have bread is Mon, 12 Oct.**
+
+Order before 6pm on Sun, 11 Oct, and it's yours.
 
 When there is still time the same box opens __"You're in time"__ and turns green. **The rules stay underneath for anyone who wants them** — nothing has been taken away.
 
