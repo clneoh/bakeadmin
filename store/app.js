@@ -767,7 +767,38 @@ export function mergeStorefront(base, remote) {
         // has always been, and `p.isKitchen === true` reads an absent key as "not the kitchen" —
         // which is exactly right, and is also what an older published payload means.
         if (p.isKitchen === true) row.isKitchen = true;
+        // ★★ AND THE ADDRESS, BUT ONLY WHEN SHE SWITCHED IT ON (v410). ⚠️⚠️ THE FIRST TIME A STREET
+        // ADDRESS HAS EVER BEEN PUBLISHED FROM THIS APP, so the guard is written the same way
+        // `isKitchen` is: **only when it is really there**, so a Point she has not ticked publishes
+        // byte-for-byte what it published yesterday and the switch alone cannot change a page.
+        // ⚠️ A non-string, or whitespace, is NO address rather than a broken one.
+        if (p.showAddress === true) {
+          const street = String(p.address == null ? "" : p.address).trim().slice(0, 200);
+          if (street) row.address = street;
+        }
         return row;
+      });
+  }
+  // The AREAS those Points are grouped under (v410), read exactly like the product categories
+  // above: replaced wholesale, re-validated on the shop's own terms, and shaped so the page can
+  // draw a heading without knowing anything about her tree.
+  //
+  // ⚠️ IDS, NOT NAMES. The page marks which Points sit under a heading by id, so a Point renamed
+  // after it was filed cannot go missing from its own heading. (The product categories publish the
+  // other way round — names — only because that page keys everything else by name; a Point already
+  // has an id on the wire, so the id is the honest thing to use.)
+  if (Array.isArray(remote.pointAreas)) {
+    out.pointAreas = remote.pointAreas
+      .filter((a) => a && typeof a === "object" && String(a.name || "").trim())
+      .slice(0, 200)
+      .map((a) => {
+        const depth = Number(a.depth);
+        return {
+          name: String(a.name).trim(),
+          depth: Number.isInteger(depth) && depth >= 0 ? Math.min(depth, 31) : 0,
+          points: (Array.isArray(a.points) ? a.points : [])
+            .map((n) => String(n || "").trim()).filter(Boolean).slice(0, 500),
+        };
       });
   }
   if (Array.isArray(remote.products)) {
@@ -3268,11 +3299,12 @@ function publishedPoints() {
 // The whole field is hidden while she has no Point open, so a shop that never uses them is
 // byte-for-byte the shop it was.
 function renderPointList(wrap, total = 0) {
-  const field = document.getElementById("point-field");
   const list = document.getElementById("point-list");
-  if (!field || !list || !wrap) return;
+  if (!list || !wrap) return;
   const points = publishedPoints();
-  field.hidden = points.length === 0;
+  // ⚠️ NO FIELD TO HIDE ANY MORE (v410): the list lives INSIDE the Self collect card, so an empty
+  // one draws nothing rather than hiding a labelled box — and a card holding no places simply
+  // reads as its two lines, which is the shop she had before she opened any Points.
   if (!points.length) { list.replaceChildren(); return; }
   // The Point she marked as the kitchen, if she has one. ⚠️ Read from the published list rather
   // than assumed: an older storefront payload predates the flag and simply has no marked kitchen,
@@ -3286,6 +3318,17 @@ function renderPointList(wrap, total = 0) {
       if (b && b.classList) b.classList.toggle("active", (b.dataset.pointId || "") === id);
     }
   };
+  // ★★ TAPPING A PLACE **IS** CHOOSING TO COLLECT (v410), which is what her "one piece" means:
+  // there is no longer a world where the customer has picked self collect but no place, or has a
+  // place but has not said they are collecting. Choosing from this list settles both at once.
+  // ⚠️ IT ONLY SWITCHES THE METHOD, never re-chooses the place — otherwise this page would fight
+  // the customer's own tap on the place rows.
+  // ⚠️ AND IT DOES NOT RUN WHILE ALREADY COLLECTING, which is not just tidiness: this function is
+  // called from the repaint that the method switch triggers, so an unguarded call would ask for a
+  // repaint that asks for a repaint, for ever.
+  const pickCollect = () => {
+    if (typeof wrap._pickCollect === "function" && wrap._value !== "collect") wrap._pickCollect();
+  };
   // ★ A SHORT BASKET IS SHOWN AND REFUSED, not hidden (v306). `short` is a POINT that asks for a
   // smallest basket this basket has not reached: it stays on the page with the reason in its own
   // line, because a Point that simply vanished below RM30 would read as a broken page rather than
@@ -3294,15 +3337,22 @@ function renderPointList(wrap, total = 0) {
   // The rule is HERS, typed on her own Point, so the shop honours it rather than merely stating
   // it: this is not the app's own rule being turned into a gate, which is the thing her standing
   // instruction forbids.
-  const row = (id, name, sub, { short = false } = {}) => {
+  const row = (id, name, sub, { short = false, address = "" } = {}) => {
     const b = el("button", {
       class: `point-opt${short ? " short" : ""}`, type: "button", "data-point-id": id,
       onclick: () => {
         if (short) { showConfirm([el("p", { class: "confirm-title" }, name),
           el("p", { class: "confirm-body" }, sub)], "warn"); return; }
+        pickCollect();
         choose(id, name);
       },
-    }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub));
+    }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub),
+    // ★★ AND WHERE IT IS, WHEN SHE HAS SAID A CUSTOMER MAY SEE IT (v410). A line of its own under
+    // the description, not folded into it: the description says what the place IS ("where we bake",
+    // "we message the exact spot"), and the address is a fact she has chosen to publish, so the two
+    // reading as one sentence would make the switch look like it had changed her words too.
+    // ⚠️ Absent for every Point she has not ticked, so nothing on this page changes for them.
+    address ? el("span", { class: "point-sub point-addr" }, address) : null);
     return b;
   };
 
@@ -3324,11 +3374,69 @@ function renderPointList(wrap, total = 0) {
   // ⚠️ The KITCHEN'S line and the POINT's line are different facts and this is the one place the
   // two are chosen between; a Point's smallest basket is the only other thing that ever replaces
   // a sub, and the kitchen has none (see kitchenExempt), so the two can never both apply.
-  list.replaceChildren(
-    ...(kit ? [] : [row("", t("ourKitchen"), t("kitchenSub"))]),
-    ...judged.map(({ p, short, need }) => row(p.id, p.name,
+  // ★★ AND THE AREA HEADINGS (v410). Her words: __"top level is Penang Island & Prai. Under Penang
+  // Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown"__ — so a customer finds his
+  // own neighbourhood instead of reading three places that name streets he has never heard of.
+  //
+  // ⚠️ THE HEADING IS THE AREA'S OWN NAME, drawn as her data. **No new string, in any language** —
+  // which is not a shortcut but the same rule the Point names already follow (a customer reads
+  // "Sg Ara" in English on a page set to Mandarin today), and it leaves the three-language
+  // dictionary and its key-parity test entirely alone.
+  //
+  // ⚠️⚠️ IT IS DRAWN FROM THE ORDER THE LIST ARRIVES IN — the page walks the published Points and
+  // puts a heading in front of the FIRST one belonging to each area. That is why the app publishes
+  // the Points in the shop's own order (`shopPointOrder`): **the order and the headings are one
+  // decision, taken on the other side, and this page only has to read them out.**
+  // ⚠️ A Point no area carries simply draws with no heading above it, in its place at the top. It
+  // is a real place a customer can collect from, so it is never hidden for want of filing.
+  const areaRows = Array.isArray(CONFIG.pointAreas) ? CONFIG.pointAreas : [];
+  // The first Point each area row will draw, or -1 when it draws none.
+  const firstAt = new Array(areaRows.length).fill(-1);
+  judged.forEach((j, i) => areaRows.forEach((a, k) => {
+    if (firstAt[k] < 0 && (a.points || []).indexOf(j.p.id) >= 0) firstAt[k] = i;
+  }));
+  // ⚠️⚠️ AND A HEADING THAT CARRIES NOTHING OF ITS OWN STILL DRAWS (v410), which is the whole
+  // reason the app sends it. **"Penang Island" holds no Point; "Sg Ara" inside it does** — and the
+  // first version of this drew a heading only in front of a Point that belonged to it, so the
+  // island vanished and **Sg Ara came out indented one step with nothing to be indented from**.
+  // ⭐ Found by LOOKING at the page, not by a test — the fixture I had written gave every heading a
+  // Point of its own, so every test passed. The app's own `groupPointsByArea` had this right from
+  // the start and this page did not, which is exactly what two readers of one rule will do.
+  // ⚠️ The payload already carries the depth, so a child's position folds up into its nearest
+  // shallower ancestor without needing the tree here: rows are in tree order, and a row of depth
+  // <= this one ends the subtree.
+  for (let k = areaRows.length - 1; k >= 0; k--) {
+    if (firstAt[k] >= 0) continue;
+    for (let j = k + 1; j < areaRows.length; j++) {
+      if (areaRows[j].depth <= areaRows[k].depth) break;
+      if (firstAt[j] >= 0) { firstAt[k] = firstAt[j]; break; }
+    }
+  }
+  const headAt = new Map();
+  areaRows.forEach((a, k) => {
+    if (firstAt[k] < 0) return;
+    const list = headAt.get(firstAt[k]) || [];
+    list.push(a);
+    headAt.set(firstAt[k], list);
+  });
+
+  const out = [];
+  if (!kit) out.push(row("", t("ourKitchen"), t("kitchenSub")));
+  judged.forEach(({ p, short, need }, i) => {
+    // ⚠️ Ancestors first: the rows are in tree order, so an outer heading is pushed before the
+    // inner one it contains.
+    for (const a of headAt.get(i) || []) {
+      out.push(el("div", {
+        class: "point-area",
+        ...(a.depth ? { style: `--depth:${a.depth}` } : {}),
+      }, a.name));
+    }
+    out.push(row(p.id, p.name,
       short ? sub(t("pointMin"), pointMinOrder(p).toFixed(2), basket.toFixed(2))
-        : (p.isKitchen === true ? t("kitchenSub") : t("pointSub")), { short })));
+        : (p.isKitchen === true ? t("kitchenSub") : t("pointSub")),
+      { short, address: String(p.address || "") }));
+  });
+  list.replaceChildren(...out);
 
   // ⚠️ A POINT SHE PAUSED OR DELETED MUST NOT STAY CHOSEN. A customer may have picked it
   // before she took it off, and the shop cannot then post an order to a place she is no
@@ -3352,27 +3460,37 @@ function renderPointList(wrap, total = 0) {
 
 function refreshPointList(total = 0) {
   const wrap = document.getElementById("fulfillment");
-  const field = document.getElementById("point-field");
   renderPointList(wrap, total);
-  // Only a COLLECTION order chooses where, and only when she has a Point open. The empty
-  // field hides itself, so this never leaves a labelled box with nothing in it.
-  if (field) field.hidden = !wrap || wrap._value === "courier" || !publishedPoints().length;
+  // ⚠️ NOTHING TO HIDE (v410). The places are part of the Self collect card, and they are drawn
+  // there whether or not it is the chosen card — because they are what collecting OFFERS, and a
+  // customer comparing the two ways should be able to see what each one gives them without tapping.
+  // An empty list draws nothing, so a shop with no Points is unchanged.
 }
 
 // Wire the Self collect / Courier picker. The choice is stored on the wrapper node so the
-// order handler reads it back; courier reveals the address field, collecting reveals the
-// list of places to collect from.
+// order handler reads it back; courier reveals the address field, and collecting carries its
+// own list of places inside the card.
 function wireFulfillment() {
   const wrap = document.getElementById("fulfillment");
   if (!wrap) return;
   const buttons = (wrap.querySelectorAll && wrap.querySelectorAll(".seg-btn")) || [];
   const apply = (value) => {
     wrap._value = value;
-    for (const b of buttons) b.classList.toggle("active", b.dataset.fulfillment === value);
+    // ⚠️ THE EDGE GOES ON THE CARD, NOT THE PRESS (v410) — the card is the choice AND the places
+    // under it, and a border around only the words would draw a line between one decision and the
+    // thing it decides. See .seg-opt in app.css.
+    for (const b of buttons) {
+      const card = b.closest ? b.closest(".seg-opt") : null;
+      if (card) card.classList.toggle("active", b.dataset.fulfillment === value);
+      else b.classList.toggle("active", b.dataset.fulfillment === value);
+    }
     const addr = document.getElementById("address-field");
     if (addr) addr.hidden = value !== "courier";
     refreshPointList();
   };
+  // What a tap on a PLACE calls — see renderPointList. Kept here because this is where the method
+  // actually lives, and the list must not grow a second copy of that rule.
+  wrap._pickCollect = () => apply("collect");
   for (const b of buttons) b.addEventListener("click", () => apply(b.dataset.fulfillment));
   apply("collect"); // reflect the static HTML's default active button
 }

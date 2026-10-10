@@ -86,6 +86,24 @@ export function blankPoint() {
     // ⚠️ NO PIN IS REQUIRED, for the kitchen or for any other Point: `pointProblem` has only ever asked
     // for a NAME, because a pin is what a VAN is given and a customer collecting walks to an address.
     isKitchen: false,
+    // ★★ THE AREA THIS POINT SITS UNDER (v410). ONE id, not an array — a place is one place.
+    // "" means no area, which is not "nothing": it is the group the shop draws FIRST, and where a
+    // Point lands when its area is deleted, so it is never hidden. See js/pointAreas.js.
+    //
+    // ⚠️ THERE IS NO `sort` HERE ON PURPOSE. Her order within a group is a field a Point only
+    // gains when she DRAGS it (see `normalizePoint`), because a Point she has never dragged must
+    // keep the order it arrived in — nothing may move under her on the day this arrives.
+    areaId: "",
+    // ★★ MAY THIS POINT'S ADDRESS BE PRINTED ON THE SHOP? (v410). Her words: __"in point card, a
+    // switch to on/off address to be shown or not"__.
+    //
+    // ⚠️⚠️ IT GOVERNS THE PUBLIC SHOP PAGE ONLY, AND THAT IS HER ANSWER, ASKED AND GIVEN. The shop
+    // has no login and anyone can read it; a WhatsApp confirmation goes to ONE paying customer who
+    // has to be told where to walk. So this switch does NOT touch `pointAddressFor`, and the
+    // confirmation keeps its "Where:" line whatever this says — a customer who has paid must never
+    // be left with no way to find his bread. ⚠️ A test pins that, because suppressing it is the
+    // tempting change and it is the one that strands somebody.
+    showAddress: false,
   };
 }
 
@@ -99,7 +117,7 @@ export function normalizePoint(src) {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? round2(n) : b.feeRM;
   };
-  return {
+  const out = {
     id: String(s.id || ""),
     name: txt(s.name, NAME_MAX),
     address: txt(s.address, ADDRESS_MAX),
@@ -126,7 +144,22 @@ export function normalizePoint(src) {
     // kitchen rather than as a second kitchen. ⚠️ And `markKitchen` below is what makes it exclusive, so
     // a stored row that somehow carries two is read as neither being special until she says again.
     isKitchen: s.isKitchen === true,
+    // Which area this Point is filed under (v410). An id that is not a string reads as NO area,
+    // the same clamp `parentOf` applies on the other side.
+    areaId: typeof s.areaId === "string" ? s.areaId : "",
+    // ⚠️ STRICTLY `=== true`, like `paused` and `isKitchen`: anything half-synced or hand-edited
+    // reads as NOT shown, which is what every Point has always meant — no address has ever been
+    // published, so an absent switch must publish exactly what this app published yesterday.
+    showAddress: s.showAddress === true,
   };
+  // ⚠️⚠️ `sort` IS WRITTEN ONLY WHEN SHE HAS ONE, and it is NOT in the literal above on purpose.
+  // ⭐ The rank of an ABSENT sort is "last", so a Point she has never dragged keeps the order it
+  // arrived in; `sort: 0` would rank it FIRST and quietly rearrange her list the moment this
+  // version opened. ⚠️ The trap is that `Number(null)` and `Number("")` are both 0 — a row with
+  // an empty field would look like a deliberate drag to the top. See pointAreas.js `orderedInArea`.
+  const sort = Number(s.sort);
+  if (Number.isFinite(sort) && s.sort !== null && s.sort !== "") out.sort = sort;
+  return out;
 }
 
 // ★★ WHAT THE KITCHEN MUST NOT INHERIT (v406).
@@ -302,7 +335,19 @@ export function updatePoint(state, id, draft) {
   // edit would silently UNPIN the Point — she corrects a spelling and the van loses its door.
   // The same trap the profile's field lists teach, in a smaller place.
   const kept = normalizePoint(rows[at]);
-  const next = normalizePoint({ ...draft, id: want, createdAt: kept.createdAt, place: kept.place });
+  // ⚠️⚠️ AND NEITHER IS HER AREA, HER ORDER, OR THE ADDRESS SWITCH (v410). Exactly the same trap,
+  // three more fields, and this one is silent in a nastier way: the editor DOES carry all three, so
+  // the screen is fine — but every test and every other caller that hands over a draft of just the
+  // form's own fields (`{ ...FEE }`) would have its `areaId` reset to "", its `sort` thrown away and
+  // its address switch turned OFF, which would take an address off her shop without her touching it.
+  // Carried when the draft does not mention the key, so a caller that means to set one still can.
+  const has = (k) => Object.prototype.hasOwnProperty.call(draft || {}, k);
+  const next = normalizePoint({
+    ...draft, id: want, createdAt: kept.createdAt, place: kept.place,
+    areaId: has("areaId") ? draft.areaId : kept.areaId,
+    showAddress: has("showAddress") ? draft.showAddress : kept.showAddress,
+    sort: has("sort") ? draft.sort : kept.sort,
+  });
   rows[at] = next;
   // ⚠️ SAME RULE AS `addPoint`: marking this one as the kitchen un-marks whichever held it, and
   // ⚠️ SWITCHING IT OFF HERE CLEARS THIS ONE AND LEAVES NO KITCHEN MARKED AT ALL — which is a real state
@@ -353,7 +398,7 @@ export function deletePoint(state, id) {
 // ACTIVE Points only, and always sent even when empty: the published payload replaces the
 // whole row, so an absent key would leave the shop offering yesterday's Points. Same reason
 // the occasions, the categories and the promo codes are sent the same way.
-export function publishPoints(state) {
+export function publishPoints(state, points) {
   // ⚠️ `min` IS PUBLISHED AND THE RECEIVER'S NAME, PHONE AND FEE ARE NOT (v306). The rule this
   // list has followed since v299 is that nothing PRIVATE leaves her app — a public page has no
   // login, so the person who receives there must never be named on it. A smallest basket is the
@@ -370,9 +415,27 @@ export function publishPoints(state) {
   // exactly as public as the name it sits beside, and it is the smallest thing that lets the shop
   // stop inventing a row — see store/app.js, where the invented row is now the FALLBACK for the
   // day she has not marked one, which is the job it was always meant to do.
-  return activePoints(state).map((p) => ({
-    id: p.id, name: p.name, minOrderRM: pointMinOrder(p), isKitchen: p.isKitchen === true,
-  }));
+  //
+  // ★★ AND THE ADDRESS NOW RIDES WITH IT — BUT ONLY WHEN SHE SAYS SO (v410). Her words: __"in point
+  // card, a switch to on/off address to be shown or not"__.
+  // ⚠️⚠️ THE STREET ADDRESS IS THE MOST PRIVATE THING ON THIS RECORD, and it has never once left
+  // her app. It leaves now, for the Points she ticks and no others, and ⚠️ **only `address` is
+  // published — never the receiver's name or their phone**, which is what would put a private
+  // person's mobile number on a page anyone can read.
+  // ⚠️ WRITTEN ONLY WHEN THE SWITCH IS ON **and** there is something to say: a ticked Point with
+  // no address typed publishes byte-for-byte what it published yesterday, so the switch alone can
+  // never change a page.
+  //
+  // ⚠️ THE SECOND ARGUMENT IS THE ORDER, AND IT IS THE SHOP'S (v410). The customer page walks the
+  // published list in order and puts an area heading in front of the first Point under it, so the
+  // order and the headings have to be ONE decision — taken in pointAreas.js `shopPointOrder`, and
+  // handed in here. Left out, the list is `activePoints` as it has always been.
+  return (Array.isArray(points) ? points : activePoints(state)).map((p) => {
+    const row = { id: p.id, name: p.name, minOrderRM: pointMinOrder(p), isKitchen: p.isKitchen === true };
+    const street = String((p && p.address) || "").trim();
+    if (p && p.showAddress === true && street) row.address = street;
+    return row;
+  });
 }
 
 // The name to PRINT for an order that went to a Point: the name frozen on the order when

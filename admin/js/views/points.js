@@ -13,12 +13,13 @@
 // no basket rule at all. Collecting is free; the fee on this card is what SHE pays the
 // provider, not what a customer pays her. Do not add a minimum back without her asking.
 
-import { el, button, emptyState, confirmDialog, select, showPopup, toast } from "../ui.js";
+import { el, button, emptyState, confirmDialog, select, showPopup, toast, wireRowReorder } from "../ui.js";
 import { save } from "../state.js";
 import { addressSuggester } from "../address_suggest.js";
 import { windowAt, windowParts, windowProblem } from "../time_window.js";
 import { maybeSyncStorefront } from "../supabase.js";
 import { openPlacePicker } from "../place_map.js";
+import { flattenTree, groupPointsByArea, movePointInArea } from "../pointAreas.js";
 import {
   DEFAULT_FEE_RM, addPoint, deletePoint, orderPointName, pointById, pointPhoneText,
   pointMinOrder, pointPlace, pointPlaceText, pointProblem, pointWindow, pointWindowText, pointsOf,
@@ -44,13 +45,32 @@ function saveAndPublish(state) {
 }
 
 function renderAll(root, state) {
+  // ⚠️ A REDRAW MUST NOT MOVE HER. Adding, editing, dragging or deleting a row repaints this list,
+  // and coming back to the top of a long tree would lose her place mid-drag.
+  const y = typeof window !== "undefined" ? window.scrollY : 0;
   const list = pointsOf(state);
   const active = list.filter((p) => !p.paused).length;
   const paused = list.length - active;
-  const rows = list.length
-    ? list.map((p) => pointCard(state, p, root))
-    : [emptyState("No Points yet",
-      "A Self collection Point is somewhere other than your kitchen a customer can collect from — a friend's shop, a café. Open one when you are ready; you do not have to open them all.")];
+
+  const body = [];
+  if (!list.length) {
+    body.push(emptyState("No Points yet",
+      "A Self collection Point is somewhere other than your kitchen a customer can collect from — a friend's shop, a café. Open one when you are ready; you do not have to open them all."));
+  } else {
+    // ★★ GROUPED BY AREA (v410). Her words: __"top level is Penang Island & Prai. Under Penang
+    // Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown"__. The heading is the
+    // area's own name, indented by its depth so a nested area reads as inside its parent rather
+    // than beside it; the Points no area carries come FIRST, under a heading that says so, because
+    // **a Point is a real place a customer can go** and burying one below her headings helps
+    // nobody — it is also where a Point lands when the area under it is deleted.
+    for (const g of groupPointsByArea(state, list)) {
+      body.push(el("p", {
+        class: "point-area-head",
+        style: `--depth:${g.depth}`,
+      }, g.area ? g.area.name : "No area yet"));
+      for (const p of g.points) body.push(pointCard(state, p, root));
+    }
+  }
 
   root.replaceChildren(
     newPointCard(state, root),
@@ -58,7 +78,25 @@ function renderAll(root, state) {
       list.length
         ? `Self collection Points (${list.length})${paused ? ` · ${active} active, ${paused} paused` : ""}`
         : "Self collection Points"),
-    ...rows);
+    ...body);
+  if (y && typeof window !== "undefined") window.scrollTo(0, y);
+}
+
+// ★★ WHICH AREA THIS POINT SITS UNDER (v410). The same picker the Categories screen uses for
+// "Sits under", built the same way — a plain select whose nested rows are indented with two spaces
+// and a `└ `, so a tree reads as a tree in a control that is only ever a flat list of options.
+//
+// ⚠️ IT IS BUILT FROM `flattenTree` RATHER THAN THE RAW LIST, so the options come out in her order,
+// parents before their children, and an area buried three deep is still reachable.
+// ⚠️ NO EXCLUSION SET IS NEEDED, unlike the category picker: a Point sits in one area and cannot
+// be its own ancestor, so there is no cycle to make impossible.
+function areaPicker(state, value) {
+  const options = [el("option", { value: "", selected: !value }, "— No area —")];
+  for (const { area, depth } of flattenTree(state.pointAreas)) {
+    options.push(el("option", { value: area.id, selected: area.id === value },
+      `${"  ".repeat(depth)}${depth ? "└ " : ""}${area.name}`));
+  }
+  return el("select", { class: "input" }, options);
 }
 
 // One editor for New and Edit both, so the two can never ask for different things or save
@@ -66,6 +104,11 @@ function renderAll(root, state) {
 function buildPointEditor(state, point) {
   const name = el("input", { class: "input", value: point?.name || "",
     placeholder: "e.g. Farlim, Air Itam" });
+  // ★★ WHICH AREA IT SITS UNDER (v410). Carried on the draft as `areaId`, so a Point is filed by
+  // saving it — not by a drag. ⭐ A drag REORDERS AMONG BROTHERS and never re-parents, the same
+  // rule the Categories screen keeps: reading a sideways drop as "move it somewhere else" is a
+  // rule you have to be taught, and this box is the one place the move is written down.
+  const area = areaPicker(state, point ? (point.areaId || "") : "");
   // ★ THE ADDRESS BOX ASKS GOOGLE AS SHE TYPES, exactly as the order's delivery address box
   // does (v228, made shared in v303). Her question was __"there is no address auto complete for
   // collection point?"__ and it was a fair one: this is the box a DRIVER is sent to and the box
@@ -77,6 +120,25 @@ function buildPointEditor(state, point) {
   const address = el("textarea", { class: "input", rows: 3, value: point?.address || "",
     placeholder: "Where it is, for the driver — a street, a shop name, a landmark",
     oninput: function () { addressSug.typed(this.value); } });
+
+  // ★★ MAY THIS ADDRESS BE PRINTED ON THE PUBLIC SHOP? (v410). Her words: __"in point card, a
+  // switch to on/off address to be shown or not"__.
+  //
+  // ⚠️ A real tick box with a visible label, like the kitchen switch above it — a statement about
+  // what this Point shows, not a small press.
+  // ⚠️⚠️ THE WORDING NAMES THE ONE PLACE IT GOVERNS. "Show this address on the shop" — the public
+  // page — and NOT "hide it from customers", because the WhatsApp confirmation goes to a customer
+  // too and it keeps its "Where:" line whatever this says: **somebody who has paid must always be
+  // told where to walk.** A label promising more than the switch does is how a customer ends up
+  // with an order and no directions.
+  const showAddr = el("input", { type: "checkbox", checked: point ? point.showAddress === true : false });
+  const showAddrField = el("div", { class: "field" },
+    el("label", { style: "display:flex;align-items:center;gap:8px;font-weight:600" },
+      showAddr, "Show this address on the shop"),
+    el("p", { class: "hint" },
+      "Tick this and your public shop page prints the address under the Point, so a customer can see "
+      + "where it is before they order. Leave it off and the page shows the name only. "
+      + "⚠️ It does not change the message you send: a customer who has ordered is always told where to collect."));
   const receiver = el("input", { class: "input", value: point?.receiver || "",
     placeholder: "e.g. Aunty Lim" });
   const phone = el("input", { class: "input", type: "tel", value: point?.phone || "",
@@ -149,6 +211,11 @@ function buildPointEditor(state, point) {
       // "No minimum" IS a minimum of zero — nothing in the record distinguishes a Point she has
       // never set one on from one she has just switched off, which is what "no minimum" means.
       minOrderRM: minOn.value === "amount" ? Number(minAmount.value) || 0 : 0,
+      // ★ WHERE IT BELONGS AND WHAT IT SHOWS (v410). Both on the draft, so `addPoint`/`updatePoint`
+      // write them — and `updatePoint` carries them across when a caller's draft leaves them out
+      // (see points.js), which is what stops an edit to the NAME from un-filing the Point.
+      areaId: area.value || "",
+      showAddress: showAddr.checked,
     };
     // The same two questions the run screen asks, in the same words: the name is the Point's
     // own floor, and a window that ends before it starts is refused rather than published.
@@ -156,7 +223,7 @@ function buildPointEditor(state, point) {
       || windowProblem(collectFrom.value, collectTo.value);
     return { draft, error };
   };
-  return { name, address, addressSug, receiver, phone, fee, minOn, minField,
+  return { name, area, address, addressSug, showAddrField, receiver, phone, fee, minOn, minField,
     collectFrom, collectTo, kitchenField, collect };
 }
 
@@ -165,7 +232,13 @@ function newPointCard(state, root) {
   return el("div", { class: "card" },
     el("h3", { style: "margin:0 0 10px" }, "New Self collection Point"),
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
+    el("div", { class: "field" }, el("label", {}, "Area"), ed.area,
+      el("p", { class: "hint" },
+        "Which part of your list this Point belongs under — Penang Island, Prai. Build the areas "
+        + "under More, then Collection areas. Leave it as no area and it sits at the top of your "
+        + "list until you file it.")),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
+    ed.showAddrField,
     ed.kitchenField,
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver,
       el("p", { class: "hint" },
@@ -194,7 +267,9 @@ function openEditPointPopup(state, point, root) {
   const ed = buildPointEditor(state, point);
   showPopup(el("div", { class: "popup-title-row" }, "Edit Point"), (refresh, close) => el("div", {},
     el("div", { class: "field" }, el("label", {}, "Point name"), ed.name),
+    el("div", { class: "field" }, el("label", {}, "Area"), ed.area),
     el("div", { class: "field" }, el("label", {}, "Address"), ed.address, ed.addressSug.panel),
+    ed.showAddrField,
     ed.kitchenField,
     el("div", { class: "field" }, el("label", {}, "Who receives"), ed.receiver),
     el("div", { class: "field" }, el("label", {}, "Their phone"), ed.phone),
@@ -231,12 +306,18 @@ function pointCard(state, point, root) {
   const phone = pointPhoneText(point.phone);
   const who = [point.receiver || null, phone || null].filter(Boolean).join(" · ");
 
+  // ★★ SHE ARRANGES HER OWN POINTS (v410). Her words: __"design the handle too"__ — the same grip
+  // the Categories, Products and Ingredients screens carry, from the same rule in app.css, driven
+  // by the same helper in ui.js.
+  const handle = el("span", { class: "point-handle", title: "Drag to reorder", "aria-hidden": "true" }, "⠿");
+
   // The three presses go on a LINE OF THEIR OWN under the details, not squeezed into the
   // card's right edge. Three is one more than that edge holds on a phone — Pause and Edit
   // fitted and Delete wrapped under them, which read as two rows that look alike and behave
   // differently. This is also the shape she approved in the drawing.
-  return el("div", { class: "card" },
-    el("div", { style: "min-width:0" },
+  const row = el("div", { class: "card point-row", dataset: { id: point.id } },
+    handle,
+    el("div", { class: "point-row-body" },
       el("p", { class: "card-title" },
         point.name,
         // ★★ AND THE CARD SAYS WHICH ONE IS THE KITCHEN (v406). ⚠️ The switch lives in the EDIT card —
@@ -277,6 +358,49 @@ function pointCard(state, point, root) {
         () => togglePaused(state, point, root), "ghost small"),
       button("Edit", () => openEditPointPopup(state, point, root), "ghost small"),
       button("Delete", () => confirmDelete(state, point, root), "ghost small")));
+
+  // ★★ AND THE DRAG ITSELF (v410). ⚠️ THE ORDER IS WRITTEN ONTO THE POINTS — never an index and
+  // never the array position — because `sync.js` carries whole records keyed by id, so a row's
+  // POSITION in `state.points` never travels between her phones; only a field inside the record
+  // does. See pointAreas.js `movePointInArea`.
+  wireRowReorder({
+    row,
+    handle,
+    boxOf: () => row.parentElement,
+    rowSelector: "point-row",
+    // ⚠️ A drop may land among the Points of THIS GROUP and nowhere else. Moving a Point into
+    // another area is the editor's "Area" box, not a sideways drop — the same rule the Categories
+    // screen keeps, for the same reason: **reading a sideways drop as "move it somewhere else" is
+    // a rule you have to be taught.** Only the row's own id is read, so a stale record elsewhere
+    // on the screen cannot change the answer.
+    kin: (n) => {
+      const other = (state.points || []).find((x) => x && x.id === n.dataset.id);
+      return !!other && (other.areaId || "") === (point.areaId || "");
+    },
+    onDrop: (slot) => {
+      state.points = movePointInArea(state.points, point.id, slot, idsInGroup(state, point.areaId));
+      saveAndPublish(state); // the order she just set is the order her customers see
+      // ⚠️⚠️ AND NO `renderAll` HERE, WHICH IS NOT AN OVERSIGHT. `wireRowReorder` moves the dragged
+      // NODE itself, immediately after this returns — and a redraw replaces every card with a new
+      // one, so the row it is about to move has already been detached from the page. `boxOf()` is
+      // `row.parentElement`, so the next line would read `children` off null and throw **in the
+      // middle of her drop**. The Categories screen omits the redraw for the same reason, and its
+      // helper says why in its own words: *"never a re-render of the list, which would throw every
+      // row back to its start and take the page's scroll with it."*
+      // ⭐ Nothing needs redrawing anyway: a reorder changes no card's text, only where it sits.
+    },
+  });
+  return row;
+}
+
+// The ids of one group, in the order the screen is drawing them. ⚠️ READ FROM THE SAME FUNCTION
+// THAT DRAWS THEM (`groupPointsByArea`), not from a second walk over `state.points`: a drop slot
+// counted against one order and written into another is how a drag lands a row in the wrong place,
+// which is the whole reason `indexForDrop` exists on the Products screen.
+function idsInGroup(state, areaId) {
+  const want = String(areaId || "");
+  const g = groupPointsByArea(state, pointsOf(state)).find((x) => (x.area ? x.area.id : "") === want);
+  return g ? g.points.map((p) => p.id) : [];
 }
 
 // The same picker the bakery's own pickup pin uses, and the same one a customer's doorstep

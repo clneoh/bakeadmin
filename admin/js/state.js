@@ -186,6 +186,15 @@ export function defaultState() {
     // never a setting: she opens them one at a time and expects most to end, so each has to
     // sync on its own and be pausable without touching the others. See js/points.js.
     points: [],
+    // The AREAS that group those Points (v410): {id, name, parentId, sort} — a tree of any depth,
+    // the same shape as productCategories. Her words: "top level is Penang Island & Prai. Under
+    // Penang Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown".
+    //
+    // ⚠️ A SEPARATE LIST, NOT A FIELD ON A POINT, because an area is not a place: it has no
+    // address, no receiver, no fee and no pin, and a customer must never be offered "Penang
+    // Island" as somewhere to collect. One record each, so an area built on one phone syncs on
+    // its own. See js/pointAreas.js.
+    pointAreas: [],
     // Promo codes she hands out — one row per code, carrying the six rule
     // families and the offer (see js/promo.js for the engine and the shape). A
     // list she grows, like the credits ledger above, not a setting.
@@ -425,6 +434,7 @@ function normalize(s) {
     rewards: Array.isArray(s.rewards) ? s.rewards : [],
     occasions: Array.isArray(s.occasions) ? s.occasions : [],
     points: Array.isArray(s.points) ? s.points : [],
+    pointAreas: Array.isArray(s.pointAreas) ? s.pointAreas : [],
     // Guarded like every other list she owns. The rows themselves are cleaned by
     // js/promo.js on every read, so a half-synced or hand-edited record can never
     // reach a screen or the shop un-clamped.

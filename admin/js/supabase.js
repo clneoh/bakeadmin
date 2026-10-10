@@ -19,6 +19,7 @@ import { customerTotal } from "./courier.js";
 // by the time it reaches an order (normCode).
 import { normCode, publishCodes } from "./promo.js";
 import { pointById, publishPoints } from "./points.js";
+import { publishPointAreas, shopPointOrder } from "./pointAreas.js";
 import { usageByCode } from "./promo-usage.js";
 // The trip on the order, read through the one helper that decides what a half-written
 // record means. NOT the courier registry: this module is imported by the channel that
@@ -286,7 +287,13 @@ export function maybeSync(state) {
 // config to a row the storefront reads, so edits go live without a redeploy.
 // ────────────────────────────────────────────────────────────────────────────
 
-function storefrontPayload(state) {
+// ⚠️ EXPORTED SO THE PAYLOAD ITSELF CAN BE JUDGED (v410). Until then this function was private and
+// the publish tests could only count that a request was SCHEDULED — **nothing anywhere read what
+// was in it.** ⭐ `points-publish.test.js` predicted exactly this in its own header: *"It is a
+// WHOLE-CLASS bug, not one bug: **the next list that reaches the shop will forget the same call
+// unless something fails when it does.**"* The collection areas are that next list, and what fails
+// now is a test on the shape rather than a silence.
+export function storefrontPayload(state) {
   const sf = (state.settings && state.settings.storefront) || {};
   // The storefront menu is the backoffice's product list (active only) — one
   // list, so adding/editing/hiding a product in the app updates the customer
@@ -450,10 +457,21 @@ function storefrontPayload(state) {
     // advertised, never secret. See publishCodes in js/promo.js.
     promoCodes: publishCodes(state, (c) => usage.get(c.code) || { used: 0, given: 0 }),
     // The Self collection Points the shop may OFFER (v299) — id and name only, and active
-    // ones only. The receiver, their phone, the fee and even the address stay here: the
-    // shop is public, and the message that tells a customer where to go is built from her
-    // own copy. Always sent, even empty, for the same reason the lists above are.
-    points: publishPoints(state),
+    // ones only. The receiver, their phone and the fee stay here: the shop is public, and the
+    // message that tells a customer where to go is built from her own copy. Always sent, even
+    // empty, for the same reason the lists above are.
+    // ⚠️ THE ORDER IS THE SHOP'S ORDER (v410), taken from the same grouping the headings come
+    // from — the customer page walks this list and puts an area heading in front of the first
+    // Point under it, so the order and the headings have to be ONE decision.
+    // ⚠️ AND A POINT'S ADDRESS NOW RIDES WITH IT **only** when she has ticked "Show this address
+    // on the shop" on that Point. See publishPoints.
+    points: publishPoints(state, shopPointOrder(state)),
+    // The AREAS those Points are grouped under (v410). Her words: __"top level is Penang Island &
+    // Prai. Under Penang Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown"__.
+    // ⚠️ IDS, never Point names, and only areas that carry something — an empty heading would draw
+    // a shelf with nothing on it. Always sent, even empty, so deleting her last area takes the
+    // headings off a page that is already open.
+    pointAreas: publishPointAreas(state),
   };
   // The "Website by …" credit for the homepage/store footers — name, the email
   // link(s) and the optional WhatsApp number. Published only when set; the

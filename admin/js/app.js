@@ -15,6 +15,7 @@ import { renderSuppliers } from "./views/suppliers.js";
 import { renderProductCategories } from "./views/productCategories.js";
 import { renderParcelCouriers } from "./views/parcelCouriers.js";
 import { renderPoints } from "./views/points.js";
+import { renderPointAreas } from "./views/pointAreas.js";
 import { renderPromoCodes } from "./views/promo.js";
 import { renderReferrals } from "./views/referrals.js";
 import { renderSendVan } from "./views/send_van.js";
@@ -61,6 +62,10 @@ const routes = {
   "/deliveries":{ title: "Bake days", tab: "more", render: renderDeliveries },
   "/parcel-couriers":{ title: "Parcel couriers", tab: "more", render: renderParcelCouriers },
   "/points":    { title: "Self collection Points", tab: "more", render: renderPoints },
+  // ⚠️ THE AREAS ARE THE HEADINGS AND THE POINTS ARE THE PLACES — two screens, because they are
+  // two jobs, and because the Points screen had to keep its shape (its own tests drive its first
+  // child as the New-Point card). It is the Categories screen's twin, which is what she asked for.
+  "/point-areas": { title: "Collection areas", tab: "more", render: renderPointAreas },
   "/promo":     { title: "Promo codes", tab: "more",    render: renderPromoCodes },
   "/bring-a-friend": { title: "Bring a friend", tab: "more", render: renderReferrals },
   // ★ THE NAME IS HERS (v402). Her words: __"instead of send a van, change the term to Location pin for

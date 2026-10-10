@@ -145,7 +145,6 @@ const en = {
   courierSub: "A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.",
   // v299 — where a Self collect order is collected FROM. Written once for the kitchen and
   // once for a Point; the Point's own NAME is her data and is never translated.
-  collectFrom: "Collect from",
   ourKitchen: "Our kitchen",
   kitchenSub: "Sungai Ara, Bayan Lepas — where we bake",
   pointSub: "Self collection Point — we message the exact spot and time once your order is confirmed",
@@ -417,7 +416,6 @@ const zh = {
   selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切地点，面包做好后，烘焙日当天任何时间都可以来取。",
   courier: "外送",
   courierSub: "我们安排骑手送到你家。运费会在 WhatsApp 上告诉你 — 页面上显示的总额只是面包的钱。",
-  collectFrom: "去哪里取",
   ourKitchen: "我们的厨房",
   kitchenSub: "Sungai Ara, Bayan Lepas — 我们烘焙的地方",
   pointSub: "自取点 — 订单确认后，我们会通知你确切地点和时间",
@@ -614,7 +612,6 @@ const ms = {
   selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan lokasi yang tepat, dan sebaik sahaja tempahan anda siap, anda boleh ambil pada bila-bila masa pada hari membakar.",
   courier: "Penghantaran kurier",
   courierSub: "Kami hantar penghantar ke pintu anda. Sebarang caj penghantaran dimaklumkan di WhatsApp — jumlah yang dipaparkan ialah untuk roti sahaja.",
-  collectFrom: "Ambil dari mana",
   ourKitchen: "Dapur kami",
   kitchenSub: "Sungai Ara, Bayan Lepas — tempat kami membakar",
   pointSub: "Titik ambilan — kami maklumkan lokasi dan masa yang tepat selepas pesanan anda disahkan",

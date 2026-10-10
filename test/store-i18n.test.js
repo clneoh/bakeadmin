@@ -437,3 +437,53 @@ test("the note field names BOTH ways of getting an order (v408)", () => {
   assert.match(html, /data-i18n="noteLabel"[^>]*>Notes for Collection\/Delivery \(optional\)</,
     "and the markup carries the new label");
 });
+
+test("★★ the places are part of the Self collect choice, not a box under it (v410)", () => {
+  // Her words: __"there is 2 main selection, select self collect and a drop drown appear, should
+  // not be in present interface"__ — the list of places and the choice to collect were TWO steps,
+  // and a control that appears once something is chosen reads as a second question rather than as
+  // part of the first.
+  //
+  // ⚠️ NO TEST CAN SEE THIS. It is a shape, and the shop's own test shim carries no static markup —
+  // so **the rule is pinned against the page itself**, which is the same approach v392 took when a
+  // button row measured 403px on a 360px phone and no assertion could have caught it.
+  const seg = html.slice(html.indexOf('id="fulfillment"'), html.indexOf('id="address-field"'));
+  assert.ok(seg.length > 0, "the fulfilment picker is on the page");
+
+  // ⚠️ ONE CARD PER WAY, with the press inside it — that is what lets the edge go round the place
+  // list as well as the words.
+  const cards = [...seg.matchAll(/<div class="seg-opt[^"]*" data-opt="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(cards, ["collect", "courier"], "the two ways, each its own card");
+  // ⚠️ THE COLLECT CARD STARTS ON IN THE MARKUP, before the script runs — it is the default choice,
+  // and a first paint with no edge on either card would flash the wrong one. (Which card the SCRIPT
+  // lights as the choice is browser-only: this test shim carries no static markup, so `closest` has
+  // nothing to walk. That half is verified by looking, and it is why the rule below is pinned at
+  // all — see the note about v392 in this file's sibling, store.test.js.)
+  assert.match(seg, /<div class="seg-opt active" data-opt="collect">/,
+    "the self-collect card is the one wearing the edge on arrival");
+  // ⚠️ AND THE PLACES ARE INSIDE IT — bounded by POSITION, because the list must be after the
+  // collect card opens AND before the courier card does. A lazy `[\s\S]*?` from the collect card
+  // would also match a list sitting inside the COURIER card further down, which is the fault this
+  // is here to catch; two `indexOf` bounds cannot be fooled that way.
+  const atCollect = seg.indexOf('data-opt="collect"');
+  const atList = seg.indexOf('id="point-list"');
+  const atCourier = seg.indexOf('data-opt="courier"');
+  assert.ok(atList > atCollect && atList < atCourier,
+    `⚠️ the place list sits INSIDE the collect card — one piece (collect@${atCollect}, list@${atList}, courier@${atCourier})`);
+
+  // ⚠️ AND THE SEPARATE FIELD IS GONE — no labelled box that appears, and no dead string left in
+  // the dictionary for it to fall back on.
+  assert.equal(seg.includes('id="point-field"'), false, "the appearing field is not in the page");
+  assert.equal(/\bcollectFrom\b/.test(html), false, "and the page no longer names it");
+  assert.equal("collectFrom" in STORE.en, false, "nor does the dictionary still carry the word");
+  for (const l of ["zh", "ms"]) {
+    assert.equal("collectFrom" in STORE[l], false, `${l} does not carry it either`);
+  }
+
+  // ⚠️ THE EDGE IS ON THE CARD, TOO — `.seg-opt.active`, never `.seg-btn.active`, or the border
+  // would draw a line between the choice and the places it contains.
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  assert.match(css, /\.seg-opt\.active\s*\{/, "the chosen card wears the edge");
+  assert.equal(/\.seg-btn\.active\s*\{/.test(css), false,
+    "and the press inside it does not — one edge, on the card");
+});

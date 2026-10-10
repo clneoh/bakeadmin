@@ -40,6 +40,10 @@ const LISTS = {
   credits: "credits", // bring-a-friend ledger rows
   rewards: "rewards", // reward hand-outs — a record per grant, so neither phone can overwrite the other's
   points: "points", // Self collection Points — one record each, so opening one on a phone does not disturb the others
+  // ⚠️ A NEW LIST IS NOT CARRIED UNTIL IT IS NAMED HERE. A new FIELD on an existing record needs
+  // no registration (records travel whole, as JSON), but this is a list of its own — so an area
+  // built on one phone reaches the other only because of this line.
+  pointAreas: "pointAreas", // the collection AREA tree that groups the Points (v410)
   occasions: "occasions", // delivery-calendar reminder marks
   // A promo code made on one phone has to exist on the other, or a card she
   // prints and hands out works on the phone that made it and nowhere else.

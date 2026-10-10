@@ -827,32 +827,53 @@ button.prod-next.off::after { content: ""; }
    columns leave a phone about 160px per line, where a sentence wraps to five ragged lines and
    nobody reads it. Full width is what lets both lines be read before anything is tapped. */
 .seg { display: grid; gap: 8px; }
+/* ★★ THE CARD IS THE CHOICE **AND EVERYTHING IT CONTAINS** (v410). Her words: __"there is 2 main
+   selection, select self collect and a drop down appear, should not be in present interface"__.
+   ⚠️ The edge therefore went on the WRAPPER rather than on the press: the places a customer can
+   collect from are part of choosing to collect, and a border around only the words would draw a
+   line between one decision and the thing it decides. */
+.seg-opt {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+/* The chosen one takes the brand's orange edge — the same "this one is on" the promo box and the
+   chosen day already use, so nothing here has to be learned. */
+.seg-opt.active {
+  border-color: var(--brown);
+  border-width: 2px;
+  background: var(--brown-soft);
+}
 .seg-btn {
   display: block;
   width: 100%;
   appearance: none;
   text-align: left;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+  border: none;
+  background: transparent;
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-/* The chosen one takes the brand's orange edge — the same "this one is on" the collect-from
-   rows and the promo box already use, so nothing here has to be learned. */
-.seg-btn.active {
-  border-color: var(--brown);
-  border-width: 2px;
-  padding: 9px 11px;
-  background: var(--brown-soft);
-}
+.seg-opt.active .seg-name { color: var(--brown-dark); }
 /* ⚠️ 12px is the FLOOR for the explanation, not a starting point — the whole fault being
    repaired is a line the customer did not read. */
 .seg-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .seg-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 .seg-btn.active .seg-name { color: var(--brown-dark); }
+/* ⚠️ THE PLACES INSIDE THE SELF-COLLECT CARD (v410). Inset and quiet, so the card still reads as
+   one choice: the name and its line first, and the places under a hairline. An empty list draws
+   nothing at all (store/app.js leaves it empty when she has no Points), which is why the hairline
+   lives on the rows rather than on the container. */
+.point-list:not(:empty) {
+  padding: 0 10px 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+.seg-opt.active .point-list:not(:empty) { border-top-color: var(--brown-soft); }
 
 /* ---------- The door pin (optional) ---------- */
 /* Two controls side by side, because the two customers are different people: one is
@@ -1631,6 +1652,24 @@ button.prod-next.off::after { content: ""; }
 
 .point-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
 .point-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* ★★ THE AREA HEADING OVER A GROUP OF PLACES (v410). Her words: __"top level is Penang Island &
+   Prai. Under Penang Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown"__.
+   ⚠️ IT IS DRAWN AS HER OWN WORDS AND IS NOT A CHOICE — no press, no hover, no border. It is a
+   signpost on a list, and anything that looked tappable would have a customer trying to collect
+   from "Penang Island". Small caps and quiet, so the places under it stay the loudest thing here. */
+.point-area {
+  margin: 10px 0 0;
+  padding-left: calc(var(--depth, 0) * 12px);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brown-dark);
+}
+.point-area + .point-opt { margin-top: 6px; }
+/* ⚠️ THE ADDRESS IS SHOWN ONLY ON THE POINTS SHE TICKED, and it keeps the description's size and
+   colour rather than being set apart — it is one more fact about the place, not a warning. */
+.point-addr { margin-top: 1px; }
 
 .promo-box { margin: 0 0 16px; }
 .promo-box .field { margin-bottom: 0; }

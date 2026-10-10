@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v409)
+# Jienluv2bake — change history (v54 → v410)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v410, YOUR COLLECTION POINTS GROUP BY AREA, THEY CAN BE DRAGGED, AND EACH ONE DECIDES WHETHER ITS ADDRESS SHOWS (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"i need something like category for product on POINT. 1st level 2nd level, 3rd level....example top level is Penang Island & Prai. Under Penang Island will be Area like Sg Ara, Balik Pulau, Farlim, Georgetown"__ · __"The store under Self Collect, the chioces should be able to list clearly, in point card, a switch to on/off address to be shown or not"__ · __"design the handle too"__ · __"there is 2 main selection, select self collect and a drop drown appear, should not be in present interface"__
+
+**★ YOUR POINTS NOW SIT UNDER AREAS — a tree as deep as you like.** __"something like category for product"__ was exactly right, and that is what it is: the same pattern as your product Categories, so it works the same way and there is nothing new to learn. **More → Collection areas**, add *Penang Island* and *Prai*, then nest *Sg Ara* and *Balik Pulau* inside the island. ⚠️ **Any depth** — a third level costs nothing. Then on each Point's card there is a new **Area** box, and filing a Point is saving it.
+
+**★ AND A HANDLE, SO YOU SET THE ORDER.** __"design the handle too"__ — the same grip your Ingredients, Products and Categories already carry, ⠿ on the left of every row, on the areas AND on the Points. ⚠️ **Drag reorders among the brothers and nothing else** — moving a Point to a different area is the Area box, not a sideways drop, because __"reading a sideways drop as 'move it somewhere else' is a rule you have to be taught"__.
+
+**★ AND EACH POINT DECIDES WHETHER ITS ADDRESS IS PUBLIC.** A new tick box on the Point card: **"Show this address on the shop"**. Off — as every Point is today — and your public page shows the name only. On and your page prints the street under it, so a customer knows where he is going before he orders.
+
+⚠️⚠️ **AND IT IS THE SHOP ONLY. YOUR WHATSAPP MESSAGE IS UNTOUCHED, AND THAT IS DELIBERATE.** ⚠️ A customer who has **paid** must be told where to walk or the order cannot be collected, and the two are not the same kind of thing: **the shop is a public page anyone can read; the confirmation is a private message to one person who has already chosen.** ⚠️ A test now pins that, precisely because switching it off in the message is the tempting change and it is the one that strands somebody.
+
+**★ AND THE PLACES ARE PART OF CHOOSING TO COLLECT, NOT A BOX THAT APPEARS.** ⚠️ Your words — __"select self collect and a drop drown appear, should not be in present interface"__ — were right: it was **two steps for one decision**, and a control that appears once you have chosen something reads as a second question. **The places now live inside the Self collect card**, with the border round the whole piece, and **tapping a place chooses Self collect as well as the place.** ⚠️ There is no longer a state where somebody has picked a place without saying they are collecting, or the reverse. ⚠️ The **"Collect from"** box and its line are gone from the page and from all three languages.
+
+⚠️ **AND THE HEADINGS ARE HER WORDS, UNTRANSLATED** — *Penang Island*, *Sg Ara* — the same rule a Point's own name already follows: your data, and a customer reading in Mandarin sees "Sg Ara" today exactly as he does now.
+
+**⚠️⚠️ THREE FAULTS FOUND WHILE BUILDING THIS, AND TWO OF THEM WERE MINE.**
+
+1. ⚠️ **The Categories drag handle was not styled at all**, and had not been since v399 — a comment and a rule had been inserted **inside a selector list**, so the browser read it as `.cat-handle, .ing-card-row .card-row { flex-wrap: wrap }` and the grip never got its size, its cursor, or **`touch-action: none`** — the one that matters, because without it the page scrolls under your finger and a category cannot be dragged at all. **Fixed**, and the new Point grip joins the one rule rather than getting a copy.
+2. ⚠️ **"Penang Island" did not draw on the shop.** The page only drew a heading in front of a Point that belonged to it, so a parent heading holding no Point of its own **vanished** — and **Sg Ara came out indented one step with nothing to be indented from.** ⭐ **Found by LOOKING at the page, not by a test: my fixture gave every heading a Point of its own, so every test passed.** The app's own grouping had it right and the shop did not.
+3. ⚠️ **My own drag would have thrown in the middle of your drop** — I called the redraw from inside the drop, and the helper moves the row *after* that returns, so it would have moved a row already detached from the page. Caught by reading the helper, and fixed by not redrawing: **a reorder changes no card's text, only where it sits.**
+
+**No database step.** The suite is **3,229 tests, all green** (35 new). **21 bites, all fired by their own message** — including the two that were caught by an older test first and had to be rewritten until only the new rule could catch them, ⚠️ and one that found a test of mine proving nothing because its fixture's dates happened to make two different orders look identical.
+
+**Still owed:** the Chinese and Malay versions of the new sentences are **mine, not a native speaker's**.
 
 **10 Oct 2026 — engine v409, YOUR KITCHEN NOW SAYS IT IS YOUR KITCHEN (no database step — pushing this one is the whole of it).**
 

@@ -43,6 +43,8 @@ const MENU_GROUPS = [
     ["#/send-van", "📍 Location pin for Kitchen",
       "Your kitchen's own door, the pin every trip starts from, and the van service that collects there"],
     ["#/points", "📍 Self collection Points", "The places your customers collect from instead of your kitchen"],
+    ["#/point-areas", "🗂 Collection areas",
+      "The headings those places sit under — Penang Island, Prai — so a customer finds his own area first"],
     ["#/parcel-couriers", "📦 Parcel couriers", "Posting dry goods yourself — J&T, Ninja Van, Line Clear"],
   ]],
   // The three she named, together, under the name of the screen they belong to.

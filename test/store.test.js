@@ -18,9 +18,31 @@ function createEl(tag) {
     className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
     scrollTop: 0, _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    appendChild(c) { if (c != null) this.children.push(c); return c; },
-    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
-    replaceChildren(...cs) { this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) })); },
+    // ⚠️ `classList` IS STILL A NO-OP AND `closest` IS NOT (v410), which looks inconsistent and is
+    // deliberate. `closest` is not decoration here: the fulfilment picker puts the "this one is on"
+    // edge on the CARD that holds the press rather than on the press, so **a shim without it would
+    // exercise the fallback path and leave the real one untested**. `classList` stays inert because
+    // every assertion in this file reads a className the view WROTE, which is truer than a
+    // hand-rolled set would be.
+    parentElement: null,
+    appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
+    append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
+    replaceChildren(...cs) {
+      this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) }));
+      // ⚠️ The real one re-parents what it is given, which is what makes `closest` — and therefore
+      // the card this view puts its edge on — reachable from a row. Without it every freshly drawn
+      // row read as parentless and `closest` answered null.
+      for (const c of this.children) c.parentElement = this;
+    },
+    closest(sel) {
+      const want = String(sel || "").replace(/^\./, "");
+      let n = this;
+      while (n) {
+        if (String(n.className || "").split(/\s+/).includes(want)) return n;
+        n = n.parentElement;
+      }
+      return null;
+    },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
     // ⚠️ THE REAL DOM KEEPS `dataset` AND `data-*` ATTRIBUTES IN STEP, and this shim did not
@@ -1858,6 +1880,171 @@ test("a code on the order is said again above Place order", () => {
   } finally {
     CONFIG.promoCodes = realCodes;
     registry["promo-input"].value = "";
+    render();
+  }
+});
+
+// ── v410: the collection Areas, and the address she chooses to publish ──────
+
+test("the shop keeps the AREA headings it can read, and only the fields it needs", () => {
+  // Her words: __"top level is Penang Island & Prai. Under Penang Island will be Area like Sg Ara,
+  // Balik Pulau, Farlim, Georgetown"__. Read exactly like the product categories beside it:
+  // replaced wholesale, and re-validated on the shop's own terms so a malformed row cannot draw.
+  const out = mergeStorefront({}, { pointAreas: [
+    { name: "Penang Island", depth: 0, points: ["pt_1", "pt_2"], junk: "dropped" },
+    { name: "Sg Ara", depth: 1, points: ["pt_2"] },
+    { name: "   " },            // no name: dropped rather than drawn as a blank heading
+    { points: ["pt_3"] },
+    "nonsense",
+  ] });
+  assert.deepEqual(out.pointAreas, [
+    { name: "Penang Island", depth: 0, points: ["pt_1", "pt_2"] },
+    { name: "Sg Ara", depth: 1, points: ["pt_2"] },
+  ], "her names, her depths, and the ids of what each carries — nothing else");
+  assert.deepEqual(Object.keys(out.pointAreas[0]).sort(), ["depth", "name", "points"]);
+  // ⚠️ An empty list is a real instruction, not silence: deleting her last area has to take the
+  // headings off a page that is already open.
+  assert.deepEqual(mergeStorefront({ pointAreas: [{ name: "Gone", depth: 0, points: [] }] },
+    { pointAreas: [] }).pointAreas, []);
+  assert.equal(mergeStorefront({ pointAreas: [{ name: "Kept", depth: 0, points: [] }] }, { name: "X" })
+    .pointAreas[0].name, "Kept", "and a payload that says nothing about areas leaves them alone");
+  assert.equal(mergeStorefront({}, { pointAreas: [{ name: "X", depth: "rubbish" }] })
+    .pointAreas[0].depth, 0, "a depth the page cannot read is top level, never a guess");
+});
+
+test("★★ the address reaches the shop ONLY when she ticked it, and only when there is one", () => {
+  // ⚠️⚠️ THE FIRST TIME A STREET ADDRESS HAS EVER BEEN PUBLISHED FROM THIS APP. The whitelist is
+  // what decides it here, one step after publishPoints sent it — **a field a sender publishes and
+  // a receiver does not keep was never sent**, the fault that shipped at v406 and again at v407.
+  const out = mergeStorefront({}, { points: [
+    { id: "pt_1", name: "Sg Ara", showAddress: true, address: "12 Jalan Bunga, 11500 Air Itam" },
+    { id: "pt_2", name: "Prai", showAddress: false, address: "9 Jalan Ria" },
+    { id: "pt_3", name: "Blank tick", showAddress: true, address: "   " },
+    { id: "pt_4", name: "No switch", address: "1 Jalan Lain" },
+  ] });
+  const by = (id) => out.points.find((p) => p.id === id);
+  assert.equal(by("pt_1").address, "12 Jalan Bunga, 11500 Air Itam", "ticked: the address arrives");
+  assert.equal("address" in by("pt_2"), false, "not ticked: no address key at all");
+  assert.equal("address" in by("pt_3"), false, "ticked but blank: nothing to print");
+  assert.equal("address" in by("pt_4"), false,
+    "⚠️ an address with NO switch reads as not shown — the safe way round, and what every payload sent before today means");
+  // ⚠️ And the private things still never reach here, whatever the switch says.
+  const blob = JSON.stringify(out.points);
+  assert.equal(blob.includes("Aunty Lim"), false, "the receiver is never published");
+  assert.equal(blob.includes("60123456789"), false, "nor their phone");
+});
+
+test("★ the shop draws her area headings, and the places under them", () => {
+  const realP = CONFIG.points;
+  const realA = CONFIG.pointAreas;
+  // ⚠️ Read through the TEXT NODES — this shim's text nodes carry no `textContent`, so a
+  // `.textContent` read would return "" for every row and the test would pass against nothing.
+  const kids = () => registry["point-list"].children.map((n) => (String(n.className).includes("point-area")
+    ? `# ${n.children[0].text}` : n.children[0].children[0].text));
+  try {
+    CONFIG.points = [
+      { id: "pt_loose", name: "Somewhere unfiled", minOrderRM: 0 },
+      { id: "pt_island", name: "Penang Island", minOrderRM: 0 },
+      { id: "pt_sgara", name: "Sg Ara", minOrderRM: 0, isKitchen: true },
+      { id: "pt_prai", name: "Chai Leng Park, Prai", minOrderRM: 0 },
+    ];
+    // ⚠️ The list arrives in the SHOP'S order — the loose block first, then each area — because the
+    // app publishes it that way (`shopPointOrder`). This page only reads it out.
+    CONFIG.pointAreas = [
+      { name: "Penang Island", depth: 0, points: ["pt_island", "pt_sgara"] },
+      { name: "Prai", depth: 0, points: ["pt_prai"] },
+    ];
+    render();
+    assert.deepEqual(kids(), [
+      "Somewhere unfiled",       // no heading — a real place, drawn first, never hidden
+      "# Penang Island",         // the heading, drawn once
+      "Penang Island",           // ⚠️ her own Point, named after the area it is filed in
+      "Sg Ara",
+      "# Prai",
+      "Chai Leng Park, Prai",
+    ], "her headings, each drawn ONCE in front of the first Point under it");
+
+    // ⚠️ NO AREAS AT ALL IS THE PAGE IT HAS ALWAYS BEEN — no headings, and the invented kitchen row
+    // back, because nothing is marked as the kitchen in this fixture's second life.
+    CONFIG.pointAreas = [];
+    CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0 }];
+    render();
+    assert.deepEqual(kids(), ["Our kitchen", "Farlim, Air Itam"],
+      "with no areas the page is byte-for-byte the page it was before this version");
+
+    // ★ AND THE ADDRESS, ON THE ROW SHE TICKED AND NO OTHER.
+    CONFIG.points = [
+      { id: "pt_1", name: "Shown", minOrderRM: 0, address: "12 Jalan Bunga" },
+      { id: "pt_2", name: "Hidden", minOrderRM: 0 },
+    ];
+    render();
+    // ⚠️ Found by NAME, not by position: with no kitchen marked the invented "Our kitchen" row is
+    // drawn first, so `children[0]` is that row and an index would have asserted about the wrong
+    // Point entirely.
+    const rowFor = (nm) => registry["point-list"].children.find((r) =>
+      r.children[0] && r.children[0].children[0] && r.children[0].children[0].text === nm);
+    // ⚠️ `.includes`, not `===` — the span wears `point-sub point-addr`, because it keeps the
+    // description's typography rather than being a class of its own.
+    const addrOf = (nm) =>
+      (rowFor(nm).children.find((c) => String(c.className).includes("point-addr")) || null);
+    assert.ok(addrOf("Shown"), "the ticked Point carries an address line");
+    assert.equal(addrOf("Hidden"), null,
+      "and a Point she has not ticked carries none — the line cannot leak from the row above");
+    assert.equal(addrOf("Shown").children[0].text, "12 Jalan Bunga");
+  } finally {
+    CONFIG.points = realP;
+    CONFIG.pointAreas = realA;
+    render();
+  }
+});
+
+// ── v410: the place list IS the self-collect choice ──────────────────────────
+
+test("★★ tapping a place chooses SELF COLLECT too — the two are one piece", () => {
+  // Her words: __"there is 2 main selection, select self collect and a drop drown appear, should
+  // not be in present interface"__. There are two ways to get an order, not three questions: the
+  // places a customer can collect from are PART of choosing to collect, so a tap on one settles
+  // both — ⚠️ **there is no longer a world where somebody has picked a place but has not said they
+  // are collecting, or has said collecting and not said where.**
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [
+      { id: "pt_kitchen", name: "Our place", minOrderRM: 0, isKitchen: true },
+      { id: "pt_farlim", name: "Farlim, Air Itam", minOrderRM: 0 },
+    ];
+    // ⚠️ COURIER FIRST, and the order matters: it is the state in which the OLD page took the
+    // places away, so asserting it before the tap is what makes the assertion the one that fires.
+    // (Written the other way round, a fault that re-hid the list failed the tap assertion instead
+    // and this one was never reached — a test whose guard is not the line it is named for.)
+    document.getElementById("fulfillment")._value = "courier";
+    render();
+    assert.ok(document.getElementById("point-list").children.length >= 2,
+      "⚠️ choosing courier does not take the places away — a customer comparing the two ways must "
+      + "be able to see what each offers without tapping back and forth");
+    document.getElementById("fulfillment")._value = "collect";
+    document.getElementById("fulfillment")._pointId = "";
+    render();
+    const places = document.getElementById("point-list").children;
+    assert.ok(places.length >= 2, "the places are drawn inside the collect card");
+    // ⚠️ WHERE THEY LIVE — inside the self-collect card rather than in a box of their own — is
+    // asserted against the MARKUP in store-i18n.test.js, because this shim carries no static HTML
+    // and so cannot see the card at all. What it CAN drive is the behaviour the tap causes.
+    assert.equal(places[0].parentElement, document.getElementById("point-list"),
+      "the rows are in the list the script fills");
+
+    places[1]._listeners.click[0](); // the second place, i.e. Farlim
+    const wrap = document.getElementById("fulfillment");
+    assert.equal(wrap._value, "collect", "⚠️ the tap chose self collect as well as the place");
+    assert.equal(wrap._pointId, "pt_farlim", "and the place it was on");
+
+    // ⚠️ AND STILL DRAWN AFTER A REPAINT WHILE COURIER IS THE CHOICE — the hiding used to happen on
+    // exactly this path (refreshPointList), not at the moment of a tap, so it is checked here too.
+    document.getElementById("fulfillment")._value = "courier";
+    render();
+    assert.equal(document.getElementById("point-list").children.length, places.length,
+      "and it is still true after a repaint");
+  } finally {
+    CONFIG.points = realP;
     render();
   }
 });

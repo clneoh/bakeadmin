@@ -537,27 +537,34 @@ body { min-height: 100vh; }
   margin-left: calc(var(--depth, 0) * 16px);
 }
 .cat-row-text { flex: 1 1 auto; min-width: 0; }
-/* The grip a row is dragged by, on the Categories screen and on the Products
-   screen. One rule for both, because it is one gesture — the two lists reorder
-   with the same helper in ui.js and must feel identical under the thumb. */
-.cat-handle,
 /* ★★ THE INGREDIENT CARD'S OWN ROW WRAPS (v399). ⚠️ MEASURED, NOT GUESSED: on a 375px phone the grip's
    36px and its gap take 21px off the info column and 25px off the three buttons, and at 113px the
    "Keep at least" strip folds onto THREE lines for two words. So on this card — and only this one —
    the buttons drop onto their own line and the name and the two strips get the width.
    ⚠️ Scoped to `.ing-card-row` so no other card in the app moves: `.card-row` is app-wide and a change
-   there would reflow every screen that uses one. */
+   there would reflow every screen that uses one.
+   ⚠️⚠️ AND IT IS WRITTEN **BEFORE** THE GRIP RULE BELOW, NOT INSIDE IT. From v399 to v410 this block
+   sat between `.cat-handle,` and the rest of that selector list, so a browser read the list as
+   `.cat-handle, .ing-card-row .card-row { flex-wrap: wrap; }` — **and the Categories grip therefore
+   never got its 36px target, its `cursor: grab`, or `touch-action: none`.** The last of those is the
+   one that matters: without it the page scrolls under the finger and a category cannot be dragged at
+   all. ⭐ **A selector list is not a place to put a comment or a rule.** */
 .ing-card-row .card-row { flex-wrap: wrap; }
 /* ⚠️ AND THE COLUMNS GROW, rather than the row's own `space-between` pushing the name away from the
    grip it belongs to — which left a dead gap between the handle and the text on every card. */
 .ing-card-row .card-row > div { flex: 1 1 auto; }
 .ing-card-row .li-right { justify-content: flex-end; }
 
-/* ⚠️ `.ing-handle` IS THE SAME GRIP ON THE INGREDIENTS SCREEN (v399) — deliberately sharing one rule
-   rather than a second copy, because a handle that behaved or measured differently on one screen than
-   the other is the kind of difference she would only find by trying it twice. */
+/* The grip a row is dragged by — the Categories, Products, Ingredients and collection-Point lists.
+   One rule for all of them, because it is one gesture: the lists reorder with the same helper in
+   ui.js and must feel identical under the thumb. ⚠️ `.ing-handle` joined it in v399 and `.point-handle`
+   in v410, and each was added HERE rather than as a second copy, because a handle that behaved or
+   measured differently on one screen than another is the kind of difference she would only find by
+   trying it twice. */
+.cat-handle,
 .prod-handle,
-.ing-handle {
+.ing-handle,
+.point-handle {
   flex: 0 0 auto;
   /* A 36px target, because this one is dragged with a thumb. */
   width: 36px;
@@ -582,7 +589,26 @@ body { min-height: 100vh; }
 }
 .cat-handle:active,
 .prod-handle:active,
-.ing-handle:active { cursor: grabbing; background: var(--strip); }
+.ing-handle:active,
+.point-handle:active { cursor: grabbing; background: var(--strip); }
+
+/* The heading over a group of collection Points (v410), indented by its depth in the area tree so
+   "Sg Ara" reads as sitting inside "Penang Island" rather than beside it. ⚠️ The unfiled block wears
+   the same class with depth 0, so the list never grows a second kind of heading. */
+.point-area-head {
+  margin-left: calc(var(--depth, 0) * 16px);
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--brown-dark);
+}
+/* A Point row is a dragged row — the grip sits at its left, so the row is a flex line rather than the
+   plain block `.card` was. ⚠️ Scoped to `.point-row` so the New-Point card above the list, which shares
+   `.card` and is NOT draggable, cannot move. */
+.point-row { display: flex; align-items: flex-start; gap: 8px; }
+.point-row > .point-row-body { flex: 1 1 auto; min-width: 0; }
 /* The row in the air: lifted, and over the rows it is passing. `.card` rather
    than either row's own class because both lists lift the same way and the
    helper in ui.js puts the class on both. A pop-up head also carries `dragging`
