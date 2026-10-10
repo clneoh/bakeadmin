@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v424)
+# Jienluv2bake — change history (v54 → v425)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**10 Oct 2026 — engine v425, A PLACE YOU CANNOT PICK IS FADED TO THE EYE — AND THE ONE LINE THAT SAYS WHEN IT IS OPEN STAYS READABLE (no database step — pushing this one is the whole of it).**
+
+**Your words:** __"the unavailable point grey out is not the background grey out but wording grey out"__ — and then, when I had done exactly that: **__"the grey not obvious"__**
+
+⚠️ **AND YOU WERE RIGHT THE SECOND TIME TOO.** My first cut greyed every line to the app's own muted tone. ⚠️ **That tone is a WARM BROWN**, and at that size beside the body copy it reads as ordinary text — so the row did not look unavailable at all. ⭐ **So I made you a sheet of four treatments and you picked one** — a colour is not something to settle in a sentence, and the sheet is still there if you want to look again.
+
+**★ An unavailable place now FADES, by different amounts for different lines:**
+
+- **The name and the description go to 42%** — measured against the card, that is **2.40:1**: unmistakably pale. ⚠️ They are not the thing the customer has to read.
+- **The line carrying the reason goes to 70%** — **5.21:1**, against normal text's 13.45:1. Clearly paler than an ordinary row, **and still comfortably readable** — because **a reason nobody can read is not a reason.**
+
+⚠️ **AND THE REASON IS NOT THE SAME LINE IN BOTH CASES**, which is the fiddly part: a place not served today says it on its own line, while a place his basket has not reached says it on the **description** line, because that sentence replaced the description. ⚠️ Both keep the readable fade, and the rule that fades a description is written to leave the reason line alone.
+
+**⚠️ AND NO BACKGROUND FILL.** ⚠️ It filled with the **page** cream, so inside the card's own tint the row became a flat patch of a different cream — **the same "hole" you caught at v413**, in a place I had not looked at yet. ⭐ The row keeps the card's surface and is set apart by its words and its dashed frame: **the dashes are the shape and the fade is the tone**, and either one alone would be a cue made of colour only. ⚠️ **Both parked reasons changed together** — a place not served that day, and one his basket has not reached — because two rows that look alike must behave alike.
+
+**Measured: the suite is 3,280 tests, all green (1 new). Six bites**, all fired by their own message, the stylesheet restored byte-identically. **Verified by looking** at 375px on the real shop page: Farlim's name and description are plainly pale, **Only available on Wed and Fri** is plainly readable, the frame is dashed, and there is no fill.
+
+**No database step.** Pushing this one is the whole of it.
 
 **10 Oct 2026 — engine v424, THE WORDS FLASH AND NOT THE ROW — AND A STUCK MARK I SHIPPED YESTERDAY (no database step — pushing this one is the whole of it).**
 

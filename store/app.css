@@ -1703,17 +1703,46 @@ button.prod-next.off::after { content: ""; }
    stays on the page with the reason in its own line, because a choice that vanished below RM30
    would read as a broken page rather than as the baker's own rule — and a customer can act on a
    shortfall they can see. It is drawn quiet rather than dimmed to nothing, so it still reads. */
-.point-opt.short { background: var(--bg); border-style: dashed; }
-.point-opt.short .point-name { color: var(--muted); }
-.point-opt.short .point-sub { color: var(--brown-dark); }
+.point-opt.short {
+  /* ⚠️⚠️ NO BACKGROUND FILL — THE GREY-OUT IS THE WORDING, NOT A SLAB (v425). Her words: __"the
+     unavailable point grey out is not the background grey out but wording grey out"__.
+     ⚠️ It filled with `--bg`, the PAGE cream, so a row inside the card's tint became a flat
+     page-coloured patch — **the same "hole" she caught at v413**, in a different place.
+     ⭐ The row keeps the card's own surface and is set apart by its words and its dashed frame —
+     the dashes are the SHAPE and the pale text is the TONE, and either alone is a colour-only cue. */
+  border-style: dashed;
+}
 /* The SAME PARKED LOOK for a place that is not served on the bake day he has chosen (v420).
    ⚠️ Deliberately identical to `.short` above, and written out rather than shared, so the
    stylesheet names BOTH reasons a place can be listed-but-not-open. They are one look on purpose:
    to a customer, "this place will not take your basket" and "this place is not open that day" are
    the same fact — you cannot collect here — and two different looks would invent a difference. */
-.point-opt.off { background: var(--bg); border-style: dashed; }
-.point-opt.off .point-name { color: var(--muted); }
-.point-opt.off .point-sub { color: var(--brown-dark); }
+/* ⚠️ AND THE SAME FOR A PLACE NOT SERVED THAT DAY — one look, two reasons, because two rows that look
+   alike must behave alike ([[feedback-affordances]]). See the note above for why the fill went. */
+.point-opt.off { border-style: dashed; }
+
+/* ★★ HOW PALE, AND WHY IT IS NOT ONE VALUE (v425). ⚠️ Her second telling: __"the grey not obvious"__.
+   ⭐ She was right, and the first attempt proved it — `--muted` is a WARM BROWN at 5.40:1, which at
+   13px reads as ordinary text beside the body copy, so the row did not look unavailable at all.
+   ⚠️ THE FADE HAS TO BE HARD TO BE SEEN, so it is `opacity` on the text rather than a colour swap, and
+   the numbers were measured against the card before choosing them:
+     · 42% — **2.40:1**, unmistakably pale. This is the NAME and the ordinary description, which are
+       not the thing the customer has to read.
+     · 70% — **5.21:1**, clearly paler than normal text (13.45:1) and still comfortably readable. This
+       is the line that carries the REASON, because **a reason nobody can read is not a reason.**
+   ⚠️⚠️ AND THE REASON IS NOT THE SAME LINE IN BOTH CASES, which is why these rules are named by
+   reason and not by row: a place not served today says it on `.point-days`, while a place his basket
+   has not reached says it ON `.point-sub` — because that sentence replaced the description.
+   ⚠️ `:not(.point-days)` IS LOAD-BEARING: the days line wears `.point-sub point-days` too, so a plain
+   `.point-sub` rule would fade the very line this is keeping readable. The `:not()` also outranks the
+   plain rule on its own, so the outcome does not depend on the order these appear in. */
+.point-opt.off .point-days,
+.point-opt.short .point-days,
+.point-opt.short .point-sub { opacity: .7; }
+
+.point-opt.off .point-name,
+.point-opt.short .point-name,
+.point-opt.off .point-sub:not(.point-days) { opacity: .42; }
 
 /* ★★ THE FLASH ON A PARKED PLACE (v423; REFINED AT v424). Her words — the second, sharper telling:
    __"i mean just flash the word Only available on Wed, Friday"__.
@@ -1728,9 +1757,13 @@ button.prod-next.off::after { content: ""; }
    ⚠️ A BLINK, NOT A JUMP: opacity only. No movement, no size, no position, so the words stay exactly
    where they are on the line he is reading. ⭐ Measured: the page's scroll position and the row's
    height are both identical before and after the tap. */
+/* ⚠️ `0%, 100%` IS `.7`, NOT `1`, AND THAT IS NOT A TYPO (v425): the line it animates now RESTS at
+   .7, and a keyframe that ended at full strength would flash, then **snap back** the moment the
+   animation let go. ⭐ The two numbers have to agree — if the resting opacity above ever changes,
+   this must change with it. */
 @keyframes point-flash-word {
-  0%, 100% { opacity: 1; }
-  15%, 50% { opacity: .2; }
+  0%, 100% { opacity: .7; }
+  15%, 50% { opacity: .15; }
 }
 .point-opt.off.flash .point-days,
 .point-opt.short.flash .point-sub { animation: point-flash-word 1.1s ease-out 1; }

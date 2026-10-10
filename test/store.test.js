@@ -2244,6 +2244,48 @@ test("★★ tapping a parked place FLASHES its own warning, and the page does n
   } finally { restore(); }
 });
 
+test("★★ a parked place greys its WORDING, not its background (v425)", () => {
+  // Her words: __"the unavailable point grey out is not the background grey out but wording grey
+  // out"__. ⚠️ It filled with `--bg`, the PAGE cream, so a row inside the card's tint became a flat
+  // page-coloured patch — **the same "hole" she caught at v413**, in a place she had not looked at
+  // yet. ⭐ The row keeps the card's own surface now and is set apart the way reading works: **the
+  // words go grey and the frame goes dashed**, and the two cues are kept together on purpose —
+  // either alone is a colour-only signal.
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  for (const cls of [".point-opt.short", ".point-opt.off"]) {
+    const at = css.indexOf(`${cls} {`);
+    assert.ok(at > -1, `${cls} has a rule of its own`);
+    const rule = css.slice(at, css.indexOf("}", at));
+    assert.ok(!/background\s*:/.test(rule),
+      `⚠️⚠️ ${cls} must not FILL its background — that is the hole she is complaining about, and it is `
+      + `not the grey-out`);
+    assert.match(rule, /border-style:\s*dashed/, `⚠️ and ${cls} keeps the dashes`);
+  }
+
+  // ⚠️⚠️ THE FADE IS `opacity`, AND IT IS TWO VALUES — her second telling was __"the grey not
+  // obvious"__, and the first attempt proved her right: `--muted` is a WARM BROWN at 5.40:1, which
+  // reads as ordinary text beside the body copy at 13px, so the row did not look unavailable at all.
+  // ⭐ The numbers were measured against the card before choosing them, and the ASSERTION carries them
+  // so a later tidy cannot quietly soften the fade again.
+  assert.match(css, /\.point-opt\.off \.point-name,[\s\S]{0,140}opacity:\s*\.42/,
+    "⚠️ the NAME fades hard — 42% is 2.40:1, unmistakably pale");
+  assert.match(css, /\.point-opt\.off \.point-sub:not\(\.point-days\)[\s\S]{0,80}opacity:\s*\.42/,
+    "⚠️ and so does the ordinary description");
+  assert.match(css, /\.point-opt\.off \.point-days,[\s\S]{0,200}opacity:\s*\.7/,
+    "⚠️ but the line carrying the REASON only goes to 70% — 5.21:1 against normal text's 13.45:1, so "
+    + "it is clearly paler and still readable, because a reason nobody can read is not a reason");
+
+  // ⚠️⚠️ `:not(.point-days)` IS LOAD-BEARING, not tidiness: the days line wears `.point-sub
+  // point-days` too, so a plain `.point-sub` rule at 42% would fade the very line being kept readable.
+  assert.match(css, /\.point-opt\.off \.point-sub:not\(\.point-days\)/,
+    "⚠️ the description rule must EXCLUDE the days line, which is also a .point-sub");
+
+  // ⚠️ AND THE FLASH HAS TO AGREE WITH THE RESTING VALUE. The animation ends at its own `100%`, and if
+  // that were 1 the line would flash and then SNAP BACK to .7 the moment the animation let go.
+  assert.match(css, /@keyframes point-flash-word \{\s*0%, 100% \{ opacity: \.7; \}/,
+    "⚠️ the flash ends where the line rests, or it blips");
+});
+
 test("★★ the flash is on the WORDS, not on the row (v424)", () => {
   // Her words, the second and sharper telling: __"i mean just flash the word Only available on Wed,
   // Friday"__. ⚠️ **HER "JUST" IS THE INSTRUCTION.** The row is already greyed and dashed to say *not
