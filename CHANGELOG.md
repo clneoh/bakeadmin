@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v446)
+# Jienluv2bake — change history (v54 → v447)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v447, THE CHECK RAN ON YOUR PHONE — AND ONE OF ITS OWN SENTENCES WAS WRONG (no database step).**
+
+**1. ⭐⭐ IT WORKED, AND IT NAMED THINGS.** You ran **Check my system** on your real phone. **Eight checks passed. Two failed, and both named exactly what they are about** — no guesswork, no "something went wrong":
+
+- **Every receipt has an order behind it — 4.** `#DE1F19 · #D06D27 · #5C55CF · #9F47F5`
+- **Every receipt's number is on the order it names — 2.** `#F447EE` (receipt `#000003`) · `#19B09D` (receipt `#000004`)
+
+**2. ⚠️ AND IT SETTLED THE QUESTION I REFUSED TO GUESS AT.** I would not call `#19B09D` a fault yesterday, because your register lists every receipt ever issued while your filing page lists only the orders inside the period you chose. **The check found the order on your phone** — so both `#F447EE` and `#19B09D` are real orders missing their number, and my caution was right for the wrong reason: an order can exist, wear a real bake day, and simply not be in **October**. **Two screens finally agreed, and the third question answered itself.**
+
+**3. ⚠️⚠️ AND YOU CAUGHT A FAULT IN MY OWN WORDS.** That check's sentence printed **with its asterisks showing** — the ones I had typed to make half of it bold. ⚠️ **The page draws a sentence exactly as written, so emphasis typed as asterisks arrives as asterisks**, and you read punctuation instead of a sentence. ⚠️ **I had already fixed this in the verdict line and left it in the check's own words.** It is gone, and so is the same fault in one other check.
+
+**4. ★ AND THE GUARD IS ON THE OUTPUT, NOT ON THE SOURCE.** A test now plants a fault in **every** check, reads **what each one actually says**, and fails if any sentence carries markdown — **so a check written next year is covered too**, rather than only the two I happened to notice. ⚠️ It also requires that **every failing check says what it means AND what you can do about it** — a fault with no way out is a dead end.
+
+**5. ★ AND THE WAY OUT OF THOSE TWO IS NOW VERIFIED, NOT ASSUMED.** I checked the server function before telling you to press anything: **asking for a number that was already issued gives back THE SAME number, never a new one** — that is how it is built, and re-asking can never consume or re-use a serial. So the fix the page gives you is sound: **open the order's own receipt** — or open the order and press **Save**, then **Paid** again — and `#000003` and `#000004` land back on their orders. ⚠️ **The wording now names both routes**, because the receipt is the shorter one.
+
+**Measured:** tests **3,345 → 3,346**, all green. ⭐ **The new guard was seen to fail by its own message** — the markdown put back exactly where you saw it — and the file restored byte-identically (sha256). **No database step.**
 
 **12 Oct 2026 — engine v446, "CHECK MY SYSTEM" — A MEASURE YOU CAN RUN YOURSELF (no database step).**
 

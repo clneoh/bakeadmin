@@ -146,6 +146,36 @@ test("★ a stale copy is a fault, because the day it matters is the day it is m
   assert.equal(copyChecks(fresh, now)[0].status, "pass", "a copy from this morning was reported as stale");
 });
 
+test("★★ no check's words carry markdown — her screen prints it literally (v447)", () => {
+  // ⚠️⚠️ SHE SAW IT BEFORE I DID. The first run on her phone printed, in the middle of a sentence:
+  // **"**The receipt stands and the money is recorded — but the order behind it is not here.**"** — asterisks
+  // and all. `el()` draws a string AS-IS, so markdown in a user-facing sentence is not emphasis, it is
+  // punctuation she has to read past. ⭐ **Guard is on the OUTPUT, not on the source**: exercises every
+  // failing check and reads what each one actually says, so a check written next year is covered too.
+  const st = {
+    settings: { currency: "RM" },
+    products: [{ id: "p1", name: "Focaccia", price: 16, active: true }],
+    deliveryDates: [{ id: "d1", date: "2026-10-12" }],
+    orders: [
+      { id: "ord_a1b2c3d4e5f6", deliveryDateId: "d_gone", productId: "p1", qty: 1, status: "paid",
+        paidReceived: true, customerName: "A", receiptNo: 0 },
+      { id: "ord_a1b2c3d4e5f6", deliveryDateId: "d_gone", productId: "p1", qty: 1 },   // a duplicate id
+    ],
+    removedOrders: [{ id: "ord_a1b2c3d4e5f6" }, { id: "ord_bbbbbbbbbbbb", removedAt: new Date().toISOString() }],
+  };
+  const res = runHealthChecks(st, { register: [{ number: 1, order_code: "FFFFFF" }], copies: [] });
+  assert.ok(res.failedChecks >= 4, `the fixture did not fail enough checks to read their words (${res.failedChecks})`);
+  const words = res.results.flatMap((r) => [r.title, r.why, r.fix, ...(r.detail || [])]).filter(Boolean);
+  const withMarkup = words.filter((w) => /\*\*|__/.test(w));
+  assert.deepEqual(withMarkup, [],
+    `★ a check's own words carry markdown, which her screen prints as punctuation: ${withMarkup.join(" | ")}`);
+  // ⚠️ AND THE FIX MUST ALWAYS BE THERE when a check fails — a fault with no way out is a dead end.
+  for (const r of res.results.filter((x) => x.status === "fail")) {
+    assert.ok(r.why, `${r.id} failed without saying what it means`);
+    assert.ok(r.fix, `${r.id} failed without saying what she can do about it`);
+  }
+});
+
 test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runHealthChecks(bare, { register: [], copies: COPIES });

@@ -98,7 +98,7 @@ export function localChecks(state) {
     }
     out.push(bad.length
       ? fail("agree", "Every line of one order agrees about the order", bad,
-        "One order's lines disagree about something that belongs to the whole order — the money, the status, the day or the address. **That is the shape of every fault this app has had on this screen.**",
+        "One order's lines disagree about something that belongs to the whole order — the money, the status, the day or the address. That is the shape of every fault this app has had on this screen.",
         "Open each of these orders and press Save. That writes one answer onto every line.")
       : pass("agree", "Every line of one order agrees about the order"));
   }
@@ -183,7 +183,7 @@ export function registerChecks(state, register) {
     return [
       bad.length
         ? fail("hasOrder", "Every receipt has an order behind it", bad.map((c) => `#${c}`),
-          "A receipt was issued for money you took, and there is no order wearing that number on this phone or on the Removed list. **The receipt stands and the money is recorded — but the order behind it is not here.**",
+          "A receipt was issued for money you took, and there is no order wearing that number on this phone or on the Removed list. The receipt stands and the money is recorded — but the order behind it is not here.",
           "Search WhatsApp for the number printed on the receipt: the confirmation you sent names the customer. Enter the order again by hand.")
         : pass("hasOrder", "Every receipt has an order behind it"),
       // ── 9 · every receipt's number is carried by the order it names ────────
@@ -200,7 +200,7 @@ export function registerChecks(state, register) {
         return wrong.length
           ? fail("carried", "Every receipt's number is on the order it names", wrong,
             "A number was issued for these orders and the order is not carrying it, so your filing page can print \"none yet\" beside a receipt your register can name in full.",
-            "Open each order and press Save, then press Paid again — that puts the number back on it. Nothing is re-used.")
+            "Open the order's own receipt — or open the order and press Save, then Paid again. Either way the app asks for the number again and gets back the SAME one, never a new one.")
           : pass("carried", "Every receipt's number is on the order it names");
       })(),
     ];
