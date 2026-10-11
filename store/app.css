@@ -959,7 +959,32 @@ button.prod-next.off::after { content: ""; }
 /* Two controls side by side, because the two customers are different people: one is
    standing at the door the bread is going to, the other is ordering from somewhere
    else entirely and needs to point at it. */
-.pin-hint { margin: 6px 0 0; }
+/* ★★ THE PIN IS AN OFFER, NOT A STEP (v437). Her words: __"Pin a map can be confusion that is not
+   mandatory to be faced by customer, especially when we have auto complete… maybe we just fade that
+   function"__.
+   ⚠️⚠️ IT WAS A WHOLE PARAGRAPH AND A FULL-WIDTH BORDERED BUTTON at the same weight as the address
+   field above them, so it read as the next thing to do. **Closed, it is now one quiet line** — and
+   the long explanation, which is the part that says skipping is FINE, moved into the map.
+   ⚠️ IT DISAPPEARS WHILE THE MAP IS OPEN — see `openPinBox`. The link does not close the box, so a
+   line still offering the thing already on screen would be a control that does nothing. */
+.pin-ask { margin: 6px 0 0; }
+/* ⚠️ A LINK, NOT A BUTTON. ⭐ A press inside a sentence says "you can"; a bordered button the width
+   of the card says "now do this", and one of those was the whole complaint. */
+.pin-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  color: var(--brown-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.pin-link:hover { text-decoration-thickness: 2px; }
+.pin-link:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
 /* What the address lookup found (v202). A box of doors under the address box, each one
    a row you can tap. It is not a floating dropdown: the shop's own page scrolls, and a
    list positioned over the keyboard fights it on a phone. */
@@ -1001,11 +1026,8 @@ button.prod-next.off::after { content: ""; }
   -webkit-tap-highlight-color: transparent;
 }
 .addr-hit:active { background: #f5ecdf; }
-.pin-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
+/* ⚠️ `.pin-row` IS GONE (v437) — it was the flex line holding the full-width button, and the press
+   is a link inside a sentence now. ⭐ Dead CSS is the layer of this the screen never shows. */
 .pin-btn {
   flex: 1;
   appearance: none;

@@ -4058,6 +4058,9 @@ function closePinBox(keep) {
   if (pinMap) { pinMap.stop(); pinMap = null; }
   const box = document.getElementById("pin-box");
   if (box) box.hidden = true;
+  // ⭐ AND THE OFFER COMES BACK WITH IT (v437) — the map is shut, so the way to open it is not.
+  const ask = document.getElementById("pin-ask");
+  if (ask) ask.hidden = false;
   if (!keep) { doorPin = pinWasAt; pinOrigin = pinWasOrigin; }
   const note = pinNote;
   paintPin(note && note.key, note && note.m);
@@ -4070,6 +4073,12 @@ function openPinBox() {
   pinWasAt = doorPin;
   pinWasOrigin = pinOrigin;
   box.hidden = false;
+  // ★★ AND THE LINE THAT OFFERED IT GOES (v437). ⚠️ **The press does not close the box** — pressing
+  // it again rebuilds the same map — so a line still saying "Door hard to find? Pin on the map"
+  // while the map is open would be **a control that visibly does nothing.** ⭐ The door disappears
+  // while you are through it, and comes back when the box shuts.
+  const ask = document.getElementById("pin-ask");
+  if (ask) ask.hidden = true;
   const loadingNote = document.getElementById("pin-loading");
   const tapNote = document.getElementById("pin-tap");
   if (loadingNote) loadingNote.hidden = false;
@@ -4223,8 +4232,14 @@ function takeHit(hit) {
   // and an edit to the words drops the pin (dropListPin).
   pinOrigin = { q };
   pinWasOrigin = pinOrigin;
+  // ★★ AND IT DOES NOT OPEN THE MAP FOR HIM (v437). Her words: __"We should not let the map drop
+  // down automatically, it should upon clicking only"__ — ⚠️ **the row tap used to unfold the whole
+  // map under the button**, which is a lot of screen to hand someone who has just told us his
+  // address: it pushed the rest of the page down and covered Place order with it.
+  // ⭐ **THE PIN IS STILL SET — that is the line below — and `paintPin` says so in words.** The map
+  // opens when he presses "Pin on the map" and not before, which also means **the map's own code and
+  // tiles are not fetched at all** for the customer who never adjusts the pin. That is most of them.
   if (pinMap) pinMap.goTo(p);
-  else openPinBox();
   paintPin();
   // The rows are redrawn without the instruction they have just obeyed, and with their own
   // claim on the box corrected to the words the box now holds. Nothing is asked again and

@@ -189,21 +189,30 @@
                    data-i18n tags and the dictionary's English-must-match-the-markup rule in
                    test/store-i18n.test.js is untouched. -->
               <div class="addr-list" id="addr-list" hidden></div>
-              <p class="card-sub pin-hint" data-i18n="pinHint">Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.</p>
-              <!-- ⚠️ "USE MY LOCATION" WAS REMOVED (v414). Her words: __"i think we should take out
-                   'use my location' button totally"__. ⭐ The map press beside it does the same job
-                   and does it better: **a customer can SEE the door they are choosing and move it,
-                   where a phone's own guess at where he is standing cannot be checked at all.** The
-                   typed address above and this pin below are the two ways that remain, and skipping
-                   both is still fine — the driver goes to the address he typed. -->
-              <div class="pin-row">
-                <button type="button" id="pin-map" class="pin-btn" data-i18n="pinOnMap">Pin on the map</button>
-              </div>
+              <!-- ★★ THE PIN IS AN OFFER, NOT A STEP — AND ITS REASONING LIVES INSIDE THE MAP (v437).
+                   Her words: __"Pin a map can be confusion that is not mandatory to be faced by
+                   customer, especially when we have auto complete. Pin helps on certain scenarios
+                   that we understand, maybe we just fade that function"__.
+                   ⚠️⚠️ It used to be a whole paragraph and a full-width button at the same weight as
+                   the address field above, so it read as the next thing to do. ⭐ **Closed, it is now
+                   ONE quiet line with the press as a link inside it** — and the long explanation,
+                   which is the part that says skipping is fine, moved INTO the map where he is
+                   actually moving the pin and can read it properly.
+                   ⚠️ "USE MY LOCATION" WAS REMOVED (v414) for the same reason, and its note was
+                   here: **a customer can SEE the door he is choosing and move it, where a phone's
+                   own guess at where he is standing cannot be checked at all.** -->
+              <p class="card-sub pin-ask" id="pin-ask">
+                <span data-i18n="pinHintShort">Door hard to find?</span>
+                <button type="button" id="pin-map" class="pin-link" data-i18n="pinOnMap">Pin on the map</button>
+              </p>
               <p class="card-sub pin-status" id="pin-status" hidden></p>
               <div class="pin-box" id="pin-box" hidden>
                 <p class="card-sub pin-note" id="pin-loading" data-i18n="pinLoading">Loading the map…</p>
                 <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map where the courier should stop, or drag the pin.</p>
                 <div class="pin-hold" id="pin-hold"></div>
+                <!-- ⭐ THE REASONING, INSIDE THE MAP. It is read while the pin is being moved, which
+                     is the only moment it has anything to say. -->
+                <p class="card-sub pin-note pin-why" data-i18n="pinHint">Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.</p>
                 <div class="pin-actions">
                   <button type="button" id="pin-keep" class="track-btn" data-i18n="pinKeep">Keep this spot</button>
                   <button type="button" id="pin-cancel" class="pin-btn" data-i18n="pinCancel">Cancel</button>

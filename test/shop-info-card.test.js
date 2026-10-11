@@ -125,6 +125,37 @@ test("★★ the shop's one question arrives SHUT, and it covers the screen", ()
     "the two answers are not in the shop's order — quiet first, primary last");
 });
 
+test("★★ the pin is an OFFER, not a step — one line out here, the reasoning inside the map", () => {
+  // Her words: __"Pin a map can be confusion that is not mandatory to be faced by customer,
+  // especially when we have auto complete. Pin helps on certain scenarios that we understand, maybe
+  // we just fade that function"__.
+  // ⚠️⚠️ **It was a whole paragraph and a full-width bordered button at the same weight as the
+  // address field above them**, so it read as the next thing to do.
+  const ask = /<p class="card-sub pin-ask" id="pin-ask">([\s\S]*?)<\/p>/.exec(html);
+  assert.ok(ask, "the pin's own line has gone from the page");
+  assert.match(ask[1], /id="pin-map"/, "the press is not inside the line it belongs to");
+  assert.match(ask[1], /pinHintShort/, "the line does not carry its short sentence");
+  assert.doesNotMatch(ask[1], /pinHint"/,
+    "★ the long explanation is still sitting out here — it belongs inside the map");
+
+  // ⭐ AND IT IS INSIDE, between the map and the two answers it is read with.
+  const hold = html.indexOf('id="pin-hold"');
+  const why = html.indexOf('pinHint"');
+  const keep = html.indexOf('id="pin-keep"');
+  assert.ok(hold >= 0 && why >= 0 && keep >= 0, "the map, the reasoning or its answers have gone");
+  assert.ok(hold < why && why < keep,
+    "★ the reasoning is not inside the map — it reads as part of the step it is meant to excuse");
+
+  // ⚠️ AND THE PRESS IS A LINK, NOT A BUTTON THE WIDTH OF THE CARD.
+  const btn = /<button type="button" id="pin-map" class="([^"]*)"/.exec(html);
+  assert.ok(btn, "the pin press has gone");
+  assert.doesNotMatch(btn[1], /\bpin-btn\b/,
+    "★ the press is a full-width button again — that is the weight that made it look required");
+  assert.match(btn[1], /\bpin-link\b/, "the press no longer carries the shop's link style");
+  assert.match(css, /\.pin-link\s*\{[\s\S]*?text-decoration:\s*underline/,
+    "…and that class has no rule of its own, so it would be an unstyled control");
+});
+
 test("★★ the Place order button wears the FOURTH step's number", () => {
   // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__
   // ⚠️ **The page numbered 1, 2, 3 and its fourth step wore no number at all** — so the line above

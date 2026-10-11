@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v436)
+# Jienluv2bake — change history (v54 → v437)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v437, THE MAP DOES NOT OPEN ITSELF, AND THE PIN IS AN OFFER RATHER THAN A STEP (no database step).**
+
+**Your words, with a picture of the map sitting over Place order:** __"see how the map overlap the place order button? We should not let the map drop drown automatically, it should upon clicking only. Pin a map can be confusion that is not mandatory to be faced by customer, especially when we have auto complete. Pin helps on certain scenarios that we understand, maybe we just fade that function"__
+
+**1. ★★ YOU NAMED THE CAUSE EXACTLY: THE MAP WAS OPENING ITSELF.** When the address lookup found your door, **tapping that row unfolded the whole map underneath** — which pushed the page down and put it over Place order. You caught the same thing once before with the privacy notice.
+
+**2. ★ SO IT NOW WAITS FOR THE PRESS.** Nothing opens it but the customer. Two gains: **it can never cover Place order again**, and a customer who never adjusts the pin **never downloads the map code or its tiles at all** — which is most of them.
+
+**3. ⚠️ AND THE PIN IS STILL SET** when he taps one of the lookup's rows. Only the map stopped appearing unbidden; the line under the button still says **"Pin set for this address"**, so nothing he chose is lost.
+
+**4. ★★ AND THE PIN IS AN OFFER NOW, NOT A STEP.** It used to be **a whole paragraph and a full-width button at the same weight as the address field above it**, so it read as the next thing to do. Closed, it is now **one quiet line**:
+
+**Door hard to find?  Pin on the map**
+
+**5. ★ AND THE EXPLANATION MOVED INSIDE THE MAP** — the sentences that say **skipping is perfectly fine**, and when pinning actually helps (a condo block, a guard house). **That is where he is moving the pin and where it can be read properly**, instead of sitting in front of someone who has already given us his address.
+
+**6. ⚠️ AND THE LINE GOES AWAY WHILE THE MAP IS OPEN.** The press does not close the map, so a line still offering it while it is open would be **a control that does nothing at all.** It comes back the moment the map shuts.
+
+**Measured:** tests **3,320 → 3,322**. **No database step.**
 
 **12 Oct 2026 — engine v436, THE SHOP ASKS BEFORE IT CHANGES HOW YOU GET YOUR ORDER (no database step).**
 

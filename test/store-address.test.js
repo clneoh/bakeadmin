@@ -148,7 +148,7 @@ const HIT = { lat: 5.4166, lng: 100.3311, label: "12, Jalan Bunga, Penang" };
 
 // ── the flow ───────────────────────────────────────────────────────────────
 
-test("typing an address brings up the doors, and tapping one opens the map ON it", async (t) => {
+test("typing an address brings up the doors — and tapping one does NOT open the map", async (t) => {
   begin(t);
   reply = { ok: true, places: [{ ...HIT }] };
 
@@ -164,17 +164,29 @@ test("typing an address brings up the doors, and tapping one opens the map ON it
   assert.equal(list.children[0].textContent, STORE.en.addrPick);
   assert.equal(list.children[1].textContent, HIT.label, "the row says which door it is");
 
-  // The tap. Everything from here is the feature she asked for.
+  // The tap.
   fire(list.children[1], "click");
   await flush();
 
-  assert.equal(rec.maps.length, 1, "the map was built — this is the 'bring them there' half");
+  // ★★ AND IT DOES NOT OPEN THE MAP (v437). Her words: __"We should not let the map drop down
+  // automatically, it should upon clicking only"__ — ⚠️ **the row tap used to unfold the whole map
+  // under the button: it pushed the rest of the page down and covered Place order with it**, and it
+  // handed a map to someone who had just told us his address and asked for nothing more.
+  assert.equal(rec.maps.length, 0, "★ the map was built without anyone asking for it");
+  assert.equal(el("pin-box").hidden, true, "★ and its box is still shut");
+  // ⭐ BUT THE PIN IS STILL SET, and the line under the button says so — he keeps what he chose.
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet,
+    "the pin should still be recorded, and said in words");
+
+  // ⭐ THE PRESS IS THE DOOR, and everything the feature does is still here, one tap later.
+  fire(el("pin-map"), "click");
+  await flush();
+  assert.equal(rec.maps.length, 1, "the map was not built when it WAS asked for");
   assert.deepEqual(rec.views[0].center, [HIT.lat, HIT.lng],
-    "and it opened on the address they chose, not on the whole island");
+    "and it opens on the address they chose, not on the whole island");
   assert.equal(rec.views[0].zoom, 17, "close enough to see their own door");
   assert.equal(rec.markers.length, 1, "with the pin already on it");
   assert.equal(el("pin-box").hidden, false, "the box it lives in is open");
-  assert.equal(el("pin-status").textContent, STORE.en.pinSet);
   assert.equal(el("pin-keep").disabled, false, "and 'Keep this spot' is live");
 });
 
@@ -275,6 +287,25 @@ test("switching language says the SAME sentence again in the language just chose
   setLang("en");
 });
 
+test("★ the pin's offer goes while the map is open, and comes back when it shuts", async (t) => {
+  // ★★ HER INSTRUCTION (v437): __"maybe we just fade that function"__. ⚠️ **The press does not
+  // close the box** — pressing it again rebuilds the same map — so a line still offering the map
+  // while the map is open would be **a control that visibly does nothing**, which this shop has a
+  // rule against. ⭐ The door disappears while you are through it.
+  begin(t);
+  assert.equal(el("pin-ask").hidden, false, "the offer is on screen to begin with");
+
+  fire(el("pin-map"), "click");
+  await flush();
+  assert.equal(el("pin-box").hidden, false, "the map opened");
+  assert.equal(el("pin-ask").hidden, true, "★ the offer is still up while the map it offers is open");
+
+  fire(el("pin-cancel"), "click");
+  await flush();
+  assert.equal(el("pin-box").hidden, true, "the map shut");
+  assert.equal(el("pin-ask").hidden, false, "★ and the offer did not come back with it");
+});
+
 test("a door the lookup found but could not name is still a row, shown as its numbers", async (t) => {
   // A geocoder that found the point but sent no words still found the point. Dropping the
   // row would throw away a real door, and a blank row would be a tap that says nothing
@@ -293,8 +324,13 @@ test("a door the lookup found but could not name is still a row, shown as its nu
 
   fire(list.children[1], "click");
   await flush();
+  assert.equal(el("pin-status").textContent, STORE.en.pinSet, "the pin is set for a nameless door too");
+  // ⚠️ AND THE MAP IS ASKED FOR BY HAND (v437) — and must still come to the right door. ⭐ Pressing
+  // it AFTER the row is the stronger check: the pin is already set, so this proves the box opens ON
+  // it rather than merely somewhere.
+  fire(el("pin-map"), "click");
+  await flush();
   assert.deepEqual(rec.views[0].center, [5.4141, 100.3288], "and it still takes them there");
-  assert.equal(el("pin-status").textContent, STORE.en.pinSet);
 });
 
 test("choosing a door retires the instruction it obeyed, and a new answer brings it back", async (t) => {
@@ -659,6 +695,9 @@ test("a row that only reached the road moves the pin and leaves their words alon
     "their own words are untouched — the row never found the 23 they typed, so it has no business "
     + "rewriting an address it could not match");
   assert.equal(el("pin-status").textContent, STORE.en.pinSet, "but the pin still moves");
+  // ⚠️ THE MAP IS ASKED FOR BY HAND (v437), and must still come to the door the row found.
+  fire(el("pin-map"), "click");
+  await flush();
   assert.deepEqual(rec.views[0].center, [5.4141, 100.3288], "and the map still comes to them");
   assert.equal(rec.views[0].zoom, 17, "as close as before — a road answer is still the best the lookup has");
 });
