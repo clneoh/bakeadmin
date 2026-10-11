@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v431)
+# Jienluv2bake — change history (v54 → v432)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v432, AN ORDER MOVES AS ONE — ALL OF IT, NOT JUST THE LINES ON THE DAY YOU ARE LOOKING AT (no database step).**
+
+**Your words:** __"why a new order already change to confirm yet appear in new order at the top of order page?"__
+
+**You were right, and I found it — then I built it and watched it go wrong, then fixed it.**
+
+**1. AN ORDER CAN HAVE ITS LINES ON TWO DIFFERENT BAKE DAYS.** When that happens, the Orders screen for a day only shows — and only *changes* — **the lines on that day**. So when you set it to Confirmed, the lines you could see changed, and a line on another day was **left at New**.
+
+**2. ★ AND THE LIST AT THE TOP SCANS EVERY DAY.** So it went on finding that leftover line — and because the lines belong to the same order they carry **the same order code**, which is exactly why it looked like the order you had just confirmed. **The list was right about what it could see; the status change was writing only half the order.**
+
+**3. ★ THE FIX: THE WHOLE ORDER MOVES.** Change an order's status and every line of it moves with it, wherever those lines sit. **★ Nothing of yours is rewritten** — no saved order is touched. An order already split stops causing trouble the moment you touch it.
+
+**4. ⚠️ AND I HAVE TO BE HONEST ABOUT ONE THING: I DO NOT KNOW HOW YOUR ORDER CAME TO BE SPLIT ACROSS TWO DAYS.** I looked for it and could not find it. If you remember moving an order's bake day at some point, that is very likely the clue — **tell me and I will chase it.**
+
+**Measured:** tests **3,298 → 3,303**. **No database step.**
 
 **11 Oct 2026 — engine v431, THE EDIT CARD NOW LETS YOU REACH A PAST BAKE DAY (no database step).**
 

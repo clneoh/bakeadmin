@@ -4147,15 +4147,48 @@ function stageWritten(state, group, { root = null, dateId = "", quiet = false, m
   if (root) renderAll(root, state, new URLSearchParams({ date: dateId }));
 }
 
+// ★ EVERY ROW OF THE ORDER THESE ROWS BELONG TO (v432).
+//
+// A storefront cart with several items arrives as several rows sharing one `groupId`, and they are
+// one order to her whatever the app is looking at. ⚠️ A single-line order carries NO `groupId` at
+// all (`supabase.js` sets it only when `lines.length > 1`), so it is only ever its own row — and
+// that case must be returned untouched, byte for byte.
+//
+// ⚠️ THE ROWS PASSED IN COME FIRST, so the caller's own first row stays first — `stageWritten`
+// anchors the screen on it, and a repaint must not move her.
+function familyOfOrder(state, rows) {
+  const gid = rows[0] && rows[0].groupId;
+  if (!gid) return rows;
+  const rest = (state.orders || []).filter((o) => o && o.groupId === gid && !rows.includes(o));
+  return rest.length ? rows.concat(rest) : rows;
+}
+
 // Move a group of orders onto another stage, with everything a stage carries: the stock
 // it takes or gives back, and the flags that say what the stage means about the money.
 function setStage(state, group, nextStatus, opts = {}) {
   const rows = ((group && group.orders) || []).filter(Boolean);
   if (!rows.length) return;
+  // ★★ THE WHOLE ORDER MOVES, WHEREVER ITS LINES SIT (v432).
+  //
+  // Her report: __"why a new order already change to confirm yet appear in new order at the top of
+  // order page?"__ — ⚠️⚠️ **and the day list hands this function ONLY the rows on the day she is
+  // looking at** (`orderList`: `state.orders.filter((o) => o.deliveryDateId === dateId)`). So an
+  // order whose lines had drifted onto two different bake days had **only half of itself moved**:
+  // the other half stayed New, and **the New-orders inbox — which scans EVERY day — went on
+  // showing the order she had just handled, under the same order code**, which is why it read as
+  // "the order I confirmed is still there". ⭐ Reproduced live before this was written.
+  //
+  // ⭐ THE ORDER IS THE THING BEING MOVED, not the day's slice of it — the same rule the stock,
+  // the badge and the customer's own track card already follow. `filterOrderGroups` has carried a
+  // comment about a "mixed-status group" since it was written; this is where they came from.
+  //
+  // ⚠️ THE DAY'S OWN ROWS STAY FIRST so `stageWritten`'s anchor is the row she actually pressed,
+  // and the screen does not jump under her thumb.
+  const family = familyOfOrder(state, rows);
   // Baked takes the orders' ingredients off your stock; stepping back to before
   // Baked (an undo) puts them back. Forward moves leave stock be.
-  adjustForStatus(state, rows, nextStatus, STATUSES.map(([id]) => id));
-  for (const o of rows) {
+  adjustForStatus(state, family, nextStatus, STATUSES.map(([id]) => id));
+  for (const o of family) {
     o.status = nextStatus;
     // Stepping into Confirmed / Paid means the stage is being worked, not
     // finished: it only turns green when Send confirmation / the Paid
