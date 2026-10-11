@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v460)
+# Jienluv2bake — change history (v54 → v461)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v461, STEP 3 ANSWERS, AND THE WARNING BLINKS (no database step).**
+
+**Your words:** __"i do step 3 skipping step 2, it just dont allow, but no warning"__ — and then, the moment I had done it: __"did you blink the warning?"__
+
+**1. ⚠️⚠️ YOU FOUND AN INCONSISTENCY I HAD CREATED IN ONE VERSION AND LEFT STANDING IN THE SAME FILE.** At v456 I made the two delivery cards **refuse in words** rather than switch them off — and I justified it by quoting this app's own rule, that **a disabled control on a phone does not even acknowledge the tap**. ⭐ **And then I switched the two boxes in the same step off anyway.** ⚠️ Measured on the live shop: tapping the name box did not even move the focus, and the warning stayed hidden. **The boxes looked completely normal AND were dead — the worst of both.**
+
+**2. ★ THEY ARE `readonly` NOW, NOT `disabled`.** ⭐ **The box still cannot be typed into and it still looks shut — and a phone does not raise its keyboard for it — but it CAN be tapped, so it can answer.** Tap it and the sentence appears **directly above the row you touched**, which is v459's rule doing its job on the third control.
+
+**3. ⚠️ AND THE REASON IT "NEVER CAME BACK" FOR THAT BOX WAS A SECOND, DEEPER FAULT — A LEAK.** The page added a listener to each box **every single time it drew them**, and the element is the same element each time — so they piled up. ⭐ **Measured in the test suite's own page: 73 handlers on one box.** ⚠️ **And every one of them was holding the basket from the moment IT was drawn** — so an old one, with an empty basket, was answering for the page as it stood now. The box now has **one** listener, and the answer it gives is re-pointed each time the page is drawn.
+
+**4. ⭐⭐ AND YES — IT BLINKS NOW.** Your question caught the thing I had missed. ⚠️ **The line simply appeared**, and a sentence that arrives silently part-way down a long page is a sentence that can still be missed. ⭐ **It uses the shop's OWN flash** — the same blink length and the same number of blinks that the "only available on Friday" warning has used since v423 — so there is **one blink in this shop, not two**, and a reader who has asked for less movement gets the same bargain they already get.
+
+**5. ⚠️ AND ITS FLASH NEEDED ITS OWN COLOURS, FOR A REASON THE STYLESHEET ALREADY RECORDS.** A flash has to END on the colour the words rest at, or they flash and then **snap**. The parked place rests on the quiet grey; **this line's title rests on the brown** — so borrowing that flash would have made it jump. ⭐ **Measured: the line reads 11.43:1 and its title 5.03:1**, both clear of the 4.5 the shop holds its words to.
+
+**6. ⚠️ AND THE LOCKED BOX WAS MEASURED TOO.** With the fade I first gave the hint text it bottomed out at about **3.1:1**; at full strength it is **5.03:1**. ⭐ A locked box is exactly where a customer is straining to read what he is being told he cannot do yet, so the fade came off.
+
+**7. ⚠️ AND I WROTE TWO MORE `ReferenceError`s ON THE WAY, BOTH CAUGHT BY THE TESTS.** A button-handler that cannot see a function defined elsewhere in the same file, and — in the same edit — **a declaration I described in a comment and then forgot to write.** ⭐ Both are the shape this project keeps paying for: **indentation is not a scope, and a comment is not a line of code.**
+
+**Measured live at 375px: tapping the name box with an empty basket puts the flashing line on screen, 4px above the row.** **Tests 3,365 → 3,367**, two added and both seen to fail with their fix reversed. **No database step.**
 
 **12 Oct 2026 — engine v460, PRESSING − NO LONGER THROWS THE WARNING AWAY (no database step).**
 

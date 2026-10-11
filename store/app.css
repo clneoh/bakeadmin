@@ -842,6 +842,23 @@ button.prod-next.off::after { content: ""; }
 /* ⚠️ AND A DISABLED ONE IS DRAWN AS INERT, as the two buttons beside it are — otherwise a sold-out card
    would show a live-looking number that cannot be changed. */
 .stepper-val:disabled { opacity: .45; }
+/* ★★★ AND A BOX THAT IS NOT OPEN YET WEARS IT (v461). Her report: __"i do step 3 skipping step 2, it just
+   dont allow, but no warning"__. ⚠️⚠️ **The box was switched off, and it looked entirely normal** — the
+   worst of both, because he taps a box that looks ready and is told nothing at all.
+   ⭐ It is NOT switched off any more: it can be tapped, and the tap is answered with the sentence. But it
+   must still LOOK shut, or the customer taps expecting to type and the answer reads as a refusal he did
+   not earn. ⭐ Colours are the shop's own tokens — the page's background, and the muted ink it already
+   uses for a quiet second line — so this cannot drift from the rest of the page. */
+.input.locked {
+  background: var(--bg);
+  color: var(--muted);
+  border-color: var(--line);
+}
+/* ⚠️ NO OPACITY ON THIS ONE, AND THAT IS MEASURED RATHER THAN PREFERRED (v461). With a `.75` fade over
+   the locked background the hint bottomed out at about **3.1:1**; at full strength `--muted` on `--bg` is
+   **5.03:1**, clear of the 4.5 the shop holds its words to. ⭐ A locked box is exactly where a customer is
+   straining to read what he is being told he cannot do yet. */
+.input.locked::placeholder { color: var(--muted); }
 
 /* ---------- Forms ---------- */
 .field { margin-bottom: 12px; }
@@ -2158,3 +2175,29 @@ button.prod-next.off::after { content: ""; }
   color: var(--ink);
 }
 .step-note strong { color: var(--brown-dark); }
+
+/* ★★★ AND IT BLINKS, EXACTLY AS EVERY OTHER WARNING ON THIS PAGE DOES (v461). Her question, and it is the
+   right one: __"did you blink the warning?"__ ⚠️ **It did not — the line simply appeared.** Her words a
+   moment earlier were __"i do step 3 skipping step 2, it just dont allow, but no warning"__, and a sentence
+   that arrives silently part-way down a long page is a sentence that can still be missed.
+   ⭐⭐ IT IS THE SAME FLASH AS THE PARKED PLACE, DOWN TO THE NUMBERS: `--flash-blink` and `--flash-blinks`
+   above are read by this rule AND by `flashRow`'s timer, **so there is one blink in this shop and not two.**
+   ⚠️ AND ITS OWN KEYFRAME, because of the trap the CSS above already records: **the last keyframe has to be
+   the colour the element RESTS at, or the words flash and then snap.** The parked place rests on `--muted`;
+   this line's title rests on `--brown-dark`, so a shared keyframe would have snapped it. ⚠️ Both ends are
+   written as LITERALS for the same reason the ones above are — a `var()`-to-`var()` pair does not
+   interpolate in every engine, and the red silently never arrived. */
+@keyframes step-note-flash-word {
+  0%, 67% { color: #c0392b; }     /* --red, held for a full second */
+  70%, 100% { color: #a84322; }   /* --brown-dark, where this line rests */
+}
+.step-note.flash strong {
+  animation: step-note-flash-word var(--flash-blink) ease-out var(--flash-blinks);
+}
+/* ⚠️ AND FOR A READER WHO ASKED FOR LESS MOVEMENT, the words simply stand out red while the class is on —
+   the same bargain the parked place makes. ⚠️ The class still comes off on `flashRow`'s TIMER and never on
+   `animationend`, because `animation: none` fires no such event and the mark would stay on for good (v423's
+   fault, recorded in this file). */
+@media (prefers-reduced-motion: reduce) {
+  .step-note.flash strong { animation: none; color: var(--red); }
+}

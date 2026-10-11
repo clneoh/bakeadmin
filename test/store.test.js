@@ -3262,3 +3262,90 @@ test("★★★ pressing − does not erase the warning — and it still works t
   assert.ok(registry["menu"].children.includes(note), "★ and the line is gone from the page for good");
   assert.equal(note.nextSibling, card(), "★ it came back, but not above the card he touched");
 });
+
+// ── v461: step 3 answers when it is touched too early ───────────────────────
+test("★★★ step 3 is not switched off — it answers when he touches it", () => {
+  // ⚠️⚠️ HER WORDS: __"i do step 3 skipping step 2, it just dont allow, but no warning"__
+  // ⭐⭐ **AND THE REASON THERE WAS NO WARNING IS THAT THE BOX WAS `disabled` — A DISABLED CONTROL NEVER
+  // RECEIVES THE TAP, so it has no way to say anything.** Measured on the live shop first: tapping the name
+  // box did not even move the focus, and the line stayed hidden.
+  // ⚠️ **THAT IS v452'S OWN RULE, quoted twenty lines away in the shop to justify the two delivery cards
+  // REFUSING rather than being switched off — and then applied to these two fields the wrong way round.**
+  render();
+  const name = registry["name-input"];
+  const wa = registry["whatsapp-input"];
+  const note = registry["step-note"];
+  assert.equal(registry["bar-count"].textContent, "0 items", "precondition: the basket is empty");
+
+  // ⭐ IT IS HELD SHUT, NOT SWITCHED OFF. `readonly` still cannot be typed into and still looks closed,
+  // **and a phone does not raise its keyboard for it — but it CAN be tapped, so it can answer.**
+  assert.equal(name.disabled, false, "★ the name box is switched off, so no tap can ever reach it");
+  assert.equal(name.readOnly, true, "★ the name box is not held shut — he can type an order with nothing in it");
+  assert.ok(String(name.className || "").includes("locked"),
+    "★ the box does not look shut, so he taps a box that looks ready and is told nothing");
+  assert.equal(wa.readOnly, true, "the number box is open too");
+
+  // ⭐⭐ AND THE TAP IS ANSWERED.
+  (name._listeners.focus || []).forEach((f) => f.call(name));
+  assert.equal(note.hidden, false, "★ touching the name box told him nothing at all");
+
+  // ⚠️ AND WITH STEP 2 DONE, THE SAME BOX IS OPEN AND ASKS NOTHING — so this is a lock, not a wall.
+  tapDay();
+  const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0]();      // + — one item in the basket
+  assert.equal(registry["bar-count"].textContent, "1 item", "the fixture did not reach step 3");
+  assert.equal(registry["name-input"].readOnly, false, "★ the box is still held shut with an order in the basket");
+  assert.equal(registry["name-input"].className.includes("locked"), false, "★ and still looks closed");
+  // ⚠️ AND ONE LISTENER, NOT SEVENTY-THREE (v461) — see the note in `store/app.js`. Each duplicate
+  // closed over the basket of its own render, and the older ones answered with a basket long gone.
+  assert.equal((registry["name-input"]._listeners.focus || []).length, 1,
+    "★ the box is collecting a fresh listener on every render, so old renders answer for the current one");
+  (registry["name-input"]._listeners.focus || []).forEach((f) => f.call(registry["name-input"]));
+  assert.equal(registry["step-note"].hidden, true, "★ he was told off for a step he had already done");
+});
+
+// ── v461: the warning BLINKS ────────────────────────────────────────────────
+test("★★★ the step warning blinks, and its flash ends where the words rest", () => {
+  // ⚠️⚠️ HER QUESTION, and it is the right one: __"did you blink the warning?"__ ⭐ **It did not — the line
+  // simply appeared**, and her report a moment earlier was __"it just dont allow, but no warning"__. **A
+  // sentence that arrives silently part-way down a long page can still be missed**, and every other warning
+  // in this shop already blinks.
+  render();
+  const note = registry["step-note"];
+  // ⚠️ CLEARED FIRST, because this node is SHARED across every render in this file and an earlier test's
+  // flash is still on it. ⭐ So the assertion is the TRANSITION — the refusal puts the blink on.
+  note.classList.remove("flash");
+  note.classList.remove("on");
+  assert.equal(String(note.className).includes("flash"), false, "the flash could not be cleared");
+
+  // ⚠️ The bake day is not tapped, so a quantity is refused — the same refusal her report is about.
+  const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  const box = stepper.children[1];
+  box.value = "4";
+  (box._listeners.input || []).forEach((f) => f.call(box));
+
+  assert.equal(note.hidden, false, "no warning appeared, so nothing below proves anything");
+  assert.ok(String(note.className).includes("flash"),
+    "★ the warning appeared WITHOUT BLINKING — it is the only warning in this shop that does not");
+
+  // ⚠️⚠️ AND IT IS THE SHOP'S ONE FLASH, NOT A SECOND ONE: the same two tokens drive the count and the
+  // length of every blink on the page, so a second set of numbers cannot drift into existence (v427).
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  const rule = /\.step-note\.flash strong \{[^}]*\}/.exec(css);
+  assert.ok(rule, "★ the step warning has no flash rule of its own");
+  assert.match(rule[0], /var\(--flash-blink\)/, "★ the step warning carries its own blink length");
+  assert.match(rule[0], /var\(--flash-blinks\)/, "★ …and its own blink count");
+
+  // ⚠️⚠️ AND THE LAST KEYFRAME IS THE COLOUR THE WORDS REST AT, or the line flashes and then SNAPS — the
+  // trap this stylesheet already records for the parked place. That line rests on `--muted`; **this line's
+  // title rests on `--brown-dark`**, so a shared keyframe would have snapped it.
+  const key = /@keyframes step-note-flash-word \{[\s\S]*?\n\}/.exec(css);
+  assert.ok(key, "★ the step warning's flash has no keyframes");
+  const token = (n) => (css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
+  assert.equal((key[0].match(/\d+%, 100% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
+    token("brown-dark"), "⚠️ the flash ends somewhere other than where the words rest, so they snap");
+  assert.equal((key[0].match(/0%, \d+% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
+    token("red"), "⚠️ and it opens on her red — 'on for a second' means already on");
+});

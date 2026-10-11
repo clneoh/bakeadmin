@@ -1409,6 +1409,12 @@ let stepNoteEl = null;
 // ⚠️ AND WHERE IT IS SPEAKING — the product NAME, not the card, **because the card is rebuilt on every
 // repaint and the name is what the rebuild keys on.** Null when it is speaking at a step heading instead.
 let stepNoteAt = null;
+// ⚠️⚠️ AND THE FLASH IS A SEAM (v461), NOT A DIRECT CALL — **`flashRow` lives inside a NESTED part of
+// `render()`, so `sayStepFirst` cannot see it by name.** ⭐ Measured, not guessed: calling it directly threw
+// `flashRow is not defined` on the first press. ⚠️ **Indentation is not a scope in this file, and I read it
+// as one.** The shop already settles this shape twice — `_mayChooseWay` and `_resetFulfillment` are seams
+// for exactly the same reason. `flashRow` is handed in where it IS in scope.
+let flashStepNote = null;
 
 export function render() {
   renderStatic(CONFIG);
@@ -1527,6 +1533,14 @@ function clearFieldMarks() {
       el("strong", {}, t(titleKey)), " ", t(bodyKey));
     note.hidden = false;
     note.classList.add("on");
+    // ★★★ AND IT BLINKS (v461). Her question, and it is the right one: __"did you blink the warning?"__
+    // ⚠️ **It did not — the line simply appeared**, and her report a moment earlier was __"it just dont
+    // allow, but no warning"__. ⭐ **A sentence that arrives silently part-way down a long page can still be
+    // missed**, which is the whole fault this thread has been about.
+    // ⭐ It goes through the shop's OWN flash, so the blink length, the number of blinks and the moment the
+    // mark comes off are **one fact in one place** (v427) — and a reduced-motion reader gets the same rule
+    // the parked place gets. ⚠️ Through a SEAM, because `flashRow` is not in this scope.
+    if (flashStepNote) flashStepNote(note);
   }
   let avail = null;      // { 'YYYY-MM-DD': slots_left } — day-level, for the calendar
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
@@ -2778,7 +2792,19 @@ function clearFieldMarks() {
     const open3 = cart.size > 0;
     for (const id of ["name-input", "whatsapp-input"]) {
       const box = document.getElementById(id);
-      if (box && "disabled" in box) box.disabled = !open3;
+      if (!box) continue;
+      // ★★★ IT LOOKS SHUT, AND IT IS NOT SWITCHED OFF (v461). Her report: __"i do step 3 skipping step 2,
+      // it just dont allow, but no warning"__ — ⚠️⚠️ **and there was no warning because the box was
+      // `disabled`, and a disabled control never receives the tap at all.** Measured on the live shop
+      // before this: tapping the name box did not even move the focus, and the line stayed hid.
+      // ⭐⭐ **AND THAT IS v452'S RULE. I QUOTED IT MYSELF TWENTY LINES BELOW, TO JUSTIFY THE TWO DELIVERY
+      // CARDS REFUSING INSTEAD OF BEING SWITCHED OFF — AND THEN SWITCHED THESE TWO FIELDS OFF ANYWAY.**
+      // ⚠️ **The worst of both, and worse than either: the boxes looked entirely normal in the screenshot
+      // AND were dead, so he tapped a box that looked ready and was told nothing.**
+      // ⭐ `readonly` is the honest middle — **it still cannot be typed into and it LOOKS shut, and it can
+      // be tapped, so it can answer.** A phone does not even raise the keyboard for it.
+      box.readOnly = !open3;
+      if (box.classList) box.classList.toggle("locked", !open3);
     }
     // ★★★ AND THE TWO DELIVERY CARDS ARE THE SAME STEP, SO THEY OBEY THE SAME LOCK (v456). Her words:
     // __"lock the 2 delivery cards too"__ — ⚠️ **after I had locked only the two boxes she named and not
@@ -2803,7 +2829,32 @@ function clearFieldMarks() {
   // another is how the two drift.
   for (const id of ["name-input", "whatsapp-input"]) {
     const field = document.getElementById(id);
-    if (field && field.addEventListener) field.addEventListener("input", paintSteps);
+    if (!field || !field.addEventListener) continue;
+    // ★★★ AND IT ANSWERS THE TAP (v461) — **the whole of her report.** ⚠️ A `disabled` box received no tap
+    // at all, so it could not say anything; this one is `readonly`, so it can, and the sentence lands
+    // directly above the row he touched (v459's rule).
+    // ⚠️ BOTH `focus` AND `click`, because on a phone the tap that raises the focus and the click are not
+    // the same event everywhere — and `sayStepFirst` is idempotent, so arriving twice costs nothing.
+    const sayWhyNotYet = () => {
+      if (cart.size > 0) return;   // ⚠️ step 2 is done — there is nothing to explain and nothing to block
+      const row = field.closest ? field.closest(".field") : null;
+      sayStepFirst("needItemTitle", "needItemBody", "step2", row || field.parentNode || field);
+    };
+    // ⚠️⚠️ ONE LISTENER EACH, NOT ONE PER RENDER (v461). ⭐ **`render()` runs these lines every time it is
+    // called, and the element is the SAME ELEMENT** — so they accumulated. ⭐⭐ Measured in this suite's own
+    // page: **73 focus handlers on one box.** ⚠️ **And every one of them closes over the `cart` of ITS OWN
+    // render — so the earlier ones answer with a basket that no longer exists**, which is exactly how a
+    // step that is already done started telling him off again.
+    // ⭐ The verdicts are re-pointed on the element instead, and the ONE listener reads the current one.
+    field._sayWhyNotYet = sayWhyNotYet;
+    field._paintSteps = paintSteps;
+    if (!field._stepWired) {
+      field._stepWired = true;
+      const onTouch = () => { if (field._sayWhyNotYet) field._sayWhyNotYet(); };
+      field.addEventListener("input", () => { if (field._paintSteps) field._paintSteps(); });
+      field.addEventListener("focus", onTouch);
+      field.addEventListener("click", onTouch);
+    }
   }
   // ⭐ The handle the fulfilment picker uses — see `paintStepsForFulfillment` beside `repaintPromo`.
   paintStepsForFulfillment = paintSteps;
@@ -3894,6 +3945,9 @@ function renderPointList(wrap, total = 0) {
       b._flashTimer = undefined;
     }, flashMs());
   };
+  // ⭐ AND THE STEP'S OWN LINE BLINKS WITH IT (v461) — the seam `sayStepFirst` reads, handed the shop's one
+  // flash so a second blink length or a second count can never drift into existence.
+  flashStepNote = flashRow;
 
   const row = (id, name, sub, { short = false, off = false, address = "", days = "" } = {}) => {
     // ⚠️ `short` AND `off` MEAN THE SAME THING TO A TAP — this place is on the page, and it is not
