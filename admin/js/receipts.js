@@ -182,6 +182,46 @@ export function registerRows(raw, orders) {
   };
 }
 
+// ★★ DOES A SAVED COPY CONTAIN THIS ORDER? (v443)
+//
+// ⚠️ THE QUESTION THE REGISTER COULD NOT ANSWER. A void row said *"not in this phone's orders"* — which is
+// true of an order she removed on purpose, an order swept away by a fault, and an order this phone simply
+// never had, **and it cannot tell those apart.** On 11 Oct 2026 three such rows sat there under three paid
+// receipts and nobody could say which of the three it was. ⭐ This is the half that fixes it: the same two
+// numbers the register already matches on — the one an order wears today, and the one it wore before it was
+// grouped (v441) — looked for inside one of her own saved copies.
+export function copyKnowsCode(orders, code) {
+  const want = String(code || "").trim().toUpperCase();
+  if (!want || want === "??????") return false;
+  return (Array.isArray(orders) ? orders : []).some(
+    (o) => o && (orderCode(o) === want || codeFromId(o) === want));
+}
+
+// ★★ AND IT ANSWERS WITH A WINDOW, NOT A MOMENT (v443) — HER OWN INSTRUCTION.
+//
+// __"you should say that something entered abt 8am, is deleted later in the afternoon, by me or by the
+// system error itself"__
+//
+// ⚠️⚠️ SHE IS RIGHT, AND ONE TIME COULD NOT SAY IT. "Last seen at 08:20" proves the order existed at 08:20
+// and says nothing about when it left — and a single time invites her to read it as the moment it vanished,
+// which the app cannot know. ⭐ **Two copies BRACKET it instead:** the newest copy that still HAS the order,
+// and the copy immediately newer than it, which does not. **It was there at the first and gone by the
+// second, so it left between the two** — which is a fact, and a much tighter one than "after 08:20".
+//
+// ⚠️ AND IT NEVER NAMES THE CAUSE. Removed by her, or removed by the app itself — **the data cannot tell
+// those apart, and a sentence that guessed would be the same fault as reading "this fits" as "this is it".**
+// Both are said, and neither is chosen. ⭐ It gets carried into her records: overstating here is worse than
+// saying less.
+//
+// `copies` MUST BE NEWEST FIRST — the caller orders them. Returns { hit, goneBy }: the newest copy that
+// knows the code, and the copy one step newer that does NOT (null when the newest copy itself still has it).
+export function lastSeenIn(copies, code) {
+  const list = Array.isArray(copies) ? copies : [];
+  const i = list.findIndex((c) => c && copyKnowsCode(c.orders, code));
+  if (i < 0) return { hit: null, goneBy: null };
+  return { hit: list[i], goneBy: i > 0 ? list[i - 1] : null };
+}
+
 // The register's headline, in one sentence, with the two things worth acting on first.
 export function registerSummary(reg) {
   if (!reg || !reg.count) return "No receipt has been issued yet.";

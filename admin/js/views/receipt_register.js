@@ -14,9 +14,15 @@
 // here. The list is short and the read is one request.
 
 import { el, button } from "../ui.js";
-import { registerRows, registerSummary } from "../receipts.js";
+import { lastSeenIn, registerRows, registerSummary } from "../receipts.js";
 import { pullReceiptRegister } from "../supabase.js";
 import { orderHref } from "../state.js";
+import * as backups from "../backups.js";
+
+// ★★ HOW MANY SAVED COPIES TO LOOK THROUGH WHEN SHE ASKS (v443). The app keeps 7 daily, 4 weekly and 3
+// monthly, so 12 reaches back past a monthly copy — and the search STOPS at the first copy that knows the
+// code, so the ordinary answer (the order was here this morning) costs ONE request, not twelve.
+const COPIES_TO_LOOK_IN = 12;
 
 // ⚠️ `location.hash` DIRECTLY rather than the app's router, the same choice history.js
 // documents: it keeps this view testable under Node, where there is no router running.
@@ -101,7 +107,18 @@ export function renderReceiptRegister(root, state) {
             // nothing to open, so it stays plain text with its own honest sentence — a press
             // there could only land on an empty Orders screen.
             ? [String(r.order.customerName || "").trim() || "—", " · ", orderPress(r.code)]
-            : `Order #${r.code} — not in this phone's orders`),
+            // ⚠️⚠️ AND NOW IT CAN ANSWER THE QUESTION IT USED TO ONLY POSE (v443). *"Not in this phone's
+            // orders"* is true of an order she removed on purpose, an order a fault swept away, and an
+            // order this phone never had — **and those are three completely different problems wearing
+            // one sentence.** The press looks through her own saved copies and says when the order was
+            // still there. Nothing about it changes anything: it reads copies, and writes none.
+            : [ `Order #${r.code} — not in this phone's orders`,
+                " ",
+                (() => {
+                  const said = el("span", { class: "reg-seen" }, "");
+                  const ask = button("When was it last here?", () => lookBack(r.code, said, ask), "ghost small");
+                  return el("span", { class: "reg-ask" }, ask, said);
+                })() ]),
         el("span", { class: "reg-when" }, stamp(r.issuedAt)),
         // ★ AND HOW MUCH (v370) — read from the register, so it shows even for a receipt whose
         // order is not on this phone.
@@ -147,6 +164,89 @@ export function renderReceiptRegister(root, state) {
         el("p", { class: "card-sub", style: "margin:8px 0 0" },
           "A number belongs to the ORDER and is drawn once, when the money is recorded. Printing the receipt again, opening it on your other phone, or marking it refunded all leave the number exactly where it is — and removing the order does not give it back. Nothing on this screen changes anything.")));
   };
+
+  // ★★ THE ANSWER TO *"WHERE DID IT GO?"* (v443), IN HER OWN WORDS.
+  //
+  // __"you should say that something entered abt 8am, is deleted later in the afternoon, by me or by the
+  // system error itself"__
+  //
+  // ⚠️⚠️ SO IT SAYS A WINDOW, NOT A MOMENT. `lastSeenIn` hands back the newest copy that still HAS the order
+  // and the copy one step newer that does not — **it was there at the first and gone by the second, so it
+  // left in between.** ⭐ A single time would read as the moment it vanished, which the app cannot know.
+  //
+  // ⚠️ AND IT NAMES BOTH POSSIBLE REMOVERS AND CHOOSES NEITHER. "By you, or by the app itself" — the data
+  // cannot tell those apart, and a sentence that picked one would be the same mistake as reading "this fits"
+  // as "this is it", written into her records.
+  async function lookBack(code, said, ask) {
+    if (ask.disabled) return;
+    ask.disabled = true;
+    said.textContent = " Looking through your saved copies…";
+    const copies = await recentCopies();
+    if (dead) return;
+    if (!copies.ok) {
+      said.textContent = ` ${copies.reason}`;
+      ask.disabled = false;
+      return;
+    }
+    const { hit, goneBy } = lastSeenIn(copies.list, code);
+    if (!hit) {
+      // ⚠️ ONE OF TWO THINGS, AND BOTH ARE SAID: never on this phone, or gone before the oldest copy.
+      said.textContent = ` Not in any of the ${copies.list.length} saved copies looked at — so it was never`
+        + " on this phone, or it left before the oldest copy you have.";
+      // ⚠️ THE PRESS STAYS LIVE HERE: a copy is made every day the app is opened, so tomorrow's search
+      // reaches further back than today's. On a real answer it goes inert, because the answer cannot improve
+      // and a press that changed nothing would read as a broken control.
+      ask.disabled = false;
+      return;
+    }
+    const wasThere = `Still in your data in the copy saved ${backups.localWhen(hit.createdAt)}`;
+    said.textContent = goneBy
+      ? ` ${wasThere}, and gone from the copy saved ${backups.localWhen(goneBy.createdAt)} — so it was`
+        + " removed between those two, by you or by the app itself."
+      : ` ${wasThere} — your newest copy — and it is not in your data now, so it was removed after that,`
+        + " by you or by the app itself.";
+  }
+
+  // The saved copies, newest first, each one's orders parsed and then discarded as the next is fetched —
+  // one copy in memory at a time, which is what keeps this affordable on a phone.
+  async function recentCopies() {
+    // ⚠️⚠️ `listMeta` ANSWERS WITH `{ ok, rows }`, NOT WITH A LIST. Reading it as an array silently found
+    // nothing at all, so every press said "there are no saved copies to look in" **on a phone that had
+    // fourteen of them** — a control that always says the same thing reads as broken, and it would have
+    // shipped looking exactly like a correct answer. The view test caught it.
+    let meta = null;
+    try { meta = await backups.listMeta(state); } catch { meta = null; }
+    // ⚠️⚠️ "I COULD NOT LOOK" MUST NEVER BE SAID AS "THERE ARE NONE" — the register's own oldest rule. A
+    // copy list that failed to load (shared data off, signed out, no signal) came back as an empty answer,
+    // and *"there are no saved copies to look in"* is a **false statement about her data** — it would tell
+    // her the app keeps no copies, which is the opposite of true, at the exact moment she is asking where
+    // an order went. The reason travels up and is what she reads.
+    if (!meta || !meta.ok) {
+      return { ok: false, reason: (meta && meta.reason) || "Your saved copies could not be read." };
+    }
+    const list = (Array.isArray(meta.rows) ? meta.rows : [])
+      .filter((r) => r && r.id)
+      .slice()
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+      .slice(0, COPIES_TO_LOOK_IN);
+    if (!list.length) return { ok: false, reason: "There are no saved copies to look in." };
+    const out = [];
+    for (const row of list) {
+      const g = await backups.getBackup(state, row.id);
+      if (dead) return { ok: false, reason: "" };
+      if (!g || !g.ok) continue;
+      let data = null;
+      try { data = JSON.parse(g.row.data); } catch { continue; }
+      out.push({
+        id: row.id,
+        createdAt: row.created_at,
+        label: backups.labelFor(row.kind, row.created_at),
+        orders: (data && Array.isArray(data.orders)) ? data.orders : [],
+      });
+    }
+    if (!out.length) return { ok: false, reason: "No saved copy could be read." };
+    return { ok: true, list: out };
+  }
 
   async function load() {
     draw(null, "Reading your receipts from the bakery's records…");

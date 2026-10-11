@@ -25,7 +25,7 @@ globalThis.localStorage.setItem("bakeadmin.supabase",
   JSON.stringify({ access_token: "tok", expires_at: Date.now() + 3600000 }));
 
 const { receiptNoOf, receiptLabel, receiptLine, isRefunded, receiptStatus,
-  registerRows, registerSummary } = await import("../admin/js/receipts.js");
+  copyKnowsCode, lastSeenIn, registerRows, registerSummary } = await import("../admin/js/receipts.js");
 const { claimReceipt, pullReceiptRegister } = await import("../admin/js/supabase.js");
 const { journalSheet } = await import("../admin/js/journal.js");
 const { orderCode } = await import("../admin/js/state.js");
@@ -265,6 +265,40 @@ test("★★ a receipt written before the order was GROUPED still finds it (v441
   assert.equal(reg2.rows[0].order, other,
     "★ an order's own live code was taken by another order's historical alias");
   assert.equal(reg2.rows[0].orphan, false);
+});
+
+test("★★ 'when was it last here' looks for BOTH numbers and stops at the newest copy (v443)", () => {
+  // ⚠️⚠️ THE QUESTION THE REGISTER COULD ONLY POSE. "Not in this phone's orders" is true of an order she
+  // removed on purpose, an order a fault swept away, and an order this phone never had — three different
+  // problems in one sentence. On 11 Oct 2026 three paid receipts sat like that and nobody could say which.
+  // ⭐ The press looks through her own saved copies and answers when the order was still there.
+  const moved = { id: "ord_c2fda5", groupId: "ordg_111111" };  // wears #111111, wore #C2FDA5
+  const plain = { id: "ord_aaaaaa" };
+
+  // ⚠️ BOTH NUMBERS ARE LOOKED FOR — the one it wears today, and the one it wore before it was grouped.
+  assert.equal(copyKnowsCode([moved], "111111"), true, "the number the order wears TODAY was not looked for");
+  assert.equal(copyKnowsCode([moved], "C2FDA5"), true, "the number it wore BEFORE it was grouped was not looked for");
+  assert.equal(copyKnowsCode([moved], "ABCDEF"), false, "a copy was credited with an order it never held");
+  assert.equal(copyKnowsCode([moved], "??????"), false, "the placeholder was treated as a real number");
+  assert.equal(copyKnowsCode([], "C2FDA5"), false);
+
+  const older = { label: "Weekly", createdAt: "2026-10-09T07:00:00.000Z", orders: [moved] };
+  const newest = { label: "Daily", createdAt: "2026-10-11T08:20:00.000Z", orders: [plain] };
+
+  // ⚠️⚠️ AND THE ANSWER IS A *WINDOW*, NOT A MOMENT — her own instruction: __"you should say that something
+  // entered abt 8am, is deleted later in the afternoon, by me or by the system error itself"__. One time
+  // would read as the moment it vanished, which the app cannot know. **Two copies bracket it.**
+  const w = lastSeenIn([newest, older], "C2FDA5");
+  assert.equal(w.hit, older, "★ the search did not reach the copy that still holds the order");
+  assert.equal(w.goneBy, newest,
+    "★ the window is open-ended — the copy that shows it was ALREADY gone was not found");
+  // ⭐ AND WHEN THE NEWEST COPY ITSELF STILL HAS IT, THERE IS NO UPPER EDGE — it left after that copy.
+  const only = lastSeenIn([{ ...newest, orders: [moved] }, older], "C2FDA5");
+  assert.equal(only.hit.createdAt, newest.createdAt, "★ the answer was taken from an older copy than needed");
+  assert.equal(only.goneBy, null, "★ an upper edge was invented out of a copy that still holds the order");
+  // ⚠️ AND AN ORDER IN NO COPY AT ALL SAYS SO rather than being handed a copy at random.
+  assert.deepEqual(lastSeenIn([newest, older], "ABCDEF"), { hit: null, goneBy: null });
+  assert.deepEqual(lastSeenIn([], "ABCDEF"), { hit: null, goneBy: null });
 });
 
 test("a refunded receipt keeps its row, its number, and wears its mark", () => {

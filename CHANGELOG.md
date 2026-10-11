@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v442)
+# Jienluv2bake — change history (v54 → v443)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v443, A VOID RECEIPT CAN NOW SAY WHEN THE ORDER LEFT (no database step).**
+
+**Your words:** __"you should say that something entered abt 8am, is deleted later in the afternoon, by me or by the system error itself"__
+
+**1. ★★ THAT IS BETTER THAN WHAT I OFFERED, AND IT IS WHAT THE APP NOW SAYS.** I was going to give you **one** time — *"last seen at 08:20"* — which you would have read as the moment it vanished, **and it cannot know that.** ⭐ Two of your own saved copies **bracket** it instead: the newest copy that still **has** the order, and the copy one step newer that **does not.** It was there at the first and gone by the second — **so it was removed between those two.** That is a fact, and a far tighter one than "after 08:20".
+
+**2. ★ AND IT NAMES BOTH POSSIBLE REMOVERS AND CHOOSES NEITHER** — *"by you or by the app itself."* **The data cannot tell those apart.** ⚠️ A sentence that picked one would be the same mistake as reading "this fits" as "this is it" — and this sentence goes into your records, where a wrong one outlives the conversation.
+
+**3. ⚠️ AND IT NEVER SAYS "THERE ARE NONE" WHEN IT MEANS "I COULD NOT LOOK".** My first version did exactly that: with shared data off, or no signal, it answered *"there are no saved copies to look in"* — **a false statement about your data, at the very moment you were asking where an order went.** It says the real reason instead. ⭐ **That is this screen's own oldest rule — an unreadable register must never be drawn as an empty one — and I broke it inside the very feature meant to make the register more honest.**
+
+**4. ⚠️ AND A SECOND FAULT OF MINE, CAUGHT BEFORE YOU SAW IT.** The list of copies is handed back as an **object**, not as a list — read as a list it found **nothing**, so every press would have said *"there are no saved copies"* **on a phone holding fourteen of them.** ⭐ **A control that always says the same thing reads as broken, and it would have looked exactly like a correct answer.** The view test caught it.
+
+**5. ★ HOW TO USE IT.** Invoice register → any row that says *"not in this phone's orders"* now carries a press: **"When was it last here?"** It reads your saved copies **newest first and stops at the first that knows the order**, so the ordinary answer costs one look, not fourteen. ⚠️ **It reads copies and writes nothing at all**, so the one promise this screen makes — that no number is ever re-used or removed, including by you — is untouched. ⚠️ If the answer is *"not in any saved copy"*, that means one of two things and it says both: **the order was never on this phone, or it left before the oldest copy you have.**
+
+**Measured:** tests **3,327 → 3,329**, all green. ⭐ **The new checks were each seen to fail by their own message** — both numbers not looked for, the window's upper edge dropped, and the copies read oldest-first — **and each file restored byte-identically (sha256).** ★ **Driven through the real screen**, with the cloud stood in for: the void row draws its press, the press works, and the sentence reads *"Still in your data in the copy saved …, and gone from the copy saved … — so it was removed between those two, by you or by the app itself."* **No database step**, and nothing of yours touched.
 
 **12 Oct 2026 — engine v442, A CORRECTION I OWE YOU IN YOUR OWN RECORD (no database step).**
 
