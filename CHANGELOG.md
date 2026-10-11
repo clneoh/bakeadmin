@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v461)
+# Jienluv2bake — change history (v54 → v462)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v462, THE WARNINGS ACTUALLY BLINK, AND THE PAGE COMES TO YOU (no database step).**
+
+**Your words:** __"now i skip step 3, go for step4, not warning and all warning so far not flashing"__
+
+**1. ⚠️⚠️ YOU WERE RIGHT, AND I HAD ALREADY CHECKED THE WRONG THING.** At v461 I checked that the warning **carried the blink class**, and it did. ⭐ **Whether it LOOKED like anything was a different question and I never asked it.** ⚠️ **Measured: the blink moved the title from `#c0392b` to `#a84322` — and those two colours are 1.10:1 apart, because both are red.** ⭐⭐ **The animation ran perfectly and did nothing anybody could see.** ⭐ **Same shape as v426's fault in this same stylesheet: a colour that was chosen and a colour that arrived are not the same thing.**
+
+**2. ★ SO IT IS A WHOLE-LINE PULSE NOW: the pale line FILLS WITH RED, the words go light, and it comes back.** Measured mid-blink: the line's background reads `rgb(192,57,43)` with the words at `rgb(251,244,234)`. ⭐ That is a 4.56:1 move rather than a 1.10:1 one — and **the new test carries that contrast floor**, so a blink nobody can see fails here rather than on your phone. ⚠️ It was bitten: putting the two reds back makes the test fail by name.
+
+**3. ★★ AND YOUR "NOT WARNING" WAS A SECOND, DIFFERENT FAULT — AND IT IS THE SAME ONE AS v459.** Pressing **Place order** with step 3 skipped **did** mark the box red with its reason under it. ⚠️ **Measured: that reason sat 825 PIXELS ABOVE the button you had pressed.** ⭐ **A warning you cannot see is not a warning**, exactly as the step line was 262 pixels above your screen two versions ago.
+
+**4. ★ SO IT BLINKS TOO, AND THE PAGE IS CARRIED TO THE BOX.** The reason under a missing field now wears the same line as the step warning and **uses the very same blink** — one blink in this shop, not two. And the page now brings the missing box into view when you press the button. ⚠️ **THIS DELIBERATELY REVERSES PART OF v455'S JUDGEMENT.** That rule — *the page does not move* — was right for a message appearing **on its own**. ⭐ **This is not that: you pressed a button and the form is answering you, which is how a form behaves.** ⚠️ What must never happen is the page moving while you are doing something else.
+
+**5. ⚠️ AND I HAVE TO BE PLAIN ABOUT ONE THING: I COULD NOT SEE THE SCROLL WORK.** The preview pane refused to scroll at all — even a plain request from the page did nothing — so **the carry is proven by the test and not by my eyes.** ⭐ **Please check that one on your phone.** If it does not carry you to the box, tell me and I will find what is holding the page still; there are two other places in the same press that ask the page to move, and one of them may be winning.
+
+**6. ⚠️ TWO MORE THINGS FOUND ON THE WAY, BOTH REAL.** The blink helper — the function that decides how long a flash lasts — was **buried inside a piece of the page that only runs when a customer taps a collection point**, so the two boxes and the missing-field reason could not reach it at all; it is at the top of the file now. ⭐ **And the test page had no `scrollIntoView` at all**, so every "did the page go there?" question was being answered by a guard — fixed in the test page, not in the claim.
+
+**Measured:** tests **3,367 → 3,369**, both new assertions seen to fail with their fix reversed. **No database step.**
 
 **12 Oct 2026 — engine v461, STEP 3 ANSWERS, AND THE WARNING BLINKS (no database step).**
 

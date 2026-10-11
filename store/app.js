@@ -1409,12 +1409,45 @@ let stepNoteEl = null;
 // ⚠️ AND WHERE IT IS SPEAKING — the product NAME, not the card, **because the card is rebuilt on every
 // repaint and the name is what the rebuild keys on.** Null when it is speaking at a step heading instead.
 let stepNoteAt = null;
-// ⚠️⚠️ AND THE FLASH IS A SEAM (v461), NOT A DIRECT CALL — **`flashRow` lives inside a NESTED part of
-// `render()`, so `sayStepFirst` cannot see it by name.** ⭐ Measured, not guessed: calling it directly threw
-// `flashRow is not defined` on the first press. ⚠️ **Indentation is not a scope in this file, and I read it
-// as one.** The shop already settles this shape twice — `_mayChooseWay` and `_resetFulfillment` are seams
-// for exactly the same reason. `flashRow` is handed in where it IS in scope.
-let flashStepNote = null;
+
+  // ⚠️⚠️ IF THEY DISAGREE THE FLASH IS CUT OFF MID-BLINK — and it could only ever have been wrong in
+  // that direction, because the timer is the thing that fires while `animation: none` fires nothing.
+  // ⭐ So the arithmetic is read from the page rather than repeated here, and a test pins that this
+  // function still asks. ⚠️ The 200 is a margin so the last blink finishes rather than being clipped.
+  const flashMs = () => {
+    try {
+      if (typeof getComputedStyle !== "function" || typeof document === "undefined") return 1200;
+      const cs = getComputedStyle(document.documentElement);
+      const each = parseFloat(cs.getPropertyValue("--flash-blink"));
+      const many = parseFloat(cs.getPropertyValue("--flash-blinks"));
+      if (!(each > 0) || !(many > 0)) return 1200;
+      return each * many + 200;
+    } catch {
+      return 1200;
+    }
+  };
+
+  const flashRow = (b) => {
+    if (!b || !b.classList) return;
+    b.classList.remove("flash");
+    // ⚠️ READING `offsetWidth` FORCES A REFLOW, and it is the whole trick: without it the browser
+    // coalesces "remove then add" into no change at all and a SECOND tap flashes nothing.
+    void b.offsetWidth;
+    b.classList.add("flash");
+    // ⚠️⚠️ THE CLASS COMES OFF ON A TIMER, NOT ON `animationend` — and that is a FAULT FIXED, not a
+    // preference (v424). ⚠️ Under `prefers-reduced-motion: reduce` the stylesheet sets
+    // `animation: none`, and **an animation that never runs never fires `animationend`** — so the mark
+    // stayed on that row FOR GOOD, and tapping a second place left the first one lit as well. It was
+    // shipped that way in v423 and found by reading the rule back rather than by anyone hitting it:
+    // **the reader it would have hit is the one who asked for less movement.** ⭐ A timer always fires.
+    // ⚠️ And the previous timer is cleared first, so a quick second tap cannot have the FIRST tap's
+    // timer pull the class off the flash it has only just started.
+    if (typeof b._flashTimer !== "undefined") clearTimeout(b._flashTimer);
+    b._flashTimer = setTimeout(() => {
+      b.classList.remove("flash");
+      b._flashTimer = undefined;
+    }, flashMs());
+  };
 
 export function render() {
   renderStatic(CONFIG);
@@ -1469,7 +1502,27 @@ function markField(input, key) {
   }
   said.textContent = t(key);
   said.hidden = false;
+  // ★★★ AND THE REASON BLINKS (v462). Her report: __"i skip step 3, go for step4, not warning"__ — ⚠️ **the
+  // warning WAS there: the box turned red with its reason underneath it.** ⭐ **But it was a still red edge,
+  // a screen up from the button she had just pressed, and nothing about it moved.** ⭐⭐ **So it read as no
+  // warning at all.** ⭐ It goes through the shop's one flash, so a missing box and a locked step blink the
+  // same way and there is still only one set of numbers.
+  flashRow(said);
+  // ★★★ AND THE PAGE GOES TO THE THING THAT IS MISSING (v462) — ⚠️⚠️ **AND THIS DELIBERATELY REVERSES PART
+  // OF v455'S JUDGEMENT, AT HER INSTRUCTION.**
+  // Her report: __"i skip step 3, go for step4, not warning"__. ⭐ **Measured: pressing Place order put the
+  // reason 825 PIXELS ABOVE the button she had pressed** — and a flashing line she cannot see is still a
+  // line she cannot see.
+  // ⚠️ v455's rule was *"the page does not move"*, and it was right for a message appearing **on its own**
+  // (the v423 parked place, the step line). ⭐⭐ **THIS IS NOT THAT: she PRESSED a button and the form is
+  // answering her.** ⭐ **A press may carry the page — v99's "Next available" line already scrolls the
+  // calendar.** ⚠️ What must never happen is the page moving while she is doing something else.
+  // ⭐ `block: "center"` so the box lands in the middle rather than under the bar fixed to the foot.
   if (input.focus) input.focus({ preventScroll: true });
+  if (input.scrollIntoView) {
+    try { input.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    catch { try { input.scrollIntoView(); } catch { /* a page that refuses is not a reason to fail */ } }
+  }
 }
 function clearFieldMarks() {
   for (const input of document.querySelectorAll(".input.bad")) {
@@ -1540,7 +1593,7 @@ function clearFieldMarks() {
     // ⭐ It goes through the shop's OWN flash, so the blink length, the number of blinks and the moment the
     // mark comes off are **one fact in one place** (v427) — and a reduced-motion reader gets the same rule
     // the parked place gets. ⚠️ Through a SEAM, because `flashRow` is not in this scope.
-    if (flashStepNote) flashStepNote(note);
+    flashRow(note);
   }
   let avail = null;      // { 'YYYY-MM-DD': slots_left } — day-level, for the calendar
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
@@ -3907,47 +3960,6 @@ function renderPointList(wrap, total = 0) {
   // Her words: __"can you flash the red twice or trice"__ — ⚠️ and asking for MORE blinks is exactly
   // what exposed the coupling: how long the flashing runs lives in `--flash-blink` and
   // `--flash-blinks` (store/app.css), while the moment the mark comes OFF lives in this timer.
-  // ⚠️⚠️ IF THEY DISAGREE THE FLASH IS CUT OFF MID-BLINK — and it could only ever have been wrong in
-  // that direction, because the timer is the thing that fires while `animation: none` fires nothing.
-  // ⭐ So the arithmetic is read from the page rather than repeated here, and a test pins that this
-  // function still asks. ⚠️ The 200 is a margin so the last blink finishes rather than being clipped.
-  const flashMs = () => {
-    try {
-      if (typeof getComputedStyle !== "function" || typeof document === "undefined") return 1200;
-      const cs = getComputedStyle(document.documentElement);
-      const each = parseFloat(cs.getPropertyValue("--flash-blink"));
-      const many = parseFloat(cs.getPropertyValue("--flash-blinks"));
-      if (!(each > 0) || !(many > 0)) return 1200;
-      return each * many + 200;
-    } catch {
-      return 1200;
-    }
-  };
-
-  const flashRow = (b) => {
-    if (!b || !b.classList) return;
-    b.classList.remove("flash");
-    // ⚠️ READING `offsetWidth` FORCES A REFLOW, and it is the whole trick: without it the browser
-    // coalesces "remove then add" into no change at all and a SECOND tap flashes nothing.
-    void b.offsetWidth;
-    b.classList.add("flash");
-    // ⚠️⚠️ THE CLASS COMES OFF ON A TIMER, NOT ON `animationend` — and that is a FAULT FIXED, not a
-    // preference (v424). ⚠️ Under `prefers-reduced-motion: reduce` the stylesheet sets
-    // `animation: none`, and **an animation that never runs never fires `animationend`** — so the mark
-    // stayed on that row FOR GOOD, and tapping a second place left the first one lit as well. It was
-    // shipped that way in v423 and found by reading the rule back rather than by anyone hitting it:
-    // **the reader it would have hit is the one who asked for less movement.** ⭐ A timer always fires.
-    // ⚠️ And the previous timer is cleared first, so a quick second tap cannot have the FIRST tap's
-    // timer pull the class off the flash it has only just started.
-    if (typeof b._flashTimer !== "undefined") clearTimeout(b._flashTimer);
-    b._flashTimer = setTimeout(() => {
-      b.classList.remove("flash");
-      b._flashTimer = undefined;
-    }, flashMs());
-  };
-  // ⭐ AND THE STEP'S OWN LINE BLINKS WITH IT (v461) — the seam `sayStepFirst` reads, handed the shop's one
-  // flash so a second blink length or a second count can never drift into existence.
-  flashStepNote = flashRow;
 
   const row = (id, name, sub, { short = false, off = false, address = "", days = "" } = {}) => {
     // ⚠️ `short` AND `off` MEAN THE SAME THING TO A TAP — this place is on the page, and it is not

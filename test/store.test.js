@@ -139,6 +139,11 @@ function createEl(tag) {
     },
     getAttribute(k) { return this.attrs[k]; },
     focus() {}, click() {},
+    // ⚠️⚠️ THE SHIM HAD NO `scrollIntoView` AT ALL (v462), so **every "did the page go there?" question was
+    // silently answered by the guard in the view** — and a test could not ask it. ⭐ The real one records
+    // what it was asked, which is what makes "the page is carried to the missing box" an assertion rather
+    // than a hope. Same rule as `insertBefore` and `parentNode` before it.
+    scrollIntoView(opts) { this.scrolled = opts; },
   };
   return node;
 }
@@ -460,6 +465,22 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   assert.match(String(nameBox.attrs?.["aria-describedby"] || ""), /name-input-note/,
     "★ the reason is not tied to the box for a screen reader — only sighted customers would get it");
   assert.equal(nameBox.attrs?.["aria-invalid"], "true", "★ the box is not marked invalid");
+  // ⚠️⚠️ AND THE REASON UNDER IT BLINKS (v462). Her report: __"i skip step 3, go for step4, not warning"__ —
+  // ⭐ **the warning WAS there: the box turned red with its reason underneath it.** ⚠️ **But it was a STILL
+  // red edge, a screen up from the button she had just pressed, and nothing about it moved — so it read as
+  // no warning at all.** ⭐ A warning that does not move is a warning she has to be looking for.
+  const reason = registry["name-input-note"];
+  assert.ok(reason, "the reason under the box was never drawn, so nothing below proves anything");
+  assert.ok(String(reason.className).includes("flash"),
+    "★ the reason appeared WITHOUT BLINKING — a still red edge is exactly what she reported as no warning");
+  // ⚠️⚠️ AND THE PAGE IS CARRIED TO THE BOX (v462). **MEASURED ON THE REAL SHOP: the reason sat 825 PIXELS
+  // ABOVE the button she had pressed** — and a flashing line she cannot see is still a line she cannot see.
+  // ⚠️ v455 said *"the page does not move"*, and that was right for a message appearing ON ITS OWN. ⭐ **This
+  // is not that: she pressed a button and the form is answering her, which is how a form behaves.**
+  const carried = nameBox.scrolled;
+  assert.ok(carried, "★ the page was NOT carried to the box that is missing, so he is told off out of sight");
+  assert.equal(carried.block, "center",
+    "★ the box was put somewhere other than the middle of the screen — under the bar fixed to the foot is no use");
   assert.doesNotMatch(said(), /WhatsApp number/i,
     "★ he was sent to his NUMBER while a still-earlier step was the one outstanding");
 
@@ -3333,19 +3354,48 @@ test("★★★ the step warning blinks, and its flash ends where the words rest
   // ⚠️⚠️ AND IT IS THE SHOP'S ONE FLASH, NOT A SECOND ONE: the same two tokens drive the count and the
   // length of every blink on the page, so a second set of numbers cannot drift into existence (v427).
   const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
-  const rule = /\.step-note\.flash strong \{[^}]*\}/.exec(css);
-  assert.ok(rule, "★ the step warning has no flash rule of its own");
-  assert.match(rule[0], /var\(--flash-blink\)/, "★ the step warning carries its own blink length");
-  assert.match(rule[0], /var\(--flash-blinks\)/, "★ …and its own blink count");
+  for (const sel of [".step-note.flash {", ".step-note.flash strong {"]) {
+    const rule = new RegExp(sel.replace(".", "\\.") + "[^}]*\\}").exec(css);
+    assert.ok(rule, `★ the step warning has no rule for ${sel}`);
+    assert.match(rule[0], /var\(--flash-blink\)/, `★ ${sel} carries its own blink length`);
+    assert.match(rule[0], /var\(--flash-blinks\)/, `★ …and its own blink count`);
+  }
 
-  // ⚠️⚠️ AND THE LAST KEYFRAME IS THE COLOUR THE WORDS REST AT, or the line flashes and then SNAPS — the
-  // trap this stylesheet already records for the parked place. That line rests on `--muted`; **this line's
-  // title rests on `--brown-dark`**, so a shared keyframe would have snapped it.
-  const key = /@keyframes step-note-flash-word \{[\s\S]*?\n\}/.exec(css);
-  assert.ok(key, "★ the step warning's flash has no keyframes");
+  // ⚠️⚠️ AND THE LAST KEYFRAME IS THE COLOUR THE ELEMENT RESTS AT, or it flashes and then SNAPS — the trap
+  // this stylesheet already records for the parked place.
   const token = (n) => (css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
-  assert.equal((key[0].match(/\d+%, 100% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
-    token("brown-dark"), "⚠️ the flash ends somewhere other than where the words rest, so they snap");
-  assert.equal((key[0].match(/0%, \d+% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
-    token("red"), "⚠️ and it opens on her red — 'on for a second' means already on");
+  const block = (name) => {
+    const m = new RegExp(`@keyframes ${name} \\{[\\s\\S]*?\\n\\}`).exec(css);
+    assert.ok(m, `★ the step warning has no @keyframes ${name}`);
+    return m[0];
+  };
+  const line = block("step-note-flash");
+  const word = block("step-note-flash-word");
+  assert.equal((line.match(/\d+%, 100% \{ background-color: (#[0-9a-fA-F]{6});/) || [])[1],
+    token("brown-soft"), "⚠️ the line's flash ends somewhere other than where the line rests, so it snaps");
+  assert.equal((word.match(/\d+%, 100% \{ color: (#[0-9a-fA-F]{6}); \}/) || [])[1],
+    token("brown-dark"), "⚠️ the words' flash ends somewhere other than where they rest, so they snap");
+  assert.equal((line.match(/0%, \d+% \{ background-color: (#[0-9a-fA-F]{6});/) || [])[1],
+    token("red"), "⚠️ and the line OPENS on her red — 'on for a second' means already on");
+
+  // ⚠️⚠️⚠️ AND THIS IS THE ASSERTION THAT WAS MISSING, AND IT IS THE WHOLE OF v462. **A FLASH MUST MOVE
+  // SOMETHING AN EYE CAN SEE.** The first version blinked `#c0392b` against `#a84322` — **the animation ran
+  // perfectly, and the two colours are 1.10:1 apart, because both are reds.** Her words: __"all warning so
+  // far not flashing"__. ⭐ **She was right and the animation was running.** ⭐ A contrast floor is the only
+  // thing that can tell "it flashes" from "it is a colour".
+  const lum = (hex) => {
+    const [r, g, b] = hex.match(/[0-9a-fA-F]{2}/g).map((h) => parseInt(h, 16) / 255);
+    const f = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const apart = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const flashColour = (line.match(/0%, \d+% \{ background-color: (#[0-9a-fA-F]{6});/) || [])[1];
+  const restColour = token("brown-soft");
+  const seen = apart(flashColour, restColour);
+  assert.ok(seen >= 3,
+    `⚠️⚠️ the flash moves the background from ${flashColour} to ${restColour} — only ${seen.toFixed(2)}:1 `
+    + `apart, so on a phone it reads as one colour and the warning does not blink at all`);
 });

@@ -2187,17 +2187,55 @@ button.prod-next.off::after { content: ""; }
    this line's title rests on `--brown-dark`, so a shared keyframe would have snapped it. ⚠️ Both ends are
    written as LITERALS for the same reason the ones above are — a `var()`-to-`var()` pair does not
    interpolate in every engine, and the red silently never arrived. */
+@keyframes step-note-flash {
+  /* ⚠️ THE LINE FILLS WITH RED AND EMPTIES AGAIN — a whole-line pulse, not a tint on a word. */
+  0%, 67% { background-color: #c0392b; color: #fbf4ea; }     /* --red, and the page's own light ground */
+  70%, 100% { background-color: #fbe7dc; color: #3b2a1f; }   /* --brown-soft and --ink, where it rests */
+}
 @keyframes step-note-flash-word {
-  0%, 67% { color: #c0392b; }     /* --red, held for a full second */
-  70%, 100% { color: #a84322; }   /* --brown-dark, where this line rests */
+  0%, 67% { color: #fbf4ea; }     /* the words go to the light ground while the red is behind them */
+  70%, 100% { color: #a84322; }   /* --brown-dark, where this line's title rests */
+}
+/* ⚠️⚠️ A FLASH HAS TO MOVE SOMETHING A EYE CAN SEE, AND THAT IS THE WHOLE OF v462. Her words:
+   __"all warning so far not flashing"__ — ⭐ **and she was right, though the animation WAS running.**
+   ⚠️⚠️ MEASURED: the first version blinked `#c0392b` against `#a84322`, **and those two are 1.10:1 apart —
+   both are reds.** The animation ran perfectly and did nothing anybody could see. ⭐⭐ **This is the SAME
+   shape as v426's fault, in the same file: a colour that was checked and a colour that arrived are not the
+   same thing.** ⭐ The parked place gets away with a hue-only blink because it goes **grey-brown -> red**;
+   this line's title is ALREADY red, so a red-to-red blink was invisible.
+   ⭐ So the pulse is now a whole-line one: **the pale line fills with red, the words go light, and it comes
+   back** — and every end value is the colour that element actually rests at, or it would snap. */
+/* ★★★ AND THE REASON UNDER A MISSING BOX WEARS THE SAME LINE, AND BLINKS WITH IT (v462). Her report:
+   __"i skip step 3, go for step4, not warning"__ — ⚠️ **the warning WAS there: the box turned red with its
+   reason underneath it.** ⭐ **But it was a still red edge, a screen up from the button she had just
+   pressed, and nothing about it moved.** ⭐⭐ **So her two reports are one report: the warnings exist and do
+   not catch the eye.** ⚠️ It had no styling of its own at all before this — a bare paragraph — so there was
+   nothing for a flash to return TO; it wears the step line's own clothes now, **which also means it can use
+   the very same keyframes and there is still only ONE blink in this shop.** */
+.field-note {
+  background: var(--brown-soft);
+  color: var(--ink);
+  border-left: 3px solid var(--red);
+  border-radius: 0 8px 8px 0;
+  padding: 7px 10px;
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.field-note.flash { animation: step-note-flash var(--flash-blink) ease-out var(--flash-blinks); }
+@media (prefers-reduced-motion: reduce) {
+  .field-note.flash { animation: none; background-color: var(--red); color: #fbf4ea; }
+}
+.step-note.flash {
+  animation: step-note-flash var(--flash-blink) ease-out var(--flash-blinks);
 }
 .step-note.flash strong {
   animation: step-note-flash-word var(--flash-blink) ease-out var(--flash-blinks);
 }
-/* ⚠️ AND FOR A READER WHO ASKED FOR LESS MOVEMENT, the words simply stand out red while the class is on —
-   the same bargain the parked place makes. ⚠️ The class still comes off on `flashRow`'s TIMER and never on
-   `animationend`, because `animation: none` fires no such event and the mark would stay on for good (v423's
-   fault, recorded in this file). */
+/* ⚠️ AND FOR A READER WHO ASKED FOR LESS MOVEMENT, the line simply STAYS filled while the class is on — the
+   same bargain the parked place makes, and still unmissable. ⚠️ The class comes off on `flashRow`'s TIMER
+   and never on `animationend`, because `animation: none` fires no such event (v423's fault). */
 @media (prefers-reduced-motion: reduce) {
-  .step-note.flash strong { animation: none; color: var(--red); }
+  .step-note.flash { animation: none; background-color: var(--red); color: #fbf4ea; }
+  .step-note.flash strong { animation: none; color: #fbf4ea; }
 }
