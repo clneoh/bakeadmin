@@ -250,9 +250,19 @@ test("store render() fills the page without crashing", () => {
   // ★ IT IS THE BAKE DAY, NOT THE DELIVERY DAY (v407). ⚠️ This line pinned the old word for two
   // versions, so it is asserted against the dictionary rather than a second copy of the English:
   // the page and this test cannot drift apart again.
-  assert.ok(chosen.children[0].text.startsWith(`${STORE.en.calChosen.split("%1")[0].trim()} `),
-    "the calendar names the chosen day in the shop's own words");
-  assert.ok(!/delivery day/i.test(chosen.children[0].text),
+  //
+  // ⚠️⚠️ AND SINCE v434 THE LINE HAS TWO FORMS, which is why this is no longer a `startsWith`.
+  // A day chosen FOR him says so; a day he chose himself reads plainly. **This test taps nothing,
+  // so it draws the first of the two** — and the check is written so it holds for either, by
+  // splitting the dictionary's own wording on its `%1` and demanding the day sits in that gap.
+  // ⭐ A prefix check would have been silently vacuous for the new line, whose `%1` comes FIRST.
+  const said = chosen.children[0].text;
+  const fits = [STORE.en.calChosen, STORE.en.calChosenFor].some((f) => {
+    const [before, after] = f.split("%1");
+    return said.startsWith(before) && said.endsWith(after);
+  });
+  assert.ok(fits, `the calendar names the chosen day in the shop's own words (it reads: ${JSON.stringify(said)})`);
+  assert.ok(!/delivery day/i.test(said),
     "and never calls it a delivery day — a customer collecting his own bread did not recognise the day");
   // "First OPEN", not simply "first": a bake day whose cutoff has gone by is
   // dropped from the customer's calendar entirely, so the day named is the first
@@ -260,7 +270,11 @@ test("store render() fills the page without crashing", () => {
   // true whatever hour the suite happens to run at — at 21:17 on the day before a
   // 18:00 cutoff, tomorrow is already shut.
   const firstOpen = upcomingDates(CONFIG).find((d) => isOpen(CONFIG, d));
-  assert.ok(chosen.children[0].text.endsWith(fmtDay(firstOpen)), "the first open day is the one named");
+  // ⚠️ "The one NAMED", not "the one it ends with" (v434): the two forms of the line put the day in
+  // different places — `Your bake day: <day>` puts it last, and `<day> was selected for you…` puts
+  // it first, because that is how she wrote the sentence. **What has to hold for both is that the
+  // first open day is the day it names.**
+  assert.ok(chosen.children[0].text.includes(fmtDay(firstOpen)), "the first open day is the one named");
 
   assert.equal(registry["order-btn"].disabled, true); // empty cart
 });
@@ -2528,6 +2542,67 @@ test("★★ step 3 turns green only after he says HOW he is getting it", () => 
     document.getElementById("whatsapp-input").value = "";
     render();
   }
+});
+
+test("★★ step 1 turns green only after HE picks the day — never for the day the page picks for him", () => {
+  // Her words: __"the 1,2,3 in the same round ball"__. ⚠️⚠️ **The three circles were not the same,
+  // and this is why.** The first open bake day is chosen FOR him on load — deliberately, so an
+  // order can never be blocked by forgetting to tap — and step 1 read *"is a day selected"* as
+  // *"he has chosen"*. ⭐ **That is the exact fault step 3 above was built to avoid**, in its own
+  // words: *"the page does not credit him with a choice he did not make."*
+  //
+  // ⭐ So all three circles now ask one question each, and every one of them is about HIM. On load
+  // they carry a single colour, and each turns green as he does it — which is both what she asked
+  // for and what this shop has always meant by the colour.
+  const done1 = () => String(registry["step1"].className).split(/\s+/).includes("done");
+  const find = (want) => {
+    let hit = null;
+    (function walk(n) {
+      for (const c of n.children || []) {
+        const cls = String(c.className || "");
+        if (c.tagName === "BUTTON" && cls.includes("cal-cell") && cls.includes(want)) hit = hit || c;
+        walk(c);
+      }
+    })(registry["dates"]);
+    return hit;
+  };
+
+  // ⭐ AND THE PAGE SAYS SO. Her words: __"say, moonday was selectted for you, just click on the
+  // prefered date if you have one"__ — ⚠️ **a page that does something on his behalf has to say so,
+  // which is better than only stopping the circle claiming it.**
+  const chosenLine = () => {
+    let hit = null;
+    (function walk(n) {
+      for (const c of n.children || []) {
+        if (String(c.className || "").includes("cal-chosen")) hit = hit || c;
+        walk(c);
+      }
+    })(registry["dates"]);
+    // ⚠️ THE TEXT LIVES IN THE CHILDREN on this shim — `sub()` builds a text node rather than
+    // setting `textContent` — which is how the neighbouring test reads it too.
+    return hit ? (hit.children || []).map((c) => String((c && (c.text || c.textContent)) || "")).join("") : "";
+  };
+
+  render();
+  // ⚠️ THE VACUITY GUARD, and it is load-bearing here: with no open day drawn there is nothing the
+  // rule could be about, and every assertion below would pass over an empty calendar.
+  const picked = find("sel");
+  assert.ok(picked, "the calendar drew no chosen day, so this proves nothing");
+  assert.ok(String(picked.className).includes("tappable"), "the chosen day is not one he can tap");
+  assert.equal(done1(), false,
+    "★ the first circle was green before he had touched anything — the day was picked for him");
+  assert.match(chosenLine(), /was selected for you/,
+    `★ the day was picked for him and the page never said so (it reads: ${JSON.stringify(chosenLine())})`);
+  assert.match(chosenLine(), /click the date you prefer/,
+    "the line does not invite him to choose a different day");
+
+  picked._listeners.click[0]();
+  assert.equal(done1(), true, "⭑ his own tap on a day, and only that, turns the first circle green");
+  // ⚠️ AND THE LINE STOPS OFFERING WHAT HE HAS NOW DONE — it is his own day, said plainly.
+  assert.match(chosenLine(), /Your chosen bake day/,
+    `★ the line still says the day was chosen for him after he chose one himself (it reads: ${JSON.stringify(chosenLine())})`);
+  assert.doesNotMatch(chosenLine(), /was selected for you/,
+    "the page still tells him a day was picked for him after he picked his own");
 });
 
 test("★ nothing is lit on the places until a tap, and the card says what to do", () => {

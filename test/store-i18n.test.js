@@ -27,6 +27,27 @@ test("the three languages share exactly the same key set", () => {
   }
 });
 
+test("★★ the three-step line names the steps and their order, in every language", () => {
+  // Her words: __"should inprove to 'You'll do the 3 steps ordering 1, 2,3.'"__ — and she chose the
+  // wording that keeps the reassuring half: *"and then we take over"*.
+  // ⚠️ IT IS ONE SENTENCE IN THREE LANGUAGES, so it can only be pinned as a RULE, not as a line of
+  // English: every translation must say there are three, and must name them in order.
+  assert.equal(STORE.en.stepsLede, "You'll do the 3 steps, ordering 1, 2, 3 — and then we take over.",
+    "the English line is not the one she chose");
+  for (const l of LANGS) {
+    const s = STORE[l].stepsLede;
+    assert.ok(s, `${l} has no three-step line`);
+    // ⚠️⚠️ THE RUN "1, 2, 3" IS MATCHED AS A SEQUENCE, never as three separate `indexOf` lookups.
+    // ⭐ **The first version of this assertion did look them up separately and it was WRONG** — in
+    // *"You'll do the 3 steps, ordering 1, 2, 3"* the **"3"** it found was the COUNT ("3 steps"),
+    // which sits before the "1", so a perfectly correct line failed. **A digit is not a position:
+    // the thing to pin is the ordered run.** The separator differs per language (a comma here, a
+    // Chinese enumeration comma there), so the gap is any short run of non-digits.
+    assert.match(s, /1\D{1,3}2\D{1,3}3/,
+      `${l}.stepsLede does not name the steps 1, 2, 3 in that order: ${JSON.stringify(s)}`);
+  }
+});
+
 test("every tagged string on the store page exists in all three languages", () => {
   for (const attr of ["data-i18n", "data-i18n-html", "data-i18n-ph"]) {
     const used = tagKeys(attr);

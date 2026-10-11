@@ -28,6 +28,15 @@ import { codeNameOk, evaluate, findCode, minimumOf, normCode, normalizeCode, off
 // fmtDay and the "Bake days" info card read by the visitor's language so a
 // calendar cell or that row shows in 中文/BM too.
 const DAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// ★★ THE SAME DAYS, SPELLED OUT — FOR A DATE, NOT FOR A LIST (v434). Her words: __"Your bake day:
+// Mon, 12 Oct — change to 'your choosen bake day: Monday. 12 Oct'"__. ⚠️⚠️ **THE TWO ARE NOT THE SAME
+// JOB, WHICH IS WHY THERE ARE NOW TWO ARRAYS AND NOT ONE.** `fmtDay` names **one date in a sentence**
+// ("Monday, 12 Oct"), where the day is the whole point and 'Mon' reads as a shorthand. `dayName`
+// builds **a standing list of the days she bakes** ("Bake days: Mon, Wed, Fri" — the card she picked
+// off a sheet the same day), where 'Monday, Wednesday, Friday' is a mouthful on a phone and the
+// abbreviation is exactly right. **One array would have silently undone that card.**
+// ⚠️ THE OTHER TWO LANGUAGES NEED NOTHING: 周一 and Isnin are already the full forms.
+const DAYS_EN_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const MONTHS_ZH = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
@@ -627,7 +636,9 @@ export function fmtDay(d) {
   const lang = loadLang();
   if (lang === "zh") return `${MONTHS_ZH[d.getMonth()]}${d.getDate()}日 ${DAYS_ZH[d.getDay()]}`;
   if (lang === "ms") return `${DAYS_MS[d.getDay()]}, ${d.getDate()} ${MONTHS_MS[d.getMonth()]}`;
-  return `${DAYS_EN[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
+  // ⚠️ THE FULL DAY NAME (v434) — this names ONE DATE in a sentence, which is a different job from
+  // the short list of days she bakes. See DAYS_EN_FULL for why the two are kept apart.
+  return `${DAYS_EN_FULL[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
 }
 
 export function dateKey(d) {
@@ -1397,6 +1408,14 @@ export function render() {
   const lineNotes = new Map();
   const noteOpen = new Set();
   let selected = null;
+  // ★★ HAS THE CUSTOMER ACTUALLY CHOSEN A DAY? (v434) ⚠️⚠️ NOT THE SAME QUESTION AS "is a day
+  // selected" — the first open day is chosen FOR him on load, deliberately, so that ordering can
+  // never be blocked by forgetting to tap. But the step circle means **"you have done this"**, and
+  // crediting him with a choice the page made is the same fault step 3 was already built to avoid
+  // (`fulfilled._picked` — *"the page does not credit him with a choice he did not make"*).
+  // ⭐ Her words: __"the 1,2,3 in the same round ball"__ — and on load they now all are, because
+  // none of them claims anything he has not done.
+  let dayPicked = false;
   let avail = null;      // { 'YYYY-MM-DD': slots_left } — day-level, for the calendar
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
@@ -2063,6 +2082,7 @@ export function render() {
                   fmtDay(new Date(`${selected}T00:00:00`))));
               }
               selected = next.key;   // the day they were just offered
+              dayPicked = true;      // and they asked for it, so step 1 is theirs (v434)
               rerender();            // the card in front of them becomes orderable
               revealCalendar();      // and the calendar above names the chosen day
             },
@@ -2370,7 +2390,10 @@ export function render() {
     // first open day is chosen for them, as it always has been — ordering can
     // never be blocked by forgetting to tap, and the line below says which day
     // that is instead of leaving it to a highlight alone.
-    if (selected && !specs.some((s) => dateKey(s.date) === selected && !s.soldOut)) selected = null;
+    // ⚠️ AND THE DAY THEY PICKED GOING IS THE DAY THEY HAVE NOT PICKED (v434): the choice they made
+    // is no longer on offer, so the next open day stands in FOR them — and step 1 does not claim
+    // they chose it. Everything else about this fallback is untouched.
+    if (selected && !specs.some((s) => dateKey(s.date) === selected && !s.soldOut)) { selected = null; dayPicked = false; }
     if (!selected) selected = open.length ? dateKey(open[0].date) : null;
 
     if (!specs.length) {
@@ -2456,7 +2479,7 @@ export function render() {
           class: cls + (open ? " tappable" : "") + (named ? " tippable" : ""),
           onclick: () => {
             if (named) tipIso = iso;
-            if (open) selected = iso;
+            if (open) { selected = iso; dayPicked = true; } // their own tap (v434)
             // Rebuild the grid + menu together so the chosen day and the quantities
             // the customer chose are re-checked against this day's availability.
             rerender();
@@ -2480,9 +2503,16 @@ export function render() {
           ...cells,
           // The bands go in last and sit behind the cells (see .occ-paper).
           ...occBands(weeks, todayK)),
-        // The day they picked, in words — the one line under the grid.
+        // The day, in words — the one line under the grid. ⚠️ AND IT SAYS WHICH OF THE TWO
+        // HAPPENED (v434). A day is always chosen here, but only sometimes BY HIM: the first open
+        // day is picked for him so an order is never blocked by forgetting to tap, and **a page
+        // that does something on his behalf has to say so** rather than let a highlight imply he
+        // did it. Her words: __"say, moonday was selectted for you, just click on the prefered
+        // date if you have one"__.
         el("p", { class: "cal-chosen" },
-          sub(t("calChosen"), fmtDay(new Date(`${selected}T00:00:00`)))),
+          dayPicked
+            ? sub(t("calChosen"), fmtDay(new Date(`${selected}T00:00:00`)))
+            : sub(t("calChosenFor"), fmtDay(new Date(`${selected}T00:00:00`)))),
         // Any day in this window with no room left, named rather than guessed at.
         soldOutLine(specs, new Set(weeks.flat()))));
   };
@@ -2522,7 +2552,12 @@ export function render() {
     // above now keep: **the page does not credit him with a choice he did not make.**
     const fulfilled = document.getElementById("fulfillment");
     const done = [
-      !!selected,
+      // ⚠️⚠️ `dayPicked`, NOT `!!selected` (v434). A day is ALWAYS selected — the first open one is
+      // chosen for him on load — so asking "is a day selected" turned this circle green before he
+      // had touched anything, and it was the only one of the three that did. **All three now read
+      // the same question: has HE done this?** That is the rule step 3 below already kept, and the
+      // reason the three circles carry one colour until he starts.
+      dayPicked,
       cart.size > 0,
       !!(fulfilled && fulfilled._picked === true)
         && !!(nameEl && String(nameEl.value || "").trim())

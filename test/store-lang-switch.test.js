@@ -132,8 +132,17 @@ test("switching to 中文 repaints in place and keeps the basket", () => {
   assert.equal(localStorage.getItem("siteLang"), "zh", "the choice is remembered on the device");
   assert.match(chosenDayText(), /月/, "the chosen day reads in Chinese (month name)");
   assert.match(chosenDayText(), /日/, "…and the day");
-  assert.ok(chosenDayText().startsWith("你的烘焙日："),
-    "…under a Chinese label, and it is the BAKE day — 派送日 named it after what happens to it for some customers, which is not what it is (v407)");
+  // ⚠️ TWO FORMS SINCE v434, and this is asserted against the DICTIONARY so the page and the test
+  // cannot drift: a day chosen FOR him says so, and a day he chose himself reads plainly. Nothing is
+  // tapped here, so it is the first. ⭐ A `startsWith` on one wording would now be silently wrong —
+  // the new line begins with the day, not with the label.
+  const zhSaid = chosenDayText();
+  const fitsZh = [STORE.zh.calChosen, STORE.zh.calChosenFor].some((f) => {
+    const [before, after] = f.split("%1");
+    return zhSaid.startsWith(before) && zhSaid.endsWith(after);
+  });
+  assert.ok(fitsZh,
+    `…under a Chinese label, and it is the BAKE day — 派送日 named it after what happens to it for some customers, which is not what it is (v407). It reads: ${JSON.stringify(zhSaid)}`);
   assert.equal(fetchCount, before, "the switch re-reads nothing over the network");
 });
 

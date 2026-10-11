@@ -88,7 +88,7 @@ const en = {
   ansInTime: "You're in time",
   ansNext: "The next day you can have bread is %1.",
   ansBy: "Order before %2 on %1, and it's yours.",
-  stepsLede: "You'll do three things — and then we take over.",
+  stepsLede: "You'll do the 3 steps, ordering 1, 2, 3 — and then we take over.",
 
   sPickDay: "Pick a bake day",
   sWhat: "What would you like?",
@@ -163,7 +163,7 @@ const en = {
   // follow, click to choose point, without click it should not highlight"__. ⚠️ Nothing is
   // highlighted until the customer TAPS a place, so without this line the card would open on a
   // list of names with no sign that any of them is a thing to press.
-  pointPick: "Tap the place you will collect from.",
+  pointPick: "Tap to choose which Self collection Point you want to collect your orders from.",
   addressLabel: "Delivery address",
   addressPh: "Street, area, Penang…",
   // The door pin (v197). Optional in every sense: with no pin the order goes
@@ -220,7 +220,14 @@ const en = {
   onlyLeft: "Only %1 left",
   noDates: "No upcoming bake days right now — check back soon.",
   noOpenDates: "All upcoming bake days are full right now — check back soon.",
-  calChosen: "Your bake day: %1",
+  calChosen: "Your chosen bake day: %1",
+  // ★★ SAID OUT LOUD WHEN THE DAY WAS CHOSEN FOR HIM (v434). Her words: __"say, moonday was
+  // selectted for you, just click on the prefered date if you have one"__ — ⚠️ **and it is the
+  // better answer than simply not lighting the step:** the page picked his day for him so an order
+  // is never blocked by forgetting to tap, and a page that does something on his behalf must SAY
+  // so. It is the same rule this shop has followed since v405 — it ANSWERS the question rather
+  // than stating the rules.
+  calChosenFor: "%1 was selected for you — just click the date you prefer, if you have one.",
   calPrev: "Earlier weeks",
   calNext: "Later weeks",
 
@@ -406,7 +413,7 @@ const zh = {
   ansInTime: "还来得及",
   ansNext: "下一次可以取面包的日子是 %1。",
   ansBy: "在 %1 %2 之前下单，就是你的了。",
-  stepsLede: "你只需做三件事 — 剩下的交给我们。",
+  stepsLede: "你会做 3 个步骤，按 1、2、3 的顺序 — 剩下的交给我们。",
   madeToOrder: "按订单新鲜制作 · %1 截单（烘焙日前一天）",
   sPickDay: "选择烘焙日",
   sWhat: "想吃什么？",
@@ -437,7 +444,7 @@ const zh = {
   kitchenSub: "Sungai Ara, Bayan Lepas — 我们烘焙的地方",
   pointSub: "自取点 — 订单确认后，我们会通知你确切地点和时间",
   pointMin: "需消费 RM%1 或以上 — 你目前 RM%2",
-  pointPick: "请点选你要取货的地点。",
+  pointPick: "请点选你要取货的自取点。",
   addressLabel: "派送地址",
   addressPh: "街道、区域、槟城…",
   pinHint: "不标记也可以 — 司机会去上面填写的地址，大多数房子这样就可以了。只有当地址本身找不到你家门时才需要标记：公寓楼、保安亭。无论是否标记，都请把座号和门牌号码写在上面。",
@@ -472,7 +479,8 @@ const zh = {
   onlyLeft: "仅剩 %1 份",
   noDates: "目前没有可预订的烘焙日 — 请稍后再来。",
   noOpenDates: "近期派送均已满 — 请稍后再来。",
-  calChosen: "你的烘焙日：%1",
+  calChosen: "你选择的烘焙日：%1",
+  calChosenFor: "%1 已为你选好 — 如果你有偏好的日期，点一下就好。",
   calPrev: "前一周",
   calNext: "下一周",
 
@@ -599,7 +607,7 @@ const ms = {
   ansInTime: "Anda masih sempat",
   ansNext: "Hari seterusnya anda boleh dapat roti ialah %1.",
   ansBy: "Pesan sebelum %2 pada %1, dan ia milik anda.",
-  stepsLede: "Anda buat tiga perkara — selebihnya kami uruskan.",
+  stepsLede: "Anda akan buat 3 langkah, mengikut susunan 1, 2, 3 — selebihnya kami uruskan.",
   madeToOrder: "Dibuat mengikut tempahan · tutup %1 sehari sebelum",
   sPickDay: "Pilih hari membakar",
   sWhat: "Apa yang anda mahu?",
@@ -630,7 +638,7 @@ const ms = {
   kitchenSub: "Sungai Ara, Bayan Lepas — tempat kami membakar",
   pointSub: "Titik ambilan — kami maklumkan lokasi dan masa yang tepat selepas pesanan anda disahkan",
   pointMin: "Perlu bakul RM%1 ke atas — bakul anda RM%2 setakat ini",
-  pointPick: "Tekan tempat anda akan ambil.",
+  pointPick: "Tekan untuk pilih titik ambilan yang anda mahu ambil pesanan anda.",
   addressLabel: "Alamat penghantaran",
   addressPh: "Jalan, kawasan, Pulau Pinang…",
   pinHint: "Tak tandakan pun boleh — kurier akan pergi ke alamat yang anda taip, dan itu memadai untuk kebanyakan rumah. Tanda hanya jika alamat itu sahaja tidak cukup untuk mencari pintu anda: blok kondominium, pondok pengawal. Sama ada anda tandakan atau tidak, tulis nombor blok dan unit di ruang alamat di atas.",
@@ -665,7 +673,8 @@ const ms = {
   onlyLeft: "Tinggal %1 sahaja",
   noDates: "Tiada hari membakar buat masa ini — sila datang lagi nanti.",
   noOpenDates: "Semua hari membakar akan datang penuh buat masa ini — sila datang lagi nanti.",
-  calChosen: "Hari membakar anda: %1",
+  calChosen: "Hari membakar pilihan anda: %1",
+  calChosenFor: "%1 dipilih untuk anda — klik tarikh yang anda mahu, jika ada.",
   calPrev: "Minggu sebelumnya",
   calNext: "Minggu seterusnya",
 

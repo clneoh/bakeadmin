@@ -926,7 +926,13 @@ button.prod-next.off::after { content: ""; }
 #point-list[hidden] { display: none; }
 /* ⚠️ 12px is the FLOOR for the explanation, not a starting point — the whole fault being
    repaired is a line the customer did not read. */
-.seg-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink); }
+/* ★★ AND IT IS A TITLE (v434). Her words: __"Self collect should be in bigger font being a title"__.
+   ⚠️ It was 14px sans — the size of body text — while every other card heading on this shop is
+   `.card-title`: 16px, 700, in the serif. ⭐ **So it does not get a new size invented for it; it wears
+   the shop's own title**, which is why 'Self collect' and 'Courier delivery' now read exactly like
+   'Focaccia' on the menu above them. ⚠️ The serif is the whole of the change in voice: a heading on
+   this page is set in it, and nothing else is. The active colour below is untouched. */
+.seg-name { display: block; font-weight: 700; font-size: 16px; font-family: var(--serif); color: var(--ink); }
 .seg-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 .seg-btn.active .seg-name { color: var(--brown-dark); }
 /* ⚠️ THE PLACES INSIDE THE SELF-COLLECT CARD (v410). Inset and quiet, so the card still reads as
@@ -1862,8 +1868,19 @@ button.prod-next.off::after { content: ""; }
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--brown-dark);
+  /* ★★ BLACK, NOT THE BRAND RED (v434). Her words: __"area should not be in red, put as black"__.
+     ⚠️ **A heading is not a warning and not a link.** The terracotta is this shop's voice for things
+     the customer must NOTICE — an instruction to tap, a day that is closed. An area name is a
+     signpost on a list: it says where the places below it are, and it is not asking for anything.
+     ⭐ In `--ink` it still leads its group without competing with the places, which stay the loudest
+     thing here. */
+  color: var(--ink);
+  /* ★★ AND IT IS WRITTEN AS SHE WRITES IT (v434). Her words: __"why capitalised the AREA?"__ — ⚠️
+     **The capitals were never in the data: the name is stored as 'Penang Island' and this line drew
+     it as 'PENANG ISLAND'.** ⭐ `text-transform` is a display style, and it was shouting a word that
+     is only a signpost. Removed — **the small size, the weight and the wide spacing are what keep it
+     a quiet heading**, and none of them needed the capitals to work. */
+  text-transform: none;
 }
 .point-area + .point-opt { margin-top: 6px; }
 /* ★★ THE INSTRUCTION OVER THE PLACES (v415). It stands exactly where the highlight used to sit the

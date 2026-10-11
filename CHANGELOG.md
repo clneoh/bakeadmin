@@ -1,8 +1,46 @@
-# Jienluv2bake — change history (v54 → v433)
+# Jienluv2bake — change history (v54 → v434)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v434, THE SHOP'S THREE STEPS: ONE COLOUR, AND THE PAGE SAYS WHICH DAY IT PICKED FOR HIM (no database step).**
+
+**Your words:** __"the 1,2,3 in the same round ball"__ — and then, better than my own answer: __"say, moonday was selectted for you, just click on the prefered date if you have one"__
+
+**You were right, and your second sentence is the fix.**
+
+**1. THE THREE CIRCLES WERE NOT THE SAME, AND THE REASON MATTERED.** The circles were already the same round ball — same size, same shape. **The first one was a different COLOUR**, because the shop picks the next bake day **for** the customer so an order is never lost by forgetting to tap — and step 1 counted that as a step **he** had done. On a fresh page, before he had touched anything, circle 1 was green.
+
+**2. ★★ YOUR OWN RULE, AND THE CODE ALREADY SAID IT.** Step 3 was built the other way on purpose, and its comment reads: **"the page does not credit him with a choice he did not make."** Circle 1 was breaking exactly that rule.
+
+**3. ★ SO ALL THREE NOW ASK ONE QUESTION EACH: has HE done this?** On load they carry a single colour. Each turns green as he does it — and that is the whole point of the colour, from the day it was built.
+
+**4. ★★ AND THEN YOU SAID THE BETTER THING: TELL HIM.** Under the calendar the page now says:
+
+**"Mon, 12 Oct was selected for you — just click the date you prefer, if you have one."**
+
+⚠️ Because a page that does something on his behalf must **say so**, rather than let a highlight imply he did it. The day he picks himself reads plainly — **"Your bake day: Wed, 14 Oct"** — and the circle turns green at the same moment.
+
+**5. ★ AND THE LINE ABOVE THE STEPS, IN YOUR WORDS:**
+
+**"You'll do the 3 steps, ordering 1, 2, 3 — and then we take over."**
+
+**6. ⚠️ THE THREE LANGUAGES ALL CHANGED TOGETHER**, and the Chinese and Bahasa are my own wording rather than a native speaker's — counted as still owed, the same as the rest of this session's shop sentences.
+
+**7. ★ AND THE DAY IS NOW SPELLED OUT.** You asked for **"Your chosen bake day: Monday, 12 Oct"** — so the label changed, and every date in the shop now reads in full rather than as "Mon": **"The next day you can have bread is Monday, 12 Oct."**, "Order before 6pm on Sunday, 11 Oct", "Next available: Monday, 7 Sep". **A date spelled out is easier to read at a glance than a shorthand.**
+
+**8. ⚠️ ONE PLACE DELIBERATELY KEPT SHORT, AND TELL ME IF YOU DISAGREE.** The **"Bake days: Mon, Wed, Fri"** card is still abbreviated. That card is a standing list of the days you bake, not one date — and **"Bake days: Monday, Wednesday, Friday"** is a mouthful on a phone, where it would push onto a second line. ⭐ It is also the card you picked off the sheet an hour earlier. **Say the word and it becomes full too.**
+
+**9. ★ AND THE COLLECTION AREA NAMES ARE BLACK NOW — AND NO LONGER SHOUTED.** You spotted **"PENANG ISLAND"** and **"PRAI"** in the brand red. On this shop that colour is the voice for things a customer has to **notice** — an instruction to tap, a day that is closed. **An area name asks for nothing; it is a signpost saying where the places under it are.** In black it still leads its group, without competing with the places themselves.
+
+**And then you asked why it was capitalised.** ⚠️ **The capitals were never in your data: the area is stored as "Penang Island" and the page was drawing it in capitals.** So it now reads the way you write it — **"Penang Island", "Prai"** — and the small size, the weight and the wide spacing are what keep it a quiet heading, none of which needed capitals to work.
+
+**10. ★ AND YOUR SENTENCE REPLACED THE OLD INSTRUCTION UNDER IT:** **"Tap to choose which Self collection Point you want to collect your orders from."** ⚠️ It is **still in the red**, because you named the area for the colour and gave the instruction new words — say the word if you want that line black too.
+
+**11. ★ AND "SELF COLLECT" IS A TITLE NOW.** You said it should be **"bigger font being a title"**. ⚠️ The answer was not a new size invented for it: every other heading on your shop is the same one — **16px, bold, in the serif** — so it now wears exactly that, and reads like the product names above it. **"Courier delivery" gets it too**, being the other half of the same choice.
+
+**Measured:** tests **3,307 → 3,309**. **No database step.**
 
 **12 Oct 2026 — engine v433, THE SHOP'S "BAKE DAYS / ORDER BY" CARD NOW READS AS TWO SENTENCES (no database step).**
 

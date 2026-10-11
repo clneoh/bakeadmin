@@ -202,7 +202,13 @@ test("the calendar draws every bake day and names the chosen one", () => {
   // ★ "Your BAKE day", not "Your delivery day" (v407). ⚠️ The old wording named the day after
   // what happens to it for SOME orders, and the customer it misled was the one COLLECTING his own
   // bread — he did not recognise the day he was choosing.
-  assert.equal(chosenText(), `Your bake day: ${fmtDay(dates[2])}`);
+  // ⚠️ THE LINE HAS TWO FORMS SINCE v434. A day chosen FOR him is said to be chosen for him —
+  // the page picks the first open day so an order is never blocked by forgetting to tap, and a page
+  // that acts on his behalf must say so. **Nothing is tapped before this assertion, so it is that
+  // form.** The tapped form (`Your bake day: …`) is asserted in store.test.js, where a real cell is
+  // pressed.
+  assert.equal(chosenText(),
+    `${fmtDay(dates[2])} was selected for you — just click the date you prefer, if you have one.`);
 });
 
 test("a refresh that depletes an ordered item fixes the cart, bar and tells the customer", async () => {
