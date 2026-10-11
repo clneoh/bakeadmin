@@ -2032,6 +2032,12 @@ export function render() {
         // problem instead of preventing it** — and that is not what she asked for.
         // ⭐ AND A LOCKED CONTROL THAT EXPLAINS ITSELF is the whole of her instruction: "dont allow" is the
         // lock, "a message" is why it is not a dead end.
+        // ★★★ STEP 1 BEFORE STEP 2 IS ALLOWED (v454) — THE LINE THAT MAKES IT A GATE, NOT A MESSAGE.
+        // ⚠️⚠️ HER WORDS, AND SHE ASKED TWICE: __"complet step1 before step2 is allow, and so forth"__ ·
+        // __"dont allow and a message inform about why"__ · __"ask user to tap on the bake day to confirm
+        // it"__. ⭐ **`sayStepFirst` was defined and NEVER CALLED** — the helper, the three message pairs and
+        // the comment above all sat here as DEAD CODE, which is why the shop behaved as if none of it existed.
+        if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
         const q = Math.min(cap, (cart.get(p.name) || 0) + 1);
         cart.set(p.name, q);
         qtyLabel.textContent = String(q);

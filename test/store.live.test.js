@@ -139,6 +139,23 @@ const title = () => head().children.find((c) => c.className === "cal-title").chi
 // unpaged window, index 2 in the first row of the window one week on.
 const todayIndex = () => cells().findIndex((c) => String(c.className).includes("today"));
 
+
+// ★★★ THE STEP LOCK IS REAL (v454): step 2 does not open until HE has tapped a bake day.
+function tapDay() {
+  let hit = null;
+  const walk = (n) => {
+    if (!n || hit || !n.children) return;
+    for (const c of n.children) {
+      if (c && c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { hit = c; return; }
+      walk(c);
+    }
+  };
+  for (const k of Object.keys(registry)) walk(registry[k]);
+  if (hit && hit._listeners && hit._listeners.click) hit._listeners.click[0]();
+  return !!hit;
+}
+
 test("live refresh updates sold-out days but never clears what the customer typed", async () => {
   await settle(); await settle(); await settle(); // boot + first live refresh
 

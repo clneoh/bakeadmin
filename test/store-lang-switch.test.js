@@ -100,8 +100,25 @@ const ONE_FOCACCIA = `RM${CONFIG.products[0].price}.00`;
 const btn = () => registry["order-btn"];
 const barTotal = () => registry["bar-total"].textContent;
 const litPill = () => pills.find((p) => p.classList.contains("is-on"));
-const firstCardStepper = () =>
-  registry["menu"].children[0].children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+// ★★★ THE DAY IS TAPPED FIRST (v454). The step lock refuses step 2 until HE has tapped a bake day — and
+// ⚠️⚠️ MEASURED, NOT GUESSED: the shop's calendar holds its heads and NO day cells at the point a test
+// renders; the days arrive with the dates. **So the tap belongs here, immediately before the basket is
+// touched, and not after `render()`** — a tap placed earlier lands on nothing and every test below fails
+// for the wrong reason. Same fix as test/store-address.test.js.
+const firstCardStepper = () => {
+  let day = null;
+  const walk = (n) => {
+    if (!n || day || !n.children) return;
+    for (const c of n.children) {
+      if (c && c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { day = c; return; }
+      walk(c);
+    }
+  };
+  for (const k of Object.keys(registry)) walk(registry[k]);
+  if (day && day._listeners && day._listeners.click) day._listeners.click[0]();
+  return registry["menu"].children[0].children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+};
 // The line under the delivery calendar naming the chosen day — the one piece of
 // date text outside the grid, and so the one to read for a language switch.
 const chosenDayText = () =>

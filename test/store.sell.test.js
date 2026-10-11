@@ -122,6 +122,7 @@ function cell(day) {
 const tapDay = (day) => cell(day)._listeners.click[0]();
 const menuNote = () => registry["menu-note"];
 
+
 test("a product not sold on the chosen day is not on the menu at all", async () => {
   await settle();
 
@@ -239,6 +240,10 @@ test("with something in the basket the Next available line is a label, not a con
   render();
   await settle();
 
+  // ★★★ THE DAY IS TAPPED FIRST (v454). The step lock refuses step 2 until HE has tapped a bake day, and
+  // ⚠️ this test read the basket as already populated — **a state the lock no longer allows without that
+  // tap.** ⭐ It uses this file's OWN `tapDay(2)` — Wed 2 Sep, the day the comment below already means.
+  tapDay(2);
   // Something in the basket for the day already chosen (the Sandwich sells every
   // delivery day, so Wednesday takes it).
   const plus = walk(cardFor("Sandwich")).find((n) => n.tagName === "BUTTON" && n.children[0].text === "+");

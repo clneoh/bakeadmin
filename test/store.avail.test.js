@@ -100,6 +100,23 @@ globalThis.fetch = async (url) => ({
 
 const { daySpecs, fmtDay, resolveDates, dateKey: appDateKey } = await import("../store/app.js");
 
+
+// ★★★ THE STEP LOCK IS REAL (v454): step 2 does not open until HE has tapped a bake day.
+function tapDay() {
+  let hit = null;
+  const walk = (n) => {
+    if (!n || hit || !n.children) return;
+    for (const c of n.children) {
+      if (c && c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { hit = c; return; }
+      walk(c);
+    }
+  };
+  for (const k of Object.keys(registry)) walk(registry[k]);
+  if (hit && hit._listeners && hit._listeners.click) hit._listeners.click[0]();
+  return !!hit;
+}
+
 test("resolveDates uses the published dates, including one outside the weekday pattern", () => {
   const today = new Date();
   const thu = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (((4 - today.getDay()) + 7) % 7 || 7));
@@ -225,6 +242,11 @@ test("live availability renders: full day struck out, first open day chosen, per
   assert.equal(sStamp.children[0].text, "Sold out");
   assert.equal(bodyOf(s).children[1].children[2].disabled, true, "sold-out product's + button is disabled");
 
+  // ★★★ THE DAY IS TAPPED FIRST (v454). The step lock refuses step 2 until HE has tapped a bake day, so
+  // the four presses below were being refused outright and the count read `''` instead of `2`.
+  // ⭐ `tapDay()` taps **the day the page chose for him** — this test's own subject, "the first open day
+  // chosen" — which is exactly the tap a customer would make.
+  tapDay();
   // Stepper caps at the remaining count: Focaccia has 2 left.
   const fStep = bodyOf(f).children[1];
   const fQty = fStep.children[1];

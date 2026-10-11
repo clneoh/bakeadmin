@@ -396,6 +396,7 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   // ── an item, and nothing else: HIS NAME FIRST, because the page asks it first
   const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
     .children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0](); // "+"
   await press();
   assert.match(said(), /add your name/i,
@@ -415,10 +416,29 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
     "★ the way was not asked for, though v416 makes it the one thing an order must carry");
 });
 
+
+// ★★★ THE STEP LOCK IS REAL NOW (v454), so a test that adds to the basket must FIRST do what a customer
+// must: tap a bake day. ⚠️⚠️ **I wrote this lock once before and REVERTED it when exactly these tests failed
+// — which is why the feature stayed unbuilt and she had to ask twice.** ⭐ **The tests move with the
+// behaviour; the behaviour does not move back for the tests.**
+function tapDay() {
+  let hit = null;
+  (function walk(n) {
+    for (const c of (n.children || [])) {
+      if (c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { hit = hit || c; return; }
+      walk(c);
+    }
+  })(registry["dates"]);
+  if (hit && hit._listeners && hit._listeners.click) hit._listeners.click[0]();
+  return !!hit;
+}
+
 test("order click sends one order and shows the success card (regression: no throw on the date label)", async () => {
   // Add one item via the first menu card's "+" button (drives the real cart).
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0](); // "+" — cart now has 1 item
   assert.equal(registry["order-btn"].disabled, false, "cart non-empty enables the button");
 
@@ -540,6 +560,7 @@ test("parseVia normalises the ?via= digits on a referral link", () => {
 test("an order placed from a ?via= link is stamped with the referrer", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0](); // "+" — cart now has 1 item
 
   let posted = null;
@@ -570,6 +591,7 @@ test("an order placed from a ?via= link is stamped with the referrer", async () 
 test("an order without a ?via= link carries no referral stamp", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0]();
 
   let posted = null;
@@ -595,6 +617,7 @@ test("order click without a WhatsApp number blocks the order (no POST)", async (
   // The number is compulsory — confirmations + the payment QR go over WhatsApp.
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0]();
   assert.equal(registry["order-btn"].disabled, false);
 
@@ -621,6 +644,7 @@ test("order click without a WhatsApp number blocks the order (no POST)", async (
 test("order click sanitizes a +60-style phone to wa.me digits", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0]();
 
   let posted = null;
@@ -1097,6 +1121,7 @@ test("an order at the last stage shows the whole journey green — nothing flash
 test("order that reaches the app shows received WITHOUT opening WhatsApp (no popup)", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0](); // "+" — cart has 1 item
   assert.equal(registry["order-btn"].disabled, false);
 
@@ -1135,6 +1160,7 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
 test("WhatsApp only opens as a fallback when the order could NOT reach the app", async () => {
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0]();
   assert.equal(registry["order-btn"].disabled, false);
 
@@ -1498,12 +1524,14 @@ async function withProducts(list, fn) {
   const realFetch = globalThis.fetch;
   CONFIG.products = list;
   render();
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   try {
     return await fn(list);
   } finally {
     CONFIG.products = real;
     globalThis.fetch = realFetch;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 }
 
@@ -1850,6 +1878,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
   try {
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0 }];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.deepEqual(rows(), ["Our kitchen", "Farlim, Air Itam"],
       "with no kitchen marked, the invented row is kept — it is how the bakery has always been collectable");
     // ⚠️ WHAT IS ASSERTED IS WHAT THE ORDER CARRIES, not the highlight. The chosen place rides on
@@ -1865,6 +1894,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
 
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true }];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.deepEqual(rows(), ["Farlim, Air Itam"],
       "marking a kitchen lists it once, under her own name, and drops the invented row");
     // ★★ AND IT WEARS THE KITCHEN'S OWN LINE (v408). ⚠️ v407 dropped the invented row without
@@ -1880,6 +1910,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0, isKitchen: true },
       { id: "pt_2", name: "Chai Leng Park, Prai", minOrderRM: 0 }];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.deepEqual(rows(), ["Farlim, Air Itam", "Chai Leng Park, Prai"],
       "and the other Points are still offered beside it");
 
@@ -1901,6 +1932,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     // highlight used to. It is inside the folded body, so it shows with the card.
     document.getElementById("fulfillment")._open = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(registry["point-pick"].hidden, false,
       "the card tells him the list is a thing to press");
     registry["point-list"].children[0]._listeners.click[0]();
@@ -1910,6 +1942,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
   } finally {
     CONFIG.points = real;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -1957,6 +1990,7 @@ test("a code on the order is said again above Place order", () => {
     CONFIG.promoCodes = realCodes;
     registry["promo-input"].value = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2031,6 +2065,7 @@ test("★ the shop draws her area headings, and the places under them", () => {
       { name: "Prai", depth: 0, points: ["pt_prai"] },
     ];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.deepEqual(kids(), [
       "Somewhere unfiled",       // no heading — a real place, drawn first, never hidden
       "# Penang Island",         // the heading, drawn once
@@ -2045,6 +2080,7 @@ test("★ the shop draws her area headings, and the places under them", () => {
     CONFIG.pointAreas = [];
     CONFIG.points = [{ id: "pt_1", name: "Farlim, Air Itam", minOrderRM: 0 }];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.deepEqual(kids(), ["Our kitchen", "Farlim, Air Itam"],
       "with no areas the page is byte-for-byte the page it was before this version");
 
@@ -2054,6 +2090,7 @@ test("★ the shop draws her area headings, and the places under them", () => {
       { id: "pt_2", name: "Hidden", minOrderRM: 0 },
     ];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     // ⚠️ Found by NAME, not by position: with no kitchen marked the invented "Our kitchen" row is
     // drawn first, so `children[0]` is that row and an index would have asserted about the wrong
     // Point entirely.
@@ -2071,6 +2108,7 @@ test("★ the shop draws her area headings, and the places under them", () => {
     CONFIG.points = realP;
     CONFIG.pointAreas = realA;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2098,6 +2136,7 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
     // change is deliberate and hers.
     document.getElementById("fulfillment")._value = "courier";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.ok(document.getElementById("point-list").children.length >= 2,
       "the places are still built, so opening the card again costs nothing");
     assert.equal(document.getElementById("point-list").hidden, true,
@@ -2106,6 +2145,7 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
     document.getElementById("fulfillment")._pointId = "";
     document.getElementById("fulfillment")._open = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     const places = document.getElementById("point-list").children;
     assert.ok(places.length >= 2, "the places are drawn inside the collect card");
     // ⚠️ WHERE THEY LIVE — inside the self-collect card rather than in a box of their own — is
@@ -2123,11 +2163,13 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
     // exactly this path (refreshPointList), not at the moment of a tap, so it is checked here too.
     document.getElementById("fulfillment")._value = "courier";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(document.getElementById("point-list").children.length, places.length,
       "and it is still true after a repaint");
   } finally {
     CONFIG.points = realP;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2152,6 +2194,7 @@ function withAsks(fn) {
   } finally {
     CONFIG.points = realP;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 }
 const askScrim = () => document.getElementById("ask-scrim");
@@ -2163,6 +2206,7 @@ function chooseFarlim() {
   const wrap = document.getElementById("fulfillment");
   wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
   render();
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   const places = document.getElementById("point-list").children;
   assert.ok(places.length >= 2, "the places were not drawn, so this proves nothing");
   places[1]._listeners.click[0]();
@@ -2223,6 +2267,7 @@ test("★ a change that costs him NOTHING is not interrupted", () => {
     const wrap = document.getElementById("fulfillment");
     wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
 
     wrap._pressWay("courier");
     assert.equal(askScrim().hidden, true, "★ he was asked to confirm a change that took nothing from him");
@@ -2242,6 +2287,7 @@ test("★★ a PLACE tap is the same change, so it asks too — and the place tr
     wrap._value = "courier"; wrap._open = "courier"; wrap._pointId = ""; wrap._pointName = "";
     addr.value = "12 Jalan Bunga, 10450 Penang";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
 
     const places = document.getElementById("point-list").children;
     assert.ok(places.length >= 2, "the places were not drawn, so this proves nothing");
@@ -2277,6 +2323,7 @@ test("★★ the Self collect card arrives FOLDED, and its own line is the handl
     document.getElementById("fulfillment")._value = "collect";
     document.getElementById("fulfillment")._open = null;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     const wrap = document.getElementById("fulfillment");
     const list = document.getElementById("point-list");
     const caret = () => document.getElementById("collect-caret").textContent;
@@ -2292,11 +2339,13 @@ test("★★ the Self collect card arrives FOLDED, and its own line is the handl
     // screen does with the state the tap produces.
     wrap._open = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(list.hidden, false, "an open card shows its places");
     assert.equal(caret(), "▾", "and the caret turns over");
 
     wrap._open = null;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(list.hidden, true, "and a shut one shows none");
 
     // ⭐⭐ AND THE COURIER SHUTS IT WHATEVER THE FLAG SAYS. This is the "hole" itself — an open card
@@ -2305,12 +2354,14 @@ test("★★ the Self collect card arrives FOLDED, and its own line is the handl
     wrap._open = "collect";
     wrap._value = "courier";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(list.hidden, true,
       "choosing the courier means nothing white is left standing open, however the fold was left");
   } finally {
     CONFIG.points = realP;
     document.getElementById("fulfillment")._open = null;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2327,6 +2378,7 @@ test("★★ a Point's own description replaces the shop's standard line", () =>
       { id: "pt_d", name: "Kitchen with words", minOrderRM: 0, isKitchen: false, description: "Where we bake, behind the school" },
     ];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     const list = document.getElementById("point-list");
     // ⚠️ Read off `children`, because this shim has no element-level `querySelectorAll`.
     const subs = list.children
@@ -2344,6 +2396,7 @@ test("★★ a Point's own description replaces the shop's standard line", () =>
   } finally {
     CONFIG.points = realP;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2396,6 +2449,7 @@ test("★★ a Place served on only some days SAYS SO — and every Place still 
       { id: "pt_c", name: "Two days", minOrderRM: 0, days: [1, 3] },
     ];
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     const list = document.getElementById("point-list");
     // ⚠️ Read off `children`, because this shim has no element-level `querySelectorAll`.
     const rows = list.children.filter((b) => String(b.className).includes("point-opt"));
@@ -2416,6 +2470,7 @@ test("★★ a Place served on only some days SAYS SO — and every Place still 
   } finally {
     CONFIG.points = realP;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2426,6 +2481,7 @@ function withBakeDay(day, points) {
   CONFIG.deliveryDays = [day];
   CONFIG.points = points;
   render();
+  tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   return () => { CONFIG.points = realP; CONFIG.deliveryDays = realDays; render(); };
 }
 
@@ -2694,6 +2750,7 @@ test("★★ a place chosen for one day, on a day it is not served, falls back t
     wrap._pointId = "pt_mon";     // as if he had chosen it before the day moved
     wrap._pointName = "Monday place";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(wrap._pointId, "",
       "⚠️ the choice is dropped rather than kept — the kitchen is always there");
   } finally { restore(); }
@@ -2714,12 +2771,14 @@ test("★★ the courier's address arrives with the courier, not as a box under 
     wrap._value = "collect";
     wrap._open = null;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(addr.hidden, true, "⚠️ on arrival the address is shut in the courier card");
     assert.equal(caret("courier"), "▸", "and the courier says so");
 
     wrap._open = "courier";
     wrap._value = "courier";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(addr.hidden, false, "opening the courier card shows its address");
     assert.equal(caret("courier"), "▾", "the caret turns over");
     assert.equal(list.hidden, true, "⭐ and the collect card's places are shut behind it");
@@ -2728,6 +2787,7 @@ test("★★ the courier's address arrives with the courier, not as a box under 
     wrap._open = "collect";
     wrap._value = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(list.hidden, false, "the collect card opens");
     assert.equal(addr.hidden, true, "and the courier's address shuts with it");
     assert.equal(caret("courier"), "▸");
@@ -2736,6 +2796,7 @@ test("★★ the courier's address arrives with the courier, not as a box under 
     document.getElementById("fulfillment")._open = null;
     document.getElementById("fulfillment")._value = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2763,6 +2824,7 @@ test("★★ step 3 turns green only after he says HOW he is getting it", () => 
 
     wrap._picked = false;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     type("name-input", "Aunty Bee");
     type("whatsapp-input", "60123456789");
     assert.equal(wrap._value, "collect",
@@ -2772,6 +2834,7 @@ test("★★ step 3 turns green only after he says HOW he is getting it", () => 
 
     wrap._picked = true;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(done3(), true, "⭑ the choice, and only the choice, turns the third circle green");
 
     // ⚠️ AND IT IS STILL HIS NAME AND NUMBER THAT CARRY THE REST — the new condition sits BESIDE
@@ -2779,6 +2842,7 @@ test("★★ step 3 turns green only after he says HOW he is getting it", () => 
     wrap._picked = true;
     document.getElementById("name-input").value = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(done3(), false, "picking a way with no name is still not done");
   } finally {
     CONFIG.points = realP;
@@ -2786,6 +2850,7 @@ test("★★ step 3 turns green only after he says HOW he is getting it", () => 
     document.getElementById("name-input").value = "";
     document.getElementById("whatsapp-input").value = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2872,6 +2937,7 @@ test("★ nothing is lit on the places until a tap, and the card says what to do
     wrap._pointId = "";
     wrap._open = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
 
     const rows = registry["point-list"].children;
     assert.ok(rows.some((b) => String(b.className).includes("point-area")), "a heading is on the list");
@@ -2903,6 +2969,7 @@ test("★ nothing is lit on the places until a tap, and the card says what to do
     document.getElementById("fulfillment")._pointId = "";
     document.getElementById("fulfillment")._open = null;
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 
@@ -2917,19 +2984,23 @@ test("★★ neither way is chosen on arrival, and the question says it is one t
   try {
     wrap._value = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(wrap._value, "", "nothing is chosen");
     assert.equal(prompt.hidden, false, "so the question carries a line saying it is one to answer");
 
     wrap._value = "collect";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(prompt.hidden, true, "and the line goes the moment he picks one");
 
     wrap._value = "courier";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
     assert.equal(prompt.hidden, true, "whichever one he picks");
   } finally {
     wrap._value = "";
     render();
+    tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   }
 });
 

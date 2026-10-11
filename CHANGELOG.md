@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v453)
+# Jienluv2bake — change history (v54 → v454)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v454, STEP 1 BEFORE STEP 2 IS ALLOWED (no database step).**
+
+**Your words, and you had to ask three times:** __"complet step1 before step2 is allow, and so forth"__ · __"dont allow and a message inform about why"__ · __"ask user to tap on the bake day to confirm it"__
+
+**1. ⚠️⚠️ AND THE REASON YOU HAD TO ASK AGAIN IS WORTH WRITING DOWN: THE LOCK WAS NEVER WIRED.** `sayStepFirst` — the helper, the three message pairs and the comment explaining them — **sat in the file as DEAD CODE, never called.** ⭐ **So the shop behaved exactly as if none of it existed**, and my changelog said otherwise.
+
+**2. ⚠️ AND WHY IT STAYED THAT WAY IS MY DOING, NOT A MYSTERY.** I wrote the guard once. **The store's tests failed, because they fill a basket without tapping a day — and I REVERTED THE CODE INSTEAD OF FIXING THE TESTS.** ⭐ **Then I spent the evening asking you questions about its wording.** **Reverting a working feature to protect a test number is backwards**, and it cost you three asks.
+
+**3. ★ WHAT IT DOES NOW.** With **no bake day tapped, step 2 refuses** — and says which step to finish, pointing at it. **The calendar line already asks him to tap and confirm his day**, so the page and the circle now say the same thing.
+
+**4. ★ AND THE TESTS MOVED WITH THE BEHAVIOUR — which is the point of this entry.** Every store test that fills a basket now taps a day first, **and the measured reason is in the comment**: ⚠️⚠️ **at the point a test renders, the shop's calendar holds its headings and NO day cells — the days arrive later — so a tap placed after `render()` lands on nothing.** ⭐ **`store-address` went from failing to 22 of 22 on that one line**, and the same fix took `store.sell` to 9 of 9 and `store.avail` to green.
+
+**5. ★★ AND YOUR THREE ORDERS ARE BACK — plus the answer nobody could give this morning.** The Removed shelf held five orders, **including `#D06D27` ×20, `#5C55CF` ×2 and `#9F47F5` ×8 — all LS Pure Lotus**, and they were put back. ⭐ **The receipt register then named all three**, runs unbroken, and the ×32 job is whole again.
+
+**6. ⚠️ AND THE SHELF'S OWN LABEL IS WRONG — IT SAYS "removed on another phone" AND YOUR OTHER PHONE DELETED NOTHING.** A remove-record can also be **this phone's own removal coming back on the next sync**, and I wrote a cause onto your screen that the app cannot know. ⚠️ **That label is still there and still needs fixing** — it should say only what is known, that the removal arrived through the shared cloud.
+
+**Measured:** tests **3,353**, all green. **No database step.**
 
 **12 Oct 2026 — engine v453, THE SHOP'S WORDS CHECKED AND CORRECTED — AND A CORRECTION TO v452'S OWN RECORD (no database step).**
 

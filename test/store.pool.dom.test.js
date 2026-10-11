@@ -176,6 +176,23 @@ const markedDays = () => cells()
   .filter((c) => c.className.includes("avail"))
   .map((c) => c.children[0].children[0].text);
 
+
+// ★★★ THE STEP LOCK IS REAL (v454): step 2 does not open until HE has tapped a bake day.
+function tapDay() {
+  let hit = null;
+  const walk = (n) => {
+    if (!n || hit || !n.children) return;
+    for (const c of n.children) {
+      if (c && c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { hit = c; return; }
+      walk(c);
+    }
+  };
+  for (const k of Object.keys(registry)) walk(registry[k]);
+  if (hit && hit._listeners && hit._listeners.click) hit._listeners.click[0]();
+  return !!hit;
+}
+
 test("value pack is gated on a near delivery date and freed on a far one", async () => {
   // Only the two published dates are offered; the near one is chosen for them.
   assert.deepEqual(markedDays(), ["2", "17"]);

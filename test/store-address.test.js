@@ -148,6 +148,23 @@ const HIT = { lat: 5.4166, lng: 100.3311, label: "12, Jalan Bunga, Penang" };
 
 // ── the flow ───────────────────────────────────────────────────────────────
 
+
+// ★★★ THE STEP LOCK IS REAL (v454): step 2 does not open until HE has tapped a bake day.
+function tapDay() {
+  let hit = null;
+  const walk = (n) => {
+    if (!n || hit || !n.children) return;
+    for (const c of n.children) {
+      if (c && c.tagName === "BUTTON" && String(c.className || "").includes("cal-cell")
+        && String(c.className || "").includes("tappable")) { hit = c; return; }
+      walk(c);
+    }
+  };
+  for (const k of Object.keys(registry)) walk(registry[k]);
+  if (hit && hit._listeners && hit._listeners.click) hit._listeners.click[0]();
+  return !!hit;
+}
+
 test("typing an address brings up the doors — and tapping one does NOT open the map", async (t) => {
   begin(t);
   reply = { ok: true, places: [{ ...HIT }] };
@@ -553,6 +570,12 @@ test("the pin and the address the order carries agree — or the pin does not tr
     return { ok: true, status: 200, json: async () => [] };
   };
   try {
+    // ★★★ THE DAY IS TAPPED HERE, NOT AFTER `render()` (v454). ⚠️⚠️ MEASURED, NOT GUESSED: at the point a
+    // test renders, the shop's calendar holds its heads and **no day cells at all** — they arrive with the
+    // dates — so a tap placed earlier lands on nothing and the whole test fails for the wrong reason.
+    // ⭐ **The step lock refuses step 2 until HE has tapped a bake day, so this must sit immediately before
+    // the basket is touched.**
+    tapDay();
     // The shop's own menu, driven the way test/store.test.js drives it.
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
