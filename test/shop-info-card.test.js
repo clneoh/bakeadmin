@@ -106,6 +106,25 @@ test("★★ what a bake day IS, said under the step that asks him to pick one",
     "the explanation is not tagged, so it would never be translated");
 });
 
+test("★★ the shop's one question arrives SHUT, and it covers the screen", () => {
+  // Her words: __"a confirmation pop up, asking whether customer intend to change to delivery?"__ —
+  // ⚠️⚠️ **the first time this page asks anything at all**, so its opening state is worth pinning:
+  // `#confirm-msg` is a notice with no buttons and the privacy sheet is read-only, and a question
+  // that arrived OPEN would sit over the shop from the moment the page loads.
+  // ⭐ Asserted from the MARKUP because the shop's test shims carry no static HTML — the one line
+  // that stands in for it in store.test.js says so.
+  const m = /<div class="ask-scrim" id="ask-scrim"([^>]*)>/.exec(html);
+  assert.ok(m, "the shop's question has gone from the page");
+  assert.match(m[1], /\bhidden\b/, "★ the question does not arrive shut — it would cover the shop on load");
+  // ⚠️ `display: flex` with no `[hidden]` rule would beat the attribute, so both halves are pinned.
+  const css = readFileSync(new URL("../store/app.css", import.meta.url), "utf8");
+  assert.match(css, /\.ask-scrim\[hidden\]\s*\{\s*display:\s*none/,
+    "★ the question is a flex box with no [hidden] rule, so `hidden` cannot shut it");
+  // ⭐ AND IT IS A DIALOG, not a banner: two buttons, and the quiet one first.
+  assert.match(html, /id="ask-keep"[\s\S]{0,120}id="ask-change"/,
+    "the two answers are not in the shop's order — quiet first, primary last");
+});
+
 test("★★ the Place order button wears the FOURTH step's number", () => {
   // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__
   // ⚠️ **The page numbered 1, 2, 3 and its fourth step wore no number at all** — so the line above

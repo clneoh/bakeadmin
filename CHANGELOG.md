@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v435)
+# Jienluv2bake — change history (v54 → v436)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v436, THE SHOP ASKS BEFORE IT CHANGES HOW YOU GET YOUR ORDER (no database step).**
+
+**Your question:** __"if customer select a collection point, and also keying in her address in courier delivery section, how the software will handle?"__ — then __"as both also can be collapsed"__ — then __"a confirmation pop up, asking whether customer intend to change to delivery? the point selection will be cleared, vise versa"__.
+
+**1. ★★ FIRST, A CORRECTION I OWE YOU, BECAUSE I TOLD YOU SOMETHING THAT IS NOT TRUE.** I said a courier order left holding a collection point would **send a driver to the point's pin**. ⚠️ **It does not.** The app checks the way an order is going **the moment the order arrives**, and a delivery order is stored with no point at all. So the run, the label and the customer's own tracking page were never wrong — **I read the part that uses the point without reading the part that stores it.** Your shop was not damaged.
+
+**2. ★ BUT YOUR QUESTION FOUND SOMETHING REAL, AND IT IS ABOUT THE CUSTOMER, NOT THE DATA.** If he picks a point and then switches to **Courier delivery**, the page used to leave **the point still selected**, with nothing saying whether it still applied to his order. **That is the same fault you caught once before: the page answering its own question.**
+
+**3. ★ SO NOW IT ASKS.** Changing how he gets his order — either way — **asks first**, and the question names what is about to be lost:
+
+> **Change to delivery?**
+> You chose to collect from **Bayan Lepas, Sg Ara, Desa Ria, Lengkok Kenari.** Changing to delivery clears that, and we bring your order to your address instead.
+> **Keep Self collect**  ·  **Yes, change**
+
+**4. ★ AND NOTHING MOVES UNTIL HE ANSWERS.** "Keep" leaves everything exactly as it was — his place, his way, and his third step circle. ⚠️ **The circle is only greened when the change is actually made**, which is the rule this picker has followed since v415: *the page does not credit him with a choice he did not make.*
+
+**5. ⚠️ IT ASKS ONLY WHEN SOMETHING WOULD ACTUALLY BE CLEARED.** If he has chosen nothing, tapping the other way just switches — no question. A question that guards nothing is noise on a page that already carries several things to read.
+
+**6. ★ A TAP ON A COLLECTION POINT IS THE SAME CHANGE, SO IT ASKS TOO.** Tapping a place **is** choosing to collect, so it takes the same road — and **the place is only chosen once he answers**. ⚠️ Choosing it first would have left a customer who pressed "keep delivery" holding a place on a delivery order.
+
+**7. ⚠️ AND TWO SMALL THINGS FOUND BY LOOKING AT THE SCREEN.** The point's own name ends with a full stop, so quoting it inside the question printed **"…Kenari.. Changing to delivery"** — the stop is trimmed **where it is quoted**, never in your record. And the two buttons came out one label wrapped across two lines, so they now stack instead of squeezing.
+
+**8. ⚠️ AND ONE WORD OF YOURS, TAKEN:** __"not change to collecting but change to self colect"__ — **"Self collect" is what your shop calls it**, on the button he taps and everywhere else, so the question uses your word rather than a third name for one thing.
+
+**Measured:** tests **3,314 → 3,320**. **No database step.**
 
 **12 Oct 2026 — engine v435, FOUR STEPS NOT THREE, AND THE PAGE FINALLY SAYS WHAT A BAKE DAY IS (no database step).**
 

@@ -60,6 +60,31 @@ test("★★ what a bake day IS, said once, in every language", () => {
     "the English explanation is not the one she approved");
 });
 
+test("★★ the question before a change calls it SELF COLLECT, in the shop's own word", () => {
+  // Her correction, sent while this was being built: __"not change to collecting but change to self
+  // colect"__ — ⚠️ **and she is right.** "Self collect" is the word this shop uses for that way: it
+  // is on the button he taps, and in the places card, and in every other sentence on the page.
+  // ⭐ A question that renamed it would give one thing three names — the fault this page has been
+  // corrected for before, when it called the bake day a delivery day.
+  //
+  // ⚠️ IT IS CHECKED IN EVERY LANGUAGE, because a rename is exactly the change that lands in one
+  // dictionary and not the others.
+  for (const l of LANGS) {
+    for (const k of ["askToCollectTitle", "askToCollectBody", "askToDeliveryNo"]) {
+      assert.ok(STORE[l][k], `${l}.${k} is missing`);
+    }
+    assert.doesNotMatch(STORE[l].askToCollectTitle, /collecting/i,
+      `${l}: the question says "collecting" where the shop says "Self collect"`);
+    assert.doesNotMatch(STORE[l].askToDeliveryNo, /collecting/i,
+      `${l}: the button that keeps collecting does not use the shop's word for it`);
+  }
+  // ⭐ AND THE HOUSE TERM IS CAPITALISED THE WAY SHE WRITES IT — "Self collection Point".
+  // ⚠️ NOT ANCHORED TO THE END: the sentence carries on past the term ("…Points instead"), and an
+  // `$` here failed on perfectly correct wording — a test's own mistake, not the shop's.
+  assert.match(STORE.en.askToCollectBody, /Self collection Points?\b/,
+    "the question does not use the shop's own term for a point");
+});
+
 test("★★ the four-step line names the steps and their order, in every language", () => {
   // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__ —
   // ⚠️ **the page numbered 1, 2, 3 and then its fourth step was the Place order button, which wore

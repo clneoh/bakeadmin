@@ -146,6 +146,31 @@ const en = {
   fulfilPick: "Tap to choose one.",
   fulfilAskTitle: "Please say how you will get your order.",
   fulfilAskBody: "Tap Self collect or Courier delivery above — that is how we know whether to have it ready for you or send it to your door.",
+  // ★★ THE QUESTION BEFORE A CUSTOMER CHANGES HOW HE GETS HIS ORDER (v436). Her words: __"a
+  // confirmation pop up, asking whether customer intend to change to delivery? the point selection
+  // will be cleared, vise versa"__ — ⭐ the same rule she gave me for bake days at v404: **taking
+  // something away always asks first.**
+  //
+  // ⚠️⚠️ THE BODY NAMES WHAT IS LOST, and that is the whole point rather than good manners: a
+  // customer who switched to delivery was left looking at a collection point still selected, with
+  // nothing saying whether it still applied to his order — the fault v416 named, of a page that has
+  // answered its own question. ⭐ A change that names what it takes away is the same shape as a
+  // refund that names the money it leaves.
+  //
+  // ⭐ AND IT IS ASKED ONLY WHEN SOMETHING WOULD ACTUALLY BE CLEARED — a question guarding nothing
+  // is noise on a page that already carries four notices a customer must read.
+  //
+  // ⚠️ `%1` is the point he picked, and it is only ever filled for the delivery question. The
+  // collecting question names no place, because there is nothing to name: he typed an address, and
+  // the menu of points is the thing he is going back to.
+  askToDeliveryTitle: "Change to delivery?",
+  askToDeliveryBody: "You chose to collect from %1. Changing to delivery clears that, and we bring your order to your address instead.",
+  askToDeliveryYes: "Yes, change",
+  askToDeliveryNo: "Keep Self collect",
+  askToCollectTitle: "Change to Self collect?",
+  askToCollectBody: "You gave us a delivery address. Changing to Self collect clears it, and you collect from one of our Self collection Points instead.",
+  askToCollectYes: "Yes, change",
+  askToCollectNo: "Keep delivery",
   selfCollect: "Self collect",
   // ★★ EACH WAY SAYS WHAT IT IS (v407). Her customer chose a courier when he wanted to
   // collect: the page named both ways and explained neither. ⚠️ BOTH LINES ARE TRUE BEFORE
@@ -454,6 +479,14 @@ const zh = {
   fulfilPick: "请点选一个。",
   fulfilAskTitle: "请选择取货方式。",
   fulfilAskBody: "请在上面点选「自取」或「外送」— 我们才知道要为你准备好，还是送到你家。",
+  askToDeliveryTitle: "改为外送？",
+  askToDeliveryBody: "你选了在 %1 自取。改为外送会取消这个选择，我们改为送到你的地址。",
+  askToDeliveryYes: "好的，改吧",
+  askToDeliveryNo: "保留自取",
+  askToCollectTitle: "改为自取？",
+  askToCollectBody: "你已填写外送地址。改为自取会取消它，你改为到我们的自取点取货。",
+  askToCollectYes: "好的，改吧",
+  askToCollectNo: "保留外送",
   selfCollect: "自取",
   selfCollectSub: "你自己来拿 — 不收送货运费。我们会通知你确切的取货点和取货时段，通常是烘焙日的傍晚。",
   courier: "外送",
@@ -649,6 +682,14 @@ const ms = {
   fulfilPick: "Tekan untuk pilih satu.",
   fulfilAskTitle: "Sila beritahu bagaimana anda mahu ambil tempahan.",
   fulfilAskBody: "Tekan Ambil sendiri atau Penghantaran kurier di atas — itu caranya kami tahu sama ada perlu disediakan untuk anda atau dihantar ke pintu anda.",
+  askToDeliveryTitle: "Tukar kepada penghantaran?",
+  askToDeliveryBody: "Anda memilih untuk ambil di %1. Menukar kepada penghantaran membatalkan pilihan itu, dan kami hantar ke alamat anda.",
+  askToDeliveryYes: "Ya, tukar",
+  askToDeliveryNo: "Kekal ambil sendiri",
+  askToCollectTitle: "Tukar kepada ambil sendiri?",
+  askToCollectBody: "Anda telah beri alamat penghantaran. Menukar kepada ambil sendiri membatalkannya, dan anda ambil di salah satu titik ambilan kami.",
+  askToCollectYes: "Ya, tukar",
+  askToCollectNo: "Kekal penghantaran",
   selfCollect: "Ambil sendiri",
   selfCollectSub: "Anda datang ambil sendiri — tiada caj penghantaran. Kami maklumkan titik ambilan dan waktu ambilan yang tepat; biasanya lewat petang pada hari membakar.",
   courier: "Penghantaran kurier",

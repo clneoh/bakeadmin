@@ -1463,6 +1463,64 @@ button.prod-next.off::after { content: ""; }
   color: #8a5a12;
 }
 .confirm-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+/* ★★ THE SHOP'S ONE QUESTION (v436). Her words: __"a confirmation pop up, asking whether customer
+   intend to change to delivery? the point selection will be cleared, vise versa"__.
+   ⚠️⚠️ IT IS THE FIRST TIME THIS PAGE ASKS ANYTHING. `#confirm-msg` is a NOTICE — a banner with no
+   buttons — and the privacy sheet is read-only, so nothing here has ever needed an answer before.
+   ⭐ It covers the whole screen on purpose: a question that can be answered by a press on the page
+   behind it is not a question. */
+.ask-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(59, 42, 31, .45);
+}
+/* ⚠️⚠️ THIS LINE IS LOAD-BEARING: `display: flex` above BEATS the `hidden` attribute, so without
+   it the question would sit over the shop from the moment the page loads. */
+.ask-scrim[hidden] { display: none; }
+.ask-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 16px 14px;
+}
+.ask-card .confirm-title { font-size: 16px; }
+.ask-card .confirm-body { margin: 4px 0 0; line-height: 1.45; }
+/* ⚠️ THEY WRAP RATHER THAN SQUEEZE (v436). Measured on a 317px viewport: two labels side by side at
+   `flex: 1` came out 109px wide and 59px tall — **the primary over two lines**. ⭐ The minimum is
+   what makes them stack on a narrow phone and sit side by side when there is room, which is the fix
+   the admin's own `.btn-row` needed for the same reason. */
+.ask-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+/* ⚠️⚠️ THE SHOP'S `.btn` IS SCOPED TO THE ORDER BAR — it is written `.order-bar .btn`, so a button
+   carrying `btn` in this card would be COMPLETELY UNSTYLED, and every test would still pass. These
+   two carry their own look; the primary is the bar's own terracotta pill, so the question and the
+   button it leads to read as one page. ⭐ The quiet one comes FIRST and the primary LAST — the
+   order this shop already puts two choices in.
+   ⚠️ 44px, above the 36px floor the app holds itself to, because this one is answered on a phone
+   with a thumb. */
+.ask-actions button {
+  flex: 1 1 140px;
+  appearance: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 14px;
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ask-quiet { background: var(--surface); color: var(--brown-dark); border: 1px solid var(--line); }
+.ask-go { border: none; background: linear-gradient(180deg, #d0632f, #b34a28); color: #fff; }
+.ask-actions button:active { transform: translateY(1px) scale(.99); }
+.ask-actions button:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
 .confirm-body { margin: 2px 0; font-size: 13px; font-weight: 500; }
 .confirm-sub { margin: 6px 0 0; font-size: 12px; font-weight: 600; opacity: .85; }
 .confirm-link {

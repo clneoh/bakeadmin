@@ -24,6 +24,10 @@ function createEl(tag) {
   node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
+    // ⚠️ A REAL DOM NODE'S `hidden` DEFAULTS TO `false`, and this shim had none at all (v436) — so a
+    // freshly made element answered `undefined`, and "is the question up?" was neither true nor
+    // false. ⭐ Anything asserted before the view has touched it has to start from the real default.
+    hidden: false,
     scrollTop: 0, _listeners: {},
     classList: {
       add(c) { const a = classes(); if (!a.includes(c)) { a.push(c); setClasses(a); } },
@@ -54,7 +58,20 @@ function createEl(tag) {
       return null;
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
-    removeEventListener() {},
+    // ⚠️⚠️ A REAL `removeEventListener` — it was a NO-OP until v436, and a no-op cannot express what
+    // the shop now does. **The confirmation adds its own handlers on every open and takes them off
+    // again on close**; with the removal missing, the SECOND question would still carry the FIRST
+    // one's answer, and pressing "change" would run two handlers for one press. ⭐ **A shim that
+    // cannot express what the view does cannot test it** — the same lesson this file already records
+    // twice above, and the gap was in the shim rather than in the view.
+    // ⚠️ By REFERENCE, as the real DOM does: `askSwitch` builds fresh closures each time, so only
+    // the identical one it handed back is removed.
+    removeEventListener(t, f) {
+      const a = this._listeners[t];
+      if (!a) return;
+      const i = a.indexOf(f);
+      if (i >= 0) a.splice(i, 1);
+    },
     // ⚠️ THE REAL DOM KEEPS `dataset` AND `data-*` ATTRIBUTES IN STEP, and this shim did not
     // (v407): `el()` writes `data-point-id` with setAttribute, so `b.dataset.pointId` — which is
     // how the shop marks the chosen collect-from row — read `undefined` here and would never have
@@ -2011,6 +2028,133 @@ test("★★ tapping a place chooses SELF COLLECT too — the two are one piece"
     CONFIG.points = realP;
     render();
   }
+});
+
+// ── v436: a change that takes something away asks first ──────────────────────
+
+// The three things every test below needs: two places, one of them NAMED THE WAY A REAL ONE IS —
+// with a full stop at the end, because the shop prints the name as a sentence under each place and
+// that is where the doubled stop came from.
+function withAsks(fn) {
+  const realP = CONFIG.points;
+  try {
+    CONFIG.points = [
+      { id: "pt_kitchen", name: "Our place", minOrderRM: 0, isKitchen: true },
+      { id: "pt_farlim", name: "Farlim, Air Itam.", minOrderRM: 0 },
+    ];
+    // ⚠️ THE PAGE ARRIVES WITH THE QUESTION SHUT — `hidden` is on the element in store/index.html —
+    // and this shim carries no markup, so it cannot read that. **The one line that stands in for it
+    // is here rather than in each test**, and the opening state itself is pinned against the HTML in
+    // shop-info-card.test.js, where there IS a page to read.
+    document.getElementById("ask-scrim").hidden = true;
+    fn();
+  } finally {
+    CONFIG.points = realP;
+    render();
+  }
+}
+const askScrim = () => document.getElementById("ask-scrim");
+const askBody = () => document.getElementById("ask-body").textContent;
+const pressAsk = (which) => document.getElementById(which)._listeners.click[0]();
+// Choose the second place. ⚠️ Set up AFTER `render()`, because wiring runs once at startup and a
+// repaint does not re-choose anything for the customer.
+function chooseFarlim() {
+  const wrap = document.getElementById("fulfillment");
+  wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
+  render();
+  const places = document.getElementById("point-list").children;
+  assert.ok(places.length >= 2, "the places were not drawn, so this proves nothing");
+  places[1]._listeners.click[0]();
+  assert.equal(wrap._pointId, "pt_farlim", "the place was not chosen, so this proves nothing");
+}
+
+test("★★ changing how he gets his order asks FIRST, and nothing moves until he answers", () => {
+  // Her words: __"a confirmation pop up, asking whether customer intend to change to delivery? the
+  // point selection will be cleared, vise versa"__ — ⭐ the rule she gave me for bake days at v404,
+  // *taking something away always asks first*.
+  // ⚠️⚠️ AND WHAT IT IS FOR: a customer who picked a point and then switched to delivery was left
+  // looking at **a point still selected**, with nothing saying whether it still applied to his
+  // order — the fault v416 named, of a page that has answered its own question.
+  withAsks(() => {
+    chooseFarlim();
+    const wrap = document.getElementById("fulfillment");
+    assert.equal(askScrim().hidden, true, "no question is up to begin with");
+
+    wrap._pressWay("courier");
+
+    assert.equal(askScrim().hidden, false, "★ the change went through without asking — it took his place away silently");
+    assert.equal(wrap._value, "collect", "⚠️ and the way moved while the question was still open");
+    assert.equal(wrap._pointId, "pt_farlim", "nor should his place have moved yet");
+    // ⭐ THE QUESTION NAMES WHAT IS LOST — and the point's own full stop is not doubled into the
+    // sentence around it. The real names end with one.
+    assert.match(askBody(), /Farlim, Air Itam/, "the question does not name the place he is losing");
+    assert.doesNotMatch(askBody(), /Itam\.\s*\./, "★ the point's own full stop was doubled in the sentence");
+
+    pressAsk("ask-change");
+    assert.equal(askScrim().hidden, true, "the question did not close");
+    assert.equal(wrap._value, "courier", "his answer did not take effect");
+    assert.equal(wrap._pointId, "", "★★ and the place he picked was NOT cleared");
+    assert.equal(wrap._pointName, "", "its name went with it");
+  });
+});
+
+test("★★ and KEEP leaves everything exactly as it was", () => {
+  // The other half, and the one that must not be forgotten: a question is only a question if the
+  // quiet answer is a real one. ⚠️ The press that opened it must not half-apply.
+  withAsks(() => {
+    chooseFarlim();
+    const wrap = document.getElementById("fulfillment");
+    const before = { v: wrap._value, p: wrap._pointId, n: wrap._pointName };
+    wrap._pressWay("courier");
+    pressAsk("ask-keep");
+
+    assert.equal(askScrim().hidden, true, "the question did not close");
+    assert.equal(wrap._value, before.v, "★ answering keep still changed the way");
+    assert.equal(wrap._pointId, before.p, "and it took his place");
+    assert.equal(wrap._pointName, before.n, "or its name");
+  });
+});
+
+test("★ a change that costs him NOTHING is not interrupted", () => {
+  // ⚠️ A question guarding nothing is noise on a page that already carries four notices a customer
+  // must read. Nothing chosen here, so nothing can be lost.
+  withAsks(() => {
+    const wrap = document.getElementById("fulfillment");
+    wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
+    render();
+
+    wrap._pressWay("courier");
+    assert.equal(askScrim().hidden, true, "★ he was asked to confirm a change that took nothing from him");
+    assert.equal(wrap._value, "courier", "and the change did not go through");
+  });
+});
+
+test("★★ a PLACE tap is the same change, so it asks too — and the place travels with the answer", () => {
+  // ⚠️ v410 made the places PART of choosing to collect, and this file's own test says it: *"there
+  // is no longer a world where somebody has picked a place but has not said they are collecting."*
+  // ⭐ **So this is the same change from the other side, and leaving it silent would keep a second
+  // door into the very state she asked me to prevent.** ⚠️ And the place must be chosen only ONCE
+  // HE ANSWERS — choosing it first would leave a refused tap holding a place on a courier order.
+  withAsks(() => {
+    const wrap = document.getElementById("fulfillment");
+    const addr = document.getElementById("address-input");
+    wrap._value = "courier"; wrap._open = "courier"; wrap._pointId = ""; wrap._pointName = "";
+    addr.value = "12 Jalan Bunga, 10450 Penang";
+    render();
+
+    const places = document.getElementById("point-list").children;
+    assert.ok(places.length >= 2, "the places were not drawn, so this proves nothing");
+    places[1]._listeners.click[0]();
+
+    assert.equal(askScrim().hidden, false, "★ tapping a place switched him to collecting without a word about his address");
+    assert.equal(wrap._value, "courier", "⚠️ and it moved him while the question was open");
+    assert.equal(wrap._pointId, "", "★ and it took the place before he had answered");
+
+    pressAsk("ask-change");
+    assert.equal(wrap._value, "collect", "his answer did not take effect");
+    assert.equal(wrap._pointId, "pt_farlim", "★ and the place he tapped was not taken with it");
+    assert.equal(addr.value, "", "★★ and his delivery address was NOT cleared");
+  });
 });
 
 // ── v412: the Self collect card arrives folded ───────────────────────────────

@@ -3502,8 +3502,11 @@ function renderPointList(wrap, total = 0) {
   // ⚠️ AND IT DOES NOT RUN WHILE ALREADY COLLECTING, which is not just tidiness: this function is
   // called from the repaint that the method switch triggers, so an unguarded call would ask for a
   // repaint that asks for a repaint, for ever.
-  const pickCollect = () => {
-    if (typeof wrap._pickCollect === "function" && wrap._value !== "collect") wrap._pickCollect();
+  const pickCollect = (then) => {
+    if (typeof wrap._pickCollect === "function" && wrap._value !== "collect") wrap._pickCollect(then);
+    // ⚠️ ALREADY COLLECTING: there is no way to change, so the place is simply taken — and it is
+    // taken HERE rather than by the caller, so the two paths cannot drift.
+    else if (then) then();
   };
   // ★ A SHORT BASKET IS SHOWN AND REFUSED, not hidden (v306). `short` is a POINT that asks for a
   // smallest basket this basket has not reached: it stays on the page with the reason in its own
@@ -3583,8 +3586,11 @@ function renderPointList(wrap, total = 0) {
       class: `point-opt${closed ? (off ? " off" : " short") : ""}`, type: "button", "data-point-id": id,
       onclick: () => {
         if (closed) { flashRow(b); return; }
-        pickCollect();
-        choose(id, name);
+        // ★★ THE PLACE TRAVELS WITH THE CHANGE (v436). ⚠️ It used to be chosen FIRST and the way
+        // switched after — which, once a change can be REFUSED, would leave a customer who pressed
+        // "keep delivery" holding a chosen place with a courier order: exactly the state v410
+        // abolished. ⭐ **Both commit together, or neither does.**
+        pickCollect(() => choose(id, name));
       },
     }, el("span", { class: "point-name" }, name), el("span", { class: "point-sub" }, sub),
     // ★★ AND WHERE IT IS, WHEN SHE HAS SAID A CUSTOMER MAY SEE IT (v410). A line of its own under
@@ -3782,6 +3788,59 @@ function paintCarets() {
   set("courier-caret", "courier");
 }
 
+// ★★ THE SHOP ASKS BEFORE IT TAKES SOMETHING AWAY (v436). Her words: __"a confirmation pop up,
+// asking whether customer intend to change to delivery? the point selection will be cleared, vise
+// versa"__ — ⭐ **the same rule she gave me for taking a bake day off at v404: taking something away
+// always asks first.**
+//
+// ⚠️⚠️ AND THE REASON IT EXISTS IS WHAT THE CUSTOMER IS LEFT LOOKING AT. A customer who picked a
+// collection point and then switched to delivery was left with **the point still selected and
+// nothing saying whether it still applied to his order** — the fault v416 named, of a page that has
+// answered its own question. ⭐ **The question NAMES what is lost**, the same shape as a refund that
+// names the money it leaves.
+//
+// ⚠️ IT IS ASKED ONLY WHEN SOMETHING WOULD ACTUALLY BE CLEARED. A question guarding nothing is
+// noise on a page that already carries four notices a customer must read — so `wireFulfillment`
+// decides that, and this only ever draws the question.
+//
+// ⚠️ CANCEL IS THE SAFE ANSWER AND IT IS EVERYWHERE: the quiet button, a press on the dark area, and
+// Escape all leave the page exactly as it was. ⭐ The press that OPENED the question must not
+// half-apply — see `commit` in wireFulfillment, which is the only thing that changes anything.
+function askSwitch({ title, body, yes, no }, onGo) {
+  const scrim = document.getElementById("ask-scrim");
+  const tEl = document.getElementById("ask-title");
+  const bEl = document.getElementById("ask-body");
+  const keep = document.getElementById("ask-keep");
+  const go = document.getElementById("ask-change");
+  if (!scrim || !tEl || !bEl || !keep || !go) return;   // a page without the markup says nothing
+
+  tEl.textContent = title;
+  bEl.textContent = body;
+  keep.textContent = no;
+  go.textContent = yes;
+  scrim.hidden = false;
+
+  const close = () => {
+    scrim.hidden = true;
+    scrim.removeEventListener("click", onScrim);
+    document.removeEventListener("keydown", onKey);
+    keep.removeEventListener("click", onKeep);
+    go.removeEventListener("click", onGoPress);
+  };
+  // ⚠️ "AWAY" IS THE DARK AREA ITSELF — a press on the CARD must not close it, or a customer
+  // aiming at a button would dismiss the question with a near miss.
+  function onScrim(e) { if (e.target === scrim) close(); }
+  function onKey(e) { if (e.key === "Escape") close(); }
+  function onKeep() { close(); }
+  function onGoPress() { close(); onGo(); }
+
+  scrim.addEventListener("click", onScrim);
+  document.addEventListener("keydown", onKey);
+  keep.addEventListener("click", onKeep);
+  go.addEventListener("click", onGoPress);
+  if (go.focus) go.focus();
+}
+
 // Wire the Self collect / Courier picker. The choice is stored on the wrapper node so the
 // order handler reads it back; courier reveals the address field, and collecting carries its
 // own list of places inside the card.
@@ -3812,7 +3871,20 @@ function wireFulfillment() {
   };
   // What a tap on a PLACE calls — see renderPointList. Kept here because this is where the method
   // actually lives, and the list must not grow a second copy of that rule.
-  wrap._pickCollect = () => apply("collect");
+  // ★★ AND A PLACE TAP IS THE SAME CHANGE FROM THE OTHER SIDE (v436). v410 made the places PART of
+  // choosing to collect, and this file's own test says it: __"there is no longer a world where
+  // somebody has picked a place but has not said they are collecting."__ ⚠️ **So it goes through the
+  // same question** — otherwise the page would keep a SECOND, silent door into the very state she
+  // asked me to prevent: an address typed, a place picked, and the order carrying both.
+  // ⚠️ IT IS REACHED ONLY BY A CUSTOMER'S TAP ON A PLACE ROW — `pickCollect` guards
+  // `_value !== "collect"`, so the shop's own fallback to the kitchen never asks him anything.
+  wrap._pickCollect = (then) => {
+    const go = () => { if (then) then(); apply("collect"); };
+    const loss = leavingFor("collect");
+    if (!loss) { go(); return; }
+    askSwitch({ title: loss.title, body: loss.body, yes: loss.yes, no: loss.no },
+      () => { clearFor(loss.what); go(); });
+  };
   // And what the AFTER-ORDER RESET calls, so putting the shop back to self collect goes through the
   // same seam as every other change — see the order handler.
   wrap._applyFulfillment = apply;
@@ -3821,27 +3893,94 @@ function wireFulfillment() {
   // without this a second order from the same phone would open with step 3 already green, crediting
   // the next customer with the last one's choice.
   wrap._resetFulfillment = () => { wrap._picked = false; apply("collect"); };
-  for (const b of buttons) {
-    b.addEventListener("click", () => {
-      const want = b.dataset.fulfillment;
-      // ★★ AND THIS IS THE TAP THAT SETTLES IT (v415) — both for the places above and for the third
-      // step circle. ⚠️ `_value` already says "collect" before anyone has touched the page, so **the
-      // only honest record of a customer's choice is a press**, and this is where one happens.
+  // ⚠️ WHAT IS ABOUT TO BE LOST, IN WORDS THAT NAME IT — or null when the change costs him nothing,
+  // which is the case that must NOT be interrupted. ⭐ The name is the point he picked: "you chose to
+  // collect from Bayan Lepas, Sg Ara… " is a sentence he can check against what he meant, and a
+  // question that named no place would be asking him to remember.
+  const leavingFor = (to) => {
+    if (to === "courier" && wrap._pointId) {
+      return {
+        what: "point",
+        title: t("askToDeliveryTitle"),
+        // ⚠️⚠️ THE POINT'S OWN NAME ENDS WITH A FULL STOP — it is her record, and the shop prints it
+        // as a sentence under each place. Quoting one inside another sentence produced
+        // **"…Lengkok Kenari.. Changing to delivery"** on screen, seen in the driver. ⭐ So the stop
+        // is trimmed HERE, where it is quoted, and **never in her record** — the same rule that
+        // stops a fix in one place rewriting the thing it quotes.
+        // ⚠️ ALL THREE STOPS, because a name may be written in any of the shop's languages: a plain
+        // `.`, the Chinese `。` and the halfwidth `｡`.
+        body: sub(t("askToDeliveryBody"), String(wrap._pointName || "").trim().replace(/[.。｡]+$/, "")),
+        yes: t("askToDeliveryYes"),
+        no: t("askToDeliveryNo"),
+      };
+    }
+    if (to === "collect") {
+      const box = document.getElementById("address-input");
+      if ((box && String(box.value || "").trim()) || doorPin) {
+        return {
+          what: "address",
+          title: t("askToCollectTitle"),
+          body: t("askToCollectBody"),
+          yes: t("askToCollectYes"),
+          no: t("askToCollectNo"),
+        };
+      }
+    }
+    return null;
+  };
+  // ⚠️ AND THE CLEARING. Leaving collect takes the point with it; leaving courier takes the address
+  // **AND the door pin he dropped FOR that address** — a pin is the door of a delivery, so an
+  // address cleared without it would leave the map still answering a question he has taken back.
+  const clearFor = (what) => {
+    if (what === "point") {
+      wrap._pointId = "";
+      wrap._pointName = "";
+      refreshPointList();   // ⚠️ re-applies the marker, so the place stops wearing it
+      return;
+    }
+    const box = document.getElementById("address-input");
+    if (box) box.value = "";
+    doorPin = null;
+    paintPin();             // ⚠️ repaints FROM `doorPin`, so the card stops showing a pin
+  };
+
+  // ★★ WHAT A PRESS ON ONE OF THE TWO WAYS DOES — the whole of it, in one function, so the DECISION
+  // can be driven without the markup. ⚠️ **This shim carries no static HTML, so the two `.seg-btn`
+  // rows do not exist to press** — and a test that drove a COPY of this rule would prove nothing
+  // about the press. ⭐ Same seam, and the same reason, as `_pickCollect` below.
+  const pressWay = (want) => {
+    // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way already
+    // chosen therefore opens and shuts what it holds rather than doing nothing — **the second tap is
+    // how a customer puts it away again**, which is the state she asked to arrive in.
+    // ⚠️ AND IT ASKS NOTHING: nothing is being taken away, so there is nothing to confirm.
+    if (wrap._value === want) {
+      wrap._open = wrap._open === want ? null : want;
+      refreshPointList();
+      return;
+    }
+    // ★★ AND THIS IS THE TAP THAT SETTLES IT (v415) — both for the places above and for the third
+    // step circle. ⚠️ `_value` already says "collect" before anyone has touched the page, so **the
+    // only honest record of a customer's choice is a press.**
+    // ⚠️⚠️ SO IT IS WRITTEN HERE AND NOT ON THE PRESS. A press that only OPENS A QUESTION must not
+    // credit him with a choice he has not made yet — and if he answers "keep", a step circle left
+    // green behind him would be exactly that fault arriving through a new door.
+    const commit = () => {
       wrap._picked = true;
       if (paintStepsForFulfillment) paintStepsForFulfillment();
-      // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way
-      // already chosen therefore opens and shuts what it holds rather than doing nothing — **the
-      // second tap is how a customer puts it away again**, which is the state she asked to arrive in.
-      if (wrap._value === want) {
-        wrap._open = wrap._open === want ? null : want;
-        refreshPointList();
-        return;
-      }
       // ⚠️ AND ANY OTHER TAP CHOOSES THAT WAY **AND OPENS IT** — picking one is exactly when the
       // customer needs what it asks for, so opening it is not a second favour.
       wrap._open = want;
       apply(want);
-    });
+    };
+    const loss = leavingFor(want);
+    if (!loss) { commit(); return; }               // nothing to lose: no question at all
+    askSwitch({ title: loss.title, body: loss.body, yes: loss.yes, no: loss.no },
+      () => { clearFor(loss.what); commit(); });
+  };
+  wrap._pressWay = pressWay;
+
+  for (const b of buttons) {
+    b.addEventListener("click", () => pressWay(b.dataset.fulfillment));
   }
   // ★★ AND NEITHER WAY IS CHOSEN (v416). Her words: __"self collect should not be default"__, and
   // then __"for delivery as well"__ — ⚠️ **a page that opens with one of them edged is a page that

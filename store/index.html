@@ -325,6 +325,26 @@
     </div>
   </div>
 
+  <!-- ★★ THE QUESTION BEFORE A CUSTOMER CHANGES HOW HE GETS HIS ORDER (v436). Her words: __"a
+       confirmation pop up, asking whether customer intend to change to delivery? the point selection
+       will be cleared, vise versa"__.
+       ⚠️⚠️ IT IS THE SHOP'S FIRST QUESTION. `#confirm-msg` is a NOTICE — a banner with no buttons —
+       and the privacy sheet is read-only, so nothing on this page has ever asked the customer
+       anything. ⭐ It sits at the TOP LEVEL, outside the order bar, because it must cover the whole
+       screen: a question answered by a press on the page behind it is not a question.
+       ⚠️ Its title, body and two buttons are written by JS, not tagged — the words differ by which
+       way he is going, so there is no one translation to put here. -->
+  <div class="ask-scrim" id="ask-scrim" hidden>
+    <div class="ask-card" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+      <p class="confirm-title" id="ask-title"></p>
+      <p class="confirm-body" id="ask-body"></p>
+      <div class="ask-actions">
+        <button type="button" class="ask-quiet" id="ask-keep"></button>
+        <button type="button" class="ask-go" id="ask-change"></button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
