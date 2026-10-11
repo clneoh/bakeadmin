@@ -165,6 +165,9 @@ export function defaultState() {
     // ★★ ORDERS THAT WERE REMOVED, KEPT SO THEY CAN BE PUT BACK (v444). See `removeOrders` — this is
     // what stops any removal, hers or the engine's, from being permanent.
     removedOrders: [],
+    // ★★ COUPONS SHE HAS TAKEN OFF AN ORDER BY HAND (v450). ⚠️ The credit itself is NOT touched — this is
+    // a note that says "not on this one", so putting it back needs no repair.
+    declinedCoupons: [],
     // ★★ RECEIPTS SHE HAS DECLARED VOID, WITH HER REASON (v448). ⚠️ NOT A DELETE, EVER — see the note on
     // `voidedReceipts` in views/receipt_register.js. The number stays spent; this is the annotation that
     // says why, so a register row stops reading as an unexplained hole.
@@ -445,6 +448,7 @@ function normalize(s) {
     // written before v444, both behave exactly as before.
     removedOrders: Array.isArray(s.removedOrders) ? s.removedOrders : [],
     voidedReceipts: Array.isArray(s.voidedReceipts) ? s.voidedReceipts : [],
+    declinedCoupons: Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
     expenses: Array.isArray(s.expenses) ? s.expenses : [],

@@ -5142,3 +5142,8 @@ tr.po-covered td { color: var(--muted); }
    and it never wears the mark that says something is wrong. */
 .reg-void { display: block; font-size: 11.5px; line-height: 1.45; margin-bottom: 4px; color: var(--muted); }
 .reg-row .reg-ask .btn + .btn { margin-left: 6px; }
+
+/* ★★ THE COUPON'S OWN LINE (v450). ⚠️ Not a warning and not a chip — it is an explanation of a figure
+   already in the Total above it, so it reads in the register's quiet voice. The press beside it is the
+   control; the sentence is why she would use it. */
+.coupon-note { font-size: 12px; line-height: 1.5; margin: 0 0 6px; color: var(--muted); }

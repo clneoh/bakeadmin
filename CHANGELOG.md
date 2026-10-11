@@ -1,8 +1,54 @@
-# Jienluv2bake — change history (v54 → v448)
+# Jienluv2bake — change history (v54 → v450)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v450, A COUPON ARRIVES ALREADY TAKEN OFF — NOW IT SAYS SO, AND YOU CAN TAKE IT OFF (no database step).**
+
+**Your words:** __"when a coupon is send over with order, the back office just take it itself, without asking for my action to whether apply it or not"__
+
+**1. ⭐⭐ THIS IS A SECOND THING, AND IT IS NOT WHAT v449 FIXED.** That one was a coupon that came off **nothing**. **This one is a coupon that comes off by itself, without you** — a different fault, and yours is the sharper one, because it is about **who decides**.
+
+**2. ⚠️ AND YOU WERE RIGHT ON BOTH HALVES.** I checked the code:
+
+- **A friend's coupon is stamped spent and pointed at its order the moment it is created** — so it comes off by itself, and **nothing asks you**;
+- **and you could not take it off afterwards** — a coupon sitting on an order is deliberately excluded from every control that clears coupons. **Applied without asking, and no way back.**
+
+**3. ⭐ AND THE ASYMMETRY IS WHY YOU NOTICED IT.** The **reward you earn** waits for you to press **Apply coupon**. The **friend's** never asks. **Two kinds of coupon, two rules — and only one of them consulted you.**
+
+**4. ⚠️ BUT "ASK ME FIRST" IS THE WRONG FIX, AND HERE IS WHY I DID NOT BUILD IT.** If the app asked you, one press you forgot on a busy morning would leave the friend's discount **off** an order whose customer was **already sent a message saying they had it** — ⚠️ **which is the v322 fault exactly, through a different door.** v322 exists because a promised discount once silently did not come off.
+
+**5. ★ SO IT STILL COMES OFF BY ITSELF — AND NOW IT TELLS YOU, AND GIVES YOU ONE PRESS.** On the order, under the total:
+
+> *Bring-a-friend discount they were sent — came off this order by itself, because they were sent it.*
+> **[Take it off this order]**
+
+Press it and a question names the consequence **before** it happens: **taking it off means they pay RM3 more than the message they were already sent.** Confirm, and the discount comes off the total. **"Put it back" then sits where the press was**, because ⚠️ **a choice you cannot reverse is not a choice.**
+
+**6. ★ AND NOTHING ABOUT THE COUPON ITSELF IS TOUCHED.** "Taken off" is a note saying *not on this one* — the credit is exactly as it was, so putting it back needs no repair and the friend loses nothing. ⭐ And a decision about one coupon is not a decision about another.
+
+**Measured:** tests **3,350 → 3,351**, all green. ⭐ **Your rule was seen to fail by its own message** — her decision ignored, the coupon still coming off — **and the file restored byte-identically (sha256).** **No database step**, and no credit was rewritten.
+
+**12 Oct 2026 — engine v449, A COUPON STILL COMES OFF AN ORDER THAT WAS SPLIT (no database step).**
+
+**Your words:** __"i found the coupon handling is not consistent. pls check"__
+
+**1. ⭐ I CHECKED THE WHOLE MONEY RULE FIRST, AND MOST OF IT IS CONSISTENT.** Every screen that prices an order — the confirmation, the receipt, the invoice, the consolidated page, the customer's tracking card, the money and profit pages — goes through **one helper**. And the shop and the backoffice **share the same promo engine**, so a code the shop accepts is valued identically. **Those are not where the inconsistency is.**
+
+**2. ⚠️⚠️ BUT I FOUND ONE, AND IT IS BURNING MONEY.** An order's number is stamped onto its coupon when you press **Apply**, and read back by comparing it. **Until v441 an order's number MOVED the moment it gained a second item** — so a coupon applied while the order wore **`#E61119`** was looked for under **`#B9C955`**, matched nothing, **came off nothing, and stayed spent.**
+
+⚠️ **Measured before the fix: RM 0 where RM 3 should have come off.** The discount is burned and the customer never gets it — ⭐ **and the friend's own coupon dies the same way, so they never get the RM3 they were promised either.**
+
+**3. ★ AND IT IS THE SAME FAULT v336 FIXED ONCE, RECURRING.** That version stopped a coupon being spent *and* moving no money — but it did so by matching **one** number, and the number was still moving. ⭐ **A fix keyed on a thing that changes only lasts until it changes again.**
+
+**4. ★ THE FIX ACCEPTS BOTH NUMBERS THE ORDER HAS EVER WORN** — the one it wears today, and the one it wore before it was grouped. **The same rule the receipt register and the filing page already use.** ⚠️ **And it heals the old ones by itself: the coupon was never altered, only un-findable, so it simply starts counting again — nothing in your data was rewritten.**
+
+**5. ★ AND THE GUARD AROUND IT IS UNTOUCHED.** Accepting a second number must never let **somebody else's** coupon through; the test proves it doesn't — a coupon belonging to another number still comes off nothing.
+
+**6. ⚠️ WHAT I HAVE NOT ESTABLISHED, AND I WANT TO SAY IT PLAINLY.** **I do not know whether this is the inconsistency you saw.** It is real, it is proved, and it is fixed — but **you were looking at something**, and if that was something else, this fix is not your answer. **Tell me which two things disagreed and I will go straight to them.**
+
+**Measured:** tests **3,349 → 3,350**, all green. ⭐ **The fix was seen to fail by its own message** — `0 !== 3`, the coupon coming off nothing — and the file restored byte-identically (sha256). **No database step**, and no coupon, credit or order was rewritten.
 
 **12 Oct 2026 — engine v448, A PROBLEMATIC RECEIPT CAN BE MARKED VOID — NEVER DELETED (no database step).**
 

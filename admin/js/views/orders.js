@@ -22,6 +22,7 @@ import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLine, receiptNoOf, receiptNoOfGroup, receiptStatus } from "../receipts.js";
+import { couponDeclined, couponOnAny } from "../referrals.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
@@ -1514,6 +1515,57 @@ function promoTag(order) {
 // priced — a saved order, or the lines she is typing.
 // ⚠️ EXPORTED (v342) so the Delivery run can draw an order's money with the SAME renderer — see the
 // unfolded order on that screen. Two renderings of one order's figures is two figures that can disagree.
+// ★★ THE COUPON'S OWN LINE — WHO APPLIED IT, AND ONE PRESS TO TAKE IT OFF (v450).
+//
+// HER WORDS: __"when a coupon is send over with order, the back office just take it itself, without asking
+// for my action to whether apply it or not"__
+//
+// ⚠️⚠️ AND SHE WAS RIGHT ON BOTH HALVES. A friend's coupon is stamped spent and pointed at its order the
+// moment it is created, so **it came off by itself with nothing asking her** — while the reward she EARNS
+// waits for her to press Apply. **Two kinds of coupon, two rules, and only one of them consulted her.**
+//
+// ⭐ BUT ASKING FIRST IS THE WRONG FIX, and this is why: a press she forgot would leave the friend's discount
+// off an order **whose customer was already sent a message saying they had it** — which is the v322 fault
+// exactly, through a different door. **So it still comes off by itself. What she gets is the SIGHT of it and
+// one press to take it off.**
+//
+// ⚠️ AND THE CONFIRMATION NAMES THE CONSEQUENCE, because there is one: the customer was promised this money.
+// Taking it off means they pay more than the message they were sent — a fact she should meet BEFORE the
+// press, not after it.
+function couponControlEls(state, first, group, repaint) {
+  const hit = couponOnAny(state, group.orders);
+  if (!hit.id || !(hit.amount > 0)) return [];
+  const declined = couponDeclined(state, hit.id);
+  const what = hit.role === "reward" ? "the reward you earned" : "the discount they were sent";
+  const cur = state.settings.currency || "RM";
+
+  const put = (on) => {
+    const id = String(hit.id);
+    state.declinedCoupons = (state.declinedCoupons || []).filter((x) => String(x) !== id);
+    if (on) state.declinedCoupons.push(id);
+    save(state);
+    maybeSync(state);
+    repaint();
+  };
+
+  return [
+    el("p", { class: "coupon-note" },
+      declined
+        ? `Bring-a-friend ${what} — taken off this order by you. They will pay what the order comes to without it.`
+        : `Bring-a-friend ${what} — came off this order by itself, because they were sent it.`),
+    el("div", { class: "row-actions" },
+      declined
+        // ⚠️ THE WAY BACK IS PART OF THE CONTROL. A choice she cannot reverse is not a choice.
+        ? button("Put it back", () => put(false), "soft small")
+        : button("Take it off this order", () => {
+            confirmDialog(
+              `Take the discount off this order? They were sent this coupon — so taking it off means they pay `
+              + `${fmtRM(hit.amount, cur)} more than the message they were already sent.`,
+              () => put(true), { danger: true, yesLabel: "Take it off" });
+          }, "ghost small")),
+  ];
+}
+
 export function receiptEls(state, parts) {
   const rows = receiptRows(state, parts).map((r) =>
     el("div", { class: "info-row" + (r.total ? " pl-total" : "") },
@@ -2401,6 +2453,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     ...moveNoteLines(state, group, curId).map((t) => el("p", { style: "margin:2px 0" }, t)));
 
   const totalEl = el("div", { class: "receipt", style: "margin:8px 0 0" });
+  // ★★ AND THE COUPON'S OWN LINE, WITH HER PRESS (v450) — see `couponControlEls`.
+  const couponEl = el("div", { style: "margin:8px 0 0" });
+  // ★★ AND THE COUPON'S OWN LINE, WITH HER PRESS (v450) — see `couponControlEls`.
   // A charge the customer bears belongs in this total, because this is the number she
   // reads to know what the order is worth. Named when it is there, so a figure RM8
   // above the items explains itself rather than looking like a mistake; a charge SHE
@@ -2461,6 +2516,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       coupon: coupon.amount,
       total: Math.max(0, itemsTotal + here - off - coupon.amount),
     }) : []));
+    // ★ AND THE COUPON SAYS WHO PUT IT THERE, AND OFFERS IT BACK (v450).
+    couponEl.replaceChildren(...couponControlEls(state, first, group, paintTotal));
   }
   // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
   // 2026): the charge is part of what this order is, and Edit is where she changes what
@@ -2696,7 +2753,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         "Cost each is what that loaf cost you to bake. It is frozen onto this order when you take it, so changing an ingredient price later never rewrites an order already sold. Type over it if this batch cost you more, or press Recipe to go back to what the recipe says."),
       rowsEl,
       button("＋ Add another item", () => { lines.push({ productId: "", qty: 1, price: null }); refresh(); }, "ghost"),
-      totalEl),
+      totalEl,
+      couponEl),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),
     button("Save changes", saveEdits, "block primary"),

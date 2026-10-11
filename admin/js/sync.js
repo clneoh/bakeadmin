@@ -35,6 +35,7 @@ const LISTS = {
   // ⚠️ A VOID DECISION IS HERS, and it must reach the other phone — otherwise the same register reads
   // as four unexplained holes on one device and as four voided rows on the other.
   voidedReceipts: "voidedReceipts",
+  declinedCoupons: "declinedCoupons",
   products: "products",
   productCategories: "productCategories", // the shop's category tree — a heading built on one phone must exist on the other
   ingredients: "ingredients",
