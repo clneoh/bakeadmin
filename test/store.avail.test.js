@@ -206,7 +206,7 @@ test("live availability renders: full day struck out, first open day chosen, per
   // ⚠️ v434: nothing has been tapped yet, so the day here was chosen FOR him and the page says so.
   // The tapped form is asserted further down, after a real cell is pressed.
   assert.equal(c.chosen.children[0].text,
-    `${fmtDay(dates[1])} was selected for you — just click the date you prefer, if you have one.`);
+    `${fmtDay(dates[1])} is suggested for you. Tap it to confirm your bake day.`);
   assert.equal(c.notes.length, 1);
   assert.equal(c.notes[0].children[0].text, "Sold out: 2 Sep");
 

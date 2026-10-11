@@ -302,7 +302,7 @@ test("store render() fills the page without crashing", () => {
   // 18:00 cutoff, tomorrow is already shut.
   const firstOpen = upcomingDates(CONFIG).find((d) => isOpen(CONFIG, d));
   // ⚠️ "The one NAMED", not "the one it ends with" (v434): the two forms of the line put the day in
-  // different places — `Your bake day: <day>` puts it last, and `<day> was selected for you…` puts
+  // different places — `Your bake day: <day>` puts it last, and `<day> is suggested for you…` puts
   // it first, because that is how she wrote the sentence. **What has to hold for both is that the
   // first open day is the day it names.**
   assert.ok(chosen.children[0].text.includes(fmtDay(firstOpen)), "the first open day is the one named");
@@ -2836,17 +2836,20 @@ test("★★ step 1 turns green only after HE picks the day — never for the da
   assert.ok(String(picked.className).includes("tappable"), "the chosen day is not one he can tap");
   assert.equal(done1(), false,
     "★ the first circle was green before he had touched anything — the day was picked for him");
-  assert.match(chosenLine(), /was selected for you/,
+  assert.match(chosenLine(), /is suggested for you/,
     `★ the day was picked for him and the page never said so (it reads: ${JSON.stringify(chosenLine())})`);
-  assert.match(chosenLine(), /click the date you prefer/,
-    "the line does not invite him to choose a different day");
+  // ⚠️ AND IT NOW ASKS HIM TO TAP (v453). Her words: __"ask user to tap on the bake day to confirm it"__ —
+  // ⭐ so this line does not merely SAY he is free to change it, it **asks him to confirm the day**, which is
+  // what makes circle ①'s grey tell the truth and what the lock on step 2 is waiting for.
+  assert.match(chosenLine(), /Tap it to confirm/,
+    `the line does not ask him to confirm the day (it reads: ${JSON.stringify(chosenLine())})`);
 
   picked._listeners.click[0]();
   assert.equal(done1(), true, "⭑ his own tap on a day, and only that, turns the first circle green");
   // ⚠️ AND THE LINE STOPS OFFERING WHAT HE HAS NOW DONE — it is his own day, said plainly.
   assert.match(chosenLine(), /Your chosen bake day/,
     `★ the line still says the day was chosen for him after he chose one himself (it reads: ${JSON.stringify(chosenLine())})`);
-  assert.doesNotMatch(chosenLine(), /was selected for you/,
+  assert.doesNotMatch(chosenLine(), /is suggested for you/,
     "the page still tells him a day was picked for him after he picked his own");
 });
 

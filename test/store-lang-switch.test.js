@@ -172,7 +172,7 @@ test("an unknown language is ignored", () => {
 
 test("switching 中文 → BM relabels the page and the order button", () => {
   assert.equal(setLang("ms"), true);
-  assert.equal(btn().textContent, "Hantar tempahan");
+  assert.equal(btn().textContent, "Hantar order"); // ⚠️ v453: she chose the borrowed word (tempahan → order)
   assert.equal(litPill(), pills[2], "the BM pill is lit");
   assert.equal(barTotal(), ONE_FOCACCIA, "the basket is still there");
 });

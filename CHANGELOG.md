@@ -1,10 +1,36 @@
-# Jienluv2bake — change history (v54 → v452)
+# Jienluv2bake — change history (v54 → v453)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
-**12 Oct 2026 — engine v452, A BROKEN CONTROL PUT RIGHT — AND THE BACK-DATE ON A HAND-WRITTEN LIST (no database step).**
+**12 Oct 2026 — engine v453, THE SHOP'S WORDS CHECKED AND CORRECTED — AND A CORRECTION TO v452'S OWN RECORD (no database step).**
+
+**⚠️⚠️ v452 HAS ALREADY GONE OUT, AND ITS RECORD DESCRIBES SOMETHING YOU REJECTED — THIS ENTRY CORRECTS IT.** Its changelog says *"the shop naming the step outstanding"*, and its heading promises a step fix. ⚠️ **That is the model you corrected: a message on the Place order button rather than a locked step.** ⭐ **The correction is written here rather than by editing a published entry, so your record keeps both — what I built, and why it was wrong.**
+
+**1. ⚠️ THE STEP SECTION BELOW DESCRIBES A MODEL YOU REJECTED — I AM NOT DELETING IT, BECAUSE IT SAYS WHAT I DID AND WHY IT WAS WRONG.** I built **a message on the Place order button** — the press tells him the first thing missing, but every step stays usable in any order. **You said: __"complet step1 before step2 is allow, and so forth"__** — and on how a locked step should read: **__"dont allow and a message inform about why"__** — and on which day counts as step 1: **__"ask user to tap on the bake day to confirm it"__**. ⭐ **So it is not a message at the end. It is the step refusing, and saying why.**
+
+**2. ⚠️⚠️ AND THE LOCK ITSELF IS *NOT* BUILT — ONLY THE SENTENCE THAT GOES WITH IT.** The calendar line now **asks him to tap and confirm his bake day** (all three languages), because the old wording told him he could ignore it **while circle ① was already showing him he could not** — ⭐ **a page that says he is free and then refuses him is worse than either rule alone.** ⚠️ **Steps ②, ③ and ④ are not yet gated. That is the next version's work, and it is written down so it cannot be mistaken for done.**
+
+**3. ★★ AND THE LARGEST PART OF THIS VERSION IS NOT A FEATURE AT ALL — IT IS YOUR SHOP'S OWN WORDS, CHECKED.** Your ask: **__"i want AI to reconfirm the translation rather then just depend on the traslator"__**. Five independent checks walked all **196 strings × 2 languages**, and the sweep found **17 things, five of them real meaning errors in things a customer reads** — ⚠️ **including the shop telling a Malay customer, while their order was being sent, that it was going to a CAKE maker.**
+
+**4. ⭐⭐ AND THE FINDING WORTH MORE THAN ANY OF THE SEVENTEEN: `hari ini` appeared `31` times and was WRONG ONCE.** Two of those lines — *"Today's bake has closed"* and *"nothing on the menu today"* — **really do mean today.** ⚠️ **A find-and-replace would have broken both.** Every change in this version was checked against the English before it was made.**
+
+**5. ⚠️ AND TWO OF THE SEVENTEEN WERE NOT FAULTS AT ALL — I AM COUNTING THEM SO YOU CAN WEIGH THE REST.** `派送地址` (*delivery address*) was flagged only because the same characters were wrong elsewhere; and the Malay thanks line **has** its exclamation mark — Malay simply puts it on the first clause. ⭐ **A check that cries wolf twice in seventeen tells you something about how much to trust it.**
+
+**6. ★★ AND THE PATTERN BEHIND EVERY WORD YOU CHOSE — THE RULE FOR NEXT TIME.** You chose **`bakeri`** over a translated bakery, **`driver`** over `pemandu`, and **`order`** over `tempahan` in thirty-four strings. ⭐ **Every time you picked the word your customers actually say, over the word that was already in the file.** ⚠️ **I had been defending the file.** That is now the standing rule for this app's words: **ask her the word; do not preserve the file's.**
+
+**7. ★ WHAT CHANGED, IN ONE LINE EACH.** `pembuat kek` → **`bakeri`** · `hari ini` → **`hari itu`** where it meant his chosen day · `烘焙中` → **`已烤好`** on the tracking card (**every other stage is a finished state; this one said "baking right now"**) · `派送` → **`烘焙日`** · the bring-a-friend line no longer loses the friend who sent it · `hari bakar` → **`hari membakar`** · **`driver`** in all three rows · `telah digunakan` → **`telah disertakan`** (**it said "already used" the moment a code was accepted**) · `sedang ditahan` (**"is being detained"**) → **`dihentikan sementara`** · the app is **`应用程式`** · `以免订单丢失` · `拿到` · **`order`** in thirty-four strings · and `spam` translated in both.
+
+**8. ★ SEE IT YOURSELF, SCREEN BY SCREEN.** `marketing/translation-changes.html` walks the shop in the order a customer meets it, each change shown old-line-above, new-line-below, with one line on why. ⚠️ **That folder is ignored by the repo, so the page is yours and never ships.**
+
+**9. AND THE PARTS OF THIS VERSION THAT ARE NEITHER:** the **hand-written PO back-date** (a date filled in with today that you can change — ⚠️ **a LABEL, deliberately not called `dates` or `deliveryDate`, because either name would make the list start counting as a bake day's shopping**), the **48 hours** on the Removed list, and the **fix for the broken "Write a list by hand" card**, which my own careless edit had caused and your push had carried live.
+
+**10. ⚠️ THE 48 HOURS IS YOUR NUMBER, NOT MINE.** __"the deleted order just need to keep for 48hrs"__ — thirty was mine and was never a decision you made. **The sentence on the shelf says 48 hours too**, and the test **pins the number** rather than merely comparing against the constant, so it could never have caught my thirty.
+
+**Measured:** tests **3,351 → 3,353**, all green. ⭐ **Every rule was seen to fail by its own message** — the date stored under a tying name, her 48 hours put back to my 720, the name guard removed, the silent return restored — **and every file restored byte-identically (sha256).** **No database step.**
+
+
 
 **⚠️⚠️ READ POINT 1 FIRST. This version fixes something that is broken on your phone RIGHT NOW.**
 

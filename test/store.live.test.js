@@ -208,7 +208,7 @@ test("the calendar draws every bake day and names the chosen one", () => {
   // form.** The tapped form (`Your bake day: …`) is asserted in store.test.js, where a real cell is
   // pressed.
   assert.equal(chosenText(),
-    `${fmtDay(dates[2])} was selected for you — just click the date you prefer, if you have one.`);
+    `${fmtDay(dates[2])} is suggested for you. Tap it to confirm your bake day.`);
 });
 
 test("a refresh that depletes an ordered item fixes the cart, bar and tells the customer", async () => {

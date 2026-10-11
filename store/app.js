@@ -1416,6 +1416,16 @@ export function render() {
   // ⭐ Her words: __"the 1,2,3 in the same round ball"__ — and on load they now all are, because
   // none of them claims anything he has not done.
   let dayPicked = false;
+  // ★★ THE ONE VOICE FOR "NOT YET — DO THIS FIRST" (v453). Every locked step says it the same way, and
+  // scrolls to the step it is naming, so he is never told to finish something he cannot see.
+  function sayStepFirst(titleKey, bodyKey, stepId) {
+    const head = stepId ? document.getElementById(stepId) : null;
+    if (head && head.scrollIntoView) head.scrollIntoView({ block: "start" });
+    showConfirm([
+      el("p", { class: "confirm-title" }, t(titleKey)),
+      el("p", { class: "confirm-body" }, t(bodyKey)),
+    ], "warn");
+  }
   let avail = null;      // { 'YYYY-MM-DD': slots_left } — day-level, for the calendar
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
@@ -2013,6 +2023,15 @@ export function render() {
       } }, "−");
       const cap = left != null && left > 0 ? left : 99;
       const inc = el("button", { class: "step-btn", onclick: () => {
+        // ★★★ STEP 1 BEFORE STEP 2 IS ALLOWED (v453) — HER OWN MODEL, WHICH I BUILT THE WRONG SHAPE OF
+        // FIRST TIME. Her words: __"complet step1 before step2 is allow, and so forth"__ — then, asked how
+        // a locked step should read: __"dont allow and a message inform about why"__.
+        //
+        // ⚠️⚠️ SO IT IS NOT A MESSAGE ON PLACE ORDER — it is the STEP refusing, and saying why. My earlier
+        // version let him load the basket in any order and only told him at the end, which **reports a
+        // problem instead of preventing it** — and that is not what she asked for.
+        // ⭐ AND A LOCKED CONTROL THAT EXPLAINS ITSELF is the whole of her instruction: "dont allow" is the
+        // lock, "a message" is why it is not a dead end.
         const q = Math.min(cap, (cart.get(p.name) || 0) + 1);
         cart.set(p.name, q);
         qtyLabel.textContent = String(q);
