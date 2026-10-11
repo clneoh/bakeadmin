@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v455)
+# Jienluv2bake — change history (v54 → v456)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v456, STEP 3 IS ONE STEP — AND THE TWO DELIVERY CARDS ARE PART OF IT (no database step).**
+
+**Your words:** __"i skip step 2 and filled up step 3, it should not allow me to do step 3 at all?"__ — and then, when I had locked only the two boxes you had just named: __"lock the 2 delivery cards too"__
+
+**1. ⭐⭐ I READ THE SAME INSTRUCTION TOO NARROWLY, TWICE, AND BOTH TIMES YOU HAD TO SAY IT AGAIN.** v454 built the first step's lock and stopped; this version's first half locked **the two boxes you named** and left **the two cards sitting right beside them** still pressable. ⚠️ **A step is a step, not a list of fields** — and "one after another" is an instruction about the whole of it.
+
+**2. ⚠️ SO THE THING STILL POSSIBLE WAS THIS: a customer could choose HOW he gets an order he had not placed.** He could open Courier, or Self collect, on an empty basket — the delivery half of step 3 answered a question that had nothing in it yet.
+
+**3. ★ THE TWO CARDS NOW REFUSE, AND THEY SAY WHY — they are NOT switched off.** ⚠️ **This is v452's rule and this shop has already paid for it: a disabled button on a phone does not even acknowledge the tap**, so switching the cards off would tell the customer nothing at all. They stay live, and the press is answered with a sentence.
+
+**4. ⭐⭐ AND THE SENTENCE NOW GOES TO THE STEP IT IS ABOUT.** Until this version the line could only ever appear in one place, because only one step had ever refused anything — and the step it belonged to was **passed in and then thrown away** (`void stepId`). ⚠️ **The moment a second step can refuse, a sentence about step 2 printed under step 1 is exactly the fault you reported at v455.** So the line is **moved to sit under the heading of the step that is speaking**, and there is still only one line — not a copy per step.
+
+**5. ⚠️ AND THE TESTS FOUND A REAL FAULT IN MY FIRST ATTEMPT, NOT A SMALL ONE.** The guard I wrote first reached straight for the basket and for the message helper — **and neither can be seen from where the cards are wired**: both live inside the part of the page that builds the shop. **Every press of either card would have thrown an error and done nothing at all.** ⭐ Three tests written for an older version caught it by name. **The guard now asks the shop through the same kind of seam this project already uses for the after-order reset.**
+
+**6. ★ AND THREE OLDER TESTS CHANGED WITH THE BEHAVIOUR RATHER THAN BEING DELETED.** They were about *asking before a way is changed* — which is an act inside step 3 — and they used to walk into step 3 without ever doing step 2. ⭐ **That is a route the shop no longer has**, so they now put one item in the basket first, exactly as a customer must. **Their subject has not changed at all.**
+
+**7. ⭐ MEASURED ON THE REAL SHOP, all four states.** With an empty basket: **pressing Courier leaves the way unchosen, the card folded, and the basket at RM 0.00** — the line appears with **"Nothing in your order yet."** With one item in the basket: **the press goes through, the way is set to Courier and the card unfolds.** Take the item back out and **both cards lock again.** The two boxes: **disabled on an empty basket, open again the moment something is in it.**
+
+**8. ⚠️ AND ONE THING TO SAY PLAINLY, BECAUSE IT IS A JUDGEMENT AND IT IS YOURS.** The line appears **under step 2's heading — with the step that is not finished** — which is the same place the day-not-picked line has been since v455. ⚠️ **A customer standing at the bottom of the page pressing a delivery card therefore has to look back up the page to read it** (the page deliberately does **not** jump). I chose the missing step over the customer's thumb, and it is one line to change if you would rather it appeared where the card is.
+
+**Measured:** tests **3,357**, all green. **No database step.**
 
 **12 Oct 2026 — engine v455, THE STEP'S OWN LINE, IN THE RIGHT PLACE — AND THE MISSING BOX TURNS RED (no database step).**
 
@@ -23,6 +45,8 @@ always tell which build a phone is running.
 **7. ⚠️ AND ONE FAULT WAS IN THE TESTS, NOT THE PAGE.** The shim's nodes carried **no `id`**, so the note was built as `"undefined-note"` and the accessibility assertion could never pass however correct the shop was. ⭐ **The recorded rule is that a shim which cannot express what the view does cannot test it — so the SHIM was fixed, not the assertion.**
 
 **8. ★ AND THE SHELF'S LABEL NO LONGER BLAMES A PHONE.** It said **"removed on another phone"** — ⚠️ **and your other phone had deleted nothing.** A remove-record can also be **this phone's own removal returning on a sync**, so the shelf was stating a cause the app cannot know. **It now says the removal came through your shared data**, and the test asserts both that new wording and that no culprit is named.
+
+⚠️ **Note, 12 Oct (v456): the line described in point 2 is no longer fixed in that one place.** There is still only one line, but it now **moves to sit under the heading of the step that is speaking** — because a second step can refuse from v456 onward, and a sentence about step 2 shown under step 1 would be the same fault this entry fixed. For the case this entry is about — **no bake day tapped** — it appears in exactly the place described here.
 
 **Measured:** tests **3,353**, all green. **No database step.**
 

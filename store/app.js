@@ -1458,12 +1458,21 @@ function clearFieldMarks() {
     // the step.** ⚠️ **v423 already settled this rule for the parked place — *the page does not move* —
     // and a customer part-way down the menu being thrown back to the top is exactly that fault.**
     // ⭐ The message will be redrawn where the step IS; until then it must simply not move him.
-    void stepId;
-    // ★★★ IT IS A LINE UNDER THE STEP, NOT A POP-UP OVER THE PAGE (v455) — her words, and the shape a form
-    // uses: **the thing that is missing marks itself, where it sits.** ⭐ And no scroll: v423 settled that
-    // for the parked place, and a customer part-way down the menu must never be thrown to the top for it.
+    // ★★★ AND "WHERE THE STEP IS" IS WHAT `stepId` IS FOR (v456). Until this version there was **one**
+    // place a refusal could appear — the line she asked for at v455, which sits under step 1 — and only
+    // a step-1 refusal was ever raised. ⭐ The moment step 3 can refuse a press, a step-3 sentence
+    // rendered under step 1 **is the very fault v455 was fixing**: her words then were __"the message
+    // show in the wrong place"__. ⚠️ **So the line is MOVED to sit under the head of the step that is
+    // speaking** — the element itself, never a second copy, so there is one note and one rule.
+    // ⚠️ A page without the head (or a test shim whose nodes have no parent) simply leaves it where it
+    // is and still says the words — the message is the point, its address is the polish.
+    const head = document.getElementById(stepId);
     const note = document.getElementById("step-note");
     if (!note) return;
+    if (head && head.parentNode && typeof head.parentNode.insertBefore === "function"
+      && head.nextSibling !== note) {
+      head.parentNode.insertBefore(note, head.nextSibling);
+    }
     note.replaceChildren(
       el("strong", {}, t(titleKey)), " ", t(bodyKey));
     note.hidden = false;
@@ -2640,6 +2649,33 @@ function clearFieldMarks() {
     // pick a day, after he has picked one, would be the page arguing with itself.
     const note = document.getElementById("step-note");
     if (note && dayPicked && !note.hidden) { note.hidden = true; note.classList.remove("on"); note.replaceChildren(); }
+
+    // ★★★ AND STEP 3 DOES NOT OPEN UNTIL STEP 2 HAS SOMETHING IN IT (v456). Her words: __"i skip step 2 and
+    // filled up step 3, it should not allow me to do step 3 at all?"__ ⚠️⚠️ **and she is right — the first
+    // lock was built for one step and stopped, when her instruction was "and so forth".**
+    // ⭐ **So his name and number are inert while the basket is empty**, and the page says why rather than
+    // letting him fill a form for an order that has nothing in it. ⚠️ **They are DISABLED, which is the
+    // honest state — they genuinely cannot be used yet — and the reason is on the page beside them, so this
+    // is not the "disabled with no explanation" fault the skill warns about.**
+    const open3 = cart.size > 0;
+    for (const id of ["name-input", "whatsapp-input"]) {
+      const box = document.getElementById(id);
+      if (box && "disabled" in box) box.disabled = !open3;
+    }
+    // ★★★ AND THE TWO DELIVERY CARDS ARE THE SAME STEP, SO THEY OBEY THE SAME LOCK (v456). Her words:
+    // __"lock the 2 delivery cards too"__ — ⚠️ **after I had locked only the two boxes she named and not
+    // the two cards beside them, which is the "and so forth" of her instruction read too narrowly.**
+    // ⚠️⚠️ **IT REFUSES IN WORDS RATHER THAN DISABLING THEM, AND THAT IS v452'S OWN RULE.** This file
+    // already settled it, and its test says so out loud — *"the button is dead on an empty basket again —
+    // it must answer instead"* — because **a disabled control on a phone does not even acknowledge the
+    // tap**, so a customer is told nothing at all. The two cards therefore stay live and say why.
+    // ⚠️ AND IT IS A SEAM, NOT A DIRECT CALL: `wireFulfillment` builds the press, and **it cannot see
+    // `cart` or `sayStepFirst` — both live in here.** ⭐ The same direction as `_resetFulfillment`,
+    // which this file already sends the other way for the same reason.
+    if (fulfilled) {
+      fulfilled._mayChooseWay = () => cart.size > 0;
+      fulfilled._refuseWay = () => sayStepFirst("needItemTitle", "needItemBody", "step2");
+    }
   }
   // ⚠️ AND THE THIRD STEP IS TYPED, NOT TAPPED, so it needs listeners of its own — nothing else on this
   // page fires while a customer fills their name in. ⚠️ They live here, beside the rule they serve,
@@ -4018,6 +4054,11 @@ function wireFulfillment() {
   // the fields of the way the customer did NOT take are never standing open.
   if (wrap._open !== null && wrap._open !== "collect" && wrap._open !== "courier") wrap._open = null;
   const apply = (value) => {
+    // ⚠️⚠️ NOTHING IS REFUSED HERE, AND THAT IS DELIBERATE (v456). `apply` is not only the press: it is
+    // **also the shop's own start-up** (`apply("")` at the foot of this function) and **the after-order
+    // reset** (`_resetFulfillment`). ⭐ The reset runs with an EMPTY basket — the order has just been
+    // placed — so a guard in here would put "add something first" on a customer's screen at the moment
+    // their order succeeded. **The refusal belongs on the PRESS; setting the state belongs here.**
     wrap._value = value;
     // ⚠️ THE OTHER CARD SHUTS. ⭐ This is the "hole" she described: an open card full of white rows —
     // or an address box — in the way the customer has already turned down.
@@ -4112,6 +4153,24 @@ function wireFulfillment() {
   // rows do not exist to press** — and a test that drove a COPY of this rule would prove nothing
   // about the press. ⭐ Same seam, and the same reason, as `_pickCollect` below.
   const pressWay = (want) => {
+    // ★★★ AND A WAY IS NOT CHOSEN FOR AN ORDER WITH NOTHING IN IT (v456). Her words: __"i skip step 2
+    // and filled up step 3, it should not allow me to do step 3 at all?"__ — and then, when I had
+    // locked only the typed boxes: __"lock the 2 delivery cards too"__.
+    // ⚠️ **THAT WAS THE SAME SHAPE OF MISTAKE TWICE: I locked the thing she named and not the things
+    // that sit beside it.** ⭐ Step 3 is ONE step — the name, the number AND how they get the order —
+    // so locking two thirds of it is not locking it. The two cards were still pressable, and the
+    // customer could still choose how to receive an order he had not placed.
+    // ⭐ **AND IT IS ON THE PRESS, NOT IN `apply`, BECAUSE `apply` ALSO SETS STATE THE SHOP ITSELF
+    // NEEDS** — the start-up default and the after-order reset both run with an empty basket, and
+    // refusing there would tell a customer who just placed an order to add something first.
+    // ⚠️⚠️ AND IT READS THE BASKET THROUGH THE PICKER'S OWN SEAM, because **this function was built
+    // outside `render` and can see neither `cart` nor `sayStepFirst`.** ⭐ A direct call here is a
+    // `ReferenceError` on the press and nowhere else — which is exactly how the first draft of this
+    // guard failed, and why the three v436 tests caught it rather than the shop did.
+    if (wrap._mayChooseWay && !wrap._mayChooseWay()) {
+      if (wrap._refuseWay) wrap._refuseWay();
+      return;
+    }
     // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way already
     // chosen therefore opens and shuts what it holds rather than doing nothing — **the second tap is
     // how a customer puts it away again**, which is the state she asked to arrive in.

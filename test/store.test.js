@@ -2219,6 +2219,19 @@ function withAsks(fn) {
 const askScrim = () => document.getElementById("ask-scrim");
 const askBody = () => document.getElementById("ask-body").textContent;
 const pressAsk = (which) => document.getElementById(which)._listeners.click[0]();
+// ★★★ AND ONE ITEM IN THE BASKET, BECAUSE STEP 3 IS SHUT WITHOUT ONE (v456). Her words: __"lock the 2
+// delivery cards too"__. ⚠️ **The three tests below are about ASKING before he changes how he gets his
+// order — and that is an act INSIDE step 3.** ⭐ Their subject has not changed at all; what changed is
+// that **the shop no longer lets a customer walk into step 3 with step 2 unfinished.** So they now
+// arrive the way a customer does. ⚠️ A test that reached step 3 any other way would be testing a route
+// the shop no longer has, and would pass whether the lock worked or not.
+function addOneItem() {
+  const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0](); // "+"
+  assert.equal(registry["bar-count"].textContent, "1 item",
+    "★ nothing went into the basket, so step 3 is still shut and this fixture proves nothing");
+}
 // Choose the second place. ⚠️ Set up AFTER `render()`, because wiring runs once at startup and a
 // repaint does not re-choose anything for the customer.
 function chooseFarlim() {
@@ -2226,6 +2239,7 @@ function chooseFarlim() {
   wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
   render();
   tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
+  addOneItem(); // ★ v456: step 3 does not open on an empty basket
   const places = document.getElementById("point-list").children;
   assert.ok(places.length >= 2, "the places were not drawn, so this proves nothing");
   places[1]._listeners.click[0]();
@@ -2287,11 +2301,52 @@ test("★ a change that costs him NOTHING is not interrupted", () => {
     wrap._value = "collect"; wrap._open = "collect"; wrap._pointId = ""; wrap._pointName = "";
     render();
     tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
+    addOneItem(); // ★ v456: and the way cannot be chosen on an empty basket
 
     wrap._pressWay("courier");
     assert.equal(askScrim().hidden, true, "★ he was asked to confirm a change that took nothing from him");
     assert.equal(wrap._value, "courier", "and the change did not go through");
   });
+});
+
+test("★★★ the two delivery cards choose NO way for an empty basket — and they say why (v456)", () => {
+  // Her words: __"i skip step 2 and filled up step 3, it should not allow me to do step 3 at all?"__
+  // and then, after I had locked only the two boxes she named: __"lock the 2 delivery cards too"__.
+  // ⚠️ **The customer could still choose how to receive an order he had not placed.**
+  const wrap = document.getElementById("fulfillment");
+  // ⚠️⚠️ THE ARRIVAL STATE IS SET BY HAND, AND THE REASON MATTERS: **`render()` does NOT reset the
+  // choice.** `apply("")` runs once, when `wireFulfillment()` is wired at start-up — so a test that
+  // calls `render()` inherits the way the PREVIOUS test left behind. ⭐ That is not a fault in the shop
+  // (a real customer's page is wired once and the after-order reset puts the way back through
+  // `_resetFulfillment`), but it silently made this fixture start on "courier", which is why the guard
+  // looked as though it had not fired at all.
+  wrap._value = ""; wrap._open = null; wrap._picked = false;
+  wrap._pointId = ""; wrap._pointName = "";
+  render();
+  tapDay(); // ★ step 1 is his; the basket is deliberately left EMPTY, which is the whole subject
+  assert.equal(registry["bar-count"].textContent, "0 items", "precondition: nothing is in the basket");
+
+  wrap._pressWay("courier");
+
+  assert.equal(wrap._value, "", "★ a way was chosen for an order with nothing in it");
+  assert.equal(wrap._open, null, "★ and its card was unfolded over an empty basket");
+  assert.notEqual(wrap._picked, true,
+    "★ he was credited with a choice he was never allowed to make, so step 3 could green on it");
+  // ⭐⭐ AND IT ANSWERS. ⚠️ v452's rule, which this very file states out loud: **a disabled control on a
+  // phone does not even acknowledge the tap**, so switching the card off would tell him nothing at all.
+  const note = registry["step-note"];
+  assert.equal(note.hidden, false, "★ the press was refused in silence");
+  assert.equal(note.children[0].children[0].text, "Nothing in your order yet.",
+    "★ the refusal does not say what is missing");
+  // ⚠️ WHERE THE LINE LANDS IS A RULE OF ITS OWN — see test/step-lock.test.js, which pins that a refusal
+  // is addressed to its own step, because a step-2 sentence printed under step 1 is her v455 fault back.
+  assert.doesNotMatch(note.children[2].text, /Courier|delivery/i,
+    "★ the refusal is talking about the card he pressed rather than about the basket that is empty");
+
+  // ⭐ AND NOTHING ELSE ANSWERS EITHER — the other card, and a card already the current way.
+  wrap._pressWay("collect");
+  assert.equal(wrap._value, "", "★ the other card chooses a way for an empty basket");
+  assert.equal(wrap._open, null, "★ …and unfolds itself over one");
 });
 
 test("★★ a PLACE tap is the same change, so it asks too — and the place travels with the answer", () => {
