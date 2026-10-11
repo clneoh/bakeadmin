@@ -329,7 +329,10 @@ const en = {
   // ★★ STEP 1 FIRST (v453). Her words: __"complet step1 before step2 is allow, and so forth"__ — and
   // __"dont allow and a message inform about why"__.
   needDayTitle: "Choose your bake day first.",
-  needDayBody: "Step 1, at the top. Pick the day you want your bread baked — then the menu opens.",
+  // ⚠️ v459: it said "then the menu opens" — AND THE MENU IS ALREADY OPEN. The cards are on screen; it
+  // is ORDERING that is held back. A message that describes the screen wrongly is worse than a vague one,
+  // because the customer looks for a menu that is already in front of him.
+  needDayBody: "Step 1, at the top. Pick the day you want your bread baked — then you can add it.",
   confirmAddNameTitle: "Please add your name.",
   confirmAddNameBody: "It is how we know who the order is for when we confirm it with you.",
   confirmClosedTitle: "That day's orders are closed.",
@@ -577,7 +580,7 @@ const zh = {
   needItemTitle: "订单还是空的。",
   needItemBody: "请先从上面的菜单选一样，然后就可以下单了。",
   needDayTitle: "请先选择烘焙日。",
-  needDayBody: "在最上面的第 1 步。选好你要面包在哪一天烘焙 — 然后菜单就会打开。",
+  needDayBody: "在最上面的第 1 步。选好你要面包在哪一天烘焙 — 然后就可以加入订单。",
   confirmAddNameTitle: "请填写你的名字。",
   confirmAddNameBody: "这样我们在跟你确认订单时，才知道这份订单是谁的。",
   confirmClosedTitle: "该日的订单已截止。",
@@ -788,7 +791,7 @@ const ms = {
   needItemTitle: "Order masih kosong.",
   needItemBody: "Pilih sesuatu dari menu di atas dahulu — kemudian anda boleh buat order.",
   needDayTitle: "Pilih hari membakar anda dahulu.",
-  needDayBody: "Langkah 1, di atas. Pilih hari anda mahu roti anda dibakar — kemudian menu akan dibuka.",
+  needDayBody: "Langkah 1, di atas. Pilih hari anda mahu roti anda dibakar — kemudian anda boleh menambahnya.",
   confirmAddNameTitle: "Sila masukkan nama anda.",
   confirmAddNameBody: "Kami guna untuk tahu order ini untuk siapa semasa mengesahkannya.",
   confirmClosedTitle: "Order untuk hari itu sudah ditutup.",

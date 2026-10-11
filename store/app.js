@@ -1455,7 +1455,7 @@ function clearFieldMarks() {
   }
 }
 
-  function sayStepFirst(titleKey, bodyKey, stepId) {
+  function sayStepFirst(titleKey, bodyKey, stepId, near = null) {
     // ⚠️⚠️ IT DOES NOT MOVE THE PAGE (v455). Her words: __"the message show in the wrong place and the
     // screen jump"__ — ⭐ **and the jump was mine: this called `scrollIntoView`, which drags the page to
     // the step.** ⚠️ **v423 already settled this rule for the parked place — *the page does not move* —
@@ -1469,13 +1469,33 @@ function clearFieldMarks() {
     // speaking** — the element itself, never a second copy, so there is one note and one rule.
     // ⚠️ A page without the head (or a test shim whose nodes have no parent) simply leaves it where it
     // is and still says the words — the message is the point, its address is the polish.
-    const head = document.getElementById(stepId);
+    // ★★★ AND IT SPEAKS WHERE THE CUSTOMER ACTUALLY IS (v459). ⚠️⚠️ HER REPORT, and she is right:
+    // __"when i skip step one try enter qty, it refuse to allow, but i dont know why, because the message
+    // appear somewhere not within my screen, i have to scrol up to find it"__.
+    // ⭐ **MEASURED ON THE REAL SHOP BEFORE CHANGING ANYTHING: with the customer at the menu, the line sat
+    // 262 pixels ABOVE the top of the screen — invisible.** ⚠️ The refusal worked and he was told nothing.
+    // ⚠️⚠️ AND THE FAULT WAS MY OWN JUDGEMENT, NOT A BUG: at v456 I wrote *"a customer at the bottom of the
+    // page pressing a delivery card therefore has to look back up to read it… I chose the missing step over
+    // the customer's thumb."* **That was the wrong way round.** A message nobody sees is not a message.
+    // ⭐ So `near` — the thing that refused, the card whose + was pressed — wins, and the line is put
+    // **directly above it**, on the screen he is already looking at. The rule it belongs to is unchanged:
+    // **the page still does not move** (v423, v455). It is the LINE that comes to him.
+    // ⚠️ With no `near` it falls back to the step's own heading, exactly as it did from v456.
     const note = document.getElementById("step-note");
     if (!note) return;
-    if (head && head.parentNode && typeof head.parentNode.insertBefore === "function"
-      && head.nextSibling !== note) {
-      head.parentNode.insertBefore(note, head.nextSibling);
+    let parent = null;
+    let before = null;
+    if (near && near.parentNode && typeof near.parentNode.insertBefore === "function") {
+      parent = near.parentNode;
+      before = near;
+    } else {
+      const head = document.getElementById(stepId);
+      if (head && head.parentNode && typeof head.parentNode.insertBefore === "function") {
+        parent = head.parentNode;
+        before = head.nextSibling;
+      }
     }
+    if (parent && note.nextSibling !== before) parent.insertBefore(note, before);
     note.replaceChildren(
       el("strong", {}, t(titleKey)), " ", t(bodyKey));
     note.hidden = false;
@@ -2062,7 +2082,7 @@ function clearFieldMarks() {
           // bread into the basket with no day chosen, because `change` does not fire until he leaves the
           // box — by which time the item was already in and the lock had been walked straight past.
           // ⭐ **A typed number is the same act as a tap, and v454 refused the tap.**
-          if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
+          if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1", here()); return; }
           const n = parseInt(this.value, 10);
           if (!Number.isFinite(n) || n < 1) return;   // ⚠️ an empty box mid-edit is not an order for zero
           cart.set(p.name, Math.min(cap, n));
@@ -2074,7 +2094,7 @@ function clearFieldMarks() {
         // refuse the other**, or the lock would have a door in it that nobody had noticed.
         onchange: function () {
           if (!dayPicked) {
-            sayStepFirst("needDayTitle", "needDayBody", "step1");
+            sayStepFirst("needDayTitle", "needDayBody", "step1", here());
             this.value = String(cart.get(p.name) || 0);
             return;
           }
@@ -2084,6 +2104,10 @@ function clearFieldMarks() {
           redraw();
         },
       });
+      // ⭐ WHERE A MISSING BAKE DAY IS SPOKEN ABOUT (v459): **directly above the card he just touched.**
+      // ⚠️ It is a thunk, not the element itself, because the card does not exist yet while these handlers
+      // are being built — and the answer is only needed at the moment of the press, when it does.
+      const here = () => (inc && inc.closest ? inc.closest(".card") : null);
       // A stepper move repaints the whole menu: a pool card needs it (every
       // sibling's cap/stamp depends on this quantity) and so does every
       // Next-available line, which is a control only while the basket is empty.
@@ -2133,7 +2157,7 @@ function clearFieldMarks() {
         // __"dont allow and a message inform about why"__ · __"ask user to tap on the bake day to confirm
         // it"__. ⭐ **`sayStepFirst` was defined and NEVER CALLED** — the helper, the three message pairs and
         // the comment above all sat here as DEAD CODE, which is why the shop behaved as if none of it existed.
-        if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
+        if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1", here()); return; }
         const q = Math.min(cap, (cart.get(p.name) || 0) + 1);
         cart.set(p.name, q);
         qtyBox.value = String(q);
@@ -2720,7 +2744,9 @@ function clearFieldMarks() {
     // which this file already sends the other way for the same reason.
     if (fulfilled) {
       fulfilled._mayChooseWay = () => cart.size > 0;
-      fulfilled._refuseWay = () => sayStepFirst("needItemTitle", "needItemBody", "step2");
+      // ⚠️ AND IT TAKES THE CARD THAT REFUSED (v459), so the line lands directly above the card he pressed
+      // rather than under a heading a screen or two away — her report, and the whole of this version.
+      fulfilled._refuseWay = (near) => sayStepFirst("needItemTitle", "needItemBody", "step2", near);
     }
   }
   // ⚠️ AND THE THIRD STEP IS TYPED, NOT TAPPED, so it needs listeners of its own — nothing else on this
@@ -4214,7 +4240,16 @@ function wireFulfillment() {
     // `ReferenceError` on the press and nowhere else — which is exactly how the first draft of this
     // guard failed, and why the three v436 tests caught it rather than the shop did.
     if (wrap._mayChooseWay && !wrap._mayChooseWay()) {
-      if (wrap._refuseWay) wrap._refuseWay();
+      if (wrap._refuseWay) {
+        // ⚠️⚠️ AND IT HANDS OVER THE CONTROL HE PRESSED (v459) — **`Array.from`, because a browser's
+        // `querySelectorAll` is a NodeList and a NodeList has no `.find`.** ⭐ The line then lands directly
+        // above THAT card, which is on the screen he is already looking at.
+        let pressed = null;
+        for (const x of Array.from(buttons)) {
+          if (x && x.dataset && x.dataset.fulfillment === want) { pressed = x; break; }
+        }
+        wrap._refuseWay(pressed && pressed.closest ? (pressed.closest(".seg-opt") || pressed) : null);
+      }
       return;
     }
     // ⚠️ EACH LINE IS BOTH THE CHOICE AND ITS OWN FOLD'S HANDLE. Tapping the line of the way already

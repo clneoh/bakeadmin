@@ -53,8 +53,43 @@ function createEl(tag) {
       contains(c) { return classes().includes(c); },
     },
     parentElement: null,
+    // ⚠️⚠️ `parentNode` IS THE REAL DOM'S OWN NAME FOR WHAT THIS SHIM CALLS `parentElement` (v459). The
+    // shop moves the refusal line with `insertBefore(note, near)` and reads `near.parentNode` — **a
+    // standard browser property this shim simply did not have.** ⭐ So the move quietly fell back to the
+    // other placement, and my assertion about WHERE the line lands was, without the shim saying a word,
+    // asserting nothing. ⚠️ **A shim missing a property the view actually uses is not a smaller DOM, it is
+    // a different one** — the rule this file has already paid for with `classList`, `removeEventListener`
+    // and `hidden`.
+    get parentNode() { return this.parentElement; },
+    // ⚠️ AND NEITHER DID THIS ONE (v459) — and this time it was the VIEW reading it, not only the test:
+    // `sayStepFirst` asks `note.nextSibling !== before` before moving the line. ⭐ With the property
+    // missing that guard was always true, so the shop re-inserted on every keystroke and **the test
+    // asking "is the line directly above the card he touched?" got `undefined` and could not say.**
+    get nextSibling() {
+      const p = this.parentElement;
+      if (!p || !Array.isArray(p.children)) return null;
+      const i = p.children.indexOf(this);
+      return i >= 0 && i + 1 < p.children.length ? p.children[i + 1] : null;
+    },
     appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
     append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
+    // ⚠️⚠️ THIS SHIM HAD NO `insertBefore` AT ALL UNTIL v459, and that mattered the moment the shop began
+    // MOVING the refusal line instead of leaving it where the markup put it: **the view quietly fell back
+    // to the other placement, and a test asserting WHERE the line lands was asserting nothing.** ⭐ It was
+    // found by the assertion failing, not by reading — and the answer was to fix the shim, not the claim.
+    // ⭐ Like the real one, it takes the node OUT of wherever it was first: that is what makes
+    // `nextSibling` — and therefore "is it directly above the card he touched?" — an honest question.
+    insertBefore(n, ref) {
+      const prev = n && n.parentElement;
+      if (prev && prev !== this && Array.isArray(prev.children)) {
+        const i = prev.children.indexOf(n);
+        if (i >= 0) prev.children.splice(i, 1);
+      }
+      n.parentElement = this;
+      const at = ref ? this.children.indexOf(ref) : -1;
+      if (at >= 0) this.children.splice(at, 0, n); else this.children.push(n);
+      return n;
+    },
     replaceChildren(...cs) {
       this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) }));
       // ⚠️ The real one re-parents what it is given, which is what makes `closest` — and therefore
@@ -3165,7 +3200,23 @@ test("★★ a TYPED quantity obeys the bake-day lock, exactly as the + press do
   (box._listeners.input || []).forEach((f) => f.call(box));
   assert.equal(registry["bar-count"].textContent, "0 items",
     "★ a typed number put bread in the basket with no bake day chosen");
-  assert.equal(registry["step-note"].hidden, false, "★ and he was told nothing about why");
+  const note = registry["step-note"];
+  assert.equal(note.hidden, false, "★ and he was told nothing about why");
+
+  // ⚠️⚠️ AND THE LINE IS ON THE SCREEN HE IS ALREADY LOOKING AT (v459). **This is her report, and it is
+  // the whole of this version:** __"when i skip step one try enter qty, it refuse to allow, but i dont
+  // know why, because the message appear somewhere not within my screen, i have to scrol up to find it"__.
+  // ⭐ MEASURED ON THE REAL SHOP before the change: with the customer at the menu, the line sat
+  // **262 pixels ABOVE the top of the screen** — the refusal worked and he was told nothing.
+  // ⚠️⚠️ **AND THAT WAS MY JUDGEMENT, NOT A BUG** — at v456 I wrote that a customer at the bottom of the
+  // page *"has to look back up to read it… I chose the missing step over the customer's thumb."*
+  // **A message nobody sees is not a message**, so the thumb wins now.
+  const menu = registry["menu"];
+  const card = menu.children.find((c) => c.dataset && c.dataset.product);
+  assert.equal(note.parentElement, menu,
+    "★ the line is not in the menu where he is — it is still up at a step heading, off his screen");
+  assert.equal(note.nextSibling, card,
+    "★ the line is not directly above the card he touched, so he cannot tell what it is about");
 
   // ⚠️ AND WITH THE DAY TAPPED, THE SAME TYPE GOES THROUGH — so this is a lock and not a wall.
   tapDay();

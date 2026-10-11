@@ -39,7 +39,10 @@ const html = readFileSync(new URL("../store/index.html", import.meta.url), "utf8
 // to a step the shop does not draw cannot pass.
 const HEADS = [...html.matchAll(/class="step-head" id="(step\d+)"/g)].map((m) => m[1]);
 // Every refusal raised anywhere in the shop, with the step it says it belongs to.
-const CALLS = [...app.matchAll(/sayStepFirst\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"(step\d+)"\s*\)/g)];
+// ⚠️ THE FOURTH ARGUMENT IS OPTIONAL (v459) — the thing that refused, so the line can be put next to it.
+// A pattern that demanded the closing bracket straight after the step would have gone quietly blind to
+// every call that names a place to speak, which is the "a check keyed to one shape checks one shape" trap.
+const CALLS = [...app.matchAll(/sayStepFirst\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"(step\d+)"\s*[,)]/g)];
 
 test("★★ every refusal is addressed to a step the page actually draws (v456)", () => {
   assert.ok(HEADS.length >= 3, `the page's steps were not found at all (found ${HEADS.join(", ")}), so this proves nothing`);

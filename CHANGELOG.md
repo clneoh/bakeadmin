@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v458)
+# Jienluv2bake — change history (v54 → v459)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v459, THE MESSAGE COMES TO THE CUSTOMER, INSTEAD OF THE CUSTOMER GOING TO THE MESSAGE (no database step).**
+
+**Your words:** __"i check the store front, the step by step dont work properly, when i skip step one try enter qty, it refuse to allow, but i dont know why, because the message appear somewhere not within my screen, i have to scrol up to find it, what a lousy work"__
+
+**1. ⚠️⚠️ YOU WERE RIGHT, AND IT WAS MY JUDGEMENT RATHER THAN A BROKEN PIECE OF CODE.** At v456 I moved that line to sit under the heading of the step it is about — and I wrote the consequence down myself and chose to accept it: *"a customer at the bottom of the page pressing a delivery card therefore has to look back up to read it… I chose the missing step over the customer's thumb."* ⭐ **That was the wrong way round. A message nobody sees is not a message.**
+
+**2. ⭐ I MEASURED IT ON THE REAL SHOP BEFORE CHANGING ANYTHING, AND IT WAS WORSE THAN IT SOUNDS.** With the customer at the menu, the line sat **262 pixels above the top of the screen** — not off to one side, not partly cut off. The refusal worked perfectly and he was told **nothing at all**.
+
+**3. ★★ SO THE LINE NOW GOES WHERE THE CUSTOMER IS: DIRECTLY ABOVE THE THING HE JUST TOUCHED.** Type a quantity on a product card and the line appears **immediately above that card**, on the screen he is already looking at. Press one of the two delivery cards and it appears **immediately above that card**. ⭐ **Measured after the change: fully on screen, 4px above the product card and 12px above the delivery card.**
+
+**4. ⚠️ AND THE PAGE STILL DOES NOT MOVE — that part of v455 was right.** Measured before and after the press: **the scroll position does not change by a single pixel.** ⭐ The rule was never "the message must sit at the top"; it was **"do not drag the page out from under him"**. The line is what travels, not the screen.
+
+**5. ⚠️ AND THE SENTENCE ITSELF WAS WRONG, WHICH IS THE SECOND HALF OF "I DON'T KNOW WHY".** It said **"then the menu opens"** — **and the menu is already open.** The cards are on the screen; what is held back is the ORDERING. It now reads **"then you can add it"**, in all three languages. ⭐ A message that describes the screen wrongly is worse than a vague one, because the customer goes looking for a menu that is already in front of him.
+
+**6. ⚠️⚠️ AND TWO TEST-SHIM GAPS WERE HIDING THE WHOLE THING.** The page used by the tests had **no `insertBefore` and no `parentNode`** — two real browser properties — so the line could not be moved at all, the shop quietly fell back to the other placement, and **the assertion about WHERE the line lands was asserting nothing.** ⭐ Both were found by that assertion failing, and both were fixed in the shim rather than in the claim — the rule this suite has already paid for with `classList`, `hidden` and `removeEventListener`. A third, `nextSibling`, was read by the shop itself.
+
+**Measured:** tests **3,364**, all green. **No database step.**
 
 **12 Oct 2026 — engine v458, EVERY QUANTITY CAN BE TYPED — AND ONE OF THEM COULD ONLY TAKE ONE DIGIT (no database step).**
 
