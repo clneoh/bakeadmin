@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v439)
+# Jienluv2bake — change history (v54 → v440)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v440, AN EDIT CAN ONLY EVER REMOVE THE LINES YOU REMOVED (no database step).**
+
+**Your words:** __"there is few orders that when jien enters, say she want to enter but she break it to. became 20, 10 & 2, So what i want to do is change one to 3 then delete the 10 & 2, in the process, other order get deleted"__
+
+**1. ⚠️⚠️ I FOUND TWO WAYS THE APP COULD DO THIS, AND BOTH ARE NOW SHUT. I have NOT proved either was what happened on your phone — read point 4 before you take anything from this.**
+
+**2. ⚠️ THE FAULT WAS A DELETION DECIDED BY THE WRONG LIST.** The Edit pop-up's Save worked out what to delete from **the lines it was going to WRITE** — and that list is the lines with a product on them. ⭐ **So a line the product picker could not name was read as "she deleted it", and its row went with no ✕ ever pressed on it.** It now decides from **what the pop-up still had ON SCREEN**: an entry leaves that list in exactly one place, the ✕, so that list — and nothing else — is what says what was removed.
+
+**3. ⚠️ AND THE DELETION WAS A SEARCH THAT COULD MATCH NOTHING, AND SO MATCH EVERYTHING.** The rows to remove were found by their **id** — and that same code says, in its own writing, that an order row can have no id at all. **When a row being removed has none, the thing being searched for becomes "undefined" — and the removal then took EVERY order in your book that has no id, on every bake day, for every customer, from an edit that never named them.** ⭐ **Deleting what cannot be named is not a deletion, it is a sweep**, and nothing on the screen would have said so. **A row with no id is now never removed.**
+
+**4. ⚠️ WHAT I HAVE NOT PROVED, AND YOU SHOULD KNOW IT.** I could not tell from the code alone which of these reached your phone. **So the honest position is: these were two real ways an edit could lose an order, and both are shut — but I am not going to tell you "that was it".** ⭐ **The answer is on your phone, and the app can already show it to you.**
+
+**5. ★ WHERE TO LOOK — A SCREEN THAT ALREADY EXISTS.** **More → Backup & safety**, then press **View** on a copy. That opens a read-only window of everything in that copy, with the orders grouped by bake day **and a group at the bottom called "Not on a bake day" for any order that has lost its day.** ⭐ **An order sitting in that group was never deleted — it only lost its day.** Open the newest copy; and if you have one from before you were editing, open that too and compare the two. ⚠️ **And an order in that group can be put BACK**: its row opens the Edit card, where the bake day is chosen ([orders.js:1082](admin/js/views/orders.js:1082)).
+
+**6. ★ AND THE SAME GUARD NOW SITS ON THE ✕ THAT REMOVES A WHOLE ORDER** — the one in the day's list and the one in the New-orders inbox at the top of the page. It was finding its rows the same way, so it carried the same sweep.
+
+**Measured:** tests **3,322 → 3,325**, all green. ⭐ **Both new guards were seen to fail by their own message** — the removal put back onto the write-list, and the id guard taken away — **and the file restored byte-identically (sha256) after each.** ★ **Verified live in the app, driving your own move:** an order with one line → **Add another item** → Save → **two rows sharing one order**; then Edit → the second line's ✕ → Save → **one row left, the ×20 untouched.** **No database step**, and nothing in your data was changed by any of it.
 
 **12 Oct 2026 — engine v439, THE FOURTH BALL IS THE SAME COLOUR AS 1, 2 AND 3 — ALWAYS (no database step).**
 

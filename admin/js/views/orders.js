@@ -2550,6 +2550,13 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const whyWindow = draft.fulfillment === "courier"
       ? windowProblem(draft.courierWhen.from, draft.courierWhen.to) : "";
     if (whyWindow) return toast(whyWindow);
+    // ⚠️⚠️ WHAT THE POP-UP STILL HAS ON SCREEN (v440) — the lines that survived the ✕. It is
+    // built HERE, from `lines` itself, because `lines` is the pop-up's own array and it is the
+    // only thing that knows what she removed: an entry leaves it in exactly one place, the ✕.
+    // ⚠️ **`chosen` cannot stand in for it.** `chosen` is `lines.filter((l) => l.productId)`, so a
+    // line the picker could not name is missing from `chosen` without her having removed it — and
+    // the Save used to read that absence as a deletion and take the row away.
+    const liveIds = new Set(lines.map((l) => l.id).filter(Boolean));
     applyPopupEdits(state, date, group, first, chosen, {
       customerName: customer.value.trim(),
       whatsapp: waNumber(whatsapp.value.trim()),
@@ -2589,7 +2596,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       parcel: { carrierId: draft.carrierId || "", handedAt: draft.handedAt || "" },
       orderDate: draft.orderDate,
       deliveryDateId: destId,
-    }, close, root);
+    }, close, root, liveIds);
   };
 
   // Where the price section draws the door block (v201). Under the address row rather than
@@ -2725,7 +2732,7 @@ function writeParcel(state, first, rows, parcel) {
 // single-item order that gains a second line becomes a group so it still shows
 // as one customer order). Removed lines' orders are deleted. Guards against
 // pushing the day over capacity.
-function applyPopupEdits(state, date, group, first, chosen, shared, close, root) {
+function applyPopupEdits(state, date, group, first, chosen, shared, close, root, liveIds) {
   // The charge travels beside the shared row fields, never among them: they are copied
   // straight onto the order rows with Object.assign, and a nested object riding along
   // there would be saved onto every row as a field of its own. The parcel (v226) is the
@@ -2748,8 +2755,27 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root)
   const totalAfter = cap.total - qtyNow + qtyAfter;
 
   const commit = () => {
-    const keptIds = new Set(chosen.map((l) => l.id).filter(Boolean));
-    const dropIds = new Set(group.orders.filter((o) => !keptIds.has(o.id)).map((o) => o.id));
+    // ⚠️⚠️ WHAT SHE REMOVED, NOT WHAT SHE LEFT (v440). This used to drop every row of the group
+    // whose line was not in `chosen` — and **`chosen` is `lines.filter((l) => l.productId)`**. So
+    // **a line the picker could not name was read as "she deleted it"**, and its row went with no
+    // ✕ ever pressed on it. ⭐ `lines` loses an entry in exactly ONE place — the ✕ — so `liveIds`,
+    // which is built from `lines` and handed in by the pop-up that OWNS it, is what says what was
+    // deleted. `chosen` still says what to WRITE, which is all it was ever for.
+    // Her report: __"change one to 3 then delete the 10 & 2, in the process, other order get
+    // deleted"__.
+    //
+    // ⚠️ IT IS PASSED IN RATHER THAN DEFAULTED. A default here would be a second way to reach the
+    // old rule, and a caller who omitted it would delete rows with no sign on screen that the
+    // guard had gone — the same trap v404 removed the `ask` flag for.
+    //
+    // ⚠️⚠️ AND A ROW WITH NO `id` IS NEVER DROPPED. The `.filter(Boolean)` on `liveIds` is the
+    // author saying, in code, that an order row can have no id. Without the `o.id &&`, a dropped
+    // row with no id would put `undefined` into `dropIds` — and the sweep below would then take
+    // **every id-less order in the whole book** out with it, on every day, for every customer,
+    // from an edit that never named them. ⭐ **Deleting what cannot be named is not a deletion, it
+    // is a sweep**, and it is silent.
+    const dropIds = new Set(group.orders.filter((o) => o.id && !liveIds.has(o.id)).map((o) => o.id));
+    // ⚠️ `dropIds` can no longer contain `undefined`, so a row with no id cannot match this filter.
     if (dropIds.size) state.orders = state.orders.filter((o) => !dropIds.has(o.id));
     // The order screen is not a second copy of the customer: a name or number
     // fixed here carries to their other orders and to their saved record too.
@@ -5036,7 +5062,12 @@ function removeOrder(state, group, root, dateId) {
     : `Remove order "${label}"?`;
   confirmDialog(message,
     () => {
-      const ids = new Set(group.orders.map((o) => o.id));
+      // ⚠️ `filter(Boolean)` for the same reason the Edit pop-up carries it (v440): a row with no
+      // id would put `undefined` in this set, and the line below would then remove **every id-less
+      // order in the book** — orders this press never named. Removing what cannot be named is a
+      // sweep, not a removal.
+      const ids = new Set(group.orders.map((o) => o.id).filter(Boolean));
+      if (!ids.size) return;
       state.orders = state.orders.filter((o) => !ids.has(o.id));
       save(state);
       maybeSync(state);
