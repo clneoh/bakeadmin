@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v432)
+# Jienluv2bake — change history (v54 → v433)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v433, THE SHOP'S "BAKE DAYS / ORDER BY" CARD NOW READS AS TWO SENTENCES (no database step).**
+
+**Your words, with a picture of the card:** __"instead of a line, customer might confused that it is 2 group of word, one left one right"__
+
+**You were right, and it was one line of styling.**
+
+**1. THE WORD AND THE ANSWER WERE PINNED TO OPPOSITE EDGES.** The row was built to push its label to the far left and its answer to the far right with **nothing joining them** — so a customer could read straight down the left, then straight down the right, and pair them up wrongly. **And this is the one card on the shop that states the two rules an order depends on.**
+
+**2. ★ YOU PICKED THE SHAPE OFF A DRAWN SHEET: one line, one sentence.** It now reads:
+
+**`Bake days: Mon, Wed, Fri`**
+**`Order by: 6pm the day before`**
+
+**3. AND IT IS NOW IMPOSSIBLE TO SPLIT IN TWO**, because there is only one group of words on each line.
+
+**4. ⚠️ THE THREE LANGUAGES ARE UNTOUCHED.** The colon goes in the page itself, **not** inside the translated words — so the Chinese and Bahasa read exactly as they did, and none of them has to carry punctuation it never had.
+
+**5. WHERE IT IS: the shop page only.** I checked — this card is on `/store/` and nowhere else, so nothing else in the shop moved.
+
+**Measured:** tests **3,303 → 3,307**. **No database step.**
 
 **12 Oct 2026 — engine v432, AN ORDER MOVES AS ONE — ALL OF IT, NOT JUST THE LINES ON THE DAY YOU ARE LOOKING AT (no database step).**
 

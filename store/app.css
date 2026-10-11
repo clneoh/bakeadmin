@@ -186,10 +186,15 @@ html, body {
   box-shadow: var(--shadow);
 }
 .info { padding: 12px 15px; }
+/* ★★ ONE LINE, ONE SENTENCE (v433). Her words: __"customer might confused that it is 2 group of
+   word, one left one right"__ — ⚠️ AND SHE WAS RIGHT: this was `display: flex;
+   justify-content: space-between`, which pinned the word to the left edge and its answer to the
+   right edge with **nothing joining them**. A customer reading down the left and then down the
+   right gets the pairing wrong, and the card is the one place on the shop that states the two
+   rules an order depends on.
+   ⭐ The colon lives in the MARKUP, not in the translated string, so all three languages keep their
+   own wording and none of them has to carry punctuation it never had (see store-lang.js). */
 .info-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
   margin: 4px 0;
   font-size: 14px;
 }
