@@ -1,8 +1,53 @@
-# Jienluv2bake — change history (v54 → v444)
+# Jienluv2bake — change history (v54 → v446)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v446, "CHECK MY SYSTEM" — A MEASURE YOU CAN RUN YOURSELF (no database step).**
+
+**Your question, and you say you always ask it:** __"is the system robust enough in many ways. What measure, what test, we can do to effectively measure it?"__
+
+**1. ⚠️⚠️ AND THIS MORNING ANSWERED IT.** On 11 Oct 2026 this app had **3,335 passing automatic tests while three of your paid orders were missing.** Those tests check **what the app DOES**, and everything they were pointed at worked correctly. ⭐ **Your loss was a fact about your RECORDS, and nothing in the app had ever looked at your records.** So "the tests pass" was never a measure of anything you could feel safe about — and you were right to keep asking.
+
+**2. ★★ SO THERE IS NOW A SCREEN YOU RUN YOURSELF.** **More → 🩺 Check my system.** It reads your records on this phone, and your receipts and saved copies in your shared data, and gives you a verdict in three numbers: **how many checks passed, how many FAILED, and how many could not run.**
+
+**3. ★ THE TEN CHECKS, AND EVERY ONE CAME FROM SOMETHING THAT ACTUALLY WENT WRONG HERE:**
+
+1. No order appears twice.
+2. Nothing is on the orders list and the Removed list at once.
+3. Every order sits on a real bake day — *the order that is invisible.*
+4. **Every line of one order agrees about the order** — the shape of every fault this app has had on that screen.
+5. Every line of one order wears the same order number.
+6. Every PAID order can be priced.
+7. Every removed order says when it came off.
+8. **Every receipt has an order behind it** — or one on the Removed list. ⚠️ *This is the check that would have caught your three.*
+9. **Every receipt's number is on the order it names.** ⚠️ *This is `#F447EE`, found by you.*
+10. Your saved copies are recent and readable.
+
+**4. ★★ AND HOME SHOWS YOU WITHOUT BEING ASKED.** When any of the checks that need no internet find something, **one line appears at the top of Home**: *"🩺 1 thing in your records needs a look"*, naming the checks, with a press through to the screen. ⚠️ **A measure you have to remember to go and look at is not a measure** — your three orders sat in your data and NOTHING reported them, which is why you found them yourself, later, in the receipt register.
+
+**5. ⚠️⚠️ AND THE RULE THE WHOLE THING IS BUILT ON: A CHECK THAT COULD NOT LOOK IS NEVER COUNTED AS FINE.** If your phone cannot reach shared data, the three checks that need it are counted **separately** and say why — the same rule your receipt register already follows, where a register that cannot be read is never drawn as an empty one. ⭐ **A verdict that treated "I could not see" as "there is nothing there" would be worse than no verdict at all, because you would stop looking.**
+
+**6. ⚠️ AND WHAT IT IS NOT, SAID ON THE SCREEN ITSELF.** A check can only find a fault somebody has already described, so **passing here is a floor, not a promise.** ⭐ It does not prove your app is perfect; it means none of the **known** faults are present. That is written on the page rather than left for you to discover.
+
+**7. ⭐ AND IT CHANGES NOTHING.** The screen reads and writes nothing — no order, no number, no copy is touched by running it. You can run it as often as you like.
+
+**Measured:** tests **3,335 → 3,345**, all green. ⭐ **The two rules were each seen to fail by their own message** — a check that could not look reported as a pass, and an ordinary two-item order wrongly flagged — **and the file restored byte-identically (sha256).** ★ **Driven live on the real screen:** the verdict read **"10 checks · 1 FAILED · 3 could not run"** with a deliberate fault planted, the failing check named the order and said what it means, **the three it could not run were counted separately**, and Home carried its one line with the press through. **No database step.**
+
+**12 Oct 2026 — engine v445, AN ORDER'S INVOICE NUMBER IS READ FROM THE WHOLE ORDER (no database step).**
+
+**What you found, on your own filing page:** the **Consolidated invoice** showed `#F447EE` as *"none yet"* — while the **Receipt register** said `#000003` was issued for that same order, **Mr Tan Eng Boo**. **Two of your own screens, one order, two different answers.**
+
+**1. ⭐⭐ IT IS A REAL FAULT, AND IT IS THE SAME ONE A THIRD TIME.** The invoice number is **stamped onto the ORDER's rows** when the money is recorded. ⚠️ But the page **read it from the order's FIRST row only** — and which row is first **is not fixed**: an order whose items sit on two bake days has rows on both, and the row that is first today need not be the one that was first when you took the money. ⭐ **A fact about the ORDER, held by a ROW** — the exact fault v432 fixed for the status and v441 for the order number, in a third place.
+
+**2. ★ SO IT IS NOW READ FROM WHICHEVER ROW KNOWS IT.** ⚠️ **Nothing in your data was rewritten** — the page simply looks at the whole order instead of at one of its rows.
+
+**3. ★ AND THE OTHER HALF: THE NUMBER NOW LANDS ON THE WHOLE ORDER.** When a number is issued it is copied onto every row of the sale — **but only onto the rows the screen you pressed from could see.** An order split across two bake days therefore left one day's rows unnumbered. It now stamps the whole order, using the same whole-order helper the status change has used since v432.
+
+**4. ⚠️ AND ON THE OTHER ONE YOU ASKED ABOUT — `#000004`.** Your register carries it (LK Lucy · `#19B09D`) and your October page does not show it. ⭐ **That one may be entirely correct and I am not going to call it a fault without checking: the register lists EVERY receipt ever issued, and the consolidated page lists only the orders inside the period you chose — October.** An order baked in September would be on the register and not on an October page. **Tell me the bake day on that order and I will say which of the two it is.**
+
+**Measured:** tests **3,334 → 3,335**, all green. ⭐ **The fix was seen to fail by its own message** — the first row read again — and the column drew **exactly what your screenshot shows: "none yet".** The file was then restored byte-identically (sha256). ⚠️ The order-side half changes how the number is stamped, and that path is covered by the tests that already drive the Paid press. **No database step.**
 
 **12 Oct 2026 — engine v444, A REMOVED ORDER IS KEPT, NOT DESTROYED (no database step).**
 

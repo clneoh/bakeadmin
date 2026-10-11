@@ -120,6 +120,12 @@ export function renderMore(root, state) {
   const devWa = devWaHref(state); // null when no usable WhatsApp number is set
   const devBy = developerName(state) ? `Website by ${developerName(state)}` : "";
   const thisApp = [
+    // ★★ "CHECK MY SYSTEM" (v446). Her question, and she says she always asks it: __"is the system robust
+    // enough in many ways. What measure, what test, we can do to effectively measure it?"__ ⭐ It sits
+    // beside Settings because it is about the app rather than about the bakery — and because on 11 Oct
+    // 2026 the app had 3,335 passing tests while three of her paid orders were missing, which is the whole
+    // reason a measure she can run herself had to exist.
+    menuItem("#/health", "🩺 Check my system", "Reads your records and tells you what is wrong"),
     menuItem("#/settings", "⚙️ Settings", "Defaults, backup, transfer"),
     linkRow("../changelog.pdf", "📄 Full change history", "Every version from v54, as a PDF"),
     ...(devWa ? [linkRow(devWa, "💬 WhatsApp the developer",

@@ -30,6 +30,7 @@ import { renderCustomers } from "./views/customers.js";
 import { renderSettings } from "./views/settings.js";
 import { renderReviews } from "./views/reviews.js";
 import { renderMore } from "./views/more.js";
+import { renderHealth } from "./views/health.js";
 import { renderMoney } from "./views/money.js";
 import { renderProfit } from "./views/profit.js";
 import { renderReceiptRegister } from "./views/receipt_register.js";
@@ -93,6 +94,7 @@ const routes = {
   "/product-categories": { title: "Categories", tab: "more", render: renderProductCategories },
   "/settings":  { title: "Settings",  tab: "more",      render: renderSettings },
   "/more":      { title: "More",      tab: "more",      render: renderMore },
+  "/health":    { title: "System check", tab: "more",   render: renderHealth },
 };
 
 const viewEl = document.getElementById("view");

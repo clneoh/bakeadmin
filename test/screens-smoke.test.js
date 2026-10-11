@@ -202,6 +202,10 @@ const SCREENS = [
   ["Money", "money", "renderMoney"],
   ["Profit", "profit", "renderProfit"],
   ["Receipt register", "receipts", "renderReceiptRegister"],
+  // ★ "Check my system" (v446). ⚠️ THIS ROW IS NOT OPTIONAL — the test above walks the app's own route
+  // table against this list, so a screen added without a row here fails by name rather than shipping
+  // unsmoked. That is exactly how this row came to be added.
+  ["System check", "health", "renderHealth"],
   ["Consolidated invoice", "consolidated", "renderConsolidated"],
   ["Production line", "production", "renderProduction"],
   ["Scenario planner", "scenario", "renderScenario"],
@@ -237,6 +241,7 @@ const VIEW_FILES = {
   renderMoney: "../admin/js/views/money.js",
   renderProfit: "../admin/js/views/profit.js",
   renderReceiptRegister: "../admin/js/views/receipt_register.js",
+  renderHealth: "../admin/js/views/health.js",   // "Check my system" (v446)
   renderConsolidated: "../admin/js/views/consolidated.js",
   renderProduction: "../admin/js/views/production.js",
   renderScenario: "../admin/js/views/scenario.js",

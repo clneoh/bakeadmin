@@ -21,7 +21,7 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
-import { receiptLine, receiptNoOf, receiptStatus } from "../receipts.js";
+import { receiptLine, receiptNoOf, receiptNoOfGroup, receiptStatus } from "../receipts.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
 import { methodsOf } from "../accounts.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
@@ -3739,7 +3739,11 @@ async function openInvoice(state, group) {
   if (first.paidReceived && !(Number(first.receiptNo) > 0)) {
     if (await claimReceipt(state, first)) {
       const n = Number(first.receiptNo);
-      for (const o of group.orders) {
+      // ⚠️⚠️ EVERY ROW OF THE ORDER, NOT THE SLICE THIS SCREEN IS SHOWING (v445). `group.orders` is the
+      // day's rows — and an order whose lines sit on two bake days left the other day's rows unnumbered,
+      // so the invoice column could read a row that had never carried the number and say "none yet" about
+      // an order the register could name. `familyOfOrder` is the same whole-order helper v432 added.
+      for (const o of familyOfOrder(state, group.orders)) {
         o.receiptNo = n;
       }
       save(state);
@@ -4875,7 +4879,10 @@ function markPaid(state, group, root, dateId, method) {
     // Stamped on EVERY row of the sale, not just the first, so any row read on its own
     // still knows the number — the same rule `courierDay` and `pickupTime` follow.
     const n = Number(first.receiptNo);
-    for (const o of group.orders) {
+    // ⚠️⚠️ THE WHOLE ORDER, NOT THIS SCREEN'S SLICE OF IT (v445) — see the note at the other stamp site.
+    // A row on the order's other bake day was left unnumbered, so the invoice column could read a row that
+    // never carried the number and print "none yet" about an order the register could name in full.
+    for (const o of familyOfOrder(state, group.orders)) {
       o.receiptNo = n;
     }
     save(state);
@@ -5132,7 +5139,7 @@ function removeOrder(state, group, root, dateId) {
   // CANNOT UNDO, so it is said BEFORE the press rather than discovered afterwards. She
   // found this by doing it: a test order paid, then removed, then an older order invoiced
   // took the NEXT number, and nothing on screen had ever mentioned the first one.
-  const num = receiptNoOf(group.orders[0]);
+  const num = receiptNoOfGroup(group.orders);
   const message = num
     ? [`Remove order "${label}"?`, el("br"), el("br"),
         `Receipt #${num} was issued when the payment was recorded, and this does NOT cancel it. `,

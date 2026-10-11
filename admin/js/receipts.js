@@ -35,6 +35,27 @@ export function receiptNoOf(order) {
   return String(Math.floor(n)).padStart(WIDTH, "0");
 }
 
+// ★★ THE NUMBER BELONGS TO THE ORDER, NOT TO ONE OF ITS ROWS (v445).
+//
+// ⚠️⚠️ HER CONSOLIDATED INVOICE SHOWED THE FAULT. Two screens read the same order and disagreed: the
+// RECEIPT REGISTER said `#000003` was issued for **Mr Tan Eng Boo · Order #F447EE**, and the INVOICE
+// column for that same order read **"none yet"**. ⭐ The register reads the shared cloud by ORDER CODE;
+// the invoice reads `receiptNo`, **a fact stamped onto a ROW** — and it was reading the group's FIRST row.
+//
+// ⭐ THE STAMP IS COPIED TO EVERY ROW OF THE SALE when it is issued, so the number is not lost — **it is
+// read from the wrong place.** A group whose rows sit on more than one bake day, or whose first row has
+// changed since the money was recorded, hands the invoice a row that never carried it. ⭐ **The same fault
+// in a new place as v432 (`familyOfOrder`) and v441 (the order code): a fact about the ORDER, held by a
+// ROW.** So it is read the same way — from whichever row of the order knows it.
+export function receiptNoOfGroup(orders) {
+  const list = Array.isArray(orders) ? orders : (orders ? [orders] : []);
+  for (const o of list) {
+    const n = receiptNoOf(o);
+    if (n) return n;
+  }
+  return "";
+}
+
 // "Receipt #000123" — the paper's own heading. Empty when the order has no number.
 export function receiptLabel(order) {
   const n = receiptNoOf(order);

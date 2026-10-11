@@ -5117,3 +5117,22 @@ tr.po-covered td { color: var(--muted); }
 .run-price .run-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .run-compare { flex: 1 1 100%; margin-top: 4px; }
 .run-compare .card-sub { margin: 0; }
+
+/* ★★ THE SYSTEM CHECK (v446). ⚠️ THREE STATES, THREE MARKS, AND THE SKIPPED ONE IS NEITHER — a check that
+   could not look must never wear the same tick as a check that looked and found nothing. The mark carries
+   that, so the colour is not doing the work alone. */
+.hc-verdict { font-size: 14px; font-weight: 700; margin: 0 0 10px; }
+.hc-row { padding: 9px 0; border-top: 1px solid var(--line); }
+.hc-row:first-of-type { border-top: 0; }
+.hc-head { display: flex; align-items: baseline; gap: 8px; }
+.hc-mark { flex: 0 0 auto; font-weight: 800; font-size: 14px; }
+.hc-row.pass .hc-mark { color: #3b7449; }
+.hc-row.fail .hc-mark { color: var(--amber); }
+.hc-row.skipped .hc-mark { color: var(--muted); }
+.hc-title { font-size: 13.5px; font-weight: 600; }
+.hc-count { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--amber); }
+.hc-why { font-size: 12px; line-height: 1.45; margin: 4px 0 0 22px; }
+.hc-fix { font-size: 12px; line-height: 1.45; margin: 4px 0 0 22px; color: var(--muted); }
+.hc-detail { font-size: 11.5px; line-height: 1.5; margin: 4px 0 0 22px; color: var(--brown-dark);
+  font-family: ui-monospace, Menlo, monospace; word-break: break-word; }
+.hc-row.skipped .hc-title { color: var(--muted); }
