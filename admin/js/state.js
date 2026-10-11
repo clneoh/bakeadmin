@@ -165,6 +165,10 @@ export function defaultState() {
     // ★★ ORDERS THAT WERE REMOVED, KEPT SO THEY CAN BE PUT BACK (v444). See `removeOrders` — this is
     // what stops any removal, hers or the engine's, from being permanent.
     removedOrders: [],
+    // ★★ RECEIPTS SHE HAS DECLARED VOID, WITH HER REASON (v448). ⚠️ NOT A DELETE, EVER — see the note on
+    // `voidedReceipts` in views/receipt_register.js. The number stays spent; this is the annotation that
+    // says why, so a register row stops reading as an unexplained hole.
+    voidedReceipts: [],
     customers: [], // customer profiles (dog name/photo, likes, notes) keyed to orders
     purchaseOrders: [],
     // Money out: what she spent, and how. Written by a shopping run marked Bought
@@ -440,6 +444,7 @@ function normalize(s) {
     // Guarded like every other list she owns: a phone that has never removed an order, and a state
     // written before v444, both behave exactly as before.
     removedOrders: Array.isArray(s.removedOrders) ? s.removedOrders : [],
+    voidedReceipts: Array.isArray(s.voidedReceipts) ? s.voidedReceipts : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
     expenses: Array.isArray(s.expenses) ? s.expenses : [],

@@ -146,7 +146,7 @@ export function localChecks(state) {
 
 // `register` is the rows `pullReceiptRegister` returns, or null when it could not be read — and
 // ⚠️ NULL MEANS SKIPPED, NEVER PASSED. That distinction is the whole reason this file has three states.
-export function registerChecks(state, register) {
+export function registerChecks(state, register, voided) {
   const orders = Array.isArray(state && state.orders) ? state.orders : [];
   const shelf = Array.isArray(state && state.removedOrders) ? state.removedOrders : [];
   if (!Array.isArray(register)) {
@@ -176,8 +176,13 @@ export function registerChecks(state, register) {
   // ── 8 · every receipt has an order behind it (or one on the Removed list) ──
   {
     // ⚠️ A RECEIPT FOR AN ORDER ON THE REMOVED LIST IS **NOT** A FAULT — that is the v444 shelf doing
-    // exactly its job. Only a code that is on NEITHER list is genuinely unaccounted for.
+    // exactly its job. ⭐ AND NEITHER IS ONE SHE HAS DECLARED VOID (v448): **a recorded decision is not an
+    // unexplained hole.** ⚠️ Without this the check could never go green on those rows, and **a warning
+    // that can never be satisfied is one she learns to ignore** — which would cost her the whole page.
+    const voidedNos = new Set((Array.isArray(voided) ? voided : [])
+      .map((v) => Math.floor(Number(v && v.no))).filter((n) => Number.isFinite(n) && n > 0));
     const bad = register
+      .filter((r) => !voidedNos.has(Math.floor(Number(r && r.number))))
       .map((r) => String((r && r.order_code) || "").trim().toUpperCase())
       .filter((c) => c && !live.has(c) && !removedCodes.has(c));
     return [
@@ -242,7 +247,7 @@ export function copyChecks(copies, now = new Date()) {
 export function runHealthChecks(state, extra = {}) {
   const results = [
     ...localChecks(state),
-    ...registerChecks(state, extra.register),
+    ...registerChecks(state, extra.register, state && state.voidedReceipts),
     ...copyChecks(extra.copies),
   ];
   return {

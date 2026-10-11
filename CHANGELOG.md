@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v447)
+# Jienluv2bake — change history (v54 → v448)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v448, A PROBLEMATIC RECEIPT CAN BE MARKED VOID — NEVER DELETED (no database step).**
+
+**Your words:** __"can you have me to clear the invoice, or rearrange it, ok for me in this software trial stage"__ — and then, when I asked which one: __"there few problematic invoice"__
+
+**1. ⚠️⚠️ I WILL NOT GIVE YOU A BUTTON THAT DELETES A RECEIPT NUMBER — AND I WANT TO SAY WHY IN YOUR OWN WORDS.** That list exists because of **the day you removed a paid order and watched `#000001` stay spent.** You asked for the register the next day precisely because a number that can be tidied away is a number nobody can lean on. **A register you can edit is not a register** — it is the one guarantee that screen makes.
+
+**2. ★ BUT YOUR INSTINCT IS RIGHT FOR A TRIAL STAGE, AND THERE IS AN HONEST WAY TO HAVE IT: MARK, DON'T DELETE.** Every problematic row now carries **"Mark as void"**, and it asks you for **the reason, in your own words**. The number stays spent, the row stays on the page — **and it stops reading as an unexplained hole.**
+
+**3. ★ AND IT IS A DECISION, SO IT IS REVERSIBLE.** Right beside it is **"Put it back."** ⚠️ **A mark you cannot undo is a delete wearing a different word**, and that is exactly what this must never become.
+
+**4. ★★ AND THE PART THAT MAKES IT ACTUALLY WORK: THE CHECK ACCEPTS A RECORDED DECISION.** *"Every receipt has an order behind it"* would otherwise read red **for ever** on those four rows — ⚠️ **and a warning that can never be satisfied is one you learn to ignore, which would cost you the whole page.** A voided receipt is now treated as **explained**, so the check can go green because **you** settled it. ⚠️ Not because the row was hidden — **the row is still there.**
+
+**5. ⚠️ AND WHAT IT DOES NOT DO, PLAINLY.** It does not change the money, the number, the series, or the order. It does not remove the row and it does not give a number back. **It records what you know, and why** — which is the whole of what a register can honestly accept.
+
+**6. ★ AND IT REACHES YOUR OTHER PHONE.** A void reason is your own record, so it travels with everything else — otherwise the same register would read as four mysteries on one phone and four explained rows on the other.
+
+**Measured:** tests **3,346 → 3,349**, all green. ⭐ **Three guards were each seen to fail by their own message** — a voided row quietly dropped from the run, an explained receipt still counted as a hole, and the way back taken away — **and every file restored byte-identically (sha256).** ★ Driven through the real screen: a voided row **still shows, still wears `#000003`**, carries your reason, offers **Put it back**, and stops being recited in the headline. **No database step** — the reason is your own record, not a new column in the register.
 
 **12 Oct 2026 — engine v447, THE CHECK RAN ON YOUR PHONE — AND ONE OF ITS OWN SENTENCES WAS WRONG (no database step).**
 

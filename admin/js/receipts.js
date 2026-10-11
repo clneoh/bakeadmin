@@ -133,7 +133,29 @@ export function receiptStatus(order, cur = "RM") {
 // the shared truth; her orders are only what this device holds. Calling a number "void" when
 // the phone simply has not synced yet would invent a hole that does not exist — so the row
 // says what was actually observed.
-export function registerRows(raw, orders) {
+// ★★ A RECEIPT SHE HAS DECLARED VOID (v448).
+//
+// ⚠️⚠️ HER QUESTION: __"can you have me to clear the invoice, or rearrange it, ok for me in this software
+// trial stage"__ — and the answer is **mark, never delete.** ⭐ A register you can edit is not a register;
+// that is the one guarantee this screen makes, and it exists because of the day she removed a paid order
+// and watched `#000001` stay spent. **A number is never given back and never re-used.**
+//
+// ⭐ SO WHAT SHE CAN HAVE IS THE HONEST FORM OF "CLEAR": a row marked VOID, with HER reason on it. The run
+// stays whole, an auditor reads exactly what happened, and the row stops looking like an unexplained hole.
+// ⚠️ AND IT IS A DECISION, SO IT IS REVERSIBLE — an annotation she can take back, not a fact she cannot.
+//
+// ⚠️ KEYED ON THE NUMBER, NOT THE CODE. Numbers are unique by construction (the table's own constraint);
+// a six-hex code collides about once in 16M, which is why the register matches on both and this does not.
+export function voidedIndex(voided) {
+  const map = new Map();
+  for (const v of (Array.isArray(voided) ? voided : [])) {
+    const n = Math.floor(Number(v && v.no));
+    if (Number.isFinite(n) && n > 0) map.set(n, v);
+  }
+  return map;
+}
+
+export function registerRows(raw, orders, voided) {
   const list = (Array.isArray(raw) ? raw : [])
     .filter((r) => r && Number(r.number) > 0)
     .map((r) => ({
@@ -173,10 +195,13 @@ export function registerRows(raw, orders) {
     if (legacy && legacy !== "??????" && !here.has(legacy)) here.set(legacy, o);
   }
 
+  const voidedBy = voidedIndex(voided);
   const rows = list.map((r) => ({
     ...r,
     order: here.get(r.code) || null,
     orphan: !here.has(r.code),
+    // ★ The row as it now reads: an order, a void decision, or genuinely unexplained.
+    voided: voidedBy.get(r.number) || null,
   }));
 
   // ★ A GAP IS ANY WHOLE NUMBER THE RUN NEVER USED — including at the head, because the
@@ -198,7 +223,11 @@ export function registerRows(raw, orders) {
     last: list.length ? list[list.length - 1].number : 0,
     gaps,
     // ⚠️ NAMED FOR WHAT WAS SEEN, NOT FOR WHAT IT MEANS. See the note above.
-    notOnThisPhone: rows.filter((r) => r.orphan).length,
+    // ★ AND A VOIDED ROW IS NO LONGER COUNTED (v448). A receipt she has explained is not a receipt that
+    // is unaccounted for — counting it again would leave her register reciting the same four numbers for
+    // ever, and **a warning that can never be satisfied is one she learns to ignore.**
+    notOnThisPhone: rows.filter((r) => r.orphan && !r.voided).length,
+    voided: rows.filter((r) => !!r.voided).length,
     refunded: rows.filter((r) => r.refundedAt).length,
   };
 }

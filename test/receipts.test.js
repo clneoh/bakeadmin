@@ -25,7 +25,7 @@ globalThis.localStorage.setItem("bakeadmin.supabase",
   JSON.stringify({ access_token: "tok", expires_at: Date.now() + 3600000 }));
 
 const { receiptNoOf, receiptLabel, receiptLine, isRefunded, receiptStatus,
-  copyKnowsCode, lastSeenIn, registerRows, registerSummary } = await import("../admin/js/receipts.js");
+  copyKnowsCode, lastSeenIn, registerRows, registerSummary, voidedIndex } = await import("../admin/js/receipts.js");
 const { claimReceipt, pullReceiptRegister } = await import("../admin/js/supabase.js");
 const { journalSheet } = await import("../admin/js/journal.js");
 const { orderCode } = await import("../admin/js/state.js");
@@ -299,6 +299,36 @@ test("★★ 'when was it last here' looks for BOTH numbers and stops at the new
   // ⚠️ AND AN ORDER IN NO COPY AT ALL SAYS SO rather than being handed a copy at random.
   assert.deepEqual(lastSeenIn([newest, older], "ABCDEF"), { hit: null, goneBy: null });
   assert.deepEqual(lastSeenIn([], "ABCDEF"), { hit: null, goneBy: null });
+});
+
+test("★★ a receipt she has declared VOID is marked, not deleted — and stops counting (v448)", () => {
+  // ⚠️⚠️ HER WORDS: __"can you have me to clear the invoice, or rearrange it, ok for me in this software
+  // trial stage"__ ⭐ **AND THE ANSWER IS MARK, NEVER DELETE.** The number stays spent and the row stays on
+  // the page — a register you can edit is not a register, and this one exists because she once removed a
+  // paid order and watched `#000001` stay spent.
+  const st = stateWith();
+  const raw2 = [raw(1, "C2FDA5"), raw(9, "D06D27")];
+  const before = registerRows(raw2, []);
+  assert.equal(before.notOnThisPhone, 2, "the fixture did not start with two unaccounted receipts");
+  assert.equal(before.rows.length, 2);
+
+  const voided = [{ no: 9, code: "D06D27", at: "2026-10-12T09:00:00.000Z", reason: "trial order" }];
+  const after = registerRows(raw2, [], voided);
+  // ⚠️ THE ROW IS STILL THERE. A count that dropped because the row vanished would be the delete this
+  // whole screen exists to refuse.
+  assert.equal(after.rows.length, 2, "★ a voided receipt was removed from the run");
+  assert.equal(after.rows[1].no, "000009", "the run was re-ordered by the void mark");
+  assert.equal(after.rows[1].orphan, true, "the row stopped saying it has no order behind it");
+  // ⭐ AND IT IS NO LONGER COUNTED AS UNACCOUNTED FOR — the decision is recorded, so it is not a mystery.
+  assert.equal(after.notOnThisPhone, 1, "★ a receipt she has explained was still counted as unexplained");
+  assert.equal(after.voided, 1, "the void decision was not counted");
+  assert.match(after.rows[1].voided.reason, /trial/, "her reason was not carried onto the row");
+  assert.equal(registerSummary(after).includes("no longer on this phone"), true,
+    "the headline does not mention the remaining one at all");
+  // ⚠️ AND IT IS KEYED ON THE NUMBER, so a void mark cannot land on a different receipt by a code clash.
+  assert.equal(voidedIndex(voided).get(9).reason, "trial order");
+  assert.equal(voidedIndex(voided).get(1), undefined);
+  assert.equal(voidedIndex(null).size, 0, "a missing void list threw rather than reading as none");
 });
 
 test("a refunded receipt keeps its row, its number, and wears its mark", () => {

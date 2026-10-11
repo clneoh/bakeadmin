@@ -32,6 +32,9 @@ const LISTS = {
   // other, which is the whole point of keeping it. ⭐ And it is a SEPARATE record from the order, so the
   // tombstone written for the order does not touch this one.
   removedOrders: "removedOrders",
+  // ⚠️ A VOID DECISION IS HERS, and it must reach the other phone — otherwise the same register reads
+  // as four unexplained holes on one device and as four voided rows on the other.
+  voidedReceipts: "voidedReceipts",
   products: "products",
   productCategories: "productCategories", // the shop's category tree — a heading built on one phone must exist on the other
   ingredients: "ingredients",

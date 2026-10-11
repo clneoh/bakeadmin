@@ -5136,3 +5136,9 @@ tr.po-covered td { color: var(--muted); }
 .hc-detail { font-size: 11.5px; line-height: 1.5; margin: 4px 0 0 22px; color: var(--brown-dark);
   font-family: ui-monospace, Menlo, monospace; word-break: break-word; }
 .hc-row.skipped .hc-title { color: var(--muted); }
+
+/* ★★ A VOID ROW (v448). ⚠️ NOT A DELETE AND NOT A WARNING: the number is still spent and the row still
+   matters — what it is NOT any more is unexplained. So it reads quietly, in the register's own voice,
+   and it never wears the mark that says something is wrong. */
+.reg-void { display: block; font-size: 11.5px; line-height: 1.45; margin-bottom: 4px; color: var(--muted); }
+.reg-row .reg-ask .btn + .btn { margin-left: 6px; }

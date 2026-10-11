@@ -13,10 +13,11 @@
 // while a receipt had been issued this morning would be the one kind of wrong that matters
 // here. The list is short and the read is one request.
 
-import { el, button } from "../ui.js";
+import { el, button, showPopup, toast } from "../ui.js";
 import { lastSeenIn, registerRows, registerSummary } from "../receipts.js";
-import { pullReceiptRegister } from "../supabase.js";
-import { orderHref } from "../state.js";
+import { maybeSync, pullReceiptRegister } from "../supabase.js";
+import { orderHref, save } from "../state.js";
+
 import * as backups from "../backups.js";
 
 // ★★ HOW MANY SAVED COPIES TO LOOK THROUGH WHEN SHE ASKS (v443). The app keeps 7 daily, 4 weekly and 3
@@ -112,13 +113,26 @@ export function renderReceiptRegister(root, state) {
             // order this phone never had — **and those are three completely different problems wearing
             // one sentence.** The press looks through her own saved copies and says when the order was
             // still there. Nothing about it changes anything: it reads copies, and writes none.
-            : [ `Order #${r.code} — not in this phone's orders`,
-                " ",
-                (() => {
-                  const said = el("span", { class: "reg-seen" }, "");
-                  const ask = button("When was it last here?", () => lookBack(r.code, said, ask), "ghost small");
-                  return el("span", { class: "reg-ask" }, ask, said);
-                })() ]),
+            // ★★ AND A THIRD SHAPE: A ROW SHE HAS EXPLAINED (v448). ⚠️ **Marked, never removed** — the
+            // number stays spent and the row stays on the page, because a register you can edit is not a
+            // register. What changes is that it stops reading as an unexplained hole.
+            : r.voided
+              ? [ `Order #${r.code} — void`,
+                  el("span", { class: "reg-ask" },
+                    el("span", { class: "reg-void" },
+                      `voided ${stamp(r.voided.at)}${r.voided.reason ? ` · ${r.voided.reason}` : ""}`),
+                    button("Put it back", () => unvoid(r), "ghost small")) ]
+              : [ `Order #${r.code} — not in this phone's orders`,
+                  " ",
+                  (() => {
+                    const said = el("span", { class: "reg-seen" }, "");
+                    const ask = button("When was it last here?", () => lookBack(r.code, said, ask), "ghost small");
+                    // ⚠️ AND THE WAY TO EXPLAIN IT. A row nobody can ever settle is a row she will read
+                    // every time she opens this screen — the four that are left on hers would otherwise
+                    // recite themselves for ever.
+                    const mark = button("Mark as void", () => askVoid(r), "ghost small");
+                    return el("span", { class: "reg-ask" }, ask, mark, said);
+                  })() ]),
         el("span", { class: "reg-when" }, stamp(r.issuedAt)),
         // ★ AND HOW MUCH (v370) — read from the register, so it shows even for a receipt whose
         // order is not on this phone.
@@ -177,6 +191,49 @@ export function renderReceiptRegister(root, state) {
   // ⚠️ AND IT NAMES BOTH POSSIBLE REMOVERS AND CHOOSES NEITHER. "By you, or by the app itself" — the data
   // cannot tell those apart, and a sentence that picked one would be the same mistake as reading "this fits"
   // as "this is it", written into her records.
+  // ★★ "THIS ONE IS VOID, AND HERE IS WHY" (v448).
+  //
+  // ⚠️⚠️ HER WORDS: __"can you have me to clear the invoice, or rearrange it, ok for me in this software
+  // trial stage"__ ⭐ **AND THE ANSWER IS MARK, NEVER DELETE.** The number stays spent, the row stays on the
+  // page — **a register you can edit is not a register**, and this one exists because she once removed a
+  // paid order and watched `#000001` stay spent. What she gets instead is the honest form of "clear": a row
+  // with HER reason on it, so the run still adds up and the row stops reading as a mystery.
+  //
+  // ⚠️ AND IT IS A DECISION, SO IT IS REVERSIBLE — "Put it back" is right beside it. A mark she cannot undo
+  // would be a delete wearing a different word.
+  function askVoid(r) {
+    const why = el("input", { class: "input", type: "text", maxlength: "120",
+      placeholder: "e.g. trial order — no money received" });
+    showPopup("Mark this receipt void", (refresh, close) => el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        `Receipt #${r.no}${r.code ? ` · Order #${r.code}` : ""}. ` +
+        "The number stays spent and is never re-used — this records WHY there is no order behind it."),
+      why,
+      el("div", { class: "btn-row", style: "margin-top:10px" },
+        button("Mark it void", () => {
+          if (!Array.isArray(state.voidedReceipts)) state.voidedReceipts = [];
+          state.voidedReceipts = state.voidedReceipts.filter((v) => Math.floor(Number(v && v.no)) !== r.number);
+          state.voidedReceipts.push({ no: r.number, code: r.code,
+            at: new Date().toISOString(), reason: String(why.value || "").trim() });
+          save(state);
+          maybeSync(state);
+          close();
+          toast("Marked void — the number stays spent");
+          load();
+        }, "primary"),
+        button("Cancel", () => close(), "ghost"))));
+  }
+
+  // ⚠️ And back again — the same door, opened the other way.
+  function unvoid(r) {
+    state.voidedReceipts = (state.voidedReceipts || [])
+      .filter((v) => Math.floor(Number(v && v.no)) !== r.number);
+    save(state);
+    maybeSync(state);
+    toast("Put back — it reads as an order with no order behind it again");
+    load();
+  }
+
   async function lookBack(code, said, ask) {
     if (ask.disabled) return;
     ask.disabled = true;
@@ -256,7 +313,7 @@ export function renderReceiptRegister(root, state) {
       draw(null, "Could not read the receipts — the phone is offline, or the one-time receipts step has not been run in Supabase. Nothing has been changed, and nothing already issued is affected.");
       return;
     }
-    draw(registerRows(r.rows, state.orders), "");
+    draw(registerRows(r.rows, state.orders, state.voidedReceipts), "");
   }
 
   load();

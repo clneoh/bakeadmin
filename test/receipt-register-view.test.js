@@ -268,6 +268,32 @@ test("★★ a void row can say WHEN it left — and never says by whom (v443)",
     "★ the row chose a cause the data cannot support");
 });
 
+test("★★ a voided row still SHOWS, still wears its number, and offers the way back (v448)", async () => {
+  // ⚠️⚠️ THE ASSERTION THAT MATTERS IS THE ONE ABOUT THE ROW STILL BEING THERE. Her words: __"can you have
+  // me to clear the invoice, or rearrange it"__ — and **the answer is mark, never delete.** A register you
+  // can edit is not a register; this one exists because she once removed a paid order and watched `#000001`
+  // stay spent. **If a void mark ever made the row disappear, that would be the delete in a different word.**
+  const st = state();
+  st.voidedReceipts = [{ no: 3, code: "999999", at: "2026-10-12T09:00:00.000Z", reason: "trial order" }];
+  globalThis.fetch = async () => ({ ok: true,
+    json: async () => [row(1, "C2FDA5"), row(3, "999999")] });
+  const root = createEl("div");
+  renderReceiptRegister(root, st);
+  await settle();
+
+  const said = txt(root);
+  // ⚠️ THE SERIAL IS STILL ON THE PAGE — it is never given back and never re-used.
+  assert.match(said, /000003/, "★ a voided receipt vanished from the run");
+  assert.match(said, /void/i, "the row is not marked as void");
+  assert.match(said, /trial order/, "★ her own reason is not on the row she explained it on");
+  assert.match(said, /Put it back/, "★ a mark with no way back is a delete wearing a different word");
+  // ⚠️ AND THE ROW NO LONGER READS AS A MYSTERY — the count and the sentence both drop it.
+  assert.doesNotMatch(said, /1 number above is for an order that is not/,
+    "an explained receipt is still being recited as unaccounted for");
+  // and the other receipt is untouched
+  assert.match(said, /Uncle Tan/, "the void mark disturbed a receipt that is perfectly fine");
+});
+
 test("the screen offers no press that could change a number", async () => {
   // ⚠️ A REGISTER YOU CAN EDIT IS NOT A REGISTER. The one guarantee this run exists for is
   // that no number is ever re-used or removed — including by her, by accident.

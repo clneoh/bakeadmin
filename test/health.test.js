@@ -138,6 +138,19 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   assert.equal(copyChecks([])[0].status, "fail", "no saved copies at all was not reported as a fault");
 });
 
+test("★★ a receipt she has declared void is NOT a fault — a decision is not a hole (v448)", () => {
+  // ⚠️⚠️ WITHOUT THIS THE CHECK COULD NEVER GO GREEN on those rows, **and a warning that can never be
+  // satisfied is one she learns to ignore** — which would cost her the whole page.
+  const st = healthy();
+  const register = [...REGISTER, { number: 9, order_code: "D06D27", issued_at: "2026-10-11T08:25:00.000Z" }];
+  assert.equal(resultOf(runHealthChecks(st, { register, copies: COPIES }), "hasOrder").status, "fail",
+    "the fixture did not start with an unaccounted receipt");
+
+  st.voidedReceipts = [{ no: 9, code: "D06D27", at: "2026-10-12T09:00:00.000Z", reason: "trial order" }];
+  assert.equal(resultOf(runHealthChecks(st, { register, copies: COPIES }), "hasOrder").status, "pass",
+    "★ a receipt she has explained was still reported as a fault the page can never clear");
+});
+
 test("★ a stale copy is a fault, because the day it matters is the day it is missing", () => {
   const old = [{ id: "s1", kind: "daily", created_at: "2026-10-01T00:00:00.000Z" }];
   const now = new Date("2026-10-11T12:00:00.000Z");
