@@ -203,8 +203,32 @@ test("★★ the fourth ball stands BESIDE Place order, and is the same ball as 
   assert.doesNotMatch(rules, /\.bar-step\.off\s*\{/,
     "★ the fourth ball has a dimmed state again — that is the pale 4 she caught beside solid 2 and 3");
   const app = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
-  assert.doesNotMatch(app, /getElementById\("bar-step"\)/,
-    "★ script is setting a class on the fourth ball again — it is markup nothing should rewrite");
+  // ⚠️⚠️ v439 BANNED ALL SCRIPT FROM TOUCHING THE BALL, ON THE REASONING THAT "A LABEL IS NOT A STATE" —
+  // AND THAT WAS TOO BROAD. What it was right about is the BASKET: an empty basket must never dim a step
+  // number. But ④ IS a step, the fourth one, and ①②③ all turn green when the customer finishes theirs (her
+  // v434 rule). **The ball was left as the one step number that could never report itself.** Her words:
+  // __"on the store front, when customer press place an order, the number 4 never have the chance to turn
+  // green, why not allow it to turn green for 1 sec"__
+  assert.match(app, /classList\.toggle\("done", !!on\)/,
+    "★ the fourth ball has no done state at all — that is the fault she reported");
+  // ⭐ AND IT IS THE SAME GREEN ①②③ WEAR, not a colour invented for it.
+  assert.match(css, /\.bar-step\.done\s*\{[^}]*#3b7449/,
+    "★ the fourth ball's done state is not the same green as the other three");
+
+  // ⚠️⚠️ AND THE SALE IS NEVER WAITED ON — THIS IS THE ASSERTION THAT MATTERS MOST. The ball must be greened
+  // BEFORE the order is sent, so it paints during the send; the hold happens only once the bakery's app
+  // already has the order. **A green that delayed the order would be a colour worth less than a sale.**
+  const greenAt = app.indexOf("greenBarStep(true)");
+  const sentAt = app.indexOf("await placeOrder(");
+  assert.ok(greenAt >= 0 && sentAt >= 0, "the press or the send has moved — this proves nothing");
+  assert.ok(greenAt < sentAt,
+    "★ the ball is greened only AFTER the order is sent, so a slow send would show no step finishing");
+  // ⭐ AND HER ONE SECOND IS ONE NUMBER IN ONE PLACE (v427/v428 — a duration in the CSS and a moment in the
+  // JS are two numbers for one fact, and they can only ever disagree one way).
+  assert.match(app, /const GREEN_HOLD_MS = 1000;/,
+    "★ her one second is not a single number in the shop");
+  assert.doesNotMatch(css, /\.bar-step\.done\s*\{[^}]*transition/,
+    "★ the ball's green carries a duration of its own — that is the second number the v427 fault came from");
 });
 
 test("★ 'Self collect' is a TITLE, in the shop's own title — 16px, serif", () => {

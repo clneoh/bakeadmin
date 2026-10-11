@@ -2,6 +2,20 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+// ★★ THE RECEIVED NOTICE NOW FOLLOWS HER ONE SECOND (v451). The fourth ball is greened and HELD on a timer
+// before it, so a test that reads the notice must let that second pass — and one that does not leaves a
+// pending timer that cancels the test outright (`cancelledByParent`).
+//
+// ⚠️⚠️ AND THE NUMBER IS READ, NOT COPIED (v427/v428's lesson). A fixed 1000 here would be a SECOND copy of
+// the one number the shop keeps, and the two can only ever disagree one way. **The test asks the shop how
+// long it holds**, so her number can change without this file silently testing yesterday's timing.
+const afterOrderNotice = () => {
+  const src = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  const m = /const GREEN_HOLD_MS = (\d+);/.exec(src);
+  const held = m ? Number(m[1]) : 1000;
+  return new Promise((r) => setTimeout(r, held + 150));
+};
+
 // Minimal DOM shim so store/app.js can render at import time.
 //
 // replaceChildren IS THE BROWSER'S, NOT A KINDER VERSION OF IT. Most shims in this suite
@@ -370,6 +384,7 @@ test("order click sends one order and shows the success card (regression: no thr
     document.getElementById("fulfillment")._value = "courier";
     document.getElementById("address-input").value = "12 Jalan Bunga";
     await registry["order-btn"].onclick();
+    await afterOrderNotice(); // ★ the notice follows her one second (v451)
     assert.ok(posted, "order was POSTed to the backoffice");
     assert.ok(String(posted.url).includes("/rest/v1/incoming_orders"), "POSTs to incoming_orders");
     const payload = JSON.parse(posted.body[0].data);
@@ -438,6 +453,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
       // strictest (3), not the loosest.
       document.getElementById("whatsapp-input").value = "60123456789";
       await registry["order-btn"].onclick();
+      await afterOrderNotice(); // ★ the notice follows her one second (v451)
       const line = confirmLines().find((t) => /change or cancel/i.test(t));
       assert.ok(line, "the receipt states a change/cancel window");
       assert.match(line, /up to 3 days before your bake day/, "the strictest window wins");
@@ -447,6 +463,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
       CONFIG.products.forEach((p) => { delete p.cancelDays; });
       plus(); // basket refilled
       await registry["order-btn"].onclick();
+      await afterOrderNotice(); // ★ the notice follows her one second (v451)
       assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
         "no product states a window → the receipt says nothing");
     });
@@ -1027,6 +1044,7 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
   try {
     document.getElementById("whatsapp-input").value = "60123456789";
     await registry["order-btn"].onclick();
+    await afterOrderNotice(); // ★ the notice follows her one second (v451)
     assert.ok(posted, "order was POSTed to the backoffice");
     assert.deepEqual(opened, [], "a successful order must NOT open WhatsApp");
     const title = registry["confirm-msg"].children[0].children[0];

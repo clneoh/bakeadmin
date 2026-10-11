@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { defaultState, normalize, removeOrders, restoreRemovedOrder, REMOVED_KEEP_DAYS } from "../admin/js/state.js";
+import { defaultState, normalize, removeOrders, restoreRemovedOrder, REMOVED_KEEP_HOURS } from "../admin/js/state.js";
 
 const JS_DIR = new URL("../admin/js/", import.meta.url).pathname;
 
@@ -103,8 +103,13 @@ test("★★ an order deleted on the OTHER phone lands on this phone's shelf (v4
 });
 
 test("★ the shelf is pruned, so keeping things cannot leak", () => {
+  // ⚠️⚠️ AND HER NUMBER IS PINNED, not merely read. Her words: __"the deleted order just need to keep for
+  // 48hrs"__ — and a test that only compares against the constant would pass with ANY value in it,
+  // **including the thirty days I guessed before she corrected me.** ⭐ A duration is a decision, so the
+  // test states the decision.
+  assert.equal(REMOVED_KEEP_HOURS, 48, `★ the shelf keeps orders for ${REMOVED_KEEP_HOURS} hours, not her 48`);
   const st = { orders: [], removedOrders: [] };
-  const old = new Date(Date.now() - (REMOVED_KEEP_DAYS + 5) * 86400000).toISOString();
+  const old = new Date(Date.now() - (REMOVED_KEEP_HOURS + 5) * 3600000).toISOString();
   st.removedOrders = [{ id: "ancient", removedAt: old }, { id: "today", removedAt: new Date().toISOString() }];
   st.orders = [{ id: "o1" }, { id: "o2" }];
   removeOrders(st, ["o1"]);

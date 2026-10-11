@@ -753,7 +753,10 @@ function splitSharedDateIds(deliveryDates, orders) {
 //
 // ⚠️ EVERY REMOVAL MUST COME THROUGH HERE. `test/order-removal-guard.test.js` fails the moment anything
 // else drops rows from `state.orders`, so a future screen cannot quietly go round it.
-export const REMOVED_KEEP_DAYS = 30;
+// ★★ HER NUMBER, IN HER UNIT (v452): __"the deleted order just need to keep for 48hrs"__
+// ⚠️ TWO DAYS, NOT THIRTY — thirty was mine, and it was a guess dressed as a policy. **In HOURS, because
+// that is how she said it**, so the constant needs no conversion to be read against her words.
+export const REMOVED_KEEP_HOURS = 48;
 const REMOVED_MAX = 200;
 
 export function removeOrders(state, ids, reason = "") {
@@ -782,7 +785,7 @@ export function removeOrders(state, ids, reason = "") {
 // the customer to come back about it, and 200 rows is far more than a bakery removes in a month.
 function pruneRemovedOrders(state) {
   const list = Array.isArray(state.removedOrders) ? state.removedOrders : [];
-  const cut = new Date(Date.now() - REMOVED_KEEP_DAYS * 86400000).toISOString();
+  const cut = new Date(Date.now() - REMOVED_KEEP_HOURS * 3600000).toISOString();
   state.removedOrders = list.filter((r) => r && String(r.removedAt || "") >= cut).slice(0, REMOVED_MAX);
 }
 

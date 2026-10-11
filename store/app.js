@@ -2771,6 +2771,31 @@ export function render() {
     spacer.style.height = `${bar.offsetHeight}px`;
   }
 
+  // ★★ THE FOURTH BALL TURNS GREEN WHEN THE ORDER IS PLACED (v451).
+  //
+  // ⚠️⚠️ HER WORDS: __"on the store front, when customer press place an order, the number 4 never have the
+  // chance to turn green, why not allow it to turn green for 1 sec"__
+  //
+  // ⭐ AND SHE IS RIGHT ABOUT WHY IT NEVER DID, AND IT IS MY OWN DOING. v438 moved that number OUT of the
+  // button and into its own ball, and v439 then removed its dimmed state — with a test forbidding any script
+  // from touching it at all, on the reasoning that **a label is not a state**. ⚠️ **But ④ IS a step, the
+  // fourth one, and ①②③ all turn green when the customer finishes their step** (her own v434 rule: a circle
+  // greens only when HE has done that part). The ball was left as **the one step number that could never
+  // report itself** — while the three beside it do. **The v439 rule was right about the BASKET and wrong
+  // about the STEP**, and this narrows it to what it actually meant.
+  //
+  // ⚠️⚠️ AND THE SALE IS NEVER WAITED ON. The ball greens the instant he presses — **before `placeOrder` is
+  // even called** — so it paints while the order is being sent, and NOTHING here defers the order by a
+  // millisecond. The hold below happens only once the bakery's app has the order: **the sale is already
+  // made, so holding a colour costs nothing.**
+  // ⚠️ HER NUMBER, IN ONE PLACE (the v427/v428 lesson — a duration in CSS and a moment in JS are two
+  // numbers for one fact, and they can only disagree one way).
+  const GREEN_HOLD_MS = 1000;
+  function greenBarStep(on) {
+    const ball = document.getElementById("bar-step");
+    if (ball && ball.classList) ball.classList.toggle("done", !!on);
+  }
+
   const orderBtn = document.getElementById("order-btn");
   orderBtn.onclick = async () => {
     if (orderBtn.disabled) return; // one tap only — no double orders
@@ -2897,6 +2922,8 @@ export function render() {
     // can't make a customer tap repeatedly and send duplicates.
     orderBtn.disabled = true;
     orderBtn.textContent = t("sending");
+    // ★ The step is DONE the moment he places it — painted here, so it shows during the send.
+    greenBarStep(true);
     showConfirm(t("sendingToBakery"));
 
     const r = await placeOrder(order);
@@ -2945,6 +2972,11 @@ export function render() {
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
       renderBar();
+      // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
+      // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the
+      // bakery's app, so this waits on nothing: it is time to SEE the step finish, not time the sale spends
+      // in the post. They are the same `done` class ①②③ wear, so it is the same green and the same meaning.
+      greenBarStep(true);
       // order-btn label was reset by renderBar — the cart is now empty.
       // The strictest change/cancel window across what was just ordered — the
       // receipt is the moment the customer most needs the no-refund rule, so the
@@ -2956,15 +2988,23 @@ export function render() {
         ? el("p", { class: "confirm-body" },
             sub(t(winDays === 1 ? "orderCancelNoteOne" : "orderCancelNote"), winDays))
         : null;
-      showConfirm([
+      // ⚠️⚠️ AND THE NOTICE FOLLOWS ON A TIMER, NOT ON AN AWAIT. Holding the press handler open for her one
+      // second hung the promise the whole way — the store's own tests caught it (`cancelledByParent`), and
+      // the same shape would hold any caller that awaits the press. ⭐ **The order has already landed, so
+      // there is nothing to wait FOR: the green is simply held while the handler returns.** The figures
+      // above are computed now, at the moment of the sale, and only the SHOWING is late.
+      setTimeout(() => showConfirm([
         el("p", { class: "confirm-title" }, t("orderRecvTitle")),
         el("p", { class: "confirm-body" },
           order.customer ? sub(t("orderRecvThanksBody"), order.customer, CONFIG.name) : sub(t("orderRecvBody"), CONFIG.name)),
         el("p", { class: "confirm-body" }, sub(t("orderRecvLine"), dayLabel, items, total.toFixed(2))),
         cancelLine,
         el("p", { class: "confirm-sub" }, t("orderRecvSub")),
-      ], "ok");
+      ], "ok"), GREEN_HOLD_MS);
     } else {
+      // ⚠️ IT DID NOT LAND, SO THE STEP IS NOT DONE. The page falls back to WhatsApp, and a green ball
+      // sitting over an order the bakery never received would be the worst thing this ball could say.
+      greenBarStep(false);
       // The order could not reach the bakery's app — hand it over on WhatsApp
       // instead so it isn't lost (this is the only time WhatsApp opens, and the
       // baker sees the customer's own number on the message). Best-effort: the

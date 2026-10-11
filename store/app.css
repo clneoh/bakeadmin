@@ -2101,6 +2101,14 @@ button.prod-next.off::after { content: ""; }
   align-items: center;
   justify-content: center;
 }
+/* ★★ AND IT TURNS GREEN WHEN THE STEP IS DONE (v451) — THE SAME GREEN AS ①②③.
+   ⚠️⚠️ v439 SAID "THE BALL IS A LABEL, NOT A STATE", AND THAT WAS TOO BROAD. What v438/v439 were right
+   about is that the ball must not follow the BASKET: an empty basket must not dim it, because the basket
+   is not a step. **But ④ IS a step — the fourth one — so when the customer places the order, the step is
+   DONE, and ①②③ all say so by turning green.** The ball was left as the one step number that could never
+   report itself, which is the fault her own words name: __"the number 4 never have the chance to turn
+   green"__. ⭐ Same colour, same meaning, one more class. */
+.bar-step.done { background: #3b7449; }
 /* ⚠️⚠️ THE BALL NEVER DIMS (v439). v438 gave it `.bar-step.off { opacity: .55 }` for an empty
    basket, so the bar would not show a full-strength ball beside a greyed press. **Her phone
    showed what that actually does: ④ turns pale pink while ② and ③ stay solid terracotta** — her

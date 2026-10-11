@@ -434,6 +434,11 @@ function openManualPO(state, root) {
   let picks = []; // [{ productId, qty }]
 
   const body = el("div", {});
+  // ★ THE DATE THIS LIST IS FOR (v452) — declared with the CARD's own drafts, and deliberately ABOVE the
+  // body that reads it. ⚠️ Below it, the box would capture a binding in its dead zone: the same `is not
+  // defined` shape this file already has a note about, and one that only shows when a customer opens the
+  // card. Her rule: __"by default the shown date will be today's date unless user change it"__.
+  let writtenOn = todayISO();
   const paint = () => {
     const bom = explodePicks(state, picks);
     const items = priceItems(state, bom.items).filter(Boolean);
@@ -492,12 +497,28 @@ function openManualPO(state, root) {
             notBought.length ? el("p", { class: "po-snapshot-note" },
               `Not on this list: ${notBought.join(", ")} — marked as not something you buy. Their cost still counts in the products that use them.`) : null)
         : null,
+      // ★★ THE DATE THIS LIST IS FOR (v452). Her words: __"the date is for back date PO. by default the
+      // shown date will be today's date unless user change it"__
+      //
+      // ⚠️⚠️ A LABEL, NOT A TIE — AND THE FIELD NAME IS THE WHOLE OF IT. `coveringPO` finds a bake day's
+      // saved list by `dates` and `deliveryDate` and NOTHING else, so this is called **`writtenOn`** on
+      // purpose: a list carrying that name matches no bake day, **can never make a day read as shopped, and
+      // deleting it can never un-save one.** ⭐ The absence is still the feature she asked for — __"it dont
+      // tie to specific bake date"__ — and this only lets a list SAY when it was written, so one written on
+      // Monday and entered on Wednesday still records Monday.
+      el("div", { class: "field", style: "margin-top:12px" },
+        el("label", { class: "field-label" }, "The date this list is for"),
+        el("input", { class: "input", type: "date", value: todayISO(),
+          oninput: function () { writtenOn = this.value || todayISO(); } }),
+        el("p", { class: "card-sub", style: "margin:4px 0 0" },
+          "Today unless you change it. ⚠️ This is a label on the list only — it does not tie the list to a "
+          + "bake day, and it never marks one as shopped.")),
       el("div", { class: "popup-actions" },
         button("Cancel", () => closeManual(), "ghost"),
-        picks.length ? button("Save list", () => saveManual(state, bom, items, total, root), "primary") : null));
+        picks.length ? button("Save list", () => saveManual(state, bom, items, total, root, writtenOn), "primary") : null));
   };
 
-  let closeManual = () => {};
+
   paint();
   showPopup(el("div", { class: "popup-title-row" }, "Write a list by hand"),
     (refresh, close) => { closeManual = close; return body; });
@@ -507,11 +528,15 @@ function openManualPO(state, root) {
 // what it is can be tested directly. ⚠️ A pop-up cannot be driven by the test shims, so if this were
 // built inline inside the Save handler the crux would be untestable — the v385 rule: **put the rule in
 // one tested place rather than in a view callback no test can reach.**
-export function manualPO(bom, items, total) {
+export function manualPO(bom, items, total, writtenOn) {
   return {
     id: newId("po"),
     manual: true,
     generatedAt: new Date().toISOString(),
+    // ★ THE DAY THIS LIST IS FOR (v452) — a LABEL, and nothing reads it but the screen. See the note on the
+    // date box: it is deliberately not `dates` and not `deliveryDate`, because either of those would make
+    // this list start counting as a bake day's shopping.
+    writtenOn: String(writtenOn || todayISO()),
     items,
     // ⚠️⚠️ NO `dates` AND NO `deliveryDate`, DELIBERATELY — AND THIS IS THE WHOLE FEATURE.
     // `coveringPO` finds a bake day's saved list by exactly those two fields and nothing else, so a list
@@ -529,9 +554,9 @@ export function manualPO(bom, items, total) {
   };
 }
 
-function saveManual(state, bom, items, total, root) {
+function saveManual(state, bom, items, total, root, writtenOn) {
   if (!bom.totalUnits) return toast("Pick at least one product");
-  state.purchaseOrders.unshift(manualPO(bom, items, total));
+  state.purchaseOrders.unshift(manualPO(bom, items, total, writtenOn));
   save(state);
   toast("List saved to history");
   location.hash = `#/history?po=${state.purchaseOrders[0].id}`;

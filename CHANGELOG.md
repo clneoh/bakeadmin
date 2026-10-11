@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v450)
+# Jienluv2bake — change history (v54 → v451)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v451, THE FOURTH NUMBER TURNS GREEN WHEN THE ORDER IS PLACED (no database step).**
+
+**Your words:** __"on the store front, when customer press place an order, the number 4 never have the chance to turn green, why not allow it to turn green for 1 sec"__
+
+**1. ⚠️⚠️ YOU ARE RIGHT ABOUT WHY IT NEVER DID, AND IT IS MY OWN DOING.** v438 moved that number **out of the button** and into its own ball. v439 then removed its dimmed state and **added a rule forbidding any script from touching it at all**, on the reasoning that **a label is not a state**. ⭐ **That was too broad.** What v439 was right about is the **basket** — an empty basket must never dim a step number. **But ④ IS a step, the fourth one, and ①②③ all turn green when the customer finishes theirs** (your own v434 rule). **The ball was left as the one step number that could never report itself.**
+
+**2. ★ SO IT WEARS THE SAME GREEN THE OTHER THREE WEAR** — `#3B7449`, the identical colour, not one invented for it — and it takes **the same `done` class**, so it means the same thing.
+
+**3. ★★ AND THE SALE IS NEVER WAITED ON — THIS IS THE PART THAT MATTERED MOST.** The ball greens **the instant he presses, before the order is even sent**, so it paints *during* the send. Your one second is the hold **after** the bakery's app already has the order. ⚠️ **A green that delayed the order by even a moment would be a colour worth less than a sale, and it does not.**
+
+**4. ★ AND IF THE ORDER DOES *NOT* LAND, THE GREEN COMES OFF.** The page falls back to WhatsApp — and **a green ball over an order the bakery never received would be the worst thing that ball could say.**
+
+**5. ⚠️ AND I FOUND A FAULT OF MY OWN ON THE WAY, CAUGHT BY THE TESTS.** My first version **awaited** the one second — which held the press handler open, and the store's own tests began cancelling themselves. ⭐ **The order had already landed, so there was nothing to wait FOR:** the figures are computed at the moment of the sale, and only the **showing** is late. The handler now returns at once and a timer holds the green.
+
+**6. ★ AND YOUR SECOND IS ONE NUMBER, IN ONE PLACE.** ⚠️ A duration in the stylesheet and a moment in the script are **two numbers for one fact**, and they can only ever disagree one way — the fault v427 and v428 both found. Her one second is a single constant, and the test **reads it** rather than copying it.
+
+**Measured:** tests **3,350 → 3,351**, all green. ⭐ **The rule was seen to fail by its own message** twice — the ball greened *after* the send, and the green changed to a colour of its own. ★ **Verified live on the real shop at 375px:** `"bar-step"` terracotta → **`"bar-step done"` `rgb(59,116,73)` within 50ms of the press**, still green at 1600ms, with the order received. **No database step.**
 
 **12 Oct 2026 — engine v450, A COUPON ARRIVES ALREADY TAKEN OFF — NOW IT SAYS SO, AND YOU CAN TAKE IT OFF (no database step).**
 
