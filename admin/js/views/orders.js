@@ -15,7 +15,7 @@ import { availSummary, sellOpen } from "../../../availability.js";
 // same pair the shop applies, from the one module both sides read, so a note can
 // never be longer on this side than the box that collected it allowed.
 import { lineNoteOf, LINE_NOTE_MAX } from "../../../storefront-fields.js";
-import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
+import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, removeOrders, restoreRemovedOrder, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { orderedProducts } from "../productCategories.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -929,6 +929,8 @@ function renderAll(root, state, params) {
   // moved and no cloud field was added.
   const stuckNote = stuckOrdersEl();
   if (stuckNote) body.append(stuckNote);
+  const removedCard = removedOrdersEl(state, root);
+  if (removedCard) body.append(removedCard);
   if (inbox) body.append(inbox);
   body.append(topCal.el, content);
   const finder = orderFinderEl(state, root, selectDate, body);
@@ -2776,7 +2778,10 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root,
     // is a sweep**, and it is silent.
     const dropIds = new Set(group.orders.filter((o) => o.id && !liveIds.has(o.id)).map((o) => o.id));
     // ⚠️ `dropIds` can no longer contain `undefined`, so a row with no id cannot match this filter.
-    if (dropIds.size) state.orders = state.orders.filter((o) => !dropIds.has(o.id));
+    // ★ AND IT GOES ON THE SHELF RATHER THAN INTO NOTHING (v444) — see `removeOrders`. ⚠️ The word here
+    // is not a cause: this is a line that left with no ✕ pressed on it, and that is what it says, so a
+    // removal nobody asked for is the one she can see at a glance in the Removed list.
+    if (dropIds.size) removeOrders(state, [...dropIds], "an edit");
     // The order screen is not a second copy of the customer: a name or number
     // fixed here carries to their other orders and to their saved record too.
     // keyOf(first) is read before the loop below rewrites these rows, so it
@@ -5069,6 +5074,54 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
   });
 }
 
+// ★★ WHAT WAS REMOVED, AND A WAY BACK (v444). See `removeOrders` in state.js for why this exists.
+//
+// ⚠️ IT SITS ABOVE THE INBOX AND ONLY WHEN THERE IS SOMETHING IN IT — an empty card would be one more
+// thing on a busy screen that never means anything. ⚠️ AND IT IS FOLDED SHUT, because its job is not to be
+// read every day: it is to be THERE, so that a loss she notices a week later is still recoverable.
+function removedOrdersEl(state, root) {
+  const gone = (Array.isArray(state.removedOrders) ? state.removedOrders : []).slice()
+    .sort((a, b) => String(b.removedAt || "").localeCompare(String(a.removedAt || "")));
+  if (!gone.length) return null;
+  let open = false;
+  const wrap = el("div", { class: "card" });
+  const paint = () => {
+    const rows = gone.map((o) => {
+      const day = o.deliveryDateId ? byId(state.deliveryDates, o.deliveryDateId) : null;
+      const when = day ? `Bake ${shortDate(day.date)}`
+        : (o.deliveryDate ? `Bake ${String(o.deliveryDate).slice(0, 10)}` : "no bake day on it");
+      return el("div", { class: "removed-row" },
+        el("div", { class: "removed-main" },
+          el("div", { class: "removed-what" },
+            `${orderLineName(state, o)} ×${o.qty} `, orderCodeTag(o)),
+          el("div", { class: "removed-sub" },
+            `${String(o.customerName || "").trim() || "(no name)"} · ${when} · taken off ${fmtStamp(o.removedAt)}`
+            + (o.removedWhy ? ` · ${o.removedWhy}` : ""))),
+        button("Put it back", () => {
+          const back = restoreRemovedOrder(state, o.id);
+          if (!back) return;
+          save(state);
+          maybeSync(state);
+          updateOrderBadge(state);
+          // ⚠️ LAND ON ITS BAKE DAY when that day still exists, so she sees it arrive. When the day went
+          // with it, the order comes back as an orphan — which the inbox opens, and the Edit card is where
+          // a bake day is chosen (v332) — and the screen is left where she was rather than throwing her.
+          const dest = back.deliveryDateId && byId(state.deliveryDates, back.deliveryDateId);
+          renderAll(root, state, dest ? new URLSearchParams({ date: dest.id }) : undefined);
+        }, "soft small"));
+    });
+    wrap.replaceChildren(
+      el("h3", { style: "margin:0 0 2px" }, `↩ ${gone.length} removed order${gone.length === 1 ? "" : "s"}`),
+      el("p", { class: "card-sub", style: "margin:0 0 6px" },
+        "Kept for 30 days so a mistake can be put right. Nothing here is lost."),
+      el("div", { class: "btn-row", style: "margin:0" },
+        button(open ? "Hide them" : "Show them", () => { open = !open; paint(); }, "ghost small")),
+      ...(open ? rows : []));
+  };
+  paint();
+  return wrap;
+}
+
 function removeOrder(state, group, root, dateId) {
   const label = group.orders.map((o) => `${orderLineName(state, o)} ×${o.qty}`).join(", ");
   // ★★ A NUMBERED RECEIPT IS NOT CANCELLED BY REMOVING THE ORDER (v365). The number was
@@ -5093,7 +5146,9 @@ function removeOrder(state, group, root, dateId) {
       // sweep, not a removal.
       const ids = new Set(group.orders.map((o) => o.id).filter(Boolean));
       if (!ids.size) return;
-      state.orders = state.orders.filter((o) => !ids.has(o.id));
+      // ★ KEPT, NOT DESTROYED (v444) — a removal she DID ask for still goes on the shelf, because a
+      // mis-tap on this ✕ takes a whole order away in one press and the confirm cannot undo it.
+      removeOrders(state, [...ids], "removed by hand");
       save(state);
       maybeSync(state);
       updateOrderBadge(state);

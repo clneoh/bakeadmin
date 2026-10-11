@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v443)
+# Jienluv2bake — change history (v54 → v444)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v444, A REMOVED ORDER IS KEPT, NOT DESTROYED (no database step).**
+
+**Your words:** __"do what is appropriate to be sure of system stability"__, and then __"What my concern is it dont happen again"__
+
+**1. ⚠️⚠️ I FOUND WHAT MADE THE LOSS PERMANENT — AND IT WAS NOT THE REMOVAL.** Your app **tombstones every record that was in the last saved state and is gone now** — whatever removed it: a press, a fault, a hand-edit, an old bug. The tombstone goes to your shared cloud, **your other phone deletes its copy**, and **every backup taken afterwards is a copy of data the order is already missing from.** ⭐ **That is why your three orders are in none of your eleven saved copies: one removal, propagated in one direction, with no way back on any device.**
+
+**2. ⚠️ AND I AM NOT CLAIMING WHAT REMOVED THEM.** I still do not know, and I am not going to say otherwise — a promise I cannot back is worse than none, because you would stop watching for it. ⭐ **So this does not try to stop the removal. It stops a removal from ever being permanent.**
+
+**3. ★★ A REMOVED ORDER IS NOW KEPT.** Every removal goes through **one door**, and that door **moves the order onto a shelf rather than destroying it**: the same order, the same number, its bake day, its group, its price, with a note of when and how it came off. ⭐ **Whatever takes an order away — you, the ✕, a fault, or your other phone — it can be put back.**
+
+**4. ★ AND THE SHELF TRAVELS UNDER ITS OWN NAME, WHICH IS THE WHOLE POINT.** It is a **separate record** from the order — so the tombstone written for the order **cannot touch it.** It survives on both phones and inside every copy, which is exactly what the orders did not.
+
+**5. ★ WHERE IT IS.** On the **Orders** screen, above the New-orders inbox, and **only when there is something on it**: *"↩ N removed order"*, folded shut. Open it and each row says what it was, who it was for, its bake day, when it came off, and **how it came off** — *"removed by hand"*, *"an edit"*, or *"removed on another phone"*. ⭐ **That last part is worth having: an order that came off during an edit, with no ✕ pressed on it, is the kind worth looking at twice.** One press, **Put it back**, and it returns exactly as it was.
+
+**6. ★ AND IT IS EMPTY ON YOUR PHONE — I WANT TO BE PLAIN ABOUT THAT.** Your three orders are **not** on this shelf. ⚠️ **It starts empty and only fills from now on: this is about the next one, not the last one.** What it buys you is that the next loss — if there is one — is a row you can put back, instead of three orders that are in none of your copies.
+
+**7. ⚠️ KEPT 30 DAYS, AND NO LONGER.** Long enough to notice a mistake, and long enough for a customer to come back about it. A shelf that only grows is a leak.
+
+**8. ⚠️ AND THE GUARD IS TESTED, NOT PROMISED.** One test walks **every file in the app** and **fails the moment anything drops an order outside that one door** — so a screen added next year cannot quietly go round it. A second proves that **a deletion made on your other phone lands on this shelf.** ⚠️ Neither test claims to have found the cause: **the cause left no trace, which is the fault, and this makes the next one recoverable whatever it turns out to be.**
+
+**⚠️ ONE THING THAT NEEDS CARE, SAID PLAINLY.** The shelf reaches your other phone through your shared data — so **both phones must be signed in to shared data** for a removal on one phone to be recoverable from the other.
+
+**Measured:** tests **3,329 → 3,334**, all green. ⭐ **Three guards were each seen to fail by their own message** — the cloud's deletion put back to destroying, the shelf taken away, and a screen reassigning the orders list for itself — **and every file restored byte-identically (sha256).** ★ **Driven live on the real screen:** the card draws, *"Show them"* opens the row, and **"Put it back" returned the order to the list and emptied the card.** **No database step.**
 
 **12 Oct 2026 — engine v443, A VOID RECEIPT CAN NOW SAY WHEN THE ORDER LEFT (no database step).**
 

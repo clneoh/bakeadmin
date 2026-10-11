@@ -162,6 +162,9 @@ export function defaultState() {
     productCategories: [],
     deliveryDates: [],
     orders: [],
+    // ★★ ORDERS THAT WERE REMOVED, KEPT SO THEY CAN BE PUT BACK (v444). See `removeOrders` — this is
+    // what stops any removal, hers or the engine's, from being permanent.
+    removedOrders: [],
     customers: [], // customer profiles (dog name/photo, likes, notes) keyed to orders
     purchaseOrders: [],
     // Money out: what she spent, and how. Written by a shopping run marked Bought
@@ -434,6 +437,9 @@ function normalize(s) {
     orders: Array.isArray(s.orders)
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))
       : [],
+    // Guarded like every other list she owns: a phone that has never removed an order, and a state
+    // written before v444, both behave exactly as before.
+    removedOrders: Array.isArray(s.removedOrders) ? s.removedOrders : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
     expenses: Array.isArray(s.expenses) ? s.expenses : [],
@@ -716,6 +722,74 @@ function splitSharedDateIds(deliveryDates, orders) {
     return hit ? { ...o, deliveryDateId: hit.id } : o;
   };
   return { deliveryDates: out, orders: (orders || []).map(reId) };
+}
+
+// ★★ THE ONE DOOR OUT, AND IT DOES NOT DESTROY (v444).
+//
+// WHY THIS EXISTS, IN HER WORDS: __"What my concern is it dont happen again"__ — asked after three PAID
+// orders left her data on 11 Oct 2026 and were in **none** of her eleven saved copies.
+//
+// ⚠️⚠️ THE THING THAT MADE IT PERMANENT WAS NOT THE REMOVAL — IT WAS WHAT HAPPENED NEXT. `sync.js`
+// tombstones **every record that was in the last snapshot and is gone now**, whatever removed it: a press,
+// a fault, a hand-edit. The tombstone goes to the shared cloud, the other phone deletes its copy, and **every
+// backup taken afterwards is a copy of data the order is already missing from.** ⭐ So the loss propagated
+// in one direction and there was no way back on any device.
+//
+// ⭐ THE GUARD IS NOT "STOP THE REMOVAL" — I still cannot prove what removed them, and a promise I cannot
+// back is worse than none. **It is that a removed order is KEPT.** It moves into `state.removedOrders`:
+// - a SEPARATE record, so the tombstone written for the order does not touch it — it survives on both
+//   phones and inside every copy, which is exactly what the orders did not;
+// - listable and restorable, so **whatever** removes an order — her, me, a fault, or the cloud — it can be
+//   put back.
+//
+// ⚠️ EVERY REMOVAL MUST COME THROUGH HERE. `test/order-removal-guard.test.js` fails the moment anything
+// else drops rows from `state.orders`, so a future screen cannot quietly go round it.
+export const REMOVED_KEEP_DAYS = 30;
+const REMOVED_MAX = 200;
+
+export function removeOrders(state, ids, reason = "") {
+  const want = new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean));
+  if (!want.size) return [];
+  const gone = [];
+  const keep = [];
+  for (const o of (state.orders || [])) {
+    if (o && want.has(o.id)) gone.push(o);
+    else keep.push(o);
+  }
+  if (!gone.length) return [];
+  state.orders = keep;
+  if (!Array.isArray(state.removedOrders)) state.removedOrders = [];
+  const at = new Date().toISOString();
+  for (const o of gone) {
+    const kept = { ...o, removedAt: at };
+    if (reason) kept.removedWhy = reason;
+    state.removedOrders.unshift(kept);
+  }
+  pruneRemovedOrders(state);
+  return gone;
+}
+
+// ⚠️ A SHELF THAT ONLY GROWS IS A LEAK. Thirty days is long enough to notice a loss and long enough for
+// the customer to come back about it, and 200 rows is far more than a bakery removes in a month.
+function pruneRemovedOrders(state) {
+  const list = Array.isArray(state.removedOrders) ? state.removedOrders : [];
+  const cut = new Date(Date.now() - REMOVED_KEEP_DAYS * 86400000).toISOString();
+  state.removedOrders = list.filter((r) => r && String(r.removedAt || "") >= cut).slice(0, REMOVED_MAX);
+}
+
+// Put one back exactly as it was — the same id, its group, its day, its price. ⚠️ The `removedAt` mark is
+// taken off, because it is a record of the loss and not a fact about the order.
+export function restoreRemovedOrder(state, id) {
+  const list = Array.isArray(state.removedOrders) ? state.removedOrders : [];
+  const i = list.findIndex((r) => r && r.id === id);
+  if (i < 0) return null;
+  const back = { ...list[i] };
+  delete back.removedAt;
+  delete back.removedWhy;
+  list.splice(i, 1);
+  if (!Array.isArray(state.orders)) state.orders = [];
+  state.orders.push(back);
+  return back;
 }
 
 // Move a whole customer order to another delivery day. `group` is a group from

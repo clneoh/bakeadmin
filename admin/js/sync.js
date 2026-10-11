@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { save, STOCK_PRODUCTION } from "./state.js";
+import { removeOrders, save, STOCK_PRODUCTION } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 // The one answer to "is this a place" — see placeForSync below for why the courier
 // module's own rule is asked rather than a copy of it written here.
@@ -27,6 +27,11 @@ const SYNC_KEY = "bakeadmin.sync";
 
 const LISTS = {
   orders: "orders",
+  // ⚠️⚠️ NAMED HERE OR IT DOES NOT TRAVEL (v444). A new list is device-local until it is registered in
+  // this map — and this one MUST travel: an order removed on one phone has to be puttable-back on the
+  // other, which is the whole point of keeping it. ⭐ And it is a SEPARATE record from the order, so the
+  // tombstone written for the order does not touch this one.
+  removedOrders: "removedOrders",
   products: "products",
   productCategories: "productCategories", // the shop's category tree — a heading built on one phone must exist on the other
   ingredients: "ingredients",
@@ -647,7 +652,18 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
       // A pending local edit newer than this delete keeps the record alive —
       // it stays pending and resurrects the row on the next flush.
       if (localNewerOrSame) continue;
-      if (idx >= 0) { list.splice(idx, 1); changed = true; }
+      // ⚠️⚠️ AN ORDER DELETED ON THE OTHER PHONE GOES ON THIS PHONE'S SHELF (v444). **This is the path
+      // that made her loss permanent** — a tombstone is a removal nobody here made, it takes the whole
+      // order away in one line, and until v444 there was nothing left on either phone or in any copy to
+      // point at. ⭐ Everything else about the merge is unchanged: the record still leaves the live list
+      // and the tombstone is still recorded. **It just does not leave without a trace any more.**
+      if (row.kind === "orders" && idx >= 0) {
+        removeOrders(state, [String(list[idx] && list[idx].id)], "removed on another phone");
+        changed = true;
+      } else if (idx >= 0) {
+        list.splice(idx, 1);
+        changed = true;
+      }
       delete b.pending[key];
       delete b.meta[key];
       delete b.snapshot[key];
