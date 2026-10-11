@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v441)
+# Jienluv2bake — change history (v54 → v442)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v442, A CORRECTION I OWE YOU IN YOUR OWN RECORD (no database step).**
+
+**⚠️ THIS VERSION CHANGES NO BEHAVIOUR. It corrects something written in your changelog yesterday, and it is here so that your own record does not go on telling you the wrong thing.**
+
+**1. ⚠️ I NARROWED TOO EARLY, AND THE ENTRY ITSELF SAYS SO NOW.** In v441 I added a note to the v440 entry saying the deletion was **not** the cause of your vanished orders and that they were "never deleted". **That was too strong.** The moving order number explained the *shape* of a void receipt — and that was a real fault worth fixing — **but it does not explain the three receipts that started all of this.**
+
+**2. ★ THE MEASUREMENT THAT SETTLED IT.** The v441 fix makes the register look for an order under **either** number it could ever have worn: the one it wears today, and the one it wore before it was split into items. **Those are the only two numbers an order can have carried.** With that fix running on your phone (Engine 441, confirmed), those three rows **still** say *"not in this phone's orders"*. ⭐ **So the orders are genuinely absent — not merely wearing a different number — and I was wrong to close that off.**
+
+**3. ⚠️ AND THE WITHDRAWAL IS WRITTEN WHERE IT WAS MADE, NOT DELETED.** The dated note inside the v440 entry now records both: that it was written, and that it is withdrawn. **A correction that erased the mistake would leave you unable to tell which of the two you were reading.** ⭐ The v440 guards themselves are unchanged and still wanted — an edit really could remove rows it never showed you — **it is only my claim about YOUR orders that I have taken back.**
+
+**4. ★ WHAT IS STILL OPEN, PLAINLY.** Three receipts were issued on 11 Oct 2026 at 08:25, 08:27 and 08:37, and the orders behind them are not on the phone. **Nothing about the money is unrecorded** — the receipt stands and the number is never re-used — but **three customers paid for bread that has no order behind it, and they are owed it.** Their customers can be named by searching your WhatsApp for the three codes on those rows, because the confirmation messages carry them.
+
+**5. ★ AND WHAT HAPPENS NEXT IS ON ME, NOT ON YOUR MEMORY.** Finding out *how* they left needs the app to be able to say when an order was last in your data — which it cannot do today. That is the next thing I would build, offered rather than assumed.
+
+**Measured:** no behaviour changed; tests unchanged and green at **3,327**. **No database step**, and nothing of yours touched.
 
 **12 Oct 2026 — engine v441, THE ORDER NUMBER IS A KEY, AND A KEY DOES NOT MOVE (no database step).**
 
@@ -36,7 +52,7 @@ always tell which build a phone is running.
 
 **3. ⚠️ AND THE DELETION WAS A SEARCH THAT COULD MATCH NOTHING, AND SO MATCH EVERYTHING.** The rows to remove were found by their **id** — and that same code says, in its own writing, that an order row can have no id at all. **When a row being removed has none, the thing being searched for becomes "undefined" — and the removal then took EVERY order in your book that has no id, on every bake day, for every customer, from an edit that never named them.** ⭐ **Deleting what cannot be named is not a deletion, it is a sweep**, and nothing on the screen would have said so. **A row with no id is now never removed.**
 
-**4. ⚠️ WHAT I HAVE NOT PROVED, AND YOU SHOULD KNOW IT.** I could not tell from the code alone which of these reached your phone. **So the honest position is: these were two real ways an edit could lose an order, and both are shut — but I am not going to tell you "that was it".** ⭐ **The answer is on your phone, and the app can already show it to you.** **⚠️ 12 Oct 2026 (v441): it was NOT this. Your orders were never deleted — the ORDER NUMBER was moving when an order gained a second item, so receipts and searches for the number you gave a customer stopped finding it. See v441. The two guards below are still right and still wanted, but they were not your fault.**
+**4. ⚠️ WHAT I HAVE NOT PROVED, AND YOU SHOULD KNOW IT.** I could not tell from the code alone which of these reached your phone. **So the honest position is: these were two real ways an edit could lose an order, and both are shut — but I am not going to tell you "that was it".** ⭐ **The answer is on your phone, and the app can already show it to you.** **⚠️ 12 Oct 2026 (v441): the ORDER NUMBER was also moving — see v441, which explains why a receipt can look orphaned when its order is perfectly fine. ⚠️⚠️ 12 Oct 2026 (v442): a note was very briefly written here saying a deletion was NOT the cause. THAT IS WITHDRAWN. The moving number explains the SHAPE of a void row, but it does not explain the three rows this entry came from — because after v441 was on the phone, the register still finds no order behind them under ANY number they could have worn. So those orders are genuinely absent, and what is written below is back in the frame. I should not have narrowed it so early, and the correction is recorded rather than quietly removed.**
 
 **5. ★ WHERE TO LOOK — A SCREEN THAT ALREADY EXISTS.** **More → Backup & safety**, then press **View** on a copy. That opens a read-only window of everything in that copy, with the orders grouped by bake day **and a group at the bottom called "Not on a bake day" for any order that has lost its day.** ⭐ **An order sitting in that group was never deleted — it only lost its day.** Open the newest copy; and if you have one from before you were editing, open that too and compare the two. ⚠️ **And an order in that group can be put BACK**: its row opens the Edit card, where the bake day is chosen ([orders.js:1082](admin/js/views/orders.js:1082)).
 
