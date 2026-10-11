@@ -434,6 +434,11 @@ function openManualPO(state, root) {
   let picks = []; // [{ productId, qty }]
 
   const body = el("div", {});
+  // ⚠️ BOTH DECLARATIONS LIVE ABOVE THE BODY THAT READS THEM. `writtenOn` is read by the date box's own
+  // handler and `closeManual` by the Cancel and Save presses — and the two must be bound before `paint()`
+  // builds that body, or a press lands on a binding in its dead zone. That is the `is not defined` shape
+  // this file already carries a note about, and the smoke pass caught it here by name.
+  let closeManual = () => {};
   // ★ THE DATE THIS LIST IS FOR (v452) — declared with the CARD's own drafts, and deliberately ABOVE the
   // body that reads it. ⚠️ Below it, the box would capture a binding in its dead zone: the same `is not
   // defined` shape this file already has a note about, and one that only shows when a customer opens the

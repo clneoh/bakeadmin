@@ -307,7 +307,13 @@ test("store render() fills the page without crashing", () => {
   // first open day is the day it names.**
   assert.ok(chosen.children[0].text.includes(fmtDay(firstOpen)), "the first open day is the one named");
 
-  assert.equal(registry["order-btn"].disabled, true); // empty cart
+  // ★★ AND IT IS NEVER DISABLED — THE BUTTON ANSWERS INSTEAD (v452). Her standing rule, written in the
+  // press's own comment and contradicted by the line that used to be here: *"THE BUTTON IS NEVER DISABLED —
+  // a site rule must not hide or block a sale."* ⚠️ A disabled button on a phone does not even acknowledge
+  // the tap, so a customer who reached the bottom was told nothing at all. ⭐ **This now pins the LIVE button
+  // rather than its absence** — an assertion of absence would pass for a page that had simply lost its button.
+  assert.equal(registry["order-btn"].disabled, false,
+    "★ an empty cart left the Place order button dead — it must answer with the first step outstanding");
 });
 
 test("dateKey formats a local YYYY-MM-DD key", () => {
@@ -365,6 +371,50 @@ test("daySpecs leaves days plain when availability is off or unknown", () => {
   assert.equal(unknown[0].soldOut, false);
 });
 
+test("★★★ the FIRST step outstanding is said, in his order — never a dead button (v452)", async () => {
+  // ⚠️⚠️ HER WORDS: __"when we proceed order step by step, one after another, if the previous step not
+  // completed user should be inform accordingly"__
+  //
+  // ⭐ AND TWO THINGS WERE WRONG. The button was DISABLED on an empty basket — and **a disabled button on a
+  // phone does not even acknowledge the tap**, so a customer who reached the bottom was told nothing at all,
+  // while the press's own comment twenty lines away already said *"THE BUTTON IS NEVER DISABLED"*. And the
+  // press **returned silently** when there was nothing to order.
+  //
+  // ⚠️ THE ORDER OF THE MESSAGES IS THE POINT OF THIS TEST, not just their presence: a message about step 3
+  // shown to somebody who has not done step 2 sends him BACKWARDS down the page to fix something it was not
+  // yet asking him for. **So the guard stops at the first thing missing, and the assertions read top down.**
+  const press = async () => { await registry["order-btn"].onclick(); };
+  const said = () => confirmLines().join(" ");
+
+  // ── nothing at all: the button is LIVE and says where to start
+  assert.equal(registry["order-btn"].disabled, false,
+    "★ the button is dead on an empty basket again — it must answer instead");
+  await press();
+  assert.match(said(), /Pick something from the menu above/,
+    "★ an empty basket was refused without telling him what to do");
+
+  // ── an item, and nothing else: HIS NAME FIRST, because the page asks it first
+  const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  stepper.children[2]._listeners.click[0](); // "+"
+  await press();
+  assert.match(said(), /add your name/i,
+    "★ a name was not asked for, though it is required and the page asks it first");
+  assert.doesNotMatch(said(), /WhatsApp number/i,
+    "★ he was sent to his NUMBER while a still-earlier step was the one outstanding");
+
+  // ── a name, still no number
+  document.getElementById("name-input").value = "Aunty Bee";
+  await press();
+  assert.match(said(), /WhatsApp number/i, "★ the number is not asked for after the name");
+
+  // ── a number, still no way of getting it
+  document.getElementById("whatsapp-input").value = "60123456789";
+  await press();
+  assert.match(said(), /how you will get your order/i,
+    "★ the way was not asked for, though v416 makes it the one thing an order must carry");
+});
+
 test("order click sends one order and shows the success card (regression: no throw on the date label)", async () => {
   // Add one item via the first menu card's "+" button (drives the real cart).
   const card = registry["menu"].children[0];
@@ -380,6 +430,9 @@ test("order click sends one order and shows the success card (regression: no thr
   };
   try {
     // Customer picks Courier + gives a phone + address; the order must carry them.
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
     document.getElementById("address-input").value = "12 Jalan Bunga";
@@ -451,7 +504,10 @@ test("the receipt carries the strictest change/cancel window of the whole basket
 
       // Two products in the basket, two different windows: the customer reads the
       // strictest (3), not the loosest.
-      document.getElementById("whatsapp-input").value = "60123456789";
+      // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
+    document.getElementById("whatsapp-input").value = "60123456789";
       await registry["order-btn"].onclick();
       await afterOrderNotice(); // ★ the notice follows her one second (v451)
       const line = confirmLines().find((t) => /change or cancel/i.test(t));
@@ -462,6 +518,8 @@ test("the receipt carries the strictest change/cancel window of the whole basket
       // Nothing stated anywhere → no window line at all.
       CONFIG.products.forEach((p) => { delete p.cancelDays; });
       plus(); // basket refilled
+      // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+      document.getElementById("name-input").value = "Aunty Bee";
       await registry["order-btn"].onclick();
       await afterOrderNotice(); // ★ the notice follows her one second (v451)
       assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
@@ -493,6 +551,9 @@ test("an order placed from a ?via= link is stamped with the referrer", async () 
   const realLocation = globalThis.location;
   globalThis.location = { search: "?via=60139876543" };
   try {
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "self";
     await registry["order-btn"].onclick();
@@ -518,6 +579,9 @@ test("an order without a ?via= link carries no referral stamp", async () => {
     return { ok: true, json: async () => [] };
   };
   try {
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     await registry["order-btn"].onclick();
     const payload = JSON.parse(posted.body[0].data);
@@ -542,6 +606,8 @@ test("order click without a WhatsApp number blocks the order (no POST)", async (
   };
   try {
     document.getElementById("whatsapp-input").value = "";
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     assert.equal(posted, null, "no order POSTed when the phone is blank");
     assert.equal(registry["order-btn"].disabled, false, "button stays usable so they can retry");
@@ -565,6 +631,8 @@ test("order click sanitizes a +60-style phone to wa.me digits", async () => {
   };
   try {
     document.getElementById("whatsapp-input").value = "+60 12-345 6789";
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     assert.ok(posted, "order was POSTed");
     const payload = JSON.parse(posted.body[0].data);
@@ -1042,6 +1110,9 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
   const realOpen = window.open;
   window.open = (u) => { opened.push(u); return {}; };
   try {
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     await registry["order-btn"].onclick();
     await afterOrderNotice(); // ★ the notice follows her one second (v451)
@@ -1076,6 +1147,9 @@ test("WhatsApp only opens as a fallback when the order could NOT reach the app",
   const realOpen = window.open;
   window.open = (u) => { opened.push(u); return {}; };
   try {
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     await registry["order-btn"].onclick();
     assert.equal(opened.length, 1, "WhatsApp opens only when the app could not be reached");
@@ -1494,6 +1568,9 @@ test("the note rides that item's line, and a repaint mid-sentence keeps the word
       if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
       return { ok: true, json: async () => [] };
     };
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "collect";
     await registry["order-btn"].onclick();
@@ -1515,6 +1592,9 @@ test("an order with no note posts no note key at all — the payload is the one 
       if (opts && opts.method === "POST") { posted = JSON.parse(JSON.parse(opts.body)[0].data); return { ok: true }; }
       return { ok: true, json: async () => [] };
     };
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "collect";
     await registry["order-btn"].onclick();
@@ -1535,6 +1615,9 @@ test("the next customer does not inherit the last one's note", async () => {
       if (opts && opts.method === "POST") return { ok: true };
       return { ok: true, json: async () => [] };
     };
+    // ⚠️ A NAME IS NOW REQUIRED TO PLACE AN ORDER (v452) — her decision, so that every order she
+    // receives carries the name she confirms it against. Without this line the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "collect";
     await registry["order-btn"].onclick();
@@ -2857,6 +2940,8 @@ test("★★ he cannot order without saying how he gets it — and the page poin
   const wrap = document.getElementById("fulfillment");
   try {
     wrap._value = "";
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     const said = confirmLines().join(" | ");
     assert.match(said, /say how you will get your order/i, "the page asks him rather than assuming");
@@ -2873,6 +2958,8 @@ test("★★ he cannot order without saying how he gets it — and the page poin
       return { ok: true, json: async () => [] };
     };
     try {
+      // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+      document.getElementById("name-input").value = "Aunty Bee";
       await registry["order-btn"].onclick();
       assert.ok(posted, "the order went through once he had said how he gets it");
       assert.equal(posted.fulfillment, "collect", "carrying the way he picked");

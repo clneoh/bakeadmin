@@ -1,8 +1,49 @@
-# Jienluv2bake — change history (v54 → v451)
+# Jienluv2bake — change history (v54 → v452)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v452, A BROKEN CONTROL PUT RIGHT — AND THE BACK-DATE ON A HAND-WRITTEN LIST (no database step).**
+
+**⚠️⚠️ READ POINT 1 FIRST. This version fixes something that is broken on your phone RIGHT NOW.**
+
+**1. 🔴 "＋ Write a list by hand" WAS BROKEN BY MY OWN CARELESS EDIT, AND YOUR PUSH CARRIED IT LIVE.** While adding the date box I replaced a block of code and **took the line that declares `closeManual` out with it.** The pushed file **uses it three times and never declares it** — so opening that card throws. ⚠️ **It is fixed here, and the app's own smoke pass had already caught the same error by name and said so: *"closeManual is not defined"*.** ⭐ **Your PO screen's hand-written list works again the moment this lands.**
+
+**2. ⚠️⚠️ AND I HAVE TO TELL YOU SOMETHING ABOUT HOW IT GOT THERE.** Your v451 push happened while I was still editing, and it **swept two things of mine into it that its changelog does not mention** — the 48-hour keeping period below, **and half of the back-date work**. ⚠️ **This has happened before in this project** (a commit of yours once swept an edit of mine into an earlier version), and the lesson is the same both times: **a push is a snapshot of whatever is on disk at that second, not just what we last talked about.** ⭐ **Nothing is lost — but the record has to say so, which is what this point is.**
+
+**3. ★ SO HERE, PROPERLY RECORDED, IS THE 48 HOURS — WHICH IS ALREADY RUNNING ON YOUR PHONE.** Your words: **__"the deleted order just need to keep for 48hrs"__.** The Removed list now keeps a removed order for **48 hours**, not the 30 days I had guessed. ⚠️ **Thirty was mine and was never a decision you made**; 48 hours is, and it is written in hours because that is how you said it. ⭐ **The sentence on the shelf says 48 hours too** — a card that described a rule it no longer followed would be lying about itself. **And the test now pins the number 48, not merely the constant**, so a test that only compared against it could never have caught my thirty days.
+
+**4. ★ AND THE BACK-DATE ON A HAND-WRITTEN LIST.** Your words: **__"the date is for back date PO. by default the shown date will be today's date unless user change it"__.** The *"Write a list by hand"* card now carries **a date, filled in with today**, that you can change — so a list written on Monday and entered on Wednesday still records Monday.
+
+**5. ⚠️⚠️ AND THE DATE IS A LABEL, NOT A TIE — THE FIELD'S NAME IS THE WHOLE OF IT.** A bake day's saved list is found by **`dates`** and **`deliveryDate`** and nothing else — so the date is stored under neither. ⭐ **Proved, not asserted:** storing it under `deliveryDate` instead **fails both this version's test AND the older test that guards the absence** — which is exactly what it would have done to your app: **one careless name, and the whole "it dont tie to specific bake date" feature undone.** ⚠️ **That absence was your own instruction, and it still holds: a hand-written list can never make a bake day read as shopped.**
+
+**6. ⚠️ AND ONE MORE TRAP OF MY OWN, IN THE SAME HOUR.** I declared the date **below** the card that reads it — the dead-zone shape this file already has a note about — so both the date and `closeManual` now sit **above** the body that uses them.
+
+**7. ★★★ AND THE SHOP NOW SAYS WHICH STEP IS OUTSTANDING, IN HIS ORDER.** Your words: **__"when we proceed order step by step, one after another, if the previous step not completed user should be inform accordingly"__**
+
+**⚠️⚠️ TWO THINGS WERE WRONG, AND I MEASURED BOTH BEFORE CHANGING ANYTHING:**
+
+| what he had done | the button | what he was told |
+|---|---|---|
+| **nothing at all** | **dead** | **nothing** |
+| an item only | live | the WhatsApp number |
+| item + way | live | the WhatsApp number |
+| item + way + number, **no name** | live | **"Sending your order…"** |
+
+**8. ⚠️ THE DEAD BUTTON WAS CONTRADICTING A RULE YOUR APP ALREADY CARRIES.** Twenty lines from the disable, the press's own comment reads: *"**THE BUTTON IS NEVER DISABLED** (her standing rule — a site rule must not hide or block a sale)."* ⭐ **Two places holding one rule and disagreeing — the same fault shape as the whole of today.** And a disabled button on a phone **does not even acknowledge the tap**, so a customer who reached the bottom got nothing at all. **It now stays live and answers, pointing at step 2's own heading.**
+
+**9. ⚠️⚠️ AND THE NAME WAS REQUIRED BY NOTHING.** The order went through with the name box empty **while circle ③ stayed grey** — the circle and the button keeping different rules for the same thing, which is the fourth time that shape has appeared here. **You decided it: a name is now required**, so every order you receive carries the name you confirm it against.
+
+**10. ★ AND THE GUARD WALKS THE STEPS IN THE ORDER THE PAGE PUTS THEM** — the basket, his name, his number, then how he gets it — **stopping at the FIRST one missing.** ⚠️ That order is the point: a message about step 3 shown to somebody who has not done step 2 **sends him backwards down the page** to fix something it was not yet asking him for.
+
+**11. ★ AND ALL THREE LANGUAGES, NOT ONLY ENGLISH.** Four new sentences — what to pick, and what name — written in English, 中文 and Bahasa Malaysia in the shop's own voice. ⚠️ **Please have those two pairs looked at by the same circle who checked the last wording sheet**; they are the only new words a customer will read.
+
+**12. ⚠️ AND ONE MORE TRAP OF MY OWN, IN THE SAME HOUR.** The scroll for the empty-basket message first named an element **that does not exist** — which would have thrown the moment the guard fired, the exact undeclared-name fault as `closeManual` an hour earlier. **Caught this time by looking the id up before trusting it.**
+
+**Verified live on the shop, all four rungs:** *"Nothing in your order yet. Pick something from the menu above first…"* → *"Please add your name. It is how we know who the order is for when we confirm it with you."* → *"Please add your WhatsApp number…"* → *"Please say how you will get your order…"* — **in that order, with the button live throughout.**
+
+**Measured:** tests **3,351 → 3,352**, all green. ⭐ **Both rules were seen to fail by their own message** — the date stored under a tying name (which broke the OLD test too), and her 48 hours put back to my 720 — **and every file restored byte-identically (sha256).** **No database step.**
 
 **12 Oct 2026 — engine v451, THE FOURTH NUMBER TURNS GREEN WHEN THE ORDER IS PLACED (no database step).**
 

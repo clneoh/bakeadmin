@@ -556,6 +556,7 @@ test("the pin and the address the order carries agree — or the pin does not tr
     // The shop's own menu, driven the way test/store.test.js drives it.
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 
@@ -571,6 +572,8 @@ test("the pin and the address the order carries agree — or the pin does not tr
     type("Bayan Lepas, Penang");
     await flush();
 
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order reached the backoffice");
     assert.equal(posted.address, "Bayan Lepas, Penang", "carrying the address the customer typed last");
@@ -607,6 +610,7 @@ test("a pin taken from the list travels named with the customer's own words, not
   try {
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 
@@ -620,6 +624,8 @@ test("a pin taken from the list travels named with the customer's own words, not
       "the tap moved the pin and did NOT write the row's fragment into their address box — no house "
       + "number was typed for the row to have found, so v214 leaves their words exactly as they are");
 
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order reached the backoffice");
     assert.equal(posted.address, "Taman Sri Nibong, Penang");
@@ -719,6 +725,7 @@ test("the order carries the address the row wrote, with the pin named by that sa
   try {
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
 
@@ -728,6 +735,8 @@ test("the order carries the address the row wrote, with the pin named by that sa
     fire(el("addr-list").children[1], "click");
     await flush();
 
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
     assert.ok(posted, "the order reached the backoffice");
     assert.equal(posted.address, ROW, "carrying the complete address the row found");
@@ -776,6 +785,8 @@ test("★ the pin the customer marks rides on a courier order, and never on a se
     // OWN typed address (v205 — never the geocoder's name for that spot, which is a fragment), and
     // nothing else the phone reported travels with it.
     el("fulfillment")._value = "courier";
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await el("order-btn").onclick();
     assert.ok(posted, "the order went through");
     assert.deepEqual(posted.place, { lat: 5.419912, lng: 100.331168, label: "Block C, Sri Bunga Condo" });
@@ -790,6 +801,8 @@ test("★ the pin the customer marks rides on a courier order, and never on a se
     el("fulfillment")._value = "collect";
     refillBasket();
     posted = null;
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await el("order-btn").onclick();
     assert.ok(posted, "the self-collect order went through");
     assert.equal("place" in posted, false, "a self-collect order carries no door");
@@ -815,6 +828,8 @@ test("the next customer does not inherit the last one's front door", async (t) =
     rec.maps[0].handlers.click({ latlng: { lat: 5.42, lng: 100.33 } });
     await flush();
     assert.equal(el("pin-status").hidden, false);
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await el("order-btn").onclick();
     assert.deepEqual(posted.place, { lat: 5.42, lng: 100.33 });
     // An order empties the cart, the number and the delivery method for whoever comes next. The pin
@@ -825,6 +840,8 @@ test("the next customer does not inherit the last one's front door", async (t) =
     el("fulfillment")._value = "courier";
     refillBasket();
     posted = null;
+    // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+    document.getElementById("name-input").value = "Aunty Bee";
     await el("order-btn").onclick();
     assert.ok(posted, "the second order went through");
     assert.equal("place" in posted, false, "a courier order nobody pinned carries no door");

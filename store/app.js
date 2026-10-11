@@ -2735,7 +2735,18 @@ export function render() {
     // it needs no translating and no screen reader — so it belongs to the stylesheet, and this line
     // goes on setting exactly the label it always did.**
     document.getElementById("order-btn").textContent = t("placeOrder");
-    document.getElementById("order-btn").disabled = count === 0;
+    // ★★★ AND IT IS NEVER DISABLED FOR AN EMPTY BASKET (v452).
+    // ⚠️⚠️ THE RULE WAS ALREADY WRITTEN DOWN TWENTY LINES FURTHER ON, IN THE PRESS'S OWN COMMENT:
+    // *"THE BUTTON IS NEVER DISABLED (her standing rule — a site rule must not hide or block a sale)"* —
+    // **and this line contradicted it.** Two places holding one rule, disagreeing, which is the fault this
+    // whole day has been made of.
+    // ⭐ Her words: __"if the previous step not completed user should be inform accordingly"__ — and a
+    // DISABLED button cannot inform anybody: on a phone it does not even acknowledge the tap. **So it stays
+    // live and the press ANSWERS**, naming the first thing outstanding. The four circles already say where
+    // he is; the button now says what to do about it.
+    // ⚠️ The one disable that remains is the one in the press itself, WHILE the order is being sent — that
+    // is what stops a slow network making him tap twice and posting two orders.
+    document.getElementById("order-btn").disabled = false;
     // ⚠️⚠️ AND THE BALL IS NOT TOUCHED HERE (v439). v438 dimmed it with an empty basket; her phone
     // showed the result — ④ pale, ② and ③ solid. **A step marker is not a state**, so nothing on
     // this repaint changes it: it keeps ①②③'s colour whether the basket is empty or full.
@@ -2812,7 +2823,45 @@ export function render() {
       if (noteText) line.note = noteText;
       lines.push(line);
     }
-    if (!lines.length || !selected) return;
+    // ★★★ THE FIRST THING STILL OUTSTANDING, SAID IN HIS OWN ORDER (v452).
+    //
+    // ⚠️⚠️ THIS LINE USED TO BE A SILENT `return`. Her words: __"when we proceed order step by step, one
+    // after another, if the previous step not completed user should be inform accordingly"__ — and she is
+    // describing a customer who taps Place order and is told NOTHING, because the button was disabled and a
+    // disabled button does not answer a tap.
+    //
+    // ⭐ SO ONE GUARD, WALKING THE STEPS IN THE ORDER THE PAGE PUTS THEM — the basket, his name, his number,
+    // then how he gets it — **and it stops at the FIRST one missing.** ⚠️ That order is the point: a message
+    // about step 3 shown to somebody who has not done step 2 sends him backwards down the page to fix
+    // something the page was not yet asking him for.
+    if (!lines.length) {
+      // ⚠️ STEP 2'S OWN HEADING, not an element I invented — the same circle the page is already showing
+      // him as not-done. ⭐ **The one I first wrote here did not exist**, which would have thrown the moment
+      // this guard fired: the same undeclared-name fault as `closeManual` an hour earlier, caught this time
+      // by looking for the id before trusting it.
+      const step2 = document.getElementById("step2");
+      if (step2 && step2.scrollIntoView) step2.scrollIntoView({ block: "start" });
+      showConfirm([
+        el("p", { class: "confirm-title" }, t("needItemTitle")),
+        el("p", { class: "confirm-body" }, t("needItemBody")),
+      ], "warn");
+      return;
+    }
+    // ⚠️ UNREACHABLE IN PRACTICE — a bake day is chosen FOR him on load (v434) — and kept anyway so that a
+    // day ever going missing cannot turn into a crash on `new Date("T00:00:00")` further down.
+    if (!selected) return;
+    // ★ AND HIS NAME IS ASKED FOR BEFORE HIS NUMBER, because the page asks them in that order (v452). It is
+    // REQUIRED — she decided it: without it an order has no name on it, and she confirms every order by hand.
+    const nameInput = document.getElementById("name-input");
+    if (!nameInput || !String(nameInput.value || "").trim()) {
+      if (nameInput && nameInput.focus) nameInput.focus();
+      if (nameInput && nameInput.scrollIntoView) nameInput.scrollIntoView({ block: "center" });
+      showConfirm([
+        el("p", { class: "confirm-title" }, t("confirmAddNameTitle")),
+        el("p", { class: "confirm-body" }, t("confirmAddNameBody")),
+      ], "warn");
+      return;
+    }
     // The baker confirms every order (and sends the payment QR) over WhatsApp,
     // so the customer's number is required to place the order at all.
     const waInput = document.getElementById("whatsapp-input");

@@ -320,6 +320,13 @@ const en = {
 
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
+  // ★★ THE FIRST THING STILL OUTSTANDING, IN HIS OWN ORDER (v452). Her words: __"if the previous step not
+  // completed user should be inform accordingly"__ ⚠️ **A dead button says nothing at all on a phone** — it
+  // does not even acknowledge the tap — so the button stays live and ANSWERS instead.
+  needItemTitle: "Nothing in your order yet.",
+  needItemBody: "Pick something from the menu above first — then you can place your order.",
+  confirmAddNameTitle: "Please add your name.",
+  confirmAddNameBody: "It is how we know who the order is for when we confirm it with you.",
   confirmClosedTitle: "That day's orders are closed.",
   confirmClosedBody: "Orders for this day close at %1 the day before — please pick a new bake day.",
   confirmChangedTitle: "Your order changed just now.",
@@ -561,6 +568,10 @@ const zh = {
 
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
+  needItemTitle: "订单还是空的。",
+  needItemBody: "请先从上面的菜单选一样，然后就可以下单了。",
+  confirmAddNameTitle: "请填写你的名字。",
+  confirmAddNameBody: "我们和你确认订单时，要用它知道这份订单是谁的。",
   confirmClosedTitle: "该日的订单已截止。",
   confirmClosedBody: "此日的订单需在烘焙日前一天 %1 前下单 — 请另选一个烘焙日。",
   confirmChangedTitle: "你的订单刚刚有变动。",
@@ -765,6 +776,10 @@ const ms = {
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan tempahan dan hantar QR pembayaran anda.",
+  needItemTitle: "Tempahan masih kosong.",
+  needItemBody: "Pilih sesuatu dari menu di atas dahulu — kemudian anda boleh buat tempahan.",
+  confirmAddNameTitle: "Sila masukkan nama anda.",
+  confirmAddNameBody: "Kami guna untuk tahu tempahan ini untuk siapa semasa mengesahkannya.",
   confirmClosedTitle: "Tempahan untuk hari itu sudah ditutup.",
   confirmClosedBody: "Tempahan untuk hari ini ditutup pada %1 sehari sebelum — sila pilih hari membakar yang lain.",
   confirmChangedTitle: "Tempahan anda baru sahaja berubah.",

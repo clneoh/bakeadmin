@@ -640,6 +640,38 @@ test("★★⚠️ a hand-written list carries NO bake day — so it cannot mark
   assert.ok(Array.isArray(po.items) && Array.isArray(po.warnings));
 });
 
+test("★★ a hand-written list can be BACK-DATED — and the date is a LABEL, not a tie (v452)", () => {
+  // ⚠️ HER WORDS: __"the date is for back date PO. by default the shown date will be today's date unless
+  // user change it"__
+  //
+  // ⚠️⚠️ AND THE WHOLE RISK IS IN THE FIELD'S NAME. `coveringPO` finds a bake day's saved list by `dates`
+  // and `deliveryDate` and NOTHING else — so a back-date stored under either of those would turn this list
+  // into a day's shopping, **undoing the absence v401 exists for with a label.**
+  const bom = { totalUnits: 4, orders: [{ productId: "prd_loaf" }], productLines: [], warnings: [] };
+  const today = manualPO(bom, [{ ingredientId: "ing_flour" }], 10);
+  assert.equal(today.writtenOn, todayISO(), "a list given no date does not default to today");
+  const old = manualPO(bom, [{ ingredientId: "ing_flour" }], 10, "2026-10-06");
+  assert.equal(old.writtenOn, "2026-10-06", "the day she typed is not the day recorded");
+
+  // ⚠️⚠️ AND THE LABEL DID NOT BECOME A TIE — asserted on both of the two names that would do it.
+  for (const po of [today, old]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(po, "dates"), false,
+      "★ the back-date wrote a `dates` array — a label just became a bake day");
+    assert.equal(Object.prototype.hasOwnProperty.call(po, "deliveryDate"), false,
+      "★ the back-date wrote a `deliveryDate`, which `coveringPO` reads the same way");
+  }
+
+  // ⭐ AND THE BEHAVIOUR, not only the keys: a back-dated list still leaves every bake day un-shopped.
+  const state = freshState();
+  state.purchaseOrders = [old];
+  const root = render(state);
+  assert.equal(rows(root).length, 2, "the two bake days are not on the screen");
+  for (const row of rows(root)) {
+    assert.equal(rowTag(row), "",
+      "★ a back-dated hand-written list made a bake day read as shopped");
+  }
+});
+
 test("★★ a hand-written list leaves every bake day exactly as it was", () => {
   // ⚠️ The end the absence is FOR: with the hand-written list sitting in her history, the PO screen must
   // still offer every day as un-shopped — otherwise writing a list would quietly cost her a day's shop.

@@ -112,7 +112,9 @@ test("the shop starts in English and the EN pill is lit", () => {
   assert.equal(document.documentElement.lang, "en");
   assert.equal(litPill(), pills[0], "EN is the lit pill on a fresh visit");
   assert.equal(btn().textContent, STORE.en.placeOrder);
-  assert.equal(btn().disabled, true, "empty basket leaves the button disabled");
+  // ★ (v452) The button is never disabled — she asked for the customer to be TOLD which step is
+  // outstanding instead, and a disabled button says nothing. See store/app.js renderBar.
+  assert.equal(registry["order-btn"].disabled, false, "★ an empty basket must leave the button live");
 });
 
 test("switching to 中文 repaints in place and keeps the basket", () => {
