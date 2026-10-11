@@ -1418,13 +1418,56 @@ export function render() {
   let dayPicked = false;
   // ★★ THE ONE VOICE FOR "NOT YET — DO THIS FIRST" (v453). Every locked step says it the same way, and
   // scrolls to the step it is naming, so he is never told to finish something he cannot see.
+
+// ★★★ A MISSING FIELD MARKS ITSELF (v455). Her words: __"or the missing field turn red embossed, or how a
+// form filling would behave"__ ⭐ **This is ordinary form behaviour: the input that is wrong takes the red
+// edge, and its reason sits directly under it.** ⚠️ **Not a pop-up over the shop and no scroll** — the
+// message belongs where the thing that is missing lives.
+function markField(input, key) {
+  if (!input) return;
+  input.classList.add("bad");
+  // ⚠️⚠️ AND IT IS TIED TO THE BOX, NOT ONLY SITTING UNDER IT (v455). The skill, 1.6: *"status shown by
+  // colour alone"* and *"a label not tied with `for`"* are the two most-missed hand-written-site faults.
+  // ⭐ **`aria-describedby` is what makes a screen reader announce the reason WITH the box** — the visible
+  // line and the announced line are the same line, or only sighted people get it.
+  input.setAttribute("aria-describedby", `${input.id}-note`);
+  input.setAttribute("aria-invalid", "true");
+  const id = `${input.id}-note`;
+  let said = document.getElementById(id);
+  if (!said) {
+    said = el("p", { class: "field-note", id, role: "status" });
+    if (input.parentNode && input.parentNode.appendChild) input.parentNode.appendChild(said);
+  }
+  said.textContent = t(key);
+  said.hidden = false;
+  if (input.focus) input.focus({ preventScroll: true });
+}
+function clearFieldMarks() {
+  for (const input of document.querySelectorAll(".input.bad")) {
+    input.classList.remove("bad");
+    input.removeAttribute("aria-describedby");
+    input.removeAttribute("aria-invalid");
+    const said = input.id ? document.getElementById(`${input.id}-note`) : null;
+    if (said) { said.hidden = true; said.textContent = ""; }
+  }
+}
+
   function sayStepFirst(titleKey, bodyKey, stepId) {
-    const head = stepId ? document.getElementById(stepId) : null;
-    if (head && head.scrollIntoView) head.scrollIntoView({ block: "start" });
-    showConfirm([
-      el("p", { class: "confirm-title" }, t(titleKey)),
-      el("p", { class: "confirm-body" }, t(bodyKey)),
-    ], "warn");
+    // ⚠️⚠️ IT DOES NOT MOVE THE PAGE (v455). Her words: __"the message show in the wrong place and the
+    // screen jump"__ — ⭐ **and the jump was mine: this called `scrollIntoView`, which drags the page to
+    // the step.** ⚠️ **v423 already settled this rule for the parked place — *the page does not move* —
+    // and a customer part-way down the menu being thrown back to the top is exactly that fault.**
+    // ⭐ The message will be redrawn where the step IS; until then it must simply not move him.
+    void stepId;
+    // ★★★ IT IS A LINE UNDER THE STEP, NOT A POP-UP OVER THE PAGE (v455) — her words, and the shape a form
+    // uses: **the thing that is missing marks itself, where it sits.** ⭐ And no scroll: v423 settled that
+    // for the parked place, and a customer part-way down the menu must never be thrown to the top for it.
+    const note = document.getElementById("step-note");
+    if (!note) return;
+    note.replaceChildren(
+      el("strong", {}, t(titleKey)), " ", t(bodyKey));
+    note.hidden = false;
+    note.classList.add("on");
   }
   let avail = null;      // { 'YYYY-MM-DD': slots_left } — day-level, for the calendar
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
@@ -2592,6 +2635,11 @@ export function render() {
       const head = document.getElementById(`step${i + 1}`);
       if (head && head.classList) head.classList.toggle("done", done[i]);
     }
+    // ★★★ AND THE STEP'S OWN LINE GOES THE MOMENT HE FIXES IT (v455). ⚠️ **A form error does not outlive
+    // its cause** — her words were *"or how a form filling would behave"*, and a line still telling him to
+    // pick a day, after he has picked one, would be the page arguing with itself.
+    const note = document.getElementById("step-note");
+    if (note && dayPicked && !note.hidden) { note.hidden = true; note.classList.remove("on"); note.replaceChildren(); }
   }
   // ⚠️ AND THE THIRD STEP IS TYPED, NOT TAPPED, so it needs listeners of its own — nothing else on this
   // page fires while a customer fills their name in. ⚠️ They live here, beside the rule they serve,
@@ -2879,14 +2927,12 @@ export function render() {
     // REQUIRED — she decided it: without it an order has no name on it, and she confirms every order by hand.
     const nameInput = document.getElementById("name-input");
     if (!nameInput || !String(nameInput.value || "").trim()) {
-      if (nameInput && nameInput.focus) nameInput.focus();
-      if (nameInput && nameInput.scrollIntoView) nameInput.scrollIntoView({ block: "center" });
-      showConfirm([
-        el("p", { class: "confirm-title" }, t("confirmAddNameTitle")),
-        el("p", { class: "confirm-body" }, t("confirmAddNameBody")),
-      ], "warn");
+      // ★ THE BOX TURNS RED AND SAYS WHY, UNDER ITSELF (v455) — see `markField`. No pop-up, no scroll.
+      clearFieldMarks();
+      markField(nameInput, "confirmAddNameTitle");
       return;
     }
+    clearFieldMarks();
     // The baker confirms every order (and sends the payment QR) over WhatsApp,
     // so the customer's number is required to place the order at all.
     const waInput = document.getElementById("whatsapp-input");

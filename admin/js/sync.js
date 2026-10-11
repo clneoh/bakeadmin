@@ -662,7 +662,7 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
       // point at. ⭐ Everything else about the merge is unchanged: the record still leaves the live list
       // and the tombstone is still recorded. **It just does not leave without a trace any more.**
       if (row.kind === "orders" && idx >= 0) {
-        removeOrders(state, [String(list[idx] && list[idx].id)], "removed on another phone");
+        removeOrders(state, [String(list[idx] && list[idx].id)], "came back as a removal through your shared data");
         changed = true;
       } else if (idx >= 0) {
         list.splice(idx, 1);

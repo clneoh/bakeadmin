@@ -98,8 +98,14 @@ test("★★ an order deleted on the OTHER phone lands on this phone's shelf (v4
   assert.equal(st.removedOrders.length, 1,
     "★ an order deleted on the other phone was destroyed here rather than kept");
   assert.equal(st.removedOrders[0].id, "o1");
-  assert.match(String(st.removedOrders[0].removedWhy || ""), /another phone/,
-    "the shelf does not say the removal came from the other phone");
+  // ⚠️⚠️ AND THE LABEL NAMES THE PATH, NOT A CULPRIT (v455). It used to say "removed on another phone" —
+  // **and her other phone had deleted nothing.** A tombstone can also be THIS phone's own removal coming
+  // back on the next sync, so the shelf was asserting a cause the app cannot know. ⭐ The same rule the
+  // whole of this week kept teaching: say what was observed, never who is to blame.
+  assert.match(String(st.removedOrders[0].removedWhy || ""), /shared data/,
+    "★ the shelf does not say the removal arrived through the shared data");
+  assert.doesNotMatch(String(st.removedOrders[0].removedWhy || ""), /another phone/,
+    "★ the shelf is naming a culprit again — it cannot know which phone removed it");
 });
 
 test("★ the shelf is pruned, so keeping things cannot leak", () => {

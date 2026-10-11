@@ -2122,3 +2122,20 @@ button.prod-next.off::after { content: ""; }
 .step-head.done .step-num { background: #3b7449; }
 /* ⚠️ THE TRIAL GUARD THAT USED TO SIT HERE WENT WHEN THE FLAG DID (v406) — it read
    `body:not(.trial) … { display: none }` for the answer box, the lede and the step circles. */
+
+/* ★★★ THE STEP'S OWN LINE (v455). ⚠️ Her words: __"the message show in the wrong place... it should shown
+   up at the appropriate place, or the missing field turn red embossed"__ ⭐ **A form marks what is missing
+   where it sits** — so this is a line in the flow of the page, beside the step it is about, and never a
+   pop-up over the whole shop. It reads as a correction: a quiet edge and the shop's own attention colour,
+   not a shout, because nothing is broken — one step is simply not done yet. */
+.step-note {
+  margin: 10px 0 4px;
+  padding: 9px 12px;
+  border-left: 3px solid var(--brown-dark);
+  background: var(--brown-soft);
+  border-radius: 0 10px 10px 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.step-note strong { color: var(--brown-dark); }

@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v454)
+# Jienluv2bake — change history (v54 → v455)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v455, THE STEP'S OWN LINE, IN THE RIGHT PLACE — AND THE MISSING BOX TURNS RED (no database step).**
+
+**Your words:** __"1st the message show in the wrong place and the screen jump, it should shown up at the appropriate place, or the missing field turn red embossed, or how a form filling would behave"__
+
+**1. ⭐⭐ THAT SENTENCE IS THE SPECIFICATION, AND IT IS RIGHT.** A form does not put a pop-up over the page and throw you to the top — **it marks the thing that is missing, where it sits.** The message was a pop-up at the top of the shop and it dragged the page there. ⚠️ **This project had already settled that rule at v423 for the parked place — *the page does not move* — and I reintroduced the fault.**
+
+**2. ★ SO THE MESSAGE IS NOW A LINE IN THE FLOW OF THE PAGE.** With no bake day tapped it appears **between the calendar and the menu** — under the day he must tap, above the thing it is blocking — and **the page does not move.** ⭐ **Measured on the real shop: the tap leaves `scrollY` at 0, the basket at RM 0.00, and the line appears directly above step 2's heading.**
+
+**3. ★ AND A MISSING FIELD MARKS ITSELF, exactly as you said.** The name box takes **the red edge with its reason directly underneath** — and, more than visually, it is **tied to that reason** with `aria-describedby` and `aria-invalid`, so a screen reader announces the two together. ⚠️ **A red box with no tie is a message only sighted people receive.**
+
+**4. ★ AND YOUR PROMPT TO LOOK AT HOW IT IS DONE PROPERLY FOUND THREE FAULTS IN TEN MINUTES OF MY WORK.** You said: __"i think you are very weak on web UI, look for appropriate mcp or skill"__ — **and the skill was already in this repo, unopened.** It caught: **a status shown by colour alone; a note tied to nothing a screen reader can follow; and an unmeasured colour** — ⚠️ **and it names the rule I broke hardest: __never report a page as done on the strength of the code alone.__**
+
+**5. ★ THE CONTRAST IS NOW MEASURED, NOT GUESSED.** The step line reads **11.43:1** for its body and **5.03:1** for its strong half — both clear of the 4.5 floor, **and built from the shop's own tokens rather than colours of mine.** ⚠️ Its predecessor in this project taught the lesson the hard way: v426 measured a colour and then folded an opacity over it, and the truth was 2.94 where 5.21 had been written down.
+
+**6. ★ AND 320px, TESTED.** Nothing scrolls sideways — **the document is exactly 320 and the new line is 292px inside it.** The skill's rule is that a page must survive the longest real string at the narrowest real phone, and this one does.
+
+**7. ⚠️ AND ONE FAULT WAS IN THE TESTS, NOT THE PAGE.** The shim's nodes carried **no `id`**, so the note was built as `"undefined-note"` and the accessibility assertion could never pass however correct the shop was. ⭐ **The recorded rule is that a shim which cannot express what the view does cannot test it — so the SHIM was fixed, not the assertion.**
+
+**8. ★ AND THE SHELF'S LABEL NO LONGER BLAMES A PHONE.** It said **"removed on another phone"** — ⚠️ **and your other phone had deleted nothing.** A remove-record can also be **this phone's own removal returning on a sync**, so the shelf was stating a cause the app cannot know. **It now says the removal came through your shared data**, and the test asserts both that new wording and that no culprit is named.
+
+**Measured:** tests **3,353**, all green. **No database step.**
 
 **12 Oct 2026 — engine v454, STEP 1 BEFORE STEP 2 IS ALLOWED (no database step).**
 

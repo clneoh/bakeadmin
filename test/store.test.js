@@ -116,7 +116,16 @@ const registry = {};
 globalThis.document = {
   createElement: createEl,
   createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
-  getElementById: (id) => (registry[id] ||= createEl("div")),
+  // ★★★ A NODE FOUND BY ID CARRIES THAT ID (v455) — the shim did not, and it cost a real assertion.
+  // ⚠️⚠️ **A shim that cannot express what the view does cannot test it** — the standing rule for this
+  // suite. The shop builds the field-note's id from the INPUT's own id (`${input.id}-note`) and ties the
+  // two with `aria-describedby`; with `id` undefined the shim produced `"undefined-note"` and the
+  // accessibility assertion could never pass, however correct the page was.
+  getElementById: (id) => {
+    const node = (registry[id] ||= createEl("div"));
+    node.id = id;
+    return node;
+  },
   querySelector: () => null,
   querySelectorAll: () => [],
   body: createEl("body"),
@@ -399,8 +408,18 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
   stepper.children[2]._listeners.click[0](); // "+"
   await press();
-  assert.match(said(), /add your name/i,
-    "★ a name was not asked for, though it is required and the page asks it first");
+  // ★★★ THE NAME IS ASKED FOR ON THE BOX ITSELF, NOT IN A POP-UP (v455). Her words: __"the message show in
+  // the wrong place and the screen jump, it should shown up at the appropriate place, or the missing field
+  // turn red embossed, or how a form filling would behave"__ ⭐ **So this asserts the FIELD, not a notice** —
+  // an assertion that only looked for a sentence would pass over a page with no red box at all.
+  const nameBox = registry["name-input"];
+  assert.ok(String(nameBox.className || "").includes("bad"),
+    `★ the empty name box did not mark itself (it is "${nameBox.className}")`);
+  // ⚠️ AND IT IS TIED TO THE BOX, not merely near it (v455). The skill's 1.6 names *"a label not tied"* as
+  // one of the costliest hand-written-site faults — so the assertion is the TIE, not the proximity.
+  assert.match(String(nameBox.attrs?.["aria-describedby"] || ""), /name-input-note/,
+    "★ the reason is not tied to the box for a screen reader — only sighted customers would get it");
+  assert.equal(nameBox.attrs?.["aria-invalid"], "true", "★ the box is not marked invalid");
   assert.doesNotMatch(said(), /WhatsApp number/i,
     "★ he was sent to his NUMBER while a still-earlier step was the one outstanding");
 
