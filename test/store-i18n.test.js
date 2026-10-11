@@ -27,25 +27,64 @@ test("the three languages share exactly the same key set", () => {
   }
 });
 
-test("★★ the three-step line names the steps and their order, in every language", () => {
-  // Her words: __"should inprove to 'You'll do the 3 steps ordering 1, 2,3.'"__ — and she chose the
-  // wording that keeps the reassuring half: *"and then we take over"*.
+test("★★ what a bake day IS, said once, in every language", () => {
+  // Her words: __"I think customer 1st confusion is that we never explain what is a bake day to
+  // them."__ ⚠️⚠️ **It was used five times on the page and explained none of them** — and the only
+  // hint about WHEN the bread is ready lived inside the Self collect option, so a courier customer
+  // never met it. ⭐ **The reason is hers and it is the selling point: freshness.**
+  //
+  // ⚠️ It is pinned as the ENGLISH she approved, plus a rule for the other two: **every translation
+  // must name the day the baking happens AND when it is first ready.** A translation that dropped
+  // either half would still pass a key-set check and would still leave the customer not knowing.
+  // ⚠️⚠️ THE RULES COME FIRST AND THE EXACT ENGLISH LAST, and that order is deliberate: an
+  // `assert.equal` on the whole line short-circuits everything after it, so a rule written below it
+  // is **UNREACHABLE the moment the English changes** — an assertion nobody can see fail. Measured:
+  // biting this test with the Point's wording fired only the exact-English line, and the
+  // late-afternoon rule below it never ran at all.
+  for (const l of LANGS) {
+    const s = STORE[l].bakeDayWhat;
+    assert.ok(s, `${l} has no bake-day explanation`);
+    assert.ok(s.length > 40,
+      `${l}.bakeDayWhat is too short to be explaining anything: ${JSON.stringify(s)}`);
+  }
+  // ⭐ AND THE ONE WORD THAT MUST NOT CREEP IN: the LATE afternoon is the collection window at a
+  // Point, and the earliest the bread can be ready is earlier than that. Saying the window here
+  // would promise less than the bakery can keep. ⚠️ Checked in EVERY language, because it is a
+  // promise made to a customer, not a wording choice.
+  for (const l of LANGS) {
+    assert.doesNotMatch(STORE[l].bakeDayWhat, /late afternoon/i,
+      `${l}.bakeDayWhat is promising the Point's collection window as the earliest it can be ready`);
+  }
+  assert.equal(STORE.en.bakeDayWhat,
+    "A bake day is the day we bake. Your bread is made that morning, so it is at its freshest that day — and the earliest it can be ready for you is the afternoon, not the morning.",
+    "the English explanation is not the one she approved");
+});
+
+test("★★ the four-step line names the steps and their order, in every language", () => {
+  // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__ —
+  // ⚠️ **the page numbered 1, 2, 3 and then its fourth step was the Place order button, which wore
+  // no number at all.** She also chose the wording that keeps the reassuring half: *"and then we
+  // take over"* — which is true of the FOURTH step too: once he has placed it, the bakery takes it
+  // from there.
   // ⚠️ IT IS ONE SENTENCE IN THREE LANGUAGES, so it can only be pinned as a RULE, not as a line of
-  // English: every translation must say there are three, and must name them in order.
-  assert.equal(STORE.en.stepsLede, "You'll do the 3 steps, ordering 1, 2, 3 — and then we take over.",
-    "the English line is not the one she chose");
+  // English: every translation must name them, in order.
+  // ⚠️⚠️ THE RULE FIRST, THE EXACT ENGLISH LAST — an `assert.equal` on the whole line short-circuits
+  // everything after it, so a rule written below one is unreachable the moment the words change.
+  // See the bake-day test above for where that was measured.
   for (const l of LANGS) {
     const s = STORE[l].stepsLede;
-    assert.ok(s, `${l} has no three-step line`);
-    // ⚠️⚠️ THE RUN "1, 2, 3" IS MATCHED AS A SEQUENCE, never as three separate `indexOf` lookups.
+    assert.ok(s, `${l} has no four-step line`);
+    // ⚠️⚠️ THE RUN "1, 2, 3, 4" IS MATCHED AS A SEQUENCE, never as separate `indexOf` lookups.
     // ⭐ **The first version of this assertion did look them up separately and it was WRONG** — in
-    // *"You'll do the 3 steps, ordering 1, 2, 3"* the **"3"** it found was the COUNT ("3 steps"),
+    // *"You'll do the 4 steps, ordering 1, 2, 3, 4"* the **"4"** it found was the COUNT ("4 steps"),
     // which sits before the "1", so a perfectly correct line failed. **A digit is not a position:
     // the thing to pin is the ordered run.** The separator differs per language (a comma here, a
     // Chinese enumeration comma there), so the gap is any short run of non-digits.
-    assert.match(s, /1\D{1,3}2\D{1,3}3/,
-      `${l}.stepsLede does not name the steps 1, 2, 3 in that order: ${JSON.stringify(s)}`);
+    assert.match(s, /1\D{1,3}2\D{1,3}3\D{1,3}4/,
+      `${l}.stepsLede does not name the steps 1, 2, 3, 4 in that order: ${JSON.stringify(s)}`);
   }
+  assert.equal(STORE.en.stepsLede, "You'll do the 4 steps, ordering 1, 2, 3, 4 — and then we take over.",
+    "the English line is not the one she chose");
 });
 
 test("every tagged string on the store page exists in all three languages", () => {

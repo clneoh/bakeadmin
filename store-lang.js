@@ -88,7 +88,24 @@ const en = {
   ansInTime: "You're in time",
   ansNext: "The next day you can have bread is %1.",
   ansBy: "Order before %2 on %1, and it's yours.",
-  stepsLede: "You'll do the 3 steps, ordering 1, 2, 3 — and then we take over.",
+  stepsLede: "You'll do the 4 steps, ordering 1, 2, 3, 4 — and then we take over.",
+  // ★★ WHAT A BAKE DAY IS (v434). Her words: __"I think customer 1st confusion is that we never
+  // explain what is a bake day to them. The very reason was we promote the idea of freshness, so if
+  // user consume their bake from the bake day, that is the freshest they can get. They have to be
+  // told that the day being bake day, the earliest they should expect collection will be late
+  // afternoon or afternoon."__
+  //
+  // ⚠️⚠️ **IT IS USED FIVE TIMES ON THIS PAGE AND WAS EXPLAINED NONE.** Worse, the only hint about
+  // WHEN the bread is ready sat inside the Self collect option — **so a courier customer never
+  // learned it at all.** ⭐ Same fault v405 named: the page *stated the rules and never the answer.*
+  //
+  // ⚠️ IT SITS UNDER "1 Pick a bake day" — the customer is choosing a day, and that is the moment
+  // he wonders what one is.
+  //
+  // ⭐ "the afternoon", NOT "late afternoon": the late afternoon is the COLLECTION WINDOW at a
+  // Point, and the earliest the bread can be ready is earlier than that. Saying the window here
+  // would promise less than the bakery can keep.
+  bakeDayWhat: "A bake day is the day we bake. Your bread is made that morning, so it is at its freshest that day — and the earliest it can be ready for you is the afternoon, not the morning.",
 
   sPickDay: "Pick a bake day",
   sWhat: "What would you like?",
@@ -413,7 +430,8 @@ const zh = {
   ansInTime: "还来得及",
   ansNext: "下一次可以取面包的日子是 %1。",
   ansBy: "在 %1 %2 之前下单，就是你的了。",
-  stepsLede: "你会做 3 个步骤，按 1、2、3 的顺序 — 剩下的交给我们。",
+  stepsLede: "你会做 4 个步骤，按 1、2、3、4 的顺序 — 剩下的交给我们。",
+  bakeDayWhat: "烘焙日就是我们烘焙的那一天。你的面包当天早上做好，当天最新鲜 — 最快也要下午才能准备好，不是早上。",
   madeToOrder: "按订单新鲜制作 · %1 截单（烘焙日前一天）",
   sPickDay: "选择烘焙日",
   sWhat: "想吃什么？",
@@ -607,7 +625,8 @@ const ms = {
   ansInTime: "Anda masih sempat",
   ansNext: "Hari seterusnya anda boleh dapat roti ialah %1.",
   ansBy: "Pesan sebelum %2 pada %1, dan ia milik anda.",
-  stepsLede: "Anda akan buat 3 langkah, mengikut susunan 1, 2, 3 — selebihnya kami uruskan.",
+  stepsLede: "Anda akan buat 4 langkah, mengikut susunan 1, 2, 3, 4 — selebihnya kami uruskan.",
+  bakeDayWhat: "Hari membakar ialah hari kami membakar. Roti anda dibuat pada pagi itu, jadi ia paling segar pada hari itu — dan paling awal ia boleh siap untuk anda ialah pada sebelah petang, bukan pagi.",
   madeToOrder: "Dibuat mengikut tempahan · tutup %1 sehari sebelum",
   sPickDay: "Pilih hari membakar",
   sWhat: "Apa yang anda mahu?",

@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v434)
+# Jienluv2bake — change history (v54 → v435)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v435, FOUR STEPS NOT THREE, AND THE PAGE FINALLY SAYS WHAT A BAKE DAY IS (no database step).**
+
+**Your words:** __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__ — and then the one that matters most: __"I think customer 1st confusion is that we never explain what is a bake day to them."__
+
+**1. ★★ IT IS FOUR STEPS, AND THE FOURTH WORE NO NUMBER.** The page numbered **1, 2, 3** and then **Place order** sat in the bar with **no number at all** — so the line above the steps promised three while the customer did four things. It now reads **"You'll do the 4 steps, ordering 1, 2, 3, 4 — and then we take over"**, and **the Place order button wears a 4**, so the promise and what he actually does agree.
+
+**2. ★★ AND THE REAL ONE: WE NEVER TOLD A CUSTOMER WHAT A BAKE DAY IS.** You said it yourself. ⚠️ **The words were used FIVE TIMES on that page and explained none of them** — the rules card, the step heading, the line under the calendar, the Self collect blurb. **And the only hint about when the bread is ready was buried inside the Self collect option, so a courier customer never met it at all.**
+
+**3. ★ SO THE PAGE NOW SAYS IT, UNDER "1 PICK A BAKE DAY":**
+
+> **A bake day is the day we bake.** Your bread is made that morning, so it is at its freshest that day — and **the earliest it can be ready for you is the afternoon**, not the morning.
+
+**It sits exactly where the question is asked** — he is choosing a day, and that is the moment he wonders what one is. **Every customer sees it, courier or collect.**
+
+**4. ⚠️ AND ONE WORD I CHANGED, ON PURPOSE. You said "late afternoon or afternoon", and I wrote "the afternoon".** The **late** afternoon is the window we collect at a **Point** — the bread is ready earlier than that, and promising that window here would promise less than the bakery can keep. Say the word and I will put "late afternoon" back.
+
+**5. ⚠️ THE THREE LANGUAGES ALL CHANGED TOGETHER**, and the Chinese and Bahasa are my own wording rather than a native speaker's — still owed the same check as the rest of this session's shop sentences.
+
+**Measured:** tests **3,311 → 3,314**. **No database step.**
 
 **12 Oct 2026 — engine v434, THE SHOP'S THREE STEPS: ONE COLOUR, AND THE PAGE SAYS WHICH DAY IT PICKED FOR HIM (no database step).**
 

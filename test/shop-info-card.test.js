@@ -83,6 +83,41 @@ test("★★ an AREA heading is NOT the brand red — it is a signpost, not a wa
     "★ the area heading is in capitals again — the name is written as she writes it");
 });
 
+test("★★ what a bake day IS, said under the step that asks him to pick one", () => {
+  // Her words: __"I think customer 1st confusion is that we never explain what is a bake day to
+  // them."__ ⚠️ **It was used five times on the page and explained none of them** — and the only
+  // hint about WHEN the bread is ready sat inside the Self collect option, so a courier customer
+  // never met it.
+  //
+  // ⚠️⚠️ **PLACEMENT IS THE WHOLE POINT OF THIS TEST.** It has to sit between the "1 Pick a bake
+  // day" heading and the calendar: he is choosing a day, and that is the moment he wonders what one
+  // is. ⭐ **A line floated to the bottom of the page would answer a question nobody is asking yet**
+  // — and it is asserted from the MARKUP because this line is pure page, its words filled in by the
+  // same `data-i18n` pass as everything else.
+  const head = html.indexOf('id="step1"');
+  const note = html.indexOf('class="bake-day-what"');
+  const cal = html.indexOf('id="dates"');
+  assert.ok(head >= 0 && cal >= 0, "the first step or its calendar has gone from the page");
+  assert.ok(note >= 0, "the page never says what a bake day is");
+  assert.ok(head < note && note < cal,
+    "★ the explanation is not between the step heading and the calendar — it sits " +
+    (note < head ? "before the step" : "after the calendar it is meant to explain"));
+  assert.match(html.slice(note, note + 400), /data-i18n="bakeDayWhat"/,
+    "the explanation is not tagged, so it would never be translated");
+});
+
+test("★★ the Place order button wears the FOURTH step's number", () => {
+  // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__
+  // ⚠️ **The page numbered 1, 2, 3 and its fourth step wore no number at all** — so the line above
+  // the steps would have promised four steps and shown three.
+  // ⚠️ AND IT IS DRAWN BY THE STYLESHEET ON PURPOSE: `renderBar` writes the button's label on every
+  // repaint, so anything in the markup is wiped, and a real span would move the label into a child
+  // that these shims read as empty. **The number is decoration — no translation, no screen reader.**
+  const m = /#order-btn::before\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, "the Place order button has no step number on it");
+  assert.match(m[1], /content:\s*"4"/, "the number on the button is not the fourth step");
+});
+
 test("★ 'Self collect' is a TITLE, in the shop's own title — 16px, serif", () => {
   // Her words: __"Self collect should be in bigger font being a title"__. ⚠️ **The answer is not a
   // size invented for it: it wears `.card-title`, the one heading shape this shop already has**, so

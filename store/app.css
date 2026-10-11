@@ -1984,6 +1984,44 @@ button.prod-next.off::after { content: ""; }
 .steps-lede { font-size: 13.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
 .step-head { display: flex; align-items: center; gap: 10px; margin: 18px 0 8px; }
 .step-head .section { margin: 0; }
+/* ★★ WHAT A BAKE DAY IS (v434). Her words: __"I think customer 1st confusion is that we never
+   explain what is a bake day to them."__ ⚠️⚠️ **The words were used FIVE TIMES on this page and
+   explained none of them, and the only hint about WHEN the bread is ready lived inside the Self
+   collect option — so a courier customer never met it at all.**
+   ⭐ It is indented PAST the circle so it sits under the heading's own words and reads as part of
+   step 1: the step-head is a 30px circle plus a 10px gap.
+   ⚠️ Small and quiet, in `--muted` — it ANSWERS a question, and an answer set loud reads as a
+   warning. ⭐ `--muted` on this card measures well clear of the 4.5 floor for body text. */
+.bake-day-what {
+  margin: 0 0 8px 40px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+/* ⚠️⚠️ THE NUMBER ON THE BUTTON, AND IT MUST BE THE BUTTON'S INVERSE (v434). A terracotta disc on
+   a terracotta button is invisible, so it is a white disc carrying the shop's dark terracotta —
+   and it fades with the button when the basket is empty, because it is part of it.
+   ⚠️ IT IS DRAWN HERE AND NOT IN THE BUTTON. The label is written by `renderBar` on every repaint,
+   so anything in the markup would be wiped; and a real span would put the label into a child,
+   which the test shims — whose `textContent` is a stored string, not one derived from children —
+   read as empty. ⭐ **The number is a decoration: it needs no translating and no screen reader, so
+   it belongs to the stylesheet.** It is also why nothing about the button's own text changed. */
+#order-btn::before {
+  content: "4";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--brown-dark);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  margin-right: 8px;
+  vertical-align: -4px;
+}
 .step-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
   background: var(--brown); color: #fff; font-weight: 700; font-size: 16px;
   display: flex; align-items: center; justify-content: center; line-height: 1; }

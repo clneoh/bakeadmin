@@ -2725,6 +2725,15 @@ export function render() {
     }
     document.getElementById("bar-count").textContent = count === 1 ? t("oneItem") : sub(t("items"), count);
     document.getElementById("bar-total").textContent = `RM${total.toFixed(2)}`;
+    // ⚠️⚠️ THE FOURTH STEP WEARS ITS NUMBER (v434) — and it is drawn by the STYLESHEET, not written
+    // into the button. Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is
+    // place order."__ ⭐ **The line above the steps says four, and this button IS the fourth thing he
+    // does** — so the number sits on it rather than the page promising a step it never shows.
+    // ⚠️ WHY `::before` AND NOT A SPAN: **this line overwrites the button on every render**, so a
+    // span typed into store/index.html would be wiped; and building one here would put the label in
+    // a child, which the test shims read differently from their own. **The number is a decoration —
+    // it needs no translating and no screen reader — so it belongs to the stylesheet, and this line
+    // goes on setting exactly the label it always did.**
     document.getElementById("order-btn").textContent = t("placeOrder");
     document.getElementById("order-btn").disabled = count === 0;
     // The promo lines ride on the same repaint, because the basket is part of
