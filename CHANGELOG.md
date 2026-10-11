@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v437)
+# Jienluv2bake — change history (v54 → v438)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v438, A TAP ON THE MAP CANNOT MOVE THE PIN — AND THE FOURTH NUMBER IS THE SAME BALL (no database step).**
+
+**Your words:** __"the same problem clicking on a point of a map, the pin jump to that point, customer might just want to drag the map, or zoom. But the original pin had been moved unintentionally"__ — and then __"the number 4 should not be inside the the Place order button, it should sit beside, same size with other number to be consistant, make the place order button smaller to make roon for the 4 ball"__
+
+**1. ★★ AND YOU HAD ALREADY TOLD ME THIS ONCE — ABOUT THE OTHER MAP.** Your words at v264, about the map in your own backoffice: **__"click on the map should not move the pin, only dragging the pin will."__** ⚠️ **It was fixed there, and the shop's map never got it.** ⭐ **The same person, the same fault, the same fix — and only one of the two maps was ever told.** That is the fault worth naming here, more than the tap.
+
+**2. ★ SO A TAP CANNOT MOVE A PIN. It only does one thing now: on a map with NOTHING on it yet, it drops the first pin** — because there is no pin to move, and dragging a small dot with a thumb is fiddly. **From that moment a tap does nothing at all**, and the pin moves only by dragging it, which nobody does by accident.
+
+**3. ⚠️ AND v264's OWN REASONING IS THE WHOLE OF IT:** *"every touch on this box put the pin wherever the finger landed — **two answers to one accidental contact.**"* ⚠️ **A phone is where this bites: a pan begins with a finger going down, and a sloppy one lands as a tap.**
+
+**4. ★ I CHECKED EVERY MAP IN THE APP, NOT JUST THIS ONE.** There are two, and all three of their tap bindings now carry the guard — the shop's was the only one that did not.
+
+**5. ★ AND THE FOURTH NUMBER IS THE SAME BALL AS THE OTHER THREE.** You are right that it was not consistent: **it was drawn inside the Place order button** as a small white disc. It now **stands beside the button**, at the same 30px as ① ② ③, in the same place in the sequence — after the details, before the press. ⚠️ **And it dims with the button when the basket is empty**, so the two never show different states of one thing.
+
+**6. ★ AND THE BUTTON IS NARROWER FOR IT**, which is the room you asked to be made — 213px at 375, down from about 245, with its label still on one line. On a 320px phone in Bahasa the label wraps to two lines, and the bar grows by 14px — **the space under it is measured from the bar itself, so nothing hides behind it.**
+
+**Measured:** tests **3,320 → 3,322**, and **verified live** — a first tap placed a pin, a second tap left it exactly where it was. **No database step.**
 
 **12 Oct 2026 — engine v437, THE MAP DOES NOT OPEN ITSELF, AND THE PIN IS AN OFFER RATHER THAN A STEP (no database step).**
 

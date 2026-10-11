@@ -208,7 +208,7 @@
               <p class="card-sub pin-status" id="pin-status" hidden></p>
               <div class="pin-box" id="pin-box" hidden>
                 <p class="card-sub pin-note" id="pin-loading" data-i18n="pinLoading">Loading the map…</p>
-                <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map where the courier should stop, or drag the pin.</p>
+                <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map once to drop the pin — then drag it to the exact door.</p>
                 <div class="pin-hold" id="pin-hold"></div>
                 <!-- ⭐ THE REASONING, INSIDE THE MAP. It is read while the pin is being moved, which
                      is the only moment it has anything to say. -->
@@ -280,6 +280,17 @@
         <span id="bar-count" class="bar-count">0 items</span>
         <span id="bar-total" class="bar-total">RM0.00</span>
       </div>
+      <!-- ★★ THE FOURTH STEP SITS BESIDE THE BUTTON, NOT INSIDE IT (v438). Her words: __"the
+           number 4 should not be inside the the Place order button, it should sit beside, same size
+           with other number to be consistant, make the place order button smaller to make roon for
+           the 4 ball"__.
+           ⚠️⚠️ v435 drew it INSIDE the button, with `#order-btn::before` — a 20px disc against the
+           other three's 30px ones, so **it was a fourth number that did not match the three he
+           had just followed.** ⭐ It is the same `.step-num` shape now, at the same 30px, standing
+           in the same place in the sequence: after the details, before the press.
+           ⚠️ AND THE BUTTON IS NARROWER FOR IT — the circle and its gap come out of a row that was
+           `flex: 1` on the button, which is the room she asked to be made. -->
+      <span class="bar-step" id="bar-step" aria-hidden="true">4</span>
       <button id="order-btn" class="btn primary" disabled>Place order</button>
     </div>
 

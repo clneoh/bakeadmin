@@ -2736,6 +2736,11 @@ export function render() {
     // goes on setting exactly the label it always did.**
     document.getElementById("order-btn").textContent = t("placeOrder");
     document.getElementById("order-btn").disabled = count === 0;
+    // ⚠️ AND THE FOURTH BALL DIMS WITH IT (v438). It stands BESIDE the button rather than inside
+    // it, so it cannot inherit the button's own disabled fade — and a ball at full strength next to
+    // a greyed press would read as two different states of one thing. See `.bar-step.off`.
+    const stepBall = document.getElementById("bar-step");
+    if (stepBall) stepBall.classList.toggle("off", count === 0);
     // The promo lines ride on the same repaint, because the basket is part of
     // their judgement: a percentage's money moves with the total, and so does
     // whether a code's minimum is met.

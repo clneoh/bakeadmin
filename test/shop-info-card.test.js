@@ -156,16 +156,37 @@ test("★★ the pin is an OFFER, not a step — one line out here, the reasonin
     "…and that class has no rule of its own, so it would be an unstyled control");
 });
 
-test("★★ the Place order button wears the FOURTH step's number", () => {
-  // Her words: __"it is actually a 4 steps ordering process. not 3. the 4th is place order."__
-  // ⚠️ **The page numbered 1, 2, 3 and its fourth step wore no number at all** — so the line above
-  // the steps would have promised four steps and shown three.
-  // ⚠️ AND IT IS DRAWN BY THE STYLESHEET ON PURPOSE: `renderBar` writes the button's label on every
-  // repaint, so anything in the markup is wiped, and a real span would move the label into a child
-  // that these shims read as empty. **The number is decoration — no translation, no screen reader.**
-  const m = /#order-btn::before\s*\{([^}]*)\}/.exec(css);
-  assert.ok(m, "the Place order button has no step number on it");
-  assert.match(m[1], /content:\s*"4"/, "the number on the button is not the fourth step");
+test("★★ the fourth ball stands BESIDE Place order, and is the same ball as the other three", () => {
+  // Her words (v435): __"it is actually a 4 steps ordering process. not 3. the 4th is place
+  // order."__ — ⚠️ **the page numbered 1, 2, 3 and its fourth step wore no number at all.**
+  // Her words (v438), correcting how it was drawn: __"the number 4 should not be inside the the
+  // Place order button, it should sit beside, same size with other number to be consistant, make
+  // the place order button smaller to make roon for the 4 ball"__.
+  // ⚠️⚠️ **v435 PUT IT INSIDE** — `#order-btn::before`, a 20px white disc — so **the fourth number
+  // did not match the three he had just followed**, which is the whole of "to be consistant".
+  // ⚠️⚠️ COMMENTS ARE STRIPPED FIRST. My own explanation above names `#order-btn::before`, and a
+  // bare grep for it **failed on the note that records its removal** — the trap this project has
+  // written down already: *a guard must not trip on its own explanation.*
+  const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(rules, /#order-btn::before\s*\{/,
+    "★ the number is drawn inside the button again — she asked for it beside");
+
+  // ⭐ IT STANDS IN THE SEQUENCE: after the summary, before the press.
+  assert.match(html, /<span class="bar-step" id="bar-step"[^>]*>4<\/span>\s*<button id="order-btn"/,
+    "the fourth ball is not standing beside the Place order button");
+
+  // ★★ AND IT IS THE SAME BALL — every measurement that makes a ball a ball is compared with the
+  // three above, because "to be consistant" is the instruction and a size is the thing that drifted.
+  const step = ruleFor(".step-num");
+  const ball = ruleFor(".bar-step");
+  for (const prop of ["width", "height", "border-radius", "font-size", "font-weight"]) {
+    const a = new RegExp(`\\b${prop}:\\s*([^;]+);`).exec(step);
+    const b = new RegExp(`\\b${prop}:\\s*([^;]+);`).exec(ball);
+    assert.ok(a, `the other three balls do not declare ${prop}`);
+    assert.ok(b, `the fourth ball does not declare ${prop}`);
+    assert.equal(b[1].trim(), a[1].trim(),
+      `★ the fourth ball's ${prop} is ${b[1].trim()} against the other three's ${a[1].trim()}`);
+  }
 });
 
 test("★ 'Self collect' is a TITLE, in the shop's own title — 16px, serif", () => {

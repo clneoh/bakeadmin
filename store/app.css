@@ -2078,30 +2078,33 @@ button.prod-next.off::after { content: ""; }
   line-height: 1.45;
   color: var(--muted);
 }
-/* ⚠️⚠️ THE NUMBER ON THE BUTTON, AND IT MUST BE THE BUTTON'S INVERSE (v434). A terracotta disc on
-   a terracotta button is invisible, so it is a white disc carrying the shop's dark terracotta —
-   and it fades with the button when the basket is empty, because it is part of it.
-   ⚠️ IT IS DRAWN HERE AND NOT IN THE BUTTON. The label is written by `renderBar` on every repaint,
-   so anything in the markup would be wiped; and a real span would put the label into a child,
-   which the test shims — whose `textContent` is a stored string, not one derived from children —
-   read as empty. ⭐ **The number is a decoration: it needs no translating and no screen reader, so
-   it belongs to the stylesheet.** It is also why nothing about the button's own text changed. */
-#order-btn::before {
-  content: "4";
-  display: inline-flex;
+/* ★★ THE FOURTH BALL, BESIDE THE BUTTON (v438). Her words: __"the number 4 should not be inside
+   the the Place order button, it should sit beside, same size with other number to be consistant,
+   make the place order button smaller to make roon for the 4 ball"__.
+   ⚠️⚠️ v435 DREW IT INSIDE THE BUTTON — `#order-btn::before`, a 20px white disc — so the fourth
+   number **did not match the three he had just followed.** ⭐ It is now the same ball as the other
+   three, at the same 30px, in the same place in the sequence: after the details, before the press.
+   ⚠️ AND IT IS DELIBERATELY NOT `:before` ON THE BUTTON ANY MORE. The button's label is written by
+   `renderBar` on every repaint, so anything inside it is wiped or has to be rebuilt in script; a
+   ball standing BESIDE it is markup that nothing rewrites. */
+.bar-step {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--brown-dark);
-  font-weight: 800;
-  font-size: 12px;
-  line-height: 1;
-  margin-right: 8px;
-  vertical-align: -4px;
 }
+/* ⚠️ AND IT DIMS WITH THE BUTTON. An empty basket greys the press, and a ball at full strength
+   beside a faded button would read as two different states of one thing — the fault the bar
+   already avoids by fading the button rather than hiding it. */
+.bar-step.off { opacity: .55; }
 .step-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
   background: var(--brown); color: #fff; font-weight: 700; font-size: 16px;
   display: flex; align-items: center; justify-content: center; line-height: 1; }
