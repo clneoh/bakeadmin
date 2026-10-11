@@ -2736,11 +2736,9 @@ export function render() {
     // goes on setting exactly the label it always did.**
     document.getElementById("order-btn").textContent = t("placeOrder");
     document.getElementById("order-btn").disabled = count === 0;
-    // ⚠️ AND THE FOURTH BALL DIMS WITH IT (v438). It stands BESIDE the button rather than inside
-    // it, so it cannot inherit the button's own disabled fade — and a ball at full strength next to
-    // a greyed press would read as two different states of one thing. See `.bar-step.off`.
-    const stepBall = document.getElementById("bar-step");
-    if (stepBall) stepBall.classList.toggle("off", count === 0);
+    // ⚠️⚠️ AND THE BALL IS NOT TOUCHED HERE (v439). v438 dimmed it with an empty basket; her phone
+    // showed the result — ④ pale, ② and ③ solid. **A step marker is not a state**, so nothing on
+    // this repaint changes it: it keeps ①②③'s colour whether the basket is empty or full.
     // The promo lines ride on the same repaint, because the basket is part of
     // their judgement: a percentage's money moves with the total, and so does
     // whether a code's minimum is met.

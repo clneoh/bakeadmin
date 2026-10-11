@@ -175,11 +175,17 @@ test("★★ the fourth ball stands BESIDE Place order, and is the same ball as 
   assert.match(html, /<span class="bar-step" id="bar-step"[^>]*>4<\/span>\s*<button id="order-btn"/,
     "the fourth ball is not standing beside the Place order button");
 
-  // ★★ AND IT IS THE SAME BALL — every measurement that makes a ball a ball is compared with the
-  // three above, because "to be consistant" is the instruction and a size is the thing that drifted.
+  // ★★ AND IT IS THE SAME BALL — every property that makes a ball a ball is compared with the three
+  // above. ⚠️⚠️ **THE COLOUR IS IN THE LIST BECAUSE IT WAS THE ONE I LEFT OUT.** Asked why the 4 was
+  // that colour, the honest answer was that I had copied it without asking whether it still worked:
+  // **beside the Place order button it measures 1.17:1 — the same colour**, so the two merge. Her
+  // verdict, and it settles it: __"the 1,2,3 is good enough, im expecting 4 to be consistant with
+  // them as they serve the same purpose."__ ⭐ **The ball is the constant; the layout accommodates
+  // it.** So the fill and the numeral are compared like everything else — **a claim of consistency
+  // is worth nothing unless the thing that drifted is the thing that is checked.**
   const step = ruleFor(".step-num");
   const ball = ruleFor(".bar-step");
-  for (const prop of ["width", "height", "border-radius", "font-size", "font-weight"]) {
+  for (const prop of ["width", "height", "border-radius", "font-size", "font-weight", "background", "color"]) {
     const a = new RegExp(`\\b${prop}:\\s*([^;]+);`).exec(step);
     const b = new RegExp(`\\b${prop}:\\s*([^;]+);`).exec(ball);
     assert.ok(a, `the other three balls do not declare ${prop}`);
@@ -187,6 +193,18 @@ test("★★ the fourth ball stands BESIDE Place order, and is the same ball as 
     assert.equal(b[1].trim(), a[1].trim(),
       `★ the fourth ball's ${prop} is ${b[1].trim()} against the other three's ${a[1].trim()}`);
   }
+
+  // ⚠️⚠️ AND IT NEVER DIMS (v439). Equality of two declarations is not equality on the screen:
+  // v438's `background` matched ①②③ exactly, and the ball still arrived PALE, because a second
+  // rule dimmed it. ⭐ **Her picture found it — ④ pale pink beside solid ② and ③ — and her
+  // question: __"is the color 1234 consistant?"__** ⭐ **①②③ mark a step and never change with the
+  // basket, so ④ is the same kind of thing: a label is not a state.** ⚠️ Two ways it could come
+  // back, and each is checked on its own — a rule that fades it, or script that classes it.
+  assert.doesNotMatch(rules, /\.bar-step\.off\s*\{/,
+    "★ the fourth ball has a dimmed state again — that is the pale 4 she caught beside solid 2 and 3");
+  const app = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  assert.doesNotMatch(app, /getElementById\("bar-step"\)/,
+    "★ script is setting a class on the fourth ball again — it is markup nothing should rewrite");
 });
 
 test("★ 'Self collect' is a TITLE, in the shop's own title — 16px, serif", () => {

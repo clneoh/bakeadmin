@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v438)
+# Jienluv2bake — change history (v54 → v439)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v439, THE FOURTH BALL IS THE SAME COLOUR AS 1, 2 AND 3 — ALWAYS (no database step).**
+
+**Your words, with a picture of the bar:** __"is the color 1234 consistant?"__ — and, just before it, __"color you copied was wrong"__.
+
+**1. ⭐⭐ YOU WERE RIGHT, AND YOUR PICTURE IS THE WHOLE OF IT.** The ④ standing beside Place order was **pale pink**, while ② and ③ were solid terracotta. **I had made it fade to 55% whenever the basket was empty**, reasoning that a full-strength ball beside a greyed-out button would look like two different states of one thing. ⚠️ **That reasoning was mine, not yours, and it broke the very thing you asked for one version earlier.**
+
+**2. ★ WHY IT WAS WRONG: ①②③ ARE STEP MARKERS, AND A STEP MARKER IS NOT A STATE.** They keep their colour whatever the basket holds — they turn green only when you have finished a step. **④ marks the same kind of thing, so it must not move with the basket either.** ⚠️ **The button greys itself when there is nothing to order; that is the button's own business, and the ball is only its label.**
+
+**3. ★ SO THE BALL NEVER DIMS.** Empty basket or full, it is the same 30px terracotta ball with the same white 4 — **identical to ①②③ in every property: size, shape, weight, fill and numeral.** ⭐ **And that is enforced, not claimed.** The test compares the fill and the numeral against the other three, **and separately checks that no rule can fade the ball and that nothing in script ever touches it** — because two matching declarations in the source are not the same as two matching balls on the screen, which is exactly how this one got past me.
+
+**4. ⚠️ ONE THING I AM NOT CHANGING, AND IT IS DELIBERATE.** The ball and the Place order button carry the same terracotta, so standing close together they read as one group. **You were shown three ways to separate them and chose none of them, because each made ④ look different from ①②③ — and consistent is what you asked for.** ⭐ **So they stay the same colour, and it reads as "step 4 → the button", the same way ① sits beside "Pick a bake day".** If it ever bothers you on the phone, say so and **we move the ball rather than recolour it.**
+
+**Measured:** tests **3,322 → 3,322**. ⭐ **Both new checks were seen to fail by their own message** — the dim rule put back, and script put back that classes the ball — **and the files restored byte-identically.** ★ **Verified live at 375px:** with an empty basket the ball is **rgb(196,85,47) at full strength, matching ①②③** (it used to be that colour at 55% opacity), and with one item it is identical, with the button live beside it. **No database step.**
 
 **12 Oct 2026 — engine v438, A TAP ON THE MAP CANNOT MOVE THE PIN — AND THE FOURTH NUMBER IS THE SAME BALL (no database step).**
 
@@ -16,7 +30,7 @@ always tell which build a phone is running.
 
 **4. ★ I CHECKED EVERY MAP IN THE APP, NOT JUST THIS ONE.** There are two, and all three of their tap bindings now carry the guard — the shop's was the only one that did not.
 
-**5. ★ AND THE FOURTH NUMBER IS THE SAME BALL AS THE OTHER THREE.** You are right that it was not consistent: **it was drawn inside the Place order button** as a small white disc. It now **stands beside the button**, at the same 30px as ① ② ③, in the same place in the sequence — after the details, before the press. ⚠️ **And it dims with the button when the basket is empty**, so the two never show different states of one thing.
+**5. ★ AND THE FOURTH NUMBER IS THE SAME BALL AS THE OTHER THREE.** You are right that it was not consistent: **it was drawn inside the Place order button** as a small white disc. It now **stands beside the button**, at the same 30px as ① ② ③, in the same place in the sequence — after the details, before the press. ⚠️ **And it dims with the button when the basket is empty**, so the two never show different states of one thing. **⚠️ 12 Oct 2026 (v439): that last part is REVERSED — the ball must never dim. On an empty basket it turned pale pink beside solid ② and ③, and you caught it: __"is the color 1234 consistant?"__ The ball is a step marker, not a state, so it keeps ①②③'s colour whatever the basket holds. See v439.**
 
 **6. ★ AND THE BUTTON IS NARROWER FOR IT**, which is the room you asked to be made — 213px at 375, down from about 245, with its label still on one line. On a 320px phone in Bahasa the label wraps to two lines, and the bar grows by 14px — **the space under it is measured from the bar itself, so nothing hides behind it.**
 

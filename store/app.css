@@ -2101,10 +2101,12 @@ button.prod-next.off::after { content: ""; }
   align-items: center;
   justify-content: center;
 }
-/* ⚠️ AND IT DIMS WITH THE BUTTON. An empty basket greys the press, and a ball at full strength
-   beside a faded button would read as two different states of one thing — the fault the bar
-   already avoids by fading the button rather than hiding it. */
-.bar-step.off { opacity: .55; }
+/* ⚠️⚠️ THE BALL NEVER DIMS (v439). v438 gave it `.bar-step.off { opacity: .55 }` for an empty
+   basket, so the bar would not show a full-strength ball beside a greyed press. **Her phone
+   showed what that actually does: ④ turns pale pink while ② and ③ stay solid terracotta** — her
+   question, off a picture of the bar: __"is the color 1234 consistant?"__ ⭐ **It was not, and the
+   ball is a STEP MARKER: ①②③ mark a step and never change with the basket, so ④ must not
+   either.** ⚠️ The button carries its own disabled state; a label is not a state. */
 .step-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
   background: var(--brown); color: #fff; font-weight: 700; font-size: 16px;
   display: flex; align-items: center; justify-content: center; line-height: 1; }
