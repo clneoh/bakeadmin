@@ -815,8 +815,46 @@ function migrate(s) {
 // of the order id (or its groupId, so a multi-item order shares one code),
 // uppercased. ids are 12 random hex chars from newId, so a collision needs 1
 // in ~16M — fine for a home bakery. Display code adds "#" (e.g. "#A3F9C2").
+// ★★ AND IT MUST NEVER MOVE (v441) — a code that has been issued is the order's for life.
+//
+// Her words, and she is describing a KEY rather than a label: __"the randon order number is a plus
+// point in our system, it is a unique identify of an order. Even the merchant dont control. Giving
+// this to a customer is like giving a key to a customer, we know and customer know. delivery man
+// will not know, a stranger trying to take advantage, will not be able to do so."__
+//
+// ⚠️⚠️ UNTIL v441 THE KEY SILENTLY CHANGED. This derivation reads `groupId || id`, and a one-item
+// order has NO groupId — so its code came from its own id, and **the moment that order gained a
+// second item a group name was invented for it and the visible code was re-derived from THAT.**
+// Same order, same customer, same money, a different code. Verified on a real screen before it was
+// fixed: one item `#1`, a second item added, **`#55568B`.**
+//
+// ⭐ WHAT THAT COST, and every one of these was live:
+//   - a RECEIPT already written held the old code, so the register reported "not in this phone's
+//     orders" about an order that was still there — and it would have gone on saying so forever;
+//   - the CONFIRMATION sent to the customer quoted the old code, so searching the code she gave them
+//     found nothing at all;
+//   - ⭐ **and that is exactly how an order comes to look like it vanished when it never did.**
+//
+// ⭐ THE FIX IS NOT A FIELD ON THE ORDER. A frozen `code` copied onto every row would have rewritten
+// her whole book the first time it loaded, and this app's first rule is that nothing of hers is
+// rewritten by a change she asks for. **The code is held still by BUILDING THE GROUP NAME OUT OF THE
+// ORDER'S OWN ROW instead** — see `applyPopupEdits`, which is the only place an existing order ever
+// gained a group name. Those six characters are then the same before and after, and not one stored
+// order was touched to achieve it.
 export function orderCode(order) {
   const hex = String((order && (order.groupId || order.id)) || "")
+    .replace(/[^0-9a-f]/gi, "")
+    .slice(-6)
+    .toUpperCase();
+  return hex || "??????";
+}
+
+// ★ THE CODE AN ORDER CARRIED BEFORE IT WAS EVER GROUPED (v441) — the id-only derivation, kept for
+// ONE job: a receipt written before this fix holds THAT code, and the register must still be able to
+// find the order it belongs to. ⚠️ It is a look-up alias and nothing else — `orderCode` is what every
+// screen and every new receipt shows.
+export function codeFromId(order) {
+  const hex = String((order && order.id) || "")
     .replace(/[^0-9a-f]/gi, "")
     .slice(-6)
     .toUpperCase();

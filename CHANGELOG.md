@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v440)
+# Jienluv2bake — change history (v54 → v441)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v441, THE ORDER NUMBER IS A KEY, AND A KEY DOES NOT MOVE (no database step).**
+
+**Your words:** __"the randon order number is a plus point in our system, it is a unique identify of an order. Even the merchant dont control. Giving this to a customer is like giving a key to a customer, we know and customer know. delivery man will not know, a stranger trying to take advantage, will not be able to do so."__
+
+**1. ⭐⭐ YOU WERE RIGHT, AND I WAS READING IT AS A LABEL. IT IS A KEY.** And a key that quietly changes is worse than no key at all — which is exactly what that screen was reporting to you.
+
+**2. ⚠️⚠️ THE NUMBER MOVED, AND I WATCHED IT MOVE.** An order with **one item** has no group name, so its number was drawn out of the order's own internal id. **The moment that order gained a SECOND item**, the app gave the whole order a group name (so its items share one identity) — **and the number was drawn out of that instead.** Same order, same customer, same money, **a different number.** Verified on a real screen: **one item `#1`, a second item added, `#55568B`.**
+
+**3. ⭐ AND THAT IS THE WHOLE OF WHAT YOU SAW.** Every consequence follows from it:
+
+- a **receipt** already written holds the number the order wore *then*, so the register reads *"not in this phone's orders"* — **about an order that is still here** — and it would have said so for ever;
+- the **WhatsApp confirmation** you sent the customer quotes that same old number, so searching the number you gave them **finds nothing at all**;
+- ⭐ **and that is exactly how an order comes to look like it vanished when it never did.**
+
+**4. ★ SO THE NUMBER IS NOW BUILT FROM THE ORDER'S OWN ROW.** A group name that already carries the order's id leaves those six characters exactly where they were — **the number does not move, and not one of your stored orders had to be rewritten to hold it still.** ⚠️ The other way to do it was to copy a "code" onto every order, and two of the app's own tests caught what that would have cost: **every order you own would be rewritten the first time it loaded**, which is the one thing this app must never do to your records.
+
+**5. ★ AND THE REGISTER FINDS ITS OLD ROWS AGAIN.** A receipt written under the number the order wore *before* it was grouped is now matched to its order, so those rows stop reading as void. ⚠️ Two passes, and the order of them matters: every number an order wears **today** is claimed first, so an old number can never steal a live one from another order.
+
+**6. ⚠️ ONE THING I FOUND ON THE WAY AND HAVE NOT CHANGED.** The number is read by stripping everything that is not a hex character. An order id with no hex characters in it would produce a very short number — `#D` — and two such orders could collide. **Real ids are 12 hex characters from the browser's own random generator, so this cannot happen on your phone**, and I have left it exactly as it was rather than change something you have not asked for. **It is written down so it is a decision, not an oversight.**
+
+**Measured:** tests **3,325 → 3,327**, all green. ⭐ **The new checks were seen to fail by their own message** — the group name drawn at random again (`#1 → #84AD28`), the old number taken away, and an old number allowed to overwrite a live one — **and each file restored byte-identically (sha256).** ★ **Verified live in the app, driving your own move:** an order with one item at **`#1`**, a second item added and saved, the row still reading **`#1`** — the same drive that gave `#55568B` before this version. **No database step**, and none of your data was rewritten.
 
 **12 Oct 2026 — engine v440, AN EDIT CAN ONLY EVER REMOVE THE LINES YOU REMOVED (no database step).**
 
@@ -14,7 +36,7 @@ always tell which build a phone is running.
 
 **3. ⚠️ AND THE DELETION WAS A SEARCH THAT COULD MATCH NOTHING, AND SO MATCH EVERYTHING.** The rows to remove were found by their **id** — and that same code says, in its own writing, that an order row can have no id at all. **When a row being removed has none, the thing being searched for becomes "undefined" — and the removal then took EVERY order in your book that has no id, on every bake day, for every customer, from an edit that never named them.** ⭐ **Deleting what cannot be named is not a deletion, it is a sweep**, and nothing on the screen would have said so. **A row with no id is now never removed.**
 
-**4. ⚠️ WHAT I HAVE NOT PROVED, AND YOU SHOULD KNOW IT.** I could not tell from the code alone which of these reached your phone. **So the honest position is: these were two real ways an edit could lose an order, and both are shut — but I am not going to tell you "that was it".** ⭐ **The answer is on your phone, and the app can already show it to you.**
+**4. ⚠️ WHAT I HAVE NOT PROVED, AND YOU SHOULD KNOW IT.** I could not tell from the code alone which of these reached your phone. **So the honest position is: these were two real ways an edit could lose an order, and both are shut — but I am not going to tell you "that was it".** ⭐ **The answer is on your phone, and the app can already show it to you.** **⚠️ 12 Oct 2026 (v441): it was NOT this. Your orders were never deleted — the ORDER NUMBER was moving when an order gained a second item, so receipts and searches for the number you gave a customer stopped finding it. See v441. The two guards below are still right and still wanted, but they were not your fault.**
 
 **5. ★ WHERE TO LOOK — A SCREEN THAT ALREADY EXISTS.** **More → Backup & safety**, then press **View** on a copy. That opens a read-only window of everything in that copy, with the orders grouped by bake day **and a group at the bottom called "Not on a bake day" for any order that has lost its day.** ⭐ **An order sitting in that group was never deleted — it only lost its day.** Open the newest copy; and if you have one from before you were editing, open that too and compare the two. ⚠️ **And an order in that group can be put BACK**: its row opens the Edit card, where the bake day is chosen ([orders.js:1082](admin/js/views/orders.js:1082)).
 

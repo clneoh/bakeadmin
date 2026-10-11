@@ -202,6 +202,65 @@ test("★★ a line the picker cannot name is NOT read as 'she deleted it'", asy
     "the Save added or removed rows of its own");
 });
 
+test("★★ adding a second item does not change the order's NUMBER (v441)", async () => {
+  // ⚠️⚠️ THE ORDER NUMBER IS A KEY, NOT A LABEL. Her words: __"the randon order number is a plus
+  // point in our system, it is a unique identify of an order. Even the merchant dont control. Giving
+  // this to a customer is like giving a key to a customer, we know and customer know. delivery man
+  // will not know, a stranger trying to take advantage, will not be able to do so."__
+  //
+  // ⚠️ AND IT USED TO MOVE, SILENTLY, ON THIS SCREEN. A one-item order has no groupId, so its code
+  // was drawn from its own id — and giving it a second item invented a group name, which the code was
+  // then drawn from instead. Measured on a real screen before the fix: **one item `#1`, a second item
+  // added, `#55568B`.** ⭐ Everything downstream of that is the same fault: a receipt already written
+  // reads "not in this phone's orders" for ever, a customer's confirmation quotes a code that now
+  // belongs to nobody, and searching the code you gave them finds nothing.
+  const state = makeState([{ id: "o1", deliveryDateId: "d10", deliveryDate: "2026-09-30",
+    orderDate: "2026-09-20", productId: "p1", qty: 20, customerName: "Jien",
+    whatsapp: "60123456789", status: "new" }]);
+  const root = createEl("div");
+  const popup = layers["popup-layer"];
+  renderOrders(root, state, new URLSearchParams({ date: "d10" }));
+
+  const codeShown = (r) => {
+    const el = all(r).find((n) => String(n.className).includes("ord-code"));
+    return el ? el.textContent.trim() : null;
+  };
+  const before = codeShown(root);
+  assert.match(before, /^#[0-9A-F]{1,6}$/, `the row did not draw its own order number (drew ${before})`);
+
+  press(buttonByText(root, "Edit"));
+  // ⚠️ THE NEW LINE IS FOUND BY WHAT IT IS, NOT BY A CLASS NAME. `add-item-ctl` contains the text
+  // "add-item" too, so a substring match picks up the control row — and the last of those holds no
+  // picker at all. Counting the product pickers is both exact and a real assertion: if the press did
+  // not add a line, there is nothing here to fill in and the test must say so rather than pass.
+  const pickers = () => all(popup).filter((n) => n.tagName === "SELECT");
+  const before2 = pickers().length;
+  press(buttonByText(popup, "Add another item"));
+  const after2 = pickers();
+  assert.ok(after2.length > before2,
+    `the press did not add a line to the pop-up (${before2} picker(s) before, ${after2.length} after)`);
+  const sel = after2[after2.length - 1];
+  // ⚠️ The line's own handler reads `prodSel.value`, so setting the value and firing its own change is
+  // the one thing needed — no options have to be modelled in the shim.
+  sel.value = "p1";
+  sel._listeners.change[0]();
+  press(buttonByText(popup, "Save changes"));
+  await settle();
+  // ⚠️ The confirmation layer only EXISTS once something has drawn one — 20 + 1 items over a
+  // capacity of 99 stays under it, so there may be no layer to look in at all.
+  const cl = layers["confirm-layer"];
+  const yes = cl ? buttonByText(cl, "Save anyway") : null;
+  if (yes) { press(yes); await settle(); }
+
+  // ⚠️ THE BRANCH MUST HAVE BEEN TAKEN, or this test proves nothing about the fault.
+  assert.ok(state.orders[0].groupId,
+    "the order never gained a group name, so the moment the number used to move was never reached");
+  assert.equal(state.orders.length, 2, "the second item did not land on the order");
+  const after = codeShown(root);
+  assert.equal(after, before,
+    `★ the order's number moved when a second item was added: ${before} → ${after}`);
+});
+
 test("★★ a row with no id is never swept up by an unrelated edit", async () => {
   // ⚠️⚠️ THE SWEEP. `keptIds` is built with `.filter(Boolean)`, so a dropped row with no id puts
   // `undefined` into `dropIds` — and `state.orders.filter((o) => !dropIds.has(o.id))` then removes

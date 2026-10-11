@@ -2783,7 +2783,32 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root,
     // still gives the person's pre-edit key.
     syncContactFromOrder(state, keyOf(first), { customerName: fields.customerName, whatsapp: fields.whatsapp });
     let gid = first.groupId;
-    if (!gid && chosen.length > 1) gid = newId("ordg"); // single order gains a second item
+    // ★★ A ONE-ITEM ORDER MUST NOT CHANGE ITS CODE WHEN IT GAINS A SECOND ITEM (v441).
+    //
+    // This is the ONE place in the whole app where an existing order ever gained a group name — and
+    // gaining one used to move its code, because `orderCode` reads `groupId || id`. **Same order, a
+    // different key.** Verified on a real screen before this was written: one item `#1`, a second
+    // item added, `#55568B`. Her words: __"it is a unique identify of an order … like giving a key to
+    // a customer."__
+    //
+    // ⭐ SO THE GROUP NAME IS BUILT FROM THE ORDER'S OWN ROW rather than drawn at random. The code is
+    // the LAST SIX hex characters of `groupId || id`, so a group name that already carries the row's
+    // id leaves those six characters exactly where they were — **the code does not move, and nothing
+    // of hers had to be rewritten to hold it still.** ⚠️ A `code` field stamped onto every order was
+    // the other way, and two tests caught what it cost: loading her book would have rewritten every
+    // order row she owns, which this app's first rule forbids.
+    //
+    // ⚠️⚠️ AND THE PREFIX IS `group_`, NOT `ordg_`, ON PURPOSE. The code is read by STRIPPING every
+    // character that is not a hex digit — and **`ordg` ends in a `d`, which IS one.** So `ordg_` + a
+    // short id pushed that `d` into the six characters and moved the code anyway: a test with the id
+    // `o1` came out `#1 → #D1`. Nothing in the app looks for an `ordg` prefix, so the marker is one
+    // whose characters contribute NOTHING — **and the code is then the same whatever the id's length.**
+    //
+    // ⚠️ THIS BRANCH ONLY EVER SEES ONE ROW. `groupOrders` gives every row without a groupId a group
+    // of its own, so a falsy `first.groupId` means the order IS that single row — and a row with no
+    // id at all falls back to a random name, because a group name built from a missing id would be
+    // the same name for every such order.
+    if (!gid && chosen.length > 1) gid = first.id ? `group_${first.id}` : newId("ordg");
     const keptRows = [];
     for (const l of chosen) {
       const o = l.id ? byId(state.orders, l.id) : null;

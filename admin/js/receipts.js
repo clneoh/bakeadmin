@@ -10,7 +10,7 @@
 // it READS the register and says what shape it is in. It still draws nothing.
 //
 
-import { fmtRM, orderCode } from "./state.js";
+import { fmtRM, codeFromId, orderCode } from "./state.js";
 
 // ★★ AND THE NUMBER BELONGS TO THE ORDER, NOT TO THE PRESS. It is claimed once, when the
 // money is recorded, and every later read — printing the receipt, opening it on the other
@@ -129,10 +129,27 @@ export function registerRows(raw, orders) {
     .sort((a, b) => a.number - b.number);
 
   // The codes this phone can actually match. A lookup, not a count.
+  //
+  // ⚠️⚠️ AND IT MATCHES THE CODE THE RECEIPT WAS WRITTEN WITH, NOT ONLY THE CODE THE ORDER WEARS
+  // TODAY (v441). Until v441 an order's code was re-derived every time it was read, so adding a
+  // second item to a one-item order MOVED it — and the receipt already in this register kept the old
+  // one. Every such row has read "not in this phone's orders" ever since, **about an order that is
+  // still here**, which is the worst thing this screen can say. ⭐ The id-only code is therefore
+  // accepted as an alias.
+  //
+  // ⚠️ TWO PASSES, AND THE ORDER MATTERS. Every CURRENT code is claimed first, so an alias can never
+  // displace a code some other order genuinely wears today — it only fills a gap nothing else claims.
+  // A 6-hex code collides about once in 16M (see `orderCode`), so the ordering is what keeps a
+  // historical alias from ever outranking a live one.
   const here = new Map();
-  for (const o of (Array.isArray(orders) ? orders : [])) {
+  const list2 = Array.isArray(orders) ? orders : [];
+  for (const o of list2) {
     const c = orderCode(o);
     if (c && c !== "??????" && !here.has(c)) here.set(c, o);
+  }
+  for (const o of list2) {
+    const legacy = codeFromId(o);
+    if (legacy && legacy !== "??????" && !here.has(legacy)) here.set(legacy, o);
   }
 
   const rows = list.map((r) => ({

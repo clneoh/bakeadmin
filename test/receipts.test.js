@@ -237,6 +237,36 @@ test("★ a receipt whose order is gone is MARKED, and its number is untouched",
   assert.match(registerSummary(reg), /no longer on this phone/);
 });
 
+test("★★ a receipt written before the order was GROUPED still finds it (v441)", () => {
+  // ⚠️⚠️ THE FAULT THIS ANSWERS, AND IT WAS LIVE ON HER PHONE. A one-item order has no groupId, so
+  // its code was drawn from its own id. **Giving it a second item invented a group name, and the
+  // code was redrawn from that** — so a receipt already written kept the old code and the register
+  // read "not in this phone's orders" for ever, **about an order that was still there.** Verified on
+  // a real screen: one item `#1`, a second item added, `#55568B`. Her words: __"it is a unique
+  // identify of an order … like giving a key to a customer."__
+  // ⭐ v441 stops the code moving; this is the other half — the rows already written under the old
+  // code find their order again.
+  const moved = { id: "ord_c2fda5", groupId: "ordg_111111", customerName: "LK Lucy" };
+  const reg = registerRows([raw(1, "C2FDA5")], [moved]);
+  assert.equal(reg.rows[0].orphan, false,
+    "★ a receipt holding the code the order wore before it was grouped is still reported as void");
+  assert.equal(reg.rows[0].order, moved, "the old code did not reach the order it belongs to");
+  assert.equal(reg.notOnThisPhone, 0);
+  assert.doesNotMatch(registerSummary(reg), /no longer on this phone/);
+
+  // ⚠️⚠️ AND AN OLD CODE NEVER OUTRANKS A CODE AN ORDER WEARS TODAY. The six characters are random,
+  // so an alias can collide with another order's LIVE code — and a historical row stealing a live
+  // one would be the same fault pointing the other way. Every current code is claimed first, and a
+  // second pass that could overwrite would need the alias pass to run last to show it: ⚠️ **so the
+  // order of the two orders below is the test.** `other` is listed FIRST, which puts `moved`'s alias
+  // last of all — the one position from which overwriting would steal a live code.
+  const other = { id: "ord_00c2fda5", customerName: "Peggy" };  // its live code IS C2FDA5
+  const reg2 = registerRows([raw(1, "C2FDA5")], [other, moved]);
+  assert.equal(reg2.rows[0].order, other,
+    "★ an order's own live code was taken by another order's historical alias");
+  assert.equal(reg2.rows[0].orphan, false);
+});
+
 test("a refunded receipt keeps its row, its number, and wears its mark", () => {
   const reg = registerRows([raw(1, "AAAAAA"), raw(2, "BBBBBB", { refunded_at: "2026-10-08T00:00:00.000Z" })], []);
   assert.equal(reg.count, 2, "a refunded receipt was dropped from the run");
