@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v430)
+# Jienluv2bake — change history (v54 → v431)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**11 Oct 2026 — engine v431, THE EDIT CARD NOW LETS YOU REACH A PAST BAKE DAY (no database step).**
+
+**Your words:** __"when i edit an order should it allow me to select the past date,?"__
+
+**You asked a question and the answer was "it should, and it did not".**
+
+**1. THE EDIT CARD HID EVERY BAKE DAY THAT HAD GONE BY.** Open an order with **Edit** and the "Bake day" calendar was handed a list with **every day before today quietly removed** — so one of your own bake days came out as a **dead grey square, the same as a day you never bake**, and you could not move an order onto it. The only past day it kept was the one the order was already sitting on.
+
+**2. ★ WHY THAT MATTERED.** You take an order by hand on Friday and enter it on Sunday. The card offered only **future** days — so **Friday's takings read empty and Monday read busy**, and the ingredients came off the wrong bake.
+
+**3. ★ AND THE REST OF THE APP NEVER DID THIS.** The **Orders screen's own calendar** and the **New order** card have always shown every day you have set, and a day already gone opens there on purpose — the code says it plainly: *"she backfills and reviews old days"*. **This one picker was the odd one out**, and it is the one you asked about.
+
+**4. ★ YOU SAID YES, AND NOTHING IS BLOCKED.** Every bake day you have set now appears in that calendar, past or future, **exactly as it does on the Orders screen**. A day you **do not** bake is still a plain grey square — this did not turn the whole month into buttons. **And it sat against your own rule: no rule may stand in the way of a sale you would take by hand.**
+
+**5. AND PICKING A PAST DAY STILL WARNS YOU.** The app's own sentence — **"That bake day is already past."** — now appears under the calendar when you pick a day that has gone. You are told, and you may still do it, the same as everywhere else. ⚠️ **That sentence was already written; until now it could only ever appear on an order that was already sitting on an old day, never on one you had just picked.**
+
+**Measured:** tests **3,294 → 3,297**. **No database step.**
+
+**⚠️ STILL OUTSTANDING FROM v429, AND IT DOES NOT SHIP BY PUSHING:** the order-alert SQL (`supabase/order_alerts.sql`) must be **run again in Supabase**, or your phone alert keeps the old word.
 
 **11 Oct 2026 — engine v430, "PAID" ON A CUSTOMER'S CARD NOW MEANS THE MONEY IS ACTUALLY IN (no database step).**
 

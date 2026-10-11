@@ -2200,14 +2200,6 @@ function deliveryDayList(state) {
     .map((d) => ({ id: d.id, date: d.date }));
 }
 
-// The days the Edit-order pop-up's "Bake day" calendar offers: every day
-// still to come, plus the order's own day even if that has passed (so an order
-// left on an old date still shows where it is).
-function deliveryDayOptions(state, curId) {
-  const today = todayISO();
-  return deliveryDayList(state).filter((d) => d.date >= today || d.id === curId);
-}
-
 // Soft notes under the "Bake day" select: the window the customer was told,
 // whether the new day falls inside it, and anything the new day cannot take.
 // Nothing here blocks the move — the baker always overrides by hand.
@@ -2380,9 +2372,24 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // calendar is always open here: a pop-up the baker opened on purpose has no
   // room for another thing to unfold. Its view is settled fresh on every rebuild
   // (see deliveryCal), which is what keeps it on the day this order is actually on.
+  // ★★ THE PAST IS PICKABLE HERE TOO (v430). Her question: __"when i edit an order should it allow me
+  // to select the past date,?"__ ⚠️ **It did not.** This picker was handed a list with every day
+  // BEFORE TODAY stripped out — so a past bake day came out as a dead grey square, the same as a day
+  // she never bakes, and an order taken by hand on Friday could only be entered against a FUTURE
+  // day. That put Friday's takings nowhere and put the order's stock on the wrong bake.
+  //
+  // ⚠️⚠️ AND IT CONTRADICTED THE CALENDAR'S OWN COMMENT, and the app's own rule that nothing may
+  // stand in the way of a sale she would take by hand. Every other calendar in the app — the Orders
+  // screen's own (see `topCal`) and the New order card's — has always been handed the WHOLE list,
+  // and a day already gone opens there deliberately: *"she backfills and reviews old days"*.
+  //
+  // ⚠️ THE WARNING IS NOT LOST BY ALLOWING IT, WHICH IS THE OTHER HALF OF THE DECISION. A picked day
+  // that has passed already writes "That bake day is already past." under this calendar — the note
+  // reads `curId`, which is the DRAFT's day and so is rebuilt from the pick. She is told, and she
+  // may still do it, exactly as she may everywhere else (see `moveNoteLines`).
   const deliveryPick = deliveryCal({
     state,
-    days: deliveryDayOptions(state, curId),
+    days: deliveryDayList(state),
     getActiveId: () => draft.deliveryDateId || curId,
     view: { offset: null },
     onPick: (id) => { draft.deliveryDateId = id; refresh(); },
