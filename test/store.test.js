@@ -91,6 +91,11 @@ function createEl(tag) {
       return n;
     },
     replaceChildren(...cs) {
+      // ⚠️⚠️ THE REAL ONE DETACHES WHAT IT THROWS AWAY, AND THIS SHIM DID NOT (v460). ⭐ So an element the
+      // menu had just emptied out still answered `parentElement` as the menu — **a false PASS for "is it
+      // still in the menu?", which is exactly the question her vanishing warning turned on.** ⭐ Without
+      // this, the test below would have gone green over the very fault it exists to catch.
+      for (const old of this.children) if (old && old.parentElement === this) old.parentElement = null;
       this.children = cs.map((c) => (c && c.nodeType ? c : { nodeType: 3, text: String(c) }));
       // ⚠️ The real one re-parents what it is given, which is what makes `closest` — and therefore
       // the card this view puts its edge on — reachable from a row. Without it every freshly drawn
@@ -3223,4 +3228,37 @@ test("★★ a TYPED quantity obeys the bake-day lock, exactly as the + press do
   box.value = "4";
   (box._listeners.input || []).forEach((f) => f.call(box));
   assert.equal(registry["bar-count"].textContent, "4 items", "the lock did not release on a tapped day");
+});
+
+// ── v460: the warning is not erased by a repaint ────────────────────────────
+test("★★★ pressing − does not erase the warning — and it still works the second time", () => {
+  // ⚠️⚠️ HER WORDS: __"why on step 2, i try to press + the warning come out, but if i press -, the warning
+  // disappear and never come back again??"__ ⭐ **She was right, and it was worse than "disappears".**
+  // ⭐ v459 put that line directly above the product card — **which put it INSIDE the menu** — and the menu
+  // is rebuilt from scratch on every quantity change. ⚠️ Measured on the real shop before the fix: after +
+  // the line was in the page; after − `getElementById` returned NOTHING; after + again, still nothing.
+  render();
+  const card = () => registry["menu"].children.find((c) => c.dataset && c.dataset.product);
+  const parts = () => card().children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper").children;
+  const note = registry["step-note"];
+
+  parts()[2]._listeners.click[0]();   // +
+  assert.equal(note.hidden, false, "the + press raised no warning, so nothing below proves anything");
+  assert.ok(registry["menu"].children.includes(note), "the warning is not in the menu where he is");
+
+  parts()[0]._listeners.click[0]();   // −
+  // ⚠️⚠️ THE ASSERTION THAT IS HER REPORT. Membership of `children`, not `parentElement` — **a rebuild that
+  // threw it out would leave a stale parent behind, which is a false pass.**
+  assert.ok(registry["menu"].children.includes(note),
+    "★ pressing − threw the warning out of the page — and once out, nothing could find it again");
+  assert.equal(note.hidden, false, "★ pressing − made the warning vanish");
+  assert.equal(note.nextSibling, card(), "★ the warning is no longer above the card it is about");
+
+  // ⭐⭐ AND THE "NEVER COMES BACK" HALF, which is the part that made it useless rather than untidy.
+  parts()[0]._listeners.click[0]();   // − again, another rebuild
+  parts()[2]._listeners.click[0]();   // + again
+  assert.equal(note.hidden, false, "★ the warning never came back after a rebuild");
+  assert.ok(registry["menu"].children.includes(note), "★ and the line is gone from the page for good");
+  assert.equal(note.nextSibling, card(), "★ it came back, but not above the card he touched");
 });

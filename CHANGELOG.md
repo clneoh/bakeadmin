@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v459)
+# Jienluv2bake — change history (v54 → v460)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v460, PRESSING − NO LONGER THROWS THE WARNING AWAY (no database step).**
+
+**Your words:** __"why on step 2, i try to press + the warning come out, but if i press -, the warning disappear and never come back again??"__
+
+**1. ⚠️⚠️ YOU FOUND A REAL FAULT, AND IT WAS WORSE THAN "DISAPPEARS".** v459 moved that line to sit **directly above the product card** — which put it **inside the menu** — and the menu is rebuilt from scratch every time a quantity changes. ⭐ **So pressing − threw the line out of the page, and from that moment nothing could find it again: the warning was gone for the whole visit, and no press could bring it back.**
+
+**2. ⭐ I MEASURED IT ON THE REAL SHOP BEFORE TOUCHING ANYTHING, AND IT WAS EXACTLY AS YOU SAID.** After **+** the line was in the page. After **−** it was **not in the page at all** — not hidden, not moved, gone. After **+** again, still gone.
+
+**3. ★★ THE LINE IS NOW HELD, NOT LOOKED UP.** It used to be found fresh each time by its name; ⚠️ **once a rebuild has thrown it out, asking for it by name can only ever answer "there is nothing there"** — which is why it never came back. The page now keeps **the line itself** and puts it back after every rebuild.
+
+**4. ⭐ AND THE REBUILD ITSELF IS NOW TOLD TO CARRY IT.** Every route through the menu — the ± press, a typed quantity, tapping a bake day, the automatic refresh — rebuilds it, **so the line is put back in one place they all pass through, rather than at seven call sites where the eighth would have been missed.**
+
+**5. ⚠️ AND THE TEST THAT WOULD HAVE CAUGHT IT WAS BLINDED BY THE TEST PAGE, NOT MISSING.** The stand-in page did not **detach** what it removed — so an element the menu had just emptied out still claimed the menu as its parent. ⭐ **"Is it still in the menu?" answered yes for a line that had been thrown away**, and a test built on that question would have gone green over this exact fault. That was fixed first.
+
+**Measured live at 375px: after +, then −, then − again, then + again — every single time the line is still in the menu, still 4px above the card it is about, and still on screen.**
+
+**Measured:** tests **3,365** (one added, and seen to fail with the fix reversed), all green. **No database step.**
 
 **12 Oct 2026 — engine v459, THE MESSAGE COMES TO THE CUSTOMER, INSTEAD OF THE CUSTOMER GOING TO THE MESSAGE (no database step).**
 

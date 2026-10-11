@@ -1393,11 +1393,31 @@ function renderReferralBanner() {
   box.hidden = !currentVia();
 }
 
+// ⚠️⚠️ THE REFUSAL LINE IS HELD BY REFERENCE, AND THIS IS THE WHOLE OF v460. Her report: __"why on step 2,
+// i try to press + the warning come out, but if i press -, the warning disappear and never come back
+// again??"__
+// ⭐⭐ **SHE WAS RIGHT, AND IT WAS WORSE THAN "DISAPPEARS".** v459 moved that line to sit directly above the
+// product card — **which put it INSIDE the menu** — and the menu is rebuilt from scratch by `renderMenu()`
+// on every quantity change. ⭐ **So pressing − deleted the line from the page, and from then on
+// `document.getElementById("step-note")` answered `null` for the rest of the visit: `sayStepFirst` bailed
+// on its first line, and no press could ever bring it back.** ⚠️ **Measured on the real shop before
+// touching anything: after + the line was in the document; after − `getElementById` returned NOTHING; after
+// + again, still nothing.**
+// ⭐ The node is therefore captured ONCE and kept for the life of the page, so a rebuild can never destroy
+// it — it is moved, never lost.
+let stepNoteEl = null;
+// ⚠️ AND WHERE IT IS SPEAKING — the product NAME, not the card, **because the card is rebuilt on every
+// repaint and the name is what the rebuild keys on.** Null when it is speaking at a step heading instead.
+let stepNoteAt = null;
+
 export function render() {
   renderStatic(CONFIG);
   const dateWrap = document.getElementById("dates");
   const menu = document.getElementById("menu");
   const cart = new Map();
+  // ⚠️ A second `render()` must not lose it: the first capture wins, and if the line has been torn out of
+  // the page since, the node we already hold is the one that goes back.
+  stepNoteEl = stepNoteEl || document.getElementById("step-note");
   // What the customer typed as a note on each item (v236), and which items' note
   // boxes they have opened. Both are keyed by product NAME, exactly like the cart
   // itself, and both live HERE rather than in the card's DOM — because a card is
@@ -1481,14 +1501,21 @@ function clearFieldMarks() {
     // **directly above it**, on the screen he is already looking at. The rule it belongs to is unchanged:
     // **the page still does not move** (v423, v455). It is the LINE that comes to him.
     // ⚠️ With no `near` it falls back to the step's own heading, exactly as it did from v456.
-    const note = document.getElementById("step-note");
+    // ⚠️⚠️ THE HELD NODE, NOT A LOOKUP (v460). **Once the line has been torn out of the page by a menu
+    // rebuild, `getElementById` can never find it again** — that is why her warning "never came back".
+    const note = stepNoteEl || document.getElementById("step-note");
     if (!note) return;
+    stepNoteEl = note;
     let parent = null;
     let before = null;
     if (near && near.parentNode && typeof near.parentNode.insertBefore === "function") {
       parent = near.parentNode;
       before = near;
+      // ⭐ AND IT REMEMBERS WHICH PRODUCT IT IS SPEAKING ABOUT, by the name the menu keys its cards on —
+      // **because the card ELEMENT is rebuilt on every repaint and the name is not.**
+      stepNoteAt = near.dataset && near.dataset.product ? near.dataset.product : null;
     } else {
+      stepNoteAt = null;
       const head = document.getElementById(stepId);
       if (head && head.parentNode && typeof head.parentNode.insertBefore === "function") {
         parent = head.parentNode;
@@ -2013,7 +2040,7 @@ function clearFieldMarks() {
     paintPromo(total);
   }
 
-  const renderMenu = () => {
+  const renderMenuCards = () => {
     const byProduct = prodAvail && selected ? prodAvail[selected] || {} : {};
     const groups = poolGroups(CONFIG.products);
     const lang = loadLang();
@@ -2360,6 +2387,25 @@ function clearFieldMarks() {
     }
     menu.replaceChildren(...children);
   };
+
+  // ★★★ AND EVERY REBUILD PUTS THE REFUSAL LINE BACK (v460). ⚠️⚠️ **This is the fix for her report:**
+  // __"if i press -, the warning disappear and never come back again??"__ ⭐ The line lives directly above a
+  // product card since v459, **so it lives inside the menu — and `renderMenu` empties the menu and rebuilds
+  // it, which took the line with it.** ⭐⭐ **A warning is not a decoration that a repaint may erase: it is
+  // the answer to something the customer just did, and it stands until the thing it is about is fixed.**
+  // ⚠️ It is re-hung here rather than at each caller, **because EVERY path funnels through `renderMenu`** —
+  // the ± press, a typed quantity, the day tap, the 30-second refresh — and a rule written at seven call
+  // sites is a rule that will be missing from the eighth.
+  const placeStepNote = () => {
+    if (!stepNoteEl || stepNoteEl.hidden || !stepNoteAt) return;
+    const card = Array.from(menu.children)
+      .find((c) => c.dataset && c.dataset.product === stepNoteAt);
+    if (card && stepNoteEl.nextSibling !== card) menu.insertBefore(stepNoteEl, card);
+  };
+  // ⚠️⚠️ THE NAME IS WRAPPED RATHER THAN EDITED INTO THE BODY, because `renderMenuCards` returns EARLY on
+  // two paths (an empty menu, and a shop with no categories) — **so a line added at the foot of it would
+  // have been skipped by exactly the shops that need it most.**
+  const renderMenu = () => { renderMenuCards(); placeStepNote(); };
 
   // Live slots left for `name` on the day currently shown. undefined (no live
   // counts published for this day/product) means "unknown" — never treated as
@@ -2717,7 +2763,9 @@ function clearFieldMarks() {
     // ★★★ AND THE STEP'S OWN LINE GOES THE MOMENT HE FIXES IT (v455). ⚠️ **A form error does not outlive
     // its cause** — her words were *"or how a form filling would behave"*, and a line still telling him to
     // pick a day, after he has picked one, would be the page arguing with itself.
-    const note = document.getElementById("step-note");
+    // ⚠️ THE HELD NODE HERE TOO (v460) — a lookup would answer `null` after a rebuild had torn the line out,
+    // and this is the code that is supposed to CLEAR it, so it would have cleared nothing.
+    const note = stepNoteEl || document.getElementById("step-note");
     if (note && dayPicked && !note.hidden) { note.hidden = true; note.classList.remove("on"); note.replaceChildren(); }
 
     // ★★★ AND STEP 3 DOES NOT OPEN UNTIL STEP 2 HAS SOMETHING IN IT (v456). Her words: __"i skip step 2 and
