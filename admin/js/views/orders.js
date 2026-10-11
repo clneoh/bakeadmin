@@ -1957,7 +1957,30 @@ function orderForm(state, dateId, root, selectDate) {
           it.price = priceForProduct(state, it.productId);
           renderRows();
         }, "Product…");
-      const qtySpan = el("span", { class: "stepper-val" }, String(it.qty));
+      // ★★★ THE QTY CAN BE TYPED, NOT ONLY PRESSED (v458). Her words: __"for qty field i should be allow
+      // to key in qty also instead of just press the + & -"__ — ⭐ **because twenty loaves is twenty
+      // presses.**
+      // ⚠️⚠️ AND THE BOX IS NEVER REBUILT FROM ITS OWN HANDLER. `renderRows()` rebuilds every row, so a
+      // repaint on `input` would delete the box mid-keystroke and eat the second digit — **the exact fault
+      // she reported on the PO card**, where the same mistake was made. ⭐ The `+` and `−` presses already
+      // touch only the number and the total, so typing is given the same treatment.
+      const qtyBox = el("input", {
+        class: "stepper-val", type: "number", inputmode: "numeric", min: "1", step: "1",
+        value: String(it.qty), "aria-label": "How many",
+        // While she is typing: take the number if it is usable, but leave the box exactly as she left it.
+        oninput: function () {
+          const n = parseInt(this.value, 10);
+          if (Number.isFinite(n) && n >= 1) it.qty = n;
+          paintTotal();
+        },
+        // And when she is done: settle it — an empty or nonsense box gets a real number back.
+        onchange: function () {
+          const n = Math.max(1, Math.round(Number(this.value) || 1));
+          it.qty = n;
+          this.value = String(n);
+          paintTotal();
+        },
+      });
       // A note that belongs to THIS line (v236) — "no nuts", "write Happy Birthday".
       // Offered once a product is picked, because a note with no item to belong to
       // has nowhere to go; and offered on EVERY line whatever that product's own
@@ -1979,9 +2002,9 @@ function orderForm(state, dateId, root, selectDate) {
         prodSel,
         el("div", { class: "add-item-ctl" },
           el("div", { class: "stepper" },
-            el("button", { onclick: () => { it.qty = Math.max(1, it.qty - 1); qtySpan.textContent = String(it.qty); paintTotal(); } }, "−"),
-            qtySpan,
-            el("button", { onclick: () => { it.qty = it.qty + 1; qtySpan.textContent = String(it.qty); paintTotal(); } }, "＋")),
+            el("button", { onclick: () => { it.qty = Math.max(1, it.qty - 1); qtyBox.value = String(it.qty); paintTotal(); } }, "−"),
+            qtyBox,
+            el("button", { onclick: () => { it.qty = it.qty + 1; qtyBox.value = String(it.qty); paintTotal(); } }, "＋")),
           linePriceBox(it, paintTotal),
           el("button", { class: "inbox-del", "aria-label": "Remove item",
             onclick: () => { items.splice(i, 1); renderRows(); } }, "✕")),
@@ -2540,7 +2563,24 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         line.cost = rc > 0 ? rc : null;
         refresh();
       }, "Product…");
-    const qtySpan = el("span", { class: "stepper-val" }, String(line.qty));
+    // ★★★ AND THE SAME HERE (v458) — one qty behaves the same wherever it appears, which is this app's
+    // rule for two rows that look alike. ⚠️ **A box she can type into on the New-order card and only
+    // press here would be the "dead control" fault in a new suit.**
+    const qtyBox = el("input", {
+      class: "stepper-val", type: "number", inputmode: "numeric", min: "1", step: "1",
+      value: String(line.qty), "aria-label": "How many",
+      oninput: function () {
+        const n = parseInt(this.value, 10);
+        if (Number.isFinite(n) && n >= 1) line.qty = n;
+        paintTotal();
+      },
+      onchange: function () {
+        const n = Math.max(1, Math.round(Number(this.value) || 1));
+        line.qty = n;
+        this.value = String(n);
+        paintTotal();
+      },
+    });
     // This line's own note (v236), the same box the New-order card offers and on the
     // same terms: shown once there is a product, and shown whether or not that
     // product's shop switch is on — a note already collected must stay readable and
@@ -2563,9 +2603,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       prodSel,
       el("div", { class: "add-item-ctl" },
         el("div", { class: "stepper" },
-          el("button", { onclick: () => { line.qty = Math.max(1, line.qty - 1); qtySpan.textContent = String(line.qty); paintTotal(); } }, "−"),
-          qtySpan,
-          el("button", { onclick: () => { line.qty = line.qty + 1; qtySpan.textContent = String(line.qty); paintTotal(); } }, "＋")),
+          el("button", { onclick: () => { line.qty = Math.max(1, line.qty - 1); qtyBox.value = String(line.qty); paintTotal(); } }, "−"),
+          qtyBox,
+          el("button", { onclick: () => { line.qty = line.qty + 1; qtyBox.value = String(line.qty); paintTotal(); } }, "＋")),
         linePriceBox(line, paintTotal),
         el("button", { class: "inbox-del", "aria-label": "Remove item",
           onclick: () => { lines.splice(i, 1); refresh(); } }, "✕")),
@@ -4994,6 +5034,14 @@ function refundOrder(state, group, first, { root, dateId } = {}) {
       const q = ticks.get(r.line.id) || 0;
       r.box.checked = on;
       r.amt.textContent = fmtRM(q * (r.line.price == null ? 0 : r.line.price), cur);
+      // ⚠️⚠️ AND THIS BOX IS DELIBERATELY LEFT EXACTLY AS IT WAS (v458). I changed it — holding the value
+      // back while she typed — **and then looked at what that would do, and put it back.**
+      // ⭐ A refund line clamps to what was sold, and this box is rewritten from that clamped figure on
+      // every keystroke, so **the number in the box and the money underneath it can never disagree.**
+      // ⚠️ **Stop the rewrite and they can**: on a line of two, typing "12" would leave the box reading 12
+      // while the amount said RM 32 until she tapped away — the "two things on one screen saying different
+      // numbers" fault, which is worse than the caret jump it would have saved. ⭐ **A clamp is not a limit
+      // on typing; you cannot return more than you sold.** She reported no fault here, and I found none.
       if (r.qtyBox) { r.qtyBox.value = String(on ? q : r.line.qty); r.qtyBox.disabled = !on; }
     }
     if (courierUI) {

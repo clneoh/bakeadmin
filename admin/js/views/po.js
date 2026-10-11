@@ -455,10 +455,22 @@ function openManualPO(state, root) {
       const qty = el("input", { class: "input", type: "number", inputmode: "numeric", min: "1",
         step: "1", value: String(p.qty), style: "max-width:88px",
         "aria-label": `How many ${product ? product.name : "of it"}` });
+      // ⚠️⚠️ TYPING HERE MUST NOT REBUILD THE CARD, AND IT DID (v458). Her report, from using it:
+      // __"some can type in single digit only"__ — and this was the field she meant.
+      // ⭐ **The reason a second digit never landed: `paint()` ends in `body.replaceChildren(...)`, and
+      // these boxes live INSIDE `body` — so the first keystroke deleted the box she was typing into and
+      // its caret with it. The second digit went nowhere.**
+      // ⭐⭐ AND THIS APP ALREADY KNOWS THE RULE — it is written out twice, in `history.js` (*"Typing
+      // repaints NOTHING but the two figures below it — the row is not rebuilt and the caret stays in the
+      // box she is typing in"*) and in `production.js` (*"the field itself is never rebuilt, so her cursor
+      // and her keypad stay where they are"*). **This card was the one place that broke it.**
+      // ⚠️ THE MODEL IS STILL UPDATED ON EVERY KEYSTROKE, so Save writes what she typed even if she never
+      // leaves the box — **only the REBUILD waits until she is done.** The preview table catches up on the
+      // way out, which is the moment it is worth reading.
       qty.addEventListener("input", () => {
         picks[i].qty = Math.max(1, Math.round(Number(qty.value) || 1));
-        paint();
       });
+      qty.addEventListener("change", paint);
       return el("div", { class: "info-row" },
         el("span", {}, product ? product.name : "(a product that is gone)"),
         el("span", { class: "info-val" }, qty,

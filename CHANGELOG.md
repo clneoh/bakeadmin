@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v456)
+# Jienluv2bake — change history (v54 → v458)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v458, EVERY QUANTITY CAN BE TYPED — AND ONE OF THEM COULD ONLY TAKE ONE DIGIT (no database step).**
+
+**Your words:** __"for qty field i should be allow to key in qty also instead of just press the + & -"__ · __"check all qty field, there is so many places"__ · __"some can type in single digit only"__ · __"when i want to enter 30 loaves, imagine pressing 30times"__
+
+**1. ★ I CHECKED EVERY QUANTITY IN THE APP, AS YOU ASKED, AND THE ANSWER WAS SMALLER THAN EITHER OF US EXPECTED.** There were exactly **three** places where a quantity could only be pressed and never typed: **the shop, the New order card, and the Edit pop-up.** Every other quantity in your app — purchase orders, stock, ingredient amounts, prices, limits, promo amounts, customer rewards, money — **already takes typing.** So "so many places" was three, and all three are done.
+
+**2. ⚠️⚠️ AND THE ONE-DIGIT FAULT WAS REAL — BUT ITS CAUSE WAS NOT A LIMIT ON THE NUMBER.** On the **Write a list by hand** card, the quantity's own handler redrew the whole card on **every keystroke**, and the box you were typing in lived inside the piece being redrawn. ⭐ **So the first digit deleted the box it had just arrived in, and the second one went nowhere.** It was found only because you pointed at the control — **no test had ever opened that card.**
+
+**3. ⭐⭐ AND YOUR APP ALREADY HAD THE RULE — IT WAS WRITTEN DOWN IN THREE OTHER PLACES.** The planner says __"the chart is repainted, never this card — so the box keeps its cursor."__ The production plan says __"the field itself is never rebuilt, so her cursor and her keypad stay where they are."__ The amendment card says __"typing repaints nothing but the two figures below it."__ ⚠️ **This card was the one place that broke a rule your app had already learned.** It now updates the number on every keystroke and redraws only once you have finished with the box — **the same pattern the planner already uses.**
+
+**4. ★ AND THE THREE PRESS-ONLY FIELDS ARE FIELDS NOW, WITH THE + AND − KEPT.** Type 30, or press + thirty times — both work, and both say the same number. The figure sits in the same place, in the same type, and the little up/down arrows a number box brings are removed, **because the + and − either side ARE that control.**
+
+**5. ⚠️⚠️ AND THE SHOP'S TYPED NUMBER OBEYS THE BAKE-DAY LOCK — WHICH MY OWN TEST CAUGHT ME GETTING WRONG.** I first put the lock on the moment you leave the box, and my test failed by its own message: **a customer could TYPE bread into the basket with no bake day chosen**, because leaving the box is not something that happens while you are still typing. ⭐ **A typed number is the same act as a tap, so it is refused the same way.**
+
+**6. ⚠️ AND ONE THING I TOLD YOU WAS WRONG.** I said the **Refund** card's quantity box had the same fault. I changed it, then looked at what the change would actually do, **and put it back.** A refund line can never return more than was sold, so that box is pulled back down as you type on purpose — **and holding that back would have left the box saying 12 while the money underneath said RM 32.** That is two things on one screen disagreeing, which is worse than the small thing I was trying to fix. **You reported no fault there, and there is none.**
+
+**7. ⭐ MEASURED ON THE REAL SHOP AND THE REAL CARD.** On the shop at 375px: the figure is a real field; typing **3** then **30** leaves the same box in place both times, the basket follows, and a number above what is left settles down to what is left when you tap away — **so the order can never be for more than she has.** On the admin's New order card: typing **30** keeps the box **focused and in place**, and 30 is what the line holds. Nothing scrolls sideways.
+
+**8. ⚠️ AND THE TEST THAT COULD NOT HAVE EXISTED.** The PO test's page answered **nothing at all** for every element id, so that pop-up card had **never been openable by a test** — and a card no test can open is a card no test can check. ⭐ **That is why the fault lived: not a missing assertion, but a missing ability to look.**
+
+**Measured:** tests **3,353 → 3,364**, all green. **No database step.**
+
+**12 Oct 2026 — engine v457, THE ONE CHECK THAT CAN SEE AN ORDER LEAVE (no database step).**
+
+**1. ⚠️⚠️ ROBUSTNESS HAD TWO HALVES AND ONLY ONE WAS BUILT.** The app can already __recover__ a removed order, and it can already check your records — **but every check compared one part of your live data against another part of your live data.** ⭐ **And when an order leaves, both sides leave together, so they all stay green.** That is exactly what happened on 11 Oct: three paid orders gone, and nothing in the app could have noticed.
+
+**2. ⭐⭐ SO THE CHECK NOW READS A SAVED COPY, BECAUSE A COPY IS THE ONLY THING IN THE APP THAT REMEMBERS WHAT WAS THERE BEFORE.** A copy carries the orders **and** the Removed list from that moment — so an order that is in the copy, gone from the phone, and not on the Removed list is **an order that left without a trace**, and it is named by its number so you can find it.
+
+**3. ⭐ AND IT OPENS THE RIGHT COPY: THE OLDEST DAILY ONE, ABOUT A WEEK BACK.** Not the newest — a copy taken after a loss already lacks the order. And not simply the oldest row, because that can be a monthly copy from months ago, whose missing orders were removed **before** the Removed list existed. **A week back is far enough to predate a loss, and near enough that the Removed list can still explain what is missing.**
+
+**4. ⚠️ AND IT SAYS WHAT IT CANNOT TELL APART.** An order removed **before v444 kept a Removed list** has nothing to explain it, and looks exactly like a loss. The check says so on its face rather than leaving you to work it out — **because a warning that can never be satisfied is one you learn to ignore.**
+
+**5. ⚠️ A COPY THAT CANNOT BE OPENED IS SKIPPED, NEVER PASSED** — the same rule as every other check on that page, and the one that matters most here: **this is the check whose whole subject is something the app cannot see.**
+
+**Measured:** tests **3,353 → 3,357**, all green. **No database step.**
 
 **12 Oct 2026 — engine v456, STEP 3 IS ONE STEP — AND THE TWO DELIVERY CARDS ARE PART OF IT (no database step).**
 
@@ -18,7 +54,7 @@ always tell which build a phone is running.
 
 **5. ⚠️ AND THE TESTS FOUND A REAL FAULT IN MY FIRST ATTEMPT, NOT A SMALL ONE.** The guard I wrote first reached straight for the basket and for the message helper — **and neither can be seen from where the cards are wired**: both live inside the part of the page that builds the shop. **Every press of either card would have thrown an error and done nothing at all.** ⭐ Three tests written for an older version caught it by name. **The guard now asks the shop through the same kind of seam this project already uses for the after-order reset.**
 
-**6. ★ AND THREE OLDER TESTS CHANGED WITH THE BEHAVIOUR RATHER THAN BEING DELETED.** They were about *asking before a way is changed* — which is an act inside step 3 — and they used to walk into step 3 without ever doing step 2. ⭐ **That is a route the shop no longer has**, so they now put one item in the basket first, exactly as a customer must. **Their subject has not changed at all.**
+**6. ★ AND THREE OLDER TESTS CHANGED WITH THE BEHAVIOUR RATHER THAN BEING DELETED.** They were about __asking before a way is changed__ — which is an act inside step 3 — and they used to walk into step 3 without ever doing step 2. ⭐ **That is a route the shop no longer has**, so they now put one item in the basket first, exactly as a customer must. **Their subject has not changed at all.**
 
 **7. ⭐ MEASURED ON THE REAL SHOP, all four states.** With an empty basket: **pressing Courier leaves the way unchosen, the card folded, and the basket at RM 0.00** — the line appears with **"Nothing in your order yet."** With one item in the basket: **the press goes through, the way is set to Courier and the card unfolds.** Take the item back out and **both cards lock again.** The two boxes: **disabled on an empty basket, open again the moment something is in it.**
 

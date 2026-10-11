@@ -550,9 +550,8 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-export function upcomingDates(cfg) {
+export function upcomingDates(cfg, now = new Date()) {
   const out = [];
-  const now = new Date();
   for (let i = 1; out.length < cfg.upcomingCount && i < 365; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     if (cfg.deliveryDays.includes(d.getDay())) out.push(d);
@@ -592,7 +591,11 @@ export function cutoffText(cutoff) {
 // order, and nothing new is decided here. ⭐ It is the ANSWER to the question the page used to leave the
 // customer to work out for himself.
 export function nextOpenDay(cfg, now = new Date()) {
-  return upcomingDates(cfg).find((d) => isOpen(cfg, d, now)) || null;
+  // ⚠️⚠️ `now` GOES IN HERE TOO. `upcomingDates` built its own list from the REAL today, so this function
+  // took a time, **used it for the cut-off and ignored it for the days** — and a caller that passed a
+  // different time got an answer made of two different moments. In the app the two agree (both are now),
+  // which is why nothing showed; a test that passes a fixed day is the case that exposes it, and one did.
+  return upcomingDates(cfg, now).find((d) => isOpen(cfg, d, now)) || null;
 }
 
 // The day before `d`, which is the day the order has to be in by.
@@ -2038,7 +2041,49 @@ function clearFieldMarks() {
       const left = reason ? 0 : (caps ? caps.get(p.name) : ownLeft);
       const qty = cart.get(p.name) || 0;
       const soldOut = left != null && left <= 0;
-      const qtyLabel = el("span", { class: "stepper-val" }, String(qty));
+      // ⚠️ THE UPPER BOUND IS DECLARED UP HERE NOW (v458) — above the typed box as well as the "+". It used
+      // to sit between the two buttons, which was fine while "+" was the only thing that wanted it.
+      const cap = left != null && left > 0 ? left : 99;
+      // ★★★ AND THE QUANTITY CAN BE TYPED, NOT ONLY PRESSED (v458). Her words: __"for qty field i should be
+      // allow to key in qty also instead of just press the + & -"__ — ⭐ **a customer ordering twenty is
+      // twenty presses, and on this phone, with the loaf in his other hand, that is the whole sale.**
+      // ⚠️⚠️ AND TYPING MUST NOT REBUILD THE CARD. `redraw()` below ends in `renderMenu()`, which rebuilds
+      // this row — so repainting on every keystroke would delete the box out from under his thumb and eat
+      // the second digit. ⭐ **That is the fault she reported on the PO card and on the Refund box**, and it
+      // is the one this file's own note-box code was already written to avoid (see `redraw`, below).
+      // ⭐ THE BASKET IS UPDATED ON EVERY KEYSTROKE, so the count and the total at the bottom keep up; only
+      // the REBUILD waits until he has finished with the box.
+      const qtyBox = el("input", {
+        class: "stepper-val", type: "number", inputmode: "numeric", min: "1", max: String(cap),
+        step: "1", value: String(qty), "aria-label": t("qtyAria"),
+        oninput: function () {
+          // ⚠️⚠️ AND THE BAKE DAY COMES FIRST HERE TOO (v458) — **this is the line that touches the basket,
+          // and the guard was only on `onchange` below.** ⭐ My own test caught it: a customer could TYPE
+          // bread into the basket with no day chosen, because `change` does not fire until he leaves the
+          // box — by which time the item was already in and the lock had been walked straight past.
+          // ⭐ **A typed number is the same act as a tap, and v454 refused the tap.**
+          if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
+          const n = parseInt(this.value, 10);
+          if (!Number.isFinite(n) || n < 1) return;   // ⚠️ an empty box mid-edit is not an order for zero
+          cart.set(p.name, Math.min(cap, n));
+          renderBar();
+          paintSteps();
+        },
+        // ⚠️ AND WHEN HE IS DONE, IT SETTLES — and the BAKE DAY COMES FIRST, exactly as the two presses
+        // have it since v454. **A typed number is the same act as a tap, and a step that refuses one must
+        // refuse the other**, or the lock would have a door in it that nobody had noticed.
+        onchange: function () {
+          if (!dayPicked) {
+            sayStepFirst("needDayTitle", "needDayBody", "step1");
+            this.value = String(cart.get(p.name) || 0);
+            return;
+          }
+          const n = Math.max(1, Math.min(cap, Math.round(Number(this.value) || 1)));
+          cart.set(p.name, n);
+          this.value = String(n);
+          redraw();
+        },
+      });
       // A stepper move repaints the whole menu: a pool card needs it (every
       // sibling's cap/stamp depends on this quantity) and so does every
       // Next-available line, which is a control only while the basket is empty.
@@ -2070,10 +2115,9 @@ function clearFieldMarks() {
       const dec = el("button", { class: "step-btn", onclick: () => {
         const q = Math.max(0, (cart.get(p.name) || 0) - 1);
         if (q === 0) cart.delete(p.name); else cart.set(p.name, q);
-        qtyLabel.textContent = String(q);
+        qtyBox.value = String(q);
         redraw();
       } }, "−");
-      const cap = left != null && left > 0 ? left : 99;
       const inc = el("button", { class: "step-btn", onclick: () => {
         // ★★★ STEP 1 BEFORE STEP 2 IS ALLOWED (v453) — HER OWN MODEL, WHICH I BUILT THE WRONG SHAPE OF
         // FIRST TIME. Her words: __"complet step1 before step2 is allow, and so forth"__ — then, asked how
@@ -2092,10 +2136,12 @@ function clearFieldMarks() {
         if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
         const q = Math.min(cap, (cart.get(p.name) || 0) + 1);
         cart.set(p.name, q);
-        qtyLabel.textContent = String(q);
+        qtyBox.value = String(q);
         redraw();
       } }, "+");
-      if (soldOut) { dec.disabled = true; inc.disabled = true; }
+      // ⚠️ AND THE TYPED BOX IS DISABLED WITH THEM (v458) — **a sold-out card whose number could still be
+      // typed into would be a door beside a locked gate**, and the two presses already refuse.
+      if (soldOut) { dec.disabled = true; inc.disabled = true; qtyBox.disabled = true; }
       const stamp = left != null
         ? el("span", { class: (unavailable || soldOut) ? "prod-stamp soldout" : "prod-stamp" },
             unavailable ? t("unavailable") : soldOut ? t("soldOut") : sub(t("onlyLeft"), left))
@@ -2203,7 +2249,7 @@ function clearFieldMarks() {
               el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
               desc ? el("p", { class: "prod-desc" }, desc) : null),
             stamp),
-          el("div", { class: "stepper" }, dec, qtyLabel, inc),
+          el("div", { class: "stepper" }, dec, qtyBox, inc),
           lineNoteArea,
           note,
           nextNote,

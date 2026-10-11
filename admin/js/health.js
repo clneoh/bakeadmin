@@ -240,15 +240,68 @@ export function copyChecks(copies, now = new Date()) {
     : pass("copies", "Your saved copies are recent and readable")];
 }
 
+// ── the check that would have caught HER loss on the day it happened ────────
+
+// `copy` is the PARSED data of one saved copy (or null when it could not be opened), and `when` is that
+// copy's own date, for the words. ⚠️ NULL MEANS SKIPPED, NEVER PASSED — the same rule as everywhere here.
+//
+// ⚠️⚠️ WHY THIS EXISTS, AND WHY IT IS THE HALF THAT WAS STILL MISSING. v444 made a removal recoverable and
+// v446 taught the app to look at her records — but every check so far compares **one part of her live data
+// against another part of her live data**. ⭐ **If an order leaves, both sides leave together and every
+// check stays green.** ⭐⭐ A SAVED COPY IS THE ONLY THING IN THE APP THAT REMEMBERS WHAT WAS THERE BEFORE
+// — so it is the only thing that can see an order disappear.
+//
+// ⭐ AND THE COPY CARRIES THE REMOVED LIST TOO, because `removedOrders` is itself a synced list. So a copy
+// is a complete picture of one moment: what was live, and what had been taken off. **That is what makes a
+// comparison possible without guessing.**
+//
+// ⚠️ THE LIMIT, SAID OUT LOUD, because a check that cries wolf is a check she stops reading: an order
+// removed by hand **before v444 kept a Removed list** has no row to explain it, and it looks exactly like a
+// loss. Those copies age out of the window within about a week, so this settles by itself — and the `why`
+// below says so rather than leaving her to work it out.
+export function backupChecks(state, copy, when = "") {
+  const TITLE = "No order has left this phone's list without a trace";
+  if (!copy || typeof copy !== "object") {
+    return [skipped("stable", TITLE,
+      "Your saved copies could not be opened — sign in to shared data and run this again.")];
+  }
+  // ⚠️ BOTH WAYS AN ORDER CAN BE RECOGNISED, exactly as `registerChecks` does it: the code it wears today
+  // and the one it wore before it was grouped (v441). A check that knew only the first would report a
+  // false loss for every order that has ever gained an item.
+  const codesOf = (list) => {
+    const s = new Set();
+    for (const o of Array.isArray(list) ? list : []) {
+      if (!o) continue;
+      for (const k of [orderCode(o), codeFromId(o)]) if (k && k !== "??????") s.add(k);
+    }
+    return s;
+  };
+  const here = codesOf(state && state.orders);
+  const shelf = codesOf(state && state.removedOrders);
+  const shelfThen = codesOf(copy.removedOrders);
+  // ⚠️ AND THE COPY'S OWN LIST COUNTS: an order she took off a week ago, whose shelf row has since been
+  // pruned, is still explained by the copy that was written while it was on the shelf.
+  const missing = [...codesOf(copy.orders)]
+    .filter((c) => !here.has(c) && !shelf.has(c) && !shelfThen.has(c))
+    .sort();
+
+  return [missing.length
+    ? fail("stable", TITLE, missing.map((c) => `#${c}`),
+      `The copy saved on ${when || "an earlier day"} holds ${missing.length === 1 ? "an order" : "orders"} that this phone no longer has — and ${missing.length === 1 ? "it is" : "they are"} not on the Removed list either, so the app did not take ${missing.length === 1 ? "it" : "them"} off by any route it knows. A removal made before the Removed list existed would look the same, so check the dates before worrying.`,
+      "Open Backup and safety and put that copy back if these are orders you took, or search WhatsApp for the number and enter the order again by hand.")
+    : pass("stable", TITLE)];
+}
+
 // ── and the whole verdict, in one shape the screen can draw ─────────────────
 
-// ⚠️ `register` and `copies` absent = SKIPPED, and a skipped check is counted ON ITS OWN, never folded
-// into the passes. The headline the screen draws is built from these three numbers and nothing else.
+// ⚠️ `register`, `copies` and `copy` absent = SKIPPED, and a skipped check is counted ON ITS OWN, never
+// folded into the passes. The headline the screen draws is built from these three numbers and nothing else.
 export function runHealthChecks(state, extra = {}) {
   const results = [
     ...localChecks(state),
     ...registerChecks(state, extra.register, state && state.voidedReceipts),
     ...copyChecks(extra.copies),
+    ...backupChecks(state, extra.copy, extra.copyWhen),
   ];
   return {
     results,

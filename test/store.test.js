@@ -3118,3 +3118,58 @@ test("★★ he cannot order without saying how he gets it — and the page poin
     wrap._value = "";
   }
 });
+
+// ── v458: the shop's quantity can be TYPED ───────────────────────────────────
+test("★★★ the shop's quantity can be TYPED — 30 loaves is not 30 taps", () => {
+  // ⚠️⚠️ HER WORDS: __"for qty field i should be allow to key in qty also instead of just press the + & -"__
+  // and __"when i want to enter 30 loaves, imagine pressing 30times"__.
+  // ⭐ AND THE BOX ITSELF WAS A PLAIN `<span>` — measured on the live shop, so a customer had **no way to
+  // type at all**, only taps. This is the shop's half of the same change.
+  render();
+  tapDay();   // ★ the step lock: step 1 must be HIS before step 2 opens
+  const stepperOf = () => registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  const box = stepperOf().children[1];
+  assert.equal(box.tagName, "INPUT",
+    "★ the quantity is still a label with no way to type into it, so 30 loaves is 30 taps");
+
+  const type = (v) => { box.value = v; (box._listeners.input || []).forEach((f) => f.call(box)); };
+  type("3");
+  type("30");
+
+  // ⭐⭐ THE BOX SURVIVES — the menu is NOT rebuilt on a keystroke, so the second digit has somewhere to go.
+  assert.equal(stepperOf().children[1], box,
+    "★ the menu was rebuilt under the customer's thumb mid-keystroke — that is what eats the second digit");
+  assert.equal(registry["bar-count"].textContent, "30 items", "★ the basket did not take the typed number");
+
+  // ⚠️ AND WHEN HE IS DONE, THE CARD IS REBUILT FROM THE BASKET — so a box that comes back reading 30 is
+  // proof the number reached the ORDER and not merely the screen.
+  (box._listeners.change || []).forEach((f) => f.call(box));
+  assert.equal(stepperOf().children[1].value, "30", "★ only the first digit reached the basket");
+});
+
+test("★★ a TYPED quantity obeys the bake-day lock, exactly as the + press does (v458)", () => {
+  // ⚠️⚠️ **A TYPED NUMBER IS THE SAME ACT AS A TAP.** v454 made the + refuse until a bake day has been
+  // tapped, and v456 made the whole of step 3 wait on step 2 — so a box that accepted a number anyway
+  // would be **a door in the lock that nobody had noticed**, and the one step this whole thread is about
+  // would have been walked straight past.
+  render();   // ⚠️ deliberately NO tapDay()
+  const stepper = () => registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  const box = stepper().children[1];
+  assert.equal(registry["bar-count"].textContent, "0 items", "precondition: nothing is in the basket");
+
+  box.value = "4";
+  (box._listeners.input || []).forEach((f) => f.call(box));
+  assert.equal(registry["bar-count"].textContent, "0 items",
+    "★ a typed number put bread in the basket with no bake day chosen");
+  assert.equal(registry["step-note"].hidden, false, "★ and he was told nothing about why");
+
+  // ⚠️ AND WITH THE DAY TAPPED, THE SAME TYPE GOES THROUGH — so this is a lock and not a wall.
+  tapDay();
+  box.value = "4";
+  (box._listeners.input || []).forEach((f) => f.call(box));
+  assert.equal(registry["bar-count"].textContent, "4 items", "the lock did not release on a tapped day");
+});

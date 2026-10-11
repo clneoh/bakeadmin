@@ -148,8 +148,12 @@ function stampOf(card) {
   return s && s.children[0] ? s.children[0].text : "";
 }
 function stepperOf(card) { return bodyOf(card).children[1]; }
+// ★★★ THE QUANTITY IS A BOX THAT CAN BE TYPED INTO NOW, NOT A LABEL (v458). ⚠️ **The view changed, so the
+// way it is read changes with it** — a helper still looking for a text node answers "" for a box that is
+// plainly showing a number, and every assertion below would fail for a reason that is not its own.
 function qtyOf(card) {
   const label = stepperOf(card).children[1];
+  if (label.value !== undefined && label.value !== "") return String(label.value);
   return label.children[0] ? label.children[0].text : label.textContent;
 }
 function tap(card, which) {

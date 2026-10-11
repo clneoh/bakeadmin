@@ -817,12 +817,31 @@ button.prod-next.off::after { content: ""; }
   -webkit-tap-highlight-color: transparent;
 }
 .step-btn:active { background: #f5d6c4; }
+/* ★★★ AND IT IS A FIELD NOW, NOT A LABEL (v458). Her words: __"for qty field i should be allow to key in
+   qty also instead of just press the + & -"__. ⚠️ So it is stripped back to exactly the look the number
+   already had — no border, no background, the shop's own ink — because a boxed number between two round
+   buttons would read as a third, different control. ⭐ And a number box brings its own little up/down
+   spinners on a desktop browser: those are removed, because **the + and − either side ARE that control**
+   and two ways to do one thing on one row is the fault this project has a rule about. */
 .stepper-val {
+  width: 52px;
   min-width: 44px;
   text-align: center;
   font-size: 16px;
   font-weight: 700;
+  font-family: inherit;
+  color: var(--ink);
+  border: none;
+  background: transparent;
+  padding: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
+.stepper-val::-webkit-outer-spin-button,
+.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* ⚠️ AND A DISABLED ONE IS DRAWN AS INERT, as the two buttons beside it are — otherwise a sold-out card
+   would show a live-looking number that cannot be changed. */
+.stepper-val:disabled { opacity: .45; }
 
 /* ---------- Forms ---------- */
 .field { margin-bottom: 12px; }

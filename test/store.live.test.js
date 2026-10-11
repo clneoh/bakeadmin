@@ -245,9 +245,13 @@ test("a refresh that depletes an ordered item fixes the cart, bar and tells the 
   const cards = registry["menu"].children;
   // The shim renders text as a child node (el() sets .text, not .textContent);
   // a click updates .textContent. Read whichever source is populated.
-  const labelVal = (labelEl) => (labelEl.textContent !== ""
-    ? String(labelEl.textContent)
-    : (labelEl.children.find((c) => c && c.nodeType === 3) || {}).text ?? "");
+  // ★★★ AND THE QTY IS A BOX NOW (v458). The real DOM has one rule here and the shim should not invent a
+  // gentler one: **a value on the node wins, and only then is it a label read as text.**
+  const labelVal = (labelEl) => (labelEl.value !== undefined && labelEl.value !== ""
+    ? String(labelEl.value)
+    : labelEl.textContent !== ""
+      ? String(labelEl.textContent)
+      : (labelEl.children.find((c) => c && c.nodeType === 3) || {}).text ?? "");
   // The photo, when a card has one, is the card's own first column — so the
   // stepper lives in the body, one level in. Found by name rather than by index.
   const bodyOf = (card) => {

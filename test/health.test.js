@@ -14,7 +14,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { runHealthChecks, localChecks, registerChecks, copyChecks } = await import("../admin/js/health.js");
+const { runHealthChecks, localChecks, registerChecks, copyChecks, backupChecks } = await import("../admin/js/health.js");
 
 // The smallest book that should come out CLEAN — one order, one bake day, paid, numbered, on the shelf
 // nothing, and a register row that agrees with it.
@@ -36,8 +36,19 @@ const REGISTER = [{ number: 7, order_code: "D4E5F6", issued_at: "2026-10-11T08:2
 const COPIES = [{ id: "s1", kind: "daily", created_at: new Date().toISOString() }];
 const resultOf = (res, id) => res.results.find((r) => r.id === id);
 
+// ⭐⭐ EVERY CHECK BELOW NOW GETS A COPY TO COMPARE AGAINST (v457) — a snapshot of the same book, as it
+// stood before the test changed anything. ⚠️ **Without one the new check is SKIPPED**, and a skipped check
+// is invisible to this file's own assertion that every check actually RAN. ⭐ The helper exists so the
+// snapshot is built from the state each test already has, rather than a fixture that drifts from it.
+const COPY_WHEN = "11 Oct · 21:41";
+const runChecks = (state, extra = {}) => runHealthChecks(state, {
+  ...extra,
+  copy: { orders: state.orders, removedOrders: state.removedOrders },
+  copyWhen: COPY_WHEN,
+});
+
 test("★★ a healthy book passes every check — and every check actually RAN", () => {
-  const res = runHealthChecks(healthy(), { register: REGISTER, copies: COPIES });
+  const res = runChecks(healthy(), { register: REGISTER, copies: COPIES });
   assert.deepEqual(res.results.filter((r) => r.status === "fail").map((r) => `${r.id}: ${r.why}`), [],
     "a healthy book was reported as having a fault");
   assert.deepEqual(res.results.filter((r) => r.status === "skipped").map((r) => r.id), [],
@@ -45,8 +56,8 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 10, `the check list is no longer ten checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 10);
+  assert.equal(res.total, 11, `the check list is no longer eleven checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 11);
   assert.equal(res.failed, 0);
 });
 
@@ -55,7 +66,7 @@ test("★★ a receipt with no order behind it FAILS — the fault that cost her
   // the row and neither could say whether the order was gone or merely unread.
   const st = healthy();
   const register = [...REGISTER, { number: 9, order_code: "D06D27", issued_at: "2026-10-11T08:25:00.000Z" }];
-  const res = runHealthChecks(st, { register, copies: COPIES });
+  const res = runChecks(st, { register, copies: COPIES });
   const r = resultOf(res, "hasOrder");
   assert.equal(r.status, "fail", "★ a receipt with no order behind it was not reported");
   assert.deepEqual(r.detail, ["#D06D27"], "the failing receipt was not named");
@@ -72,7 +83,7 @@ test("★★ a receipt with no order behind it FAILS — the fault that cost her
   // ⚠️ THE REGISTER HERE HOLDS ONLY THAT ONE RECEIPT. The healthy order is deliberately not in this book,
   // so its own receipt would be unaccounted for — and this check would fail for a second, unrelated reason.
   const oneRow = [{ number: 9, order_code: "D06D27", issued_at: "2026-10-11T08:25:00.000Z" }];
-  assert.equal(resultOf(runHealthChecks(shelf, { register: oneRow, copies: COPIES }), "hasOrder").status, "pass",
+  assert.equal(resultOf(runChecks(shelf, { register: oneRow, copies: COPIES }), "hasOrder").status, "pass",
     "★ an order kept on the Removed list was reported as unaccounted for");
 });
 
@@ -81,7 +92,7 @@ test("★★ an order that is not carrying its receipt number FAILS — her #F44
   // The number had been issued and stamped on a ROW the filing page never read.
   const st = healthy();
   delete st.orders[0].receiptNo;
-  const res = runHealthChecks(st, { register: REGISTER, copies: COPIES });
+  const res = runChecks(st, { register: REGISTER, copies: COPIES });
   const r = resultOf(res, "carried");
   assert.equal(r.status, "fail", "★ an order missing the number the register holds for it was not reported");
   assert.match(r.detail[0], /receipt #000007, order says none/,
@@ -96,7 +107,7 @@ test("★★ one order's lines disagreeing about the order FAILS", () => {
     { ...st.orders[0], id: "ord_a1b2c3d4e5f6" },
     { ...st.orders[0], id: "ord_a1b2c3d4e5f7", qty: 1, status: "new" },  // disagrees about the STATUS
   ];
-  const r = resultOf(runHealthChecks(st, { register: REGISTER, copies: COPIES }), "agree");
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "agree");
   assert.equal(r.status, "fail", "★ a group disagreeing about its own status was not reported");
   assert.equal(r.detail.length, 1, "the disagreeing order was not named once");
   assert.match(r.detail[0], /status/, "the check did not say WHICH fact the lines disagree about");
@@ -108,14 +119,14 @@ test("★★ one order's lines disagreeing about the order FAILS", () => {
     { ...ok.orders[0], id: "ord_a1b2c3d4e5f6", qty: 3 },
     { ...ok.orders[0], id: "ord_a1b2c3d4e5f7", qty: 1, lineNote: "no nuts" },
   ];
-  assert.equal(resultOf(runHealthChecks(ok, { register: REGISTER, copies: COPIES }), "agree").status, "pass",
+  assert.equal(resultOf(runChecks(ok, { register: REGISTER, copies: COPIES }), "agree").status, "pass",
     "★ a perfectly ordinary two-item order was reported as disagreeing with itself");
 });
 
 test("★ an order not on any bake day FAILS — the order that is invisible", () => {
   const st = healthy();
   st.orders[0].deliveryDateId = "d_gone";
-  const r = resultOf(runHealthChecks(st, { register: REGISTER, copies: COPIES }), "day");
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "day");
   assert.equal(r.status, "fail", "★ an order no bake day can show was not reported");
   assert.match(r.fix, /bake day/, "the check does not say what she can do about it");
 });
@@ -128,8 +139,12 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   assert.equal(resultOf(res, "hasOrder").status, "skipped", "★ an unreadable register was reported as a pass");
   assert.equal(resultOf(res, "carried").status, "skipped", "★ an unreadable register was reported as a pass");
   assert.equal(resultOf(res, "copies").status, "skipped", "★ unreadable copies were reported as a pass");
+  // ⭐ AND THE COPY IT COULD NOT OPEN IS SKIPPED TOO (v457). ⚠️ **This is the check whose whole subject is
+  // something the app CANNOT see — an order that has left leaves nothing behind — so a pass here without
+  // having looked would be the worst of the lot.**
+  assert.equal(resultOf(res, "stable").status, "skipped", "★ a copy that could not be opened was reported as a pass");
   assert.equal(res.passedChecks, 7, "a skipped check was counted among the passes");
-  assert.equal(res.skippedChecks, 3, "the skipped checks were not counted separately");
+  assert.equal(res.skippedChecks, 4, "the skipped checks were not counted separately");
   // ⚠️ AND A SKIP SAYS WHY — the same discipline the register screen follows.
   assert.match(resultOf(res, "hasOrder").why, /shared data/i, "a skipped check does not say why it could not run");
 
@@ -143,11 +158,11 @@ test("★★ a receipt she has declared void is NOT a fault — a decision is no
   // satisfied is one she learns to ignore** — which would cost her the whole page.
   const st = healthy();
   const register = [...REGISTER, { number: 9, order_code: "D06D27", issued_at: "2026-10-11T08:25:00.000Z" }];
-  assert.equal(resultOf(runHealthChecks(st, { register, copies: COPIES }), "hasOrder").status, "fail",
+  assert.equal(resultOf(runChecks(st, { register, copies: COPIES }), "hasOrder").status, "fail",
     "the fixture did not start with an unaccounted receipt");
 
   st.voidedReceipts = [{ no: 9, code: "D06D27", at: "2026-10-12T09:00:00.000Z", reason: "trial order" }];
-  assert.equal(resultOf(runHealthChecks(st, { register, copies: COPIES }), "hasOrder").status, "pass",
+  assert.equal(resultOf(runChecks(st, { register, copies: COPIES }), "hasOrder").status, "pass",
     "★ a receipt she has explained was still reported as a fault the page can never clear");
 });
 
@@ -176,8 +191,15 @@ test("★★ no check's words carry markdown — her screen prints it literally 
     ],
     removedOrders: [{ id: "ord_a1b2c3d4e5f6" }, { id: "ord_bbbbbbbbbbbb", removedAt: new Date().toISOString() }],
   };
-  const res = runHealthChecks(st, { register: [{ number: 1, order_code: "FFFFFF" }], copies: [] });
-  assert.ok(res.failedChecks >= 4, `the fixture did not fail enough checks to read their words (${res.failedChecks})`);
+  // ⚠️ AND THE COPY CARRIES ONE ORDER MORE THAN THE PHONE HAS, so the copy check FAILS here as well and
+  // **its own words are read by this guard** — a check written next year is exactly what this covers.
+  const res = runHealthChecks(st, {
+    register: [{ number: 1, order_code: "FFFFFF" }], copies: [], copyWhen: COPY_WHEN,
+    copy: { orders: [...st.orders, { id: "ord_cccccccccccc" }], removedOrders: st.removedOrders },
+  });
+  assert.ok(res.failedChecks >= 5, `the fixture did not fail enough checks to read their words (${res.failedChecks})`);
+  assert.equal(resultOf(res, "stable").status, "fail",
+    "★ the copy check did not fail here, so the one check whose sentence is longest was never read for markdown");
   const words = res.results.flatMap((r) => [r.title, r.why, r.fix, ...(r.detail || [])]).filter(Boolean);
   const withMarkup = words.filter((w) => /\*\*|__/.test(w));
   assert.deepEqual(withMarkup, [],
@@ -191,9 +213,71 @@ test("★★ no check's words carry markdown — her screen prints it literally 
 
 test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
-  const res = runHealthChecks(bare, { register: [], copies: COPIES });
+  const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 10, "the checks did not all run on an empty book");
+  assert.equal(res.total, 11, "the checks did not all run on an empty book");
   assert.equal(localChecks(bare).length, 7, "the local checks are not seven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
+  assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
+});
+
+// ── v457: the only check that can see an order LEAVE ────────────────────────
+
+test("★★★ an order that leaves the phone is caught — the fault that cost her three orders", () => {
+  // ⚠️⚠️ WHY THIS CHECK HAS TO EXIST, AND WHY NOTHING BEFORE IT COULD DO THE JOB. Every other check compares
+  // **one part of her live data against another part of her live data** — and when an order leaves, both
+  // sides leave together, so they all stay green. ⭐ **A saved copy is the only thing in the app that
+  // remembers what was there before.** On 11 Oct 2026 that check did not exist, and her three paid orders
+  // sat missing while 3,335 tests passed.
+  const week = healthy();
+  const copy = { orders: week.orders, removedOrders: [] };   // the copy taken a week ago
+  const now = healthy();
+  now.orders = [];                                           // …and the order is gone from this phone
+
+  const r = resultOf(runHealthChecks(now, { register: REGISTER, copies: COPIES, copy, copyWhen: COPY_WHEN }), "stable");
+
+  assert.equal(r.status, "fail", "★ an order vanished from the live list and nothing reported it");
+  // ⚠️ AND IT NAMES THE ORDER, by the number she would search for — a count she cannot look up is a number
+  // she cannot act on. This is the same code the receipt register prints.
+  assert.deepEqual(r.detail, ["#D4E5F6"], "★ the check does not name the order that went missing");
+  assert.match(r.why, /Removed list/, "★ it does not say the app has no record of taking the order off");
+  assert.match(r.why, /copy saved on/, "★ it does not say which copy it looked at");
+  assert.ok(r.fix, "★ a fault with no way out is a dead end");
+});
+
+test("★★ the same order is NOT a fault when it was removed on purpose — either list explains it", () => {
+  // ⚠️⚠️ WITHOUT THIS THE CHECK COULD NEVER GO GREEN ON AN ORDER SHE DELETED HERSELF, **and a warning that
+  // can never be satisfied is one she learns to ignore** — the rule this file already records for voided
+  // receipts. ⭐ And there are TWO places the explanation can live, because the Removed list only keeps 48
+  // hours: her live shelf, and **the copy's own shelf, which is what explained it at the time it was taken.**
+  const week = healthy();
+  const copyOrders = week.orders;
+
+  // (a) it is on the Removed list NOW
+  const onShelfNow = healthy();
+  onShelfNow.orders = [];
+  onShelfNow.removedOrders = [{ id: "ord_a1b2c3d4e5f6", removedAt: new Date().toISOString() }];
+  assert.equal(resultOf(runHealthChecks(onShelfNow, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN,
+    copy: { orders: copyOrders, removedOrders: [] },
+  }), "stable").status, "pass", "★ an order she removed by hand was reported as a loss");
+
+  // (b) the shelf row has since been pruned, and only the COPY remembers it was taken off
+  const prunedSince = healthy();
+  prunedSince.orders = [];
+  prunedSince.removedOrders = [];
+  assert.equal(resultOf(runHealthChecks(prunedSince, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN,
+    copy: { orders: copyOrders, removedOrders: [{ id: "ord_a1b2c3d4e5f6", removedAt: "2026-10-05T00:00:00.000Z" }] },
+  }), "stable").status, "pass", "★ a removal the copy still remembers was reported as a loss");
+
+  // ⚠️ AND THE OTHER WAY AN ORDER IS RECOGNISED IS CHECKED TOO (v441): the code it wears today, and the
+  // one it wore before it was grouped. A copy from before it gained an item must not read as a loss.
+  const beforeGrouping = healthy();
+  const oldOrder = { ...week.orders[0], groupId: undefined };
+  beforeGrouping.orders = [{ ...oldOrder, id: "ord_a1b2c3d4e5f6", groupId: "group_zzz" }];
+  assert.equal(resultOf(runHealthChecks(beforeGrouping, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN,
+    copy: { orders: [oldOrder], removedOrders: [] },
+  }), "stable").status, "pass", "★ an order that gained an item was reported as a loss");
 });

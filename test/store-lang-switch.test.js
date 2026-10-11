@@ -169,7 +169,8 @@ test("the rebuilt menu card still shows the chosen quantity", () => {
   // The switch rebuilds every card; the cart lives in a closure the rebuild
   // reads, so the stepper must come back counting the same item. (The shim
   // keeps textContent separate from the appended text nodes — read the node.)
-  assert.equal(firstCardStepper().children[1].children[0].text, "1");
+  // ⚠️ v458: the number is a box now, so it is read as a value rather than as a text node.
+  assert.equal(firstCardStepper().children[1].value, "1");
 });
 
 test("a repeat tap on the language already showing does nothing", () => {

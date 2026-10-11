@@ -19,6 +19,20 @@ import * as backups from "../backups.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
 
+// ⭐ WHICH COPY IS WORTH OPENING (v457). `listBackups` returns the newest first, and it mixes kinds —
+// daily, weekly, monthly and her own manual copies — so **"the oldest row" can be a monthly from months
+// ago**, and an order she removed back then has no Removed row to explain it. ⚠️ That would make the check
+// cry wolf on its first run, which is how a warning gets ignored.
+// ⭐ **The oldest DAILY copy is the right one: about a week back — far enough back to predate a loss, and
+// near enough that the Removed list can still explain what is missing from it.**
+function oldestDaily(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const dailies = list.filter((r) => r && r.kind === "daily" && r.id != null);
+  const fallback = list.filter((r) => r && r.id != null);
+  const pool = dailies.length ? dailies : fallback;
+  return pool.length ? pool[pool.length - 1] : null;   // newest-first, so the last is the oldest
+}
+
 // ⚠️ `(root, state)` — THE APP'S ORDER, the one the router calls every screen with (`viewEl, state,
 // params`). Written the other way round first, and the smoke pass caught it by name.
 export function renderHealth(root, state) {
@@ -40,7 +54,8 @@ export function renderHealth(root, state) {
     card.replaceChildren(
       el("h3", { style: "margin:0 0 2px" }, "System check"),
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        "Reads the records on this phone, and your receipts and saved copies in your shared data."),
+        "Reads the records on this phone, your receipts in your shared data, and opens your oldest recent "
+        + "saved copy to compare it with what you have now."),
       el("p", { class: "hc-verdict" }, verdictLine(res, res ? "just now" : "")),
       el("div", { class: "btn-row", style: "margin:0" },
         button("Run the check", () => run(false), "primary")),
@@ -86,7 +101,25 @@ export function renderHealth(root, state) {
     const copies = await backups.listBackups(state).then((r) => (r && r.ok ? r.rows : null)).catch(() => null);
     if (dead) return;
 
-    const res = runHealthChecks(state, { register, copies });
+    // ⭐ AND ONE COPY IS OPENED — THE OLDEST DAILY ONE. ⚠️ **It is the only thing in the app that remembers
+    // what was on this phone BEFORE**, so it is the only thing that can see an order leave: every other
+    // check compares one part of her live data against another part of her live data, and when an order
+    // goes, both sides go together and they all stay green. ⚠️ **A copy that cannot be opened is left as
+    // null, and the check is SKIPPED — never passed.**
+    let copy = null;
+    let copyWhen = "";
+    const pick = oldestDaily(copies);
+    if (pick) {
+      const got = await backups.getBackup(state, pick.id).then((r) => (r && r.ok ? r.row : null)).catch(() => null);
+      if (dead) return;
+      if (got) {
+        try { copy = JSON.parse(got.data); } catch { copy = null; }
+        if (!copy || typeof copy !== "object") copy = null;
+        copyWhen = backups.localWhen(got.created_at);
+      }
+    }
+
+    const res = runHealthChecks(state, { register, copies, copy, copyWhen });
     run.busy = false;
     paint(res);
     paintList(res);

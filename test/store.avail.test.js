@@ -256,9 +256,9 @@ test("live availability renders: full day struck out, first open day chosen, per
   fInc._listeners.click[0]();
   fInc._listeners.click[0]();
   fInc._listeners.click[0]();
-  assert.equal(fQty.textContent, "2", "+ stops at the 2 left");
+  assert.equal(fQty.value, "2", "+ stops at the 2 left");
   fDec._listeners.click[0]();
-  assert.equal(fQty.textContent, "1", "− still works");
+  assert.equal(fQty.value, "1", "− still works");
 });
 
 test("tapping another open day moves the marker and swaps the product stamps", () => {

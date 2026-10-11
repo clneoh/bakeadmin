@@ -1113,12 +1113,29 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
   color: var(--brown-dark);
   cursor: pointer;
 }
+/* ★★★ AND IT IS A FIELD NOW, NOT A LABEL (v458) — in the New-order card, in the Edit pop-up and in the
+   shop alike, because **two boxes that look the same must behave the same**. Her words: __"for qty field i
+   should be allow to key in qty also instead of just press the + & -"__. ⚠️ Stripped back to the look the
+   number already had, and the number box's own up/down spinners removed — **the + and − either side are
+   that control, and two ways to do one thing on one row is the fault this project has a rule about.** */
 .stepper .stepper-val {
+  width: 60px;
   min-width: 52px;
   text-align: center;
   font-size: 17px;
   font-weight: 700;
+  font-family: inherit;
+  color: var(--ink);
+  border: none;
+  background: transparent;
+  padding: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
+.stepper .stepper-val::-webkit-outer-spin-button,
+.stepper .stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* ⚠️ AND A DISABLED ONE IS DRAWN AS INERT, as the buttons beside it are. */
+.stepper .stepper-val:disabled { opacity: .45; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .form-grid .span2 { grid-column: 1 / -1; }
 .edit-item {
