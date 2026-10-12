@@ -15,6 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const { runHealthChecks, localChecks, registerChecks, copyChecks, backupChecks } = await import("../admin/js/health.js");
+const sync = await import("../admin/js/sync.js");
 
 // The smallest book that should come out CLEAN — one order, one bake day, paid, numbered, on the shelf
 // nothing, and a register row that agrees with it.
@@ -45,6 +46,12 @@ const runChecks = (state, extra = {}) => runHealthChecks(state, {
   ...extra,
   copy: { orders: state.orders, removedOrders: state.removedOrders },
   copyWhen: COPY_WHEN,
+  // ⭐⭐ AND THE PHONE-AGAINST-THE-CLOUD PAIR (v466) — a shared data that holds EXACTLY what this phone
+  // holds, so a healthy book passes and a fault is a fault. ⚠️ **Without these the two new checks SKIP, and
+  // a skipped check is invisible to this file's own "every check actually RAN" assertion.**
+  local: sync.localKeys(state),
+  cloud: { ok: true, keys: new Set(sync.localKeys(state)) },
+  waiting: 0,
 });
 
 test("★★ a healthy book passes every check — and every check actually RAN", () => {
@@ -56,8 +63,8 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 11, `the check list is no longer eleven checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 11);
+  assert.equal(res.total, 13, `the check list is no longer thirteen checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 13);
   assert.equal(res.failed, 0);
 });
 
@@ -143,8 +150,17 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   // something the app CANNOT see — an order that has left leaves nothing behind — so a pass here without
   // having looked would be the worst of the lot.**
   assert.equal(resultOf(res, "stable").status, "skipped", "★ a copy that could not be opened was reported as a pass");
-  assert.equal(res.passedChecks, 7, "a skipped check was counted among the passes");
-  assert.equal(res.skippedChecks, 4, "the skipped checks were not counted separately");
+  // ⚠️⚠️ AND BOTH OF THE PHONE-AGAINST-THE-CLOUD CHECKS SKIP TOO (v466), EACH SAYING WHY. ⭐ **A phone with
+  // shared data off must not be told its records are fine and it must not be told they are lost** — it must
+  // be told that nobody could look, which is the only honest answer available.
+  assert.equal(resultOf(res, "reached").status, "skipped",
+    "★ shared data that could not be read was reported as a pass");
+  assert.equal(resultOf(res, "waiting").status, "pass",
+    "the waiting count is a local number and does not need the cloud to be readable");
+  assert.equal(res.passedChecks, 8, "a skipped check was counted among the passes");
+  assert.equal(res.skippedChecks, 5, "the skipped checks were not counted separately");
+  assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
+    "the skipped check does not say why it could not look");
   // ⚠️ AND A SKIP SAYS WHY — the same discipline the register screen follows.
   assert.match(resultOf(res, "hasOrder").why, /shared data/i, "a skipped check does not say why it could not run");
 
@@ -215,7 +231,7 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 11, "the checks did not all run on an empty book");
+  assert.equal(res.total, 13, "the checks did not all run on an empty book");
   assert.equal(localChecks(bare).length, 7, "the local checks are not seven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
@@ -281,3 +297,51 @@ test("★★ the same order is NOT a fault when it was removed on purpose — ei
     copy: { orders: [oldOrder], removedOrders: [] },
   }), "stable").status, "pass", "★ an order that gained an item was reported as a loss");
 });
+
+// ── v466: the check that compares this phone against the shared data ─────────
+test("★★★ a BAKE DAY on this phone that the shared data does not hold is FOUND", () => {
+  // ⚠️⚠️ HER WORDS, AND THIS IS THE CASE EXACTLY: __"i add a bake date 10/10, other user dont see it"__.
+  // ⭐ **Every check before this one compared this phone with ITSELF.** Nothing had ever asked whether what
+  // is on the phone is actually in the shared data — which is the whole of her report.
+  const st = healthy();
+  const local = sync.localKeys(st);
+  // …and the shared data holds everything EXCEPT the bake day.
+  const cloud = { ok: true, keys: new Set(local.filter((k) => !k.startsWith("deliveryDates:"))) };
+
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), local, cloud, waiting: 0 }), "reached");
+  assert.equal(r.status, "fail", "★ a bake day that never reached the shared data was reported as fine");
+  assert.deepEqual(r.detail, ["bake day 2026-10-12"],
+    "★ it does not NAME the record, so she cannot look it up");
+  assert.match(r.why, /other phone/i, "the check does not say what the consequence is");
+  assert.ok(r.fix, "★ a fault with no way out is a dead end");
+});
+
+test("★★ and an order that never reached the shared data is named by its number", () => {
+  const st = healthy();
+  const local = sync.localKeys(st);
+  const cloud = { ok: true, keys: new Set(local.filter((k) => !k.startsWith("orders:"))) };
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), local, cloud, waiting: 0 }), "reached");
+  assert.equal(r.status, "fail", "★ an order that never left this phone was reported as fine");
+  // ⚠️ THE ORDER NUMBER IS WHAT SHE WENT TO THE RECEIPT REGISTER TO FIND — the same key everything else in
+  // this app is matched on (v441).
+  assert.deepEqual(r.detail, ["#D4E5F6"], "★ the order is not named the way she can look it up");
+});
+
+test("★★⚠️ and what is still WAITING TO SEND is counted — the number nothing could show before", () => {
+  // ⚠️⭐ IT IS THE NUMBER THAT DECIDED WHETHER THE CHECK ABOVE IS A FAULT OR A PHOTOGRAPH OF A PHONE
+  // MID-SEND, and until v466 no screen could show it at all.
+  const st = healthy();
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 3 }), "waiting");
+  assert.equal(r.status, "fail", "★ three changes waiting to be sent was reported as nothing to say");
+  assert.deepEqual(r.detail, ["3 changes"], "the count is not what she is shown");
+  assert.match(r.why, /no other phone can see/i, "the check does not say what waiting means");
+  assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 0 }), "waiting").status, "pass",
+    "a phone with nothing waiting was reported as having something to send");
+});
+
+// The register, the copies and the copy are not what these three tests are about — but leaving them out
+// would SKIP the checks that are, and a skipped check is invisible to "every check actually RAN".
+function emptyExtras() {
+  return { register: Array.isArray(REGISTER) ? REGISTER : [], copies: COPIES, copyWhen: COPY_WHEN,
+    copy: { orders: [], removedOrders: [] }, local: [], cloud: { ok: true, keys: new Set() } };
+}

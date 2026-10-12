@@ -292,6 +292,57 @@ export function backupChecks(state, copy, when = "") {
     : pass("stable", TITLE)];
 }
 
+// ── the check that asks whether this phone's records REACHED the other one ───
+
+// `cloud` is `sync.cloudKeys`' answer — `{ ok, keys }` or a reason — and `local` is `sync.localKeys`' list
+// of everything this phone holds. ⚠️ NULL/UNREADABLE MEANS SKIPPED, NEVER PASSED, as everywhere here.
+//
+// ⚠️⚠️ WHY THIS EXISTS. Her report: __"i add a bake date 10/10, other user dont see it"__, and before it
+// __"why my other user dont see some order that is on my device?"__. ⭐ **EVERY CHECK IN THIS APP COMPARED
+// THIS PHONE WITH ITSELF** — its own lists, its own copies, its own receipts. ⭐⭐ **Nothing had ever asked
+// the one question her report is about: is what is on this phone actually IN the shared data?**
+// ⚠️ And the journal records a change as handed over when it is QUEUED, not when it leaves — so a change
+// whose queue was lost would sit here for ever with nothing to say so. **This is what says so.**
+export function reachedCloudCheck(state, cloud, local) {
+  const TITLE = "Everything on this phone has reached your shared data";
+  if (!cloud || !cloud.ok) {
+    return [skipped("reached", TITLE,
+      (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
+  }
+  const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
+  const missing = (Array.isArray(local) ? local : []).filter((k) => !held.has(k));
+  // ⭐ NAMED THE WAY SHE CAN LOOK THEM UP — an order by its number, a bake day by its date.
+  const nameOf = (key) => {
+    const at = String(key).indexOf(":");
+    const kind = String(key).slice(0, at);
+    const id = String(key).slice(at + 1);
+    if (kind === "orders") return `#${codeOf({ id })}`;
+    if (kind === "deliveryDates") {
+      const d = (state && state.deliveryDates || []).find((x) => x && x.id === id);
+      return d && d.date ? `bake day ${d.date}` : "a bake day";
+    }
+    return kind;
+  };
+  return [missing.length
+    ? fail("reached", TITLE, missing.map(nameOf),
+      "These are on this phone and NOT in your shared data, so no other phone can see them. The record itself is safe here — what is missing is the hand-over.",
+      "Open Settings → Shared data and press Sync now, then run this check again. If they are still missing after that, the change was lost on its way out.")
+    : pass("reached", TITLE)];
+}
+
+// ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
+// IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
+// no network: it is a local count.
+export function waitingCheck(waiting = 0) {
+  const TITLE = "Nothing on this phone is still waiting to be sent";
+  const n = Number.isFinite(Number(waiting)) ? Math.max(0, Math.floor(Number(waiting))) : 0;
+  return [n > 0
+    ? fail("waiting", TITLE, [`${n} change${n === 1 ? "" : "s"}`],
+      `${n} change${n === 1 ? " is" : "s are"} on this phone and ${n === 1 ? "has" : "have"} not been handed to your shared data yet, so no other phone can see ${n === 1 ? "it" : "them"}. If this number does not go down on its own, press Sync now.`,
+      "Open Settings → Shared data and press Sync now. If the number stays, this phone's sending queue needs looking at — and the records themselves are safe.")
+    : pass("waiting", TITLE)];
+}
+
 // ── and the whole verdict, in one shape the screen can draw ─────────────────
 
 // ⚠️ `register`, `copies` and `copy` absent = SKIPPED, and a skipped check is counted ON ITS OWN, never
@@ -302,6 +353,8 @@ export function runHealthChecks(state, extra = {}) {
     ...registerChecks(state, extra.register, state && state.voidedReceipts),
     ...copyChecks(extra.copies),
     ...backupChecks(state, extra.copy, extra.copyWhen),
+    ...reachedCloudCheck(state, extra.cloud, extra.local),
+    ...waitingCheck(extra.waiting),
   ];
   return {
     results,

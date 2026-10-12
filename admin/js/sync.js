@@ -515,6 +515,63 @@ function writeSync(b) {
   } catch (err) { /* storage full — pending stays in memory only */ }
 }
 
+// ★★★ WHAT THIS PHONE IS STILL HOLDING, AND WHAT THE SHARED DATA ACTUALLY HAS (v466).
+//
+// HER REPORT: __"i add a bake date 10/10, other user dont see it"__ — and, of the sync thread generally,
+// __"why my other user dont see some order that is on my device?"__.
+//
+// ⚠️⚠️ AND HERE IS THE GAP THE TWO OF THOSE EXPOSE, MEASURED IN THE CODE RATHER THAN GUESSED AT: **the
+// journal records a change as HANDED OVER at the moment it is QUEUED — not when it actually leaves.** The
+// queue is what retries, and it is careful. ⭐ **But if the queue is ever lost while that note survives — a
+// reinstall, a cleared key, a phone out of storage — then this app believes the record is already shared,
+// `markDirty` finds nothing to send, and NOTHING ON ANY SCREEN WOULD EVER SAY SO.** ⚠️ **I have NOT proved
+// that is what happened to her; it is one mechanism that fits, and the two functions below are what will
+// tell her which.**
+//
+// ⭐ `pendingCount` is the number of changes THIS phone is still holding — **the number nobody could see
+// before** — and `cloudKeys` is a plain READ of what the shared data holds, so the check can compare it with
+// this phone. ⚠️ **Neither of them writes anything, anywhere.**
+
+// How many changes are waiting to be sent. ⚠️ Read from the journal, so it counts what would be lost.
+export function pendingCount() {
+  return Object.keys(readSync().pending || {}).length;
+}
+
+// Every record key THIS phone holds, as `kind:id`. ⚠️ **READ FROM `LISTS` ITSELF** — the same map the sync
+// uses to decide what travels — **so a list added later is compared by the check whether or not anybody
+// remembers it exists.** ⭐ A second hand-written list here is the v394 fault in a new dress.
+export function localKeys(state) {
+  const keys = [];
+  for (const [kind, field] of Object.entries(LISTS)) {
+    const list = state && state[field];
+    if (!Array.isArray(list)) continue;
+    for (const rec of list) if (rec && rec.id) keys.push(`${kind}:${rec.id}`);
+  }
+  return keys;
+}
+
+// The set of record keys the shared data holds, as `kind:id` — or `{ ok: false, reason }` when it could not
+// be read. ⚠️ **A record marked deleted is NOT "held"**, because nothing can read it.
+export async function cloudKeys(state) {
+  const c = cloudCfg(state);
+  if (!c.on) return { ok: false, reason: "Shared data is switched off on this phone." };
+  const token = cachedToken();
+  if (!token) return { ok: false, reason: "This phone is not signed in to your shared data." };
+  try {
+    const res = await fetch(`${c.url}/rest/v1/bakery?select=kind,id,_deleted&limit=5000`, {
+      headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { ok: false, reason: `Your shared data could not be read (HTTP ${res.status}).` };
+    const rows = await res.json().catch(() => null);
+    if (!Array.isArray(rows)) return { ok: false, reason: "Your shared data could not be read." };
+    const keys = new Set();
+    for (const r of rows) if (r && r.kind && !r._deleted) keys.add(`${r.kind}:${r.id}`);
+    return { ok: true, keys };
+  } catch {
+    return { ok: false, reason: "Your shared data could not be read — check this phone is online." };
+  }
+}
+
 // ── markDirty: queue what changed since the last baseline ────────────────
 
 export function markDirty(state, nowIso = new Date().toISOString()) {

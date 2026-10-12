@@ -16,6 +16,7 @@ import { el, button } from "../ui.js";
 import { runHealthChecks } from "../health.js";
 import { pullReceiptRegister } from "../supabase.js";
 import * as backups from "../backups.js";
+import * as sync from "../sync.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
 
@@ -119,7 +120,17 @@ export function renderHealth(root, state) {
       }
     }
 
-    const res = runHealthChecks(state, { register, copies, copy, copyWhen });
+    // ⭐⭐ AND THE ONE QUESTION EVERY OTHER CHECK HERE HAD NEVER ASKED (v466): **is what is on this phone
+    // actually in the shared data?** Her report: __"i add a bake date 10/10, other user dont see it"__.
+    // ⚠️ `cloudKeys` is a READ of the shared data and writes nothing anywhere; `localKeys` is built from the
+    // same list the sync itself uses; `pendingCount` needs no network at all. ⚠️ **A phone with shared data
+    // off gets a SKIP with its reason, never a pass.**
+    const cloud = await sync.cloudKeys(state).catch(() => null);
+    if (dead) return;
+    const res = runHealthChecks(state, {
+      register, copies, copy, copyWhen,
+      cloud, local: sync.localKeys(state), waiting: sync.pendingCount(),
+    });
     run.busy = false;
     paint(res);
     paintList(res);

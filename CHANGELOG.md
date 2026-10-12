@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v465)
+# Jienluv2bake — change history (v54 → v466)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v466, THE CHECK THAT ASKS WHETHER THIS PHONE HAS REACHED THE OTHER ONE (no database step).**
+
+**Your words:** __"build the check that compares this phone against the cloud"__ — and before it, __"i add a bake date 10/10, other user dont see it"__ and __"why my other user dont see some order that is on my device?"__
+
+**1. ⚠️⚠️ EVERY CHECK ON THAT PAGE COMPARED THIS PHONE WITH ITSELF — its own lists, its own saved copies, its own receipts.** ⭐⭐ **Nothing had ever asked the one question your report is about: is what is on this phone actually in the shared data?** ⭐ Two checks now ask it, and they are the two halves of the same thing.
+
+**2. ★ "EVERYTHING ON THIS PHONE HAS REACHED YOUR SHARED DATA."** It reads what the shared data holds — **a read, and it writes nothing anywhere** — and compares it with every record on this phone: orders, bake days, products, ingredients, suppliers, purchase orders, expenses, deposits and the rest. ⭐ **Anything here that is not there is named the way you can look it up** — an order by its number, a bake day by its date.
+
+**3. ★ AND "NOTHING ON THIS PHONE IS STILL WAITING TO BE SENT"** — a count of the changes this phone is holding. ⭐ **That number is the one that decides whether the check above is a fault or a photograph of a phone mid-send, and until now NO SCREEN COULD SHOW IT AT ALL.** It needs no network.
+
+**4. ⚠️ AND A PHONE WITH SHARED DATA OFF IS TOLD NOBODY COULD LOOK — NEVER THAT IT IS FINE.** Both checks are skipped, each with its own reason, and a skipped check on that page has never counted as a pass.
+
+**5. ⚠️⚠️ AND I VERY NEARLY FIXED SOMETHING THAT WAS NOT BROKEN — WORTH RECORDING, BECAUSE IT NEARLY BECAME A NEW FAULT.** Adding a bake day calls the shared-data sync but **not** the storefront publish, while marking an occasion calls both. That looked like an oversight. ⚠️ **It is not, and the code says so twenty lines away: the shared-data sync is what re-publishes the AVAILABILITY the shop reads — the bake days themselves — while the storefront publish is the shop's CONFIG: name, number, QR and the occasion marks.** ⭐ **Publishing the config from the bake-day screen would have been worse than useless: the file warns that a phone's older copy would clobber the live config on every visit.** ⭐ **I read the consumer and inferred the data — the same mistake this project already has written down. The comment was there; I checked before changing, not after.**
+
+**Reason:** your bake day not reaching the other phone is **not** explained by publishing. **These two checks are what will tell us where it is going**, on your own phone, the next time you run them.
+
+**Measured:** tests **3,369 → 3,372** — three added, and each of them seen to fail with the comparison reversed. ⚠️ **This entry first carried a number I had not read off the run (3,377); it is corrected here.** **No database step.**
 
 **12 Oct 2026 — engine v465, THE SHOP DOES NOT CARRY THE LAST CUSTOMER'S BAKE DAY INTO THE NEXT ONE'S ORDER (no database step).**
 
@@ -18,7 +36,7 @@ always tell which build a phone is running.
 
 **5. ⚠️⚠️ AND THIS FOUND FOUR TESTS THAT WERE PASSING ON STATE THEY NEVER SET.** Four tests in the address file pressed **+** without ever tapping a bake day — **which that same `+` has refused since v454.** They only worked because the flag was left TRUE by an earlier test in the file. ⭐ **The moment the reset started doing its job, the borrowed state was gone and the presses were correctly refused.** The tests now tap the day they always should have; **they were passing on a lie, and the reset exposed it rather than caused it.**
 
-**Measured:** tests **3,371 → 3,372**, the new assertion seen to fail with the reset reversed. **No database step.**
+**Measured:** tests **3,369**, all green — ⚠️ **the count did not move, because this version added an ASSERTION to a test that already existed rather than a new test, and the number written here first (3,372) was not read off a run.** The new assertion was seen to fail with the reset reversed. **No database step.**
 
 **12 Oct 2026 — engine v464, A BAKE DAY IN THE PAST CAN BE WRITTEN DOWN — ALLOWED, AND IT SAYS SO (no database step).**
 
