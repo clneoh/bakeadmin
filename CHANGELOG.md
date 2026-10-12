@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v481)
+# Jienluv2bake — change history (v54 → v482)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v482, THE MONEY TILE ON THE MORE SCREEN (no database step).**
+
+**Your words:** __"fix the More screen tile too"__
+
+**1. ⚠️ THE TILE SAID SOMETHING THAT HAD STOPPED BEING TRUE.** *"What came in — cash, TNG, still to collect"* was written when **Cash and TNG were the only two books in the app** — and it named a *still to collect* that is not even shown on that screen. ⭐ **It now reads: "Every account — in, out and what it holds."**
+
+**2. ⭐ AND THE VERSION MOVES FOR A LABEL, ON PURPOSE.** ⚠️ **A change to the app that does not move the engine number never reaches your phone** — the strip that tells you a new build is waiting is keyed on that number, so a fix with no bump is a fix you would never be told about. ⭐ Worth knowing for the small ones.
+
+**Measured:** tests stay **3,406** — it is a label and no assertion covered it, which is the honest figure rather than a padded one. ⚠️ **Checked on the real screen at 375px:** the tile reads on **one line**, at its neighbours' height, with no sideways scroll. **No database step.**
 
 **12 Oct 2026 — engine v481, EVERY PLACE MONEY SITS IS AN ACCOUNT (no database step).**
 
