@@ -71,6 +71,17 @@ function createEl(tag) {
       const i = p.children.indexOf(this);
       return i >= 0 && i + 1 < p.children.length ? p.children[i + 1] : null;
     },
+    // ⚠️⚠️ AND THE OTHER DIRECTION (v493), FOR EXACTLY THE REASON ABOVE. The refusal now asks
+    // `note.previousSibling !== head` before moving itself under a step heading — ⭐ **with the property
+    // missing that guard was always true, so the shop would re-insert the line on every refusal, and the
+    // test asking "is the line directly under the step it is about?" read `undefined` and could not say.**
+    // ⚠️ `null` when there is nothing before it, as the real DOM does — never `undefined`.
+    get previousSibling() {
+      const p = this.parentElement;
+      if (!p || !Array.isArray(p.children)) return null;
+      const i = p.children.indexOf(this);
+      return i > 0 ? p.children[i - 1] : null;
+    },
     appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
     append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
     // ⚠️⚠️ THIS SHIM HAD NO `insertBefore` AT ALL UNTIL v459, and that mattered the moment the shop began
@@ -81,7 +92,15 @@ function createEl(tag) {
     // `nextSibling` — and therefore "is it directly above the card he touched?" — an honest question.
     insertBefore(n, ref) {
       const prev = n && n.parentElement;
-      if (prev && prev !== this && Array.isArray(prev.children)) {
+      // ⚠️⚠️ AND IT TAKES THE NODE OUT OF **THIS** PARENT TOO, NOT ONLY OUT OF ANOTHER ONE (v493).
+      // **The real `insertBefore` is a MOVE even when the node is already here** — this shim only removed it
+      // when the parent was DIFFERENT, so re-inserting a node that was already a child **appended a SECOND
+      // ENTRY for the same node.** ⭐ MEASURED: `document.body.children` held FIVE entries for one
+      // `#step-note`, and the assertion asking "is the line directly under step 2?" read the first copy and
+      // answered no — a failure that had nothing to do with the view. ⚠️ A shim that cannot express what the
+      // real DOM does cannot test it: the same lesson as `parentNode`, `nextSibling` and `scrollIntoView`
+      // above, and this one had been sitting there since v459.
+      if (prev && Array.isArray(prev.children)) {
         const i = prev.children.indexOf(n);
         if (i >= 0) prev.children.splice(i, 1);
       }
@@ -144,6 +163,16 @@ function createEl(tag) {
     // what it was asked, which is what makes "the page is carried to the missing box" an assertion rather
     // than a hope. Same rule as `insertBefore` and `parentNode` before it.
     scrollIntoView(opts) { this.scrolled = opts; },
+    // ⚠️⚠️ AND IT CAN BE ASKED WHERE IT IS (v493) — the shim could not, until now. The refusal carries the
+    // page to a step ONLY when that step is not already on screen, so "did the page go there?" became a
+    // question about GEOMETRY; ⭐ and with no `getBoundingClientRect` on the node, `bringIntoView` bails on
+    // its first line — **so every assertion about the page being carried to a step would have been proving
+    // the guard rather than the view.** Same lesson as `scrollIntoView` and `removeEventListener` above.
+    // ⚠️ The default is WELL BELOW the viewport, which is the real case being pinned (a customer at the
+    // menu, with step 1 far above him). A test that wants the other case sets `.rect` itself.
+    getBoundingClientRect() {
+      return this.rect || { top: 9000, bottom: 9040, left: 0, right: 0, width: 320, height: 40 };
+    },
   };
   return node;
 }
@@ -181,7 +210,24 @@ globalThis.document = {
   addEventListener(t, f) { (this._docListeners[t] ||= []).push(f); },
   removeEventListener() {},
 };
-globalThis.window = { open() {} };
+// ⚠️ `innerHeight` BECAUSE THE SHOP NOW ASKS IT (v493) — the refusal moves the page only when the step
+// it names is not already on screen, and "on screen" is measured against the viewport. ⭐ A window shim
+// without it would make every element read as OFF screen and hide the case that must not scroll.
+globalThis.window = { open() {}, innerHeight: 800 };
+// ⚠️⚠️ THE STEP HEADS **AND THEIR FIELDS** NEED A PARENT, AND THEY NEED IT IN EVERY TEST (v493). The
+// refusal is put directly BELOW the field of the step it names with `insertBefore`, and the shim's registry
+// hands back ORPHAN nodes whose `parentNode` is null — ⭐ **so without this the move is silently skipped,
+// the line stays wherever the last test left it, and an assertion about WHERE it lands is asserting
+// nothing.** Same rule as `parentNode`, `insertBefore` and `previousSibling` above: a shim that cannot
+// express what the view does cannot test it. The ids are read from the shop's own markup, so a renamed
+// field cannot leave this quietly parenting nothing.
+const STEP_FIELD_IDS = [...readFileSync(new URL("../store/app.js", import.meta.url), "utf8")
+  .matchAll(/STEP_FIELD\s*=\s*\{([^}]*)\}/g)]
+  .flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]));
+for (const id of ["step1", "step2", "step3", ...STEP_FIELD_IDS]) {
+  const n = document.getElementById(id);
+  if (!n.parentElement) document.body.appendChild(n);
+}
 
 // store/config.js now carries the real Supabase URL/anon key; stub fetch so the
 // module-level render() doesn't hit the network during tests.
@@ -438,14 +484,49 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   // shown to somebody who has not done step 2 sends him BACKWARDS down the page to fix something it was not
   // yet asking him for. **So the guard stops at the first thing missing, and the assertions read top down.**
   const press = async () => { await registry["order-btn"].onclick(); };
-  const said = () => confirmLines().join(" ");
+  // ⚠️ THE ONE LINE A STEP REFUSES WITH (v493) — under the step's own heading, never a banner.
+  const textOfNode = (n) => {
+    if (!n) return "";
+    if (n.children && n.children.length) {
+      return n.children.map((c) => (c.nodeType === 3 ? String(c.text || "") : textOfNode(c))).join("");
+    }
+    return String(n.textContent || "");
+  };
+  const stepLine = () => textOfNode(registry["step-note"]);
+  // ⚠️ A FIELD'S REASON IS SET WITH `textContent` (see `markField`), NOT WITH CHILDREN — and the shim's
+  // `getElementById` hands back the same object every time, so this is the box's own note and not a copy.
+  const fieldNote = (id) => String((registry[id] || {}).textContent || "");
+  // ⚠️ AND WHETHER THE FOOT-OF-PAGE BANNER WAS USED AT ALL. `#confirm-msg` may never have been asked for in
+  // this test, so it is read defensively — the question is "was anything put in it", not "does it exist".
+  const bannerLines = () => ((registry["confirm-msg"] || {}).children || []).length;
 
   // ── nothing at all: the button is LIVE and says where to start
   assert.equal(registry["order-btn"].disabled, false,
     "★ the button is dead on an empty basket again — it must answer instead");
   await press();
-  assert.match(said(), /Pick something from the menu above/,
-    "★ an empty basket was refused without telling him what to do");
+  // ★★★ AND IT NAMES STEP 1, BECAUSE STEP 1 IS WHAT IS MISSING (v493). ⚠️⚠️ HER WORDS: __"when step 1 is
+  // skip, it should always go back to step1"__ — ⭐ **the refusal names the FIRST step that is not done, not
+  // the step the control belongs to.** Before this, this press was answered with a sentence about the
+  // BASKET while the bake day was the thing he had not chosen — and the three circles beside it said step
+  // 1, so the page was disagreeing with itself about one order.
+  assert.match(stepLine(), /Choose your bake day first/,
+    "★ the first thing outstanding was not named — the refusal is answering about a later step");
+  assert.equal(registry["step-note"].previousSibling, registry["dates"],
+    "★ the line is not under the calendar — the field step 1 is filled in with");
+  assert.deepEqual(registry["step-note"].scrolled,
+    { block: "center", behavior: "smooth" },
+    "★★ the page was not carried to the line — he is told off out of sight, which is exactly the fault "
+    + "the old foot-of-page banner was supposed to fix and made worse");
+  assert.equal(bannerLines(), 0,
+    "★ the foot-of-page banner is back — one refusal, one surface");
+
+  // ── and with the day chosen, the SAME press names step 2 — the basket
+  tapDay();
+  await press();
+  assert.match(stepLine(), /Pick something from the menu above/,
+    "★ with step 1 done, an empty basket was refused without telling him what to do");
+  assert.equal(registry["step-note"].previousSibling, registry["menu"],
+    "★ the line is not under the menu — the field step 2 is filled in with");
 
   // ── an item, and nothing else: HIS NAME FIRST, because the page asks it first
   const stepper = registry["menu"].children[0].children.find((c) => c.className === "card-body")
@@ -481,13 +562,28 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   assert.ok(carried, "★ the page was NOT carried to the box that is missing, so he is told off out of sight");
   assert.equal(carried.block, "center",
     "★ the box was put somewhere other than the middle of the screen — under the bar fixed to the foot is no use");
-  assert.doesNotMatch(said(), /WhatsApp number/i,
+  assert.ok(!String(registry["whatsapp-input"].className || "").includes("bad"),
     "★ he was sent to his NUMBER while a still-earlier step was the one outstanding");
 
   // ── a name, still no number
   document.getElementById("name-input").value = "Aunty Bee";
   await press();
-  assert.match(said(), /WhatsApp number/i, "★ the number is not asked for after the name");
+  // ★★★ AND THE NUMBER ANSWERS THE SAME WAY THE NAME DOES (v493). ⚠️⚠️ Her rule 3 is the whole reason:
+  // __"step 3 not fill up … screen will scroll to the field below it and flash the warning"__. ⭐ The name
+  // box has done exactly that since v455/v462; **the number box used a BANNER at the very foot of the page
+  // instead — two ways of saying one sentence inside one step.** ⭐ That banner is retired and the box now
+  // behaves as the box above it does, **with both sentences, so he is told what is missing AND why.**
+  const waBox = registry["whatsapp-input"];
+  assert.ok(String(waBox.className || "").includes("bad"),
+    `★ the empty number box did not mark itself (it is "${waBox.className}")`);
+  assert.match(fieldNote("whatsapp-input-note"), /WhatsApp number/i,
+    "★ the box says nothing about the number it wants");
+  assert.match(fieldNote("whatsapp-input-note"), /confirm your order/i,
+    "★ the second half of the banner's sentence was dropped with the banner — he is told what is missing "
+    + "and not why the bakery needs it");
+  assert.ok(String(waBox.className).includes("bad") && waBox.scrolled,
+    "★ the number box did not carry the page to itself");
+  assert.equal(bannerLines(), 0, "★ the banner is back for the number");
 
   // ── a number, still no way of getting it
   document.getElementById("whatsapp-input").value = "60123456789";
@@ -620,11 +716,31 @@ test("the receipt carries the strictest change/cancel window of the whole basket
 
       // Nothing stated anywhere → no window line at all.
       CONFIG.products.forEach((p) => { delete p.cancelDays; });
-      plus(); // basket refilled
-      // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
+      // ⚠️⚠️ AND THE SECOND ORDER HAS TO BE A REAL ONE (v493). ⭐ **It never was.** The first order's receipt
+      // stayed in the banner, and the empty-basket refusal used to call `showConfirm` — **which OVERWROTE
+      // that receipt, so the assertion below passed because a REFUSAL had replaced it, not because an order
+      // without a window had been placed.** ⚠️ v465's after-order reset also clears `dayPicked`, so the
+      // refilled basket needed a day tapped before it and the press was refused outright.
+      // ⭐ Retiring the banner exposed it. Now the order is placed for real, and the receipt is counted.
+      tapDay();                       // ⭐ the next customer's bake day is not inherited (v465)
+      registry["confirm-msg"].replaceChildren();   // ⚠️ so a STALE receipt cannot answer for the new order
+      plus();                         // basket refilled
+      // ⚠️ BOTH FIELDS AGAIN (v493) — the after-order reset blanks the form for the next customer, so the
+      // number set before the FIRST order is gone by now. ⭐ The name was already being re-set here and the
+      // number was not, which is why this second order stopped at step 3 instead of being placed.
       document.getElementById("name-input").value = "Aunty Bee";
+      document.getElementById("whatsapp-input").value = "60123456789";
+      let posts = 0;
+      const countingFetch = globalThis.fetch;
+      globalThis.fetch = async (url, opts) => {
+        if (opts && opts.method === "POST") posts += 1;
+        return countingFetch(url, opts);
+      };
       await registry["order-btn"].onclick();
       await afterOrderNotice(); // ★ the notice follows her one second (v451)
+      globalThis.fetch = countingFetch;
+      assert.equal(posts, 1, "★ the second order was never placed, so the assertion below proves nothing");
+      assert.ok(confirmLines().length, "★ the receipt did not come back, so nothing below is being read");
       assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
         "no product states a window → the receipt says nothing");
     });
@@ -717,8 +833,18 @@ test("order click without a WhatsApp number blocks the order (no POST)", async (
     await registry["order-btn"].onclick();
     assert.equal(posted, null, "no order POSTed when the phone is blank");
     assert.equal(registry["order-btn"].disabled, false, "button stays usable so they can retry");
-    const title = registry["confirm-msg"].children[0].children[0];
-    assert.equal(title.text, "Please add your WhatsApp number.");
+    // ★★★ AND THE BOX ITSELF SAYS IT (v493), NOT A BANNER AT THE FOOT OF THE PAGE. ⚠️ Her rule 3:
+    // __"step 3 not fill up … screen will scroll to the field below it and flash the warning"__. ⭐ The name
+    // box has answered that way since v455; the number box used a banner BELOW everything — including the
+    // Track-your-order card — so one step had two ways of saying one sentence. ⭐ It answers as the box above
+    // it does now, and the page is carried to it.
+    const waBox = registry["whatsapp-input"];
+    assert.ok(String(waBox.className || "").includes("bad"),
+      `★ the empty number box did not mark itself (it is "${waBox.className}")`);
+    assert.match(String((registry["whatsapp-input-note"] || {}).textContent || ""), /WhatsApp number/i,
+      "★ the box that is missing the number says nothing about it");
+    assert.deepEqual(waBox.scrolled, { block: "center", behavior: "smooth" },
+      "★ the page was not carried to the box that is missing, so he is told off out of sight");
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -3205,6 +3331,70 @@ test("★★ he cannot order without saying how he gets it — and the page poin
   }
 });
 
+// ── v493: the warning belongs to the STEP, and the page goes to it ──────────
+test("★★★ the refusal carries the page to the step that is missing — and only when it is off screen", () => {
+  // Her words: __"1. step 1 not fill up. no matter the user is clicking on step 2, step3 or step 4, the
+  // screen should scroll to step1, and below step one flashing the warning meaasge …"__
+  render();                       // ⚠️ deliberately NO tapDay() — step 1 is the thing missing
+  const card = registry["menu"].children[0];
+  const plus = () => card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+
+  plus();                         // a STEP-2 control, pressed while STEP 1 is outstanding
+  assert.equal(registry["bar-count"].textContent, "0 items", "precondition: the lock held at all");
+  assert.equal(registry["step-note"].previousSibling, registry["dates"],
+    "★ the line is not hanging under step 1 — the step that is actually missing");
+  assert.deepEqual(registry["step-note"].scrolled, { block: "center", behavior: "smooth" },
+    "★ pressing into step 2 with step 1 missing did not carry the page back to step 1 — he is left looking "
+    + "at the card he pressed, being told about a step two screens above him");
+
+  // ⭐⭐ AND IT DOES NOT MOVE WHEN THE STEP IS ALREADY ON SCREEN. ⚠️ Her rule is that the warning must be
+  // SEEN, not that the page must always jump — and **a page that jumps while he is looking straight at the
+  // thing being named is the fault v423 settled for the parked place.** ⭐ The shim reports this step as
+  // sitting well inside an 800px viewport.
+  registry["step-note"].scrolled = undefined;
+  registry["step-note"].rect = { top: 40, bottom: 80, left: 0, right: 320, width: 320, height: 40 };
+  plus();
+  assert.equal(registry["step-note"].scrolled, undefined,
+    "★ the page was moved even though the step it names was already fully on screen — a jump he did not "
+    + "ask for, in front of the very thing he is being told about");
+  assert.equal(registry["step-note"].hidden, false,
+    "★ and the warning itself was not shown, so 'nothing moved' was proved by doing nothing at all");
+
+  // ⚠️⚠️ AND THE SHIM IS PUT BACK — the registry is shared by EVERY test in this file, so a viewport left
+  // behind here would quietly change what every later test means. ⭐ Measured: it did exactly that, and the
+  // next test failed for a reason that had nothing to do with what it was checking.
+  registry["step-note"].rect = undefined;
+  registry["step-note"].scrolled = undefined;
+});
+
+test("★★ a step-2 warning is not wiped by a repaint just because STEP 1 is done (v493)", async () => {
+  // ⚠️⚠️ THE CLEARING USED TO ASK `dayPicked` — **which is only step 1's question.** ⭐ That was right while
+  // step 1 was the only step that could refuse, and wrong the moment the line can speak about step 2:
+  // **a customer who had already picked his day would have the answer to a step-2 refusal wiped by the next
+  // repaint.** v455's rule is kept and scoped to what it was always about — a form error does not outlive
+  // ITS cause, which is the step the line names.
+  render();
+  tapDay();                       // ⭐ step 1 IS done — that is the whole point of this test
+  const name = registry["name-input"];
+  const note = registry["step-note"];
+
+  // He presses STEP 4 with nothing in the basket → the first thing missing is STEP 2.
+  await registry["order-btn"].onclick();
+  assert.equal(note.hidden, false, "precondition: the refusal said nothing, so nothing below proves anything");
+  assert.equal(note.previousSibling, registry["menu"],
+    "precondition: the line is not at step 2, so this test is watching the wrong step");
+
+  // ⚠️ AND NOW A REPAINT — the field's own `input` listener runs `paintSteps`, which is the code that clears
+  // the line. With the day already picked, a clearing keyed to `dayPicked` wipes a step-2 answer here.
+  (name._listeners.input || []).forEach((f) => f.call(name));
+  assert.equal(note.hidden, false,
+    "★ a repaint wiped the step-2 warning because STEP 1 was already done — the customer is told why and "
+    + "then the page takes it back");
+  assert.equal(note.previousSibling, registry["menu"],
+    "★ the line left the step it was speaking about");
+});
+
 // ── v458: the shop's quantity can be TYPED ───────────────────────────────────
 test("★★★ the shop's quantity can be TYPED — 30 loaves is not 30 taps", () => {
   // ⚠️⚠️ HER WORDS: __"for qty field i should be allow to key in qty also instead of just press the + & -"__
@@ -3254,20 +3444,19 @@ test("★★ a TYPED quantity obeys the bake-day lock, exactly as the + press do
   const note = registry["step-note"];
   assert.equal(note.hidden, false, "★ and he was told nothing about why");
 
-  // ⚠️⚠️ AND THE LINE IS ON THE SCREEN HE IS ALREADY LOOKING AT (v459). **This is her report, and it is
-  // the whole of this version:** __"when i skip step one try enter qty, it refuse to allow, but i dont
-  // know why, because the message appear somewhere not within my screen, i have to scrol up to find it"__.
-  // ⭐ MEASURED ON THE REAL SHOP before the change: with the customer at the menu, the line sat
-  // **262 pixels ABOVE the top of the screen** — the refusal worked and he was told nothing.
-  // ⚠️⚠️ **AND THAT WAS MY JUDGEMENT, NOT A BUG** — at v456 I wrote that a customer at the bottom of the
-  // page *"has to look back up to read it… I chose the missing step over the customer's thumb."*
-  // **A message nobody sees is not a message**, so the thumb wins now.
-  const menu = registry["menu"];
-  const card = menu.children.find((c) => c.dataset && c.dataset.product);
-  assert.equal(note.parentElement, menu,
-    "★ the line is not in the menu where he is — it is still up at a step heading, off his screen");
-  assert.equal(note.nextSibling, card,
-    "★ the line is not directly above the card he touched, so he cannot tell what it is about");
+  // ★★★ AND IT IS SAID AT STEP 1, WITH THE PAGE CARRIED THERE (v493). ⚠️⚠️ THIS REVERSES v459 AT HER
+  // INSTRUCTION, and the words are hers: __"no matter the user is clicking on step 2, step3 or step 4, the
+  // screen should scroll to step1, and below step one flashing the warning meaasge"__.
+  // ⭐ v459 solved the same fault from the other end — the line came to the customer's thumb — and it worked;
+  // ⚠️ **but it also put the line INSIDE the menu, which is rebuilt on every quantity change, and THAT is
+  // the fault the next test exists for.** ⭐ At the step the line cannot be torn out at all, and the page
+  // going to it is what makes it visible: **the refusal still works, and he is still told.**
+  assert.equal(note.previousSibling, registry["dates"],
+    "★ the line is not hanging directly under step 1, the step it is about");
+  assert.deepEqual(registry["step-note"].scrolled, { block: "center", behavior: "smooth" },
+    "★ the page was not carried to step 1 — the refusal worked and he was told nothing he could see");
+  assert.ok(!registry["menu"].children.includes(note),
+    "★ the line is inside the menu again, where a rebuild can throw it out");
 
   // ⚠️ AND WITH THE DAY TAPPED, THE SAME TYPE GOES THROUGH — so this is a lock and not a wall.
   tapDay();
@@ -3277,12 +3466,15 @@ test("★★ a TYPED quantity obeys the bake-day lock, exactly as the + press do
 });
 
 // ── v460: the warning is not erased by a repaint ────────────────────────────
-test("★★★ pressing − does not erase the warning — and it still works the second time", () => {
+test("★★★ a repaint cannot erase the warning — it is not inside the menu at all (v460, v493)", () => {
   // ⚠️⚠️ HER WORDS: __"why on step 2, i try to press + the warning come out, but if i press -, the warning
   // disappear and never come back again??"__ ⭐ **She was right, and it was worse than "disappears".**
   // ⭐ v459 put that line directly above the product card — **which put it INSIDE the menu** — and the menu
   // is rebuilt from scratch on every quantity change. ⚠️ Measured on the real shop before the fix: after +
   // the line was in the page; after − `getElementById` returned NOTHING; after + again, still nothing.
+  // ★★★ AND SINCE v493 THE FAULT IS NOT MERELY FIXED, IT IS IMPOSSIBLE. The line hangs under a step
+  // HEADING, and the headings are static markup no repaint replaces — ⭐ **which is what let v493 retire
+  // `placeStepNote`, the machinery that used to put the line back by hand after every rebuild.**
   render();
   const card = () => registry["menu"].children.find((c) => c.dataset && c.dataset.product);
   const parts = () => card().children.find((c) => c.className === "card-body")
@@ -3291,22 +3483,21 @@ test("★★★ pressing − does not erase the warning — and it still works t
 
   parts()[2]._listeners.click[0]();   // +
   assert.equal(note.hidden, false, "the + press raised no warning, so nothing below proves anything");
-  assert.ok(registry["menu"].children.includes(note), "the warning is not in the menu where he is");
+  assert.ok(!registry["menu"].children.includes(note),
+    "★ the line is hung inside the menu, which is the fault this test exists for");
 
-  parts()[0]._listeners.click[0]();   // −
+  parts()[0]._listeners.click[0]();   // −  — a full rebuild of the menu
   // ⚠️⚠️ THE ASSERTION THAT IS HER REPORT. Membership of `children`, not `parentElement` — **a rebuild that
   // threw it out would leave a stale parent behind, which is a false pass.**
-  assert.ok(registry["menu"].children.includes(note),
-    "★ pressing − threw the warning out of the page — and once out, nothing could find it again");
   assert.equal(note.hidden, false, "★ pressing − made the warning vanish");
-  assert.equal(note.nextSibling, card(), "★ the warning is no longer above the card it is about");
+  assert.equal(note.previousSibling, registry["dates"], "★ the warning left the step it is about");
+  assert.ok(!registry["menu"].children.includes(note), "★ the rebuild took the line with it");
 
   // ⭐⭐ AND THE "NEVER COMES BACK" HALF, which is the part that made it useless rather than untidy.
   parts()[0]._listeners.click[0]();   // − again, another rebuild
   parts()[2]._listeners.click[0]();   // + again
   assert.equal(note.hidden, false, "★ the warning never came back after a rebuild");
-  assert.ok(registry["menu"].children.includes(note), "★ and the line is gone from the page for good");
-  assert.equal(note.nextSibling, card(), "★ it came back, but not above the card he touched");
+  assert.equal(note.previousSibling, registry["dates"], "★ it came back, but not at the step it is about");
 });
 
 // ── v461: step 3 answers when it is touched too early ───────────────────────

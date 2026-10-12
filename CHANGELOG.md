@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v492)
+# Jienluv2bake — change history (v54 → v493)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v493, ONE WARNING, AT THE FIELD THAT IS MISSING (no database step).**
+
+**Your words:** __"we should cleanup the store behavior, there is 4 steps ordering process"__ — then __"the field and steps should be in sequence, the appropriate warning should be below that field"__ — then __"when step 1 is skip, it should always go back to step1"__ — and __"step3 is a big step, can be a very tall step window, then it shold go by field."__
+
+**1. ⭐⭐ IT NAMES THE FIRST STEP THAT IS MISSING, NOT THE STEP YOU PRESSED.** ⚠️ **This was the real fault.** A customer who had not chosen a bake day and pressed a **delivery card** was told about **step 2**; one who pressed **Place order** was told about **step 2** as well — ⭐ **so he was told about the basket while the bake day was the thing he had not done, and the three circles beside it said step 1.** The page was disagreeing with itself about one order. ⭐ **Now every refusal asks one question — which step is first not done — and the circles ask the SAME question**, so they cannot drift apart.
+
+**2. ⭐ THE WARNING SITS UNDER THE FIELD IT IS ABOUT, AND THE PAGE GOES TO IT.** Step 1's line under the **calendar**, step 2's under the **menu**, step 3's under **the two cards**. ⚠️ **Measured on the real shop: with the customer at the menu, step 1 was 500 pixels ABOVE the top of the screen** — the refusal worked and he was told nothing he could see. ⭐ The page is carried to the line and the line blinks, and **the move only happens when the line is not already on screen** — a page that jumps in front of the very thing being named is the fault we settled long ago. ⚠️ **And step 3 is the tall one** (your words: *"a very tall step window"*), which is why it goes by FIELD: its line hangs under the two cards, and the name and number mark themselves with their reason **under their own box** — the same rule read one field further in.
+
+**3. ⚠️⚠️ AND THE PAGE IS ACTUALLY MOVED — CHECKED, NOT ASSUMED.** ⭐ **Measured in the preview: asking for a smooth scroll did NOT move the page at all, and an instant one to the same place did** (1947 → 985, the line landing centred). ⚠️ **A smooth scroll is an animation, and an animation the browser declines to run leaves the customer looking at nothing — which is the whole fault.** ⭐ So the move is asked for smoothly and then **checked**: if nothing has moved by the time the animation should be under way, it is done instantly.
+
+**4. ⭐⭐ AND EVERY OTHER WAY OF SAYING IT IS RETIRED.** ⚠️ Three **banners at the foot of the page** used to say the same things — the empty basket, the missing number, the day that closed — and they **fought their own scroll**: the page was carried to the step and then the banner carried it again, to a box below everything, *including the Track-your-order card*. ⭐ **So a customer was told "pick something from the menu ABOVE" while the page flew past the menu, downwards.** All three are gone: the number now marks its own box (as the name always did), the closed day speaks at step 1, and the empty basket speaks at step 2. ⭐ **One sentence, at the field, in the order the page reads.** ⚠️ The availability notes and the "your basket changed" confirmation are NOT step warnings and stay exactly as they were.
+
+**Measured:** driven on the real shop at 375×812 — pressing **+** with no bake day tapped carried the page so the line landed **centred** (366px down an 812px screen), **under the calendar**, with the basket still empty; pressing **Place order** with a day chosen but an empty basket landed the line **centred under the menu**. Tests **3,418 → 3,422**, and **seven written faults were each watched to turn the suite red** before the fix was kept: the move removed, the move made unconditional, each banner restored, the second sentence dropped with it, the line put back inside the menu, and the clearing put back on step 1. ⚠️ **One of those bites found a real fault in the TEST harness, not the shop**: the stand-in `insertBefore` appended a **second copy** of a node that was already in that parent — the real one moves it — so `document.body` held **five** entries for one warning line and an assertion read the wrong one.
+
+**No database step.**
 
 **12 Oct 2026 — engine v492, THE SHOP NOW TELLS A CUSTOMER WHEN THEY ARE LOOKING AT AN OLD PAGE (no database step).**
 
