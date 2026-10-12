@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v494)
+# Jienluv2bake — change history (v54 → v495)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v495, THE RECEIPT OFFERS TO PUT THE PAGE BACK, THEN DOES IT BY ITSELF (no database step).**
+
+**Your words:** __"how to make the storefront page reset itself, after place order"__ — then __"your idea offer to reset is good, and if no body attend to it then reset itself"__
+
+**1. ⭐⭐ THE FORM HAS RESET ITSELF ALL ALONG — IT IS THE PAGE THAT DOES NOT.** The basket, the notes, the name, the number, the address, the door pin, the promo code, the way of getting it and the bake day all go the moment an order lands (v465). ⚠️ **What did not reset is where the page is SITTING: it stays at the bottom, resting on the receipt.** So the next customer takes the same phone, sees a confirmation, and has to work out for himself that the shop above it is already fresh.
+
+**2. ⭐⭐ SO A MINUTE LATER THE RECEIPT OFFERS, AND THEN THE SHOP DOES IT BY ITSELF.** A quiet line appears on the receipt — **All done? The basket, your details and the bake day have already been cleared for the next order** — with one press, **Back to the top**. ⚠️ **Showing it moves nothing**: it only speaks. If nobody attends to it, the same wait again and the page goes quietly back to the top on its own.
+
+**3. ⚠️ AND THE RECEIPT STAYS.** Your answer, when I asked which you wanted: __"clear the form"__. The order number and the tracking code are on that receipt, and a shop that took them away would be taking away the two things the customer needs next.
+
+**4. ⚠️ AND IT NEVER DRAGS SOMEONE WHO IS READING.** If the page has been scrolled at all since the offer went up, the automatic move does **not** happen — ⭐ **the same rule as every other warning in this shop: a page that moves while he is doing something else.** The offer stays up, so he can still press it; the page simply does not move under him.
+
+**5. ⭐⭐ AND TWO THINGS IN MY OWN BUILD WERE WRONG, BOTH CAUGHT BY ASKING ONE QUESTION.** ⚠️ First: the offer's minute was armed **when the order landed** rather than when the receipt appeared — so on any page where the receipt was slow, **the offer came due first, found no receipt to sit on, and gave up for good.** ⭐ Second, and worse: **I wrote the fix in the wrong place and the comment said otherwise** — the call sat on the line after the closing `), GREEN_HOLD_MS);`, which *reads* as inside the callback and is not. ⭐ **The test that asks "is anything armed before the receipt exists?" caught both on its first run.** ⚠️ A timer was also the wrong first shape — sixty seconds standing on every order, holding a process open; it is now unref'd, so it can never be the reason a page is kept alive.
+
+**Measured:** driven on the real shop at 375×812 with the order's own network call stubbed, so **nothing reached your live cloud** — and in the preview the whole sequence was watched on the page: ⚠️ the offer went up at 820ms and the receipt arrived at 1017ms, **which is the ordering fault above, seen rather than reasoned about.** Tests **3,423 → 3,425**, and six written faults were each watched to turn the suite red: no offer armed · nothing armed to do it by itself · showing the offer moving the page · the offer left on the receipt after the move · the automatic reset dragging a customer who had scrolled · and the arming put back at the order. ⚠️ Two stubs in the test harness also had to be fixed rather than worked around: the stand-in page had **no `remove()`** (so "the offer comes down" could never pass and never said so) and **no `scrollY`/`scrollTo`** (so the whole rule was unexpressible).
+
+**No database step.**
 
 **12 Oct 2026 — engine v494, NO DELIVERY RUN TO YOUR OWN KITCHEN (no database step).**
 

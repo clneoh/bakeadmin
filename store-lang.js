@@ -23,6 +23,14 @@ const en = {
   buildStuck: "A newer version is ready. Close this page completely, then open it again.",
   buildReload: "Reload",
 
+  // ★★ THE OFFER THAT PUTS THE PAGE BACK FOR THE NEXT CUSTOMER (v495). It is on the receipt, because the
+  // receipt is what he is looking at, and it says what will happen rather than doing it — ⭐ a page that
+  // moved itself while someone was still reading their own order number would be the shop being rude to
+  // its own customer. ⚠️ Note what it is careful NOT to say: it does not offer to "clear the order". The
+  // order is already placed and the receipt stays.
+  resetOfferBody: "All done? The basket, your details and the bake day have already been cleared for the next order.",
+  resetOfferBtn: "Back to the top",
+
   // Promo codes (v269). The offer is composed in store/app.js out of the engine's
   // PARTS — kind and value — so a percentage, an amount and free delivery each
   // read naturally here rather than being an English sentence handed over whole.
@@ -452,6 +460,12 @@ const zh = {
   buildStuck: "有新版本了。请把这个页面完全关掉，再重新打开。",
   buildReload: "重新载入",
 
+  // ★★ 下单后把页面让给下一位客人的提示（v495）。它出现在收据上，因为他正在看的就是收据；而且它只是
+  // 「说」会怎么做，不是直接动手 —— ⭐ 如果他还想再看一眼自己的订单号，页面却自己跑掉了，那是店家对客人
+  // 失礼。⚠️ 也要注意它刻意不说的话：它没说会「清除订单」。订单已经下好了，收据会留着。
+  resetOfferBody: "都好了吗？购物篮、你的资料和烘焙日已经清空，可以下一位了。",
+  resetOfferBtn: "回到最上面",
+
   promoLabel: "有优惠码吗？",
   promoPh: "例如 FRESH10",
   promoApply: "使用",
@@ -682,6 +696,14 @@ const ms = {
   buildStale: "Versi baharu halaman ini sudah sedia.",
   buildStuck: "Versi baharu sudah sedia. Tutup halaman ini sepenuhnya, kemudian buka semula.",
   buildReload: "Muat semula",
+
+  // ★★ T AWARAN YANG MEMULIHKAN HALAMAN UNTUK PELANGGAN SETERUSNYA (v495). Ia berada pada resit, kerana
+  // resit itulah yang sedang dilihatnya, dan ia MEMBERITAHU apa yang akan berlaku dan bukan terus
+  // melakukannya — ⭐ halaman yang bergerak sendiri semasa seseorang masih membaca nombor ordernya sendiri
+  // adalah kedai yang kurang sopan kepada pelanggannya. ⚠️ Perhatikan apa yang ia sengaja TIDAK katakan: ia
+  // tidak menawarkan untuk "memadamkan order". Order itu sudah pun dibuat dan resitnya kekal.
+  resetOfferBody: "Sudah selesai? Bakul, butiran anda dan hari membakar sudah dikosongkan untuk order seterusnya.",
+  resetOfferBtn: "Kembali ke atas",
 
   promoLabel: "Ada kod?",
   promoPh: "cth. FRESH10",

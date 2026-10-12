@@ -1644,6 +1644,100 @@ function clearFieldMarks() {
 
   // ⚠️ MOVES THE PAGE ONLY IF THE THING IS NOT ALREADY ON IT. A customer tapping + on a card who can
   // already see the step being named must not be thrown up the page for nothing.
+  // ★★★ PUTTING THE PAGE BACK AT THE TOP ONCE THE ORDER IS A MINUTE OLD (v495). Her words, and the number
+  // is hers: __"after the order confirmation, and waited for 1min, the page should reset itself"__.
+  // ⚠️ ONE NUMBER, IN ONE PLACE — the only thing anyone would ever want to change, and changing it must not
+  // mean touching the code that uses it. ⭐ It is used TWICE: the wait before the offer, and the wait after
+  // it before the shop does it by itself.
+  const RESET_TO_TOP_MS = 60000;
+  // ⚠️ WHERE THE PAGE WAS RESTING WHEN THE OFFER WENT UP, so the shop can tell "he has not touched it" from
+  // "he is reading something". Cleared with the offer, so one order raises one offer.
+  let offerRestingAt = null;
+  let offerTimers = [];
+  // ⚠️ THE NODES THE OFFER IS MADE OF, HELD AS THEY ARE MADE — **never looked up again to remove them**,
+  // because `getElementById` returns the first match in the document and the shop learned at v460 what a
+  // lookup answers once a node has been torn out of the page.
+  let offerNodes = [];
+
+  // ⚠️⚠️ A TIMER THAT ONLY PAINTS MUST NEVER BE THE REASON A PAGE IS KEPT ALIVE. In a browser this is a
+  // no-op — `setTimeout` hands back a number, which has no `unref`. ⭐ In Node, where this shop's own tests
+  // run, it is the difference between the runner exiting and a sixty-second timer holding it open: measured,
+  // the whole suite timed out at 20 seconds with the plain `setTimeout`.
+  function shopTimer(fn, ms) {
+    const id = setTimeout(fn, ms);
+    if (id && typeof id.unref === "function") id.unref();
+    offerTimers.push(id);
+    return id;
+  }
+  function clearShopTimers() {
+    for (const id of offerTimers) { if (typeof clearTimeout === "function") clearTimeout(id); }
+    offerTimers = [];
+  }
+
+  // ⭐ THE OFFER ITSELF — a line ON THE RECEIPT, because the receipt is what he is looking at, with a press
+  // that does it now. ⚠️ **It is an offer, never a move:** showing it changes nothing on the page.
+  function showResetOffer() {
+    const box = document.getElementById("confirm-msg");
+    if (!box || box.hidden) return;               // ⚠️ the receipt has gone — there is nothing to offer on
+    // ⚠️⚠️ ONE OFFER, ASKED OF WHAT THIS CODE IS HOLDING — never of a lookup. `getElementById` answers by
+    // ID, and **a test harness that hands back a node for any id it is asked about would make this guard
+    // permanent**, so the offer could never appear and the rule could never be proved. ⭐ The same reason
+    // `endOffer` removes the nodes it made rather than looking them up (v460).
+    if (offerNodes.length) return;
+    offerRestingAt = (typeof window !== "undefined" && Number(window.scrollY)) || 0;
+    const line = el("p", { class: "confirm-sub reset-offer", id: "reset-offer" },
+      t("resetOfferBody"));
+    const go = el("button", { type: "button", class: "build-btn", id: "reset-offer-btn" }, t("resetOfferBtn"));
+    go.addEventListener("click", () => { endOffer(); scrollPageToTop(); });
+    const holder = el("p", { class: "confirm-sub" }, go);
+    offerNodes = [line, holder];      // ⚠️ held as they are made, so `endOffer` removes THESE two
+    box.append(line, holder);
+    // ⚠️ AND IF NOBODY ATTENDS TO IT, THE SHOP DOES IT BY ITSELF — her words: __"if no body attend to it then
+    // reset itself"__. ⭐ The same wait again, and then the same move the press would have made.
+    shopTimer(autoReset, RESET_TO_TOP_MS);
+  }
+
+  // ⚠️ TAKES THE OFFER DOWN AND STOPS ITS TIMERS. Called by the press, by the automatic move, and by a new
+  // offer being raised — **so a second order can never be looking at the first one's offer.**
+  function endOffer() {
+    clearShopTimers();
+    // ⚠️ A LOOKUP IS WRONG HERE for the reason v460 gives: the node is one this code made, and a lookup can
+    // answer a DIFFERENT node — the shop's own step line learned that the hard way. ⭐ So the two pieces are
+    // held as they are made, and removed as themselves.
+    offerRestingAt = null;
+    for (const node of offerNodes) node.remove();
+    offerNodes = [];
+  }
+
+  function autoReset() {
+    if (offerRestingAt === null) return;          // ⚠️ the offer has already been dealt with
+    const now = (typeof window !== "undefined" && Number(window.scrollY)) || 0;
+    // ⚠️⚠️ AND IT DOES NOT DRAG HIM IF HE HAS MOVED THE PAGE HIMSELF. v423's rule, and the same one the
+    // refusal line keeps: **a page that moves while he is doing something else.** ⭐ The offer stays up —
+    // he can still press it — it simply does not move the page out from under him.
+    if (now !== offerRestingAt) { offerTimers = []; return; }
+    endOffer();
+    scrollPageToTop();
+  }
+
+  // ⚠️ THE SAME "ASK, THEN CHECK" THE REFUSAL LINE USES (v493). A smooth scroll is an ANIMATION, and an
+  // animation the browser declines to run would leave the page exactly where it was — **measured on the
+  // real shop: the same call with `behavior: "smooth"` moved nothing, and an instant one to the same place
+  // worked.** So the smooth move is asked for and then checked; if nothing has moved, it is done instantly.
+  function scrollPageToTop() {
+    if (typeof window === "undefined" || typeof window.scrollTo !== "function") return;
+    const before = Number(window.scrollY) || 0;
+    if (before === 0) return;                       // ⭐ already there — nothing to do
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); }
+    catch { try { window.scrollTo(0, 0); } catch { /* a page that refuses is not a reason to fail */ } }
+    if (typeof setTimeout !== "function") return;
+    setTimeout(() => {
+      if ((Number(window.scrollY) || 0) === before) {
+        try { window.scrollTo(0, 0); } catch { /* a page that refuses is not a reason to fail */ }
+      }
+    }, 350);
+  }
+
   function bringIntoView(what) {
     if (!what) return;
     if (typeof what.getBoundingClientRect !== "function" || typeof what.scrollIntoView !== "function") return;
@@ -3599,6 +3693,24 @@ function clearFieldMarks() {
       // page comes to rest. ⚠️ **The shop is already reset behind it** — the next customer scrolls up into
       // a fresh shop with step ① at the top, which is exactly what the top-scroll was for, without the
       // round trip. ⭐ ONE `scrollIntoView`, in `showConfirm`, and nothing to fight it.
+      //
+      // ★★★ AND IT STILL GOES BACK TO THE TOP — A MINUTE LATER (v495). Her question: __"how to make the
+      // storefront page reset itself, after place order"__.
+      //
+      // ⚠️⚠️ EVERY FORM FIELD HAS ALREADY GONE BY THIS LINE (v465) — the basket, the notes, the name, the
+      // number, the address, the door pin, the code and the bake day. ⭐ **What does not reset is the PAGE:
+      // it stays where it is, resting on the receipt.** So the next customer takes the same phone, sees a
+      // confirmation, and has to work out for himself that the shop above it is fresh.
+      // ⚠️ AND IT CANNOT MOVE NOW — v489 measured why: this used to scroll to the top, and `showConfirm`
+      // scrolled to the notice about a second later, so a customer watched the whole shop fly past him
+      // upward and then all the way back down. **Two scrolls fighting over one press.**
+      // ⭐ So it WAITS. A minute after the receipt, when nothing else on the page is moving, it goes quietly
+      // back to the top, where the fresh shop already is. ⚠️⚠️ **AND ONLY IF THE PAGE IS EXACTLY WHERE THE
+      // ORDER LEFT IT** — if he has scrolled at all, he is reading something and the shop does not drag him
+      // anywhere: that is v423's rule (the parked place), and it is the same rule the refusal line keeps.
+      // ⚠️ THE PREVIOUS ORDER'S OFFER IS STOPPED HERE — a second order on the same phone must never be
+      // looking at the first one's offer. ⭐ The new one is armed from the RECEIPT, forty lines below.
+      endOffer();
       renderBar();
       // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
       // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the
@@ -3621,14 +3733,25 @@ function clearFieldMarks() {
       // the same shape would hold any caller that awaits the press. ⭐ **The order has already landed, so
       // there is nothing to wait FOR: the green is simply held while the handler returns.** The figures
       // above are computed now, at the moment of the sale, and only the SHOWING is late.
-      setTimeout(() => showConfirm([
+      setTimeout(() => {
+        showConfirm([
         el("p", { class: "confirm-title" }, t("orderRecvTitle")),
         el("p", { class: "confirm-body" },
           order.customer ? sub(t("orderRecvThanksBody"), order.customer, CONFIG.name) : sub(t("orderRecvBody"), CONFIG.name)),
         el("p", { class: "confirm-body" }, sub(t("orderRecvLine"), dayLabel, items, total.toFixed(2))),
         cancelLine,
         el("p", { class: "confirm-sub" }, t("orderRecvSub")),
-      ], "ok"), GREEN_HOLD_MS);
+      ], "ok");
+        // ★★★ AND THE OFFER IS ARMED FROM IN HERE, NOT FROM THE ORDER (v495) — **because the offer is about
+        // the RECEIPT, and the receipt is what this callback has just put on the page.** ⚠️⚠️ Arming it when
+        // the order landed looked equivalent and was not: `showResetOffer` returns quietly if the receipt is
+        // not up, so **any page where this second ran late would lose the offer altogether and never try
+        // again.**
+        // ⚠️ AND THIS WAS WRITTEN WRONG ONCE, IN THE OBVIOUS WAY: the call was put on the line AFTER the
+        // closing `), GREEN_HOLD_MS);` — **which reads as "inside the callback" and is not.** ⭐ The test
+        // that asks *whether anything is armed before the receipt exists* caught it on its first run.
+        shopTimer(showResetOffer, RESET_TO_TOP_MS);
+      }, GREEN_HOLD_MS);
     } else {
       // ⚠️ IT DID NOT LAND, SO THE STEP IS NOT DONE. The page falls back to WhatsApp, and a green ball
       // sitting over an order the bakery never received would be the worst thing this ball could say.
