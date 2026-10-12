@@ -111,7 +111,7 @@ globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
 const { renderMoney } = await import("../admin/js/views/money.js");
 const { entryForm } = await import("../admin/js/views/accountsEditor.js");
-const { classOfCategory, methodsOf } = await import("../admin/js/accounts.js");
+const { categoriesOf, classOfCategory, methodsOf } = await import("../admin/js/accounts.js");
 const { weekStartISO } = await import("../admin/js/weekly.js");
 const { todayISO, longDate } = await import("../admin/js/dates.js");
 
@@ -145,6 +145,8 @@ const rowNote = (row) => row.children.find((c) => String(c.className).includes("
 // ⚠️ THE LINE IS NO LONGER A BUTTON (v481) — it carries its own Edit and Delete, like every other list
 // in the app, because a row that LOOKS like text was not an affordance: she had to ask twice how to
 // delete an account. So a test opens one the way she does.
+const allOfText = (n, out = []) => { let t = String(n.textContent || "");
+  for (const c of n.children || []) t += " " + allOfText(c, out); return t; };
 const rowName = (row) => (row.children.find((c) => String(c.className).includes("money-list-name")) || {}).textContent;
 // The entry form's own box — by its label, not simply the first input, because the
 // expense form behind it has an amount box of its own.
@@ -242,18 +244,67 @@ test("renaming a way to pay moves its entries, in and out", () => {
     "⚠️⚠️ the ORDERS move with the rename — the place that was left behind");
 });
 
-test("a category she does not want can go, and its records are kept", () => {
+test("⚠️⚠️ Cash and TNG cannot be deleted — the books are built on them (v487)", () => {
+  // Her words: __"lock cash and TNG from deletion"__. ⭐ **`isCash` / `isTng` are exact matches on those
+  // two words**, and the tin figure and the phone figure are built on them — ⚠️ **delete one and no
+  // account is left that a new order can be recorded as cash with.** She had already been burnt by
+  // exactly that once today: the "Cash" block holding RM 64 she asked about three times.
+  const state = freshState();
+  openManager(state);
+
+  assert.ok(!byText(managerRow("Cash"), "Delete"), "⚠️ no Delete on Cash — the tin is built on it");
+  assert.ok(!byText(managerRow("TNG"), "Delete"), "⚠️ and none on TNG — the phone is built on it");
+  assert.ok(byText(managerRow("Loan"), "Delete"), "⭐ while every other account keeps its Delete");
+  // ⚠️ AND THEY CAN STILL BE RENAMED — which since v486 moves every record with it, so there is
+  // nothing a delete was needed for.
+  assert.ok(byText(managerRow("Cash"), "Edit"), "and both can still be renamed");
+
+  // ⚠️⚠️ AND THE GUARD IS BEHIND THE MISSING BUTTON, NOT REPLACED BY IT. The form the Edit button
+  // opens carries a Delete of its own, and pressing it must refuse.
+  fire(byText(managerRow("Cash"), "Edit"));
+  const del = byText(registry["popup-layer"], "Delete");
+  assert.ok(del, "the form still offers a Delete, so the guard has to hold");
+  fire(del);
+  assert.ok(state.settings.payMethods.length === 0 || state.settings.payMethods.includes("Cash"),
+    "⚠️ Cash survived the form's own Delete — the guard is real, not just a hidden button");
+});
+
+test("★★ a list entry a transaction uses CANNOT be deleted — her base rule (v487)", () => {
+  // ⭐ HER WORDS, AND THEY ARE THE BASE RULE THE APP SHOULD ALWAYS HAVE KEPT: __"whatever already have
+  // transaction cannot be delete that is the base rules right?"__
+  //
+  // ⚠️⚠️ THE APP USED TO DO THE OPPOSITE: it deleted the entry and KEPT the records under the old name.
+  // ⭐ **That is exactly the "Cash" block holding RM 64 she asked about three times** — the account went,
+  // the transactions stayed, and the block sat there with no way back. ⭐ **She should never have been
+  // able to do it, and now she cannot.**
   const state = freshState();
   state.expenses = [{ id: "e1", date: "2026-09-10", amount: 30, category: "Utilities" }];
   openManager(state);
-  // ⚠️ THE ROW'S OWN DELETE, pressed where she sees it — not the one buried in the open form.
+  fire(byText(managerRow("Utilities"), "Delete"));
+  // ⚠️⚠️ AND PRESS THE CONFIRMATION **IF ONE APPEARED**. ⭐ The guard refuses BEFORE the confirm, so
+  // with the rule on there is nothing to press — ⚠️ **and with it off, the confirm opens and the
+  // delete goes through. Without this line the test passed either way, reading a list nothing had
+  // touched: the same trap the OLD test sat in.**
+  const yes = byText(registry["confirm-layer"], "Delete");
+  if (yes) fire(yes);
+
+  // ⚠️⚠️ AND READ THE LIST THE APP DRAWS, NOT THE STORED ARRAY. `freshState` leaves
+  // `settings.categories` EMPTY — the built-in ones come from `categoriesOf` — so an assertion on
+  // the stored array passes whatever happened, ⭐ **which is exactly how the OLD test went on saying
+  // "gone from the list" for years while reading a list that was never there.**
+  assert.ok(categoriesOf(state).some((c) => c.label === "Utilities"),
+    "⚠️⚠️ Utilities is USED by an expense, so it cannot go — and it did not");
+  assert.equal(state.expenses[0].category, "Utilities", "and the record is untouched, because nothing happened");
+
+  // ⭐ AND ONE NOTHING USES STILL GOES, because the rule is about RECORDS and not about a list.
+  const free = freshState();
+  openManager(free);
   fire(byText(managerRow("Utilities"), "Delete"));
   fire(byText(registry["confirm-layer"], "Delete"));
-
-  assert.ok(!state.settings.categories.some((c) => c.label === "Utilities"), "gone from the list");
-  assert.equal(state.expenses[0].category, "Utilities",
-    "the record keeps the name it was written with, and still counts");
+  assert.ok(!categoriesOf(free).some((c) => c.label === "Utilities"),
+    "nothing used it, so it goes exactly as before");
 });
+
 
 test("a way to pay can be added, and the last one cannot be deleted", () => {
   const state = freshState();

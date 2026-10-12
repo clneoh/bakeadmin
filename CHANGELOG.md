@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v486)
+# Jienluv2bake — change history (v54 → v487)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v487, SOMETHING A TRANSACTION USES CANNOT BE DELETED (no database step).**
+
+**Your words:** __"but i think you know whatever already have transaction cannot be delete that is the base rules right?"__ — and __"lock cash and TNG from deletion"__
+
+**1. ⚠️⚠️ NO, IT WAS NOT THE RULE — AND YOU HAVE JUST NAMED THE ONE THAT SHOULD HAVE BEEN THERE ALL ALONG.** The app used to **let you delete** a category, a source or an account that transactions were already written against, and it **kept the records** under the old name. ⭐ **That is exactly your "Cash" block holding RM 64:** the account went, the transactions stayed, and the block sat there with no way back. ⭐ **You should never have been able to do it, and now you cannot.**
+
+**2. ★ SO THE RULE IS YOURS, AND IT COVERS ALL THREE LISTS** — a category an expense was filed under, a source a money-in row came from, an account anything moved through. **If any record uses it, it cannot be deleted**, and the refusal **says how many** and **names the way through** — rename it, and every record moves with it (v486); ⭐ **or move its records onto another name, after which it is free to go.** ⭐⭐ **And that second way exists because of what you said next:**
+
+**3. ⭐ AND Cash AND TNG ARE LOCKED EVEN WITH NOTHING IN THEM.** ⚠️ `isCash` / `isTng` are exact matches on those two words, and the tin and the phone figures are built on them — so deleting one leaves no account a new order can be recorded as cash with. ⭐ **Their Delete is not drawn at all**, rather than drawn-and-refusing: ⚠️ **a control that always says no reads as broken.** ⚠️ **Renaming them stays allowed** — and a rename moves everything with it.
+
+**4. ⭐⭐ AND YOUR WORRY ABOUT FUTURE EXCEPTIONS IS THE REASON FOR THE SECOND WAY THROUGH.** Your words: __"im not sure if there is any exclusion will be in the future"__. ⚠️ **A refusal with no way out is how a rule outlaws the correct case later** — the v439 lesson — ⭐ **so the refusal never just says no.** On the account's own Edit form there is now **Move its records…**: move them onto another name, and the name is free to go. ⚠️ **So no future exclusion — privacy, a mistake, something we have not thought of — can ever be stuck behind this rule.**
+
+**5. ⚠️⚠️ AND YOUR PRIVACY EXCEPTION IS BLOCKED BY NONE OF IT.** Your words: __"we have certain special llike due to privacy notice, we remove a person particular"__. ⭐ **That goes through a different door entirely** — *Forget* redacts the details from the **orders** and never touches these lists — so nothing here can stand in its way. ⭐ **And if a privacy case ever needed to remove an ACCOUNT**, the refusal is not a dead end: **rename it, and every record moves with it** — which is the erasure itself, because no record keeps the name. ⚠️ **The rule is deliberately scoped to the three money lists**, not to products, ingredients or customers, so it cannot outlaw a correct case somewhere else.
+
+**Measured:** tests **3,407 → 3,408**, and the rule's assertion is bitten — ⚠️ **and it took two tries: the first version passed with the rule OFF, because the test read a list nothing had touched. ⭐ That is the same trap the test it replaced had been sitting in for years.** **No database step.**
 
 **12 Oct 2026 — engine v486, A RENAME NOW MOVES THE ORDERS TOO, AND A RETIRED ACCOUNT IS NOT A DEAD END (no database step).**
 

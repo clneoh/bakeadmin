@@ -111,6 +111,18 @@ export const isOther = (method) => {
   return !!label && !isCash(label) && !isTng(label);
 };
 
+// ★★ THE TWO ACCOUNTS THAT CANNOT BE DELETED (v487).
+//
+// Her words: __"lock cash and TNG from deletion"__ — ⭐ and the reason is two lines above: **`isCash`
+// and `isTng` are EXACT matches on those two words**, and the tin figure and the phone figure are built
+// on them. ⭐ **Delete one and no account is left that a new order can be recorded as cash with** — the
+// books go on reading, but nothing new can ever be filed under it again.
+//
+// ⚠️⚠️ AND SHE HAD ALREADY BEEN BURNT BY IT ONCE, THE SAME DAY: the "Cash" block she asked about three
+// times was an account that had left her list. **Renaming stays allowed** — and since v486 a rename
+// moves every record with it — so there is nothing a delete is needed for.
+export const isLockedAccount = (method) => isCash(method) || isTng(method);
+
 // Where a method sits in her list, for reading a row back in the same order the
 // form offers. An unknown one sorts last, which is where a row from an old list
 // belongs.

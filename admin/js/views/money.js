@@ -8,8 +8,8 @@ import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder } f
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
-import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, sourcesOf } from "../accounts.js";
-import { entryForm, moveAccountRecords, newEntryChip, removeEntry } from "./accountsEditor.js";
+import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isLockedAccount, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, sourcesOf } from "../accounts.js";
+import { entryForm, moveAccountRecords, newEntryChip, openMoveAccount, removeEntry } from "./accountsEditor.js";
 // An ingredient's own unit, resolved exactly as the Ingredients screen resolves it, so a
 // stock count typed here lands as the same number of grams the On-hand line shows.
 import { currentUomId, cookingFamilyOf } from "./ingredients.js";
@@ -173,36 +173,6 @@ function openReconciliation(state, accounts, from, to, label) {
       el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
 
-// ★★ MOVING WHAT A RETIRED ACCOUNT HOLDS ONTO ONE SHE USES (v486).
-//
-// ⚠️⚠️ THIS IS THE OTHER HALF OF THE BUG SHE FOUND BY ASKING THREE TIMES. An account no longer on her
-// list keeps its block, because its money is still in the books — ⭐ **and she asked, fairly, what a
-// block she cannot pay into is doing there.** The answer was that the records were **stranded**: a
-// rename moved the expenses and the deposits and ⚠️ **left every ORDER behind**, so a retired name
-// went on holding orders that no screen could move.
-//
-// ⭐ Her words: __"move the transaction it is owning to cash LS"__. ⚠️ **And because this and a rename
-// are the same act, they call the same function** — so neither can move two places of three again.
-function openMoveAccount(state, from, redraw) {
-  const targets = methodsOf(state);
-  showPopup(`Move what "${from}" holds`, (refresh, close) => [
-    el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      `"${from}" is not one of your accounts any more, but records are still filed under it. Choosing an account moves every one of them onto it — orders, spending and money you put in alike.`),
-    ...targets.map((m) => el("div", {
-      class: "info-row tappable",
-      onclick: () => {
-        const n = moveAccountRecords(state, from, m);
-        save(state);
-        maybeSync(state);
-        close();
-        toast(`Moved ${n} ${n === 1 ? "record" : "records"} from ${from} to ${m}`);
-        redraw();
-      },
-    },
-      el("span", {}, m),
-      el("span", { class: "info-val" }, el("span", { class: "muted" }, "move them here")))),
-  ]);
-}
 
 // Day one — where she stands when the books begin (17 Sep 2026: "we need to enter opening
 // balance"). An opening balance is four answers, and three of them belong on one screen: the
@@ -449,7 +419,13 @@ function openListsManager(state, redraw) {
         // row is no longer tappable at all, so the grip can never be mistaken for a press.
         el("div", { class: "li-right" },
           button("Edit", () => { editing = { kind, label }; show(); }, "ghost small"),
-          button("Delete", () => removeEntry(state, { kind, current: label, onDone: done }), "ghost small")));
+          // ⚠️⚠️ AND NO DELETE ON THE TWO THE BOOKS ARE BUILT ON (v487). Her words: __"lock cash
+          // and TNG from deletion"__. ⭐ **The button is ABSENT rather than present-and-refusing**
+          // — ⚠️ **a control that always says no reads as broken**, and she has told me that more
+          // than once. Renaming them stays, and a rename moves every record with it (v486).
+          isLockedAccount(label)
+            ? null
+            : button("Delete", () => removeEntry(state, { kind, current: label, onDone: done }), "ghost small")));
       wireRowReorder({
         row: line,
         handle: grip,

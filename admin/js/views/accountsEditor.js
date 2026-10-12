@@ -12,10 +12,10 @@
 // words it was written with, so a rename that only changed the list would split her
 // history in two: some rows under "Packaging", the rest under "Packing". Deleting is
 // the opposite case and deliberately leaves them alone — see accounts.js.
-import { el, button, toast, confirmDialog } from "../ui.js";
+import { el, button, toast, confirmDialog, showPopup } from "../ui.js";
 import { save } from "../state.js";
 import { maybeSync } from "../supabase.js";
-import { categoriesOf, methodLabel, methodsOf, sourcesOf } from "../accounts.js";
+import { categoriesOf, isLockedAccount, methodLabel, methodsOf, sourcesOf } from "../accounts.js";
 
 const CLASS_CHOICES = [
   ["expense", "A running cost"],
@@ -73,6 +73,33 @@ export function removeEntry(state, { kind, current, onDone }) {
   const list = isCategory ? categoriesOf(state)
     : isSource ? sourcesOf(state).map((m) => ({ label: m, cls: "" }))
       : methodsOf(state).map((m) => ({ label: m, cls: "" }));
+  // ★★ THE BASE RULE SHE STATED: SOMETHING ALREADY USED BY A TRANSACTION CANNOT BE DELETED (v487).
+  //
+  // Her words, and they are the right rule: __"whatever already have transaction cannot be delete that
+  // is the base rules right?"__ ⚠️ **It was NOT the app's rule** — the app let her delete an account and
+  // KEPT the records under the old name, ⭐ **which is exactly the "Cash" block holding RM 64 she asked
+  // about three times**: the account went, the transactions stayed, and the block sat there with no way
+  // back. ⭐ **She should never have been able to do it, and now she cannot.**
+  //
+  // ⭐ AND IT COVERS ALL THREE LISTS, because the rule is about RECORDS, not about accounts — a category
+  // an expense was filed under, a source a money-in row came from, an account anything moved through.
+  // ⚠️ **Every one of those is a figure that would be split in silence by a delete.**
+  const inUse = recordsUsing(state, kind, current);
+  if (inUse) {
+    // ⭐⭐ IT NAMES A WAY THROUGH, AND NEVER JUST A NO (v487). Her worry: __"im not sure if there is any
+    // exclusion will be in the future"__. ⚠️ **A refusal with no way out is how a rule outlaws the
+    // correct case later** ([[project-v439]]) — ⭐ **so the escape hatch is BOTH: rename it, or move
+    // its records onto another name and then it is free to go.**
+    return toast(`"${current}" is used by ${inUse} ${inUse === 1 ? "record" : "records"} — it cannot be deleted yet. Rename it, or move its records to another name, and then it can.`);
+  }
+
+  // ⚠️⚠️ AND THE TWO THE BOOKS ARE BUILT ON ARE LOCKED EVEN WITH NOTHING IN THEM (v487). Her words:
+  // __"lock cash and TNG from deletion"__. ⭐ `isCash` / `isTng` are EXACT matches on those two words,
+  // so deleting one leaves no account a new order can be recorded as cash with — even on a day it
+  // happens to hold nothing.
+  if (!isCategory && !isSource && isLockedAccount(current)) {
+    return toast(`${current} cannot be deleted — the books are built on it. You can rename it instead.`);
+  }
   const kept = list.filter((c) => c.label !== current);
   if (!kept.length) return toast("Keep at least one");
   confirmDialog(
@@ -90,6 +117,55 @@ export function removeEntry(state, { kind, current, onDone }) {
       toast("Deleted");
       if (onDone) onDone("");
     }, { danger: true, yesLabel: "Delete" });
+}
+
+// How many records are written against one name, on any of the three lists (v487).
+//
+// ⚠️ The rule is about RECORDS, not about accounts: a category an expense was filed under, a source a
+// money-in row came from, an account anything moved through. ⭐ **And it is the same count the entry
+// form shows and the guard refuses on**, so the two can never disagree about the same name.
+export function recordsUsing(state, kind, current) {
+  const label = methodLabel(current);
+  const same = (v) => String(v == null ? "" : v) === current;
+  if (kind === "category") return (state.expenses || []).filter((e) => e && same(e.category)).length;
+  if (kind === "source") return (state.deposits || []).filter((d) => d && same(d.source)).length;
+  return (state.expenses || []).filter((e) => e && methodLabel(e.method) === label).length
+    + (state.deposits || []).filter((d) => d && methodLabel(d.method) === label).length
+    + (state.orders || []).filter((o) => o && methodLabel(o.paidMethod) === label).length;
+}
+
+// ★★ MOVING WHAT A RETIRED ACCOUNT HOLDS ONTO ONE SHE USES (v486).
+//
+// ⚠️⚠️ THIS IS THE OTHER HALF OF THE BUG SHE FOUND BY ASKING THREE TIMES. An account no longer on her
+// list keeps its block, because its money is still in the books — ⭐ **and she asked, fairly, what a
+// block she cannot pay into is doing there.** The answer was that the records were **stranded**: a
+// rename moved the expenses and the deposits and ⚠️ **left every ORDER behind**, so a retired name
+// went on holding orders that no screen could move.
+//
+// ⭐ Her words: __"move the transaction it is owning to cash LS"__. ⚠️ **And because this and a rename
+// are the same act, they call the same function** — so neither can move two places of three again.
+export function openMoveAccount(state, from, redraw) {
+  // ⚠️ AND NOT ITSELF — offering the name it is LEAVING as a destination is a press that can do
+  // nothing, ⭐ **found by pressing it: the sheet listed "Loan" as somewhere to move Loan's own
+  // records.**
+  const targets = methodsOf(state).filter((m) => m !== from);
+  showPopup(`Move what "${from}" holds`, (refresh, close) => [
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `"${from}" is not one of your accounts any more, but records are still filed under it. Choosing an account moves every one of them onto it — orders, spending and money you put in alike.`),
+    ...targets.map((m) => el("div", {
+      class: "info-row tappable",
+      onclick: () => {
+        const n = moveAccountRecords(state, from, m);
+        save(state);
+        maybeSync(state);
+        close();
+        toast(`Moved ${n} ${n === 1 ? "record" : "records"} from ${from} to ${m}`);
+        redraw();
+      },
+    },
+      el("span", {}, m),
+      el("span", { class: "info-val" }, el("span", { class: "muted" }, "move them here")))),
+  ]);
 }
 
 // The one form. `current` is the label being changed, or "" for a new entry. Returns
@@ -164,6 +240,11 @@ export function entryForm(state, { kind, current = "", onDone }) {
     name,
     isCategory ? clsPills : null,
     el("div", { class: "btn-row", style: "margin-top:8px" },
+      // ⭐ THE ESCAPE HATCH, WHERE SHE IS STANDING (v487). If this name has records it cannot be
+      // deleted — ⭐ **so the form that would delete it is the form that must offer to move them.**
+      current && !isCategory && !isSource && recordsUsing(state, kind, current)
+        ? button("Move its records…", () => openMoveAccount(state, current, () => { if (onDone) onDone(null); }), "ghost small")
+        : null,
       current ? button("Delete", remove, "danger small") : null,
       button("Cancel", () => { if (onDone) onDone(null); }, "ghost"),
       button(current ? "Save" : "Add", commit, "primary")));
