@@ -18,6 +18,26 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+
+// ★★★ WHICH BUILD THIS FILE IS — A LITERAL, NOT AN IMPORT, AND THAT IS THE WHOLE OF v496.
+//
+// ⚠️⚠️ HER REPORT: __"now v495, but store at v494, why no update warning at store?"__ ⭐ **And she is
+// right, and the reason is that the notice was asking a question it could not be wrong about.**
+//
+// ⭐ THE OLD DESIGN compared the build this page is against the build the site is serving — and it read
+// BOTH from `admin/js/version.js`: this page's number came from importing that file, and the probe
+// fetched that same file. ⚠️ **TWO READINGS OF ONE FILE CANNOT DISAGREE ABOUT WHICH BUILD THE CODE IS.**
+// ⭐ A browser that revalidates that little file — which it will, it is fetched with `no-store` — hands
+// back the SITE's number, so **a shop running month-old `store/app.js` cheerfully reports itself as
+// current and says nothing.** ⚠️ The one fault the notice exists to catch was the one it could not see,
+// and it could not see it because the number describing the page was being cached apart from the page.
+//
+// ⭐⭐ SO THE NUMBER IS WRITTEN INTO THIS FILE. If the browser serves an old copy of `store/app.js`, the
+// old number comes with it — **the code and its build are one artefact and cannot be separated by any
+// cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
+// one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
+// `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
+export const SHOP_BUILD = "496";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1090,7 +1110,11 @@ function renderDevFoot(cfg) {
   // corner with the credit above it, so it is there when the baker looks for it and out of
   // the way of everything a customer came for. It goes with the credit rather than instead
   // of it: a shop with no developer set has no credit to hang it under.
-  holder.appendChild(el("div", { class: "dev-engine" }, `Engine v${ENGINE_VERSION}`));
+  // ⚠️⚠️ `SHOP_BUILD`, NOT `ENGINE_VERSION` (v496). This line is what the baker reads to answer "which
+  // build is my shop running?" — so it has to be **the build the file she is reading actually is**, not the
+  // number that happens to be in a little file beside it. ⭐ Measured: with the import it said **v495 on a
+  // page running v494**, which is precisely the sentence the update notice exists to make impossible.
+  holder.appendChild(el("div", { class: "dev-engine" }, `Engine v${SHOP_BUILD}`));
 }
 
 // The suggestion box's own state, held OUTSIDE the DOM for the same reason the
@@ -1478,11 +1502,11 @@ let stepNoteEl = null;
 // the whole problem being solved). ⚠️ Every use is guarded: a browser that refuses storage simply
 // loses the memory, and the worst case is that a press which did not work is offered once more.
 function buildTried() {
-  try { return sessionStorage.getItem(BUILD_TRIED_KEY) === String(ENGINE_VERSION); }
+  try { return sessionStorage.getItem(BUILD_TRIED_KEY) === String(SHOP_BUILD); }
   catch { return false; }
 }
 function rememberBuildTried() {
-  try { sessionStorage.setItem(BUILD_TRIED_KEY, String(ENGINE_VERSION)); }
+  try { sessionStorage.setItem(BUILD_TRIED_KEY, String(SHOP_BUILD)); }
   catch { /* no storage — the press is simply offered again next time */ }
 }
 
@@ -1514,7 +1538,10 @@ async function checkBuild() {
     const res = await fetch(VERSION_URL, { cache: "no-store" });
     if (!res || !res.ok) return;
     const text = await res.text();
-    if (newerBuild(text)) paintBuildNotice();
+    // ⚠️⚠️ `SHOP_BUILD`, NAMED EXPLICITLY — **the build THIS FILE is**, which is the only thing a page can
+    // honestly claim about itself. Letting `newerBuild` fall back to an imported default was the fault
+    // v496 fixes: the page then measured itself with the SITE's number.
+    if (newerBuild(text, SHOP_BUILD)) paintBuildNotice();
   } catch { /* offline, or a stub — say nothing rather than guess */ }
 }
 

@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v495)
+# Jienluv2bake — change history (v54 → v496)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v496, THE SHOP CAN TELL WHICH BUILD IT IS (no database step).**
+
+**Your words:** __"now v495, but store at v494, why no update warning at store?"__
+
+**1. ⭐⭐ YOU FOUND A HOLE IN THE WARNING ITSELF, AND IT WAS THE ONE HOLE THAT MATTERS.** The notice was asking a question it could not be wrong about. ⚠️ **It read BOTH numbers out of the same little file** — *which build this page is* by importing `admin/js/version.js`, and *which build the site is serving* by fetching that same file. ⭐ **Two readings of one file cannot disagree about which build the CODE is.** So a browser that refreshed that little file made **a shop running month-old code report itself as perfectly current** — and say nothing. ⚠️ **The one fault the notice exists to catch was the one it could not see, and it could not see it because the number describing the page was being cached apart from the page.**
+
+**2. ⭐⭐ SO THE NUMBER IS NOW WRITTEN INTO THE SHOP'S OWN FILE.** `store/app.js` carries its own build; if the browser serves an old copy of that file, **the old number comes with it — the code and its build are one thing and no cache can separate them.** The footer you read now shows the build **the file you are reading actually is**, and the notice compares that with what the site is serving.
+
+**3. ⚠️ IT IS A SECOND PLACE FOR ONE FACT, AND THAT IS DELIBERATE — WITH A GUARD.** The shop's number and the engine's number must be bumped together, so ⭐ **a test fails the moment they disagree** — a forgotten bump is a red suite, not a shop that lies. ⚠️ And `newerBuild` no longer has a default build at all: **a default was exactly what a caller could lean on by accident, and the default WAS this fault.**
+
+**Measured:** the file the browser actually loads carries `SHOP_BUILD = "496"`, the probe compares against it, the footer prints it, and the two numbers agree. ⚠️ **And the live check says what it does not prove: the preview serves `store/app.js` from the browser's cache and a reload does not revalidate it, so the notice itself could not be watched there.** Tests **3,425 → 3,427**, and the fix was bitten four ways: the probe measuring itself with an imported build again · the shop's number drifting from the engine's · `newerBuild` getting its default back · and `store/build.js` importing the very file it probes.
+
+**No database step.**
 
 **12 Oct 2026 — engine v495, THE RECEIPT OFFERS TO PUT THE PAGE BACK, THEN DOES IT BY ITSELF (no database step).**
 
