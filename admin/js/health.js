@@ -181,8 +181,31 @@ export function registerChecks(state, register, voided) {
     // that can never be satisfied is one she learns to ignore** — which would cost her the whole page.
     const voidedNos = new Set((Array.isArray(voided) ? voided : [])
       .map((v) => Math.floor(Number(v && v.no))).filter((n) => Number.isFinite(n) && n > 0));
+    // ★★★ AND A RECEIPT IS ALSO EXPLAINED BY AN ORDER CARRYING ITS NUMBER (v470).
+    // ⚠️⚠️ HER INSTRUCTION: __"fix the number matching"__ — asked about `#DE1F19`, a receipt naming a code
+    // **no order on the phone wears**, while her Mac's identical check passes.
+    // ⭐⭐ **THE CODE IS THE WRONG THING TO MATCH ON, AND THIS FILE ALREADY KNOWS IT.** v441 moved the order
+    // number onto the order's own row so it stops moving; **v445 then found the code can still be stale,
+    // and the answer was to read the RECEIPT NUMBER from the WHOLE ORDER** (`receiptNoOfGroup`, above).
+    // ⭐ **That is the fact a receipt and an order ALWAYS share** — the receipt is numbered, and that number
+    // is stamped onto the order when the money is taken.
+    // ⭐ So a receipt is accounted for if **any order in the book carries its number**, whatever code that
+    // order wears today. ⚠️ **AND THE REVERSE STILL HOLDS: if NO order carries it, the receipt is reported
+    // exactly as before — because then the order really is not here.** The fix cannot hide a real loss.
+    // ⚠️ Read from the WHOLE ORDER and not from one row, for the reason v445 gives: which row of a split
+    // order comes first is not fixed, so one row may not know the number.
+    const carriers = new Set();
+    for (const g of groupOrders(orders)) {
+      const n = Math.floor(Number(receiptNoOfGroup(g.orders)));
+      if (Number.isFinite(n) && n > 0) carriers.add(n);
+    }
+    for (const o of shelf) {
+      const n = Math.floor(Number(o && o.receiptNo));
+      if (Number.isFinite(n) && n > 0) carriers.add(n);
+    }
     const bad = register
       .filter((r) => !voidedNos.has(Math.floor(Number(r && r.number))))
+      .filter((r) => !carriers.has(Math.floor(Number(r && r.number))))
       .map((r) => String((r && r.order_code) || "").trim().toUpperCase())
       .filter((c) => c && !live.has(c) && !removedCodes.has(c));
     return [

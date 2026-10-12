@@ -408,3 +408,46 @@ test("★ and `localKeys` counts the settings record — the one record every ph
   assert.ok(sync.localKeys(healthy()).includes("settings:default"),
     "★ `localKeys` left out the settings record, which every phone has and the app always sends");
 });
+
+// ── v470: a receipt is matched by its NUMBER, not only by the code it names ──
+test("★★★ a receipt whose CODE matches nothing is still accounted for by an order carrying its NUMBER", () => {
+  // ⚠️⚠️ HER INSTRUCTION: __"fix the number matching"__ — asked about `#DE1F19`, a receipt naming a code
+  // **no order on the phone wears**, while her Mac's identical check passes. ⭐ **The code is the wrong
+  // thing to match on:** v441 made the number stop moving, and **v445 then found the code can still be
+  // stale — and the answer was to read the RECEIPT NUMBER from the whole order**, because **that is the
+  // fact a receipt and an order always share.**
+  const st = healthy();
+  // The order is there and carries receipt number 7 — but the register names a code it does not wear.
+  const register = [{ number: 7, order_code: "DE1F19", issued_at: "2026-10-11T08:25:00.000Z" }];
+  const r = resultOf(runChecks(st, { register }), "hasOrder");
+  assert.equal(r.status, "pass",
+    "★ a receipt was reported as having no order behind it although an order on this phone carries its number");
+});
+
+test("★★⚠️ and a receipt NO order carries is STILL reported — the fix must not hide a real loss", () => {
+  // ⚠️⚠️ THE HALF THAT MATTERS MOST. ⭐ If this fix could silence a genuinely missing order, it would be
+  // worse than the fault it repairs — **so the reverse is asserted, in the same breath.**
+  const st = healthy();
+  const register = [
+    { number: 7, order_code: "D4E5F6", issued_at: "2026-10-11T08:25:00.000Z" },
+    { number: 12, order_code: "DE1F19", issued_at: "2026-10-11T08:25:00.000Z" },
+  ];
+  const r = resultOf(runChecks(st, { register }), "hasOrder");
+  assert.equal(r.status, "fail",
+    "★ a receipt whose number is on NO order was silenced by the new matching — that hides a real loss");
+  assert.deepEqual(r.detail, ["#DE1F19"], "★ and it does not name the receipt that is genuinely missing");
+});
+
+test("★ and a SPLIT order's number is read from the whole order, not from one row", () => {
+  // ⚠️ v445's reason, kept: which row of a split order is first is not fixed, so one row may not know the
+  // number. A receipt matched off a single row would go quiet for exactly those orders.
+  const st = healthy();
+  const first = st.orders[0];
+  st.orders = [
+    { ...first, id: "ord_a1b2c3d4e5f6", groupId: "group_g", receiptNo: 0 },   // this row does not know it
+    { ...first, id: "ord_b1b2c3d4e5f6", groupId: "group_g", receiptNo: 7, deliveryDateId: "d1" },
+  ];
+  const register = [{ number: 7, order_code: "ZZZZZZ", issued_at: "2026-10-11T08:25:00.000Z" }];
+  assert.equal(resultOf(runChecks(st, { register }), "hasOrder").status, "pass",
+    "★ the receipt number was looked for on one row instead of the whole order");
+});

@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v469)
+# Jienluv2bake — change history (v54 → v470)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v470, A RECEIPT IS MATCHED BY ITS NUMBER, NOT BY THE NAME IT QUOTES (no database step).**
+
+**Your words:** __"fix the number matching"__
+
+**1. ⚠️⚠️ THE COMPLAINT, IN ONE LINE: your phone says a receipt has no order behind it, and your Mac's identical check says it is fine.** The receipt names the code **`#DE1F19`** — **and no order on that phone wears that code.** ⭐ **Meanwhile both devices say everything on them has reached your shared data, so the order is almost certainly there, under a name the receipt does not know.**
+
+**2. ⭐⭐ AND THE CODE WAS THE WRONG THING TO MATCH ON — YOUR OWN APP ALREADY SAYS SO.** v441 put the order number onto the order's own row so it stops moving, **and then v445 found the code can still be stale, and the answer was to read the RECEIPT NUMBER from the whole order instead.** ⭐ **That is the one fact a receipt and an order ALWAYS share: the receipt is numbered, and that number is stamped onto the order the moment the money is taken.** ⚠️ **The check was still matching on the code — the very thing v445 had already stopped trusting.**
+
+**3. ★ SO A RECEIPT IS NOW ACCOUNTED FOR IF ANY ORDER ON THIS PHONE CARRIES ITS NUMBER, whatever name that order wears today.** ⭐ And the number is read from the **whole order**, not from one row — v445's reason, kept: **which row of an order that sits on two bake days comes first is not fixed, so a single row may simply not know it.**
+
+**4. ⚠️⚠️ AND THE HALF THAT MATTERS MOST: IT STILL REPORTS A RECEIPT NOTHING CARRIES.** ⭐ **If this fix could silence a genuinely missing order it would be worse than the fault it repairs** — so **that case is asserted in the same breath**, and **when the fix is reversed that assertion is the one that keeps passing while the others fail.** ⭐ **The proof is not that the check goes green; it is that it goes green only for the receipt that has an order.**
+
+**5. ⭐ AND IT ANSWERS YOUR `#DE1F19` ONE WAY OR THE OTHER.** If an order on that phone carries that receipt's number, **the line goes green** — the number moved and the register was quoting a stale one. ⚠️ **If it stays red, then no order carries that number and the receipt is the only record left** — which is a real answer, not a guess.
+
+**Measured:** tests **3,377 → 3,380**, all three new assertions seen to fail with the fix reversed — **and the one that must keep passing did.** **No database step.**
 
 **12 Oct 2026 — engine v469, THE NEW CHECK WAS FIRING ON SOMETHING THAT WAS NEVER WRONG (no database step).**
 
