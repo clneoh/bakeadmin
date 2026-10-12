@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v482)
+# Jienluv2bake — change history (v54 → v483)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v483, THE ACCOUNTS AS COLUMNS (no database step).**
+
+**Your words:** __"can it be columnise"__ — and then, looking at a block, __"why cashyour tin not manageble?"__
+
+**1. ⚠️⚠️ YOUR SCREENSHOT SHOWED TWO REAL FAULTS, NOT JUST AN UNTIDY LOOK.** **"TNGyour phone"** ran the account's name into its own note with no gap, and **"out RM 0.00holds RM 0.00"** ran two figures together. ⭐ **A row written as one sentence cannot be columnised** — so each account is now **four cells of a grid: Account · In · Out · Holds**, with the heading naming the columns instead of every line naming itself. The name and its note stack, so a long name never pushes a figure out of its column.
+
+**2. ⚠️ AND IT TOOK TWO MEASUREMENTS TO LINE UP — both worth knowing about.** ⭐ The first reading: **only "Holds" shared a right edge (345 everywhere)** while In ran 188 / 203 / 212 down the page, ⚠️ **because each row is its OWN grid, so an `auto` column sizes to that row's own content. A column that is right on one row and left on the next is not a column.** Fixed tracks. ⭐ The second reading: the rows matched but the **heading** sat at 209 while the rows sat at 189 — ⚠️ **`em` is measured against the element's own font size, and the heading is 12px while the rows are 14px.** Now in **pixels**, and the three figures and their heading share one edge on every line: **In 189, Out 267, Holds 345.**
+
+**3. ⭐⭐ AND THE WAY TO MANAGE AN ACCOUNT IS SAID PLAINLY, BECAUSE YOU HAD TO ASK WHERE IT WAS TWICE.** On the Money screen the card reads **"Categories, way to pay/receive & sources"** with an **Edit** button on its right — ⭐ **that is the door to every list: add, rename, re-order, delete.** And it now says so under it, so it is not left to be found.
+
+**Measured:** tests stay **3,406**, and the readers moved with the shape rather than being deleted. ⚠️ **Checked on the real screen at 375px:** every column shares one right edge with its own heading, no sideways scroll. **No database step.**
 
 **12 Oct 2026 — engine v482, THE MONEY TILE ON THE MORE SCREEN (no database step).**
 

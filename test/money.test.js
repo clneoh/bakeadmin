@@ -210,14 +210,15 @@ test("the Money screen puts what came in beside what went out, and the net", () 
   // Each line read as label + value, so a missing space between the two cannot make
   // a test pass or fail on its own.
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.deepEqual(rows, [
-    "Cash=in RM 15.00· out RM 5.00holds RM 10.00",
-    "TNG=in RM 0.00· out RM 0.00holds RM 0.00",
-    "Loan=in RM 0.00· out RM 0.00holds RM 0.00",
+    "Cash=RM 15.00|RM 5.00|RM 10.00",
+    "TNG=RM 0.00|RM 0.00|RM 0.00",
+    "Loan=RM 0.00|RM 0.00|RM 0.00",
     "Net — every account=RM 10.00",
     "Still to collect=RM 0.00",
     "Paid, no method=RM 0.00",
@@ -237,12 +238,13 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
   st.expenses = [{ id: "e1", date: today, amount: 12, category: "Delivery & fuel" }];
   const root = document.createElement("div");
   renderMoney(root, st);
-  const rows = allOf(root).filter((n) => String(n.className).includes("info-row"))
+  const rows = allOf(root).filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash=in RM 0.00· out RM 0.00holds RM 0.00")
-    && rows.includes("TNG=in RM 0.00· out RM 0.00holds RM 0.00"),
+  assert.ok(rows.includes("Cash=RM 0.00|RM 0.00|RM 0.00")
+    && rows.includes("TNG=RM 0.00|RM 0.00|RM 0.00"),
     "⚠️ neither account claims it — and both are drawn now, at zero, rather than one row pair for them");
   assert.ok(rows.includes("Net — every account=RM 0.00"),
     "and the net leaves it out too");
@@ -333,11 +335,12 @@ test("her own money counts into the till, and the screen says how much was hers"
   const root = document.createElement("div");
   renderMoney(root, st);
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash=in RM 115.00· out RM 30.00holds RM 85.00"),
+  assert.ok(rows.includes("Cash=RM 115.00|RM 30.00|RM 85.00"),
     "RM15 of orders + RM100 of her own in the tin, and the withdrawal out of it — "
     + "⭐ one block carrying all three figures now (v481)");
   assert.ok(rows.includes("Net — every account=RM 85.00"), "the net still adds up");
@@ -408,18 +411,19 @@ test("★ what a loan paid for has its own line — and now counts in Net (v480)
   const root = document.createElement("div");
   renderMoney(root, st);
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash=in RM 15.00· out RM 18.00holds RM -3.00"),
+  assert.ok(rows.includes("Cash=RM 15.00|RM 18.00|RM -3.00"),
     "the tin took 15 and gave up 18 — all three figures on its own block (v481)");
   // ⚠️⚠️ THIS IS THE CHANGE SHE ASKED FOR, AND IT IS THE ONE THAT MOVES. Net used to be the tin
   // alone — 15 in, 18 out, RM -3.00, with the loan-funded run kept right out of it. Her words:
   // __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the trade-off,
   // __"Fold them into Net"__. ⭐ **So Net is the whole business now: everything in, less everything
   // out, through every account** — which is 15 in and 18 + 250 out.
-  assert.ok(rows.includes("Loan=in RM 0.00· out RM 250.00holds RM -250.00"),
+  assert.ok(rows.includes("Loan=RM 0.00|RM 250.00|RM -250.00"),
     "and the loan-funded run has its own block, naming what it paid");
   assert.ok(rows.includes("Net — every account=RM -253.00"),
     "⚠️ every account counts in Net now (v480): 15 in, and 18 plus the 250 the loan paid");
@@ -721,11 +725,12 @@ test("★★ an account she has just added shows on the Money card, and its book
   renderMoney(root, st);
 
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash to LK=in RM 0.00· out RM 0.00holds RM 0.00"),
+  assert.ok(rows.includes("Cash to LK=RM 0.00|RM 0.00|RM 0.00"),
     "⚠️⚠️ the account she just added is ON the money card at zero, not invisible until money moves");
 
   // ⭐ AND IT IS A DOOR, exactly the way the Cash and TNG lines are.
@@ -759,16 +764,17 @@ test("★★ every account counts in the Net now — her choice (v480)", () => {
   renderMoney(root, st);
 
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   // ⚠️ THE OLD ANSWER WAS RM 15.00 — the cash alone, with the bank transfer in neither side of it.
   assert.ok(rows.includes("Net — every account=RM 30.00"),
     "⚠️ 15 in cash plus 20 into Bank, less the 5 the bank transfer paid — one figure, every account");
-  assert.ok(rows.includes("Bank=in RM 20.00· out RM 5.00holds RM 15.00"),
+  assert.ok(rows.includes("Bank=RM 20.00|RM 5.00|RM 15.00"),
     "⭐ and Bank still has its own line, so the money is named as well as counted");
-  assert.ok(rows.includes("Cash=in RM 15.00· out RM 0.00holds RM 15.00"),
+  assert.ok(rows.includes("Cash=RM 15.00|RM 0.00|RM 15.00"),
     "and the Cash block is still exactly the cash — ⭐ what she counts by hand is now that block's "
     + "own figure rather than a special row above the rest (v481)");
 });
@@ -792,12 +798,13 @@ test("⚠️⚠️ a transfer never moves the Net — even into an account that 
   renderMoney(root, st);
 
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
-    .filter((n) => String(n.className).includes("info-row"))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
-      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash=in RM 0.00· out RM 200.00holds RM -200.00"), "the tin really did give it up");
-  assert.ok(rows.includes("Bank=in RM 200.00· out RM 0.00holds RM 200.00"), "and the bank really did receive it");
+  assert.ok(rows.includes("Cash=RM 0.00|RM 200.00|RM -200.00"), "the tin really did give it up");
+  assert.ok(rows.includes("Bank=RM 200.00|RM 0.00|RM 200.00"), "and the bank really did receive it");
   // ⚠️ THE OLD ANSWER WAS RM -200.00 — a transfer read as spending.
   assert.ok(rows.includes("Net — every account=RM 0.00"),
     "⚠️⚠️ and Net did not move, because the money never entered or left the business");

@@ -2431,6 +2431,39 @@ option.tone-off { color: var(--muted); }
    the name and the note readable again, and it is already the app's own answer on a card this narrow. */
 .info-row.money-list-row .li-right { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 6px; }
 
+/* ★★ THE ACCOUNTS AS COLUMNS (v482). Her words: __"can it be columnise"__ — and her screenshot showed
+   two real faults: **"TNGyour phone"** ran the name into its own note, and **"out RM 0.00holds RM 0.00"**
+   ran two figures together.
+   ⚠️ A row that is one sentence cannot be columnised, so this is a GRID: the account, then in, out and
+   holds, each in a column of its own. ⚠️ It is written AFTER `.info-row.tappable` — at equal weight the
+   last rule wins, and that one sets `align-items: center` for a finger-sized row.
+   ⭐ `tabular-nums` is what makes the columns LINE UP: without it "RM 480.00" and "RM 0.00" are
+   different widths and the figures stagger down the page. */
+.info-row.acc-head-row,
+.info-row.acc-row {
+  display: grid;
+  /* ⚠️⚠️ FIXED TRACKS, AND THAT IS THE WHOLE OF IT LINING UP. **Each row is its OWN grid**, so an
+     `auto` column is sized to THAT row's content — ⭐ read at 375px: only "Holds" shared a right edge
+     (345 on every row) while In was 188 / 203 / 212 down the page and Out 261 / 268 / 277. ⚠️ **A
+     column that is right one row and left the next is not a column**, which is exactly what she asked
+     for. `1fr` for the name so it takes what is left and wraps rather than pushing the figures out. */
+  /* ⚠️⚠️ PIXELS, NOT `em`, AND THAT IS NOT PEDANTRY. `em` is measured against the element's OWN font
+     size — and the header row is 12px while the account rows are 14px, so `5em` was 60px in one and
+     70px in the other. ⭐ Measured: the header's figures sat at 209 and 277 while every account row's
+     sat at 189 and 267. **A column that lines up with itself but not with its own heading is not a
+     column either.** 70px clears "RM 1,234.56" at this size with room to spare. */
+  grid-template-columns: minmax(0, 1fr) 70px 70px 70px;
+  align-items: baseline;
+  gap: 8px;
+}
+.info-row.acc-head-row { font-size: 12px; color: var(--muted); margin: 6px 0 2px; }
+.info-row.acc-head-row > span:not(:first-child),
+.info-row.acc-row .acc-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* The name and where it is, stacked — so a long name never pushes the figures out of their columns. */
+.info-row.acc-row .acc-head { display: flex; flex-direction: column; min-width: 0; }
+.info-row.acc-row .acc-where { font-size: 12px; color: var(--muted); }
+.info-row.acc-row .acc-holds { font-weight: 700; }
+
 /* The Books list: the line she tapped stays marked, and its book opens UNDER it behind a
    rule, so it is obvious which line the rows belong to (the app has one shared pop-up
    layer, so a book cannot be a window of its own from in here). */

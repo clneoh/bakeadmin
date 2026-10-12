@@ -363,9 +363,15 @@ test("★★ the net does not move when money moves between her own pots", () =>
     const rows = walk(mount(s)).filter((n) => String(n.className).includes("info-row"));
     return rows.find((r) => r.children[0].textContent === "Net — every account").children[1].textContent;
   };
-  const cashOf = (s) => walk(mount(s))
-    .filter((n) => String(n.className).includes("acc-row"))
-    .find((r) => r.children[0].children[0].textContent === "Cash").children[1].textContent;
+  // ⭐ The block is four COLUMNS now (v482) — the account, then In, Out and Holds — so this reads all
+  // three figures rather than the first.
+  const cashOf = (s) => {
+    const r = walk(mount(s))
+      .filter((n) => String(n.className).includes("acc-row")
+        && !String(n.className).includes("acc-head-row"))
+      .find((x) => x.children[0].children[0].textContent === "Cash");
+    return [1, 2, 3].map((i) => r.children[i].textContent).join("|");
+  };
   const state = freshState();
   const before = netOf(state);
 
@@ -375,7 +381,7 @@ test("★★ the net does not move when money moves between her own pots", () =>
   walk(layer).find((n) => n.tagName === "INPUT" && n.attrs["aria-label"] === "How much you moved").value = "200";
   fire(byText(layer, "Save"));
 
-  assert.equal(cashOf(state), "in RM 0.00· out RM 200.00holds RM -200.00",
+  assert.equal(cashOf(state), "RM 0.00|RM 200.00|RM -200.00",
     "the account it came out of went down, and its block says so");
   assert.equal(netOf(state), before,
     "⚠️⚠️ moving her own money changed what should be with her — nothing entered or left the business");

@@ -1068,21 +1068,33 @@ export function renderMoney(root, state) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, label),
         el("div", { class: "money-rows" },
-          // ★★ ONE BLOCK PER ACCOUNT, THE SAME SHAPE FOR EVERY ONE (v481). It replaces the four
-          // special Cash / TNG rows and the `Paid by X` lines that followed them — ⭐ **two shapes for
-          // one idea, which is what she had to ask twice about.** Every one opens its own journey.
+          // ★★ THE ACCOUNTS AS COLUMNS (v482) — her words: __"can it be columnise"__.
+          //
+          // ⚠️⚠️ AND HER SCREENSHOT SHOWED TWO REAL FAULTS, not merely an untidy look: **"TNGyour
+          // phone"** ran the name into its own note with no gap, and **"out RM 0.00holds RM 0.00"** ran
+          // two figures together. ⭐ **A single sentence per account cannot be columnised** — so each row
+          // is now four cells of a grid: the account, and its three figures, each in a column of its own
+          // with `tabular-nums` so the numbers line up down the page.
+          //
+          // ⭐ AND THE WORDS "in / out / holds" MOVED TO A HEADER ROW — ⭐ **a column does not need to
+          // name itself on every line**, and repeating them is what made the lines unreadable.
+          el("div", { class: "info-row acc-head-row" },
+            el("span", {}, "Account"),
+            el("span", {}, "In"),
+            el("span", {}, "Out"),
+            el("span", {}, "Holds")),
           ...accounts.map((a) => el("div", {
             class: `info-row tappable acc-row${a.counted ? " acc-counted" : ""}`,
             onclick: () => openJournal(state, a.label, from, to, a.label),
           },
             el("span", { class: "acc-head" },
               el("span", { class: "acc-name" }, a.label),
-              el("span", { class: "acc-where" },
-                isCash(a.label) ? "your tin" : isTng(a.label) ? "your phone" : "")),
-            el("span", { class: "acc-figs" },
-              el("span", {}, `in ${fmtRM(a.in, cur)}`),
-              el("span", {}, `· out ${fmtRM(a.out, cur)}`),
-              el("b", { class: "acc-holds" }, `holds ${fmtRM(a.holds, cur)}`)))),
+              a.counted
+                ? el("span", { class: "acc-where" }, isCash(a.label) ? "your tin" : "your phone")
+                : null),
+            el("span", { class: "acc-num" }, fmtRM(a.in, cur)),
+            el("span", { class: "acc-num" }, fmtRM(a.out, cur)),
+            el("span", { class: "acc-num acc-holds" }, fmtRM(a.holds, cur)))),
           row("Net — every account", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
@@ -1131,7 +1143,11 @@ export function renderMoney(root, state) {
               // ⚠️ THE WAYS TO PAY ARE STILL NAMED, not just counted: "Cash, TNG, Loan" is how she
               // recognises that list. The third is added as a count, because three names in a row
               // would read as one long list rather than as the separate thing it is.
-              `${categoryLabels(state).length} categories · ${methodsOf(state).join(", ")} · ${sourcesOf(state).length} sources`)),
+              // ⭐⭐ AND IT NAMES WHAT THE BUTTON DOES (v483). She asked where her accounts could be
+              // managed while looking straight at the blocks — ⭐ **the door was here all along and the
+              // line beside it only counted things.** A door that does not say what it opens is a door
+              // she has to be told about.
+              `${categoryLabels(state).length} categories · ${methodsOf(state).join(", ")} · ${sourcesOf(state).length} sources — tap Edit to add, rename, re-order or delete any of them`)),
           button("Edit", () => openListsManager(state, () => draw()), "ghost small")),
         // Its own door, always open: the money card's pocket rows only appear when that
         // pocket moved something in the stretch on screen, so a quiet pocket's book would
