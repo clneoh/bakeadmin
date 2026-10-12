@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v472)
+# Jienluv2bake — change history (v54 → v473)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v473, THE CHECK NOW EXPLAINS ITSELF INSTEAD OF SENDING YOU LOOKING (no database step).**
+
+**Your words:** __"DE1F19 is with invoice 0001, that i already deleted"__
+
+**1. ⭐⭐ YOU WORKED OUT IN ONE LOOK WHAT THE APP COULD NOT TELL YOU AT ALL.** That receipt is your **first one — `#000001`, 7 October** — for an order **you removed yourself.** ⭐ **The money was taken, so the receipt stands; the order is gone because you deleted it; and a removed order is only kept for 48 hours, so past two days there is nothing left to connect the two.** Nothing was lost, and nothing was wrong.
+
+**2. ⚠️ AND THAT WAS THE FAULT — NOT IN YOUR DATA, IN WHAT THE APP SAID ABOUT IT.** A receipt for money with no order **looks exactly the same whether you removed the order or it vanished**, and **the check could not tell the two apart.** So it read as a fault for six days, and **I chased three wrong theories about it before you found the answer in one look.** That is the cost of a warning that does not explain itself.
+
+**3. ★ SO THE LINE NOW SAYS BOTH THINGS, AND LEADS WITH THE ONE THAT CLEARS IT.** *"If this was an order you removed yourself: open the Receipt register, find that receipt, and press Mark as void. The line clears, because a decision you have recorded is not a hole."* ⭐ **That control already existed — v448 built it, and this check already honoured it. It simply never said so.** ⚠️ **And the route for a genuine loss is kept right behind it**, because a check that dropped it would leave you a fault and no way out.
+
+**4. ★ AND THE REASON NOW SAYS WHY THIS HAPPENS INNOCENTLY** — that **a receipt is never rewritten, even when the order behind it is removed**, and that **a removed order is only kept for 48 hours.** ⭐ **Two facts, and either one alone would have saved us both the search.**
+
+**5. ⚠️ AND ONE THING THAT IS STILL OPEN, SAID PLAINLY.** Your Mac passes that same receipt and your phone fails it, and **I could not explain that and will not guess again.** ⭐ **A likely answer, offered as a likely answer and not as a finding: that receipt may already be marked void on the Mac**, in which case its check passes, the phone's does not, and the phone simply needs to pull it. **Worth a look the next time you are in the register.**
+
+**Measured:** tests **3,384**, all green — four new assertions on that message, **seen to fail when the wording is reversed**, two of them asserting that **the way out names the very control that clears it.** **No database step.**
 
 **12 Oct 2026 — engine v472, THE RED LINE NOW NAMES SOMETHING YOU CAN ACTUALLY LOOK UP (no database step).**
 

@@ -89,6 +89,16 @@ test("★★ a receipt with no order behind it FAILS — the fault that cost her
   assert.match(r.detail[0], /#D06D27/, "the failing receipt's code is not named");
   assert.match(r.detail[0], /receipt #000009/, "★ the receipt NUMBER is not named, so it cannot be looked up");
   assert.match(r.detail[0], /2026-10-11/, "★ the receipt's DATE is not named, so it cannot be placed");
+  // ★★★ AND IT LEADS WITH THE PRESS THAT CLEARS IT (v473). Her own finding: __"DE1F19 is with invoice 0001,
+  // that i already deleted"__ — ⭐ **a receipt for money, standing with no order, because she removed the
+  // order herself.** ⚠️ **The check could not tell that from a loss and read as a fault for six days.**
+  assert.match(r.fix, /Mark as void/,
+    "★ the way out does not name the register's own control, so she has to work out the diagnosis herself");
+  assert.match(r.fix, /line clears/i, "★ it does not say that marking it void actually clears the line");
+  assert.match(r.fix, /WhatsApp/,
+    "★ and the route for a real loss was dropped — that leaves a fault with no way out");
+  assert.match(r.why, /48 hours/,
+    "★ the reason does not say why this happens innocently: a removed order is only kept for 48 hours");
   assert.match(r.why, /receipt stands and the money is recorded/i, "the check does not say what it means");
   assert.match(r.fix, /WhatsApp/i, "the check does not say what she can do about it");
 

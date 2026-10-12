@@ -225,13 +225,18 @@ export function registerChecks(state, register, voided) {
     return [
       bad.length
         ? fail("hasOrder", "Every receipt has an order behind it", bad.map(nameOfRow),
-          "A receipt was issued for money you took, and there is no order wearing that number on this phone or on the Removed list. The receipt stands and the money is recorded — but the order behind it is not here.",
-          // ⚠️⚠️ TWO STEPS, IN ORDER, AND THE FIRST ONE IS NEW (v472). Her report was that she could not
-          // find `#DE1F19` **anywhere** — so the first thing to do is look the receipt up by the number now
-          // named above, **which is the one fact no order can change.** ⭐ And the second step stays, because
-          // for a receipt whose order really has gone it is the only way back: **a check that dropped it
-          // would leave her with a fault and no way out.**
-          "Look that receipt number up on your Receipt register — its date tells you which bake week it belongs to, and whether it was an order you removed on purpose. If it is a real order that has gone, search WhatsApp for the number and enter the order again by hand.")
+          // ⚠️⚠️ AND THE REASON NAMES THE INNOCENT CASE (v473). Her own finding, in her words: __"DE1F19 is
+          // with invoice 0001, that i already deleted"__ — ⭐ **a receipt for money, standing with no order,
+          // because she removed the order herself.** ⚠️ **The check could not tell that from a loss, so it
+          // read as a fault for six days, and I chased three wrong theories before she found it.**
+          // ⭐ **TWO FACTS MAKE IT INNOCENT, AND BOTH ARE NOW ON THE PAGE: a receipt is never rewritten, and
+          // a removed order is only kept for 48 hours — so past two days there is nothing left to connect
+          // the two, and that is normal, not a fault.**
+          "A receipt was issued for money you took, and there is no order wearing that number on this phone or on the Removed list. The receipt stands and the money is recorded — a receipt is never rewritten, even when the order behind it is removed. And a removed order is only kept for 48 hours, so a removal older than that leaves nothing to connect the two.",
+          // ⭐ AND THE WAY OUT LEADS WITH THE ONE PRESS THAT CLEARS IT, because for a deliberate removal that
+          // is the whole answer. ⚠️ The second half stays: for a real order that has gone it is the only way
+          // back, and a check that dropped it would leave her a fault with no way out.
+          "If this was an order you removed yourself: open the Receipt register, find that receipt, and press Mark as void. The line clears, because a decision you have recorded is not a hole. If instead it is a real order that has gone, search WhatsApp for the number and enter the order again by hand.")
         : pass("hasOrder", "Every receipt has an order behind it"),
       // ── 9 · every receipt's number is carried by the order it names ────────
       (() => {
