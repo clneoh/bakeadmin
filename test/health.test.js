@@ -50,7 +50,12 @@ const runChecks = (state, extra = {}) => runHealthChecks(state, {
   // holds, so a healthy book passes and a fault is a fault. ⚠️ **Without these the two new checks SKIP, and
   // a skipped check is invisible to this file's own "every check actually RAN" assertion.**
   local: sync.localKeys(state),
-  cloud: { ok: true, keys: new Set(sync.localKeys(state)) },
+  // ⚠️ THE CLOUD IS BUILT FROM WHAT THE APP WOULD ACTUALLY SEND — a REAL cloud, not a copy of one of the
+  // answers. ⭐ v469's lesson: a fixture built out of the code under test cannot catch a fault in it, so
+  // this comes from `localPayloads`, which is what travels.
+  cloud: { ok: true, keys: new Set(sync.localKeys(state)), data: sync.localPayloads(state) },
+  payloads: sync.localPayloads(state),
+  queued: new Set(),
   waiting: 0,
 });
 
@@ -63,8 +68,8 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 14, `the check list is no longer fourteen checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 14);
+  assert.equal(res.total, 15, `the check list is no longer fifteen checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 15);
   assert.equal(res.failed, 0);
 });
 
@@ -160,7 +165,7 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
   assert.equal(res.passedChecks, 8, "a skipped check was counted among the passes");
-  assert.equal(res.skippedChecks, 6, "the skipped checks were not counted separately");
+  assert.equal(res.skippedChecks, 7, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
   // ⚠️ AND A SKIP SAYS WHY — the same discipline the register screen follows.
@@ -233,7 +238,7 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 14, "the checks did not all run on an empty book");
+  assert.equal(res.total, 15, "the checks did not all run on an empty book");
   assert.equal(localChecks(bare).length, 7, "the local checks are not seven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
@@ -345,7 +350,8 @@ test("★★⚠️ and what is still WAITING TO SEND is counted — the number n
 // would SKIP the checks that are, and a skipped check is invisible to "every check actually RAN".
 function emptyExtras() {
   return { register: Array.isArray(REGISTER) ? REGISTER : [], copies: COPIES, copyWhen: COPY_WHEN,
-    copy: { orders: [], removedOrders: [] }, local: [], cloud: { ok: true, keys: new Set() } };
+    copy: { orders: [], removedOrders: [] }, local: [], cloud: { ok: true, keys: new Set(), data: new Map() },
+    payloads: new Map(), queued: new Set() };
 }
 
 // ── v468: the SAME question the other way round ──────────────────────────────
@@ -450,4 +456,67 @@ test("★ and a SPLIT order's number is read from the whole order, not from one 
   const register = [{ number: 7, order_code: "ZZZZZZ", issued_at: "2026-10-11T08:25:00.000Z" }];
   assert.equal(resultOf(runChecks(st, { register }), "hasOrder").status, "pass",
     "★ the receipt number was looked for on one row instead of the whole order");
+});
+
+// ── v471: the content comparison ─────────────────────────────────────────────
+test("★★★ two copies of the SAME order holding different facts are FOUND — her #DE1F19 case", () => {
+  // ⚠️⚠️ ASKED FOR AFTER THIS EXACT SCREEN: her **Mac passed** that receipt and her **phone failed it, on the
+  // same version, with both reporting everything synced.** ⭐⭐ **The two checks above compare which records
+  // EXIST; neither looks INSIDE them** — so a record present on both and different inside is invisible to
+  // both. ⭐ **The Mac's copy carried the receipt number; the phone's did not.**
+  const st = healthy();
+  const payloads = sync.localPayloads(st);
+  const cloudData = new Map(payloads);
+  const orderKey = [...payloads.keys()].find((k) => k.startsWith("orders:"));
+  assert.ok(orderKey, "the fixture has no order, so nothing below proves anything");
+  // The shared data holds the same record — with a fact this phone's copy does NOT have.
+  // ⚠️ The fixture's order already carries `receiptNo: 7`, so the cloud must differ in something else or
+  // this test would be comparing a record with itself and proving nothing.
+  cloudData.set(orderKey, JSON.stringify({ ...JSON.parse(payloads.get(orderKey)), receiptNo: 99 }));
+
+  const cloud = { ok: true, keys: new Set(payloads.keys()), data: cloudData };
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, payloads, queued: new Set() }), "content");
+  assert.equal(r.status, "fail", "★ two copies of one record that disagree were reported as fine");
+  assert.deepEqual(r.detail, ["#D4E5F6"], "★ it does not name the record that disagrees");
+  assert.match(r.why, /different facts/i, "the check does not say what is wrong");
+  assert.ok(r.fix, "★ a fault with no way out is a dead end");
+});
+
+test("★★⚠️ and a change she has QUEUED is not reported — it is SUPPOSED to differ", () => {
+  // ⚠️⚠️ WITHOUT THIS THE CHECK FIRES ON EVERY EDIT THE MOMENT SHE MAKES IT: a record waiting to be sent is
+  // meant to differ from the shared data until it arrives. ⭐ The same shape as the shelf carve-out, and the
+  // same reason — a warning that fires on something normal is one she learns to ignore.
+  const st = healthy();
+  const payloads = sync.localPayloads(st);
+  const cloudData = new Map(payloads);
+  const orderKey = [...payloads.keys()].find((k) => k.startsWith("orders:"));
+  cloudData.set(orderKey, JSON.stringify({ ...JSON.parse(payloads.get(orderKey)), customerName: "Older" }));
+
+  const cloud = { ok: true, keys: new Set(payloads.keys()), data: cloudData };
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, payloads, queued: new Set([orderKey]) }), "content");
+  assert.equal(r.status, "pass",
+    "★ a change she had queued but not sent was reported as a disagreement between the two phones");
+});
+
+test("★★ and `settings` is never compared — it carries what is true of ONE device", () => {
+  // ⚠️ It is the one kind that holds per-device things, **which is why the app strips them before sending it
+  // at all** — **comparing it would report every phone's settings as wrong, on every phone, for ever.**
+  const st = healthy();
+  const payloads = sync.localPayloads(st);
+  const cloudData = new Map(payloads);
+  const setKey = [...payloads.keys()].find((k) => k.startsWith("settings:"));
+  assert.ok(setKey, "the fixture has no settings record, so this proves nothing");
+  cloudData.set(setKey, "{}");   // a different phone's settings
+
+  const cloud = { ok: true, keys: new Set(payloads.keys()), data: cloudData };
+  assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, payloads, queued: new Set() }), "content").status,
+    "pass", "★ the settings record was compared, so every phone's settings would be reported as wrong");
+});
+
+test("★ and two sides that agree are reported plainly", () => {
+  const st = healthy();
+  const payloads = sync.localPayloads(st);
+  const cloud = { ok: true, keys: new Set(payloads.keys()), data: new Map(payloads) };
+  assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, payloads, queued: new Set() }), "content").status,
+    "pass", "two sides holding exactly the same facts were reported as disagreeing");
 });

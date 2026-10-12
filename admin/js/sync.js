@@ -566,18 +566,46 @@ export async function cloudKeys(state) {
   const token = cachedToken();
   if (!token) return { ok: false, reason: "This phone is not signed in to your shared data." };
   try {
-    const res = await fetch(`${c.url}/rest/v1/bakery?select=kind,id,_deleted&limit=5000`, {
+    // ⚠️ AND `data` COMES WITH IT NOW (v471) — **the same single read answers "which records are there" and
+    // "what is IN them".** ⭐ One fetch, not two: this page already reads a register and your copies, and a
+    // third round trip for a comparison nobody could see would be a poor trade.
+    const res = await fetch(`${c.url}/rest/v1/bakery?select=kind,id,data,_deleted&limit=5000`, {
       headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return { ok: false, reason: `Your shared data could not be read (HTTP ${res.status}).` };
     const rows = await res.json().catch(() => null);
     if (!Array.isArray(rows)) return { ok: false, reason: "Your shared data could not be read." };
     const keys = new Set();
-    for (const r of rows) if (r && r.kind && !r._deleted) keys.add(`${r.kind}:${r.id}`);
-    return { ok: true, keys };
+    const data = new Map();
+    for (const r of rows) {
+      if (!r || !r.kind) continue;
+      if (r._deleted) continue;
+      keys.add(`${r.kind}:${r.id}`);
+      data.set(`${r.kind}:${r.id}`, typeof r.data === "string" ? r.data : JSON.stringify(r.data));
+    }
+    return { ok: true, keys, data };
   } catch {
     return { ok: false, reason: "Your shared data could not be read — check this phone is online." };
   }
+}
+
+// What THIS phone holds, as key → the exact text the app would send for it. ⭐ **Built from `recordPayload`
+// and `canonical-ish` serialisation, so the two sides are compared on the SAME spelling** — ⚠️ a comparison
+// that stringifies two things differently would report every record as different.
+export function localPayloads(state) {
+  const out = new Map();
+  for (const rec of computeRecords(state)) {
+    if (!rec || typeof rec.kind !== "string" || !rec.kind || typeof rec.id !== "string" || !rec.id) continue;
+    out.set(`${rec.kind}:${rec.id}`, JSON.stringify(rec.data) ?? "null");
+  }
+  return out;
+}
+
+// The changes this phone has queued and not yet sent. ⚠️ **A record waiting to be sent is SUPPOSED to differ
+// from the shared data — so it must never be reported as a difference, or the check would fire on every
+// edit she has just made.**
+export function pendingKeys() {
+  return new Set(Object.keys(readSync().pending || {}));
 }
 
 // ── markDirty: queue what changed since the last baseline ────────────────

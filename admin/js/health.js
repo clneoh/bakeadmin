@@ -395,6 +395,57 @@ export function cloudOnlyCheck(state, cloud, local) {
     : pass("cloudOnly", TITLE)];
 }
 
+// ── and the deepest one: do the two sides hold the SAME FACTS? ───────────────
+
+// Her instruction: __"build the content comparison"__ — asked after her **Mac passed** `#DE1F19` and her
+// **phone failed it, on the same version, both reporting everything synced.**
+// ⭐⭐ **THE TWO CHECKS ABOVE COMPARE WHICH RECORDS EXIST. NEITHER LOOKS INSIDE THEM** — so **a record that
+// is present on both sides and DIFFERENT inside is invisible to both.** ⚠️ **That is exactly what her two
+// screens showed: the Mac's copy of one order carried its receipt number and the phone's did not.**
+//
+// ⚠️⚠️ AND THE CARVE-OUT THAT MAKES IT USABLE: **a record this phone has QUEUED AND NOT YET SENT is supposed
+// to differ** — reporting that would fire the check on every edit the moment she makes it, which is the
+// "warning she learns to ignore" fault this page keeps having to avoid.
+// ⚠️ **AND `settings` IS EXCLUDED OUTRIGHT**: it is the one kind that carries things true of ONE device —
+// which is why the app strips them before sending it at all. **Comparing it would report every phone's
+// settings as wrong.**
+export function contentCheck(state, cloud, payloads, pending) {
+  const TITLE = "The records on this phone hold the same facts as your shared data";
+  if (!cloud || !cloud.ok || !(cloud.data instanceof Map)) {
+    return [skipped("content", TITLE,
+      (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
+  }
+  const queued = pending instanceof Set ? pending : new Set(Array.isArray(pending) ? pending : []);
+  const nameOf = (key) => {
+    const at = String(key).indexOf(":");
+    const kind = String(key).slice(0, at);
+    const id = String(key).slice(at + 1);
+    if (kind === "orders") {
+      const o = (state && state.orders || []).find((x) => x && x.id === id);
+      return o ? `#${codeOf(o)}` : `#${codeFromId({ id })}`;
+    }
+    if (kind === "deliveryDates") {
+      const d = (state && state.deliveryDates || []).find((x) => x && x.id === id);
+      return d && d.date ? `bake day ${d.date}` : "a bake day";
+    }
+    return kind;
+  };
+  const differing = [];
+  for (const [key, mine] of (payloads instanceof Map ? payloads : [])) {
+    const kind = String(key).slice(0, String(key).indexOf(":"));
+    if (kind === "settings") continue;                 // ⚠️ carries per-device facts on purpose
+    if (queued.has(key)) continue;                     // ⚠️ queued = meant to differ, not a fault
+    const theirs = cloud.data.get(key);
+    if (theirs === undefined) continue;                // ⚠️ not in the shared data — the check above owns that
+    if (theirs !== mine) differing.push(key);
+  }
+  return [differing.length
+    ? fail("content", TITLE, differing.map(nameOf),
+      `${differing.length} record${differing.length === 1 ? " is" : "s are"} on this phone AND in your shared data, but ${differing.length === 1 ? "holds" : "hold"} different facts — so this phone and your other one would show the same record differently. Nothing is missing; the two copies simply disagree.`,
+      "Open each of these on this phone and press Save. That writes this phone's copy up to your shared data, and your other device then picks it up. If the other device is showing the RIGHT version, save it THERE instead.")
+    : pass("content", TITLE)];
+}
+
 // ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
 // IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
 // no network: it is a local count.
@@ -420,6 +471,7 @@ export function runHealthChecks(state, extra = {}) {
     ...backupChecks(state, extra.copy, extra.copyWhen),
     ...reachedCloudCheck(state, extra.cloud, extra.local),
     ...cloudOnlyCheck(state, extra.cloud, extra.local),
+    ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
     ...waitingCheck(extra.waiting),
   ];
   return {

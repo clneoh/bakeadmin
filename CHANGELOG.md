@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v470)
+# Jienluv2bake — change history (v54 → v471)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v471, THE SAME RECORD, TWO DIFFERENT SETS OF FACTS (no database step).**
+
+**Your words:** __"build the content comparison"__
+
+**1. ⚠️⚠️ THE LAST TWO CHECKS COMPARE WHICH RECORDS EXIST. NEITHER OF THEM LOOKS INSIDE ONE.** ⭐ **So a record that is on both phones and DIFFERENT INSIDE was invisible to both** — and that is exactly what your two screens showed: **your Mac passed the `#DE1F19` receipt and your phone failed it, on the same version, both reporting everything had reached the shared data.**
+
+**2. ★ AND THE TWO SCREENS WERE RIGHT ABOUT BOTH THINGS.** The order exists on both. **What differs is what is IN it** — the Mac's copy carries the receipt number, the phone's does not. ⭐ **The receipt number is stamped onto an order when the money is taken, so the copy without it is the incomplete one.**
+
+**3. ★ SO A THIRD CHECK NOW COMPARES THE FACTS, NOT THE NAMES: for every record this phone holds, does your shared data hold the SAME facts for it?** ⚠️ **Anything that is present on both sides and disagrees inside is now named** — an order by its number, a bake day by its date.
+
+**4. ⚠️⚠️ AND TWO THINGS ARE DELIBERATELY LEFT OUT OF IT, OR IT WOULD FIRE ON EVERYTHING.**
+
+- **A change you have made and not yet sent is SUPPOSED to differ** until it arrives. Reporting that would fire the check **the moment you edit anything** — ⚠️ **and a warning that fires on something normal is one you learn to ignore**, which is the fault this page keeps having to avoid.
+- **`settings` is never compared at all.** It is the one record that carries things true of ONE device — **which is why the app strips them out before sending it** — so comparing it would report **every phone's settings as wrong, on every phone, for ever.**
+
+**5. ⭐ AND IT COSTS NOTHING EXTRA.** The page already reads your shared data for the other two checks; **that one read now brings the contents with it**, so this adds no round trip at all.
+
+**Measured:** tests **3,380 → 3,384**, all four new assertions seen to fail — **both carve-outs bitten separately, and each one fails its own test by name.** **No database step.**
 
 **12 Oct 2026 — engine v470, A RECEIPT IS MATCHED BY ITS NUMBER, NOT BY THE NAME IT QUOTES (no database step).**
 
