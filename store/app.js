@@ -3378,11 +3378,18 @@ function clearFieldMarks() {
       // the pages this code runs on can take. ⭐ The circles follow from `paintSteps`.
       buildCalendar();
       paintSteps();
-      // ⚠️ AND THE PAGE COMES BACK TO THE TOP. The next customer was arriving part-way down the page, at
-      // whatever step the last one had scrolled to — **the first thing a shop should show him is step 1.**
-      if (typeof window !== "undefined" && window.scrollTo) {
-        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* a page that refuses is not a reason to fail */ }
-      }
+      // ⚠️⚠️ AND THERE IS NO SCROLL TO THE TOP HERE ANY MORE (v489).
+      //
+      // Her words, asked twice: __"after the press of place order button, the screen scrolls, what is this
+      // for?"__ ⭐ **THE HONEST ANSWER WAS THAT THERE WERE TWO SCROLLS AND THEY FOUGHT:** this one took the
+      // page to the TOP, and ~1 second later `showConfirm` scrolled the notice into the middle of the
+      // view — ⚠️ **and the notice is the LAST element on the page, so a customer watched the whole shop
+      // fly past him upward and then all the way back down.** ⭐ **The wobble was mine.**
+      //
+      // ⭐⭐ SO THE NOTICE'S OWN SCROLL IS THE ONLY ONE. It is the thing he must read, and it is where the
+      // page comes to rest. ⚠️ **The shop is already reset behind it** — the next customer scrolls up into
+      // a fresh shop with step ① at the top, which is exactly what the top-scroll was for, without the
+      // round trip. ⭐ ONE `scrollIntoView`, in `showConfirm`, and nothing to fight it.
       renderBar();
       // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
       // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the

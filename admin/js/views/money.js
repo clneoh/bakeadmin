@@ -1084,7 +1084,8 @@ export function renderMoney(root, state) {
           //
           // ⭐ AND THE WORDS "in / out / holds" MOVED TO A HEADER ROW — ⭐ **a column does not need to
           // name itself on every line**, and repeating them is what made the lines unreadable.
-          el("div", { class: "info-row acc-head-row" },
+          el("div", { class: "acc-table" },
+          el("div", { class: "acc-head-row" },
             el("span", {}, "Account"),
             el("span", {}, "In"),
             el("span", {}, "Out"),
@@ -1116,7 +1117,7 @@ export function renderMoney(root, state) {
                   }, "ghost small acc-move")),
             el("span", { class: "acc-num" }, fmtRM(a.in, cur)),
             el("span", { class: "acc-num" }, fmtRM(a.out, cur)),
-            el("span", { class: "acc-num acc-holds" }, fmtRM(a.holds, cur)))),
+            el("span", { class: "acc-num acc-holds" }, fmtRM(a.holds, cur))))),
           row("Net — every account", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),

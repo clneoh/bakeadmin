@@ -1,15 +1,30 @@
-# Jienluv2bake — change history (v54 → v488)
+# Jienluv2bake — change history (v54 → v489)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**12 Oct 2026 — engine v489, THE ACCOUNTS ARE ONE TABLE, AND THE SHOP STOPS JUMPING (no database step).**
+
+**Your words:** __"why such a strangepresentation"__ — and __"the free space is so much, why clamping it together"__ — and __"why the store behave such way after place a order press?"__ — all three about the same thing: something moved that should not have.
+
+**1. ⚠️⚠️ AND THE COLUMNS WERE MINE TO OWN — I GOT THEM WRONG TWICE, BOTH TIMES BY GUESSING.** Your screenshot showed **"RM 480.00" broken across two lines**, and *"the free space is so much, why clamping it together."* ⭐ **Both were right.** First I made **each row its own grid**, so an `auto` column sized to that row alone and **the columns never lined up across rows** — In sat at 188, 203 and 212 down the page. Then I answered that with **fixed 70px tracks** — ⚠️ **and wrote a comment claiming "70px clears RM 1,234.56 with room to spare", which I never measured.** ⭐ **MEASURED: `RM 480.00` needs 71px, `RM 2,032.00` needs 83, `RM 12,345.67` needs 88** — so the commonest figure of all wrapped **by one pixel**, and the row was clamped tight while free space sat beside the name.
+
+**2. ⭐⭐ SO THE WHOLE TABLE IS ONE GRID NOW.** The heading and every account row are `display: contents`, so their cells are all tracks of the **same** grid: ⭐ **each column is as wide as the widest figure in the whole table, every row lines up underneath it, and the name takes whatever is left.** Nothing is clamped, and a figure can never break mid-number.
+
+**3. ⭐⭐ AND THE SHOP STOPS JUMPING AFTER PLACE ORDER.** You asked twice what that scroll was for, and the honest answer was that **there were two scrolls and they fought**: one took the page to the **top**, and about a second later the notice's own scroll brought it to the **middle of the view** — ⚠️ **and the notice is the LAST thing on the page, so a customer watched the whole shop fly past him upward and then all the way back down.** ⭐ **The top-scroll is gone**; the notice's own scroll is the only one, and the shop is already reset behind it.
+
 **12 Oct 2026 — engine v488, "PAID, NO METHOD" STOPS TAKING UP A LINE TO SAY NOTHING (no database step).**
 
 **Your words:** __"Paid, no method, what is this, shell we remove it?"__ — and then, better, __"it should not be taken in the 1st place if no account"__
 
-**1. ⭐ Your words: __"Paid, no method, what is this, shell we remove it?"__ — and then, better, __"it should not be taken in the 1st place if no account"__. ⭐ **That is already true, and I checked rather than agreed:** money can only be marked received in **two** places, and **both write the account on the very next line** — so ⭐ **this row can only ever hold OLD money, recorded before the app had accounts, and it can never grow.** ⚠️⚠️ **And removing it would hide money: that money is in no account's block and NOT in the Net — this line is the only place it exists.** So the row stays and simply stops taking up a line to say nothing — ⚠️ **a row that always says nothing reads as broken.** ⭐ **Asserted BOTH ways, and both bitten.**
+**1. ⭐ AND THAT IS ALREADY TRUE, AND I CHECKED RATHER THAN AGREED:** money can only be marked received in **two** places, and **both write the account on the very next line** — so ⭐ **this row can only ever hold OLD money, recorded before the app had accounts, and it can never grow.**
 
+**2. ⚠️ AND REMOVING IT WOULD HIDE MONEY:** that money is in **no account's block and not in the Net** — ⭐ **this line is the only place it exists.** So the row stays and simply stops taking up a line to say nothing — ⚠️ **a row that always says nothing reads as broken.**
+
+**3. ⭐ Asserted BOTH ways, and bitten both ways:** with the row never drawn, the test fails on *"old money with no account still shows — the row is the ONLY place it exists."*
+
+**Measured:** tests stay **3,408**. **No database step.**
 
 **12 Oct 2026 — engine v487, SOMETHING A TRANSACTION USES CANNOT BE DELETED (no database step).**
 
