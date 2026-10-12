@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v478)
+# Jienluv2bake — change history (v54 → v479)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v479, EVERY ACCOUNT YOU HAVE SHOWS ON THE MONEY SCREEN (no database step).**
+
+**Your words:** __"after add will it show in Money 1st window, i want it to show and also its transaction journal like the cash/tng"__ — and __"how to manage like delete edit, there is only add"__
+
+**1. ⚠️⚠️ AN ACCOUNT YOU HAD JUST ADDED SHOWED NOWHERE ON THE MONEY SCREEN.** The lines on that card were read off **the money that had actually moved** — so a brand-new account had no row, no figure, and **no door to its own book**, and adding it looked as though it had done nothing at all. ⭐ **Cash and TNG never had this problem**, because their four lines are always drawn — so a new account was the only thing on that card that could be invisible.
+
+**2. ★ SO EVERY ACCOUNT NOW GETS ITS OWN LINE — Paid by Cash to LK, Paid by Bank — at RM 0.00 until money moves through it.** ⭐ **And it is a door, exactly like the Cash and TNG lines: tap it and its own journal opens**, saying honestly that nothing has moved that way yet rather than looking broken.
+
+**3. ★ AND THE CAPTION UNDER THOSE LINES NOW TELLS THE TRUTH ABOUT BOTH DIRECTIONS.** It said these accounts "paid for things without coming out of your purse", which is only half of them: a customer's bank transfer is money IN, and an account you have just added has done neither yet.
+
+**4. ★ AND YOUR GUIDE NOW HAS THE STEPS, WHICH IT NEVER DID.** You asked how to add "Cash LK" — and the honest answer is that the manual never said. ⭐ **It now does, step by step:** More, then Money, then the card, then **Edit**; **＋ New way to pay** to add one; **tap the LINE itself** to rename or delete it (the word *edit* sits at its right-hand end); and **drag the grip** to set your own order. ⚠️ **Including the one thing worth being careful of: the app will not stop you deleting Cash or TNG.** Keep both — they are the two your purse and your phone are reconciled against. ⚠️ **And the short way, from the Pay press itself:** **＋ New way to pay** at the foot of that list adds an account and picks it in the same breath.
+
+**Measured:** tests **3,400 → 3,401**, the new assertion seen to fail with the old rule put back. Driven on the real screen at **375px**: the card showed **Paid by Loan · Paid by Bank · Paid by Cash to LK**, each **RM 0.00**, and tapping the new one opened **"Cash to LK journal"**. **No database step.**
 
 **12 Oct 2026 — engine v478, ONE PAY BUTTON, AND THE ACCOUNTS ARE YOURS (no database step).**
 

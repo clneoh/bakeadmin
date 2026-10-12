@@ -989,9 +989,14 @@ export function renderMoney(root, state) {
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
                 `· of the money in, ${fmtRM(mine.cash + mine.tng, cur)} was your own`)
             : null,
+          // ⚠️ AND THE CAPTION NOW COVERS BOTH DIRECTIONS, AND THE QUIET ACCOUNT (v479). It said
+          // "each paid for things ... without coming out of your purse", which is only half of what
+          // these lines are: a customer's bank transfer is money IN, and since v479 an account she has
+          // just added has a line here before anything has moved through it at all. A caption that
+          // described neither would read as a fault on her own screen.
           others.length
             ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
-                "· these are the ways of paying that are not cash or TNG — a loan, the bank overdraft, someone's own pocket, or one you add later. Each paid for things (or money you put in) without coming out of your purse, so none of them is in the net above. Tap one to open its book.")
+                "· your accounts that are not cash or TNG — a loan, the bank overdraft, one of your own pockets, or one you add yourself. Money that came in or went out this way never passed through your purse or your phone, so none of it is in the net above. Every account you have gets a line here, even one nothing has moved through yet — tap it to open its book.")
             : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),

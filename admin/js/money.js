@@ -20,7 +20,7 @@
 // is why customerTotal() rather than groupValue() is read here and nowhere else.
 import { fmtRM, groupOrders, orderCode, orderLinePrice, round2 } from "./state.js";
 import { isWithin } from "./dates.js";
-import { classOfCategory, isCash, isOther, isTng, methodLabel, methodRank } from "./accounts.js";
+import { classOfCategory, isCash, isOther, isTng, methodLabel, methodRank, methodsOf } from "./accounts.js";
 import { customerTotal } from "./courier.js";
 
 // The stages in order, so "is this past Paid?" can be asked here without importing
@@ -289,7 +289,20 @@ function tallyRows(rows) {
 // `inTallies` add (orders collected that way, money of her own she put in that way),
 // `outTallies` subtract (spending paid that way) — the same net the Money screen shows.
 export function otherMethods(state, inTallies = [], outTallies = []) {
-  const labels = new Set();
+  // ★★ EVERY ACCOUNT ON HER LIST GETS A LINE, WHETHER OR NOT IT MOVED (v479).
+  //
+  // Her words: __"after add will it show in Money 1st window, i want it to show and also its
+  // transaction journal like the cash/tng"__
+  //
+  // ⚠️⚠️ IT ONLY EVER SHOWED THE ONES THAT HAD MOVED. The labels were read off the TALLIES
+  // (`byMethod`), so an account she had just added had no row, no figure and **no door to its own
+  // book** — it looked as though adding it had done nothing at all, which is the reading that made
+  // her ask. ⭐ Cash and TNG never had this problem: their four rows are drawn unconditionally
+  // above, so a new customer-paid account was the only thing on this card that could be invisible.
+  const labels = new Set(methodsOf(state).filter(isOther));
+  // ⚠️ AND A NAME THAT MOVED BUT IS NO LONGER ON HER LIST KEEPS ITS LINE — the rule this function
+  // has always kept: its money is still in the books, and a figure she cannot open is a figure she
+  // has to take on faith.
   for (const t of [...inTallies, ...outTallies]) {
     for (const label of (t && t.byMethod ? t.byMethod.keys() : [])) if (isOther(label)) labels.add(label);
   }

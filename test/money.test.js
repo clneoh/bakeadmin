@@ -208,8 +208,10 @@ test("the Money screen puts what came in beside what went out, and the net", () 
     "TNG out=RM 0.00",
     "Net=RM 10.00",
     "Still to collect=RM 0.00",
+    "Paid by Loan=RM 0.00",
     "Paid, no method=RM 0.00",
-  ], "in, out, and what should be left — with what is still owed kept out of the net");
+  ], "in, out, and what should be left — with what is still owed kept out of the net, "
+    + "⚠️ and every account she has getting a line even when nothing has moved through it (v479)");
 
   const expense = allOf(root).find((n) => String(n.className).includes("info-row")
     && n.textContent.includes("Packaging"));
@@ -507,11 +509,24 @@ test("every non-cash method that moved gets its own line, in her list's order", 
   assert.equal(others[2].net, -40);
 });
 
-test("a method added tomorrow needs no code: the line comes from the rows", () => {
+test("★ every account on her list gets a line, and one it has never seen keeps its own", () => {
+  // ⚠️⚠️ THE LINE COMES FROM HER LIST NOW (v479), NOT ONLY FROM MONEY THAT HAS MOVED. It used to be
+  // read off the tallies, so an account she had just added was **invisible on this card** — no row,
+  // no figure and no door to its own book. Her words: __"after add will it show in Money 1st
+  // window, i want it to show and also its transaction journal like the cash/tng"__. ⭐ Cash and TNG
+  // never had this problem: their four rows are drawn unconditionally, so a new account of hers was
+  // the only thing on this card that could vanish.
   const st = state();
+  assert.deepEqual(otherMethods(st, [], []).map((o) => o.label), ["Loan"],
+    "an account with nothing in it still gets its line, at zero");
+
+  // ⚠️ AND A LABEL NOTHING ON HER LIST KNOWS STILL GETS A BOOK — the rule this function has always
+  // kept: her rows carry the words they were written with, so a row is the only thing that can say
+  // its money exists. Both must be present, and in her list's order.
   st.expenses = [{ id: "e1", date: "2026-09-16", amount: 30, category: "Packaging", method: "Bank OD" }];
   const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
-  assert.deepEqual(others.map((o) => o.label), ["Bank OD"], "a label nothing knows about still gets a book");
+  assert.deepEqual(others.map((o) => o.label), ["Loan", "Bank OD"],
+    "her own quiet account first, then the label nothing knows about");
 });
 
 test("a method she renamed keeps its line, so its money is never invisible", () => {
@@ -521,8 +536,9 @@ test("a method she renamed keeps its line, so its money is never invisible", () 
   st.settings.payMethods = ["Cash", "TNG", "Bank OD"];
   st.expenses = [{ id: "e1", date: "2026-09-16", amount: 250, category: "Ingredients & shopping", method: "Loan" }];
   const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
-  assert.deepEqual(others.map((o) => o.label), ["Loan"],
-    "an old label sorts after the current list and still shows, rather than vanishing from the books");
+  assert.deepEqual(others.map((o) => o.label), ["Bank OD", "Loan"],
+    "her renamed account in her list's place, and the old label its rows were written with — "
+    + "⚠️ neither one invisible (v479)");
 });
 
 test("each of those lines opens its own book, listing that method and nothing else", () => {
@@ -549,6 +565,36 @@ test("each of those lines opens its own book, listing that method and nothing el
   assert.match(text, /Packaging — boxes/, "with what it paid for");
   assert.match(text, /-?RM 40\.00/, "and ending on what moved that way");
   assert.ok(!text.includes("flour run"), "and nothing from another way of paying");
+});
+
+test("★★ an account she has just added shows on the Money card, and its book opens", () => {
+  // ⚠️⚠️ HER WORDS: __"after add will it show in Money 1st window, i want it to show and also its
+  // transaction journal like the cash/tng"__ ⭐ BEFORE v479 AN ACCOUNT WITH NOTHING IN IT HAD NO ROW
+  // AT ALL on this card — the lines were read off the money that had moved — so adding one looked as
+  // though it had done nothing. Cash and TNG never had that problem, because their four rows are
+  // drawn unconditionally.
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Cash to LK"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Paid by Cash to LK=RM 0.00"),
+    "⚠️⚠️ the account she just added is ON the money card at zero, not invisible until money moves");
+
+  // ⭐ AND IT IS A DOOR, exactly the way the Cash and TNG lines are.
+  const line = allOf(root).filter((n) => String(n.className).includes("info-row"))
+    .find((r) => String(r.children?.[0]?.textContent || "") === "Paid by Cash to LK");
+  assert.ok(String(line.className).includes("tappable"), "its line opens its own book");
+  line._listeners.click.forEach((f) => f());
+  const text = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
+  assert.match(text, /Cash to LK journal/, "its own journal, the same as Cash and TNG have");
+  assert.match(text, /Nothing moved this way in this stretch/,
+    "which says honestly that nothing has moved through it yet, rather than looking broken");
 });
 
 // ── v112: paying a personal pocket back ──────────────────────────────────────
@@ -648,8 +694,9 @@ test("the payback lowers the till and the pocket line, and leaves profit alone",
   assert.equal(mine.cash, 0, "and none of it counts as money she put in");
 
   const others = otherMethods(st, [m, mine], [out]);
-  assert.deepEqual(others.map((o) => `${o.label}=${o.net}`), ["Personal Pocket Kean=0"],
-    "the pocket's line is settled — the till owes it nothing now");
+  assert.deepEqual(others.map((o) => `${o.label}=${o.net}`), ["Loan=0", "Personal Pocket Kean=0"],
+    "the pocket's line is settled — the till owes it nothing now — "
+    + "⚠️ and Loan, which moved nothing at all, still has its line (v479)");
   assert.equal(m.other + mine.other - out.other, 0, "and it was never in the till's own figures");
 });
 
