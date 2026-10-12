@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue, isCollected, isRefunded } from "../money.js";
+import { dayMoney, groupValue, isCollected, isRefunded, orderNet } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -2491,7 +2491,14 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   const deliveryNotes = el("div", { class: "card-sub", style: "margin:6px 0 0" },
     ...moveNoteLines(state, group, curId).map((t) => el("p", { style: "margin:2px 0" }, t)));
 
+  const cfgCur = (state.settings && state.settings.currency) || "RM";
   const totalEl = el("div", { class: "receipt", style: "margin:8px 0 0" });
+  // ★★ AND WHAT SHE IS TAKING OFF AN ORDER THAT IS ALREADY PAID (v489).
+  const paidShortEl = el("div", {});
+  // ⚠️⚠️ `null` UNTIL THE TOTAL IS PAINTED, AND THAT IS THE WHOLE GUARD. A `0` here read as "the
+  // order now comes to nothing", so EVERY paid order asked the question. ⭐ **A default that means
+  // something it does not know is worse than no default.**
+  let draftNow = null;
   // ★★ AND THE COUPON'S OWN LINE, WITH HER PRESS (v450) — see `couponControlEls`.
   const couponEl = el("div", { style: "margin:8px 0 0" });
   // ★★ AND THE COUPON'S OWN LINE, WITH HER PRESS (v450) — see `couponControlEls`.
@@ -2557,6 +2564,24 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     }) : []));
     // ★ AND THE COUPON SAYS WHO PUT IT THERE, AND OFFERS IT BACK (v450).
     couponEl.replaceChildren(...couponControlEls(state, first, group, paintTotal));
+
+    // ⚠️⚠️ HER OWN QUESTION, ANSWERED WHERE SHE ASKS IT: __"if i edit an order to reduce its quatity, a paid
+    // money reverse out from the accounts?"__ ⭐ **YES IT DOES** — the paid money is counted off the order's
+    // own lines, live, so a smaller order is a smaller payment the moment it is saved. ⚠️ **But her HAND
+    // does not change, and nothing used to say so** — the difference left her books in silence.
+    // ⭐ And her rule for taking something away is the one she gave me for bake days and delivery:
+    // **it asks first.**
+    const paidWas = isCollected(group) ? orderNet(state, group) : 0;
+    const nowTotal = Math.max(0, itemsTotal + here - off - coupon.amount);
+    const short = round2(paidWas - nowTotal);
+    draftNow = nowTotal;
+    paidShortEl.replaceChildren(...(paidWas > 0 && short > 0
+      ? [el("p", { class: "hint paid-short" },
+          `⚠️ This order was paid ${fmtRM(paidWas, cfgCur)}. As it stands it comes to `
+          + `${fmtRM(nowTotal, cfgCur)} — ${fmtRM(short, cfgCur)} LESS. Saving it takes that `
+          + `${fmtRM(short, cfgCur)} out of your accounts but not out of your hand — refund the difference, `
+          + `or the two will disagree.`)]
+      : []));
   }
   // The courier charge, asked for here as well as in the Note / tracking box (19 Sep
   // 2026): the charge is part of what this order is, and Edit is where she changes what
@@ -2642,7 +2667,23 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // came to press THIS function instead of persisting: the reset succeeded, the card saved
   // itself, toasted "Order updated" and closed, dropping her on the Orders list with no
   // price asked. One press, three versions of the report. See test/edit-popup-relook.test.js.
+  // ⚠️⚠️ AND IT ASKS FIRST (v489). Her rule, given for bake days and then for delivery:
+  // **taking something away asks first.** ⚠️ The money leaves her accounts the moment this saves,
+  // and nothing in her hand moves — so the question says the figure, and says what to do next.
   const saveEdits = () => {
+    const paidWas = isCollected(group) ? orderNet(state, group) : 0;
+    const short = round2(paidWas - draftNow);
+    if (paidWas > 0 && draftNow != null && short > 0) {
+      return confirmDialog(
+        `This order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
+        + `${fmtRM(draftNow, cfgCur)}. Saving takes ${fmtRM(short, cfgCur)} out of your accounts — `
+        + `your hand will not change. Save it, and refund the difference after?`,
+        () => applyEdits(), { yesLabel: "Save it" });
+    }
+    applyEdits();
+  };
+
+  const applyEdits = () => {
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
@@ -2810,6 +2851,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       rowsEl,
       button("＋ Add another item", () => { lines.push({ productId: "", qty: 1, price: null }); refresh(); }, "ghost"),
       totalEl,
+      paidShortEl,
       couponEl),
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),

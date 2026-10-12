@@ -1,8 +1,16 @@
-# Jienluv2bake — change history (v54 → v489)
+# Jienluv2bake — change history (v54 → v490)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v490, A PAID ORDER CANNOT BE MADE CHEAPER IN SILENCE (no database step).**
+
+**Your words:** __"if i edit an order to reduce its quatity, a paid money reverse out from the accounts?"__ — and __"if i delete a order, will the money reverse out?"__
+
+**1. ⭐⭐ AND THE QUESTION YOU ASKED IS NOW SAID ON THE SCREEN.** "If I edit an order to reduce its quantity, does a paid money reverse out of the accounts?" ⭐ **YES IT DOES** — the paid money is counted **off the order's own lines, live**, so a smaller order is a smaller payment the moment it saves. ⚠️ **But your HAND does not change, and nothing said so** — the difference left your books in silence. **The Edit card now says it while you are editing**, with the figure: *"This order was paid RM 160.00. As it stands it comes to RM 80.00 — RM 80.00 LESS. Saving it takes that RM 80.00 out of your accounts but not out of your hand."* ⭐ **And saving asks first**, with the same figure, because taking something away asks first — your rule from bake days and from delivery.
+
+**2. ⚠️ AND THE SAME IS TRUE OF DELETING A PAID ORDER**, which I checked too: **the money leaves the accounts at once**, the order goes to the **Removed list** so it can be put back, the **ingredients stay consumed**, and **the receipt number stays claimed**. ⚠️ **Deleting has no such warning yet** — offered, not built.
 
 **12 Oct 2026 — engine v489, THE ACCOUNTS ARE ONE TABLE, AND THE SHOP STOPS JUMPING (no database step).**
 
