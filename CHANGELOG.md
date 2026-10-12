@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v473)
+# Jienluv2bake — change history (v54 → v474)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v474, AN ORDER CANNOT BE ON YOUR LIST AND ON THE REMOVED LIST AT ONCE (no database step).**
+
+**Your words:** __"build the shelf row fix"__
+
+**1. ⚠️⚠️ THE THREE ROWS, AND WHY THEY WERE STILL THERE.** The check said *"Nothing is on the orders list and the Removed list at once — 3"*, naming the three you put back after the 11 October loss. ⭐ **Their shelf rows survived because SENDING WAS BROKEN at the moment you put them back** — the removal of the row was queued and never left, so it came back down on the next pull. **The same damage as every other line that week.**
+
+**2. ⭐⭐ AND IT IS NOT SOMETHING YOU SHOULD HAVE HAD TO CLEAR BY HAND.** An order **cannot** be in your live list and on the shelf at the same time — **the shelf exists to hold what is NOT in the live list.** ⭐ **So a row for an order that is back is stale by definition, and dropping it cannot lose anything, because the order itself is right there.**
+
+**3. ★ SO IT IS NOW A RULE, NOT A CHORE.** Wherever your data lands — **when the app opens, and every time it takes on shared data** — a shelf row whose order is back **is dropped.** ⭐ **Nothing to press, nothing to remember.**
+
+**4. ⚠️ AND THE HALF THAT MATTERS MOST: A ROW FOR AN ORDER THAT IS GENUINELY GONE IS KEPT.** ⭐ **The shelf is the only place a removed order survives — that is what it is for (v444).** So the tidy **only ever drops what is already in your live list**, and there is a test that says exactly that, **which is the one that keeps passing when the fix is reversed.** ⚠️ **A tidy that emptied the shelf would destroy the recovery it exists for.**
+
+**5. ⚠️ AND ONE THING IT DOES THAT IS EASY TO MISS.** If a stale row came from your shared data, **the drop is written back up** — ⭐ otherwise the other phone would hand the same row back on every sync, for ever. **A tidy that only tidies one phone is not a tidy.**
+
+**6. ⭐ AND TO ANSWER YOUR QUESTION ABOUT TIME, WHICH IS A FAIR ONE.** The shelf keeps removed orders for **48 hours — not 24.** ⭐ So yes, a stale row **would** eventually disappear on its own — **but waiting two days for something the app can plainly see is wrong is the wrong answer**, and it is exactly the kind of thing that should settle itself. **This version settles it the moment it runs.**
+
+**Measured:** tests **3,384 → 3,387**, the invariant seen to fail when the tidy is reversed. **No database step.**
 
 **12 Oct 2026 — engine v473, THE CHECK NOW EXPLAINS ITSELF INSTEAD OF SENDING YOU LOOKING (no database step).**
 

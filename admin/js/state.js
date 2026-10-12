@@ -446,7 +446,11 @@ function normalize(s) {
       : [],
     // Guarded like every other list she owns: a phone that has never removed an order, and a state
     // written before v444, both behave exactly as before.
-    removedOrders: Array.isArray(s.removedOrders) ? s.removedOrders : [],
+    // ⚠️⚠️ AND A ROW FOR AN ORDER THAT IS BACK IN THE LIVE LIST IS DROPPED HERE (v474) — the invariant
+    // `dropStaleShelfRows` exists for, applied on every load. ⭐ It reads `s.orders`, the same source the
+    // `orders` key above uses, so the two can never disagree about what is live.
+    removedOrders: (Array.isArray(s.removedOrders) ? s.removedOrders : [])
+      .filter((r) => !(r && r.id && Array.isArray(s.orders) && s.orders.some((o) => o && o.id === r.id))),
     voidedReceipts: Array.isArray(s.voidedReceipts) ? s.voidedReceipts : [],
     declinedCoupons: Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
@@ -787,6 +791,27 @@ function pruneRemovedOrders(state) {
   const list = Array.isArray(state.removedOrders) ? state.removedOrders : [];
   const cut = new Date(Date.now() - REMOVED_KEEP_HOURS * 3600000).toISOString();
   state.removedOrders = list.filter((r) => r && String(r.removedAt || "") >= cut).slice(0, REMOVED_MAX);
+}
+
+// ★★★ AND A SHELF ROW FOR AN ORDER THAT IS BACK IS STALE BY DEFINITION (v474).
+//
+// HER REPORT, with the check's own line: __"Nothing is on the orders list and the Removed list at once —
+// 3"__, naming `#9F47F5 · #D06D27 · #5C55CF` ⭐ **the three she put back after the 11 October loss.**
+// ⚠️⚠️ **THEIR SHELF ROWS SURVIVED THE RESTORE, BECAUSE SENDING WAS BROKEN AT THE TIME** — the removal of
+// the shelf row was queued and never left, so it came back down on the next pull. **The same damage as
+// every other line that week.**
+// ⭐ **AND IT IS NOT A THING SHE SHOULD HAVE TO CLEAR BY HAND: an order that is in the live list AND on the
+// shelf cannot be both.** The shelf's whole purpose is to hold what is NOT in the live list — so the row is
+// **stale, and dropping it cannot lose anything, because the order itself is right there.**
+// ⚠️ **SAFE BY CONSTRUCTION**: `removeOrders` takes the order OUT of the live list first and only then puts
+// it on the shelf, so the tidy can never race a removal. **A row for a genuinely removed order is kept.**
+export function dropStaleShelfRows(state) {
+  const live = new Set((Array.isArray(state.orders) ? state.orders : [])
+    .filter(Boolean).map((o) => o && o.id).filter(Boolean));
+  const shelf = Array.isArray(state.removedOrders) ? state.removedOrders : [];
+  const kept = shelf.filter((r) => !(r && r.id && live.has(r.id)));
+  state.removedOrders = kept;
+  return shelf.length - kept.length;
 }
 
 // Put one back exactly as it was — the same id, its group, its day, its price. ⚠️ The `removedAt` mark is

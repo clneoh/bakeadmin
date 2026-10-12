@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { defaultState, normalize, removeOrders, restoreRemovedOrder, REMOVED_KEEP_HOURS } from "../admin/js/state.js";
+import { defaultState, normalize, removeOrders, restoreRemovedOrder, dropStaleShelfRows, REMOVED_KEEP_HOURS } from "../admin/js/state.js";
 
 const JS_DIR = new URL("../admin/js/", import.meta.url).pathname;
 
@@ -139,4 +139,51 @@ test("⚠️ a phone that has never removed an order, and a state written before
   assert.deepEqual(removeOrders(old, [undefined, null]), []);
   assert.equal(old.orders.length, 0);
   assert.equal(defaultState().removedOrders.length, 0, "a brand-new state does not start with an empty shelf");
+});
+
+// ── v474: a shelf row for an order that is BACK is dropped ───────────────────
+test("★★★ a shelf row for an order that is back in the live list is DROPPED — the invariant", () => {
+  // ⚠️⚠️ HER REPORT, with the check's own line: __"Nothing is on the orders list and the Removed list at
+  // once — 3"__, naming the three she put back after the 11 October loss. ⭐ **Their shelf rows survived the
+  // restore because SENDING WAS BROKEN when she did it** — the row's removal was queued and never left, so
+  // it came back down on the next pull. ⚠️ **The same damage as every other line that week.**
+  // ⭐ **AND IT IS NOT SOMETHING SHE SHOULD HAVE TO CLEAR BY HAND: an order cannot be in the live list and
+  // on the shelf at once.** The shelf holds what is NOT live — so such a row is stale, **and dropping it
+  // cannot lose anything, because the order itself is right there.**
+  const st = {
+    orders: [{ id: "o1", deliveryDateId: "d1", productId: "p1", qty: 20, customerName: "Jien" }],
+    deliveryDates: [],
+    removedOrders: [{ id: "o1", removedAt: new Date().toISOString() }],   // the stale row
+  };
+  const dropped = dropStaleShelfRows(st);
+  assert.equal(dropped, 1, "★ the stale shelf row was left where it was");
+  assert.equal(st.removedOrders.length, 0, "the shelf still holds a row for an order that is back");
+  assert.equal(st.orders.length, 1, "⚠️ and the ORDER must not have been touched — only the stale row");
+});
+
+test("★★⚠️ and a row for a GENUINELY removed order is KEPT — the fix must not empty the shelf", () => {
+  // ⚠️⚠️ THE HALF THAT MATTERS MOST. ⭐ **The shelf is the only place a removed order survives** (v444) —
+  // so a fix that emptied it would destroy the recovery it exists for. **This is the assertion that says
+  // the tidy only ever drops what is already live.**
+  const st = {
+    orders: [{ id: "o1", deliveryDateId: "d1", productId: "p1", qty: 20, customerName: "Jien" }],
+    deliveryDates: [],
+    removedOrders: [{ id: "o2", removedAt: new Date().toISOString(), removedWhy: "an edit" }],
+  };
+  assert.equal(dropStaleShelfRows(st), 0, "★ a genuinely removed order was tidied away");
+  assert.deepEqual(st.removedOrders.map((r) => r.id), ["o2"],
+    "★ the shelf lost a row for an order that is NOT in the live list — that is the recovery gone");
+});
+
+test("★ and the invariant holds on LOAD as well as on a merge", () => {
+  // ⚠️ `normalize` carries it too, so a phone that is opened with a stale row already in its storage is
+  // tidy the moment it loads — not only after a sync.
+  const old = normalize({
+    version: 1,
+    orders: [{ id: "o1", deliveryDateId: "d1", productId: "p1", qty: 1 }],
+    deliveryDates: [],
+    removedOrders: [{ id: "o1", removedAt: new Date().toISOString() }, { id: "o9", removedAt: new Date().toISOString() }],
+  });
+  assert.deepEqual(old.removedOrders.map((r) => r.id), ["o9"],
+    "★ loading a state with a stale shelf row left it in place");
 });

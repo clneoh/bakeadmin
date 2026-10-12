@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { removeOrders, save, STOCK_PRODUCTION } from "./state.js";
+import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 // The one answer to "is this a place" — see placeForSync below for why the courier
 // module's own rule is asked rather than a copy of it written here.
@@ -794,8 +794,17 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
 export function mergeRows(state, rows) {
   const b = readSync();
   const { changed } = mergeCloudRows(state, rows, b);
+  // ★★★ AND A MERGED-IN SHELF ROW FOR AN ORDER THAT IS BACK IS DROPPED HERE (v474).
+  // ⚠️⚠️ **THIS IS THE PATH THAT MADE HER THREE STRAY ROWS: a phone put an order back, the removal of its
+  // shelf row was queued while sending was broken, and the row came down again on the next pull.** ⭐ So the
+  // invariant is applied **wherever the data lands, not only on load** — `normalize` carries it on a load
+  // and this carries it on a merge.
+  // ⚠️ **AND IF ANYTHING WAS DROPPED, THE STATE IS SAVED — which queues the removal so it goes UP**, or the
+  // shared data would hand the same stale row back on every pull, for ever.
+  const dropped = dropStaleShelfRows(state);
+  if (dropped) save(state);
   writeSync(b);
-  return { state, changed };
+  return { state, changed: changed || dropped > 0 };
 }
 
 // ── pull ──────────────────────────────────────────────────────────────────
