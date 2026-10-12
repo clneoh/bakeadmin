@@ -3213,11 +3213,18 @@ function clearFieldMarks() {
     // page already does for a missing WhatsApp number.**
     const fulfilEl = document.getElementById("fulfillment");
     if (fulfilEl && !fulfilEl._value) {
+      // ★★★ THE LINE, ABOVE THE TWO CARDS — NOT THE BANNER AT THE FOOT OF THE PAGE (v463).
+      // ⚠️⚠️ HER REPORT, WITH A PICTURE: __"this warning not behaving"__.
+      // ⭐ **AND HERE IS WHY, MEASURED IN THE CODE RATHER THAN GUESSED AT.** The old version did two
+      // things that fought each other: it scrolled to the TWO CARDS, and then `showConfirm` scrolled
+      // again — to its own banner, **which sits at the very bottom of the page, below the Track-your-order
+      // card.** ⭐⭐ **So the message said "Tap Self collect or Courier delivery ABOVE" while the page
+      // carried her AWAY from them.** ⚠️ **The last scroll wins, and it was the wrong one.**
+      // ⭐ It is the step line now, which is what every other refusal in this shop has used since v459: it
+      // lands **directly above the two cards**, it **blinks** with the shop's one blink (v462) — **it was
+      // the only warning the flash had never covered** — and it moves nobody.
       if (fulfilEl.scrollIntoView) fulfilEl.scrollIntoView({ block: "center" });
-      showConfirm([
-        el("p", { class: "confirm-title" }, t("fulfilAskTitle")),
-        el("p", { class: "confirm-body" }, t("fulfilAskBody")),
-      ], "warn");
+      sayStepFirst("fulfilAskTitle", "fulfilAskBody", "step3", fulfilEl);
       return;
     }
     // Cutoff guard: a customer may have the page open across the deadline, so

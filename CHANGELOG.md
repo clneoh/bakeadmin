@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v462)
+# Jienluv2bake — change history (v54 → v463)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v463, "TAP SELF COLLECT ABOVE" — WHILE THE PAGE CARRIED HER AWAY FROM THEM (no database step).**
+
+**Your words:** __"this warning not behaving"__ — with a picture of it.
+
+**1. ⚠️⚠️ YOU WERE RIGHT, AND THE REASON WAS TWO SCROLLS FIGHTING EACH OTHER.** When Place order was pressed with no way chosen, the page did two things: **it scrolled to the two cards** — and then **the banner scrolled again, to itself, and that banner sits at the very bottom of the page, below Track your order.** ⭐ **The last scroll wins, and it was the wrong one.** ⭐⭐ **So the message said "Tap Self collect or Courier delivery ABOVE" while the page carried her AWAY from them** — exactly what your picture shows.
+
+**2. ★ IT IS THE STEP LINE NOW, ABOVE THE TWO CARDS — the same line every other refusal in this shop has used since v459.** ⭐ **Measured on the real shop: the line sits 4px above the two cards, it is on screen, it is BLINKING, and the page carries her to the CARDS rather than to the bottom of the page.** ⚠️ **And the bottom banner is not used for this at all any more**, so nothing can drag her away from the things the message names.
+
+**3. ⚠️ AND IT WAS THE ONE WARNING THE BLINK HAD NEVER COVERED.** v462 gave the blink to the step line and to the reason under a missing field — **this warning was a different element entirely and it never blinked at all.** ⭐ It does now, with the same one blink.
+
+**4. ⚠️ AND ONE THING WORTH WRITING DOWN, BECAUSE IT COST ME TIME.** My first assertion read the line's text and kept failing **while the line was demonstrably correct** — because the test page's text is a plain field that is **never recomputed** when the line is filled. ⭐ **The assertion was reading the value from before the line was written.** It reads the line's own children now, which is what every other test in that file does. ⚠️ And where the line *lands* cannot be asserted on that page at all — it carries no markup — so **that is a live-measured fact**, and it is written down as one rather than pretended.
+
+**Measured:** tests **3,369**, all green (two moved with the behaviour rather than being deleted). **No database step.**
 
 **12 Oct 2026 — engine v462, THE WARNINGS ACTUALLY BLINK, AND THE PAGE COMES TO YOU (no database step).**
 

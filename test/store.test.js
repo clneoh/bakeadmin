@@ -492,7 +492,10 @@ test("★★★ the FIRST step outstanding is said, in his order — never a dea
   // ── a number, still no way of getting it
   document.getElementById("whatsapp-input").value = "60123456789";
   await press();
-  assert.match(said(), /how you will get your order/i,
+  // ⚠️ v463: the way is now asked for ON THE LINE ABOVE THE TWO CARDS, not in the banner at the foot of
+  // the page — see the note beside the refusal in `store/app.js`.
+  assert.match(String((registry["step-note"].children[0] || {}).children?.[0]?.text || ""),
+    /how you will get your order/i,
     "★ the way was not asked for, though v416 makes it the one thing an order must carry");
 });
 
@@ -3152,9 +3155,27 @@ test("★★ he cannot order without saying how he gets it — and the page poin
     // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
     await registry["order-btn"].onclick();
-    const said = confirmLines().join(" | ");
-    assert.match(said, /say how you will get your order/i, "the page asks him rather than assuming");
-    assert.match(said, /Self collect or Courier delivery/, "and names the two things to pick from");
+    // ★★★ AND IT IS *AT* THE TWO CARDS, NOT AT THE FOOT OF THE PAGE (v463). Her report, with a picture:
+    // __"this warning not behaving"__ ⚠️⚠️ **The old version scrolled to the two cards and then
+    // `showConfirm` scrolled AGAIN — to its own banner, which sits at the very bottom of the page, below
+    // the Track-your-order card.** ⭐⭐ **So the message said "Tap Self collect or Courier delivery ABOVE"
+    // while the page carried her away from them. The last scroll wins, and it was the wrong one.**
+    const note = registry["step-note"];
+    // ⚠️ READ THE LINE'S OWN CHILDREN, NOT `textContent` (v463). ⭐ **The test page's `textContent` is a
+    // plain field that `replaceChildren` never recomputes** — so reading it answers the value from BEFORE
+    // the line was filled, and an assertion built on it is asserting nothing. This file's other tests read
+    // the children for exactly this reason.
+    const title = String((note.children[0] && note.children[0].children[0] || {}).text || "");
+    const body = String((note.children[2] || {}).text || "");
+    assert.match(title, /say how you will get your order/i, "the page asks him rather than assuming");
+    assert.match(body, /Self collect or Courier delivery/, "and names the two things to pick from");
+    // ⚠️ WHERE THE LINE LANDS IS NOT ASSERTABLE HERE, AND THAT IS THE SHIM'S LIMIT RATHER THAN THE VIEW'S:
+    // this page carries no markup, so `#fulfillment` has no parent and the line's own placement falls back.
+    // ⭐ **It is a LIVE-MEASURED fact** — the line sits directly above the two cards, checked on the real
+    // shop — and pretending otherwise here would be the "a test that proves nothing" fault this file keeps
+    // recording.
+    assert.ok(String(note.className).includes("flash"),
+      "★ and it does not blink — this was the one warning the flash never covered");
     assert.equal(registry["order-btn"].disabled, false,
       "⭐ the button is LIVE — this is a question, not a control that has been switched off");
 
