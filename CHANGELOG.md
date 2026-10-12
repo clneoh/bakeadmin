@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v483)
+# Jienluv2bake — change history (v54 → v484)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v484, THE LITTLE GREY NOTES ARE GONE (no database step).**
+
+**Your words:** __"i dont need the word your tin, your phone"__
+
+**1. ⭐ AND THE WHOLE NOTE COLUMN WENT WITH THEM.** They are gone from the Money screen's blocks and from the editor's lines alike — ⚠️ **because leaving "an account" on some lines and nothing on others is worse than either.** ⭐ **An account's name is the whole of what its line says.**
+
+**2. ⚠️ AND TWO PLACES WERE LEFT POINTING AT A MARK THAT NO LONGER EXISTED.** The Money screen's caption still said *"the two marked ones"* — ⭐ **a caption pointing at a mark that is not there sends you looking for it** — so it names the two accounts instead. ⚠️ **And Day one's boxes were labelled "Cash — your tin"**; they now carry the account's own name and nothing else.
+
+**3. ⭐ AND YOUR GUIDE SAID SOMETHING THAT HAD STOPPED BEING TRUE** — it told you to read *"Cash in less Cash out"* for your tin, and **those two rows became blocks in v481**. It now says the Cash block's In less its Out.
+
+**Measured:** tests stay **3,406**, with the readers moved to the flat row rather than patched around. ⚠️ **Checked on the real screen at 375px:** the blocks read name-then-three-figures, **every column still shares one right edge**, no sideways scroll. **No database step.**
 
 **12 Oct 2026 — engine v483, THE ACCOUNTS AS COLUMNS (no database step).**
 

@@ -187,10 +187,13 @@ test("Edit opens the lists, and every line can be opened to change it", () => {
   // "not from the purse" / "not in your purse or phone" — ⭐ **which said the loan was not an
   // account at all**, and that is precisely what she asked me to unify. Every one of them is an
   // account now, so a loan says so, and Cash and TNG are named for where they are.
-  assert.match(rowNote(managerRow("Loan")).textContent, /an account/,
-    "a loan is one of her accounts, named as one — not described by what it is not");
-  assert.match(rowNote(managerRow("Cash")).textContent, /your tin/,
-    "and the two she counts by hand are named for where the money is");
+  // ⚠️⚠️ AND THE NOTES ARE GONE (v483). Her words: __"i dont need the word your tin, your phone"__ — and
+  // the whole column went with them, because leaving "an account" on some lines and nothing on others
+  // is worse than either. ⭐ **An account's name is the whole of what its line says.**
+  assert.equal(rowNote(managerRow("Loan")).textContent.trim(), "",
+    "no note on a loan's line — its name is the whole of it");
+  assert.equal(rowNote(managerRow("Cash")).textContent.trim(), "",
+    "and none on Cash either");
   // ⚠️⚠️ AND THE AFFORDANCE IS VISIBLE NOW (v481). The row used to be `tappable` with the word "edit"
   // in grey at its end — ⭐ **which she had to ask about TWICE.** It carries its own Edit and
   // Delete, the same two buttons every other list in this app wears.
@@ -369,7 +372,7 @@ test("★★ the net does not move when money moves between her own pots", () =>
     const r = walk(mount(s))
       .filter((n) => String(n.className).includes("acc-row")
         && !String(n.className).includes("acc-head-row"))
-      .find((x) => x.children[0].children[0].textContent === "Cash");
+      .find((x) => x.children[0].textContent === "Cash");
     return [1, 2, 3].map((i) => r.children[i].textContent).join("|");
   };
   const state = freshState();

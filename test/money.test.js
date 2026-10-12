@@ -189,9 +189,8 @@ const allOf = (node, out = []) => {
 // HEAD — the name and where it is, in one span — so the old `children[0].textContent` lookup ran the
 // two together ("Cashyour tin") and found nothing. These read either shape, so a test can still ask
 // for a row by the name she sees on it.
-const moneyRowName = (r) => String(r.className).includes("acc-row")
-  ? String(r.children?.[0]?.children?.[0]?.textContent || "")
-  : String(r.children?.[0]?.textContent || "");
+// ⚠️ ONE SHAPE NOW (v483): an account's name IS its row's first cell — there is no note beside it.
+const moneyRowName = (r) => String(r.children?.[0]?.textContent || "");
 const moneyRowOf = (root, label) => allOf(root)
   .filter((n) => String(n.className).includes("info-row"))
   .find((r) => moneyRowName(r) === label);
@@ -213,7 +212,7 @@ test("the Money screen puts what came in beside what went out, and the net", () 
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.deepEqual(rows, [
     "Cash=RM 15.00|RM 5.00|RM 10.00",
@@ -241,7 +240,7 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
   const rows = allOf(root).filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 0.00|RM 0.00|RM 0.00")
     && rows.includes("TNG=RM 0.00|RM 0.00|RM 0.00"),
@@ -338,7 +337,7 @@ test("her own money counts into the till, and the screen says how much was hers"
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 115.00|RM 30.00|RM 85.00"),
     "RM15 of orders + RM100 of her own in the tin, and the withdrawal out of it — "
@@ -414,7 +413,7 @@ test("★ what a loan paid for has its own line — and now counts in Net (v480)
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 15.00|RM 18.00|RM -3.00"),
     "the tin took 15 and gave up 18 — all three figures on its own block (v481)");
@@ -728,7 +727,7 @@ test("★★ an account she has just added shows on the Money card, and its book
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash to LK=RM 0.00|RM 0.00|RM 0.00"),
     "⚠️⚠️ the account she just added is ON the money card at zero, not invisible until money moves");
@@ -767,7 +766,7 @@ test("★★ every account counts in the Net now — her choice (v480)", () => {
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   // ⚠️ THE OLD ANSWER WAS RM 15.00 — the cash alone, with the bank transfer in neither side of it.
   assert.ok(rows.includes("Net — every account=RM 30.00"),
@@ -801,7 +800,7 @@ test("⚠️⚠️ a transfer never moves the Net — even into an account that 
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 0.00|RM 200.00|RM -200.00"), "the tin really did give it up");
   assert.ok(rows.includes("Bank=RM 200.00|RM 0.00|RM 200.00"), "and the bank really did receive it");
@@ -1027,14 +1026,14 @@ test("Day one writes the tin, the phone and the shelf in one go", (t) => {
   press(root, "Set"); // the Day one line, beside Books
   const form = screen["popup-layer"];
   const box = (label) => allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === label);
-  assert.ok(box("Cash — your tin") && box("TNG — your phone"),
+  assert.ok(box("Cash") && box("TNG"),
     "the tin and the phone are both asked for");
   assert.ok(box("Strong flour on hand") && box("Almonds on hand"), "and every ingredient has a box");
   assert.ok(!box("Labour on hand"),
     "except the ones she never buys — labour has no shelf to count");
 
-  box("Cash — your tin").value = "500";
-  box("TNG — your phone").value = "120.50";
+  box("Cash").value = "500";
+  box("TNG").value = "120.50";
   box("Strong flour on hand").value = "5";   // in its own unit: kg
   box("Almonds on hand").value = "600";      // grams
   press(form, "Save day one");
@@ -1090,7 +1089,7 @@ test("Day one leaves everything alone when the boxes are blank, and says so", (t
   assert.equal(st.ingredients[0].onHand, 250, "and the stock she already had is untouched");
 
   // A slip in one box must not save the rest half-way: it is checked before anything is written.
-  allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Cash — your tin").value = "500";
+  allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Cash").value = "500";
   allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Almonds on hand").value = "abc";
   allOf(form).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === "Save day one")
     ._listeners.click.forEach((f) => f());

@@ -199,10 +199,9 @@ function openDayOne(state, redraw) {
   // ★★ A BOX FOR EVERY ACCOUNT (v481) — ⚠️ **it offered only Cash and TNG, so the Bank and Cash to LK
   // could not be given an opening balance at all**, which is a gap her own model walked straight into.
   // ⭐ Every account she has gets its own box, named the way its block on the Money screen names it.
-  const opened = methodsOf(state).map((m) => ({
-    m,
-    ...money(isCash(m) ? `${m} — your tin` : isTng(m) ? `${m} — your phone` : m),
-  }));
+  // ⚠️ AND THE BOX IS NAMED JUST FOR THE ACCOUNT (v483) — __"i dont need the word your tin, your
+  // phone"__. ⭐ The label is what she types against, so it says the account and nothing else.
+  const opened = methodsOf(state).map((m) => ({ m, ...money(m) }));
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
@@ -459,10 +458,10 @@ function openListsManager(state, redraw) {
           ? entryForm(state, { kind: "category", current: "", onDone: done })
           : newEntryChip("category", () => { editing = { kind: "category", label: "" }; show(); })),
       el("h3", { style: "margin:16px 0 4px" }, "Way to pay/receive"),
-      // ⭐ The two she counts by hand are named for where they are; every other account is named by
-      // its own name, which is all it needs — ⚠️ "not in your purse or phone" said the others were
-      // NOT accounts at all, which is the split v481 retired.
-      ...methods.map((m) => row(m, isCash(m) ? "your tin" : isTng(m) ? "your phone" : "an account", "method")),
+      // ⚠️ NO NOTE ON THE LINE EITHER (v483) — __"i dont need the word your tin, your phone"__. ⭐ The
+      // name of an account is the whole of what she needs to read, and the note was a leftover from
+      // explaining a split that no longer exists.
+      ...methods.map((m) => row(m, "", "method")),
       el("div", { class: "btn-row", style: "margin-top:8px" },
         editing && editing.kind === "method" && !editing.label
           ? entryForm(state, { kind: "method", current: "", onDone: done })
@@ -1087,11 +1086,10 @@ export function renderMoney(root, state) {
             class: `info-row tappable acc-row${a.counted ? " acc-counted" : ""}`,
             onclick: () => openJournal(state, a.label, from, to, a.label),
           },
-            el("span", { class: "acc-head" },
-              el("span", { class: "acc-name" }, a.label),
-              a.counted
-                ? el("span", { class: "acc-where" }, isCash(a.label) ? "your tin" : "your phone")
-                : null),
+            // ⚠️ AND NO NOTE BESIDE THE NAME (v483). Her words: __"i dont need the word your tin, your
+            // phone"__ — ⭐ and the whole note column goes with them rather than only those two, because
+            // leaving "an account" on some lines and nothing on others is worse than either.
+            el("span", { class: "acc-name" }, a.label),
             el("span", { class: "acc-num" }, fmtRM(a.in, cur)),
             el("span", { class: "acc-num" }, fmtRM(a.out, cur)),
             el("span", { class: "acc-num acc-holds" }, fmtRM(a.holds, cur)))),
@@ -1105,7 +1103,10 @@ export function renderMoney(root, state) {
                 `· of the money in, ${fmtRM(mineTotal, cur)} was your own`)
             : null,
           el("p", { class: "card-sub", style: "margin:6px 0 0" },
-            "· every account you have gets its own block — what came in, what went out, and what it holds. The two marked ones are the two you can count by hand, your tin and your phone; Net adds up every account, so it is not the figure you check against those two. Tap any block to open that account's journey."))),
+            // ⚠️⚠️ AND IT NO LONGER SAYS "THE TWO MARKED ONES" (v483) — ⭐ **nothing is marked any more**,
+            // because the notes are gone. A caption pointing at a mark that is not there sends her
+            // looking for it. It names the two accounts instead.
+            "· every account you have gets its own block — what came in, what went out, and what it holds. Net adds up every account, so it is not what you should have in your purse or on your phone: read the Cash and TNG blocks for those two. Tap any block to open that account's journey."))),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),
         mine.rows.length
