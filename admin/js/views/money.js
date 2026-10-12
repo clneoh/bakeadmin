@@ -1103,10 +1103,11 @@ export function renderMoney(root, state) {
                 `· of the money in, ${fmtRM(mineTotal, cur)} was your own`)
             : null,
           el("p", { class: "card-sub", style: "margin:6px 0 0" },
-            // ⚠️⚠️ AND IT NO LONGER SAYS "THE TWO MARKED ONES" (v483) — ⭐ **nothing is marked any more**,
-            // because the notes are gone. A caption pointing at a mark that is not there sends her
-            // looking for it. It names the two accounts instead.
-            "· every account you have gets its own block — what came in, what went out, and what it holds. Net adds up every account, so it is not what you should have in your purse or on your phone: read the Cash and TNG blocks for those two. Tap any block to open that account's journey."))),
+            // ⚠️⚠️ AND IT NAMES NO ACCOUNT AT ALL (v484). It said *"read the Cash and TNG blocks"* —
+            // ⭐ **and she renamed Cash to Cash LS, so there IS no Cash block.** ⚠️ **I had written a
+            // comment two lines above about a caption pointing at a mark that is not there, and then
+            // wrote one.** ⭐ **An account's name is HERS, so no sentence in this app may name one.**
+            "· every account you have gets its own block — what came in, what went out, and what it holds. Net adds up every account, so it is not what you have in any single one — read that account's own block for that. Tap any block to open its journey."))),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),
         mine.rows.length

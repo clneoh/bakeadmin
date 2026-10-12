@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v484)
+# Jienluv2bake — change history (v54 → v485)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v485, THE CAPTION NAMES NO ACCOUNT (no database step).**
+
+**Your words:** __"why cash is not in the list of Way to pay/receive?"__
+
+**1. ⭐ THE ANSWER IS YOUR OWN LIST — nothing was missing.** Your accounts are **Cash LS, TNG, Cash LK and test**. ⭐ **You renamed Cash**, and the app's own rule is that a rename rewrites the records already written with the old name — so everything followed and "Cash" left the list. ⚠️ **Nothing is broken by it:** the Money screen shows the accounts you have, and any old row still carrying the word Cash would still get its own block.
+
+**2. ⚠️⚠️ BUT THE QUESTION CAUGHT A REAL FAULT OF MINE, in the sentence I wrote ONE version earlier.** The caption under the blocks said: *"Net adds up every account ... read the Cash and TNG blocks for those two."* ⚠️ **You have no Cash block.** ⭐ **And two lines above that sentence I had written a comment saying a caption must not point at a mark that is not there — and then did it.** ⭐⭐ **An account's name is YOURS, so no sentence in this app may name one.** It now names none: *"...it is not what you have in any single one — read that account's own block for that."*
+
+**Measured:** tests stay **3,406**. **No database step.**
 
 **12 Oct 2026 — engine v484, THE LITTLE GREY NOTES ARE GONE (no database step).**
 
