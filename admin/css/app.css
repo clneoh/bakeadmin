@@ -2977,6 +2977,27 @@ option.tone-off { color: var(--muted); }
    day a product sells (.avail-on is declared further down and so wins on order) —
    because those answer a question the screen is asking. */
 .cal-cell.past { color: #ded6cd; }
+/* ⚠️⚠️ AND A PICKED PAST DAY MUST LOOK PICKED (v464). ⭐ `.cal-cell.past` is declared AFTER `.cal-cell.sel`
+   in this file and the two have EQUAL specificity — **so the past day's faint grey won over the selection
+   fill, and a past day she had tapped looked exactly like one she had not.** ⚠️ That is the dead-control
+   shape again: a tap with no visible answer. **Three classes beat two**, so this has to be said out loud. */
+.cal-cell.past.sel { background: var(--brown); color: #fff; font-weight: 700; }
+
+/* ★★★ THE PAST-DATE WARNING ON THE BAKE DAYS CARD (v464). Her words: __"i want to open a post date bake
+   day, system should allow with a warning"__. ⭐ It wears the app's OWN warning colours - the amber the
+   shared-data strip wears - so "this needs a look, and nothing is blocked" reads the same wherever she
+   meets it. ⚠️ A line in the card, not a toast: a toast is gone in two seconds, and this is something she
+   reads WHILE deciding whether to press Add. */
+.add-past-warn {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  background: var(--amber-bg);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
 /* Every day here is one height. A delivery day is taller because its booking count
    sits under the number, and a plain day left at the app's usual 34px held its
    number — and any mark washed behind it — 6px higher than the delivery days beside

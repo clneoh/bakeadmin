@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v463)
+# Jienluv2bake — change history (v54 → v464)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v464, A BAKE DAY IN THE PAST CAN BE WRITTEN DOWN — ALLOWED, AND IT SAYS SO (no database step).**
+
+**Your words:** __"i want to open a post date bake day, system should allow with a warning"__
+
+**1. ⚠️⚠️ IT WAS A GATE ON BOTH SIDES, AND YOU COULD NOT DO IT AT ALL.** On **More → Bake days** the ‹ arrow was **switched off at the current month**, so the calendar could not reach the past — and a past day in the grid was a **dead cell** with no tap. ⭐ **So a bake day you had taken by hand could not be written down anywhere in the app.** ⚠️ **And that is exactly the thing your own standing rule forbids: nothing on this site may block a sale you take yourself.**
+
+**2. ★ THE CALENDAR GOES BACK NOW — twelve months, mirroring the twelve it goes forward.** ⭐ **Measured on the real screen: the ‹ is live, and all eleven past days of October are tappable.** ⚠️ The twelve-month floor is there so the calendar cannot be lost in.
+
+**3. ★ AND IT WARNS, WHICH IS THE WHOLE OF YOUR ASK.** Tap a past day and a line appears in the card, in the app's own warning colours: **"That date is in the past: 5 Oct 2026. That is allowed — press Add and it will be added exactly as it is. Nothing else changes."** ⭐ **It names the day rather than counting it, so you can check the one you meant.** ⚠️ **It is a line in the card and not a two-second toast, because you read it WHILE deciding whether to press Add.**
+
+**4. ⚠️ AND NOTHING IS BLOCKED — MEASURED.** Pressing Add **added the past bake day**, and the toast said **"Added 1 bake day — 1 of them in the past."** ⭐ **A warning, never a gate.**
+
+**5. ⚠️⚠️ AND ONE THING I FOUND WHILE TESTING, WHICH WOULD HAVE BEEN ITS OWN FAULT.** The style for a past day is declared **after** the style for a chosen day and the two weigh the same — **so a past day you had tapped stayed faint grey and looked exactly like one you had not.** ⚠️ **A tap with no visible answer, on the screen where you have just been told it is allowed.** It now fills brown like every other chosen day; measured on the real screen.
+
+**6. ⚠️ AND OCCASION MODE STILL WILL NOT TOUCH A PAST DAY.** The two grids share the same cell-drawing, so the permission had to be given to the **Add** calendar only — ⭐ a mark on a past day would change what a past day meant. There is a test that the flag cannot leak, and it was bitten.
+
+**Measured:** tests **3,369 → 3,371**, both new assertions seen to fail with the change reversed. **No database step.**
 
 **12 Oct 2026 — engine v463, "TAP SELF COLLECT ABOVE" — WHILE THE PAGE CARRIED HER AWAY FROM THEM (no database step).**
 

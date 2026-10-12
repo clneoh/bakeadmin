@@ -103,9 +103,27 @@ export function saveMarks(state) {
   maybeSyncStorefront(state);
 }
 
+// ★★★ THE LINE THAT SAYS A PAST DATE IS IN THE PICK (v464) — **ALLOWED, NEVER BLOCKED.**
+// Her words: __"i want to open a post date bake day, system should allow with a warning"__.
+// ⭐ It names the dates rather than counting them, so she can check the day she MEANT — the same rule the
+// rest of this app follows: a number she cannot look up is a number she cannot act on.
+// ⚠️ Nothing here changes what Add does. It is a warning, and the warning is the whole of her ask.
+function pastPickedWarning() {
+  const today = todayISO();
+  const past = [...picked].filter((d) => d < today).sort();
+  if (!past.length) return null;
+  return el("p", { class: "add-past-warn", role: "status" },
+    `${past.length === 1 ? "That date is" : "Those dates are"} in the past: `
+    + past.map((d) => longDate(d)).join(", ")
+    + ". That is allowed — press Add and it will be added exactly as it is. Nothing else changes.");
+}
+
 function addSelected(state) {
   const picks = [...picked].sort();
   if (!picks.length) return toast("Pick a date on the calendar first");
+  // ⚠️ AND THE TOAST NAMES THEM TOO (v464) — the line in the card is gone the moment the grid redraws.
+  const today = todayISO();
+  const pastPicks = picks.filter((d) => d < today);
   let added = 0;
   for (const date of picks) {
     if (state.deliveryDates.some((d) => d.date === date)) continue;
@@ -115,7 +133,9 @@ function addSelected(state) {
   picked.clear();
   save(state);
   maybeSync(state);
-  toast(added ? `Added ${added} bake day${added === 1 ? "" : "s"}`
+  toast(added
+    ? `Added ${added} bake day${added === 1 ? "" : "s"}`
+      + (pastPicks.length ? ` — ${pastPicks.length} of them in the past` : "")
     : "Those dates were already added");
   renderAll(view(), state);
 }
@@ -124,8 +144,15 @@ function buildAddCard(state) {
   const today = todayISO();
   const todayKey = new Date(`${today}T00:00:00`);
   const thisMonth = { year: todayKey.getFullYear(), month: todayKey.getMonth() };
-  const canPrev = viewMonth.year > thisMonth.year
-    || (viewMonth.year === thisMonth.year && viewMonth.month > thisMonth.month);
+  // ★★★ THE CALENDAR CAN GO BACK INTO THE PAST (v464). Her words: __"i want to open a post date bake day,
+  // system should allow with a warning"__.
+  // ⚠️⚠️ **IT COULD NOT BEFORE, AND IT WAS A GATE ON BOTH SIDES: the ‹ arrow was DISABLED at the current
+  // month, and a past day in the grid was a dead cell.** ⭐ So a bake day she had taken by hand — the very
+  // sale her standing rule says nothing on this site may block — could not be written down at all.
+  // ⚠️ Twelve months back, mirroring the twelve forward, so the calendar can still not be lost in.
+  const limitBack = addMonth(thisMonth.year, thisMonth.month, -12);
+  const canPrev = viewMonth.year > limitBack.year
+    || (viewMonth.year === limitBack.year && viewMonth.month > limitBack.month);
   const limit = addMonth(thisMonth.year, thisMonth.month, 12);
   const canNext = viewMonth.year < limit.year
     || (viewMonth.year === limit.year && viewMonth.month < limit.month);
@@ -171,6 +198,11 @@ function buildAddCard(state) {
     occMode ? occBody(state) : el("div", {},
       el("div", { class: "btn-row", style: "margin-top:10px" },
         button(`Add selected${picked.size ? ` (${picked.size})` : ""}`, () => addSelected(state), "primary")),
+      // ★★★ AND IT SAYS SO RATHER THAN STOPPING HER (v464). Her words: __"i want to open a post date bake
+      // day, system should allow with a warning"__ ⭐ **The warning IS the ask: nothing is blocked, and
+      // nothing is silent.** ⚠️ It is a LINE IN THE CARD and not a toast, because a toast is gone in two
+      // seconds — and this is something she needs to read while deciding whether to press Add.
+      pastPickedWarning(),
       el("div", { class: "btn-row", style: "margin-top:8px" },
         button("Generate the next dates", () => generateDates(state), "ghost")),
       el("p", { class: "card-sub", style: "margin:6px 0 0" },
@@ -208,7 +240,9 @@ function buildAddGrid(state, weeks) {
   const addedMap = new Map(state.deliveryDates.map((d) => [d.date, d]));
   const days = weeks.flat();
   const pickable = new Map(); // ISO date -> its cell, for the drag
-  const cells = days.map((d) => dayCell(state, d, today, addedMap, pickable));
+  // ⚠️⚠️ `allowPast` — THIS IS THE ONLY CALLER THAT PASSES IT (v464). **Occasion mode must never let her
+  // mark a past day, and the two grids share `dayCell`, so the flag is what keeps them apart.**
+  const cells = days.map((d) => dayCell(state, d, today, addedMap, pickable, true));
   const heads = DOW.map((label, col) => {
     const targets = weekdayTargets(days, col, today, addedMap);
     const mark = !targets.length ? ""
@@ -310,7 +344,7 @@ function cellInner(layerOn, added, dayNum) {
   return kids;
 }
 
-function dayCell(state, date, today, addedMap, pickable) {
+function dayCell(state, date, today, addedMap, pickable, allowPast = false) {
   if (!date) return el("span", { class: "cal-cell blank" });
   const dayNum = String(Number(date.slice(8, 10)));
   const addedTo = addedMap.get(date);
@@ -346,7 +380,12 @@ function dayCell(state, date, today, addedMap, pickable) {
     return el("button", { class: `${cls} tappable`,
       onclick: () => { nameDay(state.occasions, date, past); deleteDate(state, addedTo); } }, ...inner);
   }
-  if (added || past) {
+  // ⚠️⚠️ A PAST DAY IS PICKABLE WHEN THE **ADD** CALENDAR ASKS FOR IT (v464) — and never in occasion mode,
+  // where a mark on a past day would change what a past day meant. ⭐ `allowPast` is only ever true from
+  // `buildAddGrid`, so the two modes cannot drift.
+  // ⚠️ **A PAST DAY THAT IS ALREADY A BAKE DAY STAYS A DEAD CELL** — it is removed from the Past dates
+  // group below, where taking it off cannot change a green pill a customer has already seen.
+  if (added || (past && !allowPast)) {
     return el("span", { class: cls }, ...inner);
   }
   // A day she could still add. It carries no click handler of its own: the drag

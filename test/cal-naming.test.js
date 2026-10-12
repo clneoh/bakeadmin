@@ -602,3 +602,62 @@ test("a day of collections from the KITCHEN offers no Run at all (v302)", () => 
   assert.equal(runButton(root), undefined,
     "she hands kitchen collections over herself — there is no trip to price");
 });
+
+// ── v464: a PAST bake day can be written down ────────────────────────────────
+test("★★★ a past bake day can be added — ALLOWED, with a warning", () => {
+  // ⚠️⚠️ HER WORDS: __"i want to open a post date bake day, system should allow with a warning"__
+  // ⭐ **IT WAS A GATE ON BOTH SIDES: the ‹ arrow was DISABLED at the current month, and a past day in the
+  // grid was a dead cell.** ⚠️ So a bake day she had taken by hand — the sale her standing rule says nothing
+  // here may block — could not be written down at all. ⭐ Today is Thu 10 Sep 2026, so the 1st–9th are past.
+  quiet();
+  const root = createEl("div");
+  const state = DSTATE();
+  renderDeliveries(root, state);
+  // ⚠️⚠️ AND IT MUST BE IN **ADD** MODE (v464). ⭐ `occMode` is module-level state that survives between
+  // tests in this file — so a test that skipped this line read the OCCASION grid and concluded, wrongly,
+  // that the add calendar had not changed. ⚠️ **The grid it was reading was not the grid under test.**
+  fire(walk(root).find((n) => n.tagName === "BUTTON"
+    && (n.children[0] || {}).text === "Add dates"));
+  redraw(root, state);
+
+  const back = walk(root).find((n) => n.tagName === "BUTTON" && (n.children[0] || {}).text === "‹");
+  assert.ok(back, "there is no ‹ on the add calendar at all");
+  assert.equal(back.disabled, false,
+    "★ the ‹ is still switched off at the current month — the calendar cannot reach the past");
+
+  const past = gridCell(root, 3);
+  assert.ok(past, "there is no cell for the 3rd, so nothing below proves anything");
+  assert.equal(past.tagName, "BUTTON", "★ a past day is still a dead cell — it cannot be picked");
+  assert.ok(String(past.className).includes("pick-cell"), "★ and it is not offered to the drag either");
+
+  tapDayOnGrid(root, past);
+  redraw(root, state);
+
+  // ⭐ AND IT SAYS SO, RATHER THAN STOPPING HER. The warning IS the ask.
+  const warn = walk(root).find((n) => String(n.className).includes("add-past-warn"));
+  assert.ok(warn, "★ the past date was picked and NOTHING was said about it");
+  const words = String((warn.children[0] || {}).text || "");
+  assert.match(words, /in the past/i, "the warning does not say what is unusual about it");
+  assert.match(words, /3 Sep/, "★ and it does not NAME the day, so she cannot check the one she meant");
+
+  // ⚠️ AND ADD STILL ADDS IT — a warning, never a gate.
+  fire(addButton(root));
+  assert.ok(state.deliveryDates.some((d) => d.date === "2026-09-03"),
+    "★ the past bake day was refused — her ask is ALLOW WITH A WARNING");
+});
+
+test("★ and OCCASION mode still will not touch a past day", () => {
+  // ⚠️ The two grids share `dayCell`, so the flag that opens the past in ADD mode must NOT open it here:
+  // a mark on a past day would change what a past day meant.
+  quiet();
+  const root = createEl("div");
+  const state = DSTATE();
+  renderDeliveries(root, state);
+  fire(walk(root).find((n) => n.tagName === "BUTTON"
+    && (n.children[0] || {}).text === "Mark an occasion"));
+  redraw(root, state);
+
+  const past = gridCell(root, 3);
+  assert.notEqual(past.tagName, "BUTTON",
+    "★ a past day became markable in occasion mode — the flag leaked out of the add grid");
+});
