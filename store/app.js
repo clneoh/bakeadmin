@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "497";
+export const SHOP_BUILD = "498";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1729,13 +1729,22 @@ function clearFieldMarks() {
     if (offerNodes.length) return;
     offerRestingAt = (typeof window !== "undefined" && Number(window.scrollY)) || 0;
     offerShownAt = Date.now();
-    const line = el("p", { class: "confirm-sub reset-offer", id: "reset-offer" },
-      t("resetOfferBody"));
-    const go = el("button", { type: "button", class: "build-btn", id: "reset-offer-btn" }, t("resetOfferBtn"));
-    go.addEventListener("click", () => { endOffer(); scrollPageToTop(); });
-    const holder = el("p", { class: "confirm-sub" }, go);
-    offerNodes = [line, holder];      // ⚠️ held as they are made, so `endOffer` removes THESE two
-    box.append(line, holder);
+    // ⚠️⚠️ AND IT IS MADE TO BE SEEN, WHICH IT WAS NOT (v498). ⭐ HER WORDS: __"it comout with message 'back
+    // to the top' relatively small"__ — ⚠️ **and she was measuring it exactly right.** ⭐ MEASURED IN THE
+    // STYLESHEET: the sentence was `.confirm-sub` — **12px at 85% opacity, a CAPTION** — and the button wore
+    // `.build-btn`, which is the shop's **INLINE LINK INSIDE A SENTENCE** (the build notice's own press),
+    // giving it a **~26px target**. ⚠️ The skill's floor for anything a thumb hits is **44px, with 24px the
+    // absolute hard floor** — so the one control this whole feature exists to get pressed was the smallest
+    // thing on the page.
+    // ⭐ **The lesson is the reuse, not the numbers: a control's look belongs to its job.** ⭐ Taking the
+    // build notice's inline-link style for a call to action is the same fault as "CashMove these" (v486) —
+    // two different things wearing one style, and the smaller job losing.
+    const say = el("p", { class: "reset-offer-say" }, t("resetOfferBody"));
+    const go = el("button", { type: "button", class: "reset-offer-go", id: "reset-offer-btn" }, t("resetOfferBtn"));
+    go.addEventListener("click", () => { endOffer(); clearThePage(); });
+    const card = el("div", { class: "reset-offer", id: "reset-offer" }, say, go);
+    offerNodes = [card];      // ⚠️ held as it is made, so `endOffer` removes THE box and everything in it
+    box.append(card);
     // ⚠️ AND IF NOBODY ATTENDS TO IT, THE SHOP DOES IT BY ITSELF — her words: __"if no body attend to it then
     // reset itself"__. ⭐ The same wait again, and then the same move the press would have made.
     shopTimer(() => autoReset(Date.now()), RESET_TO_TOP_MS);
@@ -1804,26 +1813,38 @@ function clearFieldMarks() {
     // he can still press it — it simply does not move the page out from under him.
     if (where !== offerRestingAt) { offerTimers = []; return; }
     endOffer();
-    scrollPageToTop();
+    clearThePage();
   }
 
   // ⚠️ THE SAME "ASK, THEN CHECK" THE REFUSAL LINE USES (v493). A smooth scroll is an ANIMATION, and an
   // animation the browser declines to run would leave the page exactly where it was — **measured on the
   // real shop: the same call with `behavior: "smooth"` moved nothing, and an instant one to the same place
   // worked.** So the smooth move is asked for and then checked; if nothing has moved, it is done instantly.
-  function scrollPageToTop() {
-    if (typeof window === "undefined" || typeof window.scrollTo !== "function") return;
-    const before = Number(window.scrollY) || 0;
-    if (before === 0) return;                       // ⭐ already there — nothing to do
-    try { window.scrollTo({ top: 0, behavior: "smooth" }); }
-    catch { try { window.scrollTo(0, 0); } catch { /* a page that refuses is not a reason to fail */ } }
-    if (typeof setTimeout !== "function") return;
-    setTimeout(() => {
-      if ((Number(window.scrollY) || 0) === before) {
-        try { window.scrollTo(0, 0); } catch { /* a page that refuses is not a reason to fail */ }
-      }
-    }, 350);
+  // ★★★ AND IT **CLEARS THE PAGE** — IT DOES NOT SCROLL IT (v498).
+  //
+  // ⚠️⚠️ THIS IS THE WORD I MISSED FOR THREE VERSIONS, AND IT WAS IN HER FIRST MESSAGE ALL ALONG: __"after
+  // the order confirmation, there should be a pop up, offering to CLEAR THE PAGE … if customer dont click to
+  // clear, it page should clear itself after 1min"__ — and then, every time she reported back, __"no
+  // reload"__. ⭐⭐ **I built a scroll to the top and called it "Back to the top"** — my words for my action —
+  // so every round she was told about something that was not the thing she asked for, and ⚠️ **her correct
+  // report each time was that it does not reload.**
+  //
+  // ⭐ **WHAT A RELOAD DOES THAT A SCROLL CANNOT:** the page is rebuilt from the server, so the shop is
+  // genuinely fresh — the basket, the day, the fields, the scroll position, every scrap of state — **and a
+  // phone that has been sitting on an old build picks up the new one.** ⚠️ **A scroll was a shrug.**
+  // ⚠️⚠️ AND THE COST, SAID OUT LOUD: **the receipt goes with it, and the receipt carries the order number
+  // and the tracking code.** That is why the offer NAMES that in its own words — the customer is told what
+  // they are about to lose, and it is their press. ⭐ Nothing else on the page is worth keeping: the order
+  // is already in the bakery's app, and the bakery confirms it on WhatsApp.
+  function clearThePage() {
+    if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
   }
+
+  // ⚠️ AND `scrollPageToTop` IS GONE, NOT LEFT BESIDE IT (v498). ⭐ It was a genuine build with a genuine
+  // problem behind it — **measured: a smooth scroll did not move the page at all while an instant one to the
+  // same place worked** — and it is still the right answer for the REFUSAL line, which uses the same
+  // ask-then-check through `bringIntoView`. ⚠️ **It is simply not what this feature was asked for, and a
+  // helper kept "just in case" is a thing left to look load-bearing.** See `clearThePage` above.
 
   function bringIntoView(what) {
     if (!what) return;
@@ -5342,6 +5363,23 @@ if (typeof document !== "undefined" && document.documentElement) {
   }
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
     window.addEventListener("focus", shopLookedAt);
+  }
+  // ⚠️⚠️ AND A FINGER ON THE PAGE COUNTS TOO — WHICH IS THE SIGNAL THAT CANNOT MISS (v498).
+  //
+  // ⚠️ Her report after v497: __"still no offer"__. ⭐ And v497's own mechanism was proved working — driven
+  // on a HIDDEN page with the timer frozen, a `focus` brought the offer up on the receipt. **So what is left
+  // is that `focus` and `visibilitychange` are not things a phone can be relied on to deliver: which of them
+  // fires, and when, differs by browser, by version, and by whether the page came back from the back/forward
+  // cache.**
+  // ⭐ **The one signal no phone can fail to send is a finger on the glass.** A customer picking the phone up
+  // touches it before they can read anything — so the first press anywhere on the page asks the clock too.
+  // ⭐ It is deliberately the SAME question the other two ask (`shopLookedAgain`), so this can only ever make
+  // the offer arrive, never change what it says, and never make it arrive early: **the minute is still the
+  // minute.**
+  // ⚠️ `pointerdown` and not `click`: a click can be swallowed by a control that stops propagation, and the
+  // shop has plenty of those. A pointer going down is the plainest event there is.
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("pointerdown", shopLookedAt);
   }
 
   // ★★ THE NOTICE'S OWN PRESS (v492) — bound here, ONCE, for the same reason the privacy notice

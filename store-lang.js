@@ -28,8 +28,15 @@ const en = {
   // moved itself while someone was still reading their own order number would be the shop being rude to
   // its own customer. ⚠️ Note what it is careful NOT to say: it does not offer to "clear the order". The
   // order is already placed and the receipt stays.
-  resetOfferBody: "All done? The basket, your details and the bake day have already been cleared for the next order.",
-  resetOfferBtn: "Back to the top",
+  // ⚠️⚠️ AND IT SAYS WHAT IT COSTS (v498). ⭐ Her first message asked for a pop-up **offering to clear the
+  // page**, and every report since said **"no reload"** — ⭐ **I had built a scroll and labelled it "Back to
+  // the top", my words for my action.** ⭐ The button now does the thing she asked for and SAYS so, and the
+  // sentence names the one thing that is genuinely lost with it — **the order number and the code on the
+  // receipt** — because a customer is entitled to know before they press, and the press is theirs.
+  // ⚠️ It does NOT claim the code reaches them on WhatsApp: the bakery sends the confirmation by hand, and a
+  // promise this page cannot keep is worse than no promise.
+  resetOfferBody: "All done? Clearing the page starts a fresh shop for the next order — the order number and code on this receipt go with it. Nothing else is lost: your order is already with the bakery.",
+  resetOfferBtn: "Clear the page",
 
   // Promo codes (v269). The offer is composed in store/app.js out of the engine's
   // PARTS — kind and value — so a percentage, an amount and free delivery each
@@ -463,8 +470,8 @@ const zh = {
   // ★★ 下单后把页面让给下一位客人的提示（v495）。它出现在收据上，因为他正在看的就是收据；而且它只是
   // 「说」会怎么做，不是直接动手 —— ⭐ 如果他还想再看一眼自己的订单号，页面却自己跑掉了，那是店家对客人
   // 失礼。⚠️ 也要注意它刻意不说的话：它没说会「清除订单」。订单已经下好了，收据会留着。
-  resetOfferBody: "都好了吗？购物篮、你的资料和烘焙日已经清空，可以下一位了。",
-  resetOfferBtn: "回到最上面",
+  resetOfferBody: "都好了吗？清除页面等于给下一位客人一间全新的店 — 这张收据上的订单编号和追踪码也会一起消失。其他都不会少：您的订单已经送到烘焙房了。",
+  resetOfferBtn: "清除页面",
 
   promoLabel: "有优惠码吗？",
   promoPh: "例如 FRESH10",
@@ -702,8 +709,8 @@ const ms = {
   // melakukannya — ⭐ halaman yang bergerak sendiri semasa seseorang masih membaca nombor ordernya sendiri
   // adalah kedai yang kurang sopan kepada pelanggannya. ⚠️ Perhatikan apa yang ia sengaja TIDAK katakan: ia
   // tidak menawarkan untuk "memadamkan order". Order itu sudah pun dibuat dan resitnya kekal.
-  resetOfferBody: "Sudah selesai? Bakul, butiran anda dan hari membakar sudah dikosongkan untuk order seterusnya.",
-  resetOfferBtn: "Kembali ke atas",
+  resetOfferBody: "Sudah selesai? Membersihkan halaman bermakna kedai yang baharu untuk order seterusnya — nombor order dan kod pada resit ini akan turut hilang. Tiada apa-apa lagi yang hilang: order anda sudah berada di kedai.",
+  resetOfferBtn: "Bersihkan halaman",
 
   promoLabel: "Ada kod?",
   promoPh: "cth. FRESH10",

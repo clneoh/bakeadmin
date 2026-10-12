@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v497)
+# Jienluv2bake — change history (v54 → v498)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v498, THE OFFER CLEARS THE PAGE, AND IT IS BIG ENOUGH TO SEE (no database step).**
+
+**Your words:** __"it comout with message 'back to the top' relatively small"__ — and __"and pressing the back to the top does not reload the page"__
+
+**1. ⚠️⚠️ I BUILT THE WRONG THING, AND THE WORD WAS IN YOUR FIRST MESSAGE ALL ALONG.** You asked for **a pop-up offering to clear the page**. ⭐ **I built a SCROLL to the top and labelled it "Back to the top" — my words for my action** — so every round you were told about something that was not what you asked for, **and every one of your reports said __"no reload"__, which was exactly right.** ⚠️ **A button that says something other than what it does is a lie however small, and I wrote the label myself.**
+
+**2. ⭐⭐ SO THE BUTTON CLEARS THE PAGE.** It reloads the shop: **everything is genuinely fresh — the basket, the day, the fields, the scroll position — and a phone sitting on an old build picks up the new one.** ⚠️ **A scroll was a shrug.** ⭐ **And it says what it costs before you press it:** __"Clearing the page starts a fresh shop for the next order — the order number and code on this receipt go with it. Nothing else is lost: your order is already with the bakery."__ ⚠️ The receipt is the one thing a reload takes, and the customer is entitled to know that **before** they decide. ⭐ **Nothing else is worth keeping: the order is already in the bakery's app.**
+
+**3. ⚠️⚠️ AND "RELATIVELY SMALL" WAS MEASURABLY CORRECT — I HAD THE NUMBERS WRONG, NOT THE TASTE.** ⭐ **MEASURED IN THE STYLESHEET:** the sentence wore `.confirm-sub` — **12px at 85% opacity, a caption** — and the button wore `.build-btn`, **the shop's inline link inside a sentence**, giving it a **~26px target**. ⚠️ **The skill's floor for anything a thumb hits is 44px, with 24px the absolute hard floor — so the one control this whole feature exists to get pressed was the smallest thing on the page.** ⭐ Now: the sentence at **16px in the shop's own ink** (12.6:1), and the button a real target at **44px** in the shop's terracotta (**5.92:1**). ⚠️ **The fault was the REUSE — a style belongs to its job** — the same shape as __"CashMove these"__ (v486), two things wearing one style with the smaller job losing.
+
+**4. ⭐ AND A PHONE SIGNAL THAT CANNOT MISS.** v497 fixed the frozen timer (a page nobody is looking at never runs its timers — measured). ⚠️ But which of `focus` and `visibilitychange` a phone actually delivers is not something to bet on. ⭐ **So a finger on the page counts too** — a customer picking the phone up touches it before they can read anything, and `pointerdown` is the plainest event there is. ⭐ It asks the same question as the other two, so it can only make the offer arrive, never arrive early.
+
+**Measured:** the offer driven on the real page at 375×812 with the order's network call stubbed — **sentence 16px, button 44×149px**, and ⚠️ **caught by the live run:** the button's own label read __"Clear the page"__ while the code behind it still only scrolled. Tests **3,428 → 3,429**, five bites, and ⚠️ **two of the five only bit after the sizes were pinned as NUMBERS** — because a test cannot see a screen, and a style that can quietly shrink back is a style that will.
+
+**No database step.**
 
 **12 Oct 2026 — engine v497, THE OFFER NO LONGER WAITS ON A CLOCK NOBODY IS WINDING (no database step).**
 
