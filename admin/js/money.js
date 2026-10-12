@@ -41,8 +41,8 @@ export function groupValue(state, group) {
 }
 
 // Has the money actually been collected? Picking Paid in the dropdown only says the
-// order has reached the paying stage: it stays uncollected until the Paid · Cash /
-// Paid · TNG button is pressed (paidReceived). An order from before those flags
+// order has reached the paying stage: it stays uncollected until Pay is pressed on the
+// row and an account is picked (paidReceived). An order from before those flags
 // existed has none, which reads as collected — the same rule the journey map has
 // always used, so an old order does not suddenly look unpaid.
 //

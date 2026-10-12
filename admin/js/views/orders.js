@@ -24,7 +24,10 @@ import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundR
 import { receiptLine, receiptNoOf, receiptNoOfGroup, receiptStatus } from "../receipts.js";
 import { couponDeclined, couponOnAny } from "../referrals.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue } from "../courier.js";
-import { methodsOf } from "../accounts.js";
+import { isCash, isTng, methodLabel, methodRank, methodsOf } from "../accounts.js";
+// ★ HER OWN EDITOR AND ITS ＋ CHIP (v478). The payment sheet adds an account ON THE SPOT with the
+// same form the money lists use, rather than a second way to write `state.settings.payMethods`.
+import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
 import { adjustForStatus } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
@@ -158,7 +161,7 @@ export function journeyMarks(order) {
   // stays exactly where it is but wears an X instead of a tick — a mark that says "gone past,
   // not paid" — and it must never turn green (17 Sep 2026). Leaving the step out was tried
   // first and rejected: the customer's line and the baker's have to read the same, in the
-  // same places. Press Paid · Cash / Paid · TNG and the X becomes the green tick.
+  // same places. Press Pay on the row and the X becomes the green tick.
   const paidSkipped = !paidDone && at > PAID_AT;
 
   // Which steps are behind the order, then the first one that is not becomes the live step —
@@ -1669,6 +1672,19 @@ function moneyLine(state, dateId) {
   const bits = [];
   if (m.cash) bits.push(`Cash ${fmtRM(m.cash, cur)}`);
   if (m.tng) bits.push(`TNG ${fmtRM(m.tng, cur)}`);
+  // ⚠️⚠️ AND EVERY OTHER ACCOUNT THAT TOOK MONEY TODAY IS NAMED (v478). Before this the line read
+  // cash and TNG only — so once a customer's bank transfer could be recorded (this version), that
+  // money would be counted in her takings, counted in "what should be in your purse and on your
+  // phone", and **printed nowhere on the day's own line**. ⭐ A total that quietly omits money is
+  // worse than no total at all: she checks this line against her purse at the end of a run.
+  //
+  // ⚠️ IN HER LIST'S ORDER, by `methodRank` — the same sort `otherMethods` uses on the Money screen,
+  // so the day's line and the money card read her accounts in the same order.
+  for (const [label, amount] of [...(m.byMethod || new Map())]
+    .filter(([label, amount]) => amount && !isCash(label) && !isTng(label))
+    .sort((a, b) => methodRank(state, a[0]) - methodRank(state, b[0]))) {
+    bits.push(`${label} ${fmtRM(amount, cur)}`);
+  }
   if (m.unmarked) bits.push(`${fmtRM(m.unmarked, cur)} paid, no method`);
   if (m.toCollectCount) bits.push(`${m.toCollectCount} to collect`);
   return bits.length ? el("p", { class: "card-sub money-line" }, bits.join(" · ")) : null;
@@ -3977,23 +3993,28 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
       // changes, which is what lets the note and tracking boxes she may be part-way
       // through keep what she typed (19 Sep 2026).
       const charge = courierControls(state, first, paintCustTotal);
-      // How the CUSTOMER paid HER. The Paid · Cash / Paid · TNG buttons are the fast
-      // way in at the moment the money lands (they also stamp WHEN); this is for
-      // fixing one later, or for an order she marked paid before she could tell. It
-      // is her own record only — nothing here reaches the customer.
+      // How the CUSTOMER paid HER. The row's **Pay** press is the fast way in at the moment the money
+      // lands (it also stamps WHEN); this is for fixing one later, or for an order she marked paid
+      // before she could tell. It is her own record only — nothing here reaches the customer.
+      //
+      // ⚠️ AND IT OFFERS THE SAME LIST THE PRESS DOES (v478) — `methodsOf(state)`, her accounts on the
+      // money screen — so the two ways in can never offer two different sets of accounts.
+      // ⚠️ `methodLabel` IS WHAT MAKES AN OLD ORDER OPEN CORRECTLY: every order recorded before v478
+      // holds the lowercase "cash"/"tng", the option's value is the label ("Cash"/"TNG"), so testing
+      // them against each other raw would leave this box blank on exactly the orders most likely to
+      // be the ones she is fixing.
       const paidSel = select([
         { value: "", label: "Not recorded" },
-        { value: "cash", label: "Cash" },
-        { value: "tng", label: "TNG transfer" },
-      ], first.paidMethod || "", () => {});
+        ...methodsOf(state).map((m) => ({ value: m, label: m })),
+      ], methodLabel(first.paidMethod) || "", () => {});
       // What the choice does, said where the choice is made (v268). The box is named
       // "Paid by the customer", so picking a method is a claim that they HAVE paid —
-      // and it now writes exactly what the Paid · Cash / Paid · TNG buttons write, so
-      // the two ways in cannot record two different halves of the same fact. The way
-      // back is named too: this is the only control that can un-record a payment marked
-      // by mistake, since the buttons disappear once the money is in.
+      // and it now writes exactly what the row's Pay press writes, so the two ways in
+      // cannot record two different halves of the same fact. The way back is named too:
+      // this is the only control that can un-record a payment marked by mistake, since
+      // the Pay button disappears once the money is in.
       const paidHint = el("p", { class: "hint" },
-        "Cash or TNG records that the money is received, and how — the same as pressing Paid · Cash / Paid · TNG on the row. Not recorded clears it and brings those two buttons back.");
+        "Any account on your list records that the money is received, and which one took it — the same as pressing Pay on the row. Not recorded clears it and brings the Pay button back.");
       paintCustTotal();
       // Where the price section draws the door block (v201): the TOP of this card, above the
       // note. Her report was that this box gives her no way to see the address or the pin
@@ -4093,16 +4114,16 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
             if (why) return toast(why);
             const answers = charge.read();
             // "Paid by the customer" RECORDS the payment; it does not merely label one
-            // (v268). A method now writes the same three keys the Paid · Cash / Paid · TNG
-            // buttons write, and the row's tag is gated on the same rule those buttons
-            // feed. Before this the box wrote only `paidMethod`, so a row could wear a
-            // "TNG" tag while the journey strip and the Money screen still counted that
-            // order as owing money — one screen saying paid, two saying unpaid.
+            // (v268). A method now writes the same three keys the row's Pay press writes,
+            // and the row's tag is gated on the same rule that press feeds. Before this the
+            // box wrote only `paidMethod`, so a row could wear a paid tag while the journey
+            // strip and the Money screen still counted that order as owing money — one
+            // screen saying paid, two saying unpaid.
             //
             // "Not recorded" is the way BACK, so a payment marked by mistake is not a
             // one-way door: at or past the paying stage it writes the app's own "still
             // owed" flag (false — what picking Paid in the dropdown writes), which brings
-            // the Paid · Cash / Paid · TNG buttons back to the row. Before that stage the
+            // the Pay button back to the row. Before that stage the
             // flag goes entirely instead, because `false` there would be a claim about
             // money nobody has been asked for yet (17 Sep 2026 — the same rule setStage
             // follows).
@@ -4570,22 +4591,25 @@ function orderGroupRow(state, group, root, dateId) {
   }
   // Money can be recorded at ANY stage from Paid onwards, not only while the order sits on
   // the Paid step. That is the regulars' route: confirm the order, bake it, pack it, and she
-  // hands over the money when they collect — so the buttons stay on until the payment lands,
-  // wherever the order has got to (17 Sep 2026). They go the moment it is recorded, which is
-  // when the Cash / TNG tag appears beside the row.
+  // hands over the money when they collect — so the button stays on until the payment lands,
+  // wherever the order has got to (17 Sep 2026). It goes the moment it is recorded, which is
+  // when the Paid tag appears beside the row.
   const stageAt = STATUSES.findIndex(([id]) => id === status);
   const atOrPastPaid = stageAt >= PAID_AT;
+  // ★★ ONE PRESS, AND THE ACCOUNTS ARE HERS (v478). Her words: __"Make one button call pay, drop
+  // down include, TnG, Cash to LK, Cash to LS, Bank, +add or delete a money account."__
+  // ⚠️ IT WAS TWO FIXED BUTTONS — `Paid · Cash` and `Paid · TNG` — because the method was written as
+  // one of two words, so a bank transfer had nowhere to go and she could not add an account without
+  // a code change. ⭐ The press now opens HER list, the same one she arranges on the money screen.
   if (atOrPastPaid && first.paidReceived === false) {
-    actions.push(
-      button("Paid · Cash", () => markPaid(state, group, root, dateId, "cash"), "small primary"),
-      button("Paid · TNG", () => markPaid(state, group, root, dateId, "tng"), "small primary"));
+    actions.push(button("Pay", () => openPayPicker(state, group, root, dateId), "small primary"));
   }
   // ★★ THE REFUND (v361). Offered only once the money is IN — there is nothing to give back
   // until it has arrived — and it sits with the paid buttons because it is the same subject:
   // the money on this order.
   //
-  // ⚠️ IT IS NOT ONE OF A PAIR OF QUICK PRESSES like Paid · Cash / Paid · TNG. Giving money
-  // back is not a stage to nudge; it asks first, and the question says the amount.
+  // ⚠️ IT IS NOT A QUICK PRESS LIKE Pay ON THE ROW. Giving money back is not a stage to nudge;
+  // it asks first, and the question says the amount.
   if (isCollected(group)) {
     actions.push(first.refundedAt
       ? button("Undo refund", () => undoRefundOrder(state, group, first, { root, dateId }), "ghost small")
@@ -4696,13 +4720,20 @@ function orderGroupRow(state, group, root, dateId) {
       // back to Not recorded — still dressed the row as paid while every other screen said
       // it owed money. A method with the money not in is a note about HOW it will come,
       // and that belongs in the pop-up, not on a row that reads as settled.
-      // ★ A REFUNDED ORDER WEARS ITS OWN TAG, AND NOT THE CASH / TNG ONE (v361). It was paid,
+      // ★ A REFUNDED ORDER WEARS ITS OWN TAG, AND NOT THE PAID ONE (v361). It was paid,
       // and it is not money she has any more — so the row must not go on reading as settled.
+      //
+      // ⚠️⚠️ AND THE TAG SAYS ONE WORD NOW — __"the tag just need one. Paid"__ (v478). It used to
+      // print the METHOD, and that expression was WRONG for anything but cash: it read
+      // `first.paidMethod === "cash" ? "Cash" : "TNG"`, so **a method that was neither — "Bank",
+      // "Cash to LK", anything she adds — printed as TNG.** ⭐ A value that looks right and is wrong,
+      // which is the fault this app keeps having to be taught (see the v441 order-number lesson).
+      // **One word cannot be wrong about which account it was**, and the account is not lost: it is
+      // on the order's own card, and the Money screen gives it a line and a book of its own.
       isRefunded(group)
         ? el("span", { class: "paid-tag refunded" }, "Refunded")
         : first.paidMethod && isCollected(group)
-          ? el("span", { class: `paid-tag${first.paidMethod === "tng" ? " tng" : ""}` },
-              first.paidMethod === "cash" ? "Cash" : "TNG")
+          ? el("span", { class: "paid-tag" }, "Paid")
           : null,
       // The courier's charge, in the paid-tag's family so it reads as one more thing
       // about this order: neutral when the customer bore it (it costs her nothing),
@@ -4941,26 +4972,76 @@ function markConfirmationSent(state, group, root, dateId) {
   renderAll(root, state, new URLSearchParams({ date: dateId }));
 }
 
+// ★★ ONE PRESS, AND HER OWN ACCOUNTS (v478).
+//
+// Her words: __"on top of CASH TnG i need Bank, some customer bank transfer. Or one better way for
+// flexibility, Make one button call pay, drop down include, TnG, Cash to LK, Cash to LS, Bank, +add
+// or delete a money account."__
+//
+// ⚠️ THE LIST IS ALREADY HERS — `methodsOf(state)` reads the same three-list editor on the money
+// screen, and since v477 she can drag it into her OWN order, which is the order this sheet offers.
+// ⚠️ A SHEET AND NOT A `<select>`: `select()` (ui.js) has no way to add an entry, and she asked for
+// the adding HERE. ⚠️ And `entryForm` is INLINED rather than given a pop-up of its own, because
+// `showPopup` owns a single shared layer — a second one would wipe this sheet out from under her.
+function openPayPicker(state, group, root, dateId) {
+  // ⚠️⚠️ `adding` LIVES OUTSIDE `makeBody`, AND THAT IS THE WHOLE OF IT WORKING. `showPopup` repaints
+  // by CALLING `makeBody` AGAIN — so a flag declared inside it is reset to false on every repaint,
+  // and the ＋ chip would draw the form and then immediately draw the list back over it. ⭐ Found by
+  // the test, not by reading: the form never appeared and the "Name" box was never on the page.
+  let adding = false;
+  showPopup("Paid — how did it come in?", (refresh, close) => {
+    const pick = (label) => { close(); markPaid(state, group, root, dateId, label); };
+    const lines = methodsOf(state).map((m) => el("div", {
+      class: "info-row tappable",
+      onclick: () => pick(m),
+    },
+      el("span", {}, m),
+      el("span", { class: "info-val" },
+        el("span", { class: "muted" }, `  ${isCash(m) || isTng(m) ? "in your purse or phone" : "its own book"}`))));
+    return [
+      el("p", { class: "card-sub", style: "margin:0 0 10px" },
+        "Which account the money went to. Choosing one marks the order paid and records the day it landed. It is your own list — arrange it, add to it or take one off on More, then Money, then Edit."),
+      ...lines,
+      // ⚠️ THE ＋ CHIP IS THE MONEY SCREEN'S OWN, so an account added here is the same record as one
+      // added there — and it comes back PICKED, which is the whole point of adding it mid-payment.
+      el("div", { class: "btn-row", style: "margin-top:8px" },
+        adding
+          ? entryForm(state, { kind: "method", current: "", onDone: (label) => {
+              adding = false;
+              if (label) pick(label); else refresh();
+            } })
+          : newEntryChip("method", () => { adding = true; refresh(); })),
+    ];
+  });
+}
+
 // The customer's TNG receipt has come back — mark the order Paid for real. This
 // is what turns the Paid step green on the row's map (the Paid button, not just
 // picking Paid in the dropdown). No WhatsApp needed.
-// Money in — and HOW it came in (16 Sep 2026). Two buttons rather than one, because
-// cash in her hand and a TNG transfer in the app are reconciled against different
-// things: the row records which, and when. The stamp lands when the money actually
-// arrives, so an order can sit at Paid waiting on a transfer without being counted
-// as collected anywhere. The customer sees none of this — their card just goes green.
+// Money in — and HOW it came in (16 Sep 2026). ⚠️ IT WAS TWO BUTTONS UNTIL v478, because cash in her
+// hand and a TNG transfer are reconciled against different things — her own words then were the two
+// presses. ⭐ **The two are now ONE press and a pick off her own account list**, so nothing about the
+// reconciliation changes and a bank transfer has somewhere to go. The stamp lands when the money
+// actually arrives, so an order can sit at Paid waiting on a transfer without being counted as
+// collected anywhere. The customer sees none of this — their card just goes green, and the METHOD is
+// never published to them (`supabase.js`).
 function markPaid(state, group, root, dateId, method) {
   const at = new Date().toISOString();
   for (const o of group.orders) {
     o.paidReceived = true;
-    o.paidMethod = method; // "cash" | "tng"
+    // ⚠️ ANY LABEL FROM HER OWN LIST, not one of two words. `methodLabel` (accounts.js) reads every
+    // spelling back the same way, and the money books key every figure on this string — so a new
+    // account needs nothing here. The old lowercase "cash"/"tng" still read correctly for ever.
+    o.paidMethod = method;
     o.paidAt = at;
   }
   anchorRowId = firstOf(group).id;
   save(state);
   maybeSync(state);
   publishTracking(state, group); // Paid now green on the customer's track card too
-  toast(method === "cash" ? "Paid — cash received" : "Paid — TNG received");
+  // ⚠️ THE TOAST NAMES THE ACCOUNT, because "Paid" on its own does not tell her WHICH account just
+  // took the money — and that is the whole reason she asked for the list.
+  toast(`Paid — ${method} received`);
   renderAll(root, state, new URLSearchParams({ date: dateId }));
 
   // ★★ AND THE RECEIPT GETS ITS NUMBER (v360). This is the moment — a receipt is for money

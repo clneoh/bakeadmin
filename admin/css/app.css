@@ -1311,7 +1311,7 @@ option.tone-off { color: var(--muted); }
 /* A step the order went straight past — a regular who pays when she collects skips Paid.
    It keeps its place in the line so every order's route reads alike, but it wears an X on a
    pale amber node and NEVER green, because the money has not been taken yet. Press
-   Paid · Cash / Paid · TNG and this becomes the ordinary green tick (17 Sep 2026). */
+   Pay on the row and this becomes the ordinary green tick (17 Sep 2026). */
 .oj-step.skipped .oj-node { background: #fbe7d8; box-shadow: inset 0 0 0 1.5px #c9641f; }
 .oj-cross { color: var(--amber); font-size: 8px; font-weight: 800; line-height: 1; }
 .oj-step.skipped .oj-label { color: var(--muted); }
@@ -2347,7 +2347,10 @@ option.tone-off { color: var(--muted); }
   padding: 2px 8px;
   border-radius: 999px;
 }
-.paid-tag.tng { color: var(--brown-dark); background: var(--brown-soft); }
+/* ⚠️ `.paid-tag.tng` IS GONE (v478). The tag names the METHOD — `.paid-tag.tng` was one of its two
+   looks, and a method the two-look rule never knew ("Bank", "Cash to LK") took the CASH look while
+   printing the wrong word. ⚠️ It is now ONE tag reading "Paid" (her words: __"the tag just need one.
+   Paid"__), so there is no second look to get wrong. */
 /* ★ "Not paid" — the order has reached the paying stage and the money is still out (v430).
    ⚠️ AMBER, NOT RED: red on this card would read as an error, and this is a "still to do", the
    same register the app already gives money that has not come in (`.paid-tag.courier.mine`).

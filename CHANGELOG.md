@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v477)
+# Jienluv2bake — change history (v54 → v478)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v478, ONE PAY BUTTON, AND THE ACCOUNTS ARE YOURS (no database step).**
+
+**Your words:** __"on top of CASH TnG i need Bank, some customer bank transfer. Or one better way for flexibility, Make one button call pay, drop down include, TnG, Cash to LK, Cash to LS, Bank, +add or delete a money account."__ — and then __"the tag just need one. Paid"__
+
+**1. ⚠️ HOW A CUSTOMER PAID YOU WAS TWO FIXED BUTTONS — Paid · Cash and Paid · TNG — and nothing else.** ⭐ **A bank transfer had nowhere to go at all**, and adding an account meant a code change. ⚠️ **It was that way because the order stored the method as one of two words.**
+
+**2. ★ SO THERE IS NOW ONE Pay PRESS, AND IT OPENS YOUR OWN LIST** — the same accounts you arrange on **More, then Money, then Edit**, in **your** order. ⭐ **Cash, TNG, Loan, and anything you add: Bank, Cash to LK, a bank transfer.** ⚠️ **A drop-down on its own could not do this** — the app's own drop-down has no way to add an entry — so the press opens a small sheet with **＋ New way to pay** at the foot: **add an account while you are recording the payment, and it comes back picked**, so the money lands against the account you just made.
+
+**3. ★★ AND THE TAG NOW SAYS ONE WORD — Paid** — your words exactly. ⚠️ **This fixed a real fault at the same time:** the tag used to print the METHOD, and it read __"if it is not cash, say TNG"__ — **so an order paid into "Bank" wore a TNG tag.** ⭐ **A word that looks right and is wrong.** **One word cannot be wrong about which account it was**, and the account is not lost: it is on the order's own card, and the Money screen gives it a line and a book of its own.
+
+**4. ⚠️⚠️ AND THE END-OF-DAY LINE READ CASH AND TNG ONLY.** ⭐ **So the moment a bank transfer could be recorded, that money — which is counted in your takings and in what should be in your purse — was printed NOWHERE on the day's own line.** ⚠️ **A total that quietly leaves money out is worse than no total at all:** that line is what you check against your purse at the end of a run. **It now names every account that took money that day**, in your list's order — __"Bank RM 32.00"__.
+
+**5. ⚠️ AND AN OLD ORDER OPENS ITS ACCOUNT BACK UP CORRECTLY.** Every order recorded before today holds the old lowercase word, so the box would have opened **blank** on exactly the orders you are most likely to be correcting. It now opens on the account that order was paid into.
+
+**6. ⭐ AND YOUR MONEY FIGURES DO NOT MOVE.** A customer's bank transfer stays **out** of "Cash in" and "TNG in" and **out of your Net** — it is not in your hand or on your phone — and appears on a line of its own, **Paid by Bank**, exactly as you told me when you chose __"Held by LK, not my hand."__
+
+**Measured:** tests **3,395 → 3,400**, every new assertion seen to fail with its own fix removed — **five separate faults bitten**, including one of mine that the test caught. Driven on the real screen at **375px**: the sheet lists five accounts, each row **36px** tall, no sideways scroll. **No database step.**
 
 **12 Oct 2026 — engine v477, A HANDLE ON YOUR MONEY LISTS, AND THE HANDLE RULE MADE UNIVERSAL (no database step).**
 
