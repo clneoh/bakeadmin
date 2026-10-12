@@ -216,6 +216,14 @@ globalThis.document = {
   querySelector: () => null,
   querySelectorAll: () => [],
   body: createEl("body"),
+  // ⚠️⚠️ AND THE ONE NODE EVERY BROWSER HAS (v497). **`store/app.js`'s last block — the privacy notice's
+  // press, the language pills' paint, the shop's own "a newer version is ready" press, and the listening
+  // for the page being looked at again — is guarded by `document.documentElement`.** ⭐ Without this the
+  // WHOLE block was skipped in this file, silently: ⚠️ **five bindings the shop makes in a browser were
+  // never made here, so no test in this file could reach any of them.** ⭐ MEASURED — a test that pressed
+  // the shop's "someone looked at my page again" path found no listener bound at all, and the shim was the
+  // reason, not the shop. Same rule as `parentNode`, `remove()` and `scrollIntoView` before it.
+  documentElement: createEl("html"),
   // The REAL document has these. A shim without them is not a smaller DOM, it is a
   // different one: the shop registers a visibilitychange listener at start-up (v292),
   // and a missing method is a TypeError at import — every store test dies at once.
@@ -3386,6 +3394,13 @@ test("★★★ the receipt offers to put the page back, and does it itself if n
     for (const a of hit) { a.done = true; a.fn(); }
     return hit.length;
   };
+  // ⚠️⚠️ AND THE CLOCK IS OURS (v497). The shop now decides BOTH steps on the clock rather than on a chain
+  // of timers — ⭐ **because a hidden tab freezes its timers, and when it wakes every overdue one fires at
+  // once**, so the offer used to go up and come straight back down. A test that fires two timers in the same
+  // instant is now asking for the reset before the offer has been readable, and the shop refuses — correctly.
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   try {
@@ -3414,8 +3429,14 @@ test("★★★ the receipt offers to put the page back, and does it itself if n
     assert.equal(window.scrollY, 1400,
       "★ SHOWING the offer moved the page — it must only speak, or it is the fault it exists to prevent");
 
-    // ── and if nobody attends to it, the shop does it by itself
+    // ── and if nobody attends to it, the shop does it by itself — ⭐ but only once the OFFER has been
+    // readable for its own minute, which is the fault her second report found
     assert.equal(fire(60000), 1, "★ nothing was armed to do it by itself after the offer");
+    assert.equal(window.scrollY, 1400,
+      "★ the page was moved in the same breath the offer went up — that is the scroll she saw with no "
+      + "offer, because a hidden tab fires every overdue timer at once and the offer was erased unread");
+    clock += 61000;                          // ⭐ a minute of the OFFER, on the clock
+    assert.equal(fire(60000), 1, "★ the offer was never allowed to finish its own minute");
     assert.equal(window.scrollY, 0, "★ the page was never put back at the top");
     assert.equal(confirmLines().filter((t) => /cleared for the next order/i.test(t)).length, 0,
       "★ the offer is still on the receipt after the shop did it — it should have come down with the move");
@@ -3428,6 +3449,74 @@ test("★★★ the receipt offers to put the page back, and does it itself if n
   } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.fetch = realFetch;
+    Date.now = realNow;
+    window.scrollY = 0;
+  }
+});
+
+// ── v497: the timer that never ran, because the phone was put down ──────────
+test("★★★ the offer comes from someone LOOKING, not only from a timer (v497)", async () => {
+  // ⚠️⚠️ HER REPORT, AND THE MEASUREMENT UNDER IT: __"footer say v496, but no offer to reload"__ — the code
+  // was current and the offer never came. ⭐ **MEASURED ON THE LIVE PAGE: `document.visibilityState` was
+  // `hidden`, and the sixty-second timer had simply never fired.** ⚠️ A hidden tab has its timers frozen or
+  // throttled — **and a customer who has just ordered puts the phone down or opens WhatsApp.** ⭐⭐ **The one
+  // moment this feature is for is exactly when the timer has not run.**
+  //
+  // ⭐ So the test NEVER FIRES THE OFFER'S TIMER. That is the whole point: the clock says the minute has
+  // passed, and the shop must act on a LOOK instead.
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper.children[2]._listeners.click[0]();
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "collect";
+
+  const realSetTimeout = globalThis.setTimeout;
+  const armed = [];
+  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
+  const fire = (ms) => {
+    const hit = armed.filter((a) => a.ms === ms && !a.done);
+    for (const a of hit) { a.done = true; a.fn(); }
+    return hit.length;
+  };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  // ⭐ and the phone is picked up: the shop listens for this at the foot of its own file.
+  const looked = () => (window._listeners.focus || []).forEach((f) => f());
+  try {
+    window.scrollY = 1400;
+    await registry["order-btn"].onclick();
+    fire(1000);                                  // the receipt goes up — and the offer is armed for a minute
+    assert.equal(confirmLines().filter((t) => /cleared for the next order/i.test(t)).length, 0,
+      "precondition: the offer is up before the minute, so nothing below proves anything");
+
+    // ⭐⭐ THE TIMER NEVER RUNS. The phone went into a pocket. ⭐ Then the minute passes.
+    assert.equal((window._listeners.focus || []).length, 1,
+      "★ the shop never listened for the page being looked at again — so there is no trigger at all once a "
+      + "timer has been frozen, and this test would be proving nothing");
+    clock += 61000;
+    looked();
+    assert.equal(confirmLines().filter((t) => /cleared for the next order/i.test(t)).length, 1,
+      "★ the minute passed and NOTHING was offered — the timer was frozen because the page was hidden, and "
+      + "nobody was watching the clock. This is the exact fault she reported."
+      + ` | receipt=${JSON.stringify(confirmLines().join(" / ").slice(0, 70))}`
+      + ` | boxHidden=${registry["confirm-msg"].hidden}`);
+
+    // ⭐ AND THE SAME FOR THE SECOND STEP: the offer has now been up for its own minute, so the next look
+    // performs the move the press would have made.
+    assert.equal(window.scrollY, 1400, "precondition: the offer alone must not move the page");
+    clock += 61000;
+    looked();
+    assert.equal(window.scrollY, 0, "★ the page was never put back at the top after the offer had its minute");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
     window.scrollY = 0;
   }
 });
@@ -3453,6 +3542,9 @@ test("★★ the automatic reset leaves the page alone if the customer has scrol
     for (const a of hit) { a.done = true; a.fn(); }
     return hit.length;
   };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   try {
@@ -3460,6 +3552,7 @@ test("★★ the automatic reset leaves the page alone if the customer has scrol
     await registry["order-btn"].onclick();
     fire(1000);
     fire(60000);                       // the offer goes up, resting at 1400
+    clock += 61000;                    // ⭐ the offer has been readable for its minute
     window.scrollY = 2200;             // ⭐ he scrolls down to read his own receipt
     fire(60000);                       // the automatic move
     assert.equal(window.scrollY, 2200,
@@ -3470,6 +3563,7 @@ test("★★ the automatic reset leaves the page alone if the customer has scrol
   } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.fetch = realFetch;
+    Date.now = realNow;
     window.scrollY = 0;
   }
 });

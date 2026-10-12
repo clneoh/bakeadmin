@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v496)
+# Jienluv2bake — change history (v54 → v497)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v497, THE OFFER NO LONGER WAITS ON A CLOCK NOBODY IS WINDING (no database step).**
+
+**Your words:** __"footer say v496, but no offer to reload"__ — and then __"after about 1 min, it scroll up but no reload"__
+
+**1. ⚠️⚠️ A TIMER IN A PAGE NOBODY IS LOOKING AT DOES NOT RUN — AND THAT IS THE ORDINARY CASE HERE.** ⭐ **MEASURED on the live page: `document.visibilityState` was `hidden`, and the sixty-second timer had simply never fired.** ⚠️ A hidden tab has its timers frozen or slowed to the minute — **and a customer who has just placed an order puts the phone down, or switches to WhatsApp to send it.** ⭐⭐ **So the one moment this whole thing is for — the next customer picking the phone up — is exactly when the timer has not run.** The offer was waiting on a clock nobody was winding.
+
+**2. ⭐⭐ SO THE SHOP NOW LOOKS AT THE CLOCK WHEN SOMEONE LOOKS AT IT.** It watches for the page coming back into view and for the tab being focused — **which is the phone being picked up** — and if the minute has passed, the offer goes up then. ⚠️ **It is deliberately both:** the timer serves a customer sitting there watching; the look serves the next customer, which is the case that actually happens. ⚠️ And neither can come early — both ask the clock, so a page that comes back after ten seconds is left alone.
+
+**3. ⚠️⚠️ AND YOUR SECOND REPORT IS THE SAME FAULT FROM THE OTHER END.** __"after about 1 min, it scroll up but no reload"__ — ⭐ **when a hidden page wakes up, EVERY timer that came due while it slept fires at once, back to back.** So the offer went up and the page reset itself **in the same breath** — the offer was on screen for milliseconds and nobody could have read it. You saw the scroll and not the offer. ⭐ **The rule now: the shop only clears the page once the OFFER has been readable for its own minute** — and the clock decides that too, not a chain of timers.
+
+**4. ⚠️ AND ONE HONEST NOTE ABOUT THE TESTS.** ⚠️ **The stand-in page had no `documentElement`** — and `store/app.js`'s last block, which holds the privacy notice's press, the language pills, the notice's Reload and now this listening, is guarded by it. ⭐ **So five bindings the shop makes in a browser were silently never made in the test file, and no test there could reach any of them.** ⭐ The test that presses "someone looked at my page again" found **no listener bound at all**, and the shim was the reason rather than the shop. ⚠️ **A guard that refuses and does not come back is a guard that switches the thing off** — the same shape as the timer above: caught by the test, when the too-early fire CONSUMED the only timer the reset had, so a customer sitting there would never have had the page put back.
+
+**Measured:** the live page reported `visibilityState: hidden` with the sixty-second timer unfired — the fault, seen rather than reasoned about. Tests **3,427 → 3,428**, and the fix was bitten three ways: the look-again trigger removed · the reset no longer waiting for the offer to be readable · and the focus listener never bound. ⚠️ **And the live run still cannot be driven end to end in the preview**, because it serves `store/app.js` from the browser's cache and a reload does not revalidate it.
+
+**No database step.**
 
 **12 Oct 2026 — engine v496, THE SHOP CAN TELL WHICH BUILD IT IS (no database step).**
 
