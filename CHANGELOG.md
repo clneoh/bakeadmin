@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v467)
+# Jienluv2bake — change history (v54 → v468)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v468, THE SAME QUESTION THE OTHER WAY ROUND (no database step).**
+
+**Your words:** __"build the reverse check"__
+
+**1. ⭐⭐ THE CHECK BEFORE THIS ONE ASKED "IS EVERYTHING ON THIS PHONE IN THE SHARED DATA". THIS ONE ASKS THE REVERSE: "IS THERE ANYTHING IN THE SHARED DATA THAT IS NOT ON THIS PHONE".** ⚠️ **Those are two different sentences, and the difference between them is the difference between a record being LOST and a record being merely not yet here.**
+
+**2. ★ AND HERE IS WHY IT WENT IN TONIGHT.** Your two missing orders — **`#420EEF · #538F78`** — are gone from the live list **on both devices**, are on **neither** Removed list, **and both devices report that everything on them has reached your shared data.** ⚠️ **So I could not tell you whether they were lost or simply sitting in the shared data waiting to come down.** ⭐ **Now your own screen answers that, and it answers it by name.**
+
+**3. ⭐ IT NAMES WHAT IT FINDS, the way you look things up — an order by its number.** ⚠️ And its sentence says the one thing that matters: **not lost.** The way out is one press of **Sync now**, because a record held in your shared data comes down on the next sync.
+
+**4. ⚠️⚠️ AND IT MUST NOT CRY WOLF — WHICH TOOK THE MOST CARE OF ANYTHING IN IT.** An order **you removed on purpose** leaves the live list while its row stays in your shared data until the removal lands — **so the check would fire on every deliberate removal, and a warning that fires on something you meant to do is one you learn to ignore.** ⭐ **Anything on this phone's Removed list is allowed for**, the same carve-out the receipt check already makes. **There is a test for that specifically, and it was bitten.**
+
+**5. ⚠️ AND IT CANNOT LOOK AT ALL WITHOUT SHARED DATA — so it says so and is counted separately, never as a pass.** That page's oldest rule.
+
+**Measured:** tests **3,373 → 3,375**, both new assertions seen to fail — the second one with the carve-out removed, which is the one that proves it works. **No database step.**
 
 **12 Oct 2026 — engine v467, THE FAULT THAT STOPPED EVERY DEVICE SYNCING — FOUND AND FIXED (no database step).**
 

@@ -330,6 +330,48 @@ export function reachedCloudCheck(state, cloud, local) {
     : pass("reached", TITLE)];
 }
 
+// ── and the SAME QUESTION THE OTHER WAY ROUND ────────────────────────────────
+
+// Her instruction: __"build the reverse check"__ — asked while two orders sat in her 6 October copy and
+// on **neither** device, ⚠️ **and I could not tell her whether they were still in the shared data.**
+//
+// ⭐⭐ **THE CHECK ABOVE GOES THIS PHONE → THE SHARED DATA.** This one goes **THE SHARED DATA → THIS
+// PHONE**: is there anything in the shared data that is NOT here? ⭐ **That is the difference between a
+// record that is LOST and a record that is merely not yet pulled** — and it is the question that could not
+// be answered at all until now.
+//
+// ⚠️⚠️ AND IT MUST NOT CRY WOLF. **An order she removed on purpose is gone from this phone and its row
+// stays in the shared data until the tombstone lands** — so **anything on this phone's own Removed list is
+// excluded**, the same carve-out the receipt check makes. ⭐ A warning that fires on a deliberate removal is
+// one she learns to ignore.
+export function cloudOnlyCheck(state, cloud, local) {
+  const TITLE = "Nothing is sitting in your shared data that is not on this phone";
+  if (!cloud || !cloud.ok) {
+    return [skipped("cloudOnly", TITLE,
+      (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
+  }
+  const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
+  const here = new Set(Array.isArray(local) ? local : []);
+  // ⚠️ THE SHELF IS THE EXPLANATION FOR A RECORD THAT IS NOT IN THE LIVE LIST, so it is allowed for.
+  const shelf = new Set();
+  for (const r of (state && state.removedOrders) || []) {
+    if (r && r.id) { shelf.add(`orders:${r.id}`); shelf.add(`orders:${codeOf(r)}`); }
+  }
+  const extra = [...held].filter((k) => !here.has(k) && !shelf.has(k));
+  const nameOf = (key) => {
+    const at = String(key).indexOf(":");
+    const kind = String(key).slice(0, at);
+    const id = String(key).slice(at + 1);
+    if (kind === "orders") return `#${codeFromId({ id })}`;
+    return kind;
+  };
+  return [extra.length
+    ? fail("cloudOnly", TITLE, extra.map(nameOf),
+      `${extra.length} record${extra.length === 1 ? " is" : "s are"} in your shared data and NOT on this phone — so ${extra.length === 1 ? "it is" : "they are"} either waiting to come down, or sitting only on your other device. Either way ${extra.length === 1 ? "it is" : "they are"} NOT lost.`,
+      "Press Sync now on this phone — a record held in your shared data comes down on the next sync. If it stays here after that, open the other device and check there.")
+    : pass("cloudOnly", TITLE)];
+}
+
 // ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
 // IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
 // no network: it is a local count.
@@ -354,6 +396,7 @@ export function runHealthChecks(state, extra = {}) {
     ...copyChecks(extra.copies),
     ...backupChecks(state, extra.copy, extra.copyWhen),
     ...reachedCloudCheck(state, extra.cloud, extra.local),
+    ...cloudOnlyCheck(state, extra.cloud, extra.local),
     ...waitingCheck(extra.waiting),
   ];
   return {

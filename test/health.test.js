@@ -63,8 +63,8 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 13, `the check list is no longer thirteen checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 13);
+  assert.equal(res.total, 14, `the check list is no longer fourteen checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 14);
   assert.equal(res.failed, 0);
 });
 
@@ -155,10 +155,12 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   // be told that nobody could look, which is the only honest answer available.
   assert.equal(resultOf(res, "reached").status, "skipped",
     "★ shared data that could not be read was reported as a pass");
+  assert.equal(resultOf(res, "cloudOnly").status, "skipped",
+    "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
   assert.equal(res.passedChecks, 8, "a skipped check was counted among the passes");
-  assert.equal(res.skippedChecks, 5, "the skipped checks were not counted separately");
+  assert.equal(res.skippedChecks, 6, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
   // ⚠️ AND A SKIP SAYS WHY — the same discipline the register screen follows.
@@ -231,7 +233,7 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 13, "the checks did not all run on an empty book");
+  assert.equal(res.total, 14, "the checks did not all run on an empty book");
   assert.equal(localChecks(bare).length, 7, "the local checks are not seven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
@@ -345,3 +347,38 @@ function emptyExtras() {
   return { register: Array.isArray(REGISTER) ? REGISTER : [], copies: COPIES, copyWhen: COPY_WHEN,
     copy: { orders: [], removedOrders: [] }, local: [], cloud: { ok: true, keys: new Set() } };
 }
+
+// ── v468: the SAME question the other way round ──────────────────────────────
+test("★★★ a record in the SHARED DATA that is on no device is found — and is NOT called lost", () => {
+  // ⚠️⚠️ Her instruction: __"build the reverse check"__ — asked while two orders sat in her 6 October copy
+  // and on **neither** device, ⚠️ **and I could not tell her whether they were still in the shared data.**
+  // ⭐ **That is the difference between a record that is LOST and one that is merely not yet pulled.**
+  const st = healthy();
+  const local = sync.localKeys(st);
+  // …the shared data holds everything this phone has, PLUS an order this phone has never seen.
+  const cloud = { ok: true, keys: new Set([...local, "orders:ord_420eeff00d00"]) };
+
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), local, cloud, waiting: 0 }), "cloudOnly");
+  assert.equal(r.status, "fail", "★ a record held in the shared data was not reported at all");
+  assert.deepEqual(r.detail, ["#F00D00"],
+    "★ it does not name the record — an order has to be named the way she can look it up");
+  // ⭐⭐ AND THE SENTENCE THAT IS THE WHOLE POINT OF THIS CHECK.
+  assert.match(r.why, /NOT lost/i,
+    "★ the check does not say the one thing that matters: it is not lost, it is not yet here");
+  assert.ok(r.fix, "★ a fault with no way out is a dead end");
+});
+
+test("★★ and an order she removed ON PURPOSE is NOT reported — the shelf is the explanation", () => {
+  // ⚠️⚠️ WITHOUT THIS CARVE-OUT THE CHECK FIRES ON EVERY DELIBERATE REMOVAL: **an order she took off is gone
+  // from the live list while its row stays in the shared data until the tombstone lands.** ⭐ A warning that
+  // fires on something she meant to do is one she learns to ignore — this file's own oldest rule.
+  const st = healthy();
+  st.orders = [];
+  st.removedOrders = [{ id: "ord_aaaabbbbcccc", removedAt: "2026-10-11T00:00:00.000Z" }];
+  const local = sync.localKeys(st);   // holds removedOrders:… and NOT orders:…
+  const cloud = { ok: true, keys: new Set([...local, "orders:ord_aaaabbbbcccc"]) };
+
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), local, cloud, waiting: 0 }), "cloudOnly");
+  assert.equal(r.status, "pass",
+    "★ an order she removed on purpose was reported as sitting in the shared data — the shelf explains it");
+});
