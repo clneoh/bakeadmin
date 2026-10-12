@@ -9,7 +9,7 @@ import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
 import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, sourcesOf } from "../accounts.js";
-import { entryForm, newEntryChip, removeEntry } from "./accountsEditor.js";
+import { entryForm, moveAccountRecords, newEntryChip, removeEntry } from "./accountsEditor.js";
 // An ingredient's own unit, resolved exactly as the Ingredients screen resolves it, so a
 // stock count typed here lands as the same number of grams the On-hand line shows.
 import { currentUomId, cookingFamilyOf } from "./ingredients.js";
@@ -171,6 +171,37 @@ function openReconciliation(state, accounts, from, to, label) {
       el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
       journalBodyEl(sheet, cur),
       el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
+}
+
+// ★★ MOVING WHAT A RETIRED ACCOUNT HOLDS ONTO ONE SHE USES (v486).
+//
+// ⚠️⚠️ THIS IS THE OTHER HALF OF THE BUG SHE FOUND BY ASKING THREE TIMES. An account no longer on her
+// list keeps its block, because its money is still in the books — ⭐ **and she asked, fairly, what a
+// block she cannot pay into is doing there.** The answer was that the records were **stranded**: a
+// rename moved the expenses and the deposits and ⚠️ **left every ORDER behind**, so a retired name
+// went on holding orders that no screen could move.
+//
+// ⭐ Her words: __"move the transaction it is owning to cash LS"__. ⚠️ **And because this and a rename
+// are the same act, they call the same function** — so neither can move two places of three again.
+function openMoveAccount(state, from, redraw) {
+  const targets = methodsOf(state);
+  showPopup(`Move what "${from}" holds`, (refresh, close) => [
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      `"${from}" is not one of your accounts any more, but records are still filed under it. Choosing an account moves every one of them onto it — orders, spending and money you put in alike.`),
+    ...targets.map((m) => el("div", {
+      class: "info-row tappable",
+      onclick: () => {
+        const n = moveAccountRecords(state, from, m);
+        save(state);
+        maybeSync(state);
+        close();
+        toast(`Moved ${n} ${n === 1 ? "record" : "records"} from ${from} to ${m}`);
+        redraw();
+      },
+    },
+      el("span", {}, m),
+      el("span", { class: "info-val" }, el("span", { class: "muted" }, "move them here")))),
+  ]);
 }
 
 // Day one — where she stands when the books begin (17 Sep 2026: "we need to enter opening
@@ -1086,10 +1117,27 @@ export function renderMoney(root, state) {
             class: `info-row tappable acc-row${a.counted ? " acc-counted" : ""}`,
             onclick: () => openJournal(state, a.label, from, to, a.label),
           },
-            // ⚠️ AND NO NOTE BESIDE THE NAME (v483). Her words: __"i dont need the word your tin, your
-            // phone"__ — ⭐ and the whole note column goes with them rather than only those two, because
-            // leaving "an account" on some lines and nothing on others is worse than either.
-            el("span", { class: "acc-name" }, a.label),
+            // ⚠️ THE NAME HAS ITS OWN CELL, AND THE BUTTON GOES UNDER IT — **NOT inside it.**
+            // ⭐⚠️ A first pass put the button beside the label and the row read **"CashMove these"** —
+            // ⚠️ **the very fault she had just reported as "Cashyour tin"**, repeated one version
+            // later. ⭐ The test caught it by its own name: `blocks seen: … CashMove these`.
+            el("span", { class: "acc-cell" },
+              el("span", { class: "acc-name" }, a.label),
+              // ★★ AND A RETIRED ACCOUNT IS NEVER A DEAD END (v486). ⚠️ Its block stays because its
+              // money is still in the books — ⭐ **but she asked three times what a block she cannot
+              // pay into is doing there**, and a thing she can see but cannot act on is the fault this
+              // app keeps being taught. The button moves everything it holds onto an account she uses.
+              a.onList
+                ? null
+                // ⚠️⚠️ AND ITS PRESS MUST NOT REACH THE ROW. The block is `tappable` and opens the
+                // JOURNAL — so without this the button worked, then the row's own press ran behind it
+                // and **the journal opened straight over the sheet.** ⭐ Found by PRESSING IT, not by a
+                // test: the shim calls a node's own listeners and never bubbles, and **the browser
+                // bubbles.** ⭐ A control inside a tappable row has to stop its own press.
+                : button("Move these", (e) => {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    openMoveAccount(state, a.label, () => draw());
+                  }, "ghost small acc-move")),
             el("span", { class: "acc-num" }, fmtRM(a.in, cur)),
             el("span", { class: "acc-num" }, fmtRM(a.out, cur)),
             el("span", { class: "acc-num acc-holds" }, fmtRM(a.holds, cur)))),

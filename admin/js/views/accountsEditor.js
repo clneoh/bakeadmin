@@ -15,7 +15,7 @@
 import { el, button, toast, confirmDialog } from "../ui.js";
 import { save } from "../state.js";
 import { maybeSync } from "../supabase.js";
-import { categoriesOf, methodsOf, sourcesOf } from "../accounts.js";
+import { categoriesOf, methodLabel, methodsOf, sourcesOf } from "../accounts.js";
 
 const CLASS_CHOICES = [
   ["expense", "A running cost"],
@@ -28,6 +28,37 @@ const rewrite = (state, listKey, field, from, to) => {
     if (row && row[field] === from) row[field] = to;
   }
 };
+
+// ★★ MOVING EVERYTHING RECORDED UNDER ONE ACCOUNT ONTO ANOTHER (v486).
+//
+// ⚠️⚠️ THIS EXISTS BECAUSE A RENAME WAS ONLY MOVING TWO OF THE THREE PLACES A METHOD IS WRITTEN.
+// It rewrote `expenses.method` and `deposits.method` — ⚠️ **and NOT an order's `paidMethod`.** ⭐ So
+// renaming a way to pay left every ORDER behind under the old name, and the Money screen went on
+// showing a block for an account that was no longer on her list. ⭐ **That is the "Cash" block she
+// asked about three times: RM 64 of her orders, still filed under a name she had retired.**
+//
+// ⭐ Her words: __"move the transaction it is owning to cash LS"__ — so this is a MOVE, and it is the
+// same act as a rename, which is why BOTH call it now.
+//
+// ⚠️ AND IT IS THE v441 LESSON AGAIN — **the order's method is a word stored on every row, so every
+// place that stores it has to move together.** A rename that moves two of three is worse than none:
+// the figures split in silence.
+export function moveAccountRecords(state, from, to) {
+  const a = String(from == null ? "" : from);
+  const b = String(to == null ? "" : to);
+  if (!a || !b || a === b) return 0;
+  let moved = 0;
+  for (const key of ["expenses", "deposits"]) {
+    for (const row of state[key] || []) {
+      if (row && row.method === a) { row.method = b; moved++; }
+    }
+  }
+  // ⚠️⚠️ AND THE ORDERS — the one this missed for months.
+  for (const o of state.orders || []) {
+    if (o && methodLabel(o.paidMethod) === methodLabel(a)) { o.paidMethod = b; moved++; }
+  }
+  return moved;
+}
 
 // ★★ TAKING ONE OFF A LIST — ITS OWN DOOR, SO THERE IS ONLY ONE (v481).
 //
@@ -109,10 +140,9 @@ export function entryForm(state, { kind, current = "", onDone }) {
       state.settings.payMethods = current
         ? list.map((c) => (c.label === current ? label : c.label))
         : [...list.map((c) => c.label), label];
-      if (current && current !== label) {
-        rewrite(state, "expenses", "method", current, label);
-        rewrite(state, "deposits", "method", current, label);
-      }
+      // ⚠️⚠️ ALL THREE PLACES, THROUGH THE ONE FUNCTION (v486). It used to call `rewrite` twice and
+      // **never touched the orders** — see `moveAccountRecords`.
+      if (current && current !== label) moveAccountRecords(state, current, label);
     }
     save(state);
     maybeSync(state);

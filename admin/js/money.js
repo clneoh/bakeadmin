@@ -325,6 +325,11 @@ export function accountsBetween(state, inTallies = [], outTallies = []) {
         in: inTotal,
         out: outTotal,
         holds: inTotal - outTotal,
+        // ⭐ IS THIS STILL ONE OF HER ACCOUNTS? (v486) ⚠️ A retired one keeps its block — its money is
+        // still in the books — but the screen has to be able to SAY so, and to offer a way to move what
+        // it holds onto an account she does use. Her words: __"move the transaction it is owning to
+        // cash LS"__. ⭐ A block she can see but cannot act on is the fault this app keeps being taught.
+        onList: methodsOf(state).includes(label),
         // ⭐ The two she counts by hand — her tin and her phone. ⚠️ It is a FACT about the account,
         // not a second kind of account, and it is used for exactly two things: marking those two on
         // the screen, and knowing which accounts a debt cannot be settled against.

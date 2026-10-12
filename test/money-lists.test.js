@@ -224,6 +224,9 @@ test("renaming a way to pay moves its entries, in and out", () => {
   const state = freshState();
   state.expenses = [{ id: "e1", date: "2026-09-10", amount: 250, category: "Ingredients & shopping", method: "Loan" }];
   state.deposits = [{ id: "d1", date: "2026-09-09", amount: 100, method: "Loan" }];
+  // ⚠️⚠️ AND AN ORDER — THE PLACE A RENAME MISSED FOR MONTHS (v486).
+  state.orders = [{ id: "o1", qty: 1, productId: "p1", status: "ready", paidReceived: true,
+    paidMethod: "Loan", deliveryDateId: "d1" }];
   openManager(state);
   fire(byText(managerRow("Loan"), "Edit"));
   editorBox().value = "Bank OD";
@@ -232,6 +235,11 @@ test("renaming a way to pay moves its entries, in and out", () => {
   assert.ok(state.settings.payMethods.includes("Bank OD"));
   assert.equal(state.expenses[0].method, "Bank OD", "the spending follows");
   assert.equal(state.deposits[0].method, "Bank OD", "and so does the money that came in");
+  // ⚠️⚠️ THE THIRD PLACE, WHICH IT NEVER MOVED. A method is written on an order too, and rewriting
+  // two of three leaves the orders filed under a name that is no longer on her list — ⭐ **which is
+  // exactly the "Cash" block she asked about three times, holding RM 64 of stranded orders.**
+  assert.equal(state.orders[0].paidMethod, "Bank OD",
+    "⚠️⚠️ the ORDERS move with the rename — the place that was left behind");
 });
 
 test("a category she does not want can go, and its records are kept", () => {
@@ -372,7 +380,7 @@ test("★★ the net does not move when money moves between her own pots", () =>
     const r = walk(mount(s))
       .filter((n) => String(n.className).includes("acc-row")
         && !String(n.className).includes("acc-head-row"))
-      .find((x) => x.children[0].textContent === "Cash");
+      .find((x) => x.children[0].children[0].textContent === "Cash");
     return [1, 2, 3].map((i) => r.children[i].textContent).join("|");
   };
   const state = freshState();

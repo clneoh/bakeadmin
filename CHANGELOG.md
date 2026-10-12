@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v485)
+# Jienluv2bake — change history (v54 → v486)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v486, A RENAME NOW MOVES THE ORDERS TOO, AND A RETIRED ACCOUNT IS NOT A DEAD END (no database step).**
+
+**Your words:** __"why cash is not in the list of Way to pay/receive?"__ — asked three times — and then __"move the transaction it is owning to cash LS"__
+
+**1. ⚠️⚠️ THE THIRD ASKING FOUND A REAL BUG THAT HAS BEEN THERE ALL ALONG.** Your list had **four** accounts and the Money screen showed **five** blocks — *"Cash"* holding **RM 64** that was not on your list. ⭐ **The block is right to stay:** its money is in your books, and hiding it would count that money in your Net with nowhere to see it. ⚠️ **But WHY it was there is the bug: renaming a way to pay rewrote your expenses and your deposits — and never the ORDERS.** ⭐ So **every order paid the old way stayed filed under a name you had retired**, for as long as the app has had ways to pay. ⚠️ **Two places of three is worse than none: your figures split in silence.**
+
+**2. ★ A RENAME NOW MOVES ALL THREE, BECAUSE IT IS ONE FUNCTION.** The rename and the new **Move these** button call the *same* code — so neither can move two places of three again. ⚠️ **Its test fails by its own name with the orders left out** — `'Loan'` against `'Bank OD'`.
+
+**3. ⭐ AND A RETIRED ACCOUNT IS NO LONGER A DEAD END.** A block that is not on your list carries **"Move these"**: choose an account, and **every record filed under the retired name moves onto it — orders, spending and money you put in alike.** ⭐ Your words exactly: *"move the transaction it is owning to cash LS."* ⭐ **Tried on the real screen: the RM 64 order moved, and the retired block went with it.**
+
+**4. ⚠️ AND ONE FAULT THE TESTS COULD NOT SEE.** The button's press **bubbled to the block** — which opens that account's journal — so pressing **Move these** opened the **journal straight over the sheet**. ⭐ **The test passed, because its stand-in calls a node's own listeners and never bubbles — and the browser bubbles.** ⚠️ **Found by pressing it.** The press is stopped now, and the test pins that it is.
+
+**Measured:** tests **3,406 → 3,407**, the order-move assertion bitten. ⚠️ **Driven on the real screen at 375px:** five blocks, one **Move these**, every column still sharing one right edge, and the move completed with the block gone. **No database step.**
 
 **12 Oct 2026 — engine v485, THE CAPTION NAMES NO ACCOUNT (no database step).**
 

@@ -190,7 +190,9 @@ const allOf = (node, out = []) => {
 // two together ("Cashyour tin") and found nothing. These read either shape, so a test can still ask
 // for a row by the name she sees on it.
 // ⚠️ ONE SHAPE NOW (v483): an account's name IS its row's first cell — there is no note beside it.
-const moneyRowName = (r) => String(r.children?.[0]?.textContent || "");
+const moneyRowName = (r) => String(r.className).includes("acc-row")
+  ? String(r.children?.[0]?.children?.[0]?.textContent || "")
+  : String(r.children?.[0]?.textContent || "");
 const moneyRowOf = (root, label) => allOf(root)
   .filter((n) => String(n.className).includes("info-row"))
   .find((r) => moneyRowName(r) === label);
@@ -212,7 +214,7 @@ test("the Money screen puts what came in beside what went out, and the net", () 
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.deepEqual(rows, [
     "Cash=RM 15.00|RM 5.00|RM 10.00",
@@ -240,7 +242,7 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
   const rows = allOf(root).filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 0.00|RM 0.00|RM 0.00")
     && rows.includes("TNG=RM 0.00|RM 0.00|RM 0.00"),
@@ -337,7 +339,7 @@ test("her own money counts into the till, and the screen says how much was hers"
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 115.00|RM 30.00|RM 85.00"),
     "RM15 of orders + RM100 of her own in the tin, and the withdrawal out of it — "
@@ -413,7 +415,7 @@ test("★ what a loan paid for has its own line — and now counts in Net (v480)
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 15.00|RM 18.00|RM -3.00"),
     "the tin took 15 and gave up 18 — all three figures on its own block (v481)");
@@ -592,6 +594,53 @@ test("★★ the journey carries a running balance — her reconciliation column
   assert.match(said, /balance RM 60\.00/, "and the flour line on what it held after that");
 });
 
+test("★★ a retired account keeps its block, and offers the way to move what it holds", () => {
+  // ⚠️⚠️ HER WORDS, ASKED THREE TIMES: __"why cash is not in the list of Way to pay/receive?"__ — and
+  // then __"move the transaction it is owning to cash LS"__. ⭐ **The block is right to stay**: its money
+  // is in the books, and dropping it would count that money in the Net with nowhere to see it. ⚠️ **But
+  // a block she can see and cannot act on is the fault this app keeps being taught.**
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash LS", "TNG"]; // ⭐ "Cash" is NOT on the list — it was retired
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ id: "o1", unitPrice: 64, qty: 1, status: "ready", paidReceived: true,
+    paidMethod: "Cash", paidAt: `${today}T09:00:00.000Z` })];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  // ⚠️⚠️ AND THE NAME IS EXACTLY "Cash" — NOT "CashMove these". ⭐ The first pass put the button
+  // inside the name cell and the row read as one run-together word: ⚠️ **the very fault she had
+  // just reported as "Cashyour tin"**, repeated one version later. ⭐ This assertion is why it
+  // cannot happen again quietly.
+  const seen = allOf(root).filter((n) => String(n.className).includes("acc-row")
+    && !String(n.className).includes("acc-head-row")).map(moneyRowName);
+  assert.deepEqual(seen, ["Cash LS", "TNG", "Cash"],
+    `⚠️ a name ran into its own button — blocks read: ${seen.join(" / ")}`);
+  assert.ok(moneyRowOf(root, "Cash"), "⚠️ the retired account still has its block — its money is real");
+  assert.equal(moneyRowOf(root, "Cash").children[1].textContent, "RM 64.00",
+    "and it still shows what it holds");
+
+  const btn = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent === "Move these");
+  assert.ok(btn, "⚠️ and it is not a dead end — the block offers to move what it holds");
+
+  // ⚠️⚠️ AND ITS PRESS IS STOPPED BEFORE IT REACHES THE ROW. The block is tappable and opens the
+  // journal, so a press that bubbled opened the JOURNAL over the sheet — ⭐ **found by pressing it in
+  // the browser, because this shim calls a node's own listeners and never bubbles, and the browser
+  // does.** ⭐ A control inside a tappable row has to stop its own press, and that is what this pins.
+  let stopped = false;
+  btn._listeners.click.forEach((f) => f({ stopPropagation: () => { stopped = true; } }));
+  assert.ok(stopped, "⚠️ the button's press reached the row — the journal opens over the sheet");
+  const layer = screen["popup-layer"];
+  const pick = allOf(layer).filter((n) => String(n.className).includes("tappable"))
+    .find((n) => n.children[0].textContent === "Cash LS");
+  assert.ok(pick, "the accounts she DOES have are offered");
+  pick._listeners.click.forEach((f) => f());
+
+  assert.equal(st.orders[0].paidMethod, "Cash LS",
+    "⭐⭐ and every record the retired name held moved onto the account she chose — orders included");
+  assert.equal(st.settings.payMethods.includes("Cash"), false, "the list itself is untouched");
+});
+
 test("★★ the Reconciliation sheet carries every account, and agrees with the blocks", () => {
   // ⭐ Her ask: __"i need a printable journeys so that i can do reconciliation"__. ⚠️ One journey per
   // account is the detail; **this is the sheet with all of them on it**, built through the same
@@ -727,7 +776,7 @@ test("★★ an account she has just added shows on the Money card, and its book
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash to LK=RM 0.00|RM 0.00|RM 0.00"),
     "⚠️⚠️ the account she just added is ON the money card at zero, not invisible until money moves");
@@ -766,7 +815,7 @@ test("★★ every account counts in the Net now — her choice (v480)", () => {
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   // ⚠️ THE OLD ANSWER WAS RM 15.00 — the cash alone, with the bank transfer in neither side of it.
   assert.ok(rows.includes("Net — every account=RM 30.00"),
@@ -800,7 +849,7 @@ test("⚠️⚠️ a transfer never moves the Net — even into an account that 
     .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
     .map((r) => String(r.className).includes("acc-row")
       // ⭐ The block is four COLUMNS now (v482): the account, then In, Out and Holds.
-      ? `${r.children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
       : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash=RM 0.00|RM 200.00|RM -200.00"), "the tin really did give it up");
   assert.ok(rows.includes("Bank=RM 200.00|RM 0.00|RM 200.00"), "and the bank really did receive it");
