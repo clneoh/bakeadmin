@@ -1975,3 +1975,42 @@ test("★★★ flush: every row it sends has the SAME KEYS — the fault that s
     } finally { restoreFetch(); }
   } finally { restore(); }
 });
+
+// ── v475: a queue holding ONLY an un-sendable record ─────────────────────────
+test("★★★ flush: a queue holding only a record that can never be sent is swept, and still reports ok", async () => {
+  // ⚠️⚠️ HER REPORT, IN TWO LINES: __"after sync now, the phone still say 1 changes waiting to be send"__
+  // — and, asked what the shared-data card said, __"there is no error under sync"__.
+  // ⭐⭐ **NO ERROR AND A COUNT THAT NEVER MOVES. That is this condition exactly.**
+  // ⚠️⚠️ THE v467 SWEEP SAT *AFTER* THE POST — so it only ever ran when there was something to post. **When
+  // the ONLY thing queued was the record that cannot be keyed, `sendable` came out empty, `flush` returned
+  // "ok", and the queue was never swept.** The record sat there for ever, on her phone, while the app told
+  // her everything was fine. ⭐ **"It says ok" and "it is done" are two different sentences.**
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.orders = [{ productId: "p1", qty: 2 }];   // ⚠️ NO ID — a shape her book really contains (v440)
+    seedToken(store);
+    sync.markDirty(st, "2026-01-01T00:00:00.000Z");
+
+    // ⚠️ AND ONLY THAT ONE IS LEFT QUEUED, so `sendable` is empty — **the exact state her phone was in.**
+    // Anything else queued (settings, on a fresh cloud) would make this pass for the wrong reason.
+    const b = JSON.parse(store.get("bakeadmin.sync"));
+    for (const key of Object.keys(b.pending)) if (key !== "orders:undefined") delete b.pending[key];
+    store.set("bakeadmin.sync", JSON.stringify(b));
+    assert.equal(sync.pendingCount(), 1, "the fixture did not leave exactly one queued record");
+
+    let posted = null;
+    const restoreFetch = installFetch(async (url, opts) => {
+      if (opts && opts.method === "POST") posted = JSON.parse(opts.body);
+      return { ok: true, text: async () => "" };
+    });
+    try {
+      const r = await sync.flush(st);
+      assert.equal(r.ok, true, "flush did not report ok, so her no-error half is not being reproduced");
+      assert.equal(sync.pendingCount(), 0,
+        "★ the record that can never be sent was left in the queue — the count she watched that never moved");
+      assert.ok(!posted || posted.every((row) => typeof row.id === "string" && row.id),
+        "★ a record that cannot be keyed was posted anyway, which poisons the whole batch");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});

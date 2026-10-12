@@ -871,6 +871,24 @@ export async function flush(state) {
   // ⚠️ **A record that cannot be keyed cannot travel — so it is LEFT OUT and left for the check to name,
   // NEVER sent in a shape that poisons the twenty good records sitting beside it.**
   const sendable = pending.filter((p) => p && typeof p.kind === "string" && p.kind && typeof p.id === "string" && p.id);
+  // ⚠️⚠️ AND THE ONES THAT CAN NEVER BE SENT ARE SWEPT **HERE — BEFORE THE EARLY RETURN** (v475).
+  //
+  // ⭐⭐ **THIS IS A BUG I WROTE, AND HER PHONE FOUND IT:** __"after sync now, the phone still say 1 changes
+  // waiting to be send"__ — and, asked what the shared-data card said, __"there is no error under sync"__.
+  // ⚠️⚠️ **NO ERROR, AND A COUNT THAT NEVER MOVES — which is this line exactly.** The v467 sweep that
+  // clears un-sendable records sat **after** the POST, so it only ever ran when there was something to post.
+  // **When the ONLY thing queued is the record that cannot be keyed, `sendable` is empty, this returned
+  // "ok", and the queue was never swept** — the record sat there for ever and the app reported success.
+  // ⭐ **The lesson is the one this whole day has been about: "it says ok" and "it is done" are two
+  // different sentences.**
+  if (sendable.length !== pending.length) {
+    const b0 = readSync();
+    for (const key of Object.keys(b0.pending)) {
+      const rec = b0.pending[key];
+      if (!rec || typeof rec.kind !== "string" || !rec.kind || typeof rec.id !== "string" || !rec.id) delete b0.pending[key];
+    }
+    writeSync(b0);
+  }
   if (!sendable.length) return { ok: true, pushed: 0 };
   const body = sendable.map((p) => ({
     kind: p.kind,
@@ -914,13 +932,6 @@ export async function flush(state) {
     const key = `${p.kind}:${p.id}`;
     const cur = b2.pending[key];
     if (cur && cur.updated_at === p.updated_at) delete b2.pending[key];
-  }
-  // ⚠️ AND ANYTHING THAT CAN NEVER BE SENT LEAVES THE QUEUE TOO — **by KEY, because a record with no id
-  // has no key to name it by.** ⭐ It is not hidden: the health page lists it as a record on this phone
-  // that is not in the shared data, which is what that check exists for.
-  for (const key of Object.keys(b2.pending)) {
-    const rec = b2.pending[key];
-    if (!rec || typeof rec.kind !== "string" || !rec.kind || typeof rec.id !== "string" || !rec.id) delete b2.pending[key];
   }
   writeSync(b2);
   return { ok: true, pushed: sendable.length };

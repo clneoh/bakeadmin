@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v474)
+# Jienluv2bake — change history (v54 → v475)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v475, "NO ERROR" AND "NOT DONE" WERE BOTH TRUE AT ONCE (no database step).**
+
+**Your words:** __"after sync now, the phone still say 1 changes waiting to be send"__ — and then, asked what the shared-data card said, __"there is no error under sync"__
+
+**1. ⚠️⚠️ THOSE TWO SENTENCES TOGETHER WERE THE WHOLE ANSWER, AND THEY WERE BOTH TRUE.** ⭐ **A change was stuck in the queue, and the app was correctly reporting that nothing had failed.** ⚠️ **"It says OK" and "it is done" are two different sentences, and on your phone they were saying different things at the same time.**
+
+**2. ⚠️ AND IT WAS A BUG I WROTE — IN THE FIX THAT WAS SUPPOSED TO REMOVE THIS EXACT RECORD.** When the sync was broken, **the culprit was one record with no order number of its own: it made the server refuse every batch.** I fixed that by **leaving such a record out of the batch** so the twenty good ones beside it could go. ⭐ **But the code that clears those records from the queue sat AFTER the send — so it only ran when there was something to send.** ⚠️ **With only that one record left, there was nothing to send, the app returned "OK", and the record sat there for ever.** **You found the second half of a fault I had only half-fixed.**
+
+**3. ★ AND THE SWEEP NOW RUNS FIRST, BEFORE ANY DECISION TO SEND.** So a record that can never travel is cleared **whether or not there is anything else in the queue**, and the count tells the truth.
+
+**4. ⭐ AND THE TEST THAT SHOULD HAVE CAUGHT IT NOW EXISTS, BUILT FROM YOUR TWO SENTENCES: a queue holding ONLY that kind of record, and an assertion that the queue is empty afterwards — while the app still reports OK.** ⚠️ **It is seen to fail when the fix is reversed. My first fix had no such test, which is why it survived a version.**
+
+**Measured:** tests **3,387 → 3,388**, the new assertion bitten. **No database step.**
 
 **12 Oct 2026 — engine v474, AN ORDER CANNOT BE ON YOUR LIST AND ON THE REMOVED LIST AT ONCE (no database step).**
 
