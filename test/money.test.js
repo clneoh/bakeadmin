@@ -222,14 +222,33 @@ test("the Money screen puts what came in beside what went out, and the net", () 
     "Loan=RM 0.00|RM 0.00|RM 0.00",
     "Net — every account=RM 10.00",
     "Still to collect=RM 0.00",
-    "Paid, no method=RM 0.00",
-  ], "★★ ONE BLOCK PER ACCOUNT NOW (v481) — what came in, what went out and what it holds — "
-    + "with what is still owed kept out of the net. ⭐ The NET IS UNMOVED at RM 10.00, which is the "
-    + "point: the screen changed shape, the figure did not");
+  ], "★ ONE BLOCK PER ACCOUNT (v481), and ⚠️ NO \"Paid, no method\" ROW — it is only drawn when there is "
+    + "something in it (v487), because a row that always says nothing reads as broken. The NET IS UNMOVED "
+    + "at RM 10.00, which is the point: the screen changed shape, the figure did not");
 
   const expense = allOf(root).find((n) => String(n.className).includes("info-row")
     && n.textContent.includes("Packaging"));
   assert.ok(expense, "the spending in this stretch is listed by what it was for");
+
+  // ⭐⭐ AND THE OTHER HALF OF THAT RULE: AN OLD UNMARKED PAYMENT STILL SHOWS (v487). ⚠️ **That money is
+  // in no account's block and NOT in the Net — this row is the only place it exists.** ⭐ So hiding it
+  // while it is zero must not become hiding it when it is real, or her books lose money silently.
+  const old = state();
+  old.deliveryDates = [{ id: "d18", date: today }];
+  // ⚠️ No paidMethod at all — money from before the app had accounts.
+  old.orders = [row({ status: "ready", paidReceived: true, paidAt: `${today}T09:00:00.000Z`,
+    unitPrice: 64 })];
+  const oldRoot = document.createElement("div");
+  renderMoney(oldRoot, old);
+  const oldRows = allOf(allOf(oldRoot).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row") && !String(n.className).includes("acc-head-row"))
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${[1, 2, 3].map((i) => r.children[i].textContent).join("|")}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(oldRows.includes("Paid, no method=RM 64.00"),
+    "⚠️⚠️ old money with no account still shows — the row is the ONLY place it exists");
+  assert.ok(!oldRows.some((r) => r.startsWith("Cash=RM 64")),
+    "and no account claims it, which is exactly why the row has to be there");
   assert.ok(allOf(root).some((n) => n.textContent === "＋ Add an expense"), "with a way to add another");
 });
 

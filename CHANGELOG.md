@@ -1,8 +1,15 @@
-# Jienluv2bake — change history (v54 → v487)
+# Jienluv2bake — change history (v54 → v488)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v488, "PAID, NO METHOD" STOPS TAKING UP A LINE TO SAY NOTHING (no database step).**
+
+**Your words:** __"Paid, no method, what is this, shell we remove it?"__ — and then, better, __"it should not be taken in the 1st place if no account"__
+
+**1. ⭐ Your words: __"Paid, no method, what is this, shell we remove it?"__ — and then, better, __"it should not be taken in the 1st place if no account"__. ⭐ **That is already true, and I checked rather than agreed:** money can only be marked received in **two** places, and **both write the account on the very next line** — so ⭐ **this row can only ever hold OLD money, recorded before the app had accounts, and it can never grow.** ⚠️⚠️ **And removing it would hide money: that money is in no account's block and NOT in the Net — this line is the only place it exists.** So the row stays and simply stops taking up a line to say nothing — ⚠️ **a row that always says nothing reads as broken.** ⭐ **Asserted BOTH ways, and both bitten.**
+
 
 **12 Oct 2026 — engine v487, SOMETHING A TRANSACTION USES CANNOT BE DELETED (no database step).**
 

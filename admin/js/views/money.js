@@ -1120,7 +1120,21 @@ export function renderMoney(root, state) {
           row("Net — every account", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
-          row("Paid, no method", m.unmarked + mine.unmarked),
+          // ★★ AND IT IS ONLY DRAWN WHEN THERE IS SOMETHING IN IT (v487).
+          //
+          // Her words: __"Paid, no method, what is this, shell we remove it?"__ — and then, better,
+          // __"it should not be taken in the 1st place if no account"__. ⭐ **That is already true, and I
+          // checked rather than agreed:** money can only be marked received in two places, and **both
+          // write the account on the very next line** — so ⭐ **this row can only ever hold OLD money,
+          // recorded before the app had accounts, and it can never grow.**
+          //
+          // ⚠️⚠️ AND REMOVING IT WOULD HIDE MONEY. That money is in **no account's block and not in the
+          // Net** — ⭐ **this line is the only place it exists.** So the row stays; it simply stops
+          // taking up a line to say nothing, ⚠️ **because a row that always says nothing reads as
+          // broken.**
+          m.unmarked + mine.unmarked
+            ? row("Paid, no method", m.unmarked + mine.unmarked)
+            : null,
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
           mineTotal
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
