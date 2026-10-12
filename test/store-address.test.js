@@ -577,6 +577,7 @@ test("the pin and the address the order carries agree — or the pin does not tr
     // the basket is touched.**
     tapDay();
     // The shop's own menu, driven the way test/store.test.js drives it.
+    tapDay();   // ⚠️ v465: see the note in `refillBasket` — the day is HIS before step 2 opens
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
@@ -631,6 +632,7 @@ test("a pin taken from the list travels named with the customer's own words, not
     return { ok: true, status: 200, json: async () => [] };
   };
   try {
+    tapDay();   // ⚠️ v465: see the note in `refillBasket` — the day is HIS before step 2 opens
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
@@ -746,6 +748,7 @@ test("the order carries the address the row wrote, with the pin named by that sa
     return { ok: true, status: 200, json: async () => [] };
   };
   try {
+    tapDay();   // ⚠️ v465: see the note in `refillBasket` — the day is HIS before step 2 opens
     registry["menu"].children[0]
       .children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
     document.getElementById("name-input").value = "Aunty Bee"; // v452: a name is required
@@ -779,6 +782,12 @@ test("the order carries the address the row wrote, with the pin named by that sa
 // because it owns the Leaflet stub. ⚠️ The assertions below are word for word what they were.
 
 function refillBasket() {
+  // ⚠️⚠️ THE DAY IS TAPPED FIRST (v465) — **AND IT ALWAYS SHOULD HAVE BEEN.** `+` has been refused without
+  // a bake day of his own since v454, and these tests never tapped one: **they worked only because
+  // `dayPicked` was left TRUE by an earlier test in this file.** ⭐ The moment the after-order reset
+  // started clearing it — which is what the reset is FOR — the inherited state was gone and the presses
+  // were correctly refused. ⭐ **They were passing on state they never set.**
+  tapDay();
   registry["menu"].children[0]
     .children.find((c) => c.className === "card-body")
     .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
@@ -859,6 +868,22 @@ test("the next customer does not inherit the last one's front door", async (t) =
     // has to go with them, or the phone handed across the counter sends the NEXT order to the last
     // customer's door.
     assert.equal(el("pin-status").hidden, true, "the pin line is cleared with the order");
+    // ★★★ AND HE DOES NOT INHERIT THE LAST ONE'S BAKE DAY EITHER (v465). Her question: __"and user after
+    // placing an order, how should their storefront go back to default?"__
+    // ⚠️⚠️ MEASURED IN THE CODE FIRST: `dayPicked` is cleared in exactly ONE place in the whole shop — when
+    // the day that was chosen stops being on offer — and NEVER after an order. ⭐ **So the next customer
+    // arrived at a shop where step ① was ALREADY GREEN for a day HE never chose**, which is the fault v434
+    // fixed, coming back through a door it had never closed.
+    assert.equal(String(registry["step1"].className || "").includes("done"), false,
+      "★ step ① is still green for a choice the next customer never made");
+    // ⭐ AND THE PROOF THAT THE CLAIM IS REALLY GONE, rather than just the colour: **pressing + is refused
+    // until he taps a day of his own.**
+    const barBefore = registry["bar-count"].textContent;
+    registry["menu"].children[0]
+      .children.find((c) => c.className === "card-body")
+      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    assert.equal(registry["bar-count"].textContent, barBefore,
+      "★ the next customer could fill a basket for a bake day he had never chosen");
     el("whatsapp-input").value = "60123456789";
     el("fulfillment")._value = "courier";
     refillBasket();

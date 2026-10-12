@@ -3358,6 +3358,31 @@ function clearFieldMarks() {
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
+      // ★★★ AND THE NEXT CUSTOMER DOES NOT INHERIT HIS BAKE DAY (v465). Her question: __"and user after
+      // placing an order, how should their storefront go back to default?"__
+      // ⚠️⚠️ **MEASURED IN THE CODE FIRST, AND IT DID NOT GO BACK: `dayPicked` is cleared in exactly ONE
+      // place in this whole file — when the day that was chosen stops being on offer — and NEVER here.**
+      // ⭐ So the next customer arrived at a shop where **step ① was ALREADY GREEN and the menu was ALREADY
+      // OPEN, for a day HE never chose.** ⚠️ **That is precisely the fault v434 fixed** (*"step 1 was GREEN
+      // before he touched anything ⟹ one colour till he acts"*), coming back through a door it never closed.
+      // ⭐ `selected = null` first, so the calendar re-offers the first open day **for** him exactly as it
+      // does on arrival — and `rerender()` is what rebuilds the circles and the line under the calendar, so
+      // there is no second way to set any of this. **`dayPicked` stays false because only a TAP sets it**,
+      // which is the rule v434 turns on.
+      selected = null;
+      dayPicked = false;
+      // ⚠️ `buildCalendar` AND NOT `rerender()` — the calendar is the piece that OWNS `selected` and the
+      // line under it, so it is the piece that puts the next customer's day on offer again. ⚠️ **The full
+      // `rerender()` was the first thing I reached for and it broke two of this shop's own tests outright**
+      // — it rebuilds the menu and the bar too, which is more than this reset needs and more than some of
+      // the pages this code runs on can take. ⭐ The circles follow from `paintSteps`.
+      buildCalendar();
+      paintSteps();
+      // ⚠️ AND THE PAGE COMES BACK TO THE TOP. The next customer was arriving part-way down the page, at
+      // whatever step the last one had scrolled to — **the first thing a shop should show him is step 1.**
+      if (typeof window !== "undefined" && window.scrollTo) {
+        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* a page that refuses is not a reason to fail */ }
+      }
       renderBar();
       // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
       // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the

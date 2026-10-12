@@ -1734,6 +1734,10 @@ test("the next customer does not inherit the last one's note", async () => {
     await registry["order-btn"].onclick();
 
     // The person behind them adds the same item; the box must open on nothing.
+    // ⚠️ AND THE DAY IS TAPPED FIRST (v465) — **which is also this test's subject.** The after-order reset
+    // now clears the bake day's claim, so the person behind him starts at step 1 exactly as a new visitor
+    // does. ⭐ Without this the `+` is correctly refused, because step 1 is genuinely his to choose again.
+    tapDay();
     pressPlus(cardNamed(p.name));
     const link = noteAdd(cardNamed(p.name));
     assert.ok(link, "the item is back in the basket and offers its note again");

@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v464)
+# Jienluv2bake — change history (v54 → v465)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v465, THE SHOP DOES NOT CARRY THE LAST CUSTOMER'S BAKE DAY INTO THE NEXT ONE'S ORDER (no database step).**
+
+**Your words:** __"and user after placing an order, how should their storefront go back to default?"__
+
+**1. ⚠️⚠️ MOST OF IT DID GO BACK — AND THE ONE THING THAT MATTERED DID NOT.** After an order the shop already empties the basket, every item note, the name, the number, the address, the delivery note, the promo code, the way of getting it, and your front-door pin. ⭐ **What it did NOT clear was the customer's BAKE DAY.**
+
+**2. ⚠️ AND I MEASURED IT IN THE CODE BEFORE TOUCHING IT.** The flag that says *this customer chose his own bake day* is cleared in **exactly one place in the whole shop** — when the day he had chosen stops being on offer — and **never after an order.** ⭐ **So the next customer walked into a shop where step ① was ALREADY GREEN and the menu was ALREADY OPEN, for a day HE had never chosen.** ⚠️ **That is precisely the fault v434 fixed** (*"step 1 was green before he touched anything"*), coming back through a door nobody had closed.
+
+**3. ★ SO THE NEXT CUSTOMER NOW ARRIVES AS A NEW VISITOR DOES.** The bake day goes back to being **suggested** rather than claimed — a day is still chosen for him, because ordering must never be blocked by forgetting to tap — **the ① circle goes back to one colour, and the line under the calendar says it is a suggestion again.** ⭐ **Measured: pressing + before tapping a day is refused, exactly as it is for anyone arriving for the first time.**
+
+**4. ★ AND THE PAGE COMES BACK TO THE TOP.** The next customer was arriving part-way down the page, at whatever step the last one had scrolled to. **The first thing a shop should show him is step 1.**
+
+**5. ⚠️⚠️ AND THIS FOUND FOUR TESTS THAT WERE PASSING ON STATE THEY NEVER SET.** Four tests in the address file pressed **+** without ever tapping a bake day — **which that same `+` has refused since v454.** They only worked because the flag was left TRUE by an earlier test in the file. ⭐ **The moment the reset started doing its job, the borrowed state was gone and the presses were correctly refused.** The tests now tap the day they always should have; **they were passing on a lie, and the reset exposed it rather than caused it.**
+
+**Measured:** tests **3,371 → 3,372**, the new assertion seen to fail with the reset reversed. **No database step.**
 
 **12 Oct 2026 — engine v464, A BAKE DAY IN THE PAST CAN BE WRITTEN DOWN — ALLOWED, AND IT SAYS SO (no database step).**
 
