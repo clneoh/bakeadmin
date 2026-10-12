@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v468)
+# Jienluv2bake — change history (v54 → v469)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v469, THE NEW CHECK WAS FIRING ON SOMETHING THAT WAS NEVER WRONG (no database step).**
+
+**How it was found:** your Mac, one version after it was written — **by running it.** It named **`settings`**.
+
+**1. ⚠️⚠️ THE NEW CHECK SAID "`settings` IS IN YOUR SHARED DATA AND NOT ON THIS PHONE" — ON EVERY DEVICE, FOR EVER.** ⭐ **And `settings` is on every phone.** The check that reads what this phone holds was reading the list of things that *travel*, **and the settings record is not on that list — it is sent separately, by hand, every time.** ⭐ **So it was the one record every phone has that the list never mentioned.**
+
+**2. ★ IT IS FIXED, AND IT IS THE TOOL THAT FOUND IT.** ⚠️ **A warning that fires on a phone's own settings, on every device, is exactly the kind of warning somebody learns to ignore — which is the fault this check was built to avoid, arriving in the check itself.**
+
+**3. ★★ AND THE TESTS COULD NOT HAVE CAUGHT IT, WHICH IS THE PART WORTH KEEPING.** The other tests built their pretend shared data **out of the very list that was wrong** — so whatever that list forgot, the pretend shared data forgot too, and the two agreed. ⭐ **A fixture built out of the code being tested cannot catch a fault in that code.** Those tests now build their shared data from **what the app actually sends**, which is the only honest source — and **two new assertions are seen to fail when the fix is reversed.**
+
+**⚠️ 4. AND THE ANSWER YOU WERE WAITING FOR.** Because that check named **only** `settings`, everything else it looked at **is not in your shared data** — ⚠️ **including `#420EEF · #538F78`.** ⭐ **So those two orders are not sitting in your shared data waiting to come down: they are genuinely gone, from the cloud and from both devices.** ⭐ **They exist in your 6 October copy, and that copy is the only place left** — read them out of it and enter them again by hand. ⚠️ **Do not press Restore.**
+
+**Measured:** tests **3,375 → 3,377**, both new assertions seen to fail with the fix reversed. **No database step.**
 
 **12 Oct 2026 — engine v468, THE SAME QUESTION THE OTHER WAY ROUND (no database step).**
 

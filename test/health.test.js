@@ -382,3 +382,29 @@ test("★★ and an order she removed ON PURPOSE is NOT reported — the shelf i
   assert.equal(r.status, "pass",
     "★ an order she removed on purpose was reported as sitting in the shared data — the shelf explains it");
 });
+
+// ── v469: the reverse check against a REAL cloud, not a copy of the phone's own answer ──────────────
+test("★★★ the reverse check PASSES against what the app actually sends — settings included", () => {
+  // ⚠️⚠️ HOW THE FALSE POSITIVE HID, AND IT IS THE POINT OF THIS TEST: **the other fixtures built the fake
+  // cloud FROM `sync.localKeys` — so whatever that function forgot, the cloud forgot with it, and the two
+  // agreed.** ⭐ A fixture built out of the code under test cannot catch a fault in that code.
+  // ⚠️ **`localKeys` read `LISTS`, and the settings record is NOT in `LISTS` — `computeRecords` sends it
+  // separately, by hand.** ⭐ So every device got "settings is in your shared data and not on this phone",
+  // for ever. **Found on her Mac, one version after it was written, by RUNNING it.**
+  const st = healthy();
+  // ⭐ THE CLOUD IS BUILT FROM WHAT THE APP WOULD ACTUALLY SEND — the real source, not a copy of the answer.
+  const sent = sync.computeRecords(st).map((r) => `${r.kind}:${r.id}`);
+  assert.ok(sent.includes("settings:default"),
+    "the fixture is wrong: the app no longer sends a settings record, so this test proves nothing");
+
+  const cloud = { ok: true, keys: new Set(sent) };
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), local: sync.localKeys(st), cloud, waiting: 0 }), "cloudOnly");
+  assert.equal(r.status, "pass",
+    `★ the reverse check fired on records the app itself puts in the shared data (${(r.detail || []).join(", ")})`
+    + " — a warning that can never be satisfied is one she learns to ignore");
+});
+
+test("★ and `localKeys` counts the settings record — the one record every phone has", () => {
+  assert.ok(sync.localKeys(healthy()).includes("settings:default"),
+    "★ `localKeys` left out the settings record, which every phone has and the app always sends");
+});

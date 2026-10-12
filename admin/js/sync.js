@@ -547,6 +547,14 @@ export function localKeys(state) {
     if (!Array.isArray(list)) continue;
     for (const rec of list) if (rec && rec.id) keys.push(`${kind}:${rec.id}`);
   }
+  // ⚠️⚠️ AND THE SETTINGS RECORD, WHICH IS NOT IN `LISTS` (v469). ⭐ **`computeRecords` sends it
+  // SEPARATELY, by hand, and this function reads `LISTS` — so it was the one record every phone HAS and
+  // this list did not mention.** ⚠️ **The reverse check then reported `settings` as "in your shared data
+  // and not on this phone", on every device, for ever** — ⭐ **exactly the warning that can never be
+  // satisfied which the check's own comment warns against.** ⭐ Found on her Mac, one version after it was
+  // written, **by running it** — which is the whole argument for building the check rather than reasoning
+  // about the data.
+  keys.push("settings:default");
   return keys;
 }
 
