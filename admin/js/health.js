@@ -203,16 +203,35 @@ export function registerChecks(state, register, voided) {
       const n = Math.floor(Number(o && o.receiptNo));
       if (Number.isFinite(n) && n > 0) carriers.add(n);
     }
+    const codeOfRow = (r) => String((r && r.order_code) || "").trim().toUpperCase();
     const bad = register
       .filter((r) => !voidedNos.has(Math.floor(Number(r && r.number))))
       .filter((r) => !carriers.has(Math.floor(Number(r && r.number))))
-      .map((r) => String((r && r.order_code) || "").trim().toUpperCase())
-      .filter((c) => c && !live.has(c) && !removedCodes.has(c));
+      .filter((r) => { const c = codeOfRow(r); return c && !live.has(c) && !removedCodes.has(c); });
+    // ⚠️⚠️ AND IT NAMES THE RECEIPT ITSELF, NOT ONLY THE CODE (v472). Her words: __"how phone flag
+    // DE1F19, as i cannot find DE1F19 anywhere other then the Check My System run"__.
+    // ⭐ **`DE1F19` is not something the check invents — it is the `order_code` stored on a receipt row in
+    // the cloud, and that is the code the order wore WHEN THE MONEY WAS TAKEN (`supabase/receipts.sql:32`).**
+    // ⚠️ **A code alone cannot be looked up: the order's code has moved since, which is v441's fault and is
+    // exactly why the receipt keeps the old one. ⭐ SO THE ROW NOW CARRIES ITS RECEIPT NUMBER AND DATE** —
+    // **the two facts that are on the register row itself and that no order can change** — so she can find
+    // it in the register in one look, and so can anyone reading this later.
+    const nameOfRow = (r) => {
+      const n = Math.floor(Number(r && r.number));
+      const no = Number.isFinite(n) && n > 0 ? `receipt #${String(n).padStart(6, "0")}` : "receipt (no number)";
+      const when = String((r && r.issued_at) || "").slice(0, 10);
+      return `${no} · #${codeOfRow(r)}${when ? ` · ${when}` : ""}`;
+    };
     return [
       bad.length
-        ? fail("hasOrder", "Every receipt has an order behind it", bad.map((c) => `#${c}`),
+        ? fail("hasOrder", "Every receipt has an order behind it", bad.map(nameOfRow),
           "A receipt was issued for money you took, and there is no order wearing that number on this phone or on the Removed list. The receipt stands and the money is recorded — but the order behind it is not here.",
-          "Search WhatsApp for the number printed on the receipt: the confirmation you sent names the customer. Enter the order again by hand.")
+          // ⚠️⚠️ TWO STEPS, IN ORDER, AND THE FIRST ONE IS NEW (v472). Her report was that she could not
+          // find `#DE1F19` **anywhere** — so the first thing to do is look the receipt up by the number now
+          // named above, **which is the one fact no order can change.** ⭐ And the second step stays, because
+          // for a receipt whose order really has gone it is the only way back: **a check that dropped it
+          // would leave her with a fault and no way out.**
+          "Look that receipt number up on your Receipt register — its date tells you which bake week it belongs to, and whether it was an order you removed on purpose. If it is a real order that has gone, search WhatsApp for the number and enter the order again by hand.")
         : pass("hasOrder", "Every receipt has an order behind it"),
       // ── 9 · every receipt's number is carried by the order it names ────────
       (() => {

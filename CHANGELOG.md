@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v471)
+# Jienluv2bake — change history (v54 → v472)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v472, THE RED LINE NOW NAMES SOMETHING YOU CAN ACTUALLY LOOK UP (no database step).**
+
+**Your words:** __"how phone flag DE1F19, as i cannot find DE1F19 anywhere other then the Check My System run"__
+
+**1. ⭐⭐ YOU ASKED THE RIGHT QUESTION, AND IT DESERVES A STRAIGHT ANSWER: THE CHECK DOES NOT INVENT THAT CODE.** It comes from **your receipt numbers in the cloud** — every receipt row stores **the code the order was wearing at the moment the money was taken**, and that is exactly what the database file calls it: *"the order's own 6-character code."*
+
+**2. ⚠️ AND THAT IS WHY YOU COULD NOT FIND IT.** The order's code **has moved since** — v441's fault, found and fixed, **but an old receipt keeps the old number for ever by design, because the receipt is the record of money and is never rewritten.** ⭐ **A code that has moved is a name nothing answers to any more.**
+
+**3. ★ SO THE RED LINE NOW CARRIES THE TWO FACTS THAT *CANNOT* MOVE: THE RECEIPT'S OWN NUMBER AND ITS DATE.** The register row is the thing that exists, and **the number is what the register is indexed on.** ⭐ **You can now look it up in one glance instead of searching for a name that was never going to be there.**
+
+**4. ★ AND THE WAY OUT NOW HAS TWO STEPS, IN ORDER.** First: **look that receipt number up in your Receipt register** — its date tells you which bake week it belongs to, **and whether it was an order you removed on purpose.** ⚠️ **Then, if it really is an order that has gone, search WhatsApp and enter it again by hand** — that half was already there and **is deliberately kept**, because a check that dropped it would leave you with a fault and no way out.
+
+**⚠️ 5. AND ONE THING I OWE YOU PLAINLY.** I told you the Mac "must have that order" and predicted its check would name it. **It didn't, and you were right to keep pushing.** ⭐ **I have since read the register's own matching code: the screen and this check compare receipts against orders using the SAME two keys — the code the order wears now, and the code its id alone gives.** ⚠️ **So the screen should be flagging that row too, and I cannot yet say why it isn't.** **I am not going to guess a third time.** The receipt number and date are what will settle it, and that is what this version puts in front of you.
+
+**Measured:** tests **3,384**, all green — the two assertions on that message were **moved with it, not deleted**, and two new ones assert the receipt number and date are actually named. **Seen to fail with the change reversed.** **No database step.**
 
 **12 Oct 2026 — engine v471, THE SAME RECORD, TWO DIFFERENT SETS OF FACTS (no database step).**
 

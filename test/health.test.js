@@ -81,7 +81,14 @@ test("★★ a receipt with no order behind it FAILS — the fault that cost her
   const res = runChecks(st, { register, copies: COPIES });
   const r = resultOf(res, "hasOrder");
   assert.equal(r.status, "fail", "★ a receipt with no order behind it was not reported");
-  assert.deepEqual(r.detail, ["#D06D27"], "the failing receipt was not named");
+  // ⚠️⚠️ AND IT NAMES THE RECEIPT ITSELF (v472) — her words: __"how phone flag DE1F19, as i cannot find
+  // DE1F19 anywhere other then the Check My System run"__. ⭐ **A code alone cannot be looked up, because
+  // the order's code has moved since (v441) — so the row carries its RECEIPT NUMBER and DATE too, which no
+  // order can change.** The register fixture is receipt #9, written 2026-10-11.
+  assert.equal(r.detail.length, 1, "the failing receipt was not named");
+  assert.match(r.detail[0], /#D06D27/, "the failing receipt's code is not named");
+  assert.match(r.detail[0], /receipt #000009/, "★ the receipt NUMBER is not named, so it cannot be looked up");
+  assert.match(r.detail[0], /2026-10-11/, "★ the receipt's DATE is not named, so it cannot be placed");
   assert.match(r.why, /receipt stands and the money is recorded/i, "the check does not say what it means");
   assert.match(r.fix, /WhatsApp/i, "the check does not say what she can do about it");
 
@@ -441,7 +448,10 @@ test("★★⚠️ and a receipt NO order carries is STILL reported — the fix 
   const r = resultOf(runChecks(st, { register }), "hasOrder");
   assert.equal(r.status, "fail",
     "★ a receipt whose number is on NO order was silenced by the new matching — that hides a real loss");
-  assert.deepEqual(r.detail, ["#DE1F19"], "★ and it does not name the receipt that is genuinely missing");
+  assert.equal(r.detail.length, 1, "★ it does not name the receipt that is genuinely missing");
+  assert.match(r.detail[0], /#DE1F19/, "★ the missing receipt's code is not named");
+  assert.match(r.detail[0], /receipt #000012/,
+    "★ the receipt NUMBER is not named — the one thing she can actually look up");
 });
 
 test("★ and a SPLIT order's number is read from the whole order, not from one row", () => {
