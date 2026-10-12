@@ -377,7 +377,7 @@ test("a method is read however it was written, and a loan is not the purse", () 
   assert.equal(isOther(""), false, "an unrecorded method is its own case, not 'other'");
 });
 
-test("what a loan paid for is kept out of the purse", () => {
+test("★ what a loan paid for has its own line — and now counts in Net (v480)", () => {
   const today = todayISO();
   const st = state();
   st.deliveryDates = [{ id: "d18", date: today }];
@@ -393,10 +393,15 @@ test("what a loan paid for is kept out of the purse", () => {
     .filter((n) => String(n.className).includes("info-row"))
     .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.ok(rows.includes("Cash out=RM 18.00"), "only the cash one leaves the purse");
-  assert.ok(rows.includes("Net=RM -3.00"), "15 in, 18 out — the flour run never touched it");
+  // ⚠️⚠️ THIS IS THE CHANGE SHE ASKED FOR, AND IT IS THE ONE THAT MOVES. Net used to be the purse
+  // alone — 15 in, 18 out, RM -3.00, with the loan-funded run kept right out of it. Her words:
+  // __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the trade-off,
+  // __"Fold them into Net"__. ⭐ **So Net is the whole business now: everything in, less everything
+  // out, through every account** — which is 15 in and 18 + 250 out.
+  assert.ok(rows.includes("Net=RM -253.00"),
+    "⚠️ every account counts in Net now (v480): 15 in, and 18 plus the 250 the loan paid");
   assert.ok(rows.includes("Paid by Loan=RM -250.00"),
-    "and the loan-funded run is named on its own line instead — by the method's own name, "
-    + "because it now has its own book to open (17 Sep 2026)");
+    "and the loan-funded run STILL has its own line, named after the account, with its own book");
 });
 
 // ── v109: a book per method ──────────────────────────────────────────────────
@@ -595,6 +600,37 @@ test("★★ an account she has just added shows on the Money card, and its book
   assert.match(text, /Cash to LK journal/, "its own journal, the same as Cash and TNG have");
   assert.match(text, /Nothing moved this way in this stretch/,
     "which says honestly that nothing has moved through it yet, rather than looking broken");
+});
+
+test("★★ every account counts in the Net now — her choice (v480)", () => {
+  // ⚠️ HER WORDS: __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the
+  // trade-off in full, __"Fold them into Net"__. ⭐ So money a customer paid into Bank is IN Net, and
+  // so is anything a bank transfer paid for — while the account keeps its own line, so the money is
+  // named as well as counted and nothing is hidden by the change.
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Bank", "Cash to LK"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [
+    row({ id: "o1", unitPrice: 15, status: "ready", paidReceived: true, paidMethod: "cash",
+      paidAt: `${today}T09:00:00.000Z` }),
+    row({ id: "o2", unitPrice: 20, status: "ready", paidReceived: true, paidMethod: "Bank",
+      paidAt: `${today}T10:00:00.000Z` }),
+  ];
+  st.expenses = [{ id: "e1", date: today, amount: 5, category: "Packaging", method: "Bank" }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+  // ⚠️ THE OLD ANSWER WAS RM 15.00 — the cash alone, with the bank transfer in neither side of it.
+  assert.ok(rows.includes("Net=RM 30.00"),
+    "⚠️ 15 in cash plus 20 into Bank, less the 5 the bank transfer paid — one figure, every account");
+  assert.ok(rows.includes("Paid by Bank=RM 15.00"),
+    "⭐ and Bank still has its own line, so the money is named as well as counted");
+  assert.ok(rows.includes("Cash in=RM 15.00"),
+    "and Cash in is still exactly the cash — the two figures she counts by hand have not moved");
 });
 
 // ── v112: paying a personal pocket back ──────────────────────────────────────

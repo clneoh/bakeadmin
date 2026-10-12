@@ -91,7 +91,7 @@ function bookSheet(state, method, from, to, label) {
   const j = journalFor(state, method, from, to);
   const where = isCash(method) ? "what should be in your purse"
     : isTng(method) ? "what should be on your phone"
-      : "kept out of the purse and phone figures, because the money did not move through either";
+      : "not in your purse or your phone, so it is counted on a line of its own and not in the two figures you check by hand";
   return journalSheet({
     title: `${label} journal`,
     subtitle: label,
@@ -395,7 +395,7 @@ function openListsManager(state, redraw) {
           ? entryForm(state, { kind: "category", current: "", onDone: done })
           : newEntryChip("category", () => { editing = { kind: "category", label: "" }; show(); })),
       el("h3", { style: "margin:16px 0 4px" }, "Ways to pay"),
-      ...methods.map((m) => row(m, isCash(m) || isTng(m) ? "in your purse or phone" : "not from the purse", "method")),
+      ...methods.map((m) => row(m, isCash(m) || isTng(m) ? "in your purse or phone" : "not in your purse or phone", "method")),
       el("div", { class: "btn-row", style: "margin-top:8px" },
         editing && editing.kind === "method" && !editing.label
           ? entryForm(state, { kind: "method", current: "", onDone: done })
@@ -943,13 +943,21 @@ export function renderMoney(root, state) {
     const m = moneyBetween(state, from, to);
     const out = expensesBetween(state, from, to);
     const mine = depositsBetween(state, from, to);
-    // The net is what should be in her hand and on her phone RIGHT NOW, so three
-    // things stay out of it: money still to collect (owed, not held), anything paid
-    // by a method that never touched the purse (a loan, the bank overdraft), and —
-    // for the same reason — money in that arrived that way. Her own pocket money
-    // counts IN: it really is in the purse, and these rows are what she checks it
-    // against. A line below says how much of it was hers, and the entries are listed.
-    const net = m.cash + m.tng + mine.cash + mine.tng - out.cash - out.tng;
+    // ★★ NET IS THE WHOLE BUSINESS NOW (v480), NOT THE TIN.
+    //
+    // Her words: __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the
+    // trade-off in full, __"Fold them into Net"__. ⭐ **So every account counts in this one figure:**
+    // a customer's money that went into Bank or Cash to LK is in it, and so is anything a loan or a
+    // pocket paid for. ⚠️ **Which means it is no longer "what should be in your purse and on your
+    // phone"** — it is everything that came in this stretch, less everything that went out.
+    //
+    // ⚠️⚠️ AND THE FIGURE SHE COUNTED BY HAND IS NOT LOST. `Cash in` less `Cash out`, and `TNG in`
+    // less `TNG out`, are still exactly the tin and exactly the phone. Those two are what a loan and a
+    // bank transfer are still kept OUT of, and that is the whole of what their own lines now say.
+    //
+    // Money still to collect stays out, for the reason it always did: it is owed, not held.
+    const net = m.cash + m.tng + m.other + mine.cash + mine.tng + mine.other
+      - out.cash - out.tng - out.other;
     // Every way of paying that is not cash or TNG gets its own line here, each opening
     // its own book — the loan, the bank overdraft, anyone's own pocket, and whatever she
     // adds later. Her ask in so many words: "each CASH, TNG, LOAN, Personal Pocket Kean,
@@ -996,7 +1004,7 @@ export function renderMoney(root, state) {
           // described neither would read as a fault on her own screen.
           others.length
             ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
-                "· your accounts that are not cash or TNG — a loan, the bank overdraft, one of your own pockets, or one you add yourself. Money that came in or went out this way never passed through your purse or your phone, so none of it is in the net above. Every account you have gets a line here, even one nothing has moved through yet — tap it to open its book.")
+                "· your accounts that are not cash or TNG — a loan, the bank overdraft, one of your own pockets, or one you add yourself. Money that came in or went out this way never passed through your purse or your phone, so each gets its own line here instead of being folded into Cash in or TNG in. Every account you have gets a line, even one nothing has moved through yet — tap it to open its book.")
             : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),
@@ -1072,7 +1080,7 @@ export function renderMoney(root, state) {
               })())),
           button("Open", () => openInvestment(state), "ghost small"))),
       el("p", { class: "card-sub", style: "margin:0 2px" },
-        "Tap Cash, TNG or a loan row to see that method's journal - every movement that way in this stretch, in order, ending on what it should hold. Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is what should be in your purse and on your phone for this stretch; what is still to collect is counted by delivery day, because that is when you hand it over. Money moved between your own pots with Transfer is in neither figure - it never entered or left the business. Your investment is the one card here that is NOT about this stretch: it is a balance, counted from the beginning. The three lists this screen reads - what you spend ON, HOW you paid, and WHERE your own money came from - are edited right above, or added on the spot with the ＋ chip on either form."),
+        "Tap Cash, TNG or a loan row to see that method's journal - every movement that way in this stretch, in order, ending on what it should hold. Money in is counted by the day it landed - an order paid by transfer today counts today, even if it delivers on Friday. Money out is counted on the day you paid it: a shopping run records itself when you tap Bought on it, and everything else goes in by hand. Net is everything that came in this stretch less everything that went out, through every account you have; what is still to collect is counted by delivery day, because that is when you hand it over. And the two figures you can still count by hand are the Cash and TNG lines above: Cash in less Cash out is your tin, and TNG in less TNG out is your phone. Money moved between your own pots with Transfer is in neither figure - it never entered or left the business. Your investment is the one card here that is NOT about this stretch: it is a balance, counted from the beginning. The three lists this screen reads - what you spend ON, HOW you paid, and WHERE your own money came from - are edited right above, or added on the spot with the ＋ chip on either form."),
     );
   };
 

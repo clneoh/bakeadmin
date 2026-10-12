@@ -4997,7 +4997,7 @@ function openPayPicker(state, group, root, dateId) {
     },
       el("span", {}, m),
       el("span", { class: "info-val" },
-        el("span", { class: "muted" }, `  ${isCash(m) || isTng(m) ? "in your purse or phone" : "its own book"}`))));
+        el("span", { class: "muted" }, `  ${isCash(m) || isTng(m) ? "in your purse or phone" : "not in your purse or phone"}`))));
     return [
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         "Which account the money went to. Choosing one marks the order paid and records the day it landed. It is your own list — arrange it, add to it or take one off on More, then Money, then Edit."),

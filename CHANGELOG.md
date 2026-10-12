@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v479)
+# Jienluv2bake — change history (v54 → v480)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v480, EVERY ACCOUNT NOW COUNTS IN YOUR NET (no database step).**
+
+**Your words:** __"can it be treated like cash and TNG? any problem or impact?"__ — and then, shown the trade-off in full, __"Fold them into Net"__
+
+**1. ⚠️ YOUR NET USED TO BE THE TIN AND THE PHONE ONLY, and that was the whole point of it.** It said *"what should be in your hand and on your phone right now"*. So a customer's money that went into Bank or Cash to LK sat on its own line and was **kept out of Net** — and so was anything a loan paid for.
+
+**2. ★ YOU CHOSE ONE FIGURE FOR EVERYTHING, AND THAT IS WHAT IT IS NOW.** Net is **everything that came in this stretch, less everything that went out, through every account you have.** ⭐ 15 in cash and 20 into Bank, less the 5 the bank transfer paid, is **RM 30.00**. The old answer was RM 15.00.
+
+**3. ⚠️ AND THE HONEST CONSEQUENCE, WHICH YOU WERE SHOWN AND TOOK: Net no longer matches what you can count by hand.** ⭐ **But the two figures you CAN count are untouched, and they are now the ones to read for the tin and the phone: Cash in less Cash out is your tin, and TNG in less TNG out is your phone.** ⭐ **And every account still keeps its own line** — Paid by Bank, Paid by Cash to LK — so nothing is hidden by this: the money is counted AND named.
+
+**4. ★ AND ONE THING WORTH WATCHING.** A loan is **money you owe, not money you hold** — and because a loan now counts in Net, a flour run a loan paid for **lowers** Net. That is arithmetically right for "everything in, less everything out", but it is a different question from "what have I actually got". Say the word if you would rather loans stayed out.
+
+**5. ⭐ AND THE TWO NOTES NOW SAY THE SAME THING IN EVERY PLACE.** You asked what the difference was between *"in your purse or phone"* and *"its own book"* — and the honest answer was that the same two ideas were worded **three different ways**, all of them mine. They now read as two halves of one question: **"in your purse or phone"** and **"not in your purse or phone"** — on the Pay press, in the accounts editor, and in the journal itself.
+
+**Measured:** tests **3,401 → 3,402**, the new assertion seen to fail with the old Net put back — and the loan test **moved with the behaviour rather than being deleted**, which is where the RM 250 shows. **No database step.**
 
 **12 Oct 2026 — engine v479, EVERY ACCOUNT YOU HAVE SHOWS ON THE MONEY SCREEN (no database step).**
 

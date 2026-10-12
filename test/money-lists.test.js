@@ -179,8 +179,11 @@ test("Edit opens the lists, and every line can be opened to change it", () => {
   const names = listed.map(rowName);
   assert.ok(names.includes("Rent") && names.includes("Salary (you)"), "the chart, by name");
   assert.ok(names.includes("Cash") && names.includes("TNG") && names.includes("Loan"), "and the ways to pay");
-  assert.match(rowNote(managerRow("Loan")).textContent, /not from the purse/,
-    "with a loan marked as money that never went near it");
+  // ⚠️ THE TWO NOTES ARE THE TWO HALVES OF ONE QUESTION (v480), and they must be the SAME WORDS here
+  // as in the Pay press's own list — the same two ideas worded two ways is how she came to ask what
+  // the difference was in the first place.
+  assert.match(rowNote(managerRow("Loan")).textContent, /not in your purse or phone/,
+    "with a loan marked by where its money is NOT, exactly as Cash and TNG are marked by where theirs is");
   assert.ok(String(managerRow("Rent").className).includes("tappable"), "a line says it can be opened");
 });
 
