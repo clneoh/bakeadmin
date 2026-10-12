@@ -2577,7 +2577,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     draftNow = nowTotal;
     paidShortEl.replaceChildren(...(paidWas > 0 && short > 0
       ? [el("p", { class: "hint paid-short" },
-          `⚠️ This order was paid ${fmtRM(paidWas, cfgCur)}. As it stands it comes to `
+          `⚠️ THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)}. As it stands it comes to `
           + `${fmtRM(nowTotal, cfgCur)} — ${fmtRM(short, cfgCur)} LESS. Saving it takes that `
           + `${fmtRM(short, cfgCur)} out of your accounts but not out of your hand — refund the difference, `
           + `or the two will disagree.`)]
@@ -2675,10 +2675,25 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const short = round2(paidWas - draftNow);
     if (paidWas > 0 && draftNow != null && short > 0) {
       return confirmDialog(
-        `This order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
+        `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
         + `${fmtRM(draftNow, cfgCur)}. Saving takes ${fmtRM(short, cfgCur)} out of your accounts — `
-        + `your hand will not change. Save it, and refund the difference after?`,
-        () => applyEdits(), { yesLabel: "Save it" });
+        + `your hand will not change.`,
+        () => {
+          applyEdits();
+          // ★★ AND THEN IT ASKS HER TO REFUND THE CUSTOMER (v490). Her words: __"we should be ask to
+          // refund customer"__. ⚠️ **Telling her to go and find the refund somewhere is not asking** —
+          // and a figure she has to remember and retype is a figure that gets retyped wrong.
+          confirmDialog(
+            // ⭐ AND IT SAYS THE MONEY IS IN, because that is WHY it is asking — her words:
+            // __"it should say if the money is in, then we need to refund"__. ⚠️ **The gate was already
+            // `isCollected`; what was missing was SAYING SO.** A question with no reason beside it reads
+            // as the app having made its mind up for her.
+            `THE MONEY IS IN. ${fmtRM(short, cfgCur)} less was paid than this order now `
+            + `comes to — so the customer is owed that difference back. Refund it?`,
+            () => refundOrder(state, group, first, { root, dateId }),
+            { yesLabel: `Refund ${fmtRM(short, cfgCur)}` });
+        },
+        { yesLabel: "Save it" });
     }
     applyEdits();
   };

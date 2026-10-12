@@ -1,16 +1,20 @@
-# Jienluv2bake — change history (v54 → v490)
+# Jienluv2bake — change history (v54 → v491)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**12 Oct 2026 — engine v491, IT ASKS YOU TO REFUND THE CUSTOMER (no database step).**
+
+**Your words:** __"we should be ask to refund customer"__
+
+**1. ⭐⭐ AND SO IT ASKS — TWICE, IN HER OWN ORDER.** When a paid order is saved smaller, the first question is the save (*"Saving takes RM 80.00 out of your accounts — your hand will not change."*), and ⭐ **the second names the amount and opens the refund on that order**: *"RM 80.00 less was paid than this order now comes to. Refund the customer the difference?"* ⚠️ **Telling her to go and find the refund somewhere is not asking** — and a figure she has to remember and retype is a figure that gets retyped wrong. ⭐⭐ **AND ALL THREE SAY WHY: "THE MONEY IS IN"** — your words: __"it should say if the money is in, then we need to refund"__. ⚠️ **The gate was always the money being in; what was missing was SAYING SO** — a question with no reason beside it reads as the app having decided for her.
+
 **12 Oct 2026 — engine v490, A PAID ORDER CANNOT BE MADE CHEAPER IN SILENCE (no database step).**
 
 **Your words:** __"if i edit an order to reduce its quatity, a paid money reverse out from the accounts?"__ — and __"if i delete a order, will the money reverse out?"__
 
-**1. ⭐⭐ AND THE QUESTION YOU ASKED IS NOW SAID ON THE SCREEN.** "If I edit an order to reduce its quantity, does a paid money reverse out of the accounts?" ⭐ **YES IT DOES** — the paid money is counted **off the order's own lines, live**, so a smaller order is a smaller payment the moment it saves. ⚠️ **But your HAND does not change, and nothing said so** — the difference left your books in silence. **The Edit card now says it while you are editing**, with the figure: *"This order was paid RM 160.00. As it stands it comes to RM 80.00 — RM 80.00 LESS. Saving it takes that RM 80.00 out of your accounts but not out of your hand."* ⭐ **And saving asks first**, with the same figure, because taking something away asks first — your rule from bake days and from delivery.
-
-**2. ⚠️ AND THE SAME IS TRUE OF DELETING A PAID ORDER**, which I checked too: **the money leaves the accounts at once**, the order goes to the **Removed list** so it can be put back, the **ingredients stay consumed**, and **the receipt number stays claimed**. ⚠️ **Deleting has no such warning yet** — offered, not built.
+**1. ⭐⭐ AND THE QUESTION YOU ASKED IS NOW SAID ON THE SCREEN.** "If I edit an order to reduce its quantity, does a paid money reverse out of the accounts?" ⭐ **YES IT DOES** — the paid money is counted **off the order's own lines, live**, so a smaller order is a smaller payment the moment it saves. ⚠️ **But your HAND does not change, and nothing said so** — the difference left your books in silence. **The Edit card now says it while you are editing**, with the figure: *"This order was paid RM 160.00. As it stands it comes to RM 80.00 — RM 80.00 LESS. Saving it takes that RM 80.00 out of your accounts but not out of your hand."* ⭐ **And saving asks first**, with the same figure, because taking something away asks first — your rule from bake days and from delivery. **2. ⚠️ AND THE SAME IS TRUE OF DELETING A PAID ORDER**, which I checked too: **the money leaves the accounts at once**, the order goes to the **Removed list** so it can be put back, the **ingredients stay consumed**, and **the receipt number stays claimed**. ⚠️ **Deleting has no such warning yet** — offered, not built.
 
 **12 Oct 2026 — engine v489, THE ACCOUNTS ARE ONE TABLE, AND THE SHOP STOPS JUMPING (no database step).**
 
