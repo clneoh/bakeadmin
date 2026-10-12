@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v466)
+# Jienluv2bake — change history (v54 → v467)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v467, THE FAULT THAT STOPPED EVERY DEVICE SYNCING — FOUND AND FIXED (no database step).**
+
+**How it was found:** the two checks from the version before, run on your Mac, **and the error your own screen had been showing all along.**
+
+**1. ⚠️⚠️ YOUR SCREEN SAID IT PLAINLY, AND I HAD NOT BEEN LOOKING AT IT.** The shared-data card said:
+**`Sync failed: Push failed (HTTP 400) — {"code":"PGRST102","message":"All object keys must match"}`**
+
+**2. ⭐⭐ AND THAT IS THE WHOLE FAULT, IN ONE SENTENCE.** When this app hands a batch of changes to the shared data, it sends them **as one list**, and the server requires **every item in that list to have exactly the same keys**. ⚠️ **One record had no order number of its own — and your book really does contain orders like that.** When such a record is written out, **the key that would hold its number simply VANISHES** (this is standard behaviour, not a fault in the writing). ⭐ **So that one item went out with four keys while every other item in the same batch had five — and the server refused the ENTIRE BATCH for it.**
+
+**3. ⚠️⚠️ AND THAT IS WHY NOTHING EVER CAME BACK.** The app had already written down that all of those changes were handed over — **so none of them was ever offered again, and no screen said so.** ⭐ **Measured on your own screen: 21 changes stuck, 11 records not in the shared data, and every other device blind to all of it.**
+
+**4. ★ THE FIX IS SMALL AND IT IS AT THE DOOR.** A record that has no number of its own **cannot be stored under a name, so it can never travel** — it is now **left out of the batch**, and **the twenty good records beside it go through.** ⭐ **One bad record can no longer cost you the other twenty.** ⚠️ **And it is not hidden: it stays on this phone, and the health page lists it as a record here that is not in the shared data.**
+
+**5. ★ AND A RECORD THAT COULD NOT BE SENT IS NO LONGER MARKED AS SENT.** It leaves the sending queue **without being recorded as handed over** — ⭐ **because that recording is what made this permanent.**
+
+**6. ⚠️ AND IT WAS NOT THE PAST DATE.** You asked whether 10/10 being in the past was the cause. **It is not:** the sync has no filter for dates at all, in either direction, for bake days or for orders. ⭐ **Where a date filter does live is the customer-facing shop, and there it is right — a day that has gone is not orderable, so a past bake day is a record of a sale you took by hand and it will never appear to customers.**
+
+**⚠️ AND WHAT TO DO NEXT, WHICH IS NOTHING MORE THAN PRESSING A BUTTON:** once this is on both devices, **open Settings → Shared data and press Sync now** on the Mac. ⭐ **The 21 changes will go, the bake day will reach the other devices, and the health page will settle.** ⚠️ **Nothing was lost — every one of those changes has been sitting safely on the Mac the whole time.**
+
+**Measured:** tests **3,372 → 3,373**, the new assertion seen to fail with the fix reversed — **and it fails showing the two shapes side by side: five keys against four.** **No database step.**
 
 **12 Oct 2026 — engine v466, THE CHECK THAT ASKS WHETHER THIS PHONE HAS REACHED THE OTHER ONE (no database step).**
 

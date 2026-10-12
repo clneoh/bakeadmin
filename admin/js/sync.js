@@ -812,7 +812,22 @@ export async function flush(state) {
   // `data` is `text not null` in the bakery table, so a tombstone can't carry
   // JSON null. Send the string "null" instead — tombstones are matched on
   // `_deleted` during the merge and never have their data parsed.
-  const body = pending.map((p) => ({
+  // ⚠️⚠️ AND ONE RECORD WITH NO `id` MUST NEVER ENTER THIS BATCH (v467) — **THIS IS THE FAULT THAT
+  // STOPPED HER OTHER PHONES SEEING ANYTHING, AND THE SERVER NAMED IT:**
+  //   `Sync failed: Push failed (HTTP 400) — {"code":"PGRST102","message":"All object keys must match"}`
+  // ⭐⭐ **`JSON.stringify` DROPS A KEY WHOSE VALUE IS `undefined`.** So a record with no id — which
+  // `computeRecords` can produce, because an order in her book can have none — goes out as
+  // `{kind, data, _deleted, updated_at}`: **FOUR keys, where every other object in the same array has
+  // FIVE.** PostgREST refuses the WHOLE BATCH for that one object, ⚠️ **and because the journal had
+  // already recorded all of them as handed over, nothing was ever offered again.** ⭐ **Measured on her
+  // own screen: 21 changes stuck, 11 records not in the shared data, and every device blind to all of it.**
+  // ⭐ PROVEN in one line before this was written: `JSON.stringify({kind:"orders", id:undefined, …})` is
+  // `{"kind":"orders", …}` — the `id` is simply not there.
+  // ⚠️ **A record that cannot be keyed cannot travel — so it is LEFT OUT and left for the check to name,
+  // NEVER sent in a shape that poisons the twenty good records sitting beside it.**
+  const sendable = pending.filter((p) => p && typeof p.kind === "string" && p.kind && typeof p.id === "string" && p.id);
+  if (!sendable.length) return { ok: true, pushed: 0 };
+  const body = sendable.map((p) => ({
     kind: p.kind,
     id: p.id,
     data: p._deleted ? "null" : JSON.stringify(p.data) ?? "null",
@@ -842,14 +857,28 @@ export async function flush(state) {
 
   // Clear only the rows that are still byte-identical to what we sent; an edit
   // queued mid-flight has a newer timestamp and stays pending.
+  // ⚠️⚠️ AND ONLY WHAT WAS ACTUALLY SENT COMES OFF THE QUEUE (v467). ⭐ Iterating the WHOLE queue here
+  // would clear the un-sendable records too — **marking them "handed over" when they never left, which is
+  // the very lie that caused this.** ⚠️ **A record that cannot be keyed can never travel, so holding it on
+  // the queue for ever would give her a warning she cannot act on** — this file's own rule is that a
+  // warning which can never be satisfied is one she learns to ignore. ⭐ **It is dropped from the SENDING
+  // queue, and it is NOT hidden: the check on the health page lists it, because it is a record on this
+  // phone that is not in the shared data — which is exactly what that check is for.**
   const b2 = readSync();
-  for (const p of pending) {
+  for (const p of sendable) {
     const key = `${p.kind}:${p.id}`;
     const cur = b2.pending[key];
     if (cur && cur.updated_at === p.updated_at) delete b2.pending[key];
   }
+  // ⚠️ AND ANYTHING THAT CAN NEVER BE SENT LEAVES THE QUEUE TOO — **by KEY, because a record with no id
+  // has no key to name it by.** ⭐ It is not hidden: the health page lists it as a record on this phone
+  // that is not in the shared data, which is what that check exists for.
+  for (const key of Object.keys(b2.pending)) {
+    const rec = b2.pending[key];
+    if (!rec || typeof rec.kind !== "string" || !rec.kind || typeof rec.id !== "string" || !rec.id) delete b2.pending[key];
+  }
   writeSync(b2);
-  return { ok: true, pushed: pending.length };
+  return { ok: true, pushed: sendable.length };
 }
 
 // ── refresh: pull-then-flush ──────────────────────────────────────────────

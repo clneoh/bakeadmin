@@ -1928,3 +1928,50 @@ test("mergeRows: a category newly saved on this phone is queued to be pushed", (
     assert.equal(r.pending["productCategories:cat_food"].data.name, "Food");
   } finally { restore(); }
 });
+
+// ── v467: one un-keyable record must not poison the whole batch ──────────────
+test("★★★ flush: every row it sends has the SAME KEYS — the fault that stopped every device syncing", async () => {
+  // ⚠️⚠️ THE FAULT, EXACTLY AS THE SERVER REPORTED IT ON HER OWN SCREEN:
+  //   `Sync failed: Push failed (HTTP 400) — {"code":"PGRST102","message":"All object keys must match"}`
+  // ⭐ **`JSON.stringify` DROPS a key whose value is `undefined`** — so ONE record with no id went out as
+  // `{kind, data, _deleted, updated_at}`: **four keys where every other object in the same array had FIVE.**
+  // ⚠️ **PostgREST refuses the WHOLE BATCH for that one object** — and because the journal had already
+  // recorded every one of them as handed over, **nothing was ever offered again.**
+  // ⭐ MEASURED ON HER SCREEN: **21 changes stuck, 11 records not in the shared data, and every other
+  // device blind to all of it.** ⭐ And an order with no id is not an invented fixture — **her book really
+  // contains them** (v440's lesson, which is why the shelf had to use `.filter(Boolean)`).
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.orders = [{ productId: "p1", qty: 2 }, { id: "o2", productId: "p1", qty: 1 }];
+    seedToken(store);
+    sync.markDirty(st, "2026-01-01T00:00:00.000Z");
+
+    let captured = null;
+    const restoreFetch = installFetch(async (url, opts) => {
+      captured = { url, opts };
+      return { ok: true, text: async () => "" };
+    });
+    try {
+      const r = await sync.flush(st);
+      assert.equal(r.ok, true, "the push itself failed, so nothing below proves anything");
+
+      const body = JSON.parse(captured.opts.body);
+      assert.ok(body.length, "nothing was sent at all, so nothing below proves anything");
+
+      // ⭐⭐ THE RULE THE SERVER ENFORCES, ASSERTED HERE. ⚠️ It is checked on the PARSED body precisely
+      // because a key `JSON.stringify` dropped is simply ABSENT once parsed — which is the whole fault.
+      const first = JSON.stringify(Object.keys(body[0]));
+      for (const row of body) {
+        assert.equal(JSON.stringify(Object.keys(row)), first,
+          `★ a row was sent with different keys (${JSON.stringify(Object.keys(row))} against ${first}) — `
+          + "PostgREST refuses the WHOLE BATCH for one of them, and that is what stopped every device syncing");
+      }
+      assert.equal(body.some((row) => typeof row.id !== "string" || !row.id), false,
+        "★ a record that cannot be keyed was sent anyway — it can never land, and it poisons the rest");
+      // ⚠️ AND THE GOOD RECORD BESIDE IT STILL GOES: one bad record must not cost her the other twenty.
+      assert.ok(body.some((row) => row.id === "o2"),
+        "★ the good order was dropped from the batch along with the bad one");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
