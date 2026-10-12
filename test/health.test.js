@@ -540,3 +540,31 @@ test("★ and two sides that agree are reported plainly", () => {
   assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, payloads, queued: new Set() }), "content").status,
     "pass", "two sides holding exactly the same facts were reported as disagreeing");
 });
+
+// ── v476: the waiting line names what is stuck, instead of counting it ───────
+test("★★★ a stuck change is NAMED, not counted — the un-keyable one says so outright", () => {
+  // ⚠️⚠️ HER REPORT: __"did the 2 changes clear after syncing v475, no"__ — ⭐ **and the page could say
+  // "2 changes" and nothing else, so neither she nor I could see WHAT was stuck.**
+  // ⭐ **A count she cannot look up is a number she cannot act on** — the rule every other check here
+  // follows, and the one this check was breaking.
+  const st = healthy();
+  const orderKey = [...sync.localPayloads(st).keys()].find((k) => k.startsWith("orders:"));
+  const queued = new Set([orderKey, "removedOrders:ord_aaaabbbbcccc"]);
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 2, queued }), "waiting");
+  assert.equal(r.status, "fail");
+  assert.equal(r.detail.length, 2, "★ the stuck changes are still just a count");
+  assert.match(r.detail.join(" | "), /#D4E5F6/, "★ the stuck ORDER is not named");
+  assert.match(r.detail.join(" | "), /removed order/i, "★ the stuck shelf row is not named");
+  assert.doesNotMatch(r.detail.join(" | "), /^\d+ changes?$/,
+    "★ it fell back to a bare count, which is the thing this fixes");
+});
+
+test("★★⚠️ and a record with NO number says so — the shape that cannot travel", () => {
+  // ⭐ **An order with no number of its own is exactly what cannot be sent, and it is INVISIBLE in a
+  // count.** ⚠️ It is the shape that broke her sync in the first place, so it has to be able to say its
+  // own name rather than hiding inside "2 changes".
+  const st = healthy();
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 1, queued: new Set(["orders:undefined"]) }), "waiting");
+  assert.deepEqual(r.detail, ["an order with no number"],
+    "★ a record that has no name said nothing useful about itself");
+});

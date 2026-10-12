@@ -473,12 +473,30 @@ export function contentCheck(state, cloud, payloads, pending) {
 // ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
 // IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
 // no network: it is a local count.
-export function waitingCheck(waiting = 0) {
+export function waitingCheck(waiting = 0, queued = null) {
   const TITLE = "Nothing on this phone is still waiting to be sent";
   const n = Number.isFinite(Number(waiting)) ? Math.max(0, Math.floor(Number(waiting))) : 0;
+  // ⚠️⚠️ AND IT NAMES THEM, INSTEAD OF COUNTING THEM (v476). Her report: __"did the 2 changes clear after
+  // syncing v475, no"__ ⭐ **and the page could say "2 changes" and nothing else — so neither she nor I could
+  // see WHAT was stuck.** ⚠️ **A count she cannot look up is a number she cannot act on** — the same rule
+  // every other check on this page follows, and the one this check was breaking.
+  // ⭐ **AND IT NAMES THE UN-KEYABLE ONES TOO: an order with no number of its own is exactly the shape that
+  // cannot travel, and it is invisible in a count.**
+  const keys = queued instanceof Set ? [...queued] : Array.isArray(queued) ? queued : [];
+  const nameOf = (key) => {
+    const s = String(key);
+    const at = s.indexOf(":");
+    const kind = s.slice(0, at);
+    const id = s.slice(at + 1);
+    if (kind === "orders") return !id || id === "undefined" ? "an order with no number" : `#${codeFromId({ id })}`;
+    if (kind === "removedOrders") return "a removed order";
+    if (kind === "settings") return "settings";
+    return kind;
+  };
+  const named = keys.map(nameOf);
   return [n > 0
-    ? fail("waiting", TITLE, [`${n} change${n === 1 ? "" : "s"}`],
-      `${n} change${n === 1 ? " is" : "s are"} on this phone and ${n === 1 ? "has" : "have"} not been handed to your shared data yet, so no other phone can see ${n === 1 ? "it" : "them"}. If this number does not go down on its own, press Sync now.`,
+    ? fail("waiting", TITLE, named.length ? named : [`${n} change${n === 1 ? "" : "s"}`],
+      `${n} change${n === 1 ? " is" : "s are"} on this phone and ${n === 1 ? "has" : "have"} not been handed to your shared data yet, so no other phone can see ${n === 1 ? "it" : "them"}.${named.length ? " They are listed below." : ""} If this number does not go down on its own, press Sync now.`,
       "Open Settings → Shared data and press Sync now. If the number stays, this phone's sending queue needs looking at — and the records themselves are safe.")
     : pass("waiting", TITLE)];
 }
@@ -496,7 +514,7 @@ export function runHealthChecks(state, extra = {}) {
     ...reachedCloudCheck(state, extra.cloud, extra.local),
     ...cloudOnlyCheck(state, extra.cloud, extra.local),
     ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
-    ...waitingCheck(extra.waiting),
+    ...waitingCheck(extra.waiting, extra.queued),
   ];
   return {
     results,

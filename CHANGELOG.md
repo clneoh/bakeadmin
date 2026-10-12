@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v475)
+# Jienluv2bake — change history (v54 → v476)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v476, THE STUCK CHANGE NOW SAYS ITS OWN NAME (no database step).**
+
+**Your words:** __"did the 2 changes clear after syncing v475, no"__
+
+**1. ⚠️⚠️ SO v475 FIXED ONE THING AND THESE TWO ARE SOMETHING ELSE — AND I STILL DO NOT KNOW WHAT.** ⭐ The page could only tell you **"2 changes"**, which is a number you cannot look anything up with. ⚠️ **Neither you nor I could see what was stuck.** That is the same fault as the receipt with no name, and this check was committing it.
+
+**2. ★ SO EVERY WAITING CHANGE IS NOW NAMED — an order by its number, a shelf row as itself, and settings as settings.** ⭐ **The list sits right under the count**, so "2 changes" is two things you can read.
+
+**3. ⭐⭐ AND ONE OF THEM CAN NOW SAY THE MOST USEFUL SENTENCE ON THE PAGE: "an order with no number".** ⚠️ **A record with no number of its own is exactly the shape that cannot travel** — it is what broke your syncing in the first place — **and inside a count it was invisible.** ⭐ **If either of your two says that, we will have found it in one look.**
+
+**4. ⚠️ AND WHAT I AM NOT SAYING.** I am **not** claiming this fixes your two. **v475 fixed the case where a queue holds only an un-sendable record; yours is evidently not that case.** ⭐ **This version makes it possible to find out, which is the honest next step rather than another guess** — I have been wrong three times on one receipt today, and once already here.
+
+**Measured:** tests **3,388 → 3,390**, both new assertions seen to fail with the naming removed. **No database step.**
 
 **12 Oct 2026 — engine v475, "NO ERROR" AND "NOT DONE" WERE BOTH TRUE AT ONCE (no database step).**
 
