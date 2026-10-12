@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v493)
+# Jienluv2bake — change history (v54 → v494)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v494, NO DELIVERY RUN TO YOUR OWN KITCHEN (no database step).**
+
+**Your words:** __"one mistake found, we dont do delivery run on self collection point which is the kitchen"__
+
+**1. ⭐⭐ YOU ARE RIGHT, AND IT HAD BEEN WRONG QUIETLY FOR A LONG TIME — SINCE THE DAY THE KITCHEN BECAME A POINT.** The rule for *what needs a vehicle* was written when **the kitchen was not a Point at all**: it was simply *an order with no collection Point*. ⭐ **So asking "does this order have a Point?" was exactly the right question** — a kitchen collection had no Point to be found by, and could never appear on a run. ⚠️ **Then you asked for the kitchen to BE a Point**, so it could be picked in the shop like any other place (*"at self collection point, add a switch whether that collection is a kitchen"*). ⭐⭐ **From that moment the kitchen had a name and an id — and the run started sending a van to your own kitchen to fetch bread that was already there.**
+
+**2. ⚠️ AND IT WAS WRONG IN BOTH PLACES AT ONCE**, because both read one function: the **Delivery run** screen and the **Delivery dates** screen's own **"Run (N)"** count. One fix, both right — which is exactly why the rule was put in one place to begin with.
+
+**3. ⭐ It is marked by the KITCHEN SWITCH on that Point, never by what the Point is called.** ⚠️ A place you happen to **name** "kitchen" is still an ordinary place a van has to reach, and a real Point beside it is untouched: **an order collecting at Farlim still needs the van**, because the bread has to get there. Nothing else changed — a courier order to a customer's door needs a vehicle exactly as it always did.
+
+**Measured:** the **file the browser actually loads** was asked directly — an ordinary Point → **a van**; the kitchen Point → **no van**; no Point → **no van**; a door courier → **a van**. ⚠️ **And 3,422 tests were green while this was wrong**, which is the honest measure of the gap: the two tests beside it were both right and neither one was watching the kitchen, because when they were written the kitchen had no Point to be watched by. Tests **3,422 → 3,423**, and the fix was bitten both ways: put the old test back and the new one fails, take the van off *every* Point and it fails again.
+
+**No database step.**
 
 **12 Oct 2026 — engine v493, ONE WARNING, AT THE FIELD THAT IS MISSING (no database step).**
 
