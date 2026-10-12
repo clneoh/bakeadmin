@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v480)
+# Jienluv2bake — change history (v54 → v481)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v481, EVERY PLACE MONEY SITS IS AN ACCOUNT (no database step).**
+
+**Your words:** __"the best is way to pay and the choice for way to receive money is the same"__ — and __"Pocket is a purse, maybe we unify them into one. Call it pocket."__ — and then __"In finance term we call it account, in our daily, we treat it like a pocket, and a pocket means a place money kept. Should we call it account from now on?"__
+
+**1. ⭐ YES — AND IT IS CALLED AN ACCOUNT.** ⭐ **One word for one thing.** The two names the app used to keep apart — the "purse and phone" against the "pockets" — are gone. Every place money sits is an account: your tin, your phone, the bank, LK's hand, a loan. ⚠️ **And because you chose that word, nothing else has to be renamed**: *"My own pocket"* stays exactly as it is, because "account" and "pocket" can no longer be confused.
+
+**2. ⭐⭐ AND THE MONEY SCREEN IS ONE SHAPE NOW — one block per account, every account the same.** What came in, what went out, **what it holds**. ⚠️ **It replaces four special rows — Cash in, TNG in, Cash out, TNG out — and the "Paid by" lines under them**, which was two shapes for one idea. That is what made you ask twice what the difference was. ⭐ **The idea is yours: *"way to pay and the way to receive are the same."***
+
+**3. ⭐ AND EVERY MONEY LINE IS NOW EDITABLE IN THE OPEN, WITH AN Edit AND A Delete ON IT.** ⚠️ **You asked twice how to delete an account, and that was my fault:** the line itself was the button, with the word "edit" in grey at its end — ⭐ **a control that does not look like one is a control you do not have.** Every line carries the same two buttons every other list in this app already wears.
+
+**4. ⭐⭐ YOUR WORKED DAY, TO THE RINGGIT — AND IT FOUND A REAL BUG.** LK delivers 10 loaves and is paid **RM160**; LK buys **RM100** of strong flour on the way back; **Cash LK holds RM60.** ⭐ **The app now agrees exactly.** ⚠️ But the OLD "Pay back" measure counted only what an account **paid out** and never the money a customer **paid into** it — so on your own day it said *"Cash LK is owed RM100"* while the block beside it said it held **RM60**. **Two answers to one question, on the same screen.** ⭐ **It now measures the BALANCE, which is your own word: a negative balance is the debt, and paying it back brings the account to zero — you said *nullify*.** ⚠️ That also removed the last special case: the tin can be down like any other account.
+
+**5. ⭐ AND EVERY ACCOUNT NOW CARRIES ITS OWN RUNNING BALANCE ON ITS JOURNEY** — each line showing what the account held after it, ending on what it holds. ⭐ **That is the reconciliation column you asked for: it prints, shares and exports with the journey.** ⚠️ It sits in the line's own words rather than in a column box, and that is deliberate — the PDF reads a row's words and never its columns, so a column would have printed **blank** on paper.
+
+**6. ⭐ AND ONE SHEET WITH EVERY ACCOUNT ON IT — "Reconcile", beside the account journeys.** Every account, in your own order, what came in, what went out, what it holds, and the total. ⭐ **That is the sheet you take to the tin, the phone and the bank.**
+
+**7. ⚠️ AND ONE GAP FOUND WHILE CHECKING: "Day one" could only give an opening balance to Cash and TNG.** The Bank and Cash to LK could not be started at all. **Every account has its own box now.**
+
+**8. The title you asked for:** *Ways to pay* is now **Way to pay/receive** — on the section, on the card and on the ＋ chip, because the same list does both.
+
+**Measured:** tests **3,404 → 3,406**, the new assertions seen to fail with the old behaviour put back — including the running balance, and the balance measure that fixes your day. Driven on the real screen at **375px**: the money screen reads one block per account, every line carries Edit and Delete, rows 63px, no sideways scroll. **No database step.**
 
 **12 Oct 2026 — engine v480, EVERY ACCOUNT NOW COUNTS IN YOUR NET (no database step).**
 

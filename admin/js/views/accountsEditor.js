@@ -29,6 +29,38 @@ const rewrite = (state, listKey, field, from, to) => {
   }
 };
 
+// ★★ TAKING ONE OFF A LIST — ITS OWN DOOR, SO THERE IS ONLY ONE (v481).
+//
+// ⚠️ SHE HAD TO ASK TWICE HOW TO DELETE AN ACCOUNT. It lived only inside the inline form, behind a tap
+// on the row — and a row that LOOKS like text is not an affordance. ⭐ **Now the lists manager puts a
+// Delete button on the line, beside every other list in the app**, and it calls this same function —
+// so the confirmation, the "keep at least one" guard and the rows-already-recorded rule are written
+// once and cannot drift apart.
+export function removeEntry(state, { kind, current, onDone }) {
+  const isCategory = kind === "category";
+  const isSource = kind === "source";
+  const list = isCategory ? categoriesOf(state)
+    : isSource ? sourcesOf(state).map((m) => ({ label: m, cls: "" }))
+      : methodsOf(state).map((m) => ({ label: m, cls: "" }));
+  const kept = list.filter((c) => c.label !== current);
+  if (!kept.length) return toast("Keep at least one");
+  confirmDialog(
+    isCategory
+      ? `Delete the "${current}" category? Expenses already recorded under it are kept, and still count on the statement.`
+      : isSource
+        ? `Delete "${current}"? Money-in rows already recorded as coming from it are kept, and still count.`
+        : `Delete "${current}"? Entries already recorded as paid that way are kept.`,
+    () => {
+      if (isCategory) state.settings.categories = kept;
+      else if (isSource) state.settings.sources = kept.map((c) => c.label);
+      else state.settings.payMethods = kept.map((c) => c.label);
+      save(state);
+      maybeSync(state);
+      toast("Deleted");
+      if (onDone) onDone("");
+    }, { danger: true, yesLabel: "Delete" });
+}
+
 // The one form. `current` is the label being changed, or "" for a new entry. Returns
 // the field; `onDone(label)` runs after a successful save (the label, so a caller can
 // select it), and `onDone("")` after a delete.
@@ -88,25 +120,9 @@ export function entryForm(state, { kind, current = "", onDone }) {
     if (onDone) onDone(label);
   };
 
-  const remove = () => {
-    const kept = list.filter((c) => c.label !== current);
-    if (!kept.length) return toast("Keep at least one");
-    confirmDialog(
-      isCategory
-        ? `Delete the "${current}" category? Expenses already recorded under it are kept, and still count on the statement.`
-        : isSource
-          ? `Delete "${current}"? Money-in rows already recorded as coming from it are kept, and still count.`
-          : `Delete "${current}"? Entries already recorded as paid that way are kept.`,
-      () => {
-        if (isCategory) state.settings.categories = kept;
-        else if (isSource) state.settings.sources = kept.map((c) => c.label);
-        else state.settings.payMethods = kept.map((c) => c.label);
-        save(state);
-        maybeSync(state);
-        toast("Deleted");
-        if (onDone) onDone("");
-      }, { danger: true, yesLabel: "Delete" });
-  };
+  // ⚠️ ONE DELETE DOOR (v481): the line's own Delete button and this form's call the same function,
+  // so the guard, the confirmation and the rule about rows already recorded cannot drift apart.
+  const remove = () => removeEntry(state, { kind, current, onDone });
 
   return el("div", { class: "entry-form" },
     el("p", { class: "card-sub", style: "margin:0 0 6px" },
@@ -114,7 +130,7 @@ export function entryForm(state, { kind, current = "", onDone }) {
         ? "What an expense was for. Its kind tells the Profit statement where it belongs; renaming it moves what you have already recorded with it."
         : isSource
           ? "Where your own money came from. ⚠️ A different question from how it was paid in — money can come from your savings and still go in as cash. Renaming it moves what you have already recorded with it."
-          : "How the money moved. Cash and TNG come out of your purse or your phone; anything else — a loan, the bank overdraft — is kept out of those figures."),
+          : "How the money moved. Every account you add here is offered on the order's Pay press and gets its own block on the Money screen. Cash and TNG are the two you count by hand — your tin and your phone."),
     name,
     isCategory ? clsPills : null,
     el("div", { class: "btn-row", style: "margin-top:8px" },
@@ -128,6 +144,6 @@ export function entryForm(state, { kind, current = "", onDone }) {
 export function newEntryChip(kind, open) {
   const text = kind === "category" ? "＋ New category"
     : kind === "source" ? "＋ New source"
-      : "＋ New way to pay";
+      : "＋ New way to pay/receive";
   return button(text, open, "ghost small");
 }

@@ -114,11 +114,22 @@ export const isOther = (method) => {
 // Where a method sits in her list, for reading a row back in the same order the
 // form offers. An unknown one sorts last, which is where a row from an old list
 // belongs.
-// Her ways of paying, split by what they are to the till: the purse and the phone (the
-// two that hold her takings), and the pockets — a loan, the bank overdraft, someone's own
-// pocket — which pay for things without the money ever going near the till.
-export const purseMethods = (state) => methodsOf(state).filter((m) => isCash(m) || isTng(m));
-export const pocketMethods = (state) => methodsOf(state).filter((m) => isOther(m));
+// ★★ EVERY PLACE MONEY SITS IS AN ACCOUNT (v481), AND THERE IS ONE WORD FOR IT NOW.
+//
+// Her words: __"In finance term we call it account, in our daily, we treat it like a pocket, and a
+// pocket means a place money kept. Should we call it account from now on?"__ — ⭐ **yes.**
+// `methodsOf(state)` is the list; **every one of them is an account**, every one of them counts in
+// the Net (v480), and every one of them gets the same block on the Money screen.
+//
+// ⚠️⚠️ AND THE LAST SPLIT IS GONE TOO. There used to be two derived lists here — the "purse and
+// phone" against the "pockets", and then the accounts a debt could be settled against. ⭐ **Her own
+// worked day retired them both.** She measures an account by WHAT IT HOLDS, so an account that holds
+// negative is simply down and can be topped up from any other — ⚠️ **and the tin can be down like any
+// other, which is why "the tin cannot owe itself" stopped being a fact about anything.**
+// See [[project-v481]] and `accountBalance` in money.js.
+//
+// ⭐ `isCash` / `isTng` / `isOther` stay: they name which block is which and which two she counts by
+// hand. They are a LABEL on an account, not a second kind of account.
 
 // The category a drawing is recorded under — her own money going back to her. Taken
 // from HER chart rather than hard-coded, since she can rename it.

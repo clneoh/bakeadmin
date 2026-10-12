@@ -6,10 +6,10 @@
 
 import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
-import { depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween, otherMethods, pocketOwed } from "../money.js";
+import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
-import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, pocketMethods, purseMethods, sourcesOf } from "../accounts.js";
-import { entryForm, newEntryChip } from "./accountsEditor.js";
+import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, sourcesOf } from "../accounts.js";
+import { entryForm, newEntryChip, removeEntry } from "./accountsEditor.js";
 // An ingredient's own unit, resolved exactly as the Ingredients screen resolves it, so a
 // stock count typed here lands as the same number of grams the On-hand line shows.
 import { currentUomId, cookingFamilyOf } from "./ingredients.js";
@@ -88,15 +88,22 @@ function stepSpan(dir) {
 // "−RM 30.00" where a statement line writes "RM -30.00", and the sheet has to be able to say
 // which of the two it is looking at, or the paper would read differently from the screen.
 function bookSheet(state, method, from, to, label) {
+  const cur = state.settings.currency || "RM";
   const j = journalFor(state, method, from, to);
-  const where = isCash(method) ? "what should be in your purse"
+  // ★ EVERY ACCOUNT IS AN ACCOUNT (v481) — ⭐ the two she counts by hand are named for where they
+  // are, and every other one is simply one of her accounts.
+  const where = isCash(method) ? "what should be in your tin"
     : isTng(method) ? "what should be on your phone"
-      : "not in your purse or your phone, so it is counted on a line of its own and not in the two figures you check by hand";
+      : "one of your own accounts, on its own block on the Money screen";
   return journalSheet({
     title: `${label} journal`,
     subtitle: label,
     lines: j.rows.map((r) => ({
-      what: `${dayMonth(r.date)} · ${r.what}`,
+      // ⭐⭐ AND WHERE THE ACCOUNT STOOD AFTER EACH LINE — her reconciliation column. Her words:
+      // __"i need a printable journeys so that i can do reconciliation"__. ⚠️ It rides in the WORDS
+      // rather than in a column of its own, because the PDF reads only the words and the amount — so
+      // a column would print as a blank description on paper. See the note in `journalFor`.
+      what: `${dayMonth(r.date)} · ${r.what} · balance ${fmtRM(r.bal, cur)}`,
       amount: r.amount,
       dir: r.dir === "in" ? "" : "out",
     })),
@@ -106,7 +113,7 @@ function bookSheet(state, method, from, to, label) {
       { label: "Net", amount: j.net, cls: "pl-net" },
     ],
     empty: "Nothing moved this way in this stretch.",
-    note: `${label} is ${where}. Every order paid that way, everything you spent out of it and anything of your own you put in is listed above — the same rows the totals on the Money screen are made of.`,
+    note: `${label} is ${where}. Every order paid that way, everything you spent out of it and anything of your own you put in is listed above, each line showing what the account held after it — so you can tick down the page against it. The same rows the totals on the Money screen are made of.`,
     where: "More → Money",
     bakery: bakeryName(state),
   });
@@ -119,6 +126,47 @@ function openJournal(state, method, from, to, label) {
   const cur = state.settings.currency || "RM";
   const sheet = bookSheet(state, method, from, to, label);
   showPopup(el("div", { class: "popup-title-row" }, `${label} journal`),
+    () => el("div", {},
+      el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
+      journalBodyEl(sheet, cur),
+      el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
+}
+
+// ★★ EVERY ACCOUNT ON ONE SHEET (v481) — the sheet you take to the reconciliation.
+//
+// Her words: __"i need a printable journeys so that i can do reconciliation"__ — ⭐ **one journey per
+// account is the detail; this is the whole picture for a stretch.** ⚠️ It is built exactly like
+// `investmentSheet`: one section per account under its own heading, in HER order, then the total — so
+// it prints, shares and exports through the SAME buttons every other journal already has, and there is
+// no second way to draw a sheet.
+function reconciliationSheet(state, accounts, from, to, label) {
+  const cur = state.settings.currency || "RM";
+  const lines = [];
+  for (const a of accounts) {
+    lines.push({ heading: true, what: a.label });
+    lines.push({
+      what: `in ${fmtRM(a.in, cur)} · out ${fmtRM(a.out, cur)}`,
+      amount: a.holds,
+      cls: "pl-total",
+    });
+  }
+  const total = accounts.reduce((s, a) => s + a.holds, 0);
+  return journalSheet({
+    title: "Reconciliation",
+    subtitle: label,
+    lines,
+    totals: [{ label: "Every account holds", amount: total, cls: "pl-net" }],
+    empty: "No accounts yet.",
+    note: "Every account you have, in your own order — what came in, what went out, and what it holds. The same figures as the blocks on the Money screen, so the two cannot disagree. This is the sheet to check against your tin, your phone, the bank, and anyone holding cash for you.",
+    where: "More → Money",
+    bakery: bakeryName(state),
+  });
+}
+
+function openReconciliation(state, accounts, from, to, label) {
+  const cur = state.settings.currency || "RM";
+  const sheet = reconciliationSheet(state, accounts, from, to, label);
+  showPopup(el("div", { class: "popup-title-row" }, "Reconciliation"),
     () => el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 10px" }, label),
       journalBodyEl(sheet, cur),
@@ -148,8 +196,13 @@ function openDayOne(state, redraw) {
     return { box, field: el("div", { class: "field" }, el("label", {}, label), box,
       hint ? el("p", { class: "hint" }, hint) : null) };
   };
-  const cash = money("Cash in your tin");
-  const tng = money("Money on your phone (TNG)");
+  // ★★ A BOX FOR EVERY ACCOUNT (v481) — ⚠️ **it offered only Cash and TNG, so the Bank and Cash to LK
+  // could not be given an opening balance at all**, which is a gap her own model walked straight into.
+  // ⭐ Every account she has gets its own box, named the way its block on the Money screen names it.
+  const opened = methodsOf(state).map((m) => ({
+    m,
+    ...money(isCash(m) ? `${m} — your tin` : isTng(m) ? `${m} — your phone` : m),
+  }));
   let date = todayISO();
   const datePick = dateField(date, (iso) => { date = iso; });
 
@@ -180,8 +233,7 @@ function openDayOne(state, redraw) {
   showPopup(el("div", { class: "popup-title-row" }, "Day one"), (refresh, close) => el("div", {},
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       "Where you stand the day your books begin. Fill in what you have and leave the rest blank — anything you leave empty is left exactly as it is."),
-    cash.field,
-    tng.field,
+    ...opened.map((o) => o.field),
     el("div", { class: "field" }, el("label", {}, "The day your books begin"), datePick,
       el("p", { class: "hint" }, `The Money screen counts by the stretch on screen, so an opening balance dated outside it will not show in that stretch's Net.`)),
     list.length
@@ -196,11 +248,16 @@ function openDayOne(state, redraw) {
     el("div", { class: "popup-actions" },
       button("Cancel", close, "ghost"),
       button("Save day one", () => {
-        const cashVal = cash.box.value.trim() === "" ? 0 : Number(cash.box.value);
-        const tngVal = tng.box.value.trim() === "" ? 0 : Number(tng.box.value);
+        // ⚠️ TYPE-CHECK EVERY MONEY BOX BEFORE WRITING ANYTHING — the same rule the stock boxes below
+        // keep, so a slip half way down the form does not leave half an opening balance saved.
+        const opening = [];
         const bad = [];
-        if (!Number.isFinite(cashVal) || cashVal < 0) bad.push("the cash in your tin");
-        if (!Number.isFinite(tngVal) || tngVal < 0) bad.push("the money on your phone");
+        for (const o of opened) {
+          if (o.box.value.trim() === "") continue;
+          const v = Number(o.box.value);
+          if (!Number.isFinite(v) || v < 0) bad.push(o.m);
+          else if (v > 0) opening.push({ m: o.m, v });
+        }
         // Type-check every stock box BEFORE writing anything, so a slip half way down does not
         // leave half an opening balance saved.
         const stock = [];
@@ -211,13 +268,14 @@ function openDayOne(state, redraw) {
           else stock.push({ r, v });
         }
         if (bad.length) return toast(`Check these: ${bad.join(", ")}`);
-        if (!cashVal && !tngVal && !stock.length) {
+        if (!opening.length && !stock.length) {
           return toast("Type what you are starting with, or tap Cancel");
         }
         const note = "Opening balance";
         state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
-        if (cashVal > 0) state.deposits.push({ id: newId("dep"), date, amount: cashVal, method: "Cash", note });
-        if (tngVal > 0) state.deposits.push({ id: newId("dep"), date, amount: tngVal, method: "TNG", note });
+        // ⭐ One money-in row per account she filled in — the same rows the manual tells her to write
+        // by hand, so nothing new has to understand them.
+        for (const o of opening) state.deposits.push({ id: newId("dep"), date, amount: o.v, method: o.m, note });
         for (const { r, v } of stock) {
           // ★★ AND THE STARTING STOCK IS A MOVEMENT (v385). It is the first thing that ever puts a
           // number on the shelf, so without a row here the journal would begin mid-story and the
@@ -230,9 +288,8 @@ function openDayOne(state, redraw) {
         }
         save(state);
         maybeSync(state);
-        const bits = [];
-        if (cashVal > 0) bits.push(`${fmtRM(cashVal, cur)} cash`);
-        if (tngVal > 0) bits.push(`${fmtRM(tngVal, cur)} TNG`);
+        // ⭐ The toast names each account she filled in, by its own name — not "cash" and "TNG" only.
+        const bits = opening.map((o) => `${fmtRM(o.v, cur)} ${o.m}`);
         if (stock.length) bits.push(`${stock.length} ingredient${stock.length === 1 ? "" : "s"}`);
         toast(`Day one saved: ${bits.join(", ")}`);
         close();
@@ -345,17 +402,24 @@ function openListsManager(state, redraw) {
       }
       const grip = el("span", { class: "money-handle", title: "Drag to reorder", "aria-hidden": "true" }, "⠿");
       const line = el("div", {
-        class: "info-row tappable money-list-row",
+        class: "info-row money-list-row",
         // ⚠️ THE KIND IS IN THE ID, because a label alone is not unique across the three lists —
         // and `kin` below reads it back, so a drop can only ever land among its own kind.
         dataset: { id: `${kind}:${label}` },
-        onclick: () => { editing = { kind, label }; show(); },
       },
         grip,
         el("span", { class: "money-list-name" }, label),
-        el("span", { class: "info-val" },
-          el("span", { class: "muted" }, `  ${note}`),
-          el("span", { class: "muted", style: "margin-left:6px" }, "edit")));
+        el("span", { class: "info-val" }, el("span", { class: "muted" }, `  ${note}`)),
+        // ★★ EDIT AND DELETE, ON THE LINE (v481) — ⭐ **the same two buttons every other list in this
+        // app already wears** (Categories, Products, the Points).
+        //
+        // ⚠️⚠️ UNTIL NOW THE LINE ITSELF WAS THE BUTTON, with the word "edit" in grey at its end — and
+        // **she had to ask TWICE how to delete an account.** ⭐ A control that does not look like one is
+        // a control she does not have; the row-tap was never an affordance, it was a secret. ⭐ And the
+        // row is no longer tappable at all, so the grip can never be mistaken for a press.
+        el("div", { class: "li-right" },
+          button("Edit", () => { editing = { kind, label }; show(); }, "ghost small"),
+          button("Delete", () => removeEntry(state, { kind, current: label, onDone: done }), "ghost small")));
       wireRowReorder({
         row: line,
         handle: grip,
@@ -394,8 +458,11 @@ function openListsManager(state, redraw) {
         editing && editing.kind === "category" && !editing.label
           ? entryForm(state, { kind: "category", current: "", onDone: done })
           : newEntryChip("category", () => { editing = { kind: "category", label: "" }; show(); })),
-      el("h3", { style: "margin:16px 0 4px" }, "Ways to pay"),
-      ...methods.map((m) => row(m, isCash(m) || isTng(m) ? "in your purse or phone" : "not in your purse or phone", "method")),
+      el("h3", { style: "margin:16px 0 4px" }, "Way to pay/receive"),
+      // ⭐ The two she counts by hand are named for where they are; every other account is named by
+      // its own name, which is all it needs — ⚠️ "not in your purse or phone" said the others were
+      // NOT accounts at all, which is the split v481 retired.
+      ...methods.map((m) => row(m, isCash(m) ? "your tin" : isTng(m) ? "your phone" : "an account", "method")),
       el("div", { class: "btn-row", style: "margin-top:8px" },
         editing && editing.kind === "method" && !editing.label
           ? entryForm(state, { kind: "method", current: "", onDone: done })
@@ -414,7 +481,7 @@ function openListsManager(state, redraw) {
   // ⚠️ THE TITLE NAMES ALL THREE LISTS NOW (v394). It read "Categories & ways to pay", which stopped
   // being true the moment a third list joined them — and a heading that is missing one of the things
   // under it is how she fails to find the third.
-  showPopup(el("div", { class: "popup-title-row" }, "Categories, ways to pay & sources"), () => body);
+  showPopup(el("div", { class: "popup-title-row" }, "Categories, way to pay/receive & sources"), () => body);
 }
 
 // One entry in a money list. A spending row from a shopping run says so by its poId;
@@ -695,58 +762,68 @@ function openMoneyInForm(state, redraw) {
 // they are, so a payback is exactly the two entries she would have made herself.
 function openPayBackForm(state, from, to, redraw, label) {
   const cur = state.settings.currency || "RM";
-  const pockets = pocketMethods(state);
-  const purse = purseMethods(state);
-  if (!pockets.length || !purse.length) return;
+  // ★★ EVERY ACCOUNT, ON BOTH SIDES — THE LAST SPECIAL CASE IS GONE (v481).
+  //
+  // ⚠️ The "owed" side used to offer only the accounts OUTSIDE the tin, because the OLD measure could
+  // not see the money a customer paid into an account — so the tin could never "owe itself". ⭐ **But
+  // measuring the BALANCE removed that problem entirely: an account that holds negative is simply
+  // down, and the tin can be down like any other.** ⭐ Mine was down by RM40 last week, after all.
+  //
+  // Her words: __"End of the month, if LK account is -rm60, than probably Cash LS would need to
+  // payback Cash LK RM60, CAsh LK, would be nullify."__
+  const all = methodsOf(state);
+  if (all.length < 2) return;
 
-  const owed = () => pocketOwed(state, pocket, from, to);
-  // Open on the pocket that is actually owed something — that is the one she came here
-  // to pay. Failing that, the first pocket she has.
-  let pocket = pockets.find((m) => pocketOwed(state, m, from, to) > 0) || pockets[0];
-  let outOf = purse.find(isCash) || purse[0]; // the cash register by default
+  // ⭐ What it is DOWN BY — nothing when it holds a positive balance, and the amount that brings it
+  // back to zero when it does not. Her word: nullify.
+  const downBy = (m) => Math.max(0, -accountBalance(state, m, from, to));
+  // Open on the account that is actually down — that is the one she came here to settle.
+  let account = all.find((m) => downBy(m) > 0) || all[0];
+  let outOf = all.find((m) => m !== account) || all[0]; // an account that is not the one being settled
   let date = todayISO();
 
   const amount = el("input", { class: "input", type: "number", inputmode: "decimal",
     min: "0", step: "0.01", placeholder: "RM", "aria-label": "How much you are paying back",
-    value: owed() > 0 ? String(owed()) : "" });
+    value: downBy(account) > 0 ? String(downBy(account)) : "" });
   const note = el("input", { class: "input", placeholder: "e.g. the packaging you paid for",
     value: "" });
   const datePick = dateField(date, (iso) => { date = iso; });
   const body = el("div", {});
 
-  // The pocket's own pills: picking one pre-fills what it is owed, unless she has already
+  // The account's own pills: picking one pre-fills what it is DOWN BY, unless she has already
   // typed a figure — hers wins.
   const pick = (m) => {
-    pocket = m;
-    amount.value = owed() > 0 ? String(owed()) : "";
+    account = m;
+    amount.value = downBy(m) > 0 ? String(downBy(m)) : "";
+    if (outOf === m) outOf = all.find((x) => x !== m) || outOf;
     paint();
   };
 
   const paint = () => {
-    const due = owed();
+    const due = downBy(account);
     body.replaceChildren(
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
-        "A pocket of yours paid for something, so the money left you rather than the till — its line on the Money screen says what it is owed. This takes the money out of the till and clears that line in one go. It is your own money going back to you: never a cost, so your profit does not move."),
-      el("div", { class: "field" }, el("label", {}, "Which pocket?"),
+        "An account that paid out more than it took in is down by the difference. This moves money into it from another account, so it sits at zero again — its block on the Money screen says what it holds. It is your own money moving between your accounts: never a cost, so your profit does not move."),
+      el("div", { class: "field" }, el("label", {}, "Which account is down?"),
         el("div", { class: "pill-row" },
-          ...pockets.map((m) => button(m, () => pick(m),
-            `ghost small${m === pocket ? " cal-mode-on" : ""}`)),
+          ...all.map((m) => button(m, () => pick(m),
+            `ghost small${m === account ? " cal-mode-on" : ""}`)),
           newEntryChip("method", () => { adding = true; paint(); })),
         adding
           ? entryForm(state, { kind: "method", onDone: (newLabel) => {
-              if (newLabel) pocket = newLabel;
+              if (newLabel) pick(newLabel);
               adding = false;
               paint();
             } })
           : null),
       el("p", { class: "card-sub", style: "margin:0 0 8px" },
         due > 0
-          ? `${pocket} is owed ${fmtRM(due, cur)} for ${label}.`
-          : `${pocket} is not owed anything${label ? ` for ${label}` : ""} right now — you can still record a payment if you need to.`),
+          ? `${account} is down ${fmtRM(due, cur)}${label ? ` for ${label}` : ""} — paying this in brings it back to zero.`
+          : `${account} is not down${label ? ` for ${label}` : ""} — it is holding money, not short of it. You can still record a payment if you need to.`),
       el("div", { class: "field" }, el("label", {}, "How much are you paying back?"), amount),
       el("div", { class: "field" }, el("label", {}, "Paid out of"),
         el("div", { class: "pill-row" },
-          ...purse.map((m) => button(m, () => { outOf = m; paint(); },
+          ...all.filter((m) => m !== account).map((m) => button(m, () => { outOf = m; paint(); },
             `ghost small${m === outOf ? " cal-mode-on" : ""}`)))),
       el("div", { class: "field" }, el("label", {}, "The day you paid it back"), datePick),
       el("div", { class: "field" }, el("label", {}, "What it was for (optional)"), note),
@@ -762,12 +839,12 @@ function openPayBackForm(state, from, to, redraw, label) {
           state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
           state.expenses.push({ id: newId("exp"), date, amount: value,
             category: drawingLabel(state), method: outOf,
-            note: typed || `Paid back to ${pocket}` });
-          state.deposits.push({ id: newId("dep"), date, amount: value, method: pocket,
+            note: typed || `Paid back to ${account}` });
+          state.deposits.push({ id: newId("dep"), date, amount: value, method: account,
             note: typed, repay: true });
           save(state);
           maybeSync(state);
-          toast(`Paid ${fmtRM(value, cur)} back to ${pocket} out of ${outOf}`);
+          toast(`Paid ${fmtRM(value, cur)} back to ${account} out of ${outOf}`);
           closePopup();
           redraw();
         }, "primary")));
@@ -776,7 +853,7 @@ function openPayBackForm(state, from, to, redraw, label) {
   let adding = false;
   let closePopup = () => {};
   paint();
-  showPopup(el("div", { class: "popup-title-row" }, "Pay back a pocket"),
+  showPopup(el("div", { class: "popup-title-row" }, "Pay back an account"),
     (refresh, close) => { closePopup = close; return body; });
 }
 
@@ -804,7 +881,7 @@ function openTransferForm(state, redraw) {
   const cur = state.settings.currency || "RM";
   const pots = methodsOf(state);
   // ⚠️ A transfer needs two DIFFERENT pots to be a transfer at all.
-  if (pots.length < 2) return toast("You need two ways to pay before you can move money between them");
+  if (pots.length < 2) return toast("You need two accounts before you can move money between them");
 
   let fromPot = pots.find(isCash) || pots[0];
   let toPot = pots.find((m) => m !== fromPot) || pots[1];
@@ -955,15 +1032,24 @@ export function renderMoney(root, state) {
     // less `TNG out`, are still exactly the tin and exactly the phone. Those two are what a loan and a
     // bank transfer are still kept OUT of, and that is the whole of what their own lines now say.
     //
+    // ★★ ONE LOOP OVER EVERY ACCOUNT, AND EVERY FIGURE ON THIS CARD COMES OUT OF IT (v481).
+    //
+    // Her words: __"In finance term we call it account, in our daily, we treat it like a pocket, and
+    // a pocket means a place money kept. Should we call it account from now on?"__ ⭐ **Every place
+    // money sits is an account, and every one gets the same three figures: in, out, and what it
+    // holds.** ⚠️ **This is what replaced the four special Cash/TNG rows and the `Paid by X` lines
+    // under them** — two different shapes for one idea, which is what made her ask twice what the
+    // difference was.
+    const accounts = accountsBetween(state, [m, mine], [out]);
+    // ⚠️ ALL of her own money that came in this stretch, through ANY account — the sub-line under
+    // the blocks. It read `mine.cash + mine.tng`, which was the same two-accounts-only mistake.
+    const mineTotal = [...(mine.byMethod || new Map()).values()].reduce((s, v) => s + v, 0);
+    // ⚠️⚠️ AND NET IS THE SUM OF WHAT THEY HOLD, taken from the very same rows the blocks are drawn
+    // from. ⭐ It is the v480 figure by construction rather than by a second formula that could drift
+    // away from the lines above it — "the total must agree with the rows it totals" is the whole
+    // reason this screen has one builder.
     // Money still to collect stays out, for the reason it always did: it is owed, not held.
-    const net = m.cash + m.tng + m.other + mine.cash + mine.tng + mine.other
-      - out.cash - out.tng - out.other;
-    // Every way of paying that is not cash or TNG gets its own line here, each opening
-    // its own book — the loan, the bank overdraft, anyone's own pocket, and whatever she
-    // adds later. Her ask in so many words: "each CASH, TNG, LOAN, Personal Pocket Kean,
-    // Personal Pocket Suan, and others that might be added in future need a journal."
-    // Read off the rows, so a method she has renamed still has a line to open.
-    const others = otherMethods(state, [m, mine], [out]);
+    const net = accounts.reduce((s, a) => s + a.holds, 0);
 
     root.replaceChildren(
       el("h2", { class: "section" }, "Money"),
@@ -982,30 +1068,32 @@ export function renderMoney(root, state) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, label),
         el("div", { class: "money-rows" },
-          row("Cash in", m.cash + mine.cash, null, "", () => openJournal(state, "Cash", from, to, "Cash")),
-          row("TNG in", m.tng + mine.tng, null, "", () => openJournal(state, "TNG", from, to, "TNG")),
-          row("Cash out", out.cash, null, "", () => openJournal(state, "Cash", from, to, "Cash")),
-          row("TNG out", out.tng, null, "", () => openJournal(state, "TNG", from, to, "TNG")),
-          row("Net", net, "", " net-row"),
+          // ★★ ONE BLOCK PER ACCOUNT, THE SAME SHAPE FOR EVERY ONE (v481). It replaces the four
+          // special Cash / TNG rows and the `Paid by X` lines that followed them — ⭐ **two shapes for
+          // one idea, which is what she had to ask twice about.** Every one opens its own journey.
+          ...accounts.map((a) => el("div", {
+            class: `info-row tappable acc-row${a.counted ? " acc-counted" : ""}`,
+            onclick: () => openJournal(state, a.label, from, to, a.label),
+          },
+            el("span", { class: "acc-head" },
+              el("span", { class: "acc-name" }, a.label),
+              el("span", { class: "acc-where" },
+                isCash(a.label) ? "your tin" : isTng(a.label) ? "your phone" : "")),
+            el("span", { class: "acc-figs" },
+              el("span", {}, `in ${fmtRM(a.in, cur)}`),
+              el("span", {}, `· out ${fmtRM(a.out, cur)}`),
+              el("b", { class: "acc-holds" }, `holds ${fmtRM(a.holds, cur)}`)))),
+          row("Net — every account", net, "", " net-row"),
           row("Still to collect", m.toCollect,
             m.toCollectCount ? `(${m.toCollectCount} order${m.toCollectCount === 1 ? "" : "s"})` : "", " recv-row"),
-          ...others.map((o, i) => row(`Paid by ${o.label}`, o.net, null, i === 0 ? " recv-row" : "",
-            () => openJournal(state, o.label, from, to, o.label))),
           row("Paid, no method", m.unmarked + mine.unmarked),
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
-          mine.cash + mine.tng
+          mineTotal
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
-                `· of the money in, ${fmtRM(mine.cash + mine.tng, cur)} was your own`)
+                `· of the money in, ${fmtRM(mineTotal, cur)} was your own`)
             : null,
-          // ⚠️ AND THE CAPTION NOW COVERS BOTH DIRECTIONS, AND THE QUIET ACCOUNT (v479). It said
-          // "each paid for things ... without coming out of your purse", which is only half of what
-          // these lines are: a customer's bank transfer is money IN, and since v479 an account she has
-          // just added has a line here before anything has moved through it at all. A caption that
-          // described neither would read as a fault on her own screen.
-          others.length
-            ? el("p", { class: "card-sub", style: "margin:6px 0 0" },
-                "· your accounts that are not cash or TNG — a loan, the bank overdraft, one of your own pockets, or one you add yourself. Money that came in or went out this way never passed through your purse or your phone, so each gets its own line here instead of being folded into Cash in or TNG in. Every account you have gets a line, even one nothing has moved through yet — tap it to open its book.")
-            : null)),
+          el("p", { class: "card-sub", style: "margin:6px 0 0" },
+            "· every account you have gets its own block — what came in, what went out, and what it holds. The two marked ones are the two you can count by hand, your tin and your phone; Net adds up every account, so it is not the figure you check against those two. Tap any block to open that account's journey."))),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Money in · ${label}`),
         mine.rows.length
@@ -1023,9 +1111,9 @@ export function renderMoney(root, state) {
           methodsOf(state).length > 1
             ? button("⇄ Transfer", () => openTransferForm(state, () => draw()), "soft")
             : null,
-          // Only when there is a pocket to pay and a till to pay it out of.
-          pocketMethods(state).length && purseMethods(state).length
-            ? button("＋ Pay back a pocket", () => openPayBackForm(state, from, to, () => draw(), label), "soft")
+          // Only when there is an account that can BE owed, and an account to pay it out of.
+          methodsOf(state).length > 1
+            ? button("＋ Pay back an account", () => openPayBackForm(state, from, to, () => draw(), label), "soft")
             : null)),
       el("div", { class: "card" },
         el("p", { class: "card-title" }, `Expenses · ${label}`),
@@ -1038,7 +1126,7 @@ export function renderMoney(root, state) {
       el("div", { class: "card" },
         el("div", { class: "card-row" },
           el("div", {},
-            el("p", { class: "card-title" }, "Categories, ways to pay & sources"),
+            el("p", { class: "card-title" }, "Categories, way to pay/receive & sources"),
             el("p", { class: "card-sub" },
               // ⚠️ THE WAYS TO PAY ARE STILL NAMED, not just counted: "Cash, TNG, Loan" is how she
               // recognises that list. The third is added as a count, because three names in a row
@@ -1050,10 +1138,15 @@ export function renderMoney(root, state) {
         // otherwise be unreachable (17 Sep 2026).
         el("div", { class: "card-row", style: "margin-top:12px" },
           el("div", {},
-            el("p", { class: "card-title" }, "Books"),
+            el("p", { class: "card-title" }, "Journeys & reconciliation"),
             el("p", { class: "card-sub" },
-              `Every way you pay · ${methodsOf(state).length} books, each opening into its own rows`)),
-          button("Open", () => openBooks(state, from, to, label), "ghost small")),
+              `${methodsOf(state).length} accounts, each opening into its own journey · or one sheet with every account on it`)),
+          el("div", { class: "btn-row", style: "margin:0" },
+            // ⭐ THE RECONCILIATION SHEET — every account on one page, for checking against the tin,
+            // the phone, the bank and anyone holding cash. Her ask: __"i need a printable journeys so
+            // that i can do reconciliation"__.
+            button("Reconcile", () => openReconciliation(state, accounts, from, to, label), "ghost small"),
+            button("Open", () => openBooks(state, from, to, label), "ghost small"))),
         el("div", { class: "card-row", style: "margin-top:12px" },
           el("div", {},
             el("p", { class: "card-title" }, "Day one"),

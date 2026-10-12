@@ -457,7 +457,7 @@ test("★ an account can be added while recording the payment, and it comes back
   // The ＋ chip is the money screen's OWN (accountsEditor's newEntryChip), so what it writes here is
   // the same record as one added there — and adding it at the moment of payment is the whole of her
   // ask ("+add or delete a money account").
-  const chip = all(paySheet()).find((n) => n.tagName === "BUTTON" && n.textContent === "＋ New way to pay");
+  const chip = all(paySheet()).find((n) => n.tagName === "BUTTON" && n.textContent === "＋ New way to pay/receive");
   assert.ok(chip, "the sheet offers to add an account on the spot");
   chip._listeners.click[0]();
   // ⚠️ THE GUARD IS THE ASSERTION'S OWN MESSAGE. `showPopup` repaints by calling its body builder

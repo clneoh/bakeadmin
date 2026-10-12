@@ -141,6 +141,10 @@ const managerRow = (label) => walk(registry["popup-layer"])
   .find((r) => r.children.some((c) => String(c.className).includes("money-list-name") && c.textContent === label));
 // What a line says beside the name — its own class rather than a position, for the same reason.
 const rowNote = (row) => row.children.find((c) => String(c.className).includes("info-val"));
+
+// ⚠️ THE LINE IS NO LONGER A BUTTON (v481) — it carries its own Edit and Delete, like every other list
+// in the app, because a row that LOOKS like text was not an affordance: she had to ask twice how to
+// delete an account. So a test opens one the way she does.
 const rowName = (row) => (row.children.find((c) => String(c.className).includes("money-list-name")) || {}).textContent;
 // The entry form's own box — by its label, not simply the first input, because the
 // expense form behind it has an amount box of its own.
@@ -165,7 +169,7 @@ test("the Money screen says what the lists hold, and a loan is among them", () =
   // it is how she fails to find that thing.**
   const root = mount(freshState());
   const line = walk(root).find((n) => (n.children || []).some((c) => String(c.className).includes("card-title")
-    && c.textContent === "Categories, ways to pay & sources"));
+    && c.textContent === "Categories, way to pay/receive & sources"));
   assert.ok(line, "the lists are on the money screen, not tucked away in Settings");
   assert.match(line.textContent, /11 categories/);
   assert.match(line.textContent, /Cash, TNG, Loan/, "with the third choice she asked for");
@@ -179,19 +183,28 @@ test("Edit opens the lists, and every line can be opened to change it", () => {
   const names = listed.map(rowName);
   assert.ok(names.includes("Rent") && names.includes("Salary (you)"), "the chart, by name");
   assert.ok(names.includes("Cash") && names.includes("TNG") && names.includes("Loan"), "and the ways to pay");
-  // ⚠️ THE TWO NOTES ARE THE TWO HALVES OF ONE QUESTION (v480), and they must be the SAME WORDS here
-  // as in the Pay press's own list — the same two ideas worded two ways is how she came to ask what
-  // the difference was in the first place.
-  assert.match(rowNote(managerRow("Loan")).textContent, /not in your purse or phone/,
-    "with a loan marked by where its money is NOT, exactly as Cash and TNG are marked by where theirs is");
-  assert.ok(String(managerRow("Rent").className).includes("tappable"), "a line says it can be opened");
+  // ⚠️⚠️ AND THE OLD NOTE IS GONE BECAUSE THE SPLIT IT DESCRIBED IS GONE (v481). It said a loan was
+  // "not from the purse" / "not in your purse or phone" — ⭐ **which said the loan was not an
+  // account at all**, and that is precisely what she asked me to unify. Every one of them is an
+  // account now, so a loan says so, and Cash and TNG are named for where they are.
+  assert.match(rowNote(managerRow("Loan")).textContent, /an account/,
+    "a loan is one of her accounts, named as one — not described by what it is not");
+  assert.match(rowNote(managerRow("Cash")).textContent, /your tin/,
+    "and the two she counts by hand are named for where the money is");
+  // ⚠️⚠️ AND THE AFFORDANCE IS VISIBLE NOW (v481). The row used to be `tappable` with the word "edit"
+  // in grey at its end — ⭐ **which she had to ask about TWICE.** It carries its own Edit and
+  // Delete, the same two buttons every other list in this app wears.
+  assert.ok(byText(managerRow("Rent"), "Edit") && byText(managerRow("Rent"), "Delete"),
+    "a line carries its own Edit and Delete, not a secret tap");
+  assert.ok(!String(managerRow("Rent").className).includes("tappable"),
+    "and it is not a press as well as a drag — the grip can never be mistaken for one");
 });
 
 test("renaming a category moves what was already recorded under it", () => {
   const state = freshState();
   state.expenses = [{ id: "e1", date: "2026-09-10", amount: 18, category: "Packaging" }];
   openManager(state);
-  fire(managerRow("Packaging"));
+  fire(byText(managerRow("Packaging"), "Edit"));
 
   const box = editorBox();
   assert.equal(box.value, "Packaging", "open on the name being changed");
@@ -209,7 +222,7 @@ test("renaming a way to pay moves its entries, in and out", () => {
   state.expenses = [{ id: "e1", date: "2026-09-10", amount: 250, category: "Ingredients & shopping", method: "Loan" }];
   state.deposits = [{ id: "d1", date: "2026-09-09", amount: 100, method: "Loan" }];
   openManager(state);
-  fire(managerRow("Loan"));
+  fire(byText(managerRow("Loan"), "Edit"));
   editorBox().value = "Bank OD";
   fire(byText(registry["popup-layer"], "Save"));
 
@@ -222,8 +235,8 @@ test("a category she does not want can go, and its records are kept", () => {
   const state = freshState();
   state.expenses = [{ id: "e1", date: "2026-09-10", amount: 30, category: "Utilities" }];
   openManager(state);
-  fire(managerRow("Utilities"));
-  fire(byText(registry["popup-layer"], "Delete"));
+  // ⚠️ THE ROW'S OWN DELETE, pressed where she sees it — not the one buried in the open form.
+  fire(byText(managerRow("Utilities"), "Delete"));
   fire(byText(registry["confirm-layer"], "Delete"));
 
   assert.ok(!state.settings.categories.some((c) => c.label === "Utilities"), "gone from the list");
@@ -235,7 +248,7 @@ test("a way to pay can be added, and the last one cannot be deleted", () => {
   const state = freshState();
   const root = mount(state);
   fire(byText(root, "Edit")); // the lists
-  fire(byText(registry["popup-layer"], "＋ New way to pay"));
+  fire(byText(registry["popup-layer"], "＋ New way to pay/receive"));
   editorBox().value = "Bank OD"; // the form opens in place, under the list
   fire(byText(registry["popup-layer"], "Add"));
   assert.equal(state.settings.payMethods.at(-1), "Bank OD", "added to the list");
@@ -296,7 +309,7 @@ test("★★ renaming a source moves the money-in rows already recorded under it
   const state = freshState();
   state.deposits = [{ id: "d1", date: "2026-09-10", amount: 50, method: "Cash", source: "Savings" }];
   openManager(state);
-  fire(managerRow("Savings"));
+  fire(byText(managerRow("Savings"), "Edit"));
   editorBox().value = "Maybank savings";
   fire(byText(registry["popup-layer"], "Save"));
   assert.equal(state.deposits[0].source, "Maybank savings",
@@ -343,14 +356,16 @@ test("★★ a transfer writes BOTH sides — out of one pot and into the other"
 });
 
 test("★★ the net does not move when money moves between her own pots", () => {
+  // ⚠️ THE ROWS ARE TWO SHAPES NOW (v481): an account block (name, where it is, three figures) and
+  // the summary rows below them. ⭐ And the total is named for what it is — "Net — every account" —
+  // because it no longer means the tin and the phone.
   const netOf = (s) => {
     const rows = walk(mount(s)).filter((n) => String(n.className).includes("info-row"));
-    return rows.find((r) => r.children[0].textContent === "Net").children[1].textContent;
+    return rows.find((r) => r.children[0].textContent === "Net — every account").children[1].textContent;
   };
-  const outOf = (s) => {
-    const rows = walk(mount(s)).filter((n) => String(n.className).includes("info-row"));
-    return rows.find((r) => r.children[0].textContent === "Cash out").children[1].textContent;
-  };
+  const cashOf = (s) => walk(mount(s))
+    .filter((n) => String(n.className).includes("acc-row"))
+    .find((r) => r.children[0].children[0].textContent === "Cash").children[1].textContent;
   const state = freshState();
   const before = netOf(state);
 
@@ -360,7 +375,8 @@ test("★★ the net does not move when money moves between her own pots", () =>
   walk(layer).find((n) => n.tagName === "INPUT" && n.attrs["aria-label"] === "How much you moved").value = "200";
   fire(byText(layer, "Save"));
 
-  assert.equal(outOf(state), "RM 200.00", "the pot it came from did not go down");
+  assert.equal(cashOf(state), "in RM 0.00· out RM 200.00holds RM -200.00",
+    "the account it came out of went down, and its block says so");
   assert.equal(netOf(state), before,
     "⚠️⚠️ moving her own money changed what should be with her — nothing entered or left the business");
 });
@@ -546,7 +562,7 @@ test("★★ every line of all three lists carries a handle, and the one being e
   // cannot be picked up and dropped somewhere else — the same reason the Categories screen leaves the
   // heading out of its reachable rows.
   const before = rows.length;
-  fire(managerRow("Loan"));
+  fire(byText(managerRow("Loan"), "Edit"));
   assert.equal(listRows().length, before - 1,
     "⚠️ the line she opened is still draggable — an open form must never be picked up");
 });
@@ -604,32 +620,34 @@ test("★★ what she repositions is the order every picker then offers", () => 
     "⚠️ every drop-down built from `methodsOf` must now offer TNG, Loan, Cash — the order she set");
 });
 
-test("⚠️⚠️ a drag is not a press, and a press is still a press", () => {
-  // ⚠️ `setPointerCapture` retargets the pointerup to the grip, so the browser dispatches a `click`
-  // on it after every drop. Without the guard in `ui.js` that click bubbled to the line and opened the
-  // form she had just dragged.
+test("⚠️⚠️ the drag guard holds — a dragged row is never also a press", () => {
+  // ⚠️⚠️ NO DRAGGED ROW IS TAPPABLE ANY MORE (v481). The money lines carry their own Edit and Delete
+  // now — ⭐ **which she asked for twice** — so there is no press on them to swallow.
+  // ⭐ **But the guard in `wireRowReorder` stays, because it is what protects any row that is ever both
+  // again, and a guard nobody tests is a guard that rots.** ⚠️ So this pins the CONTRACT rather than
+  // today's screen: a row given a press of its own must not receive one on a drop.
   const state = freshState();
   openManager(state);
   lay(listRows());
   const cash = managerRow("Cash");
+  const pressed = [];
+  cash._listeners.click = [() => pressed.push("row")]; // stand in for a tappable dragged row
+
   dragLine(cash, 200);
   const grip = gripOf(cash);
   assert.equal(clickThrough([grip, cash]), false,
-    "⚠️⚠️ the click after a drop reached the line — the editor opens on every single drag");
-  // ⭐ AND THE NEXT CLICK MUST GET THROUGH. A guard cleared in the wrong place — or never — would
-  // swallow the tap she makes straight afterwards, which is a worse fault than the one it fixed.
+    "⚠️⚠️ the click after a drop reached the row — a drag would fire whatever a press fires");
   assert.equal(clickThrough([grip, cash]), true,
-    "⚠️ the click after the drop swallowed the NEXT press too — the guard is never cleared");
-  assert.ok(editorBox(), "and the line she pressed is open for editing");
+    "⚠️ and the NEXT click must get through: a guard never cleared swallows the press after it");
+  assert.equal(pressed.length, 1, "so the press she made afterwards reached the row, exactly once");
 
   // ⚠️ AND A CANCELLED DRAG MUST NOT SWALLOW THE TAP AFTER IT. `pointercancel` ends a gesture with no
   // click for the guard to consume, so the flag is left armed — and it is the NEXT pointerdown that
   // disarms it. ⭐ That is why the reset lives on the press and not in `finish()`: `finish()` runs
   // BEFORE the click arrives, so clearing it there would look tidier and would let every drop through.
-  // ⚠️ RE-LAID, because opening the editor above rebuilt every line and the new nodes have no
-  // geometry. A test that read the old nodes' rects off the new nodes would be measuring nothing.
   lay(listRows());
   const loan = managerRow("Loan");
+  loan._listeners.click = [() => pressed.push("loan")];
   const grip2 = gripOf(loan);
   const base = loan._rect.top;
   grip2._listeners.pointerdown[0]({ button: 0, pointerId: 1, clientX: 10, clientY: base + 10, preventDefault() {} });

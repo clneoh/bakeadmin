@@ -2422,8 +2422,14 @@ option.tone-off { color: var(--muted); }
    ⚠️ AND THE NAME CARRIES THE `min-width: 0` THAT `.info-row > span:first-child` GIVES A PLAIN LINE.
    With the grip now the first child, that rule lands on the GRIP instead — and a long account name
    would then push the line wider than the pop-up rather than wrapping inside it. */
-.info-row.money-list-row { justify-content: flex-start; gap: 4px; }
+.info-row.money-list-row { justify-content: flex-start; gap: 4px; flex-wrap: wrap; }
 .info-row.money-list-row .money-list-name { flex: 1 1 auto; min-width: 0; }
+/* ⚠️⚠️ AND THE BUTTONS DROP TO THEIR OWN LINE, RIGHT-ALIGNED — the same shape the ingredient card took
+   at v399, and for the same MEASURED reason. ⭐ Read at 375px: the grip's 36px plus Edit and Delete left
+   the name and its note so little room that "Delivery & fuel · running cost" folded into three ragged
+   lines with the buttons wedged between them. ⭐ Giving the buttons the whole second line is what makes
+   the name and the note readable again, and it is already the app's own answer on a card this narrow. */
+.info-row.money-list-row .li-right { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 6px; }
 
 /* The Books list: the line she tapped stays marked, and its book opens UNDER it behind a
    rule, so it is obvious which line the rows belong to (the app has one shared pop-up

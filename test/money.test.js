@@ -185,6 +185,17 @@ const allOf = (node, out = []) => {
   return out;
 };
 
+// ★★ A ROW OF THE MONEY CARD, BY THE ACCOUNT'S NAME (v481). ⚠️ An account block's first child is its
+// HEAD — the name and where it is, in one span — so the old `children[0].textContent` lookup ran the
+// two together ("Cashyour tin") and found nothing. These read either shape, so a test can still ask
+// for a row by the name she sees on it.
+const moneyRowName = (r) => String(r.className).includes("acc-row")
+  ? String(r.children?.[0]?.children?.[0]?.textContent || "")
+  : String(r.children?.[0]?.textContent || "");
+const moneyRowOf = (root, label) => allOf(root)
+  .filter((n) => String(n.className).includes("info-row"))
+  .find((r) => moneyRowName(r) === label);
+
 test("the Money screen puts what came in beside what went out, and the net", () => {
   const today = todayISO();
   const st = state();
@@ -200,18 +211,19 @@ test("the Money screen puts what came in beside what went out, and the net", () 
   // a test pass or fail on its own.
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
   assert.deepEqual(rows, [
-    "Cash in=RM 15.00",
-    "TNG in=RM 0.00",
-    "Cash out=RM 5.00",
-    "TNG out=RM 0.00",
-    "Net=RM 10.00",
+    "Cash=in RM 15.00· out RM 5.00holds RM 10.00",
+    "TNG=in RM 0.00· out RM 0.00holds RM 0.00",
+    "Loan=in RM 0.00· out RM 0.00holds RM 0.00",
+    "Net — every account=RM 10.00",
     "Still to collect=RM 0.00",
-    "Paid by Loan=RM 0.00",
     "Paid, no method=RM 0.00",
-  ], "in, out, and what should be left — with what is still owed kept out of the net, "
-    + "⚠️ and every account she has getting a line even when nothing has moved through it (v479)");
+  ], "★★ ONE BLOCK PER ACCOUNT NOW (v481) — what came in, what went out and what it holds — "
+    + "with what is still owed kept out of the net. ⭐ The NET IS UNMOVED at RM 10.00, which is the "
+    + "point: the screen changed shape, the figure did not");
 
   const expense = allOf(root).find((n) => String(n.className).includes("info-row")
     && n.textContent.includes("Packaging"));
@@ -226,11 +238,14 @@ test("an expense with no method recorded is flagged, not folded into cash", () =
   const root = document.createElement("div");
   renderMoney(root, st);
   const rows = allOf(root).filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash out=RM 0.00") && rows.includes("TNG out=RM 0.00"),
-    "neither purse nor phone claims it");
-  assert.ok(rows.includes("Net=RM 0.00"),
-    "and the net — what should be in the purse and on the phone — leaves it out too");
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash=in RM 0.00· out RM 0.00holds RM 0.00")
+    && rows.includes("TNG=in RM 0.00· out RM 0.00holds RM 0.00"),
+    "⚠️ neither account claims it — and both are drawn now, at zero, rather than one row pair for them");
+  assert.ok(rows.includes("Net — every account=RM 0.00"),
+    "and the net leaves it out too");
   assert.ok(rows.includes("Spent, no method recorded=RM -12.00"),
     "but it is named, on its own line, rather than quietly dropped");
 });
@@ -319,10 +334,13 @@ test("her own money counts into the till, and the screen says how much was hers"
   renderMoney(root, st);
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash in=RM 115.00"), "RM15 of orders + RM100 of her own in the purse");
-  assert.ok(rows.includes("Cash out=RM 30.00"), "and the withdrawal leaves the same way as any spending");
-  assert.ok(rows.includes("Net=RM 85.00"), "the net still adds up");
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash=in RM 115.00· out RM 30.00holds RM 85.00"),
+    "RM15 of orders + RM100 of her own in the tin, and the withdrawal out of it — "
+    + "⭐ one block carrying all three figures now (v481)");
+  assert.ok(rows.includes("Net — every account=RM 85.00"), "the net still adds up");
 
   assert.ok(allOf(root).some((n) => /of the money in, RM 100\.00 was your own/.test(String(n.textContent || ""))),
     "the screen says how much of the till is hers");
@@ -391,17 +409,20 @@ test("★ what a loan paid for has its own line — and now counts in Net (v480)
   renderMoney(root, st);
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Cash out=RM 18.00"), "only the cash one leaves the purse");
-  // ⚠️⚠️ THIS IS THE CHANGE SHE ASKED FOR, AND IT IS THE ONE THAT MOVES. Net used to be the purse
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash=in RM 15.00· out RM 18.00holds RM -3.00"),
+    "the tin took 15 and gave up 18 — all three figures on its own block (v481)");
+  // ⚠️⚠️ THIS IS THE CHANGE SHE ASKED FOR, AND IT IS THE ONE THAT MOVES. Net used to be the tin
   // alone — 15 in, 18 out, RM -3.00, with the loan-funded run kept right out of it. Her words:
   // __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the trade-off,
   // __"Fold them into Net"__. ⭐ **So Net is the whole business now: everything in, less everything
   // out, through every account** — which is 15 in and 18 + 250 out.
-  assert.ok(rows.includes("Net=RM -253.00"),
+  assert.ok(rows.includes("Loan=in RM 0.00· out RM 250.00holds RM -250.00"),
+    "and the loan-funded run has its own block, naming what it paid");
+  assert.ok(rows.includes("Net — every account=RM -253.00"),
     "⚠️ every account counts in Net now (v480): 15 in, and 18 plus the 250 the loan paid");
-  assert.ok(rows.includes("Paid by Loan=RM -250.00"),
-    "and the loan-funded run STILL has its own line, named after the account, with its own book");
 });
 
 // ── v109: a book per method ──────────────────────────────────────────────────
@@ -461,7 +482,7 @@ test("the Money screen's figures are doors: tapping one opens its book", () => {
   const root = document.createElement("div");
   renderMoney(root, st);
   const cashRow = allOf(root).filter((n) => String(n.className).includes("info-row"))
-    .find((r) => String(r.children?.[0]?.textContent || "") === "Cash out");
+    .find((r) => moneyRowName(r) === "Cash");
   assert.ok(String(cashRow.className).includes("tappable"), "the figure says it can be opened");
   cashRow._listeners.click.forEach((f) => f());
 
@@ -492,9 +513,116 @@ test("an order marked Paid · TNG counts as TNG, not as unknown (the v106 slip)"
 // might be added in future need a journal" (17 Sep 2026). The rows are read off the
 // data, not off her list, so a method she adds tomorrow needs no code change — and one
 // she has since renamed or taken away still has a line, because its money is still here.
-const { otherMethods } = await import("../admin/js/money.js");
+const { accountsBetween } = await import("../admin/js/money.js");
 
-test("every non-cash method that moved gets its own line, in her list's order", () => {
+test("★★ HER OWN WORKED DAY — LK delivers 10 loaves, RM160 in, RM100 of flour out", () => {
+  // ⭐ HER WORDS, VERBATIM: __"im LK, today i delivery 10loaves of focaccia to customer, he pay me
+  // rm160, the app would record, pay--cash LK, and on the way back in stop by grocery to buy strong
+  // flour rm100, the app would record Expenses buying of strong flour say 25kgs, pay buy Cash LK, end
+  // of day, Cash LK would have balance of rm60."__
+  //
+  // ⭐⭐ AND THE HEADLINE OF HER WHOLE MESSAGE: __"the best is way to pay and the choice for way to
+  // receive money is the same."__ ⭐ **That is what v481 is for** — one list of accounts, used for money
+  // coming in AND money going out, each with a balance.
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Cash LK", "Cash LS"];
+  st.deliveryDates = [{ id: "d18", date: "2026-09-16" }];
+  st.orders = [row({ id: "o1", unitPrice: 16, qty: 10, status: "ready", paidReceived: true,
+    paidMethod: "Cash LK", paidAt: "2026-09-16T09:00:00.000Z" })];
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 100, category: "Ingredients & shopping",
+    method: "Cash LK", note: "strong flour 25kg" }];
+
+  const blocks = accountsBetween(st,
+    [moneyBetween(st, "2026-09-01", "2026-09-30"), depositsBetween(st, "2026-09-01", "2026-09-30")],
+    [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+  const lk = blocks.find((b) => b.label === "Cash LK");
+  assert.equal(lk.in, 160, "the customer's RM160 came IN to Cash LK — one list, money received");
+  assert.equal(lk.out, 100, "and the flour went OUT of Cash LK — the same list, money paid");
+  assert.equal(lk.holds, 60,
+    "⭐⭐ ⭐ SO CASH LK HOLDS RM 60 — her own figure, to the ringgit, out of the app's own arithmetic");
+
+  // ⚠️⚠️ AND HER EXAMPLE EXPOSED A REAL BUG, WHICH IS WHAT A WORKED EXAMPLE IS FOR — AND IT IS FIXED.
+  // The old measure ("pocketOwed") counted ONLY expenses and deposits: ⚠️ **it never read the money a
+  // customer paid INTO the account**, so on this very day it said Cash LK was "owed RM100" while the
+  // block beside it plainly said it HELD RM60. ⭐ **The measure is the balance now**, and her words say
+  // why: __"Cash LK would be nullify."__
+  assert.equal(accountBalance(st, "Cash LK", "2026-09-01", "2026-09-30"), 60,
+    "⭐ the balance IS the measure — 160 in less 100 out, the same 60 the block holds");
+  assert.equal(Math.max(0, -accountBalance(st, "Cash LK", "2026-09-01", "2026-09-30")), 0,
+    "and an account that is UP owes nothing, so there is nothing to settle");
+
+  // ⭐⭐ AND HER MONTH-END CASE, EXACTLY AS SHE DESCRIBED IT: an account that ends DOWN is topped up
+  // from another one, and comes back to zero.
+  st.orders = []; // LK collected nothing this month
+  st.expenses = [{ id: "e2", date: "2026-09-16", amount: 60, category: "Ingredients & shopping",
+    method: "Cash LK", note: "flour on the way back" }];
+  assert.equal(accountBalance(st, "Cash LK", "2026-09-01", "2026-09-30"), -60,
+    "LK is down RM60 — her exact figure");
+  assert.equal(Math.max(0, -accountBalance(st, "Cash LK", "2026-09-01", "2026-09-30")), 60,
+    "⭐ so RM60 out of another account brings it back to zero — her word: nullify");
+});
+
+test("★★ the journey carries a running balance — her reconciliation column (v481)", () => {
+  // ⭐ HER WORDS: __"i need a printable journeys so that i can do reconciliation"__. ⚠️ **Reconciling is
+  // ticking down a running balance**, and without it the journey ended on one figure and told her
+  // nothing about the way it got there.
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Cash LK"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ id: "o1", unitPrice: 16, qty: 10, status: "ready", paidReceived: true,
+    paidMethod: "Cash LK", paidAt: `${today}T09:00:00.000Z` })];
+  st.expenses = [{ id: "e1", date: today, amount: 100, category: "Ingredients & shopping",
+    method: "Cash LK", note: "strong flour 25kg" }];
+
+  const j = journalFor(st, "Cash LK", today, today);
+  assert.deepEqual(j.rows.map((r) => r.bal), [160, 60],
+    "⭐⭐ the account held 160 after the delivery and 60 after the flour — HER two figures, down the page");
+
+  // ⭐ AND THE SHEET SHOWS IT, on the row itself — so it prints, shares and exports with the journey
+  // rather than being a screen-only nicety (⚠️ the PDF reads a row's words, never its columns).
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  moneyRowOf(root, "Cash LK")._listeners.click.forEach((f) => f());
+  const said = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
+  assert.match(said, /balance RM 160\.00/, "the delivery line ends on what the account then held");
+  assert.match(said, /balance RM 60\.00/, "and the flour line on what it held after that");
+});
+
+test("★★ the Reconciliation sheet carries every account, and agrees with the blocks", () => {
+  // ⭐ Her ask: __"i need a printable journeys so that i can do reconciliation"__. ⚠️ One journey per
+  // account is the detail; **this is the sheet with all of them on it**, built through the same
+  // journal machinery so it prints and shares like every other one.
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Bank"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [row({ id: "o1", unitPrice: 16, qty: 10, status: "ready", paidReceived: true,
+    paidMethod: "Bank", paidAt: `${today}T09:00:00.000Z` })];
+  st.expenses = [{ id: "e1", date: today, amount: 60, category: "Ingredients & shopping", method: "Bank" }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const open = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent === "Reconcile");
+  assert.ok(open, "the Money screen offers it beside the account journeys");
+  open._listeners.click.forEach((f) => f());
+
+  const said = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
+  assert.match(said, /Reconciliation/, "it is its own sheet");
+  for (const name of ["Cash", "TNG", "Bank"]) {
+    assert.ok(said.includes(name), `⚠️ ${name} is missing from the sheet — every account must be on it`);
+  }
+  // ⭐ And the figures are the SAME ones the blocks above are drawn from — 160 into the Bank, 60 out.
+  assert.match(said, /in RM 160\.00 · out RM 60\.00/, "the Bank's own in and out");
+  assert.match(said, /RM 100\.00/, "and what it holds, which is the block's own figure");
+});
+
+test("★★ every account gets a block, in her list's order — Cash and TNG included", () => {
+  // ⚠️⚠️ v481 RETIRED THE TWO-KIND RULE THIS TEST USED TO PIN. It asserted *"one line each … and cash
+  // is not one of them"* — which IS the split she asked me to unify. ⭐ Her words: __"In finance term we
+  // call it account, in our daily, we treat it like a pocket, and a pocket means a place money kept.
+  // Should we call it account from now on?"__ ⭐ So every account is in it, and each carries what came
+  // in, what went out, and what it HOLDS.
   const st = state();
   st.settings.payMethods = ["Cash", "TNG", "Loan", "Personal Pocket Kean", "Personal Pocket Suan"];
   st.deposits = [{ id: "d1", date: "2026-09-16", amount: 100, method: "Personal Pocket Kean" }];
@@ -503,15 +631,22 @@ test("every non-cash method that moved gets its own line, in her list's order", 
     { id: "e2", date: "2026-09-16", amount: 40, category: "Packaging", method: "Personal Pocket Suan" },
     { id: "e3", date: "2026-09-16", amount: 18, category: "Packaging", method: "Cash" },
   ];
-  const others = otherMethods(st,
+  const blocks = accountsBetween(st,
     [moneyBetween(st, "2026-09-01", "2026-09-30"), depositsBetween(st, "2026-09-01", "2026-09-30")],
     [expensesBetween(st, "2026-09-01", "2026-09-30")]);
 
-  assert.deepEqual(others.map((o) => o.label), ["Loan", "Personal Pocket Kean", "Personal Pocket Suan"],
-    "one line each, in the order of her own list — and cash is not one of them");
-  assert.equal(others[0].net, -250, "a loan only ever paid out here");
-  assert.equal(others[1].net, 100, "her pocket money put in reads positive");
-  assert.equal(others[2].net, -40);
+  assert.deepEqual(blocks.map((b) => b.label),
+    ["Cash", "TNG", "Loan", "Personal Pocket Kean", "Personal Pocket Suan"],
+    "every account she has, in the order of her own list");
+  const at = (l) => blocks.find((b) => b.label === l);
+  assert.equal(at("Loan").out, 250, "the money that left the loan is named as out");
+  assert.equal(at("Loan").holds, -250, "and it only ever paid out here");
+  assert.equal(at("Personal Pocket Kean").holds, 100, "her pocket money put in reads positive");
+  assert.equal(at("Personal Pocket Suan").holds, -40);
+  assert.equal(at("Cash").holds, -18, "⚠️ and Cash is one of them now — it used to be excluded");
+  assert.equal(at("TNG").holds, 0, "with an account nothing moved through sitting at zero");
+  assert.ok(at("Cash").counted && at("TNG").counted, "the two she counts by hand are marked");
+  assert.ok(!at("Loan").counted, "and nothing else is");
 });
 
 test("★ every account on her list gets a line, and one it has never seen keeps its own", () => {
@@ -522,16 +657,16 @@ test("★ every account on her list gets a line, and one it has never seen keeps
   // never had this problem: their four rows are drawn unconditionally, so a new account of hers was
   // the only thing on this card that could vanish.
   const st = state();
-  assert.deepEqual(otherMethods(st, [], []).map((o) => o.label), ["Loan"],
-    "an account with nothing in it still gets its line, at zero");
+  assert.deepEqual(accountsBetween(st, [], []).map((o) => o.label), ["Cash", "TNG", "Loan"],
+    "every account she has gets a block, every one at zero");
 
-  // ⚠️ AND A LABEL NOTHING ON HER LIST KNOWS STILL GETS A BOOK — the rule this function has always
-  // kept: her rows carry the words they were written with, so a row is the only thing that can say
-  // its money exists. Both must be present, and in her list's order.
+  // ⚠️ AND A LABEL NOTHING ON HER LIST KNOWS STILL GETS ONE — the rule this has always kept: her rows
+  // carry the words they were written with, so a row is the only thing that can say its money exists.
+  // Both must be present, and in her list's order.
   st.expenses = [{ id: "e1", date: "2026-09-16", amount: 30, category: "Packaging", method: "Bank OD" }];
-  const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
-  assert.deepEqual(others.map((o) => o.label), ["Loan", "Bank OD"],
-    "her own quiet account first, then the label nothing knows about");
+  const blocks = accountsBetween(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+  assert.deepEqual(blocks.map((o) => o.label), ["Cash", "TNG", "Loan", "Bank OD"],
+    "her own accounts first, then the label nothing knows about");
 });
 
 test("a method she renamed keeps its line, so its money is never invisible", () => {
@@ -540,8 +675,8 @@ test("a method she renamed keeps its line, so its money is never invisible", () 
   const st = state();
   st.settings.payMethods = ["Cash", "TNG", "Bank OD"];
   st.expenses = [{ id: "e1", date: "2026-09-16", amount: 250, category: "Ingredients & shopping", method: "Loan" }];
-  const others = otherMethods(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
-  assert.deepEqual(others.map((o) => o.label), ["Bank OD", "Loan"],
+  const blocks = accountsBetween(st, [], [expensesBetween(st, "2026-09-01", "2026-09-30")]);
+  assert.deepEqual(blocks.map((o) => o.label), ["Cash", "TNG", "Bank OD", "Loan"],
     "her renamed account in her list's place, and the old label its rows were written with — "
     + "⚠️ neither one invisible (v479)");
 });
@@ -560,11 +695,11 @@ test("each of those lines opens its own book, listing that method and nothing el
 
   const line = (label) => allOf(root).filter((n) => String(n.className).includes("info-row"))
     .find((r) => String(r.children?.[0]?.textContent || "") === label);
-  assert.ok(line("Paid by Loan"), "the loan is named as itself, not lumped into 'other'");
-  assert.ok(line("Paid by Personal Pocket Kean"), "and so is her own pocket");
-  assert.ok(String(line("Paid by Personal Pocket Kean").className).includes("tappable"));
+  assert.ok(moneyRowOf(root, "Loan"), "the loan is named as itself, with its own block");
+  assert.ok(moneyRowOf(root, "Personal Pocket Kean"), "and so is her own pocket");
+  assert.ok(String(moneyRowOf(root, "Personal Pocket Kean").className).includes("tappable"));
 
-  line("Paid by Personal Pocket Kean")._listeners.click.forEach((f) => f());
+  moneyRowOf(root, "Personal Pocket Kean")._listeners.click.forEach((f) => f());
   const text = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
   assert.match(text, /Personal Pocket Kean journal/, "its own book opens");
   assert.match(text, /Packaging — boxes/, "with what it paid for");
@@ -587,13 +722,15 @@ test("★★ an account she has just added shows on the Money card, and its book
 
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
-  assert.ok(rows.includes("Paid by Cash to LK=RM 0.00"),
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash to LK=in RM 0.00· out RM 0.00holds RM 0.00"),
     "⚠️⚠️ the account she just added is ON the money card at zero, not invisible until money moves");
 
   // ⭐ AND IT IS A DOOR, exactly the way the Cash and TNG lines are.
   const line = allOf(root).filter((n) => String(n.className).includes("info-row"))
-    .find((r) => String(r.children?.[0]?.textContent || "") === "Paid by Cash to LK");
+    .find((r) => moneyRowName(r) === "Cash to LK");
   assert.ok(String(line.className).includes("tappable"), "its line opens its own book");
   line._listeners.click.forEach((f) => f());
   const text = allOf(screen["popup-layer"]).map((n) => String(n.textContent || "")).join(" ");
@@ -623,14 +760,47 @@ test("★★ every account counts in the Net now — her choice (v480)", () => {
 
   const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => `${r.children[0].textContent}=${r.children[1].textContent}`);
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
   // ⚠️ THE OLD ANSWER WAS RM 15.00 — the cash alone, with the bank transfer in neither side of it.
-  assert.ok(rows.includes("Net=RM 30.00"),
+  assert.ok(rows.includes("Net — every account=RM 30.00"),
     "⚠️ 15 in cash plus 20 into Bank, less the 5 the bank transfer paid — one figure, every account");
-  assert.ok(rows.includes("Paid by Bank=RM 15.00"),
+  assert.ok(rows.includes("Bank=in RM 20.00· out RM 5.00holds RM 15.00"),
     "⭐ and Bank still has its own line, so the money is named as well as counted");
-  assert.ok(rows.includes("Cash in=RM 15.00"),
-    "and Cash in is still exactly the cash — the two figures she counts by hand have not moved");
+  assert.ok(rows.includes("Cash=in RM 15.00· out RM 0.00holds RM 15.00"),
+    "and the Cash block is still exactly the cash — ⭐ what she counts by hand is now that block's "
+    + "own figure rather than a special row above the rest (v481)");
+});
+
+test("⚠️⚠️ a transfer never moves the Net — even into an account that is not cash or TNG", () => {
+  // ⚠️⚠️ THIS WAS A REAL, SILENT BUG UNTIL v480, AND NOTHING COVERED IT. A transfer writes TWO rows:
+  // an expense out of the purse it left, and a deposit into the purse it reached. The expense side
+  // was always counted in Net; ⚠️ **the deposit side was counted only for Cash and TNG.** ⭐ So moving
+  // RM 200 from her tin into the BANK made Net fall by RM 200 — **as if she had spent money she had
+  // only moved.** Her words, asking for the transfer: __"i the fund in it to be transfer from one to
+  // another purse"__.
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG", "Loan", "Bank"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.expenses = [{ id: "e1", date: today, amount: 200, category: "My own withdrawal",
+    method: "Cash", transfer: true, note: "banked it" }];
+  st.deposits = [{ id: "d1", date: today, amount: 200, method: "Bank",
+    source: "Cash", transfer: true }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const rows = allOf(allOf(root).find((n) => String(n.className).includes("money-rows")))
+    .filter((n) => String(n.className).includes("info-row"))
+    .map((r) => String(r.className).includes("acc-row")
+      ? `${r.children[0].children[0].textContent}=${r.children[1].textContent}`
+      : `${r.children[0].textContent}=${r.children[1].textContent}`);
+  assert.ok(rows.includes("Cash=in RM 0.00· out RM 200.00holds RM -200.00"), "the tin really did give it up");
+  assert.ok(rows.includes("Bank=in RM 200.00· out RM 0.00holds RM 200.00"), "and the bank really did receive it");
+  // ⚠️ THE OLD ANSWER WAS RM -200.00 — a transfer read as spending.
+  assert.ok(rows.includes("Net — every account=RM 0.00"),
+    "⚠️⚠️ and Net did not move, because the money never entered or left the business");
 });
 
 // ── v112: paying a personal pocket back ──────────────────────────────────────
@@ -638,7 +808,7 @@ test("★★ every account counts in the Net now — her choice (v480)", () => {
 // Suan?" (17 Sep 2026). A pocket that paid for something is owed by the till; paying it
 // back is two movements — money out of the till, and the pocket's line cleared — so the
 // form writes both, and this pins that both land right and nothing counts twice.
-const { pocketOwed } = await import("../admin/js/money.js");
+const { accountBalance } = await import("../admin/js/money.js");
 const { isWithin } = await import("../admin/js/dates.js");
 const { expensesBetween: spentIn, depositsBetween: putIn } = await import("../admin/js/money.js");
 
@@ -651,18 +821,25 @@ function pocketState() {
   return st;
 }
 
-test("what a pocket is owed is what it paid out, less what of its own went in", () => {
+test("★ an account's balance is what it took in, less what it paid out", () => {
   const st = pocketState();
-  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), 40);
-  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-17", "2026-09-30"), 0,
-    "a day it did nothing is not owed anything");
+  // ⚠️⚠️ THE MEASURE IS THE BALANCE NOW (v481), and a DOWN account reads NEGATIVE — the reverse of the
+  // old "owed" figure it replaced. ⭐ **Her worked day is why:** 160 in and 100 out is a balance of 60,
+  // and the old measure called it "owed 100" because it could not see the money that came in.
+  assert.equal(accountBalance(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), -40,
+    "it paid 40 out of its own and took nothing in, so it is 40 down");
+  assert.equal(accountBalance(st, "Personal Pocket Kean", "2026-09-17", "2026-09-30"), 0,
+    "a stretch it did nothing in leaves it at nothing");
   st.deposits = [{ id: "d1", date: "2026-09-16", amount: 15, method: "Personal Pocket Kean" }];
-  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), 25,
-    "money of its own that went in is not money the till owes it");
-  assert.equal(pocketOwed(st, "Cash", "2026-09-01", "2026-09-30"), 0, "and cash is not a pocket");
+  assert.equal(accountBalance(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), -25,
+    "money that went in lifts it by that much");
+  // ⭐ AND CASH IS MEASURED LIKE ANY OTHER ACCOUNT — ⚠️ it used to be excluded by name, which is the
+  // split she asked me to unify. It reads zero here only because nothing moved through it.
+  assert.equal(accountBalance(st, "Cash", "2026-09-01", "2026-09-30"), 0,
+    "Cash reads like every other account — at nothing, because nothing moved through it");
 });
 
-test("Pay back a pocket takes the money out of the till AND clears the pocket, in one go", (t) => {
+test("★ Pay back an account moves money INTO it and brings it back to zero, in one go", (t) => {
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
   // Saving raises a toast; a real timer would hold the test run open for 2.2s.
   const realTimeout = globalThis.setTimeout;
@@ -677,16 +854,16 @@ test("Pay back a pocket takes the money out of the till AND clears the pocket, i
   renderMoney(root, st);
 
   // The button is offered, and only because there is both a pocket and a till.
-  const open = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes("Pay back a pocket"));
+  const open = allOf(root).find((n) => n.tagName === "BUTTON" && n.textContent.includes("Pay back an account"));
   assert.ok(open, "the Money screen offers it beside Put money in");
   open._listeners.click.forEach((f) => f());
 
   const form = screen["popup-layer"];
   const inForm = (label) => allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === label);
   const amount = inForm("How much you are paying back");
-  assert.equal(amount.value, "40", "opened on the pocket that is owed, pre-filled with what it is owed");
-  assert.ok(allOf(form).some((n) => n.textContent.includes("is owed RM 40.00")),
-    "and it says so, in her own figures");
+  assert.equal(amount.value, "40", "opened on the account that is DOWN, pre-filled with what brings it to zero");
+  assert.ok(allOf(form).some((n) => String(n.textContent || "").includes("is down RM 40.00")),
+    "and it says so, in her own figures — the account that paid out more than it took in");
 
   amount.value = "25"; // she pays part of it back
   const press = (text) => allOf(form).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === text);
@@ -701,7 +878,8 @@ test("Pay back a pocket takes the money out of the till AND clears the pocket, i
   assert.equal(st.deposits.length, 1);
   assert.equal(st.deposits[0].method, "Personal Pocket Kean", "the pocket is told it was paid");
   assert.equal(st.deposits[0].repay, true, "marked as a payback, not money she put in");
-  assert.equal(pocketOwed(st, "Personal Pocket Kean", today, today), 15, "so it is owed 15 now, not 40");
+  assert.equal(accountBalance(st, "Personal Pocket Kean", today, today), -15,
+    "⚠️ so it is down 15 now, not 40 — the payment lifted it");
 
   // And the money-in card names it for what it is, not as money she put in.
   const rows = allOf(root)
@@ -729,10 +907,13 @@ test("the payback lowers the till and the pocket line, and leaves profit alone",
   assert.equal(m.cash + mine.cash + mine.tng - out.cash - out.tng, -25, "so the purse is 25 down");
   assert.equal(mine.cash, 0, "and none of it counts as money she put in");
 
-  const others = otherMethods(st, [m, mine], [out]);
-  assert.deepEqual(others.map((o) => `${o.label}=${o.net}`), ["Loan=0", "Personal Pocket Kean=0"],
-    "the pocket's line is settled — the till owes it nothing now — "
-    + "⚠️ and Loan, which moved nothing at all, still has its line (v479)");
+  const blocks = accountsBetween(st, [m, mine], [out]);
+  // ⚠️ EVERY account is listed now (v481), Cash and TNG with the rest — ⭐ and the pocket's own block
+  // is settled at zero, which is what the payback was for.
+  assert.deepEqual(blocks.map((o) => `${o.label}=${o.holds}`),
+    ["Cash=-25", "TNG=0", "Loan=0", "Personal Pocket Kean=0"],
+    "the account that was paid back is settled — nothing is owed on it now — "
+    + "⚠️ and Loan, which moved nothing at all, still has its block at zero (v479)");
   assert.equal(m.other + mine.other - out.other, 0, "and it was never in the till's own figures");
 });
 
@@ -839,14 +1020,14 @@ test("Day one writes the tin, the phone and the shelf in one go", (t) => {
   press(root, "Set"); // the Day one line, beside Books
   const form = screen["popup-layer"];
   const box = (label) => allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === label);
-  assert.ok(box("Cash in your tin") && box("Money on your phone (TNG)"),
+  assert.ok(box("Cash — your tin") && box("TNG — your phone"),
     "the tin and the phone are both asked for");
   assert.ok(box("Strong flour on hand") && box("Almonds on hand"), "and every ingredient has a box");
   assert.ok(!box("Labour on hand"),
     "except the ones she never buys — labour has no shelf to count");
 
-  box("Cash in your tin").value = "500";
-  box("Money on your phone (TNG)").value = "120.50";
+  box("Cash — your tin").value = "500";
+  box("TNG — your phone").value = "120.50";
   box("Strong flour on hand").value = "5";   // in its own unit: kg
   box("Almonds on hand").value = "600";      // grams
   press(form, "Save day one");
@@ -902,7 +1083,7 @@ test("Day one leaves everything alone when the boxes are blank, and says so", (t
   assert.equal(st.ingredients[0].onHand, 250, "and the stock she already had is untouched");
 
   // A slip in one box must not save the rest half-way: it is checked before anything is written.
-  allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Cash in your tin").value = "500";
+  allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Cash — your tin").value = "500";
   allOf(form).find((n) => n.attrs && n.attrs["aria-label"] === "Almonds on hand").value = "abc";
   allOf(form).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === "Save day one")
     ._listeners.click.forEach((f) => f());
@@ -1105,7 +1286,7 @@ test("a money book can be printed and shared, and what leaves is the book she is
   const root = document.createElement("div");
   renderMoney(root, st);
   const cashRow = allOf(root).filter((n) => String(n.className).includes("info-row"))
-    .find((r) => String(r.children?.[0]?.textContent || "") === "Cash out");
+    .find((r) => moneyRowName(r) === "Cash");
   cashRow._listeners.click.forEach((f) => f());
 
   const pop = screen["popup-layer"];
@@ -1245,8 +1426,13 @@ test("★★⚠️ a pocket payment she marked as her INVESTMENT is not also a d
     { id: "e2", date: "2026-09-11", amount: 60, category: "Packaging",
       method: "Personal Pocket Kean" }, // an ordinary one — the bakery really does owe this
   ];
-  assert.equal(pocketOwed(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), 60,
-    "⚠️⚠️ the pocket still claims the investment as money it is owed — the same ringgit, twice");
+  // ⚠️⚠️ THE DOUBLE-CLAIM IT WAS WATCHING FOR CANNOT HAPPEN ANY MORE (v481). The old measure asked
+  // *"what does the bakery OWE this account"* — and an investment, which is her money put in, would
+  // have been claimed twice: once here and once on her investment account. ⭐ **The balance asks a
+  // different question — what LEFT the account — and the 500 really did leave it.** So both figures
+  // are true at once and neither is a claim: the account is down 560, and 500 of it is her capital.
+  assert.equal(accountBalance(st, "Personal Pocket Kean", "2026-09-01", "2026-09-30"), -560,
+    "everything that left the account, the investment included — a balance, not a claim");
   const inv = investmentOf(st);
   assert.equal(inv.putIn, 500, "⚠️ what she paid for out of her own pocket is not in her investment");
   assert.equal(inv.stillIn, 500, "and nothing was taken back out");
