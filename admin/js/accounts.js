@@ -132,3 +132,29 @@ export function methodRank(state, method) {
   const at = list.indexOf(methodLabel(method));
   return at < 0 ? list.length : at;
 }
+
+// ★★ MOVING ONE ENTRY TO WHERE SHE DROPPED IT (v477) — the handle's own write, shared by all three
+// money lists.
+//
+// Her words: __"make me a handle, and the handle rule is a universal one."__ ⭐ The rule is the one
+// she gave for the shelves: **whatever she repositions with the handle, every drop-down that offers
+// those items follows.** ⚠️ So the ORDER IS THE LIST, and this writes it as the list — the reader on
+// the other side (`methodsOf`, `categoriesOf`, `sourcesOf`) already hands the array back in its own
+// order, which is why no picker needs changing for this to hold.
+//
+// ⚠️ THE WHOLE LIST IS REWRITTEN, not one index: an entry added or deleted elsewhere must not
+// silently shift every other row. The same rule `moveRoute` (deliveryRoutes.js) and `moveInTail`
+// (ingredients.js) keep.
+//
+// ⚠️ AND IT MOVES BY LABEL, because on these lists a LABEL IS THE IDENTITY — the three are arrays
+// of `{ label, cls }` and of plain strings, with no id anywhere between them. A rename rewrites the
+// rows already recorded under the old name (views/accountsEditor.js), so a label that moves is the
+// entry it always was.
+export function moveListEntry(list, keyOf, key, toIndex) {
+  const rows = Array.isArray(list) ? list : [];
+  const at = rows.findIndex((x) => keyOf(x) === key);
+  if (at < 0) return rows;
+  const rest = rows.filter((_, i) => i !== at);
+  const to = Math.max(0, Math.min(Number(toIndex) || 0, rest.length));
+  return [...rest.slice(0, to), rows[at], ...rest.slice(to)];
+}

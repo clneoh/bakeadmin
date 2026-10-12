@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v476)
+# Jienluv2bake — change history (v54 → v477)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v477, A HANDLE ON YOUR MONEY LISTS, AND THE HANDLE RULE MADE UNIVERSAL (no database step).**
+
+**Your words:** __"make me a handle, and the handle rule is a universal one."__
+
+**1. ⭐⭐ "HANDLE" IS YOUR OWN WORD FOR THE DRAG GRIP — the small grip on the left of a line.** You have asked for it by name twice before: on your collection Points (__"design the handle too"__) and on the shelves (__"after i reposition with the handle, the drop drop list have to organise is my preference"__). ⭐ **And the second half of your sentence is a RULE, not a remark: whatever you reposition with the handle, every drop-down that offers those things must follow.**
+
+**2. ⚠️ AND YOUR MONEY LISTS WERE THE ONLY ORDERED LISTS IN THE APP WITH NO HANDLE AT ALL.** Categories, **Ways to pay**, and Where your own money comes from — all on **More → Money → Edit** — could not be arranged, while every other list could. ⚠️ **And those three lists are the ones a payment choice reads, so the order you set there is the order your accounts are offered in everywhere else.**
+
+**3. ★ SO EVERY LINE ON ALL THREE LISTS NOW HAS A GRIP.** Drag any line to move it, exactly the way you drag a shelf or a Point. ⚠️ **A drop can only land among its own list**, so dragging a way to pay will never quietly turn it into a category. ⚠️ **And the line you are editing has no grip**, so an open form can never be picked up and dropped somewhere else.
+
+**4. ⭐⭐ AND YOUR ORDER IS NOW THE LIST ITSELF, WHICH IS WHAT MAKES THE RULE TRUE RATHER THAN PROMISED.** The reader every drop-down is built from **already hands the list back in its own order**, so nothing had to change for the drop-downs to follow. ⭐ **Checked on your own screen: the Money line read __TNG, Loan, Cash__ after the drag.** ⭐ **And those three lists travel between your phones**, so an order you set on one is the order the other one has.
+
+**5. ★★ AND I CHECKED EVERY OTHER HANDLE IN THE APP AGAINST YOUR RULE, BECAUSE A RULE THAT IS ONLY ASSERTED IS NOT ENFORCED.** All five already follow her order: **the shelves and the products** (fixed at v418), **your collection Points**, **the ingredient cards**, **the Point areas**, and **the van routes**. ⭐ **So no picker anywhere needed changing — and that is said here rather than quietly passed over.**
+
+**6. ⚠️⚠️ AND ONE FAULT WAITING TO HAPPEN WAS FIXED ON THE WAY.** A line she can drag is also a line she can **tap**: when she lets go, the browser still sends a press. ⚠️ **Without a guard, dropping a line would have opened the edit form she had just dragged.** ⭐ **It is fixed once, in the shared drag helper**, so it holds for every dragged list in the app rather than just this one — **and a cancelled drag does not swallow the tap she makes next.**
+
+**Measured:** tests **3,390 → 3,395**, every new assertion seen to fail with its own fix removed — **six separate faults bitten, one of which reproduced a real crash in the middle of a drop.** At **375px**: **16 grips, each 36×36, no sideways scroll, and no name wrapping onto a second line.** The grip's contrast measures **5.4:1**. **No database step.**
 
 **12 Oct 2026 — engine v476, THE STUCK CHANGE NOW SAYS ITS OWN NAME (no database step).**
 

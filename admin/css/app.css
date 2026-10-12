@@ -576,16 +576,17 @@ body { min-height: 100vh; }
 .ing-card-row .card-row > div { flex: 1 1 auto; }
 .ing-card-row .li-right { justify-content: flex-end; }
 
-/* The grip a row is dragged by — the Categories, Products, Ingredients and collection-Point lists.
-   One rule for all of them, because it is one gesture: the lists reorder with the same helper in
-   ui.js and must feel identical under the thumb. ⚠️ `.ing-handle` joined it in v399 and `.point-handle`
-   in v410, and each was added HERE rather than as a second copy, because a handle that behaved or
-   measured differently on one screen than another is the kind of difference she would only find by
-   trying it twice. */
+/* The grip a row is dragged by — the Categories, Products, Ingredients, collection-Point and money
+   lists. One rule for all of them, because it is one gesture: the lists reorder with the same helper
+   in ui.js and must feel identical under the thumb. ⚠️ `.ing-handle` joined it in v399, `.point-handle`
+   in v410 and `.money-handle` in v477, and each was added HERE rather than as a second copy, because a
+   handle that behaved or measured differently on one screen than another is the kind of difference she
+   would only find by trying it twice. */
 .cat-handle,
 .prod-handle,
 .ing-handle,
-.point-handle {
+.point-handle,
+.money-handle {
   flex: 0 0 auto;
   /* A 36px target, because this one is dragged with a thumb. */
   width: 36px;
@@ -611,7 +612,8 @@ body { min-height: 100vh; }
 .cat-handle:active,
 .prod-handle:active,
 .ing-handle:active,
-.point-handle:active { cursor: grabbing; background: var(--strip); }
+.point-handle:active,
+.money-handle:active { cursor: grabbing; background: var(--strip); }
 
 /* The heading over a group of collection Points (v410), indented by its depth in the area tree so
    "Sg Ara" reads as sitting inside "Penang Island" rather than beside it. ⚠️ The unfiled block wears
@@ -2406,6 +2408,19 @@ option.tone-off { color: var(--muted); }
    which is easy to miss and easy to land beside — and a tap that does nothing reads as a
    broken screen rather than a small target (17 Sep 2026). */
 .info-row.tappable { min-height: 36px; align-items: center; }
+
+/* ★★ THE MONEY LISTS' OWN DRAGGED LINE (v477). Her words: __"make me a handle, and the handle rule
+   is a universal one."__
+   ⚠️ IT IS WRITTEN HERE, AFTER THE `.info-row` RULES ABOVE, AND NOT BESIDE THE GRIP UP THE PAGE.
+   `.money-list-row` and `.info-row` weigh the same, so at equal weight the LAST one wins — a copy
+   placed up there would have been overridden by `space-between`, and the grip would have floated
+   away from the name it belongs to. It is spelled `.info-row.money-list-row` for the same reason:
+   that is the weight of `.info-row.tappable`, which is what it has to beat.
+   ⚠️ AND THE NAME CARRIES THE `min-width: 0` THAT `.info-row > span:first-child` GIVES A PLAIN LINE.
+   With the grip now the first child, that rule lands on the GRIP instead — and a long account name
+   would then push the line wider than the pop-up rather than wrapping inside it. */
+.info-row.money-list-row { justify-content: flex-start; gap: 4px; }
+.info-row.money-list-row .money-list-name { flex: 1 1 auto; min-width: 0; }
 
 /* The Books list: the line she tapped stays marked, and its book opens UNDER it behind a
    rule, so it is obvious which line the rows belong to (the app has one shared pop-up

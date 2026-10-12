@@ -11,17 +11,30 @@ import assert from "node:assert/strict";
 function createEl(tag) {
   const node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
-    className: "", style: {}, value: "", checked: false, disabled: false, hidden: false,
-    _listeners: {},
-    classList: {
-      _c: new Set(),
-      add(c) { this._c.add(c); },
-      remove(c) { this._c.delete(c); },
-      toggle(c, on) { if (on === undefined ? !this._c.has(c) : on) this._c.add(c); else this._c.delete(c); },
-      contains(c) { return this._c.has(c); },
+    _classes: new Set(), style: {}, value: "", checked: false, disabled: false, hidden: false,
+    _listeners: {}, parentElement: null, _rect: null,
+    // ⚠️⚠️ THE DRAG READS THE DOM BACK, SO THESE HAVE TO BE REAL (v477). `wireRowReorder` asks
+    // `classList.contains(...)`, moves the dragged node with `insertBefore`, reads `children` off the
+    // box it was given, and measures every row's rect. A shim that could not answer those would
+    // report every drag as a no-op — and a no-op still passes. ⭐ `classList` is now backed by the
+    // same `className`, so a row written with `{ class: "info-row" }` really does answer
+    // `contains("money-list-row")`; before this it answered from a set nothing ever wrote to.
+    appendChild(c) {
+      if (c == null) return c;
+      if (c.parentElement) c.parentElement.children = c.parentElement.children.filter((x) => x !== c);
+      c.parentElement = this;
+      this.children.push(c);
+      return c;
     },
-    appendChild(c) { if (c != null) this.children.push(c); return c; },
-    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+    insertBefore(c, ref) {
+      if (c == null) return c;
+      if (c.parentElement) c.parentElement.children = c.parentElement.children.filter((x) => x !== c);
+      c.parentElement = this;
+      const at = ref == null ? this.children.length : this.children.indexOf(ref);
+      this.children.splice(at < 0 ? this.children.length : at, 0, c);
+      return c;
+    },
+    append(...cs) { for (const c of cs) this.appendChild(c); },
     // ⚠️⚠️ THIS SHIM WAS MORE FORGIVING THAN THE BROWSER, AND IT HID A REAL FAULT (v404).
     // It **skipped** a null child. The DOM does not: `replaceChildren` takes nodes *or strings*, so a
     // `null` is converted with `String()` and **prints the word "null" on her screen**. The Money
@@ -30,10 +43,11 @@ function createEl(tag) {
     // ⭐ `el()` DOES skip nulls (that is why most of the app is safe); **`replaceChildren` does not.**
     // A stand-in that cannot express what the browser does is the stand-in that is wrong.
     replaceChildren(...cs) {
+      for (const c of this.children) if (c && c.parentElement === this) c.parentElement = null;
       this.children = [];
       for (const c of cs) {
         if (c == null) this.children.push({ nodeType: 3, text: String(c) });
-        else this.children.push(c);
+        else this.appendChild(c);
       }
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
@@ -41,7 +55,34 @@ function createEl(tag) {
     setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; },
     getAttribute(k) { return this.attrs[k]; },
     focus() {}, click() {},
+    setPointerCapture() {}, releasePointerCapture() {},
+    getBoundingClientRect() {
+      return this._rect || { top: 0, left: 0, right: 300, bottom: 60, width: 300, height: 60 };
+    },
+    get nextElementSibling() {
+      const p = this.parentElement;
+      if (!p) return null;
+      return p.children[p.children.indexOf(this) + 1] || null;
+    },
+    get classList() {
+      const self = this;
+      return {
+        add(...cs) { for (const c of cs) self._classes.add(c); },
+        remove(...cs) { for (const c of cs) self._classes.delete(c); },
+        contains(c) { return self._classes.has(c); },
+        toggle(c, on) {
+          if (on === undefined) { if (self._classes.has(c)) self._classes.delete(c); else self._classes.add(c); }
+          else if (on) self._classes.add(c);
+          else self._classes.delete(c);
+        },
+      };
+    },
   };
+  Object.defineProperty(node, "className", {
+    get() { return [...node._classes].join(" "); },
+    set(v) { node._classes = new Set(String(v).split(/\s+/).filter(Boolean)); },
+    enumerable: true,
+  });
   Object.defineProperty(node, "textContent", {
     get() { return this.children.map((c) => (c.nodeType === 3 ? c.text : c.textContent)).join(""); },
     set(v) { this.children = v === "" ? [] : [{ nodeType: 3, text: String(v) }]; },
@@ -70,7 +111,7 @@ globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
 const { renderMoney } = await import("../admin/js/views/money.js");
 const { entryForm } = await import("../admin/js/views/accountsEditor.js");
-const { classOfCategory } = await import("../admin/js/accounts.js");
+const { classOfCategory, methodsOf } = await import("../admin/js/accounts.js");
 const { weekStartISO } = await import("../admin/js/weekly.js");
 const { todayISO, longDate } = await import("../admin/js/dates.js");
 
@@ -92,9 +133,15 @@ const fire = (node, ev = { stopPropagation() {} }) =>
   (node._listeners.click || []).forEach((f) => f(ev));
 const byText = (root, text) =>
   walk(root).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === text);
+// The line for `label`. ⚠️ FOUND BY ITS NAME, NOT BY `children[0]` — the first child has been the
+// drag grip since v477, and a finder keyed to a child's POSITION is one that breaks the next time a
+// row gains something at its head. It broke in exactly that way when the grip arrived.
 const managerRow = (label) => walk(registry["popup-layer"])
   .filter((n) => String(n.className).includes("info-row"))
-  .find((r) => r.children[0].textContent === label);
+  .find((r) => r.children.some((c) => String(c.className).includes("money-list-name") && c.textContent === label));
+// What a line says beside the name — its own class rather than a position, for the same reason.
+const rowNote = (row) => row.children.find((c) => String(c.className).includes("info-val"));
+const rowName = (row) => (row.children.find((c) => String(c.className).includes("money-list-name")) || {}).textContent;
 // The entry form's own box — by its label, not simply the first input, because the
 // expense form behind it has an amount box of its own.
 const editorBox = () => walk(registry["popup-layer"])
@@ -129,10 +176,10 @@ test("Edit opens the lists, and every line can be opened to change it", () => {
   const state = freshState();
   openManager(state);
   const listed = walk(registry["popup-layer"]).filter((n) => String(n.className).includes("info-row"));
-  const names = listed.map((r) => r.children[0].textContent);
+  const names = listed.map(rowName);
   assert.ok(names.includes("Rent") && names.includes("Salary (you)"), "the chart, by name");
   assert.ok(names.includes("Cash") && names.includes("TNG") && names.includes("Loan"), "and the ways to pay");
-  assert.match(managerRow("Loan").children[1].textContent, /not from the purse/,
+  assert.match(rowNote(managerRow("Loan")).textContent, /not from the purse/,
     "with a loan marked as money that never went near it");
   assert.ok(String(managerRow("Rent").className).includes("tappable"), "a line says it can be opened");
 });
@@ -235,7 +282,7 @@ test("★★ the sources list is on the screen she edits the other two on", () =
   openManager(state);
   const names = walk(registry["popup-layer"])
     .filter((n) => String(n.className).includes("info-row"))
-    .map((r) => r.children[0].textContent);
+    .map(rowName);
   assert.ok(names.includes("My own pocket") && names.includes("Savings"),
     "⚠️ the third list is not on the screen she edits the other two on");
 });
@@ -441,4 +488,152 @@ test("★★⚠️ the window stepper never prints the word 'null' — the arrow
   const all = walk(root).find((n) => n.tagName === "BUTTON" && n.textContent.trim() === "All");
   fire(all);
   assert.ok(!/null/.test(root.textContent), "⚠️ the word 'null' appears on the All window");
+});
+
+// ── ★★ THE HANDLE (v477) ─────────────────────────────────────────────────────
+//
+// Her words: __"make me a handle, and the handle rule is a universal one."__ ⭐ The rule is the one
+// she gave for the shelves — **what she repositions with the handle, every drop-down that offers it
+// follows** — and on these three lists it holds for free, because the ORDER IS THE ARRAY that
+// `categoriesOf` / `methodsOf` / `sourcesOf` hand back. So these pin the two halves that could drift:
+// the grip being on every line, and the drag writing the whole list in her order.
+
+const listRows = () => walk(registry["popup-layer"])
+  .filter((n) => String(n.className).includes("money-list-row"));
+const gripOf = (row) => row.children.find((c) => String(c.className).includes("money-handle"));
+
+// Give every line the geometry a phone would: 60px tall, 80px apart down the page. The drag measures
+// against these and nothing else, so only the GAPS matter and not which index a line happens to be.
+const lay = (rows, top = 0, height = 60, gap = 80) => {
+  rows.forEach((n, i) => {
+    n._rect = { top: top + i * gap, left: 0, width: 300, height, bottom: top + i * gap + height, right: 300 };
+  });
+};
+// One press, one move, one release on a line's grip.
+function dragLine(row, dy) {
+  const handle = gripOf(row);
+  const base = row._rect.top;
+  handle._listeners.pointerdown[0]({ button: 0, pointerId: 1, clientX: 10, clientY: base + 10, preventDefault() {} });
+  handle._listeners.pointermove[0]({ pointerId: 1, clientX: 10, clientY: base + 10 + dy });
+  handle._listeners.pointerup[0]({ pointerId: 1 });
+}
+// A click travelling from the grip UP to the line, the way the browser delivers it. ⚠️ FIRING THE
+// LINE'S OWN HANDLER WOULD PASS WHETHER THE GUARD EXISTED OR NOT, because the guard IS a
+// `stopPropagation` on the grip — a test that skips the bubbling tests nothing.
+function clickThrough(chain) {
+  const ev = { stopped: false, stopPropagation() { this.stopped = true; } };
+  for (const n of chain) {
+    for (const f of n._listeners.click || []) f(ev);
+    if (ev.stopped) return false;
+  }
+  return true;
+}
+
+test("★★ every line of all three lists carries a handle, and the one being edited does not", () => {
+  const state = freshState();
+  openManager(state);
+  const rows = listRows();
+  assert.ok(rows.length >= 16, "the three lists are all on this screen");
+  const bare = rows.filter((r) => !gripOf(r));
+  assert.equal(bare.length, 0, "⚠️ a line with no handle is a line she cannot arrange");
+  assert.ok(rows.every((r) => gripOf(r).attrs.title === "Drag to reorder"),
+    "⚠️ and the grip says what it is for");
+
+  // ⚠️ THE LINE BEING EDITED IS NOT A DRAGGED LINE. The editor REPLACES the line, so an open form
+  // cannot be picked up and dropped somewhere else — the same reason the Categories screen leaves the
+  // heading out of its reachable rows.
+  const before = rows.length;
+  fire(managerRow("Loan"));
+  assert.equal(listRows().length, before - 1,
+    "⚠️ the line she opened is still draggable — an open form must never be picked up");
+});
+
+test("★★ dragging a way to pay writes HER order onto the list itself", () => {
+  const state = freshState();
+  assert.deepEqual(state.settings.payMethods, [], "the list is not in her settings yet");
+  openManager(state);
+  lay(listRows());
+  dragLine(managerRow("Cash"), 200);
+  assert.deepEqual(state.settings.payMethods, ["TNG", "Loan", "Cash"],
+    "⚠️ the built-in list is now WRITTEN OUT in her order — a drag that only moved the picture "
+    + "would be undone by the next redraw");
+});
+
+test("★★ a drop lands only among its own list, and the page is not rebuilt under her", () => {
+  const state = freshState();
+  openManager(state);
+  lay(listRows());
+  const cash = managerRow("Cash");
+  // ⚠️ ONE SLOT DOWN, AND THE ANSWER DEPENDS ENTIRELY ON THE `kin` GUARD. Read against EVERY row on
+  // the screen instead, the eleven categories above it all sit closer to the pointer than TNG does,
+  // and Cash would be sent to the far end of the list. A sideways drop that read as "make this a
+  // category" is a rule she would have to be taught — the same reason the Categories screen holds a
+  // drop among brothers.
+  dragLine(cash, 80);
+  assert.deepEqual(state.settings.payMethods, ["TNG", "Cash", "Loan"], "one slot down, among its own");
+  assert.deepEqual(state.settings.categories, [], "and the chart is not touched");
+  // ⚠️ NOT `deepEqual([])`: this fixture never had a sources list, and the point is that the drag
+  // must not WRITE one either. Asserting on emptiness would pass for the wrong reason.
+  assert.ok(!Array.isArray(state.settings.sources), "nor where her own money comes from");
+
+  // Far past the bottom of the screen: still the end of its OWN list, not after the sources.
+  lay(listRows());
+  dragLine(managerRow("Cash"), 4000);
+  assert.deepEqual(state.settings.payMethods, ["TNG", "Loan", "Cash"], "still among the ways to pay");
+  // ⚠️ AND THE DRAGGED NODE IS STILL THE ONE ON THE PAGE. `wireRowReorder` moves it itself after
+  // `onDrop` returns, so a rebuild here would replace every line and leave the drop half-done — and a
+  // count of nodes would not have caught that, because a rebuild builds the same number of them.
+  assert.ok(listRows().includes(cash),
+    "⚠️⚠️ the line was replaced instead of moved — the redraw took the page's scroll with it");
+});
+
+test("★★ what she repositions is the order every picker then offers", () => {
+  // ⚠️ THIS IS THE OTHER HALF OF HER RULE, AND IT IS THE HALF THAT HAS BROKEN BEFORE. The drag writes
+  // the LIST; the readers hand that same list back in its own order — `methodsOf` to every drop-down
+  // built from it, `categoriesOf` to the expense form, `sourcesOf` to the money-in form. So the thing
+  // worth pinning is not "the list moved" but "the next thing that offers her accounts offers them in
+  // her order".
+  const state = freshState();
+  openManager(state);
+  lay(listRows());
+  dragLine(managerRow("Cash"), 200);
+  assert.deepEqual(methodsOf(state), ["TNG", "Loan", "Cash"],
+    "⚠️ every drop-down built from `methodsOf` must now offer TNG, Loan, Cash — the order she set");
+});
+
+test("⚠️⚠️ a drag is not a press, and a press is still a press", () => {
+  // ⚠️ `setPointerCapture` retargets the pointerup to the grip, so the browser dispatches a `click`
+  // on it after every drop. Without the guard in `ui.js` that click bubbled to the line and opened the
+  // form she had just dragged.
+  const state = freshState();
+  openManager(state);
+  lay(listRows());
+  const cash = managerRow("Cash");
+  dragLine(cash, 200);
+  const grip = gripOf(cash);
+  assert.equal(clickThrough([grip, cash]), false,
+    "⚠️⚠️ the click after a drop reached the line — the editor opens on every single drag");
+  // ⭐ AND THE NEXT CLICK MUST GET THROUGH. A guard cleared in the wrong place — or never — would
+  // swallow the tap she makes straight afterwards, which is a worse fault than the one it fixed.
+  assert.equal(clickThrough([grip, cash]), true,
+    "⚠️ the click after the drop swallowed the NEXT press too — the guard is never cleared");
+  assert.ok(editorBox(), "and the line she pressed is open for editing");
+
+  // ⚠️ AND A CANCELLED DRAG MUST NOT SWALLOW THE TAP AFTER IT. `pointercancel` ends a gesture with no
+  // click for the guard to consume, so the flag is left armed — and it is the NEXT pointerdown that
+  // disarms it. ⭐ That is why the reset lives on the press and not in `finish()`: `finish()` runs
+  // BEFORE the click arrives, so clearing it there would look tidier and would let every drop through.
+  // ⚠️ RE-LAID, because opening the editor above rebuilt every line and the new nodes have no
+  // geometry. A test that read the old nodes' rects off the new nodes would be measuring nothing.
+  lay(listRows());
+  const loan = managerRow("Loan");
+  const grip2 = gripOf(loan);
+  const base = loan._rect.top;
+  grip2._listeners.pointerdown[0]({ button: 0, pointerId: 1, clientX: 10, clientY: base + 10, preventDefault() {} });
+  grip2._listeners.pointermove[0]({ pointerId: 1, clientX: 10, clientY: base + 90 });
+  grip2._listeners.pointercancel[0]({ pointerId: 1 });
+  grip2._listeners.pointerdown[0]({ button: 0, pointerId: 1, clientX: 10, clientY: base + 10, preventDefault() {} });
+  grip2._listeners.pointerup[0]({ pointerId: 1 });
+  assert.equal(clickThrough([grip2, loan]), true,
+    "⚠️ a cancelled drag left the guard armed and the tap after it was swallowed");
 });

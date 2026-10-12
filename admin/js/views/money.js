@@ -4,11 +4,11 @@
 // maths lives in js/money.js — the same module the Orders day header reads, so the
 // two can never disagree; this screen only draws it.
 
-import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
+import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween, otherMethods, pocketOwed } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
-import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, pocketMethods, purseMethods, sourcesOf } from "../accounts.js";
+import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, pocketMethods, purseMethods, sourcesOf } from "../accounts.js";
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 // An ingredient's own unit, resolved exactly as the Ingredients screen resolves it, so a
 // stock count typed here lands as the same number of grams the On-hand line shows.
@@ -294,6 +294,28 @@ function openBooks(state, from, to, stretchLabel) {
   showPopup(el("div", { class: "popup-title-row" }, "Books"), () => body);
 }
 
+// ★★ THE HANDLE'S WRITE (v477) — the line she dropped, written back as the WHOLE list.
+//
+// ⚠️ AND IT MATERIALISES A BUILT-IN LIST THE FIRST TIME SHE DRAGS ONE. Until she touches them the
+// three lists are not in her settings at all — `categoriesOf`, `methodsOf` and `sourcesOf` hand back
+// the built-ins — so a drag that only reordered what was already on screen would be undone by the
+// next redraw. Writing the list is what makes her order real, and it is exactly what `entryForm`
+// already does the moment she adds or renames an entry.
+//
+// ⚠️ THE SHAPES ARE THE STORED ONES, not the drawn ones: categories are `{ label, cls }` objects,
+// while ways to pay and sources are plain strings (see `accounts.js` and `accountsEditor.js`).
+function writeOrder(state, kind, label, slot) {
+  const s = state.settings;
+  if (kind === "category") {
+    s.categories = moveListEntry(categoriesOf(state), (c) => c.label, label, slot)
+      .map((c) => ({ label: c.label, cls: c.cls || "expense" }));
+  } else if (kind === "source") {
+    s.sources = moveListEntry(sourcesOf(state), (m) => m, label, slot).map(String);
+  } else {
+    s.payMethods = moveListEntry(methodsOf(state), (m) => m, label, slot).map(String);
+  }
+}
+
 // Everything on the two lists, as a list of its own: tap a line to rename it, change
 // what kind it is, or delete it. Opened from the line under the money cards, because
 // this is where the spending is — a separate Settings card was the wrong home
@@ -309,13 +331,58 @@ function openListsManager(state, redraw) {
   const show = () => {
     const cats = categoriesOf(state); // { label, cls } — the labels alone carry no kind
     const methods = methodsOf(state);
-    const row = (label, note, kind) => (
-      editing && editing.kind === kind && editing.label === label
-        ? entryForm(state, { kind, current: label, onDone: done })
-        : el("div", { class: "info-row tappable", onclick: () => { editing = { kind, label }; show(); } },
-            el("span", {}, label), el("span", { class: "info-val" },
-              el("span", { class: "muted" }, `  ${note}`),
-              el("span", { class: "muted", style: "margin-left:6px" }, "edit"))));
+    // ★★ EVERY LINE CARRIES A HANDLE (v477). Her words: __"make me a handle, and the handle rule is a
+    // universal one."__ ⭐ The rule is the one she gave for the shelves — **what she repositions with
+    // the handle, every drop-down that offers it follows** — and on these three lists it holds for
+    // free, because the order IS the array: `categoriesOf`, `methodsOf` and `sourcesOf` all hand the
+    // list back in its own order. ⚠️ So nothing on the READING side changes; only the writing side
+    // gains a way in, which is why this version touches no picker.
+    const row = (label, note, kind) => {
+      // ⚠️ THE LINE BEING EDITED IS NOT DRAGGABLE — the grip goes on the plain line only, so an open
+      // form cannot be picked up and dropped somewhere else.
+      if (editing && editing.kind === kind && editing.label === label) {
+        return entryForm(state, { kind, current: label, onDone: done });
+      }
+      const grip = el("span", { class: "money-handle", title: "Drag to reorder", "aria-hidden": "true" }, "⠿");
+      const line = el("div", {
+        class: "info-row tappable money-list-row",
+        // ⚠️ THE KIND IS IN THE ID, because a label alone is not unique across the three lists —
+        // and `kin` below reads it back, so a drop can only ever land among its own kind.
+        dataset: { id: `${kind}:${label}` },
+        onclick: () => { editing = { kind, label }; show(); },
+      },
+        grip,
+        el("span", { class: "money-list-name" }, label),
+        el("span", { class: "info-val" },
+          el("span", { class: "muted" }, `  ${note}`),
+          el("span", { class: "muted", style: "margin-left:6px" }, "edit")));
+      wireRowReorder({
+        row: line,
+        handle: grip,
+        // ⚠️ A FUNCTION, NOT THE ELEMENT: the line is wired before it is put in the list, so it has
+        // no parent yet — and the helper calls this AFTER `onDrop` has returned and the node moved.
+        boxOf: () => line.parentElement,
+        rowSelector: "money-list-row",
+        // A drop lands among the lines of THIS list and nowhere else. The `h3` headings and the ＋
+        // chips between the sections are not `money-list-row`, and the other two lists are a
+        // different kind: reading a sideways drop as "make this a category" is a rule she would have
+        // to be taught, which is the same reason the Categories screen holds a drop among brothers.
+        kin: (n) => String(n.dataset.id || "").startsWith(`${kind}:`),
+        onDrop: (slot) => {
+          writeOrder(state, kind, label, slot);
+          save(state);
+          maybeSync(state);
+          // ⚠️⚠️ AND NO `show()` HERE, WHICH IS NOT AN OVERSIGHT. `wireRowReorder` moves the dragged
+          // NODE itself, immediately after this returns — a rebuild would replace every line with a
+          // new one, so the row it is about to place would already be detached from the page and
+          // `boxOf()` would read `children` off null and throw **in the middle of her drop**. The
+          // Categories and Points screens omit the redraw for the same reason, and ui.js says why in
+          // its own words: *"never a re-render of the list, which would throw every row back to its
+          // start and take the page's scroll with it."*
+        },
+      });
+      return line;
+    };
 
     body.replaceChildren(
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
