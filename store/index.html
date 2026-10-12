@@ -16,6 +16,22 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥖</text></svg>">
 </head>
 <body>
+  <!-- ★★ THE PAGE CHECKS ITSELF (v492). GitHub Pages serves this shop with `cache-control:
+       max-age=600` and no build number in any URL, so a price change, a closed day or a new
+       field can be pushed and NOT arrive — a customer ordering off the old page is a real order
+       placed wrongly. The backoffice has had this strip since v255; the shop never did.
+       ⚠️ IT IS ABOVE EVERYTHING, including the header, because it is about the whole page.
+       ⚠️ AND IT SAYS NOTHING WHEN IT CANNOT TELL — offline, a stub, a file it cannot read: all
+       silent. A page that cried "out of date" on a bad connection would be worse than one that
+       never spoke, and the customer has done nothing wrong.
+       The three strings come from store-lang.js like every other word on this page, so it
+       arrives in whichever language they are reading. -->
+  <div class="build-notice" id="build-notice" hidden>
+    <p class="build-say" id="build-say" data-i18n="buildStale">A newer version of this page is ready.</p>
+    <p class="build-say" id="build-stuck" data-i18n="buildStuck" hidden>A newer version is ready. Close this page completely, then open it again.</p>
+    <button type="button" class="build-btn" id="build-reload" data-i18n="buildReload">Reload</button>
+  </div>
+
   <header class="hero">
     <div class="hero-top">
       <p id="eyebrow" class="hero-eyebrow"></p>

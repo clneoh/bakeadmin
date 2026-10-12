@@ -2239,3 +2239,56 @@ button.prod-next.off::after { content: ""; }
   .step-note.flash { animation: none; background-color: var(--red); color: #fbf4ea; }
   .step-note.flash strong { animation: none; color: #fbf4ea; }
 }
+
+/* ★★ THE SHOP'S OWN BUILD NOTICE (v492). Her words: __"just build the shop warning"__.
+   ⚠️⚠️ WHY IT EXISTS: GitHub Pages serves this shop with `cache-control: max-age=600` and no build
+   number in any URL, so a price change, a closed day or a new field can be pushed and NOT arrive.
+   **A customer ordering off the old page is a real order placed wrongly** — and the shop, unlike the
+   backoffice, never had anything that said so (the app has had it since v255).
+   ⭐ IT IS STATIC MARKUP, ABOVE THE HEADER, because it is about the whole page — the shop's own
+   app.js only ever unhides it.
+   ⚠️ `[hidden]` MUST BE SPELLED OUT BELOW. `display: flex` beats the browser's own
+   `[hidden] { display: none }`, so without these two rules the notice would be on screen from the
+   first paint of every order — **the fault would look like the fix.** */
+.build-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 8px;
+  padding: 9px 14px;
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+}
+.build-notice[hidden] { display: none; }
+.build-say { margin: 0; }
+.build-say[hidden] { display: none; }
+/* ⚠️ THE PRESS WEARS THE SHOP'S OWN INLINE-LINK TREATMENT (`.pin-link`), NOT A BUTTON. A bordered
+   button the width of the bar says "now do this"; this is a sentence with a press inside it, which
+   is what it is — an offer, not an alarm. ⚠️ And it is deliberately NOT red: nothing has gone wrong,
+   the customer did nothing wrong, and a red bar over a bakery's prices reads as a failure.
+   ⚠️ `--brown-dark` (#a84322) on `--surface` (#fffdf9) is **5.92:1** — over the 4.5 every word of
+   this page is held to, and it is the same pair `.pin-link` already uses. */
+.build-btn {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  color: var(--brown-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  /* A little vertical room so the press is a real target rather than the height of a line of
+     text — the bar itself is taller, so this never changes the bar's height. */
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.build-btn:hover { text-decoration-thickness: 2px; }
+.build-btn:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
+.build-btn[hidden] { display: none; }

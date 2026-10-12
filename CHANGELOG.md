@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v491)
+# Jienluv2bake — change history (v54 → v492)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**12 Oct 2026 — engine v492, THE SHOP NOW TELLS A CUSTOMER WHEN THEY ARE LOOKING AT AN OLD PAGE (no database step).**
+
+**Your words:** __"just build the shop warning"__
+
+**1. ⭐⭐ AND THE SHOP HAD NOTHING, WHILE YOUR BACKOFFICE HAS HAD IT SINCE v255.** GitHub Pages hands the shop over with a ten-minute allowance on it, so a change you push can simply **not arrive** — and a customer ordering off the old page is a **real order, placed wrongly**. ⚠️ **It matters more at the shop than in your app: in your app the person reading it is you, and you would notice. Here it is a customer who has no way of knowing.** So the shop now checks itself — ⭐ **a quiet line at the top, above everything: "A newer version of this page is ready." with a Reload.**
+
+**2. ⭐ AND IT SAYS NOTHING WHEN IT CANNOT TELL — that is the whole safety of it.** If the phone is offline, or the answer is a page it cannot read, or the answer arrives empty, ⭐ **it stays silent.** ⚠️ **A shop that cried "out of date" on a weak connection would be worse than one that never spoke at all** — the customer has done nothing wrong and there is nothing for them to fix. **Written out as its own test, eight ways.**
+
+**3. ⭐⭐ AND THE SECOND STATE, BECAUSE THE FIRST ONE CANNOT ALWAYS WORK.** Pressing Reload asks the browser for the page again — ⚠️ **and a browser still holding the old page will happily hand the same one back.** So after one try the shop stops offering a button that has just been shown not to work, and says what actually does: __"Close this page completely, then open it again."__ ⭐ **A button that does nothing reads as broken** — your own rule, the one behind the sold-out notes and the closed days.
+
+**4. ⭐ It is in English, Chinese and Bahasa Malaysia like every other word on the shop**, and it is a **sentence with a press in it**, never a red alarm: nothing has gone wrong.
+
+**Measured:** the notice was proved gone from a page whose build is current, and proved to appear the moment the site's build differs — **in either direction**. Tests **3,408 → 3,418** (ten new, and every one of them watched to fail by its own message before being kept: the pattern drifting from the version file, "cannot tell" answering yes, the hidden rule going missing, the press being offered twice, the reload happening before the memory was written, and a second reload appearing anywhere else in the shop). ⚠️ **One older guard had to be rewritten, and honestly: it asserted the shop NEVER reloads the page at all.** That was always meant to say **"a language change must not reload the page"** — ⭐ **and a rule written as a blanket "never" outlaws the first correct case that comes along.**
+
+**No database step.**
 
 **12 Oct 2026 — engine v491, IT ASKS YOU TO REFUND THE CUSTOMER (no database step).**
 

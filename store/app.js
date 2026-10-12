@@ -18,6 +18,9 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+// "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
+// test can pin them (this file calls `render()` at the top level and cannot be imported at all).
+import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
 // The promo-code engine, shared with the backoffice so a code the shop accepts is
 // exactly a code her app recognises. It is a leaf module (imports nothing), which
 // is why the shop can take it without pulling the backoffice's storage in.
@@ -1448,6 +1451,72 @@ let stepNoteAt = null;
       b._flashTimer = undefined;
     }, flashMs());
   };
+
+// ---------------------------------------------------------------------------------
+// ★★ IS THIS PAGE THE NEWEST ONE? (v492)
+//
+// Her words: __"just build the shop warning"__.
+//
+// ⭐ THE DECISION ITSELF LIVES IN `store/build.js`, ALONE AND PURE — a comparison of two numbers
+// needs no page to be true, and it can be pinned by a test that way (this file cannot: it calls
+// `render()` at the top level, so no test can import it at all). **Everything in this block is the
+// asking; everything worth proving is over there.**
+//
+// ⚠️ NONE OF IT WAS HERE BEFORE, AND IT IS NOT ONLY HER: the backoffice has carried a
+// "you are on an old build" strip since v255, and the shop — the page a CUSTOMER uses, who has no
+// way of knowing and whose order is real money — had nothing. **It asks the site which build it is
+// serving, with `cache: "no-store"` so the browser cannot answer out of its own copy, and compares
+// it with this page's own build.** One small file, one number compared; nothing about the customer,
+// nothing sent anywhere.
+// ---------------------------------------------------------------------------------
+
+// ⚠️ THE SECOND STATE EXISTS BECAUSE THE FIRST ONE CANNOT ALWAYS WORK. Pressing Reload asks the
+// browser to fetch the page again — and a browser still holding the old script will happily serve
+// it, so the customer lands back here with the same notice and a button that did nothing. **The
+// backoffice's strip learned this at v256 and stops offering the press; this does the same, and it
+// remembers across the reload through `sessionStorage`** (a page reload wipes memory, and that is
+// the whole problem being solved). ⚠️ Every use is guarded: a browser that refuses storage simply
+// loses the memory, and the worst case is that a press which did not work is offered once more.
+function buildTried() {
+  try { return sessionStorage.getItem(BUILD_TRIED_KEY) === String(ENGINE_VERSION); }
+  catch { return false; }
+}
+function rememberBuildTried() {
+  try { sessionStorage.setItem(BUILD_TRIED_KEY, String(ENGINE_VERSION)); }
+  catch { /* no storage — the press is simply offered again next time */ }
+}
+
+function paintBuildNotice() {
+  const box = typeof document === "undefined" ? null : document.getElementById("build-notice");
+  if (!box) return;
+  box.hidden = false;
+  const tried = buildTried();
+  const say = document.getElementById("build-say");
+  const stuck = document.getElementById("build-stuck");
+  const btn = document.getElementById("build-reload");
+  // ⚠️ THE PRESS GOES ON THE SECOND STATE, AND NEVER BEFORE: a customer who has not yet tried has
+  // something useful to press, and one who has is told what actually works. **A dead button is
+  // worse than no button** — this page's own rule, and the reason a closed day and a sold-out line
+  // say their state in words instead of going grey.
+  if (say) say.hidden = tried;
+  if (stuck) stuck.hidden = !tried;
+  if (btn) btn.hidden = tried;
+}
+
+async function checkBuild() {
+  if (typeof document === "undefined") return;
+  // ⚠️ ONCE THE NOTICE IS UP THERE IS NOTHING MORE TO LEARN, and this runs on every 30-second beat
+  // — re-asking would be a request every half minute for an answer already known. It clears itself
+  // when the customer reloads.
+  const box = document.getElementById("build-notice");
+  if (box && !box.hidden) return;
+  try {
+    const res = await fetch(VERSION_URL, { cache: "no-store" });
+    if (!res || !res.ok) return;
+    const text = await res.text();
+    if (newerBuild(text)) paintBuildNotice();
+  } catch { /* offline, or a stub — say nothing rather than guess */ }
+}
 
 export function render() {
   renderStatic(CONFIG);
@@ -3036,6 +3105,10 @@ function clearFieldMarks() {
       if (doc && doc.visibilityState && doc.visibilityState !== "visible") return;
       busy = true;
       try { await refresh(); } finally { busy = false; }
+      // ★★ AND THE OTHER HALF OF "IS THIS PAGE HONEST?" (v492) — not only "is the bread still
+      // today's", but "is this the newest page". The same 30-second beat, the same coming-back-
+      // to-the-tab moment, because the answer can change while a customer sits on the shop.
+      checkBuild();
     };
     if (hasVisibility) {
       const listen = (t, type, fn) => { if (t && typeof t.addEventListener === "function") t.addEventListener(type, fn); };
@@ -3043,6 +3116,10 @@ function clearFieldMarks() {
       listen(win, "focus", poll);
       listen(win, "online", poll);
       setInterval(poll, 30000);
+      // ⚠️ ONCE ON ARRIVAL TOO, AND NOT WAITED ON: an order must never be held up by a question
+      // about which build the phone is on. This is also the moment that matters most — a customer
+      // who has just opened the shop is the one most likely to be holding a ten-minute-old page.
+      checkBuild();
     }
   }
 
@@ -4903,6 +4980,20 @@ if (typeof document !== "undefined" && document.documentElement) {
   applyTo(document, STORE, loadLang());
   paintPillsHook(loadLang());
   pills.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+
+  // ★★ THE NOTICE'S OWN PRESS (v492) — bound here, ONCE, for the same reason the privacy notice
+  // below is: the markup is static HTML that is never replaced, so one binding lasts the life of
+  // the page.
+  // ⚠️ IT REMEMBERS FIRST, THEN RELOADS. A browser still holding the old script serves it straight
+  // back — so if this press did nothing, the remembered flag is what turns the second sight of this
+  // notice into the honest "close the page completely and open it again" instead of **the same
+  // button quietly doing nothing a second time.**
+  const buildBtn = document.getElementById("build-reload");
+  if (buildBtn) buildBtn.addEventListener("click", () => {
+    rememberBuildTried();
+    paintBuildNotice();
+    if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
+  });
 
   // ---------------------------------------------------------------------------------
   // THE PRIVACY NOTICE UNDER PLACE ORDER — bound ONCE, here, and nowhere else.
