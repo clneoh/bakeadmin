@@ -1895,6 +1895,39 @@ test("an order with no note posts no note key at all — the payload is the one 
   });
 });
 
+test("★★★ the after-order reset clears the COLLECTION CENTRE — not only the way (v505)", () => {
+  // ⚠️⚠️ HER REPORT, AND IT IS EXACT: __"After i place order, the screen response with order confirmation, and
+  // page reseted. But the earlier order, step 3 choice of self collection centre still engaged. Why it is
+  // so?"__ ⭐ **THE ANSWER WAS ONE LINE: the reset cleared `_picked` and set the way back to collect, and NEVER
+  // CLEARED `_pointId` — which is WHICH CENTRE he chose.**
+  // ⭐⭐ **So the next customer opened step 3 with the last customer's collection point still chosen — and
+  // because the ORDER carries that id, an order could be stamped with a centre nobody picked.**
+  // ⚠️ **AND 3,433 TESTS WERE GREEN WHILE IT WAS WRONG.** The test that did exist about clearing the point is
+  // about **switching away from collect** (v436) — ⭐ **a different door onto the same state, and the
+  // after-order reset went through neither.**
+  //
+  // ⚠️ ASKED OF THE SHOP'S OWN RESET FUNCTION — which is exactly what the order handler calls, so this is the
+  // behaviour an order runs. ⭐ Stated plainly: it does NOT drive a basket and a tap to get here, because the
+  // question is what the RESET does to a chosen centre, and a fixture that had to tap its way in would be
+  // testing the tap.
+  render();
+  tapDay();
+  const wrap = registry["fulfillment"];
+  // ⭐ A centre, chosen — the state the last customer left behind.
+  wrap._pointId = "pt_farlim";
+  wrap._pointName = "Farlim";
+  wrap._picked = true;
+
+  wrap._resetFulfillment();                   // ⭐ the reset an order runs
+
+  assert.equal(wrap._pointId, "",
+    "★★ the next customer's step 3 still has the LAST customer's collection centre chosen — **and the order "
+    + "carries that id, so an order can be stamped with a centre nobody picked**");
+  assert.equal(wrap._pointName, "",
+    "and the centre's NAME is still held, so the shop can still name it back as if it were his");
+  assert.equal(wrap._picked, false, "and the way itself is reset, which is the half that always worked");
+});
+
 test("the next customer does not inherit the last one's note", async () => {
   await withNotedProduct(async (p) => {
     pressPlus(cardNamed(p.name));

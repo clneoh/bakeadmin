@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "504";
+export const SHOP_BUILD = "505";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -4848,7 +4848,24 @@ function wireFulfillment() {
   // method back: `_picked` is set in the TAP handler, and the reset does not go through a tap — so
   // without this a second order from the same phone would open with step 3 already green, crediting
   // the next customer with the last one's choice.
-  wrap._resetFulfillment = () => { wrap._picked = false; apply("collect"); };
+  // ★★★ AND THE CHOSEN COLLECTION CENTRE GOES WITH IT (v505).
+  //
+  // ⚠️⚠️ HER REPORT, AND IT IS EXACT: __"After i place order, the screen response with order confirmation, and
+  // page reseted. But the earlier order, step 3 choice of self collection centre still engaged. Why it is
+  // so?"__ ⭐ **THE ANSWER IS THIS ONE LINE: it cleared `_picked` and set the way back to collect — and it
+  // NEVER CLEARED `_pointId`, which is WHICH CENTRE he chose.**
+  // ⭐⭐ **SO THE NEXT CUSTOMER OPENED STEP 3 WITH THE LAST CUSTOMER'S COLLECTION POINT STILL CHOSEN** — and
+  // because the order carries that id, **an order could be stamped with a centre the customer never picked.**
+  // ⚠️ That is not a cosmetic fault, which is why it deserved a line of its own rather than being folded into
+  // `apply("collect")`.
+  // ⭐ AND IT USES THE SHOP'S OWN `clearFor("point")` — which clears the id AND the name AND re-marks the
+  // cards — **rather than a second clearing written here.** ⚠️ **Two ways to clear one thing is two things to
+  // keep right**, which this very file learned at v412 about setting the way in the first place.
+  wrap._resetFulfillment = () => {
+    wrap._picked = false;
+    apply("collect");
+    clearFor("point");
+  };
   // ⚠️ WHAT IS ABOUT TO BE LOST, IN WORDS THAT NAME IT — or null when the change costs him nothing,
   // which is the case that must NOT be interrupted. ⭐ The name is the point he picked: "you chose to
   // collect from Bayan Lepas, Sg Ara… " is a sentence he can check against what he meant, and a

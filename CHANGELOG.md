@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v504)
+# Jienluv2bake — change history (v54 → v505)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v505, THE NEXT CUSTOMER DOES NOT INHERIT THE LAST ONE'S COLLECTION CENTRE (no database step).**
+
+**Your words:** __"After i place order, the screen response with order confirmation, and page reseted. But the earlier order, step 3 choice of self collection centre still engaged. Why it is so?"__
+
+**1. ⭐⭐ AND THE ANSWER IS ONE LINE OF CODE.** The reset that runs when an order lands did this: it cleared the **way** (step 3 goes back to Self collect and its circle goes un-green) — ⚠️ **and it NEVER cleared WHICH CENTRE he chose.** ⭐ **So the next customer opened step 3 with the last customer's collection point still engaged** — exactly what you saw, and the border you photographed.
+
+**2. ⚠️⚠️ AND IT IS NOT ONLY A SCREEN PROBLEM.** Your order carries that centre's id, ⭐ **so an order could be stamped with a collection Point the customer never picked** — and the shop would have shown it to him as his own choice.
+
+**3. ⭐ AND THE FIX USES THE SHOP'S OWN CLEARING** — the same `clearFor("point")` the shop already uses when somebody switches away from Self collect, which clears the centre's **id**, its **name**, and takes the **marker off the card**. ⚠️ **Writing a second clearing here would have been a second thing to keep right** — this file learned that about setting the way in the first place.
+
+**4. ⚠️⚠️ AND 3,433 TESTS WERE GREEN WHILE IT WAS WRONG.** The test that __did__ exist about clearing the centre is about **switching away from Self collect** — ⭐ **a different door onto the same state, and the after-order reset went through neither.** It has its own test now, and it is bitten.
+
+**Measured:** your own screenshot, read back — the order placed, the page reset, and **two collection centres still wearing their chosen border**. ⚠️ **That picture told me in five seconds what four rounds of my own measurements had not**, and I have written that lesson down where it belongs: **look at the screen first, and ask for the picture before deciding what a word means.**
+
+**No database step.**
 
 **13 Oct 2026 — engine v504, THE STRIP GOES BACK WHERE THE APP PUTS ITS OWN — WITH THE ROOM RESERVED (no database step).**
 
