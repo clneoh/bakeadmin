@@ -283,16 +283,39 @@ test("★★ `display: flex` cannot beat `[hidden]` — the rule that stops the 
   assert.match(css, /\.build-btn\[hidden\]\s*\{\s*display:\s*none;?\s*\}/, "and so does the press");
 });
 
-test("the notice is a sentence with a press in it, not an alarm", () => {
-  // ⚠️ Nothing has gone wrong and the customer did nothing wrong, so it must not read as a failure.
-  // The shop's own worst background is `--surface`, and `--brown-dark` on it is 5.92:1 — over the
-  // 4.5 every word of this page is held to, and the same pair the shop's inline links already use.
-  const rule = css.slice(css.indexOf(".build-notice {"));
-  const btn = rule.slice(rule.indexOf(".build-btn {"), rule.indexOf(".build-btn:hover"));
-  assert.match(btn, /color:\s*var\(--brown-dark\)/,
-    "the press has left the shop's own inline-link colour");
-  assert.doesNotMatch(btn, /var\(--red\)/,
-    "a red press over a bakery's prices reads as a failure — nothing has failed");
-  assert.doesNotMatch(rule.slice(0, rule.indexOf(".build-btn {")), /var\(--red\)/,
-    "the bar itself must not be the shop's warning red");
+test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for (v501)", () => {
+  // ⚠️⚠️ HER WORDS: __"now see the warning, it is rather small. it should be a strip like what is having in
+  // the backoffice"__ — ⭐ **and "like the backoffice" means the PATTERN, not a near-miss.** What was here was
+  // a pale `--surface` bar with a 14px sentence and an underlined link for the press: ⭐ **it read as another
+  // line of the page, which is how a customer scrolls past the one thing that says the page is out of date.**
+  //
+  // ⚠️ NO TEST CAN SEE A SCREEN, so the strip is pinned as its RULE AND ITS NUMBERS. ⭐ A look that can
+  // quietly shrink back will.
+  const notice = css.slice(css.indexOf(".build-notice {"), css.indexOf(".build-notice[hidden]"));
+  const btn = css.slice(css.indexOf(".build-btn {"), css.indexOf(".build-btn:hover"));
+
+  // ⭐ THE ADMIN'S OWN AMBER PAIR, VERBATIM — the two files define their own tokens, so this is the copy that
+  // keeps the two screens agreeing about one colour.
+  assert.match(notice, /background:\s*var\(--amber-bg\)/,
+    "★ the strip has left the backoffice's amber background");
+  assert.match(css, /--amber:\s*#975a13;/, "the shop no longer carries the admin's --amber");
+  assert.match(css, /--amber-bg:\s*#fdf1dc;/, "the shop no longer carries the admin's --amber-bg");
+
+  // ⚠️ BODY SIZE, NOT A CAPTION — this is a sentence on a strip meant to be read.
+  const size = /font-size:\s*(\d+)px/.exec(notice);
+  assert.ok(size && Number(size[1]) >= 16,
+    "★ the strip's words are smaller than body size again — a caption is how this got missed twice");
+
+  // ⚠️⚠️ AND A REAL PRESS: 44px, FILLED — **not the inline link inside a sentence she reported as too small
+  // at v498.** ⭐ And it still must not read as an ALARM: nothing went wrong and the customer did nothing
+  // wrong, so there is no red anywhere on it.
+  const tall = /min-height:\s*(\d+)px/.exec(btn);
+  assert.ok(tall && Number(tall[1]) >= 44,
+    "★ the press is below 44px — the floor for anything a thumb hits, and she has reported this smallness twice");
+  assert.match(btn, /background:\s*var\(--brown-dark\)/, "★ the press is not filled — it is the ACTION here");
+  assert.match(btn, /color:\s*var\(--surface\)/,
+    "★ `--surface` on `--brown-dark` is 5.92:1 — the pair every press in this shop uses");
+  assert.doesNotMatch(notice + btn, /var\(--red\)/,
+    "★ the strip has gone red — nothing has failed and the customer did nothing wrong");
 });
+

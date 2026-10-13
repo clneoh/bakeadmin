@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v500)
+# Jienluv2bake — change history (v54 → v501)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v501, THE SHOP'S UPDATE WARNING IS A STRIP, LIKE THE BACKOFFICE'S (no database step).**
+
+**Your words:** __"now see the warning, it is rather small. it should be a strip like what is having in the backoffice"__
+
+**1. ⭐⭐ SO IT IS THE BACKOFFICE'S STRIP — THE PATTERN, NOT A NEAR-MISS.** ⚠️ What was there was a pale bar in the page's own background colour with a 14px sentence and an **underlined link** for the press: ⭐ **it read as one more line of the shop, which is exactly how the one thing that says "this page is out of date" gets scrolled past.** Now it is **the backoffice's own amber pair** — the strip colour and its border, written into the shop's stylesheet at the admin's exact values, with the reason noted beside them.
+
+**2. ⚠️ AND THE SIZE, MEASURED RATHER THAN EYEBALLED.** The words are **16px** (they were 14px — a caption) and the press is a **real button at 44px, filled in the shop's terracotta** (it was a link inside a sentence). ⭐ **`--ink` on the amber is 11.95:1 and `--surface` on `--brown-dark` is 5.92:1** — both far over the 4.5 every word of this page is held to. ⚠️ **And it is still not an alarm:** nothing has gone wrong and the customer did nothing wrong, so there is no red on it anywhere.
+
+**3. ⭐ IT STAYS AT THE TOP, IN THE PAGE.** ⚠️ The backoffice fixes its strip to the bottom because it has a tab bar there; **this shop has the Order bar at the bottom, and a second fixed strip would sit on top of the button the customer is trying to press.** ⭐ And the notice is about the page, so the top is where it belongs. **Nothing here changes the height of anything under it, so nothing jumps when it appears.**
+
+**Measured:** driven on the real shop at 375×812 — the strip up on its own, **375px wide at the very top, `rgb(253,241,220)` background, 16px words, and a 93×44 press**. Tests stay **3,432**; ⚠️ **the old test that pinned the pale bar was rewritten rather than deleted** — its intent (not an alarm) is kept word for word, and it now pins the strip's numbers instead, **because no test can see a screen: a look that can quietly shrink back will.**
+
+**No database step.**
 
 **13 Oct 2026 — engine v500, THE OFFER CAN BE TURNED DOWN, AND A NO IS REMEMBERED (no database step).**
 

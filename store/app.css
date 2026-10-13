@@ -22,6 +22,16 @@
      ⚠️ AND IT CLEARS THE APP'S OWN BAR: **5.35:1** on the card, over the 4.5 every accent here is held
      to (v369) — a flash nobody can read is not a warning. */
   --red: #c0392b;
+  /* ★★ AND THE SHOP'S OWN AMBER, TAKEN FROM THE BACKOFFICE'S "A NEWER VERSION" STRIP (v501).
+     ⚠️⚠️ Her words: __"it is rather small. it should be a strip like what is having in the backoffice"__ —
+     ⭐ **"like the backoffice" means the PATTERN, not an approximation of it:** the amber pair, a full-width
+     strip, and a real press. ⚠️ **The two files define their own tokens — moving one does not move the
+     other — which is the same reason `--muted` is written out here at the admin's value.** Change them
+     together or the two screens disagree about one colour.
+     ⚠️ MEASURED: `--amber` (#975a13) on `--amber-bg` (#fdf1dc) is **4.96:1** — over the 4.5 every word of
+     this page is held to. */
+  --amber: #975a13;
+  --amber-bg: #fdf1dc;
   /* ★★ HOW THE RED WARNING FLASHES, IN ONE PLACE (v427). Her words: __"can you flash the red twice or
      trice"__.
      ⚠️⚠️ THESE TWO AND THE TIMER IN `flashRow` ARE ONE FACT, SPLIT ACROSS TWO FILES. The mark comes
@@ -2240,58 +2250,6 @@ button.prod-next.off::after { content: ""; }
   .step-note.flash strong { animation: none; color: #fbf4ea; }
 }
 
-/* ★★ THE SHOP'S OWN BUILD NOTICE (v492). Her words: __"just build the shop warning"__.
-   ⚠️⚠️ WHY IT EXISTS: GitHub Pages serves this shop with `cache-control: max-age=600` and no build
-   number in any URL, so a price change, a closed day or a new field can be pushed and NOT arrive.
-   **A customer ordering off the old page is a real order placed wrongly** — and the shop, unlike the
-   backoffice, never had anything that said so (the app has had it since v255).
-   ⭐ IT IS STATIC MARKUP, ABOVE THE HEADER, because it is about the whole page — the shop's own
-   app.js only ever unhides it.
-   ⚠️ `[hidden]` MUST BE SPELLED OUT BELOW. `display: flex` beats the browser's own
-   `[hidden] { display: none }`, so without these two rules the notice would be on screen from the
-   first paint of every order — **the fault would look like the fix.** */
-.build-notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px 8px;
-  padding: 9px 14px;
-  margin: 0;
-  background: var(--surface);
-  color: var(--ink);
-  border-bottom: 1px solid var(--line);
-  font-size: 14px;
-  line-height: 1.35;
-  text-align: center;
-}
-.build-notice[hidden] { display: none; }
-.build-say { margin: 0; }
-.build-say[hidden] { display: none; }
-/* ⚠️ THE PRESS WEARS THE SHOP'S OWN INLINE-LINK TREATMENT (`.pin-link`), NOT A BUTTON. A bordered
-   button the width of the bar says "now do this"; this is a sentence with a press inside it, which
-   is what it is — an offer, not an alarm. ⚠️ And it is deliberately NOT red: nothing has gone wrong,
-   the customer did nothing wrong, and a red bar over a bakery's prices reads as a failure.
-   ⚠️ `--brown-dark` (#a84322) on `--surface` (#fffdf9) is **5.92:1** — over the 4.5 every word of
-   this page is held to, and it is the same pair `.pin-link` already uses. */
-.build-btn {
-  appearance: none;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: inherit;
-  color: var(--brown-dark);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  /* A little vertical room so the press is a real target rather than the height of a line of
-     text — the bar itself is taller, so this never changes the bar's height. */
-  padding: 6px 4px;
-  cursor: pointer;
-}
-.build-btn:hover { text-decoration-thickness: 2px; }
-.build-btn:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
-.build-btn[hidden] { display: none; }
 
 /* ★★★ THE OFFER THAT CLEARS THE PAGE FOR THE NEXT CUSTOMER (v498).
    ⚠️⚠️ HER WORDS: __"it comout with message 'back to the top' relatively small"__ — ⭐ **and she was
@@ -2376,3 +2334,58 @@ button.prod-next.off::after { content: ""; }
 }
 .reset-offer-no:hover { background: var(--brown-soft); }
 .reset-offer-no:focus-visible { outline: 2px solid var(--brown); outline-offset: 3px; }
+
+/* ★★★ THE UPDATE NOTICE IS A STRIP NOW, LIKE THE BACKOFFICE'S (v501).
+   ⚠️⚠️ HER WORDS: __"now see the warning, it is rather small. it should be a strip like what is having in the
+   backoffice"__ — ⭐ **and "like the backoffice" means the pattern, not a near-miss.** What was here was a
+   pale `--surface` bar with a 14px sentence and an underlined link for the press: **it read as another line
+   of the page, which is exactly how a customer — or the baker — scrolls past the one thing that says the
+   page is out of date.**
+   ⭐ The backoffice's own strip is: **an amber bar across the whole width, with its message and a real
+   press**, and this is that strip, with the shop's own words and the shop's own button.
+   ⚠️ IT STAYS AT THE TOP AND IN FLOW. ⚠️ The backoffice fixes its strip to the bottom because it has a tab
+   bar there; **this page has the Order bar at the bottom, and a second fixed strip would sit on top of the
+   thing the customer is trying to press.** ⚠️ And the notice is about the PAGE, so the top is where it
+   belongs — the same reasoning the v492 comment gives. ⭐ Nothing here changes the layout's height under
+   anything, so nothing jumps when it appears. */
+.build-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  padding: 12px 16px;
+  margin: 0;
+  /* ⚠️ THE ADMIN'S PAIR, VERBATIM. */
+  background: var(--amber-bg);
+  color: var(--ink);
+  border-bottom: 1px solid #ecd4a5;
+  box-shadow: 0 2px 8px rgba(120, 66, 32, .10);
+  /* ⚠️ 16px — BODY SIZE, NOT A CAPTION (v498's own rule, applied here). */
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+}
+.build-notice[hidden] { display: none; }
+.build-say { margin: 0; font-weight: 600; }
+.build-say[hidden] { display: none; }
+/* ⚠️⚠️ A REAL PRESS, NOT A LINK IN A SENTENCE (v498's lesson, and she has now reported the smallness
+   twice). ⭐ 44px, filled in the shop's terracotta, which reads as the ACTION on an amber strip.
+   ⚠️ `--surface` on `--brown-dark` is **5.92:1** — over the 4.5 every word here is held to. */
+.build-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 10px 20px;
+  background: var(--brown-dark);
+  color: var(--surface);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.build-btn:hover { background: var(--brown); }
+.build-btn:focus-visible { outline: 2px solid var(--brown); outline-offset: 3px; }
+.build-btn[hidden] { display: none; }
