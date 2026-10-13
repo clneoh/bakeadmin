@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v508)
+# Jienluv2bake — change history (v54 → v509)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v509, THE OFFER TO CLEAR THE PAGE IS GONE, AND THE GREEN "ORDER RECEIVED!" GOES BY ITSELF AFTER 20 SECONDS (no database step).**
+
+**Your words:** __"it is good to see the page cleared. So i think we should remove the order to reload. Just need to make the green Order Received! message vanish after 1min, can?"__ — and then __"make it 20sec instead of 1min"__.
+
+**1. ⭐⭐ THE CARD IS GONE — AND IT WAS NEVER NEEDED.** Until now the shop put a card on the receipt with **"Clear the page"** and **"Not now"**, and a **Reload** button on it. ⚠️ **It existed only because the page did not clear itself.** It does: **every field has cleared on the order since v465** (the basket, the notes, the name, the number, the address, the door pin, the code and the bake day), and **the whole of step 3 since v505–v508** (the collection centre, the open card, the address, the step-4 green). ⭐ **You said it yourself — "it is good to see the page cleared" — so the only thing left was the green message sitting there, and that needed no button at all.**
+
+**2. ⭐ SO THE RECEIPT NOW GOES ON ITS OWN, TWENTY SECONDS AFTER THE ORDER.** Her number, given twice. **Nothing is pressed, nothing reloads.** The shop is already fresh underneath, so when the message goes you are looking at the top of a new order — which is where the next customer starts anyway.
+
+**3. ⚠️ THE ONE COST, NAMED ONCE: THE ORDER NUMBER AND THE TRACKING CODE ARE ON THAT RECEIPT.** Twenty seconds after the order they are off the screen. ⭐ **Your number, your call** — and the bakery confirms every order by hand on WhatsApp, where the customer keeps it in writing.
+
+**4. ⭐ AND IT STILL GOES IF THE PHONE WAS PUT DOWN.** The 20 seconds is a **clock**, and the page asks the clock again **when someone looks at it** — a finger on the glass, the tab coming back, the phone waking. ⚠️ **A timer alone is not enough, and your own phone proved it at v497: the page was hidden and the timer never ran.** So a receipt whose 20 seconds passed while the phone was in a pocket is gone the moment the next customer touches it.
+
+**Measured, on the real shop at 375x812:** the order placed with the network call stubbed so nothing reaches your orders table — **at 1.4 seconds the receipt is up with its 4 lines** ("Order received!", the name, the day, the item and total), **and at 21.4 seconds it is gone: hidden AND emptied.** ⭐ And the shop behind it is fresh: **0 items, no name, no number, no collection centre, both delivery cards folded, and the bake day back on its suggestion.** ⚠️ **No card, no Reload, and no leftover piece of the old offer anywhere in the page.**
+
+**Tests 3,430 → 3,432**, and **four written faults were each watched to turn the suite red**: the 20 seconds changed (the number is pinned, so it has to come past the test) · the countdown removed · the receipt hidden but its lines left inside it · and the clock check removed from "someone looked at the page".
 
 **13 Oct 2026 — engine v508, THE STEP-4 GREEN GOES OUT, AND IT WAS STILL GREEN BECAUSE I CLEARED IT TOO EARLY (no database step).**
 
@@ -78,6 +94,8 @@ __Corrected at v508:__ **the step-4 green was NOT fixed by this version — her 
 
 **13 Oct 2026 — engine v503, THE UPDATE STRIP NO LONGER SITS ON TOP OF THE OFFER (no database step).**
 
+__Corrected at v509:__ **the offer is gone, so the strip has nothing of its own to cover** — ⚠️ but **the reservation this version describes is what protects everything else at the foot of the page**, and it stands unchanged. The rule was never "make room for the offer"; it was **a bar pinned to the bottom must reserve the room it takes.**
+
 __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar, where the app's own strip lives.** The fix below — reserving the strip's own height in the page's foot — is kept and is what makes the bottom position work; only the edge it hangs from changed, at her instruction: __"i want it to be consistant with the app"__.
 
 **Your words:** __"at the store after customer place order, there is a clear page, but that clear page is half bake"__
@@ -122,6 +140,8 @@ __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar,
 
 **13 Oct 2026 — engine v500, THE OFFER CAN BE TURNED DOWN, AND A NO IS REMEMBERED (no database step).**
 
+__Corrected at v509:__ **the offer was REMOVED in full.** ⭐ It existed only because the page did not clear itself — and it does. **There is no card, no "Clear the page", no "Not now" and no Reload any more**; the receipt now goes on its own, 20 seconds after the order. See v509.
+
 **Your words:** __"there should be a button for user to cancel that offer"__
 
 **1. ⭐⭐ THERE IS A WAY OUT NOW — "Not now", beside "Clear the page".** ⚠️ **It is deliberately the quieter of the two**, outlined rather than filled, because clearing the page is what the offer is __for__ and the way past it should be findable without competing with the action. ⭐ **But it is a real 44px press with real space beside the other one** — measured on the shop at 375px: **149×44 and 101×45, on one row, 10px apart.** ⚠️ A small quiet link tucked against a big button is exactly how a thumb that meant "not now" lands on "clear the page" instead, **which would throw away a receipt the customer was still reading.**
@@ -137,6 +157,8 @@ __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar,
 **No database step.**
 
 **13 Oct 2026 — engine v499, NOTHING RELOADS ON A TIMER, AND THE LAST ORDER'S FURNITURE GOES (no database step).**
+
+__Corrected at v509:__ **what "goes" is now the RECEIPT and nothing else** — the offer this entry retires was removed in full at v509, and **the receipt goes by itself 20 seconds after the order.** The rule this entry establishes still stands and is the one the shop keeps: **nothing on this page reloads on a timer.**
 
 **Your words:** __"is automatic reloading of store a good idea? What i try is adding customer details in it, the offer still shows, but it is ot auto reload when time up? What is a better approach?"__
 
@@ -154,6 +176,8 @@ __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar,
 
 **13 Oct 2026 — engine v498, THE OFFER CLEARS THE PAGE, AND IT IS BIG ENOUGH TO SEE (no database step).**
 
+__Corrected at v509:__ **the offer no longer exists.** ⭐ The page clears itself, so **nothing has to be pressed and nothing reloads** — the receipt goes by itself 20 seconds after the order.
+
 **Your words:** __"it comout with message 'back to the top' relatively small"__ — and __"and pressing the back to the top does not reload the page"__
 
 **1. ⚠️⚠️ I BUILT THE WRONG THING, AND THE WORD WAS IN YOUR FIRST MESSAGE ALL ALONG.** You asked for **a pop-up offering to clear the page**. ⭐ **I built a SCROLL to the top and labelled it "Back to the top" — my words for my action** — so every round you were told about something that was not what you asked for, **and every one of your reports said __"no reload"__, which was exactly right.** ⚠️ **A button that says something other than what it does is a lie however small, and I wrote the label myself.**
@@ -169,6 +193,8 @@ __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar,
 **No database step.**
 
 **12 Oct 2026 — engine v497, THE OFFER NO LONGER WAITS ON A CLOCK NOBODY IS WINDING (no database step).**
+
+__Corrected at v509:__ **the offer is gone, but the measurement behind this entry is NOT — it is the reason the receipt can still go after the phone was put down.** ⭐ A timer in a hidden page does not run, so the shop asks the clock again **when someone looks at the page.** That half is kept and now carries the 20 seconds.
 
 **Your words:** __"footer say v496, but no offer to reload"__ — and then __"after about 1 min, it scroll up but no reload"__
 
@@ -199,6 +225,8 @@ __Reversed at v504:__ **the strip moved back to the bottom, above the Order bar,
 **No database step.**
 
 **12 Oct 2026 — engine v495, THE RECEIPT OFFERS TO PUT THE PAGE BACK, THEN DOES IT BY ITSELF (no database step).**
+
+__Corrected at v509:__ **the offer and the "then does it by itself" half are both GONE.** ⭐ What survived is the part you actually wanted: **the green "Order received!" message goes on its own 20 seconds after the order**, and the page is already fresh behind it.
 
 **Your words:** __"how to make the storefront page reset itself, after place order"__ — then __"your idea offer to reset is good, and if no body attend to it then reset itself"__
 

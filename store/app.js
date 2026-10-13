@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "508";
+export const SHOP_BUILD = "509";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1700,36 +1700,23 @@ function clearFieldMarks() {
 
   // ⚠️ MOVES THE PAGE ONLY IF THE THING IS NOT ALREADY ON IT. A customer tapping + on a card who can
   // already see the step being named must not be thrown up the page for nothing.
-  // ★★★ PUTTING THE PAGE BACK AT THE TOP ONCE THE ORDER IS A MINUTE OLD (v495). Her words, and the number
-  // is hers: __"after the order confirmation, and waited for 1min, the page should reset itself"__.
-  // ⚠️ ONE NUMBER, IN ONE PLACE — the only thing anyone would ever want to change, and changing it must not
-  // mean touching the code that uses it. ⭐ It is used ONCE now: the wait before the offer. ⚠️⚠️ **It used to
-  // be used twice — the second being the wait after the offer, before the shop cleared the page by itself —
-  // and that second one is GONE (v499). See `retirePreviousOrder` for why.**
-  const RESET_TO_TOP_MS = 60000;
-  // ★★★ WHEN THE RECEIPT WENT UP, AND WHEN THE OFFER DID (v497). ⚠️⚠️ **THESE EXIST BECAUSE A TIMER IS
-  // NOT ENOUGH, AND HER PHONE PROVED IT.**
+  // ★★★ HOW LONG THE RECEIPT STAYS (v495, and her number twice — v509). ⚠️ ONE NUMBER, IN ONE PLACE: the
+  // only thing anyone would ever want to change, and changing it must not mean touching the code that uses
+  // it. ⭐ Her words, when the number was a minute: __"after the order confirmation, and waited for 1min,
+  // the page should reset itself"__ — and then, once the receipt was the last thing left: __"make it 20sec
+  // instead of 1min"__.
+  const RECEIPT_LIFE_MS = 20000;
+  // ★★★ WHEN THE RECEIPT WENT UP. ⚠️⚠️ **IT EXISTS BECAUSE A TIMER IS NOT ENOUGH, AND HER PHONE PROVED IT.**
   //
   // Her report: __"footer say v496, but no offer to reload"__ — ⭐ the code was current and the offer still
   // never came. **MEASURED ON THE LIVE PAGE: `document.visibilityState` was `hidden`, and the sixty-second
   // timer simply never fired.** ⚠️ A hidden tab has its timers frozen or throttled to the minute — **and a
   // customer who has just placed an order puts the phone down or switches to WhatsApp.** ⭐⭐ **So the one
   // moment this whole feature is for — the next customer picking the phone up — is exactly when the timer
-  // has not run.** The offer waited on a clock nobody was winding.
+  // has not run.** The receipt waited on a clock nobody was winding.
+  // ⭐ Zero means **no order is on screen**: cleared by `hideReceipt` when the receipt goes (v509) and by
+  // `retirePreviousOrder` when the next order begins (v499), so it never claims an order that has gone.
   let orderedAt = 0;
-  let offerShownAt = 0;
-  let offerTimers = [];
-  // ★★★ AND WHETHER THE CUSTOMER HAS ALREADY SAID NO TO THIS ORDER'S OFFER (v500).
-  // ⚠️⚠️ Her words: __"there should be a button for user to cancel that offer"__. ⭐ **And a cancel that
-  // comes back is not a cancel — it is a nag.** ⚠️ Without this the offer would be raised again by the next
-  // look at the page, because the look asks only "has the minute passed?" — so the customer would dismiss it,
-  // set the phone down, pick it up, and find it waiting again. ⭐ **A no has to be remembered, or it is not a
-  // no.** ⚠️ Cleared by a NEW order (which gets its own offer) and by the next order beginning.
-  let offerDismissed = false;
-  // ⚠️ THE NODES THE OFFER IS MADE OF, HELD AS THEY ARE MADE — **never looked up again to remove them**,
-  // because `getElementById` returns the first match in the document and the shop learned at v460 what a
-  // lookup answers once a node has been torn out of the page.
-  let offerNodes = [];
 
   // ⚠️⚠️ A TIMER THAT ONLY PAINTS MUST NEVER BE THE REASON A PAGE IS KEPT ALIVE. In a browser this is a
   // no-op — `setTimeout` hands back a number, which has no `unref`. ⭐ In Node, where this shop's own tests
@@ -1738,89 +1725,44 @@ function clearFieldMarks() {
   function shopTimer(fn, ms) {
     const id = setTimeout(fn, ms);
     if (id && typeof id.unref === "function") id.unref();
-    offerTimers.push(id);
     return id;
   }
-  function clearShopTimers() {
-    for (const id of offerTimers) { if (typeof clearTimeout === "function") clearTimeout(id); }
-    offerTimers = [];
-  }
 
-  // ⭐ THE OFFER ITSELF — a line ON THE RECEIPT, because the receipt is what he is looking at, with a press
-  // that does it now. ⚠️ **It is an offer, never a move:** showing it changes nothing on the page.
-  function showResetOffer() {
+  // ★★★ THE RECEIPT GOES BY ITSELF, TWENTY SECONDS AFTER THE ORDER (v509).
+  //
+  // ⚠️⚠️ HER WORDS: __"it is good to see the page cleared. So i think we should remove the order to reload.
+  // Just need to make the green Order Received! message vanish after 1min, can?"__ — and then the number:
+  // __"make it 20sec instead of 1min"__.
+  // ⭐⭐ **AND SHE IS RIGHT, AND IT IS SIMPLER THAN WHAT WAS HERE.** The offer — a card with "Clear the page"
+  // and "Not now" — was doing three jobs at once: saying the page was clear, offering a reload, and then
+  // **standing on the receipt as a live reload button over whatever the next customer was typing.** ⚠️ **All
+  // of it existed because the page did NOT clear itself. It does now** (v465, and the whole of step 3 since
+  // v506) — ⭐ **so the only thing left is for the receipt to go, and it can do that on its own.**
+  //
+  // ⚠️ THE ONE COST, NAMED ONCE AND THEN DROPPED: **the order number and the tracking code are on that
+  // receipt**, so twenty seconds after the order they are off the screen. ⭐ Her number, her call — and the
+  // bakery confirms every order by hand on WhatsApp, where the customer keeps it in writing.
+  // ⚠️ AND IT IS ARMED IN THE RECEIPT'S OWN CALLBACK, never before it — **a timer armed before the receipt
+  // exists would fire against nothing**, which is the ordering fault v495 spent a whole version on.
+  function hideReceipt() {
     const box = document.getElementById("confirm-msg");
-    if (!box || box.hidden) return;               // ⚠️ the receipt has gone — there is nothing to offer on
-    // ⚠️⚠️ ONE OFFER, ASKED OF WHAT THIS CODE IS HOLDING — never of a lookup. `getElementById` answers by
-    // ID, and **a test harness that hands back a node for any id it is asked about would make this guard
-    // permanent**, so the offer could never appear and the rule could never be proved. ⭐ The same reason
-    // `endOffer` removes the nodes it made rather than looking them up (v460).
-    if (offerNodes.length) return;
-    offerShownAt = Date.now();
-    // ⚠️⚠️ AND IT IS MADE TO BE SEEN, WHICH IT WAS NOT (v498). ⭐ HER WORDS: __"it comout with message 'back
-    // to the top' relatively small"__ — ⚠️ **and she was measuring it exactly right.** ⭐ MEASURED IN THE
-    // STYLESHEET: the sentence was `.confirm-sub` — **12px at 85% opacity, a CAPTION** — and the button wore
-    // `.build-btn`, which is the shop's **INLINE LINK INSIDE A SENTENCE** (the build notice's own press),
-    // giving it a **~26px target**. ⚠️ The skill's floor for anything a thumb hits is **44px, with 24px the
-    // absolute hard floor** — so the one control this whole feature exists to get pressed was the smallest
-    // thing on the page.
-    // ⭐ **The lesson is the reuse, not the numbers: a control's look belongs to its job.** ⭐ Taking the
-    // build notice's inline-link style for a call to action is the same fault as "CashMove these" (v486) —
-    // two different things wearing one style, and the smaller job losing.
-    const say = el("p", { class: "reset-offer-say" }, t("resetOfferBody"));
-    const go = el("button", { type: "button", class: "reset-offer-go", id: "reset-offer-btn" }, t("resetOfferBtn"));
-    go.addEventListener("click", () => { endOffer(); clearThePage(); });
-    // ★★★ AND A WAY TO SAY NO (v500). ⚠️⚠️ Her words: __"there should be a button for user to cancel that
-    // offer"__.
-    // ⭐ IT IS DELIBERATELY THE QUIETER OF THE TWO — an outlined press beside the filled one — because
-    // clearing the page is what the offer is FOR, and a customer who wants the receipt kept should be able to
-    // find the way out without it competing with the action. ⚠️ **But it is a real 44px target with real
-    // space beside the other one**, because a thumb that hits the wrong one loses everything they typed: the
-    // skill's rule is 44px AND space between neighbours, and a small quiet link next to a big button is how
-    // a mis-tap happens.
-    // ⭐ AND SAYING NO IS REMEMBERED (`offerDismissed`) — **the offer does not come back on the next look**,
-    // and the receipt stays exactly where it is.
-    const no = el("button", { type: "button", class: "reset-offer-no", id: "reset-offer-no" }, t("resetOfferNo"));
-    no.addEventListener("click", () => { offerDismissed = true; endOffer(); });
-    const card = el("div", { class: "reset-offer", id: "reset-offer" },
-      say, el("div", { class: "reset-offer-acts" }, go, no));
-    offerNodes = [card];      // ⚠️ held as it is made, so `endOffer` removes THE box and everything in it
-    box.append(card);
-    // ⚠️⚠️ AND NOTHING IS ARMED BEHIND IT (v499). ⭐ It used to arm a second minute, after which the shop
-    // cleared the page **by itself** — her words then: __"if no body attend to it then reset itself"__.
-    // ⭐⭐ **THAT IS GONE, AND SHE FOUND THE REASON HERSELF:** __"What i try is adding customer details in it,
-    // the offer still shows, but it is ot auto reload when time up?"__ — ⚠️ **she was typing the NEXT
-    // customer's details while the previous order's offer sat there, and it is a live Reload button.** ⭐ **A
-    // page that reloads under someone's hands destroys what they have typed**, and there is no honest way to
-    // tell "nobody is using this" from "someone is mid-order" — the guard I had could only ask whether the
-    // page had been scrolled, **which is a guess that fails both ways.**
-    // ⭐ So the offer waits for a person, and `retirePreviousOrder` takes it away the moment a new order
-    // begins. **Nothing on this page ever reloads on a timer again.**
-  }
-
-  // ⚠️ TAKES THE OFFER DOWN AND STOPS ITS TIMERS. Called by the press, by the automatic move, and by a new
-  // offer being raised — **so a second order can never be looking at the first one's offer.**
-  function endOffer() {
-    clearShopTimers();
-    // ⚠️ A LOOKUP IS WRONG HERE for the reason v460 gives: the node is one this code made, and a lookup can
-    // answer a DIFFERENT node — the shop's own step line learned that the hard way. ⭐ So the two pieces are
-    // held as they are made, and removed as themselves.
-    offerShownAt = 0;
-    for (const node of offerNodes) node.remove();
-    offerNodes = [];
+    if (!box || box.hidden) return;      // ⚠️ already gone, or never up — there is nothing to do
+    box.hidden = true;
+    box.replaceChildren();
+    orderedAt = 0;                       // ⭐ one order, one disappearance
   }
 
   // ★★★ AND THE PREVIOUS ORDER'S RECEIPT GOES THE MOMENT A NEW ORDER BEGINS (v499).
   //
   // ⚠️⚠️ HER QUESTION, AND IT IS THE RIGHT ONE: __"is automatic reloading of store a good idea? … What i try
   // is adding customer details in it, the offer still shows"__ — ⭐ **NO, IT IS NOT, and her own test found
-  // why: she was entering the NEXT customer's details with the previous order's offer still on screen, and
-  // that offer carries a live Reload button.**
+  // why: she was entering the NEXT customer's details with the previous order's live Reload button still on
+  // screen.**
   //
   // ⭐⭐ **AND THE AUTO-RELOAD WAS NEVER NEEDED.** The FORM has cleared itself on the order since v465 — the
   // basket, the notes, the name, the number, the address, the door pin, the code and the bake day. **The next
-  // customer already starts fresh.** ⚠️ What lingers is the RECEIPT and its offer, and **a new customer
-  // arriving IS the reset** — there is nothing to force.
+  // customer already starts fresh.** ⚠️ What lingers is the RECEIPT, and **a new customer arriving IS the
+  // reset** — there is nothing to force.
   //
   // ⭐ SO THE RULE IS READ OFF THE SHOP'S OWN STATE, in one place, and it needs no listener on any control:
   // **when step 1 or step 2 becomes done again, a new order has begun.** ⚠️ It cannot fire on the order just
@@ -1829,14 +1771,10 @@ function clearFieldMarks() {
   function retirePreviousOrder() {
     const box = document.getElementById("confirm-msg");
     if (box && !box.hidden) { box.hidden = true; box.replaceChildren(); }
-    endOffer();
     // ⚠️⚠️ AND THE ORDER IS FORGOTTEN TOO (v500). ⭐ The receipt has gone, so there is nothing for the clock
-    // to measure a minute from — **`showResetOffer` would return on `box.hidden` anyway, which means the
-    // right answer depended on a guard two functions away.** ⚠️ **A state that says an order is still live
-    // after its receipt has gone is a state that lies**, and the next person to read `orderedAt` would have
-    // no way to know. ⭐ Cleared here as well as the offer.
+    // to measure from — and **a state that says an order is still live after its receipt has gone is a state
+    // that lies**, because the next person to read `orderedAt` would have no way to know.
     orderedAt = 0;
-    offerDismissed = false;
   }
 
   // ★★★ AND THE PAGE BEING LOOKED AT AGAIN IS THE TRIGGER THAT MATTERS (v497).
@@ -1850,14 +1788,12 @@ function clearFieldMarks() {
   // ⭐ It answers the same question the timer does, at the moment the answer actually matters, and it is
   // deliberately BOTH: the timer serves a customer sitting there watching, and this serves the next customer
   // picking the phone up — which is the ordinary case.
-  // ⚠️ Neither can fire before its minute: both ask the clock, so a page that comes back after ten seconds
+  // ⚠️ Neither can fire before its time: both ask the clock, so a page that comes back after ten seconds
   // is left alone.
   shopLookedAgain = (now) => {
-    if (!orderedAt) return;                       // ⚠️ no order — there is nothing to offer about
-    if (offerDismissed) return;                   // ⚠️⚠️ he has SAID NO — a cancel that comes back is a nag
-    if (offerNodes.length) return;                // ⚠️ the offer is already up — one offer, and it waits now
-    // ⭐ the offer has not been made. The timer due to make it may never have run, so ask the clock.
-    if (Number(now) - orderedAt >= RESET_TO_TOP_MS) showResetOffer();
+    if (!orderedAt) return;                       // ⚠️ no order on screen — nothing to take away
+    // ⭐ The timer due to take the receipt down may never have run, so ask the clock.
+    if (Number(now) - orderedAt >= RECEIPT_LIFE_MS) hideReceipt();
   };
 
   // ⚠️⚠️ AND `autoReset` IS GONE — NOT DISABLED, NOT GUARDED, GONE (v499). ⭐ It was the "if nobody attends
@@ -1866,38 +1802,14 @@ function clearFieldMarks() {
   // still shows"__ — ⚠️ **a live Reload button sitting over a page someone is typing into.** ⭐ The guard it
   // used to carry (has the page been scrolled?) was a proxy for "is anyone using this", **and a proxy is
   // exactly the wrong tool for a question whose wrong answer destroys a customer's details.**
-  // ⭐ **Nothing on this page reloads on a timer any more.** The offer waits for a person; `retirePreviousOrder`
-  // takes it away when the next order begins; and the form has cleared itself on the order since v465.
+  // ⭐ **Nothing on this page reloads on a timer.** The form has cleared itself on the order since v465 · the
+  // receipt goes by itself twenty seconds later (v509) · and `retirePreviousOrder` takes the last one's
+  // receipt away the moment a new order begins.
 
-  // ⚠️ THE SAME "ASK, THEN CHECK" THE REFUSAL LINE USES (v493). A smooth scroll is an ANIMATION, and an
-  // animation the browser declines to run would leave the page exactly where it was — **measured on the
-  // real shop: the same call with `behavior: "smooth"` moved nothing, and an instant one to the same place
-  // worked.** So the smooth move is asked for and then checked; if nothing has moved, it is done instantly.
-  // ★★★ AND IT **CLEARS THE PAGE** — IT DOES NOT SCROLL IT (v498).
-  //
-  // ⚠️⚠️ THIS IS THE WORD I MISSED FOR THREE VERSIONS, AND IT WAS IN HER FIRST MESSAGE ALL ALONG: __"after
-  // the order confirmation, there should be a pop up, offering to CLEAR THE PAGE … if customer dont click to
-  // clear, it page should clear itself after 1min"__ — and then, every time she reported back, __"no
-  // reload"__. ⭐⭐ **I built a scroll to the top and called it "Back to the top"** — my words for my action —
-  // so every round she was told about something that was not the thing she asked for, and ⚠️ **her correct
-  // report each time was that it does not reload.**
-  //
-  // ⭐ **WHAT A RELOAD DOES THAT A SCROLL CANNOT:** the page is rebuilt from the server, so the shop is
-  // genuinely fresh — the basket, the day, the fields, the scroll position, every scrap of state — **and a
-  // phone that has been sitting on an old build picks up the new one.** ⚠️ **A scroll was a shrug.**
-  // ⚠️⚠️ AND THE COST, SAID OUT LOUD: **the receipt goes with it, and the receipt carries the order number
-  // and the tracking code.** That is why the offer NAMES that in its own words — the customer is told what
-  // they are about to lose, and it is their press. ⭐ Nothing else on the page is worth keeping: the order
-  // is already in the bakery's app, and the bakery confirms it on WhatsApp.
-  function clearThePage() {
-    if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
-  }
-
-  // ⚠️ AND `scrollPageToTop` IS GONE, NOT LEFT BESIDE IT (v498). ⭐ It was a genuine build with a genuine
-  // problem behind it — **measured: a smooth scroll did not move the page at all while an instant one to the
-  // same place worked** — and it is still the right answer for the REFUSAL line, which uses the same
-  // ask-then-check through `bringIntoView`. ⚠️ **It is simply not what this feature was asked for, and a
-  // helper kept "just in case" is a thing left to look load-bearing.** See `clearThePage` above.
+  // ⚠️ AND THE OTHER THING A BREATH-TAKING PAINT ONCE DID — `scrollPageToTop` — IS GONE TOO, and it never
+  // belonged here: it came out of a genuine build with a genuine problem behind it, ⭐ **measured: a smooth
+  // scroll did not move the page at all while an instant one to the same place worked** — and that answer is
+  // still the right one for the REFUSAL line, which asks the same way through `bringIntoView` below.
 
   function bringIntoView(what) {
     if (!what) return;
@@ -3889,29 +3801,18 @@ function clearFieldMarks() {
       // a fresh shop with step ① at the top, which is exactly what the top-scroll was for, without the
       // round trip. ⭐ ONE `scrollIntoView`, in `showConfirm`, and nothing to fight it.
       //
-      // ★★★ AND IT STILL GOES BACK TO THE TOP — A MINUTE LATER (v495). Her question: __"how to make the
-      // storefront page reset itself, after place order"__.
-      //
-      // ⚠️⚠️ EVERY FORM FIELD HAS ALREADY GONE BY THIS LINE (v465) — the basket, the notes, the name, the
-      // number, the address, the door pin, the code and the bake day. ⭐ **What does not reset is the PAGE:
-      // it stays where it is, resting on the receipt.** So the next customer takes the same phone, sees a
-      // confirmation, and has to work out for himself that the shop above it is fresh.
-      // ⚠️ AND IT CANNOT MOVE NOW — v489 measured why: this used to scroll to the top, and `showConfirm`
-      // scrolled to the notice about a second later, so a customer watched the whole shop fly past him
-      // upward and then all the way back down. **Two scrolls fighting over one press.**
-      // ⭐ So it WAITS. A minute after the receipt, when nothing else on the page is moving, it goes quietly
-      // back to the top, where the fresh shop already is. ⚠️⚠️ **AND ONLY IF THE PAGE IS EXACTLY WHERE THE
-      // ORDER LEFT IT** — if he has scrolled at all, he is reading something and the shop does not drag him
-      // anywhere: that is v423's rule (the parked place), and it is the same rule the refusal line keeps.
-      // ⚠️ THE PREVIOUS ORDER'S OFFER IS STOPPED HERE — a second order on the same phone must never be
-      // looking at the first one's offer. ⭐ The new one is armed from the RECEIPT, forty lines below.
-      endOffer();
-      // ⚠️ AND THE CLOCK STARTS HERE (v497) — at the RECEIPT, not at the order, because the offer is about
-      // the receipt. ⭐ **It is a timestamp and not only a timer**, so the shop can still answer "has the
-      // minute passed?" after a phone has been asleep and its timers frozen.
+      // ⚠️⚠️ AND NOTHING ELSE EVER MOVES THE PAGE (v499, v509). Her question was __"how to make the
+      // storefront page reset itself, after place order"__ — ⭐ **and the answer turned out to be that it
+      // already did.** EVERY FORM FIELD HAS GONE BY THIS LINE (v465): the basket, the notes, the name, the
+      // number, the address, the door pin, the code and the bake day. ⚠️ **What lingered was the RECEIPT,
+      // not the shop** — so the two things built to deal with it (a scroll a minute later, and then a card
+      // offering to clear the page) are both gone. ⭐ **The receipt simply goes by itself** (v509), and the
+      // fresh shop is one flick upward, which is where the customer was going anyway.
+      // ⚠️ AND THE CLOCK STARTS HERE (v497) — at the RECEIPT, not at the order, because the receipt is what
+      // goes. ⭐ **It is a timestamp and not only a timer**, so the shop can still answer "has the twenty
+
+      // seconds passed?" after a phone has been asleep and its timers frozen.
       orderedAt = Date.now();
-      // ⚠️ AND A NEW ORDER GETS ITS OWN OFFER (v500) — a "no" belonged to the order before it.
-      offerDismissed = false;
       renderBar();
       // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
       // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the
@@ -3951,15 +3852,16 @@ function clearFieldMarks() {
         cancelLine,
         el("p", { class: "confirm-sub" }, t("orderRecvSub")),
       ], "ok");
-        // ★★★ AND THE OFFER IS ARMED FROM IN HERE, NOT FROM THE ORDER (v495) — **because the offer is about
-        // the RECEIPT, and the receipt is what this callback has just put on the page.** ⚠️⚠️ Arming it when
-        // the order landed looked equivalent and was not: `showResetOffer` returns quietly if the receipt is
-        // not up, so **any page where this second ran late would lose the offer altogether and never try
-        // again.**
+        // ★★★ AND THE RECEIPT'S LIFE IS ARMED FROM IN HERE, NOT FROM THE ORDER (v495) — **because it is
+        // about the RECEIPT, and the receipt is what this callback has just put on the page.** ⚠️⚠️ Arming
+        // it when the order landed *looked* equivalent and was not: **at that moment the receipt is not up
+        // yet**, so any page where this second ran late would arm a clock against nothing and never try
+        // again.
         // ⚠️ AND THIS WAS WRITTEN WRONG ONCE, IN THE OBVIOUS WAY: the call was put on the line AFTER the
         // closing `), GREEN_HOLD_MS);` — **which reads as "inside the callback" and is not.** ⭐ The test
         // that asks *whether anything is armed before the receipt exists* caught it on its first run.
-        shopTimer(showResetOffer, RESET_TO_TOP_MS);
+        // ⭐ AND THE RECEIPT GETS A LIFE (v509) — armed HERE, where the receipt exists.
+        shopTimer(hideReceipt, RECEIPT_LIFE_MS);
         // ⭐ AND ④ GOES OUT NOW (v508) — the customer has had his second of green, and the next customer must
         // not find the shop claiming a step is done before he has done anything (the fault v434 fixed for ①).
         greenBarStep(false);

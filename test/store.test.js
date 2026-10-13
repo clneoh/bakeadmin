@@ -3515,124 +3515,12 @@ test("★★ he cannot order without saying how he gets it — and the page poin
 
 
 // ── v495: the receipt offers to clear the page, then does it by itself ───────
-test("★★★ the receipt offers to put the page back, and does it itself if nobody presses (v495)", async () => {
-  // Her words, in the order she settled on them: __"your idea offer to reset is good, and if no body attend
-  // to it then reset itself"__.
-  //
-  // ⚠️⚠️ THE FORM IS ALREADY CLEAR BY THIS TIME (v465) — the basket, the notes, the name, the number, the
-  // address, the door pin, the code and the bake day all went the moment the order landed. ⭐ **What does not
-  // reset is the PAGE: it stays where it is, resting on the receipt**, so the next customer takes the phone,
-  // sees a confirmation, and has to work out for himself that the shop above it is fresh.
-  const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "card-body")
-    .children.find((c) => c.className === "stepper");
-  tapDay();
-  stepper.children[2]._listeners.click[0]();          // one item in the basket
-  document.getElementById("name-input").value = "Aunty Bee";
-  document.getElementById("whatsapp-input").value = "60123456789";
-  document.getElementById("fulfillment")._value = "collect";
-
-  // ⚠️ EVERY TIMER THE SHOP ARMS IS RECORDED, AND STILL STARTED FOR REAL — a stub that swallowed them would
-  // hang this file's own `await afterOrderNotice()`, and the real ones are `unref`ed by the shop so they
-  // cannot hold the runner open either.
-  const realSetTimeout = globalThis.setTimeout;
-  const armed = [];
-  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
-  const fire = (ms) => {
-    const hit = armed.filter((a) => a.ms === ms && !a.done);
-    for (const a of hit) { a.done = true; a.fn(); }
-    return hit.length;
-  };
-  // ⚠️⚠️ AND THE CLOCK IS OURS (v497). The shop now decides BOTH steps on the clock rather than on a chain
-  // of timers — ⭐ **because a hidden tab freezes its timers, and when it wakes every overdue one fires at
-  // once**, so the offer used to go up and come straight back down. A test that fires two timers in the same
-  // instant is now asking for the reset before the offer has been readable, and the shop refuses — correctly.
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
-  try {
-    reloads = 0;
-    window.scrollY = 1400;                  // ⭐ he is at the bottom, resting on the receipt
-    await registry["order-btn"].onclick();
-    // ⚠️⚠️ AND NOTHING IS ARMED FOR THE OFFER UNTIL THE RECEIPT IS UP. **This is the ordering that was
-    // wrong, and it was found in the preview rather than here**: the offer's minute used to start when the
-    // ORDER landed, so on any page where the receipt was slow the offer came due FIRST, found no receipt to
-    // sit on, and gave up for good — ⭐ and an offer that is silently never made is the whole feature gone.
-    // **One ordering that happens to hold today is not the same as one that cannot break.**
-    assert.equal(armed.filter((a) => a.ms === 60000).length, 0,
-      "★ the offer's minute started when the order landed — a slow receipt would lose the offer entirely");
-    assert.equal(fire(1000), 1, "the receipt's own one-second hold never ran, so nothing below proves anything");
-    assert.equal(armed.filter((a) => a.ms === 60000 && !a.done).length, 1,
-      "★ the receipt went up without arming the offer, so the offer is never made at all");
-
-    // ── nothing is offered yet
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "★ the offer was on the receipt before the minute was out");
-    assert.equal(window.scrollY, 1400, "★ the order itself moved the page — v489 settled that it must not");
-
-    // ── a minute later, the offer
-    assert.equal(fire(60000), 1, "★ nothing was armed to offer anything a minute after the order");
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "★ the offer never appeared on the receipt");
-    assert.equal(window.scrollY, 1400,
-      "★ SHOWING the offer moved the page — it must only speak, or it is the fault it exists to prevent");
-
-    // ── ⚠️⚠️ AND **NOTHING** HAPPENS BEHIND IT (v499). ⭐ It used to arm a second minute, after which the
-    // shop cleared the page BY ITSELF — and her next question retired that: __"is automatic reloading of
-    // store a good idea? … What i try is adding customer details in it, the offer still shows"__. ⚠️ **She
-    // was typing the next customer's details and a live Reload button was sitting on the receipt.** ⭐ A page
-    // that reloads under someone's hands destroys what they have typed, **and no timer can honestly tell
-    // "nobody is using this" from "someone is mid-order".**
-    assert.equal(armed.filter((a) => a.ms === 60000 && !a.done).length, 0,
-      "★ something is still armed behind the offer — **nothing on this page may reload on a timer**");
-    clock += 120000;                         // ⭐ two more minutes of nobody touching anything
-    assert.equal(reloaded(), 0,
-      "★ the page CLEARED ITSELF with nobody having asked — that is the fault she reported, because the next "
-      + "customer may be typing their address at that very moment");
-
-    // ⭐ AND THE PRESS STILL DOES IT — the whole point, and it is the customer's decision.
-    // ⚠️ The button is found ON THE RECEIPT, not by id: the shop makes it with `el()`, and the shim's
-    // `getElementById` hands back a node of its own for any id it is asked about — **so `registry[...]` would
-    // be an empty stand-in with no listeners, and the assertion would fail for the harness's reason.**
-    const findButton = () => {
-      const walk = (n) => [n, ...(n.children || []).flatMap(walk)];
-      return walk(registry["confirm-msg"]).find((n) => String(n.tagName).toUpperCase() === "BUTTON");
-    };
-    const goBtn = findButton();
-    assert.ok(goBtn, "the offer has no press at all, so it does nothing");
-    assert.ok(goBtn._listeners.click && goBtn._listeners.click[0], "the offer's press is not wired to anything");
-    goBtn._listeners.click[0]();
-    assert.equal(reloaded(), 1,
-      "★ pressing the offer did not clear the page — and clearing the page is what she asked for in her "
-      + "first message and reported missing in every one since");
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "★ the offer is still on the receipt after it was pressed");
-
-    // ⭐⭐ AND THE RECEIPT ITSELF STAYS. Her answer, when asked which she wanted: __"clear the form"__ — the
-    // order is placed, the number and the tracking code are on it, and a shop that took those away would be
-    // taking away the two things the customer needs next.
-    assert.ok(confirmLines().some((t) => /Order received/i.test(t)),
-      "★ the receipt went with the reset — the order number and the tracking code were on it");
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.fetch = realFetch;
-    Date.now = realNow;
-    window.scrollY = 0;
-  }
-});
-
-// ── v497: the timer that never ran, because the phone was put down ──────────
-test("★★★ the offer comes from someone LOOKING, not only from a timer (v497)", async () => {
-  // ⚠️⚠️ HER REPORT, AND THE MEASUREMENT UNDER IT: __"footer say v496, but no offer to reload"__ — the code
-  // was current and the offer never came. ⭐ **MEASURED ON THE LIVE PAGE: `document.visibilityState` was
-  // `hidden`, and the sixty-second timer had simply never fired.** ⚠️ A hidden tab has its timers frozen or
-  // throttled — **and a customer who has just ordered puts the phone down or opens WhatsApp.** ⭐⭐ **The one
-  // moment this feature is for is exactly when the timer has not run.**
-  //
-  // ⭐ So the test NEVER FIRES THE OFFER'S TIMER. That is the whole point: the clock says the minute has
-  // passed, and the shop must act on a LOOK instead.
+test("★★★ a new order retires the last one's receipt (v499, and the offer is gone at v509)", async () => {
+  // ⚠️ HER WORDS, when the receipt was the thing bothering her: __"after the order confirmation … the earlier
+  // order, step 3 choice of self collection centre still engaged"__ — and this is the half that was always
+  // right: **a new customer arriving IS the reset.**
+  // ⭐ AND SINCE v509 THERE IS NO OFFER TO RETIRE — only the receipt, which the new order replaces and
+  // `retirePreviousOrder` takes away. ⚠️ **Nothing on this page reloads on a timer, and nothing offers to.**
   const card = registry["menu"].children[0];
   const stepper = card.children.find((c) => c.className === "card-body")
     .children.find((c) => c.className === "stepper");
@@ -3650,304 +3538,132 @@ test("★★★ the offer comes from someone LOOKING, not only from a timer (v49
     for (const a of hit) { a.done = true; a.fn(); }
     return hit.length;
   };
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
-  // ⭐ and the phone is picked up: the shop listens for this at the foot of its own file.
-  const looked = () => (window._listeners.focus || []).forEach((f) => f());
-  try {
-    reloads = 0;
-    window.scrollY = 1400;
-    await registry["order-btn"].onclick();
-    fire(1000);                                  // the receipt goes up — and the offer is armed for a minute
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "precondition: the offer is up before the minute, so nothing below proves anything");
-
-    // ⭐⭐ THE TIMER NEVER RUNS. The phone went into a pocket. ⭐ Then the minute passes.
-    assert.equal((window._listeners.focus || []).length, 1,
-      "★ the shop never listened for the page being looked at again — so there is no trigger at all once a "
-      + "timer has been frozen, and this test would be proving nothing");
-    clock += 61000;
-    looked();
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "★ the minute passed and NOTHING was offered — the timer was frozen because the page was hidden, and "
-      + "nobody was watching the clock. This is the exact fault she reported."
-      + ` | receipt=${JSON.stringify(confirmLines().join(" / ").slice(0, 70))}`
-      + ` | boxHidden=${registry["confirm-msg"].hidden}`);
-
-    // ⚠️ AND A THIRD LOOK DOES NOTHING MORE (v499). ⭐ The offer has no second stage any more: **it waits for
-    // a person, or for the next order to begin.** ⚠️ So a look that comes long after it went up must leave
-    // the page exactly where it is — **the alternative is a reload landing on a customer who is typing.**
-    assert.equal(window.scrollY, 1400, "precondition: the offer alone must not move the page");
-    clock += 300000;
-    looked();
-    assert.equal(reloaded(), 0,
-      "★ a look cleared the page on a timer-ish rule — the offer must wait for the customer now");
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.fetch = realFetch;
-    Date.now = realNow;
-    window.scrollY = 0;
-  }
-});
-
-test("★★★ a FINGER on the page raises the offer too — the one signal no phone fails to send (v498)", async () => {
-  // ⚠️⚠️ HER REPORT AFTER v497: __"still no offer"__. ⭐ And v497's own mechanism was PROVED working — driven
-  // on a hidden page with the timer frozen, a `focus` brought the offer up on the receipt. ⚠️ **So what is
-  // left is that `focus` and `visibilitychange` are not things a phone can be relied on to deliver**: which
-  // fires, and when, differs by browser and by whether the page came back from the back/forward cache.
-  // ⭐ **A finger on the glass is a signal no phone can fail to send**, and a customer picking the phone up
-  // touches it before they can read anything.
-  const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "card-body")
-    .children.find((c) => c.className === "stepper");
-  tapDay();
-  stepper.children[2]._listeners.click[0]();
-  document.getElementById("name-input").value = "Aunty Bee";
-  document.getElementById("whatsapp-input").value = "60123456789";
-  document.getElementById("fulfillment")._value = "collect";
-
-  const realSetTimeout = globalThis.setTimeout;
-  const armed = [];
-  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
-  const fire = (ms) => {
-    const hit = armed.filter((a) => a.ms === ms && !a.done);
-    for (const a of hit) { a.done = true; a.fn(); }
-    return hit.length;
-  };
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
-  const touch = () => (document._docListeners.pointerdown || []).forEach((f) => f());
-  try {
-    reloads = 0;
-    await registry["order-btn"].onclick();
-    fire(1000);
-    // ⚠️ AND NOTHING ELSE HAPPENS — no focus, no visibility change, no timer. Only a finger.
-    assert.ok((document._docListeners.pointerdown || []).length >= 1,
-      "★ the shop does not listen for a touch on the page, so on a phone that fires neither `focus` nor a "
-      + "usable `visibilitychange` there is no trigger at all");
-    clock += 61000;
-    touch();
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "★ a finger on the page did not raise the offer — the one signal a phone cannot fail to send");
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.fetch = realFetch;
-    Date.now = realNow;
-    window.scrollY = 0;
-  }
-});
-
-// ⚠️⚠️ AND IT DOES NOT DRAG HIM IF HE HAS MOVED THE PAGE HIMSELF — v423's rule, and the same one the
-// refusal line keeps. ⭐ The offer STAYS UP (he can still press it); the page simply does not move out from
-// under a customer who is reading something.
-test("★★ the automatic reset leaves the page alone if the customer has scrolled (v495)", async () => {
-  const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "card-body")
-    .children.find((c) => c.className === "stepper");
-  tapDay();
-  stepper.children[2]._listeners.click[0]();
-  document.getElementById("name-input").value = "Aunty Bee";
-  document.getElementById("whatsapp-input").value = "60123456789";
-  document.getElementById("fulfillment")._value = "collect";
-
-  const realSetTimeout = globalThis.setTimeout;
-  const armed = [];
-  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
-  const fire = (ms) => {
-    const hit = armed.filter((a) => a.ms === ms && !a.done);
-    for (const a of hit) { a.done = true; a.fn(); }
-    return hit.length;
-  };
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   try {
-    reloads = 0;
-    window.scrollY = 1400;
     await registry["order-btn"].onclick();
-    fire(1000);
-    fire(60000);                       // the offer goes up, resting at 1400
-    clock += 61000;                    // ⭐ the offer has been readable for its minute
-    window.scrollY = 2200;             // ⭐ he scrolls down to read his own receipt
-    fire(60000);                       // the automatic clear
-    assert.equal(reloaded(), 0,
-      "★ the page was CLEARED out from under a customer who was reading it — the offer should have stayed "
-      + "up and the page left exactly where he put it");
-    assert.equal(window.scrollY, 2200, "★ and it was moved as well");
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "★ and the offer was taken away as well, so he can no longer press it either");
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.fetch = realFetch;
-    Date.now = realNow;
-    window.scrollY = 0;
-  }
-});
+    fire(1000);                       // the receipt goes up
+    assert.equal(registry["confirm-msg"].hidden, false, "precondition: the receipt is up");
 
-// ── v500: the way OUT of the offer ─────────────────────────────────────────
-test("★★★ the offer can be turned down — and a NO is remembered (v500)", async () => {
-  // Her words: "there should be a button for user to cancel that offer".
-  // ** AND A CANCEL THAT COMES BACK IS NOT A CANCEL - IT IS A NAG.** Without a remembered no, the offer
-  // would be raised again by the next look at the page, because the look asks only "has the minute passed?":
-  // the customer would dismiss it, put the phone down, pick it up, and find it waiting again.
-  const card = registry["menu"].children[0];
-  const stepper = card.children.find((c) => c.className === "card-body")
-    .children.find((c) => c.className === "stepper");
-  tapDay();
-  stepper.children[2]._listeners.click[0]();
-  document.getElementById("name-input").value = "Aunty Bee";
-  document.getElementById("whatsapp-input").value = "60123456789";
-  document.getElementById("fulfillment")._value = "collect";
-
-  const realSetTimeout = globalThis.setTimeout;
-  const armed = [];
-  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
-  const fire = (ms) => {
-    const hit = armed.filter((a) => a.ms === ms && !a.done);
-    for (const a of hit) { a.done = true; a.fn(); }
-    return hit.length;
-  };
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
-  const looked = () => (window._listeners.focus || []).forEach((f) => f());
-  // ⚠️ FOUND BY ITS CLASS, NOT ITS ID: the stand-in `setAttribute` keeps attributes in `attrs` and does not
-  // mirror `id` onto the node, **so `n.id` is undefined for every element the shop builds** — the same
-  // harness gap this file has paid for before (`parentNode`, `remove`, `documentElement`).
-  const findButton = (cls) => {
-    const walk = (n) => [n, ...(n.children || []).flatMap(walk)];
-    // ⚠️ BOTH PLACES A CLASS CAN LIVE — the node's own `className` (which is what the shop's `el()` sets, and
-    // what every other test in this file reads) and the `class` attribute. **A helper that looked in only one
-    // of them would find nothing and blame the view.**
-    return walk(registry["confirm-msg"]).find((n) => {
-      const c = String(n.className || (n.getAttribute && n.getAttribute("class")) || "");
-      return c.split(/\s+/).includes(cls);
-    });
-  };
-  try {
-    reloads = 0;
-    await registry["order-btn"].onclick();
-    fire(1000);
-    clock += 61000;
-    looked();                        // the offer goes up
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "precondition: the offer is not up, so nothing below proves anything");
-
-    // ---- the way out
-    const no = findButton("reset-offer-no");
-    assert.ok(no, "the offer has no way to turn it down at all — her report in one line");
-    assert.ok(no._listeners.click && no._listeners.click[0], "the way out is not wired to anything");
-    no._listeners.click[0]();
-
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "pressing it left the offer where it was");
-    assert.equal(reloaded(), 0, "** turning the offer down CLEARED THE PAGE - the opposite of what it says");
-    assert.equal(registry["confirm-msg"].hidden, false,
-      "and the receipt went with it — turning the offer down must keep the receipt, which is the whole "
-      + "reason a customer would turn it down");
-
-    // ---- ** AND IT DOES NOT COME BACK
-    clock += 600000;                 // ten minutes and several looks later
-    looked();
-    looked();
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "** the offer came BACK after being turned down — a cancel that returns is a nag, and this one sits "
-      + "on top of a customer's details with a Reload button on it");
-    assert.equal(reloaded(), 0, "and it cleared the page on a later look");
-
-    // ---- * AND A NEW ORDER STILL GETS ITS OWN OFFER: the no belonged to the order before it.
-    clock += 1000;
-    // ⚠️⚠️ AND THE WHOLE FIXTURE AGAIN — **the after-order reset puts the shop back to how a new customer
-    // finds it**, which is the point of it: no bake day claimed, nothing in the basket, the form blank.
-    // ⭐ A test that reuses the fixture from the first order is testing a second order nobody could place.
-    tapDay();                        // ⭐ step 1 is HIS again
-    document.getElementById("name-input").value = "Mei Ling";
-    document.getElementById("whatsapp-input").value = "60198765432";
-    stepper.children[2]._listeners.click[0]();     // the next customer orders something
-    document.getElementById("fulfillment")._value = "collect";
-    await registry["order-btn"].onclick();
-    fire(1000);
-    clock += 61000;
-    looked();
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "** a later order never got an offer at all — one customer's no silenced the next customer's"
-      + ` | receipt=${JSON.stringify(receiptText().slice(0, 60))}`
-      + ` | hidden=${registry["confirm-msg"].hidden}`
-      + ` | armed=${armed.filter((a) => a.ms === 60000 && !a.done).length}`
-      + ` | basket=${registry["bar-count"].textContent}`);
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.fetch = realFetch;
-    Date.now = realNow;
-    window.scrollY = 0;
-  }
-});
-
-// ── v499: the previous order's furniture goes when a new order begins ───────
-test("★★★ a new order retires the last one's receipt and offer — and NOTHING reloads on a timer (v499)", async () => {
-  // ⚠️⚠️ HER QUESTION, AND THE RIGHT ONE: __"is automatic reloading of store a good idea? What i try is
-  // adding customer details in it, the offer still shows"__ — * she was typing the NEXT customer's details
-  // with the previous order's offer still on the screen, and that offer carries a live Reload button.
-  // ** A page that reloads under someone's hands destroys what they have typed**, and no timer can honestly
-  // tell "nobody is using this" from "someone is mid-order".
-  // * **And the auto-reload was never needed: the FORM has cleared itself on the order since v465.** What
-  // lingers is the receipt - and **a new customer arriving IS the reset.**
-  const card = registry["menu"].children[0];
-  const stepper = () => card.children.find((c) => c.className === "card-body")
-    .children.find((c) => c.className === "stepper");
-  tapDay();
-  stepper().children[2]._listeners.click[0]();
-  document.getElementById("name-input").value = "Aunty Bee";
-  document.getElementById("whatsapp-input").value = "60123456789";
-  document.getElementById("fulfillment")._value = "collect";
-
-  const realSetTimeout = globalThis.setTimeout;
-  const armed = [];
-  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
-  const fire = (ms) => {
-    const hit = armed.filter((a) => a.ms === ms && !a.done);
-    for (const a of hit) { a.done = true; a.fn(); }
-    return hit.length;
-  };
-  const realNow = Date.now;
-  let clock = realNow();
-  Date.now = () => clock;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
-  try {
-    reloads = 0;
-    await registry["order-btn"].onclick();
-    fire(1000);
-    clock += 61000;
-    fire(60000);                       // the offer is up, on the receipt
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
-      "precondition: the offer is not up, so nothing below proves anything");
-
-    // ** AND NOW THE NEXT CUSTOMER ARRIVES - the first thing anyone does is tap a bake day.
-    clock += 300000;                   // and long enough that any old timer rule would have fired
-    tapDay();                          // * step 1 done = a new order has begun
-    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "the previous order's offer is still on the page while the next customer is ordering");
+    // ⭐ AND THE NEXT CUSTOMER ARRIVES — the first thing anyone does is tap a bake day.
+    tapDay();
     assert.equal(registry["confirm-msg"].hidden, true,
-      "the previous order's receipt is still on the page - the next customer should not have to read "
-      + "someone else's order");
-    assert.equal(reloaded(), 0,
-      "the page RELOADED when the next customer tapped a bake day - that destroys whatever they had typed");
+      "★ the previous order's receipt is still on the page — **the next customer should not have to read "
+      + "someone else's order**");
   } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.fetch = realFetch;
+  }
+});
+
+// ── v509: the receipt goes by itself, twenty seconds after the order ─────────
+test("★★★ the receipt goes by itself twenty seconds after the order (v509)", async () => {
+  // ⚠️⚠️ HER WORDS, AND HER NUMBER: __"it is good to see the page cleared. So i think we should remove the
+  // order to reload. Just need to make the green Order Received! message vanish after 1min, can?"__ — and
+  // then __"make it 20sec instead of 1min"__.
+  // ⭐ THIS IS THE WHOLE OF WHAT IS LEFT of the reset feature: **no card, no Reload to press, no offer — the
+  // green message goes on its own.** ⚠️ So what is asserted here is the thing she asked for and nothing
+  // around it.
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper.children[2]._listeners.click[0]();
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "collect";
+
+  // ⭐ THE NUMBER IS HERS, AND IT IS NAMED *HERE* so that changing it has to come past this test — the same
+  // shape as the `SHOP_BUILD` pin. ⚠️ Read off the file rather than typed again: two copies of a number are
+  // two numbers, and the day they disagree the test goes on passing while the shop does something else.
+  const life = Number((readFileSync(new URL("../store/app.js", import.meta.url), "utf8")
+    .match(/const RECEIPT_LIFE_MS = (\d+);/) || [])[1]);
+  assert.equal(life, 20000,
+    "the receipt's life is not her 20 seconds — __\"make it 20sec instead of 1min\"__");
+
+  const realSetTimeout = globalThis.setTimeout;
+  const armed = [];
+  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
+  const fire = (ms) => {
+    const hit = armed.filter((a) => a.ms === ms && !a.done);
+    for (const a of hit) { a.done = true; a.fn(); }
+    return hit.length;
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  try {
+    await registry["order-btn"].onclick();
+    fire(1000);                       // the receipt goes up, and the life is armed inside that callback
+    assert.equal(registry["confirm-msg"].hidden, false, "precondition: the receipt is up");
+
+    assert.equal(fire(life), 1,
+      `★ nothing is counting down on the receipt (${life}ms found nothing) — **the green Order Received! `
+      + "message stays on the page until somebody does something about it**, which is the thing she asked "
+      + "to be rid of");
+
+    assert.equal(registry["confirm-msg"].hidden, true,
+      "★ the receipt is still on the page twenty seconds after the order — the next customer reads someone "
+      + "else's order number and tracking code");
+    assert.equal(registry["confirm-msg"].children.length, 0,
+      "★ the receipt was hidden but its lines were left inside it — **a node that is still in the page is "
+      + "still read by anything that walks it**, so the next order would be built on top of the last one");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("★★★ and a receipt whose twenty seconds passed while the page slept goes when the page is looked at (v509)", async () => {
+  // ⚠️⚠️ WHY THIS HALF EXISTS AT ALL (v497): her report was __"footer say v496, but no offer to reload"__,
+  // and **MEASURED on the live page `document.visibilityState` was `hidden` with the timer never having
+  // fired.** ⭐ **A phone that has just taken an order gets put down** — so the one moment this feature is
+  // for is exactly the moment the timer has not run. ⚠️ **A receipt that could only go on a timer would sit
+  // in front of the NEXT customer for as long as the page stayed in the background**, which is the ordinary
+  // case in a shop that runs on one phone at the counter.
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper.children[2]._listeners.click[0]();
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "collect";
+
+  // ⚠️ THE CLOCK IS THE SHOP'S OWN, SO IT IS THE THING TO MOVE — **not the timer, which is the thing that
+  // cannot be relied on.** ⭐ Seeded from the real clock so the calendar and the day he picked stay where
+  // they were, and only ever moved FORWARD by the seconds under test.
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  // The page being looked at: a finger on the glass is the signal no phone can fail to send (v498).
+  const look = () => { for (const f of (document._docListeners.pointerdown || [])) f(); };
+
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = () => 0;    // ⚠️ so the receipt's own timer can NEVER fire in this test
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  try {
+    await registry["order-btn"].onclick();
+    assert.equal(registry["confirm-msg"].hidden, false, "precondition: the receipt is up");
+
+    // ⚠️ NOT YET: ten seconds in, a look must leave it alone — the customer may still be reading it.
+    clock += 10000;
+    look();
+    assert.equal(registry["confirm-msg"].hidden, false,
+      "★ the receipt left before its twenty seconds were up — a customer reading his own order number off "
+      + "the screen had it taken away underneath him");
+
+    // ⭐ AND AT TWENTY, WITH THE TIMER HAVING NEVER RUN, THE LOOK ITSELF TAKES IT AWAY.
+    clock += 10000;
+    look();
+    assert.equal(registry["confirm-msg"].hidden, true,
+      "★ a receipt whose twenty seconds passed while the page was hidden is still on the screen when the "
+      + "next customer looks at it — **the timer is the thing that cannot be relied on, which is what v497 "
+      + "measured on her own phone**");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
     Date.now = realNow;
-    window.scrollY = 0;
+    globalThis.fetch = realFetch;
   }
 });
 

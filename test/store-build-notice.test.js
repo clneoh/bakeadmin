@@ -71,67 +71,7 @@ test("★★★ a page running OLD code says so — the exact case she reported 
     "★ a current page is being told it is stale — the shop would cry wolf on every visit");
 });
 
-test("★★★ the offer that clears the page is BIG ENOUGH TO SEE AND TO PRESS (v498)", () => {
-  // ⚠️⚠️ HER WORDS: __"it comout with message 'back to the top' relatively small"__ — ⭐ **and she was
-  // measuring it exactly right.** ⚠️ MEASURED IN THE STYLESHEET BEFORE THIS: the sentence wore
-  // `.confirm-sub` — **12px at 85% opacity, a caption** — and the button wore `.build-btn`, the shop's
-  // **inline link inside a sentence**, giving it a **~26px target**. ⭐ The skill's floor for anything a
-  // thumb hits is **44px, with 24px the absolute hard floor** — **so the one control this whole feature
-  // exists to get pressed was the smallest thing on the page.**
-  //
-  // ⚠️ NO TEST CAN SEE A SCREEN, so the numbers are pinned as NUMBERS — the same way this file pins the
-  // version pattern rather than trusting it. ⭐ A style that can quietly shrink back is a style that will.
-  const rule = (sel) => {
-    const at = css.indexOf(`${sel} {`);
-    assert.ok(at >= 0, `${sel} has no rule at all — the offer is unstyled and reads as another receipt line`);
-    return css.slice(at, css.indexOf("}", at));
-  };
-  const px = (body, prop) => {
-    const m = new RegExp(`${prop}:\\s*([\\d.]+)px`).exec(body);
-    return m ? Number(m[1]) : null;
-  };
 
-  const say = rule(".reset-offer-say");
-  assert.ok(px(say, "font-size") >= 16,
-    `★ the offer's sentence is ${px(say, "font-size")}px — a caption, not a message. **Body is 16px minimum, `
-    + "and this is the one message on the page a customer has to act on.**");
-  assert.match(say, /color:\s*var\(--ink\)/,
-    "★ the sentence is not in the shop's own ink — `--ink` on `--surface` is 12.6:1, and a customer reads "
-    + "this in Penang daylight");
-
-  const go = rule(".reset-offer-go");
-  assert.ok(px(go, "min-height") >= 44,
-    `★ the offer's button is ${px(go, "min-height")}px tall — **44px is what a thumb needs**, and 24px is the `
-    + "absolute floor. This is the control the customer is meant to press.");
-  assert.match(go, /background:\s*var\(--brown-dark\)/,
-    "★ the button has left the shop's terracotta fill — it is an ACTION, not a link inside a sentence");
-  assert.doesNotMatch(go, /build-btn/,
-    "★ the button is wearing the build notice's inline-link style again — **a style belongs to its job, and "
-    + "that one belongs to a press inside a sentence, not to a call to action**");
-
-  // ⚠️ AND THE JS MUST USE THOSE CLASSES, not the caption and the link it borrowed before.
-  assert.match(app, /class: "reset-offer-say"/, "the offer's sentence is not using the size pin above");
-  assert.match(app, /class: "reset-offer-go"/, "the offer's button is not using the size pin above");
-  // ⚠️⚠️ AND THE WAY OUT IS A REAL TARGET TOO (v500) — her words: __"there should be a button for user to
-  // cancel that offer"__. ⭐ The skill's rule is **44px AND real space between neighbours**: a small quiet
-  // link tucked beside a big button is exactly how a thumb that meant "not now" lands on "clear the page"
-  // — **which would throw away a receipt the customer was still reading.**
-  const no = rule(".reset-offer-no");
-  assert.ok(px(no, "min-height") >= 44,
-    `★ the "not now" press is ${px(no, "min-height")}px tall — it sits BESIDE a filled 44px button, and the `
-    + "one a thumb hits by accident is the one that loses the customer's receipt");
-  assert.match(no, /border:\s*1px solid var\(--brown-dark\)/,
-    "★ the way out is no longer the quieter of the two — **the offer exists to clear the page, and the way "
-    + "past it must be findable without competing**");
-  assert.deepEqual(rule(".reset-offer-acts") && /gap:\s*10px/.test(rule(".reset-offer-acts")), true,
-    "★ the two presses have no space between them, so a mis-tap is one pixel away");
-  assert.match(app, /class: "reset-offer-no"/, "the way out is not using the size pin above");
-  // ⭐ AND A NO IS REMEMBERED — **a cancel that comes back is a nag, and this one sits over a customer's
-  // details with a Reload button on it.**
-  assert.match(app, /if \(offerDismissed\) return;/, "★ a dismissed offer can be raised again by the next look");
-  assert.doesNotMatch(app, /class: "build-btn", id: "reset-offer-btn"/,
-    "★ the button is back on `.build-btn` — the ~26px inline link the customer could not see");
-});
 
 test("★★ the pattern still matches the version file the site actually ships", () => {
   // ⚠️⚠️ THE ONE SILENT DEATH OF THIS FEATURE. The pattern is matched against a HAND-WRITTEN file.
