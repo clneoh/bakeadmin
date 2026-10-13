@@ -1997,6 +1997,17 @@ test("★★★ TWO DIFFERENT CUSTOMERS LEAVE THE SHOP IN THE SAME STATE (v506)"
     const afterA = await order({ name: "Aunty Bee", wa: "60123456789", point: "pt_farlim", pointName: "Farlim", open: "collect", address: "" });
     const afterB = await order({ name: "Mei Ling", wa: "60198765432", point: "pt_airputih", pointName: "Air Putih", open: "courier", address: "12 Jalan Bunga" });
 
+    // ⚠️⚠️ AND THE ONE PIECE THE COMPARISON CANNOT CATCH, NAMED: ④. ⭐ It is green after EVERY order, so the
+    // two customers agree about it whether the reset works or not — **the comparison finds what DIFFERS
+    // between customers, and this is a constant the shop leaves set.** ⚠️ **That is the machine's own limit,
+    // and it is why this one line is written out by hand** — her screenshot showed it still green while the
+    // comparison was passing.
+    assert.equal(afterA["the ④ beside Place order"], false,
+      "★★ ④ IS STILL GREEN after the order — **the shop opens claiming step 4 is done before the next customer "
+      + "has done anything**, which is the fault ① was fixed for. ⚠️ The comparison above cannot see this: ④ is "
+      + "green for EVERY customer, so the two agree either way.");
+    assert.equal(afterB["the ④ beside Place order"], false, "★ and the same after the second order");
+
     const wrong = [];
     for (const k of Object.keys(afterA)) {
       if (afterA[k] !== afterB[k]) {

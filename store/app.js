@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "507";
+export const SHOP_BUILD = "508";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3853,10 +3853,6 @@ function clearFieldMarks() {
       // ⚠️ **THE STATE IS SPREAD ACROSS TWO SCOPES AND ONLY ONE OF THEM IS "THE RESET".** ⭐ I found the scope
       // by trying it in the reset, watching fourteen tests fail, and taking it out again — **which is what a
       // test suite is for.**
-      // ⚠️ The green ball is set a few lines above and held one second for the customer to SEE it finish; this
-      // puts it out for the next customer, so the shop does not arrive **claiming a step is done before he has
-      // done anything** — the fault v434 fixed for ①.
-      greenBarStep(false);
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
@@ -3922,6 +3918,14 @@ function clearFieldMarks() {
       // bakery's app, so this waits on nothing: it is time to SEE the step finish, not time the sale spends
       // in the post. They are the same `done` class ①②③ wear, so it is the same green and the same meaning.
       greenBarStep(true);
+      // ⚠️⚠️ AND IT GOES OUT ONE SECOND LATER, IN THE RECEIPT'S OWN CALLBACK (v508) — **NOT HERE.** ⭐ Her
+      // screenshot showed ④ STILL GREEN after the order, and the reason is the line above: **the green is set
+      // twice in this function, and I had put the clearing between them**, so the shop's own "let her SEE the
+      // step finish" put it straight back. ⚠️ **A reset is only a reset if it is the LAST word** — the same
+      // class as `greenBarStep` not being in the other scope's reach, twice in one version.
+      // ⭐ It belongs here, where the customer has had his second of green and is reading his receipt: **the
+      // notice covers the bar a moment later anyway, so putting it out is invisible to him and honest to the
+      // next customer.**
       // order-btn label was reset by renderBar — the cart is now empty.
       // The strictest change/cancel window across what was just ordered — the
       // receipt is the moment the customer most needs the no-refund rule, so the
@@ -3956,6 +3960,9 @@ function clearFieldMarks() {
         // closing `), GREEN_HOLD_MS);` — **which reads as "inside the callback" and is not.** ⭐ The test
         // that asks *whether anything is armed before the receipt exists* caught it on its first run.
         shopTimer(showResetOffer, RESET_TO_TOP_MS);
+        // ⭐ AND ④ GOES OUT NOW (v508) — the customer has had his second of green, and the next customer must
+        // not find the shop claiming a step is done before he has done anything (the fault v434 fixed for ①).
+        greenBarStep(false);
       }, GREEN_HOLD_MS);
     } else {
       // ⚠️ IT DID NOT LAND, SO THE STEP IS NOT DONE. The page falls back to WhatsApp, and a green ball

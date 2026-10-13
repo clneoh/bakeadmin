@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v507)
+# Jienluv2bake — change history (v54 → v508)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v508, THE STEP-4 GREEN GOES OUT, AND IT WAS STILL GREEN BECAUSE I CLEARED IT TOO EARLY (no database step).**
+
+**1. ⚠️⚠️ YOUR SCREENSHOT SHOWED IT STILL GREEN, AND THE REASON IS ONE LINE OF ORDERING.** The green ball beside Place order is **set twice** in the order path — once as the order is taken, and **again after the bar is rebuilt, deliberately, so you can SEE the step finish for a second.** ⚠️ **My clearing sat between the two**, so the app's own second green landed **after** it and put it straight back. ⭐ **A reset is only a reset if it is the LAST word** — and I had it second-to-last.
+
+**2. ⭐ SO IT GOES OUT IN THE RECEIPT'S OWN CALLBACK** — one second later, after you have had your second of green and while you are reading your receipt. ⭐ **The notice covers the bar a moment after that, so putting it out is invisible to you and honest to the next customer**, who must not open the shop with **step 4 already claiming to be done before he has done anything.**
+
+**3. ⚠️ AND THIS IS THE SAME CLASS THREE TIMES IN TWO VERSIONS** — first `greenBarStep` was in a **different scope** from the reset, and now it was set **twice in the same function.** ⭐ **Both are the same lesson: a reset is not the list of lines somebody wrote — it is the last thing that happens to each piece of state, wherever that piece is touched.**
+
+**4. ⭐ AND I LOOKED AT IT THIS TIME, ON THE REAL PAGE.** Not measured — looked: an order placed, the receipt up, **and the ④ out.** ⚠️ **And the honest note about the machine:** the two-customer comparison **cannot catch this one at all**, because ④ is green after *every* order, so the two customers agree whether it works or not — **the comparison finds what DIFFERS.** ⭐ So this piece is pinned by hand, with that reason written beside it.
+
+**Tests stay 3,436. No database step.**
 
 **13 Oct 2026 — engine v507, AN ORDER THE COURIER HAS ALREADY DELIVERED IS NOT ON THE RUN ANY MORE (no database step).**
 
@@ -17,6 +29,8 @@ always tell which build a phone is running.
 **No database step.**
 
 **13 Oct 2026 — engine v506, AND NEITHER DOES THE NEXT CUSTOMER INHERIT THE OPEN CARD, THE ADDRESS, OR THE STEP-4 GREEN (no database step).**
+
+__Corrected at v508:__ **the step-4 green was NOT fixed by this version — her next screenshot showed it still green.** ⭐ **The reason is worth keeping: THE GREEN IS SET TWICE in the order path, and my clearing sat between the two, so the app's own "let her SEE the step finish" put it straight back.** ⚠️ **A reset is only a reset if it is the LAST word.** It goes out in the receipt's callback now — after the shop has had its second of green.
 
 **Your words:** __"you clear the self collect choosen point, way not collapse the card?"__ — and then __"and why no4 still green, you want me to continue telling you what is wrong?"__
 
