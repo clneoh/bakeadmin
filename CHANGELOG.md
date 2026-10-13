@@ -1,10 +1,26 @@
-# Jienluv2bake — change history (v54 → v503)
+# Jienluv2bake — change history (v54 → v504)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**13 Oct 2026 — engine v504, THE STRIP GOES BACK WHERE THE APP PUTS ITS OWN — WITH THE ROOM RESERVED (no database step).**
+
+**Your words:** __"i want it to be consistant with the app"__
+
+**1. ⭐⭐ AND CONSISTENCY IS THE RIGHT THING TO WANT — SO IT IS PINNED ABOVE THE ORDER BAR AGAIN, exactly where the app pins its own above its tab bar.** ⚠️ I had moved it to the top at v503 on the strength of a measurement **I had already admitted was dishonest** — and then changed the design on it anyway. ⭐ **The measurement was of a position no customer ever ends up in** (I had forced the card to the bottom of the screen), and it made me miss the thing that actually matters.
+
+**2. ⭐⭐⭐ THE RESERVED ROOM IS THE FIX — NOT THE EDGE IT HANGS FROM.** A bar pinned to the bottom covers the bottom of the screen at all times; **that is true of the app's strip too, and the app lives with it because its screens reserve the room.** ⭐ **The page's foot now grows by the strip's own measured height**, so **there is always somewhere to scroll a control into.** ⚠️ **Without that room, a control that happens to sit at the foot is covered FOR GOOD** — which is exactly what you reported about the Self collect choice, and **the room is the difference between "covered for now" and "covered for ever".**
+
+**3. ⚠️ AND THE HEIGHT IS RE-MEASURED WHEN THE SENTENCE'S LENGTH CHANGES** — on a resize, and **after a language switch, since 中文 and Malay are different lengths** and the length is what decides one row or two. **Zero while the strip is hidden**, so a shop with no notice is the height it always was.
+
+**Measured:** driven at a true 375×812, scrolled to the very end of the page, **with no `scrollIntoView` to force anything**: the strip's own height reserved as **97px**, and **"Self collect" and "Courier delivery" both fully clear — `0px` covered for each**, with both on screen and 32px between the strip and the Order bar.
+
+**No database step.**
+
 **13 Oct 2026 — engine v503, THE UPDATE STRIP NO LONGER SITS ON TOP OF THE OFFER (no database step).**
+
+__Reversed at v504:__ **the strip moved back to the bottom, above the Order bar, where the app's own strip lives.** The fix below — reserving the strip's own height in the page's foot — is kept and is what makes the bottom position work; only the edge it hangs from changed, at her instruction: __"i want it to be consistant with the app"__.
 
 **Your words:** __"at the store after customer place order, there is a clear page, but that clear page is half bake"__
 

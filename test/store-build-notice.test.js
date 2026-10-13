@@ -285,17 +285,26 @@ test("★★ `display: flex` cannot beat `[hidden]` — the rule that stops the 
 
 test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for (v501)", () => {
   // ⚠️⚠️ HER WORDS: __"now see the warning, it is rather small. it should be a strip like what is having in
-  // the backoffice"__ — ⭐ **and "like the backoffice" means the PATTERN, not a near-miss.** What was here was
-  // a pale `--surface` bar with a 14px sentence and an underlined link for the press: ⭐ **it read as another
-  // line of the page, which is how a customer scrolls past the one thing that says the page is out of date.**
+  // the backoffice"__ — ⭐ **"like the backoffice" means the PATTERN, not a near-miss.** And then the two
+  // reports that followed, which are the whole of this test:
   //
-  // ⚠️ NO TEST CAN SEE A SCREEN, so the strip is pinned as its RULE AND ITS NUMBERS. ⭐ A look that can
-  // quietly shrink back will.
+  //   __"appp had the message pin together with the bottom menu, so it appaer regardless of the scroll, but
+  //   not store"__  — it has to be SEEN, whatever the customer is reading.
+  //   __"why the step 3, self collection choice not clear?"__ — ⭐ **MEASURED: with the strip pinned at the
+  //   bottom, "Self collect" sat 23px behind it and "Courier delivery" 87px.**
+  //   __"i want it to be consistant with the app"__ — ⭐ **which settles it, because the app's strip is pinned
+  //   above its tab bar WITH ROOM RESERVED FOR IT.**
+  //
+  // ⭐⭐ **THE RESERVED ROOM IS THE FIX, NOT THE EDGE IT HANGS FROM.** A pinned bar covers the bottom of the
+  // screen at all times — **but with the page's foot grown by the strip's own measured height, there is
+  // always somewhere to scroll a control into.** ⚠️ **Without that room the cover is for good**, which is
+  // exactly what she reported.
+  // ⚠️ NO TEST CAN SEE A SCREEN, so the strip is pinned as its RULE AND ITS NUMBERS.
   const notice = css.slice(css.indexOf(".build-notice {"), css.indexOf(".build-notice[hidden]"));
   const btn = css.slice(css.indexOf(".build-btn {"), css.indexOf(".build-btn:hover"));
 
-  // ⭐ THE ADMIN'S OWN AMBER PAIR, VERBATIM — the two files define their own tokens, so this is the copy that
-  // keeps the two screens agreeing about one colour.
+  // ⭐ THE ADMIN'S OWN AMBER PAIR, VERBATIM — the two files define their own tokens, so this copy is what keeps
+  // the two screens agreeing about one colour.
   assert.match(notice, /background:\s*var\(--amber-bg\)/,
     "★ the strip has left the backoffice's amber background");
   assert.match(css, /--amber:\s*#975a13;/, "the shop no longer carries the admin's --amber");
@@ -306,39 +315,8 @@ test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for 
   assert.ok(size && Number(size[1]) >= 16,
     "★ the strip's words are smaller than body size again — a caption is how this got missed twice");
 
-  // ⚠️⚠️ AND A REAL PRESS: 44px, FILLED — **not the inline link inside a sentence she reported as too small
-  // at v498.** ⭐ And it still must not read as an ALARM: nothing went wrong and the customer did nothing
-  // wrong, so there is no red anywhere on it.
-  // ⚠️⚠️ AND IT IS FIXED ABOVE THE ORDER BAR — WHICH IS THE WHOLE POINT (v502). ⭐ Her words:
-  // __"appp had the message pin together with the bottom menu, so it appaer regardless of the scroll, but not
-  // store"__ — ⭐ **a strip in the page's flow is only ever seen by somebody already at the top.**
-  assert.match(notice, /position:\s*fixed/, "★ the strip is not pinned — it scrolls away with the page, which "
-    + "is exactly the difference she pointed out between the shop and the backoffice");
-  assert.match(notice, /bottom:\s*var\(--bar-h/,
-    "★ the strip is not pinned ABOVE the order bar — **it would sit on top of the button the customer is "
-    + "trying to press**");
-  assert.match(notice, /z-index:\s*31/, "★ the strip must sit just above the order bar's 30");
-  // ⭐ AND THE NUMBER IT PINS ITSELF TO IS MEASURED, not the 92px fallback that nothing ever set.
-  assert.match(app, /document\.documentElement\.style\.setProperty\("--bar-h"/,
-    "★ nothing measures the order bar, so `--bar-h` is a guess — **and the strip is pinned to that guess**");
-
-  // ⚠️⚠️ AND THE PAGE RESERVES THE STRIP'S OWN HEIGHT, OR IT COVERS WHAT IS UNDER IT (v503).
-  // ⭐ Her words: __"at the store after customer place order, there is a clear page, but that clear page is
-  // half bake"__ — **MEASURED: the pinned strip covered the offer by 97px**, so the thing she had just been
-  // told to press was half behind it. ⭐ **A fixed bar has to reserve its own height — that is not a detail of
-  // this one, it is what `fixed` means** — and the page already reserved the Order bar's and not this one's.
-  assert.match(app, /setProperty\("--strip-h"/,
-    "★ nothing measures the strip, so the page cannot reserve room for it");
-  assert.match(app, /export function measureUpdateStrip\(\)/,
-    "★ there is no measuring function at all");
-  const view = css.slice(css.indexOf("  padding: 14px 14px calc(var(--bar-h"), css.indexOf(";", css.indexOf("  padding: 14px 14px calc(var(--bar-h")));
-  assert.match(view, /var\(--strip-h/,
-    "★ the page's foot padding does not include the strip's height — **the pinned strip will sit on top of "
-    + "whatever is at the bottom of the page**, which is exactly what she reported");
-  // ⚠️ Zero while the strip is hidden, so a page with no notice does not grow.
-  assert.match(app, /setProperty\("--strip-h", `\$\{h\}px`\)/,
-    "★ the reserved height is not a measured number");
-
+  // ⚠️⚠️ AND A REAL PRESS: 44px, FILLED — not the inline link inside a sentence she reported as too small.
+  // ⭐ It still must not read as an ALARM: nothing went wrong and the customer did nothing wrong, so no red.
   const tall = /min-height:\s*(\d+)px/.exec(btn);
   assert.ok(tall && Number(tall[1]) >= 44,
     "★ the press is below 44px — the floor for anything a thumb hits, and she has reported this smallness twice");
@@ -347,5 +325,31 @@ test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for 
     "★ `--surface` on `--brown-dark` is 5.92:1 — the pair every press in this shop uses");
   assert.doesNotMatch(notice + btn, /var\(--red\)/,
     "★ the strip has gone red — nothing has failed and the customer did nothing wrong");
+
+  // ⚠️⚠️ PINNED ABOVE THE ORDER BAR, WHERE THE APP PUTS ITS OWN — and that is her instruction.
+  assert.match(notice, /position:\s*fixed/,
+    "★ the strip is not pinned — it scrolls away with the page, which is the first thing she reported");
+  assert.match(notice, /bottom:\s*var\(--bar-h/,
+    "★ the strip is not pinned ABOVE the order bar — it would sit on top of the button the customer presses");
+  assert.match(notice, /z-index:\s*31/, "★ the strip must sit just above the order bar's 30");
+
+  // ⚠️⚠️ AND THE ROOM RESERVED FOR IT IS WHAT MAKES THAT LIVABLE. The page's foot grows by the strip's own
+  // MEASURED height, so a control can always be scrolled clear of it.
+  assert.match(app, /export function measureUpdateStrip\(\)/, "★ there is no measuring function at all");
+  assert.match(app, /setProperty\("--strip-h"/, "★ nothing measures the strip, so the page cannot reserve room");
+  const pad = css.slice(css.indexOf("  padding: 14px 14px calc(var(--bar-h"),
+    css.indexOf(";", css.indexOf("  padding: 14px 14px calc(var(--bar-h")));
+  assert.match(pad, /var\(--strip-h/,
+    "★ the page's foot does not reserve the strip's height — **the pinned strip would cover whatever is at "
+    + "the bottom of the page FOR GOOD, because there is no room to scroll it clear**, which is precisely "
+    + "what she reported about the Self collect choice");
+  // ⚠️ AND IT IS RE-MEASURED WHEN THE SENTENCE'S LENGTH CHANGES: on a resize, and after a language switch
+  // (中文 and Malay are different lengths, and the length is what decides one row or two).
+  assert.match(app, /window\.addEventListener\("resize", measureUpdateStrip\)/,
+    "★ the strip is not re-measured on a resize — a wrapped sentence would outgrow the reserved room");
+  assert.match(app, /setLang\(b\.dataset\.lang\);\s*\n\s*measureUpdateStrip\(\);/,
+    "★ the strip is not re-measured after a language switch");
+  assert.match(app, /document\.documentElement\.style\.setProperty\("--bar-h"/,
+    "★ nothing measures the order bar — the page's own foot padding is built on that number");
 });
 

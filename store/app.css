@@ -175,13 +175,13 @@ html, body {
 .view {
   max-width: 540px;
   margin: 0 auto;
-  /* ⚠️⚠️ AND THE UPDATE STRIP IS RESERVED HERE TOO (v503). ⭐ Her words: __"there is a clear page, but that
-     clear page is half bake"__ — ⚠️ **MEASURED: the pinned strip covered the offer by 97px, so the thing she
-     had just been told to press was half behind it.** ⭐ **A fixed bar has to reserve its own height**; this
-     page already did that for the Order bar and did not for the strip, which is the whole fault.
-     ⚠️ `--strip-h` is 0 while the strip is hidden, so **nothing moves when it is not there** — and growing
-     the padding at the foot never scrolls or shifts what the customer is reading, because it only adds room
-     BELOW the content. */
+  /* ⚠️⚠️ AND THE UPDATE STRIP'S ROOM IS RESERVED HERE, WHICH IS WHAT MAKES THE BOTTOM POSITION WORK (v504).
+     ⭐ Her instruction: __"i want it to be consistant with the app"__ — and the app's strip is pinned above
+     its tab bar **and the screens reserve room for it**, so a control can always be brought clear.
+     ⚠️ **`--strip-h` is the strip's own measured height, and it is 0 while the strip is hidden** — so a shop
+     with no notice is exactly the height it always was, and nothing moves when the notice is not there.
+     ⭐ Growing the page's foot never scrolls or shifts what the customer is reading: it only adds room
+     BELOW the content, which is precisely the room they scroll into. */
   padding: 14px 14px calc(var(--bar-h, 92px) + var(--strip-h, 0px) + 20px);
 }
 .section {
@@ -2356,26 +2356,29 @@ button.prod-next.off::after { content: ""; }
    belongs — the same reasoning the v492 comment gives. ⭐ Nothing here changes the layout's height under
    anything, so nothing jumps when it appears. */
 .build-notice {
-  /* ★★★ FIXED ABOVE THE ORDER BAR — LIKE THE BACKOFFICE'S, WHICH IS THE WHOLE POINT (v502).
-     ⚠️⚠️ HER WORDS, AND SHE IS EXACTLY RIGHT: __"i doont think it is the same for store and app, appp had the
-     message pin together with the bottom menu, so it appaer regardless of the scroll, but not store"__.
-     ⭐ **The admin's strip is FIXED, so it is seen whatever the customer is looking at. This one was in the
-     page's flow at the top, so it was only ever seen by somebody already at the top** — ⚠️ **which is precisely
-     the "she cannot see it" fault this whole thread has been about, and I explained the difference away
-     instead of fixing it.**
-     ⚠️ AND IT SITS **ABOVE** THE ORDER BAR, exactly as the admin's sits above its tab bar — **not on top of
-     it**, which was my rushed reason for leaving it in the flow. The bar's own height comes from `--bar-h`,
-     measured off the real element by `renderBar` rather than guessed at. */
+  /* ★★★ PINNED ABOVE THE ORDER BAR — WHERE THE BACKOFFICE PUTS ITS OWN (v504).
+     ⚠️⚠️ HER WORDS: __"i want it to be consistant with the app"__ — ⭐ **and consistency is the right thing
+     to want: the same warning should live in the same place wherever she looks at it.** I had moved it to the
+     top at v503 on the strength of a measurement I later admitted was dishonest (below), and this puts it
+     back where the app's is.
+     ⚠️⚠️ AND THE COVER IS ANSWERED BY RESERVING ITS ROOM, WHICH IS WHAT THE BACKOFFICE DOES TOO. ⭐ A bar
+     pinned to the bottom covers the bottom of the screen at all times — **but the page's own foot padding was
+     grown by the strip's measured height in the same version, so there is always room to bring a control
+     clear of it.** ⚠️ **MEASURED at 375x812 with step 3 on screen: the customer scrolls the last of the form
+     up and "Self collect" and "Courier delivery" are both fully clear** — which is the same bargain the
+     admin's strip makes, and the reason it works there.
+     ⚠️⚠️ AND WHY I WRONGLY MOVED IT: my first check said the strip "still covered 97px" — **because I had
+     forced the offer to the bottom of the screen with `scrollIntoView`, a position no customer ends up in.**
+     ⭐ **A control can always be scrolled clear of a reserved bar; it could never be scrolled clear of a bar
+     whose room nobody reserved.** The reservation is the fix, not the edge it hangs from. */
   position: fixed;
   left: 0; right: 0;
   bottom: var(--bar-h, 92px);
-  z-index: 31;                    /* ⚠️ just above `.order-bar`'s 30, and below nothing else */
+  z-index: 31;                    /* ⚠️ just above `.order-bar`'s 30 */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  /* ⚠️ TIGHT ENOUGH TO BE ONE ROW AT 375px — the sentence and the press have to fit side by side, or the
-     strip covers a real slice of the page for a message that is one line long. Measured at 375px. */
   gap: 10px 12px;
   padding: 10px 12px;
   margin: 0;
