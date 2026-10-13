@@ -1928,6 +1928,91 @@ test("★★★ the after-order reset clears the COLLECTION CENTRE — not only 
   assert.equal(wrap._picked, false, "and the way itself is reset, which is the half that always worked");
 });
 
+test("★★★ TWO DIFFERENT CUSTOMERS LEAVE THE SHOP IN THE SAME STATE (v506)", async () => {
+  // ⚠️⚠️ HER QUESTION, AND IT IS THE BEST ONE OF THE DAY: __"i think you alway forgot. How to make sure not to
+  // forget"__. ⭐ **And she is right — she handed me the same fault THREE TIMES: the collection CENTRE, then the
+  // CARD that stayed unfolded, then the ④ that stayed green.**
+  //
+  // ⭐⭐ SO THIS IS NOT A LIST OF THINGS TO RESET. **A list is a thing somebody has to remember to add to** —
+  // and the one who forgot three times is me.
+  //
+  // ⭐⭐⭐ AND THE IDEA THAT MAKES IT WORK: **it does not compare the shop against a blank page** (which a test
+  // file cannot produce — the shop above it has already had a customer). **It compares TWO DIFFERENT CUSTOMERS.**
+  // ⭐ **If the reset is complete, the shop after B is IDENTICAL to the shop after A** — and if ANY piece
+  // survives, A's left A's value and B's left B's, so the two disagree.
+  // ⚠️ **AND HOW THEY MUST DIFFER IS THE POINT:** different centre, different card opened, different address,
+  // different name, different day, different basket. **Anything the reset forgets shows up as a difference
+  // nobody wrote down** — ⭐ including pieces nobody has thought of yet.
+  const read = () => {
+    const wrap = registry["fulfillment"];
+    const val = (id) => { const n = document.getElementById(id); return n ? String(n.value || "") : ""; };
+    const done = (id) => { const n = document.getElementById(id); return !!(n && n.classList && n.classList.contains("done")); };
+    return {
+      "the basket": registry["bar-count"].textContent,
+      "the total": registry["bar-total"].textContent,
+      "his name": val("name-input"),
+      "his number": val("whatsapp-input"),
+      "his address": val("address-input"),
+      "the note on the order": val("note-input"),
+      "the promo code": val("promo-input"),
+      "whether HE chose the way": !!wrap._picked,
+      "the collection centre": String(wrap._pointId || ""),
+      "the centre's name": String(wrap._pointName || ""),
+      "the card left unfolded": String(wrap._open == null ? "" : wrap._open),
+      "step 1 done": done("step1"),
+      "step 2 done": done("step2"),
+      "step 3 done": done("step3"),
+      "the ④ beside Place order": done("bar-step"),
+      "the step note is up": !document.getElementById("step-note").hidden,
+    };
+  };
+
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => (opts && opts.method === "POST" ? { ok: true } : { ok: true, json: async () => [] });
+  const order = async (who) => {
+    render();
+    tapDay();
+    registry["menu"].children[0].children.find((c) => c.className === "card-body")
+      .children.find((c) => c.className === "stepper").children[2]._listeners.click[0]();
+    document.getElementById("name-input").value = who.name;
+    document.getElementById("whatsapp-input").value = who.wa;
+    const wrap = registry["fulfillment"];
+    // ⚠️⚠️ AND THEY MUST DIFFER IN EVERY PIECE THAT CAN SURVIVE — **which my first version did NOT do**, and
+    // the bites showed it: both customers opened the same card and neither touched the address, so those two
+    // pieces matched BY CONSTRUCTION and **the comparison passed with the reset broken.** ⭐ **A test whose
+    // fixture cannot tell the two apart is testing nothing** — the fault this suite has recorded before.
+    wrap._value = "collect";
+    wrap._picked = true;
+    wrap._open = who.open;                 // ⭐ A opens one card, B the other
+    wrap._pointId = who.point;
+    wrap._pointName = who.pointName;
+    const addr = document.getElementById("address-input");
+    if (addr) addr.value = who.address;    // ⭐ and B leaves an address behind, A does not
+    await registry["order-btn"].onclick();
+    await afterOrderNotice();
+    return read();
+  };
+
+  try {
+    const afterA = await order({ name: "Aunty Bee", wa: "60123456789", point: "pt_farlim", pointName: "Farlim", open: "collect", address: "" });
+    const afterB = await order({ name: "Mei Ling", wa: "60198765432", point: "pt_airputih", pointName: "Air Putih", open: "courier", address: "12 Jalan Bunga" });
+
+    const wrong = [];
+    for (const k of Object.keys(afterA)) {
+      if (afterA[k] !== afterB[k]) {
+        wrong.push(`${k}: the first customer left ${JSON.stringify(afterA[k])}, the second ${JSON.stringify(afterB[k])}`);
+      }
+    }
+    assert.deepEqual(wrong, [],
+      "★★★ THE SHOP DOES NOT COME BACK THE SAME AFTER TWO DIFFERENT CUSTOMERS — so something the first one did is "
+      + "still there after the second, and the next customer will inherit exactly that:\n  - " + wrong.join("\n  - "));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+
+
 test("the next customer does not inherit the last one's note", async () => {
   await withNotedProduct(async (p) => {
     pressPlus(cardNamed(p.name));

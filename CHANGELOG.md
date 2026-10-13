@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v505)
+# Jienluv2bake — change history (v54 → v507)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v507, AN ORDER THE COURIER HAS ALREADY DELIVERED IS NOT ON THE RUN ANY MORE (no database step).**
+
+**Your words:** __"why certain delievery done, but still appear on delivery run"__
+
+**1. ⭐⭐ THE ANSWER IS ONE LINE, AND IT IS THE SAME SHAPE AS THE KITCHEN.** The function that decides what needs a vehicle asked **"does this order go by courier?"** and **never asked "has it already gone?"** ⚠️ **So an order the courier had delivered still answered yes, and came back onto the run** — a van sent for bread that arrived days ago. ⭐ **A question that was right until the world moved on** — exactly the fault the kitchen had, one version earlier.
+
+**2. ⭐ AND THE APP ALREADY KNEW, IN ITS OWN FUNCTION.** This file has one reading of "the courier has this parcel or has delivered it", and it is asked **twice**: the run screen and the Delivery dates screen's own **"Run (N)"** badge. ⚠️ **Writing a second reading beside it is exactly how the two would come to disagree** — which is why the fix asks the one that exists.
+
+**3. ⭐ It excludes COLLECTED as well as delivered** — a parcel already on the vehicle needs no van sent for it either — ⚠️ **and deliberately NOT a cancelled trip:** the van never took it, so the bread may still need carrying, and it stays on the run. **Both directions are tested and both were bitten.**
+
+**No database step.**
+
+**13 Oct 2026 — engine v506, AND NEITHER DOES THE NEXT CUSTOMER INHERIT THE OPEN CARD, THE ADDRESS, OR THE STEP-4 GREEN (no database step).**
+
+**Your words:** __"you clear the self collect choosen point, way not collapse the card?"__ — and then __"and why no4 still green, you want me to continue telling you what is wrong?"__
+
+**1. ⚠️⚠️ YOU HAD TO TELL ME THREE TIMES, AND THAT IS THE REAL FAULT.** The centre (v505), then the card, then ④ — **one at a time, each found by you.** ⭐ Your rule is written down — *a rule about one control is a rule about the whole step* — and I was fixing the one you named instead of asking what else the step holds.
+
+**2. ⭐ SO THE RESET NOW PUTS BACK THE WHOLE OF STEP 3:** the **card folds** (it stayed unfolded, with the last customer's centre list hanging open in front of the next one), the **address clears** (it was only hidden), and **④ goes out** (it was left green, so the shop arrived **claiming a step was done before he had done anything** — the fault ① was fixed for).
+
+**3. ⚠️⚠️ AND ④ COULD NOT BE FIXED WHERE THE OTHERS WERE, WHICH IS WORTH KNOWING:** the green ball is set by a function that **is not in the same scope as the reset at all.** ⭐ **The state is spread across two places and only one of them is "the reset".** I found that by putting the line in the wrong one and watching fourteen tests fail — **which is what a test suite is for.**
+
+**4. ⭐ AND THE MACHINE, SO NOBODY HAS TO REMEMBER:** a test that puts **two different customers** through the shop and asserts the shop comes back **in the same state** after both. ⚠️ **Not a list of things to reset — a list is a thing somebody has to remember to add to, and the one who forgot three times is me.** If the reset is complete the two agree; if anything survives, one customer's value meets the other's and they disagree.
+
+**Measured:** ⚠️ **AND THE MACHINE IS NOT FINISHED, SAID PLAINLY.** It catches the **collection centre** — bitten, it goes red. **It does NOT yet catch the card, the address or the step-4 green**, and I could not tell from those bites whether that is because those pieces are already put back elsewhere or because the test cannot see them. ⭐ **That is stated here rather than left for you to discover on your phone.** Tests **3,434 → 3,436**.
+
+**No database step.**
 
 **13 Oct 2026 — engine v505, THE NEXT CUSTOMER DOES NOT INHERIT THE LAST ONE'S COLLECTION CENTRE (no database step).**
 

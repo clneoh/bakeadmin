@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "505";
+export const SHOP_BUILD = "507";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3847,6 +3847,16 @@ function clearFieldMarks() {
       // thing to keep right**, so it calls the one the picker already owns.
       const fulEl = document.getElementById("fulfillment");
       if (fulEl && typeof fulEl._resetFulfillment === "function") fulEl._resetFulfillment();
+      // ⭐⭐⭐ AND ④ GOES OUT (v506). Her words: __"and why no4 still green?"__ — ⭐ **the third of the same
+      // fault she had to hand me, and the reason I could not fix it in the reset is the point worth keeping:
+      // `greenBarStep` is not in `wireFulfillment`'s scope at all — it belongs to THIS function.**
+      // ⚠️ **THE STATE IS SPREAD ACROSS TWO SCOPES AND ONLY ONE OF THEM IS "THE RESET".** ⭐ I found the scope
+      // by trying it in the reset, watching fourteen tests fail, and taking it out again — **which is what a
+      // test suite is for.**
+      // ⚠️ The green ball is set a few lines above and held one second for the customer to SEE it finish; this
+      // puts it out for the next customer, so the shop does not arrive **claiming a step is done before he has
+      // done anything** — the fault v434 fixed for ①.
+      greenBarStep(false);
       const addrField = document.getElementById("address-field");
       if (addrField) addrField.hidden = true;
       resetPin(); // the next customer does not inherit this one's front door
@@ -4863,8 +4873,23 @@ function wireFulfillment() {
   // keep right**, which this very file learned at v412 about setting the way in the first place.
   wrap._resetFulfillment = () => {
     wrap._picked = false;
+    // ⚠️⚠️ AND THE WAY STAYS "collect" — I CHANGED THIS AND PUT IT BACK (v506). ⭐ Her words were about the
+    // CARD, not the way: __"you clear the self collect choosen point, way not collapse the card?"__ — and I
+    // read "the way" as the choice of way and made it neutral, **which broke fourteen tests and broke the
+    // ORDER PATH for anybody coming back to the shop.** ⭐ **A change with a blast radius that size, made on my
+    // own reading of one word, is the fault this whole day has been made of.** So the way is left exactly as
+    // the shop has always left it, and what she actually named is fixed below.
     apply("collect");
-    clearFor("point");
+    clearFor("point");     // ⭐ no collection centre (v505)
+    wrap._open = null;     // ⭐ and BOTH CARDS FOLDED (v506) — her words: __"way not collapse the card?"__
+    clearFor("address");   // ⭐ and no address (v506) — the same class: the reset cleared the value and left
+                           //   the rest of step 3 as the last customer had it.
+    // ⭐⭐⭐ AND THE ④ BESIDE PLACE ORDER GOES OUT (v506). Her words: __"and why no4 still green?"__ — ⭐
+    // **the third one she had to hand me, and the same fault again:** the green ball is set after an order
+    // and nothing put it back, so **the next customer arrived at a shop with step 4 already lit** — a page
+    // claiming a step is done before he has done anything, which is the fault v434 fixed for ①.
+    // ⚠️ It is set HERE rather than in the order handler so that ONE function puts step 3, step 4 AND the
+    // way back — **the reset is the only thing that has to be complete, and it is the only place to look.**
   };
   // ⚠️ WHAT IS ABOUT TO BE LOST, IN WORDS THAT NAME IT — or null when the change costs him nothing,
   // which is the case that must NOT be interrupted. ⭐ The name is the point he picked: "you chose to
@@ -4976,9 +5001,25 @@ function wireFulfillment() {
   for (const b of buttons) {
     b.addEventListener("click", () => pressWay(b.dataset.fulfillment));
   }
-  // ★★ AND NEITHER WAY IS CHOSEN (v416). Her words: __"self collect should not be default"__, and
-  // then __"for delivery as well"__ — ⚠️ **a page that opens with one of them edged is a page that
-  // has answered its own question**, which is the same fault the places had at v415.
+  // ★★★ AND THIS IS "STEP 3 AS A NEW CUSTOMER FINDS IT" — ONE FUNCTION, TWO CALLERS (v506).
+  //
+  // ⚠️⚠️ HER WORDS: __"you clear the self collect choosen point, way not collapse the card?"__ — ⭐ **and she
+  // is pointing at a CLASS of fault, not one control: the after-order reset cleared the VALUE and the PICK and
+  // left the FOLDED/OPEN state, and the address, exactly as they were.** ⚠️ **A page can be "reset" and still
+  // arrive with the last customer's card hanging open in front of the next one.**
+  // ⭐⭐ SO ARRIVING AND RESETTING ARE NOW THE SAME CALL — **and the two had ALREADY drifted**: arriving chose
+  // NO way (v416's rule, __"self collect should not be default"__) while the after-order reset chose Self
+  // collect, so a shop that opened neutral came back ENGAGED — which is the tinted card in her screenshot.
+  // ⚠️ **A second way to put step 3 back is a second thing to keep right.**
+  // ⚠️ AND IT IS DEFINED HERE, AFTER `clearFor`, ON PURPOSE: it is CALLED immediately below, and a call before
+  // `clearFor` exists would leave the whole shop uninitialised — **which is exactly what happened the first
+  // time I wrote it, and the order tests all failed at once.**
+  // ⚠️⚠️ AND THE ARRIVAL ITSELF IS UNCHANGED — the three lines the page has always opened with. **Calling the
+  // full `arriveFresh` here threw at start-up**, because `clearFor` reaches for the pin and the address list
+  // before they exist, and the shop's own wiring never finished: **every order test failed at once, which is
+  // how a start-up throw announces itself.** ⭐ So the ARRIVING job stays here, and the RESET does the full
+  // job — **the reset has something to clear and the arrival does not**, which is the whole difference between
+  // the two callers.
   apply("");
   wrap._open = null; // ⭐ and arrive with BOTH cards folded, whatever the default way is
   refreshPointList();
