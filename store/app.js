@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "499";
+export const SHOP_BUILD = "500";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1695,6 +1695,13 @@ function clearFieldMarks() {
   let orderedAt = 0;
   let offerShownAt = 0;
   let offerTimers = [];
+  // ★★★ AND WHETHER THE CUSTOMER HAS ALREADY SAID NO TO THIS ORDER'S OFFER (v500).
+  // ⚠️⚠️ Her words: __"there should be a button for user to cancel that offer"__. ⭐ **And a cancel that
+  // comes back is not a cancel — it is a nag.** ⚠️ Without this the offer would be raised again by the next
+  // look at the page, because the look asks only "has the minute passed?" — so the customer would dismiss it,
+  // set the phone down, pick it up, and find it waiting again. ⭐ **A no has to be remembered, or it is not a
+  // no.** ⚠️ Cleared by a NEW order (which gets its own offer) and by the next order beginning.
+  let offerDismissed = false;
   // ⚠️ THE NODES THE OFFER IS MADE OF, HELD AS THEY ARE MADE — **never looked up again to remove them**,
   // because `getElementById` returns the first match in the document and the shop learned at v460 what a
   // lookup answers once a node has been torn out of the page.
@@ -1739,7 +1746,20 @@ function clearFieldMarks() {
     const say = el("p", { class: "reset-offer-say" }, t("resetOfferBody"));
     const go = el("button", { type: "button", class: "reset-offer-go", id: "reset-offer-btn" }, t("resetOfferBtn"));
     go.addEventListener("click", () => { endOffer(); clearThePage(); });
-    const card = el("div", { class: "reset-offer", id: "reset-offer" }, say, go);
+    // ★★★ AND A WAY TO SAY NO (v500). ⚠️⚠️ Her words: __"there should be a button for user to cancel that
+    // offer"__.
+    // ⭐ IT IS DELIBERATELY THE QUIETER OF THE TWO — an outlined press beside the filled one — because
+    // clearing the page is what the offer is FOR, and a customer who wants the receipt kept should be able to
+    // find the way out without it competing with the action. ⚠️ **But it is a real 44px target with real
+    // space beside the other one**, because a thumb that hits the wrong one loses everything they typed: the
+    // skill's rule is 44px AND space between neighbours, and a small quiet link next to a big button is how
+    // a mis-tap happens.
+    // ⭐ AND SAYING NO IS REMEMBERED (`offerDismissed`) — **the offer does not come back on the next look**,
+    // and the receipt stays exactly where it is.
+    const no = el("button", { type: "button", class: "reset-offer-no", id: "reset-offer-no" }, t("resetOfferNo"));
+    no.addEventListener("click", () => { offerDismissed = true; endOffer(); });
+    const card = el("div", { class: "reset-offer", id: "reset-offer" },
+      say, el("div", { class: "reset-offer-acts" }, go, no));
     offerNodes = [card];      // ⚠️ held as it is made, so `endOffer` removes THE box and everything in it
     box.append(card);
     // ⚠️⚠️ AND NOTHING IS ARMED BEHIND IT (v499). ⭐ It used to arm a second minute, after which the shop
@@ -1786,6 +1806,13 @@ function clearFieldMarks() {
     const box = document.getElementById("confirm-msg");
     if (box && !box.hidden) { box.hidden = true; box.replaceChildren(); }
     endOffer();
+    // ⚠️⚠️ AND THE ORDER IS FORGOTTEN TOO (v500). ⭐ The receipt has gone, so there is nothing for the clock
+    // to measure a minute from — **`showResetOffer` would return on `box.hidden` anyway, which means the
+    // right answer depended on a guard two functions away.** ⚠️ **A state that says an order is still live
+    // after its receipt has gone is a state that lies**, and the next person to read `orderedAt` would have
+    // no way to know. ⭐ Cleared here as well as the offer.
+    orderedAt = 0;
+    offerDismissed = false;
   }
 
   // ★★★ AND THE PAGE BEING LOOKED AT AGAIN IS THE TRIGGER THAT MATTERS (v497).
@@ -1803,6 +1830,7 @@ function clearFieldMarks() {
   // is left alone.
   shopLookedAgain = (now) => {
     if (!orderedAt) return;                       // ⚠️ no order — there is nothing to offer about
+    if (offerDismissed) return;                   // ⚠️⚠️ he has SAID NO — a cancel that comes back is a nag
     if (offerNodes.length) return;                // ⚠️ the offer is already up — one offer, and it waits now
     // ⭐ the offer has not been made. The timer due to make it may never have run, so ask the clock.
     if (Number(now) - orderedAt >= RESET_TO_TOP_MS) showResetOffer();
@@ -3833,6 +3861,8 @@ function clearFieldMarks() {
       // the receipt. ⭐ **It is a timestamp and not only a timer**, so the shop can still answer "has the
       // minute passed?" after a phone has been asleep and its timers frozen.
       orderedAt = Date.now();
+      // ⚠️ AND A NEW ORDER GETS ITS OWN OFFER (v500) — a "no" belonged to the order before it.
+      offerDismissed = false;
       renderBar();
       // ⚠️ `renderBar` empties the bar for the next customer, so the green is set AGAIN here — and then
       // HELD for her one second **before the received notice covers it**. ⭐ The order is already in the

@@ -37,6 +37,10 @@ const en = {
   // promise this page cannot keep is worse than no promise.
   resetOfferBody: "All done? Clearing the page starts a fresh shop for the next order — the order number and code on this receipt go with it. Nothing else is lost: your order is already with the bakery.",
   resetOfferBtn: "Clear the page",
+  // ⚠️ AND THE WAY OUT (v500). Her words: __"there should be a button for user to cancel that offer"__.
+  // ⭐ "Not now" rather than "Cancel", because cancel usually means undoing something — **and nothing is
+  // undone here: the receipt simply stays.** Say the word if you would rather it read "Cancel".
+  resetOfferNo: "Not now",
 
   // Promo codes (v269). The offer is composed in store/app.js out of the engine's
   // PARTS — kind and value — so a percentage, an amount and free delivery each
@@ -472,6 +476,9 @@ const zh = {
   // 失礼。⚠️ 也要注意它刻意不说的话：它没说会「清除订单」。订单已经下好了，收据会留着。
   resetOfferBody: "都好了吗？清除页面等于给下一位客人一间全新的店 — 这张收据上的订单编号和追踪码也会一起消失。其他都不会少：您的订单已经送到烘焙房了。",
   resetOfferBtn: "清除页面",
+  // ⚠️ 取消的出路（v500）。⭐ 用「先不」，不用「取消」— 取消通常代表要撤销某件事，而这里什么都没被撤销，
+  // 收据只是留着。
+  resetOfferNo: "先不",
 
   promoLabel: "有优惠码吗？",
   promoPh: "例如 FRESH10",
@@ -711,6 +718,9 @@ const ms = {
   // tidak menawarkan untuk "memadamkan order". Order itu sudah pun dibuat dan resitnya kekal.
   resetOfferBody: "Sudah selesai? Membersihkan halaman bermakna kedai yang baharu untuk order seterusnya — nombor order dan kod pada resit ini akan turut hilang. Tiada apa-apa lagi yang hilang: order anda sudah berada di kedai.",
   resetOfferBtn: "Bersihkan halaman",
+  // ⚠️ JALAN KELUAR (v500). * "Bukan sekarang" dan bukan "Batal" - batal biasanya bermakna membatalkan
+  // sesuatu, dan tiada apa yang dibatalkan di sini: resit itu cuma kekal.
+  resetOfferNo: "Bukan sekarang",
 
   promoLabel: "Ada kod?",
   promoPh: "cth. FRESH10",

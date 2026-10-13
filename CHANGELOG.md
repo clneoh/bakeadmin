@@ -1,14 +1,30 @@
-# Jienluv2bake — change history (v54 → v499)
+# Jienluv2bake — change history (v54 → v500)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**13 Oct 2026 — engine v500, THE OFFER CAN BE TURNED DOWN, AND A NO IS REMEMBERED (no database step).**
+
+**Your words:** __"there should be a button for user to cancel that offer"__
+
+**1. ⭐⭐ THERE IS A WAY OUT NOW — "Not now", beside "Clear the page".** ⚠️ **It is deliberately the quieter of the two**, outlined rather than filled, because clearing the page is what the offer is __for__ and the way past it should be findable without competing with the action. ⭐ **But it is a real 44px press with real space beside the other one** — measured on the shop at 375px: **149×44 and 101×45, on one row, 10px apart.** ⚠️ A small quiet link tucked against a big button is exactly how a thumb that meant "not now" lands on "clear the page" instead, **which would throw away a receipt the customer was still reading.**
+
+**2. ⚠️⚠️ AND A CANCEL THAT COMES BACK IS NOT A CANCEL — IT IS A NAG.** ⭐ Without a remembered no, the next look at the page would raise the offer again, because the look only asks "has the minute passed?" — so a customer would dismiss it, put the phone down, pick it up, and find it waiting. **The no is remembered for that order**, and ⭐ **a new order still gets its own offer** — one customer's answer never silences the next customer's.
+
+**3. ⭐ AND THE RECEIPT STAYS WHEN YOU TURN IT DOWN** — which is the whole reason someone would turn it down: they still want the order number and the code. ⭐ Pressing "Not now" hides the offer and touches nothing else.
+
+⚠️ **Say the word if you would rather the button read "Cancel"** than "Not now" — I chose "Not now" because "cancel" usually means undoing something, and nothing is undone here.
+
+**Measured:** driven on the real shop at 375×812 — the offer up a minute after the order, the two presses side by side at 44px and 45px tall. Tests **3,431 → 3,432**, and four written faults were each watched to turn the suite red: the no not remembered (a cancel that returns) · there being no way out at all · the way out clearing the page instead of leaving it · and the way out shrunk to 24px.
+
+**No database step.**
+
 **13 Oct 2026 — engine v499, NOTHING RELOADS ON A TIMER, AND THE LAST ORDER'S FURNITURE GOES (no database step).**
 
 **Your words:** __"is automatic reloading of store a good idea? What i try is adding customer details in it, the offer still shows, but it is ot auto reload when time up? What is a better approach?"__
 
-**1. ⭐⭐ NO, AND YOUR OWN TEST FOUND WHY.** You were **entering the next customer's details** and the previous order's offer was still on the screen — ⚠️ **and that offer carries a live Reload button.** ⭐ **A page that reloads under someone's hands destroys what they have typed.** ⚠️ And there is no honest way to tell *"nobody is using this"* from *"someone is mid-order"*: the guard I had could only ask whether the page had been scrolled, **which is a guess that fails both ways.** ⭐ **So the automatic reload is gone — not disabled, not guarded. Nothing on this page reloads on a timer any more.**
+**1. ⭐⭐ NO, AND YOUR OWN TEST FOUND WHY.** You were **entering the next customer's details** and the previous order's offer was still on the screen — ⚠️ **and that offer carries a live Reload button.** ⭐ **A page that reloads under someone's hands destroys what they have typed.** ⚠️ And there is no honest way to tell __"nobody is using this"__ from __"someone is mid-order"__: the guard I had could only ask whether the page had been scrolled, **which is a guess that fails both ways.** ⭐ **So the automatic reload is gone — not disabled, not guarded. Nothing on this page reloads on a timer any more.**
 
 **2. ⭐⭐ AND IT WAS NEVER NEEDED.** The **form has cleared itself the moment an order lands** since v465 — the basket, the notes, the name, the number, the address, the door pin, the code and the bake day. **The next customer already starts fresh.** ⚠️ What lingers is the **receipt**, and **a new customer arriving IS the reset** — there is nothing to force.
 

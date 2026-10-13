@@ -3663,6 +3663,107 @@ test("★★ the automatic reset leaves the page alone if the customer has scrol
   }
 });
 
+// ── v500: the way OUT of the offer ─────────────────────────────────────────
+test("★★★ the offer can be turned down — and a NO is remembered (v500)", async () => {
+  // Her words: "there should be a button for user to cancel that offer".
+  // ** AND A CANCEL THAT COMES BACK IS NOT A CANCEL - IT IS A NAG.** Without a remembered no, the offer
+  // would be raised again by the next look at the page, because the look asks only "has the minute passed?":
+  // the customer would dismiss it, put the phone down, pick it up, and find it waiting again.
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper.children[2]._listeners.click[0]();
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "collect";
+
+  const realSetTimeout = globalThis.setTimeout;
+  const armed = [];
+  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
+  const fire = (ms) => {
+    const hit = armed.filter((a) => a.ms === ms && !a.done);
+    for (const a of hit) { a.done = true; a.fn(); }
+    return hit.length;
+  };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  const looked = () => (window._listeners.focus || []).forEach((f) => f());
+  // ⚠️ FOUND BY ITS CLASS, NOT ITS ID: the stand-in `setAttribute` keeps attributes in `attrs` and does not
+  // mirror `id` onto the node, **so `n.id` is undefined for every element the shop builds** — the same
+  // harness gap this file has paid for before (`parentNode`, `remove`, `documentElement`).
+  const findButton = (cls) => {
+    const walk = (n) => [n, ...(n.children || []).flatMap(walk)];
+    // ⚠️ BOTH PLACES A CLASS CAN LIVE — the node's own `className` (which is what the shop's `el()` sets, and
+    // what every other test in this file reads) and the `class` attribute. **A helper that looked in only one
+    // of them would find nothing and blame the view.**
+    return walk(registry["confirm-msg"]).find((n) => {
+      const c = String(n.className || (n.getAttribute && n.getAttribute("class")) || "");
+      return c.split(/\s+/).includes(cls);
+    });
+  };
+  try {
+    reloads = 0;
+    await registry["order-btn"].onclick();
+    fire(1000);
+    clock += 61000;
+    looked();                        // the offer goes up
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
+      "precondition: the offer is not up, so nothing below proves anything");
+
+    // ---- the way out
+    const no = findButton("reset-offer-no");
+    assert.ok(no, "the offer has no way to turn it down at all — her report in one line");
+    assert.ok(no._listeners.click && no._listeners.click[0], "the way out is not wired to anything");
+    no._listeners.click[0]();
+
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
+      "pressing it left the offer where it was");
+    assert.equal(reloaded(), 0, "** turning the offer down CLEARED THE PAGE - the opposite of what it says");
+    assert.equal(registry["confirm-msg"].hidden, false,
+      "and the receipt went with it — turning the offer down must keep the receipt, which is the whole "
+      + "reason a customer would turn it down");
+
+    // ---- ** AND IT DOES NOT COME BACK
+    clock += 600000;                 // ten minutes and several looks later
+    looked();
+    looked();
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
+      "** the offer came BACK after being turned down — a cancel that returns is a nag, and this one sits "
+      + "on top of a customer's details with a Reload button on it");
+    assert.equal(reloaded(), 0, "and it cleared the page on a later look");
+
+    // ---- * AND A NEW ORDER STILL GETS ITS OWN OFFER: the no belonged to the order before it.
+    clock += 1000;
+    // ⚠️⚠️ AND THE WHOLE FIXTURE AGAIN — **the after-order reset puts the shop back to how a new customer
+    // finds it**, which is the point of it: no bake day claimed, nothing in the basket, the form blank.
+    // ⭐ A test that reuses the fixture from the first order is testing a second order nobody could place.
+    tapDay();                        // ⭐ step 1 is HIS again
+    document.getElementById("name-input").value = "Mei Ling";
+    document.getElementById("whatsapp-input").value = "60198765432";
+    stepper.children[2]._listeners.click[0]();     // the next customer orders something
+    document.getElementById("fulfillment")._value = "collect";
+    await registry["order-btn"].onclick();
+    fire(1000);
+    clock += 61000;
+    looked();
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
+      "** a later order never got an offer at all — one customer's no silenced the next customer's"
+      + ` | receipt=${JSON.stringify(receiptText().slice(0, 60))}`
+      + ` | hidden=${registry["confirm-msg"].hidden}`
+      + ` | armed=${armed.filter((a) => a.ms === 60000 && !a.done).length}`
+      + ` | basket=${registry["bar-count"].textContent}`);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+    window.scrollY = 0;
+  }
+});
+
 // ── v499: the previous order's furniture goes when a new order begins ───────
 test("★★★ a new order retires the last one's receipt and offer — and NOTHING reloads on a timer (v499)", async () => {
   // ⚠️⚠️ HER QUESTION, AND THE RIGHT ONE: __"is automatic reloading of store a good idea? What i try is
