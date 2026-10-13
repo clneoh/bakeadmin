@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v501)
+# Jienluv2bake — change history (v54 → v502)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v502, THE STRIP IS PINNED, SO IT IS SEEN WHATEVER THE CUSTOMER IS READING (no database step).**
+
+**Your words:** __"i doont think it is the same for store and app, appp had the message pin together with the bottom menu, so it appaer regardless of the scroll, but not store"__
+
+**1. ⭐⭐ YOU ARE EXACTLY RIGHT, AND I EXPLAINED THE DIFFERENCE AWAY INSTEAD OF FIXING IT.** The backoffice's strip is **pinned**, so it is seen whatever is on screen. The shop's was **in the page's flow at the top** — ⭐ **so it was only ever seen by somebody already at the top**, which is precisely the "she cannot see it" fault this whole thread has been about. ⚠️ My reason for leaving it there was that a second pinned bar would sit on the Order bar's button — **and the answer to that is not "leave it scrolling away", it is to pin it ABOVE the bar**, exactly as the backoffice pins its own above its tab bar.
+
+**2. ⭐ SO IT IS PINNED, DIRECTLY ON TOP OF THE ORDER BAR** — not over it. ⚠️ **And the number it pins itself to is now MEASURED.** `--bar-h` was used in exactly one place with a fallback of **92px and was never set by anything** — ⭐ **measured on the shop: the real bar is 100px**, so the page's own bottom padding had been 8px short as well. ⭐ One measurement, two uses: the strip pins to it and the page pads its foot with it.
+
+**3. ⚠️ AND IT IS TWO ROWS ON A 375px PHONE — that is the honest trade, and here is why.** The strip is one row in the backoffice because **its message is 12.5px.** ⭐ **Your complaint was that this one was too small**, so the words stay at **16px** and the press stays a real **44px** — and at 375px, 16px of sentence beside a 44px button does not fit on one line. ⭐ **A smaller strip would be a strip you cannot read.**
+
+**Measured:** driven on the real shop at 375×812, **scrolled to the very bottom of the page** — the strip is still on screen, **its bottom edge at 712 and the order bar's top at 712**, so it sits exactly on top of the bar and never over it. ⚠️ **That is the check she asked for, run as she asked for it: not "is it drawn?" but "can it be seen from where the customer is?"**
+
+**No database step.**
 
 **13 Oct 2026 — engine v501, THE SHOP'S UPDATE WARNING IS A STRIP, LIKE THE BACKOFFICE'S (no database step).**
 

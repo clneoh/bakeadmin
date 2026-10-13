@@ -309,6 +309,19 @@ test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for 
   // ⚠️⚠️ AND A REAL PRESS: 44px, FILLED — **not the inline link inside a sentence she reported as too small
   // at v498.** ⭐ And it still must not read as an ALARM: nothing went wrong and the customer did nothing
   // wrong, so there is no red anywhere on it.
+  // ⚠️⚠️ AND IT IS FIXED ABOVE THE ORDER BAR — WHICH IS THE WHOLE POINT (v502). ⭐ Her words:
+  // __"appp had the message pin together with the bottom menu, so it appaer regardless of the scroll, but not
+  // store"__ — ⭐ **a strip in the page's flow is only ever seen by somebody already at the top.**
+  assert.match(notice, /position:\s*fixed/, "★ the strip is not pinned — it scrolls away with the page, which "
+    + "is exactly the difference she pointed out between the shop and the backoffice");
+  assert.match(notice, /bottom:\s*var\(--bar-h/,
+    "★ the strip is not pinned ABOVE the order bar — **it would sit on top of the button the customer is "
+    + "trying to press**");
+  assert.match(notice, /z-index:\s*31/, "★ the strip must sit just above the order bar's 30");
+  // ⭐ AND THE NUMBER IT PINS ITSELF TO IS MEASURED, not the 92px fallback that nothing ever set.
+  assert.match(app, /document\.documentElement\.style\.setProperty\("--bar-h"/,
+    "★ nothing measures the order bar, so `--bar-h` is a guess — **and the strip is pinned to that guess**");
+
   const tall = /min-height:\s*(\d+)px/.exec(btn);
   assert.ok(tall && Number(tall[1]) >= 44,
     "★ the press is below 44px — the floor for anything a thumb hits, and she has reported this smallness twice");

@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "501";
+export const SHOP_BUILD = "502";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3531,6 +3531,25 @@ function clearFieldMarks() {
     // Point will take this basket is part of the basket's judgement, so a customer who adds an
     // item watches Farlim become choosable — and one who removes one watches it say why not.
     refreshPointList(total);
+    // ★★★ AND THE BAR'S REAL HEIGHT IS WRITTEN DOWN, FOR THE UPDATE STRIP TO SIT ON (v502).
+    //
+    // ⚠️⚠️ `--bar-h` WAS USED IN EXACTLY ONE PLACE WITH A FALLBACK OF 92px AND **WAS NEVER SET BY ANYTHING** —
+    // so the page's own bottom padding was a guess, and the guess is wrong the moment the bar grows (the
+    // promo line under Place order is one extra row, and the privacy notice is another).
+    // ⭐ Her words: __"appp had the message pin together with the bottom menu, so it appaer regardless of the
+    // scroll, but not store"__ — ⭐ **and a strip pinned above the bar cannot be pinned correctly to a number
+    // nobody measures.** So the bar is measured, here, on the one repaint every basket change already
+    // passes through, **and the same number the strip pins itself to is the number the page pads its foot
+    // with.** One reading, two uses.
+    // ⚠️ Guarded: a page with no bar (or a test shim with no layout) simply keeps the fallback.
+    const barEl = document.querySelector(".order-bar");
+    if (barEl && typeof barEl.getBoundingClientRect === "function"
+        && typeof document !== "undefined" && document.documentElement) {
+      try {
+        const h = Math.round(barEl.getBoundingClientRect().height);
+        if (h > 0) document.documentElement.style.setProperty("--bar-h", `${h}px`);
+      } catch { /* no layout — the fallback stands, and it is a sane one */ }
+    }
     return total;
   }
 

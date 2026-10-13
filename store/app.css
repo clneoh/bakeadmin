@@ -2349,21 +2349,35 @@ button.prod-next.off::after { content: ""; }
    belongs — the same reasoning the v492 comment gives. ⭐ Nothing here changes the layout's height under
    anything, so nothing jumps when it appears. */
 .build-notice {
+  /* ★★★ FIXED ABOVE THE ORDER BAR — LIKE THE BACKOFFICE'S, WHICH IS THE WHOLE POINT (v502).
+     ⚠️⚠️ HER WORDS, AND SHE IS EXACTLY RIGHT: __"i doont think it is the same for store and app, appp had the
+     message pin together with the bottom menu, so it appaer regardless of the scroll, but not store"__.
+     ⭐ **The admin's strip is FIXED, so it is seen whatever the customer is looking at. This one was in the
+     page's flow at the top, so it was only ever seen by somebody already at the top** — ⚠️ **which is precisely
+     the "she cannot see it" fault this whole thread has been about, and I explained the difference away
+     instead of fixing it.**
+     ⚠️ AND IT SITS **ABOVE** THE ORDER BAR, exactly as the admin's sits above its tab bar — **not on top of
+     it**, which was my rushed reason for leaving it in the flow. The bar's own height comes from `--bar-h`,
+     measured off the real element by `renderBar` rather than guessed at. */
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--bar-h, 92px);
+  z-index: 31;                    /* ⚠️ just above `.order-bar`'s 30, and below nothing else */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 10px 14px;
-  padding: 12px 16px;
+  /* ⚠️ TIGHT ENOUGH TO BE ONE ROW AT 375px — the sentence and the press have to fit side by side, or the
+     strip covers a real slice of the page for a message that is one line long. Measured at 375px. */
+  gap: 10px 12px;
+  padding: 10px 12px;
   margin: 0;
-  /* ⚠️ THE ADMIN'S PAIR, VERBATIM. */
   background: var(--amber-bg);
   color: var(--ink);
-  border-bottom: 1px solid #ecd4a5;
-  box-shadow: 0 2px 8px rgba(120, 66, 32, .10);
-  /* ⚠️ 16px — BODY SIZE, NOT A CAPTION (v498's own rule, applied here). */
+  border-top: 1px solid #ecd4a5;
+  box-shadow: 0 -2px 8px rgba(120, 66, 32, .12);
   font-size: 16px;
-  line-height: 1.4;
+  line-height: 1.35;
   text-align: center;
 }
 .build-notice[hidden] { display: none; }
@@ -2377,7 +2391,7 @@ button.prod-next.off::after { content: ""; }
   border: 0;
   border-radius: 10px;
   min-height: 44px;
-  padding: 10px 20px;
+  padding: 10px 16px;
   background: var(--brown-dark);
   color: var(--surface);
   font: inherit;
