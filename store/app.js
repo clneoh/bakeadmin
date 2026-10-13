@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "502";
+export const SHOP_BUILD = "503";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1515,10 +1515,34 @@ function rememberBuildTried() {
   catch { /* no storage — the press is simply offered again next time */ }
 }
 
+// ★★★ AND THE STRIP'S OWN HEIGHT IS WRITTEN DOWN, SO THE PAGE IS NEVER COVERED BY IT (v503).
+//
+// ⚠️⚠️ HER WORDS: __"at the store after customer place order, there is a clear page, but that clear page is
+// half bake"__ — and **MEASURED on the real page: the pinned strip covered the offer by 97px.** ⭐ **The page
+// already reserved the Order bar's height in its foot padding and did not reserve the strip's** — so the
+// moment both were on screen, the thing she had just been told to press was half behind it.
+// ⭐ **A fixed bar has to reserve its own height. That is not a detail of this one — it is what `fixed`
+// means**, and the fault is that I added a second fixed bar beside an existing one and only reserved one.
+// ⚠️ Measured AFTER the words are in and after the language is applied, because the sentence's length is
+// what decides whether the strip is one row or two, and it is a different length in Chinese and Malay.
+// ⚠️ Zero while it is hidden, so nothing moves on a page that has no notice at all.
+export function measureUpdateStrip() {
+  if (typeof document === "undefined" || !document.documentElement) return;
+  const box = document.getElementById("build-notice");
+  let h = 0;
+  if (box && !box.hidden && typeof box.getBoundingClientRect === "function") {
+    try { h = Math.max(0, Math.round(box.getBoundingClientRect().height)); } catch { h = 0; }
+  }
+  try { document.documentElement.style.setProperty("--strip-h", `${h}px`); }
+  catch { /* no inline styles on this page — the padding simply stays as it was */ }
+}
+
 function paintBuildNotice() {
   const box = typeof document === "undefined" ? null : document.getElementById("build-notice");
   if (!box) return;
   box.hidden = false;
+  // ⚠️ AFTER the unhiding, so its real height can be read — a hidden element measures as nothing.
+  measureUpdateStrip();
   const tried = buildTried();
   const say = document.getElementById("build-say");
   const stuck = document.getElementById("build-stuck");
@@ -5399,7 +5423,18 @@ if (typeof document !== "undefined" && document.documentElement) {
   paintPillsHook = (l) => pills.forEach((b) => b.classList.toggle("is-on", b.dataset.lang === l));
   applyTo(document, STORE, loadLang());
   paintPillsHook(loadLang());
-  pills.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  pills.forEach((b) => b.addEventListener("click", () => {
+    setLang(b.dataset.lang);
+    // ⚠️⚠️ AND THE STRIP IS MEASURED AGAIN (v503). ⭐ The sentence decides whether the strip is one row or
+    // two, and **it is a different length in 中文 and Malay** — so a language switch that made it taller
+    // would leave the page's reserved room short, and the strip would cover content again.
+    measureUpdateStrip();
+  }));
+  // ⚠️ And on a resize, for the same reason: a narrower window wraps the sentence onto another line.
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("resize", measureUpdateStrip);
+  }
+  measureUpdateStrip();
 
   // ★★★ SOMEONE LOOKING AT THE PAGE AGAIN (v497) — the trigger that actually happens.
   //

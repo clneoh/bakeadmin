@@ -322,6 +322,23 @@ test("★★★ the notice is the BACKOFFICE'S STRIP, at the size she asked for 
   assert.match(app, /document\.documentElement\.style\.setProperty\("--bar-h"/,
     "★ nothing measures the order bar, so `--bar-h` is a guess — **and the strip is pinned to that guess**");
 
+  // ⚠️⚠️ AND THE PAGE RESERVES THE STRIP'S OWN HEIGHT, OR IT COVERS WHAT IS UNDER IT (v503).
+  // ⭐ Her words: __"at the store after customer place order, there is a clear page, but that clear page is
+  // half bake"__ — **MEASURED: the pinned strip covered the offer by 97px**, so the thing she had just been
+  // told to press was half behind it. ⭐ **A fixed bar has to reserve its own height — that is not a detail of
+  // this one, it is what `fixed` means** — and the page already reserved the Order bar's and not this one's.
+  assert.match(app, /setProperty\("--strip-h"/,
+    "★ nothing measures the strip, so the page cannot reserve room for it");
+  assert.match(app, /export function measureUpdateStrip\(\)/,
+    "★ there is no measuring function at all");
+  const view = css.slice(css.indexOf("  padding: 14px 14px calc(var(--bar-h"), css.indexOf(";", css.indexOf("  padding: 14px 14px calc(var(--bar-h")));
+  assert.match(view, /var\(--strip-h/,
+    "★ the page's foot padding does not include the strip's height — **the pinned strip will sit on top of "
+    + "whatever is at the bottom of the page**, which is exactly what she reported");
+  // ⚠️ Zero while the strip is hidden, so a page with no notice does not grow.
+  assert.match(app, /setProperty\("--strip-h", `\$\{h\}px`\)/,
+    "★ the reserved height is not a measured number");
+
   const tall = /min-height:\s*(\d+)px/.exec(btn);
   assert.ok(tall && Number(tall[1]) >= 44,
     "★ the press is below 44px — the floor for anything a thumb hits, and she has reported this smallness twice");

@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v502)
+# Jienluv2bake — change history (v54 → v503)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v503, THE UPDATE STRIP NO LONGER SITS ON TOP OF THE OFFER (no database step).**
+
+**Your words:** __"at the store after customer place order, there is a clear page, but that clear page is half bake"__
+
+**1. ⚠️⚠️ YOU MEANT IT LITERALLY, AND IT WAS MEASURABLE.** ⭐ **MEASURED on the real page: the pinned strip covered the offer by 97 pixels** — you could see the receipt's last line, and then the strip sat over the sentence and the two presses underneath it. ⭐ **"Half baked" was exactly right: the thing you had just been told to press was half behind the thing telling you the page was old.**
+
+**2. ⭐⭐⭐ THE FAULT IS ONE SENTENCE LONG: A FIXED BAR HAS TO RESERVE ITS OWN HEIGHT.** ⚠️ The page already reserved the **Order bar's** height in its foot padding — and **did not reserve the strip's.** ⭐ **That is not a detail of this strip; it is what `fixed` means.** I added a second fixed bar beside an existing one and reserved only one of them, which is the same shape as every other fault today: **two things that must agree, in two places, agreeing nowhere.**
+
+**3. ⭐ SO THE STRIP'S OWN HEIGHT IS MEASURED AND RESERVED** — and then re-measured when the sentence's length changes, **because that is what decides whether the strip is one row or two**: on a resize, and **after a language switch, since 中文 and Malay are different lengths.** ⚠️ And it is **zero while the strip is hidden**, so a shop with no notice is exactly the height it always was.
+
+**Measured:** driven on the real page — scrolled to the very end, the way a customer reaches the receipt:**the strip covers nothing, `0px`**, with the offer's foot at 298 and the strip's top at 615. ⚠️ **And my first check said 97px covered and was wrong**: I had forced the offer to the bottom of the screen with `scrollIntoView`, which is a position no customer ends up in. **A measurement is only as honest as the state you measure it in.**
+
+**No database step.**
 
 **13 Oct 2026 — engine v502, THE STRIP IS PINNED, SO IT IS SEEN WHATEVER THE CUSTOMER IS READING (no database step).**
 

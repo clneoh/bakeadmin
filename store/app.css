@@ -175,7 +175,14 @@ html, body {
 .view {
   max-width: 540px;
   margin: 0 auto;
-  padding: 14px 14px calc(var(--bar-h, 92px) + 20px);
+  /* ⚠️⚠️ AND THE UPDATE STRIP IS RESERVED HERE TOO (v503). ⭐ Her words: __"there is a clear page, but that
+     clear page is half bake"__ — ⚠️ **MEASURED: the pinned strip covered the offer by 97px, so the thing she
+     had just been told to press was half behind it.** ⭐ **A fixed bar has to reserve its own height**; this
+     page already did that for the Order bar and did not for the strip, which is the whole fault.
+     ⚠️ `--strip-h` is 0 while the strip is hidden, so **nothing moves when it is not there** — and growing
+     the padding at the foot never scrolls or shifts what the customer is reading, because it only adds room
+     BELOW the content. */
+  padding: 14px 14px calc(var(--bar-h, 92px) + var(--strip-h, 0px) + 20px);
 }
 .section {
   font-family: var(--serif);
