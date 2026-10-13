@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "498";
+export const SHOP_BUILD = "499";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1679,13 +1679,11 @@ function clearFieldMarks() {
   // ★★★ PUTTING THE PAGE BACK AT THE TOP ONCE THE ORDER IS A MINUTE OLD (v495). Her words, and the number
   // is hers: __"after the order confirmation, and waited for 1min, the page should reset itself"__.
   // ⚠️ ONE NUMBER, IN ONE PLACE — the only thing anyone would ever want to change, and changing it must not
-  // mean touching the code that uses it. ⭐ It is used TWICE: the wait before the offer, and the wait after
-  // it before the shop does it by itself.
+  // mean touching the code that uses it. ⭐ It is used ONCE now: the wait before the offer. ⚠️⚠️ **It used to
+  // be used twice — the second being the wait after the offer, before the shop cleared the page by itself —
+  // and that second one is GONE (v499). See `retirePreviousOrder` for why.**
   const RESET_TO_TOP_MS = 60000;
-  // ⚠️ WHERE THE PAGE WAS RESTING WHEN THE OFFER WENT UP, so the shop can tell "he has not touched it" from
-  // "he is reading something". Cleared with the offer, so one order raises one offer.
-  let offerRestingAt = null;
-  // ★★★ AND WHEN THE RECEIPT WENT UP, AND WHEN THE OFFER DID (v497). ⚠️⚠️ **THESE EXIST BECAUSE A TIMER IS
+  // ★★★ WHEN THE RECEIPT WENT UP, AND WHEN THE OFFER DID (v497). ⚠️⚠️ **THESE EXIST BECAUSE A TIMER IS
   // NOT ENOUGH, AND HER PHONE PROVED IT.**
   //
   // Her report: __"footer say v496, but no offer to reload"__ — ⭐ the code was current and the offer still
@@ -1727,7 +1725,6 @@ function clearFieldMarks() {
     // permanent**, so the offer could never appear and the rule could never be proved. ⭐ The same reason
     // `endOffer` removes the nodes it made rather than looking them up (v460).
     if (offerNodes.length) return;
-    offerRestingAt = (typeof window !== "undefined" && Number(window.scrollY)) || 0;
     offerShownAt = Date.now();
     // ⚠️⚠️ AND IT IS MADE TO BE SEEN, WHICH IT WAS NOT (v498). ⭐ HER WORDS: __"it comout with message 'back
     // to the top' relatively small"__ — ⚠️ **and she was measuring it exactly right.** ⭐ MEASURED IN THE
@@ -1745,9 +1742,16 @@ function clearFieldMarks() {
     const card = el("div", { class: "reset-offer", id: "reset-offer" }, say, go);
     offerNodes = [card];      // ⚠️ held as it is made, so `endOffer` removes THE box and everything in it
     box.append(card);
-    // ⚠️ AND IF NOBODY ATTENDS TO IT, THE SHOP DOES IT BY ITSELF — her words: __"if no body attend to it then
-    // reset itself"__. ⭐ The same wait again, and then the same move the press would have made.
-    shopTimer(() => autoReset(Date.now()), RESET_TO_TOP_MS);
+    // ⚠️⚠️ AND NOTHING IS ARMED BEHIND IT (v499). ⭐ It used to arm a second minute, after which the shop
+    // cleared the page **by itself** — her words then: __"if no body attend to it then reset itself"__.
+    // ⭐⭐ **THAT IS GONE, AND SHE FOUND THE REASON HERSELF:** __"What i try is adding customer details in it,
+    // the offer still shows, but it is ot auto reload when time up?"__ — ⚠️ **she was typing the NEXT
+    // customer's details while the previous order's offer sat there, and it is a live Reload button.** ⭐ **A
+    // page that reloads under someone's hands destroys what they have typed**, and there is no honest way to
+    // tell "nobody is using this" from "someone is mid-order" — the guard I had could only ask whether the
+    // page had been scrolled, **which is a guess that fails both ways.**
+    // ⭐ So the offer waits for a person, and `retirePreviousOrder` takes it away the moment a new order
+    // begins. **Nothing on this page ever reloads on a timer again.**
   }
 
   // ⚠️ TAKES THE OFFER DOWN AND STOPS ITS TIMERS. Called by the press, by the automatic move, and by a new
@@ -1757,10 +1761,31 @@ function clearFieldMarks() {
     // ⚠️ A LOOKUP IS WRONG HERE for the reason v460 gives: the node is one this code made, and a lookup can
     // answer a DIFFERENT node — the shop's own step line learned that the hard way. ⭐ So the two pieces are
     // held as they are made, and removed as themselves.
-    offerRestingAt = null;
     offerShownAt = 0;
     for (const node of offerNodes) node.remove();
     offerNodes = [];
+  }
+
+  // ★★★ AND THE PREVIOUS ORDER'S RECEIPT GOES THE MOMENT A NEW ORDER BEGINS (v499).
+  //
+  // ⚠️⚠️ HER QUESTION, AND IT IS THE RIGHT ONE: __"is automatic reloading of store a good idea? … What i try
+  // is adding customer details in it, the offer still shows"__ — ⭐ **NO, IT IS NOT, and her own test found
+  // why: she was entering the NEXT customer's details with the previous order's offer still on screen, and
+  // that offer carries a live Reload button.**
+  //
+  // ⭐⭐ **AND THE AUTO-RELOAD WAS NEVER NEEDED.** The FORM has cleared itself on the order since v465 — the
+  // basket, the notes, the name, the number, the address, the door pin, the code and the bake day. **The next
+  // customer already starts fresh.** ⚠️ What lingers is the RECEIPT and its offer, and **a new customer
+  // arriving IS the reset** — there is nothing to force.
+  //
+  // ⭐ SO THE RULE IS READ OFF THE SHOP'S OWN STATE, in one place, and it needs no listener on any control:
+  // **when step 1 or step 2 becomes done again, a new order has begun.** ⚠️ It cannot fire on the order just
+  // placed, because the reset sets both of them back to false as the receipt goes up. ⚠️ And step 3 needs no
+  // rule of its own: it cannot be reached without 1 and 2.
+  function retirePreviousOrder() {
+    const box = document.getElementById("confirm-msg");
+    if (box && !box.hidden) { box.hidden = true; box.replaceChildren(); }
+    endOffer();
   }
 
   // ★★★ AND THE PAGE BEING LOOKED AT AGAIN IS THE TRIGGER THAT MATTERS (v497).
@@ -1778,43 +1803,19 @@ function clearFieldMarks() {
   // is left alone.
   shopLookedAgain = (now) => {
     if (!orderedAt) return;                       // ⚠️ no order — there is nothing to offer about
-    if (offerRestingAt === null) {
-      // ⭐ the offer has not been made. The timer due to make it may never have run, so ask the clock.
-      if (Number(now) - orderedAt >= RESET_TO_TOP_MS) showResetOffer();
-      return;
-    }
-    // ⭐ the offer IS up and nobody has dealt with it — so the same rule again, from when it went up.
-    if (Number(now) - offerShownAt >= RESET_TO_TOP_MS) autoReset();
+    if (offerNodes.length) return;                // ⚠️ the offer is already up — one offer, and it waits now
+    // ⭐ the offer has not been made. The timer due to make it may never have run, so ask the clock.
+    if (Number(now) - orderedAt >= RESET_TO_TOP_MS) showResetOffer();
   };
 
-  // ⚠️⚠️ AND `autoReset` WAITS ITS OWN MINUTE ON THE CLOCK, WHICH IS THE SECOND HALF OF HER REPORT (v497).
-  //
-  // Her words: __"after about 1 min, it scroll up but no reload"__ — ⭐ **the page went to the top and she
-  // never saw the offer that was supposed to come first.** ⚠️ **MEASURED REASON: when a page that has been
-  // hidden wakes up, EVERY TIMER THAT CAME DUE WHILE IT SLEPT FIRES AT ONCE, back to back.** ⭐ So the offer
-  // went up and this ran in the same breath, took it straight back down and moved the page — **the offer was
-  // on screen for milliseconds and nobody could have read it.**
-  // ⭐ THE RULE: **the shop only clears the page once the OFFER has been readable for its minute.** The clock
-  // decides, not the timer — because a chain of timers cannot survive a tab that sleeps, and the phone is
-  // put down exactly when this matters most.
-  function autoReset(at) {
-    if (offerRestingAt === null) return;          // ⚠️ the offer has already been dealt with
-    const now = Number(at) || Date.now();
-    // ⚠️⚠️ AND IT COMES BACK IF IT WAS TOO EARLY — **because being fired early CONSUMES the only timer it
-    // had.** ⭐ Caught by the test, not by reading: with the burst firing it the instant the offer went up,
-    // the refusal was also the last anyone would hear of it, **so the page would never have gone back to the
-    // top at all for a customer sitting there watching.** ⚠️ A guard that refuses and does not re-arm is a
-    // guard that switches the thing off.
-    const wait = RESET_TO_TOP_MS - (now - offerShownAt);
-    if (wait > 0) { shopTimer(() => autoReset(Date.now()), wait); return; }
-    const where = (typeof window !== "undefined" && Number(window.scrollY)) || 0;
-    // ⚠️⚠️ AND IT DOES NOT DRAG HIM IF HE HAS MOVED THE PAGE HIMSELF. v423's rule, and the same one the
-    // refusal line keeps: **a page that moves while he is doing something else.** ⭐ The offer stays up —
-    // he can still press it — it simply does not move the page out from under him.
-    if (where !== offerRestingAt) { offerTimers = []; return; }
-    endOffer();
-    clearThePage();
-  }
+  // ⚠️⚠️ AND `autoReset` IS GONE — NOT DISABLED, NOT GUARDED, GONE (v499). ⭐ It was the "if nobody attends
+  // to it, the shop does it by itself" half, and **her next question retired it:**
+  // __"is automatic reloading of store a good idea? … What i try is adding customer details in it, the offer
+  // still shows"__ — ⚠️ **a live Reload button sitting over a page someone is typing into.** ⭐ The guard it
+  // used to carry (has the page been scrolled?) was a proxy for "is anyone using this", **and a proxy is
+  // exactly the wrong tool for a question whose wrong answer destroys a customer's details.**
+  // ⭐ **Nothing on this page reloads on a timer any more.** The offer waits for a person; `retirePreviousOrder`
+  // takes it away when the next order begins; and the form has cleared itself on the order since v465.
 
   // ⚠️ THE SAME "ASK, THEN CHECK" THE REFUSAL LINE USES (v493). A smooth scroll is an ANIMATION, and an
   // animation the browser declines to run would leave the page exactly where it was — **measured on the
@@ -3196,6 +3197,15 @@ function clearFieldMarks() {
       const head = document.getElementById(`step${i + 1}`);
       if (head && head.classList) head.classList.toggle("done", done[i]);
     }
+    // ★★★ AND THE PREVIOUS ORDER'S RECEIPT GOES THE MOMENT A NEW ORDER BEGINS (v499).
+    //
+    // ⚠️⚠️ READ OFF THE SHOP'S OWN STATE, IN ONE PLACE, AND WITH NO LISTENER ON ANY CONTROL. ⭐ **Step 1 done
+    // (a bake day tapped) or step 2 done (something in the basket) IS the next customer starting** — and
+    // `paintSteps` is already the one function every step change funnels through (the day tapped, the ±
+    // pressed, a quantity typed, the 30-second refresh), **so there is no eighth call site to forget.**
+    // ⚠️ It cannot fire on the order just placed: the reset sets both of them back to false as the receipt
+    // goes up. ⚠️ And step 3 needs no rule of its own — it cannot be reached without 1 and 2.
+    if (done[0] || done[1]) retirePreviousOrder();
     // ★★★ AND THE STEP'S OWN LINE GOES THE MOMENT HE FIXES IT (v455). ⚠️ **A form error does not outlive
     // its cause** — her words were *"or how a form filling would behave"*, and a line still telling him to
     // pick a day, after he has picked one, would be the page arguing with itself.

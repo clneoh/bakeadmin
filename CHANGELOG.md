@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v498)
+# Jienluv2bake — change history (v54 → v499)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**13 Oct 2026 — engine v499, NOTHING RELOADS ON A TIMER, AND THE LAST ORDER'S FURNITURE GOES (no database step).**
+
+**Your words:** __"is automatic reloading of store a good idea? What i try is adding customer details in it, the offer still shows, but it is ot auto reload when time up? What is a better approach?"__
+
+**1. ⭐⭐ NO, AND YOUR OWN TEST FOUND WHY.** You were **entering the next customer's details** and the previous order's offer was still on the screen — ⚠️ **and that offer carries a live Reload button.** ⭐ **A page that reloads under someone's hands destroys what they have typed.** ⚠️ And there is no honest way to tell *"nobody is using this"* from *"someone is mid-order"*: the guard I had could only ask whether the page had been scrolled, **which is a guess that fails both ways.** ⭐ **So the automatic reload is gone — not disabled, not guarded. Nothing on this page reloads on a timer any more.**
+
+**2. ⭐⭐ AND IT WAS NEVER NEEDED.** The **form has cleared itself the moment an order lands** since v465 — the basket, the notes, the name, the number, the address, the door pin, the code and the bake day. **The next customer already starts fresh.** ⚠️ What lingers is the **receipt**, and **a new customer arriving IS the reset** — there is nothing to force.
+
+**3. ⭐ SO THE LAST ORDER'S RECEIPT AND OFFER GO WHEN A NEW ORDER BEGINS** — the first bake day tapped, or the first thing put in the basket. ⭐ **It is read off the shop's own state, in one place**, in the same function every step change already funnels through, **so there is no eighth call site to forget.** ⚠️ And it cannot fire on the order just placed: the reset sets both of those back to as they began, as the receipt goes up.
+
+**4. ⭐ AND THE OFFER STILL DOES ITS JOB.** It appears a minute after the receipt (or the moment you look at the page again, since a phone nobody is holding has frozen timers), it says what the press costs, and **the press is what clears the page.** ⭐ It now waits for a person — or for the next order to begin — and never acts on its own.
+
+**Measured:** driven on the real shop — the offer came up a minute after the order, the receipt showing; then the next customer tapped a bake day and **both went, with no reload.** Tests **3,429 → 3,431**, and three written faults were each watched to turn the suite red: the new-order rule removed (the old receipt lingers) · the receipt not hidden, only the offer · and an automatic reload armed behind the offer again.
+
+**No database step.**
 
 **13 Oct 2026 — engine v498, THE OFFER CLEARS THE PAGE, AND IT IS BIG ENOUGH TO SEE (no database step).**
 

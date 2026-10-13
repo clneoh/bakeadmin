@@ -3450,19 +3450,36 @@ test("★★★ the receipt offers to put the page back, and does it itself if n
     assert.equal(window.scrollY, 1400,
       "★ SHOWING the offer moved the page — it must only speak, or it is the fault it exists to prevent");
 
-    // ── and if nobody attends to it, the shop does it by itself — ⭐ but only once the OFFER has been
-    // readable for its own minute, which is the fault her second report found
-    assert.equal(fire(60000), 1, "★ nothing was armed to do it by itself after the offer");
-    assert.equal(window.scrollY, 1400,
-      "★ the page was moved in the same breath the offer went up — that is the scroll she saw with no "
-      + "offer, because a hidden tab fires every overdue timer at once and the offer was erased unread");
-    clock += 61000;                          // ⭐ a minute of the OFFER, on the clock
-    assert.equal(fire(60000), 1, "★ the offer was never allowed to finish its own minute");
+    // ── ⚠️⚠️ AND **NOTHING** HAPPENS BEHIND IT (v499). ⭐ It used to arm a second minute, after which the
+    // shop cleared the page BY ITSELF — and her next question retired that: __"is automatic reloading of
+    // store a good idea? … What i try is adding customer details in it, the offer still shows"__. ⚠️ **She
+    // was typing the next customer's details and a live Reload button was sitting on the receipt.** ⭐ A page
+    // that reloads under someone's hands destroys what they have typed, **and no timer can honestly tell
+    // "nobody is using this" from "someone is mid-order".**
+    assert.equal(armed.filter((a) => a.ms === 60000 && !a.done).length, 0,
+      "★ something is still armed behind the offer — **nothing on this page may reload on a timer**");
+    clock += 120000;                         // ⭐ two more minutes of nobody touching anything
+    assert.equal(reloaded(), 0,
+      "★ the page CLEARED ITSELF with nobody having asked — that is the fault she reported, because the next "
+      + "customer may be typing their address at that very moment");
+
+    // ⭐ AND THE PRESS STILL DOES IT — the whole point, and it is the customer's decision.
+    // ⚠️ The button is found ON THE RECEIPT, not by id: the shop makes it with `el()`, and the shim's
+    // `getElementById` hands back a node of its own for any id it is asked about — **so `registry[...]` would
+    // be an empty stand-in with no listeners, and the assertion would fail for the harness's reason.**
+    const findButton = () => {
+      const walk = (n) => [n, ...(n.children || []).flatMap(walk)];
+      return walk(registry["confirm-msg"]).find((n) => String(n.tagName).toUpperCase() === "BUTTON");
+    };
+    const goBtn = findButton();
+    assert.ok(goBtn, "the offer has no press at all, so it does nothing");
+    assert.ok(goBtn._listeners.click && goBtn._listeners.click[0], "the offer's press is not wired to anything");
+    goBtn._listeners.click[0]();
     assert.equal(reloaded(), 1,
-      "★ the page was never CLEARED — and clearing the page, not scrolling it, is what she asked for in her "
+      "★ pressing the offer did not clear the page — and clearing the page is what she asked for in her "
       + "first message and reported missing in every one since");
     assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
-      "★ the offer is still on the receipt after the shop did it — it should have come down with the move");
+      "★ the offer is still on the receipt after it was pressed");
 
     // ⭐⭐ AND THE RECEIPT ITSELF STAYS. Her answer, when asked which she wanted: __"clear the form"__ — the
     // order is placed, the number and the tracking code are on it, and a shop that took those away would be
@@ -3531,13 +3548,14 @@ test("★★★ the offer comes from someone LOOKING, not only from a timer (v49
       + ` | receipt=${JSON.stringify(confirmLines().join(" / ").slice(0, 70))}`
       + ` | boxHidden=${registry["confirm-msg"].hidden}`);
 
-    // ⭐ AND THE SAME FOR THE SECOND STEP: the offer has now been up for its own minute, so the next look
-    // performs the move the press would have made.
+    // ⚠️ AND A THIRD LOOK DOES NOTHING MORE (v499). ⭐ The offer has no second stage any more: **it waits for
+    // a person, or for the next order to begin.** ⚠️ So a look that comes long after it went up must leave
+    // the page exactly where it is — **the alternative is a reload landing on a customer who is typing.**
     assert.equal(window.scrollY, 1400, "precondition: the offer alone must not move the page");
-    clock += 61000;
+    clock += 300000;
     looked();
-    assert.equal(reloaded(), 1,
-      "★ the page was never cleared after the offer had its minute");
+    assert.equal(reloaded(), 0,
+      "★ a look cleared the page on a timer-ish rule — the offer must wait for the customer now");
   } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.fetch = realFetch;
@@ -3637,6 +3655,64 @@ test("★★ the automatic reset leaves the page alone if the customer has scrol
     assert.equal(window.scrollY, 2200, "★ and it was moved as well");
     assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
       "★ and the offer was taken away as well, so he can no longer press it either");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+    window.scrollY = 0;
+  }
+});
+
+// ── v499: the previous order's furniture goes when a new order begins ───────
+test("★★★ a new order retires the last one's receipt and offer — and NOTHING reloads on a timer (v499)", async () => {
+  // ⚠️⚠️ HER QUESTION, AND THE RIGHT ONE: __"is automatic reloading of store a good idea? What i try is
+  // adding customer details in it, the offer still shows"__ — * she was typing the NEXT customer's details
+  // with the previous order's offer still on the screen, and that offer carries a live Reload button.
+  // ** A page that reloads under someone's hands destroys what they have typed**, and no timer can honestly
+  // tell "nobody is using this" from "someone is mid-order".
+  // * **And the auto-reload was never needed: the FORM has cleared itself on the order since v465.** What
+  // lingers is the receipt - and **a new customer arriving IS the reset.**
+  const card = registry["menu"].children[0];
+  const stepper = () => card.children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper().children[2]._listeners.click[0]();
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "collect";
+
+  const realSetTimeout = globalThis.setTimeout;
+  const armed = [];
+  globalThis.setTimeout = (fn, ms) => { armed.push({ fn, ms, done: false }); return realSetTimeout(fn, ms); };
+  const fire = (ms) => {
+    const hit = armed.filter((a) => a.ms === ms && !a.done);
+    for (const a of hit) { a.done = true; a.fn(); }
+    return hit.length;
+  };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  try {
+    reloads = 0;
+    await registry["order-btn"].onclick();
+    fire(1000);
+    clock += 61000;
+    fire(60000);                       // the offer is up, on the receipt
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), true,
+      "precondition: the offer is not up, so nothing below proves anything");
+
+    // ** AND NOW THE NEXT CUSTOMER ARRIVES - the first thing anyone does is tap a bake day.
+    clock += 300000;                   // and long enough that any old timer rule would have fired
+    tapDay();                          // * step 1 done = a new order has begun
+    assert.equal(/Clearing the page starts a fresh shop/i.test(receiptText()), false,
+      "the previous order's offer is still on the page while the next customer is ordering");
+    assert.equal(registry["confirm-msg"].hidden, true,
+      "the previous order's receipt is still on the page - the next customer should not have to read "
+      + "someone else's order");
+    assert.equal(reloaded(), 0,
+      "the page RELOADED when the next customer tapped a bake day - that destroys whatever they had typed");
   } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.fetch = realFetch;
