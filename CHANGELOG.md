@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v509)
+# Jienluv2bake — change history (v54 → v510)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**14 Oct 2026 — engine v510, A CHOSEN BAKE DAY IS A TERRACOTTA WIRE FRAME, IN THE APP AND ON THE SHOP — AND THE GREEN BALL KEEPS ITS RING (no database step).**
+
+**Your words:** __"1. at the app, Calendar at Orders, when we choose a baking day, the date change to terracotta solid. Change that to a terracotta wire frame so that the wording inside can be seen clearly, the green ball dont have to go solid."__ — __"2. Calendar at store front, when we select a baking day, i want it to be highlighted by terracotta wire frame only, the green outlined ball dont have to turn solid"__ — and, after my first attempt ringed the number instead of the day: __"the terracotta wireframe shape i want it to be oversize like the one at app orders"__ and __"rounded recangular"__.
+
+**1. ⚠️⚠️ YOU WERE RIGHT, AND IT MEASURES: THE DATE INSIDE THE CHOSEN CHIP WAS THE LEAST READABLE THING ON THE GRID.** The chosen day was a **filled terracotta block** with **white** writing on it — and white on the brand terracotta is **4.48:1**, just under the **4.5:1** floor for body text, at 14px, on a phone in Penang daylight. ⭐ **A fill has to carry its own text; a frame does not.** The date now stays in the page's own ink — the brand's **text** shade, which is the darker terracotta at **5.51:1** — inside a **terracotta wire frame**.
+
+**2. ⭐ AND THE FRAME IS THE WHOLE DAY, NOT A RING ROUND THE NUMBER.** My first attempt put the terracotta on the little green ball, 2px outside it — ⭐ **and it read as one thicker ring rather than as one day being chosen. A selection has to be a different SHAPE from the thing it selects, or the eye has nothing to compare.** Your words fixed it: the frame is the day's own box, a **rounded rectangle**, exactly like the app's Orders calendar.
+
+**3. ⭐⭐ AND THE GREEN BALL KEEPS ITS RING — in both places.** When a day was chosen, the app used to **delete the green ring** and turn the date white; the shop used to **fill the ball solid green**. ⭐ **Choosing a day does not un-deliver it** — and that ring was the only thing on either grid saying the bakery bakes that day, so it was being taken away at exactly the moment you were deciding about that day. The ring is untouched now; what changed is the frame around it.
+
+**4. ⭐ THE SHOP'S DAY BOX GREW FROM 38px TO 44px, AND THAT IS MEASURED, NOT A PREFERENCE.** At 38px the 32px ball left **3px** above and below it, so the new frame had **1px** of clearance and read as a band against the ball rather than a box around it. ⭐ 44px gives it air — **and 44px is also the web skill's floor for anything a thumb hits**, which a 38px day was quietly under.
+
+**5. ⚠️⚠️ WHILE MEASURING THAT, I FOUND A REAL FAULT ON THE SHOP'S OWN CALENDAR.** The shop asked for a green called `var(--green, #6b8f4e)` — **a colour the shop's stylesheet never defines** — so it quietly took the fallback, and the two calendars have been drawing **two different greens** while the shop's own comment said they were the same one. ⚠️ **A fallback is not a declaration, and nothing compared them.** Worse: **#6b8f4e is 3.65:1** on the card — ⭐ **so the day number of every bake day your customer could choose was below the 4.5:1 readability floor.** It is the app's own green now (**5.47:1**), so the two calendars genuinely match — which is what your "like the one at app orders" asks for.
+
+**6. ⭐ AND THIS APPLIES TO THE APP'S OTHER TWO CALENDARS TOO** — the small date picker and the **Bake days → Add dates** grid, because **"this day is chosen" is one state, not three.** If you would rather the Bake days grid kept its solid fill, say so and I will scope it to Orders alone.
+
+**Measured, on the real pages at 375x812:** the Orders calendar's chosen day — transparent cell, `inset 0 0 0 2px` terracotta, rounded 12px, date in the dark terracotta, **green ring intact**; the shop's — transparent cell, rounded 10px terracotta frame, **green ball outlined exactly as an unchosen bake day's is**, and the bake-day numbers now the app's green.
+
+**Tests 3,432 → 3,433**, and **six written faults were each watched to turn the suite red**: the terracotta fill put back · the green ring deleted again on a chosen day · the shop's frame left to the cell's own 50% radius (an oval) · the day box shrunk back to 38px · the shop's `--green` token deleted (back on a fallback) · and the solid green ball reinstated. ⭐ The test also **guards its own premise**: it asserts the white-on-terracotta pair is still under 4.5:1, so if that ever stops being true the test says so instead of quietly passing.
 
 **13 Oct 2026 — engine v509, THE OFFER TO CLEAR THE PAGE IS GONE, AND THE GREEN "ORDER RECEIVED!" GOES BY ITSELF AFTER 20 SECONDS (no database step).**
 
