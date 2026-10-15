@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v510)
+# Jienluv2bake — change history (v54 → v511)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Oct 2026 — engine v511, AN ORDER YOU HAVE MARKED COLLECTED / SHIPPED LEAVES THE DELIVERY RUN (no database step).**
+
+**Your words:** __"order that already mark shipped still appear in delivery run"__.
+
+**1. ⚠️⚠️ THE RUN WAS ASKING THE COURIER A QUESTION ONLY THE ORDER CAN ANSWER.** "Has this order already gone?" has **two** answers — **the courier telling you** (the trip has been collected, or delivered), and **you telling the app** (you pressed the stage on the row). **v507 fixed the first and left the second open**, so ⭐ **an order you marked Collected / Shipped with your own hand still answered "yes, needs a van" and came back onto the list.**
+
+**2. ⭐ IT IS THE THIRD TIME, AND THE SAME SHAPE.** v494 was a van sent to **your own kitchen**; v507 was a van sent for **bread the courier had already delivered**; this is a van sent for **an order you had already closed.** ⭐ **Every one is a question that was right until the world moved on** — and here the world moves the moment you press the stage on a row.
+
+**3. ⭐ THE READING LIVES IN ONE PLACE NOW.** The stage list is the Orders screen's, and `money.js` already writes the same list out for its own "past Paid?" question. ⭐ **A third copy at the run screen is how three would come to disagree** — which is the fault the run's own code carries a warning about, twice. So the question — *has this order reached Collected / Shipped?* — is asked once, in the data model, and the run asks **it**.
+
+**4. ⚠️ AND THE BOUNDARY IS DELIBERATE: PACKED IS NOT GONE.** Only the **last** stage takes an order off the run. **Packed bread is exactly what the run exists to carry**, and a careless fix reading "past Baked" would have emptied the run of its whole purpose. ⚠️ And an order with **no stage at all** reads as the **first** stage, never the last.
+
+**Measured on the real Delivery run screen, 19 Oct, two courier orders — one at Packed, one marked Collected / Shipped:**
+- **Before the fix:** "Mon, 19 Oct — **2 stops**", with the shipped order on the list. ⭐ **Your exact report, reproduced.**
+- **After:** "Mon, 19 Oct — **1 stop**" — the shipped order gone, the Packed one still there.
+
+**Tests stay 3,433** — ⚠️ **NO NEW TEST WAS ADDED, ON PURPOSE: the v507 test was EXTENDED.** It asks the same question, and this is its **second half**, so a second test would have been a second copy of one rule to keep in step. ⭐ And **three written faults were each watched to turn the suite red**: the check removed · the careless fix ("any stage past New means gone", which empties the run) · and a missing status read as the last stage.
 
 **14 Oct 2026 — engine v510, A CHOSEN BAKE DAY IS A TERRACOTTA WIRE FRAME, IN THE APP AND ON THE SHOP — AND THE GREEN BALL KEEPS ITS RING (no database step).**
 
