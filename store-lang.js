@@ -285,6 +285,15 @@ const en = {
   calChosenFor: "%1 is suggested for you. Tap it to confirm your bake day.",
   calPrev: "Earlier weeks",
   calNext: "Later weeks",
+  // ★★ WHAT THE GREEN CIRCLE MEANS, SAID UNDER THE GRID (v512). Her words: __"simple note that date in
+  // green circle are bake dates"__.
+  // ⚠️ THE SYMBOL WAS NEVER EXPLAINED ANYWHERE. A first-time customer met a month of dates where some
+  // wear a green ring and some do not, and the only thing that said what the ring meant was the day she
+  // finally tapped, in the line underneath. ⭐ **A symbol a stranger has to tap to decode is a symbol
+  // that has not been explained** — and this is the one fact the whole grid turns on.
+  // ⚠️ IT NAMES THE COLOUR AND THE SHAPE, because both are what he is looking at: "in a green circle".
+  // The ring is drawn beside it (`.cal-key-dot`), so the words and the thing cannot drift apart.
+  calKey: "Days in a green circle are bake days.",
 
   // Why a product reads "Sold out" on a date it can't be ordered for, and the
   // notes above the menu when a refresh changes the basket. The rule comes from
@@ -572,6 +581,10 @@ const zh = {
   calChosenFor: "我们建议 %1。点一下它来确认你的烘焙日。",
   calPrev: "前一周",
   calNext: "下一周",
+  // ⚠️ MY WORDS, NOT HERS — for her to correct, like every other 中文 line in this file. 烘焙日 is this
+  // shop's own word for a bake day (it is what `calChosen` uses above), and 绿色圆圈 names both the colour
+  // and the shape the customer is looking at.
+  calKey: "绿色圆圈里的日期是烘焙日。",
 
   closedFrom: "只接受 %1 起的烘焙日订单",
   closedTo: "只接受 %1 或之前的烘焙日订单",
@@ -795,6 +808,9 @@ const ms = {
   calChosenFor: "%1 dicadangkan untuk anda. Ketik untuk mengesahkan hari membakar anda.",
   calPrev: "Minggu sebelumnya",
   calNext: "Minggu seterusnya",
+  // ⚠️ MY WORDS, NOT HERS — for her to correct. "Hari membakar" is this shop's own word for a bake day
+  // (see `calChosen` above); "bulatan hijau" is the green circle he is looking at.
+  calKey: "Tarikh dalam bulatan hijau ialah hari membakar.",
 
   closedFrom: "Hanya tersedia untuk hari membakar dari %1",
   closedTo: "Hanya tersedia untuk hari membakar sehingga %1",

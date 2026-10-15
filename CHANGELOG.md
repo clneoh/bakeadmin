@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v511)
+# Jienluv2bake — change history (v54 → v512)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**15 Oct 2026 — engine v512, THE CALENDAR'S ARROWS SIT BESIDE THE DATE RANGE, AND THE GREEN CIRCLE IS EXPLAINED (no database step).**
+
+**Your words:** __"on the calendar, the 2 arrows are too far away from centre, they should appear just beside the date range, and simple note that date in green circle are bake dates"__.
+
+**1. ⚠️⚠️ THE ARROWS WERE AS FAR FROM THE DATE RANGE AS THE CARD ALLOWS, AND THAT WAS DELIBERATE — WHICH IS WHY IT WAS WRONG.** Both calendars laid their head out as a **three-column grid, `36px 1fr 36px`**: one arrow pinned to the left edge of the card, one to the right, **and the date range stranded in the middle of the gap.** ⭐ It was built that way so the **title stayed centred whether or not an arrow was drawn** (at the ends of what you have published, one of them is missing) — and it does that perfectly. ⚠️ **But nobody is looking at the middle track. They are looking at the month**, and the two controls that move it were the furthest things on the card from it.
+
+**2. ⭐ SO THE HEAD IS ONE CENTRED ROW: `‹  4 Oct – 7 Nov  ›`, read as a single thing.** **MEASURED on the real app at 375px, with both arrows drawn: `‹` ends 10px before the date range and `›` begins 10px after it** — where before they sat at the card's own edges, 100px away on each side. ⚠️ An arrow that is missing still leaves nothing behind, so at the ends of what you have published the group simply shifts by an arrow's width.
+
+**3. ⭐⭐ AND THE GREEN CIRCLE IS NOW EXPLAINED WHERE THE CUSTOMER MEETS IT.** A first-time customer saw a month of dates where some wear a green ring and some do not — **and the only thing that said what the ring meant was the day he finally TAPPED, in the line underneath.** ⭐ **A symbol a stranger has to tap to decode has not been explained.**
+
+**4. ⭐ AND THE NOTE *DRAWS* THE SYMBOL RATHER THAN ONLY DESCRIBING IT.** A real green ring sits beside the words, **the same colour and the same 2px weight as the one on a bake day** — ⭐ **a legend that names a colour has to show it**, or the sentence and the thing it describes come apart. ⚠️ **That is not a theoretical worry here: the shop spent weeks drawing a green the app never used (found at v510), and no test could see it because a fallback is not a declaration.** The test now reads the legend's ring and the day's ring and holds them together.
+
+**5. ⭐ The line reads:** __"Days in a green circle are bake days."__ — 12px, quiet, sitting under the grid. ⚠️ **It is written in all three languages**, and the 中文 and BM are **my words, not yours** — written to be corrected, like every other line in that file. **An arrow that pages the calendar is labelled in all three too**, so nothing here is English-only.
+
+**Measured, on the real pages at 375px:** the shop's calendar shows `4 Oct – 7 Nov` with `›` beside it, then the green-ring legend, then the chosen-day line; the app's shows `‹ 11 Oct – 14 Nov ›` with **10px** between each arrow and the range.
+
+**Tests 3,433 → 3,434**, and **five written faults were each watched to turn the suite red**: the shop's head back to the grid · the app's head back to the grid · the legend not drawn at all · the legend's sample ring turned into a plain dot that is not the day's ring · and the words missing from one language.
 
 **15 Oct 2026 — engine v511, AN ORDER YOU HAVE MARKED COLLECTED / SHIPPED LEAVES THE DELIVERY RUN (no database step).**
 
