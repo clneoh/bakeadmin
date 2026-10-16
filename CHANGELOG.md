@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v512)
+# Jienluv2bake — change history (v54 → v513)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v513, THE DATE ON SCREEN NOW FOLLOWS THE CALENDAR, NOT THE PAGE LOAD — IN THE APP AND ON THE SHOP (no database step).**
+
+**Your words:** __"it is the 1st time that i saw the app date not updated until i reload? Why?"__ — and then __"will it happen on storefront?"__
+
+**1. WHY IT HAPPENED: THE APP DREW ITS DATE WHEN THE SCREEN WAS DRAWN, AND NEVER LOOKED AT THE CLOCK AGAIN.** The Home date is read at the moment the screen is painted. ⚠️ **The only things that repaint are a navigation, a reload, and a data pull that actually changed something** — so an app left open overnight, or picked up from the background in the morning, **kept yesterday's date until you moved to another screen or reloaded.** ⭐ **Measured on the real app: the clock said Sat 17 Oct, the Home date still said Fri 16 Oct, and picking the phone up changed nothing.** Moving to another tab and back fixed it — which is exactly what "until I reload" describes.
+
+**2. ⚠️⚠️ AND HERE IS THE PART THAT MADE IT WORSE, WHICH I ONLY FOUND BY MEASURING:** the app's other "look again" listeners live in the loop that starts **after a cloud sign-in** — and **"Use without cloud sync" never starts it.** ⭐ **So with shared data OFF — the state your own screen was in, reading "Not sharing right now" — the app registered no timer, no focus and no return-to-page listener at all**, and nothing could ever have repainted the date but a navigation.
+
+**3. ⭐⭐ AND MY FIRST FIX DID NOTHING, WHICH IS WORTH RECORDING.** I put the check in that same post-sign-in loop, on the reasoning that its 30-second timer was already there. ⚠️ **Measured on the real app: the clock said Sat 17 Oct, the date still said Fri 16 Oct, and firing both the return-to-page and focus events changed neither.** ⭐ **A fix placed on a code path the reporter's own state never reaches is not a fix** — and it read as correct. It sits beside the router's own listener now, which runs for **every** session, sharing or not.
+
+**4. ⭐⭐ YES, IT HAPPENED ON THE STOREFRONT TOO — AND IT WAS ALREADY HAPPENING.** The shop **does** re-check its data every 30 seconds and the moment the customer returns to the page — ⚠️ **but it only redraws when that data CHANGED, and the date moving is not a data change.** **Measured: with the clock on 17 Oct and the customer returning to the tab, the green "today" ring was still on 16** — while the availability requests went out on every beat, so the polling was definitely running. ⭐ **What the shop already caught was a day crossing its 6pm cut-off** (that drops a day from the row, which *is* a change) — ⭐ **so the cut-off was honest and the calendar was not**, which is the kind of half-covered thing that is very hard to notice.
+
+**5. Both now ask the clock on the ordinary beat and the moment the page is come back to, and redraw only if the DAY moved** — once a day, not fifty times an hour. ⭐ **That is the same rule the shop has kept since v497: a timer in a hidden page does not run, and the phone is put down overnight — so the page has to ask the clock when someone looks at it.**
+
+**Measured, on the real pages at 375px:** the app — the clock on 17 Oct, the Home date moved from **Fri 16 Oct to Sat 17 Oct** the moment the page was returned to; the shop — the green **"today" ring moved from 16 to 17** the same way. Both were on the stale value before the change, measured the same way.
+
+**Tests 3,434 → 3,435**, and **six written faults were each watched to turn the suite red**: the day check removed · **the check moved back inside the post-sign-in loop** (my own first mistake) · the return-to-page listener removed · **the 30-second timer left without `unref`** · the shop no longer asking whether the day moved · and the shop asking and then not acting on it.
+
+⚠️ **AND ONE OF THOSE SIX IS THE REASON THIS VERSION TOOK SO LONG: adding that timer plainly made two whole test FILES hang for the full 20-second timeout and report as failures — every test inside them passed, and the file was `not ok`.** It is `unref`'d now, with the reason written beside it.
 
 **15 Oct 2026 — engine v512, THE CALENDAR'S ARROWS SIT BESIDE THE DATE RANGE, AND THE GREEN CIRCLE IS EXPLAINED (no database step).**
 
