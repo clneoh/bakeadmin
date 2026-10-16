@@ -201,7 +201,7 @@ const SATURDAY = { id: "p2", name: "Saturday loaf", limit: 8, active: true, reci
 function openDay() {
   const root = createEl("div");
   renderOrders(root, state([FOCACCIA, SATURDAY]), new URLSearchParams({ date: "d10" }));
-  buttonByText(root, "Set day's availability")._listeners.click[0]();
+  buttonByText(root, "Production & availability")._listeners.click[0]();
   return layers["popup-layer"];
 }
 
@@ -211,7 +211,7 @@ test("the day's add-up prints no 'null' when every product on sale was counted",
   // replaceChildren and print the word between the total and "Booked so far".
   const root = createEl("div");
   renderOrders(root, state([FOCACCIA]), new URLSearchParams({ date: "d10" }));
-  buttonByText(root, "Set day's availability")._listeners.click[0]();
+  buttonByText(root, "Production & availability")._listeners.click[0]();
   const pop = layers["popup-layer"];
 
   assert.deepEqual(strayNulls(pop), [], "no 'null' between the total and 'Booked so far'");

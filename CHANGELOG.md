@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v513)
+# Jienluv2bake — change history (v54 → v514)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v514, PRODUCTION & AVAILABILITY: SAY HOW MANY YOU ACTUALLY BAKED, AND THE INGREDIENTS COME OFF (no database step).**
+
+**Your words:** __"when Jien Bake focaccia, she usually bake more, not according to order, sometimes for self consumption, i need system to allow us to enter bake qty, system dont have to track the extra bake, but just need to deduct ingredient."__ — then __"MAybe you can add to Add Day's Availability, call it Production & Availability, make it appear everyday, as sometimes she bake on non bake day upon request by customer. Even post dated"__ — then __"it should be all product, not only limited to focaccia."__ — and __"and my phone and my mac not sync"__.
+
+**1. ⚠️⚠️ I BUILT IT ON THE WRONG SCREEN, AND YOU SAID SO IN ONE LINE.** Your correction, verbatim: __"the availability that i meant is not in others, it is below calendar, Its name is set day's availability"__ — you meant the control **below the calendar on the Orders screen** whose label is **"Set day's availability"** — I had read your earlier __"Add Day's Availability"__ as the Bake days screen, one word away, and built a whole mode there. ⭐ **A control name that is not exact is a thing to SEARCH for before building on it**, and I did not. That work is removed, the Bake days screen is exactly as it was, and the boxes are **in the pop-up you meant**, now titled **Production & availability**.
+
+**2. ⭐ THE POP-UP CARRIES BOTH ANSWERS, ONE PRODUCT AT A TIME.** Each product gets its line for **how many more or fewer than usual to make** (what the control always did) and its line for **how many you baked**. ⭐ **One row per product, so you read a product once** rather than matching two lists up by name. Saving does both.
+
+**3. ⭐ THE NUMBER YOU TYPE IS THE TOTAL YOU BAKED — your own choice, from three ways of asking.** ⚠️ So only the **extra** comes off the shelf: **6 ordered and you type 10, and 4 come off**, not 10. ⭐ **And it is a number you own, not a button that adds** — type 8 and 2 go back; clear the box and the rest go back.
+
+**4. ⭐⭐ AND IT WORKS ON A DAY THAT IS NOT A BAKE DAY.** Tap a day the shop is not offering and the line already under the calendar now ends **"…or say what you baked"** — ⭐ **that open the same pop-up, showing only the baking half**, because a day nobody can order from has no availability to adjust. ⚠️ **And NOTHING here creates a bake day**: the shop builds its calendar from your delivery dates, so **recording production writes no delivery date at all.** You can bake on a Wednesday for one customer and the shop will never offer that Wednesday. **A past day works the same way** — __"Even post dated"__.
+
+**5. ⭐ EVERY PRODUCT, NOT ONLY FOCACCIA.** One baking box per product **that has a recipe** — one with no recipe has nothing to take off the shelf, so it gets no box rather than a dead one. **Measured on the real app: Focaccia and Sandwich each with their own box**, and 5 focaccia took 1,250 g of flour off the shelf.
+
+**6. ⚠️⚠️ AND HERE IS THE FAULT YOU FOUND, WHICH I HAD BUILT.** __"and my phone and my mac not sync"__ — ⭐ **you were right.** My first version kept the record **inside the settings**, because a comment in the sync code says a new field there needs no registration. ⚠️ **That comment is about a different list** — the settings are sent through a **hand-written whitelist of keys**, so **the record left your phone and went nowhere at all.** ⭐ **A comment is not the code; I should have read the function that builds the payload.**
+
+**7. ⭐ SO IT IS ITS OWN SHARED RECORD NOW, AND THAT FIXES A SECOND PROBLEM.** The settings are **one row, replaced whole** — so your phone and your Mac would have **overwritten each other's** days. **A record per day is one row each**, so two phones recording different days **add up instead of fighting.** ⚠️ And an older phone gets the empty list on its next open, because **a row the cloud sends is dropped in silence if the phone has no list to put it in** — both halves are tested.
+
+**8. ⚠️ AND I FOUND A REAL CRASH BY LOOKING AT THE SCREEN, WHICH NO TEST HAD SEEN.** The pop-up went **completely blank** on the real app: a product with a **recipe but no daily limit** has no availability box, and the code read one anyway. ⭐ **My test had given every product a daily limit — so every row had a box and nothing threw.** ⚠️ **A fixture that gives every product a limit is not a smaller bakery, it is a different one**, and yours has no limits at all. The fixture is now the real mixed case, and the guard has its own bite.
+
+**Measured, on the real app at 375×812:** the pop-up opened from Mon 19 Oct with **both halves**; 5 focaccia took the shelf from 3,700 g to **2,450 g**; and the day's own record was written **without the shop gaining a day**. Tapping **Wed 21 Oct** — not a bake day — answered *"Wed, 21 Oct is not a bake day — nothing can be ordered on it. Add it in More → Bake days, or say what you baked"*, and that opened the same pop-up with **2 baking boxes and 0 availability boxes**.
+
+**Tests 3,435 → 3,442**, and **fifteen written faults were each watched to turn the suite red** — including the whole total coming off instead of the difference · the correction being ignored · a total below the orders adding stock back · **production writing a delivery date** · **the list not being named in the sync, which is your report** · the missing state default · and **a recipe-only row reading an availability box that is not there**.
+
+**No database step** — ⚠️ and this time I checked it rather than assuming: the shared table's `kind` column is **plain text with the table's own policies over the whole table**, so a new kind of record needs no schema change.
 
 **16 Oct 2026 — engine v513, THE DATE ON SCREEN NOW FOLLOWS THE CALENDAR, NOT THE PAGE LOAD — IN THE APP AND ON THE SHOP (no database step).**
 

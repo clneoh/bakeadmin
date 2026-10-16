@@ -161,6 +161,14 @@ export function defaultState() {
     // is what a product is, the other is what money was spent on.
     productCategories: [],
     deliveryDates: [],
+    // ★★★ WHAT SHE ACTUALLY BAKED, BY DAY (v514) — bread nobody ordered.
+    // ⚠️⚠️ **A TOP-LEVEL LIST AND NOT A FIELD INSIDE `settings`, AND THE REASON IS THE ONE THAT WAS LEARNED
+    // THE HARD WAY (v444):** `settings` is ONE row whose `data` is **replaced whole** on push, so two
+    // phones both holding production records would **overwrite each other's** — and `recordPayload` carries
+    // settings keys from a hand-written whitelist, so a new key there travels **nowhere at all** until it is
+    // added. ⭐ **A list is one row PER RECORD (`kind, id, data`), so two phones adding different days
+    // MERGE instead of clobbering** — which is exactly why `removedOrders` and `rewards` are lists too.
+    bakedDays: [],
     orders: [],
     // ★★ ORDERS THAT WERE REMOVED, KEPT SO THEY CAN BE PUT BACK (v444). See `removeOrders` — this is
     // what stops any removal, hers or the engine's, from being permanent.
@@ -441,6 +449,7 @@ function normalize(s) {
     // tree on it without the shape being assumed.
     productCategories: Array.isArray(s.productCategories) ? s.productCategories : [],
     deliveryDates: Array.isArray(s.deliveryDates) ? s.deliveryDates : [],
+    bakedDays: Array.isArray(s.bakedDays) ? s.bakedDays : [],
     orders: Array.isArray(s.orders)
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))
       : [],

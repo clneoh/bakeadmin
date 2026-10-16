@@ -1,4 +1,4 @@
-// test/orders-day-sum.test.js — the "Set day's availability" pop-up shows HOW the
+// test/orders-day-sum.test.js — the "Production & availability" pop-up shows HOW the
 // day adds up: one line per product on sale that day, ending on the number the
 // order page itself uses. The owner asked for it on 15 Sep 2026 after the day's
 // chip read "1/42" with no way to see where the 42 came from, or why a product she
@@ -83,7 +83,8 @@ class MockDate extends RealDate {
 }
 globalThis.Date = MockDate;
 
-const { renderOrders } = await import("../admin/js/views/orders.js");
+const ordersMod = await import("../admin/js/views/orders.js");
+const { renderOrders } = ordersMod;
 const { effectiveCapacity } = await import("../admin/js/bom.js");
 const { orderCode, orderLinePrice } = await import("../admin/js/state.js");
 const { forgetPublishedCards, pullIncoming, forgetStuckOrders } = await import("../admin/js/supabase.js");
@@ -139,7 +140,7 @@ const chosenOption = (sel) => (sel.children || []).find((o) => o.selected === tr
 function openPopup(st) {
   const root = createEl("div");
   renderOrders(root, st, new URLSearchParams({ date: "d10" }));
-  buttonByText(root, "Set day's availability")._listeners.click[0]();
+  buttonByText(root, "Production & availability")._listeners.click[0]();
   return layers["popup-layer"];
 }
 
@@ -2619,4 +2620,86 @@ test("but an order that never got a receipt number can be undone freely — ther
   await new Promise((r) => setTimeout(r, 0));
 
   assert.equal(st.orders[0].refundedAt, undefined, "the local undo is the whole story here");
+});
+
+// ── v514: production lives in THIS pop-up, and works on any day ──────────────
+//
+// ⚠️⚠️ HER CORRECTION, AND IT IS WHY THIS TEST EXISTS: __"the availability that i meant is not in others, it
+// is below calendar, Its name is set day's availability"__ — ⭐ **the first build put the boxes on the Bake
+// days screen, one word away from the label she actually meant.** ⚠️ **A quoted control name that is not
+// verbatim is a thing to search for before building on it.**
+test("★★★ the pop-up carries PRODUCTION as well as availability (v514)", () => {
+  const st = state();
+  // ⭐ TWO PRODUCTS, AND THEY ARE THE TWO REAL KINDS: one with a RECIPE and no daily limit (the bread she
+  // bakes to order and then some), and one with a daily limit and no recipe. ⚠️ **The first build of this
+  // test gave every product a limit — and the pop-up went BLANK on the real screen**, because a
+  // recipe-only row has no availability box to read.
+  st.products = [
+    { id: "p1", name: "Focaccia", active: true, unit: "pc",
+      recipe: [{ ingredientId: "ing_f", qty: 250, unit: "g" }] },
+    { id: "p9", name: "Saturday loaf", limit: 8, active: true, unit: "pc" },
+  ];
+  st.ingredients = [{ id: "ing_f", name: "Strong flour", unit: "g", uomId: "g", onHand: 5000 }];
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 }];
+
+  // ⚠️⚠️ AND THE PRODUCT HAS **NO DAILY LIMIT**, WHICH IS THE ORDINARY CASE AND THE ONE THAT CRASHED THE
+  // REAL SCREEN. ⭐ **The first version of this test gave it a limit, so every row had a box to read and
+  // nothing threw** — ⚠️ **a fixture that gives every product a limit is not a smaller bakery, it is a
+  // different one.** The pop-up is opened on a real phone with a recipe and no limit, and it went blank.
+  const pop = openPopup(st);
+  const box = all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
+  assert.ok(box, "★ the pop-up has no way to say how many she baked — **this is the control she named**");
+  assert.equal(st.products[0].limit, undefined, "precondition: this product has no daily limit");
+  assert.match(pop.textContent, /you baked/, "the box is not labelled in her words");
+  // ⚠️ AND THE AVAILABILITY HALF IS STILL THERE: this is the SAME control it always was, with production
+  // added — not a second screen that replaced it.
+  assert.ok(all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("day-adj-input")),
+    "the availability boxes are gone — the pop-up should now carry BOTH answers");
+  assert.match(pop.textContent, /Production & availability/);
+
+  // 6 ordered (o1 has 2 on d10, plus 4 more added here), and she baked 10 → the FOUR extra come off.
+  st.orders = [{ id: "o1", deliveryDateId: "d10", productId: "p1", qty: 6 }];
+  const pop2 = openPopup(st);
+  const box2 = all(pop2).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
+  box2.value = "10";
+  (box2._listeners.input || []).forEach((f) => f());
+  buttonByText(pop2, "Save")._listeners.click[0]();
+
+  assert.equal(st.ingredients[0].onHand, 5000 - 250 * 4,
+    "★ saving did not take FOUR recipes off the shelf (10 baked less the 6 ordered) — **the orders take "
+    + "their own share when they reach Baked**");
+  assert.equal(st.bakedDays.length, 1, "and it was recorded against the day");
+  // ⚠️⚠️ AND IT IS STILL NOT A BAKE DAY BEYOND THE ONE IT ALREADY WAS: this pop-up is opened for a day that
+  // IS a delivery date here, so the guard matters elsewhere — but the record must never be a row.
+  assert.deepEqual(st.deliveryDates.map((d) => d.id), ["d10"],
+    "★ saving production wrote a delivery date — **the shop would offer a day she never opened**");
+});
+
+test("★★★ a day that is NOT a bake day can still say what it baked (v514)", () => {
+  // ⚠️ Her words: __"make it appear everyday, as sometimes she bake on non bake day upon request by
+  // customer. Even post dated"__. ⭐ **A day she baked on but never opened has no day card below the
+  // calendar** — so the only way in is the line the calendar already answers with.
+  const { openDayAdjustPopup } = ordersMod;
+  const st = state();
+  st.products = [{ id: "p1", name: "Focaccia", limit: 12, active: true, unit: "pc",
+    recipe: [{ ingredientId: "ing_f", qty: 250, unit: "g" }] }];
+  st.ingredients = [{ id: "ing_f", name: "Strong flour", unit: "g", uomId: "g", onHand: 5000 }];
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 }];
+
+  openDayAdjustPopup(st, { date: "2026-09-15" }, () => {});   // a Tuesday, no record at all
+  const pop = layers["popup-layer"];
+  const box = all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
+  assert.ok(box, "★ a day with no bake day behind it got no production box at all");
+  // ⚠️ AND NO AVAILABILITY BOXES: there is no capacity to adjust on a day nobody can order from, and
+  // ⚠️⚠️ ADJUSTING ONE WOULD WRITE A DELIVERY DATE — **which is exactly what the shop publishes.**
+  assert.equal(all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("day-adj-input")),
+    undefined, "a day with no record is offering availability boxes — saving those would open the day in her shop");
+
+  box.value = "3";
+  (box._listeners.input || []).forEach((f) => f());
+  buttonByText(pop, "Save")._listeners.click[0]();
+
+  assert.equal(st.ingredients[0].onHand, 5000 - 250 * 3, "recording 3 on a non-bake day did not move the shelf");
+  assert.deepEqual(st.deliveryDates.map((d) => d.id), ["d10"],
+    "★ recording production on a non-bake day added a delivery date — **the shop would start offering it**");
 });

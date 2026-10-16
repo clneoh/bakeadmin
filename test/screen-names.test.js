@@ -58,6 +58,11 @@ function phraseAfter(text) {
 test("every 'More → X' signpost names a screen that exists", () => {
   const names = destinations();
   assert.ok(names.length > 15, `expected the app's whole screen list, got ${names.length}`);
+  // ⚠️ THIS ASSERTION IS THE FIXTURE, AND IT WAS RENAMED ONCE MORE AT v514: the screen became
+  // **"Production & Availability"** at the baker's own ask (__"MAybe you can add to Add Day's Availability,
+  // call it Production & Availability"__), because it now does two jobs — the days she sells and the bread
+  // she actually baked. ⭐ **The point of this test is unchanged and is the reason it caught the rename:**
+  // a signpost must name a row that can be found.
   assert.ok(names.includes("Bake days"), "the renamed screen is among them");
 
   const lower = names.map((n) => n.toLowerCase());

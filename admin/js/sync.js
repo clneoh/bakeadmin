@@ -43,6 +43,12 @@ const LISTS = {
   parcelCouriers: "parcelCouriers", // the carriers she posts parcels with — a carrier added on one phone has to exist on the other, or the order screen offers a list that is different on every phone
   uoms: "uoms", // units of measure — a unit added on one phone has to exist on the other
   deliveryDates: "deliveryDates",
+  // ⚠️⚠️ NAMED HERE OR IT DOES NOT TRAVEL (v514) — and this one DID NOT, which is how the baker found the
+  // fault: __"and my phone and my mac not sync"__. ⭐ **I had put production inside `settings` on the
+  // strength of a comment at the top of this file saying a new FIELD there "needs no registration" — and
+  // that comment is about `LISTS`; the settings payload is a HAND-WRITTEN WHITELIST, so the key left the
+  // phone and went nowhere.** ⚠️ **A comment is not the producer: read `recordPayload` before believing one.**
+  bakedDays: "bakedDays",
   purchaseOrders: "purchaseOrders",
   expenses: "expenses", // money out — what one phone spends, the other should see
   deposits: "deposits", // money in from her own pocket — same on every phone

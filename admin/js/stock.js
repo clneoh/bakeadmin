@@ -198,12 +198,16 @@ function baseOf(state, ingredient, unitName) {
   return Number(u && u.toBase) || 1;
 }
 
-// Recipe ingredient amounts for one order of one product, in base units per
-// ingredient. null when the product is gone (nothing to take off stock).
-function orderConsumption(state, order) {
-  const product = byId(state.products || [], order && order.productId);
+// ★★★ THE ONE READING OF A RECIPE (v514). Recipe ingredient amounts for a NUMBER of one product, in base
+// units per ingredient. null when the product is gone (nothing to take off stock).
+//
+// ⚠️ BOTH KINDS OF BREAD COME THROUGH HERE: an order she marks **Baked**, and bread she **baked that
+// nobody ordered** (v514). ⭐ **A second explosion of the same recipe is how two callers come to disagree
+// about what a focaccia costs the shelf** — which is the fault this app has recorded on the run (v494,
+// v507, v511) and on the green (v510), and it does not need a fourth telling.
+export function productConsumption(state, product, qty) {
   if (!product) return null;
-  const res = expandProduct(state, product, Number(order.qty) || 1);
+  const res = expandProduct(state, product, Number(qty) || 0);
   const total = new Map();
   for (const line of res.lines || []) {
     const ingredient = byId(state.ingredients || [], line.ingredientId);
@@ -211,6 +215,131 @@ function orderConsumption(state, order) {
     total.set(line.ingredientId, (total.get(line.ingredientId) || 0) + base);
   }
   return total;
+}
+
+// Recipe ingredient amounts for one order, in base units per ingredient. ⚠️ `|| 1` is the ORDER rule
+// (an order with no quantity is one), kept here rather than moved into `productConsumption`, where it
+// would silently mean "a bake of nothing counts as one".
+function orderConsumption(state, order) {
+  const product = byId(state.products || [], order && order.productId);
+  return productConsumption(state, product, Number(order.qty) || 1);
+}
+
+// ★★★ BREAD SHE BAKED THAT NOBODY ORDERED (v514). Her words: __"when Jien Bake focaccia, she usually bake
+// more, not according to order, sometimes for self consumption, i need system to allow us to enter bake
+// qty, system dont have to track the extra bake, but just need to deduct ingredient."__
+//
+// ⚠️⚠️ `delta` IS THE DIFFERENCE, IN PANS, AND IT MAY BE NEGATIVE — and that is the whole design. ⭐ **The
+// number she types is the TOTAL she baked** (her own choice, 16 Oct 2026), so the app never takes the
+// total off the shelf: the orders take their own share off when they reach Baked, and this takes the
+// REST. ⭐ **Typing 10, then changing it to 8, has to put 2 back** — which a button that only adds could
+// never do, and which is why this is one function with a sign rather than a "bake" and an "unbake".
+//
+// ⚠️ A DELTA OF ZERO IS REFUSED, because `logStock` refuses a movement of nothing — a row saying a
+// shelf moved by 0 is a row that makes the journal harder to read, not easier.
+export function applyBake(state, product, dayIso, delta) {
+  const n = Number(delta) || 0;
+  if (!n) return;
+  const amounts = productConsumption(state, product, Math.abs(n));
+  if (!amounts) return;
+  const pans = Math.abs(n);
+  const name = String((product && product.name) || "baked goods");
+  const what = n > 0 ? `Baked extra — ${pans} × ${name}` : `Extra bake corrected — ${pans} × ${name}`;
+  for (const [ingredientId, base] of amounts) {
+    const ing = byId(state.ingredients || [], ingredientId);
+    if (!ing) continue;
+    const before = Number(ing.onHand) || 0;
+    // ⚠️ `Math.max(0, …)` mirrors `consumeOrder`: stock never goes below zero, so a bake against an empty
+    // shelf moves nothing — and the row records the movement that HAPPENED, never the recipe's figure,
+    // or the journal stops summing to the number it explains.
+    ing.onHand = round2(Math.max(0, before + (n > 0 ? -base : base)));
+    logStock(ing, {
+      delta: round2((Number(ing.onHand) || 0) - before),
+      why: "produced",
+      what,
+      ref: String(dayIso || ""),
+    });
+  }
+}
+
+// ── what she actually baked, by day (v514) ───────────────────────────────────────────────────────────
+//
+// ⚠️⚠️ IT IS A **TOP-LEVEL LIST**, `state.bakedDays`, AND THE BAKER IS THE ONE WHO PROVED IT HAD TO BE:
+// __"and my phone and my mac not sync"__.
+//
+// ⭐ **My first version put it inside `state.settings`, on the strength of a comment at the top of
+// `sync.js` saying a new FIELD there needs no registration. That comment is about the `LISTS` map — and
+// the settings payload is a HAND-WRITTEN WHITELIST (`recordPayload`), so the key left her phone and went
+// NOWHERE.** ⚠️ **A comment is not the producer: read the code that builds the payload.**
+//
+// ⚠️ AND A LIST IS RIGHT FOR A SECOND REASON, which is the one v444 already paid for: **`settings` is ONE
+// row whose `data` is replaced whole on push, so two phones both holding records would overwrite each
+// other.** ⭐ **A list is one row PER RECORD (`kind, id, data`), so two phones adding different days MERGE.**
+//
+// ⚠️ And it deliberately does NOT live on a `deliveryDates` row: **that is what the storefront publishes**,
+// so recording production there would put a day she never opened on sale in her own shop.
+//
+// Shape: `bakedDays = [{ id: "bake_2026-10-16", date: "2026-10-16", items: { [productId]: { total, applied } } }]`.
+// ⭐ The id is DERIVED FROM THE DAY, so two phones recording the same day upsert ONE row rather than
+// inventing a second — which is the same reason the order number is a key.
+//   `total`   — how many she typed, for showing back to her.
+//   `applied` — **the extra pans actually taken off the shelf so far.** ⭐ Storing what we DID, rather than
+//               recomputing it from the orders each time, is what makes a correction exact: the shelf
+//               follows the difference from a number we know we moved.
+export function bakedDayOf(state, dayIso) {
+  const day = String(dayIso || "");
+  if (!day) return null;
+  return (state.bakedDays || []).find((r) => r && r.date === day) || null;
+}
+
+export function bakedOf(state, dayIso, productId) {
+  const row = bakedDayOf(state, dayIso);
+  return (row && row.items && row.items[String(productId || "")]) || null;
+}
+
+// ⭐ SET THE TOTAL, AND TAKE OFF ONLY THE DIFFERENCE.
+//
+// ⚠️⚠️ **THE NUMBER SHE TYPES IS THE TOTAL SHE BAKED, NOT THE EXTRA** (her choice, 16 Oct 2026). So the
+// orders keep taking their own share off when they reach *Baked*, and this takes **the rest**. ⭐ **Typing
+// 10 with 6 ordered must move 4** — and typing 8 afterwards must put 2 back.
+//
+// ⚠️ `ordered` IS EVERY ORDER ON THAT DAY, WHATEVER STAGE IT IS AT — **not only the ones already marked
+// Baked.** ⭐ Counting only the baked ones would take the same bread off twice: once here, and again when
+// she marks them. ⚠️ And it is passed in rather than read here, because the caller already reads it from
+// `orderedOnDay` — the one reading the shopping list uses.
+export function setBakedTotal(state, product, dayIso, total, ordered) {
+  const day = String(dayIso || "");
+  const pid = String((product && product.id) || "");
+  if (!day || !pid) return { wanted: 0, delta: 0 };
+  const list = state.bakedDays || (state.bakedDays = []);
+  let row = list.find((r) => r && r.date === day);
+  if (!row) {
+    row = { id: `bake_${day}`, date: day, items: {} };
+    list.push(row);
+  }
+  const items = row.items || (row.items = {});
+  const entry = items[pid] || (items[pid] = { total: 0, applied: 0 });
+
+  // ⚠️ NEVER BELOW ZERO: if she baked fewer than were ordered, the orders' own deduction already covers
+  // them and there is nothing extra to take off — and there is certainly nothing to put BACK, because
+  // this function did not take the ordered ones off.
+  const wanted = Math.max(0, (Number(total) || 0) - (Number(ordered) || 0));
+  const delta = wanted - (Number(entry.applied) || 0);
+  applyBake(state, product, day, delta);   // ⭐ a delta of 0 is refused inside, so nothing is journalled
+  entry.total = Number(total) || 0;
+  entry.applied = wanted;
+
+  // ⚠️ AND A DAY SHE HAS CLEARED BACK TO NOTHING LEAVES NO RECORD BEHIND. ⭐ Zero total means zero applied
+  // (see above), so an entry of `{total:0, applied:0}` is a record of nothing — and a list row is a row on
+  // her other phone, so it would sit there for ever.
+  if (!entry.total && !entry.applied) {
+    delete items[pid];
+    if (!Object.keys(items).length) {
+      const i = list.findIndex((r) => r === row);
+      if (i >= 0) list.splice(i, 1);
+    }
+  }
+  return { wanted, delta };
 }
 
 // An order marked Baked used its ingredients — take them off the shelf.

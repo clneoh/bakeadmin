@@ -8,7 +8,10 @@ import {
   stockOf, consumeOrder, addBackOrder, adjustForStatus, applyBought,
   stockLogOf, logStock, setStock, STOCK_LOG_CAP,
   stockRowUndo, undoStockRow, shopUndoPlan, undoShopBought,
+  applyBake, setBakedTotal, bakedOf,
 } from "../admin/js/stock.js";
+import { orderedOnDay } from "../admin/js/bom.js";
+import { computeSlots } from "../admin/js/supabase.js";
 
 const JOURNEY = ["new", "confirmed", "paid", "baking", "ready", "delivered"];
 
@@ -378,4 +381,99 @@ test("★ Day one records the STARTING amount, so the journal does not begin mid
   assert.equal(log[0].why, "dayone");
   assert.equal(log[0].delta, 5000);
   assert.equal(log[0].what, "Day one — 5000 g");
+});
+
+// ── v514: the bread she baked that nobody ordered ────────────────────────────
+//
+// Her words: __"when Jien Bake focaccia, she usually bake more, not according to order, sometimes for self
+// consumption, i need system to allow us to enter bake qty, system dont have to track the extra bake, but
+// just need to deduct ingredient."__
+//
+// ⚠️⚠️ AND THE NUMBER SHE TYPES IS THE **TOTAL** SHE BAKED, NOT THE EXTRA — her own choice, put to her as
+// three ways of asking (16 Oct 2026). ⭐ **Which makes this the one thing that can be got wrong in the
+// expensive direction:** the orders take their own share off when they reach *Baked*, so the day's total
+// must never come off here as well.
+test("★★★ the number she types is the TOTAL she baked, so only the DIFFERENCE comes off the shelf (v514)", () => {
+  const ing = flour(2000);
+  const st = baseState([ing, butter(2000)], [bread()]);
+  st.deliveryDates = [{ id: "del", date: "2026-10-16", notes: "" }];
+  st.orders = [
+    { id: "o1", deliveryDateId: "del", productId: "p_bread", qty: 4, status: "paid" },
+    { id: "o2", deliveryDateId: "del", productId: "p_bread", qty: 2, status: "new" },
+  ];
+  const p = st.products[0];
+  const ordered = Number(orderedOnDay(st, "2026-10-16").get("p_bread")) || 0;
+  // ⚠️⚠️ SIX, AND THE TWO ORDERS ARE AT DIFFERENT STAGES ON PURPOSE. ⭐ **Counting only the orders already
+  // marked Baked would take the same bread off twice** — once here, and again when she marks them.
+  assert.equal(ordered, 6, "precondition: six ordered that day, in two orders at different stages");
+
+  setBakedTotal(st, p, "2026-10-16", 10, ordered);
+  assert.equal(ing.onHand, 2000 - 250 * 4,
+    "★ typing a total of 10 took the WHOLE TEN off the shelf — **the four extra only are this feature's to "
+    + "take; the other six belong to the orders**");
+
+  // ⭐ AND IT IS A NUMBER SHE OWNS, NOT A BUTTON THAT ACCUMULATES: correcting it corrects the shelf.
+  setBakedTotal(st, p, "2026-10-16", 8, ordered);
+  assert.equal(ing.onHand, 2000 - 250 * 2, "★ changing the total to 8 did not put TWO loaves back");
+
+  setBakedTotal(st, p, "2026-10-16", 0, ordered);
+  assert.equal(ing.onHand, 2000, "★ clearing the box did not put the rest back");
+  assert.equal(bakedOf(st, "2026-10-16", "p_bread"), null,
+    "…and a day cleared back to nothing left a record behind, which would travel to her other phone and "
+    + "sit in the settings row for ever");
+});
+
+test("★★ baking FEWER than were ordered takes nothing off, and puts nothing back (v514)", () => {
+  const ing = flour(1000);
+  const st = baseState([ing], [bread()]);
+  st.deliveryDates = [{ id: "del", date: "2026-10-16", notes: "" }];
+  st.orders = [{ id: "o1", deliveryDateId: "del", productId: "p_bread", qty: 6, status: "new" }];
+  const p = st.products[0];
+
+  setBakedTotal(st, p, "2026-10-16", 4, 6);
+  assert.equal(ing.onHand, 1000,
+    "★ a total BELOW what was ordered moved the shelf — **the orders' own deduction covers those four, and "
+    + "there is nothing extra to take and certainly nothing to put back**");
+
+  setBakedTotal(st, p, "2026-10-16", 8, 6);
+  assert.equal(ing.onHand, 1000 - 250 * 2, "…and going back ABOVE the ordered count takes exactly the two");
+});
+
+test("★★★ recording production NEVER makes the day a bake day (v514)", () => {
+  // ⚠️⚠️ THE ONE THAT MATTERS. `nextDeliveryDates` publishes **every `deliveryDates` row dated today or
+  // later, with NO weekday filter**, and the shop takes those rows as its calendar. ⭐ **So if recording
+  // production wrote a row, a day she baked on but never opened would go ON SALE in her own shop** — which
+  // is the opposite of what she asked for.
+  const st = baseState([flour(1000)], [bread()]);
+  st.settings = { defaultCapacity: 12 };
+  st.orders = [];
+  st.deliveryDates = [{ id: "del", date: "2026-10-19", notes: "" }];
+
+  const before = JSON.stringify(st.deliveryDates);
+  setBakedTotal(st, st.products[0], "2026-10-20", 3, 0);   // a day with no row at all
+
+  assert.equal(JSON.stringify(st.deliveryDates), before,
+    "★ recording production added or changed a delivery date — **the shop would offer a day she never "
+    + "opened for orders**");
+  const published = computeSlots(st, 20).map((r) => r.date);
+  assert.equal(published.includes("2026-10-20"), false,
+    "★ the day she recorded production on is being PUBLISHED to the storefront");
+  assert.equal(published.includes("2026-10-19"), true,
+    "…and the bake day she really opened is not being published, so this test is watching the wrong end");
+});
+
+test("★★ applyBake is one function with a sign, and a movement of nothing writes no row (v514)", () => {
+  const ing = flour(1000);
+  const st = baseState([ing], [bread()]);
+  const p = st.products[0];
+
+  applyBake(st, p, "2026-10-16", 2);
+  assert.equal(ing.onHand, 500, "two extra loaves come off");
+  const rows = stockLogOf(ing).length;
+  applyBake(st, p, "2026-10-16", 0);
+  assert.equal(ing.onHand, 500, "a delta of zero must move nothing");
+  assert.equal(stockLogOf(ing).length, rows,
+    "a delta of zero wrote a journal row saying the shelf moved by nothing");
+  applyBake(st, p, "2026-10-16", -2);
+  assert.equal(ing.onHand, 1000, "…and the same function with the sign the other way puts it back");
 });

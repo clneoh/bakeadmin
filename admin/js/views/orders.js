@@ -1,7 +1,7 @@
 // views/orders.js — per-delivery-date order intake (manual, warn-not-block).
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
-import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
+import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, orderedOnDay, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
 import { dayMoney, groupValue, isCollected, isRefunded, orderNet } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
@@ -29,7 +29,7 @@ import { isCash, isTng, methodLabel, methodRank, methodsOf } from "../accounts.j
 // same form the money lists use, rather than a second way to write `state.settings.payMethods`.
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
-import { adjustForStatus } from "../stock.js";
+import { adjustForStatus, bakedOf, setBakedTotal } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
 import { courierDayOf, fmtStamp, jobOf } from "../courier_job.js";
@@ -621,8 +621,15 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
   // is a whole line long and would run off the side of a phone.
   function missNote() {
     if (!missedIso) return null;
+    // ★★★ AND IT CARRIES ITS OWN WAY IN (v514). ⚠️⚠️ Her words: __"make it appear everyday, as sometimes she
+    // bake on non bake day upon request by customer. Even post dated"__ — ⭐ **a day she bakes on but never
+    // opened has no day card below, so this line is the only place she can reach it from.** ⭐ It opens the
+    // SAME popup, and on a day with no delivery date **it offers only the production half** — there is no
+    // capacity to adjust on a day nobody can order from.
     return el("p", { class: "cal-miss" },
-      `${shortDate(missedIso)} is not a bake day. Add it in More → Bake days.`);
+      `${shortDate(missedIso)} is not a bake day — nothing can be ordered on it. Add it in More → Bake days, or `,
+      button("say what you baked", () => openDayAdjustPopup(state, { date: missedIso }, paint), "ghost small"),
+      ".");
   }
 
   function paint() {
@@ -774,7 +781,7 @@ function renderAll(root, state, params) {
   const dates = [...state.deliveryDates].sort((a, b) => a.date.localeCompare(b.date));
   if (!dates.length) {
     root.replaceChildren(emptyState("No bake days yet",
-      "Add bake days first — go to More → Bake Days."));
+      "Add bake days first — go to More → Bake days."));
     return;
   }
   // In-place rebuilds (status change, add, edit, remove) must not let the
@@ -1261,6 +1268,8 @@ function dateContent(state, date, root, selectDate) {
   const cap = capacityStatus(state, date.id);
   const dateLabel = `${weekdayName(date.date)}, ${longDate(date.date)}`;
   const rules = dayRuleRows(state, date.date);
+  // ⚠️ Products with a RECIPE — the ones with anything to take off the shelf. See the button below.
+  const bakedProducts = (state.products || []).filter((p) => (p.recipe || []).length);
   const adjusted = rules.rows.filter((r) => r.delta !== 0).length;
 
   // A day the bakery has marked names itself beside the date, in the mark's own
@@ -1283,8 +1292,14 @@ function dateContent(state, date, root, selectDate) {
     moneyLine(state, date.id),
     cap.exceeded ? el("div", { class: "danger-banner" },
       `Over capacity by ${cap.total - cap.capacity}. Add more only if she can bake extra.`) : null,
-    !st.past && rules.rows.length ? el("div", { class: "btn-row", style: "margin-top:10px" },
-      button(adjusted ? `Set day's availability · ${adjusted} adjusted` : "Set day's availability", () =>
+    // ★★★ PRODUCTION & AVAILABILITY (v514) — her words: __"the availability that i meant is not in others,
+    // it is below calendar, Its name is set day's availability"__.
+    // ⚠️⚠️ IT IS OFFERED WHENEVER THERE IS ANYTHING TO SAY ABOUT THE DAY, and it used to need a product
+    // **with a daily limit** — ⭐ which would have left production unreachable on a bakery that sets none.
+    // ⭐ And a PAST day is offered too, on purpose: her own __"Even post dated"__ — the bread was still
+    // baked and the flour still left the shelf, even though nothing can be sold on that day now.
+    (rules.rows.length || bakedProducts.length) ? el("div", { class: "btn-row", style: "margin-top:10px" },
+      button(adjusted ? `Production & availability · ${adjusted} adjusted` : "Production & availability", () =>
         openDayAdjustPopup(state, date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "soft")) : null);
 
   const form = orderForm(state, date.id, root, selectDate);
@@ -1293,13 +1308,30 @@ function dateContent(state, date, root, selectDate) {
   return el("div", {}, header, form, list);
 }
 
-// "Set day's availability" — the owner raises or lowers each product's usual
-// daily limit for THIS delivery date only, straight from the Orders screen.
-// Value packs share their base product's pool, so they aren't listed here —
-// adjust the base and they follow.
+// ★★★ PRODUCTION & AVAILABILITY (v514). It was "Set day's availability" — the owner raises or lowers each
+// product's usual daily limit for THIS day. ⭐ **It carries the day's PRODUCTION as well now**: how many she
+// actually baked, so the ingredients come off the shelf for the bread nobody ordered.
+//
+// ⚠️⚠️ HER WORDS, AND THEY ARE THE WHOLE REASON THIS IS HERE AND NOT ON THE BAKE DAYS SCREEN:
+// __"the availability that i meant is not in others, it is below calendar, Its name is set day's
+// availability"__ — ⭐ **I had built it on the wrong screen, from her earlier "Add Day's Availability",
+// which is one word away from the real label.** ⚠️ **A quoted control name that does not exist verbatim is
+// a thing to SEARCH FOR before building on it.**
+//
+// ⚠️ AND `date` MAY HAVE **NO RECORD BEHIND IT** — a day she baked on but never opened has no delivery
+// date, and **recording production must never create one**, because that is what the shop publishes.
+// So the availability half is drawn only when the record exists; **the production half works on any day.**
+// Value packs share their base product's pool, so they aren't listed here — adjust the base and they follow.
 export function openDayAdjustPopup(state, date, refresh) {
-  const rules = dayRuleRows(state, date.date);
-  if (!rules.rows.length) return toast("No product has a daily limit yet — set one under More → Products first.");
+  const iso = String((date && date.date) || "");
+  const rec = (state.deliveryDates || []).find((d) => d && d.date === iso) || null;
+  const rules = iso ? dayRuleRows(state, iso) : { rows: [], packs: [] };
+  // ⚠️ ONLY PRODUCTS WITH A RECIPE: one with none has nothing to take off the shelf, so a box for it would
+  // move nothing at all — and a control that does nothing is a bug in this app.
+  const bakedRows = (state.products || []).filter((p) => (p.recipe || []).length);
+  if (!rules.rows.length && !bakedRows.length) {
+    return toast("Nothing to set for this day yet — no product has a daily limit or a recipe.");
+  }
 
   const inputs = rules.rows.map((rule) => {
     const inp = el("input", { class: "input day-adj-input", type: "number", inputmode: "numeric",
@@ -1320,7 +1352,7 @@ export function openDayAdjustPopup(state, date, refresh) {
   // day can never have an order put on it, so its limit is not the day's capacity
   // (see effectiveCapacity in bom.js — the same rule, so this sum and the number
   // the store uses are the one number).
-  const counts = (rule) => sellOpen(byId(state.products, rule.productId), date.date);
+  const counts = (rule) => sellOpen(byId(state.products, rule.productId), iso);
 
   // "How the day adds up", under the rows the owner is editing: which product
   // contributes what to the day, ending on the same number the order page uses for
@@ -1334,8 +1366,16 @@ export function openDayAdjustPopup(state, date, refresh) {
     // the same function the day's capacity itself comes from, so the sum on screen
     // and the number the order page uses are one computation.
     const typed = {};
-    for (const { rule, inp } of inputs) typed[rule.productId] = todayOf(rule, inp);
-    const { counted, off, total, fallback } = dayCapacityParts(state, date.date, typed);
+    // ⚠️⚠️ AND A PRODUCT WITH NO AVAILABILITY BOX IS SKIPPED (v514). ⭐ A product with a RECIPE and **no
+    // daily limit** has no box to read — and that is the ordinary case, because a bakery that sells
+    // whatever comes out of the oven never sets one. ⚠️ **This crashed the whole pop-up on the real
+    // screen**, and no test saw it: **every product in the test fixture happened to have a limit.**
+    // ⭐ **A fixture that gives every product a limit is not a smaller bakery, it is a different one.**
+    for (const { rule, inp } of inputs) {
+      if (!inp) continue;
+      typed[rule.productId] = todayOf(rule, inp);
+    }
+    const { counted, off, total, fallback } = dayCapacityParts(state, iso, typed);
 
     const grid = el("div", { class: "cost-grid" });
     const row = (op, val, name, isTotal) =>
@@ -1356,7 +1396,7 @@ export function openDayAdjustPopup(state, date, refresh) {
       grid.append(row("=", total, "what the order page can take that day", true));
     }
 
-    const cap = capacityStatus(state, date.id);
+    const cap = rec ? capacityStatus(state, rec.id) : null;
     // replaceChildren is not el(): it stringifies a null argument into a visible
     // "null" text node rather than dropping it, so an absent line is filtered out
     // here (19 Sep 2026 — it printed between the total and "Booked so far"
@@ -1368,48 +1408,105 @@ export function openDayAdjustPopup(state, date, refresh) {
       ...[
         off.length ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
           `Not counted: ${off.map((p) => p.name).join(", ")} — not sold on this day, so no order can go on them here.`) : null,
-        el("p", { class: "card-sub", style: "margin:6px 0 0" },
-          cap.total >= total
-            ? `Booked so far: ${cap.total} — the order page shows this day full.`
-            : `Booked so far: ${cap.total}. The order page can still take ${total - cap.total}.`),
+        // ⚠️⚠️ AND THE "BOOKED SO FAR" LINE ONLY EXISTS ON A DAY SHE OPENED (v514). ⭐ **A day with no
+        // delivery date has nothing booked and nothing to book**, so the line would be counting a day the
+        // shop does not have — and `capacityStatus` needs the record's id, which does not exist here.
+        cap === null ? null
+          : el("p", { class: "card-sub", style: "margin:6px 0 0" },
+            cap.total >= total
+              ? `Booked so far: ${cap.total} — the order page shows this day full.`
+              : `Booked so far: ${cap.total}. The order page can still take ${total - cap.total}.`),
       ].filter(Boolean));
   };
 
-  showPopup(el("div", { class: "popup-title-row" }, "Availability for this day"), (refreshBody, close) => {
+  // ★★★ ONE ROW PER PRODUCT, CARRYING BOTH ANSWERS (v514) — her own sketch of it.
+  // ⚠️ A product with a daily limit gets the +/− box; a product with a recipe gets the "you baked" box; a
+  // product with both gets both. ⭐ **Two separate lists of the same products would make her match them up
+  // by name**, and that is the arithmetic this popup exists to save her.
+  const bakedInputs = new Map();
+  {
+    const seen = new Set();
+    for (const r of rules.rows) seen.add(r.productId);
+    for (const prod of bakedRows) {
+      if (seen.has(prod.id)) continue;
+      rules.rows.push({ productId: prod.id, name: prod.name, usual: 0, delta: 0, noLimit: true });
+      inputs.push({ rule: rules.rows[rules.rows.length - 1], inp: null });
+    }
+  }
+
+  showPopup(el("div", { class: "popup-title-row" }, "Production & availability"), (refreshBody, close) => {
     const rows = el("div", { class: "day-adj-rows" },
       ...inputs.map(({ rule, inp }) => {
-        const todayEl = el("span", { class: "day-adj-preview" }, preview(rule, inp));
-        inp.addEventListener("input", () => { todayEl.textContent = preview(rule, inp); paintSum(); });
+        const product = byId(state.products, rule.productId);
+        const hasRecipe = !!(product && (product.recipe || []).length);
+        const was = Number(orderedOnDay(state, iso).get(rule.productId)) || 0;
+        const right = el("div", { class: "day-adj-stack" });
+
+        // ⚠️⚠️ AND THE AVAILABILITY BOX IS DRAWN ONLY ON A DAY SHE OPENED (v514). ⭐ **On a day with no
+        // delivery date there is no capacity to adjust and nothing it could be saved to** — so a box here
+        // would be a control that does nothing, which this app treats as a bug. ⭐ **And the number would
+        // be a lie**: the day has no limits because the shop has no day.
+        if (inp && rec) {
+          const todayEl = el("span", { class: "day-adj-preview" }, preview(rule, inp));
+          inp.addEventListener("input", () => { todayEl.textContent = preview(rule, inp); paintSum(); });
+          right.append(el("div", { class: "day-adj-right" }, todayEl, inp));
+        }
+        if (hasRecipe) {
+          const rec = bakedOf(state, iso, rule.productId);
+          const box = el("input", {
+            class: "input bake-box", type: "number", inputmode: "numeric", min: "0", step: "1",
+            // ⚠️ EMPTY, NOT 0, ON A DAY SHE HAS NOT RECORDED — a 0 would read as a bake of nothing she had
+            // written down, rather than as nothing written down at all.
+            value: rec && rec.total ? String(rec.total) : "",
+            "aria-label": `How many ${rule.name} did you bake`,
+          });
+          bakedInputs.set(rule.productId, { box, was });
+          right.append(el("div", { class: "day-adj-right" },
+            el("span", { class: "bake-label" }, "you baked"), box));
+        }
+
         return el("div", { class: "day-adjust-row" },
           el("div", { style: "min-width:0" },
             el("p", { style: "margin:0" }, rule.name),
-            el("p", { class: "card-sub", style: "margin:0" }, `Usual ${rule.usual}/day`)),
-          el("div", { class: "day-adj-right" },
-            todayEl,
-            inp));
+            el("p", { class: "card-sub", style: "margin:0" },
+              [!rec ? "not a bake day"
+                 : rule.noLimit ? "no daily limit" : `Usual ${rule.usual}/day`,
+                hasRecipe ? (was ? `${was} ordered` : "nothing ordered") : null].filter(Boolean).join(" · "))),
+          right);
       }));
     paintSum(); // the sum as the day stands, before she types anything
 
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 12px" },
-        `For ${weekdayName(date.date)}, ${longDate(date.date)} only: how many more (+) or fewer (−) than usual to make. 0 = Sold out that day. Other dates are untouched.`),
+        rec
+          ? `For ${weekdayName(iso)}, ${longDate(iso)} only. Set how many more (+) or fewer (−) than usual to make — 0 = Sold out that day. And say how many you BAKED, so the ingredients come off the shelf for the bread nobody ordered. Other dates are untouched.`
+          : `${weekdayName(iso)}, ${longDate(iso)} is not a bake day, so nothing here changes what the shop offers. Say how many you baked, and the ingredients come off the shelf for the bread nobody ordered.`),
       rows,
-      sumEl,
-      rules.packs.length ? el("p", { class: "card-sub", style: "margin:10px 0 0" },
+      rec ? sumEl : null,
+      rec && rules.packs.length ? el("p", { class: "card-sub", style: "margin:10px 0 0" },
         `Value packs — ${rules.packs.join(", ")} — share their base product, so they follow the numbers above.`) : null,
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
         button("Save", () => {
-          const adjustments = {};
-          for (const { rule, inp } of inputs) {
-            const { delta, error } = parseDayDelta(inp.value);
-            if (error) return toast(error);
-            adjustments[rule.productId] = delta;
+          // ⚠️ AVAILABILITY ONLY WHEN THE DAY EXISTS — a day with no delivery date has no capacity to
+          // adjust, and writing one would publish it.
+          if (rec) {
+            const adjustments = {};
+            for (const { rule, inp } of inputs) {
+              if (!inp) continue;
+              const { delta, error } = parseDayDelta(inp.value);
+              if (error) return toast(error);
+              adjustments[rule.productId] = delta;
+            }
+            saveDayAdjustments(state, rec.id, adjustments);
           }
-          saveDayAdjustments(state, date.id, adjustments);
+          // ⭐ AND THE PRODUCTION, whatever kind of day it is.
+          for (const [productId, { box, was }] of bakedInputs) {
+            setBakedTotal(state, byId(state.products, productId), iso, Number(box.value) || 0, was);
+          }
           save(state);
           maybeSync(state); // republish availability so customers see the change
-          toast("Day's availability updated");
+          toast(rec ? "Production & availability updated" : "Baked total saved");
           close();
           refresh();
         }, "primary")));

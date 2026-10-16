@@ -2682,6 +2682,11 @@ option.tone-off { color: var(--muted); }
 .day-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
 .day-adjust-row .day-adj-right { display: flex; align-items: center; gap: 8px; }
+/* ★★★ ONE PRODUCT, TWO ANSWERS, STACKED (v514). Her own sketch of the pop-up put the usual/day line and
+   the "you baked" line under each other on the same product — ⭐ **so she reads one product once**, rather
+   than matching two lists up by name. ⚠️ A row with only one of the two simply has one child. */
+.day-adj-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.day-adj-stack .bake-label { font-size: 12px; color: var(--muted); }
 .day-adjust-row .day-adj-preview { font-size: 13px; color: var(--brown-dark); font-weight: 600;
   min-width: 74px; text-align: right; }
 .day-adjust-row .day-adj-input { width: 76px; min-height: 36px; text-align: center; }
@@ -3062,6 +3067,59 @@ option.tone-off { color: var(--muted); }
   color: var(--brown-dark);
   font-weight: 700;
   box-shadow: inset 0 0 0 2px var(--brown);
+}
+
+/* ★★★ THE DAY THE PRODUCTION PANEL IS OPEN ON (v514). ⚠️ THE SAME TERRACOTTA WIRE FRAME `.cal-cell.sel`
+   wears above, and deliberately the same declarations rather than a lookalike: ⭐ **on this screen the
+   frame means the same thing in all three modes — "this is the day being talked about"** — and a second
+   spelling of one look is how two of them come to drift (the shop's own green was doing exactly that
+   until v510). ⚠️ Not `.sel` itself, because that one is the ADD grid's picked set and the drag layer
+   reads it; they can never both be showing, so they are two names for one look on purpose. */
+.cal-cell.bake-pick {
+  background: none;
+  color: var(--brown-dark);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--brown);
+}
+
+/* ---------- Baked: the production panel under the grid (v514) ----------
+   Her words: __"i need system to allow us to enter bake qty, system dont have to track the extra bake, but
+   just need to deduct ingredient."__ ⚠️ One box per product, each with the day's ORDERS printed beside it,
+   because ⭐ **"I typed 10 and 6 were ordered" is the arithmetic she should never have to do in her head** —
+   and it is the arithmetic the app is doing to her shelf. */
+.bake-day {
+  margin: 12px 2px 8px;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+.bake-flag { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--muted); }
+.bake-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.bake-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.bake-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.bake-ordered { font-size: 12px; color: var(--muted); }
+.bake-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+/* ⚠️ 64px IS A PLAUSIBLE BAKING DAY, NOT A ROUND NUMBER: a 12-pan day is two digits, and a box narrower
+   than its own answer makes her swipe to read back what she typed. */
+.bake-box { flex: 0 0 auto; width: 64px; text-align: center; }
+.bake-unit { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.bake-answer { margin-top: 8px; }
+.bake-line {
+  margin: 0;
+  padding: 7px 9px;
+  background: var(--green-bg);
+  border-left: 3px solid var(--green);
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
 }
 
 /* ★★★ THE PAST-DATE WARNING ON THE BAKE DAYS CARD (v464). Her words: __"i want to open a post date bake

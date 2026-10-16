@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as sync from "../admin/js/sync.js";
-import { STOCK_PRODUCTION } from "../admin/js/state.js";
+import { STOCK_PRODUCTION, defaultState } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;
@@ -2013,4 +2013,40 @@ test("★★★ flush: a queue holding only a record that can never be sent is s
         "★ a record that cannot be keyed was posted anyway, which poisons the whole batch");
     } finally { restoreFetch(); }
   } finally { restore(); }
+});
+
+// ★★★ THE BREAD SHE BAKED THAT NOBODY ORDERED (v514). ⚠️⚠️ **THIS IS THE TEST FOR A FAULT SHE FOUND, NOT
+// ONE I IMAGINED:** __"and my phone and my mac not sync"__ — and she was right. ⭐ **A list left out of
+// `LISTS` is silently device-local**, and ⚠️ **the first version of this feature was worse than that: it
+// kept the record inside `settings`, whose payload is a HAND-WRITTEN WHITELIST — so the key left the phone
+// and went nowhere at all, while a comment at the top of sync.js said a new field there "needs no
+// registration".** ⭐ **That comment is about `LISTS`. A comment is not the producer: read `recordPayload`.**
+test("computeRecords: production rows ride the sync, and are NOT buried in settings (v514)", () => {
+  const st = baseState();
+  st.bakedDays = [
+    { id: "bake_2026-10-20", date: "2026-10-20", items: { p_foc: { total: 4, applied: 4 } } },
+  ];
+
+  const rows = sync.computeRecords(st);
+  const production = rows.filter((r) => r.kind === "bakedDays");
+  assert.equal(production.length, 1,
+    "★ a day she recorded as baked never reaches her other phone — **she would key a total into one device "
+    + "and the shelf on the other would not move**");
+  assert.deepEqual(production[0].data,
+    { id: "bake_2026-10-20", date: "2026-10-20", items: { p_foc: { total: 4, applied: 4 } } },
+    "the row goes whole — no field whitelist to fall out of date");
+  // ⚠️ AND NOT INSIDE SETTINGS: ⭐ **settings is ONE row replaced whole on push**, so two phones both
+  // holding production records would overwrite each other's — the fault v444 already paid for once.
+  const settingsRow = rows.find((r) => r.kind === "settings");
+  assert.equal("baked" in settingsRow.data, false,
+    "production is back inside the settings payload — one row, replaced whole, so her phone and her Mac "
+    + "would overwrite each other's days");
+
+  // ⚠️⚠️ AND THE OTHER HALF, WHICH IS EASY TO MISS AND SILENT WHEN MISSED: the PULL restores a row only
+  // when `LISTS[row.kind]` names a field **and `Array.isArray(state[field])`**. ⭐ **A missing default means
+  // the row arrives from the cloud and is skipped without a word** — so the list must exist on a fresh
+  // install too, not only on a phone that has just recorded something.
+  assert.ok(Array.isArray(defaultState().bakedDays),
+    "★ a fresh install has no `bakedDays` array — **the cloud's rows would arrive and be dropped in "
+    + "silence**, which looks exactly like sync working");
 });
