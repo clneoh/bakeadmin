@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v528)
+# Jienluv2bake — change history (v54 → v529)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v529, ONE ORDER IN THE REMOVED LIST IS ONE ROW, ALWAYS (no database step).**
+
+**Your words:** __"there is so many duplicate order number in the Removed Orders"__
+
+**1. ⭐⭐ WHY IT HAPPENED, AND IT IS A LOOP RATHER THAN AN ACCIDENT.** The Removed list simply **added a new row every time an order came off**. So: the shared data hands an order back whenever its removal has not yet landed — ⚠️ **which is exactly what was happening, because the queue could not send** — and when you took that order off again, a **second row with the same number** went onto the shelf. That is why the same number kept appearing over and over, and why the list only grew.
+
+**2. ⭐ ONE ORDER, ONE ROW, ALWAYS.** Taking an order off again now **replaces** its row instead of adding one beside it. The shelf holds what is *not* in your list, and that is one row's worth of fact.
+
+**3. ⭐⭐ AND THE DUPLICATE ROWS YOU ALREADY HAVE ARE COLLAPSED WHEN THE APP OPENS.** ⚠️ **Without this the fix above would tidy nothing — those rows are already sitting in your data, on both phones.** The newest row is the one kept, because `removedAt` is what the **48 hours** for putting an order back are counted from.
+
+**4. Measured:** taking the same order off twice leaves **1** row, not 2 · a phone that already holds three rows for two orders opens holding **2** rows, newest first · and the older row is the one dropped, so the 48 hours are not silently shortened.
+
+**5. Nothing of yours is lost or rewritten.** No order, day or stock row changed; the same orders are on the shelf, just once each. **No database step.**
+
+---
 
 **17 Oct 2026 — engine v528, ONE CHANGE THE SERVER REFUSES CAN NO LONGER FREEZE EVERY OTHER CHANGE WITH IT (no database step).**
 
