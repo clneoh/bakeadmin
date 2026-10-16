@@ -285,6 +285,65 @@ test("★★★ an order that leaves the phone is caught — the fault that cost
   assert.ok(r.fix, "★ a fault with no way out is a dead end");
 });
 
+test("★★★ an order whose receipt she declared VOID is not a loss — the v448 rule, applied here too (v527)", () => {
+  // ⚠️⚠️ HER OWN SCREEN FOUND THIS. The check named `#4B00A9` as an order that left "by no route it knows"
+  // — ⭐ **and the app did have a record of its fate: she marked its receipt (#000015) void.** ⭐⭐ **The
+  // receipt check has had this carve-out since v448 in almost the same words — a recorded decision is not an
+  // unexplained hole — and this check, standing next to it, was not asking for it at all.**
+  // ⚠️ Both innocent cases are the same shape: the copy looks back about a WEEK, and the Removed list
+  // remembers 48 HOURS, so a deliberate removal in between has nothing left to explain it.
+  const week = healthy();
+  const copy = { orders: week.orders, removedOrders: [] };
+  const now = healthy();
+  now.orders = [];          // the order is gone from this phone
+  now.removedOrders = [];   // and the shelf row has long been pruned
+  now.voidedReceipts = [{ id: "void_7", no: 7, code: "D4E5F6", at: "2026-10-12T00:00:00.000Z" }];
+
+  const r = resultOf(runHealthChecks(now, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN, copy,
+  }), "stable");
+  assert.equal(r.status, "pass",
+    "★ an order whose receipt she marked VOID was still named as a loss — **voiding it IS her record of that "
+    + "order's fate, and a check that ignores the record she made is one she learns to ignore**");
+});
+
+test("★★ and a void record that names the RECEIPT NUMBER explains it too, when the code has moved", () => {
+  // ⚠️ THE OTHER HALF OF THE MATCHING (v470's lesson, applied here): a void record made before v441 holds the
+  // code the order wore THEN, which is not the code it wears now. ⭐ **The receipt number is the fact the two
+  // always share**, so an order is explained by either.
+  const week = healthy();
+  const copy = { orders: week.orders, removedOrders: [] };
+  const now = healthy();
+  now.orders = [];
+  now.removedOrders = [];
+  // ⚠️ No code at all — only the number, which is all an old record reliably carries.
+  now.voidedReceipts = [{ id: "void_7", no: 7, at: "2026-10-12T00:00:00.000Z" }];
+
+  assert.equal(resultOf(runHealthChecks(now, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN, copy,
+  }), "stable").status, "pass",
+  "★ a void record naming only the receipt NUMBER did not explain the order — **a record made before v441 "
+  + "holds the code the order wore then, so reading the number is what stops that becoming a false loss**");
+});
+
+test("★★★ …and the carve-out CANNOT hide a real loss — a void record for another receipt excuses nothing", () => {
+  // ⚠️⚠️ THE ASSERTION THAT KEEPS THE FIX HONEST. ⭐ **A carve-out that explained every missing order would
+  // turn this check green for ever, which is exactly the failure it exists to catch** (v446: 3,335 tests
+  // green while three paid orders were missing).
+  const week = healthy();
+  const copy = { orders: week.orders, removedOrders: [] };
+  const now = healthy();
+  now.orders = [];
+  now.removedOrders = [];
+  now.voidedReceipts = [{ id: "void_9", no: 9, code: "AAAAAA", at: "2026-10-12T00:00:00.000Z" }];
+
+  const r = resultOf(runHealthChecks(now, {
+    register: REGISTER, copies: COPIES, copyWhen: COPY_WHEN, copy,
+  }), "stable");
+  assert.equal(r.status, "fail", "★ a voided receipt for a DIFFERENT order excused a real loss");
+  assert.deepEqual(r.detail, ["#D4E5F6"], "★ the order that really went is not named");
+});
+
 test("★★ the same order is NOT a fault when it was removed on purpose — either list explains it", () => {
   // ⚠️⚠️ WITHOUT THIS THE CHECK COULD NEVER GO GREEN ON AN ORDER SHE DELETED HERSELF, **and a warning that
   // can never be satisfied is one she learns to ignore** — the rule this file already records for voided

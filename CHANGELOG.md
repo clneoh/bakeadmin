@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v526)
+# Jienluv2bake — change history (v54 → v527)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v527, "NO ORDER HAS LEFT WITHOUT A TRACE" STOPS BLAMING A REMOVAL YOU MADE YOURSELF (no database step).**
+
+**Your screen found this, not me.** The check named **#4B00A9** as an order that left "by no route it knows". It had two routes.
+
+**1. ⚠️⚠️ IT WAS YOUR OWN REMOVAL, AND THE APP HAD ALREADY RECORDED IT.** `#4B00A9` came off on your other phone on **11 Oct at 10:47 pm** — you saw it on the Removed shelf that night. You then marked its receipt **#000015** void. ⭐ **So two of your own records agreed about that order, and the check was asking neither of them.**
+
+**2. Why it looked like a loss.** The copy the check opens is dated **11 Oct · 00:37** — written *before* that removal, so it still holds the order. And the Removed list keeps a row for only **48 hours**, so by the time you looked, the row that explained it was long gone.
+
+**3. ⭐⭐ THE FIX — TWO PARTS:**
+- **A receipt you have marked void now explains its order.** ⭐ This is the rule the receipt check has had since v448, in almost the same words — *a recorded decision is not an unexplained hole* — and this check was standing right next to it without using it. An order is matched **both ways**: the code the void record names, and the receipt number the order carries.
+- **The message now names BOTH innocent cases, not one.** It used to name only "a removal made before the Removed list existed". ⚠️ **The second is bigger: the copy looks back about a week, and the Removed list remembers 48 hours — so any order you took off yourself more than two days ago has nothing left to explain it.** ⭐ A check that names one cause while two exist is telling you something untrue about your own data.
+
+**4. ⚠️ AND IT CANNOT HIDE A REAL LOSS.** A void record for a *different* receipt excuses nothing — there is a test for exactly that, because a carve-out that explained everything would turn this check green for ever, which is the failure it exists to catch.
+
+**5. Nothing of yours was rewritten.** No order, receipt, day or stock row changed. **No database step.**
+
+---
 
 **16 Oct 2026 — engine v526, THE ORDER ROW NOW SAYS WHICH ACCOUNT THE MONEY WENT INTO (no database step).**
 

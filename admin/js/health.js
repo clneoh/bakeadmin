@@ -306,6 +306,15 @@ export function copyChecks(copies, now = new Date()) {
 // removed by hand **before v444 kept a Removed list** has no row to explain it, and it looks exactly like a
 // loss. Those copies age out of the window within about a week, so this settles by itself — and the `why`
 // below says so rather than leaving her to work it out.
+//
+// ⚠️⚠️ AND THERE IS A SECOND INNOCENT CASE, WHICH HER OWN SCREEN FOUND (v527). ⭐ **The Removed list keeps a
+// row for 48 HOURS, and this check opens a copy about a WEEK old** — so an order she took off herself three
+// days ago is in the copy, gone from the phone, and has nothing left to explain it. ⭐⭐ **Measured on her
+// data: `#4B00A9`, removed on her other phone on 11 Oct at 10:47 pm, was on the Removed shelf when she
+// looked at it that night — and by the 16th the row was pruned, so this check named it as a loss.** ⭐ **A
+// window that looks back further than the shelf can remember will always see a deliberate removal as a
+// disappearance.** The `why` now names both cases, because a check that names one cause while two exist is
+// telling her something untrue about her own data.
 export function backupChecks(state, copy, when = "") {
   const TITLE = "No order has left this phone's list without a trace";
   if (!copy || typeof copy !== "object") {
@@ -328,13 +337,49 @@ export function backupChecks(state, copy, when = "") {
   const shelfThen = codesOf(copy.removedOrders);
   // ⚠️ AND THE COPY'S OWN LIST COUNTS: an order she took off a week ago, whose shelf row has since been
   // pruned, is still explained by the copy that was written while it was on the shelf.
+  //
+  // ★★★ AND SO DOES A RECEIPT SHE HAS DECLARED VOID (v527) — **the same carve-out the receipt check has had
+  // since v448, in almost the same words: a recorded decision is not an unexplained hole.** ⭐ **Marking a
+  // receipt void IS her saying "this order is gone and I have dealt with the money"** — so it is the app's own
+  // record of that order's fate, and this check was not asking for it. ⚠️ **It reads `voidedReceipts` from
+  // BOTH sides** (this phone now, and the copy), for the same reason the Removed list is read from both: the
+  // record has to travel, and the copy is what remembers it if this phone's row is gone.
+  const voidRecs = [
+    ...(Array.isArray(state && state.voidedReceipts) ? state.voidedReceipts : []),
+    ...(Array.isArray(copy.voidedReceipts) ? copy.voidedReceipts : []),
+  ];
+  const voidedNos = new Set();
+  const voidedCodes = new Set();
+  for (const v of voidRecs) {
+    const n = Math.floor(Number(v && v.no));
+    if (Number.isFinite(n) && n > 0) voidedNos.add(n);
+    const c = String((v && v.code) || "").trim().toUpperCase();
+    if (c && c !== "??????") voidedCodes.add(c);
+  }
+  // ⚠️ MATCHED BOTH WAYS, exactly as `registerChecks` does it: the code the record names, and the receipt
+  // number the order carries — ⭐ **the two facts a receipt and an order always share.** A void record made
+  // before v441 may name a code the order no longer wears, and reading the number as well is what stops that
+  // becoming a false loss.
+  const declaredGone = new Set();
+  for (const g of groupOrders(Array.isArray(copy.orders) ? copy.orders : [])) {
+    const first = g.orders[0];
+    if (!first) continue;
+    const codes = [orderCode(first), codeFromId(first)].filter((c) => c && c !== "??????");
+    const n = Math.floor(Number(receiptNoOfGroup(g.orders)));
+    const hit = codes.some((c) => voidedCodes.has(String(c).toUpperCase()))
+      || (Number.isFinite(n) && n > 0 && voidedNos.has(n));
+    if (hit) for (const c of codes) declaredGone.add(c);
+  }
   const missing = [...codesOf(copy.orders)]
-    .filter((c) => !here.has(c) && !shelf.has(c) && !shelfThen.has(c))
+    .filter((c) => !here.has(c) && !shelf.has(c) && !shelfThen.has(c) && !declaredGone.has(c))
     .sort();
 
   return [missing.length
     ? fail("stable", TITLE, missing.map((c) => `#${c}`),
-      `The copy saved on ${when || "an earlier day"} holds ${missing.length === 1 ? "an order" : "orders"} that this phone no longer has — and ${missing.length === 1 ? "it is" : "they are"} not on the Removed list either, so the app did not take ${missing.length === 1 ? "it" : "them"} off by any route it knows. A removal made before the Removed list existed would look the same, so check the dates before worrying.`,
+      // ⚠️ AND IT NAMES BOTH INNOCENT CASES (v527). It named one, and the one it named was not hers: **the
+      // copy looks back about a week, and the Removed list remembers 48 hours** — so the whole band in
+      // between is an order she took off deliberately, with nothing left to explain it.
+      `The copy saved on ${when || "an earlier day"} holds ${missing.length === 1 ? "an order" : "orders"} that this phone no longer has — and ${missing.length === 1 ? "it is" : "they are"} not on the Removed list either, so the app has no record of taking ${missing.length === 1 ? "it" : "them"} off. TWO innocent cases look exactly the same, so check the dates before worrying: a removal made before the Removed list existed, and — because the Removed list keeps a row for only 48 hours — an order you took off yourself more than two days ago, which this copy is old enough to remember.`,
       "Open Backup and safety and put that copy back if these are orders you took, or search WhatsApp for the number and enter the order again by hand.")
     : pass("stable", TITLE)];
 }
