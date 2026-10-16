@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v523)
+# Jienluv2bake — change history (v54 → v524)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v524, THE BAKING BOX ALWAYS OPENS ON WHAT WAS ORDERED — EVERY DAY, NOT ONLY A PAST ONE (no database step).**
+
+**Your words:** __"once the save, the total baked will be the number shown. this is when inventory taken off, so no matter how many time save is pressed, if the total remain the same, then there will not be any inventory changed. That why we need to prefill the total bake, to not confuse user"__
+
+**1. ⭐⭐ YOUR REASONING IS BETTER THAN MINE, AND IT IS THE WHOLE OF THIS VERSION.** Every part of it is measured:
+- **Save makes the total the recorded number** ✓
+- **That is the moment inventory comes off** ✓ (10 focaccia took exactly ten recipes' worth off)
+- **Saving again with the same number changes NOTHING** ✓ — I measured that too, and it is pinned by a test
+- ⭐ **so a filled box can never do damage, while an EMPTY box makes you ask what Save will do.**
+
+**2. ⭐ SO THE BOX SHOWS THE DAY'S TRUTH ON EVERY DAY.** It opens on **what was ordered** (or on what you have already recorded), with the line *"Each box starts at what was ordered — check it, then press Save."* ⚠️ **v517 emptied the box on a live day and v521 filled it only on a past one — both of those rules are GONE**, because you should not have to remember which kind of day you are looking at.
+
+**3. ⚠️ AND THE ONE THING THE PRE-FILL DOES NOT SOLVE IS SAID OUT LOUD, NOT ASSUMED:** **a box that is filled in and never saved records NOTHING** — so the pop-up still says, in as many words, *"nothing is recorded until you press Save."* ⭐ That is the only risk left, and it is on the screen rather than in my head.
+
+**Measured, live, at 375×812:** **Tue 12 Oct** (gone) and **Mon 19 Oct** (still ahead) both open with **6** in the box, because six were ordered on each.
+
+**Tests stay 3,445**, and **three written faults were each watched to turn the suite red**: the box opening empty again (the v517 rule) · the pop-up dropping *"nothing is recorded until Save"* · and the pop-up dropping *why* the box is filled in.
 
 **16 Oct 2026 — engine v523, THE LINE EXPLAINING THE TOTAL IS GONE — THE LABEL SAYS IT (no database step).**
 
