@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v514)
+# Jienluv2bake — change history (v54 → v515)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v515, "SET DAY'S AVAILABILITY" IS BACK AS IT WAS, AND BAKING HAS ITS OWN BUTTON (no database step).**
+
+**Your words:** __"i screw up again, set availability and to mention how many to bake is totally different functionality, why you take way set availability?"__
+
+**1. ⚠️⚠️ YOU DID NOT SCREW UP — I DID, AND YOU WERE RIGHT.** They ARE two different things. **v514 put them in one pop-up and RENAMED your button**, which **took away the control you actually use.** ⭐ **Merging two jobs under one name is not tidying — it is deleting one of them from your side of the screen.**
+
+**2. ⭐ SO THE DAY CARD HAS TWO DOORS AGAIN.** **"Set day's availability"** is back **exactly as it was** — the same button, the same label, the same pop-up, the same words, the same everything — and beside it, its own button: **"Baked — how many?"**. ⭐ **One question per control:** *what can the shop still sell that day*, and *what came out of the oven*.
+
+**3. ⭐ AND NOTHING OF THE AVAILABILITY SIDE CHANGED, DOWN TO THE CONDITION IT APPEARS UNDER.** It is the version you had before v514, put back. ⚠️ If it is missing on a day, that is the long-standing rule and not this version: **it needs a product with a daily limit set** (More → Products), and a bakery that sets none has never seen that button.
+
+**4. ⭐ THE BAKING POP-UP DOES ONE JOB.** Each product with a recipe gets a **"you baked"** box and its day's ordered count beside it. **The number is the TOTAL you baked** — so 6 ordered and a total of 10 takes **4** off the shelf, not 10. ⭐ **Changing it corrects the shelf**: type 8 and 2 go back; clear it and the rest go back.
+
+**5. ⭐ AND IT OPENS ON ANY DAY.** The line the Orders calendar already answers with now ends **"…or say what you baked"**, which opens the same pop-up for a day that is **not a bake day** — and for a day already gone. ⚠️ **It writes no delivery date at all**, so **the shop never starts offering a day you opened for nobody.** The pop-up says so on the day itself: *"not a bake day, so nothing here changes what the shop offers."*
+
+**6. What DID carry over from v514, and is still worth having:** the record is a **shared record of its own**, so it reaches your phone and your Mac; **the total-not-the-extra arithmetic**; **every product with a recipe**; and the fix to the sync fault you found (a record kept inside the settings never left the phone at all).
+
+**Measured, on the real app at 375×812:** the day card shows **both** buttons — *"Set day's availability"* and *"Baked — how many?"* — and opening availability shows **no baking box**, because the two are meant to be apart.
+
+**Tests 3,442 → 3,443**, and **three written faults were each watched to turn the suite red** — including **the two doors being merged back into one button**, which is exactly the mistake this version undoes.
 
 **16 Oct 2026 — engine v514, PRODUCTION & AVAILABILITY: SAY HOW MANY YOU ACTUALLY BAKED, AND THE INGREDIENTS COME OFF (no database step).**
 

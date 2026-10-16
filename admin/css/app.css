@@ -2682,11 +2682,10 @@ option.tone-off { color: var(--muted); }
 .day-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
 .day-adjust-row .day-adj-right { display: flex; align-items: center; gap: 8px; }
-/* ★★★ ONE PRODUCT, TWO ANSWERS, STACKED (v514). Her own sketch of the pop-up put the usual/day line and
-   the "you baked" line under each other on the same product — ⭐ **so she reads one product once**, rather
-   than matching two lists up by name. ⚠️ A row with only one of the two simply has one child. */
-.day-adj-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.day-adj-stack .bake-label { font-size: 12px; color: var(--muted); }
+/* ★★★ "YOU BAKED", IN ITS OWN POP-UP (v515). ⚠️ It borrows the availability pop-up's row shape so the two
+   read alike, but ⭐ **they are two controls answering two questions** — what the shop can still sell that
+   day, and what came out of the oven. See openBakedPopup in views/orders.js. */
+.bake-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
 .day-adjust-row .day-adj-preview { font-size: 13px; color: var(--brown-dark); font-weight: 600;
   min-width: 74px; text-align: right; }
 .day-adjust-row .day-adj-input { width: 76px; min-height: 36px; text-align: center; }
