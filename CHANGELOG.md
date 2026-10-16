@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v515)
+# Jienluv2bake — change history (v54 → v516)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v516, INGREDIENTS COME OFF WHEN YOU BAKE AND NOWHERE ELSE — ONE EVENT, ONE DOOR (no database step).**
+
+**Your words:** __"i think this is not a good scheme, say today i bake 10, tomorrow i sell 4. will it be too complex?"__ — and then the rule: __"only take away ingredient when baked. And the order dont take away ingredient, then it can be clean cut"__.
+
+**1. ⚠️⚠️ YOU WERE RIGHT, AND I MEASURED IT WITH YOUR OWN NUMBERS.** Before this version, **two** things took flour off: an order marked **Baked**, and the day's baked total. **So a sale made AFTER the bake was subtracted twice.** On the real app: bake 10 (flour 5,000 g → 2,500 g), then a customer takes 4 of those 10 and the order is marked Baked (→ **1,500 g**). **You baked ten and the shelf gave up flour for fourteen.**
+
+**2. ⭐⭐ AND THE FIX IS SIMPLER, NOT MORE COMPLEX — BECAUSE THERE IS NOW ONE EVENT AND ONE DOOR.** ⭐ **Flour leaves the shelf when you BAKE, not when you SELL.** A sale does not use up flour; only the oven does. **So an order never moves the shelf again, on any day** — and the day's baked total is the only thing that does.
+
+**3. ⚠️ THAT MEANS A DAY YOU DO NOT RECORD TAKES NOTHING OFF.** It is the honest cost of the clean cut, and it is why the box **now opens on what was ordered** — on the ordinary day, where you baked exactly what was ordered, **the answer is already in the box and you only press Save.**
+
+**4. ⭐ AND BOTH ORDERINGS NOW GIVE THE SAME ANSWER.** Orders first and bake later, or bake first and sell later — **ten baked is ten loaves of flour either way.** Measured, your case end to end: **bake 10 → 2,500 g; then the 4-loaf order marked Baked → still 2,500 g.**
+
+**5. ⚠️⚠️ AND NOTHING OF YOURS WAS GIVEN BACK OR REWRITTEN.** The rows those old Baked marks wrote are still in your journal and **your shelf stands exactly where it stands.** This changes what happens **next**, never what happened before.
+
+**6. ⭐ The "Baked" stage on an order still moves the order along its journey** — it just no longer touches stock. The three stock functions behind the old behaviour are **deleted, not left lying about**, because a function left lying about is a function the next person calls.
+
+**Measured, on the real app at 375×812:** baked 10 with nothing ordered → 5,000 g → **2,500 g**; then a 4-loaf order marked Baked → **still 2,500 g.**
+
+**Tests 3,443 → 3,439** — ⚠️ **the count goes DOWN on purpose: two tests were DELETED, because the rule they pinned (`total minus ordered`) is exactly the rule that double-counted.** ⭐ **A test that pins a rule the code no longer follows is worse than no test** — it would fail for a reason that is now the correct behaviour. **Three written faults were each watched to turn the suite red**, including **the subtraction coming back** and **the order path being restored**.
 
 **16 Oct 2026 — engine v515, "SET DAY'S AVAILABILITY" IS BACK AS IT WAS, AND BAKING HAS ITS OWN BUTTON (no database step).**
 

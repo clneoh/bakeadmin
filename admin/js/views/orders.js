@@ -29,7 +29,7 @@ import { isCash, isTng, methodLabel, methodRank, methodsOf } from "../accounts.j
 // same form the money lists use, rather than a second way to write `state.settings.payMethods`.
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
-import { adjustForStatus, bakedOf, setBakedTotal } from "../stock.js";
+import { bakedOf, setBakedTotal } from "../stock.js";
 import { customerList, keyOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
 import { courierDayOf, fmtStamp, jobOf } from "../courier_job.js";
@@ -1469,14 +1469,16 @@ export function openBakedPopup(state, dayIso, refresh) {
       ...products.map((p) => {
         const rec = bakedOf(state, iso, p.id);
         const was = Number(ordered.get(p.id)) || 0;
+        // ⭐⭐ AND THE BOX OPENS ON WHAT WAS ORDERED (v516). ⚠️ Since nothing else takes flour off, a day she
+        // forgets to record would take NOTHING off — so the ordinary day (baked exactly what was ordered) is
+        // pre-filled with that number and needs no typing at all. ⭐ **The default is "I baked what was
+        // ordered", which is the true answer on most days.** ⚠️ She can still type over it, and clear it.
         const box = el("input", {
           class: "input bake-box", type: "number", inputmode: "numeric", min: "0", step: "1",
-          // ⚠️ EMPTY, NOT 0, ON A DAY SHE HAS NOT RECORDED — a 0 would read as a bake of nothing she had
-          // written down rather than as nothing written down at all.
-          value: rec && rec.total ? String(rec.total) : "",
+          value: rec && rec.total ? String(rec.total) : (was ? String(was) : ""),
           "aria-label": `How many ${p.name} did you bake`,
         });
-        boxes.set(p.id, { box, was });
+        boxes.set(p.id, { box });
         return el("div", { class: "day-adjust-row" },
           el("div", { style: "min-width:0" },
             el("p", { style: "margin:0" }, p.name),
@@ -1489,14 +1491,15 @@ export function openBakedPopup(state, dayIso, refresh) {
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 12px" },
         `For ${weekdayName(iso)}, ${longDate(iso)}${isBakeDay ? "" : " — not a bake day, so nothing here changes what the shop offers"}. `
-        + "Type the TOTAL you baked. The orders take their own ingredients off when you mark them Baked, "
-        + "so only the extra comes off here — and changing or clearing the number puts it back."),
+        + "Type the TOTAL you baked, and the ingredients for that many come off the shelf — **this is the "
+        + "only place they come off, so a day left blank takes nothing off at all.** Changing or clearing "
+        + "the number puts the difference back."),
       rows,
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
         button("Save", () => {
-          for (const [productId, { box, was }] of boxes) {
-            setBakedTotal(state, byId(state.products, productId), iso, Number(box.value) || 0, was);
+          for (const [productId, { box }] of boxes) {
+            setBakedTotal(state, byId(state.products, productId), iso, Number(box.value) || 0);
           }
           save(state);
           maybeSync(state);
@@ -4513,9 +4516,10 @@ function setStage(state, group, nextStatus, opts = {}) {
   // ⚠️ THE DAY'S OWN ROWS STAY FIRST so `stageWritten`'s anchor is the row she actually pressed,
   // and the screen does not jump under her thumb.
   const family = familyOfOrder(state, rows);
-  // Baked takes the orders' ingredients off your stock; stepping back to before
-  // Baked (an undo) puts them back. Forward moves leave stock be.
-  adjustForStatus(state, family, nextStatus, STATUSES.map(([id]) => id));
+  // ★★★★ AND NO STAGE MOVES THE SHELF ANY MORE (v516). ⚠️⚠️ Her words: __"only take away ingredient when
+  // baked. And the order dont take away ingredient, then it can be clean cut"__. ⭐ **The ingredients come
+  // off when she says how many she BAKED, and nowhere else** — see `openBakedPopup` below and `applyBake`
+  // in stock.js. ⚠️ **"Baked" still moves the ORDER along its journey**; only the stock movement is gone.
   for (const o of family) {
     o.status = nextStatus;
     // Stepping into Confirmed / Paid means the stage is being worked, not
@@ -4596,13 +4600,10 @@ function undoAutoCollect(state, group, order, { root = null, dateId = "" } = {})
   delete o.courierJob.autoAt;
   delete o.courierJob.collectedAt;
   delete o.courierJob.autoFrom;
-  // The stage goes back to the one this row was already on, and the STOCK rule is
-  // deliberately not run on the way back. It is not an oversight: `adjustForStatus` reads
-  // the row's current stage, which is now the last one, so it cannot tell "put this back"
-  // from "step this out of Baked" — and stepping OUT of Baked puts the ingredients back
-  // on her shelf. Charging one order's ingredients twice because a courier's API spoke is
-  // exactly the kind of thing this release must not do. The auto-move itself changed no
-  // stock (only stepping into or out of Baked does), so nothing needs undoing.
+  // The stage goes back to the one this row was already on. ⚠️ **Since v516 there is no stock rule to run
+  // either way — no stage moves the shelf any more** (her words: __"only take away ingredient when baked.
+  // And the order dont take away ingredient, then it can be clean cut"__), so putting the stage back is
+  // simply putting the stage back.
   o.status = from.status || "new";
   // Put back as it was, key and all: an order that had no payment flag at all goes back to
   // having none, rather than to a `false` this Undo invented.

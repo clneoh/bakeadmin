@@ -2660,7 +2660,10 @@ test("★★★ the day card has TWO doors, and Set day's availability is exactl
     "the availability boxes are gone");
 });
 
-test("★★★ Baked — how many? takes only the EXTRA off the shelf, and never opens the day (v515)", () => {
+test("★★★ Baked — how many? is the ONLY thing that moves the shelf, and opens on what was ordered (v516)", () => {
+  // ⚠️⚠️ HER WORDS, CHOOSING THE SCHEME: __"only take away ingredient when baked. And the order dont take
+  // away ingredient, then it can be clean cut"__. ⭐ **Flour leaves the shelf when she BAKES, not when she
+  // SELLS** — and the alternative double-counted her own case (bake 10, then sell 4 of them → flour for 14).
   const st = state();
   st.products = [{ id: "p1", name: "Focaccia", active: true, unit: "pc",
     recipe: [{ ingredientId: "ing_f", qty: 250, unit: "g" }] }];
@@ -2675,17 +2678,19 @@ test("★★★ Baked — how many? takes only the EXTRA off the shelf, and neve
 
   const box = all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
   assert.ok(box, "the baking pop-up has no box");
-  // ⚠️⚠️ THE PRODUCT HAS NO DAILY LIMIT — THE ORDINARY CASE, AND THE ONE THAT WENT BLANK ON THE REAL SCREEN
-  // in v514. ⭐ **A fixture that gives every product a limit is not a smaller bakery, it is a different one.**
   assert.equal(st.products[0].limit, undefined, "precondition: this product has no daily limit");
+  // ⭐ THE ORDINARY DAY NEEDS NO TYPING: the box opens on what was ordered, because the default answer is
+  // "I baked what was ordered" — and ⚠️ since nothing else takes flour off, a day left blank takes NOTHING.
+  assert.equal(box.value, "6", "the box does not open on the day's ordered count");
 
   box.value = "10";
   (box._listeners.input || []).forEach((f) => f());
   buttonByText(pop, "Save")._listeners.click[0]();
 
-  assert.equal(st.ingredients[0].onHand, 5000 - 250 * 4,
-    "★ saving did not take FOUR recipes off the shelf (10 baked less the 6 ordered) — **the orders take "
-    + "their own share when they reach Baked**");
+  assert.equal(st.ingredients[0].onHand, 5000 - 250 * 10,
+    "★ the WHOLE ten did not come off — **nothing else takes flour off any more, so the total must be the "
+    + "whole of it** (this is the line that used to subtract the six ordered, and double-count a sale made "
+    + "after the bake)");
   assert.deepEqual(st.deliveryDates.map((d) => d.id), ["d10"],
     "★ saving a bake wrote a delivery date — **the shop would offer a day she never opened**");
 });

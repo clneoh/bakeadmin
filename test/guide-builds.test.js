@@ -55,3 +55,37 @@ test("the PDF builders are still valid Python", { skip }, () => {
     }
   }
 });
+
+// ⚠️⚠️ AND PARSING IS NOT ENOUGH — THE FILE CAN BE VALID PYTHON AND STILL KILL THE BUILD.
+//
+// ⭐ MEASURED, and this is the fifth time the guide has broken: I added a clause containing a `⚠` and
+// `python3 build_guide.py` died with
+//   `FPDFUnicodeEncodingException: Character "⚠" … outside the range of characters supported by the font`
+// ⚠️ **`ast.parse` was perfectly happy** — a `⚠` is a legal Python character. ⭐ **So the guard above, which
+// asks Python's parser, could not see the one fault that actually happened**, and **the PDF beside it stayed
+// the OLD one while nothing reported anything.**
+//
+// ⭐ SO THIS RUNS THE BUILDER FOR REAL. ⚠️ It is slower than a parse and it writes the PDFs — ⭐ **but that is
+// exactly what "the guide is safe to hand her" means, and every cheaper approximation of it has already
+// missed a real break.** Skipped when `marketing/` is absent, like the test above.
+test("the PDF builders actually RUN (a valid file can still kill the build)", { skip }, () => {
+  try { execFileSync("python3", ["-c", "print(1)"], { stdio: "pipe" }); }
+  catch { return; }
+  // ⚠️ `fpdf` is what the builders draw with; without it this cannot tell a broken guide from a missing
+  // package, and a guard that goes red for the wrong reason is a guard that gets ignored.
+  try { execFileSync("python3", ["-c", "import fpdf"], { stdio: "pipe" }); }
+  catch { return; }
+
+  for (const f of BUILDERS) {
+    if (!present(f)) continue;
+    try {
+      execFileSync("python3", [new URL(`../${f}`, import.meta.url).pathname], { stdio: "pipe", cwd: new URL("..", here(f)).pathname });
+    } catch (e) {
+      const said = String((e && e.stderr) || (e && e.message) || "");
+      assert.fail(`${f} RUNS BUT FAILS — ⚠️ **the PDF beside it is the OLD one, and nothing else reports that.** `
+        + "⭐ The usual cause is a character the PDF font cannot print (the builders are latin-1 only): "
+        + "`⚠`, `⭐` and emoji all parse as Python and all kill the build. "
+        + said.split("\n").slice(-4).join(" ").slice(0, 220));
+    }
+  }
+});

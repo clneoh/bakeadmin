@@ -77,11 +77,6 @@ export function setStock(ingredient, base, { why, label, at } = {}) {
 }
 
 // What an order is called in a stock row — the product and how many, which is how she thinks of it.
-function orderLabel(state, order) {
-  const p = byId(state.products || [], order && order.productId);
-  return `${p ? p.name : "a product that is gone"} ×${Number(order && order.qty) || 1}`;
-}
-
 // The day a shopping list is for, as a person reads it. ⚠️ Split out of `listLabel` so a row can
 // name a SHOP and still say which day's list it came off (v389) without the word "list" in the
 // middle of the sentence.
@@ -307,7 +302,7 @@ export function bakedOf(state, dayIso, productId) {
 // Baked.** ⭐ Counting only the baked ones would take the same bread off twice: once here, and again when
 // she marks them. ⚠️ And it is passed in rather than read here, because the caller already reads it from
 // `orderedOnDay` — the one reading the shopping list uses.
-export function setBakedTotal(state, product, dayIso, total, ordered) {
+export function setBakedTotal(state, product, dayIso, total) {
   const day = String(dayIso || "");
   const pid = String((product && product.id) || "");
   if (!day || !pid) return { wanted: 0, delta: 0 };
@@ -320,10 +315,10 @@ export function setBakedTotal(state, product, dayIso, total, ordered) {
   const items = row.items || (row.items = {});
   const entry = items[pid] || (items[pid] = { total: 0, applied: 0 });
 
-  // ⚠️ NEVER BELOW ZERO: if she baked fewer than were ordered, the orders' own deduction already covers
-  // them and there is nothing extra to take off — and there is certainly nothing to put BACK, because
-  // this function did not take the ordered ones off.
-  const wanted = Math.max(0, (Number(total) || 0) - (Number(ordered) || 0));
+  // ⭐⭐ THE WHOLE TOTAL COMES OFF, because nothing else does (v516). ⚠️ The subtraction that used to be
+  // here — `total − ordered` — existed only while orders took their own share off, and **it is the line
+  // that double-counted every order made after the bake.**
+  const wanted = Math.max(0, Number(total) || 0);
   const delta = wanted - (Number(entry.applied) || 0);
   applyBake(state, product, day, delta);   // ⭐ a delta of 0 is refused inside, so nothing is journalled
   entry.total = Number(total) || 0;
@@ -342,63 +337,21 @@ export function setBakedTotal(state, product, dayIso, total, ordered) {
   return { wanted, delta };
 }
 
-// An order marked Baked used its ingredients — take them off the shelf.
-export function consumeOrder(state, order) {
-  const amounts = orderConsumption(state, order);
-  if (!amounts) return;
-  const label = orderLabel(state, order);
-  for (const [ingredientId, base] of amounts) {
-    const ing = byId(state.ingredients || [], ingredientId);
-    if (!ing) continue;
-    const before = Number(ing.onHand) || 0;
-    ing.onHand = round2(Math.max(0, before - base));
-    // ⚠️ THE ROW RECORDS THE CHANGE IN THE NUMBER, not the recipe's figure. ⚠️⚠️ `Math.max(0, …)`
-    // above CLAMPS a subtraction that would have gone below zero — stock never goes negative — so a
-    // bake against an empty shelf moves nothing, and claiming it moved the recipe's amount would
-    // make the rows stop adding up to the number. **A journal whose rows do not sum to the figure it
-    // explains is worse than no journal**, so the delta is measured, never assumed.
-    // (A zero change is refused by `logStock` itself — a movement of nothing is not a movement.)
-    logStock(ing, {
-      delta: round2((Number(ing.onHand) || 0) - before),
-      why: "baked",
-      what: `Baked — ${label}`,
-      ref: (order && order.id) || "",
-    });
-  }
-}
-
-// Un-marking Baked (back to Paid/Confirmed/New) puts the ingredients back.
-export function addBackOrder(state, order) {
-  const amounts = orderConsumption(state, order);
-  if (!amounts) return;
-  const label = orderLabel(state, order);
-  for (const [ingredientId, base] of amounts) {
-    const ing = byId(state.ingredients || [], ingredientId);
-    if (!ing) continue;
-    ing.onHand = round2((Number(ing.onHand) || 0) + base);
-    logStock(ing, {
-      delta: base,
-      why: "unbaked",
-      what: `Un-baked — ${label}`,
-      ref: (order && order.id) || "",
-    });
-  }
-}
-
-// The status-change stock rule for a set of orders all moving to nextStatus,
-// given the status ids in forward journey order. Stepping INTO Baked consumes
-// the orders' ingredients; stepping back from Baked to an earlier stage (an
-// undo) restores them; forward moves change nothing. Call BEFORE assigning the
-// new statuses, since each order's current status is the "from" state.
-export function adjustForStatus(state, orders, nextStatus, statusOrder = []) {
-  const bakingIdx = statusOrder.indexOf("baking");
-  const nextIdx = statusOrder.indexOf(nextStatus);
-  for (const o of orders || []) {
-    const prev = o.status || "new";
-    if (nextStatus === "baking" && prev !== "baking") consumeOrder(state, o);
-    else if (prev === "baking" && nextIdx >= 0 && nextIdx < bakingIdx) addBackOrder(state, o);
-  }
-}
+// ★★★★ AND AN ORDER NO LONGER MOVES THE SHELF AT ALL (v516). ⚠️⚠️ Her words, choosing between the schemes:
+// __"only take away ingredient when baked. And the order dont take away ingredient, then it can be clean
+// cut"__ — ⭐ **and it is the right rule: FLOUR LEAVES THE SHELF WHEN SHE BAKES, NOT WHEN SHE SELLS.** A sale
+// does not use up flour; only the oven does.
+//
+// ⚠️ WHAT WAS HERE, AND WHAT IT COST — MEASURED WITH HER OWN NUMBERS: `consumeOrder` took an order's recipe
+// off the moment it was marked **Baked**, and `addBackOrder` put it back when the stage was undone. ⭐ **So
+// two different things moved the shelf, and they double-counted the moment an order was made AFTER the
+// bake:** bake 10 (10 loaves off), then a customer takes 4 of those 10 and the order is marked Baked →
+// **4 MORE came off, for 14 loaves of flour out of a 10-loaf bake.**
+//
+// ⭐⭐ **ONE EVENT, ONE DOOR: `applyBake` above, fed by the day's own total.** ⚠️ **Nothing was given back:**
+// the rows those old Baked marks wrote are in her journal and her shelf stands exactly where it stood — this
+// changes what happens NEXT, never what happened before. ⚠️ **And the "Baked" stage still moves the order**
+// along its journey; only the stock movement is gone.
 
 // "Bought" on a saved PO adds its actually-bought amounts to stock. Returns the
 // [[ingredient, base], …] that moved, for the success toast.
