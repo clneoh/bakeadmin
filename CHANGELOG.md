@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v517)
+# Jienluv2bake — change history (v54 → v518)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v518, A RECEIPT MARKED VOID CAN NOW REACH YOUR OTHER PHONE — WHICH IS WHY YOUR DEVICES LOOKED LIKE THEY WERE NOT SYNCING (no database step).**
+
+**Your words:** __"earlier today i found the the different device is not sync"__ — and then the two errors: the Mac's *"2 changes are on this phone and have not been handed to your shared data yet — voidedReceipts · uoms"*, and the phone's *"Every receipt has an order behind it — receipt #000015 · #4B00A9 · 2026-10-12"*.
+
+**1. ⚠️⚠️ THEY WERE ONE FAULT, NOT TWO, AND IT TOOK BOTH ERRORS TO SEE IT.** Here is the whole chain:
+- **A receipt stood with no order behind it** (an order you removed yourself).
+- **The check told you to press Mark as void** — and said the line clears, *"because a decision you have recorded is not a hole."*
+- **You did it on the Mac.** ⚠️ **The void record was written with NO ID.**
+- ⚠️⚠️ **A record with no id cannot be handed over.** The sync sends its queue as **one request**, and a row that cannot be keyed is **dropped from it** — so it never left the Mac.
+- ⭐⭐ **So the phone never learned the receipt was voided, and went on showing the SAME error** — telling you to press a button you had already pressed, on the other device, days earlier.
+
+**2. ⭐ THE MARK-AS-VOID RECORD NOW CARRIES AN ID**, derived from the receipt number — so two phones voiding the same receipt make **one** row rather than two, the same rule as a bake day and an order number.
+
+**3. ⭐⭐ AND A RECEIPT YOU HAVE **ALREADY** MARKED VOID IS REPAIRED WHEN THE APP OPENS.** ⚠️ **Without this, fixing the button would fix nothing for you:** the stranded record is already sitting on the Mac, and it would stay stranded for ever. When you open the app on the Mac, that record is given its id, and the sync sees a record it has never handed over — so it goes up on the next sync, **and the phone's receipt error clears itself.**
+
+**4. What you saw on the Mac was this fault's other half, and it was misleading in the honest direction:** the stranded record was eventually **dropped from the sending queue**, so pressing Sync now made the count go away — ⚠️ **but dropping it is not sending it.** It looked fixed and nothing had travelled. ⭐ **That is why the phone's error stayed.**
+
+**5. ⚠️ A GUARD FOR THE CLASS, NOT THE LIST.** The app already knew this shape — the waiting check even names *"an order with no number"* — ⭐ **but it knew it for `orders`, and this one was in `voidedReceipts`.** The rule is now pinned where it belongs: **the record the button makes must carry an id**, tested through the function that builds it rather than by reading the source, **and the same id rule is used by the repair**, so the two cannot disagree.
+
+**6. ⚠️ AND YOUR PHONE IS ON v512 — SIX VERSIONS BEHIND YOUR MAC.** ⭐ **Nothing in this fix reaches the phone until the phone is updated**, and the phone is the device showing the receipt error. **Close the app completely on the phone and open it again** to pick up the new build, then let both devices sync once.
+
+**Tests 3,440 → 3,442**, and **two written faults were each watched to turn the suite red**: the void record being built with no id again (the exact fault that shipped), and a stranded record not being repaired on load.
 
 **16 Oct 2026 — engine v517, THE BAKING BOX OPENS EMPTY, BECAUSE A NUMBER IN IT LOOKED LIKE A FACT (no database step).**
 

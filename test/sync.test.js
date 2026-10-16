@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as sync from "../admin/js/sync.js";
 import { STOCK_PRODUCTION, defaultState } from "../admin/js/state.js";
+import * as stateMod from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
 const realLocalStorage = globalThis.localStorage;
@@ -2049,4 +2050,54 @@ test("computeRecords: production rows ride the sync, and are NOT buried in setti
   assert.ok(Array.isArray(defaultState().bakedDays),
     "★ a fresh install has no `bakedDays` array — **the cloud's rows would arrive and be dropped in "
     + "silence**, which looks exactly like sync working");
+});
+
+// ★★★★ A RECORD WITH NO ID CAN NEVER REACH HER OTHER PHONE (v518).
+//
+// ⚠️⚠️ THIS IS THE FAULT BEHIND __"different device not sync"__, AND IT TOOK TWO SCREENS TO SEE WHOLE:
+//   · the System check tells her to **Mark as void** a receipt that has no order behind it, and it says the
+//     line will clear;
+//   · she did it on the Mac, and the record was written **with no `id`**;
+//   · ⭐ **a record that cannot be keyed cannot travel** — `flush` excludes it and the sweep drops it;
+//   · ⭐ **so the PHONE never learns the receipt was voided and keeps showing the same error, for ever**,
+//     telling her to press a button she has already pressed.
+// ⚠️ The app already knew this shape — the waiting check even names *"an order with no number"* — ⭐ **but it
+// knew it for `orders`, and this one was in `voidedReceipts`.**
+test("★★★ a record with no id cannot be sent — and a void record now always has one (v518)", () => {
+  const st = baseState();
+
+  // ⭐ THE INVARIANT: a record with a real id is put in the payload like any other.
+  st.voidedReceipts = [{ id: "void_15", no: 15, code: "4B00A9", at: "2026-10-12T10:00:00.000Z", reason: "removed myself" }];
+  const rows = sync.computeRecords(st).filter((r) => r.kind === "voidedReceipts");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, "void_15",
+    "★ the void record has no usable id — **it can never be keyed, so it is dropped from the queue and her "
+    + "other phone never hears about it**");
+
+  // ⭐⭐ AND THE RECORD THE BUTTON ACTUALLY MAKES IS THE ONE THAT HAS TO CARRY IT — ⚠️ **tested through the
+  // function that builds it, not by reading the source**, because a source assertion would go on passing
+  // after the button stopped using it.
+  const made = stateMod.newVoidRecord(15, "4B00A9", "removed myself");
+  assert.equal(made.id, "void_15",
+    "★ the record the Mark-as-void button makes has no usable id — **it can never be keyed, so the queue "
+    + "drops it and her other phone never hears about the receipt**");
+  assert.equal(made.no, 15, "and it must still carry the receipt number the check reads");
+  assert.equal(made.reason, "removed myself", "and her own reason");
+});
+
+// ⭐ AND A RECORD ALREADY STRANDED ON A PHONE IS GIVEN ONE, so it can finally travel (v518).
+test("★★★ a void record already on a phone is repaired on load, by the same id the button writes (v518)", () => {
+  const { loadState } = stateMod;
+  installStorage();
+  // ⚠️ The shape an older build wrote — no id at all.
+  localStorage.setItem("bakeadmin.v1", JSON.stringify({
+    version: 1, settings: { defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM" },
+    orders: [], voidedReceipts: [{ no: 15, code: "4B00A9", at: "2026-10-12T10:00:00.000Z", reason: "removed myself" }],
+  }));
+  const st = loadState();
+  assert.equal(st.voidedReceipts[0].id, "void_15",
+    "★ a receipt she has ALREADY marked void is still stranded — **her other phone will keep reporting a "
+    + "receipt with no order behind it and keep telling her to press the button she has already pressed**");
+  assert.equal(st.voidedReceipts[0].no, 15, "…and the repair must not lose what the record said");
+  assert.equal(st.voidedReceipts[0].reason, "removed myself", "…nor her own reason for it");
 });

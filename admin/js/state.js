@@ -460,7 +460,15 @@ function normalize(s) {
     // `orders` key above uses, so the two can never disagree about what is live.
     removedOrders: (Array.isArray(s.removedOrders) ? s.removedOrders : [])
       .filter((r) => !(r && r.id && Array.isArray(s.orders) && s.orders.some((o) => o && o.id === r.id))),
-    voidedReceipts: Array.isArray(s.voidedReceipts) ? s.voidedReceipts : [],
+    // ★★★ AND A VOID RECORD ALREADY ON A PHONE IS GIVEN ITS ID HERE (v518). ⚠️⚠️ Without this, a receipt she
+    // has ALREADY marked void stays stranded for ever: the record is in her data, but it can never travel,
+    // so her other phone keeps reporting a receipt with no order behind it **and keeps telling her to press
+    // the button she has already pressed.** ⭐ The same id the button now writes, so a repair and a fresh void
+    // of one receipt cannot become two rows.
+    voidedReceipts: Array.isArray(s.voidedReceipts)
+      ? s.voidedReceipts.map((v) => (v && !v.id && Number.isFinite(Number(v && v.no))
+        ? { ...v, id: voidIdOf(v.no) } : v))
+      : [],
     declinedCoupons: Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
@@ -1015,6 +1023,29 @@ export function newId(prefix) {
     rand = Math.random().toString(36).slice(2, 14);
   }
   return `${prefix}_${rand}`;
+}
+
+// ★★★ A RECEIPT SHE MARKS VOID NEEDS AN ID, OR IT CAN NEVER REACH HER OTHER PHONE (v518).
+//
+// ⚠️⚠️ It was written **with no `id` at all**, and this is the whole of __"different device not sync"__:
+// the System check tells her to Mark as void a receipt with no order behind it; she did it on the Mac; ⚠️
+// **a record that cannot be keyed cannot travel**, so the sync dropped it; ⭐ **and her phone kept showing
+// the same error for ever, telling her to press the button she had already pressed.**
+//
+// ⭐ THE ID IS DERIVED FROM THE RECEIPT NUMBER, so two phones voiding one receipt make ONE row rather than
+// two — the same rule as the bake day (`bake_<iso>`) and the order number. ⚠️ And it lives HERE, in the data
+// model, because **the button that creates the record and the repair that fixes an older one must not be
+// able to disagree about it.**
+export const voidIdOf = (no) => `void_${Math.floor(Number(no))}`;
+
+export function newVoidRecord(no, code, reason = "", at = "") {
+  return {
+    id: voidIdOf(no),
+    no,
+    code,
+    at: at || new Date().toISOString(),
+    reason: String(reason || "").trim(),
+  };
 }
 
 export function byId(list, id) {
