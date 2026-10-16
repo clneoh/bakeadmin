@@ -618,6 +618,40 @@ test("★★★ a stuck change is NAMED, not counted — the un-keyable one says
     "★ it fell back to a bare count, which is the thing this fixes");
 });
 
+test("★★★ and each stuck change is named as the RECORD, not as its kind (v528)", () => {
+  // ⚠️⚠️ HER REPORT: __"yes, look into the stuck records"__ — and __"more and more removed order shown on
+  // phone"__. ⭐ **The page named them "a removed order" and "uoms": a KIND, not a record** — so neither she
+  // nor I could find the thing that was stuck. ⭐ **A name she cannot look up is a name she cannot act on**,
+  // which is the fault v476 fixed one step up and this finishes.
+  const st = healthy();
+  st.removedOrders = [{ id: "ord_a1b2c3d4e5f6", removedAt: "2026-10-11T10:47:00.000Z", customerName: "Peggy" }];
+  st.uoms = [{ id: "uom_g", name: "g", family: "weight", toBase: 1 }];
+  const queued = new Set(["removedOrders:ord_a1b2c3d4e5f6", "uoms:uom_g"]);
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 2, queued }), "waiting");
+  assert.deepEqual(r.detail, ["a removed order #D4E5F6", "a unit g"],
+    "★ a stuck change is not named as the record itself — **an order by the number she searches, and a unit "
+    + "by the name she typed**");
+});
+
+test("★★★ and the page says WHY they did not go, and WHICH record was refused (v528)", () => {
+  // ⚠️⚠️ **THE APP COULD COUNT THE STUCK CHANGES AND NAME THEM, AND COULD NOT SAY WHY** — it returned the
+  // reason to whichever button pressed it and then forgot it. ⭐ **"No error" and "the number never moves"
+  // were both true on the same phone, and nothing could join them.**
+  const st = healthy();
+  st.removedOrders = [{ id: "ord_a1b2c3d4e5f6", removedAt: "2026-10-11T10:47:00.000Z" }];
+  const queued = new Set(["removedOrders:ord_a1b2c3d4e5f6"]);
+  const lastFail = { at: "2026-10-17T02:00:00.000Z", reason: 'Push failed (HTTP 400) — {"code":"PGRST102"}', phase: "hand-over", key: "removedOrders:ord_a1b2c3d4e5f6" };
+  const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 1, queued, lastFail }), "waiting");
+  assert.match(r.why, /refused/i, "the page does not say the hand-over was refused");
+  assert.match(r.why, /PGRST102/, "★ the server's own words are not shown — **she can hand me that line and nothing else has to be guessed**");
+  assert.match(r.why, /a removed order #D4E5F6/,
+    "★ the reason does not NAME the record that was refused — **the reason alone still leaves eight changes to hunt through**");
+  // ⚠️ AND A PHONE THAT HAS NEVER FAILED SAYS NOTHING ABOUT FAILING — a reason that outlives its fault sends
+  // her looking for something that has gone.
+  const clean = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 1, queued }), "waiting");
+  assert.doesNotMatch(clean.why, /refused/i, "a phone with no recorded failure claims one");
+});
+
 test("★★⚠️ and a record with NO number says so — the shape that cannot travel", () => {
   // ⭐ **An order with no number of its own is exactly what cannot be sent, and it is INVISIBLE in a
   // count.** ⚠️ It is the shape that broke her sync in the first place, so it has to be able to say its

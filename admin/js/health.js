@@ -24,6 +24,7 @@
 import { byId, codeFromId, groupOrders, orderCode, orderLinePrice } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
+import { listFields } from "./sync.js";
 
 // The order-level facts every row of ONE order must agree on. ⚠️ DELIBERATELY NOT THE PER-LINE ONES —
 // `qty`, `unitPrice`, `unitCost` and `lineNote` are each row's own business, and a check that flagged
@@ -518,7 +519,7 @@ export function contentCheck(state, cloud, payloads, pending) {
 // ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
 // IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
 // no network: it is a local count.
-export function waitingCheck(waiting = 0, queued = null) {
+export function waitingCheck(waiting = 0, queued = null, state = null, lastFail = null) {
   const TITLE = "Nothing on this phone is still waiting to be sent";
   const n = Number.isFinite(Number(waiting)) ? Math.max(0, Math.floor(Number(waiting))) : 0;
   // ⚠️⚠️ AND IT NAMES THEM, INSTEAD OF COUNTING THEM (v476). Her report: __"did the 2 changes clear after
@@ -527,21 +528,62 @@ export function waitingCheck(waiting = 0, queued = null) {
   // every other check on this page follows, and the one this check was breaking.
   // ⭐ **AND IT NAMES THE UN-KEYABLE ONES TOO: an order with no number of its own is exactly the shape that
   // cannot travel, and it is invisible in a count.**
+  // ★★★ AND v528 TOOK THAT RULE THE REST OF THE WAY. Her report: __"yes, look into the stuck records"__, and
+  // __"the phone and mac having different error"__. ⚠️⚠️ **The page named them as "a removed order" and
+  // "uoms" — a KIND, not a record** — so neither she nor I could find the thing that was stuck. ⭐ **The
+  // first name was not specific enough to look up, which is the same fault v476 fixed one step up.**
+  // ⭐ And with the kind we now have the record, so an order is named by its NUMBER (what she searches) and
+  // everything else by the name she gave it.
+  const NOUN = {
+    orders: "an order", removedOrders: "a removed order", products: "a product",
+    productCategories: "a category", ingredients: "an ingredient", suppliers: "a supplier",
+    parcelCouriers: "a carrier", uoms: "a unit", deliveryDates: "a bake day",
+    bakedDays: "a baking day", purchaseOrders: "a shopping list", expenses: "an expense",
+    deposits: "money in", credits: "a credit", rewards: "a reward", points: "a Point",
+    pointAreas: "a Point area", deliveryRoutes: "a van route", occasions: "an occasion",
+    promoCodes: "a promo code", customers: "a customer", declinedCoupons: "a declined code",
+    voidedReceipts: "a void receipt", settings: "settings",
+  };
+  const fields = listFields();
   const keys = queued instanceof Set ? [...queued] : Array.isArray(queued) ? queued : [];
   const nameOf = (key) => {
     const s = String(key);
     const at = s.indexOf(":");
     const kind = s.slice(0, at);
     const id = s.slice(at + 1);
-    if (kind === "orders") return !id || id === "undefined" ? "an order with no number" : `#${codeFromId({ id })}`;
-    if (kind === "removedOrders") return "a removed order";
-    if (kind === "settings") return "settings";
-    return kind;
+    const noun = NOUN[kind] || kind;
+    const field = fields[kind];
+    const rec = field && state && Array.isArray(state[field])
+      ? state[field].find((r) => r && String(r.id) === id) : null;
+    if (kind === "orders" || kind === "removedOrders") {
+      // ⚠️⚠️ AND A RECORD WITH NO NUMBER OF ITS OWN STILL SAYS SO (kept from v476). ⭐ **It is the shape that
+      // cannot travel at all, and it is invisible in a count** — so it must never be dressed up as an order
+      // she could search for. ⚠️ An id-less record reaches here as the STRING `"undefined"` (`JSON.stringify`
+      // turned the missing value into that when the key was written), ⭐ **and `codeFromId` would happily mint
+      // a number out of it** — the fault this whole family is about: a value that looks right and is wrong.
+      const badId = !id || id === "undefined" || id === "null" || id === "0";
+      const code = badId ? "" : (rec ? (orderCode(rec) || codeFromId(rec)) : codeFromId({ id }));
+      return code && code !== "??????" ? `${noun} #${code}` : `${noun} with no number`;
+    }
+    if (!rec) return noun;
+    const who = rec.name || rec.label || rec.title || rec.date || rec.customerName;
+    return who ? `${noun} ${String(who)}` : noun;
   };
   const named = keys.map(nameOf);
+  // ★★★ AND WHY THEY DID NOT GO (v528). ⚠️⚠️ **The app COUNTED the stuck changes and NAMED them, and could
+  // not say WHY** — because `refresh` handed the reason to whichever button pressed it and then forgot it,
+  // so the shared-data card said "Sync failed: …" for as long as it took her to read it and no other screen
+  // ever knew. ⭐ **"No error" and "the number never moves" were both true, on the same phone, and nothing
+  // could join them.** ⚠️ It is the LAST attempt only, and it is cleared on a success — **a stale reason
+  // would send her looking for a fault that has already gone.**
+  // ⭐ AND IT NAMES THE RECORD THE SERVER WOULD NOT TAKE, not just the reason — **the reason alone still leaves
+  // her (and me) hunting eight changes for the one that is refused.**
+  const failNote = lastFail && (lastFail.reason || lastFail.key)
+    ? ` The last time this phone tried${lastFail.phase === "read" ? " to READ your shared data" : " to hand these over"}, it was refused${lastFail.key ? ` — ${nameOf(lastFail.key)}` : ""}: ${lastFail.reason || "no reason given"}.`
+    : "";
   return [n > 0
     ? fail("waiting", TITLE, named.length ? named : [`${n} change${n === 1 ? "" : "s"}`],
-      `${n} change${n === 1 ? " is" : "s are"} on this phone and ${n === 1 ? "has" : "have"} not been handed to your shared data yet, so no other phone can see ${n === 1 ? "it" : "them"}.${named.length ? " They are listed below." : ""} If this number does not go down on its own, press Sync now.`,
+      `${n} change${n === 1 ? " is" : "s are"} on this phone and ${n === 1 ? "has" : "have"} not been handed to your shared data yet, so no other phone can see ${n === 1 ? "it" : "them"}.${named.length ? " They are listed below." : ""}${failNote} If this number does not go down on its own, press Sync now.`,
       "Open Settings → Shared data and press Sync now. If the number stays, this phone's sending queue needs looking at — and the records themselves are safe.")
     : pass("waiting", TITLE)];
 }
@@ -559,7 +601,7 @@ export function runHealthChecks(state, extra = {}) {
     ...reachedCloudCheck(state, extra.cloud, extra.local),
     ...cloudOnlyCheck(state, extra.cloud, extra.local),
     ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
-    ...waitingCheck(extra.waiting, extra.queued),
+    ...waitingCheck(extra.waiting, extra.queued, state, extra.lastFail),
   ];
   return {
     results,

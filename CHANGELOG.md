@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v527)
+# Jienluv2bake — change history (v54 → v528)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v528, ONE CHANGE THE SERVER REFUSES CAN NO LONGER FREEZE EVERY OTHER CHANGE WITH IT (no database step).**
+
+**Your report, in your own words:** __"yes, look into the stuck records"__ · __"the phone and mac having different error"__ · __"more and more removed order shown on phone"__ · __"suddenly the phone deleted order goes to 25"__ · __"both grow to 27"__
+
+**1. ⭐⭐ WHAT WAS WRONG, AND IT IS THE WORST SHAPE THIS APP HAS: THE QUEUE COULD ONLY GROW.** Every change you made on a phone went into a sending queue. The server refused the batch — **and a refusal sends NOTHING**, so every change sitting beside the refused one was frozen with it. Pressing Sync now could never clear it, however many times you pressed it. ⭐ **That is why the number went 3, then 8, then 25, then 27 — and why it did it on BOTH devices.**
+
+**2. ⭐⭐ THE FIX: A REFUSED BATCH NOW DEGRADES INSTEAD OF FREEZING.** The app falls back to offering each change **on its own**. The good ones go up immediately, and the one the server will not take stands alone — named, instead of holding everything else hostage. ⚠️ It costs nothing in the ordinary case: sending one at a time only ever happens **after** a batch has already been refused.
+
+**3. ⭐ AND IT NOW SAYS WHY — WHICH IT COULD NEVER DO BEFORE.** The app could count the stuck changes and name them, and it threw the reason away — it was shown on the Shared data card for as long as it took you to read it, and every other screen was blind. ⭐ **"There is no error" and "the number never moves" were both true, on the same phone, and nothing could join them.** Now the last refusal is kept, and the System check prints the server's own words — so you can hand that line over and nothing has to be guessed.
+
+**4. ⭐ AND EACH STUCK CHANGE IS NAMED AS THE THING ITSELF.** It used to say "a removed order" and "uoms" — a KIND, not a record — which is a name you cannot look up. An order is now named by its **number**, and everything else by the name you gave it.
+
+**5. ⚠️ AND ONE MORE, FOUND WHILE LOOKING: EVERY BATCH IS NOW SENT WITH THE SAME FIVE KEYS, ALWAYS.** v467 found that one record with a different set of keys makes the server refuse the **whole batch** — and it fixed the one field that had caused it. ⭐ The class is "a body whose key set differs", so this repairs such a record instead of letting it poison the batch. ⭐ **Measured before writing it:** that record goes out with FOUR keys where every good one has five.
+
+**6. ⚠️ NOTHING OF YOURS IS LOST, AND NOTHING WAS REWRITTEN.** Every change in that queue is still on the phone that made it — the queue is local and it is not being cleared. ⚠️ **Do not sign out, and do not clear the app's data:** that is the one thing that would throw the queue away. The records themselves are safe. **No database step.**
+
+---
 
 **17 Oct 2026 — engine v527, "NO ORDER HAS LEFT WITHOUT A TRACE" STOPS BLAMING A REMOVAL YOU MADE YOURSELF (no database step).**
 
