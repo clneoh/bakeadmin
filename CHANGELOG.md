@@ -1,8 +1,48 @@
-# Jienluv2bake — change history (v54 → v518)
+# Jienluv2bake — change history (v54 → v520)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v520, A SCREEN THAT REDRAWS ITSELF NO LONGER THROWS YOU TO THE TOP (no database step).**
+
+**Your words:** __"when i look at screen, at after a while it rerender and the screen jump up"__
+
+**1. ⚠️ MEASURED ON THE REAL APP, AND IT WAS EXACTLY AS YOU SAID.** Scrolled to **400**, repainted, and the page landed at **0**. ⭐ **It is not really a jump — it is a LOSS:** the page was emptied for an instant while it was rebuilt, the browser dropped the scroll to what still fitted, and **nothing put it back.**
+
+**2. ⭐ WHY IT IS "AFTER A WHILE", WHICH IS THE PART THAT MADE IT HARD TO PLACE:** the screen redraws itself **the moment the sync brings a change down** — every 30 seconds, and whenever the app is opened or comes back to the front. ⭐ **So it was the sync doing it, not you, and not anything you touched.**
+
+**3. ⭐⭐ AND THIS WAS ALREADY YOUR RULE. I HAD IT WRITTEN DOWN AND NEVER APPLIED IT.** On 23 September 2026 you told me: *"this is normal request for how a windows should behave, i thought all this are stored in skill?"* — and the rule that came out of it says a screen that redraws itself **must leave everything you are looking at exactly where it was**, because *"a replaced node is a new node and starts its own scroll at 0 — this is the entire cause."* ⚠️ **It was applied to the planner's windows and never to the page itself**, which is the one scroller every screen has.
+
+**4. ⭐ SO THE PAGE'S OWN POSITION IS NOW KEPT ACROSS A REDRAW.** ⚠️ **And it is put back ONLY when the page has actually been dropped** — if the screen has moved for a reason of its own (a receipt appearing, a warning line being brought into view), **that movement stands.** ⭐ **The fix must not pin the page and stop the app taking you to the thing it is telling you about.**
+
+**5. ⭐ A NAVIGATION STILL GOES WHERE IT ALWAYS DID** — moving to another screen is not a redraw, and its behaviour is untouched.
+
+**6. ⚠️ AND THE TEST SHIM HAD TO BE TAUGHT TO SCROLL.** ⚠️⚠️ It swallowed every listener and **its `appendChild` never parented anything, so no node here had an ancestor at all** — ⭐ **which meant the page's own scroll could not be observed, and the first version of this test passed whether the app put the scroll back or not.** ⭐ **A shim that cannot express what the view does cannot test it** — the rule this project has already paid for with `hidden`, `classList`, `parentNode` and `insertBefore`.
+
+**Measured, live, both directions:** scrolled to 400 on the Orders screen, the sync's repaint left it at **400** (it was **0** before this version), and navigating to another screen behaved exactly as before.
+
+**Tests 3,443 → 3,444**, and the written fault — **the page not being put back** — was watched to turn the suite red.
+
+**16 Oct 2026 — engine v519, A RECORD THAT CANNOT BE HANDED OVER IS FIXED AT THE DOOR, IN EVERY LIST (no database step).**
+
+**Your words:** __"the sync is a big issue, and my user lost confident"__ — and then __"yes, do that"__, when I offered to fix the class rather than the list.
+
+**1. ⚠️ THE SAME FAULT HAS NOW BITTEN TWICE.** An **order with no number**, and a receipt marked **void** with no id. ⭐ **Both were records that could not be handed over — and both times the app KNEW the shape but only checked ONE list.** ⭐⭐ **A repair keyed to one list fixes one list, and the next list to forget is the one nobody is watching.**
+
+**2. ⭐⭐ SO THE REPAIR MOVED TO THE DOOR.** Before anything is queued for sending, **every record in EVERY synced list is given an id if it has none.** ⚠️ **That is the difference between fixing `voidedReceipts` and fixing the class** — and it means **a list that does not exist yet is repaired by the same line that repaired this one.**
+
+**3. ⭐ AND THE ID IS DERIVED FROM THE RECORD'S OWN CONTENT, with its keys sorted in a fixed order** — so **two phones holding the same record work out the SAME id and make one row rather than two.** ⚠️ A random id would have been worse than the fault it repairs.
+
+**4. ⚠️ THE HONEST COST, SAID PLAINLY:** editing a record that had no id gives it a **different** id, so the older row stays in your shared data instead of being overwritten. ⭐ **That is the safe direction — a stray row is something the check can name and you can see, and a dropped record is a thing you cannot.** ⚠️ A record that already has a real id is never touched.
+
+**5. ⭐⭐⭐ AND THE SWEEP YOU ASKED FOR: the test now walks the app's OWN synced vocabulary — all 22 lists, read from the sync itself rather than typed into the test — and proves that a record with no id is repaired in every one of them.** ⚠️ **A sweep written against a copy of those names would go on passing while a list added later was never watched, which is exactly the fault it exists to catch.** ⭐ The last line of defence is kept too: a queue that somehow already holds an un-sendable record **still empties itself and still reports honestly.**
+
+**6. ⭐ ABOUT THE CONFIDENCE, WHICH IS THE PART THAT MATTERS.** Two things are true, and both are worth saying to your user:
+- **Nothing was ever lost.** The app's own wording on a stranded record is *"the record itself is safe here — what is missing is the hand-over"*, and a receipt is never rewritten. **The records were intact on both devices the whole time.**
+- ⭐ **The failure was FOUND by your own check, and it named the stuck records by list.** That is how the cause was found at all. ⚠️ **This version removes the thing that hid it — a silent drop, which looked exactly like success.**
+
+**Tests 3,442 → 3,443**, and **three written faults were each watched to turn the suite red**: the repair keyed to ONE list again (the fault, twice over) · the id not derived from the content (two phones would make two rows) · and the door no longer repairing.
 
 **16 Oct 2026 — engine v518, A RECEIPT MARKED VOID CAN NOW REACH YOUR OTHER PHONE — WHICH IS WHY YOUR DEVICES LOOKED LIKE THEY WERE NOT SYNCING (no database step).**
 
