@@ -2349,8 +2349,11 @@ option.tone-off { color: var(--muted); }
 }
 /* ⚠️ `.paid-tag.tng` IS GONE (v478). The tag names the METHOD — `.paid-tag.tng` was one of its two
    looks, and a method the two-look rule never knew ("Bank", "Cash to LK") took the CASH look while
-   printing the wrong word. ⚠️ It is now ONE tag reading "Paid" (her words: __"the tag just need one.
-   Paid"__), so there is no second look to get wrong. */
+   printing the wrong word. ⚠️ It is now ONE tag with ONE look, so there is no second look to get
+   wrong; since v526 its words are "Paid · <account>" (her words: __"the tag just need one. Paid"__
+   set the state, and __"now i can see that an order had been paid, but how do i find out whether it
+   is pay be TnG cash or orthers?"__ asked for the account) — **every account wears the same green,
+   which is why the look cannot disagree with the word.** */
 /* ★ "Not paid" — the order has reached the paying stage and the money is still out (v430).
    ⚠️ AMBER, NOT RED: red on this card would read as an error, and this is a "still to do", the
    same register the app already gives money that has not come in (`.paid-tag.courier.mine`).

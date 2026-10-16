@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v525)
+# Jienluv2bake — change history (v54 → v526)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v526, THE ORDER ROW NOW SAYS WHICH ACCOUNT THE MONEY WENT INTO (no database step).**
+
+**Your question:** __"now i can see that an order had been paid, but how do i find out whether it is pay be TnG cash or orthers?"__
+
+**1. ⭐ The row now reads `Paid · TNG`, `Paid · Cash`, or whatever your own account is called** — instead of the bare word "Paid". The account was always recorded; it was just two taps away, inside Note / tracking. Now you can read it straight off the list.
+
+**2. ⚠️ The tag still OPENS with the state, and that is deliberate.** v478's rule stands — the tag has to say whether the money is in before it says anything else. An order paid with **no account recorded** still reads just `Paid`, exactly as before.
+
+**3. ⚠️⚠️ And the old fault cannot come back.** The tag used to print **"TNG" for anything that was not cash** — a bank transfer wore a TNG tag. v478 removed the account to kill that; v526 puts it back and reads it through the app's own one reader, which knows the older lowercase "cash"/"tng" records and returns **every other account's own name unchanged**.
+
+**4. Measured on the real app at phone size, five orders on one day:**
+- TNG → **Paid · TNG** ✓
+- an older lowercase `cash` record → **Paid · Cash** ✓
+- **Bank transfer** → **Paid · Bank transfer**, never TNG ✓
+- paid with no account recorded → no tag (unchanged) ✓
+- not paid yet → no tag (unchanged) ✓
+
+**5. A refunded order reads the same way** — `Refunded · TNG` — so the row still opens with the state and then names the account the money went back through.
+
+**6. Nothing of yours was rewritten.** No order, account, day or stock row changed. **No database step.**
+
+---
 
 **16 Oct 2026 — engine v525, THE BAKING BOX IS READY ON A DAY THAT HAS GONE, AND EMPTY ON A DAY THAT HAS NOT (no database step).**
 

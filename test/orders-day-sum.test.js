@@ -419,8 +419,9 @@ test("a method picked in the payment box records the payment itself", () => {
   // that was the only way in.
   const after = createEl("div");
   renderOrders(after, st, new URLSearchParams({ date: "d10" }));
-  assert.equal(loadTag(after).children[0].text, "Paid",
-    "⚠️ the tag says the one word now, not the account (v478) — her words: \"the tag just need one. Paid\"");
+  assert.equal(loadTag(after).children[0].text, "Paid · TNG",
+    "⚠️ the row does not name the account the money went into (v526) — **she asked exactly this: an order "
+    + "reads Paid, but which way did it come?**");
   assert.equal(moneyLine(after).textContent, "TNG RM 30.00",
     "and the day's till still splits it by account, with nothing left to collect");
   assert.equal(buttonByText(after, "Pay"), undefined, "the Pay press is gone — there is nothing left to record");
@@ -435,7 +436,9 @@ test("Not recorded is the way back, so a payment marked by mistake is not a one-
   st.orders[0].paidAt = "2026-09-09T04:00:00.000Z";
   const root = createEl("div");
   renderOrders(root, st, new URLSearchParams({ date: "d10" }));
-  assert.equal(loadTag(root).children[0].text, "Paid", "the row says the money is in");
+  assert.equal(loadTag(root).children[0].text, "Paid · Cash",
+    "the row says the money is in, and which account took it — **an old lowercase \"cash\" record has to "
+    + "print as her own account name, not as the raw value**");
   assert.equal(buttonByText(root, "Pay"), undefined, "and the quick way in is gone while it is recorded");
 
   buttonByText(root, "Note / tracking")._listeners.click[0]();
@@ -475,7 +478,8 @@ test("a payment she records before the paying stage is money she has, and counts
   assert.equal(st.orders[0].paidReceived, true, "the payment is on the order");
   const after = createEl("div");
   renderOrders(after, st, new URLSearchParams({ date: "d10" }));
-  assert.equal(loadTag(after).children[0].text, "Paid", "the row says the money is in");
+  assert.equal(loadTag(after).children[0].text, "Paid · Cash",
+    "the row says the money is in, and which account took it");
   assert.equal(moneyLine(after).textContent, "Cash RM 30.00", "and the day's till counts it as in");
   // The journey strip is about the STAGE, not the money: this order has not reached the
   // paying step, so that step stays where it is — the same thing the strip says for any
@@ -2511,8 +2515,14 @@ test("★★ the refund card: ticking fills the amount, typing over it wins, and
     "the ticks are not kept as the record of what came back");
 
   renderOrders(root, st, new URLSearchParams({ date: "d10" }));
-  assert.ok(all(root).some((n) => txtOf(n) === "Refunded"),
-    "★ and the row says so — it must not go on reading as Cash");
+  // ⚠️ IT OPENS WITH THE STATE, NOT WITH THE ACCOUNT (v526): the tag reads "Refunded · Cash", and the point
+  // of the assertion is that the FIRST word is Refunded — **the money went back, so the row must not go on
+  // reading as though it is still in.**
+  assert.match(loadTag(root).children[0].text, /^Refunded/,
+    "★ the row does not open with Refunded — **it must not go on reading as though the money is still in**");
+  assert.match(loadTag(root).children[0].text, / · /,
+    "★ the refunded row does not name the account the money went back through — **the same question as the "
+    + "paid row, and it has the same answer**");
   assert.ok(buttonNamed(root, "Undo refund"), "and the way back is offered");
 });
 

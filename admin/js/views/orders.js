@@ -4882,6 +4882,15 @@ function orderGroupRow(state, group, root, dateId) {
   const rowAttrs = { class: "list-item", dataset: { order: first.id } };
   const groupId = orders.find((o) => o.groupId)?.groupId;
   if (groupId) rowAttrs.dataset.group = groupId;
+  // ★★★ THE ACCOUNT THE MONEY WENT INTO, FOR THE ROW'S PAID TAG (v526). ⚠️ It is computed HERE, as a
+  // statement, because everything below is one `return el(...)` — a `const` among its arguments is not a
+  // declaration, it is a syntax error, and that is exactly how this was written first.
+  // ⚠️⚠️ THE READER IS THE FIX, NOT THE WORDING: `methodLabel` (accounts.js) is the ONE reader of this
+  // value — it knows the lowercase "cash"/"tng" that records before v478 hold, and returns **every other
+  // account's own name unchanged**, which is what makes "Bank", "Cash to LK" or an account she adds later
+  // read right. ⭐ The old tag re-spelled that test (`paidMethod === "cash" ? "Cash" : "TNG"`) and printed
+  // TNG for everything else; reading through the shared label is what stops that coming back.
+  const paidBy = (isRefunded(group) || isCollected(group)) ? methodLabel(first.paidMethod) : "";
 
   return el("div", rowAttrs,
     el("div", { class: "li-main" },
@@ -4917,10 +4926,18 @@ function orderGroupRow(state, group, root, dateId) {
       // which is the fault this app keeps having to be taught (see the v441 order-number lesson).
       // **One word cannot be wrong about which account it was**, and the account is not lost: it is
       // on the order's own card, and the Money screen gives it a line and a book of its own.
+      //
+      // ★★★ AND THAT SENTENCE WAS NOT ENOUGH — SHE ASKED AGAIN (v526). Her words: __"now i can see that an
+      // order had been paid, but how do i find out whether it is pay be TnG cash or orthers?"__ ⭐ **The row
+      // answered "paid" and nothing else, and the account was two taps away inside Note / tracking** — so the
+      // row names it now, in the app's own joining mark (`Cash RM 18.00 · TNG RM 36.00`, the day's line).
+      // ⚠️ AND IT IS APPENDED, NEVER SUBSTITUTED: the tag still opens with the state, so a row whose account
+      // was never recorded — or one set back to Not recorded — reads exactly as it did before (`paidBy` is
+      // declared above the return; see the note there for why, and for the reader that makes it safe).
       isRefunded(group)
-        ? el("span", { class: "paid-tag refunded" }, "Refunded")
+        ? el("span", { class: "paid-tag refunded" }, paidBy ? `Refunded · ${paidBy}` : "Refunded")
         : first.paidMethod && isCollected(group)
-          ? el("span", { class: "paid-tag" }, "Paid")
+          ? el("span", { class: "paid-tag" }, paidBy ? `Paid · ${paidBy}` : "Paid")
           : null,
       // The courier's charge, in the paid-tag's family so it reads as one more thing
       // about this order: neutral when the customer bore it (it costs her nothing),
