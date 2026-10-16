@@ -87,6 +87,7 @@ const ordersMod = await import("../admin/js/views/orders.js");
 const { renderOrders } = ordersMod;
 const { effectiveCapacity } = await import("../admin/js/bom.js");
 const { orderCode, orderLinePrice } = await import("../admin/js/state.js");
+const { setBakedTotal } = await import("../admin/js/stock.js");
 const { forgetPublishedCards, pullIncoming, forgetStuckOrders } = await import("../admin/js/supabase.js");
 
 // Focaccia sells every day; the Saturday loaf is marked Saturdays only, and the
@@ -2679,19 +2680,26 @@ test("★★★ Baked — how many? is the ONLY thing that moves the shelf, and 
   const box = all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
   assert.ok(box, "the baking pop-up has no box");
   assert.equal(st.products[0].limit, undefined, "precondition: this product has no daily limit");
-  // ★★★ AND THE BOX OPENS ON WHAT WAS ORDERED (v516, restored at v524). ⚠️⚠️ HER REASONING, AND IT IS BETTER
-  // THAN MINE: __"once the save, the total baked will be the number shown … no matter how many time save is
-  // pressed, if the total remain the same, then there will not be any inventory changed. That why we need to
-  // prefill the total bake, to not confuse user"__ — ⭐ **re-saving the same number is HARMLESS (measured, and
-  // pinned below), so a filled box can never do damage, while an EMPTY box makes her ask what Save will do.**
-  // ⚠️ It still records nothing until Save, and the pop-up says so — see the assertion under this one.
-  assert.equal(box.value, "6", "★ the box did not open on what was ordered — **an empty box makes her ask what "
-    + "Save will do, and the number she sees should be the day's truth**");
+  // ★★★ AND THE BOX OPENS EMPTY — AN ORDER'S QUANTITY IS NOT PREFILLED INTO IT (v525).
+  // ⚠️⚠️ HER WORDS: __"enter a new order on a new bake date, the order qty should not be prefill into the
+  // total baked"__ — and then the meaning she wants the box to carry: __"if i open the total baked and it
+  // shows a number, that mean there is some bake already done that day"__ ⭐ **A number in the box is a
+  // STATEMENT THAT A BAKE IS RECORDED**, and an order she has not baked is not one. ⭐ **So the pre-fill is
+  // the invisible failure: she reads the 6 as already recorded, does not press Save, and NOTHING comes off
+  // the shelf at all.**
+  assert.equal(box.value, "", "★ the box opened on the day's ORDERED count — **a number in the box says a bake "
+    + "is recorded, and saying that about a bake that never happened is the one fault she cannot see**");
+  // ⭐ AND THE DAY'S ORDERS ARE STILL SHOWN BESIDE IT — that is information, which is not the same as being
+  // written into the box (v517's rule, and it survives: the row is where she reads what was ordered).
+  assert.match(pop.textContent, /6 ordered/,
+    "the day's ordered count is no longer shown beside the box — **it is the information she decides from, and "
+    + "taking it away trades one silence for another**");
   assert.match(pop.textContent, /nothing is recorded until you press Save/i,
-    "the pop-up does not say that nothing is recorded until Save — **and a pre-filled box that is never saved "
-    + "records NOTHING, which is the one thing the pre-fill does not solve**");
-  assert.match(pop.textContent, /Each box starts at what was ordered/,
-    "the pop-up does not say WHY the box is already filled in — **a number she did not type has to explain itself**");
+    "the pop-up does not say that nothing is recorded until Save — **an empty box she does not fill in records "
+    + "NOTHING, and that has to be said**");
+  assert.doesNotMatch(pop.textContent, /starts at what was ordered/,
+    "the pop-up still says a box starts at what was ordered — **the box no longer does, so the sentence is "
+    + "now a lie about her own screen**");
 
   // ⚠️⚠️ AND OPENING IT RECORDS NOTHING (v517). Her question, exactly: __"i notice that without i enter
   // anything in the baked, if that day order is 4, the bake will be 4 too, so whether i save or not the bake
@@ -2787,17 +2795,19 @@ test("★★★ a day that is NOT a bake day can still say what it baked (v515)"
     "★ recording production on a non-bake day added a delivery date — **the shop would start offering it**");
 });
 
-// ★★★ A PAST DAY IS BOOKKEEPING; TODAY IS A DECISION (v521).
+// ★★★ A DAY THAT HAS GONE IS READY; TODAY AND EVERY DAY AHEAD START EMPTY (v525).
 //
-// ⚠️⚠️ Her question: __"for the pass date thar the order=bake, should you prefilled the baked for me?"__ —
-// ⭐ **yes for a day that has already gone, because the bake is not a decision any more.** ⚠️ **And there is
-// a backlog behind it:** since v516 the baking box is the ONLY thing that takes ingredients off the shelf,
-// so **every past bake day she never recorded has taken nothing off** — filling the box in is what makes
-// clearing that one press instead of a typed number.
-// ⚠️⚠️ **AND TODAY MUST STAY EMPTY** — that distinction is the whole point, and it is where the v517 danger
-// lives: **a number already in the box reads as a fact already written down, so she does not press Save, and
-// then nothing comes off the shelf, silently.**
-test("★★★ EVERY day opens on what was ordered — past, today or ahead (v524, and v521's split is gone)", () => {
+// ⚠️⚠️ The history, because this one control has been round the houses: v517 EMPTIED the box, v516/v521 filled
+// it on a day that had gone, v524 filled it on EVERY day — and she has now put the line back where v521 drew
+// it, and given me the reason from BOTH sides:
+// ⭐ **Her words, a new day:** __"enter a new order on a new bake date, the order qty should not be prefill
+// into the total baked"__ — ⚠️ and the danger that makes it right: __"if i open the total baked and it shows a
+// number, that mean there is some bake already done that day"__ ⭐ **A number on a day she has NOT baked says
+// a bake is recorded when none is, so she does not press Save and nothing comes off the shelf.**
+// ⭐ **Her words, a day that has gone:** __"if the pass day is not prefill, enter a number will deduct stocks.
+// that is the reason it needs to be prefilled"__ ⚠️ **the bake is behind her, so the box opens ready and
+// clearing the backlog is one press, not a typed number.**
+test("★★★ a day that has gone is ready; today and every day ahead start empty (v525)", () => {
   const st = state();
   st.products = [{ id: "p1", name: "Focaccia", active: true, unit: "pc",
     recipe: [{ ingredientId: "ing_f", qty: 250, unit: "g" }] }];
@@ -2819,16 +2829,40 @@ test("★★★ EVERY day opens on what was ordered — past, today or ahead (v5
 
   const past = boxOn("d8");
   assert.equal(past.box.value, "6",
-    "★ a day that has already gone did not open with the ordered count ready — **clearing the backlog is a "
-    + "typed number per day instead of one press**");
-  assert.match(past.pop.textContent, /Each box starts at what was ordered/,
+    "★ a day that has already gone did not open ready — **the bake is behind her, and an empty box now means "
+    + "typing a number she has to look up, one day at a time**");
+  assert.match(past.pop.textContent, /This day has already gone, so each box starts at what was ordered/,
     "the pop-up does not say WHY the box is already filled in — **a number she did not type has to explain itself**");
 
-  // ⚠️⚠️ AND **TODAY OPENS THE SAME WAY** — v521 drew a line between a day that had gone and a day still
-  // running, and she took it out: ⭐ **"That why we need to prefill the total bake, to not confuse user."**
-  // ⭐ **The box shows the day's truth on every day, and re-saving the same number costs nothing.**
+  // ⚠️⚠️ AND TODAY OPENS EMPTY — **this is the line she drew, and it is the one that matters most:** a number
+  // here would say a bake is recorded on a day she has not baked, so she would not press Save and NOTHING
+  // would come off the shelf. ⭐ **The failure this prevents is invisible, which is why it is asserted.**
   const today = boxOn("d10");
-  assert.equal(today.box.value, "6",
-    "★ TODAY opened empty — **the box has to show the same thing whether the day has gone or not, or she has "
-    + "to remember which kind of day she is looking at**");
+  assert.equal(today.box.value, "",
+    "★ TODAY opened on the ordered count — **a number in the box says a bake is recorded, and on a day she has "
+    + "not baked that is a lie she cannot see**");
+  assert.doesNotMatch(today.pop.textContent, /starts at what was ordered/,
+    "today's pop-up says a box starts at what was ordered — **today does not, so the sentence is a lie about "
+    + "her own screen**");
+
+  // ⚠️ AND A DAY AHEAD THAT SHE HAS NEVER OPENED — no delivery date, no orders, no record — opened through the
+  // same door the calendar's own line uses.
+  ordersMod.openBakedPopup(st, "2026-09-12", () => {});
+  const aheadPop = layers["popup-layer"];
+  const aheadBox = all(aheadPop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
+  assert.equal(aheadBox.value, "",
+    "★ a day ahead opened with something in it — **there is nothing recorded for it and nothing ordered**");
+
+  // ⭐ AND ONCE SHE RECORDS ONE, IT COMES BACK — ON EVERY DAY, so the only thing she has to remember is
+  // whether she has saved it yet. ⚠️ This is her v524 reasoning, still standing: __"once the save, the total
+  // baked will be the number shown … no matter how many time save is pressed, if the total remain the same,
+  // then there will not be any inventory changed."__
+  setBakedTotal(st, st.products[0], "2026-09-08", 9);
+  assert.equal(boxOn("d8").box.value, "9",
+    "★ a recorded total did not come back on a past day — **she cannot check it or correct it, and re-opening "
+    + "a day she has recorded is exactly where a filled box is honest**");
+  setBakedTotal(st, st.products[0], "2026-09-10", 4);
+  assert.equal(boxOn("d10").box.value, "4",
+    "★ a recorded total did not come back TODAY — **the day she is living in is the one she most needs to "
+    + "check and correct**");
 });

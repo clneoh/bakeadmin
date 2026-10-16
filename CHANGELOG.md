@@ -1,10 +1,34 @@
-# Jienluv2bake — change history (v54 → v524)
+# Jienluv2bake — change history (v54 → v525)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**16 Oct 2026 — engine v525, THE BAKING BOX IS READY ON A DAY THAT HAS GONE, AND EMPTY ON A DAY THAT HAS NOT (no database step).**
+
+**Your words:** __"enter a new order on a new bake date, the order qty should not be prefill into the total baked"__ — and then, naming the meaning the box has to carry: __"if i open the total baked and it shows a number, that mean there is some bake already done that day"__ — and the other side: __"if the pass day is not prefill, enter a number will deduct stocks. that is the reason it needs to be prefilled"__
+
+**1. ⭐⭐ A NUMBER IN THE BOX IS A STATEMENT THAT A BAKE HAPPENED THAT DAY.** So the box may only ever show a number that is true:
+- **A day that has already gone** — the bake is behind you, so the box opens ready at what was ordered and clearing the backlog is **one press, not a typed number**.
+- **Today and every day ahead** — no bake has happened yet, so the box opens **empty**. ⚠️ This is the one that matters: a filled box there says "you baked this" about a bake that never happened, so you would not press Save — and **nothing would come off the shelf at all, silently.**
+- **A day you have already saved** — the box shows **your number** back, so you can check it and correct it, and pressing Save again with the same number changes nothing.
+
+**2. Measured on the real app, at phone size, all three in one sitting:**
+- Mon 14 Oct (gone, 6 ordered) → the box opened on **6**, and the pop-up said why
+- Fri 16 Oct (today, 6 ordered) → the box opened **empty**
+- Mon 19 Oct (the new date, 4 ordered) → the box opened **empty**
+- Typed 6 on today and pressed Save → flour **5,000 g → 3,500 g**
+- Re-opened today → the box showed **6** back; pressed Save again → flour **still 3,500 g**
+
+**3. The day's orders are still shown beside the box** ("6 ordered"), because that is the information you decide from — it is just never written into the box for you.
+
+**4. Nothing of yours was rewritten.** No order, day, bake record or stock row changed. **No database step.**
+
+---
+
 **16 Oct 2026 — engine v524, THE BAKING BOX ALWAYS OPENS ON WHAT WAS ORDERED — EVERY DAY, NOT ONLY A PAST ONE (no database step).**
+
+⚠️ **SUPERSEDED BY v525 (16 Oct 2026):** the box now opens on what was ordered **only on a day that has already gone**. Today and every day ahead open **empty**, because a number in the box has to mean a bake really happened that day. The rest of this entry still stands — your reasoning about saving the same number is unchanged and still pinned by a test.
 
 **Your words:** __"once the save, the total baked will be the number shown. this is when inventory taken off, so no matter how many time save is pressed, if the total remain the same, then there will not be any inventory changed. That why we need to prefill the total bake, to not confuse user"__
 
