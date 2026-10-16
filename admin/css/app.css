@@ -3088,11 +3088,10 @@ option.tone-off { color: var(--muted); }
    wins.** Everything below is what the pop-up actually uses; the rest was deleted with it. */
 .bake-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .bake-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
-/* ★★★ AND WHAT SAVE WILL DO, UNDER THE BOX (v522) — her question exposed the trap it answers: the box is the
-   day's TOTAL, and a sentence saying so was not enough. **MEASURED: 10 recorded, then she bakes 5 more and
-   types `5` meaning "5 more", and the app PUTS FIVE BACK on the shelf.** ⭐ So the arithmetic is a READOUT
-   rather than a label, and it changes as she types — **she can see it going the wrong way before she saves.** */
-.bake-does { margin: 0; font-size: 12px; line-height: 1.35; text-align: right; color: var(--muted); }
+/* ⚠️ AND THE READOUT THAT STOOD HERE IS GONE (v523). ⭐ Her words: __"the word total baked, means total baked
+   is say 10. aother additional word is just confusing"__ — **the label answers the question the sentence was
+   written for, and a second explanation of a total is what made it unclear.** */
+.bake-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 /* ⚠️ 64px IS A PLAUSIBLE BAKING DAY, NOT A ROUND NUMBER: a 12-pan day is two digits, and a box narrower
    than its own answer makes her swipe to read back what she typed. */
 .bake-box { flex: 0 0 auto; width: 64px; text-align: center; }

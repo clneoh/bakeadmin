@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v522)
+# Jienluv2bake — change history (v54 → v523)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v523, THE LINE EXPLAINING THE TOTAL IS GONE — THE LABEL SAYS IT (no database step).**
+
+**Your words:** __"Takes 24 more off the shelf. what does this means?"__ — and then __"the word total baked, means total baked is say 10. aother additional word is just confusing"__
+
+**1. ⚠️⚠️ YOU ASKED WHAT MY OWN SENTENCE MEANT, AND THAT IS THE ANSWER TO IT.** v522 put a line under the box — *"Takes 5 more off the shelf"* — to make the arithmetic visible. ⭐ **You read it and had to ask.** ⭐ **The line was written to remove a confusion and became one.**
+
+**2. ⭐ AND IT WAS WRONG IN TWO WAYS, NOT JUST CLUMSY:** *"more"* is meaningless when nothing was recorded yet (24 is not *"24 more"* than anything — it is **24 in all**), and **"the shelf" was my word, not yours** — your app says **"On hand"**.
+
+**3. ⭐⭐ SO THE LINE IS GONE AND THE LABEL STAYS.** The box reads **"total baked"**, with the day's orders beside it. ⭐ **A total is a total — a second sentence explaining a total is the thing that makes it unclear.** Nothing underneath the box now says anything at all.
+
+**4. ⚠️ AND THIS IS THE SECOND TIME ON THIS ONE CONTROL THAT WORDS ADDED TO FIX A PROBLEM BECAME THE PROBLEM** — v517 was the same shape, where a helpful pre-filled number read as a fact already written down. ⭐ **The pattern is mine, and it is worth naming: I reach for a sentence when the label is the thing to get right.**
+
+**Measured, live, at 375×812:** the panel reads **"Focaccia · 6 ordered · total baked [10]"** and **"Sandwich · nothing ordered · total baked [ ]"** — and there is **no line under either box**.
+
+**Tests stay 3,445** — and the readout's own assertions were replaced by one that says it must stay gone.
 
 **16 Oct 2026 — engine v522, THE BAKING BOX SAYS "TOTAL BAKED", AND TELLS YOU WHAT SAVE WILL DO BEFORE YOU PRESS IT (no database step).**
 
