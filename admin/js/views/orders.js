@@ -1462,6 +1462,8 @@ export function openBakedPopup(state, dayIso, refresh) {
   }
   const ordered = orderedOnDay(state, iso);
   const isBakeDay = (state.deliveryDates || []).some((d) => d && d.date === iso);
+  // ⭐ A DAY THAT HAS ALREADY GONE IS BOOKKEEPING; TODAY AND AHEAD ARE DECISIONS. See the box below.
+  const isPastDay = iso < todayISO();
   const boxes = new Map();
 
   showPopup(el("div", { class: "popup-title-row" }, "Baked — how many?"), (refreshBody, close) => {
@@ -1477,10 +1479,24 @@ export function openBakedPopup(state, dayIso, refresh) {
         // off the shelf, silently.** ⭐ So the box is empty and the day's orders are shown as INFORMATION
         // beside it. ⚠️ v516 pre-filled it, for one-press convenience on an ordinary day; **clarity wins,
         // because the failure it protects against is invisible.**
+        // ★★★ AND ON A DAY THAT HAS ALREADY GONE, THE BOX IS READY FOR HER (v521).
+        //
+        // ⚠️⚠️ HER QUESTION: __"for the pass date thar the order=bake, should you prefilled the baked for
+        // me?"__ — ⭐ **and yes, because a day that has already happened is BOOKKEEPING, not a decision.**
+        // ⚠️ **And there is a backlog behind the question:** since v516 the baked box is the ONLY thing that
+        // takes ingredients off the shelf, so **every past bake day she never recorded has taken nothing
+        // off** — her stock is higher than it should be for each one, and this is what makes clearing it
+        // cost one press instead of a typed number.
+        //
+        // ⚠️⚠️ TODAY AND EVERY DAY AHEAD OPEN EMPTY, AND THAT DIFFERENCE IS THE WHOLE POINT. ⭐ **On a day she
+        // is still in, the number is a decision** — and that is where the v517 danger lives: **a number
+        // already in the box reads as a fact already written down, so she does not press Save, and nothing
+        // comes off the shelf, silently.** ⭐ A past day cannot be acted on, so the same pre-fill is a help
+        // there and a trap here.
         const box = el("input", {
           class: "input bake-box", type: "number", inputmode: "numeric", min: "0", step: "1",
-          // ⚠️ WHAT SHE RECORDED BEFORE, AND NOTHING WHEN SHE HAS NOT — a blank box, so nothing looks decided.
-          value: rec && rec.total ? String(rec.total) : "",
+          // ⚠️ WHAT SHE RECORDED, ELSE THE DAY'S ORDERS IF THE DAY HAS GONE, ELSE NOTHING.
+          value: rec && rec.total ? String(rec.total) : (isPastDay && was ? String(was) : ""),
           "aria-label": `How many ${p.name} did you bake`,
         });
         boxes.set(p.id, { box });
@@ -1498,7 +1514,10 @@ export function openBakedPopup(state, dayIso, refresh) {
         `For ${weekdayName(iso)}, ${longDate(iso)}${isBakeDay ? "" : " — not a bake day, so nothing here changes what the shop offers"}. `
         + "Type the TOTAL you baked, and the ingredients for that many come off the shelf — nothing is "
         + "recorded until you press Save. This is the ONLY place ingredients come off, so a day you leave "
-        + "blank takes nothing off at all. Changing or clearing the number puts the difference back."),
+        + "blank takes nothing off at all. Changing or clearing the number puts the difference back."
+        // ⭐ AND IT SAYS WHY A PAST DAY IS ALREADY FILLED IN, so a number she did not type is never a mystery.
+        + (isPastDay && !products.some((p) => (bakedOf(state, iso, p.id) || {}).total)
+            ? " This day has gone, so each box is filled with what was ordered — check it, then press Save." : "")),
       rows,
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),

@@ -2746,3 +2746,46 @@ test("★★★ a day that is NOT a bake day can still say what it baked (v515)"
   assert.deepEqual(st.deliveryDates.map((d) => d.id), ["d10"],
     "★ recording production on a non-bake day added a delivery date — **the shop would start offering it**");
 });
+
+// ★★★ A PAST DAY IS BOOKKEEPING; TODAY IS A DECISION (v521).
+//
+// ⚠️⚠️ Her question: __"for the pass date thar the order=bake, should you prefilled the baked for me?"__ —
+// ⭐ **yes for a day that has already gone, because the bake is not a decision any more.** ⚠️ **And there is
+// a backlog behind it:** since v516 the baking box is the ONLY thing that takes ingredients off the shelf,
+// so **every past bake day she never recorded has taken nothing off** — filling the box in is what makes
+// clearing that one press instead of a typed number.
+// ⚠️⚠️ **AND TODAY MUST STAY EMPTY** — that distinction is the whole point, and it is where the v517 danger
+// lives: **a number already in the box reads as a fact already written down, so she does not press Save, and
+// then nothing comes off the shelf, silently.**
+test("★★★ a PAST day opens ready to save; today opens empty (v521)", () => {
+  const st = state();
+  st.products = [{ id: "p1", name: "Focaccia", active: true, unit: "pc",
+    recipe: [{ ingredientId: "ing_f", qty: 250, unit: "g" }] }];
+  st.ingredients = [{ id: "ing_f", name: "Strong flour", unit: "g", uomId: "g", onHand: 5000 }];
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 }];
+  // ⚠️ The clock is Thu 10 Sep 2026 (MockDate), so d8 has GONE and d10 is TODAY.
+  st.deliveryDates = [{ id: "d8", date: "2026-09-08" }, { id: "d10", date: "2026-09-10" }];
+  st.orders = [
+    { id: "o1", deliveryDateId: "d8", productId: "p1", qty: 6 },
+    { id: "o2", deliveryDateId: "d10", productId: "p1", qty: 6 },
+  ];
+  const boxOn = (id) => {
+    const root = createEl("div");
+    renderOrders(root, st, new URLSearchParams({ date: id }));
+    buttonByText(root, "Baked — how many?")._listeners.click[0]();
+    const pop = layers["popup-layer"];
+    return { pop, box: all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box")) };
+  };
+
+  const past = boxOn("d8");
+  assert.equal(past.box.value, "6",
+    "★ a day that has already gone did not open with the ordered count ready — **clearing the backlog is a "
+    + "typed number per day instead of one press**");
+  assert.match(past.pop.textContent, /This day has gone/,
+    "the pop-up does not say WHY the box is already filled in — **a number she did not type has to explain itself**");
+
+  const today = boxOn("d10");
+  assert.equal(today.box.value, "",
+    "★ TODAY opened with a number already in it — **it looks like the bake is recorded, so she does not press "
+    + "Save, and then nothing comes off the shelf and nothing says so**");
+});

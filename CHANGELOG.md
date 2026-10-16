@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v520)
+# Jienluv2bake — change history (v54 → v521)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v521, A PAST BAKE DAY OPENS READY TO SAVE — BECAUSE A DAY THAT HAS GONE IS BOOKKEEPING, NOT A DECISION (no database step).**
+
+**Your words:** __"for the pass date thar the order=bake, should you prefilled the baked for me?"__
+
+**1. ⭐ YES — AND THE DISTINCTION IS THE WHOLE THING.** A day **that has already gone** opens with **what was ordered** already in the box, so clearing old days is **one press instead of a typed number**. ⚠️ **Today and every day ahead still open EMPTY**, because there the number is a decision you are making — and that is where the v517 danger lives: **a number already in the box reads as a fact already written down, so you do not press Save, and then nothing comes off the shelf, silently.**
+
+**2. ⚠️ AND IT SAYS WHY, so a number you did not type is never a mystery:** *"This day has gone, so each box is filled with what was ordered — check it, then press Save."*
+
+**3. ⭐⭐ THE BACKLOG BEHIND YOUR QUESTION, SAID PLAINLY: since v516 the baking box is the ONLY thing that takes ingredients off the shelf.** So **every past bake day you never recorded a total for has taken nothing off** — and your stock is higher than it should be for each one. ⭐ **This version is what makes clearing that cost one press each rather than a number you have to look up.** ⚠️ **Nothing is filled in behind your back:** a box that is already filled still needs Save, and the pop-up says so.
+
+**Measured, live, both directions at 375×812:** **Tue 12 Oct** (gone) opened with **6** in the box and the line explaining it; **Mon 19 Oct** (still ahead) opened **empty**.
+
+**Tests 3,444 → 3,445**, and **three written faults were each watched to turn the suite red**: every day pre-filled (the v517 fault, today included) · **no day** pre-filled (the backlog stays a typed number per day) · and the pop-up not saying why a past box is filled in.
 
 **16 Oct 2026 — engine v520, A SCREEN THAT REDRAWS ITSELF NO LONGER THROWS YOU TO THE TOP (no database step).**
 
