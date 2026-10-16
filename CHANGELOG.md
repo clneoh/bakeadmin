@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v516)
+# Jienluv2bake — change history (v54 → v517)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v517, THE BAKING BOX OPENS EMPTY, BECAUSE A NUMBER IN IT LOOKED LIKE A FACT (no database step).**
+
+**Your words:** __"i notice that without i enter anything in the baked, if that day order is 4, the bake will be 4 too, so whether i save or not the bake will be 4?"__
+
+**1. ⭐ THE HONEST ANSWER WAS NO — nothing is recorded and nothing comes off the shelf until you press Save.** ⚠️ **But the box opened with that 4 already in it, and a number already in a box reads as a fact already written down.** ⭐ **You were right to ask, and the answer being "no" was not enough.**
+
+**2. ⚠️⚠️ AND IT IS THE DANGEROUS DIRECTION.** If the bake looks recorded, you do not press Save — **and then NOTHING comes off the shelf, silently.** ⭐ A day that quietly deducts nothing is worse than one that deducts the wrong thing, because **nothing on the screen says so.**
+
+**3. ⭐ SO THE BOX OPENS EMPTY, and how many were ordered is shown beside it as information.** You type what you baked and press Save. ⭐ **The pop-up now says it out loud: "nothing is recorded until you press Save."** ⚠️ v516 pre-filled the box so an ordinary day needed one press; **clarity wins, because the failure it protects against is invisible.**
+
+**4. ⭐ And a blank box left alone records nothing** — which is the honest state of a day you have not said anything about.
+
+**Measured, as a test on the real pop-up:** with 4 ordered and nothing recorded, opening it leaves the shelf at 5,000 g and writes no record at all; and if the pop-up is made to record the suggestion as it opens, **that test goes red.**
+
+**5. ⚠️ AND ONE MORE THING I FIXED WHILE HERE, WHICH WAS MY OWN DOING:** the guard I added last version runs the PDF builders for real — and **rebuilding a PDF always changes its bytes** (a date is stamped inside it), so **every test run was leaving `changelog.pdf` and the two marketing PDFs showing as MODIFIED in GitHub Desktop.** ⭐ **You commit by ticking boxes, and a file that is always ticked is a file you stop reading.** The guard now **puts every PDF back exactly as it was**, and the file's bytes are proved unchanged by a rebuild.
+
+**Tests stay 3,440**, and **two written faults were each watched to turn the suite red**: the box being pre-filled again, and the pop-up dropping the line that says nothing is recorded until Save.
 
 **16 Oct 2026 — engine v516, INGREDIENTS COME OFF WHEN YOU BAKE AND NOWHERE ELSE — ONE EVENT, ONE DOOR (no database step).**
 

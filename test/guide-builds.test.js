@@ -17,7 +17,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const BUILDERS = ["marketing/build_guide.py", "marketing/build_changelog.py", "marketing/build_intro.py"];
@@ -68,6 +68,19 @@ test("the PDF builders are still valid Python", { skip }, () => {
 // ⭐ SO THIS RUNS THE BUILDER FOR REAL. ⚠️ It is slower than a parse and it writes the PDFs — ⭐ **but that is
 // exactly what "the guide is safe to hand her" means, and every cheaper approximation of it has already
 // missed a real break.** Skipped when `marketing/` is absent, like the test above.
+// ⚠️⚠️ AND EACH BUILDER'S PDF IS PUT BACK EXACTLY AS IT WAS.
+//
+// ⭐ MEASURED: the same source rebuilt twice gives **different bytes and the same length** — fpdf stamps a
+// creation date into the file. ⚠️ **So without this, every run of this test left `changelog.pdf` and the two
+// marketing PDFs showing as MODIFIED in GitHub Desktop** — and ⭐ **she commits by ticking boxes, so a file
+// that is always ticked is a file she stops reading.** ⭐ **A guard that pollutes the thing it guards is not
+// free.** ⚠️ The PDFs are restored whether the build passed or failed, from what was there before.
+const OUTPUTS = {
+  "marketing/build_guide.py": "marketing/bakester-marketing-guide.pdf",
+  "marketing/build_changelog.py": "changelog.pdf",
+  "marketing/build_intro.py": "marketing/jienluv2bake-introduction.pdf",
+};
+
 test("the PDF builders actually RUN (a valid file can still kill the build)", { skip }, () => {
   try { execFileSync("python3", ["-c", "print(1)"], { stdio: "pipe" }); }
   catch { return; }
@@ -78,14 +91,21 @@ test("the PDF builders actually RUN (a valid file can still kill the build)", { 
 
   for (const f of BUILDERS) {
     if (!present(f)) continue;
+    const out = OUTPUTS[f];
+    const before = out && existsSync(here(out)) ? readFileSync(here(out)) : null;
     try {
       execFileSync("python3", [new URL(`../${f}`, import.meta.url).pathname], { stdio: "pipe", cwd: new URL("..", here(f)).pathname });
     } catch (e) {
+      if (before) writeFileSync(here(out), before);   // ⚠️ restore BEFORE failing the test
       const said = String((e && e.stderr) || (e && e.message) || "");
       assert.fail(`${f} RUNS BUT FAILS — ⚠️ **the PDF beside it is the OLD one, and nothing else reports that.** `
         + "⭐ The usual cause is a character the PDF font cannot print (the builders are latin-1 only): "
         + "`⚠`, `⭐` and emoji all parse as Python and all kill the build. "
         + said.split("\n").slice(-4).join(" ").slice(0, 220));
+    } finally {
+      // ⚠️ THE FILE GOES BACK EXACTLY AS IT WAS — see OUTPUTS above. ⭐ A rebuild always changes the bytes
+      // (a stamped date), so leaving it would mark the PDF modified in GitHub Desktop for ever.
+      if (before) writeFileSync(here(out), before);
     }
   }
 });

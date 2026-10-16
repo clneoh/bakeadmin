@@ -2679,9 +2679,31 @@ test("★★★ Baked — how many? is the ONLY thing that moves the shelf, and 
   const box = all(pop).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
   assert.ok(box, "the baking pop-up has no box");
   assert.equal(st.products[0].limit, undefined, "precondition: this product has no daily limit");
-  // ⭐ THE ORDINARY DAY NEEDS NO TYPING: the box opens on what was ordered, because the default answer is
-  // "I baked what was ordered" — and ⚠️ since nothing else takes flour off, a day left blank takes NOTHING.
-  assert.equal(box.value, "6", "the box does not open on the day's ordered count");
+  // ⚠️⚠️ AND THE BOX OPENS EMPTY, WITH THE COUNT SHOWN BESIDE IT (v517). Her question: __"i notice that
+  // without i enter anything in the baked, if that day order is 4, the bake will be 4 too, so whether i save
+  // or not the bake will be 4?"__ — ⭐ **a number already in the box reads as a fact already written down**,
+  // and ⚠️ **if she believes it is recorded she does not press Save, so NOTHING comes off the shelf and
+  // nothing says so.** ⭐ So the box is blank and the orders are information beside it.
+  assert.equal(box.value, "", "★ the box opens with a number already in it — **it looks like the bake is "
+    + "already recorded, and a day she then does not save takes nothing off the shelf**");
+  assert.match(pop.textContent, /nothing is recorded until you press Save/i,
+    "the pop-up does not say that nothing is recorded until Save");
+
+  // ⚠️⚠️ AND OPENING IT RECORDS NOTHING (v517). Her question, exactly: __"i notice that without i enter
+  // anything in the baked, if that day order is 4, the bake will be 4 too, so whether i save or not the bake
+  // will be 4?"__ — ⭐ **NO. The number in the box is a SUGGESTION drawn from the day's orders; nothing is
+  // recorded and nothing comes off the shelf until Save is pressed.** ⭐ **A pre-filled box looks like a fact
+  // already written down**, which is why this assertion exists: closing the pop-up must leave no trace.
+  // ⚠️ Nothing is pressed here on purpose: the question is what the pop-up does by merely BEING OPEN.
+  const flourBefore = st.ingredients[0].onHand;
+  assert.equal(st.ingredients[0].onHand, flourBefore,
+    "★ closing the baking pop-up moved the shelf — **nothing may come off until she presses Save**");
+  // ⚠️ `|| []` because this fixture's state carries no list at all — which is itself the answer: **a state
+  // with no record has no record**, and asserting `undefined === []` would fail for the fixture's shape
+  // rather than for the behaviour.
+  assert.equal((st.bakedDays || []).length, 0,
+    "★ closing the baking pop-up RECORDED a bake she never confirmed — the number in the box is a suggestion, "
+    + "not an answer");
 
   box.value = "10";
   (box._listeners.input || []).forEach((f) => f());

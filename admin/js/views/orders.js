@@ -1469,13 +1469,18 @@ export function openBakedPopup(state, dayIso, refresh) {
       ...products.map((p) => {
         const rec = bakedOf(state, iso, p.id);
         const was = Number(ordered.get(p.id)) || 0;
-        // ⭐⭐ AND THE BOX OPENS ON WHAT WAS ORDERED (v516). ⚠️ Since nothing else takes flour off, a day she
-        // forgets to record would take NOTHING off — so the ordinary day (baked exactly what was ordered) is
-        // pre-filled with that number and needs no typing at all. ⭐ **The default is "I baked what was
-        // ordered", which is the true answer on most days.** ⚠️ She can still type over it, and clear it.
+        // ★★★ AND THE BOX OPENS EMPTY, WITH THE COUNT BESIDE IT (v517). ⚠️⚠️ HER QUESTION, AND IT IS THE
+        // REASON: __"i notice that without i enter anything in the baked, if that day order is 4, the bake
+        // will be 4 too, so whether i save or not the bake will be 4?"__ — ⭐ **the honest answer is no, but a
+        // NUMBER ALREADY IN THE BOX READS AS A FACT ALREADY WRITTEN DOWN.** ⚠️⚠️ **And that is the dangerous
+        // direction: if she believes the bake is recorded, she does not press Save — and then NOTHING comes
+        // off the shelf, silently.** ⭐ So the box is empty and the day's orders are shown as INFORMATION
+        // beside it. ⚠️ v516 pre-filled it, for one-press convenience on an ordinary day; **clarity wins,
+        // because the failure it protects against is invisible.**
         const box = el("input", {
           class: "input bake-box", type: "number", inputmode: "numeric", min: "0", step: "1",
-          value: rec && rec.total ? String(rec.total) : (was ? String(was) : ""),
+          // ⚠️ WHAT SHE RECORDED BEFORE, AND NOTHING WHEN SHE HAS NOT — a blank box, so nothing looks decided.
+          value: rec && rec.total ? String(rec.total) : "",
           "aria-label": `How many ${p.name} did you bake`,
         });
         boxes.set(p.id, { box });
@@ -1491,9 +1496,9 @@ export function openBakedPopup(state, dayIso, refresh) {
     return el("div", {},
       el("p", { class: "card-sub", style: "margin:0 0 12px" },
         `For ${weekdayName(iso)}, ${longDate(iso)}${isBakeDay ? "" : " — not a bake day, so nothing here changes what the shop offers"}. `
-        + "Type the TOTAL you baked, and the ingredients for that many come off the shelf — **this is the "
-        + "only place they come off, so a day left blank takes nothing off at all.** Changing or clearing "
-        + "the number puts the difference back."),
+        + "Type the TOTAL you baked, and the ingredients for that many come off the shelf — nothing is "
+        + "recorded until you press Save. This is the ONLY place ingredients come off, so a day you leave "
+        + "blank takes nothing off at all. Changing or clearing the number puts the difference back."),
       rows,
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
